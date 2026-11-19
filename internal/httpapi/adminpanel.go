@@ -75,6 +75,9 @@ type AdminHandlers struct {
 	// search answers the command palette's record lookups. A nil value leaves
 	// the route unmounted and the palette offers screens only.
 	search *panelsearchpg.Service
+	// stars describes the direct Fragment provider. A nil registry leaves the
+	// Stars status, statistics, and wallet routes unmounted.
+	stars StarsShopOptions
 
 	// version is the running build, published in diagnostics and in the
 	// telemetry preview so an operator can see what would be sent.
@@ -131,6 +134,9 @@ type AdminOptions struct {
 	// Search serves record search in the command palette. A nil value leaves
 	// the route unmounted.
 	Search *panelsearchpg.Service
+	// Stars describes the direct Fragment provider for the shop's Stars
+	// screen. A nil registry leaves those routes unmounted.
+	Stars StarsShopOptions
 }
 
 // versionOrUnknown renders an unset build version as something an operator will
@@ -182,6 +188,7 @@ func NewAdminHandlers(options AdminOptions) *AdminHandlers {
 		updates:          updates,
 		supportFiles:     options.SupportAttachments,
 		search:           options.Search,
+		stars:            options.Stars,
 		// The __Host- prefix binds the cookie to this exact origin, so a sibling
 		// subdomain cannot set or overwrite the operator's session. It applies
 		// only when the cookie is Secure, because a browser rejects a __Host-

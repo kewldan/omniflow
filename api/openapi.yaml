@@ -2812,6 +2812,8 @@ paths:
         - {$ref: "#/components/parameters/PageSize"}
         - {in: query, name: status, schema: {type: string}}
         - {in: query, name: customerId, schema: {type: string, format: uuid}}
+        - {in: query, name: kind, schema: {type: string, enum: [telegram_premium, telegram_stars]}}
+        - {in: query, name: q, description: "A recipient handle (with or without @), an order identifier, or a customer identifier.", schema: {type: string, maxLength: 64}}
       responses:
         "200": {description: Shop orders, content: {application/json: {schema: {$ref: "#/components/schemas/PanelGoodsOrderPage"}}}}
         "403": {$ref: "#/components/responses/Problem"}
@@ -2838,12 +2840,111 @@ paths:
       responses:
         "200": {description: Parked deliveries, content: {application/json: {schema: {$ref: "#/components/schemas/PanelParkedDeliveryList"}}}}
         "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/goods/stars/status:
+    get:
+      operationId: getPanelStarsStatus
+      tags: [panel]
+      description: >-
+        Requires goods.read. Whether the direct Fragment provider is enabled,
+        configured from the environment, and in dry-run mode, with the current
+        TON rate. No secret is ever returned.
+      responses:
+        "200": {description: Status, content: {application/json: {schema: {$ref: "#/components/schemas/PanelStarsStatus"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/goods/stars/stats:
+    get:
+      operationId: getPanelStarsStats
+      tags: [panel]
+      description: >-
+        Requires goods.read. Stars sales over the last N days: revenue, Stars
+        sold, refunds, and the margin from the cost fixed at each delivery.
+      parameters:
+        - {in: query, name: days, schema: {type: integer, minimum: 1, maximum: 3650, default: 30}}
+      responses:
+        "200": {description: Statistics, content: {application/json: {schema: {$ref: "#/components/schemas/PanelStarsStats"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/goods/stars/wallet:
+    get:
+      operationId: getPanelStarsWallet
+      tags: [panel]
+      description: >-
+        Requires goods.read. The paying TON wallet's address and balance, and
+        Fragment's current price for 100 Stars. Answers 503 when the provider
+        is not configured rather than reporting a zero balance.
+      responses:
+        "200": {description: Wallet, content: {application/json: {schema: {$ref: "#/components/schemas/PanelStarsWallet"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "502": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
+  /v1/panel/goods/orders/{orderID}/retry:
+    post:
+      operationId: retryPanelGoodsDelivery
+      tags: [panel]
+      description: >-
+        Requires goods.manage and a reason. Sends a delivery parked for review
+        back to the worker with a fresh attempt count. Use it only after
+        checking the wallet's outgoing transfers: if the payment did leave,
+        retrying pays for the Stars a second time.
+      parameters:
+        - {$ref: "#/components/parameters/OrderID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/OperatorReason"}
+      responses:
+        "204": {description: Requeued}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/goods/orders/{orderID}/refund:
+    post:
+      operationId: refundPanelGoodsOrder
+      tags: [panel]
+      description: >-
+        Requires goods.manage and a reason. Credits the customer's wallet with
+        what they paid, for a delivery parked for review or one still waiting
+        whose payment has not started. A delivery mid-payment is refused. The
+        credit shares the worker's idempotency key, so it lands once.
+      parameters:
+        - {$ref: "#/components/parameters/OrderID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/OperatorReason"}
+      responses:
+        "204": {description: Refunded}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/goods/orders/{orderID}/complete:
+    post:
+      operationId: completePanelGoodsDelivery
+      tags: [panel]
+      description: >-
+        Requires goods.manage and a reason. Closes a delivery parked for
+        review as delivered, optionally recording the transaction hash the
+        operator found.
+      parameters:
+        - {$ref: "#/components/parameters/OrderID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/OperatorReason"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                txHash: {type: string, maxLength: 128}
+      responses:
+        "204": {description: Completed}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
   /v1/panel/goods/orders/{orderID}/resolve:
     post:
       operationId: resolvePanelGoodsDelivery
       tags: [panel]
       description: >-
-        Requires goods.write and a reason. Records what an operator confirmed
+        Requires goods.manage and a reason. Records what an operator confirmed
         with the provider: `delivered` completes the order, and anything else
         releases the ordinary refund path and credits the customer's wallet.
       parameters:
@@ -2861,8 +2962,9 @@ paths:
       operationId: cancelPanelGoodsDelivery
       tags: [panel]
       description: >-
-        Requires goods.write and a reason. A delivered order cannot be
-        cancelled: the recipient already has what was bought.
+        Requires goods.manage and a reason. Cancelling refunds the customer's
+        wallet. A delivered order cannot be cancelled: the recipient already
+        has what was bought.
       parameters:
         - {$ref: "#/components/parameters/OrderID"}
         - {$ref: "#/components/parameters/CSRFToken"}
@@ -3661,6 +3763,7 @@ paths:
         - {$ref: "#/components/parameters/AccountProductID"}
         - {in: query, name: locale, schema: {type: string, enum: [ru, en]}}
         - {in: query, name: quantity, schema: {type: integer, minimum: 1, maximum: 10}}
+        - {in: query, name: stars, description: "The amount for a custom-amount Stars product. Ignored for a pack; omitted picks the first preset.", schema: {type: integer, minimum: 1}}
         - {in: query, name: promoCode, schema: {type: string}}
       responses:
         "200": {description: Product and quote, content: {application/json: {schema: {$ref: "#/components/schemas/AccountShopProductDetail"}}}}
@@ -3725,6 +3828,7 @@ paths:
               properties:
                 productId: {type: string, format: uuid}
                 quantity: {type: integer, minimum: 1, maximum: 10}
+                stars: {type: integer, minimum: 1, description: "The amount for a custom-amount Stars product."}
                 recipient: {type: string}
                 forSelf: {type: boolean, description: "Presentation only. Omniflow stores no Telegram username for a web customer, so this never decides delivery or authorisation."}
                 quote: {$ref: "#/components/schemas/AccountShopQuote"}
@@ -3736,6 +3840,70 @@ paths:
         "404": {$ref: "#/components/responses/Problem"}
         "409": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
+  /v1/account/shop/cart:
+    post:
+      operationId: saveAccountShopCart
+      tags: [account]
+      description: >-
+        Saves a purchase the wallet cannot cover yet and answers exactly what is
+        missing. Once a top-up settles that covers it, the purchase is made
+        from the wallet automatically at the saved price; a price rise is
+        refused and the customer told. Offered only for a product the operator
+        priced themselves (a fixed amount or a fixed price per Star): a provider
+        quote is never charged unattended.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [productId, quantity, recipient, quote]
+              properties:
+                productId: {type: string, format: uuid}
+                quantity: {type: integer, minimum: 1, maximum: 10}
+                stars: {type: integer, minimum: 1}
+                recipient: {type: string}
+                forSelf: {type: boolean}
+                quote:
+                  type: object
+                  required: [priceMinor, currency]
+                  properties:
+                    priceMinor: {type: integer, format: int64}
+                    currency: {type: string}
+                promoCode: {type: string}
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [priceMinor, availableMinor, shortfallMinor, currency, stars, autoPurchase]
+                properties:
+                  priceMinor: {type: integer, format: int64}
+                  availableMinor: {type: integer, format: int64}
+                  shortfallMinor: {type: integer, format: int64, description: "Exactly what to top up."}
+                  currency: {type: string}
+                  stars: {type: integer}
+                  autoPurchase: {type: boolean}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
+  /v1/account/shop/cart/purchase:
+    post:
+      operationId: buyAccountShopCart
+      tags: [account]
+      description: >-
+        Buys the saved purchase from the wallet now, for a customer whose
+        balance already covers it. Shares the automatic purchase's idempotency
+        key, so the two cannot both charge.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      responses:
+        "201": {description: Bought, content: {application/json: {schema: {$ref: "#/components/schemas/AccountShopOrder"}}}}
+        "409": {$ref: "#/components/responses/Problem"}
         "503": {$ref: "#/components/responses/Problem"}
   /v1/account/shop/orders:
     get:
@@ -6526,6 +6694,7 @@ components:
         markupBps: {type: integer, minimum: 0, maximum: 100000}
         rounding: {type: string, enum: [none, up_minor, up_unit, up_ten_units, up_hundred_units]}
         fixedAmountMinor: {type: integer, format: int64, nullable: true, description: "Opts out of markup derivation entirely."}
+        unitPriceMinor: {type: integer, format: int64, nullable: true, minimum: 1, description: "A fixed price per Star, for a Stars product. Exclusive with fixedAmountMinor. An operator price is what lets a saved purchase buy itself after a top-up."}
         quoteTtlSeconds: {type: integer, minimum: 30, maximum: 3600}
         updatedAt: {type: string, format: date-time}
     PanelGoodsProduct:
@@ -6537,7 +6706,10 @@ components:
         providerSlug: {type: string}
         kind: {type: string, enum: [telegram_premium, telegram_stars]}
         durationMonths: {type: integer}
-        starQuantity: {type: integer}
+        starQuantity: {type: integer, description: "A fixed pack. Absent for a custom-amount product."}
+        minStarQuantity: {type: integer, description: "Lower bound of a custom-amount Stars product."}
+        maxStarQuantity: {type: integer, description: "Upper bound of a custom-amount Stars product."}
+        starPresets: {type: array, items: {type: integer}, description: "One-tap amounts offered for a custom-amount product."}
         visible: {type: boolean}
         sortOrder: {type: integer}
         createdAt: {type: string, format: date-time}
@@ -6556,7 +6728,10 @@ components:
         providerSlug: {type: string}
         kind: {type: string, enum: [telegram_premium, telegram_stars]}
         durationMonths: {type: integer, enum: [3, 6, 12]}
-        starQuantity: {type: integer, minimum: 1}
+        starQuantity: {type: integer, minimum: 1, description: "A fixed pack. Omit for a custom-amount product."}
+        minStarQuantity: {type: integer, minimum: 50, description: "Custom amount: the smallest a customer may buy. Fragment's floor is 50."}
+        maxStarQuantity: {type: integer, maximum: 10000000, description: "Custom amount: the largest a customer may buy."}
+        starPresets: {type: array, maxItems: 12, items: {type: integer}, description: "Custom amount: one-tap amounts, each within the bounds."}
         visible: {type: boolean}
         sortOrder: {type: integer}
     PanelGoodsProductUpdate:
@@ -6568,7 +6743,7 @@ components:
         archived: {type: boolean}
     PanelGoodsOrder:
       type: object
-      required: [orderId, customerId, productId, quantity, recipient, recipientIsSelf, quotedCostMinor, quotedPriceMinor, marginMinor, currency, status, refunded, createdAt]
+      required: [orderId, customerId, productId, quantity, recipient, recipientIsSelf, quotedCostMinor, quotedPriceMinor, currency, status, refunded, createdAt, productKind, productCode, source, paidMinor, dryRun]
       properties:
         orderId: {type: string, format: uuid}
         customerId: {type: string, format: uuid}
@@ -6578,7 +6753,7 @@ components:
         recipientIsSelf: {type: boolean}
         quotedCostMinor: {type: integer, format: int64}
         quotedPriceMinor: {type: integer, format: int64}
-        marginMinor: {type: integer, format: int64}
+        marginMinor: {type: integer, format: int64, description: "Absent when the cost is unknown."}
         currency: {type: string}
         status: {type: string, enum: [quoted, paid, delivering, delivered, failed, refunded, needs_review]}
         deliveryStatus: {type: string}
@@ -6589,12 +6764,86 @@ components:
         costKnown: {type: boolean, description: "False when the provider publishes no cost for this product. The margin is unknown, not zero."}
         deliveredAt: {type: string, format: date-time}
         createdAt: {type: string, format: date-time}
+        discountMinor: {type: integer, format: int64}
+        productKind: {type: string, enum: [telegram_premium, telegram_stars]}
+        productCode: {type: string}
+        starQuantity: {type: integer, description: "The Stars this order delivers."}
+        source: {type: string, enum: [bot, web, auto_cart, unknown]}
+        paidMinor: {type: integer, format: int64, description: "What the customer paid: the price less the discount."}
+        provider: {type: string}
+        providerRequestId: {type: string, description: "The provider's own identifier for the purchase, such as a Fragment request."}
+        broadcastingAt: {type: string, format: date-time, description: "When the payment marker was committed, immediately before money left the operator's wallet."}
+        txHash: {type: string, description: "The payment's normalized external-message hash, for tonviewer and tonscan."}
+        costNano: {type: integer, format: int64, description: "What the operator paid, in nanoton."}
+        settledCostMinor: {type: integer, format: int64, description: "That cost in the shop currency, fixed at delivery."}
+        rateMinor: {type: integer, format: int64, description: "The rate it was fixed at: one TON in minor units."}
+        rateSource: {type: string, enum: [manual, tonapi, coingecko]}
+        providerConfirmed: {type: boolean, description: "False when the payment went through but Fragment was not told (confirmReq failed)."}
+        dryRun: {type: boolean}
     PanelGoodsOrderPage:
       type: object
       required: [items]
       properties:
         items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelGoodsOrder"}}
         nextCursor: {type: string}
+    PanelStarsStatus:
+      type: object
+      required: [provider, enabled, configured, dryRun, walletVersion, tonApiProvider, tonApiRps, walletLowStars, vpnOffer, currency]
+      description: The direct Fragment provider's state. Never carries a secret.
+      properties:
+        provider: {type: string, enum: [fragment_direct]}
+        enabled: {type: boolean, description: "The operator switched the provider on in the panel."}
+        configured: {type: boolean, description: "Every environment secret is present and valid."}
+        dryRun: {type: boolean}
+        problem: {type: string, description: "Which setting is missing or invalid — never its value."}
+        walletVersion: {type: string}
+        tonApiProvider: {type: string}
+        tonApiRps: {type: number}
+        walletLowStars: {type: integer}
+        vpnOffer: {type: boolean}
+        currency: {type: string}
+        rate: {$ref: "#/components/schemas/PanelTonRate"}
+    PanelTonRate:
+      type: object
+      required: [minorPerTon, source, currency]
+      properties:
+        minorPerTon: {type: integer, format: int64}
+        source: {type: string, enum: [manual, tonapi, coingecko]}
+        currency: {type: string}
+    PanelStarsStats:
+      type: object
+      required: [days, currency, ordersTotal, ordersDelivered, ordersRefunded, ordersNeedsReview, ordersInFlight, starsSold, revenueMinor, refundedMinor, costNano]
+      properties:
+        days: {type: integer}
+        currency: {type: string}
+        ordersTotal: {type: integer}
+        ordersDelivered: {type: integer}
+        ordersRefunded: {type: integer}
+        ordersNeedsReview: {type: integer}
+        ordersInFlight: {type: integer}
+        starsSold: {type: integer, format: int64}
+        revenueMinor: {type: integer, format: int64}
+        refundedMinor: {type: integer, format: int64}
+        costNano: {type: integer, format: int64}
+        costMinor: {type: integer, format: int64, description: "Absent when some delivered order's cost cannot be known."}
+        marginMinor: {type: integer, format: int64, description: "Absent when the cost is unknown."}
+        marginBps: {type: integer, format: int64}
+        rateMinor: {type: integer, format: int64}
+        rateSource: {type: string}
+    PanelStarsWallet:
+      type: object
+      required: [address, version, asset, balanceNano, explorerUrl]
+      properties:
+        address: {type: string}
+        version: {type: string}
+        asset: {type: string}
+        balanceNano: {type: integer, format: int64}
+        explorerUrl: {type: string}
+        price100Nano: {type: integer, format: int64, description: "Fragment's current price for 100 Stars."}
+        starsCovered: {type: integer, format: int64}
+        balanceMinor: {type: integer, format: int64}
+        rateMinor: {type: integer, format: int64}
+        currency: {type: string}
     PanelParkedDelivery:
       type: object
       required: [orderId, customerId, providerSlug, recipient, priceMinor, currency, attempts, updatedAt]
@@ -7473,7 +7722,22 @@ components:
             price as zero.
         priceMinor: {type: integer, format: int64}
         durationMonths: {type: integer, description: "Telegram Premium only."}
-        starQuantity: {type: integer, description: "Telegram Stars only."}
+        starQuantity: {type: integer, description: "Telegram Stars only: a fixed pack. Zero for a custom amount."}
+        customAmount:
+          type: object
+          required: [min, max, presets]
+          description: "Telegram Stars only: the customer picks how many, within these bounds."
+          properties:
+            min: {type: integer}
+            max: {type: integer}
+            presets: {type: array, items: {type: integer}}
+        unitPriceMinor: {type: integer, format: int64, description: "The operator's fixed price per Star, when set."}
+        operatorPriced:
+          type: boolean
+          description: >-
+            The operator set this price rather than deriving it from a provider
+            quote. Only such a product can be saved to buy itself after a
+            top-up.
     AccountShopProductList:
       type: object
       required: [items]
@@ -7496,6 +7760,7 @@ components:
           required: [quantity, quote]
           properties:
             quantity: {type: integer}
+            stars: {type: integer, description: "The Stars this quote delivers in total."}
             quote: {$ref: "#/components/schemas/AccountShopQuote"}
             promo:
               type: object

@@ -185,6 +185,11 @@ func (handlers *AdminHandlers) mountOperations(secure chi.Router) {
 		read.Get("/goods/orders", handlers.searchGoodsOrders)
 		read.Get("/goods/orders/{orderID}/attempts", handlers.goodsDeliveryHistory)
 		read.Get("/goods/review", handlers.goodsReviewQueue)
+		if handlers.stars.Registry != nil {
+			read.Get("/goods/stars/status", handlers.starsStatus)
+			read.Get("/goods/stars/stats", handlers.starsStats)
+			read.Get("/goods/stars/wallet", handlers.starsWallet)
+		}
 	})
 	secure.With(handlers.requirePermission(rbac.PermissionGoodsWrite)).Group(func(write chi.Router) {
 		write.Put("/goods/providers/{slug}", handlers.saveGoodsProvider)
@@ -192,8 +197,16 @@ func (handlers *AdminHandlers) mountOperations(secure chi.Router) {
 		write.Patch("/goods/products/{productID}", handlers.updateGoodsProduct)
 		write.Put("/goods/products/{productID}/localizations/{locale}", handlers.saveGoodsLocalization)
 		write.Put("/goods/products/{productID}/pricing", handlers.saveGoodsPricing)
-		write.Post("/goods/orders/{orderID}/cancel", handlers.cancelGoodsDelivery)
-		write.Post("/goods/orders/{orderID}/resolve", handlers.resolveGoodsDelivery)
+	})
+	// Decisions about one order's money are their own permission: retrying a
+	// parked delivery can pay the provider a second time, and refunding one
+	// returns money. Both are refund-weight judgements, not configuration.
+	secure.With(handlers.requirePermission(rbac.PermissionGoodsManage)).Group(func(manage chi.Router) {
+		manage.Post("/goods/orders/{orderID}/cancel", handlers.cancelGoodsDelivery)
+		manage.Post("/goods/orders/{orderID}/resolve", handlers.resolveGoodsDelivery)
+		manage.Post("/goods/orders/{orderID}/retry", handlers.retryGoodsDelivery)
+		manage.Post("/goods/orders/{orderID}/refund", handlers.refundGoodsOrder)
+		manage.Post("/goods/orders/{orderID}/complete", handlers.completeGoodsDelivery)
 	})
 
 	handlers.mountSubscriptionOperations(secure)
@@ -1512,13 +1525,16 @@ func (handlers *AdminHandlers) listGoodsProducts(writer http.ResponseWriter, req
 
 func (handlers *AdminHandlers) createGoodsProduct(writer http.ResponseWriter, request *http.Request) {
 	var body struct {
-		Code           string `json:"code"`
-		ProviderSlug   string `json:"providerSlug"`
-		Kind           string `json:"kind"`
-		DurationMonths *int32 `json:"durationMonths"`
-		StarQuantity   *int32 `json:"starQuantity"`
-		Visible        bool   `json:"visible"`
-		SortOrder      int32  `json:"sortOrder"`
+		Code            string  `json:"code"`
+		ProviderSlug    string  `json:"providerSlug"`
+		Kind            string  `json:"kind"`
+		DurationMonths  *int32  `json:"durationMonths"`
+		StarQuantity    *int32  `json:"starQuantity"`
+		MinStarQuantity *int32  `json:"minStarQuantity"`
+		MaxStarQuantity *int32  `json:"maxStarQuantity"`
+		StarPresets     []int32 `json:"starPresets"`
+		Visible         bool    `json:"visible"`
+		SortOrder       int32   `json:"sortOrder"`
 	}
 	if !decodeJSON(writer, request, &body) {
 		return
@@ -1526,7 +1542,9 @@ func (handlers *AdminHandlers) createGoodsProduct(writer http.ResponseWriter, re
 	product, err := handlers.operations.CreateGoodsProduct(request.Context(), panelpg.GoodsProductInput{
 		Code: body.Code, ProviderSlug: body.ProviderSlug, Kind: body.Kind,
 		DurationMonths: body.DurationMonths, StarQuantity: body.StarQuantity,
-		Visible: body.Visible, SortOrder: body.SortOrder,
+		MinStarQuantity: body.MinStarQuantity, MaxStarQuantity: body.MaxStarQuantity,
+		StarPresets: body.StarPresets,
+		Visible:     body.Visible, SortOrder: body.SortOrder,
 	}, actorFrom(request))
 	if err != nil {
 		handlers.operationsError(writer, request, err)
@@ -1593,6 +1611,8 @@ func (handlers *AdminHandlers) searchGoodsOrders(writer http.ResponseWriter, req
 	page, err := handlers.operations.SearchGoodsOrders(request.Context(), panelpg.GoodsOrderFilter{
 		Status:     query(request, "status"),
 		CustomerID: query(request, "customerId"),
+		Kind:       query(request, "kind"),
+		Search:     query(request, "q"),
 		Cursor:     query(request, "cursor"),
 		PageSize:   queryInt(request, "pageSize"),
 	})

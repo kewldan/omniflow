@@ -3135,6 +3135,12 @@ export interface PanelGoodsPricing {
    */
   fixedAmountMinor?: number | null;
   /**
+   * A fixed price per Star, for a Stars product. Exclusive with fixedAmountMinor. An operator price is what lets a saved purchase buy itself after a top-up.
+   * @minimum 1
+   * @nullable
+   */
+  unitPriceMinor?: number | null;
+  /**
    * @minimum 30
    * @maximum 3600
    */
@@ -3158,7 +3164,14 @@ export interface PanelGoodsProduct {
   providerSlug: string;
   kind: PanelGoodsProductKind;
   durationMonths?: number;
+  /** A fixed pack. Absent for a custom-amount product. */
   starQuantity?: number;
+  /** Lower bound of a custom-amount Stars product. */
+  minStarQuantity?: number;
+  /** Upper bound of a custom-amount Stars product. */
+  maxStarQuantity?: number;
+  /** One-tap amounts offered for a custom-amount product. */
+  starPresets?: number[];
   visible: boolean;
   sortOrder: number;
   createdAt: string;
@@ -3195,8 +3208,26 @@ export interface PanelGoodsProductInput {
   providerSlug: string;
   kind: PanelGoodsProductInputKind;
   durationMonths?: PanelGoodsProductInputDurationMonths;
-  /** @minimum 1 */
+  /**
+   * A fixed pack. Omit for a custom-amount product.
+   * @minimum 1
+   */
   starQuantity?: number;
+  /**
+   * Custom amount: the smallest a customer may buy. Fragment's floor is 50.
+   * @minimum 50
+   */
+  minStarQuantity?: number;
+  /**
+   * Custom amount: the largest a customer may buy.
+   * @maximum 10000000
+   */
+  maxStarQuantity?: number;
+  /**
+   * Custom amount: one-tap amounts, each within the bounds.
+   * @maxItems 12
+   */
+  starPresets?: number[];
   visible: boolean;
   sortOrder: number;
 }
@@ -3232,6 +3263,33 @@ export const PanelGoodsOrderFailureClass = {
   ambiguous: "ambiguous",
 } as const;
 
+export type PanelGoodsOrderProductKind =
+  (typeof PanelGoodsOrderProductKind)[keyof typeof PanelGoodsOrderProductKind];
+
+export const PanelGoodsOrderProductKind = {
+  telegram_premium: "telegram_premium",
+  telegram_stars: "telegram_stars",
+} as const;
+
+export type PanelGoodsOrderSource =
+  (typeof PanelGoodsOrderSource)[keyof typeof PanelGoodsOrderSource];
+
+export const PanelGoodsOrderSource = {
+  bot: "bot",
+  web: "web",
+  auto_cart: "auto_cart",
+  unknown: "unknown",
+} as const;
+
+export type PanelGoodsOrderRateSource =
+  (typeof PanelGoodsOrderRateSource)[keyof typeof PanelGoodsOrderRateSource];
+
+export const PanelGoodsOrderRateSource = {
+  manual: "manual",
+  tonapi: "tonapi",
+  coingecko: "coingecko",
+} as const;
+
 export interface PanelGoodsOrder {
   orderId: string;
   customerId: string;
@@ -3242,7 +3300,8 @@ export interface PanelGoodsOrder {
   recipientIsSelf: boolean;
   quotedCostMinor: number;
   quotedPriceMinor: number;
-  marginMinor: number;
+  /** Absent when the cost is unknown. */
+  marginMinor?: number;
   currency: string;
   status: PanelGoodsOrderStatus;
   deliveryStatus?: string;
@@ -3254,12 +3313,114 @@ export interface PanelGoodsOrder {
   costKnown?: boolean;
   deliveredAt?: string;
   createdAt: string;
+  discountMinor?: number;
+  productKind: PanelGoodsOrderProductKind;
+  productCode: string;
+  /** The Stars this order delivers. */
+  starQuantity?: number;
+  source: PanelGoodsOrderSource;
+  /** What the customer paid: the price less the discount. */
+  paidMinor: number;
+  provider?: string;
+  /** The provider's own identifier for the purchase, such as a Fragment request. */
+  providerRequestId?: string;
+  /** When the payment marker was committed, immediately before money left the operator's wallet. */
+  broadcastingAt?: string;
+  /** The payment's normalized external-message hash, for tonviewer and tonscan. */
+  txHash?: string;
+  /** What the operator paid, in nanoton. */
+  costNano?: number;
+  /** That cost in the shop currency, fixed at delivery. */
+  settledCostMinor?: number;
+  /** The rate it was fixed at: one TON in minor units. */
+  rateMinor?: number;
+  rateSource?: PanelGoodsOrderRateSource;
+  /** False when the payment went through but Fragment was not told (confirmReq failed). */
+  providerConfirmed?: boolean;
+  dryRun: boolean;
 }
 
 export interface PanelGoodsOrderPage {
   /** @nullable */
   items: PanelGoodsOrder[] | null;
   nextCursor?: string;
+}
+
+export type PanelStarsStatusProvider =
+  (typeof PanelStarsStatusProvider)[keyof typeof PanelStarsStatusProvider];
+
+export const PanelStarsStatusProvider = {
+  fragment_direct: "fragment_direct",
+} as const;
+
+export type PanelTonRateSource = (typeof PanelTonRateSource)[keyof typeof PanelTonRateSource];
+
+export const PanelTonRateSource = {
+  manual: "manual",
+  tonapi: "tonapi",
+  coingecko: "coingecko",
+} as const;
+
+export interface PanelTonRate {
+  minorPerTon: number;
+  source: PanelTonRateSource;
+  currency: string;
+}
+
+/**
+ * The direct Fragment provider's state. Never carries a secret.
+ */
+export interface PanelStarsStatus {
+  provider: PanelStarsStatusProvider;
+  /** The operator switched the provider on in the panel. */
+  enabled: boolean;
+  /** Every environment secret is present and valid. */
+  configured: boolean;
+  dryRun: boolean;
+  /** Which setting is missing or invalid — never its value. */
+  problem?: string;
+  walletVersion: string;
+  tonApiProvider: string;
+  tonApiRps: number;
+  walletLowStars: number;
+  vpnOffer: boolean;
+  currency: string;
+  rate?: PanelTonRate;
+}
+
+export interface PanelStarsStats {
+  days: number;
+  currency: string;
+  ordersTotal: number;
+  ordersDelivered: number;
+  ordersRefunded: number;
+  ordersNeedsReview: number;
+  ordersInFlight: number;
+  starsSold: number;
+  revenueMinor: number;
+  refundedMinor: number;
+  costNano: number;
+  /** Absent when some delivered order's cost cannot be known. */
+  costMinor?: number;
+  /** Absent when the cost is unknown. */
+  marginMinor?: number;
+  marginBps?: number;
+  rateMinor?: number;
+  rateSource?: string;
+}
+
+export interface PanelStarsWallet {
+  address: string;
+  version: string;
+  asset: string;
+  balanceNano: number;
+  explorerUrl: string;
+  /** Fragment's current price for 100 Stars. */
+  price100Nano?: number;
+  starsCovered?: number;
+  balanceMinor?: number;
+  rateMinor?: number;
+  currency?: string;
 }
 
 export interface PanelParkedDelivery {
@@ -4349,6 +4510,15 @@ export const AccountShopProductKind = {
   telegram_stars: "telegram_stars",
 } as const;
 
+/**
+ * Telegram Stars only: the customer picks how many, within these bounds.
+ */
+export type AccountShopProductCustomAmount = {
+  min: number;
+  max: number;
+  presets: number[];
+};
+
 export interface AccountShopProduct {
   id: string;
   code: string;
@@ -4362,8 +4532,14 @@ export interface AccountShopProduct {
   priceMinor?: number;
   /** Telegram Premium only. */
   durationMonths?: number;
-  /** Telegram Stars only. */
+  /** Telegram Stars only: a fixed pack. Zero for a custom amount. */
   starQuantity?: number;
+  /** Telegram Stars only: the customer picks how many, within these bounds. */
+  customAmount?: AccountShopProductCustomAmount;
+  /** The operator's fixed price per Star, when set. */
+  unitPriceMinor?: number;
+  /** The operator set this price rather than deriving it from a provider quote. Only such a product can be saved to buy itself after a top-up. */
+  operatorPriced?: boolean;
 }
 
 export interface AccountShopProductList {
@@ -4388,6 +4564,8 @@ export type AccountShopProductDetailPromo = {
 
 export type AccountShopProductDetail = AccountShopProduct & {
   quantity: number;
+  /** The Stars this quote delivers in total. */
+  stars?: number;
   quote: AccountShopQuote;
   promo?: AccountShopProductDetailPromo;
 };
@@ -5916,7 +6094,21 @@ export type SearchPanelGoodsOrdersParams = {
   pageSize?: PageSizeParameter;
   status?: string;
   customerId?: string;
+  kind?: SearchPanelGoodsOrdersKind;
+  /**
+   * A recipient handle (with or without @), an order identifier, or a customer identifier.
+   * @maxLength 64
+   */
+  q?: string;
 };
+
+export type SearchPanelGoodsOrdersKind =
+  (typeof SearchPanelGoodsOrdersKind)[keyof typeof SearchPanelGoodsOrdersKind];
+
+export const SearchPanelGoodsOrdersKind = {
+  telegram_premium: "telegram_premium",
+  telegram_stars: "telegram_stars",
+} as const;
 
 export type ListPanelGoodsReviewQueueParams = {
   /**
@@ -5924,6 +6116,19 @@ export type ListPanelGoodsReviewQueueParams = {
    * @maximum 500
    */
   pageSize?: PageSizeParameter;
+};
+
+export type GetPanelStarsStatsParams = {
+  /**
+   * @minimum 1
+   * @maximum 3650
+   */
+  days?: number;
+};
+
+export type CompletePanelGoodsDeliveryBody = {
+  /** @maxLength 128 */
+  txHash?: string;
 };
 
 export type ResolvePanelGoodsDeliveryBody = {
@@ -6224,6 +6429,11 @@ export type GetAccountShopProductParams = {
    * @maximum 10
    */
   quantity?: number;
+  /**
+   * The amount for a custom-amount Stars product. Ignored for a pack; omitted picks the first preset.
+   * @minimum 1
+   */
+  stars?: number;
   promoCode?: string;
 };
 
@@ -6254,6 +6464,11 @@ export type PurchaseAccountShopProductBody = {
    * @maximum 10
    */
   quantity: number;
+  /**
+   * The amount for a custom-amount Stars product.
+   * @minimum 1
+   */
+  stars?: number;
   recipient: string;
   /** Presentation only. Omniflow stores no Telegram username for a web customer, so this never decides delivery or authorisation. */
   forSelf?: boolean;
@@ -6261,6 +6476,36 @@ export type PurchaseAccountShopProductBody = {
   promoCode?: string;
   /** Stated explicitly, so a balance is never spent by omission. */
   useWallet?: boolean;
+};
+
+export type SaveAccountShopCartBodyQuote = {
+  priceMinor: number;
+  currency: string;
+};
+
+export type SaveAccountShopCartBody = {
+  productId: string;
+  /**
+   * @minimum 1
+   * @maximum 10
+   */
+  quantity: number;
+  /** @minimum 1 */
+  stars?: number;
+  recipient: string;
+  forSelf?: boolean;
+  quote: SaveAccountShopCartBodyQuote;
+  promoCode?: string;
+};
+
+export type SaveAccountShopCart200 = {
+  priceMinor: number;
+  availableMinor: number;
+  /** Exactly what to top up. */
+  shortfallMinor: number;
+  currency: string;
+  stars: number;
+  autoPurchase: boolean;
 };
 
 export type ListAccountShopOrdersParams = {
@@ -23409,6 +23654,553 @@ export const useListPanelGoodsReviewQueue = <TError = Promise<ProblemResponse>>(
   };
 };
 
+export type getPanelStarsStatusResponse200 = {
+  data: PanelStarsStatus;
+  status: 200;
+};
+
+export type getPanelStarsStatusResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelStarsStatusResponseSuccess = getPanelStarsStatusResponse200 & {
+  headers: Headers;
+};
+export type getPanelStarsStatusResponseError = getPanelStarsStatusResponse403 & {
+  headers: Headers;
+};
+
+export type getPanelStarsStatusResponse =
+  | getPanelStarsStatusResponseSuccess
+  | getPanelStarsStatusResponseError;
+
+export const getGetPanelStarsStatusUrl = () => {
+  return `/v1/panel/goods/stars/status`;
+};
+
+/**
+ * Requires goods.read. Whether the direct Fragment provider is enabled, configured from the environment, and in dry-run mode, with the current TON rate. No secret is ever returned.
+ */
+export const getPanelStarsStatus = async (
+  options?: RequestInit,
+): Promise<getPanelStarsStatusResponse> => {
+  const res = await fetch(getGetPanelStarsStatusUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelStarsStatusResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelStarsStatusResponse;
+};
+
+export const getGetPanelStarsStatusKey = () => [`/v1/panel/goods/stars/status`] as const;
+
+export type GetPanelStarsStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelStarsStatus>>
+>;
+
+export const useGetPanelStarsStatus = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelStarsStatus>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelStarsStatusKey() : null));
+  const swrFn = () => getPanelStarsStatus(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelStarsStatsResponse200 = {
+  data: PanelStarsStats;
+  status: 200;
+};
+
+export type getPanelStarsStatsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelStarsStatsResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type getPanelStarsStatsResponseSuccess = getPanelStarsStatsResponse200 & {
+  headers: Headers;
+};
+export type getPanelStarsStatsResponseError = (
+  | getPanelStarsStatsResponse403
+  | getPanelStarsStatsResponse422
+) & {
+  headers: Headers;
+};
+
+export type getPanelStarsStatsResponse =
+  | getPanelStarsStatsResponseSuccess
+  | getPanelStarsStatsResponseError;
+
+export const getGetPanelStarsStatsUrl = (params?: GetPanelStarsStatsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/goods/stars/stats?${stringifiedParams}`
+    : `/v1/panel/goods/stars/stats`;
+};
+
+/**
+ * Requires goods.read. Stars sales over the last N days: revenue, Stars sold, refunds, and the margin from the cost fixed at each delivery.
+ */
+export const getPanelStarsStats = async (
+  params?: GetPanelStarsStatsParams,
+  options?: RequestInit,
+): Promise<getPanelStarsStatsResponse> => {
+  const res = await fetch(getGetPanelStarsStatsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelStarsStatsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelStarsStatsResponse;
+};
+
+export const getGetPanelStarsStatsKey = (params?: GetPanelStarsStatsParams) =>
+  [`/v1/panel/goods/stars/stats`, ...(params ? [params] : [])] as const;
+
+export type GetPanelStarsStatsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelStarsStats>>
+>;
+
+export const useGetPanelStarsStats = <TError = Promise<ProblemResponse>>(
+  params?: GetPanelStarsStatsParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelStarsStats>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelStarsStatsKey(params) : null));
+  const swrFn = () => getPanelStarsStats(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelStarsWalletResponse200 = {
+  data: PanelStarsWallet;
+  status: 200;
+};
+
+export type getPanelStarsWalletResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelStarsWalletResponse502 = {
+  data: ProblemResponse;
+  status: 502;
+};
+
+export type getPanelStarsWalletResponse503 = {
+  data: ProblemResponse;
+  status: 503;
+};
+
+export type getPanelStarsWalletResponseSuccess = getPanelStarsWalletResponse200 & {
+  headers: Headers;
+};
+export type getPanelStarsWalletResponseError = (
+  | getPanelStarsWalletResponse403
+  | getPanelStarsWalletResponse502
+  | getPanelStarsWalletResponse503
+) & {
+  headers: Headers;
+};
+
+export type getPanelStarsWalletResponse =
+  | getPanelStarsWalletResponseSuccess
+  | getPanelStarsWalletResponseError;
+
+export const getGetPanelStarsWalletUrl = () => {
+  return `/v1/panel/goods/stars/wallet`;
+};
+
+/**
+ * Requires goods.read. The paying TON wallet's address and balance, and Fragment's current price for 100 Stars. Answers 503 when the provider is not configured rather than reporting a zero balance.
+ */
+export const getPanelStarsWallet = async (
+  options?: RequestInit,
+): Promise<getPanelStarsWalletResponse> => {
+  const res = await fetch(getGetPanelStarsWalletUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelStarsWalletResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelStarsWalletResponse;
+};
+
+export const getGetPanelStarsWalletKey = () => [`/v1/panel/goods/stars/wallet`] as const;
+
+export type GetPanelStarsWalletQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelStarsWallet>>
+>;
+
+export const useGetPanelStarsWallet = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelStarsWallet>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelStarsWalletKey() : null));
+  const swrFn = () => getPanelStarsWallet(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type retryPanelGoodsDeliveryResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type retryPanelGoodsDeliveryResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type retryPanelGoodsDeliveryResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type retryPanelGoodsDeliveryResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type retryPanelGoodsDeliveryResponseSuccess = retryPanelGoodsDeliveryResponse204 & {
+  headers: Headers;
+};
+export type retryPanelGoodsDeliveryResponseError = (
+  | retryPanelGoodsDeliveryResponse403
+  | retryPanelGoodsDeliveryResponse409
+  | retryPanelGoodsDeliveryResponse422
+) & {
+  headers: Headers;
+};
+
+export type retryPanelGoodsDeliveryResponse =
+  | retryPanelGoodsDeliveryResponseSuccess
+  | retryPanelGoodsDeliveryResponseError;
+
+export const getRetryPanelGoodsDeliveryUrl = (orderID: string) => {
+  return `/v1/panel/goods/orders/${orderID}/retry`;
+};
+
+/**
+ * Requires goods.manage and a reason. Sends a delivery parked for review back to the worker with a fresh attempt count. Use it only after checking the wallet's outgoing transfers: if the payment did leave, retrying pays for the Stars a second time.
+ */
+export const retryPanelGoodsDelivery = async (
+  orderID: string,
+  options?: RequestInit,
+): Promise<retryPanelGoodsDeliveryResponse> => {
+  const res = await fetch(getRetryPanelGoodsDeliveryUrl(orderID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: retryPanelGoodsDeliveryResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as retryPanelGoodsDeliveryResponse;
+};
+
+export const getRetryPanelGoodsDeliveryMutationFetcher = (
+  orderID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return retryPanelGoodsDelivery(orderID, options);
+  };
+};
+export const getRetryPanelGoodsDeliveryMutationKey = (orderID: string) =>
+  [`/v1/panel/goods/orders/${orderID}/retry`] as const;
+
+export type RetryPanelGoodsDeliveryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof retryPanelGoodsDelivery>>
+>;
+
+export const useRetryPanelGoodsDelivery = <TError = Promise<ProblemResponse>>(
+  orderID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof retryPanelGoodsDelivery>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof retryPanelGoodsDelivery>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRetryPanelGoodsDeliveryMutationKey(orderID);
+  const swrFn = getRetryPanelGoodsDeliveryMutationFetcher(orderID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type refundPanelGoodsOrderResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type refundPanelGoodsOrderResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type refundPanelGoodsOrderResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type refundPanelGoodsOrderResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type refundPanelGoodsOrderResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type refundPanelGoodsOrderResponseSuccess = refundPanelGoodsOrderResponse204 & {
+  headers: Headers;
+};
+export type refundPanelGoodsOrderResponseError = (
+  | refundPanelGoodsOrderResponse403
+  | refundPanelGoodsOrderResponse404
+  | refundPanelGoodsOrderResponse409
+  | refundPanelGoodsOrderResponse422
+) & {
+  headers: Headers;
+};
+
+export type refundPanelGoodsOrderResponse =
+  | refundPanelGoodsOrderResponseSuccess
+  | refundPanelGoodsOrderResponseError;
+
+export const getRefundPanelGoodsOrderUrl = (orderID: string) => {
+  return `/v1/panel/goods/orders/${orderID}/refund`;
+};
+
+/**
+ * Requires goods.manage and a reason. Credits the customer's wallet with what they paid, for a delivery parked for review or one still waiting whose payment has not started. A delivery mid-payment is refused. The credit shares the worker's idempotency key, so it lands once.
+ */
+export const refundPanelGoodsOrder = async (
+  orderID: string,
+  options?: RequestInit,
+): Promise<refundPanelGoodsOrderResponse> => {
+  const res = await fetch(getRefundPanelGoodsOrderUrl(orderID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: refundPanelGoodsOrderResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as refundPanelGoodsOrderResponse;
+};
+
+export const getRefundPanelGoodsOrderMutationFetcher = (orderID: string, options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return refundPanelGoodsOrder(orderID, options);
+  };
+};
+export const getRefundPanelGoodsOrderMutationKey = (orderID: string) =>
+  [`/v1/panel/goods/orders/${orderID}/refund`] as const;
+
+export type RefundPanelGoodsOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof refundPanelGoodsOrder>>
+>;
+
+export const useRefundPanelGoodsOrder = <TError = Promise<ProblemResponse>>(
+  orderID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof refundPanelGoodsOrder>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof refundPanelGoodsOrder>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRefundPanelGoodsOrderMutationKey(orderID);
+  const swrFn = getRefundPanelGoodsOrderMutationFetcher(orderID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type completePanelGoodsDeliveryResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type completePanelGoodsDeliveryResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type completePanelGoodsDeliveryResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type completePanelGoodsDeliveryResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type completePanelGoodsDeliveryResponseSuccess = completePanelGoodsDeliveryResponse204 & {
+  headers: Headers;
+};
+export type completePanelGoodsDeliveryResponseError = (
+  | completePanelGoodsDeliveryResponse403
+  | completePanelGoodsDeliveryResponse409
+  | completePanelGoodsDeliveryResponse422
+) & {
+  headers: Headers;
+};
+
+export type completePanelGoodsDeliveryResponse =
+  | completePanelGoodsDeliveryResponseSuccess
+  | completePanelGoodsDeliveryResponseError;
+
+export const getCompletePanelGoodsDeliveryUrl = (orderID: string) => {
+  return `/v1/panel/goods/orders/${orderID}/complete`;
+};
+
+/**
+ * Requires goods.manage and a reason. Closes a delivery parked for review as delivered, optionally recording the transaction hash the operator found.
+ */
+export const completePanelGoodsDelivery = async (
+  orderID: string,
+  completePanelGoodsDeliveryBody: CompletePanelGoodsDeliveryBody,
+  options?: RequestInit,
+): Promise<completePanelGoodsDeliveryResponse> => {
+  const res = await fetch(getCompletePanelGoodsDeliveryUrl(orderID), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(completePanelGoodsDeliveryBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: completePanelGoodsDeliveryResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as completePanelGoodsDeliveryResponse;
+};
+
+export const getCompletePanelGoodsDeliveryMutationFetcher = (
+  orderID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: CompletePanelGoodsDeliveryBody }) => {
+    return completePanelGoodsDelivery(orderID, arg, options);
+  };
+};
+export const getCompletePanelGoodsDeliveryMutationKey = (orderID: string) =>
+  [`/v1/panel/goods/orders/${orderID}/complete`] as const;
+
+export type CompletePanelGoodsDeliveryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof completePanelGoodsDelivery>>
+>;
+
+export const useCompletePanelGoodsDelivery = <TError = Promise<ProblemResponse>>(
+  orderID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof completePanelGoodsDelivery>>,
+      TError,
+      Key,
+      CompletePanelGoodsDeliveryBody,
+      Awaited<ReturnType<typeof completePanelGoodsDelivery>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getCompletePanelGoodsDeliveryMutationKey(orderID);
+  const swrFn = getCompletePanelGoodsDeliveryMutationFetcher(orderID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
 export type resolvePanelGoodsDeliveryResponse204 = {
   data: void;
   status: 204;
@@ -23449,7 +24241,7 @@ export const getResolvePanelGoodsDeliveryUrl = (orderID: string) => {
 };
 
 /**
- * Requires goods.write and a reason. Records what an operator confirmed with the provider: `delivered` completes the order, and anything else releases the ordinary refund path and credits the customer's wallet.
+ * Requires goods.manage and a reason. Records what an operator confirmed with the provider: `delivered` completes the order, and anything else releases the ordinary refund path and credits the customer's wallet.
  */
 export const resolvePanelGoodsDelivery = async (
   orderID: string,
@@ -23544,7 +24336,7 @@ export const getCancelPanelGoodsDeliveryUrl = (orderID: string) => {
 };
 
 /**
- * Requires goods.write and a reason. A delivered order cannot be cancelled: the recipient already has what was bought.
+ * Requires goods.manage and a reason. Cancelling refunds the customer's wallet. A delivered order cannot be cancelled: the recipient already has what was bought.
  */
 export const cancelPanelGoodsDelivery = async (
   orderID: string,
@@ -28703,6 +29495,189 @@ export const usePurchaseAccountShopProduct = <TError = Promise<ProblemResponse>>
 
   const swrKey = swrOptions?.swrKey ?? getPurchaseAccountShopProductMutationKey();
   const swrFn = getPurchaseAccountShopProductMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type saveAccountShopCartResponse200 = {
+  data: SaveAccountShopCart200;
+  status: 200;
+};
+
+export type saveAccountShopCartResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type saveAccountShopCartResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type saveAccountShopCartResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type saveAccountShopCartResponse503 = {
+  data: ProblemResponse;
+  status: 503;
+};
+
+export type saveAccountShopCartResponseSuccess = saveAccountShopCartResponse200 & {
+  headers: Headers;
+};
+export type saveAccountShopCartResponseError = (
+  | saveAccountShopCartResponse404
+  | saveAccountShopCartResponse409
+  | saveAccountShopCartResponse422
+  | saveAccountShopCartResponse503
+) & {
+  headers: Headers;
+};
+
+export type saveAccountShopCartResponse =
+  | saveAccountShopCartResponseSuccess
+  | saveAccountShopCartResponseError;
+
+export const getSaveAccountShopCartUrl = () => {
+  return `/v1/account/shop/cart`;
+};
+
+/**
+ * Saves a purchase the wallet cannot cover yet and answers exactly what is missing. Once a top-up settles that covers it, the purchase is made from the wallet automatically at the saved price; a price rise is refused and the customer told. Offered only for a product the operator priced themselves (a fixed amount or a fixed price per Star): a provider quote is never charged unattended.
+ */
+export const saveAccountShopCart = async (
+  saveAccountShopCartBody: SaveAccountShopCartBody,
+  options?: RequestInit,
+): Promise<saveAccountShopCartResponse> => {
+  const res = await fetch(getSaveAccountShopCartUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(saveAccountShopCartBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: saveAccountShopCartResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as saveAccountShopCartResponse;
+};
+
+export const getSaveAccountShopCartMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: SaveAccountShopCartBody }) => {
+    return saveAccountShopCart(arg, options);
+  };
+};
+export const getSaveAccountShopCartMutationKey = () => [`/v1/account/shop/cart`] as const;
+
+export type SaveAccountShopCartMutationResult = NonNullable<
+  Awaited<ReturnType<typeof saveAccountShopCart>>
+>;
+
+export const useSaveAccountShopCart = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof saveAccountShopCart>>,
+    TError,
+    Key,
+    SaveAccountShopCartBody,
+    Awaited<ReturnType<typeof saveAccountShopCart>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSaveAccountShopCartMutationKey();
+  const swrFn = getSaveAccountShopCartMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type buyAccountShopCartResponse201 = {
+  data: AccountShopOrder;
+  status: 201;
+};
+
+export type buyAccountShopCartResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type buyAccountShopCartResponse503 = {
+  data: ProblemResponse;
+  status: 503;
+};
+
+export type buyAccountShopCartResponseSuccess = buyAccountShopCartResponse201 & {
+  headers: Headers;
+};
+export type buyAccountShopCartResponseError = (
+  | buyAccountShopCartResponse409
+  | buyAccountShopCartResponse503
+) & {
+  headers: Headers;
+};
+
+export type buyAccountShopCartResponse =
+  | buyAccountShopCartResponseSuccess
+  | buyAccountShopCartResponseError;
+
+export const getBuyAccountShopCartUrl = () => {
+  return `/v1/account/shop/cart/purchase`;
+};
+
+/**
+ * Buys the saved purchase from the wallet now, for a customer whose balance already covers it. Shares the automatic purchase's idempotency key, so the two cannot both charge.
+ */
+export const buyAccountShopCart = async (
+  options?: RequestInit,
+): Promise<buyAccountShopCartResponse> => {
+  const res = await fetch(getBuyAccountShopCartUrl(), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: buyAccountShopCartResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as buyAccountShopCartResponse;
+};
+
+export const getBuyAccountShopCartMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return buyAccountShopCart(options);
+  };
+};
+export const getBuyAccountShopCartMutationKey = () => [`/v1/account/shop/cart/purchase`] as const;
+
+export type BuyAccountShopCartMutationResult = NonNullable<
+  Awaited<ReturnType<typeof buyAccountShopCart>>
+>;
+
+export const useBuyAccountShopCart = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof buyAccountShopCart>>,
+    TError,
+    Key,
+    Arguments,
+    Awaited<ReturnType<typeof buyAccountShopCart>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getBuyAccountShopCartMutationKey();
+  const swrFn = getBuyAccountShopCartMutationFetcher(fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

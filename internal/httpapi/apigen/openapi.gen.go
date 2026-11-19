@@ -2290,6 +2290,69 @@ func (e PanelGoodsOrderFailureClass) Valid() bool {
 	}
 }
 
+// Defines values for PanelGoodsOrderProductKind.
+const (
+	PanelGoodsOrderProductKindTelegramPremium PanelGoodsOrderProductKind = "telegram_premium"
+	PanelGoodsOrderProductKindTelegramStars   PanelGoodsOrderProductKind = "telegram_stars"
+)
+
+// Valid indicates whether the value is a known member of the PanelGoodsOrderProductKind enum.
+func (e PanelGoodsOrderProductKind) Valid() bool {
+	switch e {
+	case PanelGoodsOrderProductKindTelegramPremium:
+		return true
+	case PanelGoodsOrderProductKindTelegramStars:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelGoodsOrderRateSource.
+const (
+	PanelGoodsOrderRateSourceCoingecko PanelGoodsOrderRateSource = "coingecko"
+	PanelGoodsOrderRateSourceManual    PanelGoodsOrderRateSource = "manual"
+	PanelGoodsOrderRateSourceTonapi    PanelGoodsOrderRateSource = "tonapi"
+)
+
+// Valid indicates whether the value is a known member of the PanelGoodsOrderRateSource enum.
+func (e PanelGoodsOrderRateSource) Valid() bool {
+	switch e {
+	case PanelGoodsOrderRateSourceCoingecko:
+		return true
+	case PanelGoodsOrderRateSourceManual:
+		return true
+	case PanelGoodsOrderRateSourceTonapi:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelGoodsOrderSource.
+const (
+	PanelGoodsOrderSourceAutoCart PanelGoodsOrderSource = "auto_cart"
+	PanelGoodsOrderSourceBot      PanelGoodsOrderSource = "bot"
+	PanelGoodsOrderSourceUnknown  PanelGoodsOrderSource = "unknown"
+	PanelGoodsOrderSourceWeb      PanelGoodsOrderSource = "web"
+)
+
+// Valid indicates whether the value is a known member of the PanelGoodsOrderSource enum.
+func (e PanelGoodsOrderSource) Valid() bool {
+	switch e {
+	case PanelGoodsOrderSourceAutoCart:
+		return true
+	case PanelGoodsOrderSourceBot:
+		return true
+	case PanelGoodsOrderSourceUnknown:
+		return true
+	case PanelGoodsOrderSourceWeb:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PanelGoodsOrderStatus.
 const (
 	PanelGoodsOrderStatusDelivered   PanelGoodsOrderStatus = "delivered"
@@ -2890,6 +2953,21 @@ func (e PanelSearchResultsHints) Valid() bool {
 	}
 }
 
+// Defines values for PanelStarsStatusProvider.
+const (
+	FragmentDirect PanelStarsStatusProvider = "fragment_direct"
+)
+
+// Valid indicates whether the value is a known member of the PanelStarsStatusProvider enum.
+func (e PanelStarsStatusProvider) Valid() bool {
+	switch e {
+	case FragmentDirect:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PanelSubscriptionStatus.
 const (
 	PanelSubscriptionStatusActive PanelSubscriptionStatus = "active"
@@ -3037,6 +3115,27 @@ func (e PanelSupportTicketStatus) Valid() bool {
 	case PanelSupportTicketStatusPending:
 		return true
 	case PanelSupportTicketStatusResolved:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelTonRateSource.
+const (
+	PanelTonRateSourceCoingecko PanelTonRateSource = "coingecko"
+	PanelTonRateSourceManual    PanelTonRateSource = "manual"
+	PanelTonRateSourceTonapi    PanelTonRateSource = "tonapi"
+)
+
+// Valid indicates whether the value is a known member of the PanelTonRateSource enum.
+func (e PanelTonRateSource) Valid() bool {
+	switch e {
+	case PanelTonRateSourceCoingecko:
+		return true
+	case PanelTonRateSourceManual:
+		return true
+	case PanelTonRateSourceTonapi:
 		return true
 	default:
 		return false
@@ -3408,19 +3507,19 @@ func (e TelemetryEventSchema) Valid() bool {
 
 // Defines values for TelemetryEventService.
 const (
-	Api    TelemetryEventService = "api"
-	Bot    TelemetryEventService = "bot"
-	Worker TelemetryEventService = "worker"
+	TelemetryEventServiceApi    TelemetryEventService = "api"
+	TelemetryEventServiceBot    TelemetryEventService = "bot"
+	TelemetryEventServiceWorker TelemetryEventService = "worker"
 )
 
 // Valid indicates whether the value is a known member of the TelemetryEventService enum.
 func (e TelemetryEventService) Valid() bool {
 	switch e {
-	case Api:
+	case TelemetryEventServiceApi:
 		return true
-	case Bot:
+	case TelemetryEventServiceBot:
 		return true
-	case Worker:
+	case TelemetryEventServiceWorker:
 		return true
 	default:
 		return false
@@ -4138,6 +4237,24 @@ func (e SearchPanelGiftsParamsKind) Valid() bool {
 	case SearchPanelGiftsParamsKindSubscription:
 		return true
 	case SearchPanelGiftsParamsKindWalletCredit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SearchPanelGoodsOrdersParamsKind.
+const (
+	SearchPanelGoodsOrdersParamsKindTelegramPremium SearchPanelGoodsOrdersParamsKind = "telegram_premium"
+	SearchPanelGoodsOrdersParamsKindTelegramStars   SearchPanelGoodsOrdersParamsKind = "telegram_stars"
+)
+
+// Valid indicates whether the value is a known member of the SearchPanelGoodsOrdersParamsKind enum.
+func (e SearchPanelGoodsOrdersParamsKind) Valid() bool {
+	switch e {
+	case SearchPanelGoodsOrdersParamsKindTelegramPremium:
+		return true
+	case SearchPanelGoodsOrdersParamsKindTelegramStars:
 		return true
 	default:
 		return false
@@ -5378,9 +5495,16 @@ type AccountShopOrderPage struct {
 
 // AccountShopProduct defines model for AccountShopProduct.
 type AccountShopProduct struct {
-	Available   bool    `json:"available"`
-	Code        string  `json:"code"`
-	Currency    string  `json:"currency"`
+	Available bool   `json:"available"`
+	Code      string `json:"code"`
+	Currency  string `json:"currency"`
+
+	// CustomAmount Telegram Stars only: the customer picks how many, within these bounds.
+	CustomAmount *struct {
+		Max     int   `json:"max"`
+		Min     int   `json:"min"`
+		Presets []int `json:"presets"`
+	} `json:"customAmount,omitempty"`
 	Description *string `json:"description,omitempty"`
 
 	// DurationMonths Telegram Premium only.
@@ -5389,12 +5513,18 @@ type AccountShopProduct struct {
 	Kind           AccountShopProductKind `json:"kind"`
 	Name           string                 `json:"name"`
 
+	// OperatorPriced The operator set this price rather than deriving it from a provider quote. Only such a product can be saved to buy itself after a top-up.
+	OperatorPriced *bool `json:"operatorPriced,omitempty"`
+
 	// PriceKnown Whether `priceMinor` is a published number. False means the product is priced when it is opened, so a screen never has to read a missing price as zero.
 	PriceKnown bool   `json:"priceKnown"`
 	PriceMinor *int64 `json:"priceMinor,omitempty"`
 
-	// StarQuantity Telegram Stars only.
+	// StarQuantity Telegram Stars only: a fixed pack. Zero for a custom amount.
 	StarQuantity *int `json:"starQuantity,omitempty"`
+
+	// UnitPriceMinor The operator's fixed price per Star, when set.
+	UnitPriceMinor *int64 `json:"unitPriceMinor,omitempty"`
 }
 
 // AccountShopProductKind defines model for AccountShopProduct.Kind.
@@ -5402,9 +5532,16 @@ type AccountShopProductKind string
 
 // AccountShopProductDetail defines model for AccountShopProductDetail.
 type AccountShopProductDetail struct {
-	Available   bool    `json:"available"`
-	Code        string  `json:"code"`
-	Currency    string  `json:"currency"`
+	Available bool   `json:"available"`
+	Code      string `json:"code"`
+	Currency  string `json:"currency"`
+
+	// CustomAmount Telegram Stars only: the customer picks how many, within these bounds.
+	CustomAmount *struct {
+		Max     int   `json:"max"`
+		Min     int   `json:"min"`
+		Presets []int `json:"presets"`
+	} `json:"customAmount,omitempty"`
 	Description *string `json:"description,omitempty"`
 
 	// DurationMonths Telegram Premium only.
@@ -5412,6 +5549,9 @@ type AccountShopProductDetail struct {
 	Id             openapi_types.UUID           `json:"id"`
 	Kind           AccountShopProductDetailKind `json:"kind"`
 	Name           string                       `json:"name"`
+
+	// OperatorPriced The operator set this price rather than deriving it from a provider quote. Only such a product can be saved to buy itself after a top-up.
+	OperatorPriced *bool `json:"operatorPriced,omitempty"`
 
 	// PriceKnown Whether `priceMinor` is a published number. False means the product is priced when it is opened, so a screen never has to read a missing price as zero.
 	PriceKnown bool   `json:"priceKnown"`
@@ -5428,8 +5568,14 @@ type AccountShopProductDetail struct {
 	// Quote A price and the moment it stops applying. The two travel together so a client cannot hold one without the other.
 	Quote AccountShopQuote `json:"quote"`
 
-	// StarQuantity Telegram Stars only.
+	// StarQuantity Telegram Stars only: a fixed pack. Zero for a custom amount.
 	StarQuantity *int `json:"starQuantity,omitempty"`
+
+	// Stars The Stars this quote delivers in total.
+	Stars *int `json:"stars,omitempty"`
+
+	// UnitPriceMinor The operator's fixed price per Star, when set.
+	UnitPriceMinor *int64 `json:"unitPriceMinor,omitempty"`
 }
 
 // AccountShopProductDetailKind defines model for AccountShopProductDetail.Kind.
@@ -7007,32 +7153,77 @@ type PanelGoodsAttemptList struct {
 
 // PanelGoodsOrder defines model for PanelGoodsOrder.
 type PanelGoodsOrder struct {
+	// BroadcastingAt When the payment marker was committed, immediately before money left the operator's wallet.
+	BroadcastingAt *time.Time `json:"broadcastingAt,omitempty"`
+
 	// CostKnown False when the provider publishes no cost for this product. The margin is unknown, not zero.
-	CostKnown        *bool                        `json:"costKnown,omitempty"`
+	CostKnown *bool `json:"costKnown,omitempty"`
+
+	// CostNano What the operator paid, in nanoton.
+	CostNano         *int64                       `json:"costNano,omitempty"`
 	CreatedAt        time.Time                    `json:"createdAt"`
 	Currency         string                       `json:"currency"`
 	CustomerId       openapi_types.UUID           `json:"customerId"`
 	DeliveredAt      *time.Time                   `json:"deliveredAt,omitempty"`
 	DeliveryAttempts *int                         `json:"deliveryAttempts,omitempty"`
 	DeliveryStatus   *string                      `json:"deliveryStatus,omitempty"`
+	DiscountMinor    *int64                       `json:"discountMinor,omitempty"`
+	DryRun           bool                         `json:"dryRun"`
 	ErrorCode        *string                      `json:"errorCode,omitempty"`
 	FailureClass     *PanelGoodsOrderFailureClass `json:"failureClass,omitempty"`
-	MarginMinor      int64                        `json:"marginMinor"`
-	OrderId          openapi_types.UUID           `json:"orderId"`
-	ProductId        openapi_types.UUID           `json:"productId"`
-	Quantity         int                          `json:"quantity"`
-	QuotedCostMinor  int64                        `json:"quotedCostMinor"`
-	QuotedPriceMinor int64                        `json:"quotedPriceMinor"`
+
+	// MarginMinor Absent when the cost is unknown.
+	MarginMinor *int64             `json:"marginMinor,omitempty"`
+	OrderId     openapi_types.UUID `json:"orderId"`
+
+	// PaidMinor What the customer paid: the price less the discount.
+	PaidMinor   int64                      `json:"paidMinor"`
+	ProductCode string                     `json:"productCode"`
+	ProductId   openapi_types.UUID         `json:"productId"`
+	ProductKind PanelGoodsOrderProductKind `json:"productKind"`
+	Provider    *string                    `json:"provider,omitempty"`
+
+	// ProviderConfirmed False when the payment went through but Fragment was not told (confirmReq failed).
+	ProviderConfirmed *bool `json:"providerConfirmed,omitempty"`
+
+	// ProviderRequestId The provider's own identifier for the purchase, such as a Fragment request.
+	ProviderRequestId *string `json:"providerRequestId,omitempty"`
+	Quantity          int     `json:"quantity"`
+	QuotedCostMinor   int64   `json:"quotedCostMinor"`
+	QuotedPriceMinor  int64   `json:"quotedPriceMinor"`
+
+	// RateMinor The rate it was fixed at: one TON in minor units.
+	RateMinor  *int64                     `json:"rateMinor,omitempty"`
+	RateSource *PanelGoodsOrderRateSource `json:"rateSource,omitempty"`
 
 	// Recipient The Telegram username. No other recipient detail is retained.
-	Recipient       string                `json:"recipient"`
-	RecipientIsSelf bool                  `json:"recipientIsSelf"`
-	Refunded        bool                  `json:"refunded"`
-	Status          PanelGoodsOrderStatus `json:"status"`
+	Recipient       string `json:"recipient"`
+	RecipientIsSelf bool   `json:"recipientIsSelf"`
+	Refunded        bool   `json:"refunded"`
+
+	// SettledCostMinor That cost in the shop currency, fixed at delivery.
+	SettledCostMinor *int64                `json:"settledCostMinor,omitempty"`
+	Source           PanelGoodsOrderSource `json:"source"`
+
+	// StarQuantity The Stars this order delivers.
+	StarQuantity *int                  `json:"starQuantity,omitempty"`
+	Status       PanelGoodsOrderStatus `json:"status"`
+
+	// TxHash The payment's normalized external-message hash, for tonviewer and tonscan.
+	TxHash *string `json:"txHash,omitempty"`
 }
 
 // PanelGoodsOrderFailureClass defines model for PanelGoodsOrder.FailureClass.
 type PanelGoodsOrderFailureClass string
+
+// PanelGoodsOrderProductKind defines model for PanelGoodsOrder.ProductKind.
+type PanelGoodsOrderProductKind string
+
+// PanelGoodsOrderRateSource defines model for PanelGoodsOrder.RateSource.
+type PanelGoodsOrderRateSource string
+
+// PanelGoodsOrderSource defines model for PanelGoodsOrder.Source.
+type PanelGoodsOrderSource string
 
 // PanelGoodsOrderStatus defines model for PanelGoodsOrder.Status.
 type PanelGoodsOrderStatus string
@@ -7052,7 +7243,10 @@ type PanelGoodsPricing struct {
 	MarkupBps        int                       `json:"markupBps"`
 	QuoteTtlSeconds  int                       `json:"quoteTtlSeconds"`
 	Rounding         PanelGoodsPricingRounding `json:"rounding"`
-	UpdatedAt        *time.Time                `json:"updatedAt,omitempty"`
+
+	// UnitPriceMinor A fixed price per Star, for a Stars product. Exclusive with fixedAmountMinor. An operator price is what lets a saved purchase buy itself after a top-up.
+	UnitPriceMinor *int64     `json:"unitPriceMinor,omitempty"`
+	UpdatedAt      *time.Time `json:"updatedAt,omitempty"`
 }
 
 // PanelGoodsPricingRounding defines model for PanelGoodsPricing.Rounding.
@@ -7067,11 +7261,22 @@ type PanelGoodsProduct struct {
 	Id             openapi_types.UUID            `json:"id"`
 	Kind           PanelGoodsProductKind         `json:"kind"`
 	Localizations  *map[string]PanelLocalization `json:"localizations,omitempty"`
-	Pricing        *PanelGoodsPricing            `json:"pricing,omitempty"`
-	ProviderSlug   string                        `json:"providerSlug"`
-	SortOrder      int                           `json:"sortOrder"`
-	StarQuantity   *int                          `json:"starQuantity,omitempty"`
-	Visible        bool                          `json:"visible"`
+
+	// MaxStarQuantity Upper bound of a custom-amount Stars product.
+	MaxStarQuantity *int `json:"maxStarQuantity,omitempty"`
+
+	// MinStarQuantity Lower bound of a custom-amount Stars product.
+	MinStarQuantity *int               `json:"minStarQuantity,omitempty"`
+	Pricing         *PanelGoodsPricing `json:"pricing,omitempty"`
+	ProviderSlug    string             `json:"providerSlug"`
+	SortOrder       int                `json:"sortOrder"`
+
+	// StarPresets One-tap amounts offered for a custom-amount product.
+	StarPresets *[]int `json:"starPresets,omitempty"`
+
+	// StarQuantity A fixed pack. Absent for a custom-amount product.
+	StarQuantity *int `json:"starQuantity,omitempty"`
+	Visible      bool `json:"visible"`
 }
 
 // PanelGoodsProductKind defines model for PanelGoodsProduct.Kind.
@@ -7082,10 +7287,21 @@ type PanelGoodsProductInput struct {
 	Code           string                                `json:"code"`
 	DurationMonths *PanelGoodsProductInputDurationMonths `json:"durationMonths,omitempty"`
 	Kind           PanelGoodsProductInputKind            `json:"kind"`
-	ProviderSlug   string                                `json:"providerSlug"`
-	SortOrder      int                                   `json:"sortOrder"`
-	StarQuantity   *int                                  `json:"starQuantity,omitempty"`
-	Visible        bool                                  `json:"visible"`
+
+	// MaxStarQuantity Custom amount: the largest a customer may buy.
+	MaxStarQuantity *int `json:"maxStarQuantity,omitempty"`
+
+	// MinStarQuantity Custom amount: the smallest a customer may buy. Fragment's floor is 50.
+	MinStarQuantity *int   `json:"minStarQuantity,omitempty"`
+	ProviderSlug    string `json:"providerSlug"`
+	SortOrder       int    `json:"sortOrder"`
+
+	// StarPresets Custom amount: one-tap amounts, each within the bounds.
+	StarPresets *[]int `json:"starPresets,omitempty"`
+
+	// StarQuantity A fixed pack. Omit for a custom-amount product.
+	StarQuantity *int `json:"starQuantity,omitempty"`
+	Visible      bool `json:"visible"`
 }
 
 // PanelGoodsProductInputDurationMonths defines model for PanelGoodsProductInput.DurationMonths.
@@ -7885,6 +8101,69 @@ type PanelSession struct {
 	SessionId              openapi_types.UUID `json:"sessionId"`
 }
 
+// PanelStarsStats defines model for PanelStarsStats.
+type PanelStarsStats struct {
+	// CostMinor Absent when some delivered order's cost cannot be known.
+	CostMinor *int64 `json:"costMinor,omitempty"`
+	CostNano  int64  `json:"costNano"`
+	Currency  string `json:"currency"`
+	Days      int    `json:"days"`
+	MarginBps *int64 `json:"marginBps,omitempty"`
+
+	// MarginMinor Absent when the cost is unknown.
+	MarginMinor       *int64  `json:"marginMinor,omitempty"`
+	OrdersDelivered   int     `json:"ordersDelivered"`
+	OrdersInFlight    int     `json:"ordersInFlight"`
+	OrdersNeedsReview int     `json:"ordersNeedsReview"`
+	OrdersRefunded    int     `json:"ordersRefunded"`
+	OrdersTotal       int     `json:"ordersTotal"`
+	RateMinor         *int64  `json:"rateMinor,omitempty"`
+	RateSource        *string `json:"rateSource,omitempty"`
+	RefundedMinor     int64   `json:"refundedMinor"`
+	RevenueMinor      int64   `json:"revenueMinor"`
+	StarsSold         int64   `json:"starsSold"`
+}
+
+// PanelStarsStatus The direct Fragment provider's state. Never carries a secret.
+type PanelStarsStatus struct {
+	// Configured Every environment secret is present and valid.
+	Configured bool   `json:"configured"`
+	Currency   string `json:"currency"`
+	DryRun     bool   `json:"dryRun"`
+
+	// Enabled The operator switched the provider on in the panel.
+	Enabled bool `json:"enabled"`
+
+	// Problem Which setting is missing or invalid — never its value.
+	Problem        *string                  `json:"problem,omitempty"`
+	Provider       PanelStarsStatusProvider `json:"provider"`
+	Rate           *PanelTonRate            `json:"rate,omitempty"`
+	TonApiProvider string                   `json:"tonApiProvider"`
+	TonApiRps      float32                  `json:"tonApiRps"`
+	VpnOffer       bool                     `json:"vpnOffer"`
+	WalletLowStars int                      `json:"walletLowStars"`
+	WalletVersion  string                   `json:"walletVersion"`
+}
+
+// PanelStarsStatusProvider defines model for PanelStarsStatus.Provider.
+type PanelStarsStatusProvider string
+
+// PanelStarsWallet defines model for PanelStarsWallet.
+type PanelStarsWallet struct {
+	Address      string  `json:"address"`
+	Asset        string  `json:"asset"`
+	BalanceMinor *int64  `json:"balanceMinor,omitempty"`
+	BalanceNano  int64   `json:"balanceNano"`
+	Currency     *string `json:"currency,omitempty"`
+	ExplorerUrl  string  `json:"explorerUrl"`
+
+	// Price100Nano Fragment's current price for 100 Stars.
+	Price100Nano *int64 `json:"price100Nano,omitempty"`
+	RateMinor    *int64 `json:"rateMinor,omitempty"`
+	StarsCovered *int64 `json:"starsCovered,omitempty"`
+	Version      string `json:"version"`
+}
+
 // PanelStuckPayment defines model for PanelStuckPayment.
 type PanelStuckPayment struct {
 	AmountMinor int64              `json:"amountMinor"`
@@ -8126,6 +8405,16 @@ type PanelTicket struct {
 type PanelTicketList struct {
 	Items *[]PanelTicket `json:"items"`
 }
+
+// PanelTonRate defines model for PanelTonRate.
+type PanelTonRate struct {
+	Currency    string             `json:"currency"`
+	MinorPerTon int64              `json:"minorPerTon"`
+	Source      PanelTonRateSource `json:"source"`
+}
+
+// PanelTonRateSource defines model for PanelTonRate.Source.
+type PanelTonRateSource string
 
 // PanelTopUpSettings defines model for PanelTopUpSettings.
 type PanelTopUpSettings struct {
@@ -9003,6 +9292,32 @@ type RevokeAccountSessionParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// SaveAccountShopCartJSONBody defines parameters for SaveAccountShopCart.
+type SaveAccountShopCartJSONBody struct {
+	ForSelf   *bool              `json:"forSelf,omitempty"`
+	ProductId openapi_types.UUID `json:"productId"`
+	PromoCode *string            `json:"promoCode,omitempty"`
+	Quantity  int                `json:"quantity"`
+	Quote     struct {
+		Currency   string `json:"currency"`
+		PriceMinor int64  `json:"priceMinor"`
+	} `json:"quote"`
+	Recipient string `json:"recipient"`
+	Stars     *int   `json:"stars,omitempty"`
+}
+
+// SaveAccountShopCartParams defines parameters for SaveAccountShopCart.
+type SaveAccountShopCartParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// BuyAccountShopCartParams defines parameters for BuyAccountShopCart.
+type BuyAccountShopCartParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // ListAccountShopOrdersParams defines parameters for ListAccountShopOrders.
 type ListAccountShopOrdersParams struct {
 	Cursor   *Cursor                            `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -9032,9 +9347,12 @@ type ListAccountShopProductsParamsLocale string
 
 // GetAccountShopProductParams defines parameters for GetAccountShopProduct.
 type GetAccountShopProductParams struct {
-	Locale    *GetAccountShopProductParamsLocale `form:"locale,omitempty" json:"locale,omitempty"`
-	Quantity  *int                               `form:"quantity,omitempty" json:"quantity,omitempty"`
-	PromoCode *string                            `form:"promoCode,omitempty" json:"promoCode,omitempty"`
+	Locale   *GetAccountShopProductParamsLocale `form:"locale,omitempty" json:"locale,omitempty"`
+	Quantity *int                               `form:"quantity,omitempty" json:"quantity,omitempty"`
+
+	// Stars The amount for a custom-amount Stars product. Ignored for a pack; omitted picks the first preset.
+	Stars     *int    `form:"stars,omitempty" json:"stars,omitempty"`
+	PromoCode *string `form:"promoCode,omitempty" json:"promoCode,omitempty"`
 }
 
 // GetAccountShopProductParamsLocale defines parameters for GetAccountShopProduct.
@@ -9051,6 +9369,9 @@ type PurchaseAccountShopProductJSONBody struct {
 	// Quote A price and the moment it stops applying. The two travel together so a client cannot hold one without the other.
 	Quote     AccountShopQuote `json:"quote"`
 	Recipient string           `json:"recipient"`
+
+	// Stars The amount for a custom-amount Stars product.
+	Stars *int `json:"stars,omitempty"`
 
 	// UseWallet Stated explicitly, so a balance is never spent by omission.
 	UseWallet *bool `json:"useWallet,omitempty"`
@@ -9852,14 +10173,44 @@ type RevokePanelGiftParams struct {
 
 // SearchPanelGoodsOrdersParams defines parameters for SearchPanelGoodsOrders.
 type SearchPanelGoodsOrdersParams struct {
-	Cursor     *Cursor             `form:"cursor,omitempty" json:"cursor,omitempty"`
-	PageSize   *PageSize           `form:"pageSize,omitempty" json:"pageSize,omitempty"`
-	Status     *string             `form:"status,omitempty" json:"status,omitempty"`
-	CustomerId *openapi_types.UUID `form:"customerId,omitempty" json:"customerId,omitempty"`
+	Cursor     *Cursor                           `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize   *PageSize                         `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+	Status     *string                           `form:"status,omitempty" json:"status,omitempty"`
+	CustomerId *openapi_types.UUID               `form:"customerId,omitempty" json:"customerId,omitempty"`
+	Kind       *SearchPanelGoodsOrdersParamsKind `form:"kind,omitempty" json:"kind,omitempty"`
+
+	// Q A recipient handle (with or without @), an order identifier, or a customer identifier.
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
 }
+
+// SearchPanelGoodsOrdersParamsKind defines parameters for SearchPanelGoodsOrders.
+type SearchPanelGoodsOrdersParamsKind string
 
 // CancelPanelGoodsDeliveryParams defines parameters for CancelPanelGoodsDelivery.
 type CancelPanelGoodsDeliveryParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+
+	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
+	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
+}
+
+// CompletePanelGoodsDeliveryJSONBody defines parameters for CompletePanelGoodsDelivery.
+type CompletePanelGoodsDeliveryJSONBody struct {
+	TxHash *string `json:"txHash,omitempty"`
+}
+
+// CompletePanelGoodsDeliveryParams defines parameters for CompletePanelGoodsDelivery.
+type CompletePanelGoodsDeliveryParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+
+	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
+	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
+}
+
+// RefundPanelGoodsOrderParams defines parameters for RefundPanelGoodsOrder.
+type RefundPanelGoodsOrderParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 
@@ -9874,6 +10225,15 @@ type ResolvePanelGoodsDeliveryJSONBody struct {
 
 // ResolvePanelGoodsDeliveryParams defines parameters for ResolvePanelGoodsDelivery.
 type ResolvePanelGoodsDeliveryParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+
+	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
+	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
+}
+
+// RetryPanelGoodsDeliveryParams defines parameters for RetryPanelGoodsDelivery.
+type RetryPanelGoodsDeliveryParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 
@@ -9922,6 +10282,11 @@ type SavePanelGoodsProviderParams struct {
 // ListPanelGoodsReviewQueueParams defines parameters for ListPanelGoodsReviewQueue.
 type ListPanelGoodsReviewQueueParams struct {
 	PageSize *PageSize `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+}
+
+// GetPanelStarsStatsParams defines parameters for GetPanelStarsStats.
+type GetPanelStarsStatsParams struct {
+	Days *int `form:"days,omitempty" json:"days,omitempty"`
 }
 
 // RevertPanelNoticeParams defines parameters for RevertPanelNotice.
@@ -10527,6 +10892,9 @@ type RequestAccountDeletionJSONRequestBody RequestAccountDeletionJSONBody
 // AttributeAccountReferralJSONRequestBody defines body for AttributeAccountReferral for application/json ContentType.
 type AttributeAccountReferralJSONRequestBody AttributeAccountReferralJSONBody
 
+// SaveAccountShopCartJSONRequestBody defines body for SaveAccountShopCart for application/json ContentType.
+type SaveAccountShopCartJSONRequestBody SaveAccountShopCartJSONBody
+
 // PurchaseAccountShopProductJSONRequestBody defines body for PurchaseAccountShopProduct for application/json ContentType.
 type PurchaseAccountShopProductJSONRequestBody PurchaseAccountShopProductJSONBody
 
@@ -10694,6 +11062,9 @@ type RecordPanelRefundJSONRequestBody = PanelRefundRecord
 
 // ReconcilePanelPaymentJSONRequestBody defines body for ReconcilePanelPayment for application/json ContentType.
 type ReconcilePanelPaymentJSONRequestBody ReconcilePanelPaymentJSONBody
+
+// CompletePanelGoodsDeliveryJSONRequestBody defines body for CompletePanelGoodsDelivery for application/json ContentType.
+type CompletePanelGoodsDeliveryJSONRequestBody CompletePanelGoodsDeliveryJSONBody
 
 // ResolvePanelGoodsDeliveryJSONRequestBody defines body for ResolvePanelGoodsDelivery for application/json ContentType.
 type ResolvePanelGoodsDeliveryJSONRequestBody ResolvePanelGoodsDeliveryJSONBody
@@ -11116,6 +11487,12 @@ type ServerInterface interface {
 
 	// (DELETE /v1/account/sessions/{sessionID})
 	RevokeAccountSession(w http.ResponseWriter, r *http.Request, sessionID openapi_types.UUID, params RevokeAccountSessionParams)
+
+	// (POST /v1/account/shop/cart)
+	SaveAccountShopCart(w http.ResponseWriter, r *http.Request, params SaveAccountShopCartParams)
+
+	// (POST /v1/account/shop/cart/purchase)
+	BuyAccountShopCart(w http.ResponseWriter, r *http.Request, params BuyAccountShopCartParams)
 
 	// (GET /v1/account/shop/orders)
 	ListAccountShopOrders(w http.ResponseWriter, r *http.Request, params ListAccountShopOrdersParams)
@@ -11606,8 +11983,17 @@ type ServerInterface interface {
 	// (POST /v1/panel/goods/orders/{orderID}/cancel)
 	CancelPanelGoodsDelivery(w http.ResponseWriter, r *http.Request, orderID OrderID, params CancelPanelGoodsDeliveryParams)
 
+	// (POST /v1/panel/goods/orders/{orderID}/complete)
+	CompletePanelGoodsDelivery(w http.ResponseWriter, r *http.Request, orderID OrderID, params CompletePanelGoodsDeliveryParams)
+
+	// (POST /v1/panel/goods/orders/{orderID}/refund)
+	RefundPanelGoodsOrder(w http.ResponseWriter, r *http.Request, orderID OrderID, params RefundPanelGoodsOrderParams)
+
 	// (POST /v1/panel/goods/orders/{orderID}/resolve)
 	ResolvePanelGoodsDelivery(w http.ResponseWriter, r *http.Request, orderID OrderID, params ResolvePanelGoodsDeliveryParams)
+
+	// (POST /v1/panel/goods/orders/{orderID}/retry)
+	RetryPanelGoodsDelivery(w http.ResponseWriter, r *http.Request, orderID OrderID, params RetryPanelGoodsDeliveryParams)
 
 	// (GET /v1/panel/goods/products)
 	ListPanelGoodsProducts(w http.ResponseWriter, r *http.Request, params ListPanelGoodsProductsParams)
@@ -11632,6 +12018,15 @@ type ServerInterface interface {
 
 	// (GET /v1/panel/goods/review)
 	ListPanelGoodsReviewQueue(w http.ResponseWriter, r *http.Request, params ListPanelGoodsReviewQueueParams)
+
+	// (GET /v1/panel/goods/stars/stats)
+	GetPanelStarsStats(w http.ResponseWriter, r *http.Request, params GetPanelStarsStatsParams)
+
+	// (GET /v1/panel/goods/stars/status)
+	GetPanelStarsStatus(w http.ResponseWriter, r *http.Request)
+
+	// (GET /v1/panel/goods/stars/wallet)
+	GetPanelStarsWallet(w http.ResponseWriter, r *http.Request)
 
 	// (POST /v1/panel/invitations/accept)
 	AcceptPanelInvitation(w http.ResponseWriter, r *http.Request)
@@ -12151,6 +12546,16 @@ func (_ Unimplemented) ListAccountSessions(w http.ResponseWriter, r *http.Reques
 
 // (DELETE /v1/account/sessions/{sessionID})
 func (_ Unimplemented) RevokeAccountSession(w http.ResponseWriter, r *http.Request, sessionID openapi_types.UUID, params RevokeAccountSessionParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/shop/cart)
+func (_ Unimplemented) SaveAccountShopCart(w http.ResponseWriter, r *http.Request, params SaveAccountShopCartParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/shop/cart/purchase)
+func (_ Unimplemented) BuyAccountShopCart(w http.ResponseWriter, r *http.Request, params BuyAccountShopCartParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -12969,8 +13374,23 @@ func (_ Unimplemented) CancelPanelGoodsDelivery(w http.ResponseWriter, r *http.R
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (POST /v1/panel/goods/orders/{orderID}/complete)
+func (_ Unimplemented) CompletePanelGoodsDelivery(w http.ResponseWriter, r *http.Request, orderID OrderID, params CompletePanelGoodsDeliveryParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/goods/orders/{orderID}/refund)
+func (_ Unimplemented) RefundPanelGoodsOrder(w http.ResponseWriter, r *http.Request, orderID OrderID, params RefundPanelGoodsOrderParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (POST /v1/panel/goods/orders/{orderID}/resolve)
 func (_ Unimplemented) ResolvePanelGoodsDelivery(w http.ResponseWriter, r *http.Request, orderID OrderID, params ResolvePanelGoodsDeliveryParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/goods/orders/{orderID}/retry)
+func (_ Unimplemented) RetryPanelGoodsDelivery(w http.ResponseWriter, r *http.Request, orderID OrderID, params RetryPanelGoodsDeliveryParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -13011,6 +13431,21 @@ func (_ Unimplemented) SavePanelGoodsProvider(w http.ResponseWriter, r *http.Req
 
 // (GET /v1/panel/goods/review)
 func (_ Unimplemented) ListPanelGoodsReviewQueue(w http.ResponseWriter, r *http.Request, params ListPanelGoodsReviewQueueParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/goods/stars/stats)
+func (_ Unimplemented) GetPanelStarsStats(w http.ResponseWriter, r *http.Request, params GetPanelStarsStatsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/goods/stars/status)
+func (_ Unimplemented) GetPanelStarsStatus(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/goods/stars/wallet)
+func (_ Unimplemented) GetPanelStarsWallet(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -15403,6 +15838,96 @@ func (siw *ServerInterfaceWrapper) RevokeAccountSession(w http.ResponseWriter, r
 	handler.ServeHTTP(w, r)
 }
 
+// SaveAccountShopCart operation middleware
+func (siw *ServerInterfaceWrapper) SaveAccountShopCart(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SaveAccountShopCartParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SaveAccountShopCart(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// BuyAccountShopCart operation middleware
+func (siw *ServerInterfaceWrapper) BuyAccountShopCart(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params BuyAccountShopCartParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BuyAccountShopCart(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListAccountShopOrders operation middleware
 func (siw *ServerInterfaceWrapper) ListAccountShopOrders(w http.ResponseWriter, r *http.Request) {
 
@@ -15590,6 +16115,19 @@ func (siw *ServerInterfaceWrapper) GetAccountShopProduct(w http.ResponseWriter, 
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "quantity"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "quantity", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "stars" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "stars", r.URL.Query(), &params.Stars, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "stars"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "stars", Err: err})
 		}
 		return
 	}
@@ -22381,6 +22919,32 @@ func (siw *ServerInterfaceWrapper) SearchPanelGoodsOrders(w http.ResponseWriter,
 		return
 	}
 
+	// ------------- Optional query parameter "kind" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", r.URL.Query(), &params.Kind, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "kind"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SearchPanelGoodsOrders(w, r, params)
 	}))
@@ -22495,6 +23059,160 @@ func (siw *ServerInterfaceWrapper) CancelPanelGoodsDelivery(w http.ResponseWrite
 	handler.ServeHTTP(w, r)
 }
 
+// CompletePanelGoodsDelivery operation middleware
+func (siw *ServerInterfaceWrapper) CompletePanelGoodsDelivery(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "orderID" -------------
+	var orderID OrderID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "orderID", chi.URLParam(r, "orderID"), &orderID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orderID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CompletePanelGoodsDeliveryParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Operator-Reason" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Operator-Reason")]; found {
+		var XOperatorReason OperatorReason
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Operator-Reason", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Operator-Reason", valueList[0], &XOperatorReason, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Operator-Reason", Err: err})
+			return
+		}
+
+		params.XOperatorReason = XOperatorReason
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Operator-Reason is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Operator-Reason", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CompletePanelGoodsDelivery(w, r, orderID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RefundPanelGoodsOrder operation middleware
+func (siw *ServerInterfaceWrapper) RefundPanelGoodsOrder(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "orderID" -------------
+	var orderID OrderID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "orderID", chi.URLParam(r, "orderID"), &orderID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orderID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RefundPanelGoodsOrderParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Operator-Reason" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Operator-Reason")]; found {
+		var XOperatorReason OperatorReason
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Operator-Reason", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Operator-Reason", valueList[0], &XOperatorReason, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Operator-Reason", Err: err})
+			return
+		}
+
+		params.XOperatorReason = XOperatorReason
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Operator-Reason is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Operator-Reason", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RefundPanelGoodsOrder(w, r, orderID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ResolvePanelGoodsDelivery operation middleware
 func (siw *ServerInterfaceWrapper) ResolvePanelGoodsDelivery(w http.ResponseWriter, r *http.Request) {
 
@@ -22563,6 +23281,83 @@ func (siw *ServerInterfaceWrapper) ResolvePanelGoodsDelivery(w http.ResponseWrit
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ResolvePanelGoodsDelivery(w, r, orderID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RetryPanelGoodsDelivery operation middleware
+func (siw *ServerInterfaceWrapper) RetryPanelGoodsDelivery(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "orderID" -------------
+	var orderID OrderID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "orderID", chi.URLParam(r, "orderID"), &orderID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orderID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RetryPanelGoodsDeliveryParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Operator-Reason" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Operator-Reason")]; found {
+		var XOperatorReason OperatorReason
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Operator-Reason", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Operator-Reason", valueList[0], &XOperatorReason, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Operator-Reason", Err: err})
+			return
+		}
+
+		params.XOperatorReason = XOperatorReason
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Operator-Reason is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Operator-Reason", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RetryPanelGoodsDelivery(w, r, orderID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -22913,6 +23708,67 @@ func (siw *ServerInterfaceWrapper) ListPanelGoodsReviewQueue(w http.ResponseWrit
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListPanelGoodsReviewQueue(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPanelStarsStats operation middleware
+func (siw *ServerInterfaceWrapper) GetPanelStarsStats(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPanelStarsStatsParams
+
+	// ------------- Optional query parameter "days" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "days", r.URL.Query(), &params.Days, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "days"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "days", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPanelStarsStats(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPanelStarsStatus operation middleware
+func (siw *ServerInterfaceWrapper) GetPanelStarsStatus(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPanelStarsStatus(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPanelStarsWallet operation middleware
+func (siw *ServerInterfaceWrapper) GetPanelStarsWallet(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPanelStarsWallet(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -27545,6 +28401,24 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/v1/panel/goods/review", wrapper.ListPanelGoodsReviewQueue)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/goods/stars/status", wrapper.GetPanelStarsStatus)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/goods/stars/stats", wrapper.GetPanelStarsStats)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/goods/stars/wallet", wrapper.GetPanelStarsWallet)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/goods/orders/{orderID}/retry", wrapper.RetryPanelGoodsDelivery)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/goods/orders/{orderID}/refund", wrapper.RefundPanelGoodsOrder)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/goods/orders/{orderID}/complete", wrapper.CompletePanelGoodsDelivery)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/panel/goods/orders/{orderID}/resolve", wrapper.ResolvePanelGoodsDelivery)
 	})
 	r.Group(func(r chi.Router) {
@@ -27732,6 +28606,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/account/shop/purchase", wrapper.PurchaseAccountShopProduct)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/shop/cart", wrapper.SaveAccountShopCart)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/shop/cart/purchase", wrapper.BuyAccountShopCart)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/account/shop/orders", wrapper.ListAccountShopOrders)
@@ -29820,6 +30700,148 @@ func (response RevokeAccountSession404ApplicationProblemPlusJSONResponse) VisitR
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SaveAccountShopCartRequestObject struct {
+	Params SaveAccountShopCartParams
+	Body   *SaveAccountShopCartJSONRequestBody
+}
+
+type SaveAccountShopCartResponseObject interface {
+	VisitSaveAccountShopCartResponse(w http.ResponseWriter) error
+}
+
+type SaveAccountShopCart200JSONResponse struct {
+	AutoPurchase   bool   `json:"autoPurchase"`
+	AvailableMinor int64  `json:"availableMinor"`
+	Currency       string `json:"currency"`
+	PriceMinor     int64  `json:"priceMinor"`
+
+	// ShortfallMinor Exactly what to top up.
+	ShortfallMinor int64 `json:"shortfallMinor"`
+	Stars          int   `json:"stars"`
+}
+
+func (response SaveAccountShopCart200JSONResponse) VisitSaveAccountShopCartResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SaveAccountShopCart404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SaveAccountShopCart404ApplicationProblemPlusJSONResponse) VisitSaveAccountShopCartResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SaveAccountShopCart409ApplicationProblemPlusJSONResponse Problem
+
+func (response SaveAccountShopCart409ApplicationProblemPlusJSONResponse) VisitSaveAccountShopCartResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SaveAccountShopCart422ApplicationProblemPlusJSONResponse Problem
+
+func (response SaveAccountShopCart422ApplicationProblemPlusJSONResponse) VisitSaveAccountShopCartResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SaveAccountShopCart503ApplicationProblemPlusJSONResponse Problem
+
+func (response SaveAccountShopCart503ApplicationProblemPlusJSONResponse) VisitSaveAccountShopCartResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BuyAccountShopCartRequestObject struct {
+	Params BuyAccountShopCartParams
+}
+
+type BuyAccountShopCartResponseObject interface {
+	VisitBuyAccountShopCartResponse(w http.ResponseWriter) error
+}
+
+type BuyAccountShopCart201JSONResponse AccountShopOrder
+
+func (response BuyAccountShopCart201JSONResponse) VisitBuyAccountShopCartResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BuyAccountShopCart409ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response BuyAccountShopCart409ApplicationProblemPlusJSONResponse) VisitBuyAccountShopCartResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BuyAccountShopCart503ApplicationProblemPlusJSONResponse Problem
+
+func (response BuyAccountShopCart503ApplicationProblemPlusJSONResponse) VisitBuyAccountShopCartResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -37109,6 +38131,143 @@ func (response CancelPanelGoodsDelivery409ApplicationProblemPlusJSONResponse) Vi
 	return err
 }
 
+type CompletePanelGoodsDeliveryRequestObject struct {
+	OrderID OrderID `json:"orderID"`
+	Params  CompletePanelGoodsDeliveryParams
+	Body    *CompletePanelGoodsDeliveryJSONRequestBody
+}
+
+type CompletePanelGoodsDeliveryResponseObject interface {
+	VisitCompletePanelGoodsDeliveryResponse(w http.ResponseWriter) error
+}
+
+type CompletePanelGoodsDelivery204Response struct {
+}
+
+func (response CompletePanelGoodsDelivery204Response) VisitCompletePanelGoodsDeliveryResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type CompletePanelGoodsDelivery403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CompletePanelGoodsDelivery403ApplicationProblemPlusJSONResponse) VisitCompletePanelGoodsDeliveryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CompletePanelGoodsDelivery409ApplicationProblemPlusJSONResponse Problem
+
+func (response CompletePanelGoodsDelivery409ApplicationProblemPlusJSONResponse) VisitCompletePanelGoodsDeliveryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CompletePanelGoodsDelivery422ApplicationProblemPlusJSONResponse Problem
+
+func (response CompletePanelGoodsDelivery422ApplicationProblemPlusJSONResponse) VisitCompletePanelGoodsDeliveryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefundPanelGoodsOrderRequestObject struct {
+	OrderID OrderID `json:"orderID"`
+	Params  RefundPanelGoodsOrderParams
+}
+
+type RefundPanelGoodsOrderResponseObject interface {
+	VisitRefundPanelGoodsOrderResponse(w http.ResponseWriter) error
+}
+
+type RefundPanelGoodsOrder204Response struct {
+}
+
+func (response RefundPanelGoodsOrder204Response) VisitRefundPanelGoodsOrderResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type RefundPanelGoodsOrder403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RefundPanelGoodsOrder403ApplicationProblemPlusJSONResponse) VisitRefundPanelGoodsOrderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefundPanelGoodsOrder404ApplicationProblemPlusJSONResponse Problem
+
+func (response RefundPanelGoodsOrder404ApplicationProblemPlusJSONResponse) VisitRefundPanelGoodsOrderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefundPanelGoodsOrder409ApplicationProblemPlusJSONResponse Problem
+
+func (response RefundPanelGoodsOrder409ApplicationProblemPlusJSONResponse) VisitRefundPanelGoodsOrderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RefundPanelGoodsOrder422ApplicationProblemPlusJSONResponse Problem
+
+func (response RefundPanelGoodsOrder422ApplicationProblemPlusJSONResponse) VisitRefundPanelGoodsOrderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ResolvePanelGoodsDeliveryRequestObject struct {
 	OrderID OrderID `json:"orderID"`
 	Params  ResolvePanelGoodsDeliveryParams
@@ -37160,6 +38319,67 @@ func (response ResolvePanelGoodsDelivery409ApplicationProblemPlusJSONResponse) V
 type ResolvePanelGoodsDelivery422ApplicationProblemPlusJSONResponse Problem
 
 func (response ResolvePanelGoodsDelivery422ApplicationProblemPlusJSONResponse) VisitResolvePanelGoodsDeliveryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RetryPanelGoodsDeliveryRequestObject struct {
+	OrderID OrderID `json:"orderID"`
+	Params  RetryPanelGoodsDeliveryParams
+}
+
+type RetryPanelGoodsDeliveryResponseObject interface {
+	VisitRetryPanelGoodsDeliveryResponse(w http.ResponseWriter) error
+}
+
+type RetryPanelGoodsDelivery204Response struct {
+}
+
+func (response RetryPanelGoodsDelivery204Response) VisitRetryPanelGoodsDeliveryResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type RetryPanelGoodsDelivery403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RetryPanelGoodsDelivery403ApplicationProblemPlusJSONResponse) VisitRetryPanelGoodsDeliveryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RetryPanelGoodsDelivery409ApplicationProblemPlusJSONResponse Problem
+
+func (response RetryPanelGoodsDelivery409ApplicationProblemPlusJSONResponse) VisitRetryPanelGoodsDeliveryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RetryPanelGoodsDelivery422ApplicationProblemPlusJSONResponse Problem
+
+func (response RetryPanelGoodsDelivery422ApplicationProblemPlusJSONResponse) VisitRetryPanelGoodsDeliveryResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -37546,6 +38766,160 @@ func (response ListPanelGoodsReviewQueue403ApplicationProblemPlusJSONResponse) V
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelStarsStatsRequestObject struct {
+	Params GetPanelStarsStatsParams
+}
+
+type GetPanelStarsStatsResponseObject interface {
+	VisitGetPanelStarsStatsResponse(w http.ResponseWriter) error
+}
+
+type GetPanelStarsStats200JSONResponse PanelStarsStats
+
+func (response GetPanelStarsStats200JSONResponse) VisitGetPanelStarsStatsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelStarsStats403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetPanelStarsStats403ApplicationProblemPlusJSONResponse) VisitGetPanelStarsStatsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelStarsStats422ApplicationProblemPlusJSONResponse Problem
+
+func (response GetPanelStarsStats422ApplicationProblemPlusJSONResponse) VisitGetPanelStarsStatsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelStarsStatusRequestObject struct {
+}
+
+type GetPanelStarsStatusResponseObject interface {
+	VisitGetPanelStarsStatusResponse(w http.ResponseWriter) error
+}
+
+type GetPanelStarsStatus200JSONResponse PanelStarsStatus
+
+func (response GetPanelStarsStatus200JSONResponse) VisitGetPanelStarsStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelStarsStatus403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetPanelStarsStatus403ApplicationProblemPlusJSONResponse) VisitGetPanelStarsStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelStarsWalletRequestObject struct {
+}
+
+type GetPanelStarsWalletResponseObject interface {
+	VisitGetPanelStarsWalletResponse(w http.ResponseWriter) error
+}
+
+type GetPanelStarsWallet200JSONResponse PanelStarsWallet
+
+func (response GetPanelStarsWallet200JSONResponse) VisitGetPanelStarsWalletResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelStarsWallet403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetPanelStarsWallet403ApplicationProblemPlusJSONResponse) VisitGetPanelStarsWalletResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelStarsWallet502ApplicationProblemPlusJSONResponse Problem
+
+func (response GetPanelStarsWallet502ApplicationProblemPlusJSONResponse) VisitGetPanelStarsWalletResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelStarsWallet503ApplicationProblemPlusJSONResponse Problem
+
+func (response GetPanelStarsWallet503ApplicationProblemPlusJSONResponse) VisitGetPanelStarsWalletResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -41992,6 +43366,12 @@ type StrictServerInterface interface {
 	// (DELETE /v1/account/sessions/{sessionID})
 	RevokeAccountSession(ctx context.Context, request RevokeAccountSessionRequestObject) (RevokeAccountSessionResponseObject, error)
 
+	// (POST /v1/account/shop/cart)
+	SaveAccountShopCart(ctx context.Context, request SaveAccountShopCartRequestObject) (SaveAccountShopCartResponseObject, error)
+
+	// (POST /v1/account/shop/cart/purchase)
+	BuyAccountShopCart(ctx context.Context, request BuyAccountShopCartRequestObject) (BuyAccountShopCartResponseObject, error)
+
 	// (GET /v1/account/shop/orders)
 	ListAccountShopOrders(ctx context.Context, request ListAccountShopOrdersRequestObject) (ListAccountShopOrdersResponseObject, error)
 
@@ -42481,8 +43861,17 @@ type StrictServerInterface interface {
 	// (POST /v1/panel/goods/orders/{orderID}/cancel)
 	CancelPanelGoodsDelivery(ctx context.Context, request CancelPanelGoodsDeliveryRequestObject) (CancelPanelGoodsDeliveryResponseObject, error)
 
+	// (POST /v1/panel/goods/orders/{orderID}/complete)
+	CompletePanelGoodsDelivery(ctx context.Context, request CompletePanelGoodsDeliveryRequestObject) (CompletePanelGoodsDeliveryResponseObject, error)
+
+	// (POST /v1/panel/goods/orders/{orderID}/refund)
+	RefundPanelGoodsOrder(ctx context.Context, request RefundPanelGoodsOrderRequestObject) (RefundPanelGoodsOrderResponseObject, error)
+
 	// (POST /v1/panel/goods/orders/{orderID}/resolve)
 	ResolvePanelGoodsDelivery(ctx context.Context, request ResolvePanelGoodsDeliveryRequestObject) (ResolvePanelGoodsDeliveryResponseObject, error)
+
+	// (POST /v1/panel/goods/orders/{orderID}/retry)
+	RetryPanelGoodsDelivery(ctx context.Context, request RetryPanelGoodsDeliveryRequestObject) (RetryPanelGoodsDeliveryResponseObject, error)
 
 	// (GET /v1/panel/goods/products)
 	ListPanelGoodsProducts(ctx context.Context, request ListPanelGoodsProductsRequestObject) (ListPanelGoodsProductsResponseObject, error)
@@ -42507,6 +43896,15 @@ type StrictServerInterface interface {
 
 	// (GET /v1/panel/goods/review)
 	ListPanelGoodsReviewQueue(ctx context.Context, request ListPanelGoodsReviewQueueRequestObject) (ListPanelGoodsReviewQueueResponseObject, error)
+
+	// (GET /v1/panel/goods/stars/stats)
+	GetPanelStarsStats(ctx context.Context, request GetPanelStarsStatsRequestObject) (GetPanelStarsStatsResponseObject, error)
+
+	// (GET /v1/panel/goods/stars/status)
+	GetPanelStarsStatus(ctx context.Context, request GetPanelStarsStatusRequestObject) (GetPanelStarsStatusResponseObject, error)
+
+	// (GET /v1/panel/goods/stars/wallet)
+	GetPanelStarsWallet(ctx context.Context, request GetPanelStarsWalletRequestObject) (GetPanelStarsWalletResponseObject, error)
 
 	// (POST /v1/panel/invitations/accept)
 	AcceptPanelInvitation(ctx context.Context, request AcceptPanelInvitationRequestObject) (AcceptPanelInvitationResponseObject, error)
@@ -44208,6 +45606,65 @@ func (sh *strictHandler) RevokeAccountSession(w http.ResponseWriter, r *http.Req
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(RevokeAccountSessionResponseObject); ok {
 		if err := validResponse.VisitRevokeAccountSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SaveAccountShopCart operation middleware
+func (sh *strictHandler) SaveAccountShopCart(w http.ResponseWriter, r *http.Request, params SaveAccountShopCartParams) {
+	var request SaveAccountShopCartRequestObject
+
+	request.Params = params
+
+	var body SaveAccountShopCartJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SaveAccountShopCart(ctx, request.(SaveAccountShopCartRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SaveAccountShopCart")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SaveAccountShopCartResponseObject); ok {
+		if err := validResponse.VisitSaveAccountShopCartResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// BuyAccountShopCart operation middleware
+func (sh *strictHandler) BuyAccountShopCart(w http.ResponseWriter, r *http.Request, params BuyAccountShopCartParams) {
+	var request BuyAccountShopCartRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.BuyAccountShopCart(ctx, request.(BuyAccountShopCartRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "BuyAccountShopCart")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(BuyAccountShopCartResponseObject); ok {
+		if err := validResponse.VisitBuyAccountShopCartResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -48859,6 +50316,67 @@ func (sh *strictHandler) CancelPanelGoodsDelivery(w http.ResponseWriter, r *http
 	}
 }
 
+// CompletePanelGoodsDelivery operation middleware
+func (sh *strictHandler) CompletePanelGoodsDelivery(w http.ResponseWriter, r *http.Request, orderID OrderID, params CompletePanelGoodsDeliveryParams) {
+	var request CompletePanelGoodsDeliveryRequestObject
+
+	request.OrderID = orderID
+	request.Params = params
+
+	var body CompletePanelGoodsDeliveryJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CompletePanelGoodsDelivery(ctx, request.(CompletePanelGoodsDeliveryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CompletePanelGoodsDelivery")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CompletePanelGoodsDeliveryResponseObject); ok {
+		if err := validResponse.VisitCompletePanelGoodsDeliveryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RefundPanelGoodsOrder operation middleware
+func (sh *strictHandler) RefundPanelGoodsOrder(w http.ResponseWriter, r *http.Request, orderID OrderID, params RefundPanelGoodsOrderParams) {
+	var request RefundPanelGoodsOrderRequestObject
+
+	request.OrderID = orderID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RefundPanelGoodsOrder(ctx, request.(RefundPanelGoodsOrderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RefundPanelGoodsOrder")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RefundPanelGoodsOrderResponseObject); ok {
+		if err := validResponse.VisitRefundPanelGoodsOrderResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ResolvePanelGoodsDelivery operation middleware
 func (sh *strictHandler) ResolvePanelGoodsDelivery(w http.ResponseWriter, r *http.Request, orderID OrderID, params ResolvePanelGoodsDeliveryParams) {
 	var request ResolvePanelGoodsDeliveryRequestObject
@@ -48886,6 +50404,33 @@ func (sh *strictHandler) ResolvePanelGoodsDelivery(w http.ResponseWriter, r *htt
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ResolvePanelGoodsDeliveryResponseObject); ok {
 		if err := validResponse.VisitResolvePanelGoodsDeliveryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RetryPanelGoodsDelivery operation middleware
+func (sh *strictHandler) RetryPanelGoodsDelivery(w http.ResponseWriter, r *http.Request, orderID OrderID, params RetryPanelGoodsDeliveryParams) {
+	var request RetryPanelGoodsDeliveryRequestObject
+
+	request.OrderID = orderID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RetryPanelGoodsDelivery(ctx, request.(RetryPanelGoodsDeliveryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RetryPanelGoodsDelivery")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RetryPanelGoodsDeliveryResponseObject); ok {
+		if err := validResponse.VisitRetryPanelGoodsDeliveryResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -49132,6 +50677,80 @@ func (sh *strictHandler) ListPanelGoodsReviewQueue(w http.ResponseWriter, r *htt
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListPanelGoodsReviewQueueResponseObject); ok {
 		if err := validResponse.VisitListPanelGoodsReviewQueueResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPanelStarsStats operation middleware
+func (sh *strictHandler) GetPanelStarsStats(w http.ResponseWriter, r *http.Request, params GetPanelStarsStatsParams) {
+	var request GetPanelStarsStatsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPanelStarsStats(ctx, request.(GetPanelStarsStatsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPanelStarsStats")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPanelStarsStatsResponseObject); ok {
+		if err := validResponse.VisitGetPanelStarsStatsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPanelStarsStatus operation middleware
+func (sh *strictHandler) GetPanelStarsStatus(w http.ResponseWriter, r *http.Request) {
+	var request GetPanelStarsStatusRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPanelStarsStatus(ctx, request.(GetPanelStarsStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPanelStarsStatus")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPanelStarsStatusResponseObject); ok {
+		if err := validResponse.VisitGetPanelStarsStatusResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPanelStarsWallet operation middleware
+func (sh *strictHandler) GetPanelStarsWallet(w http.ResponseWriter, r *http.Request) {
+	var request GetPanelStarsWalletRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPanelStarsWallet(ctx, request.(GetPanelStarsWalletRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPanelStarsWallet")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPanelStarsWalletResponseObject); ok {
+		if err := validResponse.VisitGetPanelStarsWalletResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -273,7 +273,27 @@ func buildAdminPanel(
 		// API writes them to; see buildCustomerPanel.
 		SupportAttachments: accountsupport.NewDirectoryStore(cfg.SupportAttachmentDir),
 		Search:             search,
+		Stars:              starsShopOptions(logger, cfg, pool),
 	}), nil
+}
+
+// starsShopOptions builds the registry the panel reads the direct Fragment
+// provider through. It is its own registry rather than the customer panel's
+// because the two panels are built independently; the TON API rate limit is
+// process-wide either way, so they share one request budget.
+func starsShopOptions(logger *slog.Logger, cfg config.Config, pool *pgxpool.Pool) apihttp.StarsShopOptions {
+	registry, err := goodsdelivery.NewRegistry(pool, cfg.DataEncryptionKey, cfg.DefaultCurrency)
+	if err != nil {
+		logger.Warn("stars shop panel disabled", "error", err)
+		return apihttp.StarsShopOptions{}
+	}
+	registry.WithFragmentDirect(goodsdelivery.DirectOptionsFrom(cfg.Fragment, cfg.DefaultCurrency, logger))
+	return apihttp.StarsShopOptions{
+		Registry: registry, Currency: cfg.DefaultCurrency,
+		WalletVersion: cfg.Fragment.WalletVersion, TONAPIProvider: cfg.Fragment.TONAPIProvider,
+		TONAPIRPS: cfg.Fragment.TONAPIRPS, WalletLowStars: cfg.Fragment.WalletLowStars,
+		VPNOffer: cfg.Fragment.VPNOffer,
+	}
 }
 
 // buildCustomerPanel wires the customer web API.

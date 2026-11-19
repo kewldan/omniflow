@@ -6333,7 +6333,22 @@ export const ListPanelGoodsProductsResponse = zod.object({
         providerSlug: zod.string(),
         kind: zod.enum(["telegram_premium", "telegram_stars"]),
         durationMonths: zod.int().optional(),
-        starQuantity: zod.int().optional(),
+        starQuantity: zod
+          .int()
+          .optional()
+          .describe("A fixed pack. Absent for a custom-amount product."),
+        minStarQuantity: zod
+          .int()
+          .optional()
+          .describe("Lower bound of a custom-amount Stars product."),
+        maxStarQuantity: zod
+          .int()
+          .optional()
+          .describe("Upper bound of a custom-amount Stars product."),
+        starPresets: zod
+          .array(zod.int())
+          .optional()
+          .describe("One-tap amounts offered for a custom-amount product."),
         visible: zod.boolean(),
         sortOrder: zod.int(),
         createdAt: zod.iso.datetime({ offset: true }),
@@ -6365,6 +6380,13 @@ export const ListPanelGoodsProductsResponse = zod.object({
               .int()
               .nullish()
               .describe("Opts out of markup derivation entirely."),
+            unitPriceMinor: zod
+              .int()
+              .min(1)
+              .nullish()
+              .describe(
+                "A fixed price per Star, for a Stars product. Exclusive with fixedAmountMinor. An operator price is what lets a saved purchase buy itself after a top-up.",
+              ),
             quoteTtlSeconds: zod
               .int()
               .min(listPanelGoodsProductsResponseItemsItemPricingQuoteTtlSecondsMin)
@@ -6388,12 +6410,37 @@ export const CreatePanelGoodsProductHeader = zod.object({
 
 export const createPanelGoodsProductBodyCodeRegExp = /^[a-z][a-z0-9_-]{1,63}$/;
 
+export const createPanelGoodsProductBodyMinStarQuantityMin = 50;
+
+export const createPanelGoodsProductBodyMaxStarQuantityMax = 10000000;
+
+export const createPanelGoodsProductBodyStarPresetsMax = 12;
+
 export const CreatePanelGoodsProductBody = zod.object({
   code: zod.string().regex(createPanelGoodsProductBodyCodeRegExp),
   providerSlug: zod.string(),
   kind: zod.enum(["telegram_premium", "telegram_stars"]),
   durationMonths: zod.union([zod.literal(3), zod.literal(6), zod.literal(12)]).optional(),
-  starQuantity: zod.int().min(1).optional(),
+  starQuantity: zod
+    .int()
+    .min(1)
+    .optional()
+    .describe("A fixed pack. Omit for a custom-amount product."),
+  minStarQuantity: zod
+    .int()
+    .min(createPanelGoodsProductBodyMinStarQuantityMin)
+    .optional()
+    .describe("Custom amount: the smallest a customer may buy. Fragment's floor is 50."),
+  maxStarQuantity: zod
+    .int()
+    .max(createPanelGoodsProductBodyMaxStarQuantityMax)
+    .optional()
+    .describe("Custom amount: the largest a customer may buy."),
+  starPresets: zod
+    .array(zod.int())
+    .max(createPanelGoodsProductBodyStarPresetsMax)
+    .optional()
+    .describe("Custom amount: one-tap amounts, each within the bounds."),
   visible: zod.boolean(),
   sortOrder: zod.int(),
 });
@@ -6414,7 +6461,13 @@ export const CreatePanelGoodsProductResponse = zod.object({
   providerSlug: zod.string(),
   kind: zod.enum(["telegram_premium", "telegram_stars"]),
   durationMonths: zod.int().optional(),
-  starQuantity: zod.int().optional(),
+  starQuantity: zod.int().optional().describe("A fixed pack. Absent for a custom-amount product."),
+  minStarQuantity: zod.int().optional().describe("Lower bound of a custom-amount Stars product."),
+  maxStarQuantity: zod.int().optional().describe("Upper bound of a custom-amount Stars product."),
+  starPresets: zod
+    .array(zod.int())
+    .optional()
+    .describe("One-tap amounts offered for a custom-amount product."),
   visible: zod.boolean(),
   sortOrder: zod.int(),
   createdAt: zod.iso.datetime({ offset: true }),
@@ -6440,6 +6493,13 @@ export const CreatePanelGoodsProductResponse = zod.object({
         .max(createPanelGoodsProductResponsePricingMarkupBpsMax),
       rounding: zod.enum(["none", "up_minor", "up_unit", "up_ten_units", "up_hundred_units"]),
       fixedAmountMinor: zod.int().nullish().describe("Opts out of markup derivation entirely."),
+      unitPriceMinor: zod
+        .int()
+        .min(1)
+        .nullish()
+        .describe(
+          "A fixed price per Star, for a Stars product. Exclusive with fixedAmountMinor. An operator price is what lets a saved purchase buy itself after a top-up.",
+        ),
       quoteTtlSeconds: zod
         .int()
         .min(createPanelGoodsProductResponsePricingQuoteTtlSecondsMin)
@@ -6522,6 +6582,13 @@ export const SavePanelGoodsPricingBody = zod.object({
     .max(savePanelGoodsPricingBodyMarkupBpsMax),
   rounding: zod.enum(["none", "up_minor", "up_unit", "up_ten_units", "up_hundred_units"]),
   fixedAmountMinor: zod.int().nullish().describe("Opts out of markup derivation entirely."),
+  unitPriceMinor: zod
+    .int()
+    .min(1)
+    .nullish()
+    .describe(
+      "A fixed price per Star, for a Stars product. Exclusive with fixedAmountMinor. An operator price is what lets a saved purchase buy itself after a top-up.",
+    ),
   quoteTtlSeconds: zod
     .int()
     .min(savePanelGoodsPricingBodyQuoteTtlSecondsMin)
@@ -6537,6 +6604,8 @@ export const SavePanelGoodsPricingResponse = zod.void();
 export const searchPanelGoodsOrdersQueryPageSizeDefault = 100;
 export const searchPanelGoodsOrdersQueryPageSizeMax = 500;
 
+export const searchPanelGoodsOrdersQueryQMax = 64;
+
 export const SearchPanelGoodsOrdersQueryParams = zod.object({
   cursor: zod.string().optional(),
   pageSize: zod
@@ -6546,6 +6615,14 @@ export const SearchPanelGoodsOrdersQueryParams = zod.object({
     .default(searchPanelGoodsOrdersQueryPageSizeDefault),
   status: zod.string().optional(),
   customerId: zod.uuid().optional(),
+  kind: zod.enum(["telegram_premium", "telegram_stars"]).optional(),
+  q: zod
+    .string()
+    .max(searchPanelGoodsOrdersQueryQMax)
+    .optional()
+    .describe(
+      "A recipient handle (with or without @), an order identifier, or a customer identifier.",
+    ),
 });
 
 export const SearchPanelGoodsOrdersResponse = zod.object({
@@ -6562,7 +6639,7 @@ export const SearchPanelGoodsOrdersResponse = zod.object({
         recipientIsSelf: zod.boolean(),
         quotedCostMinor: zod.int(),
         quotedPriceMinor: zod.int(),
-        marginMinor: zod.int(),
+        marginMinor: zod.int().optional().describe("Absent when the cost is unknown."),
         currency: zod.string(),
         status: zod.enum([
           "quoted",
@@ -6595,6 +6672,44 @@ export const SearchPanelGoodsOrdersResponse = zod.object({
           ),
         deliveredAt: zod.iso.datetime({ offset: true }).optional(),
         createdAt: zod.iso.datetime({ offset: true }),
+        discountMinor: zod.int().optional(),
+        productKind: zod.enum(["telegram_premium", "telegram_stars"]),
+        productCode: zod.string(),
+        starQuantity: zod.int().optional().describe("The Stars this order delivers."),
+        source: zod.enum(["bot", "web", "auto_cart", "unknown"]),
+        paidMinor: zod.int().describe("What the customer paid: the price less the discount."),
+        provider: zod.string().optional(),
+        providerRequestId: zod
+          .string()
+          .optional()
+          .describe("The provider's own identifier for the purchase, such as a Fragment request."),
+        broadcastingAt: zod.iso
+          .datetime({ offset: true })
+          .optional()
+          .describe(
+            "When the payment marker was committed, immediately before money left the operator's wallet.",
+          ),
+        txHash: zod
+          .string()
+          .optional()
+          .describe("The payment's normalized external-message hash, for tonviewer and tonscan."),
+        costNano: zod.int().optional().describe("What the operator paid, in nanoton."),
+        settledCostMinor: zod
+          .int()
+          .optional()
+          .describe("That cost in the shop currency, fixed at delivery."),
+        rateMinor: zod
+          .int()
+          .optional()
+          .describe("The rate it was fixed at: one TON in minor units."),
+        rateSource: zod.enum(["manual", "tonapi", "coingecko"]).optional(),
+        providerConfirmed: zod
+          .boolean()
+          .optional()
+          .describe(
+            "False when the payment went through but Fragment was not told (confirmReq failed).",
+          ),
+        dryRun: zod.boolean(),
       }),
     )
     .nullable(),
@@ -6656,7 +6771,166 @@ export const ListPanelGoodsReviewQueueResponse = zod.object({
 });
 
 /**
- * Requires goods.write and a reason. Records what an operator confirmed with the provider: `delivered` completes the order, and anything else releases the ordinary refund path and credits the customer's wallet.
+ * Requires goods.read. Whether the direct Fragment provider is enabled, configured from the environment, and in dry-run mode, with the current TON rate. No secret is ever returned.
+ */
+export const GetPanelStarsStatusResponse = zod
+  .object({
+    provider: zod.enum(["fragment_direct"]),
+    enabled: zod.boolean().describe("The operator switched the provider on in the panel."),
+    configured: zod.boolean().describe("Every environment secret is present and valid."),
+    dryRun: zod.boolean(),
+    problem: zod
+      .string()
+      .optional()
+      .describe("Which setting is missing or invalid — never its value."),
+    walletVersion: zod.string(),
+    tonApiProvider: zod.string(),
+    tonApiRps: zod.number(),
+    walletLowStars: zod.int(),
+    vpnOffer: zod.boolean(),
+    currency: zod.string(),
+    rate: zod
+      .object({
+        minorPerTon: zod.int(),
+        source: zod.enum(["manual", "tonapi", "coingecko"]),
+        currency: zod.string(),
+      })
+      .optional(),
+  })
+  .describe("The direct Fragment provider's state. Never carries a secret.");
+
+/**
+ * Requires goods.read. Stars sales over the last N days: revenue, Stars sold, refunds, and the margin from the cost fixed at each delivery.
+ */
+export const getPanelStarsStatsQueryDaysDefault = 30;
+export const getPanelStarsStatsQueryDaysMax = 3650;
+
+export const GetPanelStarsStatsQueryParams = zod.object({
+  days: zod
+    .int()
+    .min(1)
+    .max(getPanelStarsStatsQueryDaysMax)
+    .default(getPanelStarsStatsQueryDaysDefault),
+});
+
+export const GetPanelStarsStatsResponse = zod.object({
+  days: zod.int(),
+  currency: zod.string(),
+  ordersTotal: zod.int(),
+  ordersDelivered: zod.int(),
+  ordersRefunded: zod.int(),
+  ordersNeedsReview: zod.int(),
+  ordersInFlight: zod.int(),
+  starsSold: zod.int(),
+  revenueMinor: zod.int(),
+  refundedMinor: zod.int(),
+  costNano: zod.int(),
+  costMinor: zod
+    .int()
+    .optional()
+    .describe("Absent when some delivered order's cost cannot be known."),
+  marginMinor: zod.int().optional().describe("Absent when the cost is unknown."),
+  marginBps: zod.int().optional(),
+  rateMinor: zod.int().optional(),
+  rateSource: zod.string().optional(),
+});
+
+/**
+ * Requires goods.read. The paying TON wallet's address and balance, and Fragment's current price for 100 Stars. Answers 503 when the provider is not configured rather than reporting a zero balance.
+ */
+export const GetPanelStarsWalletResponse = zod.object({
+  address: zod.string(),
+  version: zod.string(),
+  asset: zod.string(),
+  balanceNano: zod.int(),
+  explorerUrl: zod.string(),
+  price100Nano: zod.int().optional().describe("Fragment's current price for 100 Stars."),
+  starsCovered: zod.int().optional(),
+  balanceMinor: zod.int().optional(),
+  rateMinor: zod.int().optional(),
+  currency: zod.string().optional(),
+});
+
+/**
+ * Requires goods.manage and a reason. Sends a delivery parked for review back to the worker with a fresh attempt count. Use it only after checking the wallet's outgoing transfers: if the payment did leave, retrying pays for the Stars a second time.
+ */
+export const RetryPanelGoodsDeliveryParams = zod.object({
+  orderID: zod.uuid(),
+});
+
+export const retryPanelGoodsDeliveryHeaderXOperatorReasonMax = 400;
+
+export const RetryPanelGoodsDeliveryHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "X-Operator-Reason": zod
+    .string()
+    .min(1)
+    .max(retryPanelGoodsDeliveryHeaderXOperatorReasonMax)
+    .describe(
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+    ),
+});
+
+export const RetryPanelGoodsDeliveryResponse = zod.void();
+
+/**
+ * Requires goods.manage and a reason. Credits the customer's wallet with what they paid, for a delivery parked for review or one still waiting whose payment has not started. A delivery mid-payment is refused. The credit shares the worker's idempotency key, so it lands once.
+ */
+export const RefundPanelGoodsOrderParams = zod.object({
+  orderID: zod.uuid(),
+});
+
+export const refundPanelGoodsOrderHeaderXOperatorReasonMax = 400;
+
+export const RefundPanelGoodsOrderHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "X-Operator-Reason": zod
+    .string()
+    .min(1)
+    .max(refundPanelGoodsOrderHeaderXOperatorReasonMax)
+    .describe(
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+    ),
+});
+
+export const RefundPanelGoodsOrderResponse = zod.void();
+
+/**
+ * Requires goods.manage and a reason. Closes a delivery parked for review as delivered, optionally recording the transaction hash the operator found.
+ */
+export const CompletePanelGoodsDeliveryParams = zod.object({
+  orderID: zod.uuid(),
+});
+
+export const completePanelGoodsDeliveryHeaderXOperatorReasonMax = 400;
+
+export const CompletePanelGoodsDeliveryHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "X-Operator-Reason": zod
+    .string()
+    .min(1)
+    .max(completePanelGoodsDeliveryHeaderXOperatorReasonMax)
+    .describe(
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+    ),
+});
+
+export const completePanelGoodsDeliveryBodyTxHashMax = 128;
+
+export const CompletePanelGoodsDeliveryBody = zod.object({
+  txHash: zod.string().max(completePanelGoodsDeliveryBodyTxHashMax).optional(),
+});
+
+export const CompletePanelGoodsDeliveryResponse = zod.void();
+
+/**
+ * Requires goods.manage and a reason. Records what an operator confirmed with the provider: `delivered` completes the order, and anything else releases the ordinary refund path and credits the customer's wallet.
  */
 export const ResolvePanelGoodsDeliveryParams = zod.object({
   orderID: zod.uuid(),
@@ -6684,7 +6958,7 @@ export const ResolvePanelGoodsDeliveryBody = zod.object({
 export const ResolvePanelGoodsDeliveryResponse = zod.void();
 
 /**
- * Requires goods.write and a reason. A delivered order cannot be cancelled: the recipient already has what was bought.
+ * Requires goods.manage and a reason. Cancelling refunds the customer's wallet. A delivered order cannot be cancelled: the recipient already has what was bought.
  */
 export const CancelPanelGoodsDeliveryParams = zod.object({
   orderID: zod.uuid(),
@@ -9473,7 +9747,28 @@ export const ListAccountShopProductsResponse = zod.object({
         ),
       priceMinor: zod.int().optional(),
       durationMonths: zod.int().optional().describe("Telegram Premium only."),
-      starQuantity: zod.int().optional().describe("Telegram Stars only."),
+      starQuantity: zod
+        .int()
+        .optional()
+        .describe("Telegram Stars only: a fixed pack. Zero for a custom amount."),
+      customAmount: zod
+        .object({
+          min: zod.int(),
+          max: zod.int(),
+          presets: zod.array(zod.int()),
+        })
+        .optional()
+        .describe("Telegram Stars only: the customer picks how many, within these bounds."),
+      unitPriceMinor: zod
+        .int()
+        .optional()
+        .describe("The operator's fixed price per Star, when set."),
+      operatorPriced: zod
+        .boolean()
+        .optional()
+        .describe(
+          "The operator set this price rather than deriving it from a provider quote. Only such a product can be saved to buy itself after a top-up.",
+        ),
     }),
   ),
 });
@@ -9490,6 +9785,13 @@ export const getAccountShopProductQueryQuantityMax = 10;
 export const GetAccountShopProductQueryParams = zod.object({
   locale: zod.enum(["ru", "en"]).optional(),
   quantity: zod.int().min(1).max(getAccountShopProductQueryQuantityMax).optional(),
+  stars: zod
+    .int()
+    .min(1)
+    .optional()
+    .describe(
+      "The amount for a custom-amount Stars product. Ignored for a pack; omitted picks the first preset.",
+    ),
   promoCode: zod.string().optional(),
 });
 
@@ -9509,11 +9811,30 @@ export const GetAccountShopProductResponse = zod
       ),
     priceMinor: zod.int().optional(),
     durationMonths: zod.int().optional().describe("Telegram Premium only."),
-    starQuantity: zod.int().optional().describe("Telegram Stars only."),
+    starQuantity: zod
+      .int()
+      .optional()
+      .describe("Telegram Stars only: a fixed pack. Zero for a custom amount."),
+    customAmount: zod
+      .object({
+        min: zod.int(),
+        max: zod.int(),
+        presets: zod.array(zod.int()),
+      })
+      .optional()
+      .describe("Telegram Stars only: the customer picks how many, within these bounds."),
+    unitPriceMinor: zod.int().optional().describe("The operator's fixed price per Star, when set."),
+    operatorPriced: zod
+      .boolean()
+      .optional()
+      .describe(
+        "The operator set this price rather than deriving it from a provider quote. Only such a product can be saved to buy itself after a top-up.",
+      ),
   })
   .and(
     zod.object({
       quantity: zod.int(),
+      stars: zod.int().optional().describe("The Stars this quote delivers in total."),
       quote: zod
         .object({
           priceMinor: zod.int(),
@@ -9580,6 +9901,7 @@ export const purchaseAccountShopProductBodyUseWalletDefault = false;
 export const PurchaseAccountShopProductBody = zod.object({
   productId: zod.uuid(),
   quantity: zod.int().min(1).max(purchaseAccountShopProductBodyQuantityMax),
+  stars: zod.int().min(1).optional().describe("The amount for a custom-amount Stars product."),
   recipient: zod.string(),
   forSelf: zod
     .boolean()
@@ -9604,6 +9926,114 @@ export const PurchaseAccountShopProductBody = zod.object({
 });
 
 export const PurchaseAccountShopProductResponse = zod.object({
+  id: zod.uuid(),
+  productName: zod.string(),
+  kind: zod.enum(["telegram_premium", "telegram_stars"]),
+  quantity: zod.int(),
+  recipient: zod.string(),
+  forSelf: zod.boolean(),
+  currency: zod.string(),
+  amounts: zod.object({
+    priceMinor: zod.int(),
+    discountMinor: zod.int(),
+    walletMinor: zod.int(),
+    externalMinor: zod.int(),
+    paidMinor: zod.int(),
+  }),
+  payment: zod.object({
+    state: zod.string(),
+    required: zod.boolean(),
+    possible: zod
+      .boolean()
+      .describe(
+        "An enabled provider settles this currency. False is stated rather than dead-ended.",
+      ),
+  }),
+  delivery: zod.object({
+    state: zod
+      .enum([
+        "awaiting_payment",
+        "queued",
+        "submitted",
+        "polling",
+        "delayed",
+        "delivered",
+        "needs_review",
+        "refunded",
+        "failed",
+        "cancelled",
+      ])
+      .describe(
+        "`needs_review` is an ambiguous delivery parked for an operator. There is no retry route for it: the gateway honours no idempotency key, so retrying could deliver and charge twice.",
+      ),
+    attempts: zod.int(),
+    supportHandoff: zod.boolean().describe("True only for needs_review and failed."),
+    supportReference: zod.string(),
+    failureReason: zod
+      .enum([
+        "retryable",
+        "permanent",
+        "recipient_invalid",
+        "provider_balance",
+        "provider_unavailable",
+        "ambiguous",
+      ])
+      .optional(),
+    deliveredAt: zod.iso.datetime({ offset: true }).optional(),
+    updatedAt: zod.iso.datetime({ offset: true }).optional(),
+    refund: zod
+      .object({
+        amountMinor: zod.int(),
+        currency: zod.string(),
+      })
+      .optional(),
+  }),
+  createdAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+/**
+ * Saves a purchase the wallet cannot cover yet and answers exactly what is missing. Once a top-up settles that covers it, the purchase is made from the wallet automatically at the saved price; a price rise is refused and the customer told. Offered only for a product the operator priced themselves (a fixed amount or a fixed price per Star): a provider quote is never charged unattended.
+ */
+export const SaveAccountShopCartHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const saveAccountShopCartBodyQuantityMax = 10;
+
+export const SaveAccountShopCartBody = zod.object({
+  productId: zod.uuid(),
+  quantity: zod.int().min(1).max(saveAccountShopCartBodyQuantityMax),
+  stars: zod.int().min(1).optional(),
+  recipient: zod.string(),
+  forSelf: zod.boolean().optional(),
+  quote: zod.object({
+    priceMinor: zod.int(),
+    currency: zod.string(),
+  }),
+  promoCode: zod.string().optional(),
+});
+
+export const SaveAccountShopCartResponse = zod.object({
+  priceMinor: zod.int(),
+  availableMinor: zod.int(),
+  shortfallMinor: zod.int().describe("Exactly what to top up."),
+  currency: zod.string(),
+  stars: zod.int(),
+  autoPurchase: zod.boolean(),
+});
+
+/**
+ * Buys the saved purchase from the wallet now, for a customer whose balance already covers it. Shares the automatic purchase's idempotency key, so the two cannot both charge.
+ */
+export const BuyAccountShopCartHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const BuyAccountShopCartResponse = zod.object({
   id: zod.uuid(),
   productName: zod.string(),
   kind: zod.enum(["telegram_premium", "telegram_stars"]),

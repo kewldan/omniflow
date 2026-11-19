@@ -91,6 +91,16 @@ const (
 	// to rotate the credential that spends from a funded balance.
 	PermissionGoodsRead  Permission = "goods.read"
 	PermissionGoodsWrite Permission = "goods.write"
+	// Decisions about one shop order's money: retrying a delivery parked for
+	// review, refunding it, or closing it as delivered.
+	//
+	// Separate from goods.write because the two are different jobs. Writing
+	// the catalogue and rotating a provider is configuration; deciding that a
+	// payment of the operator's TON did not leave — and paying again — is a
+	// financial judgement with the same weight as a refund, and an
+	// installation should be able to give it to finance without handing them
+	// the provider configuration.
+	PermissionGoodsManage Permission = "goods.manage"
 )
 
 // AllPermissions is the complete catalogue, ordered for stable rendering and
@@ -108,7 +118,7 @@ var AllPermissions = []Permission{
 	PermissionSystemRead, PermissionSystemWrite,
 	PermissionRiskRead, PermissionRiskWrite,
 	PermissionGiftsRead, PermissionGiftsWrite,
-	PermissionGoodsRead, PermissionGoodsWrite,
+	PermissionGoodsRead, PermissionGoodsWrite, PermissionGoodsManage,
 }
 
 // Known reports whether a string names a permission this build defines.
@@ -177,7 +187,7 @@ var rolePermissions = map[Role][]Permission{
 		PermissionSystemRead, PermissionSystemWrite,
 		PermissionRiskRead, PermissionRiskWrite,
 		PermissionGiftsRead, PermissionGiftsWrite,
-		PermissionGoodsRead, PermissionGoodsWrite,
+		PermissionGoodsRead, PermissionGoodsWrite, PermissionGoodsManage,
 	},
 
 	// Support reads the risk, gift, and shop surfaces because those are the
@@ -194,8 +204,9 @@ var rolePermissions = map[Role][]Permission{
 	},
 
 	// Finance may revoke and refund an unredeemed gift, because that is a
-	// refund decision. It may read the shop, because a shop order is money, and
-	// it may not rotate a provider credential, because that is configuration.
+	// refund decision. It may read the shop and decide a parked shop order —
+	// retry, refund, or close it — because a shop order is money, and it may
+	// not rotate a provider credential, because that is configuration.
 	RoleFinance: {
 		PermissionAuditRead, PermissionAuditExport,
 		PermissionCustomersRead, PermissionSubscriptionsRead,
@@ -203,7 +214,7 @@ var rolePermissions = map[Role][]Permission{
 		PermissionCatalogRead,
 		PermissionRiskRead,
 		PermissionGiftsRead, PermissionGiftsWrite,
-		PermissionGoodsRead,
+		PermissionGoodsRead, PermissionGoodsManage,
 	},
 
 	RoleMarketing: {
