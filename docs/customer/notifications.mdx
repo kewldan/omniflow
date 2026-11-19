@@ -109,6 +109,23 @@ Two paths deliberately bypass the policy machinery:
   sender in Omniflow.
 </Warning>
 
+### Win-back discount waves
+
+After a subscription lapses (end plus any grace period), the bot sends up to two discount waves, the
+way Bedolaga's second and third expiry waves work. By default wave 2 offers 10% for 24 hours on day 2
+and wave 3 offers 20% for 24 hours on day 5. Each wave issues a single-use personal offer backed by a
+promo code; the next purchase or renewal applies the customer's best live offer by itself, in the bot
+and on the web, and spends it. The message carries the code as a fallback. A wave is sent once per
+lapsed entitlement and travels as a `recovery` message, so the customer's recovery switch and quiet
+hours govern it.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `APP_WINBACK_ENABLED` | `true` | `false` turns both waves off |
+| `APP_WINBACK_WAVE2_AFTER_DAYS` / `APP_WINBACK_WAVE2_PERCENT` | `2` / `10` | Day and discount of wave 2; percent `0` disables it |
+| `APP_WINBACK_WAVE3_AFTER_DAYS` / `APP_WINBACK_WAVE3_PERCENT` | `5` / `20` | Day and discount of wave 3 |
+| `APP_WINBACK_VALID_HOURS` | `24` | How long each wave's discount lasts |
+
 ## Setting preferences
 
 The same `bot_preferences` row backs both surfaces, so a choice made in one

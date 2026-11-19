@@ -594,6 +594,10 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	GetAutoRenewSettings(ctx context.Context, arg GetAutoRenewSettingsParams) (AutoRenewSetting, error)
 	GetBackup(ctx context.Context, id pgtype.UUID) (Backup, error)
+	// The code of the customer's best live personal offer that discounts plans:
+	// a percent before a fixed amount, then the larger value, then the one that
+	// expires first.
+	GetBestPersonalOfferCode(ctx context.Context, userID pgtype.UUID) (string, error)
 	GetBlocklistMatch(ctx context.Context, id pgtype.UUID) (BlocklistMatch, error)
 	GetBlocklistSource(ctx context.Context, id pgtype.UUID) (BlocklistSource, error)
 	GetBlocklistSourceBySlug(ctx context.Context, slug string) (BlocklistSource, error)

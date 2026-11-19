@@ -120,6 +120,9 @@ var catalog = map[string]phrase{
 	"policy.atExpiry":  {ru: "по окончании текущего периода", en: "at the end of the current period"},
 
 	// Payment method selection.
+	"winback.body": {ru: "🔥 <b>Скидка %d%% на продление</b>\n\nВозвращайтесь — скидка действует %d ч и применится сама при оплате.\nКод на всякий случай: <code>%s</code>",
+		en: "🔥 <b>%d%% off your renewal</b>\n\nCome back — the discount lasts %d h and applies by itself at checkout.\nYour code, just in case: <code>%s</code>"},
+	"winback.renew": {ru: "Продлить со скидкой %d%%", en: "Renew with %d%% off"},
 	"pay.choose": {ru: "💳 <b>Способ оплаты</b>\n\nДоступны только подключённые способы, которые поддерживают валюту тарифа.",
 		en: "💳 <b>Payment method</b>\n\nOnly configured methods that support the plan currency are listed."},
 	"pay.none": {ru: "⚠️ <b>Нет доступных способов оплаты</b>\n\nАдминистратор ещё не подключил платёжный сервис для этой валюты. Напишите в поддержку.",

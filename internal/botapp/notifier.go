@@ -335,6 +335,7 @@ func (notifier *Notifier) deliverSubscriptionAlerts(ctx context.Context, candida
 	if commerce.RecoveryDue(now, entitlement.EndsAt, entitlement.GracePeriod, notifier.settings.RecoveryWindow) {
 		notifier.deliver(ctx, candidate, subscription.ID, "recovery", entitlement.ID, recoveryView(notifier.notices, locale, entitlement))
 	}
+	notifier.maybeSendWinback(ctx, candidate, subscription.ID, entitlement, locale, now)
 	notifier.deliverFulfillment(ctx, candidate, subscription.ID, entitlement, locale)
 }
 
@@ -1020,4 +1021,28 @@ func (store *PostgresStore) finishNotification(ctx context.Context, userID, subs
 	_, err := store.pool.Exec(ctx, `UPDATE notification_deliveries
 		SET status = 'failed', failure_count = failure_count + 1, error_code = $5 `+notificationKey, userID, subscriptionID, kind, dedupe, code)
 	return err
+}
+
+// maybeSendWinback sends the discount wave a lapsed subscription is in, once
+// per wave. The offer is issued before the message is claimed; issuing is
+// idempotent, so a message that is not sent leaves an offer the customer still
+// gets at checkout rather than a message promising one that does not exist.
+func (notifier *Notifier) maybeSendWinback(
+	ctx context.Context, candidate notificationCandidate, subscriptionID string,
+	entitlement Entitlement, locale Locale, now time.Time,
+) {
+	if len(notifier.settings.Winback) == 0 || now.Before(entitlement.EndsAt.Add(entitlement.GracePeriod)) {
+		return
+	}
+	wave, due := dueWinbackWave(notifier.settings.Winback, entitlement.EndsAt.Add(entitlement.GracePeriod), now)
+	if !due {
+		return
+	}
+	code, expiresAt, err := notifier.store.IssueWinbackOffer(ctx, candidate.UserID, entitlement.ID, wave)
+	if err != nil {
+		notifier.logger.Warn("winback offer failed", "wave", wave.Number, "error", err)
+		return
+	}
+	dedupe := fmt.Sprintf("winback%d:%s", wave.Number, entitlement.ID)
+	notifier.deliver(ctx, candidate, subscriptionID, "recovery", dedupe, winbackView(locale, entitlement, wave, code, expiresAt))
 }

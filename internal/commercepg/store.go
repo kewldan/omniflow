@@ -311,7 +311,25 @@ func (store *Store) PreviewOrder(ctx context.Context, input CreateOrderInput) (O
 	return store.quote(ctx, dbgen.New(tx), userID, planVersionID, input)
 }
 
+// quote prices an order. With no promo code entered, the customer's best
+// active personal offer (a win-back discount, an operator's offer) is applied
+// by itself, the way Bedolaga applies its expiry-wave discounts; an offer that
+// does not fit this order falls back to the plain price instead of failing.
 func (store *Store) quote(ctx context.Context, queries *dbgen.Queries, userID, planVersionID pgtype.UUID, input CreateOrderInput) (OrderQuote, error) {
+	if input.PromoCode == "" && commerce.SubscriptionOperation(input.Operation) {
+		offerCode, err := queries.GetBestPersonalOfferCode(ctx, userID)
+		if err == nil && offerCode != "" {
+			withOffer := input
+			withOffer.PromoCode = offerCode
+			if quote, quoteErr := store.quoteWith(ctx, queries, userID, planVersionID, withOffer); quoteErr == nil {
+				return quote, nil
+			}
+		}
+	}
+	return store.quoteWith(ctx, queries, userID, planVersionID, input)
+}
+
+func (store *Store) quoteWith(ctx context.Context, queries *dbgen.Queries, userID, planVersionID pgtype.UUID, input CreateOrderInput) (OrderQuote, error) {
 	plan, err := queries.GetPlanVersionForOrder(ctx, dbgen.GetPlanVersionForOrderParams{PlanVersionID: planVersionID, Currency: input.Currency})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return OrderQuote{}, ErrPlanUnavailable
@@ -514,6 +532,14 @@ func (store *Store) CreateOrder(ctx context.Context, input CreateOrderInput) (db
 	if promo != nil {
 		if _, err = queries.InsertPromoRedemption(ctx, dbgen.InsertPromoRedemptionParams{PromoCodeID: promo.ID, PromotionID: promo.PromotionID, UserID: userID, OrderID: order.ID, DiscountMinor: discount}); err != nil {
 			return dbgen.Order{}, err
+		}
+		// A personal offer behind this promotion is spent by this order.
+		if offer, offerErr := queries.GetActiveOfferForPromotion(ctx, dbgen.GetActiveOfferForPromotionParams{UserID: userID, PromotionID: promo.PromotionID}); offerErr == nil {
+			if _, err = queries.RedeemPersonalOffer(ctx, dbgen.RedeemPersonalOfferParams{OfferID: offer.ID, OrderID: order.ID}); err != nil {
+				return dbgen.Order{}, err
+			}
+		} else if !errors.Is(offerErr, pgx.ErrNoRows) {
+			return dbgen.Order{}, offerErr
 		}
 	}
 	if plan.Kind == "trial" {

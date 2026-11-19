@@ -38,6 +38,9 @@ type CommerceSettings struct {
 	// GoodsVPNOffer adds a VPN offer to the "your Stars arrived" message for a
 	// buyer with no active paid subscription (APP_GOODS_VPN_OFFER_ENABLED).
 	GoodsVPNOffer bool
+	// Winback is the schedule of automatic discount waves after a
+	// subscription lapses (APP_WINBACK_*). Empty turns them off.
+	Winback []WinbackWave
 }
 
 // Commerce ties the bot to the commerce backend.

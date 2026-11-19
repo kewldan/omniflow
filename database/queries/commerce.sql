@@ -937,3 +937,17 @@ JOIN plan_prices pr ON pr.plan_version_id = v.id
 WHERE p.kind = 'trial' AND p.archived_at IS NULL
 ORDER BY p.visible DESC, v.version DESC, pr.currency
 LIMIT 1;
+
+-- name: GetBestPersonalOfferCode :one
+-- The code of the customer's best live personal offer that discounts plans:
+-- a percent before a fixed amount, then the larger value, then the one that
+-- expires first.
+SELECT c.normalized_code
+FROM personal_offers o
+JOIN promotions p ON p.id = o.promotion_id
+JOIN promo_codes c ON c.promotion_id = p.id AND c.active
+WHERE o.user_id = sqlc.arg(user_id) AND o.status = 'active'
+  AND o.starts_at <= now() AND o.expires_at > now()
+  AND p.active AND p.applies_to = 'plans' AND p.kind IN ('percent', 'fixed')
+ORDER BY (p.kind = 'percent') DESC, p.value DESC, o.expires_at
+LIMIT 1;

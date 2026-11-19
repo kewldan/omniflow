@@ -1062,6 +1062,28 @@ func (q *Queries) ExtendOrderExpiry(ctx context.Context, arg ExtendOrderExpiryPa
 	return i, err
 }
 
+const getBestPersonalOfferCode = `-- name: GetBestPersonalOfferCode :one
+SELECT c.normalized_code
+FROM personal_offers o
+JOIN promotions p ON p.id = o.promotion_id
+JOIN promo_codes c ON c.promotion_id = p.id AND c.active
+WHERE o.user_id = $1 AND o.status = 'active'
+  AND o.starts_at <= now() AND o.expires_at > now()
+  AND p.active AND p.applies_to = 'plans' AND p.kind IN ('percent', 'fixed')
+ORDER BY (p.kind = 'percent') DESC, p.value DESC, o.expires_at
+LIMIT 1
+`
+
+// The code of the customer's best live personal offer that discounts plans:
+// a percent before a fixed amount, then the larger value, then the one that
+// expires first.
+func (q *Queries) GetBestPersonalOfferCode(ctx context.Context, userID pgtype.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, getBestPersonalOfferCode, userID)
+	var normalized_code string
+	err := row.Scan(&normalized_code)
+	return normalized_code, err
+}
+
 const getCustomer = `-- name: GetCustomer :one
 SELECT id, status, locale, created_at, updated_at, timezone, suspended_at, deleted_at, anonymized_at, retention_until, merged_into, merged_at FROM users WHERE id = $1
 `
