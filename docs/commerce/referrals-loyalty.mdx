@@ -357,6 +357,25 @@ Nothing in that projection carries the invited customer's identifier. An inviter
 is entitled to know that an invite paid out, not to a list of who their friends
 are.
 
+## What customers and operators are told
+
+Every event below is queued by a database trigger in the transaction that
+records it, so it is told whichever surface caused it — the bot, the web panel,
+or an operator. The bot delivers it as a notification of kind `referral` or
+`loyalty`, which customers cannot switch off; quiet hours and delivery outcomes
+apply as for any notification, and a notice nobody could deliver within seven
+days is dropped. The rows live in `customer_event_notices`.
+
+| Event | Who hears | What they read |
+| --- | --- | --- |
+| A referral attribution is written | The inviter | Somebody joined through their link; the reward follows the friend's payment |
+| A referral attribution is written | The invitee | A welcome naming their reward — days or the wallet amount — when the programme rewards invitees; nothing otherwise |
+| A referral reward is granted | Its beneficiary | The days or the amount credited, as inviter or as invitee |
+| A loyalty standing changes | The customer | The new tier's name and, when it has one, its discount |
+| A loyalty standing changes | Operators | The **🎯 Loyalty and referrals** topic, with identifiers and tier codes only |
+
+A pair imported from Bedolaga already qualified is history and is not announced.
+
 ## Related
 
 <CardGroup cols={2}>

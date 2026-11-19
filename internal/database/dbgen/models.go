@@ -852,6 +852,15 @@ type CustomerDirectMessage struct {
 	ErrorCode pgtype.Text        `json:"error_code"`
 }
 
+type CustomerEventNotice struct {
+	ID        pgtype.UUID        `json:"id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	Kind      string             `json:"kind"`
+	Params    []byte             `json:"params"`
+	DedupeKey string             `json:"dedupe_key"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type CustomerImport struct {
 	ID            pgtype.UUID        `json:"id"`
 	Source        string             `json:"source"`

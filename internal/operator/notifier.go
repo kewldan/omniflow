@@ -44,6 +44,7 @@ var urgentKinds = map[string]bool{
 	"incident": true, "security": true, "error": true, "fulfillment_failure": true,
 	"backup": true, "anomaly": true, "infrastructure": true, "node": true,
 }
+var Kinds = []string{"purchase", "renewal", "topup", "refund", "fulfillment_failure", "incident", "backup", "security", "support", "campaign_test", "notice_test", "marketing"}
 
 // KindCampaignTest is the topic campaign previews go to.
 //
@@ -78,6 +79,7 @@ var topicNames = map[string]string{
 	"error":               "🐞 Errors",
 	"infrastructure":      "🛠 Infrastructure",
 	"report":              "📊 Reports",
+	"marketing":           "🎯 Loyalty and referrals",
 }
 
 // Config binds the operator group and bounds notification volume.
@@ -509,6 +511,7 @@ func renderNotification(notification dbgen.OperatorNotification) string {
 		return renderReport(notification, payload)
 	}
 	for _, field := range notificationFields {
+	for _, field := range []string{"orderId", "subscriptionId", "entitlementId", "provider", "operation", "currency", "amountMinor", "creditedMinor", "classification", "reason", "source", "errorCode", "fileName", "sizeBytes", "status", "event", "adminUserId", "method", "ticketId", "queueId", "customerId", "fromTier", "toTier"} {
 		value, ok := payload[field]
 		if !ok || value == nil || value == "" {
 			continue

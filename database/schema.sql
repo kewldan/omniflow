@@ -138,6 +138,71 @@ BEGIN
                                'event', 'addon_purchased'))
     ON CONFLICT (kind, dedupe_key) DO NOTHING;
   END IF;
+-- Name: queue_loyalty_change_notices(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.queue_loyalty_change_notices() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  previous_threshold bigint;
+  next_tier loyalty_tiers%ROWTYPE;
+  previous_code text;
+BEGIN
+  SELECT * INTO next_tier FROM loyalty_tiers WHERE id = NEW.to_tier_id;
+  SELECT threshold, code INTO previous_threshold, previous_code FROM loyalty_tiers WHERE id = NEW.from_tier_id;
+  INSERT INTO customer_event_notices (user_id, kind, params, dedupe_key)
+  VALUES (NEW.user_id, 'loyalty_tier',
+          jsonb_build_object('tierCode', next_tier.code, 'nameEn', next_tier.name_en,
+                             'nameRu', next_tier.name_ru, 'discountBps', next_tier.discount_bps,
+                             'down', previous_threshold IS NOT NULL AND next_tier.threshold < previous_threshold),
+          'loyalty:' || NEW.id::text)
+  ON CONFLICT (dedupe_key) DO NOTHING;
+  INSERT INTO operator_notifications (kind, dedupe_key, payload)
+  VALUES ('marketing', 'loyalty:' || NEW.id::text,
+          jsonb_build_object('event', 'loyalty_tier', 'customerId', NEW.user_id::text,
+                             'fromTier', COALESCE(previous_code, ''), 'toTier', next_tier.code,
+                             'reason', NEW.reason))
+  ON CONFLICT (kind, dedupe_key) DO NOTHING;
+  RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: queue_referral_attribution_notices(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.queue_referral_attribution_notices() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF NEW.qualified_at IS NOT NULL THEN
+    RETURN NEW;
+  END IF;
+  INSERT INTO customer_event_notices (user_id, kind, dedupe_key)
+  VALUES (NEW.referrer_user_id, 'referral_joined', 'referral-joined:' || NEW.referred_user_id::text),
+         (NEW.referred_user_id, 'referral_welcome', 'referral-welcome:' || NEW.referred_user_id::text)
+  ON CONFLICT (dedupe_key) DO NOTHING;
+  RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: queue_referral_reward_notice(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.queue_referral_reward_notice() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  INSERT INTO customer_event_notices (user_id, kind, params, dedupe_key)
+  VALUES (NEW.beneficiary_user_id, 'referral_reward',
+          jsonb_build_object('role', NEW.role, 'amountMinor', NEW.amount_minor,
+                             'currency', NEW.currency, 'days', COALESCE(NEW.days, 0)),
+          'referral-reward:' || NEW.id::text)
+  ON CONFLICT (dedupe_key) DO NOTHING;
   RETURN NEW;
 END;
 $$;
@@ -1615,6 +1680,22 @@ CREATE TABLE public.customer_direct_messages (
 
 
 --
+-- Name: customer_event_notices; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.customer_event_notices (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    kind text NOT NULL,
+    params jsonb DEFAULT '{}'::jsonb NOT NULL,
+    dedupe_key text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT customer_event_notices_kind_known CHECK ((kind = ANY (ARRAY['referral_joined'::text, 'referral_welcome'::text, 'referral_reward'::text, 'loyalty_tier'::text]))),
+    CONSTRAINT customer_event_notices_params_object CHECK ((jsonb_typeof(params) = 'object'::text))
+);
+
+
+--
 -- Name: customer_import_items; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2691,6 +2772,7 @@ CREATE TABLE public.notification_deliveries (
     CONSTRAINT notification_deliveries_class_check CHECK ((class = ANY (ARRAY['transactional'::text, 'marketing'::text]))),
     CONSTRAINT notification_deliveries_failure_count_check CHECK ((failure_count >= 0)),
     CONSTRAINT notification_deliveries_kind_known CHECK ((kind = ANY (ARRAY['expiry'::text, 'traffic'::text, 'renewal'::text, 'grace'::text, 'recovery'::text, 'payment'::text, 'fulfillment'::text, 'support'::text, 'news'::text, 'announcement'::text, 'incident'::text, 'maintenance'::text, 'marketing'::text, 'referral'::text, 'trial'::text, 'test'::text, 'connection'::text, 'device'::text, 'access'::text, 'reminder'::text]))),
+    CONSTRAINT notification_deliveries_kind_known CHECK ((kind = ANY (ARRAY['expiry'::text, 'traffic'::text, 'renewal'::text, 'grace'::text, 'recovery'::text, 'payment'::text, 'fulfillment'::text, 'support'::text, 'news'::text, 'announcement'::text, 'incident'::text, 'maintenance'::text, 'marketing'::text, 'referral'::text, 'trial'::text, 'test'::text, 'loyalty'::text]))),
     CONSTRAINT notification_deliveries_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'deferred'::text, 'sent'::text, 'failed'::text, 'suppressed'::text])))
 );
 
@@ -2716,6 +2798,7 @@ CREATE TABLE public.operator_notifications (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     sent_at timestamp with time zone,
     CONSTRAINT operator_notifications_kind_known CHECK ((kind = ANY (ARRAY['purchase'::text, 'renewal'::text, 'topup'::text, 'refund'::text, 'fulfillment_failure'::text, 'incident'::text, 'backup'::text, 'security'::text, 'anomaly'::text, 'support'::text, 'trial'::text, 'addon'::text, 'promo'::text, 'partner'::text, 'error'::text, 'infrastructure'::text, 'report'::text, 'node'::text, 'monitoring'::text]))),
+    CONSTRAINT operator_notifications_kind_known CHECK ((kind = ANY (ARRAY['purchase'::text, 'renewal'::text, 'topup'::text, 'refund'::text, 'fulfillment_failure'::text, 'incident'::text, 'backup'::text, 'security'::text, 'anomaly'::text, 'support'::text, 'marketing'::text]))),
     CONSTRAINT operator_notifications_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'sent'::text, 'suppressed'::text, 'failed'::text])))
 );
 
@@ -2734,6 +2817,7 @@ CREATE TABLE public.operator_topics (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT operator_topics_check CHECK (((status = 'bound'::text) = (topic_id IS NOT NULL))),
     CONSTRAINT operator_topics_kind_known CHECK ((kind = ANY (ARRAY['purchase'::text, 'renewal'::text, 'topup'::text, 'refund'::text, 'fulfillment_failure'::text, 'incident'::text, 'backup'::text, 'security'::text, 'anomaly'::text, 'campaign_test'::text, 'notice_test'::text, 'support'::text, 'trial'::text, 'addon'::text, 'promo'::text, 'partner'::text, 'error'::text, 'infrastructure'::text, 'report'::text, 'node'::text, 'monitoring'::text]))),
+    CONSTRAINT operator_topics_kind_known CHECK ((kind = ANY (ARRAY['purchase'::text, 'renewal'::text, 'topup'::text, 'refund'::text, 'fulfillment_failure'::text, 'incident'::text, 'backup'::text, 'security'::text, 'anomaly'::text, 'campaign_test'::text, 'notice_test'::text, 'support'::text, 'marketing'::text]))),
     CONSTRAINT operator_topics_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'bound'::text, 'failed'::text]))),
     CONSTRAINT operator_topics_topic_id_check CHECK (((topic_id IS NULL) OR (topic_id > 0)))
 );
@@ -4675,6 +4759,22 @@ ALTER TABLE ONLY public.customer_direct_messages
 
 
 --
+-- Name: customer_event_notices customer_event_notices_dedupe_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_event_notices
+    ADD CONSTRAINT customer_event_notices_dedupe_unique UNIQUE (dedupe_key);
+
+
+--
+-- Name: customer_event_notices customer_event_notices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_event_notices
+    ADD CONSTRAINT customer_event_notices_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: customer_import_items customer_import_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6237,6 +6337,13 @@ CREATE INDEX customer_direct_messages_user ON public.customer_direct_messages US
 
 
 --
+-- Name: customer_event_notices_recent_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX customer_event_notices_recent_idx ON public.customer_event_notices USING btree (created_at);
+
+
+--
 -- Name: customer_magic_links_email_recent; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -6906,6 +7013,10 @@ CREATE TRIGGER outbox_events_operator_notice AFTER INSERT ON public.outbox_event
 --
 
 CREATE TRIGGER promo_redemptions_operator_notice AFTER INSERT ON public.promo_redemptions FOR EACH ROW EXECUTE FUNCTION public.queue_operator_stream_notice();
+-- Name: loyalty_standing_history loyalty_standing_history_notice; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER loyalty_standing_history_notice AFTER INSERT ON public.loyalty_standing_history FOR EACH ROW EXECUTE FUNCTION public.queue_loyalty_change_notices();
 
 
 --
@@ -6920,6 +7031,17 @@ CREATE TRIGGER promotion_goods_scope_matches BEFORE INSERT OR UPDATE ON public.p
 --
 
 CREATE TRIGGER referral_rewards_operator_notice AFTER INSERT ON public.referral_rewards FOR EACH ROW EXECUTE FUNCTION public.queue_operator_stream_notice();
+-- Name: referral_attributions referral_attributions_notice; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER referral_attributions_notice AFTER INSERT ON public.referral_attributions FOR EACH ROW EXECUTE FUNCTION public.queue_referral_attribution_notices();
+
+
+--
+-- Name: referral_rewards referral_rewards_notice; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER referral_rewards_notice AFTER INSERT ON public.referral_rewards FOR EACH ROW EXECUTE FUNCTION public.queue_referral_reward_notice();
 
 
 --
@@ -7685,6 +7807,14 @@ ALTER TABLE ONLY public.customer_campaign_attributions
 
 ALTER TABLE ONLY public.customer_direct_messages
     ADD CONSTRAINT customer_direct_messages_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: customer_event_notices customer_event_notices_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_event_notices
+    ADD CONSTRAINT customer_event_notices_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --

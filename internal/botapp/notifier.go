@@ -155,6 +155,9 @@ func (notifier *Notifier) Run(ctx context.Context) {
 func (notifier *Notifier) RunOnce(ctx context.Context) {
 	notifier.runLifecyclePass(ctx)
 	notifier.drainBroadcasts(ctx)
+	// Event notices are claimed through notification_deliveries, so this pass
+	// and the frequent one cannot both send the same notice.
+	notifier.deliverEventNotices(ctx)
 }
 
 // runLifecyclePass sends the operator tests, the dunning notices, and every
@@ -433,6 +436,7 @@ func (notifier *Notifier) runSupportReplies(ctx context.Context) {
 	notifier.deliverSupportReplies(ctx)
 	notifier.deliverGoodsNotices(ctx)
 	notifier.DeliverPanelEvents(ctx)
+	notifier.deliverEventNotices(ctx)
 	ticker := time.NewTicker(supportReplyInterval)
 	defer ticker.Stop()
 	for {
@@ -443,6 +447,7 @@ func (notifier *Notifier) runSupportReplies(ctx context.Context) {
 			notifier.deliverSupportReplies(ctx)
 			notifier.deliverGoodsNotices(ctx)
 			notifier.DeliverPanelEvents(ctx)
+			notifier.deliverEventNotices(ctx)
 		}
 	}
 }

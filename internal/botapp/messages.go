@@ -812,7 +812,16 @@ var catalog = map[string]phrase{
 	// Pay and keep the card for automatic renewal: the button is the consent.
 	"pay.optionSave": {ru: "%s + сохранить карту для автопродления", en: "%s + save the card for auto-renew"},
 	// Marketing, loyalty, and referrals.
-	"checkout.loyaltyDiscount": {ru: "  в т. ч. уровень лояльности: −%s", en: "  of which your loyalty tier: −%s"},
+	"checkout.loyaltyDiscount":    {ru: "  в т. ч. уровень лояльности: −%s", en: "  of which your loyalty tier: −%s"},
+	"event.referralJoined":        {ru: "🎉 <b>По вашей ссылке пришёл новый пользователь</b>\n\nНаграда придёт, когда он оплатит подписку.", en: "🎉 <b>Somebody joined through your link</b>\n\nYour reward arrives when they pay for a subscription."},
+	"event.referralWelcomeDays":   {ru: "👋 <b>Вас пригласил друг</b>\n\nПосле первой оплаты подписки вы получите ещё %d дн. в подарок.", en: "👋 <b>A friend invited you</b>\n\nAfter your first subscription payment you get %d extra days."},
+	"event.referralWelcomeMoney":  {ru: "👋 <b>Вас пригласил друг</b>\n\nПосле первой оплаты подписки на баланс придёт %s.", en: "👋 <b>A friend invited you</b>\n\nAfter your first subscription payment, %s lands on your balance."},
+	"event.referralRewardInviter": {ru: "🎁 <b>Приглашённый друг оплатил подписку</b>\n\nВаша награда: %s.", en: "🎁 <b>Your invited friend paid</b>\n\nYour reward: %s."},
+	"event.referralRewardInvitee": {ru: "🎁 <b>Бонус за приглашение начислен</b>\n\nВы получили: %s.", en: "🎁 <b>Your invite bonus is in</b>\n\nYou received: %s."},
+	"event.referralOpen":          {ru: "👥 Рефералы", en: "👥 Referrals"},
+	"event.loyaltyUp":             {ru: "⭐ <b>Новый уровень лояльности: %s</b>", en: "⭐ <b>New loyalty tier: %s</b>"},
+	"event.loyaltyDown":           {ru: "ℹ️ <b>Уровень лояльности изменён: %s</b>", en: "ℹ️ <b>Your loyalty tier is now %s</b>"},
+	"event.loyaltyDiscount":       {ru: "Скидка на тарифы: %s.", en: "Your plan discount: %s."},
 }
 
 // formatMoney renders an integer minor-unit amount for display. Telegram Stars

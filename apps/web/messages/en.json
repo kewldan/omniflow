@@ -2979,7 +2979,8 @@
         "marketing": "Offer",
         "referral": "Referral",
         "trial": "Trial",
-        "test": "Test"
+        "test": "Test",
+        "loyalty": "Loyalty"
       },
       "reason": {
         "quiet_hours": "Inside the customer's quiet hours",
@@ -4115,7 +4116,8 @@
           "marketing": "Offer",
           "referral": "Referral",
           "trial": "Trial",
-          "test": "Test"
+          "test": "Test",
+          "loyalty": "Loyalty"
         },
         "why": {
           "quiet_hours": "Held back — it fell inside your quiet hours",
