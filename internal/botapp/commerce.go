@@ -35,6 +35,9 @@ type CommerceSettings struct {
 	// DeliveryRate is how many messages a second the bot sends, across every
 	// chat. Zero means DefaultDeliveryRate.
 	DeliveryRate int
+	// GoodsVPNOffer adds a VPN offer to the "your Stars arrived" message for a
+	// buyer with no active paid subscription (APP_GOODS_VPN_OFFER_ENABLED).
+	GoodsVPNOffer bool
 }
 
 // Commerce ties the bot to the commerce backend.

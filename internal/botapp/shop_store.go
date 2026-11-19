@@ -33,7 +33,24 @@ type ShopProduct struct {
 	MarkupBPS      int
 	Rounding       string
 	FixedMinor     *int64
+	// UnitMinor is the operator's fixed price per Star.
+	UnitMinor *int64
+	// MinStars and MaxStars bound a custom-amount Stars product, whose
+	// customer picks how many to buy; Presets are the one-tap amounts.
+	MinStars int
+	MaxStars int
+	Presets  []int
 }
+
+// CustomAmount reports a Stars product whose customer picks the amount.
+func (product ShopProduct) CustomAmount() bool {
+	return product.Kind == goods.KindTelegramStars && product.StarQuantity == 0 && product.MaxStars > 0
+}
+
+// OperatorPriced reports a price the operator set rather than one derived
+// from a provider quote. Only such a purchase may be bought unattended after
+// a top-up.
+func (product ShopProduct) OperatorPriced() bool { return product.PricingRule().OperatorPriced() }
 
 // ShopProducts lists the visible catalog in the customer's language.
 //
@@ -48,7 +65,9 @@ func (store *PostgresStore) ShopProducts(
 		SELECT p.id::text, p.code, p.provider_slug, p.kind,
 		       COALESCE(p.duration_months, 0), COALESCE(p.star_quantity, 0),
 		       COALESCE(l.name, p.code), COALESCE(l.description, ''),
-		       r.currency, r.markup_bps, r.rounding, r.fixed_amount_minor, r.quote_ttl_seconds
+		       r.currency, r.markup_bps, r.rounding, r.fixed_amount_minor, r.quote_ttl_seconds,
+		       r.unit_price_minor, COALESCE(p.min_star_quantity, 0), COALESCE(p.max_star_quantity, 0),
+		       p.star_presets
 		FROM goods_products p
 		JOIN goods_pricing r ON r.product_id = p.id
 		JOIN goods_providers g ON g.slug = p.provider_slug AND g.enabled
@@ -67,18 +86,28 @@ func (store *PostgresStore) ShopProducts(
 			quantity    int32
 			fixedMinor  *int64
 			quoteTTLSec int32
+			minStars    int32
+			maxStars    int32
+			presets     []int32
 		)
 		if err := rows.Scan(&product.ID, &product.Code, &product.ProviderSlug, &product.Kind,
 			&duration, &quantity, &product.Name, &product.Description,
 			&product.Currency, &product.MarkupBPS, &product.Rounding,
-			&fixedMinor, &quoteTTLSec); err != nil {
+			&fixedMinor, &quoteTTLSec, &product.UnitMinor, &minStars, &maxStars, &presets); err != nil {
 			return nil, err
 		}
 		product.DurationMonths, product.StarQuantity = int(duration), int(quantity)
+		product.MinStars, product.MaxStars = int(minStars), int(maxStars)
+		for _, preset := range presets {
+			product.Presets = append(product.Presets, int(preset))
+		}
 		product.FixedMinor = fixedMinor
 		product.QuoteTTL = time.Duration(quoteTTLSec) * time.Second
 		if fixedMinor != nil {
 			product.PriceMinor, product.PriceKnown = *fixedMinor, true
+		}
+		if product.UnitMinor != nil && product.StarQuantity > 0 {
+			product.PriceMinor, product.PriceKnown = *product.UnitMinor*int64(product.StarQuantity), true
 		}
 		products = append(products, product)
 	}
@@ -106,7 +135,7 @@ func (product ShopProduct) PricingRule() goods.PricingRule {
 	return goods.PricingRule{
 		Currency: product.Currency, MarkupBPS: product.MarkupBPS,
 		Rounding: product.Rounding, FixedAmountMinor: product.FixedMinor,
-		QuoteTTL: product.QuoteTTL,
+		UnitPriceMinor: product.UnitMinor, QuoteTTL: product.QuoteTTL,
 	}
 }
 

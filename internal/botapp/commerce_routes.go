@@ -21,6 +21,9 @@ type MenuState struct {
 	// ShopEnabled is true when the operator has published at least one visible
 	// digital-goods product.
 	ShopEnabled bool
+	// StarsEnabled is true when a custom-amount Stars product is on sale, which
+	// is what the «⭐ Купить звёзды» button opens.
+	StarsEnabled bool
 	// OfferCount is how many targeted offers are waiting. The menu shows the
 	// entry only when there is something in it, so a customer who has never been
 	// targeted never sees an empty screen.
@@ -102,6 +105,11 @@ func (app *App) menuState(ctx context.Context, customerID string, locale Locale)
 	}
 	if products, err := app.customers.ShopProducts(ctx, locale); err == nil {
 		state.ShopEnabled = len(products) > 0
+		for _, product := range products {
+			if product.CustomAmount() {
+				state.StarsEnabled = true
+			}
+		}
 	}
 	if offers, err := app.customers.ActiveOffers(ctx, customerID, locale, 1); err == nil {
 		state.OfferCount = len(offers)
@@ -147,7 +155,7 @@ func (app *App) loadCommerceView(ctx context.Context, session commerceContext, r
 		return app.newsScreen(ctx, session), true
 	case routeSupport:
 		return app.supportScreen(ctx, session), true
-	case routeShop, routeShopOrders:
+	case routeShop, routeShopOrders, routeStars:
 		if view, handled := app.handleShopRoute(ctx, session, route); handled {
 			return view, true
 		}
@@ -1255,7 +1263,7 @@ var commerceActions = func() map[string]bool {
 		"method-default": true, "method-remove": true,
 		"quiet": true, "quiet-menu": true, "tz-menu": true, "tz": true, "invoice": true,
 	}
-	for _, owned := range []map[string]bool{expansionActions, giftActions, shopActions, offerActions} {
+	for _, owned := range []map[string]bool{expansionActions, giftActions, shopActions, starsActions, offerActions} {
 		for action := range owned {
 			actions[action] = true
 		}

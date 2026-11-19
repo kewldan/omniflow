@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/omniflow/omniflow/internal/botapp"
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/goods"
@@ -470,6 +471,41 @@ func TestAPriceRiseStopsTheAutomaticPurchase(t *testing.T) {
 	_ = harness.pool.QueryRow(ctx, `SELECT count(*) FROM goods_orders WHERE user_id = $1::uuid`, customerID).Scan(&orders)
 	if orders != 0 {
 		t.Fatal("the cart bought itself after the customer was told it would not")
+	}
+}
+
+func TestTheBuyerIsToldOnceWhatBecameOfTheirStars(t *testing.T) {
+	ctx := context.Background()
+	harness := newHarness(t)
+	store := harness.commerceStore(t, testOptions())
+	customerID := harness.customer(ctx, t)
+	productID := harness.starsProduct(ctx, t, 150)
+	harness.creditWallet(ctx, t, customerID, "seed", 50_000)
+	order, err := store.CreateGoodsOrder(ctx, starsOrder(customerID, productID, "told", 100, 150))
+	if err != nil {
+		t.Fatal(err)
+	}
+	runDelivery(ctx, t, harness, &payingProvider{outcome: goods.Delivery{Status: "delivered"}},
+		uuidText(order.ID), goodsdelivery.Options{})
+
+	bot, err := botapp.NewPostgresStoreWithPool(harness.pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	notices, err := bot.PendingGoodsNotices(ctx, 50)
+	if err != nil {
+		t.Fatalf("notice query: %v", err)
+	}
+	if len(notices) != 1 || notices[0].Status != "delivered" || notices[0].Stars != 100 ||
+		notices[0].Recipient != "alice_stars" {
+		t.Fatalf("notices = %+v", notices)
+	}
+	if _, err := harness.pool.Exec(ctx, `INSERT INTO notification_deliveries (user_id, kind, dedupe_key, status)
+		VALUES ($1::uuid, 'fulfillment', $2, 'sent')`, customerID, notices[0].Dedupe); err != nil {
+		t.Fatal(err)
+	}
+	if notices, err = bot.PendingGoodsNotices(ctx, 50); err != nil || len(notices) != 0 {
+		t.Fatalf("a sent notice came back: %+v, %v", notices, err)
 	}
 }
 

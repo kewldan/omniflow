@@ -1,4 +1,4 @@
-h1:GCYd4z+xZT9PQR2p77CxslYYK+5oolEF2zuXi/78ixg=
+h1:k8wQFvU9ZYrO+iq4Rexxe219kzNlk0W4kCqTgs6+GzE=
 20260810160000_initial.sql h1:1kQrZBliczdiXY/iEDj2ZAU+pUo0tJpeSRzclMaGkBg=
 20260810190000_bot_self_service.sql h1:LS90y7P5Az1VyeoozUy8ljEsBUQmAAPv3fdH+4QTH5g=
 20260810220000_commerce.sql h1:F9VjoIN5PYaNjnYOHHNYKvv+kSYJ4KLnVu6eI5PVHzM=
@@ -39,4 +39,5 @@ h1:GCYd4z+xZT9PQR2p77CxslYYK+5oolEF2zuXi/78ixg=
 20261029100100_panel_search.sql h1:fBFrhTogrLT5bRUHt8ROHZqZARnj9GuY7JmDlH/YQik=
 20261119100000_payment_providers.sql h1:3v5d2AY7QabYFMZwOuvM/l+XDvgBV8V5ZAGKEHEHybw=
 20261119200000_goods_fragment_direct.sql h1:ujvgYBhj9bazr+cXuzLK3y8ntijicBYXf8rJhjIR7N0=
-20261119300000_bedolaga_import.sql h1:Zxi69VNjzJDDe3HHCyn1GcLezxo020lzrrwMFfypYzs=
+20261119200100_bot_stars_amount.sql h1:hVSFQxaygoJLP07cfNf3vSWVN5Ixj+MELG9v04lGiC0=
+20261119300000_bedolaga_import.sql h1:/F4klqxSrRF6Q9AOXPKSL1I2vE7S48kGTxXorWKLEJs=

@@ -427,8 +427,13 @@ func subscriptionLabelFor(subscription SubscriptionSummary, named bool) string {
 // lifecycle pass rather than a shorter interval on the whole pass, because the
 // lifecycle pass walks every customer and calls Remnawave for each one, which is
 // not something to do every half minute.
+//
+// Shop notices ride the same loop for the same reason: "your Stars arrived" is
+// news a customer is waiting for, and it is a cheap query rather than a walk
+// over every customer.
 func (notifier *Notifier) runSupportReplies(ctx context.Context) {
 	notifier.deliverSupportReplies(ctx)
+	notifier.deliverGoodsNotices(ctx)
 	ticker := time.NewTicker(supportReplyInterval)
 	defer ticker.Stop()
 	for {
@@ -437,6 +442,7 @@ func (notifier *Notifier) runSupportReplies(ctx context.Context) {
 			return
 		case <-ticker.C:
 			notifier.deliverSupportReplies(ctx)
+			notifier.deliverGoodsNotices(ctx)
 		}
 	}
 }

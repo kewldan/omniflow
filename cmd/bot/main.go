@@ -268,6 +268,7 @@ func commerceSettings(cfg config.BotConfig) botapp.CommerceSettings {
 		DeliveryRate:           cfg.DeliveryRate,
 		CartTTL:                cfg.CartTTL,
 		MultiSubscription:      cfg.Subscriptions.MultiEnabled,
+		GoodsVPNOffer:          cfg.Fragment.VPNOffer,
 	}
 }
 

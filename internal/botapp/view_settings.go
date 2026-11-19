@@ -131,6 +131,10 @@ func commerceMainKeyboard(locale Locale, menu MenuState) *models.InlineKeyboardM
 	// The shop appears only when an operator has published something to sell,
 	// so an installation that sells no digital goods keeps exactly the menu it
 	// had before.
+	if menu.StarsEnabled {
+		// The fork's own entry: Stars bought straight from the menu.
+		rows = append(rows, row(callbackButton(text(locale, "menu.stars"), routeStars)))
+	}
 	shopRow := make([]models.InlineKeyboardButton, 0, 2)
 	if menu.ShopEnabled {
 		shopRow = append(shopRow, callbackButton(text(locale, "menu.shop"), routeShop))

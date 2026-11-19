@@ -60,13 +60,19 @@ var ErrShopUnavailable = errors.New("the digital goods shop is not configured")
 func (service *Commerce) QuoteGoods(
 	ctx context.Context, product ShopProduct, quantity int,
 ) (ShopQuote, error) {
+	return service.QuoteStars(ctx, product, quantity, product.StarQuantity*quantity)
+}
+
+// QuoteStars prices a purchase delivering `stars` Stars in total, which is
+// how a custom-amount product is priced. An operator price — a fixed amount
+// or a fixed price per Star — never touches the provider.
+func (service *Commerce) QuoteStars(
+	ctx context.Context, product ShopProduct, quantity, stars int,
+) (ShopQuote, error) {
 	rule := product.PricingRule()
 	expiry := service.clock().UTC().Add(product.QuoteTTL)
-	if product.FixedMinor != nil {
-		return ShopQuote{
-			PriceMinor: *product.FixedMinor * int64(quantity),
-			Currency:   product.Currency, ExpiresAt: expiry,
-		}, nil
+	if price, ok := rule.OperatorTotal(stars, quantity); ok {
+		return ShopQuote{PriceMinor: price, Currency: product.Currency, ExpiresAt: expiry}, nil
 	}
 	if !service.ShopEnabled() {
 		return ShopQuote{}, ErrShopUnavailable
@@ -75,9 +81,13 @@ func (service *Commerce) QuoteGoods(
 	if err != nil {
 		return ShopQuote{}, err
 	}
+	perUnit := product.StarQuantity
+	if product.CustomAmount() {
+		perUnit = stars
+	}
 	quoted, err := provider.Quote(ctx, goods.Request{
 		Kind: product.Kind, DurationMonths: product.DurationMonths,
-		StarQuantity: product.StarQuantity, Quantity: quantity,
+		StarQuantity: perUnit, Quantity: quantity,
 		Currency: product.Currency,
 	})
 	if errors.Is(err, goods.ErrCostUnavailable) {
@@ -125,7 +135,9 @@ func (service *Commerce) StartShopPurchase(
 		// A fixed price is one the operator chose, so it carries no provider
 		// cost floor. Deriving this here keeps the rule in one place rather than
 		// asking every caller to remember it.
-		OperatorPriced: product.FixedMinor != nil,
+		OperatorPriced: product.OperatorPriced(),
+		StarQuantity:   product.StarQuantity * quantity,
+		Source:         "bot",
 		IdempotencyKey: fmt.Sprintf("goods:%s:%s:%s:%d",
 			customerID, product.ID, normalized, quote.ExpiresAt.Unix()),
 	})
@@ -133,6 +145,53 @@ func (service *Commerce) StartShopPurchase(
 		return OrderSummary{}, err
 	}
 	return service.store.Order(ctx, customerID, uuidText(order.ID), LocaleEnglish)
+}
+
+// StartStarsPurchase opens the order for a chosen amount of Stars. With
+// walletOnly it is paid from the wallet alone or not at all; without it the
+// wallet covers what it can and a payment settles the rest. `key` names the
+// review and the amount, so a double tap reaches the order the first tap made.
+func (service *Commerce) StartStarsPurchase(
+	ctx context.Context, customerID string, product ShopProduct, stars int,
+	recipient string, isSelf bool, quote ShopQuote, key string, walletOnly bool,
+) (OrderSummary, error) {
+	normalized, err := goods.NormalizeRecipient(recipient)
+	if err != nil {
+		return OrderSummary{}, err
+	}
+	order, err := service.orders.CreateGoodsOrder(ctx, commercepg.GoodsOrderInput{
+		CustomerID: customerID, ProductID: product.ID, Quantity: 1,
+		Recipient: normalized, RecipientIsSelf: isSelf,
+		CostMinor: quote.CostMinor, PriceMinor: quote.PriceMinor, CostKnown: quote.CostKnown,
+		Currency: quote.Currency, QuoteExpiresAt: quote.ExpiresAt,
+		OperatorPriced: product.OperatorPriced(), StarQuantity: stars, Source: "bot",
+		RequireWalletCover: walletOnly, IdempotencyKey: key,
+	})
+	if err != nil {
+		return OrderSummary{}, err
+	}
+	return service.store.Order(ctx, customerID, uuidText(order.ID), LocaleEnglish)
+}
+
+// SaveStarsForTopUp keeps a Stars purchase the wallet cannot cover yet. For an
+// operator-priced product it buys itself once a top-up covers it; the sweep
+// re-checks the price under the order's lock and refuses a rise.
+func (service *Commerce) SaveStarsForTopUp(
+	ctx context.Context, customerID string, product ShopProduct, stars int,
+	recipient string, isSelf bool, quote ShopQuote,
+) error {
+	_, err := service.orders.SaveGoodsCart(ctx, commercepg.GoodsCartInput{
+		CustomerID: customerID, ProductID: product.ID, Quantity: 1,
+		Recipient: recipient, IsSelf: isSelf,
+		SavedPriceMinor: quote.PriceMinor, Currency: quote.Currency,
+		StarQuantity: stars, AutoPurchase: product.OperatorPriced(),
+	})
+	return err
+}
+
+// AvailableBalance is what a new purchase may spend from the wallet.
+func (service *Commerce) AvailableBalance(ctx context.Context, customerID, currency string) (int64, error) {
+	return service.orders.AvailableWalletBalance(ctx, customerID, currency)
 }
 
 // GiftPurchase is one gift as the sender sees it immediately after buying.
@@ -290,7 +349,7 @@ func (service *Commerce) PreviewShopPromo(
 		CustomerID: customerID, ProductID: product.ID,
 		PriceMinor: quote.PriceMinor, CostMinor: quote.CostMinor,
 		CostKnown: quote.CostKnown, Currency: quote.Currency,
-		PromoCode: code, OperatorPriced: product.FixedMinor != nil,
+		PromoCode: code, OperatorPriced: product.OperatorPriced(),
 	})
 	if err != nil {
 		return 0, shopPromoRejection(err)
