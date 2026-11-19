@@ -32,6 +32,18 @@
       "enabled": false
     },
     {
+      "description": "Hold speakeasy-api/openapi below 1.26: later versions move the overlay API to go.yaml.in/yaml/v3, which oapi-codegen does not build against",
+      "matchManagers": ["gomod"],
+      "matchPackageNames": ["github.com/speakeasy-api/openapi"],
+      "allowedVersions": "<1.26.0"
+    },
+    {
+      "description": "Hold speakeasy-api/jsonpath below 0.7 for the same reason as speakeasy-api/openapi",
+      "matchManagers": ["gomod"],
+      "matchPackageNames": ["github.com/speakeasy-api/jsonpath"],
+      "allowedVersions": "<0.7.0"
+    },
+    {
       "description": "Never automerge major versions",
       "matchUpdateTypes": ["major"],
       "dependencyDashboardApproval": true,

@@ -7,7 +7,7 @@
 Build Telegram-first self-service, subscriptions, billing, support, marketing, and administration around your existing Remnawave installation—without taking ownership of Xray or duplicating VPN state.
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-0ea5e9.svg)](./LICENSE)
-[![Go 1.26](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)](./go.mod)
+[![Go 1.27](https://img.shields.io/badge/Go-1.27-00ADD8?logo=go&logoColor=white)](./go.mod)
 [![Next.js 16.3](https://img.shields.io/badge/Next.js-16.3-000000?logo=next.js&logoColor=white)](./apps/web/package.json)
 [![TypeScript 7](https://img.shields.io/badge/TypeScript-7-3178C6?logo=typescript&logoColor=white)](./package.json)
 [![Bun](https://img.shields.io/badge/Bun-1.3-fbf0df?logo=bun&logoColor=black)](./package.json)
@@ -91,7 +91,7 @@ Omniflow never connects to Remnawave storage and never manages Xray processes di
 
 | Layer | Technology |
 | --- | --- |
-| Backend | Go 1.26, Chi, pgx, sqlc, River, OpenAPI, OpenTelemetry |
+| Backend | Go 1.27, Chi, pgx, sqlc, River, OpenAPI, OpenTelemetry |
 | Data | PostgreSQL 18, Atlas migrations, Valkey 9 |
 | Telegram | `go-telegram/bot`, localized inline keyboards, long polling |
 | Web | Next.js 16.3, React 19, TypeScript 7, SWR, Zustand |

@@ -3,7 +3,7 @@ title: Technology stack
 description: Every component Omniflow runs on, why it is there instead of the obvious alternative, and what is deliberately absent
 ---
 
-Omniflow is a Go 1.26 module and one Next.js application, deployed as five containers plus a reverse proxy
+Omniflow is a Go 1.27 module and one Next.js application, deployed as five containers plus a reverse proxy
 of the operator's choosing. Nothing in the stack requires a broker, an orchestrator, or a plugin runtime,
 because the target deployment is a single Linux server run by one person who also runs the VPN panel.
 
@@ -12,7 +12,7 @@ are load-bearing and which are merely current.
 
 | Layer | Technology |
 | --- | --- |
-| Backend | Go 1.26, chi v5, pgx v5, sqlc, River v0.43 |
+| Backend | Go 1.27, chi v5, pgx v5, sqlc, River v0.47 |
 | Data | PostgreSQL 18, Atlas, Valkey 9 |
 | Contract | OpenAPI 3.0.3, oapi-codegen, Orval |
 | Frontend | One Next.js 16.3 app, React 19, TypeScript 7, SWR, Zustand, Tailwind v4, shadcn/ui |
@@ -24,7 +24,7 @@ are load-bearing and which are merely current.
 
 ## Go, as one module with three entrypoints
 
-`go.mod` declares `go 1.26.0` and one module, `github.com/omniflow/omniflow`. `cmd/api`, `cmd/bot`, and
+`go.mod` declares `go 1.27.4` and one module, `github.com/omniflow/omniflow`. `cmd/api`, `cmd/bot`, and
 `cmd/worker` compile from the same tree, so a domain change reaches all three at once and there is no
 version skew between an API that writes a row and a worker that reads it.
 
@@ -73,7 +73,7 @@ changes nothing, and the integration suite applies them into a Testcontainers Po
 
 ## River for durable work
 
-`riverqueue/river v0.43.0` with the `riverpgxv5` driver runs jobs in the same PostgreSQL database as
+`riverqueue/river v0.47.0` with the `riverpgxv5` driver runs jobs in the same PostgreSQL database as
 everything else. That is the point: a job can be inserted with `InsertTx` inside the transaction that
 made the state change requiring it, which a broker in a separate system cannot offer without a two-phase
 protocol or an outbox dispatcher. `AGENTS.md` makes it a rule and forbids introducing a broker without an
