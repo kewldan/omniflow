@@ -3,13 +3,16 @@
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
+import { ConfirmDialog } from "@omniflow/ui/confirm-dialog";
 import { Skeleton } from "@omniflow/ui/skeleton";
+import { toast } from "@omniflow/ui/toast";
 import { useTranslations } from "next-intl";
+import { useId, useRef, useState } from "react";
 import useSWR from "swr";
 
 import { StateNotice } from "@/components/admin/state-notice";
 import { Timestamp } from "@/components/intl/timestamp";
-import { type ApiError, fetcher } from "@/lib/api";
+import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 import type { Listing } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 
@@ -40,13 +43,73 @@ export function ImportPanel() {
   const translate = useTranslations("admin.imports");
   const { can } = useSession();
 
-  const { data, isLoading } = useSWR<Listing<CustomerImport>, ApiError>(
+  const { data, isLoading, mutate } = useSWR<Listing<CustomerImport>, ApiError>(
     "/v1/panel/imports",
     fetcher,
     // A run in progress moves while an operator watches it.
     { refreshInterval: 5000 },
   );
   const items = data?.items ?? [];
+  const writable = can("customers.write");
+  const fileId = useId();
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [applying, setApplying] = useState<CustomerImport | null>(null);
+
+  async function step(path: string, body: unknown): Promise<CustomerImport | null> {
+    try {
+      return await apiFetch<CustomerImport>(path, { method: "POST", body: JSON.stringify(body) });
+    } catch {
+      toast.error(translate("actions.failed"));
+      return null;
+    }
+  }
+
+  // A preview reads Remnawave a page at a time; the panel keeps asking until
+  // the run is ready, so an operator presses one button for the whole base.
+  async function previewRemnawave(resume?: string) {
+    setBusy(true);
+    let run = await step("/v1/panel/imports/remnawave/preview", {
+      importId: resume ?? "",
+      pageSize: 500,
+    });
+    while (run && run.status === "previewing") {
+      run = await step("/v1/panel/imports/remnawave/preview", { importId: run.id, pageSize: 500 });
+    }
+    setBusy(false);
+    await mutate();
+  }
+
+  async function upload(file: File) {
+    setBusy(true);
+    const form = new FormData();
+    form.append("file", file);
+    try {
+      await apiFetch("/v1/panel/imports/file", { method: "POST", body: form });
+      toast.success(translate("actions.uploaded"));
+    } catch (failure) {
+      toast.error((failure as ApiError).message || translate("actions.failed"));
+    } finally {
+      setBusy(false);
+      if (fileInput.current) {
+        fileInput.current.value = "";
+      }
+      await mutate();
+    }
+  }
+
+  async function apply(run: CustomerImport) {
+    setBusy(true);
+    let current: CustomerImport | null = run;
+    while (current && current.status !== "completed") {
+      current = await step(`/v1/panel/imports/${run.id}/apply`, { limit: 500 });
+    }
+    setBusy(false);
+    if (current) {
+      toast.success(translate("actions.applied"));
+    }
+    await mutate();
+  }
 
   return (
     <Card>
@@ -63,6 +126,39 @@ export function ImportPanel() {
           </Button>
         )}
         <p className="text-muted-foreground text-xs">{translate("exportNotice")}</p>
+
+        {writable ? (
+          <div className="flex flex-wrap items-center gap-2 border-border border-t pt-3">
+            <Button disabled={busy} onClick={() => previewRemnawave()} size="sm">
+              {translate("actions.previewRemnawave")}
+            </Button>
+            <Button
+              disabled={busy}
+              onClick={() => fileInput.current?.click()}
+              size="sm"
+              variant="outline"
+            >
+              {translate("actions.upload")}
+            </Button>
+            <label className="sr-only" htmlFor={fileId}>
+              {translate("actions.upload")}
+            </label>
+            <input
+              accept=".csv,text/csv"
+              className="hidden"
+              id={fileId}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) {
+                  upload(file);
+                }
+              }}
+              ref={fileInput}
+              type="file"
+            />
+            <span className="text-muted-foreground text-xs">{translate("actions.fileHint")}</span>
+          </div>
+        ) : null}
 
         {isLoading ? (
           <Skeleton className="h-24 w-full" />
@@ -94,6 +190,25 @@ export function ImportPanel() {
                         where the source was left off, so a run interrupted at
                         record 40,000 does not start again at one. */}
                     {run.resumable && <Badge variant="warning">{translate("resumable")}</Badge>}
+                    {writable && run.status === "previewing" && run.resumable ? (
+                      <Button
+                        disabled={busy}
+                        onClick={() => previewRemnawave(run.id)}
+                        size="sm"
+                        variant="ghost"
+                      >
+                        {translate("actions.resume")}
+                      </Button>
+                    ) : null}
+                    {writable && (run.status === "ready" || run.status === "applying") ? (
+                      <Button
+                        disabled={busy || run.valid === 0}
+                        onClick={() => setApplying(run)}
+                        size="sm"
+                      >
+                        {translate("actions.apply", { count: run.valid })}
+                      </Button>
+                    ) : null}
                   </span>
                   <span className="flex items-center gap-3 text-sm tabular-nums">
                     <span>{translate("counts.total", { count: run.total })}</span>
@@ -127,6 +242,28 @@ export function ImportPanel() {
             ))}
           </div>
         )}
+        <ConfirmDialog
+          cancelLabel={translate("actions.cancel")}
+          confirmLabel={translate("actions.applyConfirm")}
+          description={translate("actions.applyDescription", {
+            valid: applying?.valid ?? 0,
+            conflicts: applying?.conflicts ?? 0,
+          })}
+          onConfirm={() => {
+            const run = applying;
+            setApplying(null);
+            if (run) {
+              apply(run);
+            }
+          }}
+          onOpenChange={(open) => {
+            if (!open) {
+              setApplying(null);
+            }
+          }}
+          open={applying !== null}
+          title={translate("actions.applyTitle")}
+        />
       </CardContent>
     </Card>
   );

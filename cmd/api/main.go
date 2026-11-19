@@ -313,6 +313,7 @@ func buildAdminPanel(
 		Search:             search,
 		Stars:              starsShopOptions(logger, cfg, pool),
 		Installation:       installation,
+		Imports:            importservice.New(pool, remnawaveClient),
 	}), nil
 }
 

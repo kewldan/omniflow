@@ -15,6 +15,7 @@ import (
 	"github.com/omniflow/omniflow/internal/airuntime"
 	"github.com/omniflow/omniflow/internal/customerauthpg"
 	"github.com/omniflow/omniflow/internal/fulfillment"
+	"github.com/omniflow/omniflow/internal/importservice"
 	"github.com/omniflow/omniflow/internal/installsettings"
 	"github.com/omniflow/omniflow/internal/panelpg"
 	"github.com/omniflow/omniflow/internal/panelsearchpg"
@@ -34,6 +35,7 @@ import (
 // the two silently inherits the other's middleware.
 type AdminHandlers struct {
 	installation *installsettings.Reader
+	imports      *importservice.Service
 	service      *adminauthpg.Service
 	limiter      *platform.RateLimiter
 	logger       *slog.Logger
@@ -142,6 +144,9 @@ type AdminOptions struct {
 	// Installation reads the saved installation settings the api obeys: the
 	// security section's second-factor requirement among them.
 	Installation *installsettings.Reader
+	// Imports previews and applies customer imports. A nil value leaves the
+	// panel's import routes unmounted.
+	Imports *importservice.Service
 }
 
 // versionOrUnknown renders an unset build version as something an operator will
@@ -195,6 +200,7 @@ func NewAdminHandlers(options AdminOptions) *AdminHandlers {
 		search:           options.Search,
 		stars:            options.Stars,
 		installation:     options.Installation,
+		imports:          options.Imports,
 		// The __Host- prefix binds the cookie to this exact origin, so a sibling
 		// subdomain cannot set or overwrite the operator's session. It applies
 		// only when the cookie is Secure, because a browser rejects a __Host-
@@ -299,6 +305,7 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 			handlers.mountPlanOptions(secure)
 			handlers.mountPlatform(secure)
 			handlers.mountNews(secure)
+			handlers.mountImports(secure)
 		})
 	})
 }

@@ -1650,7 +1650,7 @@ CREATE TABLE public.customer_imports (
     completed_at timestamp with time zone,
     CONSTRAINT customer_imports_conflict_count_check CHECK ((conflict_count >= 0)),
     CONSTRAINT customer_imports_invalid_count_check CHECK ((invalid_count >= 0)),
-    CONSTRAINT customer_imports_source_check CHECK ((source = 'remnawave'::text)),
+    CONSTRAINT customer_imports_source_check CHECK ((source = ANY (ARRAY['remnawave'::text, 'file'::text]))),
     CONSTRAINT customer_imports_status_check CHECK ((status = ANY (ARRAY['previewing'::text, 'ready'::text, 'applying'::text, 'completed'::text, 'failed'::text, 'cancelled'::text]))),
     CONSTRAINT customer_imports_total_count_check CHECK ((total_count >= 0)),
     CONSTRAINT customer_imports_valid_count_check CHECK ((valid_count >= 0))

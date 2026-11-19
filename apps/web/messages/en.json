@@ -2254,11 +2254,26 @@
         "missing_telegram_id": "No Telegram identifier",
         "duplicate_telegram_id": "Duplicate Telegram identifier",
         "invalid_username": "Unreadable username",
-        "invalid_expiry": "Unreadable expiry"
+        "invalid_expiry": "Unreadable expiry",
+        "unreadable_row": "Unreadable row"
       },
       "empty": {
         "title": "No imports yet",
         "description": "Import runs and their validation results appear here."
+      },
+      "actions": {
+        "previewRemnawave": "Preview from Remnawave",
+        "upload": "Upload CSV",
+        "fileHint": "CSV with a header row: remnawave_id (required), telegram_id, username, status.",
+        "resume": "Continue preview",
+        "apply": "Apply {count} clean",
+        "applyTitle": "Apply this import?",
+        "applyDescription": "{valid} clean records become customers linked to their Remnawave users. {conflicts} conflicts are left untouched. This cannot be undone in bulk.",
+        "applyConfirm": "Apply",
+        "cancel": "Cancel",
+        "applied": "Import applied",
+        "uploaded": "File staged — review the counts, then apply",
+        "failed": "The import step failed"
       }
     },
     "support": {

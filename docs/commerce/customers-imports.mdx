@@ -143,8 +143,21 @@ Two further things to expect:
 
 ## Running an import
 
-The preview, resume, and apply routes are on the operator-token surface. There is no panel control
-that starts an import — `/admin/customers` lists runs and offers the export, and that is all it does.
+From the panel, an operator holding `customers.write` runs the whole import on the **Imports** card at
+`/admin/customers`:
+
+- **Preview from Remnawave** stages every Remnawave user, five hundred per request, until the run is
+  `ready`. A run left `previewing` shows **Continue preview**.
+- **Upload CSV** stages a file instead: a header row with `remnawave_id` (required) and optionally
+  `telegram_id`, `username`, and `status`, in any order, up to 50,000 rows and 10 MB. The file goes
+  through the same duplicate detection; a row whose identifiers do not parse is counted under
+  `unreadable_row`. It is how a base exported from another panel or from Bedolaga is brought in.
+- **Apply** on a `ready` run asks for confirmation with the clean and conflict counts, then applies
+  every clean record, five hundred per request, until the run is `completed`.
+
+Each step is audited as `customer.import.previewed`, `customer.import.uploaded`, or
+`customer.import.applied`. The same steps remain available on the operator-token surface for
+scripts:
 
 <Steps>
   <Step title="Confirm the panel credentials">
@@ -187,6 +200,9 @@ that starts an import — `/admin/customers` lists runs and offers the export, a
 | `POST /v1/admin/imports/remnawave/{importID}/apply` | Operator token | — |
 | `GET /v1/panel/imports` | Operator session | `customers.read` |
 | `GET /v1/panel/customers/export` | Operator session | `customers.read` |
+| `POST /v1/panel/imports/remnawave/preview` | Operator session | `customers.write` |
+| `POST /v1/panel/imports/file` (multipart `file` or a CSV body) | Operator session | `customers.write` |
+| `POST /v1/panel/imports/{importID}/apply` | Operator session | `customers.write` |
 
 Refusals to expect:
 

@@ -2254,11 +2254,26 @@
         "missing_telegram_id": "Нет идентификатора Telegram",
         "duplicate_telegram_id": "Дубль идентификатора Telegram",
         "invalid_username": "Нечитаемое имя пользователя",
-        "invalid_expiry": "Нечитаемая дата окончания"
+        "invalid_expiry": "Нечитаемая дата окончания",
+        "unreadable_row": "Нечитаемая строка"
       },
       "empty": {
         "title": "Импортов пока нет",
         "description": "Здесь появятся запуски импорта и результаты проверки."
+      },
+      "actions": {
+        "previewRemnawave": "Предпросмотр из Remnawave",
+        "upload": "Загрузить CSV",
+        "fileHint": "CSV со строкой заголовков: remnawave_id (обязательно), telegram_id, username, status.",
+        "resume": "Продолжить предпросмотр",
+        "apply": "Применить {count} чистых",
+        "applyTitle": "Применить импорт?",
+        "applyDescription": "{valid} чистых записей станут клиентами, связанными со своими пользователями Remnawave. {conflicts} конфликтов останутся нетронутыми. Массово это не отменить.",
+        "applyConfirm": "Применить",
+        "cancel": "Отмена",
+        "applied": "Импорт применён",
+        "uploaded": "Файл подготовлен — проверьте счётчики и примените",
+        "failed": "Шаг импорта не удался"
       }
     },
     "support": {

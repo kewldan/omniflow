@@ -317,6 +317,9 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	CreateCustomerSession(ctx context.Context, arg CreateCustomerSessionParams) (CustomerSession, error)
 	CreateEntitlement(ctx context.Context, arg CreateEntitlementParams) (Entitlement, error)
+	// Customer imports staged from an uploaded file.
+	// An import staged from an uploaded CSV rather than read from Remnawave.
+	CreateFileCustomerImport(ctx context.Context) (CustomerImport, error)
 	CreateFulfillmentOperation(ctx context.Context, arg CreateFulfillmentOperationParams) (FulfillmentOperation, error)
 	// Gifts and personal offers.
 	//
