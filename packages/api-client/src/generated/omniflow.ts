@@ -4227,6 +4227,10 @@ export interface AccountCheckoutQuote {
   walletAppliedMinor: number;
   /** What still has to be settled through a provider. */
   externalMinor: number;
+  /** The part of discountMinor the customer's loyalty tier gave. */
+  loyaltyDiscountMinor?: number;
+  /** Code of the loyalty tier that gave loyaltyDiscountMinor; empty when none did. */
+  loyaltyTier?: string;
 }
 
 export interface AccountPaymentChoice {

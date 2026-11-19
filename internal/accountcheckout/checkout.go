@@ -166,6 +166,9 @@ func quoteFrom(preview commercepg.OrderQuote, session Session) commerce.Checkout
 		PromoCode:          session.PromoCode,
 		PromoRejection:     session.PromoRejection,
 		AddonMinor:         preview.AddonMinor,
+
+		LoyaltyDiscountMinor: preview.LoyaltyDiscountMinor,
+		LoyaltyTier:          preview.LoyaltyTier,
 	}
 }
 

@@ -4250,7 +4250,8 @@
         "discount": "Discount",
         "wallet": "From your wallet",
         "external": "To pay",
-        "nothingDue": "Your wallet covers this in full, so there is nothing left to pay."
+        "nothingDue": "Your wallet covers this in full, so there is nothing left to pay.",
+        "loyalty": "Of which your loyalty tier"
       },
       "store": {
         "plans": "Plans",

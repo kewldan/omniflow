@@ -418,6 +418,9 @@ func checkoutPayload(view accountcheckout.CheckoutView) map[string]any {
 			"walletBalanceMinor": view.Quote.WalletBalanceMinor,
 			"walletAppliedMinor": view.Quote.WalletAppliedMinor,
 			"externalMinor":      view.Quote.ExternalMinor,
+
+			"loyaltyDiscountMinor": view.Quote.LoyaltyDiscountMinor,
+			"loyaltyTier":          view.Quote.LoyaltyTier,
 		},
 		"promoCode":         view.Quote.PromoCode,
 		"subscriptionId":    view.SubscriptionID,

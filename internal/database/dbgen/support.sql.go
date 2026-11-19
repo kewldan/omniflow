@@ -469,6 +469,50 @@ func (q *Queries) GetCannedResponse(ctx context.Context, id pgtype.UUID) (Suppor
 	return i, err
 }
 
+const getCustomerLoyaltyTiers = `-- name: GetCustomerLoyaltyTiers :many
+SELECT t.id, t.program_id, t.code, t.name_en, t.name_ru, t.threshold, t.discount_bps, t.sort_order
+FROM loyalty_tiers t
+JOIN loyalty_programs p ON p.id = t.program_id AND p.enabled
+WHERE t.code IN (
+  SELECT st.code FROM loyalty_standings s
+  JOIN loyalty_tiers st ON st.id = s.tier_id
+  WHERE s.user_id = $1
+)
+`
+
+// The tiers a customer holds under the programme in force. A standing is
+// matched by tier code rather than by identifier, so publishing the next
+// version of a programme does not strip customers of a tier that still exists
+// under the same code while they wait to be re-evaluated.
+func (q *Queries) GetCustomerLoyaltyTiers(ctx context.Context, userID pgtype.UUID) ([]LoyaltyTier, error) {
+	rows, err := q.db.Query(ctx, getCustomerLoyaltyTiers, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []LoyaltyTier{}
+	for rows.Next() {
+		var i LoyaltyTier
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProgramID,
+			&i.Code,
+			&i.NameEn,
+			&i.NameRu,
+			&i.Threshold,
+			&i.DiscountBps,
+			&i.SortOrder,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getDefaultSupportQueue = `-- name: GetDefaultSupportQueue :one
 SELECT id, code, name_en, name_ru, first_response_target_seconds, resolution_target_seconds, is_default, sort_order, archived_at, created_at, updated_at FROM support_queues WHERE is_default AND archived_at IS NULL
 `

@@ -193,3 +193,16 @@ func TestDiscountRoundsDown(t *testing.T) {
 		t.Fatalf("a tier worth nothing discounted %d", got)
 	}
 }
+
+func TestBestPicksTheMostGenerousTier(t *testing.T) {
+	if _, ok := Best(nil); ok {
+		t.Fatal("no tiers produced a tier")
+	}
+	best, ok := Best([]Tier{{Code: "silver", DiscountBPS: 500}, {Code: "gold", DiscountBPS: 1000}, {Code: "bronze"}})
+	if !ok || best.Code != "gold" {
+		t.Fatalf("best = %+v, want gold", best)
+	}
+	if got := Discount(34900, best); got != 3490 {
+		t.Fatalf("discount = %d, want 3490", got)
+	}
+}

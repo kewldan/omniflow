@@ -19,6 +19,10 @@ type CheckoutQuote struct {
 	// AddonMinor is what the selected add-ons add to this order. They are
 	// charged on the same order as the plan, so one confirmation is one payment.
 	AddonMinor int64
+	// LoyaltyDiscountMinor is the part of DiscountMinor the customer's loyalty
+	// tier gave, and LoyaltyTier that tier's code.
+	LoyaltyDiscountMinor int64
+	LoyaltyTier          string
 }
 
 // Quote computes the payable breakdown for a plan price, an already-validated

@@ -211,6 +211,22 @@ func Discount(amountMinor int64, tier Tier) int64 {
 	return amountMinor * int64(tier.DiscountBPS) / 10_000
 }
 
+// Best picks the tier whose discount a customer is priced with when they hold
+// more than one, and reports false when they hold none. The most generous tier
+// wins: holding a tier is never allowed to make a price worse.
+func Best(tiers []Tier) (Tier, bool) {
+	if len(tiers) == 0 {
+		return Tier{}, false
+	}
+	best := tiers[0]
+	for _, tier := range tiers[1:] {
+		if tier.DiscountBPS > best.DiscountBPS {
+			best = tier
+		}
+	}
+	return best, true
+}
+
 func tierByID(program Program, id string) (Tier, bool) {
 	for _, tier := range program.Tiers {
 		if tier.ID == id {

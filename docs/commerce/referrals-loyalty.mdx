@@ -312,13 +312,26 @@ entry rather than two. History entries are written with the reason `evaluation`.
   snapshot of the moment it was called.
 </Warning>
 
-<Warning>
-  **A tier's `discountBps` is displayed and never charged.** No pricing, checkout,
-  quote, or promotion path reads a loyalty tier. The discount figure is shown to
-  the customer on `/account/referrals` and to operators on the customer record,
-  and that is all it does today. Use a [promotion](/commerce/catalog-promotions)
-  if a discount needs to reach a price.
-</Warning>
+### The tier's discount is part of the price
+
+A tier's `discountBps` comes off the plan price of every subscription order —
+purchase, extension, renewal, upgrade, downgrade — in the bot, on the web, and on
+an automatic renewal, because all three price through the same quote. It does
+not apply to wallet top-ups, the shop, gifts, or codes.
+
+- The customer's tier is the one their standing names, looked up **by code** in
+  the programme in force. Publishing the next version keeps a customer's gold
+  discount at the new version's gold rate until they are re-evaluated; a code the
+  new version no longer has stops discounting. With no programme enabled, nothing
+  is discounted.
+- The tier is taken off first and rounded down. A promo code — or the personal
+  offer applied by itself — then discounts what is left, so a 10 % tier and a
+  10 % code make 19 %, never more than the price.
+- The order records the tier's part in `orders.loyalty_discount_minor` and the
+  tier's code in `orders.loyalty_tier_code`; `discount_minor` is the whole
+  discount. A promo redemption records only the code's part.
+- The checkout shows the tier's part as its own line under the discount: "of
+  which your loyalty tier" on the web, the same in the bot.
 
 ### What the customer sees
 

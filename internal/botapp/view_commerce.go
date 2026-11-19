@@ -164,6 +164,9 @@ func checkoutView(locale Locale, plan Plan, session CheckoutSession, quote comme
 	}
 	if quote.DiscountMinor > 0 {
 		lines = append(lines, text(locale, "checkout.discount", formatMoney(quote.DiscountMinor, quote.Subtotal.Currency)))
+		if quote.LoyaltyDiscountMinor > 0 {
+			lines = append(lines, text(locale, "checkout.loyaltyDiscount", formatMoney(quote.LoyaltyDiscountMinor, quote.Subtotal.Currency)))
+		}
 	}
 	if quote.AddonMinor > 0 {
 		lines = append(lines, text(locale, "checkout.addons", formatMoney(quote.AddonMinor, quote.Subtotal.Currency)))

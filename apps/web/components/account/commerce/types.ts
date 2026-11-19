@@ -152,6 +152,9 @@ export type CheckoutQuote = {
   walletBalanceMinor: number;
   walletAppliedMinor: number;
   externalMinor: number;
+  /** The part of discountMinor the customer's loyalty tier gave. */
+  loyaltyDiscountMinor?: number;
+  loyaltyTier?: string;
 };
 
 /** One subscription a lifecycle flow can act on. */

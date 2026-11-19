@@ -659,6 +659,11 @@ type Querier interface {
 	GetCustomerIdentityForUnlink(ctx context.Context, arg GetCustomerIdentityForUnlinkParams) (Identity, error)
 	GetCustomerImport(ctx context.Context, id pgtype.UUID) (CustomerImport, error)
 	GetCustomerImportItemCounts(ctx context.Context, importID pgtype.UUID) (GetCustomerImportItemCountsRow, error)
+	// The tiers a customer holds under the programme in force. A standing is
+	// matched by tier code rather than by identifier, so publishing the next
+	// version of a programme does not strip customers of a tier that still exists
+	// under the same code while they wait to be re-evaluated.
+	GetCustomerLoyaltyTiers(ctx context.Context, userID pgtype.UUID) ([]LoyaltyTier, error)
 	GetCustomerOIDCProvider(ctx context.Context, slug string) (CustomerOidcProvider, error)
 	// One round trip for the profile header: the customer, their Telegram mapping,
 	// and the counts the page shows before any tab is opened.

@@ -811,6 +811,8 @@ var catalog = map[string]phrase{
 	"menu.miniApp":    {ru: "Кабинет", en: "Account"},
 	// Pay and keep the card for automatic renewal: the button is the consent.
 	"pay.optionSave": {ru: "%s + сохранить карту для автопродления", en: "%s + save the card for auto-renew"},
+	// Marketing, loyalty, and referrals.
+	"checkout.loyaltyDiscount": {ru: "  в т. ч. уровень лояльности: −%s", en: "  of which your loyalty tier: −%s"},
 }
 
 // formatMoney renders an integer minor-unit amount for display. Telegram Stars

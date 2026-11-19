@@ -14,6 +14,7 @@ import (
 	"github.com/omniflow/omniflow/internal/commerce"
 	databaseutil "github.com/omniflow/omniflow/internal/database"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
+	"github.com/omniflow/omniflow/internal/loyalty"
 )
 
 // EnqueueFulfillment inserts the durable job that provisions one fulfillment
@@ -287,8 +288,16 @@ type OrderQuote struct {
 	SquadIDs []string
 	// AddonMinor is what the selected add-ons add to the order total.
 	AddonMinor int64
-	addons     []pricedAddon
-	promo      *dbgen.GetPromoForRedemptionRow
+	// LoyaltyDiscountMinor is the part of DiscountMinor the customer's loyalty
+	// tier gave, and LoyaltyTier the tier's code. A promotion discounts what is
+	// left after the tier's discount, so the two never add up to more than the
+	// price.
+	LoyaltyDiscountMinor int64
+	LoyaltyTier          string
+	// PromoDiscountMinor is the part of DiscountMinor the promo code gave.
+	PromoDiscountMinor int64
+	addons             []pricedAddon
+	promo              *dbgen.GetPromoForRedemptionRow
 }
 
 // TotalMinor is what the customer owes before the wallet is applied.
@@ -357,6 +366,23 @@ func (store *Store) quoteWith(ctx context.Context, queries *dbgen.Queries, userI
 	if err != nil {
 		return OrderQuote{}, err
 	}
+	// The loyalty tier is taken off the plan price first; a promo code then
+	// discounts what remains, the way Bedolaga applies a promo group's discount
+	// before a promo offer.
+	var loyaltyMinor int64
+	var loyaltyCode string
+	if commerce.SubscriptionOperation(input.Operation) {
+		tier, held, tierErr := store.customerLoyaltyTier(ctx, queries, userID)
+		if tierErr != nil {
+			return OrderQuote{}, tierErr
+		}
+		if held {
+			loyaltyMinor = loyalty.Discount(plan.AmountMinor, tier)
+			if loyaltyMinor > 0 {
+				loyaltyCode = tier.Code
+			}
+		}
+	}
 	discount := int64(0)
 	var promo *dbgen.GetPromoForRedemptionRow
 	if input.PromoCode != "" {
@@ -398,7 +424,7 @@ func (store *Store) quoteWith(ctx context.Context, queries *dbgen.Queries, userI
 			value := int(limit.Int32)
 			promotion.RedemptionLimit = &value
 		}
-		price := commerce.Money{Amount: plan.AmountMinor, Currency: plan.Currency}
+		price := commerce.Money{Amount: plan.AmountMinor - loyaltyMinor, Currency: plan.Currency}
 		discountMoney, discountErr := promotion.Discount(store.clock(), input.CustomerID, uuidString(plan.PlanID), price)
 		if discountErr != nil {
 			return OrderQuote{}, ErrPromoIneligible
@@ -423,6 +449,8 @@ func (store *Store) quoteWith(ctx context.Context, queries *dbgen.Queries, userI
 	// The discount applies to the plan, not to the add-ons, so the add-on total
 	// is added after the promotion has been taken off the plan price.
 	subtotal := plan.AmountMinor + addonMinor
+	promoMinor := discount
+	discount += loyaltyMinor
 	domainOrder, err := commerce.NewOrder("", input.CustomerID, commerce.Money{Amount: subtotal, Currency: plan.Currency}, discount, applicableWallet)
 	if err != nil {
 		return OrderQuote{}, err
@@ -431,6 +459,7 @@ func (store *Store) quoteWith(ctx context.Context, queries *dbgen.Queries, userI
 		Plan: plan, DiscountMinor: discount, WalletBalance: wallet,
 		WalletMinor: domainOrder.WalletMinor, ExternalMinor: domainOrder.ExternalMinor,
 		SquadIDs: squads, AddonMinor: addonMinor, addons: addons, promo: promo,
+		LoyaltyDiscountMinor: loyaltyMinor, LoyaltyTier: loyaltyCode, PromoDiscountMinor: promoMinor,
 	}, nil
 }
 
@@ -521,6 +550,7 @@ func (store *Store) CreateOrder(ctx context.Context, input CreateOrderInput) (db
 		ExternalMinor: domainOrder.ExternalMinor, IdempotencyKey: input.IdempotencyKey,
 		ExpiresAt:      pgtype.Timestamptz{Time: expiresAt, Valid: true},
 		SubscriptionID: subscriptionID, SelectedSquadIds: squadIDs,
+		LoyaltyDiscountMinor: quote.LoyaltyDiscountMinor, LoyaltyTierCode: optionalText(quote.LoyaltyTier),
 	})
 	if err != nil {
 		return dbgen.Order{}, err
@@ -543,7 +573,7 @@ func (store *Store) CreateOrder(ctx context.Context, input CreateOrderInput) (db
 		return dbgen.Order{}, err
 	}
 	if promo != nil {
-		if _, err = queries.InsertPromoRedemption(ctx, dbgen.InsertPromoRedemptionParams{PromoCodeID: promo.ID, PromotionID: promo.PromotionID, UserID: userID, OrderID: order.ID, DiscountMinor: discount}); err != nil {
+		if _, err = queries.InsertPromoRedemption(ctx, dbgen.InsertPromoRedemptionParams{PromoCodeID: promo.ID, PromotionID: promo.PromotionID, UserID: userID, OrderID: order.ID, DiscountMinor: quote.PromoDiscountMinor}); err != nil {
 			return dbgen.Order{}, err
 		}
 		// A personal offer behind this promotion is spent by this order.

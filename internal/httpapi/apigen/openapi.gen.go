@@ -5147,10 +5147,16 @@ type AccountCheckoutQuote struct {
 	DiscountMinor int64  `json:"discountMinor"`
 
 	// ExternalMinor What still has to be settled through a provider.
-	ExternalMinor      int64 `json:"externalMinor"`
-	SubtotalMinor      int64 `json:"subtotalMinor"`
-	WalletAppliedMinor int64 `json:"walletAppliedMinor"`
-	WalletBalanceMinor int64 `json:"walletBalanceMinor"`
+	ExternalMinor int64 `json:"externalMinor"`
+
+	// LoyaltyDiscountMinor The part of discountMinor the customer's loyalty tier gave.
+	LoyaltyDiscountMinor *int64 `json:"loyaltyDiscountMinor,omitempty"`
+
+	// LoyaltyTier Code of the loyalty tier that gave loyaltyDiscountMinor; empty when none did.
+	LoyaltyTier        *string `json:"loyaltyTier,omitempty"`
+	SubtotalMinor      int64   `json:"subtotalMinor"`
+	WalletAppliedMinor int64   `json:"walletAppliedMinor"`
+	WalletBalanceMinor int64   `json:"walletBalanceMinor"`
 }
 
 // AccountConnection defines model for AccountConnection.

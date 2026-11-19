@@ -40,6 +40,13 @@ export function QuoteBreakdown({ className, quote }: { className?: string; quote
           value={`−${amount(quote.discountMinor)}`}
         />
       )}
+      {(quote.loyaltyDiscountMinor ?? 0) !== 0 && (
+        <Row
+          label={translate("breakdown.loyalty")}
+          tone="success"
+          value={`−${amount(quote.loyaltyDiscountMinor ?? 0)}`}
+        />
+      )}
       {quote.walletAppliedMinor !== 0 && (
         <Row
           label={translate("breakdown.wallet")}

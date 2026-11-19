@@ -8309,6 +8309,14 @@ export const GetAccountCheckoutResponse = zod.object({
       walletBalanceMinor: zod.int(),
       walletAppliedMinor: zod.int(),
       externalMinor: zod.int().describe("What still has to be settled through a provider."),
+      loyaltyDiscountMinor: zod
+        .int()
+        .optional()
+        .describe("The part of discountMinor the customer's loyalty tier gave."),
+      loyaltyTier: zod
+        .string()
+        .optional()
+        .describe("Code of the loyalty tier that gave loyaltyDiscountMinor; empty when none did."),
     })
     .describe(
       "The exact application breakdown. Every figure is computed on the server, so the number a customer is asked to approve and the number they are charged cannot be arrived at two different ways.",
@@ -8479,6 +8487,14 @@ export const OpenAccountCheckoutResponse = zod.object({
       walletBalanceMinor: zod.int(),
       walletAppliedMinor: zod.int(),
       externalMinor: zod.int().describe("What still has to be settled through a provider."),
+      loyaltyDiscountMinor: zod
+        .int()
+        .optional()
+        .describe("The part of discountMinor the customer's loyalty tier gave."),
+      loyaltyTier: zod
+        .string()
+        .optional()
+        .describe("Code of the loyalty tier that gave loyaltyDiscountMinor; empty when none did."),
     })
     .describe(
       "The exact application breakdown. Every figure is computed on the server, so the number a customer is asked to approve and the number they are charged cannot be arrived at two different ways.",
@@ -8648,6 +8664,14 @@ export const UpdateAccountCheckoutResponse = zod.object({
       walletBalanceMinor: zod.int(),
       walletAppliedMinor: zod.int(),
       externalMinor: zod.int().describe("What still has to be settled through a provider."),
+      loyaltyDiscountMinor: zod
+        .int()
+        .optional()
+        .describe("The part of discountMinor the customer's loyalty tier gave."),
+      loyaltyTier: zod
+        .string()
+        .optional()
+        .describe("Code of the loyalty tier that gave loyaltyDiscountMinor; empty when none did."),
     })
     .describe(
       "The exact application breakdown. Every figure is computed on the server, so the number a customer is asked to approve and the number they are charged cannot be arrived at two different ways.",
@@ -8821,6 +8845,14 @@ export const ApplyAccountPromoCodeResponse = zod.object({
       walletBalanceMinor: zod.int(),
       walletAppliedMinor: zod.int(),
       externalMinor: zod.int().describe("What still has to be settled through a provider."),
+      loyaltyDiscountMinor: zod
+        .int()
+        .optional()
+        .describe("The part of discountMinor the customer's loyalty tier gave."),
+      loyaltyTier: zod
+        .string()
+        .optional()
+        .describe("Code of the loyalty tier that gave loyaltyDiscountMinor; empty when none did."),
     })
     .describe(
       "The exact application breakdown. Every figure is computed on the server, so the number a customer is asked to approve and the number they are charged cannot be arrived at two different ways.",
@@ -8979,6 +9011,14 @@ export const RemoveAccountPromoCodeResponse = zod.object({
       walletBalanceMinor: zod.int(),
       walletAppliedMinor: zod.int(),
       externalMinor: zod.int().describe("What still has to be settled through a provider."),
+      loyaltyDiscountMinor: zod
+        .int()
+        .optional()
+        .describe("The part of discountMinor the customer's loyalty tier gave."),
+      loyaltyTier: zod
+        .string()
+        .optional()
+        .describe("Code of the loyalty tier that gave loyaltyDiscountMinor; empty when none did."),
     })
     .describe(
       "The exact application breakdown. Every figure is computed on the server, so the number a customer is asked to approve and the number they are charged cannot be arrived at two different ways.",
@@ -9141,6 +9181,14 @@ export const ToggleAccountCheckoutAddonResponse = zod.object({
       walletBalanceMinor: zod.int(),
       walletAppliedMinor: zod.int(),
       externalMinor: zod.int().describe("What still has to be settled through a provider."),
+      loyaltyDiscountMinor: zod
+        .int()
+        .optional()
+        .describe("The part of discountMinor the customer's loyalty tier gave."),
+      loyaltyTier: zod
+        .string()
+        .optional()
+        .describe("Code of the loyalty tier that gave loyaltyDiscountMinor; empty when none did."),
     })
     .describe(
       "The exact application breakdown. Every figure is computed on the server, so the number a customer is asked to approve and the number they are charged cannot be arrived at two different ways.",

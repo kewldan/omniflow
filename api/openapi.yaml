@@ -7674,6 +7674,8 @@ components:
         walletBalanceMinor: {type: integer, format: int64}
         walletAppliedMinor: {type: integer, format: int64}
         externalMinor: {type: integer, format: int64, description: "What still has to be settled through a provider."}
+        loyaltyDiscountMinor: {type: integer, format: int64, description: "The part of discountMinor the customer's loyalty tier gave."}
+        loyaltyTier: {type: string, description: "Code of the loyalty tier that gave loyaltyDiscountMinor; empty when none did."}
     AccountPaymentChoice:
       type: object
       required: [provider, currency, recurring]

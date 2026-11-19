@@ -337,12 +337,14 @@ RETURNING *;
 INSERT INTO orders (
   user_id, state, operation, currency, subtotal_minor, discount_minor,
   wallet_minor, external_minor, idempotency_key, expires_at,
-  subscription_id, selected_squad_ids, paid_minor, paid_at
+  subscription_id, selected_squad_ids, paid_minor, paid_at,
+  loyalty_discount_minor, loyalty_tier_code
 )
 VALUES (
   $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
   CASE WHEN $2::text = 'paid' THEN $7::bigint ELSE 0 END,
-  CASE WHEN $2::text = 'paid' THEN now() ELSE NULL END
+  CASE WHEN $2::text = 'paid' THEN now() ELSE NULL END,
+  $13, $14
 )
 ON CONFLICT (user_id, idempotency_key) DO UPDATE SET idempotency_key = EXCLUDED.idempotency_key
 RETURNING *;

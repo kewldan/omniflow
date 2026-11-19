@@ -207,7 +207,7 @@ WITH mutation AS (
 )
 UPDATE orders SET state = 'cancelled', updated_at = now()
 WHERE orders.id = $1 AND orders.state IN ('draft', 'pending', 'cancelled')
-RETURNING orders.id, orders.user_id, orders.state, orders.operation, orders.currency, orders.subtotal_minor, orders.discount_minor, orders.wallet_minor, orders.external_minor, orders.paid_minor, orders.refunded_minor, orders.idempotency_key, orders.expires_at, orders.created_at, orders.updated_at, orders.subscription_id, orders.selected_squad_ids, orders.paid_at
+RETURNING orders.id, orders.user_id, orders.state, orders.operation, orders.currency, orders.subtotal_minor, orders.discount_minor, orders.wallet_minor, orders.external_minor, orders.paid_minor, orders.refunded_minor, orders.idempotency_key, orders.expires_at, orders.created_at, orders.updated_at, orders.subscription_id, orders.selected_squad_ids, orders.paid_at, orders.loyalty_discount_minor, orders.loyalty_tier_code
 `
 
 type CancelOrderParams struct {
@@ -238,6 +238,8 @@ func (q *Queries) CancelOrder(ctx context.Context, arg CancelOrderParams) (Order
 		&i.SubscriptionID,
 		&i.SelectedSquadIds,
 		&i.PaidAt,
+		&i.LoyaltyDiscountMinor,
+		&i.LoyaltyTierCode,
 	)
 	return i, err
 }
@@ -588,30 +590,34 @@ const createOrder = `-- name: CreateOrder :one
 INSERT INTO orders (
   user_id, state, operation, currency, subtotal_minor, discount_minor,
   wallet_minor, external_minor, idempotency_key, expires_at,
-  subscription_id, selected_squad_ids, paid_minor, paid_at
+  subscription_id, selected_squad_ids, paid_minor, paid_at,
+  loyalty_discount_minor, loyalty_tier_code
 )
 VALUES (
   $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12,
   CASE WHEN $2::text = 'paid' THEN $7::bigint ELSE 0 END,
-  CASE WHEN $2::text = 'paid' THEN now() ELSE NULL END
+  CASE WHEN $2::text = 'paid' THEN now() ELSE NULL END,
+  $13, $14
 )
 ON CONFLICT (user_id, idempotency_key) DO UPDATE SET idempotency_key = EXCLUDED.idempotency_key
-RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at
+RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at, loyalty_discount_minor, loyalty_tier_code
 `
 
 type CreateOrderParams struct {
-	UserID           pgtype.UUID        `json:"user_id"`
-	State            string             `json:"state"`
-	Operation        string             `json:"operation"`
-	Currency         string             `json:"currency"`
-	SubtotalMinor    int64              `json:"subtotal_minor"`
-	DiscountMinor    int64              `json:"discount_minor"`
-	WalletMinor      int64              `json:"wallet_minor"`
-	ExternalMinor    int64              `json:"external_minor"`
-	IdempotencyKey   string             `json:"idempotency_key"`
-	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
-	SubscriptionID   pgtype.UUID        `json:"subscription_id"`
-	SelectedSquadIds []pgtype.UUID      `json:"selected_squad_ids"`
+	UserID               pgtype.UUID        `json:"user_id"`
+	State                string             `json:"state"`
+	Operation            string             `json:"operation"`
+	Currency             string             `json:"currency"`
+	SubtotalMinor        int64              `json:"subtotal_minor"`
+	DiscountMinor        int64              `json:"discount_minor"`
+	WalletMinor          int64              `json:"wallet_minor"`
+	ExternalMinor        int64              `json:"external_minor"`
+	IdempotencyKey       string             `json:"idempotency_key"`
+	ExpiresAt            pgtype.Timestamptz `json:"expires_at"`
+	SubscriptionID       pgtype.UUID        `json:"subscription_id"`
+	SelectedSquadIds     []pgtype.UUID      `json:"selected_squad_ids"`
+	LoyaltyDiscountMinor int64              `json:"loyalty_discount_minor"`
+	LoyaltyTierCode      pgtype.Text        `json:"loyalty_tier_code"`
 }
 
 // An order the wallet covers in full is born paid, and it is paid by the
@@ -633,6 +639,8 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order
 		arg.ExpiresAt,
 		arg.SubscriptionID,
 		arg.SelectedSquadIds,
+		arg.LoyaltyDiscountMinor,
+		arg.LoyaltyTierCode,
 	)
 	var i Order
 	err := row.Scan(
@@ -654,6 +662,8 @@ func (q *Queries) CreateOrder(ctx context.Context, arg CreateOrderParams) (Order
 		&i.SubscriptionID,
 		&i.SelectedSquadIds,
 		&i.PaidAt,
+		&i.LoyaltyDiscountMinor,
+		&i.LoyaltyTierCode,
 	)
 	return i, err
 }
@@ -985,7 +995,7 @@ WITH expired AS (
   ON CONFLICT DO NOTHING
 )
 UPDATE orders SET state = 'expired', updated_at = now() WHERE id IN (SELECT id FROM expired)
-RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at
+RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at, loyalty_discount_minor, loyalty_tier_code
 `
 
 func (q *Queries) ExpirePendingOrders(ctx context.Context) ([]Order, error) {
@@ -1016,6 +1026,8 @@ func (q *Queries) ExpirePendingOrders(ctx context.Context) ([]Order, error) {
 			&i.SubscriptionID,
 			&i.SelectedSquadIds,
 			&i.PaidAt,
+			&i.LoyaltyDiscountMinor,
+			&i.LoyaltyTierCode,
 		); err != nil {
 			return nil, err
 		}
@@ -1031,7 +1043,7 @@ const extendOrderExpiry = `-- name: ExtendOrderExpiry :one
 UPDATE orders
 SET expires_at = GREATEST(expires_at, $1::timestamptz), updated_at = now()
 WHERE id = $2 AND state = 'pending' AND operation <> 'goods'
-RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at
+RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at, loyalty_discount_minor, loyalty_tier_code
 `
 
 type ExtendOrderExpiryParams struct {
@@ -1065,6 +1077,8 @@ func (q *Queries) ExtendOrderExpiry(ctx context.Context, arg ExtendOrderExpiryPa
 		&i.SubscriptionID,
 		&i.SelectedSquadIds,
 		&i.PaidAt,
+		&i.LoyaltyDiscountMinor,
+		&i.LoyaltyTierCode,
 	)
 	return i, err
 }
@@ -1379,7 +1393,7 @@ func (q *Queries) GetOpenPaymentIntentByPayerTelegram(ctx context.Context, arg G
 }
 
 const getOrder = `-- name: GetOrder :one
-SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at FROM orders WHERE id = $1
+SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at, loyalty_discount_minor, loyalty_tier_code FROM orders WHERE id = $1
 `
 
 func (q *Queries) GetOrder(ctx context.Context, id pgtype.UUID) (Order, error) {
@@ -1404,12 +1418,14 @@ func (q *Queries) GetOrder(ctx context.Context, id pgtype.UUID) (Order, error) {
 		&i.SubscriptionID,
 		&i.SelectedSquadIds,
 		&i.PaidAt,
+		&i.LoyaltyDiscountMinor,
+		&i.LoyaltyTierCode,
 	)
 	return i, err
 }
 
 const getOrderByIdempotency = `-- name: GetOrderByIdempotency :one
-SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at FROM orders WHERE user_id = $1 AND idempotency_key = $2
+SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at, loyalty_discount_minor, loyalty_tier_code FROM orders WHERE user_id = $1 AND idempotency_key = $2
 `
 
 type GetOrderByIdempotencyParams struct {
@@ -1439,6 +1455,8 @@ func (q *Queries) GetOrderByIdempotency(ctx context.Context, arg GetOrderByIdemp
 		&i.SubscriptionID,
 		&i.SelectedSquadIds,
 		&i.PaidAt,
+		&i.LoyaltyDiscountMinor,
+		&i.LoyaltyTierCode,
 	)
 	return i, err
 }
@@ -3161,7 +3179,7 @@ func (q *Queries) LockFulfillmentOperation(ctx context.Context, id pgtype.UUID) 
 }
 
 const lockOrder = `-- name: LockOrder :one
-SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at FROM orders WHERE id = $1 FOR UPDATE
+SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at, loyalty_discount_minor, loyalty_tier_code FROM orders WHERE id = $1 FOR UPDATE
 `
 
 func (q *Queries) LockOrder(ctx context.Context, id pgtype.UUID) (Order, error) {
@@ -3186,6 +3204,8 @@ func (q *Queries) LockOrder(ctx context.Context, id pgtype.UUID) (Order, error) 
 		&i.SubscriptionID,
 		&i.SelectedSquadIds,
 		&i.PaidAt,
+		&i.LoyaltyDiscountMinor,
+		&i.LoyaltyTierCode,
 	)
 	return i, err
 }
@@ -3831,7 +3851,7 @@ SET state = $1, paid_minor = $2,
     END,
     updated_at = now()
 WHERE id = $3
-RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at
+RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at, loyalty_discount_minor, loyalty_tier_code
 `
 
 type UpdateOrderPaymentParams struct {
@@ -3866,6 +3886,8 @@ func (q *Queries) UpdateOrderPayment(ctx context.Context, arg UpdateOrderPayment
 		&i.SubscriptionID,
 		&i.SelectedSquadIds,
 		&i.PaidAt,
+		&i.LoyaltyDiscountMinor,
+		&i.LoyaltyTierCode,
 	)
 	return i, err
 }
@@ -3874,7 +3896,7 @@ const updateOrderRefund = `-- name: UpdateOrderRefund :one
 UPDATE orders
 SET state = $1, refunded_minor = $2, updated_at = now()
 WHERE id = $3
-RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at
+RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at, loyalty_discount_minor, loyalty_tier_code
 `
 
 type UpdateOrderRefundParams struct {
@@ -3905,6 +3927,8 @@ func (q *Queries) UpdateOrderRefund(ctx context.Context, arg UpdateOrderRefundPa
 		&i.SubscriptionID,
 		&i.SelectedSquadIds,
 		&i.PaidAt,
+		&i.LoyaltyDiscountMinor,
+		&i.LoyaltyTierCode,
 	)
 	return i, err
 }

@@ -651,3 +651,17 @@ SELECT
   COALESCE((SELECT extract(days FROM now() - min(e.starts_at))::bigint
     FROM entitlements e WHERE e.user_id = sqlc.arg(user_id)
   ), 0)::bigint AS tenure_days;
+
+-- name: GetCustomerLoyaltyTiers :many
+-- The tiers a customer holds under the programme in force. A standing is
+-- matched by tier code rather than by identifier, so publishing the next
+-- version of a programme does not strip customers of a tier that still exists
+-- under the same code while they wait to be re-evaluated.
+SELECT t.*
+FROM loyalty_tiers t
+JOIN loyalty_programs p ON p.id = t.program_id AND p.enabled
+WHERE t.code IN (
+  SELECT st.code FROM loyalty_standings s
+  JOIN loyalty_tiers st ON st.id = s.tier_id
+  WHERE s.user_id = sqlc.arg(user_id)
+);
