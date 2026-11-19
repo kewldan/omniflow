@@ -461,7 +461,7 @@ func (service *Service) startPasskeySession(
 		return LoginResult{}, err
 	}
 	now := service.now()
-	idle, absolute := service.sessions.SessionDeadlines(now, false)
+	idle, absolute := service.policy(ctx).SessionDeadlines(now, false)
 
 	var result LoginResult
 	err = service.inTx(ctx, func(queries *dbgen.Queries) error {

@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -295,6 +296,39 @@ type BotConfig struct {
 	// Fragment configures the direct Fragment goods provider, which the bot
 	// needs to check a recipient and to know whether to offer VPN afterwards.
 	Fragment FragmentConfig
+	// TelegramTransport is how the bot reaches the Bot API.
+	TelegramTransport TelegramTransportConfig
+}
+
+// TelegramTransportConfig points the Telegram client at a self-hosted Bot API
+// server or sends it through a proxy, for installations where
+// api.telegram.org is blocked or a local Bot API server lifts the file limits.
+type TelegramTransportConfig struct {
+	// APIURL replaces https://api.telegram.org (APP_TELEGRAM_API_URL).
+	APIURL string
+	// ProxyURL is an http://, https://, or socks5:// proxy for every Bot API
+	// request (APP_TELEGRAM_PROXY_URL).
+	ProxyURL string
+}
+
+func loadTelegramTransport() (TelegramTransportConfig, error) {
+	transport := TelegramTransportConfig{
+		APIURL:   strings.TrimRight(strings.TrimSpace(os.Getenv("APP_TELEGRAM_API_URL")), "/"),
+		ProxyURL: strings.TrimSpace(os.Getenv("APP_TELEGRAM_PROXY_URL")),
+	}
+	if transport.APIURL != "" {
+		parsed, err := url.Parse(transport.APIURL)
+		if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" {
+			return TelegramTransportConfig{}, errors.New("APP_TELEGRAM_API_URL must be an absolute HTTP(S) URL")
+		}
+	}
+	if transport.ProxyURL != "" {
+		parsed, err := url.Parse(transport.ProxyURL)
+		if err != nil || parsed.Host == "" || !slices.Contains([]string{"http", "https", "socks5", "socks5h"}, parsed.Scheme) {
+			return TelegramTransportConfig{}, errors.New("APP_TELEGRAM_PROXY_URL must be an http://, https://, or socks5:// URL")
+		}
+	}
+	return transport, nil
 }
 
 type WorkerConfig struct {
@@ -338,6 +372,12 @@ type WorkerConfig struct {
 	CryptoBotTestnet bool
 	YooKassaShopID   string
 	YooKassaSecret   string
+	// TelegramTransport is how the worker reaches the Bot API when it sends a
+	// backup file to a chat.
+	TelegramTransport TelegramTransportConfig
+	// UpdateFeedURL is APP_UPDATE_FEED_URL. With it set the worker checks the
+	// feed every six hours and tells the operator group about a new release.
+	UpdateFeedURL string
 }
 
 func Load() (Config, error) {
@@ -487,6 +527,9 @@ func LoadBot() (BotConfig, error) {
 	if cfg.Webhook, err = loadTelegramWebhook(); err != nil {
 		return BotConfig{}, err
 	}
+	if cfg.TelegramTransport, err = loadTelegramTransport(); err != nil {
+		return BotConfig{}, err
+	}
 	return cfg, nil
 }
 
@@ -508,6 +551,7 @@ func LoadWorker() (WorkerConfig, error) {
 		YooKassaSecret:   os.Getenv("APP_YOOKASSA_SECRET"),
 
 		SupportAttachmentDir: os.Getenv("APP_SUPPORT_ATTACHMENT_DIR"),
+		UpdateFeedURL:        strings.TrimSpace(os.Getenv("APP_UPDATE_FEED_URL")),
 		Fragment:             LoadFragment(),
 		Retention: RetentionConfig{
 			Outbox:    dayEnvOr("APP_RETENTION_OUTBOX_DAYS", 7*24*time.Hour),
@@ -533,6 +577,9 @@ func LoadWorker() (WorkerConfig, error) {
 		return WorkerConfig{}, err
 	}
 	cfg.Backup = backup
+	if cfg.TelegramTransport, err = loadTelegramTransport(); err != nil {
+		return WorkerConfig{}, err
+	}
 	if cfg.TopUp, err = loadTopUp(); err != nil {
 		return WorkerConfig{}, err
 	}

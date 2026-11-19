@@ -19,6 +19,7 @@ import (
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/commercepg"
 	databaseutil "github.com/omniflow/omniflow/internal/database"
+	"github.com/omniflow/omniflow/internal/installsettings"
 	"github.com/omniflow/omniflow/internal/platform"
 	"github.com/omniflow/omniflow/internal/remnawave"
 )
@@ -91,6 +92,40 @@ type App struct {
 	// webSignIn issues one-time links into the customer web panel. It stays nil
 	// unless the operator enabled the magic-link fallback.
 	webSignIn WebSignIn
+
+	// installation reads the settings an operator saves in the panel. It is
+	// nil in tests, where every value falls back to the environment.
+	installation *installsettings.Reader
+}
+
+// UseInstallationSettings lets panel-saved settings override the environment
+// values the bot was started with, on the next read after a save.
+func (app *App) UseInstallationSettings(reader *installsettings.Reader) {
+	app.installation = reader
+}
+
+// section reads one installation settings section with a short deadline, so a
+// slow database never holds up a reply.
+func (app *App) section(name string) installsettings.Document {
+	if app.installation == nil {
+		return installsettings.Document{}
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	return app.installation.Section(ctx, name)
+}
+
+// supportLink is where the bot sends a customer who needs a person: the
+// branding section's support contact when an operator saved one, otherwise
+// APP_SUPPORT_URL.
+func (app *App) supportLink() string {
+	return app.section("branding").String("supportContact", app.supportURL)
+}
+
+// configuredTerms is the public terms page: the branding section's terms
+// address when saved, otherwise APP_TERMS_URL.
+func (app *App) configuredTerms() string {
+	return app.section("branding").String("termsUrl", app.termsURL)
 }
 
 func New(logger *slog.Logger, store Store, remnawaveService remnawave.Service, supportURL string) *App {
@@ -349,7 +384,7 @@ func (app *App) handleStartPayment(ctx context.Context, client *telegram.Bot, up
 		return
 	}
 	if !accountActive(session.Customer) {
-		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, accountUnavailableView(session.Locale, session.Customer, app.supportURL)))
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, accountUnavailableView(session.Locale, session.Customer, app.supportLink())))
 		return
 	}
 	order, err := app.customers.Order(ctx, session.Customer.ID, orderID, session.Locale)
@@ -580,7 +615,7 @@ func (app *App) handleFlowMessage(ctx context.Context, client *telegram.Bot, upd
 		// The prompt was opened before the account was suspended, or the state
 		// outlived it. Only a support message still has somewhere to go.
 		_ = app.customers.CancelSession(ctx, session.TelegramID)
-		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, accountUnavailableView(session.Locale, session.Customer, app.supportURL)))
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, accountUnavailableView(session.Locale, session.Customer, app.supportLink())))
 		return true
 	}
 	switch state {
@@ -868,7 +903,7 @@ func (app *App) handleAction(ctx context.Context, client *telegram.Bot, query *m
 	// devices.
 	if app.commerceEnabled() && !allowedWhileInactive(parts[0]) {
 		if session, err := app.commerceContext(ctx, query.From.ID, query.From.LanguageCode); err == nil && !accountActive(session.Customer) {
-			app.replaceScreen(ctx, client, chatID, messageID, accountUnavailableView(session.Locale, session.Customer, app.supportURL), app.withCorrelation(update))
+			app.replaceScreen(ctx, client, chatID, messageID, accountUnavailableView(session.Locale, session.Customer, app.supportLink()), app.withCorrelation(update))
 			return
 		}
 	}
@@ -1000,7 +1035,7 @@ func (app *App) loadView(ctx context.Context, telegramID int64, locale Locale, r
 		return View{Text: text(locale, "menu.unavail"), Keyboard: keyboard(row(callbackButton(text(locale, "action.back"), routeHome)))}
 	}
 	if route == routeSupport {
-		return supportView(locale, app.supportURL)
+		return supportView(locale, app.supportLink())
 	}
 	return app.loadRemnawaveView(ctx, telegramID, locale, route, MenuState{})
 }
@@ -1016,7 +1051,7 @@ func (app *App) loadCustomerView(ctx context.Context, telegramID int64, locale L
 	}
 	// A suspended or deleted customer keeps the support desk and nothing else.
 	if !accountActive(session.Customer) && !allowedWhileInactive(route) {
-		return accountUnavailableView(session.Locale, session.Customer, app.supportURL)
+		return accountUnavailableView(session.Locale, session.Customer, app.supportLink())
 	}
 	if route == routeSettings {
 		return app.settingsScreen(ctx, session)
@@ -1116,7 +1151,7 @@ func (app *App) loadRemnawaveView(ctx context.Context, telegramID int64, locale 
 	if errors.Is(err, ErrNotLinked) {
 		user, lookupErr := app.remnawave.UserByTelegramID(ctx, telegramID)
 		if errors.Is(lookupErr, remnawave.ErrNotFound) {
-			return notLinkedView(locale, app.supportURL)
+			return notLinkedView(locale, app.supportLink())
 		}
 		if lookupErr != nil {
 			app.logger.Error("Remnawave Telegram identity lookup failed", "error", lookupErr)
@@ -1229,13 +1264,8 @@ func (app *App) locale(ctx context.Context, telegramID int64, telegramLocale str
 		}
 	}
 	preferences, err := app.store.Preferences(ctx, telegramID)
-	if err == nil {
-		switch preferences.Locale {
-		case "ru":
-			return LocaleRussian
-		case "en":
-			return LocaleEnglish
-		}
+	if err == nil && (preferences.Locale == "ru" || preferences.Locale == "en") {
+		return localeFrom(preferences.Locale)
 	}
 	return localeFrom(telegramLocale)
 }

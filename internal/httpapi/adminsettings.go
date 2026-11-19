@@ -108,6 +108,7 @@ func (handlers *AdminHandlers) saveSettingSection(writer http.ResponseWriter, re
 	if !decodeJSON(writer, request, &body) {
 		return
 	}
+	defer handlers.installation.Invalidate(chi.URLParam(request, "section"))
 	section, err := handlers.operations.SaveSettingSection(
 		request.Context(), chi.URLParam(request, "section"),
 		body.Document, body.Version, body.Secrets, actorFrom(request))

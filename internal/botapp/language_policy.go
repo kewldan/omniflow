@@ -1,0 +1,82 @@
+package botapp
+
+import (
+	"context"
+	"slices"
+	"strings"
+	"sync/atomic"
+
+	telegram "github.com/go-telegram/bot"
+	"github.com/go-telegram/bot/models"
+)
+
+// languagePolicy is which languages the bot speaks and which one it falls back
+// to. It is process-wide because a locale is chosen in many places that have
+// no App at hand — the notifier, the campaign sender, the customer store — and
+// they must all agree with the screen the customer is looking at.
+type languagePolicy struct {
+	// fallback answers a Telegram language the bot does not speak.
+	fallback Locale
+	// only is set when the operator offers a single language: every message is
+	// in it, whatever the customer chose before.
+	only Locale
+}
+
+var currentLanguages atomic.Pointer[languagePolicy]
+
+func activeLanguages() languagePolicy {
+	if policy := currentLanguages.Load(); policy != nil {
+		return *policy
+	}
+	return languagePolicy{fallback: LocaleEnglish}
+}
+
+// SetLanguagePolicy applies the branding section's default language and the
+// bot section's available languages. Unknown codes are ignored; offering none
+// means both.
+func SetLanguagePolicy(defaultLocale string, available []string) {
+	policy := languagePolicy{fallback: LocaleEnglish}
+	if strings.HasPrefix(strings.ToLower(defaultLocale), "ru") {
+		policy.fallback = LocaleRussian
+	}
+	offered := []Locale{}
+	for _, code := range available {
+		switch strings.ToLower(strings.TrimSpace(code)) {
+		case "ru":
+			offered = append(offered, LocaleRussian)
+		case "en":
+			offered = append(offered, LocaleEnglish)
+		}
+	}
+	slices.Sort(offered)
+	offered = slices.Compact(offered)
+	if len(offered) == 1 {
+		policy.only, policy.fallback = offered[0], offered[0]
+	}
+	currentLanguages.Store(&policy)
+}
+
+// languageChoiceOffered reports whether the settings screen shows the
+// language switch: not when the operator offers one language only.
+func languageChoiceOffered() bool { return activeLanguages().only == "" }
+
+// applyLanguagePolicy re-reads the policy from the installation settings.
+func (app *App) applyLanguagePolicy() {
+	if app.installation == nil {
+		return
+	}
+	SetLanguagePolicy(app.section("branding").String("defaultLocale", ""),
+		app.section("bot").Strings("languages", nil))
+}
+
+// SettingsMiddleware refreshes the settings-driven policies before an update
+// is handled, so a language saved in the panel applies to the next message.
+// The reads are cached, so this costs nothing per update.
+func (app *App) SettingsMiddleware() telegram.Middleware {
+	return func(next telegram.HandlerFunc) telegram.HandlerFunc {
+		return func(ctx context.Context, client *telegram.Bot, update *models.Update) {
+			app.applyLanguagePolicy()
+			next(ctx, client, update)
+		}
+	}
+}

@@ -14,6 +14,8 @@ import (
 	"fmt"
 	"html"
 	"log/slog"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,11 +26,24 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
+	"github.com/omniflow/omniflow/internal/installsettings"
 	"github.com/omniflow/omniflow/internal/platform"
 )
 
 // Kinds are the event streams that each get their own forum topic.
-var Kinds = []string{"purchase", "renewal", "topup", "refund", "fulfillment_failure", "incident", "backup", "security", "support", "campaign_test", "notice_test", "node", "monitoring"}
+var Kinds = []string{"purchase", "renewal", "topup", "refund", "fulfillment_failure", "incident", "backup", "security", "support", "campaign_test", "notice_test", "anomaly", "trial", "addon", "promo", "partner", "error", "infrastructure", "report", "node", "monitoring"}
+
+// SwitchableKinds are the notification streams an operator may turn off in
+// the operator group section. The two preview topics are absent: nothing
+// reaches them unless an operator asked for a preview.
+var SwitchableKinds = []string{"purchase", "renewal", "topup", "refund", "fulfillment_failure", "incident", "backup", "security", "support", "anomaly", "trial", "addon", "promo", "partner", "error", "infrastructure", "report", "node", "monitoring"}
+
+// urgentKinds are delivered during quiet hours. Everything else waits, still
+// pending, until the window ends.
+var urgentKinds = map[string]bool{
+	"incident": true, "security": true, "error": true, "fulfillment_failure": true,
+	"backup": true, "anomaly": true, "infrastructure": true, "node": true,
+}
 
 // KindCampaignTest is the topic campaign previews go to.
 //
@@ -55,6 +70,14 @@ var topicNames = map[string]string{
 	"notice_test":         "🔔 Notice previews",
 	"node":                "🖥 Remnawave nodes",
 	"monitoring":          "📈 Usage monitoring",
+	"anomaly":             "📈 Anomalies",
+	"trial":               "🎁 Trials",
+	"addon":               "➕ Add-ons",
+	"promo":               "🏷 Promo codes",
+	"partner":             "🤝 Partners",
+	"error":               "🐞 Errors",
+	"infrastructure":      "🛠 Infrastructure",
+	"report":              "📊 Reports",
 }
 
 // Config binds the operator group and bounds notification volume.
@@ -65,15 +88,70 @@ type Config struct {
 	// PanelURL is APP_PUBLIC_URL. A sale notice links the order and the buyer
 	// in the panel when it is an HTTPS address.
 	PanelURL string
+	// Flat sends every notice to the group itself instead of a topic per
+	// kind, for a group without topics.
+	Flat bool
+	// Disabled names the kinds an operator switched off. Their notices are
+	// completed as suppressed with error code `disabled`.
+	Disabled []string
+	// Held names the kinds kept pending right now by quiet hours.
+	Held []string
 }
 
 // Notifier owns topic binding and delivery.
 type Notifier struct {
-	pool   *pgxpool.Pool
-	client *telegram.Bot
-	logger *slog.Logger
-	config Config
-	clock  func() time.Time
+	pool     *pgxpool.Pool
+	client   *telegram.Bot
+	logger   *slog.Logger
+	config   Config
+	clock    func() time.Time
+	settings *installsettings.Reader
+}
+
+// WithSettings lets the operator group and notifications sections of the
+// installation settings override the environment on every pass: the chat,
+// topics or a flat chat, the volume cap and its window, the kinds switched
+// off, and quiet hours.
+func (notifier *Notifier) WithSettings(reader *installsettings.Reader) *Notifier {
+	notifier.settings = reader
+	return notifier
+}
+
+// effective is the configuration for one pass.
+func (notifier *Notifier) effective(ctx context.Context) Config {
+	config := notifier.config
+	if notifier.settings == nil {
+		return config
+	}
+	group := notifier.settings.Section(ctx, "operator_group")
+	if raw := group.String("chatId", ""); raw != "" {
+		if chat, err := strconv.ParseInt(raw, 10, 64); err == nil && chat != 0 {
+			config.ChatID = chat
+		}
+	}
+	config.Flat = !group.Bool("createTopics", !config.Flat)
+	if group.Has("notificationCap") {
+		config.NotificationCap = max(group.Int("notificationCap", config.NotificationCap), 0)
+	}
+	config.Window = group.Duration("windowMinutes", time.Minute, config.Window)
+	config.Disabled = group.Strings("disabledKinds", config.Disabled)
+	config.Held = HeldKinds(notifier.clock().In(notifier.settings.Location(ctx)),
+		notifier.settings.Section(ctx, "notifications"))
+	return config
+}
+
+// HeldKinds lists the kinds quiet hours keep pending at a local time.
+func HeldKinds(local time.Time, quiet installsettings.Document) []string {
+	if !installsettings.WithinWindow(local, quiet.String("quietHoursStart", ""), quiet.String("quietHoursEnd", "")) {
+		return nil
+	}
+	var held []string
+	for _, kind := range Kinds {
+		if !urgentKinds[kind] {
+			held = append(held, kind)
+		}
+	}
+	return held
 }
 
 func New(pool *pgxpool.Pool, client *telegram.Bot, logger *slog.Logger, config Config) *Notifier {
@@ -83,23 +161,35 @@ func New(pool *pgxpool.Pool, client *telegram.Bot, logger *slog.Logger, config C
 	return &Notifier{pool: pool, client: client, logger: logger, config: config, clock: time.Now}
 }
 
-// Configured reports whether an operator group was supplied.
+// Configured reports whether an operator group was supplied, in the
+// environment or in the panel.
 func (notifier *Notifier) Configured() bool {
-	return notifier != nil && notifier.config.ChatID != 0 && notifier.client != nil
+	return notifier != nil && notifier.client != nil &&
+		notifier.effective(context.Background()).ChatID != 0
 }
 
-// Run binds every topic and then drains the notification queue.
+// Run binds every topic and then drains the notification queue. A group
+// saved in the panel later is picked up on the next pass, so the loop runs
+// even when no group is configured yet.
 func (notifier *Notifier) Run(ctx context.Context) {
-	if !notifier.Configured() {
-		notifier.logger.Info("operator notifications are disabled because no group is configured")
+	if notifier == nil || notifier.client == nil {
 		return
 	}
-	if err := notifier.EnsureTopics(ctx); err != nil {
-		notifier.logger.Error("operator topic binding failed", "error", err)
-	}
+	bound := int64(0)
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 	for {
+		config := notifier.effective(ctx)
+		switch {
+		case config.ChatID != 0 && config.ChatID != bound && !config.Flat:
+			if err := notifier.EnsureTopics(ctx); err != nil {
+				notifier.logger.Error("operator topic binding failed", "error", err)
+			}
+			bound = config.ChatID
+		case config.ChatID == 0 && bound == 0:
+			bound = -1
+			notifier.logger.Info("operator notifications are waiting for a group to be configured")
+		}
 		notifier.Dispatch(ctx)
 		notifier.DispatchCampaignTests(ctx)
 		notifier.DispatchNoticeTests(ctx)
@@ -177,7 +267,7 @@ func (notifier *Notifier) deliverCampaignTest(
 		subject, body = test.SubjectRu, test.BodyRu
 	}
 	_, sendErr := notifier.client.SendMessage(ctx, &telegram.SendMessageParams{
-		ChatID:          notifier.config.ChatID,
+		ChatID:          notifier.effective(ctx).ChatID,
 		MessageThreadID: int(topic.TopicID.Int64),
 		Text:            renderCampaignTest(test.CampaignName, test.Locale, subject, body),
 		ParseMode:       models.ParseModeHTML,
@@ -224,8 +314,9 @@ func uuidText(id pgtype.UUID) string {
 // recorded as an explicit failure state rather than a silent no-op.
 func (notifier *Notifier) EnsureTopics(ctx context.Context) error {
 	queries := dbgen.New(notifier.pool)
+	chat := notifier.effective(ctx).ChatID
 	for _, kind := range Kinds {
-		topic, err := queries.UpsertOperatorTopic(ctx, dbgen.UpsertOperatorTopicParams{Kind: kind, ChatID: notifier.config.ChatID})
+		topic, err := queries.UpsertOperatorTopic(ctx, dbgen.UpsertOperatorTopicParams{Kind: kind, ChatID: chat})
 		if err != nil {
 			return err
 		}
@@ -242,7 +333,7 @@ func (notifier *Notifier) EnsureTopics(ctx context.Context) error {
 // createTopic creates one forum topic and records the binding, or records why it
 // could not be created.
 func (notifier *Notifier) createTopic(ctx context.Context, queries *dbgen.Queries, kind string) (dbgen.OperatorTopic, error) {
-	created, err := notifier.client.CreateForumTopic(ctx, &telegram.CreateForumTopicParams{ChatID: notifier.config.ChatID, Name: topicNames[kind]})
+	created, err := notifier.client.CreateForumTopic(ctx, &telegram.CreateForumTopicParams{ChatID: notifier.effective(ctx).ChatID, Name: topicNames[kind]})
 	if err != nil {
 		code := classifyTopicError(err)
 		if _, failErr := queries.FailOperatorTopic(ctx, dbgen.FailOperatorTopicParams{Kind: kind, LastErrorCode: pgtype.Text{String: code, Valid: true}}); failErr != nil {
@@ -303,19 +394,33 @@ func (notifier *Notifier) Dispatch(ctx context.Context) {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	queries := dbgen.New(tx)
-	pending, err := queries.ListPendingOperatorNotifications(ctx, 50)
+	config := notifier.effective(ctx)
+	if config.ChatID == 0 {
+		return
+	}
+	held := config.Held
+	if held == nil {
+		held = []string{}
+	}
+	pending, err := queries.ListDueOperatorNotifications(ctx, dbgen.ListDueOperatorNotificationsParams{HeldKinds: held, PageSize: 50})
 	if err != nil {
 		notifier.logger.Warn("operator notification lookup failed", "error", err)
 		return
 	}
 	suppressed := map[string]int{}
 	for _, notification := range pending {
-		sent, countErr := queries.CountRecentOperatorNotifications(ctx, dbgen.CountRecentOperatorNotificationsParams{Kind: notification.Kind, WindowSeconds: notifier.config.Window.Seconds()})
+		if slices.Contains(config.Disabled, notification.Kind) {
+			if _, err = queries.CompleteOperatorNotification(ctx, dbgen.CompleteOperatorNotificationParams{NotificationID: notification.ID, Status: "suppressed", ErrorCode: pgtype.Text{String: "disabled", Valid: true}}); err != nil {
+				return
+			}
+			continue
+		}
+		sent, countErr := queries.CountRecentOperatorNotifications(ctx, dbgen.CountRecentOperatorNotificationsParams{Kind: notification.Kind, WindowSeconds: config.Window.Seconds()})
 		if countErr != nil {
 			notifier.logger.Warn("operator volume check failed", "error", countErr)
 			return
 		}
-		if notifier.config.NotificationCap > 0 && int(sent) >= notifier.config.NotificationCap {
+		if config.NotificationCap > 0 && int(sent) >= config.NotificationCap {
 			if _, err = queries.CompleteOperatorNotification(ctx, dbgen.CompleteOperatorNotificationParams{NotificationID: notification.ID, Status: "suppressed", ErrorCode: pgtype.Text{String: "volume_cap", Valid: true}}); err != nil {
 				return
 			}
@@ -323,7 +428,7 @@ func (notifier *Notifier) Dispatch(ctx context.Context) {
 			continue
 		}
 		status, errorCode := "sent", pgtype.Text{}
-		if deliverErr := notifier.deliver(ctx, queries, notification); deliverErr != nil {
+		if deliverErr := notifier.deliver(ctx, queries, config, notification); deliverErr != nil {
 			status = "failed"
 			errorCode = pgtype.Text{String: classifyTopicError(deliverErr), Valid: true}
 			notifier.logger.Warn("operator notification delivery failed", "kind", notification.Kind, "code", errorCode.String)
@@ -343,15 +448,19 @@ func (notifier *Notifier) Dispatch(ctx context.Context) {
 
 // deliver sends one notification into its topic, recreating a topic that was
 // deleted in Telegram.
-func (notifier *Notifier) deliver(ctx context.Context, queries *dbgen.Queries, notification dbgen.OperatorNotification) error {
-	topic, err := queries.GetOperatorTopic(ctx, notification.Kind)
-	if errors.Is(err, pgx.ErrNoRows) || err == nil && !topic.TopicID.Valid {
-		if topic, err = notifier.createTopic(ctx, queries, notification.Kind); err != nil {
+func (notifier *Notifier) deliver(ctx context.Context, queries *dbgen.Queries, config Config, notification dbgen.OperatorNotification) error {
+	topic := dbgen.OperatorTopic{}
+	if !config.Flat {
+		var err error
+		topic, err = queries.GetOperatorTopic(ctx, notification.Kind)
+		if errors.Is(err, pgx.ErrNoRows) || err == nil && !topic.TopicID.Valid {
+			if topic, err = notifier.createTopic(ctx, queries, notification.Kind); err != nil {
+				return err
+			}
+		}
+		if err != nil {
 			return err
 		}
-	}
-	if err != nil {
-		return err
 	}
 	text := renderNotification(notification)
 	var markup models.ReplyMarkup
@@ -362,7 +471,7 @@ func (notifier *Notifier) deliver(ctx context.Context, queries *dbgen.Queries, n
 		}
 	}
 	_, sendErr := notifier.client.SendMessage(ctx, &telegram.SendMessageParams{
-		ChatID:          notifier.config.ChatID,
+		ChatID:          config.ChatID,
 		MessageThreadID: int(topic.TopicID.Int64),
 		Text:            text,
 		ParseMode:       models.ParseModeHTML,
@@ -372,13 +481,13 @@ func (notifier *Notifier) deliver(ctx context.Context, queries *dbgen.Queries, n
 		return nil
 	}
 	// A deleted topic is recreated once, then the send is retried.
-	if strings.Contains(strings.ToLower(sendErr.Error()), "thread not found") {
+	if !config.Flat && strings.Contains(strings.ToLower(sendErr.Error()), "thread not found") {
 		recreated, createErr := notifier.createTopic(ctx, queries, notification.Kind)
 		if createErr != nil {
 			return createErr
 		}
 		_, sendErr = notifier.client.SendMessage(ctx, &telegram.SendMessageParams{
-			ChatID: notifier.config.ChatID, MessageThreadID: int(recreated.TopicID.Int64),
+			ChatID: config.ChatID, MessageThreadID: int(recreated.TopicID.Int64),
 			Text: text, ParseMode: models.ParseModeHTML, ReplyMarkup: markup,
 		})
 	}
@@ -396,7 +505,10 @@ func renderNotification(notification dbgen.OperatorNotification) string {
 	// nothing else. An operator address, a session token, and a raw client
 	// address all stay out of the group chat; they are available in the audit
 	// trail to anyone entitled to read it.
-	for _, field := range []string{"orderId", "subscriptionId", "entitlementId", "provider", "operation", "currency", "amountMinor", "creditedMinor", "classification", "reason", "source", "errorCode", "fileName", "sizeBytes", "status", "event", "adminUserId", "method", "ticketId", "queueId", "node", "country", "remnawaveUserId", "customerId", "users", "devices", "limit", "gigabytes", "window"} {
+	if notification.Kind == "report" {
+		return renderReport(notification, payload)
+	}
+	for _, field := range notificationFields {
 		value, ok := payload[field]
 		if !ok || value == nil || value == "" {
 			continue
@@ -405,6 +517,21 @@ func renderNotification(notification dbgen.OperatorNotification) string {
 	}
 	fmt.Fprintf(builder, "at: <code>%s</code>", notification.CreatedAt.Time.UTC().Format(time.RFC3339))
 	return builder.String()
+}
+
+// notificationFields is the allowlist a notice is rendered from.
+var notificationFields = []string{
+	"orderId", "subscriptionId", "entitlementId", "provider", "operation", "currency",
+	"amountMinor", "creditedMinor", "classification", "reason", "source", "errorCode",
+	"fileName", "sizeBytes", "status", "event", "adminUserId", "method", "ticketId", "queueId",
+	// Anomaly signals: the metric and its numbers, never the subject.
+	"signalId", "metric", "severity", "observed", "threshold", "subjectType",
+	// Remnawave nodes and usage monitoring.
+	"node", "country", "remnawaveUserId", "customerId", "users", "devices", "limit", "gigabytes", "window",
+	// Errors and infrastructure: where, which, how often, and which build.
+	"process", "fingerprint", "occurrences", "version", "previousVersion", "releaseUrl",
+	// Support SLA breaches.
+	"overdueMinutes", "priority",
 }
 
 // MaintenanceChanged posts an incident notice whenever maintenance mode moves.

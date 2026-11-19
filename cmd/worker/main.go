@@ -18,10 +18,13 @@ import (
 	"github.com/omniflow/omniflow/internal/bulkrunner"
 	"github.com/omniflow/omniflow/internal/campaigns"
 	"github.com/omniflow/omniflow/internal/config"
+	"github.com/omniflow/omniflow/internal/errorlog"
 	"github.com/omniflow/omniflow/internal/fulfillment"
 	"github.com/omniflow/omniflow/internal/goodsdelivery"
 	apihttp "github.com/omniflow/omniflow/internal/httpapi"
+	"github.com/omniflow/omniflow/internal/installsettings"
 	"github.com/omniflow/omniflow/internal/jobs"
+	"github.com/omniflow/omniflow/internal/operator"
 	"github.com/omniflow/omniflow/internal/panelpg"
 	"github.com/omniflow/omniflow/internal/paymentservice"
 	"github.com/omniflow/omniflow/internal/platform"
@@ -29,6 +32,7 @@ import (
 	"github.com/omniflow/omniflow/internal/renewal"
 	"github.com/omniflow/omniflow/internal/retention"
 	"github.com/omniflow/omniflow/internal/sweeper"
+	"github.com/omniflow/omniflow/internal/updatecheck"
 	"github.com/riverqueue/river"
 )
 
@@ -37,7 +41,8 @@ var version = "dev"
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
+	errorLog := errorlog.New(slog.NewJSONHandler(os.Stderr, nil), "worker")
+	logger := slog.New(errorLog)
 	// Disaster recovery must not depend on the rest of the stack being able to
 	// start, so decryption is available as a plain filter over stdin.
 	if len(os.Args) > 1 && os.Args[1] == "--decrypt-backup" {
@@ -58,6 +63,8 @@ func main() {
 		os.Exit(1)
 	}
 	defer pool.Close()
+	errorLog.Attach(ctx, pool)
+	settings := installsettings.New(pool, logger)
 	remnawaveClient, err := remnawave.NewClient(cfg.RemnawaveURL, cfg.RemnawaveToken, remnawave.OptionsFromEnv(os.Getenv))
 	if err != nil {
 		logger.Error("initialize Remnawave", "error", err)
@@ -94,7 +101,12 @@ func main() {
 		logger.Error("Remnawave naming templates are invalid", "error", err)
 		os.Exit(1)
 	}
-	fulfillmentWorker := fulfillment.NewWorker(pool, remnawaveClient, metrics)
+	// The operator alert threshold is the notifications section's, read per
+	// run, so an operator who wants to hear sooner or later need not restart.
+	fulfillmentWorker := fulfillment.NewWorker(pool, remnawaveClient, metrics).WithAlertAttempts(
+		func(ctx context.Context) int {
+			return settings.Section(ctx, "notifications").Positive("fulfillmentAlertAttempts", 0)
+		})
 	fulfillmentWorker.SetNaming(naming)
 	river.AddWorker(workers, fulfillmentWorker)
 	// The digital-goods shop is optional. Without an encryption key there is no
@@ -116,7 +128,7 @@ func main() {
 		logger.Info("digital goods delivery disabled", "reason", "APP_DATA_ENCRYPTION_KEY is not set")
 	}
 
-	tasks, backupService, err := periodicTasks(logger, cfg, pool, core, inserter, deliveryRegistry)
+	tasks, backupService, err := periodicTasks(logger, cfg, pool, core, inserter, deliveryRegistry, settings)
 	if err != nil {
 		logger.Error("initialize periodic tasks", "error", err)
 		os.Exit(1)
@@ -141,7 +153,8 @@ func main() {
 	metricsServer := startOperationalServer(logger, cfg, pool, metrics)
 
 	logger.Info("worker started", "queue_backend", "river", "periodic_tasks", len(tasks),
-		"backups_enabled", backupService.Enabled(), "database_max_conns", cfg.DatabaseMaxConns)
+		"backups_available", backupService.Enabled(), "database_max_conns", cfg.DatabaseMaxConns,
+		"version", version)
 	<-ctx.Done()
 	stopCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -175,8 +188,9 @@ func main() {
 // api replica.
 func periodicTasks(
 	logger *slog.Logger, cfg config.WorkerConfig, pool *pgxpool.Pool, core *app.CommerceCore,
-	inserter *jobs.Client, deliveryRegistry *goodsdelivery.Registry,
+	inserter *jobs.Client, deliveryRegistry *goodsdelivery.Registry, settings *installsettings.Reader,
 ) ([]jobs.Task, *backup.Service, error) {
+	gate := jobs.NewGate(pool)
 	// The operations service unseals blocklist and anomaly-source credentials,
 	// so the passes that need it run only when the encryption key is present.
 	var operations *panelpg.Service
@@ -217,8 +231,11 @@ func periodicTasks(
 	} else {
 		retentionWorker = retentionWorker.WithAttachments(attachments)
 	}
+	// The worker can take a backup whenever it holds the key; whether the
+	// schedule runs is the backup section's switch, falling back to
+	// APP_BACKUP_ENABLED, and is decided on every tick below.
 	backupService := backup.New(pool, logger, backup.Config{
-		Enabled: cfg.Backup.Enabled, Directory: cfg.Backup.Directory, Interval: cfg.Backup.Interval,
+		Enabled: len(cfg.Backup.EncryptionKey) == 32, Directory: cfg.Backup.Directory, Interval: cfg.Backup.Interval,
 		Retention: cfg.Backup.Retention, EncryptionKey: cfg.Backup.EncryptionKey,
 		PgDumpPath: cfg.Backup.PgDumpPath, PgRestorePath: cfg.Backup.PgRestorePath,
 		DatabaseURL: cfg.DatabaseURL,
@@ -228,7 +245,17 @@ func periodicTasks(
 		{Name: "commerce_maintenance", Interval: time.Minute, Run: core.Store.MaintenancePass},
 		{Name: "payment_reconcile", Interval: time.Minute, Run: core.Payments.ReconcilePass},
 		{Name: "renewal", Interval: time.Minute, Timeout: 5 * time.Minute, Run: pass(renewals.RunOnce)},
-		{Name: "fulfillment_reconcile", Interval: fulfillment.ReconcileInterval, Run: scheduler.Schedule},
+		// The reconcile cadence is the Remnawave section's, read on a one-minute
+		// tick, so changing it in the panel applies within a minute.
+		{Name: "fulfillment_reconcile", Interval: time.Minute, Timeout: 10 * time.Minute, Run: func(ctx context.Context) error {
+			interval := settings.Section(ctx, "remnawave").Duration(
+				"reconcileIntervalMinutes", time.Minute, fulfillment.ReconcileInterval)
+			due, err := gate.Claim(ctx, "fulfillment_reconcile", interval)
+			if err != nil || !due {
+				return err
+			}
+			return scheduler.Schedule(ctx)
+		}},
 		{Name: "fulfillment_revive", Interval: fulfillment.ReviveInterval, Run: scheduler.Revive},
 		{Name: "lifecycle_sweep", Interval: lifecycle.Interval(), Run: pass(lifecycle.SweepLifecycle)},
 		{Name: "anomaly_evaluation", Interval: lifecycle.AnomalyInterval(), Run: pass(lifecycle.EvaluateAnomalies)},
@@ -248,21 +275,33 @@ func periodicTasks(
 			Name: "goods_delivery_schedule", Interval: goodsdelivery.ScanInterval, Run: goods.Schedule,
 		})
 	}
+	reports := operator.NewReports(pool, settings, logger)
+	tasks = append(tasks,
+		jobs.Task{Name: "operator_reports", Interval: 5 * time.Minute, Run: reports.RunReports},
+		jobs.Task{Name: "support_sla", Interval: time.Minute, Run: reports.RunSupportSLA},
+	)
+	if cfg.UpdateFeedURL != "" {
+		checker := updatecheck.New(updatecheck.Options{FeedURL: cfg.UpdateFeedURL, Current: version})
+		tasks = append(tasks, jobs.Task{Name: "release_check", Interval: updatecheck.DefaultInterval, Run: func(ctx context.Context) error {
+			if status := checker.Status(ctx); status.UpdateAvailable && status.Latest != "" {
+				return operator.AnnounceRelease(ctx, pool, version, status.Latest)
+			}
+			return nil
+		}})
+	}
 	if backupService.Enabled() {
 		// A dump takes as long as the database is large, so the pass has no
 		// timeout. With several worker replicas the backup lands on whichever
-		// one runs it, which is why the backup directory must be shared.
-		tasks = append(tasks, jobs.Task{
-			Name: "backup", Interval: cfg.Backup.Interval, Timeout: -1,
-			Run: func(ctx context.Context) error {
-				if _, err := backupService.Create(ctx, "scheduled", "scheduler"); err != nil && !errors.Is(err, backup.ErrBusy) {
-					return err
-				}
-				return backupService.Prune(ctx)
-			},
-		})
+		// one runs it, which is why the backup directory must be shared. The
+		// schedule — on or off, every N hours or at a time of day, and how long
+		// a backup is kept — is the backup section's, read on every tick.
+		scheduled := scheduledBackup{
+			service: backupService, settings: settings, gate: gate, logger: logger,
+			fallback: cfg.Backup, telegram: cfg.TelegramToken, transport: cfg.TelegramTransport,
+		}
+		tasks = append(tasks, jobs.Task{Name: "backup", Interval: 5 * time.Minute, Timeout: -1, Run: scheduled.Run})
 	} else {
-		logger.Info("scheduled backups are disabled")
+		logger.Info("backups are unavailable", "reason", "APP_BACKUP_ENCRYPTION_KEY is not set")
 	}
 	return tasks, backupService, nil
 }

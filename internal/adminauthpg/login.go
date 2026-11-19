@@ -136,7 +136,7 @@ func (service *Service) startSession(
 	}
 
 	challengeRequired := row.TotpConfirmedAt.Valid
-	idle, absolute := service.sessions.SessionDeadlines(now, challengeRequired)
+	idle, absolute := service.policy(ctx).SessionDeadlines(now, challengeRequired)
 
 	methods := []string{"password"}
 	var result LoginResult
@@ -256,7 +256,7 @@ func (service *Service) VerifyChallenge(
 	if !row.AdminSession.PendingTotp {
 		return LoginResult{}, ErrSessionInvalid
 	}
-	if err = service.sessions.Validate(sessionState(row.AdminSession), now); err != nil {
+	if err = service.policy(ctx).Validate(sessionState(row.AdminSession), now); err != nil {
 		return LoginResult{}, ErrSessionInvalid
 	}
 	if row.AdminUser.Status != "active" {
@@ -288,7 +288,7 @@ func (service *Service) VerifyChallenge(
 	if err != nil {
 		return LoginResult{}, err
 	}
-	idle := service.sessions.NextIdleDeadline(now, row.AdminSession.AbsoluteExpiresAt.Time)
+	idle := service.policy(ctx).NextIdleDeadline(now, row.AdminSession.AbsoluteExpiresAt.Time)
 
 	var result LoginResult
 	err = service.inTx(ctx, func(queries *dbgen.Queries) error {
@@ -467,7 +467,7 @@ func (service *Service) Resolve(ctx context.Context, sessionToken string) (Princ
 	if err != nil {
 		return Principal{}, err
 	}
-	if err = service.sessions.Validate(sessionState(row.AdminSession), now); err != nil {
+	if err = service.policy(ctx).Validate(sessionState(row.AdminSession), now); err != nil {
 		return Principal{}, ErrSessionInvalid
 	}
 	if row.AdminUser.Status != "active" {
@@ -479,8 +479,8 @@ func (service *Service) Resolve(ctx context.Context, sessionToken string) (Princ
 		return Principal{}, ErrChallengeRequired
 	}
 
-	idle := service.sessions.NextIdleDeadline(now, row.AdminSession.AbsoluteExpiresAt.Time)
-	rotate := service.sessions.ShouldRotate(sessionState(row.AdminSession), now)
+	idle := service.policy(ctx).NextIdleDeadline(now, row.AdminSession.AbsoluteExpiresAt.Time)
+	rotate := service.policy(ctx).ShouldRotate(sessionState(row.AdminSession), now)
 
 	var rotatedToken string
 	var digest []byte

@@ -1523,6 +1523,20 @@
           "database": "Database unavailable",
           "valkey": "Valkey unavailable"
         }
+      },
+      "errors": {
+        "title": "Error log",
+        "description": "Errors the api, bot, and worker logged, grouped so a repeating failure is one row. A new error is announced in the operator group's Errors topic without its message.",
+        "showResolved": "Show resolved",
+        "resolveAll": "Resolve all",
+        "resolve": "Resolve",
+        "resolved": "Resolved",
+        "failed": "The error log could not be loaded.",
+        "empty": "No open errors.",
+        "process": "Process",
+        "message": "Message",
+        "count": "Times",
+        "lastSeen": "Last seen"
       }
     },
     "catalog": {
@@ -2675,8 +2689,8 @@
           "description": "The name, contact, and URLs customers see."
         },
         "remnawave": {
-          "title": "Remnawave connection",
-          "description": "Where the panel reaches Remnawave, how often it reconciles, and the token it uses."
+          "title": "Remnawave reconciliation",
+          "description": "How often every subscription is re-read from Remnawave. The address and token stay in APP_REMNAWAVE_URL and APP_REMNAWAVE_TOKEN."
         },
         "telegram": {
           "title": "Telegram bot",
@@ -2684,7 +2698,7 @@
         },
         "operatorGroup": {
           "title": "Operator group",
-          "description": "Where operator notifications go, and how many arrive before they are collapsed."
+          "description": "Where operator notifications go, whether each stream gets its own topic, how many arrive before they are collapsed, and which streams are off. Applies within a minute."
         },
         "requiredChannels": {
           "title": "Required channels",
@@ -2695,29 +2709,37 @@
           "description": "When maintenance turns itself on, and what customers are told while it is."
         },
         "notifications": {
-          "title": "Notification thresholds",
-          "description": "How bad something has to get before an operator is told, and when not to tell them."
+          "title": "Alerting and quiet hours",
+          "description": "How many failed provisioning attempts come before an operator is told, and when non-urgent notices wait. Incidents, security, errors, backups, anomalies, and infrastructure are always delivered."
         },
         "telemetry": {
           "title": "Telemetry",
-          "description": "Whether anonymous version data leaves this installation, and where it goes."
+          "description": "Switch the anonymous heartbeat off from here. It can only narrow APP_TELEMETRY_ENABLED: with the variable false nothing is ever sent."
         },
         "backup": {
-          "title": "Backups",
-          "description": "Schedule, retention, and the key backups are encrypted with."
+          "title": "Backup schedule",
+          "description": "When the worker takes backups, how long they are kept, and an optional Telegram chat that receives each encrypted file. The key and directory stay in the environment."
         },
         "security": {
           "title": "Sessions and security",
-          "description": "How long an operator session lasts and what is required to start one."
+          "description": "How long an operator session lasts, and whether every operator must have an authenticator app or a passkey before using the panel."
+        },
+        "reports": {
+          "title": "Scheduled reports",
+          "description": "Summaries posted to the operator group's Reports topic: daily at the chosen time, weekly on Mondays, monthly on the 1st, in the branding time zone."
+        },
+        "bot": {
+          "title": "Telegram bot",
+          "description": "Which languages the bot offers. With one language every message is in it and the language switch is hidden."
         }
       },
       "fields": {
         "serviceName": "Service name",
-        "supportContact": "Support contact",
+        "supportContact": "Support contact (URL or t.me link)",
         "publicUrl": "Public URL",
         "termsUrl": "Terms URL",
-        "defaultLocale": "Default locale",
-        "timezone": "Timezone",
+        "defaultLocale": "Default bot language (ru or en)",
+        "timezone": "Time zone (IANA, e.g. Europe/Moscow)",
         "remnawaveBaseUrl": "Remnawave base URL",
         "reconcileInterval": "Reconciliation interval (minutes)",
         "compatibilityChecked": "Compatibility confirmed",
@@ -2753,7 +2775,39 @@
         "sessionIdle": "Idle timeout (minutes)",
         "sessionAbsolute": "Absolute session length (hours)",
         "requireTotp": "Require an authenticator app",
-        "allowedOrigins": "Allowed origins"
+        "allowedOrigins": "Allowed origins",
+        "disabledKinds": "Streams switched off",
+        "fulfillmentAlertAttempts": "Failed provisioning attempts before alerting",
+        "backupTimeOfDay": "Back up at (local time, overrides the interval)",
+        "backupTelegramChat": "Send each backup file to chat ID",
+        "backupTelegramThread": "Topic ID in that chat (optional)",
+        "reportPeriods": "Reports to send",
+        "reportTime": "Send at (local time)",
+        "options": {
+          "purchase": "Purchases",
+          "renewal": "Renewals",
+          "topup": "Top-ups",
+          "refund": "Refunds",
+          "fulfillment_failure": "Fulfillment failures",
+          "incident": "Incidents",
+          "backup": "Backups",
+          "security": "Admin security",
+          "support": "Support",
+          "anomaly": "Anomalies",
+          "trial": "Trials",
+          "addon": "Add-ons",
+          "promo": "Promo codes",
+          "partner": "Partners",
+          "error": "Errors",
+          "infrastructure": "Infrastructure",
+          "report": "Reports",
+          "day": "Daily",
+          "week": "Weekly",
+          "month": "Monthly",
+          "ru": "Russian",
+          "en": "English"
+        },
+        "botLanguages": "Languages offered (none selected means both)"
       },
       "telemetryPreview": {
         "title": "What telemetry would send",
@@ -2781,7 +2835,9 @@
         "title": "Diagnostics bundle",
         "description": "Version, schema state, configuration status, and counts — assembled from an allowlist, so it contains no secrets and no customer data.",
         "generate": "Generate bundle"
-      }
+      },
+      "timePlaceholder": "HH:MM",
+      "defaultHint": "Unset uses the environment value"
     },
     "customerOidc": {
       "title": "Customer sign-in providers",

@@ -60,8 +60,16 @@ happened — it simply has nobody to tell.
 | 🔔 Notice previews | `notice_test` | One rendered copy of a transactional notice an operator is rewording | Notice test send |
 | 🖥 Remnawave nodes | `node` | Remnawave's own node, panel-service, and infrastructure-billing webhook events, as the event name and the node's name | [Remnawave webhooks](/integrations/remnawave#webhooks) |
 | 📈 Usage monitoring | `monitoring` | Torrent-blocker reports, and the monitoring passes' findings | Remnawave webhooks, the worker's monitoring jobs |
+| 📈 Anomalies | `anomaly` | A raised anomaly signal: the metric, severity, observed value, and threshold — never the subject | The anomaly evaluator |
+| 🎁 Trials | `trial` | Every trial claimed, as its order | A trigger on `trial_claims` |
+| ➕ Add-ons | `addon` | Every add-on settled onto a subscription | A trigger on the `addon.purchased` outbox event |
+| 🏷 Promo codes | `promo` | Every promo code redeemed at checkout, with the discount | A trigger on `promo_redemptions` |
+| 🤝 Partners | `partner` | Every referral reward granted, with the role, amount, and currency | A trigger on `referral_rewards` |
+| 🐞 Errors | `error` | A new application error, and the 10th, 100th, 1000th recurrence of one: the process, a fingerprint, and the count — never the message | The error log in each process |
+| 🛠 Infrastructure | `infrastructure` | The bot starting, with its version; a newer release on the update feed | The bot at start; the worker every six hours when `APP_UPDATE_FEED_URL` is set |
+| 📊 Reports | `report` | Scheduled daily, weekly, and monthly summaries: new customers, trials, paid orders, top-ups, revenue per currency, tickets opened and waiting, active subscriptions | The worker, per the reports section |
 
-The last two carry something the others deliberately do not: a rendered message body. Everything else here is a set of allowlisted, non-personal fields, and a preview is by definition the copy itself. Both say plainly that nobody else received them — a preview mistaken for a real send is somebody reaching for the pause button. See [Campaigns](/commerce/campaigns) and [Message wording](/operations/message-wording).
+The two preview kinds (`campaign_test`, `notice_test`) carry something the others deliberately do not: a rendered message body. Everything else here is a set of allowlisted, non-personal fields, and a preview is by definition the copy itself. Both say plainly that nobody else received them — a preview mistaken for a real send is somebody reaching for the pause button. See [Campaigns](/commerce/campaigns) and [Message wording](/operations/message-wording).
 
 The incidents topic carries payment anomalies and nothing else today. Each notice names the
 order, the provider, the operation, the classification, the currency and amount, and the
@@ -77,11 +85,12 @@ the backup and the outcome, so a retried job reports once. The `backups` table s
 record: a notice that cannot be queued is logged and never fails the backup. See [Maintenance mode](/operations/maintenance-mode)
 and [Backup and restore](/operations/backup-restore).
 
-<Note>
-  The anomaly evaluator writes notices under a ninth kind, `anomaly`, which the database
-  accepts but for which the bot has no named topic. Those notices do not reach the group.
-  Review anomalies at `/admin/risk` instead — see [Risk controls](/operations/risk-controls).
-</Note>
+Support notices also announce an overdue first response once per ticket
+(`event: sla_breach`, with the queue, priority, and minutes overdue) whenever a queue has a
+first-response target, unless the support section switches `notifySlaBreach` off. Each
+stream queued by a trigger stays quiet inside a Bedolaga import, so migrating a customer
+base does not replay its history into the group. The error log itself — messages, counts,
+first and last seen — is on `/admin/system` behind `system.read`.
 
 ## Configuration
 
@@ -91,8 +100,11 @@ and [Backup and restore](/operations/backup-restore).
 | `APP_OPERATOR_NOTIFICATION_CAP` | `30` | Messages sent per kind per window before the rest are suppressed. `0` removes the cap. |
 | `APP_OPERATOR_NOTIFICATION_WINDOW_MINUTES` | `5` | The rolling window the cap counts over. A zero or unparseable value falls back to five minutes. |
 
-All three are read once at start-up. The `operator_group` section on `/admin/settings/integrations`
-stores the same four numbers and changes nothing — see
+All three are fallbacks. The `operator_group` section on `/admin/settings/integrations`
+overrides them on the next pass, without a restart: the chat (changing it rebinds every
+topic in the new group), topics or one flat chat, the cap and its window, and which
+streams are switched off. Quiet hours live in the alerting section and hold non-urgent
+notices pending until the window ends, counted in the branding time zone. See
 [Installation settings](/operations/installation-settings).
 
 ## When binding fails
@@ -186,7 +198,10 @@ field added to a payload in future cannot leak by omission:
 ```text
 orderId · subscriptionId · entitlementId · provider · operation · currency
 amountMinor · creditedMinor · classification · reason · source · errorCode
-fileName · sizeBytes · status · event · adminUserId · method
+fileName · sizeBytes · status · event · adminUserId · method · ticketId · queueId
+signalId · metric · severity · observed · threshold · subjectType
+process · fingerprint · occurrences · version · previousVersion · releaseUrl
+overdueMinutes · priority
 ```
 
 A purchase notice therefore looks like this:

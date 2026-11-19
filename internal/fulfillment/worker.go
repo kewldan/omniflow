@@ -26,6 +26,25 @@ type Worker struct {
 	metrics     *platform.Metrics
 	clock       func() time.Time
 	naming      Naming
+	// alertAttempts answers how many failed attempts a run makes before an
+	// operator is told. It is read per run, so the notifications section of
+	// the installation settings applies without a restart.
+	alertAttempts func(context.Context) int
+}
+
+// WithAlertAttempts makes the operator alert threshold configurable.
+func (worker *Worker) WithAlertAttempts(threshold func(context.Context) int) *Worker {
+	worker.alertAttempts = threshold
+	return worker
+}
+
+func (worker *Worker) operatorAlertThreshold(ctx context.Context) int {
+	if worker.alertAttempts != nil {
+		if value := worker.alertAttempts(ctx); value > 0 {
+			return value
+		}
+	}
+	return operatorAlertAttempts
 }
 
 // SetNaming applies the operator's username and description templates to the
@@ -372,8 +391,8 @@ func shouldEnable(remoteStatus, entitlementStatus string) bool {
 	return strings.EqualFold(remoteStatus, "DISABLED") && entitlementStatus != "paused"
 }
 
-// operatorAlertAttempts is how many failed attempts a fulfillment run makes
-// before an operator is told. Below it, ordinary backoff is expected to recover.
+// operatorAlertAttempts is the default of how many failed attempts a
+// fulfillment run makes before an operator is told. Below it, ordinary backoff is expected to recover.
 const operatorAlertAttempts = 3
 
 // obsoleteOperation reports whether an operation's entitlement has been

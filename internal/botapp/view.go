@@ -30,10 +30,17 @@ type View struct {
 }
 
 func localeFrom(code string) Locale {
-	if strings.HasPrefix(strings.ToLower(code), "ru") {
-		return LocaleRussian
+	policy := activeLanguages()
+	if policy.only != "" {
+		return policy.only
 	}
-	return LocaleEnglish
+	switch lower := strings.ToLower(code); {
+	case strings.HasPrefix(lower, "ru"):
+		return LocaleRussian
+	case strings.HasPrefix(lower, "en"):
+		return LocaleEnglish
+	}
+	return policy.fallback
 }
 
 func loadingView(locale Locale) View {

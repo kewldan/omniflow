@@ -54,9 +54,11 @@ type Service struct {
 	pool     *pgxpool.Pool
 	secrets  cipher.AEAD
 	sessions adminauth.SessionPolicy
-	lockout  adminauth.LockoutPolicy
-	password adminauth.PasswordParams
-	clock    func() time.Time
+	// overrides adjusts sessions per request; see Options.SessionOverrides.
+	overrides func(context.Context) (time.Duration, time.Duration)
+	lockout   adminauth.LockoutPolicy
+	password  adminauth.PasswordParams
+	clock     func() time.Time
 
 	// decoyHash is verified against when a sign-in names an address that does
 	// not exist. Without it, a missing account would answer measurably faster
@@ -86,6 +88,11 @@ type Options struct {
 	// ServiceName is what an authenticator shows the person when it asks them
 	// to confirm. It defaults to Omniflow.
 	ServiceName string
+	// SessionOverrides answers the idle and absolute session lifetimes an owner
+	// saved in the security section; a zero keeps the compiled-in value. It is
+	// asked whenever a session starts or slides, so a change applies to the
+	// next request rather than the next deploy.
+	SessionOverrides func(context.Context) (idle, absolute time.Duration)
 }
 
 // New builds the adapter. The encryption key is the same 32-byte
@@ -108,12 +115,13 @@ func New(pool *pgxpool.Pool, encryptionKey []byte, options Options) (*Service, e
 	}
 
 	service := &Service{
-		pool:     pool,
-		secrets:  aead,
-		sessions: options.SessionPolicy,
-		lockout:  options.LockoutPolicy,
-		password: options.PasswordParams,
-		clock:    options.Clock,
+		pool:      pool,
+		secrets:   aead,
+		sessions:  options.SessionPolicy,
+		lockout:   options.LockoutPolicy,
+		password:  options.PasswordParams,
+		clock:     options.Clock,
+		overrides: options.SessionOverrides,
 	}
 	if service.sessions == (adminauth.SessionPolicy{}) {
 		service.sessions = adminauth.DefaultSessionPolicy
@@ -161,6 +169,27 @@ func New(pool *pgxpool.Pool, encryptionKey []byte, options Options) (*Service, e
 // SessionPolicy exposes the configured lifetimes so transport can set cookie
 // expiries that match the server's own view of the session.
 func (service *Service) SessionPolicy() adminauth.SessionPolicy { return service.sessions }
+
+// policy is the session policy for one request: the compiled-in policy with
+// the security section's lifetimes applied, each bounded so a typo can
+// neither lock everybody out nor keep a session alive for a month.
+func (service *Service) policy(ctx context.Context) adminauth.SessionPolicy {
+	policy := service.sessions
+	if service.overrides == nil {
+		return policy
+	}
+	idle, absolute := service.overrides(ctx)
+	if idle > 0 {
+		policy.IdleTimeout = min(max(idle, 5*time.Minute), 24*time.Hour)
+	}
+	if absolute > 0 {
+		policy.AbsoluteTimeout = min(max(absolute, time.Hour), 30*24*time.Hour)
+	}
+	if policy.IdleTimeout > policy.AbsoluteTimeout {
+		policy.IdleTimeout = policy.AbsoluteTimeout
+	}
+	return policy
+}
 
 // Account is an operator account as the API presents it, with secrets removed.
 type Account struct {

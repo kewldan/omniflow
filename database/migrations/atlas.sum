@@ -1,4 +1,4 @@
-h1:H+OMXxNAe+maHzMO+bQEkMW8yVjCH1Hj2MP6YaAoDgU=
+h1:qK/wPJpggY/6/El7zifodTBWzltc/GsXYlD03TeIBQ4=
 20261120000000_baseline.sql h1:xcYk9mdv44B3O0TRxq3RP+hXxJ2VeeOilGnwKO251mQ=
 20261120010000_river_schema_v8.sql h1:AfdQpxaviEf8asJ5gyLmMVZr+zMYaWEw+o/vE8CMj7A=
 20261120020000_customer_email_signin.sql h1:PrCKaTaDm5ggof8aqRooMbqOXEHML5fwq1TF877zQa8=
@@ -10,4 +10,7 @@ h1:H+OMXxNAe+maHzMO+bQEkMW8yVjCH1Hj2MP6YaAoDgU=
 20261120080000_plan_highlight.sql h1:eU1sLBgEfURikbPY3I4x1xvASfiZ/0G6u4HXm9VvkAI=
 20261121200100_subscription_policy.sql h1:o5H0a6feVjpgiFBxAUN5zaqbFALcYOpfbQcnU5nDZrE=
 20261121200200_remnawave_user_profile.sql h1:v+eSXS8F6J1Tgd+rhwf3CWX9aLl3XAkFhDei/qbLKOQ=
-20261121500000_remnawave_webhooks.sql h1:nZ6K1wSUeaEwfOvMGuqPYk/KKcn7+e/bw3FZm1MSn94=
+20261121400000_runtime_settings.sql h1:0IVIKkkI50lhW1iFf7PQnRDaJb4q5aoSHa01FZ6ZpSQ=
+20261121410000_operator_streams.sql h1:OqnUp8M3bFRMgvRwI3gAxdrgKpNPWKpRlIFfUhQ18lU=
+20261121500000_remnawave_webhooks.sql h1:WSnlojMDEF2GCiYQL/aDXzz7slN6DmFkQw0Zo0GD7KM=
+20261121590000_operator_kinds_union.sql h1:oTquEKlGPO2CIeAGITEnxqnGIt3VtL/QP4S3psMacyE=

@@ -8,11 +8,15 @@ ARG RUNTIME=static
 
 FROM golang:1.27.4-alpine AS build
 ARG TARGET
+# VERSION is stamped into main.version, which the bot announces on start and
+# the diagnostics bundle and update check compare against. Local builds stay
+# "dev".
+ARG VERSION=dev
 WORKDIR /src
 COPY go.mod go.sum* ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/app ./cmd/${TARGET}
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o /out/app ./cmd/${TARGET}
 
 FROM gcr.io/distroless/static-debian13:nonroot AS runtime-static
 COPY --from=build /out/app /app

@@ -19,9 +19,11 @@ import (
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/config"
 	"github.com/omniflow/omniflow/internal/customerauthpg"
+	"github.com/omniflow/omniflow/internal/errorlog"
 	"github.com/omniflow/omniflow/internal/fulfillment"
 	"github.com/omniflow/omniflow/internal/goodsdelivery"
 	apihttp "github.com/omniflow/omniflow/internal/httpapi"
+	"github.com/omniflow/omniflow/internal/installsettings"
 	"github.com/omniflow/omniflow/internal/jobs"
 	"github.com/omniflow/omniflow/internal/operator"
 	"github.com/omniflow/omniflow/internal/platform"
@@ -33,7 +35,8 @@ var version = "dev"
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	errorLog := errorlog.New(slog.NewJSONHandler(os.Stdout, nil), "bot")
+	logger := slog.New(errorLog)
 
 	if os.Getenv("APP_TELEGRAM_TOKEN") == "" {
 		logger.Info("telegram bot disabled because APP_TELEGRAM_TOKEN is empty")
@@ -53,6 +56,8 @@ func main() {
 		os.Exit(1)
 	}
 	defer pool.Close()
+	errorLog.Attach(ctx, pool)
+	installation := installsettings.New(pool, logger)
 	identities, err := botapp.NewPostgresStoreWithPool(pool)
 	if err != nil {
 		logger.Error("telegram identity store initialization failed", "error", err)
@@ -64,14 +69,16 @@ func main() {
 		os.Exit(1)
 	}
 	application := botapp.New(logger, identities, remnawaveClient, cfg.SupportURL)
+	application.UseInstallationSettings(installation)
 	metrics := platform.NewMetrics("bot")
 	options := []telegram.Option{
 		telegram.WithDefaultHandler(application.HandleDefault),
-		telegram.WithMiddlewares(botapp.ObservabilityMiddleware(metrics)),
+		telegram.WithMiddlewares(botapp.ObservabilityMiddleware(metrics), application.SettingsMiddleware()),
 	}
 	if cfg.Webhook.Enabled {
 		options = append(options, telegram.WithWebhookSecretToken(cfg.Webhook.SecretToken))
 	}
+	options = append(options, app.TelegramOptions(cfg.TelegramTransport)...)
 	client, err := telegram.New(cfg.TelegramToken, options...)
 	if err != nil {
 		logger.Error("telegram client initialization failed", "error", err)
@@ -149,14 +156,17 @@ func main() {
 	notifier := operator.New(pool, client, logger, operator.Config{
 		ChatID: cfg.Operator.ChatID, NotificationCap: cfg.Operator.NotificationCap, Window: cfg.Operator.Window,
 		PanelURL: cfg.PublicURL,
-	})
+	}).WithSettings(installation)
 	go notifier.Run(ctx)
+	if err := operator.AnnounceStart(ctx, pool, "bot", version, time.Now()); err != nil {
+		logger.Warn("bot start notice could not be queued", "error", err)
+	}
 	go botapp.NewNotifier(logger, sender, identities, remnawaveClient, commerceService, settings).Run(ctx)
 
 	operationalServer := startOperationalServer(logger, cfg, pool, metrics)
 	webhookServer := startWebhookServer(logger, cfg, client)
 
-	logger.Info("telegram bot started", "remnawave_api", "3.4.11", "mode", updateMode(cfg))
+	logger.Info("telegram bot started", "remnawave_api", "3.4.11", "mode", updateMode(cfg), "version", version)
 	if cfg.Webhook.Enabled {
 		if err = registerWebhook(ctx, logger, client, cfg); err != nil {
 			logger.Error("telegram webhook registration failed", "error", err)

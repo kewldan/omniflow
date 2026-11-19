@@ -384,6 +384,18 @@ type AnomalySignal struct {
 	DedupeKey       string             `json:"dedupe_key"`
 }
 
+type AppError struct {
+	ID          pgtype.UUID        `json:"id"`
+	Fingerprint string             `json:"fingerprint"`
+	Process     string             `json:"process"`
+	Message     string             `json:"message"`
+	Source      string             `json:"source"`
+	Occurrences int64              `json:"occurrences"`
+	FirstSeenAt pgtype.Timestamptz `json:"first_seen_at"`
+	LastSeenAt  pgtype.Timestamptz `json:"last_seen_at"`
+	ResolvedAt  pgtype.Timestamptz `json:"resolved_at"`
+}
+
 type AudienceSegment struct {
 	ID         pgtype.UUID        `json:"id"`
 	Code       string             `json:"code"`
@@ -1610,6 +1622,11 @@ type PaymentProviderSetting struct {
 	CreatedAt               pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
 	UpdatedBy               pgtype.UUID        `json:"updated_by"`
+}
+
+type PeriodicTaskRun struct {
+	Name          string             `json:"name"`
+	LastStartedAt pgtype.Timestamptz `json:"last_started_at"`
 }
 
 type PersonalOffer struct {

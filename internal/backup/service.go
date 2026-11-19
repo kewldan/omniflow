@@ -17,6 +17,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -51,6 +52,29 @@ type Service struct {
 	logger *slog.Logger
 	config Config
 	clock  func() time.Time
+	// retention overrides config.Retention when positive. The worker sets it
+	// from the backup section of the installation settings before each
+	// scheduled run, so a changed retention applies to the next backup.
+	retention atomic.Int64
+}
+
+// SetRetention changes how long backups taken from now on are kept.
+func (service *Service) SetRetention(retention time.Duration) {
+	if service != nil && retention > 0 {
+		service.retention.Store(int64(retention))
+	}
+}
+
+func (service *Service) retentionPeriod() time.Duration {
+	if value := service.retention.Load(); value > 0 {
+		return time.Duration(value)
+	}
+	return service.config.Retention
+}
+
+// Path is where a backup's file lives.
+func (service *Service) Path(record dbgen.Backup) string {
+	return filepath.Join(service.config.Directory, record.FileName)
 }
 
 func New(pool *pgxpool.Pool, logger *slog.Logger, config Config) *Service {
@@ -120,7 +144,7 @@ func (service *Service) Create(ctx context.Context, kind, requestedBy string) (d
 	record, err := queries.CreateBackup(ctx, dbgen.CreateBackupParams{
 		Kind: kind, FileName: fileName, Encrypted: true,
 		RequestedBy: pgtype.Text{String: requestedBy, Valid: requestedBy != ""},
-		RetainUntil: pgtype.Timestamptz{Time: service.clock().Add(service.config.Retention), Valid: true},
+		RetainUntil: pgtype.Timestamptz{Time: service.clock().Add(service.retentionPeriod()), Valid: true},
 	})
 	if err != nil {
 		return dbgen.Backup{}, err

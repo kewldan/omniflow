@@ -221,7 +221,7 @@ func (app *App) planScreen(ctx context.Context, session commerceContext, planVer
 			trialReason = reason
 		}
 	}
-	return planView(session.Locale, plan, entitlement, app.termsURL, trialReason, forNew)
+	return planView(session.Locale, plan, entitlement, app.configuredTerms(), trialReason, forNew)
 }
 
 // paymentMethodScreen starts a checkout and asks which configured adapter should
@@ -647,7 +647,7 @@ func (app *App) supportScreen(ctx context.Context, session commerceContext) View
 		app.logger.Error("support ticket lookup failed", "error", err)
 		return app.errorView(session.Locale, routeSupport)
 	}
-	return supportListView(session.Locale, tickets, app.supportURL)
+	return supportListView(session.Locale, tickets, app.supportLink())
 }
 
 func (app *App) ticketScreen(ctx context.Context, session commerceContext, ticketID string) View {

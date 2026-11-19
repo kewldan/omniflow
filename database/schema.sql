@@ -103,6 +103,47 @@ $$;
 
 
 --
+-- Name: queue_operator_stream_notice(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.queue_operator_stream_notice() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF current_setting('omniflow.import', true) = 'on' THEN
+    RETURN NEW;
+  END IF;
+  IF TG_TABLE_NAME = 'trial_claims' THEN
+    INSERT INTO operator_notifications (kind, dedupe_key, payload)
+    VALUES ('trial', 'trial:' || NEW.order_id::text,
+            jsonb_build_object('orderId', NEW.order_id::text, 'event', 'trial_claimed'))
+    ON CONFLICT (kind, dedupe_key) DO NOTHING;
+  ELSIF TG_TABLE_NAME = 'promo_redemptions' THEN
+    INSERT INTO operator_notifications (kind, dedupe_key, payload)
+    VALUES ('promo', 'promo:' || NEW.id::text,
+            jsonb_build_object('orderId', NEW.order_id::text, 'amountMinor', NEW.discount_minor,
+                               'event', 'promo_redeemed'))
+    ON CONFLICT (kind, dedupe_key) DO NOTHING;
+  ELSIF TG_TABLE_NAME = 'referral_rewards' THEN
+    INSERT INTO operator_notifications (kind, dedupe_key, payload)
+    VALUES ('partner', 'reward:' || NEW.id::text,
+            jsonb_build_object('orderId', NEW.order_id::text, 'amountMinor', NEW.amount_minor,
+                               'currency', NEW.currency, 'event', 'referral_reward_' || NEW.role))
+    ON CONFLICT (kind, dedupe_key) DO NOTHING;
+  ELSIF TG_TABLE_NAME = 'outbox_events' AND NEW.topic = 'addon.purchased' THEN
+    INSERT INTO operator_notifications (kind, dedupe_key, payload)
+    VALUES ('addon', 'addon:' || NEW.id::text,
+            jsonb_build_object('orderId', NEW.payload ->> 'orderId',
+                               'entitlementId', NEW.payload ->> 'entitlementId',
+                               'event', 'addon_purchased'))
+    ON CONFLICT (kind, dedupe_key) DO NOTHING;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: queue_support_reply_notice(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -761,6 +802,26 @@ CREATE TABLE public.anomaly_signals (
     CONSTRAINT anomaly_signals_subject_id_check CHECK (((char_length(subject_id) >= 1) AND (char_length(subject_id) <= 128))),
     CONSTRAINT anomaly_signals_subject_type_check CHECK ((subject_type = ANY (ARRAY['installation'::text, 'customer'::text, 'plan'::text, 'provider'::text]))),
     CONSTRAINT anomaly_signals_window CHECK ((window_ended_at > window_started_at))
+);
+
+
+--
+-- Name: app_errors; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.app_errors (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    fingerprint text NOT NULL,
+    process text NOT NULL,
+    message text NOT NULL,
+    source text DEFAULT ''::text NOT NULL,
+    occurrences bigint DEFAULT 1 NOT NULL,
+    first_seen_at timestamp with time zone DEFAULT now() NOT NULL,
+    last_seen_at timestamp with time zone DEFAULT now() NOT NULL,
+    resolved_at timestamp with time zone,
+    CONSTRAINT app_errors_message_bounded CHECK ((length(message) <= 1000)),
+    CONSTRAINT app_errors_occurrences_positive CHECK ((occurrences > 0)),
+    CONSTRAINT app_errors_process_known CHECK ((process = ANY (ARRAY['api'::text, 'bot'::text, 'worker'::text])))
 );
 
 
@@ -2176,7 +2237,7 @@ CREATE TABLE public.installation_settings (
     version integer DEFAULT 1 NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_by uuid,
-    CONSTRAINT installation_settings_section_known CHECK ((section = ANY (ARRAY['branding'::text, 'remnawave'::text, 'telegram'::text, 'operator_group'::text, 'required_channels'::text, 'maintenance'::text, 'notifications'::text, 'telemetry'::text, 'backup'::text, 'security'::text, 'ai'::text, 'mcp'::text, 'customer_auth'::text, 'theme'::text, 'analytics'::text]))),
+    CONSTRAINT installation_settings_section_known CHECK ((section = ANY (ARRAY['branding'::text, 'remnawave'::text, 'telegram'::text, 'operator_group'::text, 'required_channels'::text, 'maintenance'::text, 'notifications'::text, 'telemetry'::text, 'backup'::text, 'security'::text, 'ai'::text, 'mcp'::text, 'customer_auth'::text, 'theme'::text, 'analytics'::text, 'bot'::text, 'support'::text, 'reports'::text, 'access'::text, 'moderation'::text]))),
     CONSTRAINT installation_settings_version_check CHECK ((version > 0))
 );
 
@@ -2654,7 +2715,7 @@ CREATE TABLE public.operator_notifications (
     error_code text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     sent_at timestamp with time zone,
-    CONSTRAINT operator_notifications_kind_known CHECK ((kind = ANY (ARRAY['purchase'::text, 'renewal'::text, 'topup'::text, 'refund'::text, 'fulfillment_failure'::text, 'incident'::text, 'backup'::text, 'security'::text, 'anomaly'::text, 'support'::text, 'node'::text, 'monitoring'::text]))),
+    CONSTRAINT operator_notifications_kind_known CHECK ((kind = ANY (ARRAY['purchase'::text, 'renewal'::text, 'topup'::text, 'refund'::text, 'fulfillment_failure'::text, 'incident'::text, 'backup'::text, 'security'::text, 'anomaly'::text, 'support'::text, 'trial'::text, 'addon'::text, 'promo'::text, 'partner'::text, 'error'::text, 'infrastructure'::text, 'report'::text, 'node'::text, 'monitoring'::text]))),
     CONSTRAINT operator_notifications_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'sent'::text, 'suppressed'::text, 'failed'::text])))
 );
 
@@ -2672,7 +2733,7 @@ CREATE TABLE public.operator_topics (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT operator_topics_check CHECK (((status = 'bound'::text) = (topic_id IS NOT NULL))),
-    CONSTRAINT operator_topics_kind_known CHECK ((kind = ANY (ARRAY['purchase'::text, 'renewal'::text, 'topup'::text, 'refund'::text, 'fulfillment_failure'::text, 'incident'::text, 'backup'::text, 'security'::text, 'anomaly'::text, 'campaign_test'::text, 'notice_test'::text, 'support'::text, 'node'::text, 'monitoring'::text]))),
+    CONSTRAINT operator_topics_kind_known CHECK ((kind = ANY (ARRAY['purchase'::text, 'renewal'::text, 'topup'::text, 'refund'::text, 'fulfillment_failure'::text, 'incident'::text, 'backup'::text, 'security'::text, 'anomaly'::text, 'campaign_test'::text, 'notice_test'::text, 'support'::text, 'trial'::text, 'addon'::text, 'promo'::text, 'partner'::text, 'error'::text, 'infrastructure'::text, 'report'::text, 'node'::text, 'monitoring'::text]))),
     CONSTRAINT operator_topics_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'bound'::text, 'failed'::text]))),
     CONSTRAINT operator_topics_topic_id_check CHECK (((topic_id IS NULL) OR (topic_id > 0)))
 );
@@ -2917,6 +2978,17 @@ CREATE TABLE public.payment_provider_settings (
     CONSTRAINT payment_provider_settings_recurring_test_status_check CHECK ((recurring_test_status = ANY (ARRAY['untested'::text, 'passed'::text, 'failed'::text]))),
     CONSTRAINT payment_provider_settings_recurring_tested CHECK (((recurring_enabled = false) OR (recurring_test_status = 'passed'::text))),
     CONSTRAINT payment_provider_settings_webhook_status_check CHECK ((webhook_status = ANY (ARRAY['unknown'::text, 'healthy'::text, 'failing'::text])))
+);
+
+
+--
+-- Name: periodic_task_runs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.periodic_task_runs (
+    name text NOT NULL,
+    last_started_at timestamp with time zone NOT NULL,
+    CONSTRAINT periodic_task_runs_name_present CHECK (((length(name) >= 1) AND (length(name) <= 64)))
 );
 
 
@@ -4205,6 +4277,22 @@ ALTER TABLE ONLY public.anomaly_signals
 
 
 --
+-- Name: app_errors app_errors_fingerprint_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.app_errors
+    ADD CONSTRAINT app_errors_fingerprint_key UNIQUE (fingerprint);
+
+
+--
+-- Name: app_errors app_errors_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.app_errors
+    ADD CONSTRAINT app_errors_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: audience_segments audience_segments_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5277,6 +5365,14 @@ ALTER TABLE ONLY public.payment_provider_settings
 
 
 --
+-- Name: periodic_task_runs periodic_task_runs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.periodic_task_runs
+    ADD CONSTRAINT periodic_task_runs_pkey PRIMARY KEY (name);
+
+
+--
 -- Name: personal_offers personal_offers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5880,6 +5976,13 @@ CREATE INDEX anomaly_signals_open_idx ON public.anomaly_signals USING btree (det
 --
 
 CREATE INDEX anomaly_signals_subject_idx ON public.anomaly_signals USING btree (subject_type, subject_id, detected_at DESC);
+
+
+--
+-- Name: app_errors_last_seen_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX app_errors_last_seen_idx ON public.app_errors USING btree (last_seen_at DESC);
 
 
 --
@@ -6786,10 +6889,31 @@ CREATE TRIGGER cart_goods_kind_matches BEFORE INSERT OR UPDATE ON public.cart_go
 
 
 --
+-- Name: outbox_events outbox_events_operator_notice; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER outbox_events_operator_notice AFTER INSERT ON public.outbox_events FOR EACH ROW EXECUTE FUNCTION public.queue_operator_stream_notice();
+
+
+--
+-- Name: promo_redemptions promo_redemptions_operator_notice; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER promo_redemptions_operator_notice AFTER INSERT ON public.promo_redemptions FOR EACH ROW EXECUTE FUNCTION public.queue_operator_stream_notice();
+
+
+--
 -- Name: promotion_goods promotion_goods_scope_matches; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER promotion_goods_scope_matches BEFORE INSERT OR UPDATE ON public.promotion_goods FOR EACH ROW EXECUTE FUNCTION public.promotion_goods_scope_matches();
+
+
+--
+-- Name: referral_rewards referral_rewards_operator_notice; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER referral_rewards_operator_notice AFTER INSERT ON public.referral_rewards FOR EACH ROW EXECUTE FUNCTION public.queue_operator_stream_notice();
 
 
 --
@@ -6804,6 +6928,13 @@ CREATE TRIGGER support_messages_reply_notice AFTER INSERT ON public.support_mess
 --
 
 CREATE TRIGGER support_tickets_queue_notice AFTER INSERT ON public.support_tickets FOR EACH ROW EXECUTE FUNCTION public.queue_support_ticket_notice();
+
+
+--
+-- Name: trial_claims trial_claims_operator_notice; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER trial_claims_operator_notice AFTER INSERT ON public.trial_claims FOR EACH ROW EXECUTE FUNCTION public.queue_operator_stream_notice();
 
 
 --

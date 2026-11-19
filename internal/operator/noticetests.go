@@ -83,7 +83,7 @@ func (notifier *Notifier) deliverNoticeTest(
 	}
 
 	_, sendErr := notifier.client.SendMessage(ctx, &telegram.SendMessageParams{
-		ChatID:          notifier.config.ChatID,
+		ChatID:          notifier.effective(ctx).ChatID,
 		MessageThreadID: int(topic.TopicID.Int64),
 		Text:            renderNoticeTest(test.Code, test.Locale, test.Body),
 		ParseMode:       models.ParseModeHTML,

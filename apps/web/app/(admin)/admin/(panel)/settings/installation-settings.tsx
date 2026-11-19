@@ -237,10 +237,11 @@ function FieldControl({
   const label = translate(`fields.${field.messageKey}`);
 
   if (field.kind === "boolean") {
+    const value = document[field.name];
     return (
       <div className="flex items-center gap-3">
         <Switch
-          checked={Boolean(document[field.name])}
+          checked={typeof value === "boolean" ? value : Boolean(field.defaultValue)}
           disabled={!editable}
           id={id}
           onCheckedChange={(value) => onDocument({ ...document, [field.name]: value })}
@@ -268,6 +269,60 @@ function FieldControl({
           placeholder={translate("secretPlaceholder")}
           type="password"
           value={secrets[field.name] ?? ""}
+        />
+      </div>
+    );
+  }
+
+  if (field.kind === "multiselect") {
+    const selected = Array.isArray(document[field.name])
+      ? (document[field.name] as unknown[]).filter(
+          (item): item is string => typeof item === "string",
+        )
+      : [];
+    return (
+      <fieldset className="flex flex-col gap-2 sm:col-span-2">
+        <legend className="mb-1 font-medium text-sm">{label}</legend>
+        <div className="grid gap-2 sm:grid-cols-3">
+          {(field.options ?? []).map((option) => {
+            const optionId = `${id}-${option}`;
+            return (
+              <div className="flex items-center gap-2" key={option}>
+                <Switch
+                  checked={selected.includes(option)}
+                  disabled={!editable}
+                  id={optionId}
+                  onCheckedChange={(on) =>
+                    onDocument({
+                      ...document,
+                      [field.name]: on
+                        ? [...selected, option]
+                        : selected.filter((item) => item !== option),
+                    })
+                  }
+                />
+                <Label htmlFor={optionId}>{translate(`fields.options.${option}`)}</Label>
+              </div>
+            );
+          })}
+        </div>
+      </fieldset>
+    );
+  }
+
+  if (field.kind === "time") {
+    return (
+      <div className="flex flex-col gap-1">
+        <Label htmlFor={id}>{label}</Label>
+        <Input
+          disabled={!editable}
+          id={id}
+          inputMode="numeric"
+          maxLength={5}
+          onChange={(event) => onDocument({ ...document, [field.name]: event.target.value.trim() })}
+          pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
+          placeholder={translate("timePlaceholder")}
+          value={String(document[field.name] ?? "")}
         />
       </div>
     );

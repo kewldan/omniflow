@@ -5,8 +5,8 @@ description: What the Settings screen stores, which of it changes behaviour toda
 
 `/admin/settings` is the way in to the operator console's configuration, and it holds
 three different kinds of thing. Commerce policy — wallet top-up and subscription
-concurrency — is stored in the database. Ten declarative **installation sections** are
-stored, versioned, and audited, with their credentials sealed. Two cards are read-only:
+concurrency — is stored in the database. The declarative **installation sections** are
+stored, versioned, audited, and read by the running processes. Two cards are read-only:
 the telemetry preview and the backup and restore history.
 
 It is an index rather than a page of forms. Everything used to render in one column —
@@ -34,61 +34,63 @@ a page an operator holding only `system.read` could not open.
 
 The distinction that matters is not visible on the screen, so it is stated here first.
 
-<Warning>
-  Saving an installation section stores a versioned document, seals any secrets you
-  typed, and appends an audit entry. It does **not** change how the `api`, `bot`, or
-  `worker` processes behave. Those processes read their configuration from environment
-  variables once at start-up and never re-read it. To change behaviour, change the
-  variable and restart the process.
-
-  Treat a saved section as a record of intent — useful, auditable, and not yet a control.
-</Warning>
+<Note>
+  Saving a section stores a versioned document, appends an audit entry, and **changes
+  behaviour**. The `api`, `bot`, and `worker` processes read each section through a
+  one-minute cache, so a saved value applies within a minute and without a restart; the
+  api drops its own copy the moment you save. A field you never saved falls back to the
+  environment variable or compiled-in default the process used before, so an
+  installation that never opens this screen behaves exactly as it always did.
+</Note>
 
 Every settings area needs `settings.read`; every save needs `settings.write`. The
 diagnostics bundle needs `system.read` and lives on the system screen. See
 [Admin panel](/operations/admin-panel) for how those permissions are granted.
 
-## Where each value is actually read from
+## What each field does
 
-| Settings card | Stored in | Read at runtime | Change behaviour with |
-| --- | --- | --- | --- |
-| Wallet top-up | `commerce_settings` | No — limits, presets, and the rolling window come from the environment | `APP_WALLET_TOPUP_*` |
-| Subscriptions | `commerce_settings` | Partly — the customer web panel reads `multi_subscription_enabled` to decide whether to show the subscription switcher | `APP_MULTI_SUBSCRIPTION_ENABLED`, `APP_MAX_SUBSCRIPTIONS_PER_CUSTOMER` |
-| Branding | `installation_settings` | No | `APP_PUBLIC_URL`, `APP_TERMS_URL`, `APP_SUPPORT_URL`, `APP_DEFAULT_CURRENCY` |
-| Appearance | `installation_settings`, `branding_assets` | **Yes** — both panels read it on every render, behind a one-minute cache | Save and reload; there is no environment variable |
-| Remnawave | `installation_settings` | No | `APP_REMNAWAVE_URL`, `APP_REMNAWAVE_TOKEN` |
-| Telegram | `installation_settings` | No | `APP_TELEGRAM_TOKEN`, `APP_TELEGRAM_WEBHOOK_URL`, `APP_TELEGRAM_WEBHOOK_SECRET` |
-| Operator group | `installation_settings` | No | `APP_OPERATOR_CHAT_ID`, `APP_OPERATOR_NOTIFICATION_CAP`, `APP_OPERATOR_NOTIFICATION_WINDOW_MINUTES` |
-| Required channels | `installation_settings` | No | *(no equivalent; see [Required channels](/operations/required-channels))* |
-| Maintenance | `installation_settings` | No | `APP_MAINTENANCE_AUTO_DETECT`, `APP_MAINTENANCE_FAILURE_STREAK`, `APP_MAINTENANCE_RECOVERY_STREAK` |
-| Notifications | `installation_settings` | No | *(no equivalent; thresholds are compiled in)* |
-| Telemetry | `installation_settings` | Preview only — see below | `APP_TELEMETRY_ENABLED`, `APP_TELEMETRY_ENDPOINT` |
-| Backup | `installation_settings` | No | `APP_BACKUP_ENABLED`, `APP_BACKUP_ENCRYPTION_KEY`, `APP_BACKUP_DIR`, `APP_BACKUP_INTERVAL_HOURS`, `APP_BACKUP_RETENTION_DAYS` |
-| Security | `installation_settings` | No | *(no equivalent; session lifetimes are compiled in)* |
-| Payment providers | `payment_provider_settings` | No — the adapters the API and worker actually call are built from the environment at start-up | `APP_TELEGRAM_TOKEN`, `APP_CRYPTOBOT_TOKEN`, `APP_CRYPTOBOT_TESTNET`, `APP_YOOKASSA_SHOP_ID`, `APP_YOOKASSA_SECRET` |
-| Customer sign-in (OIDC) | `customer_oidc_providers` | Yes | The panel itself |
+| Section | Field | Read by | Effect | Falls back to |
+| --- | --- | --- | --- | --- |
+| Branding | `serviceName` | both web panels | The name in the header, the page title, and the sign-in screen | `Omniflow` |
+| Branding | `supportContact` | bot | Where every "contact support" button points | `APP_SUPPORT_URL` |
+| Branding | `termsUrl` | bot | The terms button on a plan and the `/terms` command | `APP_TERMS_URL` |
+| Branding | `defaultLocale` | bot | The language of a customer whose Telegram language is neither Russian nor English (`ru` or `en`) | English |
+| Branding | `timezone` | worker, bot | The IANA zone quiet hours, the backup time of day, and scheduled reports are counted in | `UTC` |
+| Remnawave | `reconcileIntervalMinutes` | worker | How often every subscription is re-read from Remnawave | 15 minutes |
+| Telegram bot | `languages` | bot | The languages offered. With one, every message is in it and the language switch disappears from the bot's settings | both |
+| Operator group | `chatId` | bot | The group notices go to; changing it rebinds every topic in the new group | `APP_OPERATOR_CHAT_ID` |
+| Operator group | `createTopics` | bot | Off sends every notice to the group itself, for a group without topics | on |
+| Operator group | `notificationCap`, `windowMinutes` | bot | The per-kind volume cap and its window; `0` removes the cap | `APP_OPERATOR_NOTIFICATION_CAP`, `APP_OPERATOR_NOTIFICATION_WINDOW_MINUTES` |
+| Operator group | `disabledKinds` | bot | Streams switched off. Their notices are completed as `suppressed` with `error_code = disabled` | none |
+| Scheduled reports | `periods`, `time` | worker | Daily, weekly (Mondays), and monthly (the 1st) summaries in the Reports topic, at the local time given | none sent |
+| Maintenance | `autoEnable`, `failureThreshold` | api | Whether dependency failures switch maintenance on, and after how many consecutive failed probes | `APP_MAINTENANCE_AUTO_DETECT`, `APP_MAINTENANCE_FAILURE_STREAK` |
+| Maintenance | `noticeRu`, `noticeEn` | api | The customer notice an automatic activation sets when the stored state has none | the built-in wording |
+| Alerting | `fulfillmentAlertAttempts` | worker | Failed provisioning attempts before the Fulfillment failures topic hears about it | 3 |
+| Alerting | `quietHoursStart`, `quietHoursEnd` | bot | Non-urgent notices wait, still pending, until the window ends. Incidents, security, errors, fulfillment failures, backups, anomalies, and infrastructure are always delivered | no quiet hours |
+| Telemetry | `enabled` | api | Off stops the heartbeat. It can only narrow `APP_TELEMETRY_ENABLED`: with the variable false nothing is ever sent | on |
+| Backups | `enabled` | worker | Whether scheduled backups run. Needs `APP_BACKUP_ENCRYPTION_KEY` | `APP_BACKUP_ENABLED` |
+| Backups | `intervalHours` or `timeOfDay` | worker | Every N hours, or once a day at a local time (`HH:MM`, which wins when both are set) | `APP_BACKUP_INTERVAL_HOURS` |
+| Backups | `retentionDays` | worker | How long a backup taken from now on is kept | `APP_BACKUP_RETENTION_DAYS` |
+| Backups | `telegramChatId`, `telegramThreadId` | worker | A chat (and topic) that receives each scheduled backup file. The file is encrypted and useless without the key, which never leaves the installation. Files over 50 MB are not sent through the public Bot API | not sent |
+| Security | `sessionIdleMinutes`, `sessionAbsoluteHours` | api | Operator session lifetimes, bounded to 5 minutes – 24 hours idle and 1 hour – 30 days absolute | 30 minutes, 12 hours |
+| Security | `requireTotp` | api | Every operator must have an authenticator app or a passkey. Until they add one, every panel route except their own sign-in and security answers `403 second_factor_required` | off |
 
-Customer OIDC is the exception worth remembering: those providers are read from the
-database on every sign-in, so adding, editing, or disabling one takes effect immediately —
-and disabling one ends the sessions it established. Everything else on this page is
-either environment-driven or stored and waiting.
+Customer OIDC providers at `/admin/settings/sign-in` are read on every sign-in, as they
+always were; commerce policy is described below.
 
-Three sections have no environment equivalent at all, and their fields are inert in both
-directions:
+### What is deliberately not a setting
 
-- **Notifications** — `failedPaymentThreshold`, `driftThreshold`, `outboxBacklogThreshold`,
-  `quietHoursStart`, `quietHoursEnd`. Nothing reads them. Fulfillment alerting fires
-  after three failed attempts, a compiled-in constant.
-- **Security** — `sessionIdleMinutes`, `sessionAbsoluteHours`, `requireTotp`,
-  `allowedOrigins`. Operator sessions always use the compiled-in policy: 30-minute idle
-  timeout, 12-hour absolute lifetime, 15-minute token rotation. There is no mechanism
-  anywhere that requires two-factor for an operator account; TOTP is per-account and
-  voluntary.
-- **Required channels** — `recheckIntervalMinutes`, `graceHours`, `warnBeforeSuspend`.
-  The membership re-check runs on a fixed ten-minute loop in the bot.
+Credentials and addresses a process needs **before** it can read the database — or that
+identify the installation to the outside world — stay in the environment and are no longer
+offered on this screen: the Remnawave address and token, the bot token and webhook, the
+public URL that signed links are built from, the backup key and directory, and the
+telemetry endpoint. Two answers to "which token do we use" is one too many, and a copy
+the processes never read was a trap. The section documents keep any values saved before
+this change; nothing reads them. Membership re-check and grace for required channels are
+configured on the [Required channels](/operations/required-channels) screen, which is what
+the bot reads.
 
-The complete list of variables that do take effect is in
-[Configuration](/getting-started/configuration).
+The complete list of variables is in [Configuration](/getting-started/configuration).
 
 ## How a section is saved
 
@@ -151,18 +153,19 @@ somewhere it does not belong.
 
 | Section | Document fields | Secrets |
 | --- | --- | --- |
-| `branding` | `serviceName`, `supportContact`, `publicUrl`, `termsUrl`, `defaultLocale`, `timezone` | — |
-| `remnawave` | `baseUrl`, `reconcileIntervalMinutes`, `compatibilityChecked` | `token` |
-| `telegram` | `botUsername`, `webhookUrl`, `webhookEnabled` | `botToken`, `webhookSecret` |
-| `operator_group` | `chatId`, `createTopics`, `notificationCap`, `windowMinutes` | — |
-| `required_channels` | `recheckIntervalMinutes`, `graceHours`, `warnBeforeSuspend` | — |
+| `branding` | `serviceName`, `supportContact`, `termsUrl`, `defaultLocale`, `timezone` | — |
+| `remnawave` | `reconcileIntervalMinutes` | — |
+| `bot` | `languages` | — |
+| `operator_group` | `chatId`, `createTopics`, `notificationCap`, `windowMinutes`, `disabledKinds` | — |
+| `reports` | `periods`, `time` | — |
 | `maintenance` | `autoEnable`, `failureThreshold`, `noticeEn`, `noticeRu` | — |
-| `notifications` | `failedPaymentThreshold`, `driftThreshold`, `outboxBacklogThreshold`, `quietHoursStart`, `quietHoursEnd` | — |
-| `telemetry` | `enabled`, `endpoint` | — |
-| `backup` | `enabled`, `intervalHours`, `retentionDays`, `directory` | `encryptionKey` |
-| `security` | `sessionIdleMinutes`, `sessionAbsoluteHours`, `requireTotp`, `allowedOrigins` | — |
+| `notifications` | `fulfillmentAlertAttempts`, `quietHoursStart`, `quietHoursEnd` | — |
+| `telemetry` | `enabled` | — |
+| `backup` | `enabled`, `intervalHours`, `timeOfDay`, `retentionDays`, `telegramChatId`, `telegramThreadId` | — |
+| `security` | `sessionIdleMinutes`, `sessionAbsoluteHours`, `requireTotp` | — |
 | `theme` | The palette, corner and spacing scales, offered modes, default mode — see [White-label appearance](/operations/branding) | — |
 | `analytics` | `enabled`, counter identifiers per provider, webmaster verification tags — see [Advertising measurement](/operations/advertising-measurement) | — |
+| `telegram`, `required_channels` | Kept for history; nothing reads them (see above) | — |
 
 Four of these are not fields on the generic renderer. `ai` and `mcp` have their own
 screen at `/admin/settings/ai` — see [AI governance](/operations/ai-governance) and
@@ -223,7 +226,8 @@ field names.
 
   The card also renders a different field set from the wire event. Treat
   [Anonymous telemetry](/operations/telemetry) as the authority on what leaves the
-  installation, and `APP_TELEMETRY_ENABLED=false` as the way to stop it.
+  installation, and `APP_TELEMETRY_ENABLED=false` as the way to stop it. Saving the
+  telemetry section with **Send telemetry** off stops it too, without a restart.
 </Warning>
 
 What the card gets right is the shape of the promise: there is no customer count, no
@@ -266,9 +270,9 @@ that line per section is exactly the mistake an allowlist avoids.
 
 Two numbers in the bundle need interpreting:
 
-- **Version is always `dev`.** No build stamps a version into the binaries, including the
-  released images, so the bundle, `/livez`, and the telemetry heartbeat all report `dev`.
-  Identify a deployment by its image tag instead.
+- **Version is the release.** Released images are built with the release version stamped
+  into the binaries, so the bundle, `/livez`, the telemetry heartbeat, and the bot's start
+  notice report it. A binary built locally reports `dev`.
 - **Pending outbox events only grow.** Events are written into `outbox_events` on
   `order.paid`, `wallet.credited`, and `addon.purchased`, and nothing marks them
   published, so the count rises for the life of the installation and the retention sweep

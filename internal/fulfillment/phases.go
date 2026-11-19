@@ -379,7 +379,7 @@ func (worker *Worker) recordFailure(ctx context.Context, claimed claim, result o
 	// Operators are told once a run has clearly stopped being a blip. The
 	// dedupe key is the operation, so one struggling entitlement produces one
 	// notice however many times it retries.
-	if operation.AttemptCount >= operatorAlertAttempts {
+	if int(operation.AttemptCount) >= worker.operatorAlertThreshold(ctx) {
 		notifyFulfillmentFailure(ctx, queries, operation, code)
 	}
 	return tx.Commit(ctx)

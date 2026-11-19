@@ -11,7 +11,15 @@
  * return one — and an empty secret field on save leaves the stored value alone.
  */
 
-export type FieldKind = "text" | "url" | "number" | "boolean" | "textarea" | "secret";
+export type FieldKind =
+  | "text"
+  | "url"
+  | "number"
+  | "boolean"
+  | "textarea"
+  | "secret"
+  | "time"
+  | "multiselect";
 
 export type SectionField = {
   /** Key inside the section's document, or inside its secrets when `secret`. */
@@ -19,7 +27,36 @@ export type SectionField = {
   kind: FieldKind;
   /** Suffix under `admin.installationSettings.fields` for the label and hint. */
   messageKey: string;
+  /**
+   * What the running installation does while the field is unsaved. A switch
+   * renders it, so an unsaved "on" is not shown as "off" and then saved as
+   * "off" by an operator who only meant to change something else.
+   */
+  defaultValue?: boolean;
+  /** The closed list a `multiselect` picks from. */
+  options?: readonly string[];
 };
+
+/** The operator notification streams that can be switched off. */
+export const NOTIFICATION_KINDS = [
+  "purchase",
+  "renewal",
+  "topup",
+  "refund",
+  "fulfillment_failure",
+  "incident",
+  "backup",
+  "security",
+  "support",
+  "anomaly",
+  "trial",
+  "addon",
+  "promo",
+  "partner",
+  "error",
+  "infrastructure",
+  "report",
+] as const;
 
 /**
  * The areas settings are split across, one route each.
@@ -82,40 +119,30 @@ export const SECTIONS: SectionSchema[] = [
     section: "branding",
     group: "brand",
     messageKey: "branding",
+    // Every field here is read by a running process: the service name by
+    // both web panels, the support contact and terms address by the bot, the
+    // default language by the bot for a customer whose Telegram language it
+    // does not speak, and the time zone by quiet hours and scheduled reports.
+    // The public URL is not here: signed links and return addresses are built
+    // from APP_PUBLIC_URL at start-up, and two answers to "where are we" is
+    // one too many.
     fields: [
       { name: "serviceName", kind: "text", messageKey: "serviceName" },
-      { name: "supportContact", kind: "text", messageKey: "supportContact" },
-      { name: "publicUrl", kind: "url", messageKey: "publicUrl" },
+      { name: "supportContact", kind: "url", messageKey: "supportContact" },
       { name: "termsUrl", kind: "url", messageKey: "termsUrl" },
       { name: "defaultLocale", kind: "text", messageKey: "defaultLocale" },
       { name: "timezone", kind: "text", messageKey: "timezone" },
     ],
   },
+  // Credentials a process needs before it can start — the Remnawave token,
+  // the bot token, the webhook secret, the backup key — stay in the
+  // environment. The panel no longer offers to store a second copy that
+  // nothing would read; what remains here is what the processes obey.
   {
     section: "remnawave",
     group: "integrations",
     messageKey: "remnawave",
-    fields: [
-      { name: "baseUrl", kind: "url", messageKey: "remnawaveBaseUrl" },
-      { name: "reconcileIntervalMinutes", kind: "number", messageKey: "reconcileInterval" },
-      { name: "compatibilityChecked", kind: "boolean", messageKey: "compatibilityChecked" },
-      // The token is write-only. Rotating it means typing a new one; leaving
-      // this empty keeps the current one, which is what makes rotation a
-      // deliberate act rather than a side effect of editing the base URL.
-      { name: "token", kind: "secret", messageKey: "remnawaveToken" },
-    ],
-  },
-  {
-    section: "telegram",
-    group: "integrations",
-    messageKey: "telegram",
-    fields: [
-      { name: "botUsername", kind: "text", messageKey: "botUsername" },
-      { name: "webhookUrl", kind: "url", messageKey: "webhookUrl" },
-      { name: "webhookEnabled", kind: "boolean", messageKey: "webhookEnabled" },
-      { name: "botToken", kind: "secret", messageKey: "botToken" },
-      { name: "webhookSecret", kind: "secret", messageKey: "webhookSecret" },
-    ],
+    fields: [{ name: "reconcileIntervalMinutes", kind: "number", messageKey: "reconcileInterval" }],
   },
   {
     section: "operator_group",
@@ -123,19 +150,37 @@ export const SECTIONS: SectionSchema[] = [
     messageKey: "operatorGroup",
     fields: [
       { name: "chatId", kind: "text", messageKey: "operatorChatId" },
-      { name: "createTopics", kind: "boolean", messageKey: "createTopics" },
+      { name: "createTopics", kind: "boolean", messageKey: "createTopics", defaultValue: true },
       { name: "notificationCap", kind: "number", messageKey: "notificationCap" },
       { name: "windowMinutes", kind: "number", messageKey: "windowMinutes" },
+      {
+        name: "disabledKinds",
+        kind: "multiselect",
+        messageKey: "disabledKinds",
+        options: NOTIFICATION_KINDS,
+      },
     ],
   },
   {
-    section: "required_channels",
+    section: "bot",
     group: "integrations",
-    messageKey: "requiredChannels",
+    messageKey: "bot",
     fields: [
-      { name: "recheckIntervalMinutes", kind: "number", messageKey: "recheckInterval" },
-      { name: "graceHours", kind: "number", messageKey: "graceHours" },
-      { name: "warnBeforeSuspend", kind: "boolean", messageKey: "warnBeforeSuspend" },
+      { name: "languages", kind: "multiselect", messageKey: "botLanguages", options: ["ru", "en"] },
+    ],
+  },
+  {
+    section: "reports",
+    group: "operations",
+    messageKey: "reports",
+    fields: [
+      {
+        name: "periods",
+        kind: "multiselect",
+        messageKey: "reportPeriods",
+        options: ["day", "week", "month"],
+      },
+      { name: "time", kind: "time", messageKey: "reportTime" },
     ],
   },
   {
@@ -143,7 +188,7 @@ export const SECTIONS: SectionSchema[] = [
     group: "operations",
     messageKey: "maintenance",
     fields: [
-      { name: "autoEnable", kind: "boolean", messageKey: "autoEnable" },
+      { name: "autoEnable", kind: "boolean", messageKey: "autoEnable", defaultValue: true },
       { name: "failureThreshold", kind: "number", messageKey: "failureThreshold" },
       { name: "noticeEn", kind: "textarea", messageKey: "noticeEn" },
       { name: "noticeRu", kind: "textarea", messageKey: "noticeRu" },
@@ -154,11 +199,9 @@ export const SECTIONS: SectionSchema[] = [
     group: "operations",
     messageKey: "notifications",
     fields: [
-      { name: "failedPaymentThreshold", kind: "number", messageKey: "failedPaymentThreshold" },
-      { name: "driftThreshold", kind: "number", messageKey: "driftThreshold" },
-      { name: "outboxBacklogThreshold", kind: "number", messageKey: "outboxThreshold" },
-      { name: "quietHoursStart", kind: "text", messageKey: "quietHoursStart" },
-      { name: "quietHoursEnd", kind: "text", messageKey: "quietHoursEnd" },
+      { name: "fulfillmentAlertAttempts", kind: "number", messageKey: "fulfillmentAlertAttempts" },
+      { name: "quietHoursStart", kind: "time", messageKey: "quietHoursStart" },
+      { name: "quietHoursEnd", kind: "time", messageKey: "quietHoursEnd" },
     ],
   },
   {
@@ -166,8 +209,7 @@ export const SECTIONS: SectionSchema[] = [
     group: "operations",
     messageKey: "telemetry",
     fields: [
-      { name: "enabled", kind: "boolean", messageKey: "telemetryEnabled" },
-      { name: "endpoint", kind: "url", messageKey: "telemetryEndpoint" },
+      { name: "enabled", kind: "boolean", messageKey: "telemetryEnabled", defaultValue: true },
     ],
   },
   {
@@ -177,9 +219,10 @@ export const SECTIONS: SectionSchema[] = [
     fields: [
       { name: "enabled", kind: "boolean", messageKey: "backupEnabled" },
       { name: "intervalHours", kind: "number", messageKey: "backupInterval" },
+      { name: "timeOfDay", kind: "time", messageKey: "backupTimeOfDay" },
       { name: "retentionDays", kind: "number", messageKey: "backupRetention" },
-      { name: "directory", kind: "text", messageKey: "backupDirectory" },
-      { name: "encryptionKey", kind: "secret", messageKey: "backupEncryptionKey" },
+      { name: "telegramChatId", kind: "text", messageKey: "backupTelegramChat" },
+      { name: "telegramThreadId", kind: "number", messageKey: "backupTelegramThread" },
     ],
   },
   {
@@ -190,7 +233,6 @@ export const SECTIONS: SectionSchema[] = [
       { name: "sessionIdleMinutes", kind: "number", messageKey: "sessionIdle" },
       { name: "sessionAbsoluteHours", kind: "number", messageKey: "sessionAbsolute" },
       { name: "requireTotp", kind: "boolean", messageKey: "requireTotp" },
-      { name: "allowedOrigins", kind: "text", messageKey: "allowedOrigins" },
     ],
   },
 ];

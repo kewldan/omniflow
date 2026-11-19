@@ -36,8 +36,8 @@ func (app *App) HandlePaySupport(ctx context.Context, client *telegram.Bot, upda
 	}
 	locale := app.locale(ctx, message.From.ID, message.From.LanguageCode)
 	rows := [][]models.InlineKeyboardButton{row(callbackButton(text(locale, "legal.openSupport"), routeSupport))}
-	if app.supportURL != "" {
-		rows = append(rows, row(models.InlineKeyboardButton{Text: text(locale, "legal.contact"), URL: app.supportURL}))
+	if support := app.supportLink(); support != "" {
+		rows = append(rows, row(models.InlineKeyboardButton{Text: text(locale, "legal.contact"), URL: support}))
 	}
 	_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{
 		Text: text(locale, "legal.paySupport"), Keyboard: &models.InlineKeyboardMarkup{InlineKeyboard: rows},
@@ -68,8 +68,8 @@ func (app *App) HandleFAQ(ctx context.Context, client *telegram.Bot, update *mod
 
 // termsLink is the configured offer, or the installation's published pages.
 func (app *App) termsLink() string {
-	if app.termsURL != "" {
-		return app.termsURL
+	if terms := app.configuredTerms(); terms != "" {
+		return terms
 	}
 	if base := strings.TrimRight(strings.TrimSpace(app.settings.PublicURL), "/"); base != "" {
 		return base + "/pages"

@@ -159,7 +159,9 @@ jobs:
         with:
           context: .
           file: ${{ matrix.dockerfile }}
-          build-args: ${{ matrix.build_args }}
+          build-args: |
+            ${{ matrix.build_args }}
+            VERSION=${{ steps.version.outputs.value }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.metadata.outputs.tags }}

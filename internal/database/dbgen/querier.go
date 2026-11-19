@@ -515,6 +515,8 @@ type Querier interface {
 	// the text that was in the editor — which may not be saved and may be edited
 	// again before the group receives it.
 	EnqueueNoticeTestSend(ctx context.Context, arg EnqueueNoticeTestSendParams) (EnqueueNoticeTestSendRow, error)
+	// Queues a notice from a process that is not inside another transaction.
+	EnqueueOperatorNotice(ctx context.Context, arg EnqueueOperatorNoticeParams) (pgtype.UUID, error)
 	EnqueueOperatorNotification(ctx context.Context, arg EnqueueOperatorNotificationParams) (OperatorNotification, error)
 	// A customer created by the web panel gets the same preferences row a customer
 	// created by the bot gets, with the language both surfaces will read. Nothing
@@ -958,6 +960,7 @@ type Querier interface {
 	// Anomaly rules and signals
 	// ---------------------------------------------------------------------------
 	ListAnomalyRules(ctx context.Context) ([]AnomalyRule, error)
+	ListAppErrors(ctx context.Context, arg ListAppErrorsParams) ([]AppError, error)
 	// ---------------------------------------------------------------------------
 	// Segments and templates
 	// ---------------------------------------------------------------------------
@@ -1068,6 +1071,12 @@ type Querier interface {
 	ListDueDunningAttempts(ctx context.Context, pageSize int32) ([]DunningAttempt, error)
 	ListDueGoodsDeliveries(ctx context.Context, pageSize int32) ([]GoodsDelivery, error)
 	ListDueNewsPosts(ctx context.Context, pageSize int32) ([]NewsPost, error)
+	// Operator notification delivery that honours the panel's switches, and the
+	// application error log.
+	// Pending notices except the kinds held back by quiet hours. Held rows stay
+	// pending and are delivered when the quiet window ends; excluding them here
+	// rather than skipping them in Go keeps them from filling every batch.
+	ListDueOperatorNotifications(ctx context.Context, arg ListDueOperatorNotificationsParams) ([]OperatorNotification, error)
 	ListDunningAttemptsForCustomer(ctx context.Context, arg ListDunningAttemptsForCustomerParams) ([]DunningAttempt, error)
 	ListEnabledAdminOIDCProviders(ctx context.Context) ([]AdminOidcProvider, error)
 	ListEnabledChannels(ctx context.Context) ([]RequiredChannel, error)
@@ -1523,6 +1532,9 @@ type Querier interface {
 	// Qualified, rejected, and pending are each counted from the rows rather than
 	// derived by subtraction, because a pair can be qualified and later rejected.
 	OpenAccountReferralSummary(ctx context.Context, arg OpenAccountReferralSummaryParams) (OpenAccountReferralSummaryRow, error)
+	// The numbers a scheduled report carries. Money is per currency, so revenue
+	// comes back as a JSON object keyed by currency.
+	OperatorReportFigures(ctx context.Context, arg OperatorReportFiguresParams) (OperatorReportFiguresRow, error)
 	PanelSearchAccessCodeByCodeHash(ctx context.Context, codeHash []byte) ([]PanelSearchAccessCodeByCodeHashRow, error)
 	// Exact match only. The address is stored encrypted beside a keyed
 	// fingerprint, and the fingerprint is the only thing compared.
@@ -1587,6 +1599,9 @@ type Querier interface {
 	// The primary key is the deduplication: a paused-and-resumed campaign continues
 	// rather than restarting, and a recipient cannot be queued twice.
 	QueueCampaignRecipient(ctx context.Context, arg QueueCampaignRecipientParams) error
+	// One support notice per ticket whose first response is overdue. The dedupe
+	// key is the ticket, so a breach is announced once however long it lasts.
+	QueueSupportSLABreaches(ctx context.Context) (int64, error)
 	// A test is a real delivery through the real path — same table, same worker,
 	// same Telegram call — under a kind of its own so it can never be counted as
 	// an expiry notice or spend a marketing frequency budget. It is transactional
@@ -1630,6 +1645,9 @@ type Querier interface {
 	// not buy a fresh allowance of guesses. The caller computes the lockout from the
 	// resulting count; a null deadline leaves any existing lock in place.
 	RecordAdminTOTPFailure(ctx context.Context, arg RecordAdminTOTPFailureParams) (AdminUser, error)
+	// One row per fingerprint. A recurrence bumps the count and the last-seen
+	// time and reopens a resolved row, because an error that came back is news.
+	RecordAppError(ctx context.Context, arg RecordAppErrorParams) (RecordAppErrorRow, error)
 	RecordBlocklistRefresh(ctx context.Context, arg RecordBlocklistRefreshParams) (BlocklistSource, error)
 	RecordCartFailure(ctx context.Context, arg RecordCartFailureParams) (Cart, error)
 	// Discovery refreshes the description and schemas and leaves the owner's
@@ -1711,6 +1729,8 @@ type Querier interface {
 	RequeueGoodsDelivery(ctx context.Context, orderID pgtype.UUID) (GoodsDelivery, error)
 	// A recovery code is also a proven second factor.
 	ResetAdminTOTPFailures(ctx context.Context, adminUserID pgtype.UUID) error
+	ResolveAllAppErrors(ctx context.Context) (int64, error)
+	ResolveAppError(ctx context.Context, errorID pgtype.UUID) (AppError, error)
 	ResolveCampaignRecipient(ctx context.Context, arg ResolveCampaignRecipientParams) error
 	// Only a scheduled attempt resolves, so a retried worker cannot rewrite an
 	// outcome that has already been recorded.

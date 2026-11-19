@@ -15,6 +15,7 @@ import (
 	"github.com/omniflow/omniflow/internal/airuntime"
 	"github.com/omniflow/omniflow/internal/customerauthpg"
 	"github.com/omniflow/omniflow/internal/fulfillment"
+	"github.com/omniflow/omniflow/internal/installsettings"
 	"github.com/omniflow/omniflow/internal/panelpg"
 	"github.com/omniflow/omniflow/internal/panelsearchpg"
 	"github.com/omniflow/omniflow/internal/payments"
@@ -32,10 +33,11 @@ import (
 // bearer token there — and collapsing them onto one prefix would mean one of
 // the two silently inherits the other's middleware.
 type AdminHandlers struct {
-	service *adminauthpg.Service
-	limiter *platform.RateLimiter
-	logger  *slog.Logger
-	proxies *TrustedProxies
+	installation *installsettings.Reader
+	service      *adminauthpg.Service
+	limiter      *platform.RateLimiter
+	logger       *slog.Logger
+	proxies      *TrustedProxies
 
 	// operations serves the v0.7 surfaces. A nil value leaves them unmounted,
 	// which is what a panel running only the v0.6 foundation gets.
@@ -137,6 +139,9 @@ type AdminOptions struct {
 	// Stars describes the direct Fragment provider for the shop's Stars
 	// screen. A nil registry leaves those routes unmounted.
 	Stars StarsShopOptions
+	// Installation reads the saved installation settings the api obeys: the
+	// security section's second-factor requirement among them.
+	Installation *installsettings.Reader
 }
 
 // versionOrUnknown renders an unset build version as something an operator will
@@ -189,6 +194,7 @@ func NewAdminHandlers(options AdminOptions) *AdminHandlers {
 		supportFiles:     options.SupportAttachments,
 		search:           options.Search,
 		stars:            options.Stars,
+		installation:     options.Installation,
 		// The __Host- prefix binds the cookie to this exact origin, so a sibling
 		// subdomain cannot set or overwrite the operator's session. It applies
 		// only when the cookie is Secure, because a browser rejects a __Host-
@@ -231,6 +237,7 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 		panel.Group(func(secure chi.Router) {
 			secure.Use(handlers.requireSession)
 			secure.Use(handlers.requireCSRF)
+			secure.Use(handlers.requireSecondFactorPolicy)
 
 			secure.Get("/auth/session", handlers.currentSession)
 			secure.Post("/auth/logout", handlers.logout)
@@ -290,6 +297,7 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 			handlers.mountCustomerAuth(secure)
 			handlers.mountSearch(secure)
 			handlers.mountPlanOptions(secure)
+			handlers.mountPlatform(secure)
 		})
 	})
 }

@@ -202,6 +202,12 @@ func (runner *applier) inTx(ctx context.Context, work func(pgx.Tx, *dbgen.Querie
 		return err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+	// History carried over from Bedolaga is not news: the operator stream
+	// triggers skip a transaction marked as an import, so migrating fifty
+	// thousand trials does not queue fifty thousand operator notices.
+	if _, err := tx.Exec(ctx, "SELECT set_config('omniflow.import', 'on', true)"); err != nil {
+		return err
+	}
 	if err := work(tx, dbgen.New(tx)); err != nil {
 		return err
 	}

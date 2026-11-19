@@ -26,10 +26,12 @@ import (
 	"github.com/omniflow/omniflow/internal/customerauthpg"
 	"github.com/omniflow/omniflow/internal/customerpg"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
+	"github.com/omniflow/omniflow/internal/errorlog"
 	"github.com/omniflow/omniflow/internal/fulfillment"
 	"github.com/omniflow/omniflow/internal/goodsdelivery"
 	apihttp "github.com/omniflow/omniflow/internal/httpapi"
 	"github.com/omniflow/omniflow/internal/importservice"
+	"github.com/omniflow/omniflow/internal/installsettings"
 	"github.com/omniflow/omniflow/internal/jobs"
 	"github.com/omniflow/omniflow/internal/mailer"
 	"github.com/omniflow/omniflow/internal/maintenance"
@@ -56,7 +58,8 @@ func main() {
 		os.Exit(code)
 	}
 
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	errorLog := errorlog.New(slog.NewJSONHandler(os.Stdout, nil), "api")
+	logger := slog.New(errorLog)
 	cfg, err := config.Load()
 	if err != nil {
 		logger.Error("invalid configuration", "error", err)
@@ -91,6 +94,13 @@ func main() {
 		os.Exit(1)
 	}
 	defer closeCommerce()
+	errorLog.Attach(ctx, runtime.pool)
+	// The telemetry section can switch the heartbeat off from the panel. It
+	// can never switch it on: APP_TELEMETRY_ENABLED=false means the loop above
+	// never started.
+	telemetryClient.SetConsent(func(ctx context.Context) bool {
+		return runtime.installation.Section(ctx, "telemetry").Bool("enabled", true)
+	})
 
 	server := &http.Server{
 		Addr: cfg.HTTPAddr,
@@ -133,6 +143,10 @@ type runtimeServices struct {
 	account  *apihttp.AccountHandlers
 	// remnawaveWebhook is nil without APP_REMNAWAVE_WEBHOOK_SECRET.
 	remnawaveWebhook *apihttp.RemnawaveWebhookHandler
+	// pool and installation are shared with main for the error log and the
+	// telemetry switch.
+	pool         *pgxpool.Pool
+	installation *installsettings.Reader
 }
 
 func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, health *platform.Health, metrics *platform.Metrics) (runtimeServices, func(), error) {
@@ -152,6 +166,7 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 		return runtimeServices{}, nil, err
 	}
 	closeAll := func() { valkeyClient.Close(); pool.Close() }
+	installation := installsettings.New(pool, logger)
 	// The api only inserts jobs, in the same transaction as the settlement that
 	// requires them; the worker runs them. Commerce maintenance and payment
 	// reconciliation used to run here as tickers, once per api replica; they
@@ -193,20 +208,28 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 	maintenanceController := maintenance.NewController(commerceStore, health, metrics, logger, maintenance.Config{
 		AutoDetect: cfg.Maintenance.AutoDetect, ProbeInterval: cfg.Maintenance.ProbeInterval,
 		FailureStreak: cfg.Maintenance.FailureStreak, RecoveryStreak: cfg.Maintenance.RecoveryStreak,
-	}).WithAnnouncer(operator.NewQueuedAnnouncer(pool, logger))
+	}).WithAnnouncer(operator.NewQueuedAnnouncer(pool, logger)).
+		WithOverrides(func(ctx context.Context, config maintenance.Config) maintenance.Config {
+			section := installation.Section(ctx, "maintenance")
+			config.AutoDetect = section.Bool("autoEnable", config.AutoDetect)
+			config.FailureStreak = section.Positive("failureThreshold", config.FailureStreak)
+			config.NoticeRU = section.String("noticeRu", config.NoticeRU)
+			config.NoticeEN = section.String("noticeEn", config.NoticeEN)
+			return config
+		})
 	go maintenanceController.Run(ctx)
 
 	handlers := apihttp.NewCommerceHandlers(dbgen.New(pool), catalogpg.New(pool), commerceStore, paymentService, customerService, importservice.New(pool, remnawaveClient), core.Fulfillment, platform.NewRateLimiter(valkeyClient), cfg.OperatorToken)
 	handlers.WithOperations(pool, riverClient, commerceStore)
 
-	services := runtimeServices{handlers: handlers}
+	services := runtimeServices{handlers: handlers, pool: pool, installation: installation}
 	services.remnawaveWebhook = apihttp.NewRemnawaveWebhookHandler(
 		remnawavesync.NewIntake(pool, remnawavesync.IntakeOptionsFromEnv(os.Getenv)), logger,
 	)
 	if cfg.AdminPanel.Enabled {
 		adminHandlers, adminErr := buildAdminPanel(
 			ctx, logger, cfg, pool, platform.NewRateLimiter(valkeyClient), providers, health,
-			core.Fulfillment, remnawaveClient,
+			core.Fulfillment, remnawaveClient, installation,
 		)
 		if adminErr != nil {
 			closeAll()
@@ -241,12 +264,18 @@ func buildAdminPanel(
 	ctx context.Context, logger *slog.Logger, cfg config.Config, pool *pgxpool.Pool,
 	limiter *platform.RateLimiter, providers []payments.Provider, health *platform.Health,
 	fulfillmentService *fulfillment.Service, remnawaveClient *remnawave.Client,
+	installation *installsettings.Reader,
 ) (*apihttp.AdminHandlers, error) {
 	// The public URL is what a passkey is bound to. Without one the service
 	// leaves passkeys off rather than minting credentials the browser will
 	// later decline to offer, which is a failure with no error message.
 	service, err := adminauthpg.New(pool, cfg.DataEncryptionKey, adminauthpg.Options{
 		PublicURL: cfg.PublicURL, ServiceName: cfg.AdminPanel.Issuer,
+		SessionOverrides: func(ctx context.Context) (time.Duration, time.Duration) {
+			security := installation.Section(ctx, "security")
+			return security.Duration("sessionIdleMinutes", time.Minute, 0),
+				security.Duration("sessionAbsoluteHours", time.Hour, 0)
+		},
 	})
 	if err != nil {
 		return nil, err
@@ -283,6 +312,7 @@ func buildAdminPanel(
 		SupportAttachments: accountsupport.NewDirectoryStore(cfg.SupportAttachmentDir),
 		Search:             search,
 		Stars:              starsShopOptions(logger, cfg, pool),
+		Installation:       installation,
 	}), nil
 }
 

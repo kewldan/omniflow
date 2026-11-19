@@ -36,9 +36,19 @@ type Controller struct {
 	logger    *slog.Logger
 	announcer Announcer
 	config    Config
+	overrides func(context.Context, Config) Config
 
 	failures   int
 	recoveries int
+}
+
+// WithOverrides lets a source adjust the policy on every sample. The api
+// passes the maintenance section of the installation settings, so switching
+// automatic detection off, changing the streak, or rewording the default
+// notice in the panel applies on the next probe.
+func (controller *Controller) WithOverrides(overrides func(context.Context, Config) Config) *Controller {
+	controller.overrides = overrides
+	return controller
 }
 
 // Config is the detection policy.
@@ -50,6 +60,10 @@ type Config struct {
 	// Watch names the dependencies whose health drives automatic maintenance.
 	// A probe that is registered but not watched still appears in /readyz.
 	Watch []string
+	// NoticeRU and NoticeEN are the customer notice an automatic activation
+	// sets when the stored state carries none.
+	NoticeRU string
+	NoticeEN string
 }
 
 func NewController(store Store, health *platform.Health, metrics *platform.Metrics, logger *slog.Logger, config Config) *Controller {
@@ -118,15 +132,22 @@ func (controller *Controller) Sample(ctx context.Context) {
 		return
 	}
 	controller.metrics.SetMaintenance(current.Active)
-	if !controller.config.AutoDetect {
+	config := controller.config
+	if controller.overrides != nil {
+		config = controller.overrides(ctx, config)
+	}
+	if !config.AutoDetect {
 		return
 	}
-	decision := commerce.EvaluateMaintenance(current, health, controller.failures, controller.recoveries, controller.config.FailureStreak, controller.config.RecoveryStreak)
+	decision := commerce.EvaluateMaintenance(current, health, controller.failures, controller.recoveries, config.FailureStreak, config.RecoveryStreak)
 	if !decision.Activate && !decision.Clear {
 		return
 	}
 	desired := current
 	desired.Active, desired.Source, desired.Reason = decision.Activate, decision.Source, decision.Reason
+	if decision.Activate && desired.NoticeRU == "" && desired.NoticeEN == "" {
+		desired.NoticeRU, desired.NoticeEN = config.NoticeRU, config.NoticeEN
+	}
 	updated, err := controller.store.SetMaintenance(ctx, desired, "system", "maintenance-controller")
 	if err != nil {
 		controller.logger.Error("maintenance transition failed", "error", err, "activate", decision.Activate)

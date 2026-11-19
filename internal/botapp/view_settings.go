@@ -25,12 +25,16 @@ func customerSettingsView(locale Locale, preferences CustomerPreferences, market
 		quiet = text(locale, "settings.quietOn", preferences.QuietHours.StartHour, preferences.QuietHours.EndHour) +
 			" · " + timezoneLabel(locale, preferences.Timezone, now)
 	}
-	rows := [][]models.InlineKeyboardButton{
-		row(
+	rows := [][]models.InlineKeyboardButton{}
+	// With one language offered there is nothing to choose.
+	if languageChoiceOffered() {
+		rows = append(rows, row(
 			actionButton(languageMark(preferences.Locale, "auto")+" "+autoLabel(locale), "lang:auto"),
 			actionButton(languageMark(preferences.Locale, "ru")+" RU", "lang:ru"),
 			actionButton(languageMark(preferences.Locale, "en")+" EN", "lang:en"),
-		),
+		))
+	}
+	rows = append(rows,
 		row(actionButton(text(locale, "settings.expiry", toggleLabel(preferences.ExpiryNotifications)), "notify:expiry")),
 		row(actionButton(text(locale, "settings.traffic", toggleLabel(preferences.TrafficNotifications)), "notify:traffic")),
 		row(actionButton(text(locale, "settings.renewal", toggleLabel(preferences.RenewalNotifications)), "notify:renewal")),
@@ -40,7 +44,7 @@ func customerSettingsView(locale Locale, preferences CustomerPreferences, market
 		row(actionButton(text(locale, "settings.timezone", timezoneLabel(locale, preferences.Timezone, now)), "tz-menu")),
 		row(callbackButton(text(locale, "menu.renew"), routeAutoRenew)),
 		row(callbackButton(text(locale, "action.back"), routeHome)),
-	}
+	)
 	return View{Text: body, Keyboard: keyboard(rows...), RetryRoute: routeSettings}
 }
 

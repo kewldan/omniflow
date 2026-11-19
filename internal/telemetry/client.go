@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -49,6 +50,7 @@ type Client struct {
 	id          string
 	once        sync.Once
 	collectorDB *pgxpool.Pool
+	consent     atomic.Pointer[func(context.Context) bool]
 }
 
 func NewClient(logger *slog.Logger, cfg Config) *Client {
@@ -148,7 +150,17 @@ func (client *Client) heartbeat(ctx context.Context) {
 	}
 }
 
+// SetConsent adds a check every send must pass. The api passes the telemetry
+// section of the installation settings, so an owner can stop the heartbeat
+// from the panel. It narrows APP_TELEMETRY_ENABLED and never widens it.
+func (client *Client) SetConsent(allowed func(context.Context) bool) {
+	client.consent.Store(&allowed)
+}
+
 func (client *Client) send(ctx context.Context, event Event) {
+	if allowed := client.consent.Load(); allowed != nil && !(*allowed)(ctx) {
+		return
+	}
 	event.Schema = 1
 	event.Installation = client.id
 	event.Version = client.cfg.Version
