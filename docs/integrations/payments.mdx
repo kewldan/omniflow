@@ -20,6 +20,12 @@ paid order produces are in [orders and payments](/commerce/orders-payments).
 
 ## The four adapters
 
+<Note>
+  These are the four built-in rails. Twenty-five more — Platega, FreeKassa, CloudPayments, Lava,
+  Heleket, HOT Pay, and the rest carried over from Bedolaga — are configured the same way and
+  documented in [More payment providers](/integrations/payment-providers).
+</Note>
+
 | Adapter | Slug | Currencies | Webhooks | Polling | Refunds | Recurring |
 | --- | --- | --- | --- | --- | --- | --- |
 | Telegram Stars | `telegram_stars` | `XTR` only | No — settles on the bot's authenticated update stream | No | Full charge only, and only with a bot token and a resolvable payer | No |

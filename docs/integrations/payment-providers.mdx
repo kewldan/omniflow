@@ -1,0 +1,1545 @@
+---
+title: More payment providers
+description: The 25 payment providers carried over from Bedolaga — Russian acquirers, SBP, cards, and crypto — with their variables, webhooks, and limits
+---
+
+These adapters were ported from Bedolaga so an installation moving over keeps the acquirer it already
+has a contract with. Each one implements the same contract as the built-in four described in
+[Payment providers](/integrations/payments): a method is offered to a customer only when it is
+configured **and** settles the order's currency, settlement happens only on a verified notification
+or an authenticated status read, and money is always integer minor units.
+
+## How a provider is switched on
+
+Every provider below reads its own `APP_<SLUG>_*` variables at process start, in the API and the
+worker alike. Setting none of a provider's required variables leaves it unregistered; setting only
+some of them is a startup error, so a half-configured acquirer is noticed before the first checkout
+rather than during it. Restart after changing them.
+
+Providers that send a callback address with each payment build it from `APP_PUBLIC_URL`:
+
+```text
+https://<APP_PUBLIC_URL>/v1/payments/webhooks/<slug>
+```
+
+Where a provider takes the callback address in its own cabinet instead, enter the same URL there.
+
+## What every adapter shares
+
+- **Payer identity.** Omniflow passes the customer's own ID and, when the customer signed in with
+  Telegram, their Telegram ID. It never passes an e-mail or a phone number. Providers that require
+  one (Antilopay) refuse the payment before calling the acquirer.
+- **Unsigned notifications.** Where a provider does not sign its webhook, the notification is treated
+  as a hint and the payment is re-read through the provider's authenticated API before anything is
+  credited.
+- **Retries.** A notification that fails verification, or names a payment this installation never
+  opened, is answered `400`. One that failed for a transient reason is answered `503`, so providers
+  that redeliver only on server errors try again.
+- **Refunds.** None of these acquirers exposes a refund call Omniflow can use safely except
+  CloudPayments. Refund the others in the provider's cabinet and record it in Omniflow.
+
+## Summary
+
+| Provider | Slug | Polling | Refunds | Recurring |
+| --- | --- | --- | --- | --- |
+| Heleket | `heleket` | Yes | No | No |
+| MulenPay | `mulenpay` | Yes | No | No |
+| PayPalych (Pal24) | `pal24` | Yes | No | No |
+| Platega | `platega` | Yes | No | No |
+| Cashera | `cashera` | Yes | No | No |
+| Tribute | `tribute` | No | No | No |
+| FreeKassa | `freekassa` | Yes | No | No |
+| Kassa AI | `kassa_ai` | Yes | No | No |
+| RioPay | `riopay` | Yes | No | No |
+| SeverPay | `severpay` | Yes | No | No |
+| RollyPay | `rollypay` | Yes | No | No |
+| AuraPay | `aurapay` | Yes | No | No |
+| WATA | `wata` | Yes | No | No |
+| CloudPayments | `cloudpayments` | Yes | Full and partial | No |
+| Lava | `lava` | Yes | No | No |
+| Overpay | `overpay` | Yes | No | No |
+| ParityPay | `paritypay` | Yes | No | No |
+| HOT Pay | `payhot` | Yes | No | Declared (no mandate enrolment yet) |
+| CisPay | `cispay` | Yes | No | No |
+| Antilopay | `antilopay` | Yes | No | No |
+| Anore | `anore` | Yes | No | No |
+| Donut | `donut` | No | No | No |
+| EtoPlatezhi | `etoplatezhi` | No | No | No |
+| Jupiter | `jupiter` | No | No | No |
+| TabPay | `tabpay` | Yes | No | No |
+
+## Heleket
+
+Heleket is a crypto payment gateway. Omniflow opens a Heleket invoice priced in the order's fiat
+currency; the customer pays it in a cryptocurrency on Heleket's page, and Heleket reports the result
+to Omniflow's webhook.
+
+**Currencies:** orders in `RUB` or `USD`. The coin the customer pays in is set by
+`APP_HELEKET_DEFAULT_CURRENCY`.
+
+### Configuration
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_HELEKET_MERCHANT_ID` | Yes | — | Merchant UUID from the Heleket cabinet, sent in the `merchant` header. |
+| `APP_HELEKET_API_KEY` | Yes | — | Payment API key. It signs every request and verifies every webhook. Keep it secret. |
+| `APP_HELEKET_BASE_URL` | No | `https://api.heleket.com/v1` | API base URL. |
+| `APP_HELEKET_DEFAULT_CURRENCY` | No | `USDT` | Coin the invoice is converted to (`to_currency`). |
+| `APP_HELEKET_DEFAULT_NETWORK` | No | — | Blockchain network for that coin (`network`), for example `tron`. Unset lets the customer choose. |
+| `APP_HELEKET_INVOICE_LIFETIME` | No | `3600` | Invoice lifetime in seconds, kept between 300 and 43200. |
+| `APP_HELEKET_MARKUP_PERCENT` | No | `0` | Markup charged to the customer, in percent. Rounded to a whole number and sent as a negative `discount_percent`. |
+
+`APP_PUBLIC_URL` is also required: every invoice carries the webhook URL as `url_callback`, so
+Omniflow refuses to start the adapter without it. Setting only one of the two credentials is a
+startup error; setting neither leaves Heleket disabled.
+
+### Webhook
+
+Each invoice already carries the callback address, so nothing has to be entered in the cabinet. It
+is:
+
+```text
+https://<APP_PUBLIC_URL>/v1/payments/webhooks/heleket
+```
+
+A notification is accepted only when its `sign` field matches `md5(base64(body) + API key)`,
+computed over the body without `sign`. A notification with a missing or wrong signature, or with a
+changed amount, is rejected. Only the statuses `paid` and `paid_over` settle an order; every other
+status is recorded and changes nothing.
+
+### Capabilities
+
+| Capability | Supported |
+| --- | --- |
+| Webhooks | Yes, signed |
+| Status polling | Yes, through `payment/info` |
+| Read-only connection probe | Yes, `payment/list` |
+| Refunds | No |
+| Recurring charges | No |
+| Cancelling an open invoice | No |
+
+### Testing
+
+1. Set the variables above and `APP_PUBLIC_URL`, and restart the API. A startup error names a
+   missing or half-set variable.
+2. Optionally call `POST /v1/panel/settings/providers/heleket/test`. It runs the read-only probe; see
+   [Verifying a provider is really working](/integrations/payments#verifying-a-provider-is-really-working)
+   for where its result currently appears.
+3. Buy the cheapest plan version yourself with Heleket. Watch `/admin` → System → Webhooks for the
+   notification and `/admin/finance/{orderId}` for the payment timeline. If the webhook does not
+   arrive, reconciliation reads the invoice status from `payment/info`.
+
+## Mulen Pay
+
+Mulen Pay is a Russian payment gateway for card and SBP payments in roubles. Omniflow creates a
+payment with a fiscal receipt line and sends the customer to Mulen Pay's payment page.
+
+**Currencies:** `RUB` only.
+
+### Configuration
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_MULENPAY_API_KEY` | Yes | — | API key, sent as `Authorization: Bearer`. Keep it secret. |
+| `APP_MULENPAY_SECRET_KEY` | Yes | — | Secret key used in the SHA-1 `sign` of every payment and to check the checksum a callback may carry. Keep it secret. |
+| `APP_MULENPAY_SHOP_ID` | Yes | — | Numeric shop ID from the Mulen Pay cabinet. |
+| `APP_MULENPAY_BASE_URL` | No | `https://mulenpay.ru/api` | API base URL. |
+| `APP_MULENPAY_LANGUAGE` | No | `ru` | Language of the payment page. |
+| `APP_MULENPAY_VAT_CODE` | No | `0` | `vat_code` of the receipt line. |
+| `APP_MULENPAY_PAYMENT_SUBJECT` | No | `4` | `payment_subject` of the receipt line. |
+| `APP_MULENPAY_PAYMENT_MODE` | No | `4` | `payment_mode` of the receipt line. |
+| `APP_MULENPAY_WEBSITE_URL` | No | `APP_PUBLIC_URL` | Sent as `website_url`. |
+
+Setting only some of the three credentials is a startup error; setting none leaves Mulen Pay
+disabled. A shop ID that is not a positive integer is a startup error.
+
+Mulen Pay requires a payer contact (`client`) on every payment. Omniflow sends the customer's
+e-mail or customer ID when the payment request carries one, and otherwise the order ID.
+
+### Webhook
+
+Enter this address as the callback URL in the Mulen Pay cabinet:
+
+```text
+https://<APP_PUBLIC_URL>/v1/payments/webhooks/mulenpay
+```
+
+Mulen Pay callbacks are not authenticated, so a callback never settles an order by itself. If it
+carries a `sign` checksum, that checksum must be correct or the callback is rejected. Omniflow then
+reads the payment through the authenticated `GET /v2/payments/{id}` and acts only on that answer:
+status code `3` (success) settles, any other status changes nothing. A callback for a payment this
+installation did not create is rejected without calling Mulen Pay.
+
+### Capabilities
+
+| Capability | Supported |
+| --- | --- |
+| Webhooks | Yes, confirmed by polling |
+| Status polling | Yes, `GET /v2/payments/{id}` |
+| Read-only connection probe | Yes, `GET /v2/payments?limit=1` |
+| Refunds | No |
+| Recurring charges | No |
+| Cancelling an open payment | No |
+
+### Testing
+
+1. Set the variables above and restart the API. A startup error names a missing or malformed
+   variable.
+2. Optionally call `POST /v1/panel/settings/providers/mulenpay/test`. It runs the read-only probe; see
+   [Verifying a provider is really working](/integrations/payments#verifying-a-provider-is-really-working)
+   for where its result currently appears.
+3. Buy the cheapest plan version yourself with Mulen Pay. Watch `/admin` → System → Webhooks for the
+   callback and `/admin/finance/{orderId}` for the payment timeline.
+
+## PayPalych (Pal24)
+
+PayPalych (`pal24.pro`) is a Russian payment gateway. Omniflow issues a PayPalych bill for SBP or
+card payment and sends the customer to the bill's payment page.
+
+**Currencies:** `RUB` only.
+
+### Configuration
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_PAL24_API_TOKEN` | Yes | — | API token, sent as `Authorization: Bearer`. Keep it secret. |
+| `APP_PAL24_SHOP_ID` | Yes | — | Shop ID from the PayPalych cabinet. |
+| `APP_PAL24_SIGNATURE_TOKEN` | No | `APP_PAL24_API_TOKEN` | Token that signs postbacks. Set it when the shop's signature token differs from the API token. Keep it secret. |
+| `APP_PAL24_PAYMENT_METHOD` | No | `sbp` | `sbp` or `card`, sent as `payment_method` `SBP` or `BANK_CARD`. |
+| `APP_PAL24_BASE_URL` | No | `https://pal24.pro/api/v1/` | API base URL. |
+| `APP_PAL24_REQUEST_TIMEOUT` | No | `30` | Request timeout in seconds. |
+
+Setting only one of the API token and the shop ID is a startup error; setting none of the three
+tokens leaves PayPalych disabled. Any other payment method value is a startup error.
+
+### Webhook
+
+Enter this address as the shop's Result URL (postback) in the PayPalych cabinet:
+
+```text
+https://<APP_PUBLIC_URL>/v1/payments/webhooks/pal24
+```
+
+A postback, form-encoded or JSON, is accepted only when `SignatureValue` equals
+`upper(md5(OutSum:InvId:token))`. A changed amount or a wrong signature is rejected. `SUCCESS`,
+`OVERPAID` and `PAID` settle the order; every other status changes nothing.
+
+<Warning>
+  PayPalych's signature covers only `OutSum` and `InvId`, not `Status`. Keep the signature token
+  secret and the webhook on HTTPS.
+</Warning>
+
+### Capabilities
+
+| Capability | Supported |
+| --- | --- |
+| Webhooks | Yes, signed |
+| Status polling | Yes, `bill/status` |
+| Read-only connection probe | Yes, `merchant/balance` |
+| Cancelling an open bill | Yes, `bill/toggle_activity` deactivates the bill |
+| Refunds | No |
+| Recurring charges | No |
+
+### Testing
+
+1. Set the variables above and restart the API. A startup error names a missing or malformed
+   variable.
+2. Optionally call `POST /v1/panel/settings/providers/pal24/test`. It runs the read-only probe; see
+   [Verifying a provider is really working](/integrations/payments#verifying-a-provider-is-really-working)
+   for where its result currently appears.
+3. Buy the cheapest plan version yourself with PayPalych. Watch `/admin` → System → Webhooks for the
+   postback and `/admin/finance/{orderId}` for the payment timeline. If the postback does not
+   arrive, reconciliation reads the bill status from `bill/status`.
+
+## Platega
+
+Platega (`app.platega.io`) is a payment gateway for SBP, card and crypto payments. Omniflow creates a
+one-off Platega transaction with the payment method you configure and sends the customer to
+Platega's payment page.
+
+**Currencies:** the single currency in `APP_PLATEGA_CURRENCY`, `RUB` by default.
+
+### Configuration
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_PLATEGA_MERCHANT_ID` | Yes | — | Merchant ID, sent as `X-MerchantId`. |
+| `APP_PLATEGA_SECRET` | Yes | — | API secret, sent as `X-Secret` and expected on every callback. Keep it secret. |
+| `APP_PLATEGA_PAYMENT_METHOD` | No | `2` | Platega method code: `2` SBP (QR), `11` cards (RUB), `12` international cards, `13` crypto. The method must be enabled for your merchant. `6` (subscriptions) is refused. |
+| `APP_PLATEGA_CURRENCY` | No | `RUB` | Currency of every payment. |
+| `APP_PLATEGA_API_VERSION` | No | `v1` | `v1` creates through `/transaction/process`, `v2` through `/v2/transaction/process`. Use `v2` if Platega answers `No available card cascades` on v1. |
+| `APP_PLATEGA_BASE_URL` | No | `https://app.platega.io` | API base URL. A trailing `/v1` or `/v2` selects that version. |
+| `APP_PLATEGA_RETURN_URL` | No | — | Return page when the checkout supplies none. |
+| `APP_PLATEGA_FAILED_URL` | No | the return page | Page Platega sends the customer to after a failed payment. |
+
+Setting only one of the two credentials is a startup error; setting neither leaves Platega disabled.
+
+Platega requires `metadata.user_email`, which must identify the buyer rather than the order. Omniflow
+sends the customer's e-mail, or `<telegram id>@telegram.org` for a customer known by Telegram ID. A
+payment request that carries neither is refused before Platega is called.
+
+
+### Webhook
+
+Enter this address as the callback URL in the Platega cabinet:
+
+```text
+https://<APP_PUBLIC_URL>/v1/payments/webhooks/platega
+```
+
+A callback is accepted only when its `X-MerchantId` and `X-Secret` headers equal your credentials.
+The cabinet's verification request, with an empty body and no headers, is answered `200` and changes
+nothing. `CONFIRMED` settles the order; `PENDING`, `INPROGRESS`, `FAILED`, `CANCELED`, `EXPIRED` and
+any other status change nothing.
+
+### Capabilities
+
+| Capability | Supported |
+| --- | --- |
+| Webhooks | Yes, authenticated by headers |
+| Status polling | Yes, `GET /transaction/{id}` |
+| Read-only connection probe | No |
+| Refunds | No |
+| Recurring charges | No. Platega's SBP subscriptions are not used |
+| Cancelling an open transaction | No |
+
+### Testing
+
+1. Set the variables above and restart the API. A startup error names a missing or malformed
+   variable.
+2. When the Platega cabinet checks the callback URL, its empty request appears in `/admin` → System →
+   Webhooks and is answered `200`.
+3. Buy the cheapest plan version yourself with Platega and watch `/admin/finance/{orderId}` for the
+   payment timeline. If the callback does not arrive, reconciliation reads the transaction status.
+
+## Cashera
+
+Cashera (`api.cashera.cash`) is a server-to-server payment gateway that accepts roubles by SBP, card
+and other methods. Omniflow creates a Cashera transaction and sends the customer to Cashera's payment
+page.
+
+**Currencies:** `RUB` only. Amounts are sent as integer kopeks.
+
+### Configuration
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_CASHERA_API_KEY` | Yes | — | Public key (`pk_…`) from Cashera's **Settings**, sent as `X-Api-Key`. |
+| `APP_CASHERA_API_SECRET` | Yes | — | Secret (`sk_…`). Cashera sends it back as `X-Secret` on every webhook; Omniflow never sends it. Keep it secret. |
+| `APP_CASHERA_PAYMENT_METHOD` | No | — | `sbp`, `card`, `mastercard`, `crypto` or `cryptobot`. Unset opens Cashera's general form, where the customer picks the method. A method must be enabled under the cabinet's accepted methods, or Cashera answers `422`. |
+| `APP_CASHERA_BASE_URL` | No | `https://api.cashera.cash/api/v1` | API base URL. |
+| `APP_CASHERA_RETURN_URL` | No | — | Success page when the checkout supplies none. |
+| `APP_CASHERA_FAILED_URL` | No | the success page | Page for a failed payment. |
+
+Setting only one of the two credentials is a startup error; setting neither leaves Cashera disabled.
+
+### Webhook
+
+```text
+https://<APP_PUBLIC_URL>/v1/payments/webhooks/cashera
+```
+
+When `APP_PUBLIC_URL` is set, Omniflow sends this address as `callback_url` with every transaction.
+Without it no callback URL is sent and Cashera uses the address saved in the merchant cabinet, so
+enter it there. Cashera requires HTTPS on a public host.
+
+A webhook is accepted only when its `X-Api-Key` and `X-Secret` headers equal your key and secret.
+Only `transaction.status_updated` with status `paid` settles an order. Other events, such as the
+cabinet's `webhook.test`, are answered `200` and change nothing. A `paid` event without an amount is
+refused.
+
+### Capabilities
+
+| Capability | Supported |
+| --- | --- |
+| Webhooks | Yes, authenticated by headers |
+| Status polling | Yes, `GET /integration/transactions/{uuid}` |
+| Idempotent creation | Yes, the order ID is Cashera's `external_id` |
+| Read-only connection probe | No |
+| Refunds | No |
+| Recurring charges | No. Cashera subscriptions (`sbp_recurring`) are not used |
+| Cancelling an open transaction | No |
+
+### Testing
+
+1. Set the variables above and restart the API. A startup error names a missing or malformed
+   variable.
+2. Send a test webhook from the Cashera cabinet. It appears in `/admin` → System → Webhooks and is
+   answered `200`.
+3. Buy the cheapest plan version yourself with Cashera and watch `/admin/finance/{orderId}` for the
+   payment timeline. If the webhook does not arrive, reconciliation reads the transaction status.
+
+## Tribute
+
+Tribute is a Telegram donation service. It has no API for opening a checkout: the customer pays
+through your fixed Tribute donation link and chooses the amount there, and Tribute notifies Omniflow
+of each donation.
+
+**Currencies:** `RUB` only. Donation amounts are reported in kopeks.
+
+<Warning>
+  A Tribute donation names the payer's Telegram account and the donation link, never an Omniflow
+  order. Omniflow settles it against the payer's newest open Tribute payment for **exactly** the
+  donated amount, on an order that is still awaiting payment. The payer must be signed in with the
+  same Telegram account. A donation that matches no such payment — a different amount, another
+  account, an order that already expired — is verified and recorded in `/admin` → System →
+  Webhooks with the error `payment_not_found` and is not credited.
+</Warning>
+
+### Configuration
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_TRIBUTE_API_KEY` | Yes | — | Tribute API key. It verifies the `trbt-signature` of every webhook. Keep it secret. |
+| `APP_TRIBUTE_DONATE_LINK` | Yes | — | Your Tribute donation link. The customer is sent to it as is. |
+
+Setting only one of the two is a startup error; setting neither leaves Tribute disabled.
+
+### Webhook
+
+Enter this address as the webhook URL in Tribute's settings:
+
+```text
+https://<APP_PUBLIC_URL>/v1/payments/webhooks/tribute
+```
+
+A webhook is accepted only when `trbt-signature` equals `hex(HMAC-SHA256(API key, body))`. A changed
+body or a wrong signature is rejected. `new_donation` and `recurrent_donation` are payments;
+`cancelled_subscription` and other events change nothing. Redeliveries of one donation share one
+event ID, built from the donation link ID, the Telegram user, the amount and the event's
+`created_at`.
+
+### Capabilities
+
+| Capability | Supported |
+| --- | --- |
+| Webhooks | Yes, signed |
+| Status polling | No |
+| Read-only connection probe | No |
+| Refunds | No |
+| Recurring charges | No |
+| Cancelling an open payment | No |
+
+### Testing
+
+1. Set both variables and restart the API.
+2. Make a small donation through the link. The notification appears in `/admin` → System → Webhooks
+   with a valid signature.
+
+## FreeKassa
+
+FreeKassa is a Russian payment aggregator. The `freekassa` adapter opens a checkout in one of two
+ways and settles on FreeKassa's signed notification:
+
+- **Hosted form (default).** Omniflow signs a link to `https://pay.fk.money/` and the customer picks
+  a payment method there. No API call is made to open the checkout.
+- **API order.** When a payment method is pinned with `APP_FREEKASSA_PAYMENT_SYSTEM_ID`, or
+  `APP_FREEKASSA_USE_API=true`, Omniflow creates the order through `https://api.fk.life/v1/orders/create`
+  and sends the customer to the `location` FreeKassa returns. This is how a checkout goes straight
+  to SBP (QR code) or to Russian cards instead of the selection form.
+
+**Currency.** One currency per shop, `RUB` unless `APP_FREEKASSA_CURRENCY` says otherwise. A plan
+priced in any other currency is not offered FreeKassa.
+
+<Steps>
+  <Step title="Collect the shop credentials">
+    In the FreeKassa merchant account you need the shop ID, an API key, secret word 1 (signs the
+    payment form link), and secret word 2 (signs notifications).
+  </Step>
+  <Step title="Configure Omniflow">
+    ```env
+    APP_FREEKASSA_SHOP_ID=12345
+    APP_FREEKASSA_API_KEY=…
+    APP_FREEKASSA_SECRET_WORD_1=…
+    APP_FREEKASSA_SECRET_WORD_2=…
+    # Optional: go straight to one method through the API
+    # APP_FREEKASSA_PAYMENT_SYSTEM_ID=sbp
+    # APP_FREEKASSA_SERVER_IP=203.0.113.10
+    ```
+    The adapter is registered when any of the four credentials is set, and startup fails naming the
+    missing ones when only some are.
+  </Step>
+  <Step title="Set the notification URL">
+    In the merchant account, set the notification (result) URL to
+    `https://<your-public-host>/v1/payments/webhooks/freekassa` — `APP_PUBLIC_URL` followed by
+    `/v1/payments/webhooks/freekassa`. The success and failure pages are configured there too:
+    FreeKassa orders carry no return URL from Omniflow.
+  </Step>
+  <Step title="Pay a test order">
+    Buy the cheapest plan yourself and follow it through **Verifying a provider is really working**
+    on the payment providers page.
+  </Step>
+</Steps>
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_FREEKASSA_SHOP_ID` | Yes | — | Numeric shop ID. Signs and identifies every request and notification |
+| `APP_FREEKASSA_API_KEY` | Yes | — | API key. HMAC-SHA256 key for API orders, status polling, and the balance probe |
+| `APP_FREEKASSA_SECRET_WORD_1` | Yes | — | Signs the hosted form link |
+| `APP_FREEKASSA_SECRET_WORD_2` | Yes | — | Verifies notifications |
+| `APP_FREEKASSA_CURRENCY` | No | `RUB` | The single currency the shop settles |
+| `APP_FREEKASSA_PAYMENT_SYSTEM_ID` | No | empty | Pins a payment method and switches to API orders: `sbp` (44, SBP QR code), `card` (36, Russian cards), or any numeric FreeKassa payment system ID such as `42` (regular SBP). Empty uses the hosted selection form |
+| `APP_FREEKASSA_USE_API` | No | `false` | Creates orders through the API even without a pinned method; payment system `1` is then sent |
+| `APP_FREEKASSA_SERVER_IP` | With API orders | — | Public IPv4 address of the Omniflow server, sent as the order's `ip` field. Required whenever API orders are in use |
+
+**Create.** The hosted form link carries `m`, `oa`, `currency`, `o` (the Omniflow order ID), `lang=ru`,
+and `s = md5(shop:amount:secret word 1:currency:order)`. An API order is a JSON `POST` with `shopId`,
+`nonce`, `paymentId` (the order ID), `i` (payment system), `email`, `ip`, `amount`, and `currency`,
+signed with HMAC-SHA256 of the values sorted by key and joined with `|`. The `email` field is
+required by the API; Omniflow does not pass a customer address to FreeKassa and sends
+`user_<order ID>@telegram.org` instead. Amounts are written without trailing zeros (`100`, `100.5`).
+
+**Webhook verification.** FreeKassa posts a form with `MERCHANT_ID`, `AMOUNT`, `MERCHANT_ORDER_ID`,
+`intid`, and `SIGN = md5(MERCHANT_ID:AMOUNT:secret word 2:MERCHANT_ORDER_ID)`. Omniflow requires
+the shop ID to match, compares the signature in constant time, and settles the signed `AMOUNT` in
+the configured currency. A verified notification is answered with the bare body `YES`, which is what
+stops FreeKassa from retrying; a rejected one gets a problem response and is retried. The event ID
+is `paid:<intid>`, so a redelivery is recognised as a duplicate.
+
+<Note>
+  FreeKassa sends notifications from a fixed set of addresses. Omniflow does not check
+  the source address — the route sees only headers, and a forwarded-for header can be forged — and
+  relies on the signature. To restrict by address as well, allow only `168.119.157.136`,
+  `168.119.60.227`, `178.154.197.79`, and `51.250.54.238` to that path at your reverse proxy.
+</Note>
+
+**Polling.** Supported. `POST /orders` with the order ID; an order with status `1` is paid and is
+settled with the amount the API reports. Any other status, or an order FreeKassa does not list yet,
+stays pending.
+
+**Refunds and recurring.** Not supported. A refund is refused at the adapter; use a wallet credit.
+
+## KassaAI
+
+KassaAI is a merchant product served by the same order API as FreeKassa (`https://api.fk.life/v1`),
+with its own shop and credentials. The `kassa_ai` adapter runs alongside `freekassa` and never opens
+a selection form: every checkout is an API order for one payment method — SBP by default.
+
+**Currency.** One currency per shop, `RUB` unless `APP_KASSA_AI_CURRENCY` says otherwise.
+
+<Steps>
+  <Step title="Collect the shop credentials">
+    You need the KassaAI shop ID, its API key, and secret word 2, which signs notifications.
+  </Step>
+  <Step title="Configure Omniflow">
+    ```env
+    APP_KASSA_AI_SHOP_ID=12345
+    APP_KASSA_AI_API_KEY=…
+    APP_KASSA_AI_SECRET_WORD_2=…
+    APP_KASSA_AI_SERVER_IP=203.0.113.10
+    APP_PUBLIC_URL=https://shop.example.com
+    ```
+    The adapter is registered when any of the four required values is set, and startup fails naming
+    the missing ones when only some are.
+  </Step>
+  <Step title="Set the notification URL">
+    With `APP_PUBLIC_URL` set, every order carries
+    `https://<your-public-host>/v1/payments/webhooks/kassa_ai` as its notification URL. Without it,
+    set that URL in the merchant account instead.
+  </Step>
+  <Step title="Pay a test order">
+    Buy the cheapest plan yourself and follow it through **Verifying a provider is really working**
+    on the payment providers page.
+  </Step>
+</Steps>
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_KASSA_AI_SHOP_ID` | Yes | — | Numeric shop ID |
+| `APP_KASSA_AI_API_KEY` | Yes | — | API key. HMAC-SHA256 key for orders, status polling, and the balance probe |
+| `APP_KASSA_AI_SECRET_WORD_2` | Yes | — | Verifies notifications |
+| `APP_KASSA_AI_SERVER_IP` | Yes | — | Public IPv4 address of the Omniflow server, sent as the order's required `ip` field |
+| `APP_KASSA_AI_PAYMENT_SYSTEM_ID` | No | `44` | Payment method: `sbp` (44, SBP QR code), `card` (36, Russian cards), `sberpay` (43, SberPay), or a numeric payment system ID |
+| `APP_KASSA_AI_CURRENCY` | No | `RUB` | The single currency the shop settles |
+
+**Create.** A JSON `POST /orders/create` with `shopId`, `nonce`, `paymentId` (the Omniflow order ID),
+`i`, `email`, `ip`, `amount`, `currency`, `success_url` and `fail_url` (both the order's return URL),
+and `notification_url` when `APP_PUBLIC_URL` is set. It is signed with HMAC-SHA256, keyed with the
+API key, over the values sorted by key and joined with `|`. Omniflow does not pass a customer address
+to KassaAI; the required `email` is sent as `user_<order ID>@telegram.org`. The customer is sent to
+the `location` the API returns.
+
+**Webhook verification.** Identical to FreeKassa: a form post with `MERCHANT_ID`, `AMOUNT`,
+`MERCHANT_ORDER_ID`, `intid`, and `SIGN = md5(MERCHANT_ID:AMOUNT:secret word 2:MERCHANT_ORDER_ID)`,
+checked in constant time and answered with the bare body `YES`. The event ID is `paid:<intid>`.
+
+**Polling.** Supported through `POST /orders`; status `1` is paid, anything else stays pending.
+
+**Refunds and recurring.** Not supported.
+
+## RioPay
+
+RioPay (`https://api.riopay.online`, API v2.0.1) is a payment service that issues a hosted payment
+link per order. The `riopay` adapter creates an order, sends the customer to its `paymentLink`, and
+settles on RioPay's signed notification.
+
+**Currency.** One currency per account, `RUB` unless `APP_RIOPAY_CURRENCY` says otherwise.
+
+<Steps>
+  <Step title="Collect the credentials">
+    You need the RioPay API token and, if your account has a separate one, the webhook signing
+    secret.
+  </Step>
+  <Step title="Configure Omniflow">
+    ```env
+    APP_RIOPAY_API_TOKEN=…
+    # APP_RIOPAY_WEBHOOK_SECRET=…
+    ```
+    The adapter is registered when `APP_RIOPAY_API_TOKEN` is set. A webhook secret without a token
+    fails startup.
+  </Step>
+  <Step title="Set the notification URL">
+    In the RioPay account, point notifications at
+    `https://<your-public-host>/v1/payments/webhooks/riopay`.
+  </Step>
+  <Step title="Pay a test order">
+    Buy the cheapest plan yourself and follow it through **Verifying a provider is really working**
+    on the payment providers page.
+  </Step>
+</Steps>
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_RIOPAY_API_TOKEN` | Yes | — | Sent as `X-Api-Token` on every API call |
+| `APP_RIOPAY_WEBHOOK_SECRET` | No | the API token | HMAC-SHA512 key for notifications |
+| `APP_RIOPAY_CURRENCY` | No | `RUB` | The single currency the account settles |
+| `APP_RIOPAY_SUCCESS_URL` | No | — | Where the customer lands after paying, used only when an order carries no return URL of its own |
+
+**Create.** `POST /v1/orders` with `amount` (a decimal string such as `"1499.00"`), `externalId`
+(the Omniflow order ID), `purpose` (the order description), and `successUrl` (the order's return
+URL). The RioPay order `id` becomes the provider reference.
+
+**Webhook verification.** The notification is the order object, signed with HMAC-SHA512 over the
+raw body, hex encoded in `X-Signature`. Omniflow compares it in constant time before reading the
+body. Statuses map as `COMPLETED` → succeeded, `CANCELED` → cancelled, `FAILED` → failed, `EXPIRED`
+→ expired, and `CREATED`, `PENDING`, or anything unknown → pending. Only a completed order settles,
+for the amount and currency in the signed body. The event ID is `<status>:<order id>`; a verified
+notification is answered with `{"status":"ok"}`.
+
+**Polling.** Supported through `GET /v1/orders/{id}`, with the same status mapping.
+
+**Refunds and recurring.** Not supported. There is no connection probe: RioPay offers no
+read-only call that does not need an existing order.
+
+## SeverPay
+
+SeverPay (`https://severpay.io/api/merchant`) is a payment service with hosted payin pages. The
+`severpay` adapter creates a payin, sends the customer to its page, and settles on SeverPay's signed
+notification.
+
+**Currency.** One currency per merchant, `RUB` unless `APP_SEVERPAY_CURRENCY` says otherwise.
+
+<Steps>
+  <Step title="Collect the credentials">
+    You need the merchant ID (`mid`) and the merchant's secret token.
+  </Step>
+  <Step title="Configure Omniflow">
+    ```env
+    APP_SEVERPAY_MID=4242
+    APP_SEVERPAY_TOKEN=…
+    ```
+    The adapter is registered when either is set, and startup fails when only one is.
+  </Step>
+  <Step title="Set the notification URL">
+    In the SeverPay account, point notifications at
+    `https://<your-public-host>/v1/payments/webhooks/severpay`.
+  </Step>
+  <Step title="Pay a test order">
+    Buy the cheapest plan yourself and follow it through **Verifying a provider is really working**
+    on the payment providers page.
+  </Step>
+</Steps>
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_SEVERPAY_MID` | Yes | — | Numeric merchant ID, sent as `mid` in every request |
+| `APP_SEVERPAY_TOKEN` | Yes | — | HMAC-SHA256 key for requests and notifications |
+| `APP_SEVERPAY_CURRENCY` | No | `RUB` | The single currency the merchant settles |
+| `APP_SEVERPAY_LIFETIME` | No | `1440` | Payin lifetime in minutes, between `30` and `4320` |
+| `APP_SEVERPAY_RETURN_URL` | No | — | Where the customer returns after paying, used only when an order carries no return URL of its own |
+
+**Signing.** Requests and notifications are signed the same way: the top-level fields other than
+`sign` are sorted by key and serialised as compact JSON with non-ASCII text left unescaped, and that
+text is HMAC-SHA256'd with the token. Requests add `mid` and a random `salt` before signing. Omniflow
+reproduces the serialisation SeverPay's reference integration uses — including how decimals such as
+`1499.0` are written — and sends exactly the bytes it signed.
+
+**Create.** `POST /payin/create` with `order_id` (the Omniflow order ID), `amount` (a decimal number
+such as `1499.0`), `currency`, `client_id`, `client_email`, `lifetime`, and `url_return`. Omniflow
+does not hand a customer identifier to SeverPay: `client_id` is sent as `guest` and `client_email` as
+`guest@telegram.org` on every payin. The payin `id` becomes the provider reference.
+
+**Webhook verification.** The notification carries its signature in the body's `sign` field and is
+checked in constant time. Only a notification of type `payin` can settle; statuses map as `success` →
+succeeded, `process` → processing, `decline` and `fail` → failed, and `new` or anything unknown →
+pending. The event ID is `<type>:<payin id>:<status>`. A verified notification is answered with
+`{"status":true}`, which SeverPay waits for.
+
+**Polling.** Supported through `POST /payin/get` with the payin ID.
+
+**Refunds and recurring.** Not supported. There is no connection probe: SeverPay offers no
+read-only call that does not need an existing payin.
+
+## RollyPay
+
+RollyPay (`https://rollypay.io/api/v1`) is a payment service with hosted payment pages for SBP,
+cards, and crypto. The `rollypay` adapter creates a payment, sends the customer to its `pay_url`,
+and settles on RollyPay's signed notification.
+
+**Currency.** One currency per account, `RUB` unless `APP_ROLLYPAY_CURRENCY` says otherwise.
+
+<Steps>
+  <Step title="Collect the credentials">
+    You need the RollyPay API key and the webhook signing secret.
+  </Step>
+  <Step title="Configure Omniflow">
+    ```env
+    APP_ROLLYPAY_API_KEY=…
+    APP_ROLLYPAY_SIGNING_SECRET=…
+    # APP_ROLLYPAY_PAYMENT_METHOD=sbp
+    ```
+    The adapter is registered when either credential is set, and startup fails when only one is.
+  </Step>
+  <Step title="Set the notification URL">
+    In the RollyPay account, point notifications at
+    `https://<your-public-host>/v1/payments/webhooks/rollypay`.
+  </Step>
+  <Step title="Pay a test order">
+    Buy the cheapest plan yourself and follow it through **Verifying a provider is really working**
+    on the payment providers page.
+  </Step>
+</Steps>
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_ROLLYPAY_API_KEY` | Yes | — | Sent as `X-API-Key` on every API call |
+| `APP_ROLLYPAY_SIGNING_SECRET` | Yes | — | HMAC-SHA256 key for notifications |
+| `APP_ROLLYPAY_CURRENCY` | No | `RUB` | The single currency the account settles |
+| `APP_ROLLYPAY_PAYMENT_METHOD` | No | empty | Pins the payment method: `sbp`, `card`, or `crypto`. Empty leaves the choice to RollyPay |
+| `APP_ROLLYPAY_RETURN_URL` | No | — | Where the customer returns after paying, used only when an order carries no return URL of its own |
+
+**Create.** `POST /payments` with `amount` (a decimal string such as `"1499.00"`),
+`payment_currency`, `order_id` (the Omniflow order ID), `description`, `redirect_url`, and
+`payment_method` when one is pinned. Every call carries a fresh random UUID in `X-Nonce`. The
+`payment_id` becomes the provider reference and `expires_at` the checkout's expiry.
+
+**Webhook verification.** RollyPay signs `"<X-Timestamp>.<raw body>"` with HMAC-SHA256 and sends the
+hex digest in `X-Signature`; a missing timestamp or signature is rejected, and the comparison is in
+constant time. A `payment.paid` event or status `paid` settles; `processing` → processing, `expired`
+→ expired, `canceled` → cancelled, `chargeback` → failed, and `created` or anything unknown →
+pending. The event ID is `<event_type>:<payment_id>:<status>`. A verified notification is answered
+with `{"status":true}`.
+
+**Polling.** Supported through `GET /payments/{payment_id}`.
+
+**Refunds and recurring.** Not supported. A chargeback reported by RollyPay does not reverse
+anything in Omniflow on its own. There is no connection probe.
+
+## AuraPay
+
+AuraPay (`https://app.aurapay.tech`) is a payment service that issues hosted invoices payable by
+card or SBP. The `aurapay` adapter creates an invoice, sends the customer to its payment page, and
+settles on AuraPay's signed notification.
+
+**Currency.** One currency per shop, `RUB` unless `APP_AURAPAY_CURRENCY` says otherwise.
+
+<Steps>
+  <Step title="Collect the credentials">
+    You need the AuraPay API key, the shop UUID, and secret key #2, which signs notifications.
+  </Step>
+  <Step title="Configure Omniflow">
+    ```env
+    APP_AURAPAY_API_KEY=…
+    APP_AURAPAY_SHOP_ID=…
+    APP_AURAPAY_SECRET_KEY=…
+    APP_PUBLIC_URL=https://shop.example.com
+    ```
+    The adapter is registered when any of the three credentials is set, and startup fails naming the
+    missing ones when only some are.
+  </Step>
+  <Step title="Set the notification URL">
+    With `APP_PUBLIC_URL` set, every invoice carries
+    `https://<your-public-host>/v1/payments/webhooks/aurapay` as its `callback_url`. Without it,
+    configure that URL in the AuraPay account instead.
+  </Step>
+  <Step title="Pay a test order">
+    Buy the cheapest plan yourself and follow it through **Verifying a provider is really working**
+    on the payment providers page.
+  </Step>
+</Steps>
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_AURAPAY_API_KEY` | Yes | — | Sent as `X-ApiKey` on every API call |
+| `APP_AURAPAY_SHOP_ID` | Yes | — | Shop UUID, sent as `X-ShopId` |
+| `APP_AURAPAY_SECRET_KEY` | Yes | — | Secret key #2, the HMAC-SHA256 key for notifications |
+| `APP_AURAPAY_CURRENCY` | No | `RUB` | The single currency the shop settles |
+| `APP_AURAPAY_PAYMENT_METHOD` | No | empty | Pins the invoice `service`: `card` or `sbp`. Empty leaves the choice to AuraPay |
+| `APP_AURAPAY_PAYMENT_LIFETIME_MINUTES` | No | `60` | Invoice lifetime in minutes |
+| `APP_AURAPAY_RETURN_URL` | No | — | Success and failure page, used only when an order carries no return URL of its own |
+
+**Create.** `POST /invoice/create` with `amount`, `order_id` (the Omniflow order ID), `comment` (the
+order description), `lifetime`, `success_url` and `fail_url` (the order's return URL),
+`callback_url`, and `service` when a method is pinned. The invoice `id` becomes the provider
+reference and `payment_data.url` the checkout link.
+
+**Webhook verification.** AuraPay signs the notification in `X-SIGNATURE`: every top-level value,
+taken in key order and converted to text, is concatenated and HMAC-SHA256'd with secret key #2. A
+`null` value contributes nothing. Omniflow reproduces the text conversion of AuraPay's reference
+integration, including for nested values such as payer details, and compares in constant time.
+Status `PAID` settles, `EXPIRED` → expired, and `PENDING` or anything unknown → pending. The event ID
+is `<status>:<invoice id>`. A verified notification is answered with `{"status":true}`.
+
+**Polling.** Supported through `POST /invoice/status` with the invoice ID.
+
+**Refunds and recurring.** Not supported. There is no connection probe.
+
+## WATA
+
+WATA (`https://api.wata.pro/api/h2h`) issues hosted payment links. The `wata` adapter creates a link
+per order, sends the customer to it, and settles on WATA's RSA-signed transaction notification.
+
+**Currency.** `RUB` only.
+
+<Steps>
+  <Step title="Collect the credentials">
+    You need a WATA access token for your terminal.
+  </Step>
+  <Step title="Configure Omniflow">
+    ```env
+    APP_WATA_ACCESS_TOKEN=…
+    ```
+    The adapter is registered when `APP_WATA_ACCESS_TOKEN` is set.
+  </Step>
+  <Step title="Set the notification URL">
+    In the WATA account, point notifications at
+    `https://<your-public-host>/v1/payments/webhooks/wata`.
+  </Step>
+  <Step title="Pay a test order">
+    Buy the cheapest plan yourself and follow it through **Verifying a provider is really working**
+    on the payment providers page. The connection probe lists one transaction, so it checks the
+    token without creating anything.
+  </Step>
+</Steps>
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_WATA_ACCESS_TOKEN` | Yes | — | Bearer token for every API call |
+| `APP_WATA_BASE_URL` | No | `https://api.wata.pro/api/h2h` | API base URL |
+| `APP_WATA_PAYMENT_TYPE` | No | `OneTime` | Sent as the link `type` |
+| `APP_WATA_PAYMENT_DESCRIPTION` | No | — | Link description when an order has none of its own |
+| `APP_WATA_SUCCESS_REDIRECT_URL` | No | — | Success page, used only when an order carries no return URL of its own |
+| `APP_WATA_FAIL_REDIRECT_URL` | No | the order's return URL | Failure page |
+| `APP_WATA_LINK_TTL_MINUTES` | No | unset | Link lifetime in minutes. Unset sends no expiry; values under 15 are raised to 15, because WATA rejects an expiry within ten minutes |
+| `APP_WATA_REQUEST_TIMEOUT` | No | `30` | API timeout in seconds |
+| `APP_WATA_PUBLIC_KEY_URL` | No | `<base URL>/public-key` | Where the notification-verifying public key is fetched |
+| `APP_WATA_PUBLIC_KEY_CACHE_SECONDS` | No | `3600` | How long the public key is cached; `0` keeps it until restart |
+
+**Create.** `POST /links` with `amount`, `currency`, `description`, `orderId` (the Omniflow order
+ID), `type`, `successRedirectUrl`, `failRedirectUrl`, and `expirationDateTime` when a lifetime is set.
+The link `id` becomes the provider reference.
+
+**Webhook verification.** WATA signs the raw body with RSA (PKCS#1 v1.5, SHA-512) and sends the
+signature base64-encoded in `X-Signature`. Omniflow verifies it against the public key WATA
+publishes, fetched on first use and cached; if a refresh fails, the key already held keeps being
+used. With no key at all, nothing can be verified and the notification is rejected so WATA retries.
+`transactionStatus` `Paid` settles for the signed `amount`, `Declined` → failed, and anything else →
+pending. The event ID is `<transactionStatus>:<transactionId>`. A verified notification is answered
+with `{"status":"ok"}`.
+
+**Polling.** Supported. `GET /links/{id}`; once the link is closed or paid, `GET /transactions`
+filtered to that link and order with status `Paid`. Only a paid transaction settles, with the
+transaction's amount.
+
+**Refunds and recurring.** Not supported.
+
+## CloudPayments
+
+Card acquiring over the CloudPayments REST API (`https://api.cloudpayments.ru`) with HTTP Basic
+authentication: the site's Public ID as the user name and its API secret as the password. Each
+checkout is an order created with `POST /orders/create`; the customer pays on the CloudPayments page
+the order links to.
+
+**Currencies.** One: the currency the site settles in, `RUB` unless `APP_CLOUDPAYMENTS_CURRENCY`
+says otherwise. A plan priced in any other currency does not offer CloudPayments.
+
+### Configuration
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_CLOUDPAYMENTS_PUBLIC_ID` | Yes | — | The site's Public ID from the CloudPayments cabinet. |
+| `APP_CLOUDPAYMENTS_API_SECRET` | Yes | — | The site's API secret. Authenticates API calls and signs notifications. |
+| `APP_CLOUDPAYMENTS_CURRENCY` | No | `RUB` | The single currency orders are sent in. |
+| `APP_CLOUDPAYMENTS_API_URL` | No | `https://api.cloudpayments.ru` | API origin. |
+| `APP_CLOUDPAYMENTS_TEST_MODE` | No | `false` | When `false`, a notification marked `TestMode` is recorded but never settles an order. |
+
+Setting only one of the two credentials fails startup; setting neither leaves the adapter
+unregistered.
+
+### Notifications
+
+In the CloudPayments cabinet, point the **Check**, **Pay**, and **Fail** notifications at the same URL:
+
+```text
+https://<APP_PUBLIC_URL>/v1/payments/webhooks/cloudpayments
+```
+
+Every notification must carry a valid `X-Content-HMAC` or `Content-HMAC` header — base64 of
+HMAC-SHA256 over the body, keyed by the API secret. Both the URL-encoded and the decoded body are
+accepted, because CloudPayments computes the two headers over different forms. Form-encoded and JSON
+notification formats are both read.
+
+One URL receives all three kinds, so they are told apart by content:
+
+- **Pay** — status `Completed` with a `Reason` or `AuthCode`. This is the only notification that
+  settles an order.
+- **Fail** — status `Declined` or `Cancelled`. Recorded; nothing settles.
+- **Check** — anything else, sent before the card is charged. Recorded and allowed; nothing settles.
+
+A status of `Authorized` is a two-stage hold that Omniflow never captures, so it does not settle.
+Use one-stage payments on the site.
+
+Every recorded notification is answered `{"code":0}`, the only body CloudPayments treats as received.
+The event ID is `<kind>:<TransactionId>`, so a redelivery is recognised as a duplicate.
+
+### Capabilities
+
+- **Polling.** `POST /payments/find` by invoice ID, which is Omniflow's order ID. Until a transaction
+  exists the intent stays `pending`.
+- **Refunds.** Full and partial, through `POST /payments/refund` against the transaction found for
+  the invoice. Omniflow's refund idempotency key is sent as `X-Request-ID`, so a repeated request is
+  answered with the original result rather than refunding twice.
+- **Recurring.** Not supported. CloudPayments binds a card token to the `AccountId` it was issued for,
+  which a saved-method charge in Omniflow does not carry.
+- **Connection test.** `POST /payments/find` for an invoice that cannot exist: valid credentials are
+  answered without an error, wrong ones with HTTP 401.
+
+### Testing
+
+Set `APP_CLOUDPAYMENTS_TEST_MODE=true` on a test site, configure the notification URL, and pay an
+order with a CloudPayments test card. The order settles when the Pay notification arrives. Return
+`APP_CLOUDPAYMENTS_TEST_MODE` to `false` before taking live payments.
+
+## Lava
+
+RUB invoices through the Lava Business API (`https://api.lava.ru`). Every request is a JSON `POST`
+signed with HMAC-SHA256 over the exact bytes sent, keyed by the shop's secret key and carried in the
+`Signature` header. Omniflow creates an invoice with `POST /business/invoice/create`, and the customer
+pays on the Lava page it links to.
+
+**Currencies.** `RUB` only: a Lava invoice carries a rouble sum and no currency.
+
+### Configuration
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_LAVA_SHOP_ID` | Yes | — | The shop (project) UUID. |
+| `APP_LAVA_SECRET_KEY` | Yes | — | The shop's secret key. Signs outgoing requests. |
+| `APP_LAVA_WEBHOOK_SECRET` | Yes | — | The shop's additional key. Verifies notifications. |
+| `APP_LAVA_BASE_URL` | No | `https://api.lava.ru` | API origin. |
+| `APP_LAVA_PAYMENT_LIFETIME_MINUTES` | No | `60` | Invoice lifetime, clamped to Lava's 1–7200 minutes. |
+
+`APP_PUBLIC_URL` is also required: every invoice carries its notification URL, and Lava cannot be
+configured without one. Setting some but not all of the three credentials fails startup.
+
+### Notifications
+
+Omniflow sends the notification URL with each invoice, so nothing has to be entered in the Lava
+cabinet. The URL is:
+
+```text
+https://<APP_PUBLIC_URL>/v1/payments/webhooks/lava
+```
+
+A notification must carry an `Authorization` header holding the hex HMAC-SHA256 of the body, keyed by
+the additional key. Lava signs the raw body on current shops and a key-sorted re-serialisation on
+shops set up for its legacy PHP SDK; a notification matching either form is accepted.
+
+Only status `success` settles an order. The notification's rouble `amount` is compared with the
+order before it does. The event ID is `<status>:<invoice_id>`.
+
+### Capabilities
+
+- **Polling.** `POST /business/invoice/status` by Lava's invoice ID.
+- **Refunds.** Not supported: the Business API has no refund call.
+- **Recurring.** Not supported. Lava subscriptions are products whose price and schedule are set in
+  the Lava cabinet and charged by Lava on its own schedule, not on a merchant's request.
+- **Connection test.** `POST /business/invoice/get-available-tariffs`, which lists the shop's payment
+  methods and creates nothing.
+
+### Testing
+
+Configure the three keys and `APP_PUBLIC_URL`, run the connection test from the panel, then pay a
+small order. Lava's return address must not contain a query string; Omniflow strips one from the
+return URL before sending it.
+
+## Overpay
+
+Hosted-checkout orders through the Overpay API (`https://api.overpay.io`) with HTTP Basic
+authentication and, when the merchant was issued one, a TLS client certificate. Omniflow creates an
+order with `POST /orders/`, and the customer pays on the Overpay page it links to.
+
+**Currencies.** One: the currency the project settles in, `RUB` unless `APP_OVERPAY_CURRENCY` says
+otherwise.
+
+### Configuration
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_OVERPAY_USERNAME` | Yes | — | API user name. |
+| `APP_OVERPAY_PASSWORD` | Yes | — | API password. |
+| `APP_OVERPAY_PROJECT_ID` | Yes | — | Project (terminal) the orders are created in. |
+| `APP_OVERPAY_CLIENT_CERT` | With the key | — | PEM client certificate (and chain) for mutual TLS. |
+| `APP_OVERPAY_CLIENT_KEY` | With the certificate | — | Unencrypted PEM private key for that certificate. |
+| `APP_OVERPAY_CURRENCY` | No | `RUB` | The single currency orders are sent in. |
+| `APP_OVERPAY_PAYMENT_METHODS` | No | `card,fps` | Comma-separated methods offered on the payment page. |
+| `APP_OVERPAY_LIFETIME_MINUTES` | No | `1440` | Order lifetime. |
+| `APP_OVERPAY_API_URL` | No | `https://api.overpay.io` | API origin. |
+
+Setting some but not all of the user name, password, and project fails startup. The certificate and
+key are both set or both empty. Overpay issues the certificate as a P12 file; convert it to PEM, for
+example with `openssl pkcs12 -in overpay.p12 -clcerts -nokeys` for the certificate and
+`openssl pkcs12 -in overpay.p12 -nocerts -nodes` for the key. A PEM value written on one line with
+literal `\n` sequences is accepted.
+
+### Notifications
+
+Set the notification URL in the Overpay cabinet:
+
+```text
+https://<APP_PUBLIC_URL>/v1/payments/webhooks/overpay
+```
+
+Overpay authenticates its notifications with mutual TLS terminated in front of the application, which
+Omniflow cannot observe. A notification is therefore a hint: Omniflow reads `id`,
+`merchantTransactionId`, and `status` from it, then re-reads the order with `GET /orders/{id}` and
+applies only that answer. Only status `charged` settles, and only when the order's `amount` can be
+read and matches. The event ID is `<status>:<id>`.
+
+### Capabilities
+
+- **Polling.** `GET /orders/{id}`.
+- **Refunds.** Not supported. Overpay's refund call takes no idempotency key, and Omniflow re-asks a
+  refund whose answer was lost, which could refund twice.
+- **Recurring.** Not supported.
+- **Connection test.** None: Overpay offers no read that proves the credentials without an existing
+  order, so the panel reports the credentials as untested.
+
+### Testing
+
+Configure the credentials and certificate, set the notification URL, and pay a small order. Bedolaga's
+SBP direct-QR flow and the separate international (EUR) terminal are not ported.
+
+## ParityPay
+
+RUB invoices, paid by SBP or card, through the ParityPay v2 API (`https://api.paritypay.net`).
+Requests authenticate with the `X-ShopId` and `X-SecretKey` headers (secret key №1). Omniflow creates
+an invoice with `POST /v2/invoice/create`, and the customer pays on the ParityPay page it links to.
+
+**Currencies.** `RUB` only.
+
+### Configuration
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_PARITYPAY_SHOP_ID` | Yes | — | The cash desk UUID, sent as `X-ShopId`. |
+| `APP_PARITYPAY_SECRET_KEY` | Yes | — | Secret key №1, sent as `X-SecretKey`. |
+| `APP_PARITYPAY_CALLBACK_SECRET` | Yes | — | Secret key №2. Verifies notifications. |
+| `APP_PARITYPAY_SERVICE` | No | empty | `sbp` or `card` to force one method; empty lets the customer choose on the page. Set it when the cash desk has exactly one method enabled. |
+| `APP_PARITYPAY_INVOICE_LIFETIME_MINUTES` | No | `60` | Invoice lifetime. |
+| `APP_PARITYPAY_BASE_URL` | No | `https://api.paritypay.net` | API origin. |
+
+Setting some but not all of the three keys fails startup.
+
+### Notifications
+
+Set the notification URL in the ParityPay cash desk settings. When `APP_PUBLIC_URL` is set, Omniflow
+also sends it with each invoice as `callback_url`:
+
+```text
+https://<APP_PUBLIC_URL>/v1/payments/webhooks/paritypay
+```
+
+A notification must carry `X-SIGNATURE`: the hex HMAC-SHA256, keyed by secret key №2, of the body's
+top-level values concatenated in key order, with numbers exactly as sent and `null` as an empty
+string. The signature is checked before anything else is read.
+
+Only status `PAID` settles, and a `PAID` notification without a readable `amount` is rejected. The
+event ID is `<status>:<id>`. Subscription notifications, which share the URL, are recorded and
+acknowledged without changing anything.
+
+ParityPay rejects a repeated `order_id` with HTTP 422. When that happens on a retried checkout,
+Omniflow looks the invoice up by order and reuses it.
+
+### Capabilities
+
+- **Polling.** `GET /v2/invoice/status?id=…`. ParityPay allows 60 requests a minute per IP, so
+  notifications rather than polling carry the normal flow.
+- **Refunds.** Not supported: the API has no refund call.
+- **Recurring.** Not supported. ParityPay subscriptions need separate approval from the provider and
+  are not charged on a merchant's request.
+- **Connection test.** None.
+
+### Testing
+
+Configure the three keys, set the notification URL, and pay a small order. A notification whose
+signature does not verify is rejected and ParityPay retries it.
+
+## PayHot
+
+RUB payments through the HOT Pay API v2 (`https://app.pay.hot/api/v2`). Requests carry a production
+key as a bearer token, and every creating call carries an `Idempotency-Key`. Omniflow creates a
+payment with `POST /payments` and sends the customer to the one-time checkout link HOT Pay returns.
+When a repeated request comes back without that link, Omniflow issues a fresh checkout session for
+the same payment.
+
+**Currencies.** `RUB` only.
+
+### Configuration
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_PAYHOT_API_KEY` | Yes | — | Production API key; must start with `phk_v2_`. Test keys are refused. |
+| `APP_PAYHOT_WEBHOOK_SECRET` | Yes | — | Current notification signing secret. |
+| `APP_PAYHOT_PREVIOUS_WEBHOOK_SECRET` | No | — | The previous secret, still accepted while a rotation completes. |
+| `APP_PAYHOT_PAYMENT_METHOD` | No | `card` | One of `card`, `sbp`, `crypto`, `applepay`, `googlepay`. Choose a method enabled for the cash desk. |
+| `APP_PAYHOT_SUCCESS_URL` | No | — | HTTPS return address after payment, used when the order's return URL is not HTTPS. |
+| `APP_PAYHOT_FAIL_URL` | No | — | HTTPS return address after a failed payment. |
+| `APP_PAYHOT_REQUEST_TIMEOUT` | No | `30` | Request timeout in seconds, 1–60. |
+| `APP_PAYHOT_API_URL` | No | `https://app.pay.hot/api/v2` | Either `https://app.pay.hot/api/v2` or `https://gapi.pay.hot/api/v2`; no other origin is accepted. |
+
+Setting only one of the key and the secret fails startup. SberPay is not offered: it needs the payer's
+phone number, which a checkout in Omniflow does not collect. A return to the success address does not
+confirm a payment.
+
+### Notifications
+
+In HOT Pay, set the notification URL and subscribe to the `payment.*` events. Subscribe to
+`recurring_charge.cancelled` and `recurring_charge.skipped` as well if recurring charges are used.
+
+```text
+https://<APP_PUBLIC_URL>/v1/payments/webhooks/payhot
+```
+
+A notification must carry `PayHot-Signature: t=<unix time>,v2=<hex>`, the HMAC-SHA256 of
+`<t>.<body>` keyed by the current or previous secret, with `t` within five minutes of Omniflow's
+clock. Omniflow also requires `PayHot-Event-Id` to equal the body's `event_id`, `PayHot-Api-Version`
+and `api_version` to be `v2`, well-formed `PayHot-Delivery-Id` and `PayHot-Delivery-Attempt`
+headers, no repeated header or JSON field, a body of at most 64 KiB, and no environment other than
+`production`.
+
+Even a verified notification is a hint: the payment (or recurring charge) is re-read through the API
+and only that answer is applied. Only `succeeded` settles; an authorisation, a partial capture, or a
+refund does not. The event ID is the notification's `event_id`. Recorded notifications are answered
+`{"success":true}`.
+
+### Capabilities
+
+- **Polling.** `GET /payments/{id}`, or `GET /recurring-charges/{id}` for a recurring charge.
+- **Refunds.** Not supported. HOT Pay marks its refund route as deprecated and Omniflow does not call
+  it; refunds are made in the HOT Pay cabinet.
+- **Recurring.** Declared. A saved method is a HOT Pay mandate ID. A charge reads the mandate, refuses
+  one that is not `active`, posts `POST /recurring-charges` under the caller's idempotency key with a
+  charge reference derived from that key, and re-reads the charge. A retry reaches the same charge.
+  Recurring charges need HOT Pay's permission for the merchant.
+- **Connection test.** None.
+
+<Warning>
+  No code path in Omniflow enrolls a mandate: a checkout never requests recurring consent, so no
+  mandate ID is saved. Recurring charging is declared and wired but cannot be armed yet.
+  [Recurring payments](/commerce/recurring-payments) states which parts work.
+</Warning>
+
+### Testing
+
+Omniflow accepts production keys only, and notifications from any other environment are rejected.
+Test with a small real payment on the production cash desk.
+
+## CisPay
+
+CisPay is a hosted checkout over the CisPay Merchant API (`https://api.cispay.app`). Omniflow
+creates a payment, sends the customer to CisPay's payment page, and settles the order when CisPay
+reports it paid. Amounts travel as integer kopeks.
+
+**Currencies:** `RUB` only.
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_CISPAY_SHOP_ID` | Yes | — | Shop UUID, sent as `X-Shop-ID`. |
+| `APP_CISPAY_API_KEY` | Yes | — | Secret key (`cis_sec_…`), sent as `X-Api-Key` and used to verify webhook signatures. |
+| `APP_CISPAY_PAYMENT_METHOD` | No | empty | `CARD`, `SBP` or `CRYPTO`. Empty lets the customer choose on CisPay's page. |
+| `APP_CISPAY_BASE_URL` | No | `https://api.cispay.app` | API origin. |
+
+Setting only one of the two required variables fails startup. Card payments start at 50.00 RUB;
+a smaller card amount is refused before CisPay is called.
+
+<Steps>
+  <Step title="Configure Omniflow">
+    Set `APP_CISPAY_SHOP_ID` and `APP_CISPAY_API_KEY`, then restart the API and the worker.
+  </Step>
+  <Step title="Set the webhook URL">
+    In the CisPay cabinet, point notifications at
+    `https://<APP_PUBLIC_URL>/v1/payments/webhooks/cispay`.
+  </Step>
+  <Step title="Check the connection">
+    The connection probe reads `GET /store/capabilities`. It fails if the key belongs to another
+    shop or the shop is inactive. Nothing is created.
+  </Step>
+</Steps>
+
+**Webhook verification.** `X-Signature` is a hex HMAC-SHA256 of the exact request body, keyed with
+the API key, and must match. The notification must name the configured shop. Omniflow then re-reads
+the payment through `GET /payments/status` and applies only that answer, because a notification can
+omit the sandbox flag and a crypto payment can report its amount in USD cents. A crypto payment is
+settled against its rouble `source_amount`. The webhook event ID is `{status}:{paymentID}`, so a
+redelivery is recognised as a duplicate.
+
+**Sandbox payments.** A payment marked `is_sandbox` or carrying a `block_reason` is never treated as
+paid. It is reported as failed.
+
+**Subscriptions.** CisPay subscription notifications (`X-CISPay-Event`, `subscription_id`) are
+rejected: Omniflow never opens a CisPay subscription.
+
+**Refunds and recurring.** Not supported. The Merchant API has no refund call, and CisPay
+subscriptions are schedules CisPay runs itself rather than charges against a saved method.
+
+**Polling.** Supported through `GET /payments/status`.
+
+**Testing.** Use a CisPay sandbox shop to check that the webhook arrives and verifies. A sandbox
+payment never settles an order, so a full settlement test needs a real payment.
+
+## Antilopay
+
+Antilopay is a hosted checkout over the Antilopay payment API (`https://lk.antilopay.com/api/v1`).
+Every request body is signed SHA256withRSA with the merchant's private key, and every notification
+is signed by Antilopay and checked with the project's public key. Amounts travel as roubles with
+kopek precision.
+
+**Currencies:** `RUB` only.
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_ANTILOPAY_SECRET_ID` | Yes | — | Secret ID, sent as `X-Apay-Secret-Id`. |
+| `APP_ANTILOPAY_PROJECT_ID` | Yes | — | Project identifier, sent as `project_identificator`. |
+| `APP_ANTILOPAY_PRIVATE_KEY` | Yes | — | Merchant RSA private key: base64 of a PEM or DER key, or a bare PEM block. Signs requests. |
+| `APP_ANTILOPAY_PUBLIC_KEY` | Yes | — | Antilopay's RSA public key for the project, in the same formats. Verifies notifications. |
+| `APP_ANTILOPAY_PRODUCT_NAME` | No | `VPN подписка` | `product_name` on every payment. |
+| `APP_ANTILOPAY_PRODUCT_TYPE` | No | `services` | `product_type` on every payment. |
+| `APP_ANTILOPAY_PREFER_METHOD` | No | empty | `SBP`, `CARD_RU` or `SBER_PAY`, sent as `prefer_methods`. Empty leaves the choice to the customer. |
+
+All four required variables must be set together, and both keys must parse; otherwise startup
+fails.
+
+<Steps>
+  <Step title="Configure Omniflow">
+    Set the four required variables and restart the API and the worker.
+  </Step>
+  <Step title="Set the webhook URL">
+    In the Antilopay cabinet, point callbacks at
+    `https://<APP_PUBLIC_URL>/v1/payments/webhooks/antilopay`.
+  </Step>
+  <Step title="Check the connection">
+    The connection probe calls `payment/check` for an order ID that cannot exist. The documented
+    answer "payment not found" (code 8) proves the secret ID and signature are accepted. Nothing is
+    created.
+  </Step>
+</Steps>
+
+**Customer contact.** Antilopay requires the customer's email or phone. The adapter reads them from
+the intent metadata keys `customer_email` and `customer_phone`, and refuses the payment before
+calling Antilopay when neither is present. No placeholder address is invented.
+
+**Order reference.** Antilopay looks payments up by the merchant order ID, so the Omniflow order ID
+is the provider reference that is stored and polled. Antilopay's own `payment_id` is kept in the
+intent metadata.
+
+**Webhook verification.** `X-Apay-Callback` is a base64 RSA signature of the exact body and must
+verify against `APP_ANTILOPAY_PUBLIC_KEY`. Only `type: payment` notifications are applied. A success
+settles against `original_amount`, the amount the order was created for; `amount` is net of
+Antilopay's fee and is never used. A success without a valid RUB `original_amount` is rejected.
+Unknown statuses and other notification types are acknowledged and ignored. The event ID is
+`{status}:{payment_id}`.
+
+| Antilopay status | Omniflow status |
+| --- | --- |
+| `PENDING` | `pending` |
+| `SUCCESS` | `succeeded` |
+| `FAIL`, `CHARGEBACK` | `failed` |
+| `CANCEL` | `cancelled` |
+| `EXPIRED` | `expired` |
+
+**Lost answers.** Before creating a payment, Omniflow asks `payment/check` whether one already
+exists for the order. Antilopay rejects a second payment with the same order ID, so a create whose
+answer was lost is recovered instead of repeated.
+
+**Refunds and recurring.** Not supported.
+
+**Polling.** Supported through `payment/check`.
+
+**Testing.** Create a small payment against your project and confirm that the callback verifies and
+the order settles. The adapter tests use generated RSA keys and a local HTTP server only.
+
+## Anore
+
+Anore is a hosted checkout over the Anore API (`https://api.anore.cc/v1`). Omniflow creates an
+invoice, sends the customer to Anore's `paymentUrl`, and settles the order when Anore reports the
+invoice paid. Amounts travel as roubles.
+
+**Currencies:** `RUB` only.
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_ANORE_API_KEY` | Yes | — | API key, sent as a Bearer token. A key starting `an_test_` is a test key. |
+| `APP_ANORE_SECRET_KEY` | Yes | — | Signing secret for outgoing requests and incoming webhooks. |
+| `APP_ANORE_SHOP_ID` | For account keys | — | Positive cash-desk ID. Required when the key starts with `an_`, because an account key serves several cash desks. |
+| `APP_ANORE_PAYMENT_METHODS` | No | `sbp,card,yoomoney,crypto` | Methods offered on the payment form, comma-separated. |
+| `APP_ANORE_API_URL` | No | `https://api.anore.cc/v1` | API origin. |
+
+Setting the key without the secret, an account key without a shop ID, or an unknown method fails
+startup.
+
+<Steps>
+  <Step title="Configure Omniflow">
+    Set `APP_ANORE_API_KEY`, `APP_ANORE_SECRET_KEY` and, for an account key, `APP_ANORE_SHOP_ID`.
+    Restart the API and the worker.
+  </Step>
+  <Step title="Set the webhook URL">
+    When `APP_PUBLIC_URL` is set, every invoice carries
+    `https://<APP_PUBLIC_URL>/v1/payments/webhooks/anore` as its `callbackUrl`. Without it, set the
+    same address on the cash desk in Anore.
+  </Step>
+</Steps>
+
+**Requests.** Each request body is signed: `Anore-Signature` is a hex HMAC-SHA256 of the exact body
+keyed with the secret. The customer's email is sent when the intent metadata carries
+`customer_email`. An invoice whose answer names a different order or amount, or has no HTTPS
+`paymentUrl`, is rejected. The invoice expires after Anore's `expiresIn`, or four hours when it is
+absent.
+
+**Webhook verification.** `Anore-Signature` must match the HMAC of the exact body. `Anore-Event` must
+equal the signed `event`, and `Anore-Delivery-Id` must be present. Only `payment.succeeded` (status
+`paid`) and `payment.expired` (status `expired`) are applied; payout events are acknowledged and
+ignored. The settled amount is the invoice `amount`. A larger `rubAmount` is the customer-paid fee
+and is not settled; a smaller one is rejected. The event ID is `{event}:{invoiceID}`, so a
+redelivery with a new delivery ID is still a duplicate.
+
+**Test keys.** A payment made with an `an_test_` key is never treated as paid; it is reported as
+failed.
+
+**Refunds and recurring.** Not supported.
+
+**Polling.** Supported through `GET /payments/{id}`.
+
+**Testing.** With an `an_test_` key, confirm that the callback reaches Omniflow and verifies. A test
+payment never settles an order, so a full settlement test needs a live key.
+
+## Donut
+
+Donut is a P2P payment gateway (`https://gw.donut.business`). Omniflow opens a payin, sends the
+customer to the payment page Donut returns, and settles the order from Donut's signed callback.
+Amounts travel as major units formatted `0.00`.
+
+**Currencies:** the one currency set in `APP_DONUT_CURRENCY` (`RUB` by default).
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_DONUT_TOKEN` | Yes | — | Merchant token, sent in every request body. |
+| `APP_DONUT_SECRET` | Yes | — | Secret for the HMAC-SHA256 signatures of requests and callbacks. |
+| `APP_DONUT_CURRENCY` | No | `RUB` | Currency of every payin. |
+| `APP_DONUT_METHOD` | No | `CARD` | `CARD`, `SBP` or `SBP_QR`, sent as the payin `description`. |
+| `APP_DONUT_METHOD_ID` | No | empty | Optional `method_id` agreed with Donut. |
+| `APP_DONUT_BASE_URL` | No | `https://gw.donut.business` | Gateway origin. |
+
+<Steps>
+  <Step title="Configure Omniflow">
+    Set `APP_DONUT_TOKEN` and `APP_DONUT_SECRET`, and set `APP_PUBLIC_URL`. Restart the API and the
+    worker.
+  </Step>
+  <Step title="Callback URL">
+    Each payin carries `https://<APP_PUBLIC_URL>/v1/payments/webhooks/donut` as its `callback_url`.
+    Without `APP_PUBLIC_URL` no callback URL is sent, and Donut has to be given that address another
+    way.
+  </Step>
+</Steps>
+
+**Signatures.** A signature is a hex HMAC-SHA256, keyed with the secret, of `name=value` pairs
+concatenated with no separator in a fixed order, skipping absent and empty values. A payin signs
+`token`, `order_id`, `amount.value`, `amount.currency`, `customer.id` and `redirect`. A callback
+signs `token`, `transaction_id`, `order_id`, `amount.value`, `amount.currency`, `recalculated` and
+`status.type`, and its `signature` field must match in constant time. The customer ID is the order
+ID unless the intent metadata carries `customer_id`.
+
+**Callbacks.** `success` settles; `cancelled` and `error` do not. Any other status, including
+`created` and `processing`, is acknowledged and ignored. A success without a readable amount is
+rejected. The event ID is `{status}:{transaction_id}`.
+
+**Refunds, recurring and polling.** Not supported. The integration this adapter ports never reads
+Donut's status answer, so settlement arrives only through the callback, and there is no connection
+probe.
+
+**Testing.** Pay a small order and confirm that the callback verifies and the order settles. The
+adapter tests pin the signature to vectors computed with the original Python implementation.
+
+## EtoPlatezhi
+
+EtoPlatezhi is a hosted payment page (`https://paymentpage.etoplatezhi.ru/payment`). Omniflow does
+not call an API to open a payment: it builds a payment-page URL whose parameters it signs, and
+settles the order from EtoPlatezhi's signed callback. Amounts travel as integer minor units.
+
+**Currencies:** the one currency set in `APP_ETOPLATEZHI_CURRENCY` (`RUB` by default).
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_ETOPLATEZHI_PROJECT_ID` | Yes | — | Positive integer project ID. |
+| `APP_ETOPLATEZHI_SECRET_KEY` | Yes | — | Secret for the payment-page and callback signatures. |
+| `APP_ETOPLATEZHI_CURRENCY` | No | `RUB` | Currency of every payment. |
+| `APP_ETOPLATEZHI_FORCE_PAYMENT_METHOD` | No | empty | `sbp` or `card`, sent as `force_payment_method`. Empty leaves the choice to the customer. |
+
+<Steps>
+  <Step title="Configure Omniflow">
+    Set `APP_ETOPLATEZHI_PROJECT_ID` and `APP_ETOPLATEZHI_SECRET_KEY`, and set `APP_PUBLIC_URL`.
+    Restart the API and the worker.
+  </Step>
+  <Step title="Callback URL">
+    Each payment URL carries `https://<APP_PUBLIC_URL>/v1/payments/webhooks/etoplatezhi` as its
+    `merchant_callback_url`. Without `APP_PUBLIC_URL` no callback URL is sent.
+  </Step>
+</Steps>
+
+**Signatures.** The parameters are flattened into `key:value` entries — nested keys joined with
+`:`, list items keyed by index, booleans as `1`/`0`, empty lists dropped, `signature` and
+`frame_mode` ignored — sorted, joined with `;`, and signed with a base64 HMAC-SHA512 keyed with the
+secret. A callback carries a signature computed the same way over its body, which must match in
+constant time; a callback for another project ID is rejected.
+
+**Order reference.** EtoPlatezhi's `payment.id` is the merchant's own payment ID, so the Omniflow
+order ID is both the provider and the merchant reference. The customer ID is the order ID unless
+the intent metadata carries `customer_id`.
+
+**Callbacks.** `payment.status` decides the outcome: `success` settles against
+`payment.sum.amount`; `decline` and `error` are failed; `cancelled`, `refunded`,
+`partially refunded` and `reversed` are cancelled and never settle; the awaiting states and any
+unknown status are acknowledged and ignored. The event ID is `{status}:{payment.id}`.
+
+**Refunds, recurring and polling.** Not supported. The integration this adapter ports has no API
+client, so settlement arrives only through the callback, and there is no connection probe.
+
+**Testing.** Open a payment link from a small order, pay it, and confirm that the callback verifies
+and the order settles. The adapter tests pin both signatures to vectors computed with the original
+Python implementation.
+
+## Jupiter
+
+Jupiter is an FPGate P2P v2.1 gateway (`https://app.juppiter.tech`). Omniflow opens a payin, sends
+the customer to the payment link Jupiter returns, and settles the order from Jupiter's signed
+callback. Amounts travel as major units formatted `0.00`.
+
+**Currencies:** the one currency set in `APP_JUPITER_CURRENCY` (`RUB` by default).
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_JUPITER_TOKEN` | Yes | — | Merchant token, sent in every request body. |
+| `APP_JUPITER_SECRET` | Yes | — | Secret for the HMAC-SHA256 signatures of requests and callbacks. |
+| `APP_JUPITER_CURRENCY` | No | `RUB` | Currency of every payin. |
+| `APP_JUPITER_METHOD_DESCRIPTION` | No | `SBP` | `description` sent when the order has none. |
+| `APP_JUPITER_METHOD_ID` | No | empty | Optional `method_id` agreed with Jupiter. |
+| `APP_JUPITER_FALLBACK_EMAIL` | No | `user@vpn.bot` | Customer email sent when the intent metadata has no `customer_email`. |
+| `APP_JUPITER_FALLBACK_PHONE` | No | `0000000000` | Customer phone sent when the intent metadata has no `customer_phone`. |
+| `APP_JUPITER_FALLBACK_NAME` | No | `User` | Customer name sent when the intent metadata has no `customer_name`. |
+| `APP_JUPITER_BASE_URL` | No | `https://app.juppiter.tech` | Gateway origin. |
+
+FPGate v2.1 requires a customer email, phone and name on every payin. The fallbacks fill whatever
+the order does not provide; change them if your agreement with Jupiter requires other values.
+
+<Steps>
+  <Step title="Configure Omniflow">
+    Set `APP_JUPITER_TOKEN` and `APP_JUPITER_SECRET`, and set `APP_PUBLIC_URL`. Restart the API and
+    the worker.
+  </Step>
+  <Step title="Callback URL">
+    Each payin carries `https://<APP_PUBLIC_URL>/v1/payments/webhooks/jupiter` as its
+    `callback_url`. Without `APP_PUBLIC_URL` no callback URL is sent.
+  </Step>
+</Steps>
+
+**Signatures.** A signature is a hex HMAC-SHA256, keyed with the secret, of `name=value` pairs
+concatenated with no separator in a fixed order, skipping absent and empty values. A payin
+(`/p2p_payin_v2.1`, `redirect=false`) signs `token`, `order_id`, `amount.value`, `amount.currency`,
+`customer.id` and `redirect`. A callback signs `token`, `transaction_id`, `order_id`,
+`amount.value`, `amount.currency`, `recalculated` and `status.type`, and its `signature` field must
+match in constant time.
+
+**Callbacks.** `success` settles; `cancelled`, `declined` and `error` do not; `processing` and any
+unknown status are acknowledged and ignored. A success without a readable amount is rejected. The
+event ID is `{status}:{transaction_id}`.
+
+**Refunds, recurring and polling.** Not supported. The integration this adapter ports never reads
+the status answer, so settlement arrives only through the callback, and there is no connection
+probe.
+
+**Testing.** Pay a small order and confirm that the callback verifies and the order settles.
+
+## TabPay
+
+TabPay (`https://tabpay.org/api`) takes SBP and 3-D Secure card payments behind a hosted `payUrl`.
+Omniflow creates a payment, sends the customer to the `payUrl`, and settles the order from TabPay's
+signed webhook. Amounts travel as integer kopeks.
+
+**Currencies:** `RUB` only, from 1 RUB to 100 000 000 RUB per payment.
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_TABPAY_API_KEY` | Yes | — | Shop key (`tp_…`), sent as `X-Api-Key`. |
+| `APP_TABPAY_WEBHOOK_SECRET` | Yes | — | The shop's webhook signing secret. |
+| `APP_TABPAY_METHOD` | No | empty | `SBP` or `CARD`. Empty lets the customer choose on the payment page. |
+| `APP_TABPAY_WEBHOOK_MAX_AGE_SECONDS` | No | `300` | How far `X-Timestamp` may be from the server clock, in either direction. |
+| `APP_TABPAY_BASE_URL` | No | `https://tabpay.org/api` | API origin. |
+
+<Steps>
+  <Step title="Configure Omniflow">
+    Set `APP_TABPAY_API_KEY` and `APP_TABPAY_WEBHOOK_SECRET`, then restart the API and the worker.
+    Keep the server clock synchronised (NTP): webhooks outside the freshness window are rejected.
+  </Step>
+  <Step title="Set the webhook URL">
+    In the TabPay shop settings, point webhooks at
+    `https://<APP_PUBLIC_URL>/v1/payments/webhooks/tabpay`.
+  </Step>
+  <Step title="Check the connection">
+    The connection probe looks up an order ID that cannot exist with
+    `GET /v1/payments?orderId=…`. A 404 means the key was accepted. Nothing is created.
+  </Step>
+</Steps>
+
+**Creating payments.** `POST /v1/payments` carries `orderId`, `amountKopecks`, the description, the
+return URL as `successUrl` and `failUrl`, and `email` when the intent metadata has
+`customer_email`. Before creating, Omniflow looks the order up by `orderId`, so a create whose answer
+was lost is not repeated. A `409` is answered the same way: an existing payment for the order is
+reused; otherwise the error stands (for example, a method the shop does not offer).
+
+**Webhook verification.** `X-Signature-V2` is a hex HMAC-SHA256 of `{X-Timestamp}.{raw body}` keyed
+with the signing secret, and `X-Timestamp` must be within the freshness window. A `SUCCESS` without
+`amountKopecks` is rejected. Unknown statuses are acknowledged and ignored. The event ID is
+`{status}:{id}`.
+
+| TabPay status | Omniflow status |
+| --- | --- |
+| `CREATED` | `pending` |
+| `PENDING` | `processing` |
+| `SUCCESS` | `succeeded` |
+| `FAILED` | `failed` |
+| `EXPIRED` | `expired` |
+| `REFUNDED`, `CANCELED` | `cancelled` |
+
+`FAILED` and `EXPIRED` are not final at TabPay: an SBP QR can be paid after the timeout, and that
+payment arrives as a separate `SUCCESS`, which Omniflow settles as a late payment.
+
+**Sandbox payments.** A payment flagged `test` or `isTest` is never treated as paid; it is reported
+as failed. Only an explicit yes counts as a test flag.
+
+**Refunds and recurring.** Not supported.
+
+**Polling.** Supported through `GET /v1/payments/{id}`.
+
+**Testing.** Use a TabPay sandbox shop to confirm that the webhook arrives and verifies. A sandbox
+payment never settles an order, so a full settlement test needs a live shop.
+

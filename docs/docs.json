@@ -75,6 +75,7 @@
             "pages": [
               "integrations/remnawave",
               "integrations/payments",
+              "integrations/payment-providers",
               "integrations/telegram",
               "integrations/oidc",
               "integrations/api",
@@ -206,6 +207,7 @@
             "pages": [
               "ru/integrations/remnawave",
               "ru/integrations/payments",
+              "ru/integrations/payment-providers",
               "ru/integrations/telegram",
               "ru/integrations/oidc",
               "ru/integrations/api",

@@ -48,7 +48,7 @@ Coming from Bedolaga? [Migrating from Bedolaga](./docs/operations/migrate-from-b
 The bot is a complete customer product in a single-message interface:
 
 - 🛒 Plan catalog with period, traffic, device, and price comparison, plan details, and policy-aware purchase, renewal, upgrade, and downgrade
-- 💳 Telegram Stars invoices, CryptoBot invoices, YooKassa hosted checkout, and audited manual payments — offered only when configured and currency-compatible
+- 💳 Telegram Stars, CryptoBot, YooKassa, audited manual payments, and 25 more providers carried over from Bedolaga (Platega, FreeKassa, CloudPayments, Lava, Heleket, HOT Pay, and others) — offered only when configured and currency-compatible
 - 🏷 Promo-code entry with a specific rejection reason, and wallet credit applied first by default
 - ⏳ Pending, succeeded, provisioning, completed, failed, cancelled, expired, and refunded screens with retry-safe refresh
 - 🧾 Order history with payment status, receipts, and refund state
