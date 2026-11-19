@@ -83,16 +83,14 @@ export function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          aria-label={translate("userMenu.label")}
-          className="gap-2 px-1.5"
-          size="sm"
-          variant="ghost"
-        >
-          <Avatar className="size-6">
+        <Button className="gap-2 px-1.5" size="sm" variant="ghost">
+          {/* The name stays part of the accessible name: an aria-label that
+              omits the visible text fails WCAG 2.5.3 (label in name). */}
+          <Avatar aria-hidden className="size-6">
             <AvatarFallback>{initials(session.account.displayName)}</AvatarFallback>
           </Avatar>
           <span className="hidden max-w-32 truncate sm:inline">{session.account.displayName}</span>
+          <span className="sr-only">{translate("userMenu.label")}</span>
         </Button>
       </DropdownMenuTrigger>
 
