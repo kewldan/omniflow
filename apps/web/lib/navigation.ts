@@ -18,6 +18,7 @@ import {
   Sparkles,
   UserCog,
   Users,
+  Wallet,
 } from "lucide-react";
 
 /**
@@ -63,6 +64,12 @@ export const NAVIGATION: NavigationSection[] = [
         key: "finance",
         href: "/admin/finance",
         icon: CreditCard,
+        permission: "finance.read",
+      },
+      {
+        key: "payouts",
+        href: "/admin/payouts",
+        icon: Wallet,
         permission: "finance.read",
       },
       {

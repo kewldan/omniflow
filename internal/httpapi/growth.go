@@ -10,6 +10,7 @@ import (
 	"github.com/omniflow/omniflow/internal/emailpg"
 	"github.com/omniflow/omniflow/internal/mailer"
 	"github.com/omniflow/omniflow/internal/rbac"
+	"github.com/omniflow/omniflow/internal/referralpayout"
 )
 
 // GrowthServices are the services that close the gap with Bedolaga: e-mail,
@@ -21,6 +22,8 @@ type GrowthServices struct {
 	// EmailSending reports whether the worker has a transport, which the api
 	// can only know from the shared configuration.
 	EmailSending bool
+	// Withdrawals is the referral balance withdrawal service.
+	Withdrawals *referralpayout.Service
 }
 
 // WithGrowth attaches the growth services to the panel.
@@ -42,6 +45,7 @@ func (handlers *AdminHandlers) mountGrowth(secure chi.Router) {
 		secure.With(handlers.requirePermission(rbac.PermissionSettingsWrite)).
 			Post("/settings/email/test", handlers.emailTest)
 	}
+	handlers.mountWithdrawals(secure)
 }
 
 // mountGrowthPublic registers the routes reachable without a session.
@@ -59,7 +63,7 @@ func (handlers *AccountHandlers) mountGrowthPublic(account chi.Router) {
 }
 
 func (handlers *AccountHandlers) mountGrowth(secure chi.Router) {
-	_ = secure
+	handlers.mountAccountWithdrawals(secure)
 }
 
 func (handlers *AdminHandlers) emailStatus(writer http.ResponseWriter, request *http.Request) {

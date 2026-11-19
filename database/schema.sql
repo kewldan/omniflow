@@ -3519,6 +3519,62 @@ CREATE TABLE public.referral_signals (
 
 
 --
+-- Name: referral_withdrawal_settings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.referral_withdrawal_settings (
+    singleton boolean DEFAULT true NOT NULL,
+    enabled boolean DEFAULT false NOT NULL,
+    currency text DEFAULT 'RUB'::text NOT NULL,
+    minimum_minor bigint DEFAULT 50000 NOT NULL,
+    cooldown_days integer DEFAULT 30 NOT NULL,
+    only_referral_balance boolean DEFAULT true NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by uuid,
+    CONSTRAINT referral_withdrawal_settings_cooldown_bounded CHECK (((cooldown_days >= 0) AND (cooldown_days <= 365))),
+    CONSTRAINT referral_withdrawal_settings_currency_iso CHECK ((currency ~ '^[A-Z]{3}$'::text)),
+    CONSTRAINT referral_withdrawal_settings_minimum_positive CHECK ((minimum_minor > 0)),
+    CONSTRAINT referral_withdrawal_settings_singleton CHECK (singleton)
+);
+
+
+--
+-- Name: referral_withdrawals; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.referral_withdrawals (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    amount_minor bigint NOT NULL,
+    currency text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    payout_method text NOT NULL,
+    payout_details_ciphertext bytea NOT NULL,
+    risk_score integer NOT NULL,
+    risk_flags text[] DEFAULT '{}'::text[] NOT NULL,
+    risk_evidence jsonb DEFAULT '{}'::jsonb NOT NULL,
+    hold_ledger_transaction_id uuid NOT NULL,
+    release_ledger_transaction_id uuid,
+    idempotency_key text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    decided_at timestamp with time zone,
+    decided_by uuid,
+    decision_note text,
+    paid_at timestamp with time zone,
+    paid_by uuid,
+    CONSTRAINT referral_withdrawals_amount_positive CHECK ((amount_minor > 0)),
+    CONSTRAINT referral_withdrawals_currency_iso CHECK ((currency ~ '^[A-Z]{3}$'::text)),
+    CONSTRAINT referral_withdrawals_decided_complete CHECK (((status = 'pending'::text) = (decided_at IS NULL))),
+    CONSTRAINT referral_withdrawals_method_known CHECK ((payout_method = ANY (ARRAY['card'::text, 'sbp'::text, 'crypto'::text, 'other'::text]))),
+    CONSTRAINT referral_withdrawals_note_length CHECK (((decision_note IS NULL) OR (char_length(decision_note) <= 400))),
+    CONSTRAINT referral_withdrawals_paid_complete CHECK (((status = 'paid'::text) = (paid_at IS NOT NULL))),
+    CONSTRAINT referral_withdrawals_release_complete CHECK (((status = ANY (ARRAY['rejected'::text, 'cancelled'::text])) = (release_ledger_transaction_id IS NOT NULL))),
+    CONSTRAINT referral_withdrawals_risk_bounded CHECK (((risk_score >= 0) AND (risk_score <= 100))),
+    CONSTRAINT referral_withdrawals_status_known CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text, 'cancelled'::text, 'paid'::text])))
+);
+
+
+--
 -- Name: refunds; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -5777,6 +5833,30 @@ ALTER TABLE ONLY public.referral_signals
 
 
 --
+-- Name: referral_withdrawal_settings referral_withdrawal_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.referral_withdrawal_settings
+    ADD CONSTRAINT referral_withdrawal_settings_pkey PRIMARY KEY (singleton);
+
+
+--
+-- Name: referral_withdrawals referral_withdrawals_idempotency_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.referral_withdrawals
+    ADD CONSTRAINT referral_withdrawals_idempotency_unique UNIQUE (user_id, idempotency_key);
+
+
+--
+-- Name: referral_withdrawals referral_withdrawals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.referral_withdrawals
+    ADD CONSTRAINT referral_withdrawals_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: refunds refunds_payment_intent_id_idempotency_key_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6864,6 +6944,20 @@ CREATE INDEX referral_rewards_beneficiary_idx ON public.referral_rewards USING b
 --
 
 CREATE INDEX referral_signals_recent_idx ON public.referral_signals USING btree (detected_at DESC);
+
+
+--
+-- Name: referral_withdrawals_one_pending_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX referral_withdrawals_one_pending_idx ON public.referral_withdrawals USING btree (user_id) WHERE (status = 'pending'::text);
+
+
+--
+-- Name: referral_withdrawals_queue_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX referral_withdrawals_queue_idx ON public.referral_withdrawals USING btree (status, created_at);
 
 
 --
@@ -8875,6 +8969,30 @@ ALTER TABLE ONLY public.referral_rewards
 
 ALTER TABLE ONLY public.referral_signals
     ADD CONSTRAINT referral_signals_referred_user_id_fkey FOREIGN KEY (referred_user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: referral_withdrawals referral_withdrawals_hold_ledger_transaction_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.referral_withdrawals
+    ADD CONSTRAINT referral_withdrawals_hold_ledger_transaction_id_fkey FOREIGN KEY (hold_ledger_transaction_id) REFERENCES public.ledger_transactions(id);
+
+
+--
+-- Name: referral_withdrawals referral_withdrawals_release_ledger_transaction_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.referral_withdrawals
+    ADD CONSTRAINT referral_withdrawals_release_ledger_transaction_id_fkey FOREIGN KEY (release_ledger_transaction_id) REFERENCES public.ledger_transactions(id);
+
+
+--
+-- Name: referral_withdrawals referral_withdrawals_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.referral_withdrawals
+    ADD CONSTRAINT referral_withdrawals_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
 
 
 --

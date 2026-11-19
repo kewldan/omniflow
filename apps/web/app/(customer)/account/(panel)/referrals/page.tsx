@@ -10,6 +10,7 @@ import { LoyaltyStanding } from "@/components/account/account/loyalty-standing";
 import { RewardHistory } from "@/components/account/account/reward-history";
 import { ShareLink } from "@/components/account/account/share-link";
 import type { ReferralSummary } from "@/components/account/account/types";
+import { Withdrawals } from "@/components/account/account/withdrawals";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
 import type { ApiError } from "@/lib/api";
 import { fetcher } from "@/lib/api";
@@ -102,6 +103,8 @@ export default function ReferralsPage() {
               </p>
             )}
           </section>
+
+          <Withdrawals />
 
           <div className="grid grid-cols-2 gap-3">
             <Stat label={translate("referrals.invited")} value={data.invited} />

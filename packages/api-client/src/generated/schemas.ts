@@ -12568,3 +12568,103 @@ export const CollectTelemetryEventBody = zod.object({
 });
 
 export const CollectTelemetryEventResponse = zod.void();
+
+/**
+ * The footer link of a marketing e-mail. It redirects to the `/unsubscribe` page, which asks for one click, because mail scanners follow links and a GET must not change anything.
+ */
+export const openAccountEmailUnsubscribeQueryTokenMax = 200;
+
+export const OpenAccountEmailUnsubscribeQueryParams = zod.object({
+  token: zod.string().max(openAccountEmailUnsubscribeQueryTokenMax),
+});
+
+export const OpenAccountEmailUnsubscribeResponse = zod.void();
+
+/**
+ * RFC 8058 one-click unsubscribe. The mail client posts `List-Unsubscribe=One-Click` here with the token from the `List-Unsubscribe` header; the confirmation page posts JSON. No session and no same-origin check: the signed token is the authorisation, and all it can do is switch marketing e-mail off. Idempotent.
+ */
+export const unsubscribeAccountEmailQueryTokenMax = 200;
+
+export const UnsubscribeAccountEmailQueryParams = zod.object({
+  token: zod.string().max(unsubscribeAccountEmailQueryTokenMax).optional(),
+});
+
+export const unsubscribeAccountEmailBodyTokenMax = 200;
+
+export const UnsubscribeAccountEmailBody = zod.object({
+  token: zod.string().max(unsubscribeAccountEmailBodyTokenMax).optional(),
+});
+
+export const UnsubscribeAccountEmailResponse = zod.object({
+  unsubscribed: zod.boolean(),
+});
+
+/**
+ * The withdrawal policy, what the customer may withdraw now, when the next request is allowed, and their recent requests.
+ */
+export const GetAccountReferralWithdrawalsResponse = zod.object({
+  enabled: zod.boolean(),
+  currency: zod.string(),
+  minimumMinor: zod.int(),
+  cooldownDays: zod.int(),
+  onlyReferralBalance: zod.boolean(),
+  earnedMinor: zod.int(),
+  requestedMinor: zod.int(),
+  availableMinor: zod.int(),
+  nextAllowedAt: zod.iso.datetime({ offset: true }).optional(),
+  requests: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      amountMinor: zod.int(),
+      currency: zod.string(),
+      status: zod.enum(["pending", "approved", "rejected", "cancelled", "paid"]),
+      method: zod.enum(["card", "sbp", "crypto", "other"]),
+      note: zod.string().optional(),
+      createdAt: zod.iso.datetime({ offset: true }),
+      decidedAt: zod.iso.datetime({ offset: true }).optional(),
+      paidAt: zod.iso.datetime({ offset: true }).optional(),
+    }),
+  ),
+});
+
+/**
+ * Opens a withdrawal request and holds its amount in the same transaction. Refused below the minimum, above what may be withdrawn, inside the cooldown, or while another request is pending. A replay with the same Idempotency-Key returns the request that was created.
+ */
+export const requestAccountReferralWithdrawalHeaderIdempotencyKeyMin = 8;
+export const requestAccountReferralWithdrawalHeaderIdempotencyKeyMax = 128;
+
+export const RequestAccountReferralWithdrawalHeader = zod.object({
+  "Idempotency-Key": zod
+    .string()
+    .min(requestAccountReferralWithdrawalHeaderIdempotencyKeyMin)
+    .max(requestAccountReferralWithdrawalHeaderIdempotencyKeyMax),
+});
+
+export const requestAccountReferralWithdrawalBodyDetailsMax = 300;
+
+export const RequestAccountReferralWithdrawalBody = zod.object({
+  amountMinor: zod.int().min(1),
+  method: zod.enum(["card", "sbp", "crypto", "other"]),
+  details: zod.string().max(requestAccountReferralWithdrawalBodyDetailsMax),
+});
+
+export const RequestAccountReferralWithdrawalResponse = zod.object({
+  id: zod.uuid(),
+  amountMinor: zod.int(),
+  currency: zod.string(),
+  status: zod.enum(["pending", "approved", "rejected", "cancelled", "paid"]),
+  method: zod.enum(["card", "sbp", "crypto", "other"]),
+  note: zod.string().optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+  decidedAt: zod.iso.datetime({ offset: true }).optional(),
+  paidAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+/**
+ * Cancels the customer's own pending request and returns the held amount.
+ */
+export const CancelAccountReferralWithdrawalParams = zod.object({
+  withdrawalID: zod.uuid(),
+});
+
+export const CancelAccountReferralWithdrawalResponse = zod.void();

@@ -214,6 +214,49 @@ A reversal also returns the inviter's cap slot, because the count that drives th
 cap only sees live rewards. The decision is audited as `panel.referral.reviewed`
 under the risk category, with the state and the note.
 
+## Withdrawing referral earnings
+
+A customer can ask to be paid out what their invitations earned, as in
+Bedolaga. It is off until an operator switches it on in **Payouts**, where the
+rules live: the currency, the minimum amount, the number of days between
+requests, and whether only referral earnings may leave (the default) or the
+whole wallet.
+
+The customer requests a withdrawal on the web panel's **Invites** screen with an
+amount, a payout method (card, SBP, crypto, or other), and the details to pay
+to. The request is refused below the minimum, above what may be withdrawn,
+inside the cooldown, or while another request of theirs is waiting.
+
+**The amount is held at once.** The request and a wallet debit are written in
+the same serializable transaction, so money promised for a payout cannot also be
+spent on a subscription, and two requests racing for one balance cannot both
+succeed. Rejecting the request, or the customer cancelling it while it waits,
+posts the matching credit back. Approving it and marking it paid move no ledger
+money, because the payout itself happens outside Omniflow, by whatever means the
+operator uses.
+
+What may be withdrawn is the wallet's available balance, capped — when only
+referral earnings may leave — by unreversed inviter rewards minus what earlier
+requests already took. A reward an operator reverses during
+[referral review](#referral-review-and-reversal) therefore stops being
+withdrawable.
+
+**Payout details are sealed** with `APP_DATA_ENCRYPTION_KEY`. The queue shows
+the method only; **Show details** unseals them for an operator with
+`finance.write` and writes `panel.referral_withdrawal.details_revealed` to the
+audit trail.
+
+**Every request carries a risk score**, 0 to 100, with the reasons beside it:
+referral income with no paying referral (50), a topped-up wallet that never
+bought anything (40), nearly all income from one referral (20), referrals the
+review held or rejected (20), more than 20 rewards in a week (15), referrals
+with abuse signals (15), an account younger than two weeks (15). The score is
+advice. Nothing is approved or rejected automatically.
+
+Approving, rejecting (which requires a note to the customer), and marking paid
+need `finance.write` and are audited as `panel.referral_withdrawal.*`. When the
+customer has a verified e-mail address, each decision is mailed to them.
+
 ## Loyalty
 
 ### Definitions are versioned and immutable

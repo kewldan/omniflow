@@ -4866,6 +4866,84 @@ paths:
       responses:
         "202": {description: Event accepted}
         "400": {$ref: "#/components/responses/Problem"}
+  /v1/account/email/unsubscribe:
+    get:
+      operationId: openAccountEmailUnsubscribe
+      tags: [account]
+      security: []
+      description: >-
+        The footer link of a marketing e-mail. It redirects to the `/unsubscribe`
+        page, which asks for one click, because mail scanners follow links and a
+        GET must not change anything.
+      parameters:
+        - {in: query, name: token, required: true, schema: {type: string, maxLength: 200}}
+      responses:
+        "303": {description: Redirect to the confirmation page}
+    post:
+      operationId: unsubscribeAccountEmail
+      tags: [account]
+      security: []
+      description: >-
+        RFC 8058 one-click unsubscribe. The mail client posts
+        `List-Unsubscribe=One-Click` here with the token from the
+        `List-Unsubscribe` header; the confirmation page posts JSON. No session
+        and no same-origin check: the signed token is the authorisation, and all
+        it can do is switch marketing e-mail off. Idempotent.
+      parameters:
+        - {in: query, name: token, required: false, schema: {type: string, maxLength: 200}}
+      requestBody:
+        required: false
+        content:
+          application/json: {schema: {type: object, properties: {token: {type: string, maxLength: 200}}}}
+          application/x-www-form-urlencoded: {schema: {type: object, properties: {List-Unsubscribe: {type: string}}}}
+      responses:
+        "200": {description: Unsubscribed, content: {application/json: {schema: {type: object, required: [unsubscribed], properties: {unsubscribed: {type: boolean}}}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/account/referrals/withdrawals:
+    get:
+      operationId: getAccountReferralWithdrawals
+      tags: [account]
+      description: >-
+        The withdrawal policy, what the customer may withdraw now, when the
+        next request is allowed, and their recent requests.
+      responses:
+        "200": {description: Withdrawal summary, content: {application/json: {schema: {$ref: "#/components/schemas/AccountWithdrawalSummary"}}}}
+    post:
+      operationId: requestAccountReferralWithdrawal
+      tags: [account]
+      description: >-
+        Opens a withdrawal request and holds its amount in the same transaction.
+        Refused below the minimum, above what may be withdrawn, inside the
+        cooldown, or while another request is pending. A replay with the same
+        Idempotency-Key returns the request that was created.
+      parameters:
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amountMinor, method, details]
+              properties:
+                amountMinor: {type: integer, format: int64, minimum: 1}
+                method: {type: string, enum: [card, sbp, crypto, other]}
+                details: {type: string, maxLength: 300}
+      responses:
+        "201": {description: Request created, content: {application/json: {schema: {$ref: "#/components/schemas/AccountWithdrawal"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/account/referrals/withdrawals/{withdrawalID}:
+    delete:
+      operationId: cancelAccountReferralWithdrawal
+      tags: [account]
+      description: Cancels the customer's own pending request and returns the held amount.
+      parameters:
+        - {in: path, name: withdrawalID, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "204": {description: Cancelled}
+        "404": {$ref: "#/components/responses/Problem"}
 components:
   securitySchemes:
     operatorToken: {type: http, scheme: bearer}
@@ -8705,5 +8783,32 @@ components:
               openTickets: {type: integer, format: int64}
               resolvedTickets: {type: integer, format: int64}
               medianFirstResponseSeconds: {type: integer, format: int64}
+    AccountWithdrawal:
+      type: object
+      required: [id, amountMinor, currency, status, method, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        amountMinor: {type: integer, format: int64}
+        currency: {type: string}
+        status: {type: string, enum: [pending, approved, rejected, cancelled, paid]}
+        method: {type: string, enum: [card, sbp, crypto, other]}
+        note: {type: string}
+        createdAt: {type: string, format: date-time}
+        decidedAt: {type: string, format: date-time}
+        paidAt: {type: string, format: date-time}
+    AccountWithdrawalSummary:
+      type: object
+      required: [enabled, currency, minimumMinor, cooldownDays, onlyReferralBalance, earnedMinor, requestedMinor, availableMinor, requests]
+      properties:
+        enabled: {type: boolean}
+        currency: {type: string}
+        minimumMinor: {type: integer, format: int64}
+        cooldownDays: {type: integer}
+        onlyReferralBalance: {type: boolean}
+        earnedMinor: {type: integer, format: int64}
+        requestedMinor: {type: integer, format: int64}
+        availableMinor: {type: integer, format: int64}
+        nextAllowedAt: {type: string, format: date-time}
+        requests: {type: array, items: {$ref: "#/components/schemas/AccountWithdrawal"}}
   responses:
     Problem: {description: Request failed, content: {application/problem+json: {schema: {$ref: "#/components/schemas/Problem"}}}}

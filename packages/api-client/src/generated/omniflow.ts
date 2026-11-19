@@ -5582,6 +5582,52 @@ export interface PanelSupportReport {
   operators: PanelSupportReportOperatorsItem[];
 }
 
+export type AccountWithdrawalStatus =
+  (typeof AccountWithdrawalStatus)[keyof typeof AccountWithdrawalStatus];
+
+export const AccountWithdrawalStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+  cancelled: "cancelled",
+  paid: "paid",
+} as const;
+
+export type AccountWithdrawalMethod =
+  (typeof AccountWithdrawalMethod)[keyof typeof AccountWithdrawalMethod];
+
+export const AccountWithdrawalMethod = {
+  card: "card",
+  sbp: "sbp",
+  crypto: "crypto",
+  other: "other",
+} as const;
+
+export interface AccountWithdrawal {
+  id: string;
+  amountMinor: number;
+  currency: string;
+  status: AccountWithdrawalStatus;
+  method: AccountWithdrawalMethod;
+  note?: string;
+  createdAt: string;
+  decidedAt?: string;
+  paidAt?: string;
+}
+
+export interface AccountWithdrawalSummary {
+  enabled: boolean;
+  currency: string;
+  minimumMinor: number;
+  cooldownDays: number;
+  onlyReferralBalance: boolean;
+  earnedMinor: number;
+  requestedMinor: number;
+  availableMinor: number;
+  nextAllowedAt?: string;
+  requests: AccountWithdrawal[];
+}
+
 /**
  * Request failed
  */
@@ -7069,6 +7115,47 @@ export type GetPanelSupportReportParams = {
    * @maximum 90
    */
   windowDays?: number;
+};
+
+export type OpenAccountEmailUnsubscribeParams = {
+  /** @maxLength 200 */
+  token: string;
+};
+
+export type UnsubscribeAccountEmailParams = {
+  /** @maxLength 200 */
+  token?: string;
+};
+
+export type UnsubscribeAccountEmailBodyOne = {
+  /** @maxLength 200 */
+  token?: string;
+};
+
+export type UnsubscribeAccountEmailBodyTwo = {
+  "List-Unsubscribe"?: string;
+};
+
+export type UnsubscribeAccountEmail200 = {
+  unsubscribed: boolean;
+};
+
+export type RequestAccountReferralWithdrawalBodyMethod =
+  (typeof RequestAccountReferralWithdrawalBodyMethod)[keyof typeof RequestAccountReferralWithdrawalBodyMethod];
+
+export const RequestAccountReferralWithdrawalBodyMethod = {
+  card: "card",
+  sbp: "sbp",
+  crypto: "crypto",
+  other: "other",
+} as const;
+
+export type RequestAccountReferralWithdrawalBody = {
+  /** @minimum 1 */
+  amountMinor: number;
+  method: RequestAccountReferralWithdrawalBodyMethod;
+  /** @maxLength 300 */
+  details: string;
 };
 
 const getHeaders = (
@@ -35352,6 +35439,438 @@ export const useCollectTelemetryEvent = <TError = Promise<ProblemResponse>>(opti
 
   const swrKey = swrOptions?.swrKey ?? getCollectTelemetryEventMutationKey();
   const swrFn = getCollectTelemetryEventMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type openAccountEmailUnsubscribeResponse303 = {
+  data: void;
+  status: 303;
+};
+export type openAccountEmailUnsubscribeResponseError = openAccountEmailUnsubscribeResponse303 & {
+  headers: Headers;
+};
+
+export type openAccountEmailUnsubscribeResponse = openAccountEmailUnsubscribeResponseError;
+
+export const getOpenAccountEmailUnsubscribeUrl = (params: OpenAccountEmailUnsubscribeParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/account/email/unsubscribe?${stringifiedParams}`
+    : `/v1/account/email/unsubscribe`;
+};
+
+/**
+ * The footer link of a marketing e-mail. It redirects to the `/unsubscribe` page, which asks for one click, because mail scanners follow links and a GET must not change anything.
+ */
+export const openAccountEmailUnsubscribe = async (
+  params: OpenAccountEmailUnsubscribeParams,
+  options?: RequestInit,
+): Promise<openAccountEmailUnsubscribeResponse> => {
+  const res = await fetch(getOpenAccountEmailUnsubscribeUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: openAccountEmailUnsubscribeResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as openAccountEmailUnsubscribeResponse;
+};
+
+export const getOpenAccountEmailUnsubscribeKey = (params: OpenAccountEmailUnsubscribeParams) =>
+  [`/v1/account/email/unsubscribe`, ...(params ? [params] : [])] as const;
+
+export type OpenAccountEmailUnsubscribeQueryResult = NonNullable<
+  Awaited<ReturnType<typeof openAccountEmailUnsubscribe>>
+>;
+
+export const useOpenAccountEmailUnsubscribe = <TError = Promise<void>>(
+  params: OpenAccountEmailUnsubscribeParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof openAccountEmailUnsubscribe>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getOpenAccountEmailUnsubscribeKey(params) : null));
+  const swrFn = () => openAccountEmailUnsubscribe(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type unsubscribeAccountEmailResponse200 = {
+  data: UnsubscribeAccountEmail200;
+  status: 200;
+};
+
+export type unsubscribeAccountEmailResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type unsubscribeAccountEmailResponseSuccess = unsubscribeAccountEmailResponse200 & {
+  headers: Headers;
+};
+export type unsubscribeAccountEmailResponseError = unsubscribeAccountEmailResponse404 & {
+  headers: Headers;
+};
+
+export type unsubscribeAccountEmailResponse =
+  | unsubscribeAccountEmailResponseSuccess
+  | unsubscribeAccountEmailResponseError;
+
+export const getUnsubscribeAccountEmailUrl = (params?: UnsubscribeAccountEmailParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/account/email/unsubscribe?${stringifiedParams}`
+    : `/v1/account/email/unsubscribe`;
+};
+
+/**
+ * RFC 8058 one-click unsubscribe. The mail client posts `List-Unsubscribe=One-Click` here with the token from the `List-Unsubscribe` header; the confirmation page posts JSON. No session and no same-origin check: the signed token is the authorisation, and all it can do is switch marketing e-mail off. Idempotent.
+ */
+export const unsubscribeAccountEmail = async (
+  unsubscribeAccountEmailBody?: UnsubscribeAccountEmailBodyOne | UnsubscribeAccountEmailBodyTwo,
+  params?: UnsubscribeAccountEmailParams,
+  options?: RequestInit,
+): Promise<unsubscribeAccountEmailResponse> => {
+  const res = await fetch(getUnsubscribeAccountEmailUrl(params), {
+    ...options,
+    method: "POST",
+    body: JSON.stringify(unsubscribeAccountEmailBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: unsubscribeAccountEmailResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as unsubscribeAccountEmailResponse;
+};
+
+export const getUnsubscribeAccountEmailMutationFetcher = (
+  params?: UnsubscribeAccountEmailParams,
+  options?: RequestInit,
+) => {
+  return (
+    _: Key,
+    { arg }: { arg: UnsubscribeAccountEmailBodyOne | UnsubscribeAccountEmailBodyTwo | undefined },
+  ) => {
+    return unsubscribeAccountEmail(arg, params, options);
+  };
+};
+export const getUnsubscribeAccountEmailMutationKey = (params?: UnsubscribeAccountEmailParams) =>
+  [`/v1/account/email/unsubscribe`, ...(params ? [params] : [])] as const;
+
+export type UnsubscribeAccountEmailMutationResult = NonNullable<
+  Awaited<ReturnType<typeof unsubscribeAccountEmail>>
+>;
+
+export const useUnsubscribeAccountEmail = <TError = Promise<ProblemResponse>>(
+  params?: UnsubscribeAccountEmailParams,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof unsubscribeAccountEmail>>,
+      TError,
+      Key,
+      UnsubscribeAccountEmailBodyOne | UnsubscribeAccountEmailBodyTwo | undefined,
+      Awaited<ReturnType<typeof unsubscribeAccountEmail>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getUnsubscribeAccountEmailMutationKey(params);
+  const swrFn = getUnsubscribeAccountEmailMutationFetcher(params, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountReferralWithdrawalsResponse200 = {
+  data: AccountWithdrawalSummary;
+  status: 200;
+};
+
+export type getAccountReferralWithdrawalsResponseSuccess =
+  getAccountReferralWithdrawalsResponse200 & {
+    headers: Headers;
+  };
+
+export type getAccountReferralWithdrawalsResponse = getAccountReferralWithdrawalsResponseSuccess;
+
+export const getGetAccountReferralWithdrawalsUrl = () => {
+  return `/v1/account/referrals/withdrawals`;
+};
+
+/**
+ * The withdrawal policy, what the customer may withdraw now, when the next request is allowed, and their recent requests.
+ */
+export const getAccountReferralWithdrawals = async (
+  options?: RequestInit,
+): Promise<getAccountReferralWithdrawalsResponse> => {
+  const res = await fetch(getGetAccountReferralWithdrawalsUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountReferralWithdrawalsResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getAccountReferralWithdrawalsResponse;
+};
+
+export const getGetAccountReferralWithdrawalsKey = () =>
+  [`/v1/account/referrals/withdrawals`] as const;
+
+export type GetAccountReferralWithdrawalsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountReferralWithdrawals>>
+>;
+
+export const useGetAccountReferralWithdrawals = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountReferralWithdrawals>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetAccountReferralWithdrawalsKey() : null));
+  const swrFn = () => getAccountReferralWithdrawals(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type requestAccountReferralWithdrawalResponse201 = {
+  data: AccountWithdrawal;
+  status: 201;
+};
+
+export type requestAccountReferralWithdrawalResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type requestAccountReferralWithdrawalResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type requestAccountReferralWithdrawalResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type requestAccountReferralWithdrawalResponseSuccess =
+  requestAccountReferralWithdrawalResponse201 & {
+    headers: Headers;
+  };
+export type requestAccountReferralWithdrawalResponseError = (
+  | requestAccountReferralWithdrawalResponse404
+  | requestAccountReferralWithdrawalResponse409
+  | requestAccountReferralWithdrawalResponse422
+) & {
+  headers: Headers;
+};
+
+export type requestAccountReferralWithdrawalResponse =
+  | requestAccountReferralWithdrawalResponseSuccess
+  | requestAccountReferralWithdrawalResponseError;
+
+export const getRequestAccountReferralWithdrawalUrl = () => {
+  return `/v1/account/referrals/withdrawals`;
+};
+
+/**
+ * Opens a withdrawal request and holds its amount in the same transaction. Refused below the minimum, above what may be withdrawn, inside the cooldown, or while another request is pending. A replay with the same Idempotency-Key returns the request that was created.
+ */
+export const requestAccountReferralWithdrawal = async (
+  requestAccountReferralWithdrawalBody: RequestAccountReferralWithdrawalBody,
+  options?: RequestInit,
+): Promise<requestAccountReferralWithdrawalResponse> => {
+  const res = await fetch(getRequestAccountReferralWithdrawalUrl(), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(requestAccountReferralWithdrawalBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: requestAccountReferralWithdrawalResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as requestAccountReferralWithdrawalResponse;
+};
+
+export const getRequestAccountReferralWithdrawalMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: RequestAccountReferralWithdrawalBody }) => {
+    return requestAccountReferralWithdrawal(arg, options);
+  };
+};
+export const getRequestAccountReferralWithdrawalMutationKey = () =>
+  [`/v1/account/referrals/withdrawals`] as const;
+
+export type RequestAccountReferralWithdrawalMutationResult = NonNullable<
+  Awaited<ReturnType<typeof requestAccountReferralWithdrawal>>
+>;
+
+export const useRequestAccountReferralWithdrawal = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof requestAccountReferralWithdrawal>>,
+    TError,
+    Key,
+    RequestAccountReferralWithdrawalBody,
+    Awaited<ReturnType<typeof requestAccountReferralWithdrawal>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRequestAccountReferralWithdrawalMutationKey();
+  const swrFn = getRequestAccountReferralWithdrawalMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type cancelAccountReferralWithdrawalResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type cancelAccountReferralWithdrawalResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type cancelAccountReferralWithdrawalResponseSuccess =
+  cancelAccountReferralWithdrawalResponse204 & {
+    headers: Headers;
+  };
+export type cancelAccountReferralWithdrawalResponseError =
+  cancelAccountReferralWithdrawalResponse404 & {
+    headers: Headers;
+  };
+
+export type cancelAccountReferralWithdrawalResponse =
+  | cancelAccountReferralWithdrawalResponseSuccess
+  | cancelAccountReferralWithdrawalResponseError;
+
+export const getCancelAccountReferralWithdrawalUrl = (withdrawalID: string) => {
+  return `/v1/account/referrals/withdrawals/${withdrawalID}`;
+};
+
+/**
+ * Cancels the customer's own pending request and returns the held amount.
+ */
+export const cancelAccountReferralWithdrawal = async (
+  withdrawalID: string,
+  options?: RequestInit,
+): Promise<cancelAccountReferralWithdrawalResponse> => {
+  const res = await fetch(getCancelAccountReferralWithdrawalUrl(withdrawalID), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: cancelAccountReferralWithdrawalResponse["data"] = body ? JSON.parse(body) : undefined;
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as cancelAccountReferralWithdrawalResponse;
+};
+
+export const getCancelAccountReferralWithdrawalMutationFetcher = (
+  withdrawalID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return cancelAccountReferralWithdrawal(withdrawalID, options);
+  };
+};
+export const getCancelAccountReferralWithdrawalMutationKey = (withdrawalID: string) =>
+  [`/v1/account/referrals/withdrawals/${withdrawalID}`] as const;
+
+export type CancelAccountReferralWithdrawalMutationResult = NonNullable<
+  Awaited<ReturnType<typeof cancelAccountReferralWithdrawal>>
+>;
+
+export const useCancelAccountReferralWithdrawal = <TError = Promise<ProblemResponse>>(
+  withdrawalID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof cancelAccountReferralWithdrawal>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof cancelAccountReferralWithdrawal>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getCancelAccountReferralWithdrawalMutationKey(withdrawalID);
+  const swrFn = getCancelAccountReferralWithdrawalMutationFetcher(withdrawalID, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

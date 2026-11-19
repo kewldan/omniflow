@@ -12,6 +12,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -1120,6 +1121,57 @@ func (e AccountTopUpStartedPaymentProblemCode) Valid() bool {
 	case AccountTopUpStartedPaymentProblemCodeProviderCurrencyUnsupported:
 		return true
 	case AccountTopUpStartedPaymentProblemCodeProviderUnavailable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountWithdrawalMethod.
+const (
+	AccountWithdrawalMethodCard   AccountWithdrawalMethod = "card"
+	AccountWithdrawalMethodCrypto AccountWithdrawalMethod = "crypto"
+	AccountWithdrawalMethodOther  AccountWithdrawalMethod = "other"
+	AccountWithdrawalMethodSbp    AccountWithdrawalMethod = "sbp"
+)
+
+// Valid indicates whether the value is a known member of the AccountWithdrawalMethod enum.
+func (e AccountWithdrawalMethod) Valid() bool {
+	switch e {
+	case AccountWithdrawalMethodCard:
+		return true
+	case AccountWithdrawalMethodCrypto:
+		return true
+	case AccountWithdrawalMethodOther:
+		return true
+	case AccountWithdrawalMethodSbp:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AccountWithdrawalStatus.
+const (
+	AccountWithdrawalStatusApproved  AccountWithdrawalStatus = "approved"
+	AccountWithdrawalStatusCancelled AccountWithdrawalStatus = "cancelled"
+	AccountWithdrawalStatusPaid      AccountWithdrawalStatus = "paid"
+	AccountWithdrawalStatusPending   AccountWithdrawalStatus = "pending"
+	AccountWithdrawalStatusRejected  AccountWithdrawalStatus = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the AccountWithdrawalStatus enum.
+func (e AccountWithdrawalStatus) Valid() bool {
+	switch e {
+	case AccountWithdrawalStatusApproved:
+		return true
+	case AccountWithdrawalStatusCancelled:
+		return true
+	case AccountWithdrawalStatusPaid:
+		return true
+	case AccountWithdrawalStatusPending:
+		return true
+	case AccountWithdrawalStatusRejected:
 		return true
 	default:
 		return false
@@ -4231,6 +4283,24 @@ func (e UpdateAccountRenewalJSONBodyFunding) Valid() bool {
 	case UpdateAccountRenewalJSONBodyFundingSavedMethod:
 		return true
 	case UpdateAccountRenewalJSONBodyFundingWallet:
+// Defines values for RequestAccountReferralWithdrawalJSONBodyMethod.
+const (
+	RequestAccountReferralWithdrawalJSONBodyMethodCard   RequestAccountReferralWithdrawalJSONBodyMethod = "card"
+	RequestAccountReferralWithdrawalJSONBodyMethodCrypto RequestAccountReferralWithdrawalJSONBodyMethod = "crypto"
+	RequestAccountReferralWithdrawalJSONBodyMethodOther  RequestAccountReferralWithdrawalJSONBodyMethod = "other"
+	RequestAccountReferralWithdrawalJSONBodyMethodSbp    RequestAccountReferralWithdrawalJSONBodyMethod = "sbp"
+)
+
+// Valid indicates whether the value is a known member of the RequestAccountReferralWithdrawalJSONBodyMethod enum.
+func (e RequestAccountReferralWithdrawalJSONBodyMethod) Valid() bool {
+	switch e {
+	case RequestAccountReferralWithdrawalJSONBodyMethodCard:
+		return true
+	case RequestAccountReferralWithdrawalJSONBodyMethodCrypto:
+		return true
+	case RequestAccountReferralWithdrawalJSONBodyMethodOther:
+		return true
+	case RequestAccountReferralWithdrawalJSONBodyMethodSbp:
 		return true
 	default:
 		return false
@@ -6215,6 +6285,39 @@ type AccountWallet struct {
 		// RemainingWindowMinor What the rolling-window limit still allows.
 		RemainingWindowMinor *int64 `json:"remainingWindowMinor,omitempty"`
 	} `json:"topUp"`
+}
+
+// AccountWithdrawal defines model for AccountWithdrawal.
+type AccountWithdrawal struct {
+	AmountMinor int64                   `json:"amountMinor"`
+	CreatedAt   time.Time               `json:"createdAt"`
+	Currency    string                  `json:"currency"`
+	DecidedAt   *time.Time              `json:"decidedAt,omitempty"`
+	Id          openapi_types.UUID      `json:"id"`
+	Method      AccountWithdrawalMethod `json:"method"`
+	Note        *string                 `json:"note,omitempty"`
+	PaidAt      *time.Time              `json:"paidAt,omitempty"`
+	Status      AccountWithdrawalStatus `json:"status"`
+}
+
+// AccountWithdrawalMethod defines model for AccountWithdrawal.Method.
+type AccountWithdrawalMethod string
+
+// AccountWithdrawalStatus defines model for AccountWithdrawal.Status.
+type AccountWithdrawalStatus string
+
+// AccountWithdrawalSummary defines model for AccountWithdrawalSummary.
+type AccountWithdrawalSummary struct {
+	AvailableMinor      int64               `json:"availableMinor"`
+	CooldownDays        int                 `json:"cooldownDays"`
+	Currency            string              `json:"currency"`
+	EarnedMinor         int64               `json:"earnedMinor"`
+	Enabled             bool                `json:"enabled"`
+	MinimumMinor        int64               `json:"minimumMinor"`
+	NextAllowedAt       *time.Time          `json:"nextAllowedAt,omitempty"`
+	OnlyReferralBalance bool                `json:"onlyReferralBalance"`
+	RequestedMinor      int64               `json:"requestedMinor"`
+	Requests            []AccountWithdrawal `json:"requests"`
 }
 
 // AdminAccount defines model for AdminAccount.
@@ -9731,6 +9834,26 @@ type RemoveAccountContactParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// OpenAccountEmailUnsubscribeParams defines parameters for OpenAccountEmailUnsubscribe.
+type OpenAccountEmailUnsubscribeParams struct {
+	Token string `form:"token" json:"token"`
+}
+
+// UnsubscribeAccountEmailJSONBody defines parameters for UnsubscribeAccountEmail.
+type UnsubscribeAccountEmailJSONBody struct {
+	Token *string `json:"token,omitempty"`
+}
+
+// UnsubscribeAccountEmailFormdataBody defines parameters for UnsubscribeAccountEmail.
+type UnsubscribeAccountEmailFormdataBody struct {
+	ListUnsubscribe *string `form:"List-Unsubscribe,omitempty" json:"List-Unsubscribe,omitempty"`
+}
+
+// UnsubscribeAccountEmailParams defines parameters for UnsubscribeAccountEmail.
+type UnsubscribeAccountEmailParams struct {
+	Token *string `form:"token,omitempty" json:"token,omitempty"`
+}
+
 // AccountBuyGiftJSONBody defines parameters for AccountBuyGift.
 type AccountBuyGiftJSONBody struct {
 	Currency      *string            `json:"currency,omitempty"`
@@ -9923,6 +10046,20 @@ type UpdateAccountRenewalParams struct {
 
 // UpdateAccountRenewalJSONBodyFunding defines parameters for UpdateAccountRenewal.
 type UpdateAccountRenewalJSONBodyFunding string
+// RequestAccountReferralWithdrawalJSONBody defines parameters for RequestAccountReferralWithdrawal.
+type RequestAccountReferralWithdrawalJSONBody struct {
+	AmountMinor int64                                          `json:"amountMinor"`
+	Details     string                                         `json:"details"`
+	Method      RequestAccountReferralWithdrawalJSONBodyMethod `json:"method"`
+}
+
+// RequestAccountReferralWithdrawalParams defines parameters for RequestAccountReferralWithdrawal.
+type RequestAccountReferralWithdrawalParams struct {
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// RequestAccountReferralWithdrawalJSONBodyMethod defines parameters for RequestAccountReferralWithdrawal.
+type RequestAccountReferralWithdrawalJSONBodyMethod string
 
 // ListAccountSecurityEventsParams defines parameters for ListAccountSecurityEvents.
 type ListAccountSecurityEventsParams struct {
@@ -11564,6 +11701,12 @@ type AccountRedeemCodeJSONRequestBody AccountRedeemCodeJSONBody
 // AddAccountContactJSONRequestBody defines body for AddAccountContact for application/json ContentType.
 type AddAccountContactJSONRequestBody AddAccountContactJSONBody
 
+// UnsubscribeAccountEmailJSONRequestBody defines body for UnsubscribeAccountEmail for application/json ContentType.
+type UnsubscribeAccountEmailJSONRequestBody UnsubscribeAccountEmailJSONBody
+
+// UnsubscribeAccountEmailFormdataRequestBody defines body for UnsubscribeAccountEmail for application/x-www-form-urlencoded ContentType.
+type UnsubscribeAccountEmailFormdataRequestBody UnsubscribeAccountEmailFormdataBody
+
 // AccountBuyGiftJSONRequestBody defines body for AccountBuyGift for application/json ContentType.
 type AccountBuyGiftJSONRequestBody AccountBuyGiftJSONBody
 
@@ -11587,6 +11730,8 @@ type AttributeAccountReferralJSONRequestBody AttributeAccountReferralJSONBody
 
 // UpdateAccountRenewalJSONRequestBody defines body for UpdateAccountRenewal for application/json ContentType.
 type UpdateAccountRenewalJSONRequestBody UpdateAccountRenewalJSONBody
+// RequestAccountReferralWithdrawalJSONRequestBody defines body for RequestAccountReferralWithdrawal for application/json ContentType.
+type RequestAccountReferralWithdrawalJSONRequestBody RequestAccountReferralWithdrawalJSONBody
 
 // SaveAccountShopCartJSONRequestBody defines body for SaveAccountShopCart for application/json ContentType.
 type SaveAccountShopCartJSONRequestBody SaveAccountShopCartJSONBody
@@ -12124,6 +12269,12 @@ type ServerInterface interface {
 	// (DELETE /v1/account/contacts/{contactID})
 	RemoveAccountContact(w http.ResponseWriter, r *http.Request, contactID openapi_types.UUID, params RemoveAccountContactParams)
 
+	// (GET /v1/account/email/unsubscribe)
+	OpenAccountEmailUnsubscribe(w http.ResponseWriter, r *http.Request, params OpenAccountEmailUnsubscribeParams)
+
+	// (POST /v1/account/email/unsubscribe)
+	UnsubscribeAccountEmail(w http.ResponseWriter, r *http.Request, params UnsubscribeAccountEmailParams)
+
 	// (GET /v1/account/gifts)
 	AccountListGifts(w http.ResponseWriter, r *http.Request)
 
@@ -12213,6 +12364,14 @@ type ServerInterface interface {
 
 	// (PUT /v1/account/renewal/{subscriptionID})
 	UpdateAccountRenewal(w http.ResponseWriter, r *http.Request, subscriptionID openapi_types.UUID, params UpdateAccountRenewalParams)
+	// (GET /v1/account/referrals/withdrawals)
+	GetAccountReferralWithdrawals(w http.ResponseWriter, r *http.Request)
+
+	// (POST /v1/account/referrals/withdrawals)
+	RequestAccountReferralWithdrawal(w http.ResponseWriter, r *http.Request, params RequestAccountReferralWithdrawalParams)
+
+	// (DELETE /v1/account/referrals/withdrawals/{withdrawalID})
+	CancelAccountReferralWithdrawal(w http.ResponseWriter, r *http.Request, withdrawalID openapi_types.UUID)
 
 	// (GET /v1/account/security-events)
 	ListAccountSecurityEvents(w http.ResponseWriter, r *http.Request, params ListAccountSecurityEventsParams)
@@ -13180,6 +13339,16 @@ func (_ Unimplemented) RemoveAccountContact(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /v1/account/email/unsubscribe)
+func (_ Unimplemented) OpenAccountEmailUnsubscribe(w http.ResponseWriter, r *http.Request, params OpenAccountEmailUnsubscribeParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/email/unsubscribe)
+func (_ Unimplemented) UnsubscribeAccountEmail(w http.ResponseWriter, r *http.Request, params UnsubscribeAccountEmailParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /v1/account/gifts)
 func (_ Unimplemented) AccountListGifts(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -13327,6 +13496,18 @@ func (_ Unimplemented) GetAccountRenewal(w http.ResponseWriter, r *http.Request)
 
 // (PUT /v1/account/renewal/{subscriptionID})
 func (_ Unimplemented) UpdateAccountRenewal(w http.ResponseWriter, r *http.Request, subscriptionID openapi_types.UUID, params UpdateAccountRenewalParams) {
+// (GET /v1/account/referrals/withdrawals)
+func (_ Unimplemented) GetAccountReferralWithdrawals(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/referrals/withdrawals)
+func (_ Unimplemented) RequestAccountReferralWithdrawal(w http.ResponseWriter, r *http.Request, params RequestAccountReferralWithdrawalParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /v1/account/referrals/withdrawals/{withdrawalID})
+func (_ Unimplemented) CancelAccountReferralWithdrawal(w http.ResponseWriter, r *http.Request, withdrawalID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -15590,6 +15771,72 @@ func (siw *ServerInterfaceWrapper) RemoveAccountContact(w http.ResponseWriter, r
 	handler.ServeHTTP(w, r)
 }
 
+// OpenAccountEmailUnsubscribe operation middleware
+func (siw *ServerInterfaceWrapper) OpenAccountEmailUnsubscribe(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params OpenAccountEmailUnsubscribeParams
+
+	// ------------- Required query parameter "token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "token", r.URL.Query(), &params.Token, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.OpenAccountEmailUnsubscribe(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UnsubscribeAccountEmail operation middleware
+func (siw *ServerInterfaceWrapper) UnsubscribeAccountEmail(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params UnsubscribeAccountEmailParams
+
+	// ------------- Optional query parameter "token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "token", r.URL.Query(), &params.Token, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UnsubscribeAccountEmail(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // AccountListGifts operation middleware
 func (siw *ServerInterfaceWrapper) AccountListGifts(w http.ResponseWriter, r *http.Request) {
 
@@ -16755,6 +17002,11 @@ func (siw *ServerInterfaceWrapper) GetAccountRenewal(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAccountRenewal(w, r)
+// GetAccountReferralWithdrawals operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountReferralWithdrawals(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountReferralWithdrawals(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -16766,6 +17018,8 @@ func (siw *ServerInterfaceWrapper) GetAccountRenewal(w http.ResponseWriter, r *h
 
 // UpdateAccountRenewal operation middleware
 func (siw *ServerInterfaceWrapper) UpdateAccountRenewal(w http.ResponseWriter, r *http.Request) {
+// RequestAccountReferralWithdrawal operation middleware
+func (siw *ServerInterfaceWrapper) RequestAccountReferralWithdrawal(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 	_ = err
@@ -16804,11 +17058,63 @@ func (siw *ServerInterfaceWrapper) UpdateAccountRenewal(w http.ResponseWriter, r
 	} else {
 		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
 		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RequestAccountReferralWithdrawalParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
 		return
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateAccountRenewal(w, r, subscriptionID, params)
+		siw.Handler.RequestAccountReferralWithdrawal(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CancelAccountReferralWithdrawal operation middleware
+func (siw *ServerInterfaceWrapper) CancelAccountReferralWithdrawal(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "withdrawalID" -------------
+	var withdrawalID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "withdrawalID", chi.URLParam(r, "withdrawalID"), &withdrawalID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "withdrawalID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CancelAccountReferralWithdrawal(w, r, withdrawalID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -30158,6 +30464,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/telemetry/events", wrapper.CollectTelemetryEvent)
 	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/email/unsubscribe", wrapper.OpenAccountEmailUnsubscribe)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/email/unsubscribe", wrapper.UnsubscribeAccountEmail)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/referrals/withdrawals", wrapper.GetAccountReferralWithdrawals)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/referrals/withdrawals", wrapper.RequestAccountReferralWithdrawal)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/account/referrals/withdrawals/{withdrawalID}", wrapper.CancelAccountReferralWithdrawal)
+	})
 
 	return r
 }
@@ -31321,6 +31642,64 @@ func (response RemoveAccountContact404ApplicationProblemPlusJSONResponse) VisitR
 	return err
 }
 
+type OpenAccountEmailUnsubscribeRequestObject struct {
+	Params OpenAccountEmailUnsubscribeParams
+}
+
+type OpenAccountEmailUnsubscribeResponseObject interface {
+	VisitOpenAccountEmailUnsubscribeResponse(w http.ResponseWriter) error
+}
+
+type OpenAccountEmailUnsubscribe303Response struct {
+}
+
+func (response OpenAccountEmailUnsubscribe303Response) VisitOpenAccountEmailUnsubscribeResponse(w http.ResponseWriter) error {
+	w.WriteHeader(303)
+	return nil
+}
+
+type UnsubscribeAccountEmailRequestObject struct {
+	Params       UnsubscribeAccountEmailParams
+	JSONBody     *UnsubscribeAccountEmailJSONRequestBody
+	FormdataBody *UnsubscribeAccountEmailFormdataRequestBody
+}
+
+type UnsubscribeAccountEmailResponseObject interface {
+	VisitUnsubscribeAccountEmailResponse(w http.ResponseWriter) error
+}
+
+type UnsubscribeAccountEmail200JSONResponse struct {
+	Unsubscribed bool `json:"unsubscribed"`
+}
+
+func (response UnsubscribeAccountEmail200JSONResponse) VisitUnsubscribeAccountEmailResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UnsubscribeAccountEmail404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response UnsubscribeAccountEmail404ApplicationProblemPlusJSONResponse) VisitUnsubscribeAccountEmailResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type AccountListGiftsRequestObject struct {
 }
 
@@ -32390,6 +32769,16 @@ type GetAccountRenewalResponseObject interface {
 type GetAccountRenewal200JSONResponse AccountRenewal
 
 func (response GetAccountRenewal200JSONResponse) VisitGetAccountRenewalResponse(w http.ResponseWriter) error {
+type GetAccountReferralWithdrawalsRequestObject struct {
+}
+
+type GetAccountReferralWithdrawalsResponseObject interface {
+	VisitGetAccountReferralWithdrawalsResponse(w http.ResponseWriter) error
+}
+
+type GetAccountReferralWithdrawals200JSONResponse AccountWithdrawalSummary
+
+func (response GetAccountReferralWithdrawals200JSONResponse) VisitGetAccountReferralWithdrawalsResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -32414,6 +32803,18 @@ type UpdateAccountRenewalResponseObject interface {
 type UpdateAccountRenewal200JSONResponse AccountRenewal
 
 func (response UpdateAccountRenewal200JSONResponse) VisitUpdateAccountRenewalResponse(w http.ResponseWriter) error {
+type RequestAccountReferralWithdrawalRequestObject struct {
+	Params RequestAccountReferralWithdrawalParams
+	Body   *RequestAccountReferralWithdrawalJSONRequestBody
+}
+
+type RequestAccountReferralWithdrawalResponseObject interface {
+	VisitRequestAccountReferralWithdrawalResponse(w http.ResponseWriter) error
+}
+
+type RequestAccountReferralWithdrawal201JSONResponse AccountWithdrawal
+
+func (response RequestAccountReferralWithdrawal201JSONResponse) VisitRequestAccountReferralWithdrawalResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -32421,6 +32822,7 @@ func (response UpdateAccountRenewal200JSONResponse) VisitUpdateAccountRenewalRes
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	w.WriteHeader(201)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -32430,6 +32832,11 @@ type UpdateAccountRenewal404ApplicationProblemPlusJSONResponse struct {
 }
 
 func (response UpdateAccountRenewal404ApplicationProblemPlusJSONResponse) VisitUpdateAccountRenewalResponse(w http.ResponseWriter) error {
+type RequestAccountReferralWithdrawal404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RequestAccountReferralWithdrawal404ApplicationProblemPlusJSONResponse) VisitRequestAccountReferralWithdrawalResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -32444,6 +32851,23 @@ func (response UpdateAccountRenewal404ApplicationProblemPlusJSONResponse) VisitU
 type UpdateAccountRenewal422ApplicationProblemPlusJSONResponse Problem
 
 func (response UpdateAccountRenewal422ApplicationProblemPlusJSONResponse) VisitUpdateAccountRenewalResponse(w http.ResponseWriter) error {
+type RequestAccountReferralWithdrawal409ApplicationProblemPlusJSONResponse Problem
+
+func (response RequestAccountReferralWithdrawal409ApplicationProblemPlusJSONResponse) VisitRequestAccountReferralWithdrawalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestAccountReferralWithdrawal422ApplicationProblemPlusJSONResponse Problem
+
+func (response RequestAccountReferralWithdrawal422ApplicationProblemPlusJSONResponse) VisitRequestAccountReferralWithdrawalResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -32451,6 +32875,38 @@ func (response UpdateAccountRenewal422ApplicationProblemPlusJSONResponse) VisitU
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CancelAccountReferralWithdrawalRequestObject struct {
+	WithdrawalID openapi_types.UUID `json:"withdrawalID"`
+}
+
+type CancelAccountReferralWithdrawalResponseObject interface {
+	VisitCancelAccountReferralWithdrawalResponse(w http.ResponseWriter) error
+}
+
+type CancelAccountReferralWithdrawal204Response struct {
+}
+
+func (response CancelAccountReferralWithdrawal204Response) VisitCancelAccountReferralWithdrawalResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type CancelAccountReferralWithdrawal404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CancelAccountReferralWithdrawal404ApplicationProblemPlusJSONResponse) VisitCancelAccountReferralWithdrawalResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -45527,6 +45983,12 @@ type StrictServerInterface interface {
 	// (DELETE /v1/account/contacts/{contactID})
 	RemoveAccountContact(ctx context.Context, request RemoveAccountContactRequestObject) (RemoveAccountContactResponseObject, error)
 
+	// (GET /v1/account/email/unsubscribe)
+	OpenAccountEmailUnsubscribe(ctx context.Context, request OpenAccountEmailUnsubscribeRequestObject) (OpenAccountEmailUnsubscribeResponseObject, error)
+
+	// (POST /v1/account/email/unsubscribe)
+	UnsubscribeAccountEmail(ctx context.Context, request UnsubscribeAccountEmailRequestObject) (UnsubscribeAccountEmailResponseObject, error)
+
 	// (GET /v1/account/gifts)
 	AccountListGifts(ctx context.Context, request AccountListGiftsRequestObject) (AccountListGiftsResponseObject, error)
 
@@ -45616,6 +46078,14 @@ type StrictServerInterface interface {
 
 	// (PUT /v1/account/renewal/{subscriptionID})
 	UpdateAccountRenewal(ctx context.Context, request UpdateAccountRenewalRequestObject) (UpdateAccountRenewalResponseObject, error)
+	// (GET /v1/account/referrals/withdrawals)
+	GetAccountReferralWithdrawals(ctx context.Context, request GetAccountReferralWithdrawalsRequestObject) (GetAccountReferralWithdrawalsResponseObject, error)
+
+	// (POST /v1/account/referrals/withdrawals)
+	RequestAccountReferralWithdrawal(ctx context.Context, request RequestAccountReferralWithdrawalRequestObject) (RequestAccountReferralWithdrawalResponseObject, error)
+
+	// (DELETE /v1/account/referrals/withdrawals/{withdrawalID})
+	CancelAccountReferralWithdrawal(ctx context.Context, request CancelAccountReferralWithdrawalRequestObject) (CancelAccountReferralWithdrawalResponseObject, error)
 
 	// (GET /v1/account/security-events)
 	ListAccountSecurityEvents(ctx context.Context, request ListAccountSecurityEventsRequestObject) (ListAccountSecurityEventsResponseObject, error)
@@ -47216,6 +47686,82 @@ func (sh *strictHandler) RemoveAccountContact(w http.ResponseWriter, r *http.Req
 	}
 }
 
+// OpenAccountEmailUnsubscribe operation middleware
+func (sh *strictHandler) OpenAccountEmailUnsubscribe(w http.ResponseWriter, r *http.Request, params OpenAccountEmailUnsubscribeParams) {
+	var request OpenAccountEmailUnsubscribeRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.OpenAccountEmailUnsubscribe(ctx, request.(OpenAccountEmailUnsubscribeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "OpenAccountEmailUnsubscribe")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(OpenAccountEmailUnsubscribeResponseObject); ok {
+		if err := validResponse.VisitOpenAccountEmailUnsubscribeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UnsubscribeAccountEmail operation middleware
+func (sh *strictHandler) UnsubscribeAccountEmail(w http.ResponseWriter, r *http.Request, params UnsubscribeAccountEmailParams) {
+	var request UnsubscribeAccountEmailRequestObject
+
+	request.Params = params
+	if strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
+
+		var body UnsubscribeAccountEmailJSONRequestBody
+		if err := runtime.BindJSONBody(r, &body); err != nil {
+			if !errors.Is(err, io.EOF) {
+				sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+				return
+			}
+		} else {
+			request.JSONBody = &body
+		}
+	}
+	if strings.HasPrefix(r.Header.Get("Content-Type"), "application/x-www-form-urlencoded") {
+		if err := r.ParseForm(); err != nil {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode formdata: %w", err))
+			return
+		}
+		var body UnsubscribeAccountEmailFormdataRequestBody
+		if err := runtime.BindForm(&body, r.Form, nil, nil); err != nil {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't bind formdata: %w", err))
+			return
+		}
+		request.FormdataBody = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UnsubscribeAccountEmail(ctx, request.(UnsubscribeAccountEmailRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UnsubscribeAccountEmail")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UnsubscribeAccountEmailResponseObject); ok {
+		if err := validResponse.VisitUnsubscribeAccountEmailResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // AccountListGifts operation middleware
 func (sh *strictHandler) AccountListGifts(w http.ResponseWriter, r *http.Request) {
 	var request AccountListGiftsRequestObject
@@ -47999,6 +48545,15 @@ func (sh *strictHandler) GetAccountRenewal(w http.ResponseWriter, r *http.Reques
 	}
 	for _, middleware := range sh.middlewares {
 		handler = middleware(handler, "GetAccountRenewal")
+// GetAccountReferralWithdrawals operation middleware
+func (sh *strictHandler) GetAccountReferralWithdrawals(w http.ResponseWriter, r *http.Request) {
+	var request GetAccountReferralWithdrawalsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountReferralWithdrawals(ctx, request.(GetAccountReferralWithdrawalsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountReferralWithdrawals")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
@@ -48007,6 +48562,8 @@ func (sh *strictHandler) GetAccountRenewal(w http.ResponseWriter, r *http.Reques
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetAccountRenewalResponseObject); ok {
 		if err := validResponse.VisitGetAccountRenewalResponse(w); err != nil {
+	} else if validResponse, ok := response.(GetAccountReferralWithdrawalsResponseObject); ok {
+		if err := validResponse.VisitGetAccountReferralWithdrawalsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -48022,6 +48579,13 @@ func (sh *strictHandler) UpdateAccountRenewal(w http.ResponseWriter, r *http.Req
 	request.Params = params
 
 	var body UpdateAccountRenewalJSONRequestBody
+// RequestAccountReferralWithdrawal operation middleware
+func (sh *strictHandler) RequestAccountReferralWithdrawal(w http.ResponseWriter, r *http.Request, params RequestAccountReferralWithdrawalParams) {
+	var request RequestAccountReferralWithdrawalRequestObject
+
+	request.Params = params
+
+	var body RequestAccountReferralWithdrawalJSONRequestBody
 	if err := runtime.BindJSONBody(r, &body); err != nil {
 		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
 		return
@@ -48033,6 +48597,10 @@ func (sh *strictHandler) UpdateAccountRenewal(w http.ResponseWriter, r *http.Req
 	}
 	for _, middleware := range sh.middlewares {
 		handler = middleware(handler, "UpdateAccountRenewal")
+		return sh.ssi.RequestAccountReferralWithdrawal(ctx, request.(RequestAccountReferralWithdrawalRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RequestAccountReferralWithdrawal")
 	}
 
 	response, err := handler(r.Context(), w, r, request)
@@ -48041,6 +48609,34 @@ func (sh *strictHandler) UpdateAccountRenewal(w http.ResponseWriter, r *http.Req
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(UpdateAccountRenewalResponseObject); ok {
 		if err := validResponse.VisitUpdateAccountRenewalResponse(w); err != nil {
+	} else if validResponse, ok := response.(RequestAccountReferralWithdrawalResponseObject); ok {
+		if err := validResponse.VisitRequestAccountReferralWithdrawalResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CancelAccountReferralWithdrawal operation middleware
+func (sh *strictHandler) CancelAccountReferralWithdrawal(w http.ResponseWriter, r *http.Request, withdrawalID openapi_types.UUID) {
+	var request CancelAccountReferralWithdrawalRequestObject
+
+	request.WithdrawalID = withdrawalID
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CancelAccountReferralWithdrawal(ctx, request.(CancelAccountReferralWithdrawalRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CancelAccountReferralWithdrawal")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CancelAccountReferralWithdrawalResponseObject); ok {
+		if err := validResponse.VisitCancelAccountReferralWithdrawalResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

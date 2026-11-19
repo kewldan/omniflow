@@ -1,4 +1,4 @@
-h1:f5J7ecYLxT+9SQnNYwy7tKyMs/Y0lw5hmbqoVIcMC+w=
+h1:MIMNVMYoN9/iR5jbOo8cLa6f1BpTqkgkozMwlhKGZeo=
 20261120000000_baseline.sql h1:xcYk9mdv44B3O0TRxq3RP+hXxJ2VeeOilGnwKO251mQ=
 20261120010000_river_schema_v8.sql h1:AfdQpxaviEf8asJ5gyLmMVZr+zMYaWEw+o/vE8CMj7A=
 20261120020000_customer_email_signin.sql h1:PrCKaTaDm5ggof8aqRooMbqOXEHML5fwq1TF877zQa8=
@@ -20,3 +20,4 @@ h1:f5J7ecYLxT+9SQnNYwy7tKyMs/Y0lw5hmbqoVIcMC+w=
 20261121620000_customer_event_notices.sql h1:kgDyWMeOSdqh4cFd3Vl2CR8o6CyrnDmbLzG0eqA4Uts=
 20261121630000_loyalty_groups.sql h1:+3jDo1WrBSib/Z6Vcu9jhmPUkzEM9C+A97veljztEX0=
 20261121640000_email_delivery.sql h1:/SFtYYhMBCaxlsHeF4rxL06hk3kvdFzRGLO1jPBcCcI=
+20261121650000_referral_withdrawals.sql h1:q/yDPjXPqtuc9xzvtXw+6yK3AA/tKvl0sSVhzmEG1Wo=

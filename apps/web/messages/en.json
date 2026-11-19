@@ -161,7 +161,8 @@
         "offers": "Offers",
         "risk": "Risk",
         "settings": "Settings",
-        "aiSettings": "AI and MCP"
+        "aiSettings": "AI and MCP",
+        "payouts": "Payouts"
       }
     },
     "commandMenu": {
@@ -3276,7 +3277,68 @@
       },
       "locale": {
         "ru": "Russian",
-        "en": "English"
+        "en": "English",
+    "payouts": {
+      "title": "Payouts",
+      "description": "Referral withdrawals waiting for a decision, and the rules customers withdraw under.",
+      "withdrawals": {
+        "title": "Referral withdrawals",
+        "description": "A request holds its amount the moment it is made. Approve it, pay it out by the details the customer gave, then mark it paid; rejecting returns the money to the wallet. The risk score is advice.",
+        "enabled": "Withdrawals on",
+        "minimum": "Minimum ({currency})",
+        "cooldown": "Days between requests",
+        "onlyReferral": "Only referral earnings",
+        "save": "Save rules",
+        "settingsReason": "Referral withdrawal rules",
+        "filter": "Show",
+        "empty": "No requests here.",
+        "statuses": {
+          "pending": "Waiting",
+          "approved": "Approved",
+          "paid": "Paid",
+          "rejected": "Rejected",
+          "cancelled": "Cancelled",
+          "all": "All"
+        },
+        "columns": {
+          "customer": "Customer",
+          "amount": "Amount",
+          "risk": "Risk",
+          "details": "Payout"
+        },
+        "levels": {
+          "low": "Low",
+          "medium": "Medium",
+          "high": "High",
+          "critical": "Critical"
+        },
+        "flags": {
+          "no_paying_referrals": "Referral income, but no referral has paid",
+          "topped_up_never_spent": "Topped up the wallet and never bought anything",
+          "single_source": "Nearly all income from one referral",
+          "reward_burst": "More than 20 rewards in a week",
+          "young_account": "Account younger than two weeks",
+          "questioned_referrals": "Referrals held or rejected by the referral review",
+          "abuse_signals": "Referrals with abuse signals"
+        },
+        "methods": {
+          "card": "Card",
+          "sbp": "SBP",
+          "crypto": "Crypto",
+          "other": "Other"
+        },
+        "reveal": "Show details",
+        "revealFailed": "Could not show the details",
+        "note": "Note to the customer",
+        "approve": "Approve",
+        "reject": "Reject",
+        "markPaid": "Mark paid",
+        "reasons": {
+          "approve": "Withdrawal approved",
+          "reject": "Withdrawal rejected",
+          "paid": "Withdrawal paid out",
+          "reveal": "Paying out a withdrawal"
+        }
       }
     }
   },
@@ -3771,6 +3833,41 @@
         "cancelled": "Your request has been withdrawn",
         "previouslyCancelled": "An earlier request was withdrawn on {date}.",
         "signInAgain": "Sign in again"
+      },
+      "withdrawals": {
+        "title": "Withdraw earnings",
+        "available": "Available: {amount}",
+        "minimum": "minimum {amount}",
+        "onlyReferral": "Only what your invitations earned can be withdrawn.",
+        "pending": "Your request is being reviewed",
+        "pendingHint": "The amount is set aside until it is decided. You can cancel the request while it waits.",
+        "cooldown": "The next request is possible after",
+        "amount": "Amount",
+        "method": "Payout method",
+        "details": "Where to pay",
+        "placeholders": {
+          "card": "Card number",
+          "sbp": "Phone number and bank",
+          "crypto": "Network and wallet address",
+          "other": "How to pay you"
+        },
+        "methods": {
+          "card": "Bank card",
+          "sbp": "SBP",
+          "crypto": "Crypto",
+          "other": "Other"
+        },
+        "submit": "Request withdrawal",
+        "sent": "Request sent. The amount is set aside until it is reviewed.",
+        "failed": "The request could not be sent.",
+        "cancel": "Cancel",
+        "statuses": {
+          "pending": "Waiting",
+          "approved": "Approved",
+          "paid": "Paid",
+          "rejected": "Declined",
+          "cancelled": "Cancelled"
+        }
       }
     },
     "shop": {

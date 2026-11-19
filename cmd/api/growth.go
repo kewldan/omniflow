@@ -10,6 +10,7 @@ import (
 	apihttp "github.com/omniflow/omniflow/internal/httpapi"
 	"github.com/omniflow/omniflow/internal/mailer"
 	"github.com/omniflow/omniflow/internal/paymentservice"
+	"github.com/omniflow/omniflow/internal/referralpayout"
 )
 
 // buildGrowth wires the Bedolaga-parity services the api serves: the e-mail
@@ -36,5 +37,9 @@ func buildGrowth(
 	if err != nil {
 		return apihttp.GrowthServices{}, err
 	}
-	return apihttp.GrowthServices{Email: email, EmailSending: mail.Configured()}, nil
+	services := apihttp.GrowthServices{Email: email, EmailSending: mail.Configured()}
+	if services.Withdrawals, err = referralpayout.New(pool, cfg.DataEncryptionKey, email, logger); err != nil {
+		return apihttp.GrowthServices{}, err
+	}
+	return services, nil
 }
