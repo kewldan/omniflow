@@ -107,7 +107,7 @@ probe is the connection test.
 
 ## Every call Omniflow makes
 
-Fifteen operations. This is the complete list — nothing else in Remnawave's API is reachable from
+This is the complete list of operations — nothing else in Remnawave's API is reachable from
 Omniflow, because nothing else is implemented.
 
 | Remnawave call | What uses it |
@@ -128,6 +128,7 @@ Omniflow, because nothing else is implemented.
 | `POST /api/hwid/devices/delete-all` (body `{userId}`) | A customer disconnecting everything; a renewal when the installation removes devices on renewal |
 | `GET /api/nodes` | [Traffic reporting](/operations/traffic-reporting): node saturation. The one call whose absence is a normal outcome — a panel that does not expose it produces a stated absence on the screen rather than a page of zeros |
 | `GET /api/internal-squads`, `GET /api/external-squads` | The plan editor's squad pickers, read live and never stored |
+| `GET /api/subscription-page-configs/{uuid}` | [Importing the connect catalogue](/operations/connection-catalogue#importing-from-remnawaves-subscription-page) from the panel's own subscription page |
 
 Three narrow Go interfaces divide that set by who is allowed to hold it: `Service` is the read set
 for customer surfaces, `Provisioner` is the write set the fulfillment worker holds, and `Importer` is

@@ -6195,6 +6195,16 @@ export type DeletePanelConnectClient200 = {
   removed?: boolean;
 };
 
+export type ImportPanelConnectFromRemnawaveBody = {
+  configUuid: string;
+};
+
+export type ImportPanelConnectFromRemnawave200 = {
+  platforms: number;
+  clients: number;
+  skipped: string[];
+};
+
 export type SearchPanelBlocklistMatchesParams = {
   /** Opaque keyset cursor from the previous page. */
   cursor?: CursorParameter;
@@ -21823,6 +21833,111 @@ export const useDeletePanelConnectClient = <TError = Promise<ProblemResponse>>(
 
   const swrKey = swrOptions?.swrKey ?? getDeletePanelConnectClientMutationKey(clientID);
   const swrFn = getDeletePanelConnectClientMutationFetcher(clientID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type importPanelConnectFromRemnawaveResponse200 = {
+  data: ImportPanelConnectFromRemnawave200;
+  status: 200;
+};
+
+export type importPanelConnectFromRemnawaveResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type importPanelConnectFromRemnawaveResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type importPanelConnectFromRemnawaveResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type importPanelConnectFromRemnawaveResponse502 = {
+  data: ProblemResponse;
+  status: 502;
+};
+
+export type importPanelConnectFromRemnawaveResponseSuccess =
+  importPanelConnectFromRemnawaveResponse200 & {
+    headers: Headers;
+  };
+export type importPanelConnectFromRemnawaveResponseError = (
+  | importPanelConnectFromRemnawaveResponse403
+  | importPanelConnectFromRemnawaveResponse404
+  | importPanelConnectFromRemnawaveResponse422
+  | importPanelConnectFromRemnawaveResponse502
+) & {
+  headers: Headers;
+};
+
+export type importPanelConnectFromRemnawaveResponse =
+  | importPanelConnectFromRemnawaveResponseSuccess
+  | importPanelConnectFromRemnawaveResponseError;
+
+export const getImportPanelConnectFromRemnawaveUrl = () => {
+  return `/v1/panel/settings/connect/import-remnawave`;
+};
+
+/**
+ * Requires settings.write. Copies the applications of one Remnawave subscription-page configuration into the connect catalogue, matching platforms by key and applications by platform and name. Applications whose import scheme the catalogue refuses are listed in `skipped`.
+ */
+export const importPanelConnectFromRemnawave = async (
+  importPanelConnectFromRemnawaveBody: ImportPanelConnectFromRemnawaveBody,
+  options?: RequestInit,
+): Promise<importPanelConnectFromRemnawaveResponse> => {
+  const res = await fetch(getImportPanelConnectFromRemnawaveUrl(), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(importPanelConnectFromRemnawaveBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: importPanelConnectFromRemnawaveResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as importPanelConnectFromRemnawaveResponse;
+};
+
+export const getImportPanelConnectFromRemnawaveMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: ImportPanelConnectFromRemnawaveBody }) => {
+    return importPanelConnectFromRemnawave(arg, options);
+  };
+};
+export const getImportPanelConnectFromRemnawaveMutationKey = () =>
+  [`/v1/panel/settings/connect/import-remnawave`] as const;
+
+export type ImportPanelConnectFromRemnawaveMutationResult = NonNullable<
+  Awaited<ReturnType<typeof importPanelConnectFromRemnawave>>
+>;
+
+export const useImportPanelConnectFromRemnawave = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof importPanelConnectFromRemnawave>>,
+    TError,
+    Key,
+    ImportPanelConnectFromRemnawaveBody,
+    Awaited<ReturnType<typeof importPanelConnectFromRemnawave>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getImportPanelConnectFromRemnawaveMutationKey();
+  const swrFn = getImportPanelConnectFromRemnawaveMutationFetcher(fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

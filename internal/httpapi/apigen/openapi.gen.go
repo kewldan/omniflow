@@ -11058,6 +11058,17 @@ type DeletePanelConnectClientParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// ImportPanelConnectFromRemnawaveJSONBody defines parameters for ImportPanelConnectFromRemnawave.
+type ImportPanelConnectFromRemnawaveJSONBody struct {
+	ConfigUuid openapi_types.UUID `json:"configUuid"`
+}
+
+// ImportPanelConnectFromRemnawaveParams defines parameters for ImportPanelConnectFromRemnawave.
+type ImportPanelConnectFromRemnawaveParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // SavePanelConnectPlatformParams defines parameters for SavePanelConnectPlatform.
 type SavePanelConnectPlatformParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
@@ -11640,6 +11651,9 @@ type SavePanelTopUpSettingsJSONRequestBody = PanelTopUpSettings
 
 // SavePanelConnectClientJSONRequestBody defines body for SavePanelConnectClient for application/json ContentType.
 type SavePanelConnectClientJSONRequestBody = PanelConnectClient
+
+// ImportPanelConnectFromRemnawaveJSONRequestBody defines body for ImportPanelConnectFromRemnawave for application/json ContentType.
+type ImportPanelConnectFromRemnawaveJSONRequestBody ImportPanelConnectFromRemnawaveJSONBody
 
 // SavePanelConnectPlatformJSONRequestBody defines body for SavePanelConnectPlatform for application/json ContentType.
 type SavePanelConnectPlatformJSONRequestBody = PanelConnectPlatform
@@ -12692,6 +12706,9 @@ type ServerInterface interface {
 
 	// (DELETE /v1/panel/settings/connect/clients/{clientID})
 	DeletePanelConnectClient(w http.ResponseWriter, r *http.Request, clientID openapi_types.UUID, params DeletePanelConnectClientParams)
+
+	// (POST /v1/panel/settings/connect/import-remnawave)
+	ImportPanelConnectFromRemnawave(w http.ResponseWriter, r *http.Request, params ImportPanelConnectFromRemnawaveParams)
 
 	// (PUT /v1/panel/settings/connect/platforms)
 	SavePanelConnectPlatform(w http.ResponseWriter, r *http.Request, params SavePanelConnectPlatformParams)
@@ -14239,6 +14256,11 @@ func (_ Unimplemented) SavePanelConnectClient(w http.ResponseWriter, r *http.Req
 
 // (DELETE /v1/panel/settings/connect/clients/{clientID})
 func (_ Unimplemented) DeletePanelConnectClient(w http.ResponseWriter, r *http.Request, clientID openapi_types.UUID, params DeletePanelConnectClientParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/settings/connect/import-remnawave)
+func (_ Unimplemented) ImportPanelConnectFromRemnawave(w http.ResponseWriter, r *http.Request, params ImportPanelConnectFromRemnawaveParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -26465,6 +26487,51 @@ func (siw *ServerInterfaceWrapper) DeletePanelConnectClient(w http.ResponseWrite
 	handler.ServeHTTP(w, r)
 }
 
+// ImportPanelConnectFromRemnawave operation middleware
+func (siw *ServerInterfaceWrapper) ImportPanelConnectFromRemnawave(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ImportPanelConnectFromRemnawaveParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ImportPanelConnectFromRemnawave(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // SavePanelConnectPlatform operation middleware
 func (siw *ServerInterfaceWrapper) SavePanelConnectPlatform(w http.ResponseWriter, r *http.Request) {
 
@@ -29238,6 +29305,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/v1/panel/settings/connect/clients/{clientID}", wrapper.DeletePanelConnectClient)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/settings/connect/import-remnawave", wrapper.ImportPanelConnectFromRemnawave)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/settings/providers", wrapper.ListPanelProviderSettings)
@@ -42323,6 +42393,91 @@ func (response DeletePanelConnectClient404ApplicationProblemPlusJSONResponse) Vi
 	return err
 }
 
+type ImportPanelConnectFromRemnawaveRequestObject struct {
+	Params ImportPanelConnectFromRemnawaveParams
+	Body   *ImportPanelConnectFromRemnawaveJSONRequestBody
+}
+
+type ImportPanelConnectFromRemnawaveResponseObject interface {
+	VisitImportPanelConnectFromRemnawaveResponse(w http.ResponseWriter) error
+}
+
+type ImportPanelConnectFromRemnawave200JSONResponse struct {
+	Clients   int      `json:"clients"`
+	Platforms int      `json:"platforms"`
+	Skipped   []string `json:"skipped"`
+}
+
+func (response ImportPanelConnectFromRemnawave200JSONResponse) VisitImportPanelConnectFromRemnawaveResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImportPanelConnectFromRemnawave403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ImportPanelConnectFromRemnawave403ApplicationProblemPlusJSONResponse) VisitImportPanelConnectFromRemnawaveResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImportPanelConnectFromRemnawave404ApplicationProblemPlusJSONResponse Problem
+
+func (response ImportPanelConnectFromRemnawave404ApplicationProblemPlusJSONResponse) VisitImportPanelConnectFromRemnawaveResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImportPanelConnectFromRemnawave422ApplicationProblemPlusJSONResponse Problem
+
+func (response ImportPanelConnectFromRemnawave422ApplicationProblemPlusJSONResponse) VisitImportPanelConnectFromRemnawaveResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ImportPanelConnectFromRemnawave502ApplicationProblemPlusJSONResponse Problem
+
+func (response ImportPanelConnectFromRemnawave502ApplicationProblemPlusJSONResponse) VisitImportPanelConnectFromRemnawaveResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type SavePanelConnectPlatformRequestObject struct {
 	Params SavePanelConnectPlatformParams
 	Body   *SavePanelConnectPlatformJSONRequestBody
@@ -45581,6 +45736,9 @@ type StrictServerInterface interface {
 
 	// (DELETE /v1/panel/settings/connect/clients/{clientID})
 	DeletePanelConnectClient(ctx context.Context, request DeletePanelConnectClientRequestObject) (DeletePanelConnectClientResponseObject, error)
+
+	// (POST /v1/panel/settings/connect/import-remnawave)
+	ImportPanelConnectFromRemnawave(ctx context.Context, request ImportPanelConnectFromRemnawaveRequestObject) (ImportPanelConnectFromRemnawaveResponseObject, error)
 
 	// (PUT /v1/panel/settings/connect/platforms)
 	SavePanelConnectPlatform(ctx context.Context, request SavePanelConnectPlatformRequestObject) (SavePanelConnectPlatformResponseObject, error)
@@ -53711,6 +53869,39 @@ func (sh *strictHandler) DeletePanelConnectClient(w http.ResponseWriter, r *http
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(DeletePanelConnectClientResponseObject); ok {
 		if err := validResponse.VisitDeletePanelConnectClientResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ImportPanelConnectFromRemnawave operation middleware
+func (sh *strictHandler) ImportPanelConnectFromRemnawave(w http.ResponseWriter, r *http.Request, params ImportPanelConnectFromRemnawaveParams) {
+	var request ImportPanelConnectFromRemnawaveRequestObject
+
+	request.Params = params
+
+	var body ImportPanelConnectFromRemnawaveJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ImportPanelConnectFromRemnawave(ctx, request.(ImportPanelConnectFromRemnawaveRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ImportPanelConnectFromRemnawave")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ImportPanelConnectFromRemnawaveResponseObject); ok {
+		if err := validResponse.VisitImportPanelConnectFromRemnawaveResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

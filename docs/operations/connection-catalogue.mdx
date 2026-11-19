@@ -95,6 +95,25 @@ https and therefore may be one.
 subscription link, because copying the link into any compatible client is the
 thing that actually has to work.
 
+## Importing from Remnawave's subscription page
+
+An operator who has already curated Remnawave's own subscription page does not have to type it in
+again. **Import from Remnawave** on `/admin/settings/connect` (requires `settings.write`) takes the ID
+of a subscription-page configuration — the UUID in the panel's subscription page settings — and reads
+it with `GET /api/subscription-page-configs/{uuid}`.
+
+Each platform of the page (`ios`, `android`, `windows`, `macos`, `linux`, `androidTV` → `android-tv`,
+`appleTV` → `apple-tv`) becomes a platform here, with the page's own label. Each application becomes a
+client with the page's import scheme (`urlScheme`, or the part of its "add subscription" button before
+`{{SUBSCRIPTION_LINK}}`), its first external `https` button as the download address, and its blocks'
+titles and descriptions as the instructions in English and Russian. Featured applications come first,
+because the first application of a platform is the one both surfaces recommend.
+
+Platforms are matched by key and applications by platform and name, so importing again updates what
+the last import created and leaves entries with other names alone. An application whose scheme the
+rule above refuses — one that needs a template Omniflow cannot fill, or carries a query string — is
+skipped and named in the result. Nothing is written to Remnawave.
+
 ## How the link is handed over
 
 Five settings decide how the subscription link reaches a customer, in the bot and in the web panel

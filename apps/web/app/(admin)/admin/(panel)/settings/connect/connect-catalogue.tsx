@@ -15,7 +15,7 @@ import useSWR from "swr";
 
 import { PageHeader } from "@/components/admin/resource-table";
 import type { ApiError } from "@/lib/api";
-import { fetcher } from "@/lib/api";
+import { apiFetch, fetcher } from "@/lib/api";
 import type { ConnectCatalogue, ConnectClient, ConnectPlatform } from "@/lib/operations";
 import { useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
@@ -56,6 +56,7 @@ export function ConnectCatalogueScreen() {
   return (
     <div className="flex flex-col gap-5">
       <PageHeader description={translate("description")} title={translate("title")} />
+      {editable ? <RemnawaveImportCard onImported={() => mutate()} /> : null}
       <PlatformCard editable={editable} onChanged={() => mutate()} platforms={data.platforms} />
       {data.platforms.map((platform) => (
         <ClientCard
@@ -67,6 +68,77 @@ export function ConnectCatalogueScreen() {
         />
       ))}
     </div>
+  );
+}
+
+type ImportResult = { platforms: number; clients: number; skipped: string[] };
+
+/**
+ * Copies the applications of a Remnawave subscription page into this
+ * catalogue. Platforms are matched by key and applications by platform and
+ * name, so importing again updates rather than duplicates; entries with other
+ * names are left alone.
+ */
+function RemnawaveImportCard({ onImported }: { onImported: () => void }) {
+  const translate = useTranslations("admin.connect.import");
+  const inputId = useId();
+  const [configUuid, setConfigUuid] = useState("");
+  const [pending, setPending] = useState(false);
+  const [result, setResult] = useState<ImportResult | null>(null);
+
+  async function importPage() {
+    setPending(true);
+    try {
+      const imported = await apiFetch<ImportResult>(`${ENDPOINT}/import-remnawave`, {
+        body: JSON.stringify({ configUuid: configUuid.trim() }),
+        method: "POST",
+      });
+      setResult(imported);
+      onImported();
+      toast.success(
+        translate("done", { clients: imported.clients, platforms: imported.platforms }),
+      );
+    } catch (importError) {
+      toast.error((importError as ApiError).message);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{translate("title")}</CardTitle>
+        <CardDescription>{translate("description")}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={inputId}>{translate("uuid")}</Label>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Input
+              autoComplete="off"
+              className="font-mono"
+              id={inputId}
+              onChange={(event) => setConfigUuid(event.target.value)}
+              placeholder="00000000-0000-0000-0000-000000000000"
+              value={configUuid}
+            />
+            <Button
+              disabled={pending || configUuid.trim().length !== 36}
+              onClick={importPage}
+              variant="outline"
+            >
+              {pending ? translate("importing") : translate("action")}
+            </Button>
+          </div>
+        </div>
+        {result && result.skipped.length > 0 ? (
+          <p className="text-[12.5px] text-muted-foreground">
+            {translate("skipped", { names: result.skipped.join(", ") })}
+          </p>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 

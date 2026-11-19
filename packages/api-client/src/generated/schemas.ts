@@ -5707,6 +5707,25 @@ export const DeletePanelConnectClientResponse = zod.object({
 });
 
 /**
+ * Requires settings.write. Copies the applications of one Remnawave subscription-page configuration into the connect catalogue, matching platforms by key and applications by platform and name. Applications whose import scheme the catalogue refuses are listed in `skipped`.
+ */
+export const ImportPanelConnectFromRemnawaveHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const ImportPanelConnectFromRemnawaveBody = zod.object({
+  configUuid: zod.uuid(),
+});
+
+export const ImportPanelConnectFromRemnawaveResponse = zod.object({
+  platforms: zod.int(),
+  clients: zod.int(),
+  skipped: zod.array(zod.string()),
+});
+
+/**
  * Requires settings.read. Reports what the operator configured beside what each compiled-in adapter declares. No secret is ever returned; the `credentialsSet` flags report only whether one is stored.
  */
 export const ListPanelProviderSettingsResponse = zod.object({

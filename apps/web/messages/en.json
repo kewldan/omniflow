@@ -121,6 +121,15 @@
         "instructionsHint": "Optional. Yours replace the generic three steps for this platform rather than being added to them.",
         "add": "Add an application",
         "empty": "No application is documented for this platform yet."
+      },
+      "import": {
+        "title": "Import from Remnawave",
+        "description": "Copy the applications your Remnawave subscription page recommends. Platforms are matched by key and applications by name, so importing again updates them; your other entries stay as they are.",
+        "uuid": "Subscription page configuration ID",
+        "action": "Import",
+        "importing": "Importing…",
+        "done": "Imported {clients} applications on {platforms} platforms.",
+        "skipped": "Skipped, because their import link cannot be used safely: {names}."
       }
     },
     "navigation": {
