@@ -1,15 +1,22 @@
+import { cookies, headers } from "next/headers";
 import { getRequestConfig } from "next-intl/server";
 
+import { LOCALE_COOKIE, resolveLocale } from "@/lib/locale";
 import { formats } from "./formats";
 import { missingMessage } from "./missing-message";
 
-const supportedLocales = ["ru", "en"] as const;
-
 export default getRequestConfig(async ({ requestLocale }) => {
-  const requested = await requestLocale;
-  const locale = supportedLocales.includes(requested as (typeof supportedLocales)[number])
-    ? (requested as (typeof supportedLocales)[number])
-    : "en";
+  // See lib/locale.ts: without this the Russian catalogue was never served.
+  const [requested, cookieStore, headerList] = await Promise.all([
+    requestLocale,
+    cookies(),
+    headers(),
+  ]);
+  const locale = resolveLocale({
+    acceptLanguage: headerList.get("accept-language"),
+    cookie: cookieStore.get(LOCALE_COOKIE)?.value,
+    requested,
+  });
 
   return {
     locale,

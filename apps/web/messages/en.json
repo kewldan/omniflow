@@ -1,6 +1,6 @@
 {
   "home": {
-    "eyebrow": "Omniflow customer account",
+    "eyebrow": "{name} customer account",
     "title": "Your connection, in one place.",
     "description": "View subscriptions, traffic, devices, access links, payments, referrals, and support.",
     "action": "Open my account"
@@ -227,7 +227,8 @@
       "label": "Account menu",
       "security": "Security",
       "signOut": "Sign out",
-      "signOutFailed": "Sign-out failed. Try again."
+      "signOutFailed": "Sign-out failed. Try again.",
+      "languageFailed": "The language could not be saved to your account; it is applied in this browser only."
     },
     "states": {
       "loading": "Loading",
@@ -241,7 +242,7 @@
     "home": {
       "eyebrow": "Operator panel",
       "greeting": "Hello, {name}",
-      "description": "This release delivers the panel shell, operator accounts, and the audit trail. Customer, finance, and catalog surfaces arrive in the next versions.",
+      "description": "How the business stands right now: customers, subscriptions, payments, and what is waiting for an operator.",
       "accessTitle": "Your access",
       "accessDescription": "The roles you hold and the permissions they grant. The API enforces exactly this set.",
       "shortcutsTitle": "Go to",
@@ -2211,6 +2212,13 @@
         "telegramHint": "This file was sent in the customer's Telegram chat. Omniflow keeps a reference, not the bytes, so it cannot be downloaded here.",
         "gone": "That file is no longer stored; it may have passed its retention period.",
         "downloadFailed": "The file could not be downloaded right now."
+      },
+      "listFailed": "Could not load the tickets. They refresh on their own; try again in a moment.",
+      "controls": {
+        "queue": "Queue",
+        "priority": "Priority",
+        "status": "Status",
+        "tags": "Tags"
       }
     },
     "aiSettings": {
@@ -2687,7 +2695,7 @@
         "ru": "Russian"
       },
       "body": "Message",
-      "markup": "Telegram markup: <b>, <i>, <u>, <s>, <code>, <pre>, and https links. Write &lt; for a literal angle bracket.",
+      "markup": "Telegram markup: '<b>', '<i>', '<u>', '<s>', '<code>', '<pre>', and https links. Write &lt; for a literal angle bracket.",
       "variables": "Values you can use",
       "noVariables": "This notice carries no values.",
       "preview": "Preview with sample values",
@@ -3557,7 +3565,9 @@
         "tooLargeLocal": "That file is {size}, which is over the {limit} limit here.",
         "mediaTypeLocal": "Files of type {type} are not accepted. Accepted: {types}.",
         "downloading": "Downloading",
-        "perTicket": "Up to {count} files per conversation."
+        "perTicket": "Up to {count} files per conversation.",
+        "chooseAnother": "Choose another file",
+        "none": "No file chosen yet"
       },
       "news": {
         "title": "Announcements",
@@ -4230,6 +4240,12 @@
       "action": "Copy {label}",
       "copied": "Copied",
       "failed": "This browser did not allow copying"
+    },
+    "language": {
+      "label": "Language",
+      "en": "English",
+      "ru": "Русский",
+      "switchTo": "Switch the interface to {language}"
     }
   }
 }

@@ -22,9 +22,11 @@ import { useState } from "react";
 
 import { HubNav } from "@/components/account/account/hub-nav";
 import { SectionLabel } from "@/components/account/state";
+import { useSwitchLocale } from "@/components/intl/locale-switch";
 import { useAllowedThemes } from "@/components/theme-provider";
 import { useAccount } from "@/lib/account-session";
 import { type ApiError, apiFetch } from "@/lib/api";
+import { isLocale, type Locale } from "@/lib/locale";
 
 /**
  * The account screen: who you are, the two preferences that follow you between
@@ -265,7 +267,8 @@ function LanguageChoice({
 }) {
   const translate = useTranslations("account");
   const locale = useLocale();
-  const router = useRouter();
+  const translateLanguage = useTranslations("common.language");
+  const switchLocale = useSwitchLocale();
   const [busy, setBusy] = useState(false);
 
   async function save(next: string) {
@@ -279,9 +282,9 @@ function LanguageChoice({
         method: "PATCH",
       });
       onSaved();
-      // The rendered locale comes from the request, so the page is refreshed to
-      // pick up catalogues for the language just chosen.
-      router.refresh();
+      // The page is rendered from the language cookie, so writing it and
+      // refreshing is what shows the catalogue just chosen.
+      switchLocale(next as Locale);
       toast.success(translate("profile.languageSaved"));
     } catch (saveError) {
       toast.error((saveError as ApiError).message);
@@ -298,12 +301,18 @@ function LanguageChoice({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="ru">Русский</SelectItem>
-          <SelectItem value="en">English</SelectItem>
+          <SelectItem lang="ru" value="ru">
+            {translateLanguage("ru")}
+          </SelectItem>
+          <SelectItem lang="en" value="en">
+            {translateLanguage("en")}
+          </SelectItem>
         </SelectContent>
       </Select>
       <p className="font-mono text-[11px] text-subtle-foreground">
-        {translate("profile.languageHint", { current: locale })}
+        {translate("profile.languageHint", {
+          current: translateLanguage(isLocale(locale) ? locale : "en"),
+        })}
       </p>
     </div>
   );

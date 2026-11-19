@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
+import { CornerLocaleSwitch } from "@/components/intl/corner-locale-switch";
 import { areaTitle } from "@/lib/metadata";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -18,5 +19,10 @@ export async function generateMetadata(): Promise<Metadata> {
  * redirect loop the moment the session lookup returned 401.
  */
 export default function AdminAuthLayout({ children }: { children: ReactNode }) {
-  return children;
+  return (
+    <>
+      <CornerLocaleSwitch />
+      {children}
+    </>
+  );
 }
