@@ -269,6 +269,18 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	CreateBackup(ctx context.Context, arg CreateBackupParams) (Backup, error)
 	CreateBackupRestore(ctx context.Context, arg CreateBackupRestoreParams) (BackupRestore, error)
+	// The Bedolaga importer (cmd/migrate-bedolaga).
+	//
+	// Everything the importer writes lands in ordinary Omniflow tables; these
+	// statements are the few shapes no other path needed: a customer created with
+	// its original sign-up date, a subscription that adopts a Remnawave user that
+	// already exists, and an entitlement that is already active because the panel
+	// already serves it. Nothing here pushes to Remnawave: no fulfillment
+	// operation is created, so no job exists to run one.
+	// ---------------------------------------------------------------------------
+	// Runs and items
+	// ---------------------------------------------------------------------------
+	CreateBedolagaImportRun(ctx context.Context, actor string) (BedolagaImportRun, error)
 	// ---------------------------------------------------------------------------
 	// Bulk operator actions
 	// ---------------------------------------------------------------------------
@@ -519,6 +531,7 @@ type Querier interface {
 	FailBackup(ctx context.Context, arg FailBackupParams) (Backup, error)
 	FailGoodsDelivery(ctx context.Context, arg FailGoodsDeliveryParams) (GoodsDelivery, error)
 	FailOperatorTopic(ctx context.Context, arg FailOperatorTopicParams) (OperatorTopic, error)
+	FinishBedolagaImportRun(ctx context.Context, arg FinishBedolagaImportRunParams) (BedolagaImportRun, error)
 	GetAIFeature(ctx context.Context, feature string) (AiFeature, error)
 	GetAIProviderCredentials(ctx context.Context, slug string) (GetAIProviderCredentialsRow, error)
 	// ---------------------------------------------------------------------------
@@ -754,6 +767,28 @@ type Querier interface {
 	InsertEntitlementDrift(ctx context.Context, arg InsertEntitlementDriftParams) (EntitlementDrift, error)
 	InsertFulfillmentHistory(ctx context.Context, arg InsertFulfillmentHistoryParams) (FulfillmentHistory, error)
 	InsertGoodsDeliveryAttempt(ctx context.Context, arg InsertGoodsDeliveryAttemptParams) (GoodsDeliveryAttempt, error)
+	// ---------------------------------------------------------------------------
+	// Writes
+	// ---------------------------------------------------------------------------
+	// A customer carried over keeps the date they first signed up, which loyalty
+	// tenure, cohorts, and support all read.
+	InsertImportedCustomer(ctx context.Context, arg InsertImportedCustomerParams) (User, error)
+	InsertImportedEntitlement(ctx context.Context, arg InsertImportedEntitlementParams) (Entitlement, error)
+	// The zero-value order an imported entitlement hangs off. It is fulfilled at
+	// birth because the period was paid for in Bedolaga; carrying no amount, it
+	// adds nothing to revenue. The idempotency key starts with `bedolaga:` so the
+	// order can always be told apart from a sale.
+	InsertImportedOrder(ctx context.Context, arg InsertImportedOrderParams) (Order, error)
+	// The pair as Bedolaga recorded it. A referee who already paid in Bedolaga
+	// arrives qualified: their inviter was rewarded there, and an attribution
+	// that is already qualified never pays again.
+	InsertImportedReferral(ctx context.Context, arg InsertImportedReferralParams) (ReferralAttribution, error)
+	InsertImportedRemnawaveMapping(ctx context.Context, arg InsertImportedRemnawaveMappingParams) error
+	// Takes the customer's next free slot and adopts the Remnawave user that
+	// already serves this subscription, so the access link the customer has
+	// keeps working and a later renewal patches that user rather than minting a
+	// new one.
+	InsertImportedSubscription(ctx context.Context, arg InsertImportedSubscriptionParams) (Subscription, error)
 	InsertLedgerEntry(ctx context.Context, arg InsertLedgerEntryParams) (LedgerEntry, error)
 	InsertMaintenanceEvent(ctx context.Context, arg InsertMaintenanceEventParams) (MaintenanceEvent, error)
 	InsertOrderAddonLine(ctx context.Context, arg InsertOrderAddonLineParams) (OrderAddonLine, error)
@@ -885,6 +920,8 @@ type Querier interface {
 	// The hints and statuses of one batch's codes. Never the codes themselves:
 	// there is nothing in this table that could produce one.
 	ListBatchCodes(ctx context.Context, batchID pgtype.UUID) ([]ListBatchCodesRow, error)
+	ListBedolagaImportItems(ctx context.Context) ([]BedolagaImportItem, error)
+	ListBedolagaImportRuns(ctx context.Context, pageSize int32) ([]BedolagaImportRun, error)
 	ListBlocklistMatchesForCustomer(ctx context.Context, userID pgtype.UUID) ([]ListBlocklistMatchesForCustomerRow, error)
 	// External blocklists and anomaly detection.
 	//
@@ -1021,9 +1058,17 @@ type Querier interface {
 	// Providers
 	// ---------------------------------------------------------------------------
 	ListGoodsProviders(ctx context.Context) ([]GoodsProvider, error)
+	// ---------------------------------------------------------------------------
+	// Verification
+	// ---------------------------------------------------------------------------
+	ListImportedCustomersForVerify(ctx context.Context) ([]ListImportedCustomersForVerifyRow, error)
+	ListImportedReferralsForVerify(ctx context.Context) ([]ListImportedReferralsForVerifyRow, error)
+	ListImportedSubscriptionsForVerify(ctx context.Context) ([]ListImportedSubscriptionsForVerifyRow, error)
 	// The operator's view: every page, including drafts.
 	ListInfoPages(ctx context.Context) ([]ListInfoPagesRow, error)
 	ListLedgerEntriesByTransaction(ctx context.Context, transactionID pgtype.UUID) ([]LedgerEntry, error)
+	// Every Remnawave user an Omniflow customer already owns.
+	ListLinkedRemnawaveUsers(ctx context.Context) ([]ListLinkedRemnawaveUsersRow, error)
 	ListLoyaltyHistory(ctx context.Context, arg ListLoyaltyHistoryParams) ([]ListLoyaltyHistoryRow, error)
 	// ---------------------------------------------------------------------------
 	// Loyalty
@@ -1117,6 +1162,7 @@ type Querier interface {
 	ListPlanPrices(ctx context.Context, planVersionID pgtype.UUID) ([]PlanPrice, error)
 	ListPlanVersionSquads(ctx context.Context, planVersionID pgtype.UUID) ([]PlanVersionSquad, error)
 	ListPlanVersions(ctx context.Context, planID pgtype.UUID) ([]PlanVersion, error)
+	ListPlanVersionsForImport(ctx context.Context) ([]ListPlanVersionsForImportRow, error)
 	// ---------------------------------------------------------------------------
 	// Catalogue administration
 	// ---------------------------------------------------------------------------
@@ -1139,6 +1185,7 @@ type Querier interface {
 	// the customer attached so the list is usable without a second lookup per row.
 	ListRecentDunningFailures(ctx context.Context, arg ListRecentDunningFailuresParams) ([]ListRecentDunningFailuresRow, error)
 	ListRecentMaintenanceEvents(ctx context.Context, pageSize int32) ([]MaintenanceEvent, error)
+	ListReferralAttributionPairs(ctx context.Context) ([]ListReferralAttributionPairsRow, error)
 	ListReferralRewardsForPair(ctx context.Context, referredUserID pgtype.UUID) ([]ReferralReward, error)
 	ListRefundsForOrder(ctx context.Context, orderID pgtype.UUID) ([]Refund, error)
 	ListRemnawaveMappings(ctx context.Context) ([]ListRemnawaveMappingsRow, error)
@@ -1200,6 +1247,13 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	ListSuppressions(ctx context.Context, pageSize int32) ([]ListSuppressionsRow, error)
 	ListTelegramIdentitySubjects(ctx context.Context) ([]string, error)
+	// ---------------------------------------------------------------------------
+	// What the target already holds
+	// ---------------------------------------------------------------------------
+	// Every Telegram ID an Omniflow customer already holds, through an active
+	// identity or through the Remnawave mapping the bot adopts by. Either one
+	// means a second customer for that ID could never be resolved.
+	ListTelegramOwners(ctx context.Context) ([]ListTelegramOwnersRow, error)
 	// Refunds recorded before the provider was asked whose answer was never
 	// written: the process stopped between the two, or the provider could not be
 	// reached. Asking again with the same idempotency key is safe. A day is the
@@ -1226,6 +1280,7 @@ type Querier interface {
 	// other at the same moment would otherwise each count the other as the
 	// remaining owner and both succeed, leaving none.
 	LockAdminRoleChanges(ctx context.Context) error
+	LockBedolagaImportItem(ctx context.Context, arg LockBedolagaImportItemParams) (BedolagaImportItem, error)
 	LockBlocklistSourceBySlug(ctx context.Context, slug string) (BlocklistSource, error)
 	// Read under a row lock by the save path, which compares the stored issuer,
 	// discovery URL, and client against the submitted ones before deciding whether
@@ -1548,6 +1603,11 @@ type Querier interface {
 	// What the programme has actually cost and produced, so an operator changing a
 	// reward can see what the current one did rather than guessing.
 	ReferralProgramSummary(ctx context.Context) (ReferralProgramSummaryRow, error)
+	// Brings an imported entitlement up to date with the source during the
+	// delta run. It only touches an entitlement Omniflow has never acted on: once
+	// any fulfillment operation exists for it, Omniflow owns its state and the
+	// source no longer does, so zero rows come back and the caller reports it.
+	RefreshImportedEntitlement(ctx context.Context, arg RefreshImportedEntitlementParams) (Entitlement, error)
 	// Refunds by the date they were issued, which is the only date on which an
 	// operator can act.
 	RefundsInPeriod(ctx context.Context, arg RefundsInPeriodParams) ([]RefundsInPeriodRow, error)
@@ -1837,6 +1897,11 @@ type Querier interface {
 	// Only a previewed operation may run. That is what enforces "impact preview
 	// before bulk change" in the database rather than only in the panel.
 	StartBulkOperation(ctx context.Context, operationID pgtype.UUID) (BulkOperation, error)
+	// What the importer has moved into each wallet so far, keyed by Bedolaga user.
+	// The ledger is the record rather than a counter beside it: a run that dies
+	// between the movement and its bookkeeping still sees the movement here, so
+	// the next run computes a zero difference instead of crediting twice.
+	SumBedolagaWalletMovements(ctx context.Context) ([]SumBedolagaWalletMovementsRow, error)
 	// Provider cost, not customer price: the spend ceiling protects the operator's
 	// funding source, and that is what the provider actually draws down.
 	SumRecentGoodsSpend(ctx context.Context, arg SumRecentGoodsSpendParams) (int64, error)
@@ -1944,6 +2009,10 @@ type Querier interface {
 	// is never cleared: a customer who disables and re-enables re-consents, and a
 	// customer who disables keeps the record that they once agreed.
 	UpsertAutoRenewSettings(ctx context.Context, arg UpsertAutoRenewSettingsParams) (AutoRenewSetting, error)
+	// Records a decision. An applied row is never moved back to a conflict or a
+	// skip: what the importer created exists whatever the source says later, and
+	// the row is the only link from that Omniflow record back to Bedolaga.
+	UpsertBedolagaImportItem(ctx context.Context, arg UpsertBedolagaImportItemParams) (BedolagaImportItem, error)
 	// ---------------------------------------------------------------------------
 	// Matches and adjudication
 	// ---------------------------------------------------------------------------

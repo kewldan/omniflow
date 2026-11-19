@@ -110,6 +110,11 @@ All of the following must hold:
 7. The inviter is under `inviterRewardCap`, counted over the rewards they already
    hold as an inviter.
 8. That role has not already been granted for this pair.
+9. The attribution was not imported already qualified. A pair carried over
+   from Bedolaga whose referee had paid there arrives with `qualified_at` set
+   and no `qualifying_order_id`: its inviter was rewarded in Bedolaga, so it
+   never pays again here. See [Migrating from
+   Bedolaga](/operations/migrate-from-bedolaga).
 
 A disabled programme still records attributions; it simply grants nothing. Turning
 it on later does not retroactively pay for orders that already settled.

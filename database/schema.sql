@@ -832,6 +832,47 @@ CREATE TABLE public.backups (
 
 
 --
+-- Name: bedolaga_import_items; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.bedolaga_import_items (
+    kind text NOT NULL,
+    source_id bigint NOT NULL,
+    status text NOT NULL,
+    codes text[] DEFAULT '{}'::text[] NOT NULL,
+    user_id uuid,
+    subscription_id uuid,
+    entitlement_id uuid,
+    fingerprint bytea NOT NULL,
+    last_run_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    applied_at timestamp with time zone,
+    CONSTRAINT bedolaga_import_items_applied_complete CHECK ((((status = 'applied'::text) = (applied_at IS NOT NULL)) AND ((status <> 'applied'::text) OR (user_id IS NOT NULL)))),
+    CONSTRAINT bedolaga_import_items_fingerprint_length CHECK ((octet_length(fingerprint) = 32)),
+    CONSTRAINT bedolaga_import_items_kind_known CHECK ((kind = ANY (ARRAY['user'::text, 'subscription'::text, 'referral'::text]))),
+    CONSTRAINT bedolaga_import_items_status_known CHECK ((status = ANY (ARRAY['applied'::text, 'conflict'::text, 'skipped'::text])))
+);
+
+
+--
+-- Name: bedolaga_import_runs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.bedolaga_import_runs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    actor text NOT NULL,
+    status text DEFAULT 'running'::text NOT NULL,
+    report jsonb DEFAULT '{}'::jsonb NOT NULL,
+    started_at timestamp with time zone DEFAULT now() NOT NULL,
+    finished_at timestamp with time zone,
+    CONSTRAINT bedolaga_import_runs_actor_length CHECK (((char_length(actor) >= 1) AND (char_length(actor) <= 120))),
+    CONSTRAINT bedolaga_import_runs_finish_consistent CHECK (((status = 'running'::text) = (finished_at IS NULL))),
+    CONSTRAINT bedolaga_import_runs_status_known CHECK ((status = ANY (ARRAY['running'::text, 'completed'::text, 'failed'::text])))
+);
+
+
+--
 -- Name: blocklist_allowlist; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -4001,6 +4042,22 @@ ALTER TABLE ONLY public.backups
 
 
 --
+-- Name: bedolaga_import_items bedolaga_import_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bedolaga_import_items
+    ADD CONSTRAINT bedolaga_import_items_pkey PRIMARY KEY (kind, source_id);
+
+
+--
+-- Name: bedolaga_import_runs bedolaga_import_runs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bedolaga_import_runs
+    ADD CONSTRAINT bedolaga_import_runs_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: blocklist_allowlist blocklist_allowlist_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5646,6 +5703,20 @@ CREATE INDEX backups_retention_idx ON public.backups USING btree (retain_until) 
 
 
 --
+-- Name: bedolaga_import_items_status_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX bedolaga_import_items_status_idx ON public.bedolaga_import_items USING btree (kind, status);
+
+
+--
+-- Name: bedolaga_import_items_user_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX bedolaga_import_items_user_idx ON public.bedolaga_import_items USING btree (user_id) WHERE (user_id IS NOT NULL);
+
+
+--
 -- Name: blocklist_matches_open_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -6714,6 +6785,38 @@ ALTER TABLE ONLY public.auto_renew_settings
 
 ALTER TABLE ONLY public.backup_restores
     ADD CONSTRAINT backup_restores_backup_id_fkey FOREIGN KEY (backup_id) REFERENCES public.backups(id);
+
+
+--
+-- Name: bedolaga_import_items bedolaga_import_items_entitlement_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bedolaga_import_items
+    ADD CONSTRAINT bedolaga_import_items_entitlement_id_fkey FOREIGN KEY (entitlement_id) REFERENCES public.entitlements(id);
+
+
+--
+-- Name: bedolaga_import_items bedolaga_import_items_last_run_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bedolaga_import_items
+    ADD CONSTRAINT bedolaga_import_items_last_run_id_fkey FOREIGN KEY (last_run_id) REFERENCES public.bedolaga_import_runs(id);
+
+
+--
+-- Name: bedolaga_import_items bedolaga_import_items_subscription_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bedolaga_import_items
+    ADD CONSTRAINT bedolaga_import_items_subscription_id_fkey FOREIGN KEY (subscription_id) REFERENCES public.subscriptions(id);
+
+
+--
+-- Name: bedolaga_import_items bedolaga_import_items_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bedolaga_import_items
+    ADD CONSTRAINT bedolaga_import_items_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
 
 
 --

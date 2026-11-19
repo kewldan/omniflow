@@ -100,18 +100,25 @@ func (store *Store) grantReferralRewards(ctx context.Context, tx pgx.Tx, queries
 		return nil
 	}
 	var (
-		attributedAt time.Time
-		inviterID    pgtype.UUID
-		qualifiedAt  pgtype.Timestamptz
+		attributedAt    time.Time
+		inviterID       pgtype.UUID
+		qualifiedAt     pgtype.Timestamptz
+		qualifyingOrder pgtype.UUID
 	)
-	err := tx.QueryRow(ctx, `SELECT created_at, referrer_user_id, qualified_at
+	err := tx.QueryRow(ctx, `SELECT created_at, referrer_user_id, qualified_at, qualifying_order_id
 		FROM referral_attributions WHERE referred_user_id = $1 FOR UPDATE`, order.UserID).
-		Scan(&attributedAt, &inviterID, &qualifiedAt)
+		Scan(&attributedAt, &inviterID, &qualifiedAt, &qualifyingOrder)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
 	}
 	if err != nil {
 		return err
+	}
+	// An attribution that arrived already qualified, with no Omniflow order
+	// behind it, was qualified and paid for in the system it was imported
+	// from. It must not pay a second time on the customer's first order here.
+	if qualifiedAt.Valid && !qualifyingOrder.Valid {
+		return nil
 	}
 	// Qualification is the customer's first settled subscription order. Any
 	// earlier settled subscription order means this one cannot qualify the

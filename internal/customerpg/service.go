@@ -100,18 +100,10 @@ func (service *Service) SetContact(ctx context.Context, customerID, kind, value 
 	if err != nil {
 		return dbgen.ContactChannel{}, err
 	}
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return dbgen.ContactChannel{}, errors.New("contact value is required")
-	}
-	fingerprintMAC := hmac.New(sha256.New, service.fingerprintKey)
-	_, _ = fingerprintMAC.Write([]byte(strings.ToLower(value)))
-	fingerprint := fingerprintMAC.Sum(nil)
-	nonce := make([]byte, service.contactAEAD.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+	ciphertext, fingerprint, err := service.SealContact(kind, value)
+	if err != nil {
 		return dbgen.ContactChannel{}, err
 	}
-	ciphertext := service.contactAEAD.Seal(nonce, nonce, []byte(value), []byte(kind))
 	verified := pgtype.Timestamptz{}
 	if verifiedAt != nil {
 		verified = pgtype.Timestamptz{Time: *verifiedAt, Valid: true}
@@ -121,6 +113,25 @@ func (service *Service) SetContact(ctx context.Context, customerID, kind, value 
 		return dbgen.ContactChannel{}, customer.ErrIdentityConflict
 	}
 	return contact, err
+}
+
+// SealContact encrypts a contact value and derives the keyed fingerprint the
+// uniqueness constraint is checked against. It is the one place that decides
+// how a contact is stored, so a caller writing contacts inside its own
+// transaction — the Bedolaga importer — stores them exactly as SetContact does.
+func (service *Service) SealContact(kind, value string) (ciphertext, fingerprint []byte, err error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil, nil, errors.New("contact value is required")
+	}
+	fingerprintMAC := hmac.New(sha256.New, service.fingerprintKey)
+	_, _ = fingerprintMAC.Write([]byte(strings.ToLower(value)))
+	fingerprint = fingerprintMAC.Sum(nil)
+	nonce := make([]byte, service.contactAEAD.NonceSize())
+	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
+		return nil, nil, err
+	}
+	return service.contactAEAD.Seal(nonce, nonce, []byte(value), []byte(kind)), fingerprint, nil
 }
 
 func (service *Service) RecordConsent(ctx context.Context, customerID, purpose string, granted bool, policyVersion, source, requestID string) (dbgen.ConsentRecord, error) {

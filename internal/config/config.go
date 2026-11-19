@@ -796,3 +796,38 @@ func boolEnvOr(key string, fallback bool) bool {
 	}
 	return parsed
 }
+
+// MigrationConfig is what cmd/migrate-bedolaga reads: the Omniflow database it
+// writes, the key its contacts are sealed with, the Remnawave panel it reads
+// users from, and the Bedolaga database it reads everything else from.
+type MigrationConfig struct {
+	DatabaseURL         string
+	DataEncryptionKey   []byte
+	RemnawaveURL        string
+	RemnawaveToken      string
+	BedolagaDatabaseURL string
+}
+
+// LoadMigration reads the importer's configuration. The Bedolaga URL is
+// required only by the commands that read Bedolaga, which is all of them
+// today; it is checked here so a missing one fails before any connection.
+func LoadMigration() (MigrationConfig, error) {
+	cfg := MigrationConfig{
+		DatabaseURL:         os.Getenv("APP_DATABASE_URL"),
+		RemnawaveURL:        os.Getenv("APP_REMNAWAVE_URL"),
+		RemnawaveToken:      os.Getenv("APP_REMNAWAVE_TOKEN"),
+		BedolagaDatabaseURL: os.Getenv("APP_BEDOLAGA_DATABASE_URL"),
+	}
+	if cfg.DatabaseURL == "" || cfg.RemnawaveURL == "" || cfg.RemnawaveToken == "" {
+		return MigrationConfig{}, errors.New("APP_DATABASE_URL, APP_REMNAWAVE_URL, and APP_REMNAWAVE_TOKEN are required")
+	}
+	if cfg.BedolagaDatabaseURL == "" {
+		return MigrationConfig{}, errors.New("APP_BEDOLAGA_DATABASE_URL is required")
+	}
+	key, err := decodeKey(os.Getenv("APP_DATA_ENCRYPTION_KEY"))
+	if err != nil {
+		return MigrationConfig{}, errors.New("APP_DATA_ENCRYPTION_KEY must be base64-encoded 32 bytes; the importer seals verified e-mail addresses with it")
+	}
+	cfg.DataEncryptionKey = key
+	return cfg, nil
+}

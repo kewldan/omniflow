@@ -395,6 +395,30 @@ type BackupRestore struct {
 	CompletedAt pgtype.Timestamptz `json:"completed_at"`
 }
 
+type BedolagaImportItem struct {
+	Kind           string             `json:"kind"`
+	SourceID       int64              `json:"source_id"`
+	Status         string             `json:"status"`
+	Codes          []string           `json:"codes"`
+	UserID         pgtype.UUID        `json:"user_id"`
+	SubscriptionID pgtype.UUID        `json:"subscription_id"`
+	EntitlementID  pgtype.UUID        `json:"entitlement_id"`
+	Fingerprint    []byte             `json:"fingerprint"`
+	LastRunID      pgtype.UUID        `json:"last_run_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	AppliedAt      pgtype.Timestamptz `json:"applied_at"`
+}
+
+type BedolagaImportRun struct {
+	ID         pgtype.UUID        `json:"id"`
+	Actor      string             `json:"actor"`
+	Status     string             `json:"status"`
+	Report     []byte             `json:"report"`
+	StartedAt  pgtype.Timestamptz `json:"started_at"`
+	FinishedAt pgtype.Timestamptz `json:"finished_at"`
+}
+
 type BlocklistAllowlist struct {
 	UserID    pgtype.UUID        `json:"user_id"`
 	Reason    string             `json:"reason"`
