@@ -27,6 +27,31 @@ func RenderTemplate(body string, values map[string]string) string {
 	return templateVariablePattern.ReplaceAllString(body, "")
 }
 
+// TemplateVariables are the placeholders a broadcast template may declare.
+// Each is filled per recipient when the message is sent, so a template that
+// declares one gets a value rather than nothing. The set is closed: a variable
+// nothing fills would render empty for every recipient, so saving a template
+// that declares one is refused.
+var TemplateVariables = map[string]bool{
+	// name is the customer's Telegram first name, or "friend" when unknown.
+	"name": true,
+	// days_left is the whole days until the customer's latest subscription
+	// ends, zero once it has.
+	"days_left": true,
+	// plan is the latest subscription's plan name in the customer's language.
+	"plan": true,
+	// expires_at is the latest subscription's end date, YYYY-MM-DD in UTC.
+	"expires_at": true,
+	// balance is the wallet balance in the installation currency.
+	"balance": true,
+	// referral_code and referral_link are the customer's own invite.
+	"referral_code": true,
+	"referral_link": true,
+	// loyalty_tier and loyalty_discount describe the customer's loyalty tier.
+	"loyalty_tier":     true,
+	"loyalty_discount": true,
+}
+
 // templateVariablePattern matches any placeholder left after substitution.
 var templateVariablePattern = regexp.MustCompile(`\{\{\s*[a-zA-Z][a-zA-Z0-9_]*\s*\}\}`)
 

@@ -2684,7 +2684,20 @@
         "addButton": "Add a button",
         "invalid": "The template was not saved: check the markup, links, and button texts.",
         "save": "Save template",
-        "saved": "Template saved"
+        "saved": "Template saved",
+        "variablesTitle": "Placeholders",
+        "variablesHint": "Write any of these in a title or text; each recipient gets their own value.",
+        "variables": {
+          "name": "first name (or “friend”)",
+          "days_left": "days left on the subscription",
+          "plan": "plan name",
+          "expires_at": "end date",
+          "balance": "wallet balance",
+          "referral_code": "invite code",
+          "referral_link": "invite link",
+          "loyalty_tier": "loyalty tier",
+          "loyalty_discount": "loyalty discount"
+        }
       }
     },
     "installationSettings": {

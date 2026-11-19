@@ -282,8 +282,9 @@ and it is not the same operation as anonymisation. Anonymisation is irreversible
 runs only against an already-deleted account, and is what actually removes
 identifying data:
 
-- every identity is revoked and its provider subject replaced with
-  `anonymized:<id>`;
+- every identity is revoked, its provider subject replaced with
+  `anonymized:<id>`, and its metadata cleared — including the Telegram first
+  name the bot keeps from `/start` to greet the customer in broadcasts;
 - every contact channel's ciphertext is nulled and its fingerprint re-derived
   from the row id, with both delivery flags cleared;
 - the Remnawave mapping loses its Telegram id and its observed state;

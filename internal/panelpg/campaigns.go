@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/omniflow/omniflow/internal/audience"
+	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 	"github.com/omniflow/omniflow/internal/notice"
 )
@@ -208,6 +209,11 @@ func (service *Service) SaveTemplate(
 	}
 	declared := make(map[string]bool, len(template.Variables))
 	for _, variable := range template.Variables {
+		// Only a variable delivery fills may be declared; any other would
+		// render empty for every recipient.
+		if !commerce.TemplateVariables[variable] {
+			return MessageTemplate{}, ErrValidaton
+		}
 		declared[variable] = true
 	}
 	for _, body := range []string{template.BodyEN, template.BodyRU,

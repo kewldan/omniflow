@@ -131,13 +131,29 @@ Authoring is API-only: `PUT /v1/panel/marketing/templates` with
 `marketing.write`. Bodies are 1–3500 characters, subjects may be empty and are
 capped at 200, and `class` defaults to `marketing`.
 
-<Warning>
-  **A declared variable renders as nothing.** Campaign delivery substitutes an
-  empty value map and then strips any placeholder that survives, and no part of
-  the campaign model stores per-recipient values. A body written as
-  `Hello {{name}}` is sent as `Hello ` with nothing in place of the placeholder.
-  Write templates without variables until values exist to fill them.
+### Placeholders filled per recipient
 
+A template may declare only the placeholders the bot fills; declaring anything
+else is refused on save, because it would render empty for every recipient. The
+`/admin/marketing` template editor lists them and declares the ones the texts
+use. Each value is read when the message is sent, so it is the recipient's value
+at that moment.
+
+| Placeholder | Value |
+| --- | --- |
+| `{{name}}` | The customer's Telegram first name, kept from their last `/start`; "friend" / «друг» when unknown |
+| `{{days_left}}` | Whole days until their latest subscription ends; `0` once it has |
+| `{{plan}}` | That subscription's plan name in their language |
+| `{{expires_at}}` | Its end date, `YYYY-MM-DD` in UTC |
+| `{{balance}}` | Wallet balance in the installation currency |
+| `{{referral_code}}`, `{{referral_link}}` | Their own invite; a code is minted for a customer who has none |
+| `{{loyalty_tier}}`, `{{loyalty_discount}}` | Their loyalty tier and its discount, empty without one |
+
+Values are escaped before they enter an HTML body, so a name such as `<b>` is
+printed, not obeyed. A [campaign preview](#previewing-a-campaign) has no
+recipient and renders every placeholder empty.
+
+<Warning>
   **A `transactional`-class template cannot be delivered.** Delivery classifies
   the message by passing the template's class string to the notification
   classifier, which knows notification *kinds*; `marketing` happens to be one and
@@ -205,9 +221,8 @@ group. It requires `marketing.write`, because reading a campaign should not be
 able to put anything into a chat.
 
 What arrives is the campaign's own message, rendered by the same code that
-renders a real send: template variables become nothing, because that is what a
-customer receives — a preview that filled in sample values would be a preview of
-copy nobody will ever get. It goes to a forum topic of its own, **📣 Campaign
+renders a real send, except that there is no recipient to fill placeholders
+from, so they render empty rather than as invented sample values. It goes to a forum topic of its own, **📣 Campaign
 previews**, under a header naming the campaign, the language, and the fact that
 nobody else received it.
 

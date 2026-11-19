@@ -288,6 +288,12 @@ func (app *App) HandleStart(ctx context.Context, client *telegram.Bot, update *m
 	}
 	locale := app.locale(ctx, message.From.ID, message.From.LanguageCode)
 	_, _ = client.SendChatAction(ctx, &telegram.SendChatActionParams{ChatID: message.Chat.ID, Action: models.ChatActionTyping})
+	if app.customers != nil {
+		// The first name is what a broadcast's {{name}} greets the customer by.
+		if err := app.customers.RememberTelegramName(ctx, message.From.ID, message.From.FirstName); err != nil {
+			app.logger.Warn("telegram name could not be kept", "error", err)
+		}
+	}
 	payload := parseStartPayload(message.Text)
 	switch payload.Kind {
 	case startPayloadReferral:

@@ -162,6 +162,11 @@ func main() {
 		logger.Warn("bot start notice could not be queued", "error", err)
 	}
 	go botapp.NewNotifier(logger, sender, identities, remnawaveClient, commerceService, settings).Run(ctx)
+	customerNotifier := botapp.NewNotifier(logger, sender, identities, remnawaveClient, commerceService, settings)
+	if me, getMeErr := client.GetMe(ctx); getMeErr == nil {
+		customerNotifier.SetBotUsername(me.Username)
+	}
+	go customerNotifier.Run(ctx)
 
 	operationalServer := startOperationalServer(logger, cfg, pool, metrics)
 	webhookServer := startWebhookServer(logger, cfg, client)

@@ -28,6 +28,30 @@ const ROUTES = [
   "home",
 ];
 
+/** Placeholders the bot fills per recipient; mirrors commerce.TemplateVariables. */
+export const TEMPLATE_VARIABLES = [
+  "name",
+  "days_left",
+  "plan",
+  "expires_at",
+  "balance",
+  "referral_code",
+  "referral_link",
+  "loyalty_tier",
+  "loyalty_discount",
+] as const;
+
+/** The supported placeholders a template's texts use, which is what it declares. */
+export function usedVariables(...texts: string[]): string[] {
+  const found = new Set<string>();
+  for (const text of texts) {
+    for (const match of text.matchAll(/\{\{\s*([a-zA-Z][a-zA-Z0-9_]*)\s*\}\}/g)) {
+      found.add(match[1] ?? "");
+    }
+  }
+  return [...found];
+}
+
 /**
  * Write a broadcast template: subject and body in both languages, an optional
  * picture, and up to six inline buttons. Saving under an existing code
@@ -77,7 +101,7 @@ export function TemplateEditorCard({ onSaved }: { onSaved: () => void }) {
         subjectEn: form.subjectEn,
         bodyRu: form.bodyRu,
         bodyEn: form.bodyEn,
-        variables: [],
+        variables: usedVariables(form.subjectRu, form.subjectEn, form.bodyRu, form.bodyEn),
         photoUrl: form.photoUrl.trim(),
         buttons: buttons.map((button) =>
           button.route
@@ -164,6 +188,18 @@ export function TemplateEditorCard({ onSaved }: { onSaved: () => void }) {
                 value={form.bodyEn}
               />
             </div>
+          </div>
+          <div className="flex flex-col gap-1 rounded-md border border-dashed p-3 text-sm">
+            <div className="font-medium">{translate("variablesTitle")}</div>
+            <p className="text-muted-foreground text-xs">{translate("variablesHint")}</p>
+            <ul className="mt-1 grid gap-1 sm:grid-cols-2">
+              {TEMPLATE_VARIABLES.map((variable) => (
+                <li className="text-xs" key={variable}>
+                  <code className="font-mono">{`{{${variable}}}`}</code> —{" "}
+                  {translate(`variables.${variable}`)}
+                </li>
+              ))}
+            </ul>
           </div>
           <div className="flex flex-col gap-1">
             <Label htmlFor={ids.photo}>{translate("photo")}</Label>

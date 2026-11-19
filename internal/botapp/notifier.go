@@ -99,6 +99,13 @@ type Notifier struct {
 	// value means "shipped defaults", so a notifier that has never refreshed —
 	// or one whose refresh failed — still sends every notice.
 	notices notices
+	// botUsername builds {{referral_link}}. Empty leaves the link empty.
+	botUsername string
+}
+
+// SetBotUsername names the bot, which a broadcast's {{referral_link}} needs.
+func (notifier *Notifier) SetBotUsername(username string) {
+	notifier.botUsername = username
 }
 
 // refreshNotices reloads the operator wording for this pass.
@@ -589,10 +596,18 @@ func (notifier *Notifier) deliverCampaigns(ctx context.Context) int {
 			continue
 		}
 
-		body := renderTemplate(message.Body, map[string]string{})
+		values, err := notifier.store.templateValues(ctx, message.CustomerID, message.Locale,
+			notifier.settings.Currency, notifier.botUsername, notifier.clock().UTC())
+		if err != nil {
+			// A recipient whose values cannot be read is retried next batch
+			// rather than sent a message with holes in it.
+			notifier.logger.Error("campaign variables could not be read", "error", err)
+			return len(messages)
+		}
+		body := renderTemplate(message.Body, escapedValues(values))
 		view := View{Text: body, Photo: message.Photo, Keyboard: campaignKeyboard(message.Buttons)}
 		if message.Subject != "" {
-			view.Text = "<b>" + html.EscapeString(message.Subject) + "</b>\n\n" + body
+			view.Text = "<b>" + html.EscapeString(renderTemplate(message.Subject, values)) + "</b>\n\n" + body
 		}
 		if sendErr := notifier.sender.Send(
 			ctx, message.CustomerID, message.TelegramID, view,

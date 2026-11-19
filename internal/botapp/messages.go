@@ -822,6 +822,7 @@ var catalog = map[string]phrase{
 	"event.loyaltyUp":             {ru: "⭐ <b>Новый уровень лояльности: %s</b>", en: "⭐ <b>New loyalty tier: %s</b>"},
 	"event.loyaltyDown":           {ru: "ℹ️ <b>Уровень лояльности изменён: %s</b>", en: "ℹ️ <b>Your loyalty tier is now %s</b>"},
 	"event.loyaltyDiscount":       {ru: "Скидка на тарифы: %s.", en: "Your plan discount: %s."},
+	"template.friend":             {ru: "друг", en: "friend"},
 }
 
 // formatMoney renders an integer minor-unit amount for display. Telegram Stars
