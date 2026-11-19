@@ -62,6 +62,10 @@ type WebhookEvent struct {
 	Status            string
 	Amount            commerce.Money
 	OccurredAt        time.Time
+	// PayerTelegramID is set by providers whose notification identifies the
+	// payer instead of the order (Tribute donations). The payment service then
+	// matches the payer's open intent for exactly this amount.
+	PayerTelegramID string
 }
 
 type Provider interface {

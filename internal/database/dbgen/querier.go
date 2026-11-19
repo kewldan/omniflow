@@ -661,6 +661,10 @@ type Querier interface {
 	GetMaintenanceState(ctx context.Context) (MaintenanceState, error)
 	GetMessageTemplate(ctx context.Context, id pgtype.UUID) (MessageTemplate, error)
 	GetOpenCart(ctx context.Context, userID pgtype.UUID) (Cart, error)
+	// For providers whose notification names the payer rather than the order
+	// (Tribute donations): the newest open intent of that provider, for exactly
+	// that amount, on a pending order of the customer holding that Telegram ID.
+	GetOpenPaymentIntentByPayerTelegram(ctx context.Context, arg GetOpenPaymentIntentByPayerTelegramParams) (PaymentIntent, error)
 	GetOperatorTopic(ctx context.Context, kind string) (OperatorTopic, error)
 	GetOrder(ctx context.Context, id pgtype.UUID) (Order, error)
 	GetOrderByIdempotency(ctx context.Context, arg GetOrderByIdempotencyParams) (Order, error)

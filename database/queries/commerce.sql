@@ -529,6 +529,23 @@ SELECT * FROM payment_intents WHERE provider = $1 AND provider_reference = $2;
 -- name: GetPaymentIntentByOrderProvider :one
 SELECT * FROM payment_intents WHERE order_id = $1 AND provider = $2 ORDER BY created_at DESC LIMIT 1;
 
+-- name: GetOpenPaymentIntentByPayerTelegram :one
+-- For providers whose notification names the payer rather than the order
+-- (Tribute donations): the newest open intent of that provider, for exactly
+-- that amount, on a pending order of the customer holding that Telegram ID.
+SELECT pi.*
+FROM payment_intents pi
+JOIN orders o ON o.id = pi.order_id
+JOIN identities i ON i.user_id = o.user_id AND i.provider = 'telegram' AND i.status = 'active'
+WHERE pi.provider = sqlc.arg(provider)
+  AND i.provider_subject = sqlc.arg(telegram_subject)::text
+  AND pi.amount_minor = sqlc.arg(amount_minor)
+  AND pi.currency = sqlc.arg(currency)
+  AND pi.status IN ('pending', 'requires_action', 'processing')
+  AND o.state = 'pending'
+ORDER BY pi.created_at DESC
+LIMIT 1;
+
 -- name: ListPaymentIntentsForReconciliation :many
 -- Intents the provider may have settled without Omniflow hearing about it.
 --

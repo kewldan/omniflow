@@ -492,6 +492,12 @@ func (service *Service) webhookIntent(
 			intent, err = queries.GetPaymentIntentByOrderProvider(ctx, dbgen.GetPaymentIntentByOrderProviderParams{OrderID: orderID, Provider: providerName})
 		}
 	}
+	if errors.Is(err, pgx.ErrNoRows) && event.PayerTelegramID != "" {
+		intent, err = queries.GetOpenPaymentIntentByPayerTelegram(ctx, dbgen.GetOpenPaymentIntentByPayerTelegramParams{
+			Provider: providerName, TelegramSubject: event.PayerTelegramID,
+			AmountMinor: event.Amount.Amount, Currency: event.Amount.Currency,
+		})
+	}
 	return intent, err
 }
 

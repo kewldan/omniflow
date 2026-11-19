@@ -1261,6 +1261,57 @@ func (q *Queries) GetLedgerTransactionByIdempotency(ctx context.Context, idempot
 	return i, err
 }
 
+const getOpenPaymentIntentByPayerTelegram = `-- name: GetOpenPaymentIntentByPayerTelegram :one
+SELECT pi.id, pi.order_id, pi.provider, pi.status, pi.amount_minor, pi.currency, pi.provider_reference, pi.checkout_url, pi.idempotency_key, pi.capabilities, pi.receipt_metadata, pi.created_at, pi.updated_at
+FROM payment_intents pi
+JOIN orders o ON o.id = pi.order_id
+JOIN identities i ON i.user_id = o.user_id AND i.provider = 'telegram' AND i.status = 'active'
+WHERE pi.provider = $1
+  AND i.provider_subject = $2::text
+  AND pi.amount_minor = $3
+  AND pi.currency = $4
+  AND pi.status IN ('pending', 'requires_action', 'processing')
+  AND o.state = 'pending'
+ORDER BY pi.created_at DESC
+LIMIT 1
+`
+
+type GetOpenPaymentIntentByPayerTelegramParams struct {
+	Provider        string `json:"provider"`
+	TelegramSubject string `json:"telegram_subject"`
+	AmountMinor     int64  `json:"amount_minor"`
+	Currency        string `json:"currency"`
+}
+
+// For providers whose notification names the payer rather than the order
+// (Tribute donations): the newest open intent of that provider, for exactly
+// that amount, on a pending order of the customer holding that Telegram ID.
+func (q *Queries) GetOpenPaymentIntentByPayerTelegram(ctx context.Context, arg GetOpenPaymentIntentByPayerTelegramParams) (PaymentIntent, error) {
+	row := q.db.QueryRow(ctx, getOpenPaymentIntentByPayerTelegram,
+		arg.Provider,
+		arg.TelegramSubject,
+		arg.AmountMinor,
+		arg.Currency,
+	)
+	var i PaymentIntent
+	err := row.Scan(
+		&i.ID,
+		&i.OrderID,
+		&i.Provider,
+		&i.Status,
+		&i.AmountMinor,
+		&i.Currency,
+		&i.ProviderReference,
+		&i.CheckoutUrl,
+		&i.IdempotencyKey,
+		&i.Capabilities,
+		&i.ReceiptMetadata,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getOrder = `-- name: GetOrder :one
 SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at FROM orders WHERE id = $1
 `

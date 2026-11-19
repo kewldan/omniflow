@@ -22,9 +22,9 @@ import (
 // webhook signed as hex(HMAC-SHA256(API key, raw body)) in `trbt-signature`.
 //
 // A donation names the payer's Telegram user and the donation link, never an
-// Omniflow order, so its notification carries no reference Omniflow can match
-// to a payment intent. Verified donations are recorded in the webhook log;
-// matching them to an order is outside this adapter.
+// Omniflow order. The event therefore carries PayerTelegramID, and the payment
+// service settles the payer's newest open Tribute intent for exactly the
+// donated amount. A donation that matches none is recorded and not applied.
 type Tribute struct {
 	apiKey     string
 	donateLink string
@@ -170,6 +170,7 @@ func (provider *Tribute) VerifyWebhook(headers http.Header, body []byte) (Webhoo
 		Status:            status,
 		Amount:            money,
 		OccurredAt:        occurred,
+		PayerTelegramID:   strings.TrimSpace(string(donation.TelegramUserID)),
 	}, nil
 }
 

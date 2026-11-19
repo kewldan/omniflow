@@ -77,7 +77,33 @@ type Builder struct {
 // always-present manual and Telegram Stars rails and the two with their own
 // typed options (CryptoBot and YooKassa). Order here does not affect what a
 // customer sees: the customer-facing list is sorted by slug.
-var Builders = []Builder{}
+var Builders = []Builder{
+	{Slug: "heleket", Build: buildHeleket},
+	{Slug: "mulenpay", Build: buildMulenPay},
+	{Slug: "pal24", Build: buildPal24},
+	{Slug: "platega", Build: buildPlatega},
+	{Slug: "cashera", Build: buildCashera},
+	{Slug: "tribute", Build: buildTribute},
+	{Slug: "freekassa", Build: buildFreeKassa},
+	{Slug: "kassa_ai", Build: buildKassaAI},
+	{Slug: "riopay", Build: buildRioPay},
+	{Slug: "severpay", Build: buildSeverPay},
+	{Slug: "rollypay", Build: buildRollyPay},
+	{Slug: "aurapay", Build: buildAuraPay},
+	{Slug: "wata", Build: buildWata},
+	{Slug: "cloudpayments", Build: buildCloudPayments},
+	{Slug: "lava", Build: buildLava},
+	{Slug: "overpay", Build: buildOverpay},
+	{Slug: "paritypay", Build: buildParityPay},
+	{Slug: "payhot", Build: buildPayHot},
+	{Slug: "cispay", Build: buildCisPay},
+	{Slug: "antilopay", Build: buildAntilopay},
+	{Slug: "anore", Build: buildAnore},
+	{Slug: "donut", Build: buildDonut},
+	{Slug: "etoplatezhi", Build: buildEtoPlatezhi},
+	{Slug: "jupiter", Build: buildJupiter},
+	{Slug: "tabpay", Build: buildTabPay},
+}
 
 // Slugs lists every adapter slug Omniflow can register. It matches the
 // database check constraints on provider columns and the OpenAPI enum.
