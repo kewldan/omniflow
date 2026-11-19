@@ -427,6 +427,18 @@ no-op, so setting `OTEL_EXPORTER_OTLP_ENDPOINT` or any other standard SDK variab
 today. There is no configuration that turns tracing on. Metrics and structured logs are the
 supported operational signals.
 
+## Bedolaga migration tool
+
+`cmd/migrate-bedolaga` is a separate command, run once while moving off a Bedolaga bot. Besides
+`APP_DATABASE_URL`, `APP_DATA_ENCRYPTION_KEY`, `APP_REMNAWAVE_URL`, and `APP_REMNAWAVE_TOKEN`, all
+required, it reads one variable of its own. None of the api, bot, or worker processes read it.
+
+| Variable | Default | Read by | Required | Secret | What it changes |
+| --- | --- | --- | --- | --- | --- |
+| `APP_BEDOLAGA_DATABASE_URL` | — | migrate-bedolaga | yes | **yes** | The Bedolaga database the importer reads, inside a read-only snapshot |
+
+See [Migrating from Bedolaga](/operations/migrate-from-bedolaga).
+
 ## Web application
 
 The Next.js app in `apps/web` reads its own variables. They are set on the `web` service in

@@ -1,0 +1,400 @@
+---
+title: Migrating from Bedolaga
+description: Move a Bedolaga bot's customers, balances, subscriptions, and referrals into Omniflow with a rehearsed cutover that keeps every subscription link working
+---
+
+An installation running the Bedolaga Telegram bot already has customers, money on their balances,
+and paid subscriptions served by Remnawave. Moving to Omniflow means carrying those over without
+charging anybody twice, losing a kopek, or changing a single access link — and being able to step
+back if the cutover goes wrong.
+
+`cmd/migrate-bedolaga` does the data part. It reads the Bedolaga database inside one read-only
+snapshot, reads the Remnawave panel's user list, and writes Omniflow through Omniflow's own tables
+and services. The scripts in `deploy/migration/` wrap it into a rehearsal on a copy and a guarded
+cutover.
+
+<Note>
+  The importer **never writes to Bedolaga or to Remnawave**. The Bedolaga connection is opened with
+  `default_transaction_read_only=on` and every read runs in a `READ ONLY` transaction. The only panel
+  call it can make is the user list: the interface it is given has no other method, and an imported
+  entitlement gets no fulfillment operation, so no job exists that could push anything. Remnawave
+  keeps owning the users and their subscription links; a customer's link before the cutover is their
+  link after it.
+</Note>
+
+## The fastest safe path
+
+<Steps>
+  <Step title="Prepare Omniflow">
+    Deploy Omniflow with its migrations applied, create a plan version for every Bedolaga tariff you
+    still sell, and configure the payment providers you use. Do not start Omniflow's bot or worker
+    against the production panel yet.
+  </Step>
+  <Step title="Rehearse on a copy">
+    `01-snapshot-bedolaga.sh`, `02-restore-staging.sh`, then `03-plan.sh`, `04-apply.sh`, and
+    `05-verify.sh` against a scratch Omniflow database. Repeat until the plan shows no conflict you
+    have not decided about and verification passes. Note how long `apply` took.
+  </Step>
+  <Step title="Cut over">
+    `06-cutover.sh` stops Bedolaga, takes a final snapshot, runs the final import against production,
+    verifies it, moves the Telegram bot and the payment webhooks, and starts Omniflow's worker last.
+  </Step>
+  <Step title="Keep the way back open">
+    Leave the Bedolaga containers stopped, not removed. `07-rollback.sh` puts Bedolaga back in front of
+    customers if you need it.
+  </Step>
+</Steps>
+
+## What moves, and where
+
+| Bedolaga | Omniflow | How |
+| --- | --- | --- |
+| `users` row | `users` | Status, locale (`ru` or `en`; anything else becomes `ru`), and the original `created_at` |
+| `users.telegram_id`, `username`, `first_name`, `last_name` | `identities` | An active, verified `telegram` identity; the names go in its `metadata` as `username`, `firstName`, `lastName` |
+| `users.email` when `email_verified` | `contact_channels` | Kind `email`, sealed with `APP_DATA_ENCRYPTION_KEY`, verified, transactional on, marketing off. An unverified address is not carried |
+| `users.status = 'blocked'` | `users.status = 'suspended'` | Only when the mapping says `blockedUsers: suspend`; a `suspended` lifecycle event records why |
+| `users.balance_kopeks` | `ledger_transactions` + `ledger_entries` | One audited wallet adjustment per customer, see [below](#balances) |
+| `users.remnawave_id`, or the first active subscription's panel user | `remnawave_users` | The customer-level mapping the bot reads |
+| Active `subscriptions` row | `subscriptions` + `orders` + `order_lines` + `entitlements` | See [subscriptions](#subscriptions) |
+| Expired `subscriptions` row whose panel user still exists | `subscriptions` | Linked to that panel user, no entitlement |
+| Active trial | as above, plus `trial_claims` | The Bedolaga trial counts as the customer's one trial |
+| `users.referred_by_id` | `referral_attributions` | Same referrer; qualified when the referee had paid, see [referrals](#referrals) |
+| `tariffs` | — | Mapped to plan versions by your [mapping file](#the-mapping-file) |
+
+The importer's own bookkeeping is two tables. `bedolaga_import_items` holds one row per Bedolaga
+user, subscription, and referral pair it has decided about — the durable mapping from a Bedolaga
+ID to the Omniflow customer, subscription, and entitlement — and `bedolaga_import_runs` holds each
+apply run with its full report.
+
+### Balances
+
+Bedolaga stores balances in kopeks, which are RUB minor units, so the amount is carried as it is.
+Each positive balance becomes one wallet adjustment through the same path an operator adjustment
+takes: type `credit`, reference `bedolaga-user:<id>:1`, the reason from your mapping (shown to the
+customer), and a `wallet.adjusted` audit event naming the actor. Zero balances write nothing.
+Negative balances are a conflict and are not carried.
+
+If the Bedolaga balance changed after an earlier run — the final delta during the cutover — the next
+run writes the difference as a `correction` numbered `bedolaga-user:<id>:2`, `:3`, and so on. What
+was already moved is read from the ledger itself, so a run that dies right after a movement commits
+sees that movement next time and never credits twice.
+
+### Subscriptions
+
+A subscription that is `active`, `trial`, or `limited` in Bedolaga with an end in the future becomes:
+
+- a subscription on the customer's next free slot, adopting the Remnawave user that already serves
+  it — the subscription keeps its access link, and a renewal later patches that user;
+- a zero-value order, state `fulfilled`, operation `purchase`, idempotency key
+  `bedolaga:subscription:<id>`, with one order line on the mapped plan version. It adds nothing to
+  revenue and is how the entitlement is tied to a plan;
+- an entitlement with status taken from the panel (`ACTIVE` → `active`, `LIMITED` → `limited`,
+  `DISABLED` → `disabled`), starting at Bedolaga's `start_date` and ending at Bedolaga's `end_date`,
+  with the traffic limit, device limit, and squads the panel holds for that user today.
+
+Mirroring the panel's limits is deliberate: once Omniflow's worker runs, its reconciliation pushes the
+entitlement to the panel every fifteen minutes, and a mirror changes nothing. The end date is
+Bedolaga's, because Bedolaga is where the customer paid; where it differs from the panel's expiry
+(after the plan's grace period) the plan reports `expiry_differs_from_panel`, and the first
+reconciliation will move the panel to Bedolaga's date.
+
+A subscription is matched to its panel user by `subscriptions.remnawave_id`. A user with exactly one
+subscription and no ID on it falls back to `users.remnawave_id`, which is how Bedolaga stored it
+before multi-tariff.
+
+### Referrals
+
+Every pair whose both sides are imported becomes an attribution with Bedolaga's sign-up date as its
+`created_at`. When the referee had paid in Bedolaga (`has_had_paid_subscription`) the attribution
+arrives with `qualified_at` set and no qualifying order. Its inviter was rewarded in Bedolaga, so an
+attribution like that never pays again in Omniflow; a referee who never paid qualifies on their first
+Omniflow order as usual, subject to the programme's validity window.
+
+## What does not move
+
+| Stays in Bedolaga | Why, and what to do |
+| --- | --- |
+| Payment history: `transactions` and the per-provider payment tables | Omniflow's ledger records money Omniflow moved, and there is no append-only place for another system's payments. The snapshot from `01-snapshot-bedolaga.sh` is the archive; keep it |
+| Telegram Stars shop orders (`stars_orders`) | An Omniflow goods order needs a real order and quote behind it. The plan counts them by status and sum; they stay in the archive |
+| Support tickets and messages | Close or answer them in Bedolaga before the cutover; the plan counts them |
+| Promo codes and promo groups | Their discount rules do not map onto Omniflow's promotions one to one. The plan counts active codes by type and groups by members; recreate what you still want in the panel |
+| Referral earnings history and partner withdrawal requests | The earned money is already part of the balance that moves. Settle pending withdrawals in Bedolaga first |
+| Saved payment methods and auto-payment agreements | Provider tokens belong to Bedolaga's merchant setup; customers turn auto-renewal on again in Omniflow |
+| OAuth links, cabinet passwords, e-mail sign-in | Customers sign in to Omniflow with Telegram or a provider you configure there. A customer with neither a Telegram ID nor a verified e-mail is imported with the warning `no_sign_in_identity` |
+| Bedolaga referral codes and links | Every customer gets a new Omniflow referral code. Old `start=ref…` links stop attributing |
+| Deleted users | Skipped with `deleted_in_source` |
+| Grace-period overlays | The entitlement ends at the paid `end_date`, not at a grace overlay's date |
+| Trial history of customers with nothing active | Only an active trial is carried as a trial claim. A former trial user with no active subscription can claim an Omniflow trial once |
+
+## Before you start
+
+- **Bedolaga v5** with numeric Remnawave IDs (`users.remnawave_id`, `subscriptions.remnawave_id`).
+  The reader checks the columns it needs and stops with the missing one named.
+- **Omniflow deployed**, migrations applied, the API answering on `APP_PUBLIC_URL`, payment providers
+  configured, and a plan version for every tariff with active subscriptions. A trial plan (kind
+  `trial`) if you had trials.
+- **The importer built**, from the same commit as your Omniflow deployment:
+
+  ```bash
+  go build -o migrate-bedolaga ./cmd/migrate-bedolaga
+  # or as an image
+  docker build -f build/go.Dockerfile --build-arg TARGET=migrate-bedolaga -t omniflow-migrate-bedolaga .
+  ```
+
+- **A read-only role** on the Bedolaga database for the final import. The reader is read-only by
+  itself; a role that can only `SELECT` makes that true twice:
+
+  ```sql
+  CREATE ROLE omniflow_reader LOGIN PASSWORD '<choose one>';
+  GRANT CONNECT ON DATABASE remnawave_bot TO omniflow_reader;
+  GRANT USAGE ON SCHEMA public TO omniflow_reader;
+  GRANT SELECT ON ALL TABLES IN SCHEMA public TO omniflow_reader;
+  ```
+
+- **An environment file** outside the repository, from `deploy/migration/migration.env.example`,
+  `chmod 600`, loaded with `set -a; . /path/to/file; set +a`. The scripts check variables and never
+  print them.
+
+### What the importer reads
+
+| Variable | What it is |
+| --- | --- |
+| `APP_DATABASE_URL` | The Omniflow database it writes |
+| `APP_DATA_ENCRYPTION_KEY` | The key the API seals contacts with; verified e-mails are sealed with it |
+| `APP_REMNAWAVE_URL`, `APP_REMNAWAVE_TOKEN` | The panel; only `GET /api/users/` is called |
+| `APP_BEDOLAGA_DATABASE_URL` | The Bedolaga database; only read |
+
+### The mapping file
+
+Your decisions, in YAML or JSON (`deploy/migration/mapping.example.yaml`). Unknown keys are refused,
+so a typo cannot silently leave a tariff unmapped.
+
+```yaml
+currency: RUB
+blockedUsers: suspend          # or: active. Required when Bedolaga has blocked users
+walletReason: "Balance carried over from the previous bot"
+plans:
+  - tariffId: 1
+    planVersionId: 0b7c…       # the monthly default for tariff 1
+  - tariffId: 1
+    periodDays: 360
+    planVersionId: 5d1e…       # yearly subscriptions of tariff 1
+  - trial: true
+    planVersionId: 9a40…       # every trial
+  - noTariff: true
+    planVersionId: 77f2…       # subscriptions sold without a tariff
+```
+
+More specific rules win: a tariff with `periodDays` over the tariff alone, a tariff rule over a
+tariff-less trial rule. `periodDays` matches a subscription whose start-to-end length rounds to that
+many days. `plan` lists every Omniflow plan version you can name and every tariff still unmapped.
+
+`blockedUsers` has no default on purpose. Bedolaga writes `blocked` both when an operator bans
+somebody and when a broadcast finds that the customer blocked the bot; the data cannot tell the two
+apart, so until you choose, every blocked user is the conflict `blocked_policy_missing`.
+
+## Environment variables, Bedolaga → Omniflow
+
+Omniflow's processes read their own `APP_*` variables; see [Configuration](/getting-started/configuration).
+The usual Bedolaga settings land here:
+
+| Bedolaga | Omniflow | Note |
+| --- | --- | --- |
+| `BOT_TOKEN` | `APP_TELEGRAM_TOKEN` | The same bot moves; customers keep the chat they have |
+| `WEBHOOK_URL` + `WEBHOOK_PATH` | `APP_TELEGRAM_WEBHOOK_URL` | Omniflow's bot serves `POST /telegram/webhook` on `APP_BOT_HTTP_ADDR` and registers the webhook itself |
+| `WEBHOOK_SECRET_TOKEN` | `APP_TELEGRAM_WEBHOOK_SECRET` | 32–256 characters of `A–Z a–z 0–9 _ -`; generate a new one if yours is shorter |
+| `BOT_RUN_MODE` | — | Webhook when `APP_TELEGRAM_WEBHOOK_URL` is set, long polling otherwise |
+| `ADMIN_IDS` | `APP_OPERATOR_TELEGRAM_IDS` | Who may run `/ops`; operators of the web panel are separate accounts |
+| `ADMIN_NOTIFICATIONS_CHAT_ID` | `APP_OPERATOR_CHAT_ID` | A group with topics; the bot creates its own topics, so the Bedolaga topic IDs do not carry |
+| `SUPPORT_USERNAME` | `APP_SUPPORT_URL` | A URL, e.g. `https://t.me/<username>` |
+| `REMNAWAVE_API_URL` | `APP_REMNAWAVE_URL` | |
+| `REMNAWAVE_API_KEY` | `APP_REMNAWAVE_TOKEN` | Sent as a bearer token. Bedolaga's Caddy-token and basic-auth modes have no equivalent |
+| `YOOKASSA_SHOP_ID` | `APP_YOOKASSA_SHOP_ID` | |
+| `YOOKASSA_SECRET_KEY` | `APP_YOOKASSA_SECRET` | Return links are built from `APP_PUBLIC_URL`; `YOOKASSA_RETURN_URL` has no equivalent |
+| `CRYPTOBOT_API_TOKEN` | `APP_CRYPTOBOT_TOKEN` | |
+| `CRYPTOBOT_TESTNET` | `APP_CRYPTOBOT_TESTNET` | Defaults to `true` in Omniflow — set `false` for real payments |
+| `TELEGRAM_STARS_ENABLED`, `TELEGRAM_STARS_RATE_RUB` | — | Stars work through the bot token; a plan is payable in Stars when its version has an `XTR` price. See [Payments](/integrations/payments) |
+| `HELEKET_*`, `MULENPAY_*`, `PAL24_*`, `PLATEGA_*`, `WATA_*`, `FREEKASSA_*`, `CLOUDPAYMENTS_*`, `LAVA_*`, `CASHERA_*`, `TRIBUTE_*`, … | `APP_<SLUG>_<FIELD>` | Each further provider is an adapter registered in `payments.Builders` that reads its own variables under its slug, e.g. `APP_HELEKET_…`. The exact field names are defined by that adapter; this release registers none beyond YooKassa, CryptoBot, Stars, and manual |
+| `POSTGRES_*`, `DATABASE_URL` | `APP_BEDOLAGA_DATABASE_URL` | For the importer only. Omniflow keeps its own database in `APP_DATABASE_URL` |
+| `REDIS_URL` | `APP_VALKEY_URL` | Omniflow's own Valkey; nothing in Bedolaga's Redis carries over |
+| `CABINET_URL` | `APP_PUBLIC_URL` | The customer panel is Omniflow's web app |
+| `TRIAL_*` | — | A plan of kind `trial` in the catalogue |
+| `REMNAWAVE_WEBHOOK_*`, `WEB_API_*`, `MINIAPP_*`, `SERVER_STATUS_*` | — | No equivalent setting |
+
+## Rehearsal
+
+Run it on the server Bedolaga runs on, or anywhere that can reach the bot database container.
+
+<Steps>
+  <Step title="Snapshot">
+    ```bash
+    sh deploy/migration/01-snapshot-bedolaga.sh
+    ```
+    `pg_dump` runs inside `BEDOLAGA_DB_CONTAINER` (default `remnawave_bot_db`) and writes
+    `bedolaga-<time>.dump` with a `.sha256` beside it into `MIGRATION_DIR`. Files are never overwritten.
+  </Step>
+  <Step title="Restore into a scratch database">
+    ```bash
+    sh deploy/migration/02-restore-staging.sh "$MIGRATION_DIR"/bedolaga-<time>.dump
+    set -a; . "$MIGRATION_DIR/staging.env"; set +a
+    ```
+    Checks the checksum, starts a PostgreSQL container on `127.0.0.1:${STAGING_PORT:-55432}`, restores,
+    and writes `APP_BEDOLAGA_DATABASE_URL` to `staging.env` with a password generated for this copy.
+    Point `APP_DATABASE_URL` at a scratch Omniflow database with the migrations applied and your
+    catalogue created.
+  </Step>
+  <Step title="Plan">
+    ```bash
+    sh deploy/migration/03-plan.sh
+    ```
+    Writes nothing. Read the counts, the conflicts, the unmapped tariffs, the warnings, and what stays
+    in the archive. Fix the mapping and repeat.
+  </Step>
+  <Step title="Apply, twice">
+    ```bash
+    sh deploy/migration/04-apply.sh     # asks you to type: apply
+    sh deploy/migration/04-apply.sh     # the second run must write nothing
+    ```
+    `APPLY_LIMIT=100` makes a staged first pass that stops after a hundred writes.
+  </Step>
+  <Step title="Verify">
+    ```bash
+    sh deploy/migration/05-verify.sh
+    ```
+    Then sign in to the scratch Omniflow panel and look at a few customers you know.
+  </Step>
+</Steps>
+
+<Warning>
+  During a rehearsal, run **no Omniflow worker against the production panel**. The worker reconciles
+  every active entitlement with Remnawave every fifteen minutes; pointed at production, a rehearsal
+  database would start writing to real users. The importer itself only reads the panel, so plan,
+  apply, and verify are safe against production Remnawave.
+</Warning>
+
+### Conflicts and warnings
+
+A conflict is not imported and is re-evaluated on the next run, so fixing the data and running
+`apply` again is the whole procedure. The JSON reports name records by their Bedolaga row ID only.
+
+| Code | Meaning |
+| --- | --- |
+| `duplicate_telegram_id` | Two Bedolaga users share a Telegram ID; neither is imported |
+| `invalid_telegram_id` | A zero or negative Telegram ID |
+| `telegram_already_linked` | An Omniflow customer already holds that Telegram ID — somebody used the new bot early. Merge the accounts in the panel afterwards if needed |
+| `blocked_policy_missing` | A blocked user and no `blockedUsers` in the mapping |
+| `negative_balance` | The customer imports; the balance does not |
+| `subscription_without_remnawave_user` | An active subscription with no panel user ID |
+| `remnawave_user_not_found` | The panel has no user with that ID |
+| `duplicate_remnawave_user` | Two Bedolaga subscriptions point at one panel user |
+| `remnawave_user_already_linked` | An Omniflow customer already owns that panel user |
+| `unmapped_tariff`, `unknown_plan_version` | Fix the mapping file |
+| `user_not_imported`, `referrer_not_imported`, `referee_not_imported` | Follows from a conflict on the user |
+| `entitlement_owned_by_omniflow` | A refresh refused because Omniflow already acted on that entitlement |
+
+Warnings never block: `expiry_differs_from_panel`, `telegram_differs_from_panel`,
+`panel_status_differs`, `plan_kind_mismatch`, `plan_version_retired`, `language_defaulted`,
+`no_sign_in_identity`, `several_subscriptions` (enable `APP_MULTI_SUBSCRIPTION_ENABLED` and set
+`APP_MAX_SUBSCRIPTIONS_PER_CUSTOMER` if customers hold several), `balance_decreased`, and
+`changed_since_apply`.
+
+## How long the cutover takes
+
+Customers notice the window between stopping Bedolaga and the Omniflow bot answering. Inside it:
+a `pg_dump` of the bot database, one `apply`, one `verify`, and the manual steps. Each record is its
+own short transaction and the panel's user list is read in pages of 500, so `apply` usually takes
+seconds to a few minutes; measure it on your own data during the rehearsal — every run's start and
+finish are in `bedolaga_import_runs`, and `migrate-bedolaga runs` lists them. The provider dashboards
+and the smoke test take longer than the import; thirty minutes is a comfortable window for an
+installation that rehearsed.
+
+## Cutover
+
+```bash
+sh deploy/migration/06-cutover.sh
+```
+
+The script walks the list below, running what it can and stopping for what a person must do. Every
+step that changes something prints the command and waits for a typed phrase.
+
+1. **Preconditions.** Rehearsal passed with this mapping, Omniflow deployed, Omniflow's bot and
+   worker not running, customers told.
+2. **Maintenance.** `docker stop` on Bedolaga's bot (and `BEDOLAGA_EXTRA_CONTAINERS`, such as the
+   cabinet). Its database keeps running. The time is written to `MIGRATION_DIR/cutover-at`.
+3. **Final snapshot** with `01-snapshot-bedolaga.sh` — the archive of everything that does not move.
+4. **Final import.** `04-apply.sh` against production with `APP_BEDOLAGA_DATABASE_URL` on the
+   production bot database, then `05-verify.sh`. A mismatch stops the cutover.
+5. **Telegram.** Shows the current webhook; in polling mode deletes it; starts Omniflow's bot with
+   the same token, which registers its own webhook; shows the registration again. Send `/start` from
+   an account that was in Bedolaga.
+6. **Payment providers.** Prints `https://<APP_PUBLIC_URL>/v1/payments/webhooks/<slug>` for every
+   slug in `PAYMENT_PROVIDERS` to set in that provider's dashboard. Telegram Stars needs no URL.
+7. **Subscription links.** Nothing to change: Remnawave owns them. With `SAMPLE_SUBSCRIPTION_URL`
+   set the script checks one before and after.
+8. **Worker.** Starts Omniflow's worker last; from now on Omniflow reconciles imported entitlements.
+   After fifteen minutes, **/admin → System → Drift** should show nothing unexpected.
+
+A renewal made in Bedolaga between an earlier run and the final one is picked up by the final run:
+an imported entitlement that Omniflow has not acted on yet moves to the new end date, and a balance
+that changed gets its correction.
+
+## Verification
+
+`05-verify.sh` reconciles the source against Omniflow's own tables, not against the importer's
+bookkeeping:
+
+| Check | Passes when |
+| --- | --- |
+| nothing left to apply | A fresh plan has no write left |
+| users | Every importable Bedolaga user has a customer holding their Telegram ID |
+| balance sum | The carried-over movements of every customer sum to their Bedolaga balance |
+| active subscriptions | Every active subscription has an entitlement on the same panel user ending at Bedolaga's end date |
+| referral pairs | Every importable pair points at the right referrer |
+
+Exit status `4` is a mismatch; the report names the first Bedolaga IDs that failed.
+
+## Rollback
+
+```bash
+sh deploy/migration/07-rollback.sh
+```
+
+Because the importer never wrote to Bedolaga, Bedolaga's database is exactly as it was when it was
+stopped. Rolling back stops Omniflow's worker and bot, counts what happened in Omniflow since
+`cutover-at` (paid orders, new customers, wallet movements — set `OMNIFLOW_DB_CONTAINER`, or the
+script prints the query), starts Bedolaga again (it registers its own webhook), and asks you to point
+the payment providers back. Payments customers made in Omniflow after the cutover do not flow back:
+credit them in Bedolaga by hand from that list.
+
+Omniflow's imported data stays. Running `04-apply.sh` again later updates what changed rather than
+importing twice.
+
+## Running the importer by hand
+
+```text
+migrate-bedolaga plan   -mapping FILE [-json FILE]
+migrate-bedolaga apply  -mapping FILE -confirm [-json FILE] [-limit N] [-actor NAME]
+migrate-bedolaga verify -mapping FILE [-json FILE]
+migrate-bedolaga runs
+```
+
+Exit status: `0` done, `1` error, `2` usage, `3` apply left failures or stopped at `-limit`, `4`
+verify found a mismatch. `apply` refuses to run without `-confirm`. `-actor` is recorded on every
+wallet adjustment's audit event and on the run.
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="Customers and imports" icon="users" href="/commerce/customers-imports">
+    The Remnawave-only import, for an installation without a bot database.
+  </Card>
+  <Card title="Wallet and ledger" icon="wallet" href="/commerce/wallet-ledger">
+    How a carried-over balance sits in the ledger.
+  </Card>
+  <Card title="Fulfillment" icon="gears" href="/commerce/fulfillment">
+    What the worker does with an imported entitlement once it runs.
+  </Card>
+  <Card title="Backup and restore" icon="database" href="/operations/backup-restore">
+    Back up the Omniflow database before the cutover too.
+  </Card>
+</CardGroup>
