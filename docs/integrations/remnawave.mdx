@@ -120,8 +120,9 @@ Omniflow, because nothing else is implemented.
 | `GET /api/subscriptions/by-id/{id}` | Reading the current access link and subscription status |
 | `GET /api/hwid/devices/{id}` | Device lists and device counters |
 | `POST /api/hwid/devices/delete` (body `{userId, hwid}`) | Removing one device |
-| `POST /api/hwid/devices/delete-all` (body `{userId}`) | A customer disconnecting everything |
+| `POST /api/hwid/devices/delete-all` (body `{userId}`) | A customer disconnecting everything; a renewal when the installation removes devices on renewal |
 | `GET /api/nodes` | [Traffic reporting](/operations/traffic-reporting): node saturation. The one call whose absence is a normal outcome — a panel that does not expose it produces a stated absence on the screen rather than a page of zeros |
+| `GET /api/internal-squads`, `GET /api/external-squads` | The plan editor's squad pickers, read live and never stored |
 
 Three narrow Go interfaces divide that set by who is allowed to hold it: `Service` is the read set
 for customer surfaces, `Provisioner` is the write set the fulfillment worker holds, and `Importer` is
@@ -155,6 +156,21 @@ is `0` for both: `trafficLimitBytes: 0` is unlimited traffic and `hwidDeviceLimi
 device check. A `null` device limit is **not** unlimited — the panel applies its global HWID
 fallback limit to it, and a create rejects `null` with a `400` — so Omniflow never sends one.
 
+### The user profile a plan sets
+
+Beside the expiry, the limits, and the squads, every create and `PATCH` carries what the
+entitlement's plan asks of the user:
+
+| Field | From | Notes |
+| --- | --- | --- |
+| `trafficLimitStrategy` | The plan version's traffic reset strategy | `NO_RESET`, `DAY`, `WEEK`, `MONTH`, or `MONTH_ROLLING`; Remnawave resets the counter on that schedule by itself |
+| `externalSquadUuid` | The plan version's external squad | Left out when the version names none, so a squad set in the panel by hand stays |
+| `tag` | The plan's tag, or else the installation's trial or paid tag | Sent only once a tag is configured anywhere; then an empty one is sent as `null`, so a trial tag does not outlive the purchase |
+
+An external squad deleted in the panel after a plan named it makes the write fail with `A018` on a
+create or `A039` on an update. The adapter then repeats the write once without the squad: access is
+provisioned and only the page's shape is lost.
+
 ### Enable and disable are idempotent
 
 Remnawave answers `enable` on an enabled user with `400 A030` and `disable` on a disabled one with
@@ -162,7 +178,9 @@ Remnawave answers `enable` on an enabled user with `400 A030` and `disable` on a
 retried operation whose first attempt landed must not turn into a permanent failure.
 
 The adapter has **no retry and no backoff of its own**. Retrying is the fulfillment worker's job,
-where a retry is durable and idempotent; a read path simply degrades and says so.
+where a retry is durable and idempotent; a read path simply degrades and says so. The one exception
+is the single repeat without a stale external squad described above, which changes the request
+rather than retrying it.
 
 ## Writes always go through a fulfillment operation
 

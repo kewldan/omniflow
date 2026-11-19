@@ -2842,6 +2842,33 @@ func (e PanelPlanVersionInputSquadSelection) Valid() bool {
 	}
 }
 
+// Defines values for PanelPlanVersionInputTrafficResetStrategy.
+const (
+	PanelPlanVersionInputTrafficResetStrategyDAY          PanelPlanVersionInputTrafficResetStrategy = "DAY"
+	PanelPlanVersionInputTrafficResetStrategyMONTH        PanelPlanVersionInputTrafficResetStrategy = "MONTH"
+	PanelPlanVersionInputTrafficResetStrategyMONTHROLLING PanelPlanVersionInputTrafficResetStrategy = "MONTH_ROLLING"
+	PanelPlanVersionInputTrafficResetStrategyNORESET      PanelPlanVersionInputTrafficResetStrategy = "NO_RESET"
+	PanelPlanVersionInputTrafficResetStrategyWEEK         PanelPlanVersionInputTrafficResetStrategy = "WEEK"
+)
+
+// Valid indicates whether the value is a known member of the PanelPlanVersionInputTrafficResetStrategy enum.
+func (e PanelPlanVersionInputTrafficResetStrategy) Valid() bool {
+	switch e {
+	case PanelPlanVersionInputTrafficResetStrategyDAY:
+		return true
+	case PanelPlanVersionInputTrafficResetStrategyMONTH:
+		return true
+	case PanelPlanVersionInputTrafficResetStrategyMONTHROLLING:
+		return true
+	case PanelPlanVersionInputTrafficResetStrategyNORESET:
+		return true
+	case PanelPlanVersionInputTrafficResetStrategyWEEK:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PanelPlanVersionInputTrialEligibility.
 const (
 	PanelPlanVersionInputTrialEligibilityAny           PanelPlanVersionInputTrialEligibility = "any"
@@ -2899,6 +2926,33 @@ func (e PanelPlanVersionSummarySquadSelection) Valid() bool {
 	case PanelPlanVersionSummarySquadSelectionOptional:
 		return true
 	case PanelPlanVersionSummarySquadSelectionRequired:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelPlanVersionSummaryTrafficResetStrategy.
+const (
+	PanelPlanVersionSummaryTrafficResetStrategyDAY          PanelPlanVersionSummaryTrafficResetStrategy = "DAY"
+	PanelPlanVersionSummaryTrafficResetStrategyMONTH        PanelPlanVersionSummaryTrafficResetStrategy = "MONTH"
+	PanelPlanVersionSummaryTrafficResetStrategyMONTHROLLING PanelPlanVersionSummaryTrafficResetStrategy = "MONTH_ROLLING"
+	PanelPlanVersionSummaryTrafficResetStrategyNORESET      PanelPlanVersionSummaryTrafficResetStrategy = "NO_RESET"
+	PanelPlanVersionSummaryTrafficResetStrategyWEEK         PanelPlanVersionSummaryTrafficResetStrategy = "WEEK"
+)
+
+// Valid indicates whether the value is a known member of the PanelPlanVersionSummaryTrafficResetStrategy enum.
+func (e PanelPlanVersionSummaryTrafficResetStrategy) Valid() bool {
+	switch e {
+	case PanelPlanVersionSummaryTrafficResetStrategyDAY:
+		return true
+	case PanelPlanVersionSummaryTrafficResetStrategyMONTH:
+		return true
+	case PanelPlanVersionSummaryTrafficResetStrategyMONTHROLLING:
+		return true
+	case PanelPlanVersionSummaryTrafficResetStrategyNORESET:
+		return true
+	case PanelPlanVersionSummaryTrafficResetStrategyWEEK:
 		return true
 	default:
 		return false
@@ -7991,6 +8045,12 @@ type PanelPlanList struct {
 	Items *[]PanelPlanSummary `json:"items"`
 }
 
+// PanelPlanOptions defines model for PanelPlanOptions.
+type PanelPlanOptions struct {
+	// RemnawaveTag Upper-case letters, digits, and underscores; empty falls back to the installation trial or paid tag.
+	RemnawaveTag *string `json:"remnawaveTag,omitempty"`
+}
+
 // PanelPlanPresentation defines model for PanelPlanPresentation.
 type PanelPlanPresentation struct {
 	// MaxConcurrentPerCustomer Narrows the installation ceiling for this plan; it can never widen it.
@@ -8021,6 +8081,7 @@ type PanelPlanSummary struct {
 	LatestVersion            int                  `json:"latestVersion"`
 	MaxConcurrentPerCustomer *int                 `json:"maxConcurrentPerCustomer,omitempty"`
 	OrderLineCount           int64                `json:"orderLineCount"`
+	RemnawaveTag             *string              `json:"remnawaveTag,omitempty"`
 	SortOrder                int                  `json:"sortOrder"`
 	Visible                  bool                 `json:"visible"`
 }
@@ -8036,12 +8097,15 @@ type PanelPlanVersionInput struct {
 	CancellationPolicy PanelPlanVersionInputCancellationPolicy `json:"cancellationPolicy"`
 
 	// DeviceLimit Null is unlimited.
-	DeviceLimit         *int                                 `json:"deviceLimit,omitempty"`
-	DowngradePolicy     PanelPlanVersionInputDowngradePolicy `json:"downgradePolicy"`
-	DurationSeconds     int64                                `json:"durationSeconds"`
-	GracePeriodSeconds  *int64                               `json:"gracePeriodSeconds,omitempty"`
-	MaxSelectableSquads *int                                 `json:"maxSelectableSquads,omitempty"`
-	MinSelectableSquads *int                                 `json:"minSelectableSquads,omitempty"`
+	DeviceLimit     *int                                 `json:"deviceLimit,omitempty"`
+	DowngradePolicy PanelPlanVersionInputDowngradePolicy `json:"downgradePolicy"`
+	DurationSeconds int64                                `json:"durationSeconds"`
+
+	// ExternalSquadId A Remnawave external squad UUID; empty for none.
+	ExternalSquadId     *string `json:"externalSquadId,omitempty"`
+	GracePeriodSeconds  *int64  `json:"gracePeriodSeconds,omitempty"`
+	MaxSelectableSquads *int    `json:"maxSelectableSquads,omitempty"`
+	MinSelectableSquads *int    `json:"minSelectableSquads,omitempty"`
 
 	// OfferedSquads The squads a customer may choose; empty for automatic selection.
 	OfferedSquads    *[]PanelOfferedSquad `json:"offeredSquads,omitempty"`
@@ -8053,9 +8117,12 @@ type PanelPlanVersionInput struct {
 	SquadSelection PanelPlanVersionInputSquadSelection `json:"squadSelection"`
 
 	// TrafficAllowanceBytes Null is unlimited.
-	TrafficAllowanceBytes *int64                                `json:"trafficAllowanceBytes,omitempty"`
-	TrialEligibility      PanelPlanVersionInputTrialEligibility `json:"trialEligibility"`
-	UpgradePolicy         PanelPlanVersionInputUpgradePolicy    `json:"upgradePolicy"`
+	TrafficAllowanceBytes *int64 `json:"trafficAllowanceBytes,omitempty"`
+
+	// TrafficResetStrategy Remnawave trafficLimitStrategy; empty is NO_RESET.
+	TrafficResetStrategy *PanelPlanVersionInputTrafficResetStrategy `json:"trafficResetStrategy,omitempty"`
+	TrialEligibility     PanelPlanVersionInputTrialEligibility      `json:"trialEligibility"`
+	UpgradePolicy        PanelPlanVersionInputUpgradePolicy         `json:"upgradePolicy"`
 }
 
 // PanelPlanVersionInputBillingPeriod defines model for PanelPlanVersionInput.BillingPeriod.
@@ -8070,6 +8137,9 @@ type PanelPlanVersionInputDowngradePolicy string
 // PanelPlanVersionInputSquadSelection defines model for PanelPlanVersionInput.SquadSelection.
 type PanelPlanVersionInputSquadSelection string
 
+// PanelPlanVersionInputTrafficResetStrategy Remnawave trafficLimitStrategy; empty is NO_RESET.
+type PanelPlanVersionInputTrafficResetStrategy string
+
 // PanelPlanVersionInputTrialEligibility defines model for PanelPlanVersionInput.TrialEligibility.
 type PanelPlanVersionInputTrialEligibility string
 
@@ -8078,31 +8148,36 @@ type PanelPlanVersionInputUpgradePolicy string
 
 // PanelPlanVersionSummary defines model for PanelPlanVersionSummary.
 type PanelPlanVersionSummary struct {
-	AddonIds              *[]openapi_types.UUID                 `json:"addonIds,omitempty"`
-	BillingPeriod         string                                `json:"billingPeriod"`
-	CancellationPolicy    string                                `json:"cancellationPolicy"`
-	CreatedAt             time.Time                             `json:"createdAt"`
-	DeviceLimit           *int                                  `json:"deviceLimit,omitempty"`
-	DowngradePolicy       string                                `json:"downgradePolicy"`
-	DurationSeconds       int64                                 `json:"durationSeconds"`
-	GracePeriodSeconds    *int64                                `json:"gracePeriodSeconds,omitempty"`
-	Id                    openapi_types.UUID                    `json:"id"`
-	MaxSelectableSquads   *int                                  `json:"maxSelectableSquads,omitempty"`
-	MinSelectableSquads   *int                                  `json:"minSelectableSquads,omitempty"`
-	OfferedSquads         *[]PanelOfferedSquad                  `json:"offeredSquads,omitempty"`
-	Prices                map[string]int64                      `json:"prices"`
-	RecurringCapable      *bool                                 `json:"recurringCapable,omitempty"`
-	RetiredAt             *time.Time                            `json:"retiredAt,omitempty"`
-	SquadIds              *[]openapi_types.UUID                 `json:"squadIds,omitempty"`
-	SquadSelection        PanelPlanVersionSummarySquadSelection `json:"squadSelection"`
-	TrafficAllowanceBytes *int64                                `json:"trafficAllowanceBytes,omitempty"`
-	TrialEligibility      *string                               `json:"trialEligibility,omitempty"`
-	UpgradePolicy         string                                `json:"upgradePolicy"`
-	Version               int                                   `json:"version"`
+	AddonIds              *[]openapi_types.UUID                        `json:"addonIds,omitempty"`
+	BillingPeriod         string                                       `json:"billingPeriod"`
+	CancellationPolicy    string                                       `json:"cancellationPolicy"`
+	CreatedAt             time.Time                                    `json:"createdAt"`
+	DeviceLimit           *int                                         `json:"deviceLimit,omitempty"`
+	DowngradePolicy       string                                       `json:"downgradePolicy"`
+	DurationSeconds       int64                                        `json:"durationSeconds"`
+	ExternalSquadId       *openapi_types.UUID                          `json:"externalSquadId,omitempty"`
+	GracePeriodSeconds    *int64                                       `json:"gracePeriodSeconds,omitempty"`
+	Id                    openapi_types.UUID                           `json:"id"`
+	MaxSelectableSquads   *int                                         `json:"maxSelectableSquads,omitempty"`
+	MinSelectableSquads   *int                                         `json:"minSelectableSquads,omitempty"`
+	OfferedSquads         *[]PanelOfferedSquad                         `json:"offeredSquads,omitempty"`
+	Prices                map[string]int64                             `json:"prices"`
+	RecurringCapable      *bool                                        `json:"recurringCapable,omitempty"`
+	RetiredAt             *time.Time                                   `json:"retiredAt,omitempty"`
+	SquadIds              *[]openapi_types.UUID                        `json:"squadIds,omitempty"`
+	SquadSelection        PanelPlanVersionSummarySquadSelection        `json:"squadSelection"`
+	TrafficAllowanceBytes *int64                                       `json:"trafficAllowanceBytes,omitempty"`
+	TrafficResetStrategy  *PanelPlanVersionSummaryTrafficResetStrategy `json:"trafficResetStrategy,omitempty"`
+	TrialEligibility      *string                                      `json:"trialEligibility,omitempty"`
+	UpgradePolicy         string                                       `json:"upgradePolicy"`
+	Version               int                                          `json:"version"`
 }
 
 // PanelPlanVersionSummarySquadSelection defines model for PanelPlanVersionSummary.SquadSelection.
 type PanelPlanVersionSummarySquadSelection string
+
+// PanelPlanVersionSummaryTrafficResetStrategy defines model for PanelPlanVersionSummary.TrafficResetStrategy.
+type PanelPlanVersionSummaryTrafficResetStrategy string
 
 // PanelPromoCode defines model for PanelPromoCode.
 type PanelPromoCode struct {
@@ -8549,6 +8624,9 @@ type PanelSubscriptionPolicy struct {
 	// DowngradesEnabled Off refuses every downgrade whatever a version allows.
 	DowngradesEnabled bool `json:"downgradesEnabled"`
 
+	// PaidTag Remnawave user tag once paid when the plan names none; empty for none.
+	PaidTag *string `json:"paidTag,omitempty"`
+
 	// ResetDevicesOnRenewal An extension or renewal removes every registered device.
 	ResetDevicesOnRenewal bool `json:"resetDevicesOnRenewal"`
 
@@ -8560,7 +8638,10 @@ type PanelSubscriptionPolicy struct {
 
 	// TrialRemainder What a trial's or free plan's remaining time does on a move to a paid plan.
 	TrialRemainder PanelSubscriptionPolicyTrialRemainder `json:"trialRemainder"`
-	UpdatedAt      *time.Time                            `json:"updatedAt,omitempty"`
+
+	// TrialTag Remnawave user tag on a trial when the plan names none; empty for none.
+	TrialTag  *string    `json:"trialTag,omitempty"`
+	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
 
 	// UpgradesEnabled Off refuses every upgrade whatever a version allows.
 	UpgradesEnabled bool `json:"upgradesEnabled"`
@@ -10266,6 +10347,12 @@ type SavePanelPlanLocalizationParams struct {
 // SavePanelPlanLocalizationParamsLocale defines parameters for SavePanelPlanLocalization.
 type SavePanelPlanLocalizationParamsLocale string
 
+// SavePanelPlanOptionsParams defines parameters for SavePanelPlanOptions.
+type SavePanelPlanOptionsParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // CreatePanelPlanVersionParams defines parameters for CreatePanelPlanVersion.
 type CreatePanelPlanVersionParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
@@ -11432,6 +11519,9 @@ type ArchivePanelPlanJSONRequestBody ArchivePanelPlanJSONBody
 // SavePanelPlanLocalizationJSONRequestBody defines body for SavePanelPlanLocalization for application/json ContentType.
 type SavePanelPlanLocalizationJSONRequestBody = PanelLocalization
 
+// SavePanelPlanOptionsJSONRequestBody defines body for SavePanelPlanOptions for application/json ContentType.
+type SavePanelPlanOptionsJSONRequestBody = PanelPlanOptions
+
 // CreatePanelPlanVersionJSONRequestBody defines body for CreatePanelPlanVersion for application/json ContentType.
 type CreatePanelPlanVersionJSONRequestBody = PanelPlanVersionInput
 
@@ -12258,6 +12348,9 @@ type ServerInterface interface {
 
 	// (PUT /v1/panel/catalog/plans/{planID}/localizations/{locale})
 	SavePanelPlanLocalization(w http.ResponseWriter, r *http.Request, planID PlanID, locale SavePanelPlanLocalizationParamsLocale, params SavePanelPlanLocalizationParams)
+
+	// (PUT /v1/panel/catalog/plans/{planID}/options)
+	SavePanelPlanOptions(w http.ResponseWriter, r *http.Request, planID PlanID, params SavePanelPlanOptionsParams)
 
 	// (POST /v1/panel/catalog/plans/{planID}/versions)
 	CreatePanelPlanVersion(w http.ResponseWriter, r *http.Request, planID PlanID, params CreatePanelPlanVersionParams)
@@ -13583,6 +13676,11 @@ func (_ Unimplemented) ArchivePanelPlan(w http.ResponseWriter, r *http.Request, 
 
 // (PUT /v1/panel/catalog/plans/{planID}/localizations/{locale})
 func (_ Unimplemented) SavePanelPlanLocalization(w http.ResponseWriter, r *http.Request, planID PlanID, locale SavePanelPlanLocalizationParamsLocale, params SavePanelPlanLocalizationParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /v1/panel/catalog/plans/{planID}/options)
+func (_ Unimplemented) SavePanelPlanOptions(w http.ResponseWriter, r *http.Request, planID PlanID, params SavePanelPlanOptionsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -21060,6 +21158,60 @@ func (siw *ServerInterfaceWrapper) SavePanelPlanLocalization(w http.ResponseWrit
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SavePanelPlanLocalization(w, r, planID, locale, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SavePanelPlanOptions operation middleware
+func (siw *ServerInterfaceWrapper) SavePanelPlanOptions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "planID" -------------
+	var planID PlanID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "planID", chi.URLParam(r, "planID"), &planID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "planID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SavePanelPlanOptionsParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SavePanelPlanOptions(w, r, planID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -28791,6 +28943,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/panel/catalog/plans/{planID}/versions", wrapper.CreatePanelPlanVersion)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/v1/panel/catalog/plans/{planID}/options", wrapper.SavePanelPlanOptions)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/remnawave/squads", wrapper.ListPanelRemnawaveSquads)
@@ -36870,6 +37025,74 @@ func (response SavePanelPlanLocalization422ApplicationProblemPlusJSONResponse) V
 	return err
 }
 
+type SavePanelPlanOptionsRequestObject struct {
+	PlanID PlanID `json:"planID"`
+	Params SavePanelPlanOptionsParams
+	Body   *SavePanelPlanOptionsJSONRequestBody
+}
+
+type SavePanelPlanOptionsResponseObject interface {
+	VisitSavePanelPlanOptionsResponse(w http.ResponseWriter) error
+}
+
+type SavePanelPlanOptions200JSONResponse PanelPlanOptions
+
+func (response SavePanelPlanOptions200JSONResponse) VisitSavePanelPlanOptionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelPlanOptions403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SavePanelPlanOptions403ApplicationProblemPlusJSONResponse) VisitSavePanelPlanOptionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelPlanOptions404ApplicationProblemPlusJSONResponse Problem
+
+func (response SavePanelPlanOptions404ApplicationProblemPlusJSONResponse) VisitSavePanelPlanOptionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelPlanOptions422ApplicationProblemPlusJSONResponse Problem
+
+func (response SavePanelPlanOptions422ApplicationProblemPlusJSONResponse) VisitSavePanelPlanOptionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type CreatePanelPlanVersionRequestObject struct {
 	PlanID PlanID `json:"planID"`
 	Params CreatePanelPlanVersionParams
@@ -44884,6 +45107,9 @@ type StrictServerInterface interface {
 	// (PUT /v1/panel/catalog/plans/{planID}/localizations/{locale})
 	SavePanelPlanLocalization(ctx context.Context, request SavePanelPlanLocalizationRequestObject) (SavePanelPlanLocalizationResponseObject, error)
 
+	// (PUT /v1/panel/catalog/plans/{planID}/options)
+	SavePanelPlanOptions(ctx context.Context, request SavePanelPlanOptionsRequestObject) (SavePanelPlanOptionsResponseObject, error)
+
 	// (POST /v1/panel/catalog/plans/{planID}/versions)
 	CreatePanelPlanVersion(ctx context.Context, request CreatePanelPlanVersionRequestObject) (CreatePanelPlanVersionResponseObject, error)
 
@@ -50255,6 +50481,40 @@ func (sh *strictHandler) SavePanelPlanLocalization(w http.ResponseWriter, r *htt
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(SavePanelPlanLocalizationResponseObject); ok {
 		if err := validResponse.VisitSavePanelPlanLocalizationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SavePanelPlanOptions operation middleware
+func (sh *strictHandler) SavePanelPlanOptions(w http.ResponseWriter, r *http.Request, planID PlanID, params SavePanelPlanOptionsParams) {
+	var request SavePanelPlanOptionsRequestObject
+
+	request.PlanID = planID
+	request.Params = params
+
+	var body SavePanelPlanOptionsJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SavePanelPlanOptions(ctx, request.(SavePanelPlanOptionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SavePanelPlanOptions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SavePanelPlanOptionsResponseObject); ok {
+		if err := validResponse.VisitSavePanelPlanOptionsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

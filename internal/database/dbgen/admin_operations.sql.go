@@ -16,7 +16,7 @@ UPDATE plans
 SET archived_at = CASE WHEN $1::boolean THEN COALESCE(archived_at, now()) ELSE NULL END,
     visible = CASE WHEN $1::boolean THEN false ELSE visible END
 WHERE id = $2
-RETURNING id, code, kind, visible, sort_order, created_at, archived_at, max_concurrent_per_customer, highlighted
+RETURNING id, code, kind, visible, sort_order, created_at, archived_at, max_concurrent_per_customer, highlighted, remnawave_tag
 `
 
 type ArchivePlanParams struct {
@@ -37,6 +37,7 @@ func (q *Queries) ArchivePlan(ctx context.Context, arg ArchivePlanParams) (Plan,
 		&i.ArchivedAt,
 		&i.MaxConcurrentPerCustomer,
 		&i.Highlighted,
+		&i.RemnawaveTag,
 	)
 	return i, err
 }
@@ -269,7 +270,7 @@ INSERT INTO plan_versions (
   $11, $12, $13,
   $14, $15, $16
 )
-RETURNING id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads
+RETURNING id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads, traffic_reset_strategy, external_squad_id
 `
 
 type CreatePlanVersionFullParams struct {
@@ -337,6 +338,8 @@ func (q *Queries) CreatePlanVersionFull(ctx context.Context, arg CreatePlanVersi
 		&i.SquadSelection,
 		&i.MinSelectableSquads,
 		&i.MaxSelectableSquads,
+		&i.TrafficResetStrategy,
+		&i.ExternalSquadID,
 	)
 	return i, err
 }
@@ -1129,7 +1132,7 @@ func (q *Queries) GetPaymentProviderSettings(ctx context.Context, arg GetPayment
 }
 
 const getPlanAdmin = `-- name: GetPlanAdmin :one
-SELECT id, code, kind, visible, sort_order, created_at, archived_at, max_concurrent_per_customer, highlighted FROM plans WHERE id = $1
+SELECT id, code, kind, visible, sort_order, created_at, archived_at, max_concurrent_per_customer, highlighted, remnawave_tag FROM plans WHERE id = $1
 `
 
 func (q *Queries) GetPlanAdmin(ctx context.Context, id pgtype.UUID) (Plan, error) {
@@ -1145,6 +1148,7 @@ func (q *Queries) GetPlanAdmin(ctx context.Context, id pgtype.UUID) (Plan, error
 		&i.ArchivedAt,
 		&i.MaxConcurrentPerCustomer,
 		&i.Highlighted,
+		&i.RemnawaveTag,
 	)
 	return i, err
 }
@@ -2074,7 +2078,7 @@ func (q *Queries) ListPlanPrices(ctx context.Context, planVersionID pgtype.UUID)
 }
 
 const listPlanVersions = `-- name: ListPlanVersions :many
-SELECT id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads FROM plan_versions WHERE plan_id = $1 ORDER BY version DESC
+SELECT id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads, traffic_reset_strategy, external_squad_id FROM plan_versions WHERE plan_id = $1 ORDER BY version DESC
 `
 
 func (q *Queries) ListPlanVersions(ctx context.Context, planID pgtype.UUID) ([]PlanVersion, error) {
@@ -2106,6 +2110,8 @@ func (q *Queries) ListPlanVersions(ctx context.Context, planID pgtype.UUID) ([]P
 			&i.SquadSelection,
 			&i.MinSelectableSquads,
 			&i.MaxSelectableSquads,
+			&i.TrafficResetStrategy,
+			&i.ExternalSquadID,
 		); err != nil {
 			return nil, err
 		}
@@ -2120,7 +2126,7 @@ func (q *Queries) ListPlanVersions(ctx context.Context, planID pgtype.UUID) ([]P
 const listPlansAdmin = `-- name: ListPlansAdmin :many
 
 SELECT
-  p.id, p.code, p.kind, p.visible, p.sort_order, p.created_at, p.archived_at, p.max_concurrent_per_customer, p.highlighted,
+  p.id, p.code, p.kind, p.visible, p.sort_order, p.created_at, p.archived_at, p.max_concurrent_per_customer, p.highlighted, p.remnawave_tag,
   (SELECT max(version) FROM plan_versions v WHERE v.plan_id = p.id)::integer AS latest_version,
   (SELECT count(*) FROM order_lines l WHERE l.plan_id = p.id)::bigint AS order_line_count
 FROM plans p
@@ -2158,6 +2164,7 @@ func (q *Queries) ListPlansAdmin(ctx context.Context) ([]ListPlansAdminRow, erro
 			&i.Plan.ArchivedAt,
 			&i.Plan.MaxConcurrentPerCustomer,
 			&i.Plan.Highlighted,
+			&i.Plan.RemnawaveTag,
 			&i.LatestVersion,
 			&i.OrderLineCount,
 		); err != nil {
@@ -2214,7 +2221,7 @@ func (q *Queries) ListPromoCodesForPromotion(ctx context.Context, promotionID pg
 }
 
 const listPromotionPlans = `-- name: ListPromotionPlans :many
-SELECT p.id, p.code, p.kind, p.visible, p.sort_order, p.created_at, p.archived_at, p.max_concurrent_per_customer, p.highlighted FROM promotion_plans j JOIN plans p ON p.id = j.plan_id
+SELECT p.id, p.code, p.kind, p.visible, p.sort_order, p.created_at, p.archived_at, p.max_concurrent_per_customer, p.highlighted, p.remnawave_tag FROM promotion_plans j JOIN plans p ON p.id = j.plan_id
 WHERE j.promotion_id = $1
 ORDER BY p.code
 `
@@ -2238,6 +2245,7 @@ func (q *Queries) ListPromotionPlans(ctx context.Context, promotionID pgtype.UUI
 			&i.ArchivedAt,
 			&i.MaxConcurrentPerCustomer,
 			&i.Highlighted,
+			&i.RemnawaveTag,
 		); err != nil {
 			return nil, err
 		}
@@ -2692,7 +2700,7 @@ const retirePlanVersion = `-- name: RetirePlanVersion :one
 UPDATE plan_versions
 SET retired_at = now()
 WHERE id = $1 AND retired_at IS NULL
-RETURNING id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads
+RETURNING id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads, traffic_reset_strategy, external_squad_id
 `
 
 func (q *Queries) RetirePlanVersion(ctx context.Context, planVersionID pgtype.UUID) (PlanVersion, error) {
@@ -2718,6 +2726,8 @@ func (q *Queries) RetirePlanVersion(ctx context.Context, planVersionID pgtype.UU
 		&i.SquadSelection,
 		&i.MinSelectableSquads,
 		&i.MaxSelectableSquads,
+		&i.TrafficResetStrategy,
+		&i.ExternalSquadID,
 	)
 	return i, err
 }
@@ -3339,7 +3349,7 @@ UPDATE plans
 SET sort_order = $1,
     max_concurrent_per_customer = $2
 WHERE id = $3
-RETURNING id, code, kind, visible, sort_order, created_at, archived_at, max_concurrent_per_customer, highlighted
+RETURNING id, code, kind, visible, sort_order, created_at, archived_at, max_concurrent_per_customer, highlighted, remnawave_tag
 `
 
 type UpdatePlanOrderingParams struct {
@@ -3361,6 +3371,7 @@ func (q *Queries) UpdatePlanOrdering(ctx context.Context, arg UpdatePlanOrdering
 		&i.ArchivedAt,
 		&i.MaxConcurrentPerCustomer,
 		&i.Highlighted,
+		&i.RemnawaveTag,
 	)
 	return i, err
 }

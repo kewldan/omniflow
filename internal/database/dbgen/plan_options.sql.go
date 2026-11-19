@@ -30,8 +30,42 @@ func (q *Queries) GetHeldPlanKind(ctx context.Context, subscriptionID pgtype.UUI
 	return kind, err
 }
 
+const getProvisioningProfile = `-- name: GetProvisioningProfile :one
+SELECT v.traffic_reset_strategy, v.external_squad_id, p.kind, p.remnawave_tag,
+       sp.trial_tag, sp.paid_tag
+FROM plan_versions v
+JOIN plans p ON p.id = v.plan_id
+LEFT JOIN subscription_policy sp ON sp.singleton
+WHERE v.id = $1
+`
+
+type GetProvisioningProfileRow struct {
+	TrafficResetStrategy string      `json:"traffic_reset_strategy"`
+	ExternalSquadID      pgtype.UUID `json:"external_squad_id"`
+	Kind                 string      `json:"kind"`
+	RemnawaveTag         pgtype.Text `json:"remnawave_tag"`
+	TrialTag             pgtype.Text `json:"trial_tag"`
+	PaidTag              pgtype.Text `json:"paid_tag"`
+}
+
+// What the worker pushes to Remnawave beside the expiry and the limits, for
+// the plan version an entitlement was bought at.
+func (q *Queries) GetProvisioningProfile(ctx context.Context, planVersionID pgtype.UUID) (GetProvisioningProfileRow, error) {
+	row := q.db.QueryRow(ctx, getProvisioningProfile, planVersionID)
+	var i GetProvisioningProfileRow
+	err := row.Scan(
+		&i.TrafficResetStrategy,
+		&i.ExternalSquadID,
+		&i.Kind,
+		&i.RemnawaveTag,
+		&i.TrialTag,
+		&i.PaidTag,
+	)
+	return i, err
+}
+
 const getSubscriptionPolicy = `-- name: GetSubscriptionPolicy :one
-SELECT singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by FROM subscription_policy WHERE singleton
+SELECT singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag FROM subscription_policy WHERE singleton
 `
 
 // The migration seeds the row, so it is always there.
@@ -48,6 +82,8 @@ func (q *Queries) GetSubscriptionPolicy(ctx context.Context) (SubscriptionPolicy
 		&i.TrialRemainder,
 		&i.UpdatedAt,
 		&i.UpdatedBy,
+		&i.TrialTag,
+		&i.PaidTag,
 	)
 	return i, err
 }
@@ -105,6 +141,85 @@ func (q *Queries) ListPlanVersionAddonIDs(ctx context.Context, planVersionID pgt
 	return items, nil
 }
 
+const setPlanRemnawaveTag = `-- name: SetPlanRemnawaveTag :one
+UPDATE plans SET remnawave_tag = $1
+WHERE id = $2
+RETURNING id, code, kind, visible, sort_order, created_at, archived_at, max_concurrent_per_customer, highlighted, remnawave_tag
+`
+
+type SetPlanRemnawaveTagParams struct {
+	RemnawaveTag pgtype.Text `json:"remnawave_tag"`
+	PlanID       pgtype.UUID `json:"plan_id"`
+}
+
+func (q *Queries) SetPlanRemnawaveTag(ctx context.Context, arg SetPlanRemnawaveTagParams) (Plan, error) {
+	row := q.db.QueryRow(ctx, setPlanRemnawaveTag, arg.RemnawaveTag, arg.PlanID)
+	var i Plan
+	err := row.Scan(
+		&i.ID,
+		&i.Code,
+		&i.Kind,
+		&i.Visible,
+		&i.SortOrder,
+		&i.CreatedAt,
+		&i.ArchivedAt,
+		&i.MaxConcurrentPerCustomer,
+		&i.Highlighted,
+		&i.RemnawaveTag,
+	)
+	return i, err
+}
+
+const setPlanVersionRemnawaveProfile = `-- name: SetPlanVersionRemnawaveProfile :exec
+UPDATE plan_versions
+SET traffic_reset_strategy = $1,
+    external_squad_id = $2
+WHERE id = $3
+`
+
+type SetPlanVersionRemnawaveProfileParams struct {
+	TrafficResetStrategy string      `json:"traffic_reset_strategy"`
+	ExternalSquadID      pgtype.UUID `json:"external_squad_id"`
+	PlanVersionID        pgtype.UUID `json:"plan_version_id"`
+}
+
+// Written once, in the transaction that publishes the version.
+func (q *Queries) SetPlanVersionRemnawaveProfile(ctx context.Context, arg SetPlanVersionRemnawaveProfileParams) error {
+	_, err := q.db.Exec(ctx, setPlanVersionRemnawaveProfile, arg.TrafficResetStrategy, arg.ExternalSquadID, arg.PlanVersionID)
+	return err
+}
+
+const setPolicyTags = `-- name: SetPolicyTags :one
+UPDATE subscription_policy
+SET trial_tag = $1, paid_tag = $2, updated_at = now()
+WHERE singleton
+RETURNING singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag
+`
+
+type SetPolicyTagsParams struct {
+	TrialTag pgtype.Text `json:"trial_tag"`
+	PaidTag  pgtype.Text `json:"paid_tag"`
+}
+
+func (q *Queries) SetPolicyTags(ctx context.Context, arg SetPolicyTagsParams) (SubscriptionPolicy, error) {
+	row := q.db.QueryRow(ctx, setPolicyTags, arg.TrialTag, arg.PaidTag)
+	var i SubscriptionPolicy
+	err := row.Scan(
+		&i.Singleton,
+		&i.UpgradesEnabled,
+		&i.DowngradesEnabled,
+		&i.ResetTrafficOnRenewal,
+		&i.ResetTrafficOnPlanChange,
+		&i.ResetDevicesOnRenewal,
+		&i.TrialRemainder,
+		&i.UpdatedAt,
+		&i.UpdatedBy,
+		&i.TrialTag,
+		&i.PaidTag,
+	)
+	return i, err
+}
+
 const updateSubscriptionPolicy = `-- name: UpdateSubscriptionPolicy :one
 UPDATE subscription_policy
 SET upgrades_enabled = $1,
@@ -116,7 +231,7 @@ SET upgrades_enabled = $1,
     updated_at = now(),
     updated_by = $7
 WHERE singleton
-RETURNING singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by
+RETURNING singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag
 `
 
 type UpdateSubscriptionPolicyParams struct {
@@ -150,6 +265,8 @@ func (q *Queries) UpdateSubscriptionPolicy(ctx context.Context, arg UpdateSubscr
 		&i.TrialRemainder,
 		&i.UpdatedAt,
 		&i.UpdatedBy,
+		&i.TrialTag,
+		&i.PaidTag,
 	)
 	return i, err
 }

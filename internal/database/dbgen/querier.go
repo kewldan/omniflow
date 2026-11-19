@@ -726,6 +726,9 @@ type Querier interface {
 	GetPrimarySubscription(ctx context.Context, userID pgtype.UUID) (Subscription, error)
 	GetPromoForRedemption(ctx context.Context, normalizedCode string) (GetPromoForRedemptionRow, error)
 	GetPromotionAdmin(ctx context.Context, id pgtype.UUID) (Promotion, error)
+	// What the worker pushes to Remnawave beside the expiry and the limits, for
+	// the plan version an entitlement was bought at.
+	GetProvisioningProfile(ctx context.Context, planVersionID pgtype.UUID) (GetProvisioningProfileRow, error)
 	// One page by its address, in the reader's language.
 	//
 	// The locale falls back to the other one in the caller rather than here: a page
@@ -1937,10 +1940,14 @@ type Querier interface {
 	// Publication is recorded, not inferred. `published_at` is set once and kept, so
 	// unpublishing and republishing does not rewrite when customers first saw it.
 	SetNewsPostState(ctx context.Context, arg SetNewsPostStateParams) (NewsPost, error)
+	SetPlanRemnawaveTag(ctx context.Context, arg SetPlanRemnawaveTagParams) (Plan, error)
 	// Replaces the add-ons offered with a plan version. Deleting first keeps the
 	// set exactly what the operator chose rather than the union of every edit.
 	SetPlanVersionAddons(ctx context.Context, planVersionID pgtype.UUID) error
+	// Written once, in the transaction that publishes the version.
+	SetPlanVersionRemnawaveProfile(ctx context.Context, arg SetPlanVersionRemnawaveProfileParams) error
 	SetPlanVisibility(ctx context.Context, arg SetPlanVisibilityParams) (Plan, error)
+	SetPolicyTags(ctx context.Context, arg SetPolicyTagsParams) (SubscriptionPolicy, error)
 	SetPromoCodeActive(ctx context.Context, arg SetPromoCodeActiveParams) (PromoCode, error)
 	// The two writes are one statement on purpose: `recurring_enabled` may only be
 	// true alongside a passing test, and the table constraint refuses any pair that

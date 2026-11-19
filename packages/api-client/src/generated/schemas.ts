@@ -2739,6 +2739,8 @@ export const RemovePanelAllowlistResponse = zod.void();
 /**
  * Requires catalog.read. Archived plans are included, with how many order lines reference each, so archiving one in active use is a visible decision.
  */
+export const listPanelPlansResponseItemsItemRemnawaveTagRegExp = /^[A-Z0-9_]{1,16}$/;
+
 export const ListPanelPlansResponse = zod.object({
   items: zod
     .array(
@@ -2753,6 +2755,10 @@ export const ListPanelPlansResponse = zod.object({
         orderLineCount: zod.int(),
         createdAt: zod.iso.datetime({ offset: true }),
         archivedAt: zod.iso.datetime({ offset: true }).optional(),
+        remnawaveTag: zod
+          .string()
+          .regex(listPanelPlansResponseItemsItemRemnawaveTagRegExp)
+          .optional(),
       }),
     )
     .nullable(),
@@ -2765,6 +2771,7 @@ export const GetPanelPlanParams = zod.object({
   planID: zod.uuid(),
 });
 
+export const getPanelPlanResponsePlanRemnawaveTagRegExp = /^[A-Z0-9_]{1,16}$/;
 export const getPanelPlanResponseLocalizationsNameMax = 120;
 
 export const getPanelPlanResponseLocalizationsDescriptionMax = 2000;
@@ -2785,6 +2792,7 @@ export const GetPanelPlanResponse = zod.object({
     orderLineCount: zod.int(),
     createdAt: zod.iso.datetime({ offset: true }),
     archivedAt: zod.iso.datetime({ offset: true }).optional(),
+    remnawaveTag: zod.string().regex(getPanelPlanResponsePlanRemnawaveTagRegExp).optional(),
   }),
   localizations: zod.record(
     zod.string(),
@@ -2831,6 +2839,10 @@ export const GetPanelPlanResponse = zod.object({
           )
           .nullish(),
         addonIds: zod.array(zod.uuid()).nullish(),
+        trafficResetStrategy: zod
+          .enum(["NO_RESET", "DAY", "WEEK", "MONTH", "MONTH_ROLLING"])
+          .optional(),
+        externalSquadId: zod.uuid().optional(),
       }),
     )
     .nullable(),
@@ -2970,6 +2982,14 @@ export const CreatePanelPlanVersionBody = zod.object({
     .array(zod.uuid())
     .optional()
     .describe("The add-ons sold with the version; the set is replaced."),
+  trafficResetStrategy: zod
+    .enum(["NO_RESET", "DAY", "WEEK", "MONTH", "MONTH_ROLLING"])
+    .optional()
+    .describe("Remnawave trafficLimitStrategy; empty is NO_RESET."),
+  externalSquadId: zod
+    .string()
+    .optional()
+    .describe("A Remnawave external squad UUID; empty for none."),
 });
 
 export const createPanelPlanVersionResponseOfferedSquadsItemLabelRuMax = 80;
@@ -3006,6 +3026,45 @@ export const CreatePanelPlanVersionResponse = zod.object({
     )
     .nullish(),
   addonIds: zod.array(zod.uuid()).nullish(),
+  trafficResetStrategy: zod.enum(["NO_RESET", "DAY", "WEEK", "MONTH", "MONTH_ROLLING"]).optional(),
+  externalSquadId: zod.uuid().optional(),
+});
+
+/**
+ * Requires catalog.write. Plan-level settings that apply to every version: the Remnawave user tag subscriptions on the plan carry.
+ */
+export const SavePanelPlanOptionsParams = zod.object({
+  planID: zod.uuid(),
+});
+
+export const SavePanelPlanOptionsHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const savePanelPlanOptionsBodyRemnawaveTagMax = 16;
+
+export const SavePanelPlanOptionsBody = zod.object({
+  remnawaveTag: zod
+    .string()
+    .max(savePanelPlanOptionsBodyRemnawaveTagMax)
+    .optional()
+    .describe(
+      "Upper-case letters, digits, and underscores; empty falls back to the installation trial or paid tag.",
+    ),
+});
+
+export const savePanelPlanOptionsResponseRemnawaveTagMax = 16;
+
+export const SavePanelPlanOptionsResponse = zod.object({
+  remnawaveTag: zod
+    .string()
+    .max(savePanelPlanOptionsResponseRemnawaveTagMax)
+    .optional()
+    .describe(
+      "Upper-case letters, digits, and underscores; empty falls back to the installation trial or paid tag.",
+    ),
 });
 
 /**
@@ -3895,6 +3954,14 @@ export const GetPanelSubscriptionPolicyResponse = zod.object({
   trialRemainder: zod
     .enum(["policy", "carry", "reset"])
     .describe("What a trial's or free plan's remaining time does on a move to a paid plan."),
+  trialTag: zod
+    .string()
+    .optional()
+    .describe("Remnawave user tag on a trial when the plan names none; empty for none."),
+  paidTag: zod
+    .string()
+    .optional()
+    .describe("Remnawave user tag once paid when the plan names none; empty for none."),
   updatedAt: zod.iso.datetime({ offset: true }).optional(),
 });
 
@@ -3922,6 +3989,14 @@ export const SavePanelSubscriptionPolicyBody = zod.object({
   trialRemainder: zod
     .enum(["policy", "carry", "reset"])
     .describe("What a trial's or free plan's remaining time does on a move to a paid plan."),
+  trialTag: zod
+    .string()
+    .optional()
+    .describe("Remnawave user tag on a trial when the plan names none; empty for none."),
+  paidTag: zod
+    .string()
+    .optional()
+    .describe("Remnawave user tag once paid when the plan names none; empty for none."),
 });
 
 export const SavePanelSubscriptionPolicyResponse = zod.object({
@@ -3939,6 +4014,14 @@ export const SavePanelSubscriptionPolicyResponse = zod.object({
   trialRemainder: zod
     .enum(["policy", "carry", "reset"])
     .describe("What a trial's or free plan's remaining time does on a move to a paid plan."),
+  trialTag: zod
+    .string()
+    .optional()
+    .describe("Remnawave user tag on a trial when the plan names none; empty for none."),
+  paidTag: zod
+    .string()
+    .optional()
+    .describe("Remnawave user tag once paid when the plan names none; empty for none."),
   updatedAt: zod.iso.datetime({ offset: true }).optional(),
 });
 

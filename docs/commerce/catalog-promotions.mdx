@@ -96,6 +96,8 @@ The guarantee is doubled at the order. An order line stores `plan_version_id` **
 | Trial eligibility | `trialEligibility` | `new_customer`, `never_trialled`, `any`; see [Trials](#trials-and-trial-abuse-controls) |
 | Can be charged automatically | `recurringCapable` | stored and displayed, never read as a gate |
 | Add-ons sold with this version | `addonIds` | checkboxes over the add-on catalogue, carried over from the previous version |
+| Traffic counter resets | `trafficResetStrategy` | Remnawave's `trafficLimitStrategy`: `NO_RESET` (the default), `DAY`, `WEEK`, `MONTH`, `MONTH_ROLLING` |
+| External squad | `externalSquadId` | a Remnawave external squad picked by name; empty for none |
 | Prices | `prices` | free text such as `RUB=49900, USD=599` |
 
 Nulls and zeroes mean different things here, and the code says so twice: an absent traffic allowance or device limit is *unlimited*, while a zero would mean a plan that permits nothing. A panel that had to guess which a zero meant would eventually advertise the wrong one, so a zero is refused instead.
@@ -111,6 +113,10 @@ The grace period exists so that expiry copy is not guesswork: it keeps access al
 
 - A squad selection, trial rule, billing period, or cancellation policy outside the values in the table above. The panel accepts exactly what the `plan_versions` CHECK constraints accept and the domain implements; an earlier editor sent `customer_choice` and `fixed`, which nothing implemented, so a choosable squad set could not be published at all.
 - A choosable selection (`optional` or `required`) with no offered squads, a `required` one with a minimum below 1, a minimum above the number offered, a maximum below the minimum, the same squad offered twice, or a label blank or longer than 80 characters in either language. An `automatic` version that names offered squads is refused too, because the checkout refuses any selection against it.
+
+### Plan settings
+
+Opening a plan's editor also shows **Plan settings**, which apply to every version of the plan rather than to one: the **Remnawave user tag** subscriptions on the plan carry in the panel. Saving calls `PUT /v1/panel/catalog/plans/{planID}/options` (`catalog.write`, audit `panel.plan.options_updated`). A tag is up to 16 capital letters, digits, and underscores — what the panel itself accepts — and a lower-case one is upper-cased. An empty tag falls back to the installation's trial or paid tag (see [Subscriptions](/commerce/subscriptions#installation-wide-switches)). The tag reaches a subscription the next time its entitlement is pushed to Remnawave: a renewal, a change, or the reconciliation sweep. [Remnawave](/integrations/remnawave#the-user-profile-a-plan-sets) has the wire details.
 
 ### Picking squads
 

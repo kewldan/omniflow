@@ -25,6 +25,8 @@ type memoryRemnawave struct {
 	users  map[int64]remnawave.User
 	calls  []string
 	onCall func(call string)
+	// pushed is every desired state a create or an update carried, in order.
+	pushed []remnawave.ProvisionUser
 }
 
 func newMemoryRemnawave() *memoryRemnawave {
@@ -65,6 +67,7 @@ func (panel *memoryRemnawave) UserByUsername(_ context.Context, username string)
 }
 
 func (panel *memoryRemnawave) apply(user remnawave.User, desired remnawave.ProvisionUser) remnawave.User {
+	panel.pushed = append(panel.pushed, desired)
 	user.ExpireAt = desired.ExpireAt
 	user.TrafficLimitBytes = 0
 	if desired.TrafficLimitBytes != nil {

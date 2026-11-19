@@ -2,6 +2,7 @@
 
 import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
+import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
 import { Skeleton } from "@omniflow/ui/skeleton";
@@ -10,6 +11,7 @@ import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
 
+import { FormField } from "@/components/forms/field";
 import { type ApiError, fetcher } from "@/lib/api";
 import { useOperatorAction } from "@/lib/operations";
 
@@ -21,10 +23,16 @@ export type SubscriptionPolicy = {
   resetTrafficOnPlanChange: boolean;
   resetDevicesOnRenewal: boolean;
   trialRemainder: string;
+  trialTag: string;
+  paidTag: string;
   updatedAt?: string;
 };
 
 const TRIAL_REMAINDER = ["policy", "carry", "reset"] as const;
+
+/** Free-text fields: Remnawave user tags, upper-cased as the panel requires. */
+type TextField = "trialTag" | "paidTag";
+const TEXT_FIELDS: TextField[] = ["trialTag", "paidTag"];
 
 type Toggle =
   | "upgradesEnabled"
@@ -114,6 +122,26 @@ function PolicyForm({
             </SelectContent>
           </Select>
           <span className="text-muted-foreground text-xs">{translate("trialRemainderHint")}</span>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {TEXT_FIELDS.map((field) => (
+            <FormField hint={translate(`${field}Hint`)} key={field} label={translate(field)}>
+              {(props) => (
+                <Input
+                  {...props}
+                  maxLength={16}
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      [field]: event.target.value.toUpperCase(),
+                    }))
+                  }
+                  readOnly={!editable}
+                  value={draft[field]}
+                />
+              )}
+            </FormField>
+          ))}
         </div>
         {error && <p className="text-danger-foreground text-sm">{error.message}</p>}
         {editable && (

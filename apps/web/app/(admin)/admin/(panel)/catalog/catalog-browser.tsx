@@ -24,6 +24,7 @@ import {
 import { useSession } from "@/lib/session";
 
 import { Addons } from "./addon-editor";
+import { PlanOptionsEditor } from "./plan-options";
 import { PlanVersionEditor } from "./version-editor";
 
 /**
@@ -172,13 +173,16 @@ function Plans({ active }: { active: boolean }) {
               {editing === plan.id && (
                 <TableRow>
                   <TableCell className="p-2" colSpan={7}>
-                    <PlanVersionEditor
-                      onPublished={() => {
-                        setEditing("");
-                        void mutate();
-                      }}
-                      planId={plan.id}
-                    />
+                    <div className="flex flex-col gap-3">
+                      <PlanOptionsEditor onSaved={() => void mutate()} plan={plan} />
+                      <PlanVersionEditor
+                        onPublished={() => {
+                          setEditing("");
+                          void mutate();
+                        }}
+                        planId={plan.id}
+                      />
+                    </div>
                   </TableCell>
                 </TableRow>
               )}

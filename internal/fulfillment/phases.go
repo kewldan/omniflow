@@ -176,6 +176,14 @@ func (worker *Worker) claim(ctx context.Context, operationID pgtype.UUID) (claim
 		return claim{}, false, err
 	}
 	desired = desired.withGrace(time.Duration(graceSeconds) * time.Second)
+	// The reset strategy, external squad, and tag follow the plan version the
+	// entitlement was bought at, read here like the grace so every operation —
+	// a create, an extension, a resume, a reconcile — pushes the same profile.
+	profile, err := queries.GetProvisioningProfile(ctx, entitlement.PlanVersionID)
+	if err != nil {
+		return claim{}, false, err
+	}
+	desired = desired.withProfile(profile)
 	subscription, err := worker.subscriptionFor(ctx, queries, entitlement)
 	if errors.Is(err, errSubscriptionUnresolved) {
 		return claim{}, false, worker.failPermanent(ctx, tx, queries, operation, "subscription_unresolved")

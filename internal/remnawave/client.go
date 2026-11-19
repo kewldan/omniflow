@@ -65,27 +65,67 @@ type ProvisionUser struct {
 	TrafficLimitBytes *int64
 	HWIDDeviceLimit   *int
 	InternalSquadIDs  []string
+	// TrafficLimitStrategy is when the panel resets the traffic counter on its
+	// own: NO_RESET, DAY, WEEK, MONTH, or MONTH_ROLLING. Empty leaves it out,
+	// which the panel reads as NO_RESET on a create and "unchanged" on an
+	// update.
+	TrafficLimitStrategy string
+	// ExternalSquadID is the external squad that shapes the user's
+	// subscription page. Empty leaves whatever the panel holds.
+	ExternalSquadID string
+	// Tag is the panel's user tag. It is sent only while TagManaged is set,
+	// and then an empty tag clears it: once Omniflow tags users, a trial tag
+	// must not outlive the purchase. With TagManaged unset the field is left
+	// out and a tag an operator set by hand is untouched.
+	Tag        string
+	TagManaged bool
 }
 
 // createWire is the POST /api/users body.
 type createWire struct {
-	Username          string    `json:"username"`
-	ExpireAt          time.Time `json:"expireAt"`
-	TrafficLimitBytes int64     `json:"trafficLimitBytes"`
-	HWIDDeviceLimit   int       `json:"hwidDeviceLimit"`
-	InternalSquadIDs  []string  `json:"activeInternalSquads,omitempty"`
+	Username             string    `json:"username"`
+	ExpireAt             time.Time `json:"expireAt"`
+	TrafficLimitBytes    int64     `json:"trafficLimitBytes"`
+	HWIDDeviceLimit      int       `json:"hwidDeviceLimit"`
+	InternalSquadIDs     []string  `json:"activeInternalSquads,omitempty"`
+	TrafficLimitStrategy string    `json:"trafficLimitStrategy,omitempty"`
+	ExternalSquadID      string    `json:"externalSquadUuid,omitempty"`
+	Tag                  string    `json:"tag,omitempty"`
 }
 
 // updateWire is the PATCH /api/users body. The contract addresses the user by
 // exactly one of `id` or `username`; Omniflow always knows the numeric ID, and
 // the panel cannot rename a user through this call anyway, so the username is
 // not sent.
+//
+// Tag is a pointer to a pointer so the three cases stay apart: left out, sent
+// as null to clear, or sent as a value.
 type updateWire struct {
-	ID                int64     `json:"id"`
-	ExpireAt          time.Time `json:"expireAt"`
-	TrafficLimitBytes int64     `json:"trafficLimitBytes"`
-	HWIDDeviceLimit   int       `json:"hwidDeviceLimit"`
-	InternalSquadIDs  []string  `json:"activeInternalSquads,omitempty"`
+	ID                   int64     `json:"id"`
+	ExpireAt             time.Time `json:"expireAt"`
+	TrafficLimitBytes    int64     `json:"trafficLimitBytes"`
+	HWIDDeviceLimit      int       `json:"hwidDeviceLimit"`
+	InternalSquadIDs     []string  `json:"activeInternalSquads,omitempty"`
+	TrafficLimitStrategy string    `json:"trafficLimitStrategy,omitempty"`
+	ExternalSquadID      string    `json:"externalSquadUuid,omitempty"`
+	Tag                  **string  `json:"tag,omitempty"`
+}
+
+// withoutExternalSquad is the same desired state with the external squad left
+// out. A squad deleted in the panel after a plan named it fails the whole
+// write, and the user's access matters more than the page's shape.
+func (desired ProvisionUser) withoutExternalSquad() ProvisionUser {
+	desired.ExternalSquadID = ""
+	return desired
+}
+
+// Error codes the panel answers a write naming an external squad it no
+// longer has with: A018 on a create, A039 on an update, A182 for the squad.
+var staleExternalSquadCodes = map[string]bool{"A018": true, "A039": true, "A182": true}
+
+func staleExternalSquad(err error) bool {
+	var apiError *APIError
+	return errors.As(err, &apiError) && staleExternalSquadCodes[apiError.Code]
 }
 
 // limits resolves the two limits to their wire values; see ProvisionUser.
@@ -101,12 +141,33 @@ func (desired ProvisionUser) limits() (traffic int64, devices int) {
 
 func (desired ProvisionUser) createWire() createWire {
 	traffic, devices := desired.limits()
-	return createWire{Username: desired.Username, ExpireAt: desired.ExpireAt, TrafficLimitBytes: traffic, HWIDDeviceLimit: devices, InternalSquadIDs: desired.InternalSquadIDs}
+	wire := createWire{
+		Username: desired.Username, ExpireAt: desired.ExpireAt, TrafficLimitBytes: traffic,
+		HWIDDeviceLimit: devices, InternalSquadIDs: desired.InternalSquadIDs,
+		TrafficLimitStrategy: desired.TrafficLimitStrategy, ExternalSquadID: desired.ExternalSquadID,
+	}
+	if desired.TagManaged {
+		wire.Tag = desired.Tag
+	}
+	return wire
 }
 
 func (desired ProvisionUser) updateWire(userID int64) updateWire {
 	traffic, devices := desired.limits()
-	return updateWire{ID: userID, ExpireAt: desired.ExpireAt, TrafficLimitBytes: traffic, HWIDDeviceLimit: devices, InternalSquadIDs: desired.InternalSquadIDs}
+	wire := updateWire{
+		ID: userID, ExpireAt: desired.ExpireAt, TrafficLimitBytes: traffic,
+		HWIDDeviceLimit: devices, InternalSquadIDs: desired.InternalSquadIDs,
+		TrafficLimitStrategy: desired.TrafficLimitStrategy, ExternalSquadID: desired.ExternalSquadID,
+	}
+	if desired.TagManaged {
+		var tag *string
+		if desired.Tag != "" {
+			value := desired.Tag
+			tag = &value
+		}
+		wire.Tag = &tag
+	}
+	return wire
 }
 
 type InternalSquad struct {
@@ -285,6 +346,9 @@ func (client *Client) CreateUser(ctx context.Context, desired ProvisionUser) (Us
 		Response User `json:"response"`
 	}
 	err := client.do(ctx, http.MethodPost, "/api/users/", desired.createWire(), &envelope)
+	if err != nil && desired.ExternalSquadID != "" && staleExternalSquad(err) {
+		err = client.do(ctx, http.MethodPost, "/api/users/", desired.withoutExternalSquad().createWire(), &envelope)
+	}
 	return envelope.Response, err
 }
 
@@ -293,6 +357,9 @@ func (client *Client) UpdateUser(ctx context.Context, userID int64, desired Prov
 		Response User `json:"response"`
 	}
 	err := client.do(ctx, http.MethodPatch, "/api/users/", desired.updateWire(userID), &envelope)
+	if err != nil && desired.ExternalSquadID != "" && staleExternalSquad(err) {
+		err = client.do(ctx, http.MethodPatch, "/api/users/", desired.withoutExternalSquad().updateWire(userID), &envelope)
+	}
 	return envelope.Response, err
 }
 

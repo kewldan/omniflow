@@ -3027,6 +3027,8 @@ CREATE TABLE public.plan_versions (
     squad_selection text DEFAULT 'automatic'::text NOT NULL,
     min_selectable_squads integer DEFAULT 0 NOT NULL,
     max_selectable_squads integer,
+    traffic_reset_strategy text DEFAULT 'NO_RESET'::text NOT NULL,
+    external_squad_id uuid,
     CONSTRAINT plan_versions_billing_period_check CHECK ((billing_period = ANY (ARRAY['none'::text, 'day'::text, 'week'::text, 'month'::text, 'quarter'::text, 'half_year'::text, 'year'::text, 'custom'::text]))),
     CONSTRAINT plan_versions_cancellation_policy_check CHECK ((cancellation_policy = ANY (ARRAY['forbid'::text, 'immediate'::text, 'at_expiry'::text]))),
     CONSTRAINT plan_versions_device_limit_check CHECK (((device_limit IS NULL) OR (device_limit >= 0))),
@@ -3038,6 +3040,7 @@ CREATE TABLE public.plan_versions (
     CONSTRAINT plan_versions_selectable_squad_range_check CHECK (((max_selectable_squads IS NULL) OR (max_selectable_squads >= min_selectable_squads))),
     CONSTRAINT plan_versions_squad_selection_check CHECK ((squad_selection = ANY (ARRAY['automatic'::text, 'optional'::text, 'required'::text]))),
     CONSTRAINT plan_versions_traffic_allowance_bytes_check CHECK (((traffic_allowance_bytes IS NULL) OR (traffic_allowance_bytes >= 0))),
+    CONSTRAINT plan_versions_traffic_reset_strategy_known CHECK ((traffic_reset_strategy = ANY (ARRAY['NO_RESET'::text, 'DAY'::text, 'WEEK'::text, 'MONTH'::text, 'MONTH_ROLLING'::text]))),
     CONSTRAINT plan_versions_trial_eligibility_check CHECK ((trial_eligibility = ANY (ARRAY['new_customer'::text, 'never_trialled'::text, 'any'::text]))),
     CONSTRAINT plan_versions_upgrade_policy_check CHECK ((upgrade_policy = ANY (ARRAY['forbid'::text, 'replace'::text, 'extend'::text]))),
     CONSTRAINT plan_versions_version_check CHECK ((version > 0))
@@ -3058,9 +3061,11 @@ CREATE TABLE public.plans (
     archived_at timestamp with time zone,
     max_concurrent_per_customer integer,
     highlighted boolean DEFAULT false NOT NULL,
+    remnawave_tag text,
     CONSTRAINT plans_code_check CHECK ((code ~ '^[a-z][a-z0-9_-]{1,63}$'::text)),
     CONSTRAINT plans_kind_check CHECK ((kind = ANY (ARRAY['trial'::text, 'one_time'::text, 'recurring'::text, 'free'::text, 'manual'::text]))),
-    CONSTRAINT plans_max_concurrent_per_customer_check CHECK (((max_concurrent_per_customer IS NULL) OR (max_concurrent_per_customer > 0)))
+    CONSTRAINT plans_max_concurrent_per_customer_check CHECK (((max_concurrent_per_customer IS NULL) OR (max_concurrent_per_customer > 0))),
+    CONSTRAINT plans_remnawave_tag_shape CHECK ((remnawave_tag ~ '^[A-Z0-9_]{1,16}$'::text))
 );
 
 
@@ -3481,8 +3486,12 @@ CREATE TABLE public.subscription_policy (
     trial_remainder text DEFAULT 'policy'::text NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_by uuid,
+    trial_tag text,
+    paid_tag text,
+    CONSTRAINT subscription_policy_paid_tag_shape CHECK ((paid_tag ~ '^[A-Z0-9_]{1,16}$'::text)),
     CONSTRAINT subscription_policy_singleton CHECK (singleton),
-    CONSTRAINT subscription_policy_trial_remainder_known CHECK ((trial_remainder = ANY (ARRAY['policy'::text, 'carry'::text, 'reset'::text])))
+    CONSTRAINT subscription_policy_trial_remainder_known CHECK ((trial_remainder = ANY (ARRAY['policy'::text, 'carry'::text, 'reset'::text]))),
+    CONSTRAINT subscription_policy_trial_tag_shape CHECK ((trial_tag ~ '^[A-Z0-9_]{1,16}$'::text))
 );
 
 

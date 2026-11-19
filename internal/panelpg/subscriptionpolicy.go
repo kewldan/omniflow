@@ -11,13 +11,18 @@ import (
 // to a subscription. A plan version's own upgrade and downgrade policies still
 // apply beneath it.
 type SubscriptionPolicy struct {
-	UpgradesEnabled          bool      `json:"upgradesEnabled"`
-	DowngradesEnabled        bool      `json:"downgradesEnabled"`
-	ResetTrafficOnRenewal    bool      `json:"resetTrafficOnRenewal"`
-	ResetTrafficOnPlanChange bool      `json:"resetTrafficOnPlanChange"`
-	ResetDevicesOnRenewal    bool      `json:"resetDevicesOnRenewal"`
-	TrialRemainder           string    `json:"trialRemainder"`
-	UpdatedAt                time.Time `json:"updatedAt"`
+	UpgradesEnabled          bool   `json:"upgradesEnabled"`
+	DowngradesEnabled        bool   `json:"downgradesEnabled"`
+	ResetTrafficOnRenewal    bool   `json:"resetTrafficOnRenewal"`
+	ResetTrafficOnPlanChange bool   `json:"resetTrafficOnPlanChange"`
+	ResetDevicesOnRenewal    bool   `json:"resetDevicesOnRenewal"`
+	TrialRemainder           string `json:"trialRemainder"`
+	// TrialTag and PaidTag are the Remnawave user tags a subscription carries
+	// when its plan names none: one on a trial, the other once paid. Both
+	// empty leaves the panel's tags alone.
+	TrialTag  string    `json:"trialTag"`
+	PaidTag   string    `json:"paidTag"`
+	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 var validTrialRemainder = map[string]bool{"policy": true, "carry": true, "reset": true}
@@ -31,18 +36,25 @@ func (service *Service) SubscriptionPolicy(ctx context.Context) (SubscriptionPol
 	return subscriptionPolicyFrom(row), nil
 }
 
-// SaveSubscriptionPolicy stores the switches. A change applies to orders
-// priced after it; an order already open keeps the rules it was priced under
-// only as far as its price goes, because settlement reads the switches again.
+// SaveSubscriptionPolicy stores the switches. Orders priced after the save
+// follow them, and so does every settlement, which reads them again.
 func (service *Service) SaveSubscriptionPolicy(
 	ctx context.Context, policy SubscriptionPolicy, actor Actor,
 ) (SubscriptionPolicy, error) {
 	if !validTrialRemainder[policy.TrialRemainder] {
 		return SubscriptionPolicy{}, ErrValidaton
 	}
+	trialTag, err := normalizePanelTag(policy.TrialTag)
+	if err != nil {
+		return SubscriptionPolicy{}, err
+	}
+	paidTag, err := normalizePanelTag(policy.PaidTag)
+	if err != nil {
+		return SubscriptionPolicy{}, err
+	}
 	var saved SubscriptionPolicy
-	err := service.inTx(ctx, func(queries *dbgen.Queries) error {
-		row, err := queries.UpdateSubscriptionPolicy(ctx, dbgen.UpdateSubscriptionPolicyParams{
+	err = service.inTx(ctx, func(queries *dbgen.Queries) error {
+		if _, txErr := queries.UpdateSubscriptionPolicy(ctx, dbgen.UpdateSubscriptionPolicyParams{
 			UpgradesEnabled:          policy.UpgradesEnabled,
 			DowngradesEnabled:        policy.DowngradesEnabled,
 			ResetTrafficOnRenewal:    policy.ResetTrafficOnRenewal,
@@ -50,20 +62,17 @@ func (service *Service) SaveSubscriptionPolicy(
 			ResetDevicesOnRenewal:    policy.ResetDevicesOnRenewal,
 			TrialRemainder:           policy.TrialRemainder,
 			UpdatedBy:                optionalUUID(actor.AdminID),
-		})
-		if err != nil {
-			return notFound(err)
+		}); txErr != nil {
+			return notFound(txErr)
+		}
+		row, txErr := queries.SetPolicyTags(ctx, dbgen.SetPolicyTagsParams{TrialTag: trialTag, PaidTag: paidTag})
+		if txErr != nil {
+			return txErr
 		}
 		saved = subscriptionPolicyFrom(row)
 		return appendAudit(ctx, queries, actor.audit(
 			"panel.settings.subscription_policy.updated", "configuration", "settings", "subscription_policy",
-			map[string]any{
-				"upgradesEnabled": policy.UpgradesEnabled, "downgradesEnabled": policy.DowngradesEnabled,
-				"resetTrafficOnRenewal":    policy.ResetTrafficOnRenewal,
-				"resetTrafficOnPlanChange": policy.ResetTrafficOnPlanChange,
-				"resetDevicesOnRenewal":    policy.ResetDevicesOnRenewal,
-				"trialRemainder":           policy.TrialRemainder,
-			},
+			map[string]any{"policy": saved},
 		))
 	})
 	return saved, err
@@ -77,6 +86,8 @@ func subscriptionPolicyFrom(row dbgen.SubscriptionPolicy) SubscriptionPolicy {
 		ResetTrafficOnPlanChange: row.ResetTrafficOnPlanChange,
 		ResetDevicesOnRenewal:    row.ResetDevicesOnRenewal,
 		TrialRemainder:           row.TrialRemainder,
+		TrialTag:                 row.TrialTag.String,
+		PaidTag:                  row.PaidTag.String,
 		UpdatedAt:                timeValue(row.UpdatedAt),
 	}
 }

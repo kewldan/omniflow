@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	databaseutil "github.com/omniflow/omniflow/internal/database"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 )
@@ -48,6 +49,17 @@ type PlanVersionOptions struct {
 	// `optional` or `required`. SquadIDs stay the squads every subscription on
 	// the version is given whatever the customer picks.
 	OfferedSquads []OfferedSquad `json:"offeredSquads"`
+	// TrafficResetStrategy is Remnawave's trafficLimitStrategy for users on
+	// this version: when the panel resets the traffic counter on its own.
+	// Empty is NO_RESET.
+	TrafficResetStrategy string `json:"trafficResetStrategy"`
+	// ExternalSquadID is the Remnawave external squad that shapes the
+	// subscription page of users on this version. Empty sets none.
+	ExternalSquadID string `json:"externalSquadId"`
+}
+
+var validTrafficResetStrategy = map[string]bool{
+	"NO_RESET": true, "DAY": true, "WEEK": true, "MONTH": true, "MONTH_ROLLING": true,
 }
 
 // OfferedSquad is one squad a customer may choose, with the label each
@@ -168,6 +180,22 @@ func (service *Service) CreatePlanVersion(
 				return txErr
 			}
 		}
+		strategy := input.TrafficResetStrategy
+		if strategy == "" {
+			strategy = "NO_RESET"
+		}
+		externalSquad := pgtype.UUID{}
+		if input.ExternalSquadID != "" {
+			if externalSquad, txErr = parseUUID(input.ExternalSquadID); txErr != nil {
+				return ErrValidaton
+			}
+		}
+		if txErr = queries.SetPlanVersionRemnawaveProfile(ctx, dbgen.SetPlanVersionRemnawaveProfileParams{
+			PlanVersionID: row.ID, TrafficResetStrategy: strategy, ExternalSquadID: externalSquad,
+		}); txErr != nil {
+			return txErr
+		}
+		row.TrafficResetStrategy, row.ExternalSquadID = strategy, externalSquad
 		created = planVersionFromRow(row, input.Prices)
 		created.OfferedSquads = input.OfferedSquads
 		created.AddonIDs = input.AddonIDs
@@ -207,6 +235,14 @@ func validatePlanVersion(input PlanVersionInput) error {
 	}
 	for _, amount := range input.Prices {
 		if amount < 0 {
+			return ErrValidaton
+		}
+	}
+	if input.TrafficResetStrategy != "" && !validTrafficResetStrategy[input.TrafficResetStrategy] {
+		return ErrValidaton
+	}
+	if input.ExternalSquadID != "" {
+		if _, err := parseUUID(input.ExternalSquadID); err != nil {
 			return ErrValidaton
 		}
 	}
@@ -423,6 +459,9 @@ func planVersionFromRow(row dbgen.PlanVersion, prices map[string]int64) PlanVers
 		RecurringCapable:    row.RecurringCapable,
 		Prices:              normalized,
 		CreatedAt:           timeValue(row.CreatedAt),
+
+		TrafficResetStrategy: row.TrafficResetStrategy,
+		ExternalSquadID:      uuidString(row.ExternalSquadID),
 	}
 }
 

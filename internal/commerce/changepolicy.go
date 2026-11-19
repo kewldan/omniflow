@@ -82,6 +82,24 @@ func (policy ChangePolicy) ResetsDevices(operation string) bool {
 	}
 }
 
+// PanelTag decides the Remnawave user tag for a subscription on a plan of the
+// given kind. A tag the plan names wins; otherwise a trial carries the trial
+// tag and anything else the paid tag. Managed is false when the installation
+// configured no tag at all, and then the panel's own tag is left alone.
+func PanelTag(planTag, planKind, trialTag, paidTag string) (tag string, managed bool) {
+	if planTag == "" && trialTag == "" && paidTag == "" {
+		return "", false
+	}
+	switch {
+	case planTag != "":
+		return planTag, true
+	case planKind == "trial":
+		return trialTag, true
+	default:
+		return paidTag, true
+	}
+}
+
 // UpgradeFromTrial is the upgrade policy a move from a trial to a paid plan
 // is scheduled with: the paid version's own, or the installation's choice to
 // carry the trial's remaining time over (`extend`) or drop it (`replace`).

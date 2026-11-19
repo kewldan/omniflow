@@ -1569,6 +1569,8 @@ export interface PanelPlanSummary {
   orderLineCount: number;
   createdAt: string;
   archivedAt?: string;
+  /** @pattern ^[A-Z0-9_]{1,16}$ */
+  remnawaveTag?: string;
 }
 
 export interface PanelPlanList {
@@ -1586,6 +1588,17 @@ export const PanelPlanVersionSummarySquadSelection = {
 } as const;
 
 export type PanelPlanVersionSummaryPrices = { [key: string]: number };
+
+export type PanelPlanVersionSummaryTrafficResetStrategy =
+  (typeof PanelPlanVersionSummaryTrafficResetStrategy)[keyof typeof PanelPlanVersionSummaryTrafficResetStrategy];
+
+export const PanelPlanVersionSummaryTrafficResetStrategy = {
+  NO_RESET: "NO_RESET",
+  DAY: "DAY",
+  WEEK: "WEEK",
+  MONTH: "MONTH",
+  MONTH_ROLLING: "MONTH_ROLLING",
+} as const;
 
 export interface PanelOfferedSquad {
   squadId: string;
@@ -1626,6 +1639,8 @@ export interface PanelPlanVersionSummary {
   offeredSquads?: PanelOfferedSquad[] | null;
   /** @nullable */
   addonIds?: string[] | null;
+  trafficResetStrategy?: PanelPlanVersionSummaryTrafficResetStrategy;
+  externalSquadId?: string;
 }
 
 export type PanelPlanVersionInputBillingPeriod =
@@ -1689,6 +1704,20 @@ export const PanelPlanVersionInputTrialEligibility = {
 
 export type PanelPlanVersionInputPrices = { [key: string]: number };
 
+/**
+ * Remnawave trafficLimitStrategy; empty is NO_RESET.
+ */
+export type PanelPlanVersionInputTrafficResetStrategy =
+  (typeof PanelPlanVersionInputTrafficResetStrategy)[keyof typeof PanelPlanVersionInputTrafficResetStrategy];
+
+export const PanelPlanVersionInputTrafficResetStrategy = {
+  NO_RESET: "NO_RESET",
+  DAY: "DAY",
+  WEEK: "WEEK",
+  MONTH: "MONTH",
+  MONTH_ROLLING: "MONTH_ROLLING",
+} as const;
+
 export interface PanelPlanVersionInput {
   billingPeriod: PanelPlanVersionInputBillingPeriod;
   /** @minimum 1 */
@@ -1727,6 +1756,18 @@ export interface PanelPlanVersionInput {
   prices: PanelPlanVersionInputPrices;
   /** The add-ons sold with the version; the set is replaced. */
   addonIds?: string[];
+  /** Remnawave trafficLimitStrategy; empty is NO_RESET. */
+  trafficResetStrategy?: PanelPlanVersionInputTrafficResetStrategy;
+  /** A Remnawave external squad UUID; empty for none. */
+  externalSquadId?: string;
+}
+
+export interface PanelPlanOptions {
+  /**
+   * Upper-case letters, digits, and underscores; empty falls back to the installation trial or paid tag.
+   * @maxLength 16
+   */
+  remnawaveTag?: string;
 }
 
 export type PanelSquadListingDetail =
@@ -2086,6 +2127,10 @@ export interface PanelSubscriptionPolicy {
   resetDevicesOnRenewal: boolean;
   /** What a trial's or free plan's remaining time does on a move to a paid plan. */
   trialRemainder: PanelSubscriptionPolicyTrialRemainder;
+  /** Remnawave user tag on a trial when the plan names none; empty for none. */
+  trialTag?: string;
+  /** Remnawave user tag once paid when the plan names none; empty for none. */
+  paidTag?: string;
   readonly updatedAt?: string;
 }
 
@@ -15263,6 +15308,104 @@ export const useCreatePanelPlanVersion = <TError = Promise<ProblemResponse>>(
 
   const swrKey = swrOptions?.swrKey ?? getCreatePanelPlanVersionMutationKey(planID);
   const swrFn = getCreatePanelPlanVersionMutationFetcher(planID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelPlanOptionsResponse200 = {
+  data: PanelPlanOptions;
+  status: 200;
+};
+
+export type savePanelPlanOptionsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelPlanOptionsResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type savePanelPlanOptionsResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type savePanelPlanOptionsResponseSuccess = savePanelPlanOptionsResponse200 & {
+  headers: Headers;
+};
+export type savePanelPlanOptionsResponseError = (
+  | savePanelPlanOptionsResponse403
+  | savePanelPlanOptionsResponse404
+  | savePanelPlanOptionsResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelPlanOptionsResponse =
+  | savePanelPlanOptionsResponseSuccess
+  | savePanelPlanOptionsResponseError;
+
+export const getSavePanelPlanOptionsUrl = (planID: string) => {
+  return `/v1/panel/catalog/plans/${planID}/options`;
+};
+
+/**
+ * Requires catalog.write. Plan-level settings that apply to every version: the Remnawave user tag subscriptions on the plan carry.
+ */
+export const savePanelPlanOptions = async (
+  planID: string,
+  panelPlanOptions: PanelPlanOptions,
+  options?: RequestInit,
+): Promise<savePanelPlanOptionsResponse> => {
+  const res = await fetch(getSavePanelPlanOptionsUrl(planID), {
+    ...options,
+    method: "PUT",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(panelPlanOptions),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelPlanOptionsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as savePanelPlanOptionsResponse;
+};
+
+export const getSavePanelPlanOptionsMutationFetcher = (planID: string, options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PanelPlanOptions }) => {
+    return savePanelPlanOptions(planID, arg, options);
+  };
+};
+export const getSavePanelPlanOptionsMutationKey = (planID: string) =>
+  [`/v1/panel/catalog/plans/${planID}/options`] as const;
+
+export type SavePanelPlanOptionsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelPlanOptions>>
+>;
+
+export const useSavePanelPlanOptions = <TError = Promise<ProblemResponse>>(
+  planID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof savePanelPlanOptions>>,
+      TError,
+      Key,
+      PanelPlanOptions,
+      Awaited<ReturnType<typeof savePanelPlanOptions>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelPlanOptionsMutationKey(planID);
+  const swrFn = getSavePanelPlanOptionsMutationFetcher(planID, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

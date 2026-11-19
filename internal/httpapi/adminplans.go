@@ -22,10 +22,23 @@ func (handlers *AdminHandlers) mountPlanOptions(secure chi.Router) {
 	}
 	secure.With(handlers.requirePermission(rbac.PermissionCatalogRead)).
 		Get("/remnawave/squads", handlers.remnawaveSquads)
+	secure.With(handlers.requirePermission(rbac.PermissionCatalogWrite)).
+		Put("/catalog/plans/{planID}/options", handlers.savePlanOptions)
 	secure.With(handlers.requirePermission(rbac.PermissionSettingsRead)).
 		Get("/settings/subscription-policy", handlers.subscriptionPolicy)
 	secure.With(handlers.requirePermission(rbac.PermissionSettingsWrite)).
 		Put("/settings/subscription-policy", handlers.saveSubscriptionPolicy)
+}
+
+func (handlers *AdminHandlers) savePlanOptions(writer http.ResponseWriter, request *http.Request) {
+	var body panelpg.PlanOptions
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	options, err := handlers.operations.SavePlanOptions(
+		request.Context(), chi.URLParam(request, "planID"), body, actorFrom(request),
+	)
+	handlers.respond(writer, request, options, err)
 }
 
 func (handlers *AdminHandlers) subscriptionPolicy(writer http.ResponseWriter, request *http.Request) {

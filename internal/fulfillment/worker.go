@@ -74,6 +74,30 @@ type desiredState struct {
 	// remoteExpireAt is EndsAt plus the grace period, resolved by the worker
 	// per operation rather than stored, so every creator agrees on it.
 	remoteExpireAt time.Time
+	// profile is what the plan asks of the user beyond the expiry and the
+	// limits, resolved by the claim from the entitlement's plan version.
+	profile userProfile
+}
+
+// userProfile is the plan's reset strategy, external squad, and tag.
+type userProfile struct {
+	trafficStrategy string
+	externalSquadID string
+	tag             string
+	tagManaged      bool
+}
+
+// withProfile resolves the profile from the plan version's stored row.
+func (desired desiredState) withProfile(row dbgen.GetProvisioningProfileRow) desiredState {
+	tag, managed := commerce.PanelTag(row.RemnawaveTag.String, row.Kind, row.TrialTag.String, row.PaidTag.String)
+	desired.profile = userProfile{
+		trafficStrategy: row.TrafficResetStrategy,
+		tag:             tag, tagManaged: managed,
+	}
+	if row.ExternalSquadID.Valid {
+		desired.profile.externalSquadID = uuidString(row.ExternalSquadID)
+	}
+	return desired
 }
 
 // withGrace resolves the expiry Remnawave is asked to enforce.
@@ -210,7 +234,14 @@ func (worker *Worker) apply(ctx context.Context, claimed claim) (remnawave.User,
 		username = subscription.RemnawaveUsername.String
 		candidates = append([]string{username}, candidates...)
 	}
-	provision := remnawave.ProvisionUser{Username: username, ExpireAt: desired.remoteExpireAt, TrafficLimitBytes: desired.TrafficAllowanceBytes, HWIDDeviceLimit: desired.DeviceLimit, InternalSquadIDs: desired.SquadIDs}
+	provision := remnawave.ProvisionUser{
+		Username: username, ExpireAt: desired.remoteExpireAt,
+		TrafficLimitBytes: desired.TrafficAllowanceBytes, HWIDDeviceLimit: desired.DeviceLimit,
+		InternalSquadIDs:     desired.SquadIDs,
+		TrafficLimitStrategy: desired.profile.trafficStrategy,
+		ExternalSquadID:      desired.profile.externalSquadID,
+		Tag:                  desired.profile.tag, TagManaged: desired.profile.tagManaged,
+	}
 	// createOrRecover reports whether the user was created fresh: a brand-new
 	// user has no traffic to reset and nothing to re-enable.
 	createOrRecover := func() (remnawave.User, bool, error) {

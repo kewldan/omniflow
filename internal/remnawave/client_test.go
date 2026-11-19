@@ -152,6 +152,80 @@ func TestClientAlwaysSendsTheLimitsEvenWhenUnlimited(t *testing.T) {
 	}
 }
 
+// The reset strategy, the external squad, and the tag reach the panel, and a
+// managed empty tag is sent as null so a trial tag does not outlive the
+// purchase, while an unmanaged one is left out so a hand-set tag survives.
+func TestClientSendsTheUserProfile(t *testing.T) {
+	t.Parallel()
+	var bodies []map[string]json.RawMessage
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		var body map[string]json.RawMessage
+		_ = json.NewDecoder(request.Body).Decode(&body)
+		bodies = append(bodies, body)
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write([]byte(`{"response":{"id":42,"username":"u","status":"ACTIVE"}}`))
+	}))
+	defer server.Close()
+	client, err := NewClient(server.URL, "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	profiled := ProvisionUser{Username: "u", TrafficLimitStrategy: "MONTH", ExternalSquadID: "e1", Tag: "PAID", TagManaged: true}
+	if _, err = client.CreateUser(context.Background(), profiled); err != nil {
+		t.Fatal(err)
+	}
+	cleared := ProvisionUser{Username: "u", TrafficLimitStrategy: "NO_RESET", TagManaged: true}
+	if _, err = client.UpdateUser(context.Background(), 42, cleared); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = client.UpdateUser(context.Background(), 42, ProvisionUser{Username: "u"}); err != nil {
+		t.Fatal(err)
+	}
+	if string(bodies[0]["trafficLimitStrategy"]) != `"MONTH"` || string(bodies[0]["externalSquadUuid"]) != `"e1"` || string(bodies[0]["tag"]) != `"PAID"` {
+		t.Fatalf("create body = %v", bodies[0])
+	}
+	if string(bodies[1]["tag"]) != "null" || string(bodies[1]["trafficLimitStrategy"]) != `"NO_RESET"` {
+		t.Fatalf("a managed empty tag must clear: %v", bodies[1])
+	}
+	if _, sent := bodies[2]["tag"]; sent {
+		t.Fatalf("an unmanaged tag was sent: %v", bodies[2])
+	}
+	if _, sent := bodies[2]["externalSquadUuid"]; sent {
+		t.Fatalf("an unset external squad was sent: %v", bodies[2])
+	}
+}
+
+// A plan naming an external squad the panel has since deleted fails the whole
+// write. The adapter retries once without the squad, so access is provisioned
+// and only the page's shape is lost.
+func TestAStaleExternalSquadIsDroppedRatherThanFailingTheWrite(t *testing.T) {
+	t.Parallel()
+	var attempts []map[string]json.RawMessage
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		var body map[string]json.RawMessage
+		_ = json.NewDecoder(request.Body).Decode(&body)
+		attempts = append(attempts, body)
+		writer.Header().Set("Content-Type", "application/json")
+		if _, named := body["externalSquadUuid"]; named {
+			writer.WriteHeader(http.StatusInternalServerError)
+			_, _ = writer.Write([]byte(`{"errorCode":"A039","message":"Update user error"}`))
+			return
+		}
+		_, _ = writer.Write([]byte(`{"response":{"id":42,"username":"u","status":"ACTIVE"}}`))
+	}))
+	defer server.Close()
+	client, err := NewClient(server.URL, "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = client.UpdateUser(context.Background(), 42, ProvisionUser{Username: "u", ExternalSquadID: "gone"}); err != nil {
+		t.Fatalf("update with a stale squad: %v", err)
+	}
+	if len(attempts) != 2 {
+		t.Fatalf("attempts = %d, want the original and one retry", len(attempts))
+	}
+}
+
 func TestClientListUsersUsesOffsetPagination(t *testing.T) {
 	t.Parallel()
 

@@ -1633,7 +1633,17 @@
         "labelEn": "Label (EN)",
         "removeSquad": "Remove",
         "addSquad": "Add a squad",
-        "addons": "Add-ons sold with this version"
+        "addons": "Add-ons sold with this version",
+        "trafficResetStrategy": "Traffic counter resets",
+        "trafficResetStrategyValue": {
+          "NO_RESET": "Never (only on renewal)",
+          "DAY": "Every day",
+          "WEEK": "Every week",
+          "MONTH": "Every calendar month",
+          "MONTH_ROLLING": "Every month from the purchase"
+        },
+        "externalSquad": "External squad",
+        "externalSquadHint": "Shapes the subscription page and client configuration in Remnawave. Leave empty for none."
       },
       "addons": {
         "create": "New add-on",
@@ -1690,6 +1700,13 @@
         "typed": "Use this ID",
         "members": "{count, plural, one {# user} other {# users}}",
         "unavailable": "The Remnawave panel did not answer; paste a squad ID instead."
+      },
+      "planOptions": {
+        "title": "Plan settings",
+        "description": "Apply to every version of the plan and reach existing subscriptions the next time they are pushed to Remnawave.",
+        "tag": "Remnawave user tag",
+        "tagHint": "Up to 16 capital letters, digits, and underscores. Empty falls back to the trial or paid tag in Settings → Commerce.",
+        "save": "Save plan settings"
       }
     },
     "codes": {
@@ -2060,7 +2077,11 @@
           "policy": "Follow the paid plan's upgrade policy",
           "carry": "Add the paid period after the trial's end",
           "reset": "Start the paid period now and drop the rest"
-        }
+        },
+        "trialTag": "Trial user tag",
+        "trialTagHint": "The Remnawave tag a subscription carries while on a trial, when its plan names none.",
+        "paidTag": "Paid user tag",
+        "paidTagHint": "The tag once it has paid. With both empty Omniflow leaves the panel's tags alone."
       }
     },
     "nav": {

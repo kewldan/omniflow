@@ -1211,6 +1211,20 @@ paths:
         "200": {description: Published version, content: {application/json: {schema: {$ref: "#/components/schemas/PanelPlanVersionSummary"}}}}
         "403": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/catalog/plans/{planID}/options:
+    put:
+      operationId: savePanelPlanOptions
+      tags: [panel]
+      description: >-
+        Requires catalog.write. Plan-level settings that apply to every
+        version: the Remnawave user tag subscriptions on the plan carry.
+      parameters: [{$ref: "#/components/parameters/PlanID"}, {$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelPlanOptions"}}}}
+      responses:
+        "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelPlanOptions"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
   /v1/panel/remnawave/squads:
     get:
       operationId: listPanelRemnawaveSquads
@@ -5730,6 +5744,7 @@ components:
         orderLineCount: {type: integer, format: int64}
         createdAt: {type: string, format: date-time}
         archivedAt: {type: string, format: date-time}
+        remnawaveTag: {type: string, pattern: "^[A-Z0-9_]{1,16}$"}
     PanelPlanList:
       type: object
       required: [items]
@@ -5759,6 +5774,8 @@ components:
         retiredAt: {type: string, format: date-time}
         offeredSquads: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelOfferedSquad"}}
         addonIds: {type: array, nullable: true, items: {type: string, format: uuid}}
+        trafficResetStrategy: {type: string, enum: [NO_RESET, DAY, WEEK, MONTH, MONTH_ROLLING]}
+        externalSquadId: {type: string, format: uuid}
     PanelOfferedSquad:
       type: object
       required: [squadId, labelRu, labelEn]
@@ -5787,6 +5804,12 @@ components:
         recurringCapable: {type: boolean}
         prices: {type: object, minProperties: 1, additionalProperties: {type: integer, format: int64, minimum: 0}}
         addonIds: {type: array, items: {type: string, format: uuid}, description: The add-ons sold with the version; the set is replaced.}
+        trafficResetStrategy: {type: string, enum: [NO_RESET, DAY, WEEK, MONTH, MONTH_ROLLING], description: Remnawave trafficLimitStrategy; empty is NO_RESET.}
+        externalSquadId: {type: string, description: A Remnawave external squad UUID; empty for none.}
+    PanelPlanOptions:
+      type: object
+      properties:
+        remnawaveTag: {type: string, maxLength: 16, description: "Upper-case letters, digits, and underscores; empty falls back to the installation trial or paid tag."}
     PanelSquadListing:
       type: object
       required: [reported, internal, external]
@@ -6051,6 +6074,8 @@ components:
         resetTrafficOnPlanChange: {type: boolean, description: An upgrade restarts the traffic counter.}
         resetDevicesOnRenewal: {type: boolean, description: An extension or renewal removes every registered device.}
         trialRemainder: {type: string, enum: [policy, carry, reset], description: What a trial's or free plan's remaining time does on a move to a paid plan.}
+        trialTag: {type: string, description: Remnawave user tag on a trial when the plan names none; empty for none.}
+        paidTag: {type: string, description: Remnawave user tag once paid when the plan names none; empty for none.}
         updatedAt: {type: string, format: date-time, readOnly: true}
     ThemeDocument:
       type: object

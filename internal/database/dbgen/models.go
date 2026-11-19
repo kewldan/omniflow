@@ -1640,6 +1640,7 @@ type Plan struct {
 	ArchivedAt               pgtype.Timestamptz `json:"archived_at"`
 	MaxConcurrentPerCustomer pgtype.Int4        `json:"max_concurrent_per_customer"`
 	Highlighted              bool               `json:"highlighted"`
+	RemnawaveTag             pgtype.Text        `json:"remnawave_tag"`
 }
 
 type PlanLocalization struct {
@@ -1675,6 +1676,8 @@ type PlanVersion struct {
 	SquadSelection        string             `json:"squad_selection"`
 	MinSelectableSquads   int32              `json:"min_selectable_squads"`
 	MaxSelectableSquads   pgtype.Int4        `json:"max_selectable_squads"`
+	TrafficResetStrategy  string             `json:"traffic_reset_strategy"`
+	ExternalSquadID       pgtype.UUID        `json:"external_squad_id"`
 }
 
 type PlanVersionAddon struct {
@@ -1928,6 +1931,8 @@ type SubscriptionPolicy struct {
 	TrialRemainder           string             `json:"trial_remainder"`
 	UpdatedAt                pgtype.Timestamptz `json:"updated_at"`
 	UpdatedBy                pgtype.UUID        `json:"updated_by"`
+	TrialTag                 pgtype.Text        `json:"trial_tag"`
+	PaidTag                  pgtype.Text        `json:"paid_tag"`
 }
 
 type SupportAttachment struct {

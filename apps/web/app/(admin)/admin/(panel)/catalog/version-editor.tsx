@@ -59,6 +59,7 @@ const UPGRADE_POLICIES = ["forbid", "replace", "extend"] as const;
 const DOWNGRADE_POLICIES = ["forbid", "immediate", "at_expiry"] as const;
 const CANCELLATION_POLICIES = ["forbid", "immediate", "at_expiry"] as const;
 const TRIAL_ELIGIBILITY = ["new_customer", "never_trialled", "any"] as const;
+const TRAFFIC_RESET_STRATEGIES = ["NO_RESET", "DAY", "WEEK", "MONTH", "MONTH_ROLLING"] as const;
 
 const GIBIBYTE = 1_073_741_824;
 
@@ -88,6 +89,10 @@ const schema = z.object({
   // editor always sends it; leaving it out used to publish a version that
   // offered nothing.
   addonIds: z.array(z.string()),
+  // Remnawave's own trafficLimitStrategy for users on this version, and the
+  // external squad that shapes their subscription page.
+  externalSquadId: z.array(z.string()),
+  trafficResetStrategy: z.string(),
   trafficGb: decimalNumber({ min: 0, optional: true }),
   trialEligibility: z.string(),
   upgradePolicy: z.string(),
@@ -146,6 +151,8 @@ export function PlanVersionEditor({
 function defaults(current?: PlanVersion): Values {
   return {
     addonIds: current?.addonIds ?? [],
+    externalSquadId: current?.externalSquadId ? [current.externalSquadId] : [],
+    trafficResetStrategy: current?.trafficResetStrategy ?? "NO_RESET",
     billingPeriod: current?.billingPeriod ?? "month",
     cancellationPolicy: current?.cancellationPolicy ?? "at_expiry",
     deviceLimit: current?.deviceLimit ? String(current.deviceLimit) : "",
@@ -206,6 +213,8 @@ function VersionForm({
     const ok = await run(`/v1/panel/catalog/plans/${planId}/versions`, {
       body: {
         addonIds: values.addonIds,
+        externalSquadId: values.externalSquadId[0] ?? "",
+        trafficResetStrategy: values.trafficResetStrategy,
         billingPeriod: values.billingPeriod,
         cancellationPolicy: values.cancellationPolicy,
         deviceLimit: readWholeNumber(values.deviceLimit),
@@ -406,6 +415,33 @@ function VersionForm({
 
             <AddonOffer control={control} />
 
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Choice
+                control={control}
+                label={translate("trafficResetStrategy")}
+                name="trafficResetStrategy"
+                options={TRAFFIC_RESET_STRATEGIES}
+                prefix="trafficResetStrategy"
+              />
+              <FormField hint={translate("externalSquadHint")} label={translate("externalSquad")}>
+                {(props) => (
+                  <Controller
+                    control={control}
+                    name="externalSquadId"
+                    render={({ field }) => (
+                      <SquadPicker
+                        control={props}
+                        kind="external"
+                        multiple={false}
+                        onChange={field.onChange}
+                        value={field.value}
+                      />
+                    )}
+                  />
+                )}
+              </FormField>
+            </div>
+
             <div className="grid gap-3 sm:grid-cols-3">
               <Choice
                 control={control}
@@ -486,7 +522,8 @@ type ChoiceField =
   | "upgradePolicy"
   | "downgradePolicy"
   | "cancellationPolicy"
-  | "trialEligibility";
+  | "trialEligibility"
+  | "trafficResetStrategy";
 
 /** A closed list, as the shared `Select` rather than the browser's own control. */
 function Choice({

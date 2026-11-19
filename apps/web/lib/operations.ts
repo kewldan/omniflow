@@ -179,6 +179,8 @@ export type PlanSummary = {
   latestVersion: number;
   orderLineCount: number;
   archivedAt?: string;
+  /** The Remnawave user tag subscriptions on the plan carry. */
+  remnawaveTag?: string;
 };
 
 export type Promotion = {
@@ -236,6 +238,10 @@ export type PlanVersion = {
   offeredSquads?: { squadId: string; labelRu: string; labelEn: string }[];
   /** The add-ons sold with this version; publishing replaces the set. */
   addonIds?: string[];
+  /** Remnawave's trafficLimitStrategy for users on this version. */
+  trafficResetStrategy?: string;
+  /** The Remnawave external squad that shapes the subscription page. */
+  externalSquadId?: string;
 };
 
 export type PersonalOffer = {

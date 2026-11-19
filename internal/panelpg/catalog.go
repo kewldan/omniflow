@@ -16,11 +16,13 @@ import (
 // those orders keep their own snapshot — but it is a decision an operator
 // should make while looking at how many there are.
 type PlanSummary struct {
-	ID                       string     `json:"id"`
-	Code                     string     `json:"code"`
-	Kind                     string     `json:"kind"`
-	Visible                  bool       `json:"visible"`
-	Highlighted              bool       `json:"highlighted"`
+	ID          string `json:"id"`
+	Code        string `json:"code"`
+	Kind        string `json:"kind"`
+	Visible     bool   `json:"visible"`
+	Highlighted bool   `json:"highlighted"`
+	// RemnawaveTag is the user tag subscriptions on the plan carry in Remnawave.
+	RemnawaveTag             string     `json:"remnawaveTag,omitempty"`
 	SortOrder                int32      `json:"sortOrder"`
 	MaxConcurrentPerCustomer *int32     `json:"maxConcurrentPerCustomer,omitempty"`
 	LatestVersion            int32      `json:"latestVersion"`
@@ -43,6 +45,7 @@ func (service *Service) ListPlans(ctx context.Context) ([]PlanSummary, error) {
 			Kind:                     row.Plan.Kind,
 			Visible:                  row.Plan.Visible,
 			Highlighted:              row.Plan.Highlighted,
+			RemnawaveTag:             row.Plan.RemnawaveTag.String,
 			SortOrder:                row.Plan.SortOrder,
 			MaxConcurrentPerCustomer: int4Pointer(row.Plan.MaxConcurrentPerCustomer),
 			LatestVersion:            row.LatestVersion,
@@ -80,6 +83,10 @@ type PlanVersion struct {
 	// instead of silently publishing one that offers nothing.
 	OfferedSquads []OfferedSquad `json:"offeredSquads"`
 	AddonIDs      []string       `json:"addonIds"`
+	// TrafficResetStrategy and ExternalSquadID are what the version asks of
+	// the Remnawave user beside its limits.
+	TrafficResetStrategy string `json:"trafficResetStrategy"`
+	ExternalSquadID      string `json:"externalSquadId,omitempty"`
 }
 
 // PlanDetail is one plan with its versions and localisations.
@@ -123,6 +130,7 @@ func (service *Service) PlanDetail(ctx context.Context, planID string) (PlanDeta
 			Kind:                     plan.Kind,
 			Visible:                  plan.Visible,
 			Highlighted:              plan.Highlighted,
+			RemnawaveTag:             plan.RemnawaveTag.String,
 			SortOrder:                plan.SortOrder,
 			MaxConcurrentPerCustomer: int4Pointer(plan.MaxConcurrentPerCustomer),
 			CreatedAt:                timeValue(plan.CreatedAt),
@@ -161,6 +169,9 @@ func (service *Service) PlanDetail(ctx context.Context, planID string) (PlanDeta
 			Prices:              make(map[string]int64, len(prices)),
 			CreatedAt:           timeValue(version.CreatedAt),
 			RetiredAt:           timePointer(version.RetiredAt),
+
+			TrafficResetStrategy: version.TrafficResetStrategy,
+			ExternalSquadID:      uuidString(version.ExternalSquadID),
 		}
 		for _, price := range prices {
 			converted.Prices[price.Currency] = price.AmountMinor
