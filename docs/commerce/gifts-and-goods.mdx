@@ -7,8 +7,8 @@ description: Buying a subscription for somebody else, and selling Telegram Premi
   A shop order is an ordinary order. The wallet, promo codes, saved carts,
   payment providers, refunds, receipts, and history all work the same way they
   do for a plan. What differs is a cost floor on discounts and the fact that a
-  saved shop purchase never buys itself — both explained under
-  [Promotions and saved purchases](#promotions-and-saved-purchases).
+  saved shop purchase buys itself only at a price the operator set — both
+  explained under [Promotions and saved purchases](#promotions-and-saved-purchases).
 </Note>
 
 ## Gifts
@@ -135,6 +135,107 @@ arbitrary handle, and the handle is what actually receives the goods.
   in the panel as "submitted and accepted".
 </Warning>
 
+### Buying on Fragment directly
+
+The gateway above keeps the Fragment session and the wallet out of Omniflow. Some
+operators already run that wallet themselves — the Bedolaga fork this shop was
+migrated from has sold Stars this way in production — and for them a second
+service is only a second thing to keep running. `fragment_direct` is the same
+purchase done inside Omniflow: it buys Stars on fragment.com with the operator's
+own KYC-verified session and pays from the operator's own TON wallet.
+
+It is opt-in, and the reservations above still describe what it is. Its three
+secrets — the Fragment cookies, the wallet's seed phrase, and the TON API key —
+are environment variables (`APP_FRAGMENT_*`, see
+[Configuration](/getting-started/configuration)). They are never written to the
+database, never returned by an API, never shown in the panel, and never logged.
+The panel shows whether the provider is configured and, when it is not, which
+setting is missing; it cannot read or change a secret. Keep only working capital
+in the wallet.
+
+**What one purchase does.** Fragment is asked who the username is
+(`searchStarsRecipient`), a purchase request is opened (`initBuyStarsRequest`),
+and Fragment prepares the TON Connect payment (`getBuyStarsLink`). The wallet's
+balance and sequence number are read from toncenter or tonapi, the payment is
+signed offline, and only then — after a settlement marker is committed, below —
+is it broadcast. Once the wallet is seen to spend, Fragment is told which payment
+settled the request (`confirmReq`). Stars are sold this way only; Premium still
+goes through the gateway.
+
+The protocol is a port of the copy of fragment-api-py 12.1.0 (MIT) the fork
+vendors. Version 13 and later are deliberately not the reference: they divert
+0.5% of every purchase to the library's author and authenticate through a shared
+wallet whose seed phrase is public. Wallet keys, cells, and signatures come from
+[tonutils-go](https://github.com/xssnick/tonutils-go) (MIT); W5 (V5R1) and V4R2
+wallets are supported, and the address, state init, and message layout are
+tested against vectors produced by the fork's own wallet library.
+
+**Where money could leave, and what happens then.** Every failure is classified
+by one question: could the payment have left the wallet?
+
+| Moment | Outcome |
+| --- | --- |
+| Fragment cannot find the username | `recipient_invalid`: refunded |
+| Fragment, its session, KYC, or the TON API fails before the payment is signed | `retryable` or `provider_unavailable`: retried on the backoff schedule |
+| The wallet cannot cover the payment plus 0.01 TON for gas | `provider_balance`: retried, and the operator is alerted |
+| The settlement marker cannot be committed | `retryable`: nothing is sent |
+| Anything after the marker, short of a confirmed payment | `ambiguous`: parked for review |
+| The payment confirmed but `confirmReq` failed | Delivered, flagged "Fragment not told" in the panel |
+
+The marker is the double-spend guard. Immediately before the payment is sent,
+the worker records on the delivery, in a transaction of its own that commits
+first, that this attempt is about to pay — with Fragment's request identifier
+and the TON amount. A worker that finds the marker on a delivery nobody finished
+knows money may have left and parks it for review instead of paying again. The
+marker only commits for the attempt that claimed the delivery, so an operator who
+refunds a delivery a moment before the payment makes the marker fail, and the
+worker sends nothing.
+
+The signed message is sent again only after HTTP 429 from the TON API, which a
+provider answers before forwarding anything, and it is the same signed bytes —
+never re-signed, because a new signature would carry the next sequence number and
+pay a second time if the first landed. Any other answer, including a 5xx or
+"duplicate message", may mean the message reached the network, so it is ambiguous.
+The wallet is then polled every three seconds for two minutes for its sequence
+number to advance and its balance to fall.
+
+TON API requests are spaced by `APP_FRAGMENT_TON_API_RPS` (one a second by
+default, the free tier's limit) across every client in a process, so reading the
+wallet in the panel during a purchase cannot push the purchase into a rate limit.
+
+**Dry run.** With `APP_FRAGMENT_DRY_RUN=true` a delivery passes through every
+state — the marker included — without contacting Fragment or the wallet, and is
+recorded with a `dry-run` transaction. The secrets are not needed. Use it on
+staging; the panel and the sale notice both say a delivery was a dry run.
+
+**Cost and margin.** A TON payment's cost is fixed in the shop currency at the
+moment of delivery, at that minute's TON rate — read from tonapi.io, falling back
+to CoinGecko, or the operator's fixed `APP_FRAGMENT_TON_RATE_MINOR` — and stored
+on the delivery with the rate and its source. A margin report therefore never
+moves with TON afterwards. A delivery closed by hand, or delivered while no rate
+was available, keeps its TON cost and is converted at the current rate in the
+statistics, which say so by showing the rate they used.
+
+**What an operator sees.** The panel's shop has a Stars tab with the provider's
+state (enabled, configured, dry run), the paying wallet's address and balance
+with Fragment's price for 100 Stars and how many Stars the balance covers, sales
+for a chosen period — revenue, Stars sold, refunds, cost, and margin — and the
+Stars orders, filterable by status and searchable by recipient, order, or
+customer. Every sale is also posted to the operator chat: buyer and recipient,
+Stars, amount and price per Star, cost in TON and in the shop currency, margin,
+rate, delivery time, the wallet balance and how many Stars it still covers — with
+a request to top up below `APP_FRAGMENT_WALLET_LOW_STARS` — and buttons to the
+transaction in Tonscan and Tonviewer, the order and the buyer in the panel, and
+the wallet.
+
+<Warning>
+  Fragment has no published API. The flow above mirrors what fragment.com's own
+  page does, and it changes when Fragment changes; the fork's library
+  impersonates a Chrome TLS fingerprint and Omniflow's client does not. The unit
+  tests drive a scripted Fragment and TON API; no real purchase is made by any
+  test. Try a dry run first, then one real purchase of the minimum amount.
+</Warning>
+
 ### Pricing
 
 What the customer pays is derived from what the provider charges: a markup in
@@ -159,6 +260,21 @@ Premium has no published cost. The operator sets the sale price directly with
 `fixed_amount_minor`, and Omniflow records that the cost is unknown rather than
 zero, so the finance view reports the margin as unknown instead of as a hundred
 per cent.
+
+A Stars product can instead carry a fixed price per Star, `unit_price_minor` —
+the fork's `STARS_SHOP_PRICE_PER_STAR_KOPEKS`, typically between 1.40 and 1.60 ₽.
+The customer pays it times the Stars bought, whatever Fragment charges that
+minute. A product has at most one operator price: a fixed amount or a price per
+Star.
+
+A Stars product is either a fixed pack (`star_quantity`) or a **custom amount**:
+the customer picks any number between `min_star_quantity` and
+`max_star_quantity`, with up to twelve preset amounts offered as buttons. Fragment
+sells no fewer than 50 Stars at a time, so that is the lowest minimum the panel
+accepts. The Stars an order delivers are recorded on the order, so delivery and
+the statistics never re-derive them from a product an operator may since have
+changed. The panel's Stars tab creates such a product in one step: bounds,
+presets, price per Star, and its name in both languages.
 
 Both sides of a quote are stored on the order: what the provider asked and what
 the customer was shown. Their difference is the realised margin, which is why
@@ -282,19 +398,37 @@ a backfill cannot write what the checkout refuses.
   finance view would report the full markup on a sale that earned less.
 </Warning>
 
-### A saved shop purchase never buys itself
+### A saved shop purchase buys itself only at the operator's price
 
 A saved plan charges unattended when a wallet top-up covers it. That is safe
 because the price it re-quotes against is the operator's own and changes rarely.
 
-A shop price is a provider quote that expires in minutes. Charging one unattended
-would mean charging a number the customer last saw days ago, against a rate that
-has moved since. So a shop purchase is saved and the customer confirms it when
-they come back.
+Most shop prices are provider quotes that expire in minutes. Charging one
+unattended would mean charging a number the customer last saw days ago, against a
+rate that has moved since. So a quote-priced shop purchase is saved and the
+customer confirms it when they come back.
 
-What is shared is the property that matters: the price is **re-quoted before any
-charge**. A price that fell is applied without comment — nobody objects to paying
-less. A price that rose is refused, and the customer is shown both numbers.
+A price the operator set — a fixed amount, or a fixed price per Star — is not a
+quote, and the objection disappears: it is the same kind of number as a plan
+price. Such a purchase can be saved to **buy itself**, which is how a customer
+whose balance falls short pays for Stars: the purchase is saved at the price they
+confirmed, they top up exactly the shortfall with any payment method, and the
+order is placed from the wallet as soon as the top-up settles — or as soon as any
+credit covers it, because the same sweep that buys saved plans buys these.
+
+Three things keep that safe. The order is created with the cart's own idempotency
+key, so a replayed top-up or a sweep racing the settlement hook reaches one
+order. It is paid from the wallet alone; it never opens a payment the customer is
+not there to complete. And the price is checked twice — against the saved price,
+and again inside the order transaction against the pricing row, under its lock. A
+price that fell is applied. A price that rose is refused: nothing is charged, the
+cart stops buying itself so a later drop cannot charge behind the customer's back,
+and the bot tells the customer to confirm again.
+
+What is shared with a quote-priced purchase is the property that matters: the
+price is **re-checked before any charge**. A price that fell is applied without
+comment — nobody objects to paying less. A price that rose is refused, and the
+customer is shown both numbers.
 
 A customer has one open cart. Saving a shop item therefore replaces a saved plan
 rather than sitting beside it: keeping both would mean the auto-purchase sweep
@@ -345,6 +479,30 @@ can be changed or dropped at any time, and keeping a copy would mean holding a
 stale identifier for somebody who has moved on. It is stored on the shop order,
 where delivery and support genuinely need it.
 
+### Stars in the bot
+
+A custom-amount Stars product adds `⭐ Buy Stars` to the main menu. The flow is
+the fork's: recipient first — yourself, when your Telegram account has a
+username, or a typed `@username` — then the amount, from the preset buttons with
+their prices or typed in, then one confirmation that restates the recipient, the
+amount, the total, and the wallet balance above the button that pays.
+
+A balance that covers the total pays at once and the order is queued for
+delivery. One that does not shows what is missing — the total, what the wallet
+covers, and the amount to pay — with every payment method the installation
+offers for exactly that amount (or the smallest top-up allowed, the rest staying
+in the wallet). For an operator-priced product the purchase is saved and makes
+itself when the payment settles, as described under
+[Promotions and saved purchases](#promotions-and-saved-purchases).
+
+The bot then tells the buyer what happened, once each: the Stars arrived; the
+order was refunded, and why; a saved purchase was paid automatically after a
+top-up; or it was not, because the price rose. When the Stars arrive, a buyer with
+no active paid subscription is offered VPN — a free trial if they never had one
+and a trial plan is on sale, a purchase otherwise — unless
+`APP_GOODS_VPN_OFFER_ENABLED=false`. A buyer with a subscription or a running
+trial is not offered anything.
+
 ## Delivery, polling, and the ambiguous outcome
 
 `goods_deliveries` is the source of truth about what is owed, not the job queue.
@@ -362,3 +520,27 @@ no way to poll a submission. Such a delivery is classified `ambiguous` and parks
 in the panel's review queue until an operator confirms with the provider what
 happened. Retrying could deliver twice; refunding could give money back for
 goods the recipient received.
+
+### Deciding a parked delivery
+
+An operator with `goods.manage` resolves a parked delivery from the shop's Stars
+tab or its review queue, after checking the wallet's outgoing transfers against
+the Fragment request identifier and the transaction shown on the order. Every
+decision needs a reason and is written to the audit log.
+
+| Action | When to use it | What it does |
+| --- | --- | --- |
+| Mark delivered | The payment went through and the Stars arrived | Completes the order, keeping the transaction hash given |
+| Retry | The payment did not leave | Clears the marker and the attempt count and queues the delivery again |
+| Refund | The payment did not leave and the customer should not wait | Credits the wallet with what the customer paid, under the same idempotency key the worker uses, so it lands once |
+
+Retrying a delivery whose payment did leave pays for the same Stars twice;
+refunding one gives money back for Stars the recipient has. That is why neither
+is automatic. A refund is also available for a delivery that is waiting and has
+not started paying; one whose marker is set and has not been parked is
+mid-payment and is refused. Recording that a reviewed delivery did not arrive,
+or cancelling one, is the same refund.
+
+A delivery that keeps failing before any payment — Fragment down, a session that
+expired — is retried on the backoff schedule and refunded after the sixth attempt,
+like every other provider.

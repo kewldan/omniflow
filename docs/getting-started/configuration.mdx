@@ -299,6 +299,34 @@ because no group is configured` and enqueueing becomes a no-op, so notices are n
 is not listed, so the command's existence is never confirmed to a customer; it also only responds in
 a private chat. See [Operator notifications](/operations/operator-notifications).
 
+## Direct Fragment provider (Telegram Stars)
+
+These configure `fragment_direct`, the digital-goods provider that buys Stars on fragment.com with
+the operator's own Fragment session and pays from the operator's own TON wallet. The three secrets
+are read from the environment only: they are never stored in the database, never returned by any
+API, and never written to a log. Set the same values for every process — one shared `.env` does
+that — because the api reads them to show the wallet, the bot to check a recipient, and the worker
+to buy. See [Gifts and digital goods](/commerce/gifts-and-goods).
+
+| Variable | Default | Read by | Required | Secret | What it changes |
+| --- | --- | --- | --- | --- | --- |
+| `APP_FRAGMENT_COOKIES` | — | api, bot, worker | for real purchases | yes | `stel_ssid`, `stel_dt`, `stel_token`, and `stel_ton_token` of a KYC-verified fragment.com account, as `k=v; k=v` or a JSON object |
+| `APP_FRAGMENT_WALLET_MNEMONIC` | — | api, bot, worker | for real purchases | yes | The paying wallet's 24-word seed phrase. Keep only working capital in it |
+| `APP_FRAGMENT_WALLET_VERSION` | `V5R1` | api, bot, worker | no | no | Wallet contract: `V5R1` (W5) or `V4R2` |
+| `APP_FRAGMENT_TON_API_PROVIDER` | `toncenter` | api, bot, worker | no | no | `toncenter` or `tonapi`: where the wallet is read and the payment broadcast |
+| `APP_FRAGMENT_TON_API_KEY` | — | api, bot, worker | for real purchases | yes | The TON API provider's key |
+| `APP_FRAGMENT_TON_API_RPS` | `1` | api, bot, worker | no | no | Requests per second to the TON API from one process, spaced by 1.1/rps. `0` disables the limit |
+| `APP_FRAGMENT_PROXY_URL` | — | api, bot, worker | no | no | An HTTP(S) proxy for fragment.com requests |
+| `APP_FRAGMENT_SHOW_SENDER` | `false` | worker | no | no | Ask Fragment to show the operator's account as the sender |
+| `APP_FRAGMENT_DRY_RUN` | `false` | api, bot, worker | no | no | Deliveries pass through every state without contacting Fragment or the wallet. For staging; the secrets are then optional |
+| `APP_FRAGMENT_TON_RATE_MINOR` | `0` (automatic) | api, worker | no | no | A fixed price of one TON in minor units of `APP_DEFAULT_CURRENCY`. `0` reads tonapi.io, falling back to CoinGecko |
+| `APP_FRAGMENT_WALLET_LOW_STARS` | `1000` | worker | no | no | A sale notice asks for a wallet top-up when the balance covers fewer Stars than this |
+| `APP_GOODS_VPN_OFFER_ENABLED` | `true` | bot | no | no | After a delivery, offer VPN to a buyer with no active paid subscription: a trial if they never had one, a purchase otherwise |
+
+Without the three secrets and without dry-run, the provider reports itself as not configured in the
+panel, names the missing setting, and refuses to deliver; the processes still start. The provider
+also has to be switched on in the panel before any product it serves is offered.
+
 ## Backups
 
 | Variable | Default | Read by | Required | Secret | What it changes |
@@ -470,7 +498,9 @@ screen and this boundary.
 
 These values are credentials and should be handled as such: `APP_DATABASE_URL` (it carries the
 password), `APP_REMNAWAVE_TOKEN`, `APP_OPERATOR_TOKEN`, `APP_TELEGRAM_TOKEN`,
-`APP_TELEGRAM_WEBHOOK_SECRET`, `APP_CRYPTOBOT_TOKEN`, `APP_YOOKASSA_SECRET`, and the two AES keys
+`APP_TELEGRAM_WEBHOOK_SECRET`, `APP_CRYPTOBOT_TOKEN`, `APP_YOOKASSA_SECRET`, the three
+`fragment_direct` secrets `APP_FRAGMENT_COOKIES`, `APP_FRAGMENT_WALLET_MNEMONIC`, and
+`APP_FRAGMENT_TON_API_KEY` — the mnemonic spends real money — and the two AES keys
 `APP_DATA_ENCRYPTION_KEY` and `APP_BACKUP_ENCRYPTION_KEY`. Never commit `.env` or a production
 credential; the repository runs a secret scanner in CI for exactly this.
 

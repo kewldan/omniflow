@@ -309,6 +309,34 @@ disabled because no group is configured`, а постановка в очере�
 подтверждается клиенту; кроме того, она отвечает только в личном чате. См.
 [Уведомления операторам](/ru/operations/operator-notifications).
 
+## Fragment напрямую (звёзды Telegram)
+
+Эти переменные настраивают `fragment_direct` — поставщика цифровых товаров, который покупает звёзды
+на fragment.com по сессии оператора и платит со своего TON-кошелька оператора. Три секрета читаются
+только из окружения: они не хранятся в базе, не возвращаются ни одним API и не пишутся в журналы.
+Задайте одинаковые значения всем процессам — общий `.env` так и делает: api читает их, чтобы
+показать кошелёк, бот — чтобы проверить получателя, worker — чтобы купить. См.
+[Подарки и цифровые товары](/ru/commerce/gifts-and-goods).
+
+| Переменная | По умолчанию | Читает | Обязательна | Секрет | Что меняет |
+| --- | --- | --- | --- | --- | --- |
+| `APP_FRAGMENT_COOKIES` | — | api, bot, worker | для настоящих покупок | да | `stel_ssid`, `stel_dt`, `stel_token` и `stel_ton_token` аккаунта fragment.com с пройденным KYC — строкой `k=v; k=v` или JSON-объектом |
+| `APP_FRAGMENT_WALLET_MNEMONIC` | — | api, bot, worker | для настоящих покупок | да | Seed-фраза платёжного кошелька из 24 слов. Держите на нём только оборотные средства |
+| `APP_FRAGMENT_WALLET_VERSION` | `V5R1` | api, bot, worker | нет | нет | Контракт кошелька: `V5R1` (W5) или `V4R2` |
+| `APP_FRAGMENT_TON_API_PROVIDER` | `toncenter` | api, bot, worker | нет | нет | `toncenter` или `tonapi`: где читается кошелёк и куда отправляется перевод |
+| `APP_FRAGMENT_TON_API_KEY` | — | api, bot, worker | для настоящих покупок | да | Ключ провайдера TON API |
+| `APP_FRAGMENT_TON_API_RPS` | `1` | api, bot, worker | нет | нет | Запросов в секунду к TON API от одного процесса, с интервалом 1,1/rps. `0` снимает ограничение |
+| `APP_FRAGMENT_PROXY_URL` | — | api, bot, worker | нет | нет | HTTP(S)-прокси для запросов к fragment.com |
+| `APP_FRAGMENT_SHOW_SENDER` | `false` | worker | нет | нет | Попросить Fragment показать аккаунт оператора отправителем |
+| `APP_FRAGMENT_DRY_RUN` | `false` | api, bot, worker | нет | нет | Выдачи проходят все статусы без обращений к Fragment и кошельку. Для стендов; секреты тогда не обязательны |
+| `APP_FRAGMENT_TON_RATE_MINOR` | `0` (автоматически) | api, worker | нет | нет | Фиксированная цена одного TON в минимальных единицах `APP_DEFAULT_CURRENCY`. `0` — курс с tonapi.io, запасной источник CoinGecko |
+| `APP_FRAGMENT_WALLET_LOW_STARS` | `1000` | worker | нет | нет | Уведомление о продаже просит пополнить кошелёк, когда его хватает меньше чем на это число звёзд |
+| `APP_GOODS_VPN_OFFER_ENABLED` | `true` | bot | нет | нет | После выдачи предложить VPN покупателю без активной платной подписки: триал, если он его ещё не брал, иначе покупку |
+
+Без трёх секретов и без тестового режима поставщик показывается в панели как ненастроенный,
+называет недостающую настройку и не выдаёт заказы; процессы при этом запускаются. Кроме того,
+поставщика нужно включить в панели, прежде чем его товары появятся в продаже.
+
 ## Резервные копии
 
 | Переменная | По умолчанию | Кто читает | Обязательна | Секрет | Что меняет |
@@ -482,7 +510,9 @@ URL клиента явно, а не через переменную окруж�
 
 Эти значения являются учётными данными, и обращаться с ними следует соответственно:
 `APP_DATABASE_URL` (содержит пароль), `APP_REMNAWAVE_TOKEN`, `APP_OPERATOR_TOKEN`,
-`APP_TELEGRAM_TOKEN`, `APP_TELEGRAM_WEBHOOK_SECRET`, `APP_CRYPTOBOT_TOKEN`, `APP_YOOKASSA_SECRET` и
+`APP_TELEGRAM_TOKEN`, `APP_TELEGRAM_WEBHOOK_SECRET`, `APP_CRYPTOBOT_TOKEN`, `APP_YOOKASSA_SECRET`,
+три секрета `fragment_direct` — `APP_FRAGMENT_COOKIES`, `APP_FRAGMENT_WALLET_MNEMONIC` и
+`APP_FRAGMENT_TON_API_KEY` (seed-фраза тратит настоящие деньги) — и
 два AES-ключа `APP_DATA_ENCRYPTION_KEY` и `APP_BACKUP_ENCRYPTION_KEY`. Никогда не коммитьте `.env`
 или боевые учётные данные; репозиторий гоняет в CI сканер секретов именно ради этого.
 

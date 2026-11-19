@@ -20,6 +20,7 @@ route — is what actually protects the data.
 | `risk.read` / `risk.write` | Read and decide blocklist matches and anomaly signals |
 | `gifts.read` / `gifts.write` | Read the gift register; revoke and refund unredeemed gifts |
 | `goods.read` / `goods.write` | Read the digital-goods shop; edit its catalogue and provider credentials |
+| `goods.manage` | Decide a shop order's money: retry, refund, or mark delivered a delivery parked for review, and cancel one that has not started. Each action needs a reason and is audited |
 
 Risk is separate from customer administration because the two answer different
 questions: reading a customer record is routine support work, and deciding that
@@ -29,7 +30,11 @@ operator's own money — someone who may price a VPN plan should not automatical
 be able to rotate a credential that spends from a funded balance.
 
 Support and finance receive read access to all three. Finance additionally gets
-`gifts.write`, because revoking an unredeemed gift is a refund decision.
+`gifts.write`, because revoking an unredeemed gift is a refund decision, and
+`goods.manage`, because retrying a parked Stars delivery can pay for it twice and
+refunding one returns money — the same weight as any other refund. `goods.manage`
+is separate from `goods.write` so the people who decide orders need not be the
+people who configure the provider.
 
 ## Reason header
 

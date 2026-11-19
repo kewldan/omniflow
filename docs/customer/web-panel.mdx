@@ -802,7 +802,16 @@ is the only place they appear.
 ## Digital goods
 
 The shop sells Telegram Premium and Stars under exactly the rules the bot
-follows. The catalogue quotes no prices, because a quote is a promise with an
+follows. A Stars product sold by amount offers its preset amounts as buttons and
+accepts any amount between its bounds; the quote follows the amount chosen.
+
+When the operator set the price themselves — a fixed price per Star, or a fixed
+amount — the purchase screen also offers to pay from the wallet and top up only
+what is missing. The purchase is saved at the price shown, the wallet page opens
+with the shortfall filled in, and the order is placed automatically once the
+top-up settles; if the price rose in between, nothing is charged and the customer
+is told. A price derived from a provider quote is never charged unattended, so
+that option is not offered for it. The catalogue quotes no prices, because a quote is a promise with an
 expiry on it and a screen full of promises would start expiring while it was
 still being read; a product whose gateway cannot currently sell is shown as
 unavailable rather than hidden, so a customer who bookmarked it learns why.

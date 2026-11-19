@@ -79,7 +79,7 @@ hidden.
 Any other message beginning with `/` opens the menu rather than producing an
 error. `/cancel` exists because every free-text step — a promo code, a support
 message, a top-up amount, a subscription name, a gift note, a gift code, a shop
-recipient or promo code — is a state a customer has to be able to escape.
+recipient or promo code, an amount of Stars — is a state a customer has to be able to escape.
 Tapping **any** button while such a step is open escapes it too: the prompt's
 own `Cancel`, a menu entry, a push notification's button. A customer who walks
 away from a prompt and later types "500" gets the menu, not a top-up method
@@ -164,6 +164,7 @@ unconfigured screen teaches customers the bot is unreliable.
 | 2 | `🚀 Connect` and `📱 Devices` | Always |
 | 3 | `🧾 My orders` and `👛 Wallet` | Always |
 | 4 | `➕ Top up wallet`, `🛍 Saved cart` | Top-up is enabled; an open plan cart exists |
+| 5 | `⭐ Buy Stars` | A custom-amount Telegram Stars product is on sale. It opens the Stars flow: recipient, amount, confirmation — see [Gifts and digital goods](/commerce/gifts-and-goods) |
 | 5 | `🛍 Shop`, `🎁 Gifts` | At least one product is published; gifts always |
 | 6 | `✨ Your offer` | At least one personal offer is active |
 | 7 | `💬 Support` and `📰 News` | Always, each with `· N new` only when unread |
