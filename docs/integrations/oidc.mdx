@@ -242,11 +242,18 @@ to see it, `settings.write` to change it).
     | `google` | `https://accounts.google.com` | `openid email profile` | on |
     | `yandex` | `https://oauth.yandex.ru` | `openid login:email login:info` | off |
     | `discord` | `https://discord.com` | `openid email identify` | on |
+    | `vk` | `https://id.vk.ru` | `vkid.personal_info email` | off |
 
     Yandex defaults to **off** because it does not consistently return
     `email_verified`; requiring the claim would refuse every sign-in. Discord
     issues an ID token only when `openid` is requested, and the `email` scope is
     what carries the address.
+
+    **VK ID** is OAuth 2.1 rather than OIDC: it publishes no discovery document and issues no ID
+    token. Omniflow recognises the issuer `https://id.vk.ru` and uses VK's fixed authorize, token,
+    and user-info endpoints, passing the `device_id` VK adds to the callback. Create a web app at
+    id.vk.com, add the callback URL as a trusted redirect, and enter the app ID as the client ID;
+    no client secret is needed because the flow uses PKCE. The customer's VK ID becomes the subject.
   </Step>
   <Step title="Fill in the credentials">
     `slug`, `displayName`, `issuer`, `discoveryUrl`, `clientId`,

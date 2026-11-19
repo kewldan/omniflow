@@ -389,6 +389,11 @@ func (handlers *AccountHandlers) callbackOIDC(writer http.ResponseWriter, reques
 	}
 
 	redirectURL := handlers.oidcRedirectURL(request, slug)
+	// VK ID appends a device_id its token endpoint requires, and wants the
+	// state echoed; other providers send neither and ignore it.
+	request = request.WithContext(customerauthpg.WithOIDCCallback(request.Context(), customerauthpg.OIDCCallback{
+		DeviceID: query.Get("device_id"), State: query.Get("state"),
+	}))
 	if flow.LinkTo != "" {
 		handlers.finishOIDCLink(writer, request, flow, query.Get("code"), redirectURL)
 		return

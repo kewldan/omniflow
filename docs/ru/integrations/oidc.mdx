@@ -252,11 +252,18 @@ Omniflow пересобирает этот URL из заголовка `Host` в
     | `google` | `https://accounts.google.com` | `openid email profile` | включено |
     | `yandex` | `https://oauth.yandex.ru` | `openid login:email login:info` | выключено |
     | `discord` | `https://discord.com` | `openid email identify` | включено |
+    | `vk` | `https://id.vk.ru` | `vkid.personal_info email` | выключено |
 
     У Yandex по умолчанию **выключено**, потому что он не всегда возвращает
     `email_verified`; требование этого claim отклоняло бы каждый вход. Discord
     выпускает ID-токен только тогда, когда запрошен `openid`, а адрес несёт scope
     `email`.
+  
+    **VK ID** — это OAuth 2.1, а не OIDC: у него нет discovery-документа и ID-токена. Omniflow узнаёт
+    издателя `https://id.vk.ru` и использует фиксированные адреса VK для авторизации, обмена кода и
+    данных профиля, передавая `device_id`, который VK добавляет в колбэк. Создайте веб-приложение на
+    id.vk.com, добавьте URL колбэка в доверенные адреса и укажите ID приложения как client ID; секрет
+    клиента не нужен, потому что поток использует PKCE. Субъектом становится VK ID клиента.
   </Step>
   <Step title="Заполните учётные данные">
     `slug`, `displayName`, `issuer`, `discoveryUrl`, `clientId`,

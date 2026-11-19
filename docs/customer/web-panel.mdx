@@ -323,8 +323,9 @@ The flow state lives in a short-lived sealed cookie
 an abandoned sign-in leaves nothing to clean up. The cookie is cleared *before*
 the token exchange, so a replayed callback cannot be processed twice.
 
-Presets for Google, Yandex, and Discord prefill the form and produce ordinary
-rows; nothing downstream branches on which provider a row came from. Customer
+Presets for Google, Yandex, Discord, and VK ID prefill the form and produce ordinary
+rows. VK ID is the one provider with its own exchange, because it is OAuth 2.1 without OIDC; see
+[OIDC](/integrations/oidc). Customer
 providers default to `allow_auto_provision = true`, unlike the operator panel's
 providers, because a customer panel that refuses everyone who has not already
 used the bot is not a sign-in method, it is a second lock.

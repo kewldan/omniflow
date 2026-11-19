@@ -113,7 +113,9 @@ func TestProviderPresetsAreOrdinaryConfiguration(t *testing.T) {
 				openid = true
 			}
 		}
-		if !openid {
+		// VK ID is the one deliberate exception: it is OAuth 2.1 without OIDC,
+		// recognised by its issuer and driven by customerauthpg's VK ID path.
+		if !openid && preset.Issuer != "https://id.vk.ru" {
 			t.Fatalf("preset %q does not request the openid scope", preset.Slug)
 		}
 		// A preset that defaults the verified-email requirement on for a provider
