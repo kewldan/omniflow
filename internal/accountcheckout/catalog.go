@@ -508,6 +508,10 @@ func (store *Store) Promotions(ctx context.Context, customerID, planID string) (
 		pm.starts_at, pm.ends_at, pm.eligibility
 		FROM promotions pm
 		WHERE pm.active AND pm.applies_to = 'plans'
+		  -- Reward codes (days, trial, wallet credit) are redeemed on their
+		  -- own, not discounted at checkout, so the plan page does not list
+		  -- them as a price reduction.
+		  AND pm.kind IN ('percent', 'fixed')
 		  AND (pm.starts_at IS NULL OR pm.starts_at <= now())
 		  AND (pm.ends_at IS NULL OR pm.ends_at > now())
 		  AND (NOT EXISTS (SELECT 1 FROM promotion_plans pp WHERE pp.promotion_id = pm.id)

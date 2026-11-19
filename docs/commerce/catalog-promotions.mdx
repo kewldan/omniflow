@@ -259,25 +259,29 @@ A `promotions` row is the campaign, not the redeemable code. It carries a lowerc
 
 `promotions_kind_known` allows `percent`, `fixed`, `wallet_credit`, `days`, and `trial`.
 
-| Kind | Value means | Applied at redemption |
+| Kind | Value means | Where it applies |
 | --- | --- | --- |
-| `percent` | Basis points — `1000` is 10% | Yes |
-| `fixed` | Minor units in the promotion's own currency | Yes |
-| `wallet_credit` | Minor units | **No** |
-| `days` | Days, at most 3650 | **No** |
-| `trial` | Days, at most 3650 | **No** |
+| `percent` | Basis points — `1000` is 10% | At checkout |
+| `fixed` | Minor units in the promotion's own currency | At checkout |
+| `wallet_credit` | Minor units, credited to the wallet | On its own |
+| `days` | Days added to the subscription, at most 3650 | On its own |
+| `trial` | A trial of that many days, at most 3650 | On its own |
 
-<Warning>
-  Only `percent` and `fixed` are ever applied. A promo code belonging to a
-  `wallet_credit`, `days`, or `trial` promotion is refused at redemption with
-  `promo_ineligible`, and no ledger entry of any kind is written for a promotion.
+`percent` and `fixed` are discounts and apply on the checkout screen. The three reward kinds work the
+way Bedolaga's promo codes do: the customer enters the code under **🔑 Redeem a code** in the bot or
+**Promo or gift code** on the web wallet page (`POST /v1/account/codes/redeem`), and it applies at
+once, through a zero-amount order of operation `code` so it shows in the order history.
 
-  The plan page compounds it: it lists every active plan-scoped promotion
-  regardless of kind and renders anything that is not `percent` as a fixed money
-  discount. A `wallet_credit` campaign is therefore advertised to customers as
-  money off, and its own code then refuses. Until the reward kinds are
-  implemented, create only `percent` and `fixed` promotions.
-</Warning>
+- `days` extends the customer's subscription on the plan of their latest entitlement, starting where
+  the current one ends; a customer who never had a subscription is refused.
+- `trial` grants the live trial plan for that many days, once per customer (it takes the trial
+  claim) and only to a customer without access.
+- `wallet_credit` credits the wallet with a balanced ledger transaction (`reference_type =
+  promotion`).
+
+Dates, eligibility, the promotion's and the code's total limits, and the per-customer limit apply as
+at checkout, and the redemption, its order, and the reward commit together. A discount code entered
+there is refused and belongs at checkout; reward codes are not listed on the plan page.
 
 Percent arithmetic is `subtotal × value ÷ 10000` with integer truncation, so rounding falls in the customer's favour. A fixed discount is `min(value, subtotal)`, so it can never exceed the price; the order layer refuses a discount above the subtotal and the database enforces `discount_minor <= subtotal_minor` as well.
 
@@ -346,7 +350,7 @@ The plan page lists a promotion's existence but never its codes. A code is a bea
 | --- | --- |
 | `promo_invalid` | The string fails normalisation — wrong characters, shorter than 3, longer than 64 |
 | `promo_unknown` | No code row matches, or the code is inactive, or its promotion is inactive |
-| `promo_ineligible` | The promotion is scoped to goods; or scoped to plans and this is not one of them; or the customer fails the eligibility rule; or the code is outside its validity window; or a `fixed` reward is in a different currency than the order; or the reward kind is one the pricing layer does not implement |
+| `promo_ineligible` | The promotion is scoped to goods; or scoped to plans and this is not one of them; or the customer fails the eligibility rule; or the code is outside its validity window; or a `fixed` reward is in a different currency than the order; or the code is a reward code (`wallet_credit`, `days`, `trial`), which is redeemed on its own rather than at checkout |
 | `promo_exhausted` | The promotion's global limit, the code's own limit, or the customer's per-customer limit is reached |
 | `promo_below_cost` | **Shop orders only**: the discount would take the price under the provider's cost, or the cost is unknown |
 

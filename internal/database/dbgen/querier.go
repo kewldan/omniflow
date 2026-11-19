@@ -675,6 +675,9 @@ type Querier interface {
 	GetInfoPageLocalizations(ctx context.Context, pageSlug string) ([]GetInfoPageLocalizationsRow, error)
 	GetLatestBackup(ctx context.Context) (Backup, error)
 	GetLatestConsents(ctx context.Context, userID pgtype.UUID) ([]ConsentRecord, error)
+	// The customer's most recent entitlement of any status: the plan a "days"
+	// promo code extends, even when the subscription has already lapsed.
+	GetLatestEntitlementAnyStatus(ctx context.Context, userID pgtype.UUID) (Entitlement, error)
 	// The entitlement a change to the subscription builds on and supersedes.
 	//
 	// A paused entitlement is included: it is the subscription's live entitlement
@@ -706,6 +709,8 @@ type Querier interface {
 	GetPaymentProviderSettings(ctx context.Context, arg GetPaymentProviderSettingsParams) (PaymentProviderSetting, error)
 	GetPersonalOffer(ctx context.Context, id pgtype.UUID) (PersonalOffer, error)
 	GetPlanAdmin(ctx context.Context, id pgtype.UUID) (Plan, error)
+	// Any currency the version is priced in, to read it through GetPlanVersionForOrder.
+	GetPlanVersionCurrency(ctx context.Context, planVersionID pgtype.UUID) (string, error)
 	GetPlanVersionForOrder(ctx context.Context, arg GetPlanVersionForOrderParams) (GetPlanVersionForOrderRow, error)
 	// The grace window the fulfillment worker adds to the paid end when it pushes
 	// an expiry to Remnawave. It is read per operation rather than copied into the
@@ -749,6 +754,8 @@ type Querier interface {
 	// a file from another conversation by swapping identifiers.
 	GetSupportTicketAttachment(ctx context.Context, arg GetSupportTicketAttachmentParams) (GetSupportTicketAttachmentRow, error)
 	GetTelemetryInstallationID(ctx context.Context) (pgtype.UUID, error)
+	// The newest version of a live trial plan, which a "trial" promo code grants.
+	GetTrialPlanVersionForReward(ctx context.Context) (GetTrialPlanVersionForRewardRow, error)
 	GetWalletBalance(ctx context.Context, arg GetWalletBalanceParams) (int64, error)
 	// The one definition of what a customer's wallet holds and may spend, per
 	// currency. total_minor is the ledger; reserved_minor is what the customer's

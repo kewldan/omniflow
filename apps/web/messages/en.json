@@ -4272,6 +4272,17 @@
           "amount": "Top-up of {amount}",
           "open": "Open the order",
           "noPayment": "The payment for this top-up has not been started. Open the order to choose a method."
+        },
+        "redeem": {
+          "title": "Promo or gift code",
+          "label": "Code",
+          "apply": "Apply",
+          "applying": "Applying…",
+          "hint": "Codes for days, a trial, or wallet credit are applied here. Enter a discount code at checkout.",
+          "credited": "{amount} added to your balance",
+          "extended": "Code applied — your subscription updates within a minute",
+          "refused": "That code cannot be used or was already used.",
+          "rateLimited": "Too many attempts. Try again in an hour."
         }
       },
       "operationKinds": {

@@ -12,6 +12,7 @@ import useSWRInfinite from "swr/infinite";
 import * as z from "zod/mini";
 import { PaymentHandoff } from "@/components/account/commerce/order-status";
 import { useProblemCode, useProblemMessage } from "@/components/account/commerce/reasons";
+import { RedeemCode } from "@/components/account/commerce/redeem-code";
 import type {
   OrderSummary,
   TopUpPolicy,
@@ -122,6 +123,13 @@ export default function WalletPage() {
           void revalidateCommerce();
         }}
         policy={wallet.topUp}
+      />
+
+      <RedeemCode
+        onRedeemed={() => {
+          void mutate();
+          void revalidateCommerce();
+        }}
       />
 
       <section className="space-y-3">

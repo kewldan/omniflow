@@ -1197,6 +1197,38 @@ func (q *Queries) GetLatestConsents(ctx context.Context, userID pgtype.UUID) ([]
 	return items, nil
 }
 
+const getLatestEntitlementAnyStatus = `-- name: GetLatestEntitlementAnyStatus :one
+SELECT id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id, paused_at, paused_seconds FROM entitlements WHERE user_id = $1 ORDER BY ends_at DESC LIMIT 1
+`
+
+// The customer's most recent entitlement of any status: the plan a "days"
+// promo code extends, even when the subscription has already lapsed.
+func (q *Queries) GetLatestEntitlementAnyStatus(ctx context.Context, userID pgtype.UUID) (Entitlement, error) {
+	row := q.db.QueryRow(ctx, getLatestEntitlementAnyStatus, userID)
+	var i Entitlement
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.OrderID,
+		&i.PlanVersionID,
+		&i.Status,
+		&i.StartsAt,
+		&i.EndsAt,
+		&i.TrafficAllowanceBytes,
+		&i.DeviceLimit,
+		&i.RemnawaveSquadIds,
+		&i.RemnawaveUserID,
+		&i.ObservedState,
+		&i.ReconciledAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SubscriptionID,
+		&i.PausedAt,
+		&i.PausedSeconds,
+	)
+	return i, err
+}
+
 const getLatestEntitlementForChange = `-- name: GetLatestEntitlementForChange :one
 SELECT id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id, paused_at, paused_seconds FROM entitlements
 WHERE user_id = $1
@@ -1537,6 +1569,18 @@ func (q *Queries) GetPaymentIntentByProviderReference(ctx context.Context, arg G
 	return i, err
 }
 
+const getPlanVersionCurrency = `-- name: GetPlanVersionCurrency :one
+SELECT currency FROM plan_prices WHERE plan_version_id = $1 ORDER BY currency LIMIT 1
+`
+
+// Any currency the version is priced in, to read it through GetPlanVersionForOrder.
+func (q *Queries) GetPlanVersionCurrency(ctx context.Context, planVersionID pgtype.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, getPlanVersionCurrency, planVersionID)
+	var currency string
+	err := row.Scan(&currency)
+	return currency, err
+}
+
 const getPlanVersionForOrder = `-- name: GetPlanVersionForOrder :one
 SELECT p.code, p.kind, p.max_concurrent_per_customer, v.id, v.plan_id, v.version, v.billing_period, v.duration_seconds, v.traffic_allowance_bytes, v.device_limit, v.remnawave_squad_ids, v.upgrade_policy, v.downgrade_policy, v.cancellation_policy, v.recurring_capable, v.created_at, v.retired_at, v.grace_period_seconds, v.trial_eligibility, v.squad_selection, v.min_selectable_squads, v.max_selectable_squads, pr.currency, pr.amount_minor
 FROM plan_versions v
@@ -1754,6 +1798,29 @@ func (q *Queries) GetReservedRefundAmount(ctx context.Context, paymentIntentID p
 	var amount_minor int64
 	err := row.Scan(&amount_minor)
 	return amount_minor, err
+}
+
+const getTrialPlanVersionForReward = `-- name: GetTrialPlanVersionForReward :one
+SELECT v.id, pr.currency
+FROM plans p
+JOIN plan_versions v ON v.plan_id = p.id
+JOIN plan_prices pr ON pr.plan_version_id = v.id
+WHERE p.kind = 'trial' AND p.archived_at IS NULL
+ORDER BY p.visible DESC, v.version DESC, pr.currency
+LIMIT 1
+`
+
+type GetTrialPlanVersionForRewardRow struct {
+	ID       pgtype.UUID `json:"id"`
+	Currency string      `json:"currency"`
+}
+
+// The newest version of a live trial plan, which a "trial" promo code grants.
+func (q *Queries) GetTrialPlanVersionForReward(ctx context.Context) (GetTrialPlanVersionForRewardRow, error) {
+	row := q.db.QueryRow(ctx, getTrialPlanVersionForReward)
+	var i GetTrialPlanVersionForRewardRow
+	err := row.Scan(&i.ID, &i.Currency)
+	return i, err
 }
 
 const getWalletBalance = `-- name: GetWalletBalance :one

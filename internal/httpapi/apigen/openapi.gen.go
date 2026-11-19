@@ -3757,6 +3757,24 @@ func (e OpenAccountCheckoutJSONBodyOperation) Valid() bool {
 	}
 }
 
+// Defines values for AccountRedeemCode200JSONResponseBodyKind.
+const (
+	AccountRedeemCode200JSONResponseBodyKindSubscription AccountRedeemCode200JSONResponseBodyKind = "subscription"
+	AccountRedeemCode200JSONResponseBodyKindWalletCredit AccountRedeemCode200JSONResponseBodyKind = "wallet_credit"
+)
+
+// Valid indicates whether the value is a known member of the AccountRedeemCode200JSONResponseBodyKind enum.
+func (e AccountRedeemCode200JSONResponseBodyKind) Valid() bool {
+	switch e {
+	case AccountRedeemCode200JSONResponseBodyKindSubscription:
+		return true
+	case AccountRedeemCode200JSONResponseBodyKindWalletCredit:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AddAccountContactJSONBodyKind.
 const (
 	AddAccountContactJSONBodyKindEmail    AddAccountContactJSONBodyKind = "email"
@@ -9137,6 +9155,14 @@ type ApplyAccountPromoCodeParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// AccountRedeemCodeJSONBody defines parameters for AccountRedeemCode.
+type AccountRedeemCodeJSONBody struct {
+	Code string `json:"code"`
+}
+
+// AccountRedeemCode200JSONResponseBodyKind defines parameters for AccountRedeemCode.
+type AccountRedeemCode200JSONResponseBodyKind string
+
 // AddAccountContactJSONBody defines parameters for AddAccountContact.
 type AddAccountContactJSONBody struct {
 	Kind          AddAccountContactJSONBodyKind `json:"kind"`
@@ -10904,6 +10930,9 @@ type OpenAccountCheckoutJSONRequestBody OpenAccountCheckoutJSONBody
 // ApplyAccountPromoCodeJSONRequestBody defines body for ApplyAccountPromoCode for application/json ContentType.
 type ApplyAccountPromoCodeJSONRequestBody ApplyAccountPromoCodeJSONBody
 
+// AccountRedeemCodeJSONRequestBody defines body for AccountRedeemCode for application/json ContentType.
+type AccountRedeemCodeJSONRequestBody AccountRedeemCodeJSONBody
+
 // AddAccountContactJSONRequestBody defines body for AddAccountContact for application/json ContentType.
 type AddAccountContactJSONRequestBody AddAccountContactJSONBody
 
@@ -11433,6 +11462,9 @@ type ServerInterface interface {
 
 	// (POST /v1/account/checkout/promo)
 	ApplyAccountPromoCode(w http.ResponseWriter, r *http.Request, params ApplyAccountPromoCodeParams)
+
+	// (POST /v1/account/codes/redeem)
+	AccountRedeemCode(w http.ResponseWriter, r *http.Request)
 
 	// (GET /v1/account/contacts)
 	ListAccountContacts(w http.ResponseWriter, r *http.Request)
@@ -12437,6 +12469,11 @@ func (_ Unimplemented) RemoveAccountPromoCode(w http.ResponseWriter, r *http.Req
 
 // (POST /v1/account/checkout/promo)
 func (_ Unimplemented) ApplyAccountPromoCode(w http.ResponseWriter, r *http.Request, params ApplyAccountPromoCodeParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/codes/redeem)
+func (_ Unimplemented) AccountRedeemCode(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -14664,6 +14701,20 @@ func (siw *ServerInterfaceWrapper) ApplyAccountPromoCode(w http.ResponseWriter, 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ApplyAccountPromoCode(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AccountRedeemCode operation middleware
+func (siw *ServerInterfaceWrapper) AccountRedeemCode(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AccountRedeemCode(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -28621,6 +28672,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/v1/account/wallet", wrapper.GetAccountWallet)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/codes/redeem", wrapper.AccountRedeemCode)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/account/wallet/top-up", wrapper.StartAccountTopUp)
 	})
 	r.Group(func(r chi.Router) {
@@ -29743,6 +29797,77 @@ func (response ApplyAccountPromoCode404ApplicationProblemPlusJSONResponse) Visit
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountRedeemCodeRequestObject struct {
+	Body *AccountRedeemCodeJSONRequestBody
+}
+
+type AccountRedeemCodeResponseObject interface {
+	VisitAccountRedeemCodeResponse(w http.ResponseWriter) error
+}
+
+type AccountRedeemCode200JSONResponse struct {
+	CreditMinor *int64                                   `json:"creditMinor,omitempty"`
+	Currency    *string                                  `json:"currency,omitempty"`
+	EndsAt      *time.Time                               `json:"endsAt,omitempty"`
+	Kind        AccountRedeemCode200JSONResponseBodyKind `json:"kind"`
+}
+
+func (response AccountRedeemCode200JSONResponse) VisitAccountRedeemCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountRedeemCode403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response AccountRedeemCode403ApplicationProblemPlusJSONResponse) VisitAccountRedeemCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountRedeemCode422ApplicationProblemPlusJSONResponse Problem
+
+func (response AccountRedeemCode422ApplicationProblemPlusJSONResponse) VisitAccountRedeemCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountRedeemCode429ApplicationProblemPlusJSONResponse Problem
+
+func (response AccountRedeemCode429ApplicationProblemPlusJSONResponse) VisitAccountRedeemCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(429)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -43439,6 +43564,9 @@ type StrictServerInterface interface {
 	// (POST /v1/account/checkout/promo)
 	ApplyAccountPromoCode(ctx context.Context, request ApplyAccountPromoCodeRequestObject) (ApplyAccountPromoCodeResponseObject, error)
 
+	// (POST /v1/account/codes/redeem)
+	AccountRedeemCode(ctx context.Context, request AccountRedeemCodeRequestObject) (AccountRedeemCodeResponseObject, error)
+
 	// (GET /v1/account/contacts)
 	ListAccountContacts(ctx context.Context, request ListAccountContactsRequestObject) (ListAccountContactsResponseObject, error)
 
@@ -44976,6 +45104,37 @@ func (sh *strictHandler) ApplyAccountPromoCode(w http.ResponseWriter, r *http.Re
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ApplyAccountPromoCodeResponseObject); ok {
 		if err := validResponse.VisitApplyAccountPromoCodeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AccountRedeemCode operation middleware
+func (sh *strictHandler) AccountRedeemCode(w http.ResponseWriter, r *http.Request) {
+	var request AccountRedeemCodeRequestObject
+
+	var body AccountRedeemCodeJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AccountRedeemCode(ctx, request.(AccountRedeemCodeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AccountRedeemCode")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AccountRedeemCodeResponseObject); ok {
+		if err := validResponse.VisitAccountRedeemCodeResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -918,3 +918,22 @@ WHERE id = sqlc.arg(entitlement_id)
   AND status = 'paused'
   AND paused_at IS NOT NULL
 RETURNING *;
+
+-- name: GetLatestEntitlementAnyStatus :one
+-- The customer's most recent entitlement of any status: the plan a "days"
+-- promo code extends, even when the subscription has already lapsed.
+SELECT * FROM entitlements WHERE user_id = sqlc.arg(user_id) ORDER BY ends_at DESC LIMIT 1;
+
+-- name: GetPlanVersionCurrency :one
+-- Any currency the version is priced in, to read it through GetPlanVersionForOrder.
+SELECT currency FROM plan_prices WHERE plan_version_id = sqlc.arg(plan_version_id) ORDER BY currency LIMIT 1;
+
+-- name: GetTrialPlanVersionForReward :one
+-- The newest version of a live trial plan, which a "trial" promo code grants.
+SELECT v.id, pr.currency
+FROM plans p
+JOIN plan_versions v ON v.plan_id = p.id
+JOIN plan_prices pr ON pr.plan_version_id = v.id
+WHERE p.kind = 'trial' AND p.archived_at IS NULL
+ORDER BY p.visible DESC, v.version DESC, pr.currency
+LIMIT 1;

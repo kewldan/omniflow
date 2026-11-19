@@ -50,6 +50,7 @@ func (handlers *AccountHandlers) mountCheckout(router chi.Router) {
 
 	router.Get("/wallet", handlers.readWallet)
 	router.Post("/wallet/top-up", handlers.startTopUp)
+	router.Post("/codes/redeem", handlers.redeemCode)
 }
 
 // recordAttribution attaches an advertising origin to one of the customer's own
@@ -998,4 +999,39 @@ func lastReason(err error, fallback string) string {
 		}
 	}
 	return fallback
+}
+
+// redeemCode applies a gift code, an access code, or a reward promo code
+// outside checkout. Every refusal is the same 422, and the route is throttled
+// per customer, so it cannot be used to probe which codes exist.
+func (handlers *AccountHandlers) redeemCode(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := CustomerFrom(request.Context())
+	if !handlers.allowPrivacyRate(request, "account_code_redeem", principal.Customer.ID, 10, time.Hour) {
+		writeProblem(writer, request, http.StatusTooManyRequests, "rate_limited", "Too many codes were tried; try again later")
+		return
+	}
+	var body struct {
+		Code string `json:"code"`
+	}
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	redeemed, err := handlers.checkout.RedeemCode(request.Context(), principal.Customer.ID, strings.TrimSpace(body.Code))
+	if errors.Is(err, accountcheckout.ErrCodeRefused) {
+		writeProblem(writer, request, http.StatusUnprocessableEntity, "code_refused", "That code cannot be used")
+		return
+	}
+	if err != nil {
+		handlers.logger.Error("code redemption failed", "error", err)
+		writeProblem(writer, request, http.StatusInternalServerError, "redeem_failed", "The code could not be applied")
+		return
+	}
+	payload := map[string]any{"kind": redeemed.Kind}
+	if redeemed.EndsAt != nil {
+		payload["endsAt"] = redeemed.EndsAt.UTC()
+	}
+	if redeemed.Kind == "wallet_credit" {
+		payload["creditMinor"], payload["currency"] = redeemed.CreditMinor, redeemed.Currency
+	}
+	writeJSON(writer, http.StatusOK, payload)
 }

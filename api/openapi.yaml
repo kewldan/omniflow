@@ -3600,6 +3600,37 @@ paths:
       responses:
         "200": {description: Wallet, content: {application/json: {schema: {$ref: "#/components/schemas/AccountWallet"}}}}
         "400": {$ref: "#/components/responses/Problem"}
+  /v1/account/codes/redeem:
+    post:
+      operationId: accountRedeemCode
+      tags: [account]
+      description: >-
+        Applies a code outside checkout: a gift code, a wholesale access code, or
+        a promo code that rewards on its own (days added to the subscription, a
+        trial, or wallet credit). A discount promo code is refused here; it is
+        applied on the checkout screen. Every refusal is the same 422
+        code_refused. Throttled to ten attempts an hour per customer.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [code], properties: {code: {type: string, maxLength: 64}}}
+      responses:
+        "200":
+          description: Applied
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [kind]
+                properties:
+                  kind: {type: string, enum: [subscription, wallet_credit]}
+                  endsAt: {type: string, format: date-time}
+                  creditMinor: {type: integer, format: int64}
+                  currency: {type: string}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+        "429": {$ref: "#/components/responses/Problem"}
   /v1/account/wallet/top-up:
     post:
       operationId: startAccountTopUp

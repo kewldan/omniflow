@@ -9396,6 +9396,22 @@ export const GetAccountWalletResponse = zod.object({
 });
 
 /**
+ * Applies a code outside checkout: a gift code, a wholesale access code, or a promo code that rewards on its own (days added to the subscription, a trial, or wallet credit). A discount promo code is refused here; it is applied on the checkout screen. Every refusal is the same 422 code_refused. Throttled to ten attempts an hour per customer.
+ */
+export const accountRedeemCodeBodyCodeMax = 64;
+
+export const AccountRedeemCodeBody = zod.object({
+  code: zod.string().max(accountRedeemCodeBodyCodeMax),
+});
+
+export const AccountRedeemCodeResponse = zod.object({
+  kind: zod.enum(["subscription", "wallet_credit"]),
+  endsAt: zod.iso.datetime({ offset: true }).optional(),
+  creditMinor: zod.int().optional(),
+  currency: zod.string().optional(),
+});
+
+/**
  * Opens a top-up order through the same order, webhook, and reconciliation pipeline a plan uses. The caller's key becomes the order's key, so a retried request credits the same top-up rather than a second one. The order and its payment are two steps: when the order exists but the provider refused the intent, the response is still `201` with the order and `paymentProblem` in place of `payment`, because the order is the customer's and can be paid from its own screen by any method that settles it.
  */
 export const startAccountTopUpHeaderIdempotencyKeyMin = 8;

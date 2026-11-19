@@ -261,14 +261,23 @@ func (service *Commerce) ClaimGift(
 	}
 
 	redeemed, redeemErr := service.orders.RedeemAccessCode(ctx, code, claimantID)
-	if redeemErr != nil {
-		// The original refusal is what the caller renders, and both refusals
-		// render the same message anyway: a recipient learning the difference
+	if redeemErr == nil {
+		return ClaimedGift{Kind: gifts.KindSubscription, EndsAt: redeemed.EndsAt}, nil
+	}
+	// Last, a promo code that rewards on its own: days, a trial, or wallet
+	// credit, as Bedolaga's promo codes work.
+	reward, rewardErr := service.orders.RedeemRewardPromo(ctx, code, claimantID)
+	if rewardErr != nil {
+		// The original refusal is what the caller renders, and every refusal
+		// renders the same message anyway: a recipient learning the difference
 		// between "no such code" and "already used" would be an attacker
 		// learning which codes exist.
 		return ClaimedGift{}, err
 	}
-	return ClaimedGift{Kind: gifts.KindSubscription, EndsAt: redeemed.EndsAt}, nil
+	if reward.Kind == commercepg.RewardWalletCredit {
+		return ClaimedGift{Kind: gifts.KindCredit, CreditMinor: reward.CreditMinor, Currency: reward.Currency}, nil
+	}
+	return ClaimedGift{Kind: gifts.KindSubscription, EndsAt: reward.EndsAt}, nil
 }
 
 // SavedShopPurchase is a shop selection the customer kept for later.

@@ -6314,6 +6314,26 @@ export type GetAccountWalletParams = {
   limit?: number;
 };
 
+export type AccountRedeemCodeBody = {
+  /** @maxLength 64 */
+  code: string;
+};
+
+export type AccountRedeemCode200Kind =
+  (typeof AccountRedeemCode200Kind)[keyof typeof AccountRedeemCode200Kind];
+
+export const AccountRedeemCode200Kind = {
+  subscription: "subscription",
+  wallet_credit: "wallet_credit",
+} as const;
+
+export type AccountRedeemCode200 = {
+  kind: AccountRedeemCode200Kind;
+  endsAt?: string;
+  creditMinor?: number;
+  currency?: string;
+};
+
 export type StartAccountTopUpBody = {
   /** @minimum 1 */
   amountMinor: number;
@@ -28344,6 +28364,99 @@ export const useGetAccountWallet = <TError = Promise<ProblemResponse>>(
   const swrFn = () => getAccountWallet(params, fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type accountRedeemCodeResponse200 = {
+  data: AccountRedeemCode200;
+  status: 200;
+};
+
+export type accountRedeemCodeResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type accountRedeemCodeResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type accountRedeemCodeResponse429 = {
+  data: ProblemResponse;
+  status: 429;
+};
+
+export type accountRedeemCodeResponseSuccess = accountRedeemCodeResponse200 & {
+  headers: Headers;
+};
+export type accountRedeemCodeResponseError = (
+  | accountRedeemCodeResponse403
+  | accountRedeemCodeResponse422
+  | accountRedeemCodeResponse429
+) & {
+  headers: Headers;
+};
+
+export type accountRedeemCodeResponse =
+  | accountRedeemCodeResponseSuccess
+  | accountRedeemCodeResponseError;
+
+export const getAccountRedeemCodeUrl = () => {
+  return `/v1/account/codes/redeem`;
+};
+
+/**
+ * Applies a code outside checkout: a gift code, a wholesale access code, or a promo code that rewards on its own (days added to the subscription, a trial, or wallet credit). A discount promo code is refused here; it is applied on the checkout screen. Every refusal is the same 422 code_refused. Throttled to ten attempts an hour per customer.
+ */
+export const accountRedeemCode = async (
+  accountRedeemCodeBody: AccountRedeemCodeBody,
+  options?: RequestInit,
+): Promise<accountRedeemCodeResponse> => {
+  const res = await fetch(getAccountRedeemCodeUrl(), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(accountRedeemCodeBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: accountRedeemCodeResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as accountRedeemCodeResponse;
+};
+
+export const getAccountRedeemCodeMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: AccountRedeemCodeBody }) => {
+    return accountRedeemCode(arg, options);
+  };
+};
+export const getAccountRedeemCodeMutationKey = () => [`/v1/account/codes/redeem`] as const;
+
+export type AccountRedeemCodeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof accountRedeemCode>>
+>;
+
+export const useAccountRedeemCode = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof accountRedeemCode>>,
+    TError,
+    Key,
+    AccountRedeemCodeBody,
+    Awaited<ReturnType<typeof accountRedeemCode>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getAccountRedeemCodeMutationKey();
+  const swrFn = getAccountRedeemCodeMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,
