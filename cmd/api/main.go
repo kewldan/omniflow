@@ -30,6 +30,7 @@ import (
 	apihttp "github.com/omniflow/omniflow/internal/httpapi"
 	"github.com/omniflow/omniflow/internal/importservice"
 	"github.com/omniflow/omniflow/internal/jobs"
+	"github.com/omniflow/omniflow/internal/mailer"
 	"github.com/omniflow/omniflow/internal/maintenance"
 	"github.com/omniflow/omniflow/internal/operator"
 	"github.com/omniflow/omniflow/internal/panelpg"
@@ -307,10 +308,28 @@ func buildCustomerPanel(
 	limiter *platform.RateLimiter, remnawaveClient *remnawave.Client,
 	commerceStore *commercepg.Store, paymentService *paymentservice.Service,
 ) (*apihttp.AccountHandlers, *customerauthpg.Service, error) {
+	// E-mail sign-in needs a mail transport and the contact sealer, so an
+	// address typed into the form is looked up exactly as it was stored.
+	var emailSignIn *customerauthpg.EmailSignInOptions
+	if cfg.CustomerPanel.EmailSignIn {
+		resend, mailErr := mailer.NewResend(cfg.CustomerPanel.ResendAPIKey, cfg.CustomerPanel.EmailFrom)
+		switch {
+		case errors.Is(mailErr, mailer.ErrNotConfigured):
+		case mailErr != nil:
+			return nil, nil, mailErr
+		default:
+			contacts, contactsErr := customerpg.New(pool, cfg.DataEncryptionKey, 30*24*time.Hour)
+			if contactsErr != nil {
+				return nil, nil, contactsErr
+			}
+			emailSignIn = &customerauthpg.EmailSignInOptions{Contacts: contacts, Mailer: resend}
+		}
+	}
 	identity, err := customerauthpg.New(pool, cfg.DataEncryptionKey, customerauthpg.Options{
 		TelegramBotToken: cfg.TelegramToken,
 		MagicLinkEnabled: cfg.CustomerPanel.MagicLinkEnabled,
 		PublicURL:        cfg.PublicURL,
+		EmailSignIn:      emailSignIn,
 	})
 	if err != nil {
 		return nil, nil, err

@@ -70,6 +70,7 @@ func (handlers *AccountHandlers) signInMethods(writer http.ResponseWriter, reque
 		"telegram":    botUsername != "",
 		"telegramBot": botUsername,
 		"magicLink":   handlers.auth.MagicLinkEnabled(),
+		"email":       handlers.auth.EmailSignInEnabled(),
 		"oidc":        providers,
 	})
 }
@@ -232,6 +233,47 @@ func (handlers *AccountHandlers) checkMagicLink(writer http.ResponseWriter, requ
 	// CustomerSecurityHeaders already marks this no-store and no-referrer,
 	// which matters here: the Location carries a live credential.
 	http.Redirect(writer, request, magicLinkConfirmPath+"#token="+url.QueryEscape(token), http.StatusFound)
+}
+
+// requestEmailSignIn e-mails a one-time sign-in link.
+//
+// The answer is 202 whether or not the address belongs to a customer, so the
+// form cannot be used to learn who has an account. It is throttled per address
+// inside the service and per client address here.
+func (handlers *AccountHandlers) requestEmailSignIn(writer http.ResponseWriter, request *http.Request) {
+	if !handlers.ready(writer, request) {
+		return
+	}
+	var body struct {
+		Email  string `json:"email"`
+		Locale string `json:"locale"`
+	}
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	requestContext := handlers.requestContext(request)
+	subject := ""
+	if requestContext.IP != nil {
+		subject = requestContext.IP.String()
+	}
+	if !handlers.allowPrivacyRate(request, "account_email_signin", subject, 10, time.Hour) {
+		writeProblem(writer, request, http.StatusTooManyRequests, "rate_limited", "Too many sign-in e-mails were requested; try again later")
+		return
+	}
+	err := handlers.auth.RequestEmailSignIn(request.Context(), body.Email, body.Locale, requestContext)
+	switch {
+	case errors.Is(err, customerauth.ErrMagicLinkUnavailable):
+		writeProblem(writer, request, http.StatusNotFound, "method_unavailable", "That sign-in method is not available")
+	case errors.Is(err, customerauthpg.ErrEmailInvalid):
+		writeProblem(writer, request, http.StatusUnprocessableEntity, "email_invalid", "Enter a valid e-mail address")
+	case errors.Is(err, customerauth.ErrMagicLinkThrottled):
+		writeProblem(writer, request, http.StatusTooManyRequests, "rate_limited", "Too many sign-in e-mails were requested; try again later")
+	case err != nil:
+		handlers.logger.Error("sign-in e-mail failed", "error", err)
+		writeProblem(writer, request, http.StatusBadGateway, "email_failed", "The sign-in e-mail could not be sent")
+	default:
+		writer.WriteHeader(http.StatusAccepted)
+	}
 }
 
 // completeMagicLink redeems a link from the confirmation page.

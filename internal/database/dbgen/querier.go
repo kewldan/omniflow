@@ -245,6 +245,8 @@ type Querier interface {
 	// Feeds the per-customer request limit, so asking for a link repeatedly cannot
 	// be used to flood somebody's Telegram chat.
 	CountRecentCustomerMagicLinks(ctx context.Context, arg CountRecentCustomerMagicLinksParams) (int64, error)
+	// Per-address request limit, so the form cannot flood somebody's mailbox.
+	CountRecentEmailMagicLinks(ctx context.Context, arg CountRecentEmailMagicLinksParams) (int64, error)
 	CountRecentOperatorNotifications(ctx context.Context, arg CountRecentOperatorNotificationsParams) (int32, error)
 	CountRunningBackups(ctx context.Context) (int32, error)
 	CountUnpublishedOutboxEvents(ctx context.Context) (CountUnpublishedOutboxEventsRow, error)
@@ -296,6 +298,9 @@ type Querier interface {
 	// Wholesale code batches.
 	CreateCodeBatch(ctx context.Context, arg CreateCodeBatchParams) (CodeBatch, error)
 	CreateContactChannel(ctx context.Context, arg CreateContactChannelParams) (ContactChannel, error)
+	// An e-mailed link. user_id is NULL when the address belongs to no customer
+	// yet; the e-mail columns then name who the link will create.
+	CreateCustomerEmailMagicLink(ctx context.Context, arg CreateCustomerEmailMagicLinkParams) (CustomerMagicLink, error)
 	// Used only when a sign-in route is allowed to provision. The row it creates is
 	// an ordinary customer with no entitlement, no balance, and no Remnawave user.
 	CreateCustomerForSignIn(ctx context.Context, arg CreateCustomerForSignInParams) (User, error)
@@ -361,6 +366,8 @@ type Querier interface {
 	CreatePromotion(ctx context.Context, arg CreatePromotionParams) (Promotion, error)
 	CreateRefund(ctx context.Context, arg CreateRefundParams) (Refund, error)
 	CreateSubscription(ctx context.Context, arg CreateSubscriptionParams) (Subscription, error)
+	// Records the address a customer just proved they control by redeeming a link.
+	CreateVerifiedEmailContact(ctx context.Context, arg CreateVerifiedEmailContactParams) error
 	// ---------------------------------------------------------------------------
 	// Wallet top-up
 	// ---------------------------------------------------------------------------
@@ -616,6 +623,8 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	GetCommerceSettings(ctx context.Context) (CommerceSetting, error)
 	GetCustomer(ctx context.Context, id pgtype.UUID) (User, error)
+	// The customer holding a live e-mail contact with this fingerprint.
+	GetCustomerByEmailFingerprint(ctx context.Context, emailFingerprint []byte) (User, error)
 	// The adoption rule, as the bot applies it: a customer imported from
 	// Remnawave carries their Telegram ID on the mapping row before they ever hold
 	// an identity row. A widget sign-in must land on that customer rather than
@@ -1344,6 +1353,7 @@ type Querier interface {
 	// when they ask why three hundred codes were killed.
 	MarkCodeBatchRevoked(ctx context.Context, arg MarkCodeBatchRevokedParams) (CodeBatch, error)
 	MarkDunningNotified(ctx context.Context, attemptID pgtype.UUID) (DunningAttempt, error)
+	MarkEmailContactVerified(ctx context.Context, arg MarkEmailContactVerifiedParams) error
 	// Settlement of the sender's order is what makes a gift claimable. Restricting
 	// the update to 'pending' means a replayed settlement changes nothing.
 	MarkGiftDeliverable(ctx context.Context, giftID pgtype.UUID) (Gift, error)

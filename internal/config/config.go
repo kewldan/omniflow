@@ -223,6 +223,12 @@ type CustomerPanelConfig struct {
 	// it is a second bearer credential travelling through a chat, and an
 	// operator should switch it on deliberately.
 	MagicLinkEnabled bool
+	// ResendAPIKey and EmailFrom configure the mail transport e-mail sign-in
+	// sends through. Both empty leaves e-mail sign-in off.
+	ResendAPIKey string
+	EmailFrom    string
+	// EmailSignIn offers sign-in by e-mailed link when mail is configured.
+	EmailSignIn bool
 }
 
 // AdminPanelConfig configures the operator panel API introduced in v0.6.
@@ -654,6 +660,9 @@ func loadCustomerPanel() CustomerPanelConfig {
 		// cookie a browser will only send over TLS.
 		CookieSecure:     boolEnvOr("APP_CUSTOMER_COOKIE_SECURE", true),
 		MagicLinkEnabled: boolEnvOr("APP_CUSTOMER_MAGIC_LINK_ENABLED", false),
+		ResendAPIKey:     strings.TrimSpace(os.Getenv("APP_RESEND_API_KEY")),
+		EmailFrom:        strings.TrimSpace(os.Getenv("APP_EMAIL_FROM")),
+		EmailSignIn:      boolEnvOr("APP_CUSTOMER_EMAIL_SIGNIN_ENABLED", true),
 	}
 }
 

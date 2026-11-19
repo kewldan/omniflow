@@ -1541,15 +1541,18 @@ CREATE TABLE public.customer_lifecycle_events (
 
 CREATE TABLE public.customer_magic_links (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id uuid NOT NULL,
+    user_id uuid,
     token_hash bytea NOT NULL,
     requested_ip inet,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     expires_at timestamp with time zone NOT NULL,
     consumed_at timestamp with time zone,
     consumed_ip inet,
+    email_fingerprint bytea,
+    email_ciphertext bytea,
     CONSTRAINT customer_magic_links_consumption_complete CHECK (((consumed_ip IS NULL) OR (consumed_at IS NOT NULL))),
     CONSTRAINT customer_magic_links_expiry_after_creation CHECK ((expires_at > created_at)),
+    CONSTRAINT customer_magic_links_target_known CHECK (((user_id IS NOT NULL) OR ((email_fingerprint IS NOT NULL) AND (email_ciphertext IS NOT NULL)))),
     CONSTRAINT customer_magic_links_token_hash_check CHECK ((octet_length(token_hash) = 32))
 );
 
@@ -5890,6 +5893,13 @@ CREATE INDEX consent_records_user_purpose_idx ON public.consent_records USING bt
 --
 
 CREATE INDEX contact_channels_user_idx ON public.contact_channels USING btree (user_id, created_at DESC);
+
+
+--
+-- Name: customer_magic_links_email_recent; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX customer_magic_links_email_recent ON public.customer_magic_links USING btree (email_fingerprint, created_at) WHERE (email_fingerprint IS NOT NULL);
 
 
 --

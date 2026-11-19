@@ -3124,6 +3124,37 @@ paths:
         "403": {$ref: "#/components/responses/Problem"}
         "404": {$ref: "#/components/responses/Problem"}
         "415": {$ref: "#/components/responses/Problem"}
+  /v1/account/auth/email:
+    post:
+      operationId: accountRequestEmailSignIn
+      tags: [account]
+      security: []
+      description: >-
+        E-mails a one-time sign-in link through the configured mail transport.
+        Answers 202 whether or not the address belongs to a customer, so the
+        form cannot reveal who has an account. A known address receives a link
+        to its customer; an unknown one a link that creates the customer when
+        redeemed. The link lands on GET /v1/account/auth/link like a bot link.
+        Throttled per address and per client. Requires Content-Type
+        application/json and a same-origin request.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: {type: string, maxLength: 254}
+                locale: {type: string, enum: [ru, en]}
+      responses:
+        "202": {description: Accepted; a link was e-mailed if the address can receive one}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "415": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+        "429": {$ref: "#/components/responses/Problem"}
+        "502": {$ref: "#/components/responses/Problem"}
   /v1/account/auth/oidc/{slug}/start:
     get:
       operationId: startAccountOidc
@@ -6930,10 +6961,11 @@ components:
     # -------------------------------------------------------------------------
     AccountSignInMethods:
       type: object
-      required: [telegram, magicLink, oidc]
+      required: [telegram, magicLink, email, oidc]
       properties:
         telegram: {type: boolean, description: "A bot token is configured, so the login widget can be verified."}
         magicLink: {type: boolean, description: "The operator enabled the bot-delivered fallback."}
+        email: {type: boolean, description: "Sign-in by e-mailed link is available (a mail transport is configured)."}
         oidc:
           type: array
           items:

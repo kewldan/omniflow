@@ -294,6 +294,21 @@ sign-in problems (`account_unavailable`, `sign_in_unavailable`).
   and sends it with forwarding disabled.
 </Note>
 
+### E-mail
+
+With `APP_RESEND_API_KEY` and `APP_EMAIL_FROM` set, the sign-in screen offers an e-mail field. The
+customer types an address and receives a one-time link that lands on the same confirmation page as a
+bot link, works once, and expires after ten minutes.
+
+- An address held by a customer, for example one imported from Bedolaga, signs that customer in.
+- An address nobody holds creates a new customer, with that address as a verified contact, only
+  when the link is redeemed. Typing somebody else's address creates nothing.
+- The screen answers "check your inbox" either way, so the form cannot tell a stranger who has an
+  account. Requests are limited to five per address and ten per client address an hour.
+
+The address is stored sealed like every other contact; only its keyed fingerprint is used to look it
+up. `APP_CUSTOMER_EMAIL_SIGNIN_ENABLED=false` hides the field while keeping mail configured.
+
 ### OIDC
 
 Any number of providers may be enabled at once, each an ordinary discovery

@@ -3697,6 +3697,24 @@ func (e WebhookEventStatus) Valid() bool {
 	}
 }
 
+// Defines values for AccountRequestEmailSignInJSONBodyLocale.
+const (
+	AccountRequestEmailSignInJSONBodyLocaleEn AccountRequestEmailSignInJSONBodyLocale = "en"
+	AccountRequestEmailSignInJSONBodyLocaleRu AccountRequestEmailSignInJSONBodyLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the AccountRequestEmailSignInJSONBodyLocale enum.
+func (e AccountRequestEmailSignInJSONBodyLocale) Valid() bool {
+	switch e {
+	case AccountRequestEmailSignInJSONBodyLocaleEn:
+		return true
+	case AccountRequestEmailSignInJSONBodyLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetAccountCheckoutParamsLocale.
 const (
 	GetAccountCheckoutParamsLocaleEn GetAccountCheckoutParamsLocale = "en"
@@ -5601,6 +5619,9 @@ type AccountSignIn struct {
 
 // AccountSignInMethods defines model for AccountSignInMethods.
 type AccountSignInMethods struct {
+	// Email Sign-in by e-mailed link is available (a mail transport is configured).
+	Email bool `json:"email"`
+
 	// MagicLink The operator enabled the bot-delivered fallback.
 	MagicLink bool `json:"magicLink"`
 	Oidc      []struct {
@@ -8990,6 +9011,15 @@ type Plan = PlanInput
 // PlanVersion defines model for PlanVersion.
 type PlanVersion = PlanVersionInput
 
+// AccountRequestEmailSignInJSONBody defines parameters for AccountRequestEmailSignIn.
+type AccountRequestEmailSignInJSONBody struct {
+	Email  string                                   `json:"email"`
+	Locale *AccountRequestEmailSignInJSONBodyLocale `json:"locale,omitempty"`
+}
+
+// AccountRequestEmailSignInJSONBodyLocale defines parameters for AccountRequestEmailSignIn.
+type AccountRequestEmailSignInJSONBodyLocale string
+
 // AccountCheckMagicLinkParams defines parameters for AccountCheckMagicLink.
 type AccountCheckMagicLinkParams struct {
 	Token string `form:"token" json:"token"`
@@ -10850,6 +10880,9 @@ type ReplayPanelWebhookParams struct {
 // ReceivePaymentWebhookJSONBody defines parameters for ReceivePaymentWebhook.
 type ReceivePaymentWebhookJSONBody map[string]interface{}
 
+// AccountRequestEmailSignInJSONRequestBody defines body for AccountRequestEmailSignIn for application/json ContentType.
+type AccountRequestEmailSignInJSONRequestBody AccountRequestEmailSignInJSONBody
+
 // AccountCompleteMagicLinkJSONRequestBody defines body for AccountCompleteMagicLink for application/json ContentType.
 type AccountCompleteMagicLinkJSONRequestBody = MagicLinkRedeemInput
 
@@ -11346,6 +11379,9 @@ type ServerInterface interface {
 
 	// (GET /readyz)
 	GetReadiness(w http.ResponseWriter, r *http.Request)
+
+	// (POST /v1/account/auth/email)
+	AccountRequestEmailSignIn(w http.ResponseWriter, r *http.Request)
 
 	// (GET /v1/account/auth/link)
 	AccountCheckMagicLink(w http.ResponseWriter, r *http.Request, params AccountCheckMagicLinkParams)
@@ -12311,6 +12347,11 @@ func (_ Unimplemented) GetMetrics(w http.ResponseWriter, r *http.Request) {
 
 // (GET /readyz)
 func (_ Unimplemented) GetReadiness(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/auth/email)
+func (_ Unimplemented) AccountRequestEmailSignIn(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -13940,6 +13981,20 @@ func (siw *ServerInterfaceWrapper) GetReadiness(w http.ResponseWriter, r *http.R
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetReadiness(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AccountRequestEmailSignIn operation middleware
+func (siw *ServerInterfaceWrapper) AccountRequestEmailSignIn(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AccountRequestEmailSignIn(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -28455,6 +28510,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/v1/account/auth/link", wrapper.AccountCompleteMagicLink)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/auth/email", wrapper.AccountRequestEmailSignIn)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/account/auth/oidc/{slug}/start", wrapper.StartAccountOidc)
 	})
 	r.Group(func(r chi.Router) {
@@ -28845,6 +28903,108 @@ func (response GetReadiness503JSONResponse) VisitGetReadinessResponse(w http.Res
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountRequestEmailSignInRequestObject struct {
+	Body *AccountRequestEmailSignInJSONRequestBody
+}
+
+type AccountRequestEmailSignInResponseObject interface {
+	VisitAccountRequestEmailSignInResponse(w http.ResponseWriter) error
+}
+
+type AccountRequestEmailSignIn202Response struct {
+}
+
+func (response AccountRequestEmailSignIn202Response) VisitAccountRequestEmailSignInResponse(w http.ResponseWriter) error {
+	w.WriteHeader(202)
+	return nil
+}
+
+type AccountRequestEmailSignIn403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response AccountRequestEmailSignIn403ApplicationProblemPlusJSONResponse) VisitAccountRequestEmailSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountRequestEmailSignIn404ApplicationProblemPlusJSONResponse Problem
+
+func (response AccountRequestEmailSignIn404ApplicationProblemPlusJSONResponse) VisitAccountRequestEmailSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountRequestEmailSignIn415ApplicationProblemPlusJSONResponse Problem
+
+func (response AccountRequestEmailSignIn415ApplicationProblemPlusJSONResponse) VisitAccountRequestEmailSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(415)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountRequestEmailSignIn422ApplicationProblemPlusJSONResponse Problem
+
+func (response AccountRequestEmailSignIn422ApplicationProblemPlusJSONResponse) VisitAccountRequestEmailSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountRequestEmailSignIn429ApplicationProblemPlusJSONResponse Problem
+
+func (response AccountRequestEmailSignIn429ApplicationProblemPlusJSONResponse) VisitAccountRequestEmailSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountRequestEmailSignIn502ApplicationProblemPlusJSONResponse Problem
+
+func (response AccountRequestEmailSignIn502ApplicationProblemPlusJSONResponse) VisitAccountRequestEmailSignInResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -43225,6 +43385,9 @@ type StrictServerInterface interface {
 	// (GET /readyz)
 	GetReadiness(ctx context.Context, request GetReadinessRequestObject) (GetReadinessResponseObject, error)
 
+	// (POST /v1/account/auth/email)
+	AccountRequestEmailSignIn(ctx context.Context, request AccountRequestEmailSignInRequestObject) (AccountRequestEmailSignInResponseObject, error)
+
 	// (GET /v1/account/auth/link)
 	AccountCheckMagicLink(ctx context.Context, request AccountCheckMagicLinkRequestObject) (AccountCheckMagicLinkResponseObject, error)
 
@@ -44296,6 +44459,37 @@ func (sh *strictHandler) GetReadiness(w http.ResponseWriter, r *http.Request) {
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetReadinessResponseObject); ok {
 		if err := validResponse.VisitGetReadinessResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AccountRequestEmailSignIn operation middleware
+func (sh *strictHandler) AccountRequestEmailSignIn(w http.ResponseWriter, r *http.Request) {
+	var request AccountRequestEmailSignInRequestObject
+
+	var body AccountRequestEmailSignInJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AccountRequestEmailSignIn(ctx, request.(AccountRequestEmailSignInRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AccountRequestEmailSignIn")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AccountRequestEmailSignInResponseObject); ok {
+		if err := validResponse.VisitAccountRequestEmailSignInResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

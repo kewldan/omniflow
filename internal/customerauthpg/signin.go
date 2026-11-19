@@ -282,7 +282,7 @@ func (service *Service) IssueMagicLink(
 // attacker's account. So the GET only checks, and hands off to a page on this
 // origin whose POST, guarded by Origin and Content-Type, is what redeems it.
 func (service *Service) CheckMagicLink(ctx context.Context, token string) error {
-	if !service.magicLinkEnabled {
+	if !service.magicLinkEnabled && service.emailSignIn == nil {
 		return customerauth.ErrMagicLinkUnavailable
 	}
 	_, err := dbgen.New(service.pool).CheckCustomerMagicLink(ctx, customerauth.HashMagicLinkToken(token))
@@ -299,7 +299,7 @@ func (service *Service) CheckMagicLink(ctx context.Context, token string) error 
 func (service *Service) CompleteMagicLink(
 	ctx context.Context, token string, request RequestContext,
 ) (SignInResult, error) {
-	if !service.magicLinkEnabled {
+	if !service.magicLinkEnabled && service.emailSignIn == nil {
 		return SignInResult{}, customerauth.ErrMagicLinkUnavailable
 	}
 	var result SignInResult
@@ -314,7 +314,7 @@ func (service *Service) CompleteMagicLink(
 			return consumeErr
 		}
 
-		user, userErr := queries.GetCustomer(ctx, link.UserID)
+		user, userErr := service.emailLinkCustomer(ctx, queries, link, request)
 		if userErr != nil {
 			return userErr
 		}

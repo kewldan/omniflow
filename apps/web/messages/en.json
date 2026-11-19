@@ -2950,7 +2950,7 @@
       "noMethods": "No sign-in method is configured yet. Contact support.",
       "errors": {
         "generic": "Sign-in could not be completed. Try again.",
-        "link_invalid": "That sign-in link has already been used or has expired. Ask the bot for a new one.",
+        "link_invalid": "That sign-in link has already been used or has expired. Request a new one.",
         "method_unavailable": "That sign-in method is not available.",
         "account_unavailable": "This account is unavailable. Contact support if that is unexpected.",
         "sign_in_expired": "The sign-in took too long. Start again.",
@@ -2967,6 +2967,17 @@
         "continue": "Continue signing in",
         "continuing": "Signing in…",
         "back": "Back to sign-in"
+      },
+      "email": {
+        "label": "E-mail",
+        "action": "Send me a sign-in link",
+        "sending": "Sending…",
+        "sent": "If {email} is correct, a sign-in link is on its way. It works for 10 minutes. Check your spam folder if it does not arrive.",
+        "errors": {
+          "email_invalid": "Enter a valid e-mail address.",
+          "rate_limited": "Too many requests. Try again in an hour.",
+          "generic": "The e-mail could not be sent. Try again later."
+        }
       }
     },
     "timezone": {

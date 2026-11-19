@@ -1,11 +1,13 @@
 "use client";
 
 import { Button } from "@omniflow/ui/button";
+import { Input } from "@omniflow/ui/input";
+import { Label } from "@omniflow/ui/label";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { toast } from "@omniflow/ui/toast";
-import { MessageCircle, Send } from "lucide-react";
+import { Mail, MessageCircle, Send } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 
@@ -19,6 +21,8 @@ type SignInMethods = {
   /** The bot's own @name, which is what the login widget is loaded by. */
   telegramBot?: string;
   magicLink: boolean;
+  /** Sign-in by e-mailed link: a mail transport is configured. */
+  email?: boolean;
   oidc: { slug: string; displayName: string; icon?: string }[];
 };
 
@@ -193,14 +197,97 @@ export default function SignInPage() {
             </p>
           )}
 
-          {!data?.telegram && (data?.oidc ?? []).length === 0 && !data?.magicLink && (
-            <p className="rounded-lg border border-border bg-card p-4 text-[12.5px] leading-relaxed">
-              {translate("signIn.noMethods")}
-            </p>
-          )}
+          {data?.email && <EmailSignIn />}
+
+          {!data?.telegram &&
+            (data?.oidc ?? []).length === 0 &&
+            !data?.magicLink &&
+            !data?.email && (
+              <p className="rounded-lg border border-border bg-card p-4 text-[12.5px] leading-relaxed">
+                {translate("signIn.noMethods")}
+              </p>
+            )}
         </div>
       )}
     </main>
+  );
+}
+
+/**
+ * Sign-in by e-mailed link.
+ *
+ * The API answers the same way for an address it knows and one it does not, so
+ * this screen only ever says "check your inbox" — it cannot be used to learn
+ * whether somebody has an account here.
+ */
+function EmailSignIn() {
+  const translate = useTranslations("account");
+  const locale = useLocale();
+  const [email, setEmail] = useState("");
+  const [state, setState] = useState<"idle" | "sending" | "sent">("idle");
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    setState("sending");
+    try {
+      await apiFetch("/v1/account/auth/email", {
+        body: JSON.stringify({ email: email.trim(), locale }),
+        method: "POST",
+      });
+      setState("sent");
+    } catch (failure) {
+      const code = (failure as ApiError).code;
+      setError(
+        code === "email_invalid" || code === "rate_limited"
+          ? translate(`signIn.email.errors.${code}`)
+          : translate("signIn.email.errors.generic"),
+      );
+      setState("idle");
+    }
+  }
+
+  if (state === "sent") {
+    return (
+      <p
+        className="rounded-lg border border-border bg-card p-4 text-[12.5px] leading-relaxed"
+        role="status"
+      >
+        {translate("signIn.email.sent", { email: email.trim() })}
+      </p>
+    );
+  }
+  return (
+    <form className="space-y-2" noValidate onSubmit={submit}>
+      <Label htmlFor="sign-in-email">{translate("signIn.email.label")}</Label>
+      <Input
+        aria-describedby={error ? "sign-in-email-error" : undefined}
+        aria-invalid={error ? true : undefined}
+        autoComplete="email"
+        id="sign-in-email"
+        inputMode="email"
+        onChange={(event) => setEmail(event.target.value)}
+        placeholder="name@example.com"
+        type="email"
+        value={email}
+      />
+      {error && (
+        <p className="text-[12.5px] text-destructive" id="sign-in-email-error" role="alert">
+          {error}
+        </p>
+      )}
+      <Button
+        className="w-full"
+        disabled={state === "sending" || email.trim() === ""}
+        size="lg"
+        type="submit"
+        variant="outline"
+      >
+        <Mail aria-hidden className="size-4" />
+        {state === "sending" ? translate("signIn.email.sending") : translate("signIn.email.action")}
+      </Button>
+    </form>
   );
 }
 

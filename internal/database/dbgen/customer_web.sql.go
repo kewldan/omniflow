@@ -35,7 +35,7 @@ SET consumed_at = now(), consumed_ip = $1
 WHERE token_hash = $2
   AND consumed_at IS NULL
   AND expires_at > now()
-RETURNING id, user_id, token_hash, requested_ip, created_at, expires_at, consumed_at, consumed_ip
+RETURNING id, user_id, token_hash, requested_ip, created_at, expires_at, consumed_at, consumed_ip, email_fingerprint, email_ciphertext
 `
 
 type ConsumeCustomerMagicLinkParams struct {
@@ -58,6 +58,8 @@ func (q *Queries) ConsumeCustomerMagicLink(ctx context.Context, arg ConsumeCusto
 		&i.ExpiresAt,
 		&i.ConsumedAt,
 		&i.ConsumedIp,
+		&i.EmailFingerprint,
+		&i.EmailCiphertext,
 	)
 	return i, err
 }
@@ -91,6 +93,72 @@ func (q *Queries) CountRecentCustomerMagicLinks(ctx context.Context, arg CountRe
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const countRecentEmailMagicLinks = `-- name: CountRecentEmailMagicLinks :one
+SELECT count(*)::bigint FROM customer_magic_links
+WHERE email_fingerprint = $1
+  AND created_at > now() - $2::interval
+`
+
+type CountRecentEmailMagicLinksParams struct {
+	EmailFingerprint []byte          `json:"email_fingerprint"`
+	Lookback         pgtype.Interval `json:"lookback"`
+}
+
+// Per-address request limit, so the form cannot flood somebody's mailbox.
+func (q *Queries) CountRecentEmailMagicLinks(ctx context.Context, arg CountRecentEmailMagicLinksParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countRecentEmailMagicLinks, arg.EmailFingerprint, arg.Lookback)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const createCustomerEmailMagicLink = `-- name: CreateCustomerEmailMagicLink :one
+INSERT INTO customer_magic_links (
+  user_id, token_hash, requested_ip, expires_at, email_fingerprint, email_ciphertext
+)
+VALUES (
+  $1, $2, $3,
+  now() + $4::interval, $5, $6
+)
+RETURNING id, user_id, token_hash, requested_ip, created_at, expires_at, consumed_at, consumed_ip, email_fingerprint, email_ciphertext
+`
+
+type CreateCustomerEmailMagicLinkParams struct {
+	UserID           pgtype.UUID     `json:"user_id"`
+	TokenHash        []byte          `json:"token_hash"`
+	RequestedIp      *netip.Addr     `json:"requested_ip"`
+	Lifetime         pgtype.Interval `json:"lifetime"`
+	EmailFingerprint []byte          `json:"email_fingerprint"`
+	EmailCiphertext  []byte          `json:"email_ciphertext"`
+}
+
+// An e-mailed link. user_id is NULL when the address belongs to no customer
+// yet; the e-mail columns then name who the link will create.
+func (q *Queries) CreateCustomerEmailMagicLink(ctx context.Context, arg CreateCustomerEmailMagicLinkParams) (CustomerMagicLink, error) {
+	row := q.db.QueryRow(ctx, createCustomerEmailMagicLink,
+		arg.UserID,
+		arg.TokenHash,
+		arg.RequestedIp,
+		arg.Lifetime,
+		arg.EmailFingerprint,
+		arg.EmailCiphertext,
+	)
+	var i CustomerMagicLink
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.TokenHash,
+		&i.RequestedIp,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.ConsumedAt,
+		&i.ConsumedIp,
+		&i.EmailFingerprint,
+		&i.EmailCiphertext,
+	)
+	return i, err
 }
 
 const createCustomerForSignIn = `-- name: CreateCustomerForSignIn :one
@@ -133,7 +201,7 @@ VALUES (
   $1, $2, $3,
   now() + $4::interval
 )
-RETURNING id, user_id, token_hash, requested_ip, created_at, expires_at, consumed_at, consumed_ip
+RETURNING id, user_id, token_hash, requested_ip, created_at, expires_at, consumed_at, consumed_ip, email_fingerprint, email_ciphertext
 `
 
 type CreateCustomerMagicLinkParams struct {
@@ -163,6 +231,8 @@ func (q *Queries) CreateCustomerMagicLink(ctx context.Context, arg CreateCustome
 		&i.ExpiresAt,
 		&i.ConsumedAt,
 		&i.ConsumedIp,
+		&i.EmailFingerprint,
+		&i.EmailCiphertext,
 	)
 	return i, err
 }
@@ -228,6 +298,24 @@ func (q *Queries) CreateCustomerSession(ctx context.Context, arg CreateCustomerS
 		&i.RevokedReason,
 	)
 	return i, err
+}
+
+const createVerifiedEmailContact = `-- name: CreateVerifiedEmailContact :exec
+INSERT INTO contact_channels (user_id, kind, value_ciphertext, value_fingerprint, verified_at, transactional_enabled, marketing_enabled)
+VALUES ($1, 'email', $2, $3, now(), true, false)
+ON CONFLICT (kind, value_fingerprint) DO NOTHING
+`
+
+type CreateVerifiedEmailContactParams struct {
+	UserID           pgtype.UUID `json:"user_id"`
+	ValueCiphertext  []byte      `json:"value_ciphertext"`
+	ValueFingerprint []byte      `json:"value_fingerprint"`
+}
+
+// Records the address a customer just proved they control by redeeming a link.
+func (q *Queries) CreateVerifiedEmailContact(ctx context.Context, arg CreateVerifiedEmailContactParams) error {
+	_, err := q.db.Exec(ctx, createVerifiedEmailContact, arg.UserID, arg.ValueCiphertext, arg.ValueFingerprint)
+	return err
 }
 
 const deleteCustomerOIDCProvider = `-- name: DeleteCustomerOIDCProvider :execrows
@@ -336,6 +424,35 @@ func (q *Queries) GetActiveIdentityBySubject(ctx context.Context, arg GetActiveI
 		&i.UserStatus,
 		&i.UserLocale,
 		&i.UserTimezone,
+	)
+	return i, err
+}
+
+const getCustomerByEmailFingerprint = `-- name: GetCustomerByEmailFingerprint :one
+SELECT u.id, u.status, u.locale, u.created_at, u.updated_at, u.timezone, u.suspended_at, u.deleted_at, u.anonymized_at, u.retention_until, u.merged_into, u.merged_at
+FROM contact_channels c
+JOIN users u ON u.id = c.user_id
+WHERE c.kind = 'email' AND c.value_fingerprint = $1 AND c.revoked_at IS NULL
+LIMIT 1
+`
+
+// The customer holding a live e-mail contact with this fingerprint.
+func (q *Queries) GetCustomerByEmailFingerprint(ctx context.Context, emailFingerprint []byte) (User, error) {
+	row := q.db.QueryRow(ctx, getCustomerByEmailFingerprint, emailFingerprint)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Status,
+		&i.Locale,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Timezone,
+		&i.SuspendedAt,
+		&i.DeletedAt,
+		&i.AnonymizedAt,
+		&i.RetentionUntil,
+		&i.MergedInto,
+		&i.MergedAt,
 	)
 	return i, err
 }
@@ -863,6 +980,22 @@ func (q *Queries) LockCustomerOIDCProvider(ctx context.Context, slug string) (Cu
 		&i.DisabledAt,
 	)
 	return i, err
+}
+
+const markEmailContactVerified = `-- name: MarkEmailContactVerified :exec
+UPDATE contact_channels SET verified_at = COALESCE(verified_at, now())
+WHERE user_id = $1 AND kind = 'email' AND value_fingerprint = $2
+  AND revoked_at IS NULL
+`
+
+type MarkEmailContactVerifiedParams struct {
+	UserID           pgtype.UUID `json:"user_id"`
+	ValueFingerprint []byte      `json:"value_fingerprint"`
+}
+
+func (q *Queries) MarkEmailContactVerified(ctx context.Context, arg MarkEmailContactVerifiedParams) error {
+	_, err := q.db.Exec(ctx, markEmailContactVerified, arg.UserID, arg.ValueFingerprint)
+	return err
 }
 
 const revokeCustomerSession = `-- name: RevokeCustomerSession :one

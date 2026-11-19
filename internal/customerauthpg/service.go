@@ -105,6 +105,10 @@ type Service struct {
 	// botName caches the bot's own @name for the login widget. See telegram.go.
 	botName telegramBotUsername
 
+	// emailSignIn is set when e-mail sign-in is on: it seals addresses and sends
+	// the mail. Nil means the route is not offered. See emailsignin.go.
+	emailSignIn *emailSignIn
+
 	// rotationGrace is the temporary store that makes token rotation safe under
 	// concurrent requests. Nil means rotation is skipped; see rotation.go.
 	rotationGrace RotationGraceStore
@@ -120,6 +124,8 @@ type Options struct {
 	HTTPClient       *http.Client
 	// TelegramAPIURL replaces https://api.telegram.org. Tests only.
 	TelegramAPIURL string
+	// EmailSignIn turns on sign-in by e-mailed link. Both fields are required.
+	EmailSignIn *EmailSignInOptions
 }
 
 // New builds the adapter. The encryption key is the same 32-byte
@@ -161,6 +167,12 @@ func New(pool *pgxpool.Pool, encryptionKey []byte, options Options) (*Service, e
 	}
 	if service.httpClient == nil {
 		service.httpClient = &http.Client{Timeout: 15 * time.Second}
+	}
+	if options.EmailSignIn != nil {
+		if options.EmailSignIn.Contacts == nil || options.EmailSignIn.Mailer == nil {
+			return nil, errors.New("e-mail sign-in needs a contact sealer and a mailer")
+		}
+		service.emailSignIn = &emailSignIn{contacts: options.EmailSignIn.Contacts, mailer: options.EmailSignIn.Mailer}
 	}
 	return service, nil
 }

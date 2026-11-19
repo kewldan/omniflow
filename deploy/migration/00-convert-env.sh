@@ -112,6 +112,18 @@ awk -v known="$known" -v out="$target_env" '
       print "  " key " -> " target
       carried++
     }
+    # Bedolaga sends cabinet mail over SMTP; with the Resend SMTP relay the
+    # password is the Resend API key, which is what the Omniflow transport takes.
+    if (tolower(env["SMTP_HOST"]) ~ /resend/ && env["SMTP_PASSWORD"] != "" && env["SMTP_FROM_EMAIL"] != "") {
+      from = env["SMTP_FROM_EMAIL"]
+      if (env["SMTP_FROM_NAME"] != "") from = env["SMTP_FROM_NAME"] " <" from ">"
+      printf "APP_RESEND_API_KEY=%s\nAPP_EMAIL_FROM=\x27%s\x27\n", env["SMTP_PASSWORD"], from >> out
+      print "  SMTP_PASSWORD -> APP_RESEND_API_KEY, SMTP_FROM_* -> APP_EMAIL_FROM (e-mail sign-in)"
+      carried += 2
+    } else if (env["SMTP_HOST"] != "") {
+      print "WARNING: Bedolaga sends mail through " env["SMTP_HOST"] ", which is not Resend. Omniflow sends sign-in"
+      print "         mail through Resend only: set APP_RESEND_API_KEY and APP_EMAIL_FROM, or e-mail customers cannot sign in."
+    }
     for (p = 1; p <= n; p++) {
       if (tolower(env[providers[p] "_ENABLED"]) == "true") enabled = enabled " " tolower(providers[p])
     }

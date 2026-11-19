@@ -116,6 +116,7 @@ func (handlers *AccountHandlers) Mount(router chi.Router) {
 		account.With(requireSameOriginJSON).Post("/auth/telegram", handlers.signInWithTelegram)
 		account.With(requireSameOriginJSON).Post("/auth/telegram/miniapp", handlers.signInWithMiniApp)
 		account.With(requireSameOriginJSON).Post("/auth/link", handlers.completeMagicLink)
+		account.With(requireSameOriginJSON).Post("/auth/email", handlers.requestEmailSignIn)
 		account.Get("/auth/link", handlers.checkMagicLink)
 		account.Get("/auth/oidc/{slug}/start", handlers.startOIDC)
 		account.Get("/auth/oidc/{slug}/callback", handlers.callbackOIDC)

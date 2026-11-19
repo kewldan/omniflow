@@ -165,6 +165,43 @@ RETURNING *;
 SELECT count(*)::bigint FROM customer_magic_links
 WHERE user_id = sqlc.arg(user_id) AND created_at > now() - sqlc.arg(lookback)::interval;
 
+-- name: CreateCustomerEmailMagicLink :one
+-- An e-mailed link. user_id is NULL when the address belongs to no customer
+-- yet; the e-mail columns then name who the link will create.
+INSERT INTO customer_magic_links (
+  user_id, token_hash, requested_ip, expires_at, email_fingerprint, email_ciphertext
+)
+VALUES (
+  sqlc.narg(user_id), sqlc.arg(token_hash), sqlc.narg(requested_ip),
+  now() + sqlc.arg(lifetime)::interval, sqlc.arg(email_fingerprint), sqlc.arg(email_ciphertext)
+)
+RETURNING *;
+
+-- name: CountRecentEmailMagicLinks :one
+-- Per-address request limit, so the form cannot flood somebody's mailbox.
+SELECT count(*)::bigint FROM customer_magic_links
+WHERE email_fingerprint = sqlc.arg(email_fingerprint)
+  AND created_at > now() - sqlc.arg(lookback)::interval;
+
+-- name: GetCustomerByEmailFingerprint :one
+-- The customer holding a live e-mail contact with this fingerprint.
+SELECT u.*
+FROM contact_channels c
+JOIN users u ON u.id = c.user_id
+WHERE c.kind = 'email' AND c.value_fingerprint = sqlc.arg(email_fingerprint) AND c.revoked_at IS NULL
+LIMIT 1;
+
+-- name: CreateVerifiedEmailContact :exec
+-- Records the address a customer just proved they control by redeeming a link.
+INSERT INTO contact_channels (user_id, kind, value_ciphertext, value_fingerprint, verified_at, transactional_enabled, marketing_enabled)
+VALUES (sqlc.arg(user_id), 'email', sqlc.arg(value_ciphertext), sqlc.arg(value_fingerprint), now(), true, false)
+ON CONFLICT (kind, value_fingerprint) DO NOTHING;
+
+-- name: MarkEmailContactVerified :exec
+UPDATE contact_channels SET verified_at = COALESCE(verified_at, now())
+WHERE user_id = sqlc.arg(user_id) AND kind = 'email' AND value_fingerprint = sqlc.arg(value_fingerprint)
+  AND revoked_at IS NULL;
+
 -- name: DeleteExpiredCustomerMagicLinks :execrows
 DELETE FROM customer_magic_links WHERE expires_at < now() - sqlc.arg(retention)::interval;
 

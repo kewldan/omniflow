@@ -7176,6 +7176,9 @@ export const ListAccountSignInMethodsResponse = zod.object({
     .boolean()
     .describe("A bot token is configured, so the login widget can be verified."),
   magicLink: zod.boolean().describe("The operator enabled the bot-delivered fallback."),
+  email: zod
+    .boolean()
+    .describe("Sign-in by e-mailed link is available (a mail transport is configured)."),
   oidc: zod.array(
     zod.object({
       slug: zod.string(),
@@ -7256,6 +7259,18 @@ export const AccountCompleteMagicLinkResponse = zod.object({
   }),
   expiresAt: zod.iso.datetime({ offset: true }),
 });
+
+/**
+ * E-mails a one-time sign-in link through the configured mail transport. Answers 202 whether or not the address belongs to a customer, so the form cannot reveal who has an account. A known address receives a link to its customer; an unknown one a link that creates the customer when redeemed. The link lands on GET /v1/account/auth/link like a bot link. Throttled per address and per client. Requires Content-Type application/json and a same-origin request.
+ */
+export const accountRequestEmailSignInBodyEmailMax = 254;
+
+export const AccountRequestEmailSignInBody = zod.object({
+  email: zod.string().max(accountRequestEmailSignInBodyEmailMax),
+  locale: zod.enum(["ru", "en"]).optional(),
+});
+
+export const AccountRequestEmailSignInResponse = zod.void();
 
 export const startAccountOidcPathSlugRegExp = /^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$/;
 

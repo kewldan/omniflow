@@ -3567,6 +3567,8 @@ export interface AccountSignInMethods {
   telegram: boolean;
   /** The operator enabled the bot-delivered fallback. */
   magicLink: boolean;
+  /** Sign-in by e-mailed link is available (a mail transport is configured). */
+  email: boolean;
   oidc: AccountSignInMethodsOidcItem[];
 }
 
@@ -6099,6 +6101,20 @@ export type AccountSignInWithMiniAppBody = {
 
 export type AccountCheckMagicLinkParams = {
   token: string;
+};
+
+export type AccountRequestEmailSignInBodyLocale =
+  (typeof AccountRequestEmailSignInBodyLocale)[keyof typeof AccountRequestEmailSignInBodyLocale];
+
+export const AccountRequestEmailSignInBodyLocale = {
+  ru: "ru",
+  en: "en",
+} as const;
+
+export type AccountRequestEmailSignInBody = {
+  /** @maxLength 254 */
+  email: string;
+  locale?: AccountRequestEmailSignInBodyLocale;
 };
 
 export type StartAccountOidcParams = {
@@ -25230,6 +25246,117 @@ export const useAccountCompleteMagicLink = <TError = Promise<ProblemResponse>>(o
 
   const swrKey = swrOptions?.swrKey ?? getAccountCompleteMagicLinkMutationKey();
   const swrFn = getAccountCompleteMagicLinkMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type accountRequestEmailSignInResponse202 = {
+  data: void;
+  status: 202;
+};
+
+export type accountRequestEmailSignInResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type accountRequestEmailSignInResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type accountRequestEmailSignInResponse415 = {
+  data: ProblemResponse;
+  status: 415;
+};
+
+export type accountRequestEmailSignInResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type accountRequestEmailSignInResponse429 = {
+  data: ProblemResponse;
+  status: 429;
+};
+
+export type accountRequestEmailSignInResponse502 = {
+  data: ProblemResponse;
+  status: 502;
+};
+
+export type accountRequestEmailSignInResponseSuccess = accountRequestEmailSignInResponse202 & {
+  headers: Headers;
+};
+export type accountRequestEmailSignInResponseError = (
+  | accountRequestEmailSignInResponse403
+  | accountRequestEmailSignInResponse404
+  | accountRequestEmailSignInResponse415
+  | accountRequestEmailSignInResponse422
+  | accountRequestEmailSignInResponse429
+  | accountRequestEmailSignInResponse502
+) & {
+  headers: Headers;
+};
+
+export type accountRequestEmailSignInResponse =
+  | accountRequestEmailSignInResponseSuccess
+  | accountRequestEmailSignInResponseError;
+
+export const getAccountRequestEmailSignInUrl = () => {
+  return `/v1/account/auth/email`;
+};
+
+/**
+ * E-mails a one-time sign-in link through the configured mail transport. Answers 202 whether or not the address belongs to a customer, so the form cannot reveal who has an account. A known address receives a link to its customer; an unknown one a link that creates the customer when redeemed. The link lands on GET /v1/account/auth/link like a bot link. Throttled per address and per client. Requires Content-Type application/json and a same-origin request.
+ */
+export const accountRequestEmailSignIn = async (
+  accountRequestEmailSignInBody: AccountRequestEmailSignInBody,
+  options?: RequestInit,
+): Promise<accountRequestEmailSignInResponse> => {
+  const res = await fetch(getAccountRequestEmailSignInUrl(), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(accountRequestEmailSignInBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: accountRequestEmailSignInResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as accountRequestEmailSignInResponse;
+};
+
+export const getAccountRequestEmailSignInMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: AccountRequestEmailSignInBody }) => {
+    return accountRequestEmailSignIn(arg, options);
+  };
+};
+export const getAccountRequestEmailSignInMutationKey = () => [`/v1/account/auth/email`] as const;
+
+export type AccountRequestEmailSignInMutationResult = NonNullable<
+  Awaited<ReturnType<typeof accountRequestEmailSignIn>>
+>;
+
+export const useAccountRequestEmailSignIn = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof accountRequestEmailSignIn>>,
+    TError,
+    Key,
+    AccountRequestEmailSignInBody,
+    Awaited<ReturnType<typeof accountRequestEmailSignIn>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getAccountRequestEmailSignInMutationKey();
+  const swrFn = getAccountRequestEmailSignInMutationFetcher(fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

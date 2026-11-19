@@ -254,6 +254,9 @@ Behaviour is described in [Notifications and consent](/customer/notifications).
 | `APP_CUSTOMER_PANEL_ENABLED` | `true` | api | no | no | Mounts `/v1/account`. Turn it off for a Telegram-only installation |
 | `APP_CUSTOMER_COOKIE_SECURE` | `true` | api | no | no | `Secure` flag on the customer session cookie |
 | `APP_CUSTOMER_MAGIC_LINK_ENABLED` | `false` | api, bot | no | no | Offers the bot-delivered sign-in link and the bot's `/login` command. Requires `APP_PUBLIC_URL` |
+| `APP_RESEND_API_KEY` | none | api | no | yes | Resend API key. With `APP_EMAIL_FROM` it turns on sign-in by e-mailed link on `/account/sign-in` |
+| `APP_EMAIL_FROM` | none | api | no | no | Sender address verified in Resend, e.g. `Omniflow <support@example.com>`. Required with the key |
+| `APP_CUSTOMER_EMAIL_SIGNIN_ENABLED` | `true` | api | no | no | Offers e-mail sign-in when mail is configured. A known address signs its customer in; an unknown one creates the customer when the link is redeemed |
 | `APP_TRUSTED_PROXIES` | — | api | no | no | Comma-separated IPs or CIDR blocks whose `X-Forwarded-For` may be believed |
 
 Both cookie flags default to `true` so a deployment that forgets them still gets a cookie a browser
