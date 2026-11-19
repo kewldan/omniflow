@@ -96,6 +96,7 @@ export default function CheckoutPage() {
               setDiscarding(true);
               try {
                 await apiFetch("/v1/account/checkout", { method: "DELETE" });
+                await mutate(undefined, { revalidate: true });
                 router.push("/account/store");
               } catch (failure) {
                 toast.error(describeProblem(failure));
@@ -216,6 +217,10 @@ function Checkout({
     setBusy(true);
     try {
       await apiFetch("/v1/account/checkout", { method: "DELETE" });
+      // Drop the cached checkout before leaving: the store reads the same key,
+      // and it greeted the customer with "You have a purchase in progress"
+      // about the one they had just discarded.
+      await reload(undefined, { revalidate: true });
       router.push("/account/store");
     } catch (failure) {
       toast.error(describeProblem(failure));
