@@ -253,6 +253,17 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 			services.admin.WithCustomerAuth(identity)
 		}
 	}
+	growth, err := buildGrowth(logger, cfg, pool, commerceStore, paymentService)
+	if err != nil {
+		closeAll()
+		return runtimeServices{}, nil, err
+	}
+	if services.admin != nil {
+		services.admin.WithGrowth(growth)
+	}
+	if services.account != nil {
+		services.account.WithGrowth(growth)
+	}
 	return services, closeAll, nil
 }
 
@@ -350,8 +361,17 @@ func buildCustomerPanel(
 	// E-mail sign-in needs a mail transport and the contact sealer, so an
 	// address typed into the form is looked up exactly as it was stored.
 	var emailSignIn *customerauthpg.EmailSignInOptions
+	mailSettings, err := config.LoadMail()
+	if err != nil {
+		return nil, nil, err
+	}
+	disposable := mailer.NewDisposableChecker(mailSettings.BlockedDomains)
 	if cfg.CustomerPanel.EmailSignIn {
-		resend, mailErr := mailer.NewResend(cfg.CustomerPanel.ResendAPIKey, cfg.CustomerPanel.EmailFrom)
+		sender, mailErr := mailer.New(mailer.Config{
+			Transport: mailSettings.Transport, From: mailSettings.From, ResendAPIKey: mailSettings.ResendAPIKey,
+			SMTPHost: mailSettings.SMTPHost, SMTPPort: mailSettings.SMTPPort, SMTPUsername: mailSettings.SMTPUsername,
+			SMTPPassword: mailSettings.SMTPPassword, SMTPSecurity: mailSettings.SMTPSecurity,
+		})
 		switch {
 		case errors.Is(mailErr, mailer.ErrNotConfigured):
 		case mailErr != nil:
@@ -361,7 +381,7 @@ func buildCustomerPanel(
 			if contactsErr != nil {
 				return nil, nil, contactsErr
 			}
-			emailSignIn = &customerauthpg.EmailSignInOptions{Contacts: contacts, Mailer: resend}
+			emailSignIn = &customerauthpg.EmailSignInOptions{Contacts: contacts, Mailer: sender, Disposable: disposable}
 		}
 	}
 	identity, err := customerauthpg.New(pool, cfg.DataEncryptionKey, customerauthpg.Options{
@@ -428,7 +448,7 @@ func buildCustomerPanel(
 	// the operator API under UNIQUE (kind, value_fingerprint), and that only
 	// happens when both derive the fingerprint from the same key.
 	referral, err := accountreferral.New(pool, accountreferral.Options{
-		PublicURL: cfg.PublicURL, EncryptionKey: cfg.DataEncryptionKey, Logger: logger,
+		PublicURL: cfg.PublicURL, EncryptionKey: cfg.DataEncryptionKey, Logger: logger, Disposable: disposable,
 	})
 	if err != nil {
 		return nil, nil, err

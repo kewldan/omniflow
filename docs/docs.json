@@ -78,6 +78,7 @@
               "integrations/payment-providers",
               "integrations/telegram",
               "integrations/oidc",
+              "integrations/email",
               "integrations/api",
               "integrations/extending"
             ]
@@ -211,6 +212,7 @@
               "ru/integrations/payment-providers",
               "ru/integrations/telegram",
               "ru/integrations/oidc",
+              "ru/integrations/email",
               "ru/integrations/api",
               "ru/integrations/extending"
             ]

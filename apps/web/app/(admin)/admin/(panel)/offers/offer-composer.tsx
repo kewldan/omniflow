@@ -6,6 +6,7 @@ import { DateTimeField } from "@omniflow/ui/date-time-field";
 import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
+import { Switch } from "@omniflow/ui/switch";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
@@ -49,6 +50,8 @@ export function OfferComposer({ onCreated }: { onCreated: () => void }) {
   const [startsAt, setStartsAt] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [reason, setReason] = useState("");
+  const [notifyEmail, setNotifyEmail] = useState(false);
+  const notifyEmailFieldId = useId();
 
   const { data: promotions } = useSWR<Listing<Promotion>, ApiError>(
     "/v1/panel/catalog/promotions?pageSize=100",
@@ -188,6 +191,11 @@ export function OfferComposer({ onCreated }: { onCreated: () => void }) {
           titleRu={titleRu}
         />
 
+        <div className="flex items-center gap-2">
+          <Switch checked={notifyEmail} id={notifyEmailFieldId} onCheckedChange={setNotifyEmail} />
+          <Label htmlFor={notifyEmailFieldId}>{translate("composer.notifyEmail")}</Label>
+        </div>
+        <p className="text-muted-foreground text-xs">{translate("composer.notifyEmailHint")}</p>
         <p className="text-muted-foreground text-xs">{translate("composer.singleUse")}</p>
         {error && <p className="text-danger-foreground text-sm">{error.message}</p>}
         <Button
@@ -198,6 +206,7 @@ export function OfferComposer({ onCreated }: { onCreated: () => void }) {
               body: {
                 customerId: customerId.trim(),
                 expiresAt: new Date(expiresAt).toISOString(),
+                notifyEmail,
                 promotionId,
                 startsAt: startsAt === "" ? undefined : new Date(startsAt).toISOString(),
                 termsEn: termsEn.trim(),

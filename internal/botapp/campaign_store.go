@@ -81,7 +81,7 @@ func (store *PostgresStore) PendingCampaignMessages(
 		LEFT JOIN recipient ON recipient.user_id = pending.user_id
 		LEFT JOIN bot_preferences p ON p.user_id = pending.user_id
 		LEFT JOIN bot_delivery_state s ON s.user_id = pending.user_id
-		WHERE c.status = 'running'
+		WHERE c.status = 'running' AND c.channel = 'telegram'
 		ORDER BY pending.position, c.id, pending.user_id, recipient.telegram_id DESC NULLS LAST
 		LIMIT $1`, limit)
 	if err != nil {

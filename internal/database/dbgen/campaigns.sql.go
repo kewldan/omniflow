@@ -79,7 +79,7 @@ const createCampaign = `-- name: CreateCampaign :one
 INSERT INTO campaigns (name, template_id, segment_id, estimated_audience, created_by)
 VALUES ($1, $2, $3,
         $4, $5)
-RETURNING id, name, template_id, segment_id, status, scheduled_for, estimated_audience, queued_count, sent_count, failed_count, suppressed_count, created_at, created_by, started_at, completed_at, updated_at
+RETURNING id, name, template_id, segment_id, status, scheduled_for, estimated_audience, queued_count, sent_count, failed_count, suppressed_count, created_at, created_by, started_at, completed_at, updated_at, channel
 `
 
 type CreateCampaignParams struct {
@@ -116,6 +116,7 @@ func (q *Queries) CreateCampaign(ctx context.Context, arg CreateCampaignParams) 
 		&i.StartedAt,
 		&i.CompletedAt,
 		&i.UpdatedAt,
+		&i.Channel,
 	)
 	return i, err
 }
@@ -178,7 +179,7 @@ func (q *Queries) GetAudienceSegment(ctx context.Context, id pgtype.UUID) (Audie
 }
 
 const getCampaign = `-- name: GetCampaign :one
-SELECT c.id, c.name, c.template_id, c.segment_id, c.status, c.scheduled_for, c.estimated_audience, c.queued_count, c.sent_count, c.failed_count, c.suppressed_count, c.created_at, c.created_by, c.started_at, c.completed_at, c.updated_at, t.code AS template_code, s.code AS segment_code, s.filters
+SELECT c.id, c.name, c.template_id, c.segment_id, c.status, c.scheduled_for, c.estimated_audience, c.queued_count, c.sent_count, c.failed_count, c.suppressed_count, c.created_at, c.created_by, c.started_at, c.completed_at, c.updated_at, c.channel, t.code AS template_code, s.code AS segment_code, s.filters
 FROM campaigns c
 JOIN message_templates t ON t.id = c.template_id
 JOIN audience_segments s ON s.id = c.segment_id
@@ -212,6 +213,7 @@ func (q *Queries) GetCampaign(ctx context.Context, id pgtype.UUID) (GetCampaignR
 		&i.Campaign.StartedAt,
 		&i.Campaign.CompletedAt,
 		&i.Campaign.UpdatedAt,
+		&i.Campaign.Channel,
 		&i.TemplateCode,
 		&i.SegmentCode,
 		&i.Filters,
@@ -365,7 +367,7 @@ func (q *Queries) ListCampaignTestSends(ctx context.Context, arg ListCampaignTes
 
 const listCampaigns = `-- name: ListCampaigns :many
 
-SELECT c.id, c.name, c.template_id, c.segment_id, c.status, c.scheduled_for, c.estimated_audience, c.queued_count, c.sent_count, c.failed_count, c.suppressed_count, c.created_at, c.created_by, c.started_at, c.completed_at, c.updated_at, t.code AS template_code, s.code AS segment_code
+SELECT c.id, c.name, c.template_id, c.segment_id, c.status, c.scheduled_for, c.estimated_audience, c.queued_count, c.sent_count, c.failed_count, c.suppressed_count, c.created_at, c.created_by, c.started_at, c.completed_at, c.updated_at, c.channel, t.code AS template_code, s.code AS segment_code
 FROM campaigns c
 JOIN message_templates t ON t.id = c.template_id
 JOIN audience_segments s ON s.id = c.segment_id
@@ -408,6 +410,7 @@ func (q *Queries) ListCampaigns(ctx context.Context, pageSize int32) ([]ListCamp
 			&i.Campaign.StartedAt,
 			&i.Campaign.CompletedAt,
 			&i.Campaign.UpdatedAt,
+			&i.Campaign.Channel,
 			&i.TemplateCode,
 			&i.SegmentCode,
 		); err != nil {
@@ -422,7 +425,7 @@ func (q *Queries) ListCampaigns(ctx context.Context, pageSize int32) ([]ListCamp
 }
 
 const listDueCampaigns = `-- name: ListDueCampaigns :many
-SELECT id, name, template_id, segment_id, status, scheduled_for, estimated_audience, queued_count, sent_count, failed_count, suppressed_count, created_at, created_by, started_at, completed_at, updated_at FROM campaigns
+SELECT id, name, template_id, segment_id, status, scheduled_for, estimated_audience, queued_count, sent_count, failed_count, suppressed_count, created_at, created_by, started_at, completed_at, updated_at, channel FROM campaigns
 WHERE (status = 'scheduled' AND scheduled_for <= now()) OR status = 'running'
 ORDER BY scheduled_for NULLS FIRST
 LIMIT $1
@@ -454,6 +457,7 @@ func (q *Queries) ListDueCampaigns(ctx context.Context, pageSize int32) ([]Campa
 			&i.StartedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
+			&i.Channel,
 		); err != nil {
 			return nil, err
 		}
@@ -722,7 +726,7 @@ FROM (
   FROM campaign_recipients WHERE campaign_id = $1
 ) counts
 WHERE c.id = $1
-RETURNING c.id, c.name, c.template_id, c.segment_id, c.status, c.scheduled_for, c.estimated_audience, c.queued_count, c.sent_count, c.failed_count, c.suppressed_count, c.created_at, c.created_by, c.started_at, c.completed_at, c.updated_at
+RETURNING c.id, c.name, c.template_id, c.segment_id, c.status, c.scheduled_for, c.estimated_audience, c.queued_count, c.sent_count, c.failed_count, c.suppressed_count, c.created_at, c.created_by, c.started_at, c.completed_at, c.updated_at, c.channel
 `
 
 func (q *Queries) RecountCampaign(ctx context.Context, campaignID pgtype.UUID) (Campaign, error) {
@@ -745,6 +749,7 @@ func (q *Queries) RecountCampaign(ctx context.Context, campaignID pgtype.UUID) (
 		&i.StartedAt,
 		&i.CompletedAt,
 		&i.UpdatedAt,
+		&i.Channel,
 	)
 	return i, err
 }
@@ -1002,7 +1007,7 @@ SET status = $1,
     updated_at = now()
 WHERE id = $3
   AND status = ANY($4::text[])
-RETURNING id, name, template_id, segment_id, status, scheduled_for, estimated_audience, queued_count, sent_count, failed_count, suppressed_count, created_at, created_by, started_at, completed_at, updated_at
+RETURNING id, name, template_id, segment_id, status, scheduled_for, estimated_audience, queued_count, sent_count, failed_count, suppressed_count, created_at, created_by, started_at, completed_at, updated_at, channel
 `
 
 type SetCampaignStateParams struct {
@@ -1040,6 +1045,7 @@ func (q *Queries) SetCampaignState(ctx context.Context, arg SetCampaignStatePara
 		&i.StartedAt,
 		&i.CompletedAt,
 		&i.UpdatedAt,
+		&i.Channel,
 	)
 	return i, err
 }

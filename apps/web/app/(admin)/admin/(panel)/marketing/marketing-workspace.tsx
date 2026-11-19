@@ -23,6 +23,7 @@ import { formatMoney, type Listing, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 import { AdCampaignsCard } from "./ad-campaigns";
 import { LoyaltyCard } from "./loyalty-card";
+import { EmailDeliveryCard } from "./email-delivery";
 import { TemplateEditorCard } from "./template-editor";
 
 import type {
@@ -58,6 +59,7 @@ export function MarketingWorkspace() {
       <SuppressionCard editable={can("marketing.write")} />
       <ReferralCard editable={can("settings.write")} />
       <LoyaltyCard editable={can("marketing.write")} />
+      {can("settings.read") && <EmailDeliveryCard editable={can("settings.write")} />}
     </div>
   );
 }
@@ -95,7 +97,12 @@ function CampaignCard({ editable }: { editable: boolean }) {
   );
   const { run, pending } = useOperatorAction();
 
-  const [form, setForm] = useState({ name: "", segmentId: "", templateId: "" });
+  const [form, setForm] = useState({
+    channel: "telegram",
+    name: "",
+    segmentId: "",
+    templateId: "",
+  });
   const [schedule, setSchedule] = useState<Record<string, string>>({});
   // Which language was last previewed, per campaign. It confirms the button did
   // something, because what it did happens in another application.
@@ -115,7 +122,7 @@ function CampaignCard({ editable }: { editable: boolean }) {
       reason: translate("campaigns.reason"),
     });
     if (created) {
-      setForm({ name: "", segmentId: "", templateId: "" });
+      setForm({ channel: "telegram", name: "", segmentId: "", templateId: "" });
       mutate();
     }
   }
@@ -168,7 +175,24 @@ function CampaignCard({ editable }: { editable: boolean }) {
         {editable ? (
           <div className="flex flex-col gap-3 rounded-md border border-dashed p-4">
             <p className="font-medium text-sm">{translate("campaigns.newTitle")}</p>
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-4">
+              <div className="flex flex-col gap-1">
+                <Label htmlFor={`${nameId}-channel`}>{translate("campaigns.channel")}</Label>
+                <Select
+                  onValueChange={(channel) => setForm({ ...form, channel })}
+                  value={form.channel}
+                >
+                  <SelectTrigger id={`${nameId}-channel`}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="telegram">
+                      {translate("campaigns.channels.telegram")}
+                    </SelectItem>
+                    <SelectItem value="email">{translate("campaigns.channels.email")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="flex flex-col gap-1">
                 <Label htmlFor={nameId}>{translate("campaigns.name")}</Label>
                 <Input
@@ -265,7 +289,8 @@ function CampaignCard({ editable }: { editable: boolean }) {
                   <TableCell>
                     <span className="font-medium">{campaign.name}</span>
                     <p className="font-mono text-muted-foreground text-xs">
-                      {campaign.segmentCode} · {campaign.templateCode}
+                      {campaign.segmentCode} · {campaign.templateCode} ·{" "}
+                      {translate(`campaigns.channels.${campaign.channel ?? "telegram"}`)}
                     </p>
                   </TableCell>
                   <TableCell>

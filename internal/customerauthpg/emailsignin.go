@@ -3,7 +3,6 @@ package customerauthpg
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/url"
 	"regexp"
 	"strings"
@@ -27,11 +26,14 @@ type ContactSealer interface {
 type EmailSignInOptions struct {
 	Contacts ContactSealer
 	Mailer   mailer.Sender
+	// Disposable refuses throwaway domains.
+	Disposable mailer.DisposableChecker
 }
 
 type emailSignIn struct {
-	contacts ContactSealer
-	mailer   mailer.Sender
+	contacts   ContactSealer
+	mailer     mailer.Sender
+	disposable mailer.DisposableChecker
 }
 
 var (
@@ -58,6 +60,11 @@ func (service *Service) RequestEmailSignIn(
 	}
 	email = strings.TrimSpace(email)
 	if len(email) > 254 || !emailPattern.MatchString(email) {
+		return ErrEmailInvalid
+	}
+	// A throwaway mailbox is refused as not an address at all: it is the
+	// standard way round a per-customer trial or referral limit.
+	if service.emailSignIn.disposable.IsDisposable(email) {
 		return ErrEmailInvalid
 	}
 	ciphertext, fingerprint, err := service.emailSignIn.contacts.SealContact("email", email)
@@ -104,19 +111,7 @@ func (service *Service) RequestEmailSignIn(
 }
 
 func signInMessage(to, link, locale string) mailer.Message {
-	minutes := int(customerauth.MagicLinkLifetime.Minutes())
-	if locale == "ru" {
-		return mailer.Message{
-			To: to, Subject: "Вход в личный кабинет",
-			Text: fmt.Sprintf("Чтобы войти, откройте ссылку:\n\n%s\n\nСсылка действует %d минут и работает один раз. "+
-				"Если вы не запрашивали вход, просто проигнорируйте это письмо.\n", link, minutes),
-		}
-	}
-	return mailer.Message{
-		To: to, Subject: "Sign in to your account",
-		Text: fmt.Sprintf("Open this link to sign in:\n\n%s\n\nIt works once and expires in %d minutes. "+
-			"If you did not ask to sign in, ignore this e-mail.\n", link, minutes),
-	}
+	return mailer.SignIn(to, locale, link, int(customerauth.MagicLinkLifetime.Minutes()))
 }
 
 // emailLinkCustomer resolves who an e-mailed link signs in, creating the

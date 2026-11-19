@@ -756,6 +756,7 @@ func (handlers *AdminHandlers) createOffer(writer http.ResponseWriter, request *
 		TermsEN     string    `json:"termsEn"`
 		StartsAt    time.Time `json:"startsAt"`
 		ExpiresAt   time.Time `json:"expiresAt"`
+		NotifyEmail bool      `json:"notifyEmail"`
 	}
 	if !decodeJSON(writer, request, &body) {
 		return
@@ -767,7 +768,7 @@ func (handlers *AdminHandlers) createOffer(writer http.ResponseWriter, request *
 		CustomerID: body.CustomerID, PromotionID: body.PromotionID, PlanID: body.PlanID,
 		TitleRU: body.TitleRU, TitleEN: body.TitleEN,
 		TermsRU: body.TermsRU, TermsEN: body.TermsEN,
-		StartsAt: body.StartsAt, ExpiresAt: body.ExpiresAt,
+		StartsAt: body.StartsAt, ExpiresAt: body.ExpiresAt, NotifyEmail: body.NotifyEmail,
 	}, actorFrom(request))
 	if err != nil {
 		handlers.operationsError(writer, request, err)

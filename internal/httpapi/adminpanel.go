@@ -71,6 +71,9 @@ type AdminHandlers struct {
 	// leaves those settings routes unmounted, which is what an installation
 	// running no customer panel gets.
 	customerAuth *customerauthpg.Service
+	// growth holds the Bedolaga-parity services (e-mail, withdrawals,
+	// receipts, exchange rates, guest purchases, engagement); see growth.go.
+	growth GrowthServices
 	// supportFiles holds the bytes of attachments customers uploaded through the
 	// web panel. A nil value leaves the desk's download route answering that
 	// files cannot be served, rather than unmounted: the metadata is still in the
@@ -306,6 +309,7 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 			handlers.mountPlatform(secure)
 			handlers.mountNews(secure)
 			handlers.mountImports(secure)
+			handlers.mountGrowth(secure)
 		})
 	})
 }

@@ -18,7 +18,7 @@ func TestExpansionSuppressionNamesTheReason(t *testing.T) {
 		{suppressed: false, reachable: true, want: ""},
 	}
 	for _, testCase := range cases {
-		if got := expansionSuppression(testCase.suppressed, testCase.reachable); got != testCase.want {
+		if got := expansionSuppression(testCase.suppressed, testCase.reachable, "no_telegram"); got != testCase.want {
 			t.Fatalf("expansionSuppression(%t, %t) = %q, want %q",
 				testCase.suppressed, testCase.reachable, got, testCase.want)
 		}

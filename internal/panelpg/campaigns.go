@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/omniflow/omniflow/internal/audience"
 	"github.com/omniflow/omniflow/internal/commerce"
@@ -274,6 +275,7 @@ type Campaign struct {
 	Sent         int32      `json:"sentCount"`
 	Failed       int32      `json:"failedCount"`
 	Suppressed   int32      `json:"suppressedCount"`
+	Channel      string     `json:"channel"`
 	ScheduledFor *time.Time `json:"scheduledFor,omitempty"`
 	CreatedAt    time.Time  `json:"createdAt"`
 	StartedAt    *time.Time `json:"startedAt,omitempty"`
@@ -304,7 +306,19 @@ func (service *Service) Campaigns(ctx context.Context, limit int32) ([]Campaign,
 func (service *Service) CreateCampaign(
 	ctx context.Context, name, templateID, segmentID string, actor Actor,
 ) (Campaign, error) {
-	if strings.TrimSpace(name) == "" {
+	return service.CreateCampaignOn(ctx, "telegram", name, templateID, segmentID, actor)
+}
+
+// CreateCampaignOn records a draft send on one channel: telegram, delivered by
+// the bot, or email, delivered by the worker's mail pass to customers with a
+// verified address. Both go through the same consent and frequency policy.
+func (service *Service) CreateCampaignOn(
+	ctx context.Context, channel, name, templateID, segmentID string, actor Actor,
+) (Campaign, error) {
+	if channel == "" {
+		channel = "telegram"
+	}
+	if strings.TrimSpace(name) == "" || (channel != "telegram" && channel != "email") {
 		return Campaign{}, ErrValidaton
 	}
 	template, err := parseUUID(templateID)
@@ -325,7 +339,7 @@ func (service *Service) CreateCampaign(
 	}
 
 	var campaign Campaign
-	err = service.inTx(ctx, func(queries *dbgen.Queries) error {
+	err = service.inTxRaw(ctx, func(tx pgx.Tx, queries *dbgen.Queries) error {
 		row, txErr := queries.CreateCampaign(ctx, dbgen.CreateCampaignParams{
 			Name: name, TemplateID: template, SegmentID: segmentUUID,
 			EstimatedAudience: int32(described.Size), CreatedBy: optionalUUID(actor.AdminID),
@@ -333,11 +347,17 @@ func (service *Service) CreateCampaign(
 		if txErr != nil {
 			return txErr
 		}
+		if channel != "telegram" {
+			if _, txErr = tx.Exec(ctx, `UPDATE campaigns SET channel = $2 WHERE id = $1`, row.ID, channel); txErr != nil {
+				return txErr
+			}
+			row.Channel = channel
+		}
 		campaign = campaignFrom(row)
 		return appendAudit(ctx, queries, actor.audit(
 			"panel.campaign.created", "marketing", "campaign", campaign.ID,
 			map[string]any{
-				"name": name, "segment": described.Code,
+				"name": name, "segment": described.Code, "channel": channel,
 				"estimatedAudience": described.Size, "explain": described.Explain,
 			},
 		))
@@ -583,7 +603,7 @@ func campaignFrom(row dbgen.Campaign) Campaign {
 		ID: uuidString(row.ID), Name: row.Name, Status: row.Status,
 		Estimated: row.EstimatedAudience, Queued: row.QueuedCount,
 		Sent: row.SentCount, Failed: row.FailedCount, Suppressed: row.SuppressedCount,
-		CreatedAt: timeValue(row.CreatedAt),
+		CreatedAt: timeValue(row.CreatedAt), Channel: row.Channel,
 	}
 	if row.ScheduledFor.Valid {
 		scheduled := timeValue(row.ScheduledFor)

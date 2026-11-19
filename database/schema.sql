@@ -1328,7 +1328,7 @@ CREATE TABLE public.campaign_recipients (
     queued_at timestamp with time zone DEFAULT now() NOT NULL,
     resolved_at timestamp with time zone,
     CONSTRAINT campaign_recipients_status_check CHECK ((status = ANY (ARRAY['queued'::text, 'sent'::text, 'failed'::text, 'suppressed'::text, 'blocked'::text]))),
-    CONSTRAINT campaign_recipients_suppression_reason_check CHECK (((suppression_reason IS NULL) OR (suppression_reason = ANY (ARRAY['no_consent'::text, 'suppressed'::text, 'frequency_cap'::text, 'quiet_hours'::text, 'delivery_blocked'::text, 'no_telegram'::text]))))
+    CONSTRAINT campaign_recipients_suppression_reason_check CHECK (((suppression_reason IS NULL) OR (suppression_reason = ANY (ARRAY['no_consent'::text, 'suppressed'::text, 'frequency_cap'::text, 'quiet_hours'::text, 'delivery_blocked'::text, 'no_telegram'::text, 'no_email'::text]))))
 );
 
 
@@ -1373,6 +1373,8 @@ CREATE TABLE public.campaigns (
     started_at timestamp with time zone,
     completed_at timestamp with time zone,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    channel text DEFAULT 'telegram'::text NOT NULL,
+    CONSTRAINT campaigns_channel_known CHECK ((channel = ANY (ARRAY['telegram'::text, 'email'::text]))),
     CONSTRAINT campaigns_estimated_audience_check CHECK ((estimated_audience >= 0)),
     CONSTRAINT campaigns_failed_count_check CHECK ((failed_count >= 0)),
     CONSTRAINT campaigns_name_check CHECK (((char_length(name) >= 1) AND (char_length(name) <= 120))),
@@ -1891,6 +1893,33 @@ CREATE TABLE public.dunning_attempts (
     CONSTRAINT dunning_attempts_cycle_key_check CHECK (((char_length(cycle_key) >= 1) AND (char_length(cycle_key) <= 128))),
     CONSTRAINT dunning_attempts_funding_check CHECK ((funding = ANY (ARRAY['wallet'::text, 'saved_method'::text]))),
     CONSTRAINT dunning_attempts_outcome_check CHECK ((outcome = ANY (ARRAY['scheduled'::text, 'succeeded'::text, 'failed'::text, 'abandoned'::text])))
+);
+
+
+--
+-- Name: email_outbox; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.email_outbox (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid,
+    kind text NOT NULL,
+    class text NOT NULL,
+    dedupe_key text NOT NULL,
+    payload_ciphertext bytea NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    attempts integer DEFAULT 0 NOT NULL,
+    next_attempt_at timestamp with time zone DEFAULT now() NOT NULL,
+    last_error_code text,
+    campaign_id uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    sent_at timestamp with time zone,
+    CONSTRAINT email_outbox_attempts_nonnegative CHECK ((attempts >= 0)),
+    CONSTRAINT email_outbox_class_known CHECK ((class = ANY (ARRAY['transactional'::text, 'marketing'::text]))),
+    CONSTRAINT email_outbox_dedupe_key_length CHECK (((char_length(dedupe_key) >= 1) AND (char_length(dedupe_key) <= 200))),
+    CONSTRAINT email_outbox_kind_known CHECK ((kind = ANY (ARRAY['receipt'::text, 'campaign'::text, 'offer'::text, 'guest_purchase'::text, 'guest_gift'::text, 'withdrawal'::text, 'test'::text]))),
+    CONSTRAINT email_outbox_sent_complete CHECK (((status = 'sent'::text) = (sent_at IS NOT NULL))),
+    CONSTRAINT email_outbox_status_known CHECK ((status = ANY (ARRAY['pending'::text, 'sent'::text, 'failed'::text])))
 );
 
 
@@ -3138,6 +3167,7 @@ CREATE TABLE public.personal_offers (
     created_by uuid,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     resolved_at timestamp with time zone,
+    notify_email boolean DEFAULT false NOT NULL,
     CONSTRAINT personal_offers_redemption_complete CHECK (((status = 'redeemed'::text) = (order_id IS NOT NULL))),
     CONSTRAINT personal_offers_status_check CHECK ((status = ANY (ARRAY['active'::text, 'redeemed'::text, 'dismissed'::text, 'expired'::text, 'revoked'::text]))),
     CONSTRAINT personal_offers_terms_en_check CHECK ((char_length(terms_en) <= 1000)),
@@ -4907,6 +4937,22 @@ ALTER TABLE ONLY public.dunning_attempts
 
 
 --
+-- Name: email_outbox email_outbox_dedupe_key_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.email_outbox
+    ADD CONSTRAINT email_outbox_dedupe_key_unique UNIQUE (dedupe_key);
+
+
+--
+-- Name: email_outbox email_outbox_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.email_outbox
+    ADD CONSTRAINT email_outbox_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: entitlement_addons entitlement_addons_order_id_addon_version_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6443,6 +6489,27 @@ CREATE INDEX dunning_attempts_notify_idx ON public.dunning_attempts USING btree 
 
 
 --
+-- Name: email_outbox_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX email_outbox_created_idx ON public.email_outbox USING btree (created_at);
+
+
+--
+-- Name: email_outbox_due_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX email_outbox_due_idx ON public.email_outbox USING btree (next_attempt_at) WHERE (status = 'pending'::text);
+
+
+--
+-- Name: email_outbox_marketing_sent_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX email_outbox_marketing_sent_idx ON public.email_outbox USING btree (user_id, sent_at) WHERE ((class = 'marketing'::text) AND (status = 'sent'::text));
+
+
+--
 -- Name: entitlement_addons_entitlement_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7944,6 +8011,22 @@ ALTER TABLE ONLY public.dunning_attempts
 
 ALTER TABLE ONLY public.dunning_attempts
     ADD CONSTRAINT dunning_attempts_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: email_outbox email_outbox_campaign_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.email_outbox
+    ADD CONSTRAINT email_outbox_campaign_id_fkey FOREIGN KEY (campaign_id) REFERENCES public.campaigns(id) ON DELETE SET NULL;
+
+
+--
+-- Name: email_outbox email_outbox_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.email_outbox
+    ADD CONSTRAINT email_outbox_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --

@@ -172,7 +172,10 @@ func New(pool *pgxpool.Pool, encryptionKey []byte, options Options) (*Service, e
 		if options.EmailSignIn.Contacts == nil || options.EmailSignIn.Mailer == nil {
 			return nil, errors.New("e-mail sign-in needs a contact sealer and a mailer")
 		}
-		service.emailSignIn = &emailSignIn{contacts: options.EmailSignIn.Contacts, mailer: options.EmailSignIn.Mailer}
+		service.emailSignIn = &emailSignIn{
+			contacts: options.EmailSignIn.Contacts, mailer: options.EmailSignIn.Mailer,
+			disposable: options.EmailSignIn.Disposable,
+		}
 	}
 	return service, nil
 }

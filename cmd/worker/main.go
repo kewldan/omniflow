@@ -297,6 +297,11 @@ func periodicTasks(
 			return nil
 		}})
 	}
+	growth, err := growthTasks(logger, cfg, pool)
+	if err != nil {
+		return nil, nil, err
+	}
+	tasks = append(tasks, growth...)
 	if backupService.Enabled() {
 		// A dump takes as long as the database is large, so the pass has no
 		// timeout. With several worker replicas the backup lands on whichever

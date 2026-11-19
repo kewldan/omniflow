@@ -1,0 +1,104 @@
+---
+title: E-mail
+description: Resend or SMTP, a durable queue with retries, receipts, e-mail broadcasts and offers under the same consent policy as Telegram, one-click unsubscribe, and the disposable-domain check
+---
+
+Omniflow sends e-mail for five things: the sign-in link, payment receipts,
+e-mail broadcasts, personal offers marked for e-mail, and guest purchases. All of
+it is optional; with no transport configured nothing is sent and nothing fails.
+
+There is no password sign-in, and there will not be: e-mail is a delivery
+channel, not a credential ([decision 0007](/architecture/decision-0007-no-customer-password)).
+
+## Choose a transport
+
+| Variable | Default | What it does |
+| --- | --- | --- |
+| `APP_EMAIL_TRANSPORT` | `auto` | `resend`, `smtp`, or `auto` (Resend when a key is set, otherwise SMTP when a host is) |
+| `APP_EMAIL_FROM` | none | Sender, e.g. `VPN <support@example.com>`. Required with any transport |
+| `APP_RESEND_API_KEY` | none | Resend API key |
+| `APP_SMTP_HOST` | none | SMTP server, e.g. `smtp.yandex.ru` |
+| `APP_SMTP_PORT` | `587` (`465` with `tls`) | SMTP port |
+| `APP_SMTP_USERNAME`, `APP_SMTP_PASSWORD` | none | SMTP credentials. Refused over an unencrypted link to a remote host |
+| `APP_SMTP_SECURITY` | `starttls` | `starttls`, `tls` (implicit, port 465), or `none` (a relay on the same host only) |
+| `APP_EMAIL_RECEIPTS_ENABLED` | `true` | E-mail a payment confirmation to customers with a verified address |
+| `APP_EMAIL_BLOCKED_DOMAINS` | none | Your own disposable domains, added to the built-in list, separated by commas or spaces |
+
+Set the same values for the api and the worker. The api sends the sign-in link
+itself, because the customer is waiting on the form; everything else is queued
+and the worker delivers it.
+
+Check the transport from **Marketing → E-mail delivery**: it shows whether a
+transport is configured, how many messages are waiting, sent, and failed in the
+last 24 hours, and sends a test message to an address you type.
+
+## How delivery works
+
+Every message except the sign-in link is written to the `email_outbox` table in
+the same transaction that decides to send it, with a dedupe key: a receipt is
+keyed by its order, a broadcast by campaign and customer, an offer by the offer.
+A repeated decision therefore never sends twice.
+
+The worker's `email_delivery` pass runs every 20 seconds. A temporary failure
+(the server is down, Resend rate-limits) is retried with exponential backoff from
+one minute, up to eight attempts over about nine hours. A permanent refusal (an
+SMTP 5xx, Resend 400/422 for an invalid address) is not retried. Rows older than
+90 days are removed.
+
+The rendered message — address, subject, body, links — is stored sealed with
+`APP_DATA_ENCRYPTION_KEY`. A database dump never yields an address or a link in
+clear, and the logs never name a recipient.
+
+## Who receives what
+
+A customer is reachable by e-mail only through a **verified** address: one they
+signed in with by e-mail, or one confirmed the same way. An address typed into
+the contact form is not verified until it is used to sign in.
+
+- **Receipts** and other account messages go to a verified address whose
+  "transactional" flag is on. They carry no unsubscribe link: they are not
+  marketing.
+- **Broadcasts and offers** go only to a verified address whose "marketing" flag
+  is on, and pass the same policy as a Telegram broadcast: the suppression list
+  vetoes, and the marketing frequency cap (`APP_MARKETING_FREQUENCY_CAP` per
+  `APP_MARKETING_WINDOW_HOURS`) counts marketing sent on **both** channels, so a
+  customer with Telegram and e-mail is not messaged twice as often.
+
+A recipient the policy refuses is recorded with the reason, never dropped
+silently: `no_email`, `no_consent`, `suppressed`, or `frequency_cap`.
+
+## E-mail broadcasts
+
+Create a campaign in **Marketing → Campaigns** and choose **E-mail** as the
+channel. The template's English or Russian subject and body are used by the
+customer's language; Telegram HTML tags are removed. Scheduling, pausing, and the
+audience preview work as for Telegram. The campaign completes when every
+recipient's mail has been delivered or has finally failed.
+
+## Personal offers by e-mail
+
+In **Offers**, switch on **Also send by e-mail**. The offer is mailed once, under
+the marketing policy above, and stays usable in the bot and the web panel as
+before.
+
+## One-click unsubscribe
+
+Every marketing message has a `List-Unsubscribe` header with a
+`List-Unsubscribe-Post: List-Unsubscribe=One-Click` companion (RFC 8058), and an
+unsubscribe link in the footer. The mail client's button posts to
+`/v1/account/email/unsubscribe` and needs no sign-in: the link carries a token
+signed with a key derived from `APP_DATA_ENCRYPTION_KEY`, and all it can do is
+switch marketing off. The footer link opens `/unsubscribe`, which asks for one
+click, because mail scanners follow links.
+
+Unsubscribing turns off the marketing flag on the customer's e-mail addresses and
+records the withdrawal in the consent trail with the source `email_unsubscribe`.
+Receipts keep arriving.
+
+## Disposable addresses
+
+E-mail sign-in, adding an e-mail contact, and guest purchases refuse addresses on
+throwaway-mailbox services (`mailinator.com`, `temp-mail.org`, `10minutemail.com`,
+and about 250 more). The list is compiled into the binary rather than downloaded,
+so the check makes no network request; add your own with
+`APP_EMAIL_BLOCKED_DOMAINS`. A subdomain is caught by its parent.

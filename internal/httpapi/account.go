@@ -38,6 +38,8 @@ type AccountHandlers struct {
 	shop     *accountshop.Service
 	support  *accountsupport.Service
 	referral *accountreferral.Service
+	// growth holds the Bedolaga-parity services; see growth.go.
+	growth GrowthServices
 
 	cookieName   string
 	cookieSecure bool
@@ -120,6 +122,7 @@ func (handlers *AccountHandlers) Mount(router chi.Router) {
 		account.Get("/auth/link", handlers.checkMagicLink)
 		account.Get("/auth/oidc/{slug}/start", handlers.startOIDC)
 		account.Get("/auth/oidc/{slug}/callback", handlers.callbackOIDC)
+		handlers.mountGrowthPublic(account)
 
 		account.Group(func(secure chi.Router) {
 			secure.Use(handlers.requireCustomerSession)
@@ -162,6 +165,7 @@ func (handlers *AccountHandlers) Mount(router chi.Router) {
 			handlers.mountShop(secure)
 			handlers.mountSupport(secure)
 			handlers.mountReferral(secure)
+			handlers.mountGrowth(secure)
 		})
 	})
 }

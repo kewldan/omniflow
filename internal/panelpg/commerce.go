@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 	"github.com/omniflow/omniflow/internal/gifts"
 )
@@ -211,6 +212,7 @@ type PersonalOffer struct {
 	OrderID     string     `json:"orderId,omitempty"`
 	CreatedAt   time.Time  `json:"createdAt"`
 	ResolvedAt  *time.Time `json:"resolvedAt,omitempty"`
+	NotifyEmail bool       `json:"notifyEmail"`
 }
 
 // OfferInput creates a targeted offer.
@@ -224,6 +226,8 @@ type OfferInput struct {
 	TermsEN     string
 	StartsAt    time.Time
 	ExpiresAt   time.Time
+	// NotifyEmail also e-mails the offer to the customer's verified address.
+	NotifyEmail bool
 }
 
 // CreatePersonalOffer targets one customer with an existing promotion.
@@ -250,7 +254,7 @@ func (service *Service) CreatePersonalOffer(
 	}
 
 	var offer PersonalOffer
-	err = service.inTx(ctx, func(queries *dbgen.Queries) error {
+	err = service.inTxRaw(ctx, func(tx pgx.Tx, queries *dbgen.Queries) error {
 		row, txErr := queries.CreatePersonalOffer(ctx, dbgen.CreatePersonalOfferParams{
 			UserID:      customer,
 			PromotionID: promotion,
@@ -269,10 +273,17 @@ func (service *Service) CreatePersonalOffer(
 			// rather than a failure.
 			return conflicted(txErr)
 		}
+		if input.NotifyEmail {
+			// The worker's mail pass sends it through the marketing policy.
+			if _, txErr = tx.Exec(ctx, `UPDATE personal_offers SET notify_email = true WHERE id = $1`, row.ID); txErr != nil {
+				return txErr
+			}
+			row.NotifyEmail = true
+		}
 		offer = personalOfferFrom(row)
 		return appendAudit(ctx, queries, actor.audit(
 			"panel.offer.created", "marketing", "customer", input.CustomerID,
-			map[string]any{"offerId": offer.ID, "promotionId": input.PromotionID},
+			map[string]any{"offerId": offer.ID, "promotionId": input.PromotionID, "notifyEmail": input.NotifyEmail},
 		))
 	})
 	return offer, err
@@ -356,6 +367,7 @@ func personalOfferFrom(row dbgen.PersonalOffer) PersonalOffer {
 		OrderID:     uuidString(row.OrderID),
 		CreatedAt:   timeValue(row.CreatedAt),
 		ResolvedAt:  timePointer(row.ResolvedAt),
+		NotifyEmail: row.NotifyEmail,
 	}
 }
 

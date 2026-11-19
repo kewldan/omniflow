@@ -27,6 +27,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/omniflow/omniflow/internal/mailer"
 	"io"
 	"log/slog"
 	"strings"
@@ -82,6 +83,8 @@ type Service struct {
 	// second scheme would silently let one address exist twice.
 	contactAEAD    cipher.AEAD
 	fingerprintKey []byte
+	// disposable refuses e-mail contacts on throwaway domains.
+	disposable mailer.DisposableChecker
 }
 
 // Options configures a Service.
@@ -96,6 +99,8 @@ type Options struct {
 	EncryptionKey []byte
 	Logger        *slog.Logger
 	Clock         func() time.Time
+	// Disposable refuses e-mail contacts on throwaway domains.
+	Disposable mailer.DisposableChecker
 }
 
 // New builds the adapter.
@@ -108,6 +113,7 @@ func New(pool *pgxpool.Pool, options Options) (*Service, error) {
 		queries: dbgen.New(pool),
 		public:  strings.TrimRight(strings.TrimSpace(options.PublicURL), "/"),
 		logger:  options.Logger, clock: options.Clock,
+		disposable: options.Disposable,
 	}
 	if service.logger == nil {
 		service.logger = slog.Default()

@@ -37,6 +37,7 @@ export type Campaign = {
   sentCount: number;
   failedCount: number;
   suppressedCount: number;
+  channel?: "telegram" | "email";
   scheduledFor?: string;
   createdAt: string;
   startedAt?: string;

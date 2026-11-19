@@ -88,6 +88,7 @@ func (handlers *AdminHandlers) createCampaign(writer http.ResponseWriter, reques
 		Name       string `json:"name"`
 		TemplateID string `json:"templateId"`
 		SegmentID  string `json:"segmentId"`
+		Channel    string `json:"channel"`
 	}
 	if !decodeJSON(writer, request, &body) {
 		return
@@ -95,8 +96,8 @@ func (handlers *AdminHandlers) createCampaign(writer http.ResponseWriter, reques
 	// A campaign is created in draft. Scheduling it is a second, separate call,
 	// so the estimated audience is something an operator sees before they commit
 	// rather than after.
-	campaign, err := handlers.operations.CreateCampaign(
-		request.Context(), body.Name, body.TemplateID, body.SegmentID, actorFrom(request))
+	campaign, err := handlers.operations.CreateCampaignOn(
+		request.Context(), body.Channel, body.Name, body.TemplateID, body.SegmentID, actorFrom(request))
 	handlers.respond(writer, request, campaign, err)
 }
 

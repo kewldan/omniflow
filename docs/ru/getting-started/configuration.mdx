@@ -262,8 +262,9 @@ together`), потому что shop ID без секрета — это уст�
 | `APP_CUSTOMER_PANEL_ENABLED` | `true` | api | нет | нет | Монтирует `/v1/account`. Отключите для установки, работающей только через Telegram |
 | `APP_CUSTOMER_COOKIE_SECURE` | `true` | api | нет | нет | Флаг `Secure` на cookie сессии клиента |
 | `APP_CUSTOMER_MAGIC_LINK_ENABLED` | `false` | api, bot | нет | нет | Включает ссылку для входа, доставляемую ботом, и команду бота `/login`. Требует `APP_PUBLIC_URL` |
-| `APP_RESEND_API_KEY` | нет | api | нет | да | Ключ API Resend. Вместе с `APP_EMAIL_FROM` включает вход по ссылке из письма на `/account/sign-in` |
-| `APP_EMAIL_FROM` | нет | api | нет | нет | Адрес отправителя, подтверждённый в Resend, например `Omniflow <support@example.com>`. Обязателен вместе с ключом |
+| `APP_RESEND_API_KEY` | нет | api, worker | нет | да | Ключ API Resend. Вместе с `APP_EMAIL_FROM` включает вход по ссылке из письма на `/account/sign-in` и очередь писем |
+| `APP_EMAIL_FROM` | нет | api, worker | нет | нет | Адрес отправителя, например `Omniflow <support@example.com>`. Обязателен для любого транспорта |
+| `APP_EMAIL_TRANSPORT`, `APP_SMTP_HOST`, `APP_SMTP_PORT`, `APP_SMTP_USERNAME`, `APP_SMTP_PASSWORD`, `APP_SMTP_SECURITY`, `APP_EMAIL_RECEIPTS_ENABLED`, `APP_EMAIL_BLOCKED_DOMAINS` | см. [E-mail](/ru/integrations/email) | api, worker | нет | пароль: да | SMTP вместо Resend, чеки и свои одноразовые домены |
 | `APP_CUSTOMER_EMAIL_SIGNIN_ENABLED` | `true` | api | нет | нет | Предлагает вход по почте, когда настроена отправка писем. Известный адрес входит в свой аккаунт; неизвестный создаёт клиента при переходе по ссылке |
 | `APP_TRUSTED_PROXIES` | — | api | нет | нет | IP-адреса или CIDR-блоки через запятую, чьему `X-Forwarded-For` можно верить |
 

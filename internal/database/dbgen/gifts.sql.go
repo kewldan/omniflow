@@ -196,7 +196,7 @@ INSERT INTO personal_offers (
   $8, $9, $10
 )
 ON CONFLICT (user_id, promotion_id) WHERE status = 'active' DO NOTHING
-RETURNING id, user_id, promotion_id, plan_id, title_ru, title_en, terms_ru, terms_en, status, starts_at, expires_at, order_id, created_by, created_at, resolved_at
+RETURNING id, user_id, promotion_id, plan_id, title_ru, title_en, terms_ru, terms_en, status, starts_at, expires_at, order_id, created_by, created_at, resolved_at, notify_email
 `
 
 type CreatePersonalOfferParams struct {
@@ -247,6 +247,7 @@ func (q *Queries) CreatePersonalOffer(ctx context.Context, arg CreatePersonalOff
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.ResolvedAt,
+		&i.NotifyEmail,
 	)
 	return i, err
 }
@@ -255,7 +256,7 @@ const dismissPersonalOffer = `-- name: DismissPersonalOffer :one
 UPDATE personal_offers
 SET status = 'dismissed', resolved_at = now()
 WHERE id = $1 AND user_id = $2 AND status = 'active'
-RETURNING id, user_id, promotion_id, plan_id, title_ru, title_en, terms_ru, terms_en, status, starts_at, expires_at, order_id, created_by, created_at, resolved_at
+RETURNING id, user_id, promotion_id, plan_id, title_ru, title_en, terms_ru, terms_en, status, starts_at, expires_at, order_id, created_by, created_at, resolved_at, notify_email
 `
 
 type DismissPersonalOfferParams struct {
@@ -282,6 +283,7 @@ func (q *Queries) DismissPersonalOffer(ctx context.Context, arg DismissPersonalO
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.ResolvedAt,
+		&i.NotifyEmail,
 	)
 	return i, err
 }
@@ -353,7 +355,7 @@ func (q *Queries) ExpirePersonalOffers(ctx context.Context) (int64, error) {
 }
 
 const getActiveOfferForPromotion = `-- name: GetActiveOfferForPromotion :one
-SELECT id, user_id, promotion_id, plan_id, title_ru, title_en, terms_ru, terms_en, status, starts_at, expires_at, order_id, created_by, created_at, resolved_at FROM personal_offers
+SELECT id, user_id, promotion_id, plan_id, title_ru, title_en, terms_ru, terms_en, status, starts_at, expires_at, order_id, created_by, created_at, resolved_at, notify_email FROM personal_offers
 WHERE user_id = $1
   AND promotion_id = $2
   AND status = 'active'
@@ -385,6 +387,7 @@ func (q *Queries) GetActiveOfferForPromotion(ctx context.Context, arg GetActiveO
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.ResolvedAt,
+		&i.NotifyEmail,
 	)
 	return i, err
 }
@@ -499,7 +502,7 @@ func (q *Queries) GetGiftByOrder(ctx context.Context, orderID pgtype.UUID) (Gift
 }
 
 const getPersonalOffer = `-- name: GetPersonalOffer :one
-SELECT id, user_id, promotion_id, plan_id, title_ru, title_en, terms_ru, terms_en, status, starts_at, expires_at, order_id, created_by, created_at, resolved_at FROM personal_offers WHERE id = $1
+SELECT id, user_id, promotion_id, plan_id, title_ru, title_en, terms_ru, terms_en, status, starts_at, expires_at, order_id, created_by, created_at, resolved_at, notify_email FROM personal_offers WHERE id = $1
 `
 
 func (q *Queries) GetPersonalOffer(ctx context.Context, id pgtype.UUID) (PersonalOffer, error) {
@@ -521,12 +524,13 @@ func (q *Queries) GetPersonalOffer(ctx context.Context, id pgtype.UUID) (Persona
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.ResolvedAt,
+		&i.NotifyEmail,
 	)
 	return i, err
 }
 
 const listActiveOffersForCustomer = `-- name: ListActiveOffersForCustomer :many
-SELECT o.id, o.user_id, o.promotion_id, o.plan_id, o.title_ru, o.title_en, o.terms_ru, o.terms_en, o.status, o.starts_at, o.expires_at, o.order_id, o.created_by, o.created_at, o.resolved_at, p.id, p.code, p.kind, p.value, p.currency, p.starts_at, p.ends_at, p.redemption_limit, p.per_customer_limit, p.eligibility, p.active, p.created_at, p.stackable, p.precedence, p.applies_to
+SELECT o.id, o.user_id, o.promotion_id, o.plan_id, o.title_ru, o.title_en, o.terms_ru, o.terms_en, o.status, o.starts_at, o.expires_at, o.order_id, o.created_by, o.created_at, o.resolved_at, o.notify_email, p.id, p.code, p.kind, p.value, p.currency, p.starts_at, p.ends_at, p.redemption_limit, p.per_customer_limit, p.eligibility, p.active, p.created_at, p.stackable, p.precedence, p.applies_to
 FROM personal_offers o
 JOIN promotions p ON p.id = o.promotion_id
 WHERE o.user_id = $1
@@ -575,6 +579,7 @@ func (q *Queries) ListActiveOffersForCustomer(ctx context.Context, arg ListActiv
 			&i.PersonalOffer.CreatedBy,
 			&i.PersonalOffer.CreatedAt,
 			&i.PersonalOffer.ResolvedAt,
+			&i.PersonalOffer.NotifyEmail,
 			&i.Promotion.ID,
 			&i.Promotion.Code,
 			&i.Promotion.Kind,
@@ -879,7 +884,7 @@ const redeemPersonalOffer = `-- name: RedeemPersonalOffer :one
 UPDATE personal_offers
 SET status = 'redeemed', order_id = $1, resolved_at = now()
 WHERE id = $2 AND status = 'active' AND expires_at > now()
-RETURNING id, user_id, promotion_id, plan_id, title_ru, title_en, terms_ru, terms_en, status, starts_at, expires_at, order_id, created_by, created_at, resolved_at
+RETURNING id, user_id, promotion_id, plan_id, title_ru, title_en, terms_ru, terms_en, status, starts_at, expires_at, order_id, created_by, created_at, resolved_at, notify_email
 `
 
 type RedeemPersonalOfferParams struct {
@@ -906,6 +911,7 @@ func (q *Queries) RedeemPersonalOffer(ctx context.Context, arg RedeemPersonalOff
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.ResolvedAt,
+		&i.NotifyEmail,
 	)
 	return i, err
 }
@@ -966,7 +972,7 @@ const revokePersonalOffer = `-- name: RevokePersonalOffer :one
 UPDATE personal_offers
 SET status = 'revoked', resolved_at = now()
 WHERE id = $1 AND status = 'active'
-RETURNING id, user_id, promotion_id, plan_id, title_ru, title_en, terms_ru, terms_en, status, starts_at, expires_at, order_id, created_by, created_at, resolved_at
+RETURNING id, user_id, promotion_id, plan_id, title_ru, title_en, terms_ru, terms_en, status, starts_at, expires_at, order_id, created_by, created_at, resolved_at, notify_email
 `
 
 func (q *Queries) RevokePersonalOffer(ctx context.Context, offerID pgtype.UUID) (PersonalOffer, error) {
@@ -988,6 +994,7 @@ func (q *Queries) RevokePersonalOffer(ctx context.Context, offerID pgtype.UUID) 
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.ResolvedAt,
+		&i.NotifyEmail,
 	)
 	return i, err
 }
@@ -1068,7 +1075,7 @@ func (q *Queries) SearchGifts(ctx context.Context, arg SearchGiftsParams) ([]Gif
 }
 
 const searchPersonalOffers = `-- name: SearchPersonalOffers :many
-SELECT id, user_id, promotion_id, plan_id, title_ru, title_en, terms_ru, terms_en, status, starts_at, expires_at, order_id, created_by, created_at, resolved_at FROM personal_offers
+SELECT id, user_id, promotion_id, plan_id, title_ru, title_en, terms_ru, terms_en, status, starts_at, expires_at, order_id, created_by, created_at, resolved_at, notify_email FROM personal_offers
 WHERE (
     $1::timestamptz IS NULL
     OR (created_at, id) < ($1::timestamptz, $2::uuid)
@@ -1118,6 +1125,7 @@ func (q *Queries) SearchPersonalOffers(ctx context.Context, arg SearchPersonalOf
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.ResolvedAt,
+			&i.NotifyEmail,
 		); err != nil {
 			return nil, err
 		}

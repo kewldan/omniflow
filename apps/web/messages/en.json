@@ -2182,7 +2182,9 @@
         "reason": "Reason",
         "reasonHint": "Why this customer is being offered this",
         "singleUse": "Both languages are required: an offer with copy in one language renders as a blank card for half your customers. The offer is redeemable once and is resolved the moment it is used, dismissed, or expires.",
-        "submit": "Create offer"
+        "submit": "Create offer",
+        "notifyEmail": "Also send by e-mail",
+        "notifyEmailHint": "Sent only to a verified address whose owner agreed to marketing e-mail, within the shared frequency limit."
       },
       "preview": {
         "title": "What the customer will see",
@@ -2605,6 +2607,11 @@
           "paused": "Pause",
           "cancelled": "Cancel",
           "test": "Preview {locale}"
+        },
+        "channel": "Channel",
+        "channels": {
+          "telegram": "Telegram",
+          "email": "E-mail"
         }
       },
       "segments": {
@@ -2786,7 +2793,23 @@
         "addTier": "Add a tier",
         "invalid": "Not published: the lowest ladder tier must start at 0, higher tiers must not be worth less, and discounts are 0–100%.",
         "publish": "Publish",
-        "published": "Programme published"
+        "published": "Programme published",
+        "saved": "Template saved"
+      },
+      "email": {
+        "title": "E-mail delivery",
+        "description": "Receipts, e-mail broadcasts, and offers are queued and sent by the worker with retries. The transport (Resend or SMTP) is configured in the environment.",
+        "unavailable": "The e-mail queue could not be read.",
+        "configured": "Transport configured",
+        "notConfigured": "No transport configured",
+        "receiptsOn": "Receipts by e-mail: on",
+        "receiptsOff": "Receipts by e-mail: off",
+        "counts": "Waiting: {pending} · sent in 24 h: {sent} · failed in 24 h: {failed}",
+        "skipped": "Skipped ({reason}): {count}",
+        "testAddress": "Send a test message to",
+        "sendTest": "Send test",
+        "testQueued": "Queued. It arrives within a minute if the transport works.",
+        "testReason": "E-mail transport test"
       }
     },
     "installationSettings": {
@@ -4839,6 +4862,16 @@
       "hint": "Nothing happened? Install the app first, then tap the button again.",
       "invalidTitle": "This link cannot be opened",
       "invalidDescription": "It does not point to an app. Go back to the bot and tap the button again."
+    }
+  },
+  "public": {
+    "unsubscribe": {
+      "title": "Unsubscribe from e-mails",
+      "description": "Stop news and offers by e-mail? Receipts and messages about your account will still arrive.",
+      "confirm": "Unsubscribe",
+      "done": "Done. You will not receive news and offers by e-mail any more.",
+      "invalid": "This unsubscribe link is not valid. Open it from the e-mail again.",
+      "failed": "Something went wrong. Try again in a minute."
     }
   }
 }

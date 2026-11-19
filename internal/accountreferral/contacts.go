@@ -121,6 +121,9 @@ func (service *Service) AddContact(
 	if err != nil {
 		return Contact{}, err
 	}
+	if kind == ContactEmail && service.disposable.IsDisposable(value) {
+		return Contact{}, invalid("e-mail addresses on temporary mailbox services are not accepted")
+	}
 	if !input.Transactional && !input.Marketing {
 		// A channel that may receive nothing is an address stored for no reason.
 		// Refusing it keeps the retention story simple: every row here exists

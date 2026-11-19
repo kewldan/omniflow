@@ -1,7 +1,9 @@
-// Package mailer sends transactional e-mail. It holds no template and no
-// customer data of its own: a caller hands it one finished message, and the
-// only provider today is Resend, the service the owner's Bedolaga installation
-// already sends its sign-in mail through.
+// Package mailer sends e-mail. It holds no customer data of its own: a caller
+// hands it one finished message, and it delivers it through Resend — the
+// service the owner's Bedolaga installation already sends its sign-in mail
+// through — or through any plain SMTP server. It also owns the pieces every
+// e-mail needs regardless of who sends it: the ru/en templates, the signed
+// one-click unsubscribe token, and the disposable-domain check.
 package mailer
 
 import (
@@ -27,6 +29,27 @@ type Message struct {
 	Subject string
 	Text    string
 	HTML    string
+	// Headers are extra headers such as List-Unsubscribe. Only names in
+	// allowedHeaders are sent; anything else is dropped rather than letting a
+	// caller inject routing headers.
+	Headers map[string]string `json:",omitempty"`
+}
+
+// allowedHeaders are the only extra headers a message may carry.
+var allowedHeaders = map[string]bool{
+	"List-Unsubscribe": true, "List-Unsubscribe-Post": true, "Auto-Submitted": true,
+}
+
+// safeHeaders returns the permitted headers with CR and LF removed, so a value
+// can never start a new header line.
+func (message Message) safeHeaders() map[string]string {
+	headers := map[string]string{}
+	for name, value := range message.Headers {
+		if allowedHeaders[name] {
+			headers[name] = strings.NewReplacer("\r", "", "\n", "").Replace(value)
+		}
+	}
+	return headers
 }
 
 // Sender delivers a message.
@@ -67,6 +90,9 @@ func (resend *Resend) Send(ctx context.Context, message Message) error {
 	if message.HTML != "" {
 		payload["html"] = message.HTML
 	}
+	if headers := message.safeHeaders(); len(headers) > 0 {
+		payload["headers"] = headers
+	}
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return err
@@ -84,6 +110,12 @@ func (resend *Resend) Send(ctx context.Context, message Message) error {
 	defer response.Body.Close()
 	_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, 1<<16))
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		// 400 and 422 are Resend refusing this message (an invalid address)
+		// and it will refuse it again. 401 and 403 are the installation's key
+		// or domain, which the operator can fix, so those stay retryable.
+		if response.StatusCode == http.StatusBadRequest || response.StatusCode == http.StatusUnprocessableEntity {
+			return fmt.Errorf("%w: resend answered HTTP %d", ErrPermanent, response.StatusCode)
+		}
 		return fmt.Errorf("resend answered HTTP %d", response.StatusCode)
 	}
 	return nil

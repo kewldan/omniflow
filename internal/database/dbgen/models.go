@@ -656,6 +656,7 @@ type Campaign struct {
 	StartedAt         pgtype.Timestamptz `json:"started_at"`
 	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	Channel           string             `json:"channel"`
 }
 
 type CampaignRecipient struct {
@@ -975,6 +976,22 @@ type DunningAttempt struct {
 	NotifiedAt      pgtype.Timestamptz `json:"notified_at"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	NotifyRequired  bool               `json:"notify_required"`
+}
+
+type EmailOutbox struct {
+	ID                pgtype.UUID        `json:"id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	Kind              string             `json:"kind"`
+	Class             string             `json:"class"`
+	DedupeKey         string             `json:"dedupe_key"`
+	PayloadCiphertext []byte             `json:"payload_ciphertext"`
+	Status            string             `json:"status"`
+	Attempts          int32              `json:"attempts"`
+	NextAttemptAt     pgtype.Timestamptz `json:"next_attempt_at"`
+	LastErrorCode     pgtype.Text        `json:"last_error_code"`
+	CampaignID        pgtype.UUID        `json:"campaign_id"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	SentAt            pgtype.Timestamptz `json:"sent_at"`
 }
 
 type Entitlement struct {
@@ -1679,6 +1696,7 @@ type PersonalOffer struct {
 	CreatedBy   pgtype.UUID        `json:"created_by"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	ResolvedAt  pgtype.Timestamptz `json:"resolved_at"`
+	NotifyEmail bool               `json:"notify_email"`
 }
 
 type Plan struct {

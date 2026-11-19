@@ -933,7 +933,11 @@ func (store *PostgresStore) candidateRows(ctx context.Context, marketingWindow t
 		COALESCE(d.status, 'active'), d.retry_after,
 		(SELECT count(*)::integer FROM notification_deliveries n
 			WHERE n.user_id = u.id AND n.class = 'marketing' AND n.status = 'sent'
-			  AND n.sent_at > now() - $1::interval),
+			  AND n.sent_at > now() - $1::interval)
+		-- The cap is per customer, not per channel: marketing e-mail counts too.
+		+ (SELECT count(*)::integer FROM email_outbox e
+			WHERE e.user_id = u.id AND e.class = 'marketing' AND e.status IN ('pending', 'sent')
+			  AND e.payload_ciphertext <> '\x'::bytea AND e.created_at > now() - $1::interval),
 		EXISTS (SELECT 1 FROM communication_suppressions s WHERE s.user_id = u.id)
 		FROM recipient
 		JOIN users u ON u.id = recipient.user_id

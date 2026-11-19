@@ -126,7 +126,7 @@ func (runner *Runner) advance(
 		return pauseErr
 	}
 
-	queued, err := runner.queueBatch(ctx, queries, campaign.ID, query)
+	queued, err := runner.queueBatch(ctx, queries, campaign.ID, campaign.Channel, query)
 	if err != nil {
 		return err
 	}
@@ -160,8 +160,15 @@ func (runner *Runner) advance(
 // hundred people were on the list and not contacted, and why — a campaign that
 // simply reports a smaller audience hides the decision.
 func (runner *Runner) queueBatch(
-	ctx context.Context, queries *dbgen.Queries, campaignID pgtype.UUID, query audience.Query,
+	ctx context.Context, queries *dbgen.Queries, campaignID pgtype.UUID, channel string, query audience.Query,
 ) (int, error) {
+	// An e-mail campaign reaches customers with a verified address; the
+	// worker's mail pass delivers it. A Telegram one reaches the bot's
+	// recipients, as before.
+	reachable, unreachableReason := reachableByTelegram, "no_telegram"
+	if channel == "email" {
+		reachable, unreachableReason = reachableByEmail, "no_email"
+	}
 	// The segment's own arguments come first and the campaign identifier last.
 	//
 	// It used to be the other way round, and that was a defect that emptied every
@@ -176,7 +183,7 @@ func (runner *Runner) queueBatch(
 	rows, err := runner.pool.Query(ctx, `
 		SELECT u.id,
 		       EXISTS (SELECT 1 FROM communication_suppressions s WHERE s.user_id = u.id),
-		       `+reachableByTelegram+`
+		       `+reachable+`
 		FROM users u
 		WHERE u.status = 'active'
 		  AND (`+query.Where+`)
@@ -214,7 +221,7 @@ func (runner *Runner) queueBatch(
 		}); err != nil {
 			return 0, err
 		}
-		if reason := expansionSuppression(found.suppressed, found.reachable); reason != "" {
+		if reason := expansionSuppression(found.suppressed, found.reachable, unreachableReason); reason != "" {
 			if err = queries.ResolveCampaignRecipient(ctx, dbgen.ResolveCampaignRecipientParams{
 				CampaignID: campaignID, UserID: found.id, Status: "suppressed",
 				SuppressionReason: pgtype.Text{String: reason, Valid: true},
@@ -234,6 +241,11 @@ const reachableByTelegram = `(EXISTS (SELECT 1 FROM identities i
 	OR EXISTS (SELECT 1 FROM remnawave_users m
 		WHERE m.user_id = u.id AND m.telegram_id IS NOT NULL))`
 
+// reachableByEmail is true for a customer with a verified, unrevoked e-mail
+// address. Consent is decided at delivery, as it is for Telegram.
+const reachableByEmail = `EXISTS (SELECT 1 FROM contact_channels c
+		WHERE c.user_id = u.id AND c.kind = 'email' AND c.revoked_at IS NULL AND c.verified_at IS NOT NULL)`
+
 // expansionSuppression is the reason a recipient is resolved as suppressed the
 // moment they are queued, or "" for one the bot should try.
 //
@@ -242,12 +254,12 @@ const reachableByTelegram = `(EXISTS (SELECT 1 FROM identities i
 // stayed `queued` and the campaign never completed. The suppression list
 // comes first because it is the operator's standing instruction, and the
 // reason an operator most needs to see.
-func expansionSuppression(suppressed, reachable bool) string {
+func expansionSuppression(suppressed, reachable bool, unreachableReason string) string {
 	switch {
 	case suppressed:
 		return "suppressed"
 	case !reachable:
-		return "no_telegram"
+		return unreachableReason
 	default:
 		return ""
 	}
