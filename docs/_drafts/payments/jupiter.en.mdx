@@ -1,0 +1,50 @@
+## Jupiter
+
+Jupiter is an FPGate P2P v2.1 gateway (`https://app.juppiter.tech`). Omniflow opens a payin, sends
+the customer to the payment link Jupiter returns, and settles the order from Jupiter's signed
+callback. Amounts travel as major units formatted `0.00`.
+
+**Currencies:** the one currency set in `APP_JUPITER_CURRENCY` (`RUB` by default).
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_JUPITER_TOKEN` | Yes | — | Merchant token, sent in every request body. |
+| `APP_JUPITER_SECRET` | Yes | — | Secret for the HMAC-SHA256 signatures of requests and callbacks. |
+| `APP_JUPITER_CURRENCY` | No | `RUB` | Currency of every payin. |
+| `APP_JUPITER_METHOD_DESCRIPTION` | No | `SBP` | `description` sent when the order has none. |
+| `APP_JUPITER_METHOD_ID` | No | empty | Optional `method_id` agreed with Jupiter. |
+| `APP_JUPITER_FALLBACK_EMAIL` | No | `user@vpn.bot` | Customer email sent when the intent metadata has no `customer_email`. |
+| `APP_JUPITER_FALLBACK_PHONE` | No | `0000000000` | Customer phone sent when the intent metadata has no `customer_phone`. |
+| `APP_JUPITER_FALLBACK_NAME` | No | `User` | Customer name sent when the intent metadata has no `customer_name`. |
+| `APP_JUPITER_BASE_URL` | No | `https://app.juppiter.tech` | Gateway origin. |
+
+FPGate v2.1 requires a customer email, phone and name on every payin. The fallbacks fill whatever
+the order does not provide; change them if your agreement with Jupiter requires other values.
+
+<Steps>
+  <Step title="Configure Omniflow">
+    Set `APP_JUPITER_TOKEN` and `APP_JUPITER_SECRET`, and set `APP_PUBLIC_URL`. Restart the API and
+    the worker.
+  </Step>
+  <Step title="Callback URL">
+    Each payin carries `https://<APP_PUBLIC_URL>/v1/payments/webhooks/jupiter` as its
+    `callback_url`. Without `APP_PUBLIC_URL` no callback URL is sent.
+  </Step>
+</Steps>
+
+**Signatures.** A signature is a hex HMAC-SHA256, keyed with the secret, of `name=value` pairs
+concatenated with no separator in a fixed order, skipping absent and empty values. A payin
+(`/p2p_payin_v2.1`, `redirect=false`) signs `token`, `order_id`, `amount.value`, `amount.currency`,
+`customer.id` and `redirect`. A callback signs `token`, `transaction_id`, `order_id`,
+`amount.value`, `amount.currency`, `recalculated` and `status.type`, and its `signature` field must
+match in constant time.
+
+**Callbacks.** `success` settles; `cancelled`, `declined` and `error` do not; `processing` and any
+unknown status are acknowledged and ignored. A success without a readable amount is rejected. The
+event ID is `{status}:{transaction_id}`.
+
+**Refunds, recurring and polling.** Not supported. The integration this adapter ports never reads
+the status answer, so settlement arrives only through the callback, and there is no connection
+probe.
+
+**Testing.** Pay a small order and confirm that the callback verifies and the order settles.

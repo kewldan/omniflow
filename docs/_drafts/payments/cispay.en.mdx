@@ -1,0 +1,52 @@
+## CisPay
+
+CisPay is a hosted checkout over the CisPay Merchant API (`https://api.cispay.app`). Omniflow
+creates a payment, sends the customer to CisPay's payment page, and settles the order when CisPay
+reports it paid. Amounts travel as integer kopeks.
+
+**Currencies:** `RUB` only.
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_CISPAY_SHOP_ID` | Yes | — | Shop UUID, sent as `X-Shop-ID`. |
+| `APP_CISPAY_API_KEY` | Yes | — | Secret key (`cis_sec_…`), sent as `X-Api-Key` and used to verify webhook signatures. |
+| `APP_CISPAY_PAYMENT_METHOD` | No | empty | `CARD`, `SBP` or `CRYPTO`. Empty lets the customer choose on CisPay's page. |
+| `APP_CISPAY_BASE_URL` | No | `https://api.cispay.app` | API origin. |
+
+Setting only one of the two required variables fails startup. Card payments start at 50.00 RUB;
+a smaller card amount is refused before CisPay is called.
+
+<Steps>
+  <Step title="Configure Omniflow">
+    Set `APP_CISPAY_SHOP_ID` and `APP_CISPAY_API_KEY`, then restart the API and the worker.
+  </Step>
+  <Step title="Set the webhook URL">
+    In the CisPay cabinet, point notifications at
+    `https://<APP_PUBLIC_URL>/v1/payments/webhooks/cispay`.
+  </Step>
+  <Step title="Check the connection">
+    The connection probe reads `GET /store/capabilities`. It fails if the key belongs to another
+    shop or the shop is inactive. Nothing is created.
+  </Step>
+</Steps>
+
+**Webhook verification.** `X-Signature` is a hex HMAC-SHA256 of the exact request body, keyed with
+the API key, and must match. The notification must name the configured shop. Omniflow then re-reads
+the payment through `GET /payments/status` and applies only that answer, because a notification can
+omit the sandbox flag and a crypto payment can report its amount in USD cents. A crypto payment is
+settled against its rouble `source_amount`. The webhook event ID is `{status}:{paymentID}`, so a
+redelivery is recognised as a duplicate.
+
+**Sandbox payments.** A payment marked `is_sandbox` or carrying a `block_reason` is never treated as
+paid. It is reported as failed.
+
+**Subscriptions.** CisPay subscription notifications (`X-CISPay-Event`, `subscription_id`) are
+rejected: Omniflow never opens a CisPay subscription.
+
+**Refunds and recurring.** Not supported. The Merchant API has no refund call, and CisPay
+subscriptions are schedules CisPay runs itself rather than charges against a saved method.
+
+**Polling.** Supported through `GET /payments/status`.
+
+**Testing.** Use a CisPay sandbox shop to check that the webhook arrives and verifies. A sandbox
+payment never settles an order, so a full settlement test needs a real payment.

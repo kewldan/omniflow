@@ -1,0 +1,47 @@
+## EtoPlatezhi
+
+EtoPlatezhi is a hosted payment page (`https://paymentpage.etoplatezhi.ru/payment`). Omniflow does
+not call an API to open a payment: it builds a payment-page URL whose parameters it signs, and
+settles the order from EtoPlatezhi's signed callback. Amounts travel as integer minor units.
+
+**Currencies:** the one currency set in `APP_ETOPLATEZHI_CURRENCY` (`RUB` by default).
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_ETOPLATEZHI_PROJECT_ID` | Yes | — | Positive integer project ID. |
+| `APP_ETOPLATEZHI_SECRET_KEY` | Yes | — | Secret for the payment-page and callback signatures. |
+| `APP_ETOPLATEZHI_CURRENCY` | No | `RUB` | Currency of every payment. |
+| `APP_ETOPLATEZHI_FORCE_PAYMENT_METHOD` | No | empty | `sbp` or `card`, sent as `force_payment_method`. Empty leaves the choice to the customer. |
+
+<Steps>
+  <Step title="Configure Omniflow">
+    Set `APP_ETOPLATEZHI_PROJECT_ID` and `APP_ETOPLATEZHI_SECRET_KEY`, and set `APP_PUBLIC_URL`.
+    Restart the API and the worker.
+  </Step>
+  <Step title="Callback URL">
+    Each payment URL carries `https://<APP_PUBLIC_URL>/v1/payments/webhooks/etoplatezhi` as its
+    `merchant_callback_url`. Without `APP_PUBLIC_URL` no callback URL is sent.
+  </Step>
+</Steps>
+
+**Signatures.** The parameters are flattened into `key:value` entries — nested keys joined with
+`:`, list items keyed by index, booleans as `1`/`0`, empty lists dropped, `signature` and
+`frame_mode` ignored — sorted, joined with `;`, and signed with a base64 HMAC-SHA512 keyed with the
+secret. A callback carries a signature computed the same way over its body, which must match in
+constant time; a callback for another project ID is rejected.
+
+**Order reference.** EtoPlatezhi's `payment.id` is the merchant's own payment ID, so the Omniflow
+order ID is both the provider and the merchant reference. The customer ID is the order ID unless
+the intent metadata carries `customer_id`.
+
+**Callbacks.** `payment.status` decides the outcome: `success` settles against
+`payment.sum.amount`; `decline` and `error` are failed; `cancelled`, `refunded`,
+`partially refunded` and `reversed` are cancelled and never settle; the awaiting states and any
+unknown status are acknowledged and ignored. The event ID is `{status}:{payment.id}`.
+
+**Refunds, recurring and polling.** Not supported. The integration this adapter ports has no API
+client, so settlement arrives only through the callback, and there is no connection probe.
+
+**Testing.** Open a payment link from a small order, pay it, and confirm that the callback verifies
+and the order settles. The adapter tests pin both signatures to vectors computed with the original
+Python implementation.

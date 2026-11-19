@@ -1,0 +1,51 @@
+## Jupiter
+
+Jupiter — шлюз FPGate P2P v2.1 (`https://app.juppiter.tech`). Omniflow открывает payin, отправляет
+покупателя по ссылке на оплату, которую возвращает Jupiter, и закрывает заказ по подписанному
+уведомлению Jupiter. Суммы передаются в основных единицах в формате `0.00`.
+
+**Валюты:** одна валюта из `APP_JUPITER_CURRENCY` (по умолчанию `RUB`).
+
+| Переменная | Обязательна | По умолчанию | Назначение |
+| --- | --- | --- | --- |
+| `APP_JUPITER_TOKEN` | Да | — | Токен мерчанта, передаётся в теле каждого запроса. |
+| `APP_JUPITER_SECRET` | Да | — | Секрет HMAC-SHA256 для подписи запросов и уведомлений. |
+| `APP_JUPITER_CURRENCY` | Нет | `RUB` | Валюта каждого payin. |
+| `APP_JUPITER_METHOD_DESCRIPTION` | Нет | `SBP` | `description`, если у заказа нет описания. |
+| `APP_JUPITER_METHOD_ID` | Нет | пусто | Необязательный `method_id`, согласованный с Jupiter. |
+| `APP_JUPITER_FALLBACK_EMAIL` | Нет | `user@vpn.bot` | Email покупателя, если в метаданных намерения нет `customer_email`. |
+| `APP_JUPITER_FALLBACK_PHONE` | Нет | `0000000000` | Телефон покупателя, если в метаданных намерения нет `customer_phone`. |
+| `APP_JUPITER_FALLBACK_NAME` | Нет | `User` | Имя покупателя, если в метаданных намерения нет `customer_name`. |
+| `APP_JUPITER_BASE_URL` | Нет | `https://app.juppiter.tech` | Адрес шлюза. |
+
+FPGate v2.1 требует email, телефон и имя покупателя в каждом payin. Запасные значения подставляются
+вместо того, чего нет у заказа; измените их, если договор с Jupiter требует другие значения.
+
+<Steps>
+  <Step title="Настройте Omniflow">
+    Задайте `APP_JUPITER_TOKEN` и `APP_JUPITER_SECRET`, а также `APP_PUBLIC_URL`. Перезапустите API
+    и worker.
+  </Step>
+  <Step title="Адрес уведомлений">
+    Каждый payin передаёт `https://<APP_PUBLIC_URL>/v1/payments/webhooks/jupiter` в
+    `callback_url`. Без `APP_PUBLIC_URL` адрес уведомлений не передаётся.
+  </Step>
+</Steps>
+
+**Подписи.** Подпись — hex HMAC-SHA256 с секретом от пар `имя=значение`, склеенных без разделителя
+в фиксированном порядке; отсутствующие и пустые значения пропускаются. Payin (`/p2p_payin_v2.1`,
+`redirect=false`) подписывает `token`, `order_id`, `amount.value`, `amount.currency`, `customer.id`
+и `redirect`. Уведомление подписывает `token`, `transaction_id`, `order_id`, `amount.value`,
+`amount.currency`, `recalculated` и `status.type`; его поле `signature` сравнивается за постоянное
+время.
+
+**Уведомления.** `success` закрывает заказ; `cancelled`, `declined` и `error` — нет; `processing` и
+любой неизвестный статус подтверждаются и игнорируются. Успех без читаемой суммы отклоняется. ID
+события — `{status}:{transaction_id}`.
+
+**Возвраты, автосписания и опрос статуса.** Не поддерживаются. Исходная интеграция не разбирает
+ответ запроса статуса, поэтому зачисление приходит только через уведомление, а проверки
+подключения нет.
+
+**Проверка.** Оплатите небольшой заказ и убедитесь, что уведомление проходит проверку подписи и
+заказ закрывается.

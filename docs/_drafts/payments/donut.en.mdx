@@ -1,0 +1,46 @@
+## Donut
+
+Donut is a P2P payment gateway (`https://gw.donut.business`). Omniflow opens a payin, sends the
+customer to the payment page Donut returns, and settles the order from Donut's signed callback.
+Amounts travel as major units formatted `0.00`.
+
+**Currencies:** the one currency set in `APP_DONUT_CURRENCY` (`RUB` by default).
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_DONUT_TOKEN` | Yes | — | Merchant token, sent in every request body. |
+| `APP_DONUT_SECRET` | Yes | — | Secret for the HMAC-SHA256 signatures of requests and callbacks. |
+| `APP_DONUT_CURRENCY` | No | `RUB` | Currency of every payin. |
+| `APP_DONUT_METHOD` | No | `CARD` | `CARD`, `SBP` or `SBP_QR`, sent as the payin `description`. |
+| `APP_DONUT_METHOD_ID` | No | empty | Optional `method_id` agreed with Donut. |
+| `APP_DONUT_BASE_URL` | No | `https://gw.donut.business` | Gateway origin. |
+
+<Steps>
+  <Step title="Configure Omniflow">
+    Set `APP_DONUT_TOKEN` and `APP_DONUT_SECRET`, and set `APP_PUBLIC_URL`. Restart the API and the
+    worker.
+  </Step>
+  <Step title="Callback URL">
+    Each payin carries `https://<APP_PUBLIC_URL>/v1/payments/webhooks/donut` as its `callback_url`.
+    Without `APP_PUBLIC_URL` no callback URL is sent, and Donut has to be given that address another
+    way.
+  </Step>
+</Steps>
+
+**Signatures.** A signature is a hex HMAC-SHA256, keyed with the secret, of `name=value` pairs
+concatenated with no separator in a fixed order, skipping absent and empty values. A payin signs
+`token`, `order_id`, `amount.value`, `amount.currency`, `customer.id` and `redirect`. A callback
+signs `token`, `transaction_id`, `order_id`, `amount.value`, `amount.currency`, `recalculated` and
+`status.type`, and its `signature` field must match in constant time. The customer ID is the order
+ID unless the intent metadata carries `customer_id`.
+
+**Callbacks.** `success` settles; `cancelled` and `error` do not. Any other status, including
+`created` and `processing`, is acknowledged and ignored. A success without a readable amount is
+rejected. The event ID is `{status}:{transaction_id}`.
+
+**Refunds, recurring and polling.** Not supported. The integration this adapter ports never reads
+Donut's status answer, so settlement arrives only through the callback, and there is no connection
+probe.
+
+**Testing.** Pay a small order and confirm that the callback verifies and the order settles. The
+adapter tests pin the signature to vectors computed with the original Python implementation.
