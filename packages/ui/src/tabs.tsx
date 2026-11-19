@@ -11,7 +11,11 @@ export function TabsList({ className, ...props }: ComponentProps<typeof TabsPrim
   return (
     <TabsPrimitive.List
       className={cn(
-        "inline-flex h-9 w-fit items-center justify-center gap-1 rounded-md bg-secondary p-1",
+        // `max-w-full` and horizontal scrolling keep a long tab row inside a
+        // phone screen instead of widening the page; `justify-start` keeps the
+        // first tab reachable when the row scrolls (centred content overflows
+        // to the left, where no scrollbar can reach it).
+        "inline-flex h-9 w-fit max-w-full items-center justify-start gap-1 overflow-x-auto rounded-md bg-secondary p-1 [scrollbar-width:none]",
         className,
       )}
       data-slot="tabs-list"

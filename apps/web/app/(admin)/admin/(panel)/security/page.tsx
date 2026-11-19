@@ -18,7 +18,14 @@ import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { toast } from "@omniflow/ui/toast";
-import { Fingerprint, KeyRound, Monitor, ShieldCheck, TriangleAlert } from "lucide-react";
+import {
+  Fingerprint,
+  KeyRound,
+  Monitor,
+  ShieldCheck,
+  Smartphone,
+  TriangleAlert,
+} from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { useEffect, useId, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -33,6 +40,7 @@ import { ApiError, apiFetch, fetcher } from "@/lib/api";
 import { passkeyDismissed, passkeysSupported, registerPasskey } from "@/lib/passkey";
 import { useSession } from "@/lib/session";
 import { useUnsavedChanges } from "@/lib/use-unsaved-changes";
+import { describeUserAgent, userAgentLabel } from "@/lib/user-agent";
 
 type Passkey = {
   id: string;
@@ -722,10 +730,19 @@ function SessionsCard() {
           <ul className="flex flex-col divide-y divide-border">
             {sessions.map((item) => (
               <li className="flex items-center gap-3 py-3" key={item.id}>
-                <Monitor aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+                {describeUserAgent(item.userAgent).mobile ? (
+                  <Smartphone
+                    aria-hidden="true"
+                    className="size-4 shrink-0 text-muted-foreground"
+                  />
+                ) : (
+                  <Monitor aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+                )}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm">
-                    {item.userAgent || translate("unknownDevice")}
+                  {/* The browser and system an operator recognises, with the
+                      raw header on hover for the rare case it matters. */}
+                  <p className="truncate text-sm" title={item.userAgent}>
+                    {userAgentLabel(item.userAgent) ?? translate("unknownDevice")}
                     {item.current && (
                       <Badge className="ml-2" variant="success">
                         {translate("current")}

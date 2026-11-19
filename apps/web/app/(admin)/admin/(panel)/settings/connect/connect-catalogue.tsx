@@ -224,7 +224,12 @@ function PlatformRow({
               </Button>
             ) : (
               <>
-                <Button onClick={() => setConfirming(true)} size="sm" variant="ghost">
+                <Button
+                  aria-label={translate("delete")}
+                  onClick={() => setConfirming(true)}
+                  size="sm"
+                  variant="ghost"
+                >
                   <Trash2 aria-hidden />
                 </Button>
                 {/* Deleting a platform takes its clients with it, which is why
@@ -427,7 +432,13 @@ function ClientRow({
             <Button disabled={pending} onClick={() => onSave(form)} size="sm">
               {translate("save")}
             </Button>
-            <Button disabled={pending} onClick={onRemove} size="sm" variant="ghost">
+            <Button
+              aria-label={isNew ? undefined : translate("delete")}
+              disabled={pending}
+              onClick={onRemove}
+              size="sm"
+              variant="ghost"
+            >
               {isNew ? translate("cancel") : <Trash2 aria-hidden />}
             </Button>
           </>
