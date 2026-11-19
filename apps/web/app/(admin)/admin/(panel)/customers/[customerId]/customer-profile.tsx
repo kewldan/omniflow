@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@omniflow/ui/tabs";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { type ReactNode, useId, useState } from "react";
-import useSWR from "swr";
+import useSWR, { mutate as revalidate } from "swr";
 
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
@@ -29,7 +29,7 @@ import {
   useOperatorAction,
 } from "@/lib/operations";
 import { useSession } from "@/lib/session";
-
+import { MessageCustomerCard, WalletAdjustmentCard } from "./customer-actions";
 import { AuditTimeline, ReferralPanel, SupportPanel } from "./customer-history";
 import { MergePanel } from "./merge-panel";
 import { NotificationsPanel } from "./notifications-panel";
@@ -149,7 +149,13 @@ export function CustomerProfileView({ customerId }: { customerId: string }) {
           <OrderList active={tab === "orders"} base={base} locale={locale} />
         </TabsContent>
         {can("finance.read") && (
-          <TabsContent value="wallet">
+          <TabsContent className="flex flex-col gap-4" value="wallet">
+            {can("finance.write") && (
+              <WalletAdjustmentCard
+                customerId={customerId}
+                onAdjusted={() => void revalidate(`${base}/wallet`)}
+              />
+            )}
             <WalletList active={tab === "wallet"} base={base} locale={locale} />
           </TabsContent>
         )}
@@ -157,7 +163,8 @@ export function CustomerProfileView({ customerId }: { customerId: string }) {
           <ReferralPanel active={tab === "referrals"} base={base} />
         </TabsContent>
         {can("support.read") && (
-          <TabsContent value="support">
+          <TabsContent className="flex flex-col gap-4" value="support">
+            {can("support.write") && <MessageCustomerCard customerId={customerId} />}
             <SupportPanel active={tab === "support"} base={base} />
           </TabsContent>
         )}

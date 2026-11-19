@@ -1475,6 +1475,24 @@ CREATE TABLE public.contact_channels (
 
 
 --
+-- Name: customer_direct_messages; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.customer_direct_messages (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    body text NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    sent_at timestamp with time zone,
+    error_code text,
+    CONSTRAINT customer_direct_messages_body_length CHECK (((char_length(body) >= 1) AND (char_length(body) <= 3500))),
+    CONSTRAINT customer_direct_messages_status_known CHECK ((status = ANY (ARRAY['pending'::text, 'sent'::text, 'failed'::text])))
+);
+
+
+--
 -- Name: customer_import_items; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -4390,6 +4408,14 @@ ALTER TABLE ONLY public.contact_channels
 
 
 --
+-- Name: customer_direct_messages customer_direct_messages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_direct_messages
+    ADD CONSTRAINT customer_direct_messages_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: customer_import_items customer_import_items_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5900,6 +5926,20 @@ CREATE INDEX contact_channels_user_idx ON public.contact_channels USING btree (u
 
 
 --
+-- Name: customer_direct_messages_pending; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX customer_direct_messages_pending ON public.customer_direct_messages USING btree (created_at) WHERE (status = 'pending'::text);
+
+
+--
+-- Name: customer_direct_messages_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX customer_direct_messages_user ON public.customer_direct_messages USING btree (user_id, created_at DESC);
+
+
+--
 -- Name: customer_magic_links_email_recent; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7275,6 +7315,14 @@ ALTER TABLE ONLY public.consent_records
 
 ALTER TABLE ONLY public.contact_channels
     ADD CONSTRAINT contact_channels_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: customer_direct_messages customer_direct_messages_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_direct_messages
+    ADD CONSTRAINT customer_direct_messages_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --

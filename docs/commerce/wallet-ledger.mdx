@@ -149,14 +149,18 @@ refunds](/commerce/orders-payments#wallet-credit-is-applied-before-external-paym
 `customers.read`. The split is intentional: a support operator can see that a customer has a
 balance without being able to read every movement that produced it.
 
-The panel's wallet tab is read-only. There is no update or delete path for a ledger row anywhere in
-the panel, and no panel route that adjusts a balance.
+No ledger row is ever updated or deleted from the panel. An operator with **`finance.write`** can add
+an adjustment from the same tab: **Adjust balance** takes an amount (negative to debit), a currency,
+a reason, and whether to tell the customer. It calls
+`POST /v1/panel/customers/{customerID}/wallet-adjustments` with a fresh idempotency key per click,
+writes a balanced `credit` or `debit` transaction and a `wallet.adjusted` audit event, refuses a
+debit larger than the balance with `422 insufficient_balance`, and, when asked, queues a Telegram
+message stating the change and the reason.
 
 ## Operator adjustments
 
-Goodwill credit after a support case, a correction, a manual referral payout — all of these are one
-API call, and only that call. There is no `/v1/panel` route and no screen in `/admin` for adjusting
-a wallet; the bearer-token API is the whole surface.
+Goodwill credit after a support case, a correction, a manual referral payout — from the panel as
+above, or with the bearer-token API for scripts:
 
 ```bash
 curl -X POST https://example.com/v1/admin/customers/{customerID}/wallet-adjustments \

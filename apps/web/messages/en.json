@@ -845,23 +845,25 @@
         "notifications": "Notifications"
       },
       "actions": {
-        "reason": "Reason",
-        "reasonPlaceholder": "Why this change is being made",
-        "suspend": "Suspend",
-        "reactivate": "Reactivate",
-        "enable": "Enable",
-        "disable": "Disable",
-        "resetTraffic": "Reset traffic",
-        "extend": "Extend to",
-        "setLimits": "Apply limits",
-        "endsAt": "New expiry",
-        "pickMoment": "Pick a date and time",
-        "hour": "Hour",
-        "minute": "Minute",
-        "trafficBytes": "Traffic allowance (bytes)",
-        "deviceLimit": "Device limit",
-        "notProvisioned": "This subscription has no entitlement yet, so there is nothing to change. It is provisioned when a paid order is fulfilled.",
-        "queued": "Queued {operation}. The fulfillment worker applies it and records the result under System."
+        "wallet": {
+          "title": "Adjust balance",
+          "description": "A positive amount credits, a negative one debits. A debit cannot exceed the balance.",
+          "amount": "Amount",
+          "currency": "Currency",
+          "reason": "Reason (shown to the customer if notified)",
+          "notify": "Tell the customer in Telegram",
+          "submit": "Apply",
+          "done": "Balance adjusted",
+          "insufficient": "The balance is lower than that.",
+          "failed": "The balance could not be adjusted."
+        },
+        "message": {
+          "title": "Message the customer",
+          "description": "The bot delivers it to the customer in Telegram, exactly as written.",
+          "submit": "Send",
+          "queued": "Message queued",
+          "failed": "The message could not be sent."
+        }
       },
       "empty": {
         "subscriptions": "No subscriptions",

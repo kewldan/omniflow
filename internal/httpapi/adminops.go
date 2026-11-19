@@ -81,6 +81,12 @@ func (handlers *AdminHandlers) mountOperations(secure chi.Router) {
 	})
 	secure.With(handlers.requirePermission(rbac.PermissionFinanceWrite)).
 		Delete("/customers/{customerID}/payment-methods/{methodID}", handlers.revokePaymentMethod)
+	// A wallet adjustment moves money, so it is finance's; a message to a
+	// customer is support's.
+	secure.With(handlers.requirePermission(rbac.PermissionFinanceWrite)).
+		Post("/customers/{customerID}/wallet-adjustments", handlers.adjustCustomerWallet)
+	secure.With(handlers.requirePermission(rbac.PermissionSupportWrite)).
+		Post("/customers/{customerID}/messages", handlers.messageCustomer)
 
 	// -- Catalogue -----------------------------------------------------------
 	secure.With(handlers.requirePermission(rbac.PermissionCatalogRead)).Group(func(read chi.Router) {
@@ -265,6 +271,11 @@ func (handlers *AdminHandlers) operationsError(
 		writeProblem(
 			writer, request, http.StatusUnprocessableEntity,
 			"secret_required", "The address changed. Enter the credential again to send it there",
+		)
+	case errors.Is(err, panelpg.ErrNegativeBalance):
+		writeProblem(
+			writer, request, http.StatusUnprocessableEntity,
+			"insufficient_balance", "The wallet does not hold that much",
 		)
 	case errors.Is(err, panelpg.ErrValidaton):
 		writeProblem(
@@ -1773,3 +1784,29 @@ func adapterCapabilities(providers map[string]payments.Provider) map[string]bool
 
 // ensure the context import is used by the file's helper signatures.
 var _ = context.Background
+
+func (handlers *AdminHandlers) adjustCustomerWallet(writer http.ResponseWriter, request *http.Request) {
+	var body panelpg.WalletAdjustment
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	err := handlers.operations.AdjustCustomerWallet(
+		request.Context(), chi.URLParam(request, "customerID"), body, actorFrom(request))
+	handlers.respond(writer, request, map[string]any{"adjusted": true}, err)
+}
+
+func (handlers *AdminHandlers) messageCustomer(writer http.ResponseWriter, request *http.Request) {
+	var body struct {
+		Text string `json:"text"`
+	}
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	message, err := handlers.operations.MessageCustomer(
+		request.Context(), chi.URLParam(request, "customerID"), body.Text, actorFrom(request))
+	if err != nil {
+		handlers.respond(writer, request, nil, err)
+		return
+	}
+	writeJSON(writer, http.StatusAccepted, message)
+}

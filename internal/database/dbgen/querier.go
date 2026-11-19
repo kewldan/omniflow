@@ -791,6 +791,7 @@ type Querier interface {
 	InsertBlocklistEntry(ctx context.Context, arg InsertBlocklistEntryParams) error
 	InsertBulkOperationItem(ctx context.Context, arg InsertBulkOperationItemParams) error
 	InsertConsentRecord(ctx context.Context, arg InsertConsentRecordParams) (ConsentRecord, error)
+	InsertCustomerDirectMessage(ctx context.Context, arg InsertCustomerDirectMessageParams) (pgtype.UUID, error)
 	InsertCustomerLifecycleEvent(ctx context.Context, arg InsertCustomerLifecycleEventParams) (CustomerLifecycleEvent, error)
 	// ---------------------------------------------------------------------------
 	// Security events
@@ -994,6 +995,7 @@ type Querier interface {
 	ListConnectPlatforms(ctx context.Context) ([]ConnectPlatform, error)
 	ListContactChannels(ctx context.Context, userID pgtype.UUID) ([]ListContactChannelsRow, error)
 	ListCustomerConsents(ctx context.Context, userID pgtype.UUID) ([]ConsentRecord, error)
+	ListCustomerDirectMessages(ctx context.Context, userID pgtype.UUID) ([]ListCustomerDirectMessagesRow, error)
 	ListCustomerIdentities(ctx context.Context, userID pgtype.UUID) ([]Identity, error)
 	ListCustomerImportItems(ctx context.Context, arg ListCustomerImportItemsParams) ([]CustomerImportItem, error)
 	ListCustomerImportTelegramIDs(ctx context.Context, importID pgtype.UUID) ([]ListCustomerImportTelegramIDsRow, error)

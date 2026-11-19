@@ -165,6 +165,7 @@ func (notifier *Notifier) runLifecyclePass(ctx context.Context) {
 	// expiry warnings sent together say the same thing.
 	notifier.refreshNotices(ctx)
 	notifier.deliverTests(ctx)
+	notifier.deliverDirectMessages(ctx)
 	notifier.deliverDunning(ctx)
 	// Every reachable customer is visited, one page at a time. The page is what
 	// bounds memory; the walk is what makes the pass reach the customer whose

@@ -811,6 +811,17 @@ type ContactChannel struct {
 	RevokedAt            pgtype.Timestamptz `json:"revoked_at"`
 }
 
+type CustomerDirectMessage struct {
+	ID        pgtype.UUID        `json:"id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	Body      string             `json:"body"`
+	CreatedBy pgtype.UUID        `json:"created_by"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	Status    string             `json:"status"`
+	SentAt    pgtype.Timestamptz `json:"sent_at"`
+	ErrorCode pgtype.Text        `json:"error_code"`
+}
+
 type CustomerImport struct {
 	ID            pgtype.UUID        `json:"id"`
 	Source        string             `json:"source"`

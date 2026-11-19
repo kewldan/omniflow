@@ -1,5 +1,6 @@
-h1:nfvwE0m47Q6qc9Uwk4igdYEPsb90X5ww30Ea0cYJ+j8=
+h1:KbeA5GL5PBqTGbxuYQNEMa6ouwWh78qYIS0YZf06aMA=
 20261120000000_baseline.sql h1:xcYk9mdv44B3O0TRxq3RP+hXxJ2VeeOilGnwKO251mQ=
 20261120010000_river_schema_v8.sql h1:AfdQpxaviEf8asJ5gyLmMVZr+zMYaWEw+o/vE8CMj7A=
 20261120020000_customer_email_signin.sql h1:PrCKaTaDm5ggof8aqRooMbqOXEHML5fwq1TF877zQa8=
 20261120030000_referral_day_rewards.sql h1:l30qQH8fLobDszSNsZSaEFJk8/syuZYbXhKJhy71Mdw=
+20261120040000_customer_direct_messages.sql h1:38c/PPz7wLOPBBSOiifd0DFsjEj9I8/gwya3UUWoYuk=
