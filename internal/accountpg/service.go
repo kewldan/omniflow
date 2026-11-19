@@ -41,6 +41,9 @@ var (
 	// refused. It wraps the domain's own message, so the panel can show why
 	// without this package restating the rule.
 	ErrInvalidInput = errors.New("invalid input")
+	// ErrRotationDisabled reports an installation that does not let customers
+	// re-issue their link.
+	ErrRotationDisabled = errors.New("re-issuing the link is turned off")
 )
 
 // SecurityRecorder receives the account events a customer can read back.

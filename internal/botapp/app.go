@@ -22,6 +22,7 @@ import (
 	"github.com/omniflow/omniflow/internal/installsettings"
 	"github.com/omniflow/omniflow/internal/platform"
 	"github.com/omniflow/omniflow/internal/remnawave"
+	"github.com/omniflow/omniflow/internal/remnawavesync"
 )
 
 const (
@@ -956,6 +957,9 @@ func (app *App) handleAction(ctx context.Context, client *telegram.Bot, query *m
 	case "revoke":
 		var userID int64
 		userID, err = app.store.RemnawaveUserID(ctx, query.From.ID)
+		if err == nil && !app.settings.Connect.RevokeAllowed() {
+			err = remnawavesync.ErrRotationDisabled
+		}
 		if err == nil {
 			err = app.remnawave.RevokeSubscription(ctx, userID)
 		}

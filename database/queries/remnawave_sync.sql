@@ -57,3 +57,27 @@ SELECT status FROM notification_deliveries
 WHERE user_id = sqlc.arg(user_id) AND kind = sqlc.arg(kind)
   AND subscription_id IS NOT DISTINCT FROM sqlc.narg(subscription_id)
   AND dedupe_key = sqlc.arg(dedupe_key);
+
+-- name: ClaimSubscriptionLinkRotation :one
+-- Takes the re-issue slot of one subscription when the cooldown has passed,
+-- returning when it was last taken so a failed re-issue can give it back. No
+-- row means the subscription is not the customer's or is cooling down.
+WITH previous AS (
+  SELECT x.id AS subscription_id, x.link_rotated_at FROM subscriptions x
+  WHERE x.id = sqlc.arg(subscription_id) AND x.user_id = sqlc.arg(user_id) AND x.status = 'active'
+  FOR UPDATE
+)
+UPDATE subscriptions s SET link_rotated_at = now()
+FROM previous
+WHERE s.id = previous.subscription_id
+  AND (previous.link_rotated_at IS NULL
+       OR previous.link_rotated_at <= now() - make_interval(secs => sqlc.arg(cooldown_seconds)::float8))
+RETURNING previous.link_rotated_at AS previous_rotated_at;
+
+-- name: RestoreSubscriptionLinkRotation :exec
+UPDATE subscriptions SET link_rotated_at = sqlc.narg(rotated_at)
+WHERE id = sqlc.arg(subscription_id) AND user_id = sqlc.arg(user_id);
+
+-- name: GetSubscriptionLinkRotatedAt :one
+SELECT link_rotated_at FROM subscriptions
+WHERE id = sqlc.arg(subscription_id) AND user_id = sqlc.arg(user_id);

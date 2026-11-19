@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -10,6 +11,7 @@ import (
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/customerauth"
 	"github.com/omniflow/omniflow/internal/customerauthpg"
+	"github.com/omniflow/omniflow/internal/remnawavesync"
 )
 
 // ---------------------------------------------------------------------------
@@ -382,6 +384,33 @@ func (handlers *AccountHandlers) connection(writer http.ResponseWriter, request 
 	})
 }
 
+// rotateAllSubscriptionLinks re-issues every subscription's link at once.
+func (handlers *AccountHandlers) rotateAllSubscriptionLinks(writer http.ResponseWriter, request *http.Request) {
+	if !handlers.requireAccount(writer, request) {
+		return
+	}
+	principal, _ := CustomerFrom(request.Context())
+	var body struct {
+		Confirm bool `json:"confirm"`
+	}
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	if !body.Confirm {
+		writeProblem(writer, request, http.StatusUnprocessableEntity, "confirmation_required", "This action must be confirmed")
+		return
+	}
+	summary, err := handlers.account.RotateAllSubscriptionLinks(
+		request.Context(), principal.Customer.ID, principal.Customer.Locale, handlers.securityRequest(request),
+	)
+	if handlers.writeAccountError(writer, request, err) {
+		return
+	}
+	writeJSON(writer, http.StatusOK, map[string]any{
+		"rotated": summary.Rotated, "coolingDown": summary.CoolingDown, "notProvisioned": summary.NotProvisioned,
+	})
+}
+
 func (handlers *AccountHandlers) rotateSubscriptionLink(writer http.ResponseWriter, request *http.Request) {
 	if !handlers.requireAccount(writer, request) {
 		return
@@ -480,9 +509,15 @@ func (handlers *AccountHandlers) removeAllDevices(writer http.ResponseWriter, re
 func (handlers *AccountHandlers) writeAccountError(
 	writer http.ResponseWriter, request *http.Request, err error,
 ) bool {
+	var cooldown *remnawavesync.RotationCooldownError
 	switch {
 	case err == nil:
 		return false
+	case errors.Is(err, accountpg.ErrRotationDisabled):
+		writeProblem(writer, request, http.StatusForbidden, "rotation_disabled", "Re-issuing the link is turned off on this service")
+	case errors.As(err, &cooldown):
+		writer.Header().Set("Retry-After", strconv.Itoa(max(1, int(time.Until(cooldown.RetryAt).Seconds()))))
+		writeProblem(writer, request, http.StatusTooManyRequests, "rotation_cooldown", err.Error())
 	case errors.Is(err, accountpg.ErrInvalidInput):
 		writeProblem(writer, request, http.StatusUnprocessableEntity, "invalid_input", err.Error())
 	case errors.Is(err, accountpg.ErrNotFound):

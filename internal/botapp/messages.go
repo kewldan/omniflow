@@ -805,10 +805,12 @@ var catalog = map[string]phrase{
 	"panel.devicesButton":  {ru: "📱 Устройства", en: "📱 Devices"},
 	// Connect screen additions: mirrors, the guide behind a one-tap mode, and
 	// the Mini App button.
-	"connect.mirror":  {ru: "🪞 Ссылка через «%s»", en: "🪞 Link via %s"},
-	"connect.allApps": {ru: "📖 Все приложения и инструкции", en: "📖 All apps and instructions"},
-	"connect.miniApp": {ru: "🚀 Подключить в приложении", en: "🚀 Connect in the app"},
-	"menu.miniApp":    {ru: "Кабинет", en: "Account"},
+	"connect.mirror":      {ru: "🪞 Ссылка через «%s»", en: "🪞 Link via %s"},
+	"connect.allApps":     {ru: "📖 Все приложения и инструкции", en: "📖 All apps and instructions"},
+	"connect.miniApp":     {ru: "🚀 Подключить в приложении", en: "🚀 Connect in the app"},
+	"menu.miniApp":        {ru: "Кабинет", en: "Account"},
+	"subs.rotateDisabled": {ru: "🔐 Перевыпуск ссылки в этом сервисе отключён. Если ссылка утекла, напишите в поддержку.", en: "🔐 Re-issuing the link is turned off on this service. If your link leaked, contact support."},
+	"subs.rotateCooldown": {ru: "⏳ Ссылку недавно перевыпускали. Повторить можно через %s.", en: "⏳ The link was re-issued recently. You can do it again in %s."},
 	// Pay and keep the card for automatic renewal: the button is the consent.
 	"pay.optionSave": {ru: "%s + сохранить карту для автопродления", en: "%s + save the card for auto-renew"},
 	// Marketing, loyalty, and referrals.

@@ -210,7 +210,7 @@ const renameAccountSubscription = `-- name: RenameAccountSubscription :one
 UPDATE subscriptions
 SET label = $1, updated_at = now()
 WHERE id = $2 AND user_id = $3 AND status = 'active'
-RETURNING id, user_id, slot, label, status, remnawave_user_id, remnawave_username, observed_state, reconciled_at, created_at, updated_at, closed_at
+RETURNING id, user_id, slot, label, status, remnawave_user_id, remnawave_username, observed_state, reconciled_at, created_at, updated_at, closed_at, link_rotated_at
 `
 
 type RenameAccountSubscriptionParams struct {
@@ -237,6 +237,7 @@ func (q *Queries) RenameAccountSubscription(ctx context.Context, arg RenameAccou
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ClosedAt,
+		&i.LinkRotatedAt,
 	)
 	return i, err
 }

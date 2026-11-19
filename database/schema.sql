@@ -3843,12 +3843,20 @@ CREATE TABLE public.subscriptions (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     closed_at timestamp with time zone,
+    link_rotated_at timestamp with time zone,
     CONSTRAINT subscriptions_label_check CHECK (((char_length(label) >= 1) AND (char_length(label) <= 40))),
     CONSTRAINT subscriptions_remnawave_user_id_check CHECK (((remnawave_user_id IS NULL) OR (remnawave_user_id > 0))),
     CONSTRAINT subscriptions_remnawave_username_check CHECK (((remnawave_username IS NULL) OR ((char_length(remnawave_username) >= 1) AND (char_length(remnawave_username) <= 64)))),
     CONSTRAINT subscriptions_slot_check CHECK ((slot > 0)),
     CONSTRAINT subscriptions_status_check CHECK ((status = ANY (ARRAY['active'::text, 'closed'::text])))
 );
+
+
+--
+-- Name: COLUMN subscriptions.link_rotated_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.subscriptions.link_rotated_at IS 'When the customer last re-issued this subscription''s access link. Restored to its previous value when the re-issue fails.';
 
 
 --

@@ -1652,7 +1652,7 @@ func (q *Queries) ListCustomerReferrals(ctx context.Context, arg ListCustomerRef
 
 const listCustomerSubscriptionsDetailed = `-- name: ListCustomerSubscriptionsDetailed :many
 SELECT
-  s.id, s.user_id, s.slot, s.label, s.status, s.remnawave_user_id, s.remnawave_username, s.observed_state, s.reconciled_at, s.created_at, s.updated_at, s.closed_at,
+  s.id, s.user_id, s.slot, s.label, s.status, s.remnawave_user_id, s.remnawave_username, s.observed_state, s.reconciled_at, s.created_at, s.updated_at, s.closed_at, s.link_rotated_at,
   e.id AS entitlement_id,
   COALESCE(e.status, '')::text AS entitlement_status,
   e.starts_at AS entitlement_starts_at,
@@ -1717,6 +1717,7 @@ func (q *Queries) ListCustomerSubscriptionsDetailed(ctx context.Context, userID 
 			&i.Subscription.CreatedAt,
 			&i.Subscription.UpdatedAt,
 			&i.Subscription.ClosedAt,
+			&i.Subscription.LinkRotatedAt,
 			&i.EntitlementID,
 			&i.EntitlementStatus,
 			&i.EntitlementStartsAt,

@@ -16,6 +16,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Connect button modes: what the bot's Connect button leads to.
@@ -51,7 +52,17 @@ type ConnectSettings struct {
 	Mirrors []LinkMirror
 	// ButtonMode is one of the ConnectMode* constants.
 	ButtonMode string
+	// RevokeDisabled stops customers from re-issuing their own link
+	// (APP_SUBSCRIPTION_REVOKE_ENABLED=false). Stored inverted so the zero
+	// value keeps re-issue available, as it always was.
+	RevokeDisabled bool
+	// RevokeCooldown is the least time between two re-issues of one
+	// subscription's link (APP_SUBSCRIPTION_REVOKE_COOLDOWN_MINUTES).
+	RevokeCooldown time.Duration
 }
+
+// RevokeAllowed reports whether customers may re-issue their link at all.
+func (settings ConnectSettings) RevokeAllowed() bool { return !settings.RevokeDisabled }
 
 // LinkMirror is one alternative origin for the subscription link.
 type LinkMirror struct {
@@ -97,6 +108,20 @@ func ConnectSettingsFromEnv(getenv func(string) string) (ConnectSettings, error)
 	}
 	if settings.Mirrors, err = ParseLinkMirrors(getenv("APP_SUBSCRIPTION_MIRRORS")); err != nil {
 		return ConnectSettings{}, err
+	}
+	if raw := strings.TrimSpace(getenv("APP_SUBSCRIPTION_REVOKE_ENABLED")); raw != "" {
+		enabled, parseErr := strconv.ParseBool(raw)
+		if parseErr != nil {
+			return ConnectSettings{}, errors.New("APP_SUBSCRIPTION_REVOKE_ENABLED must be true or false")
+		}
+		settings.RevokeDisabled = !enabled
+	}
+	if raw := strings.TrimSpace(getenv("APP_SUBSCRIPTION_REVOKE_COOLDOWN_MINUTES")); raw != "" {
+		minutes, parseErr := strconv.Atoi(raw)
+		if parseErr != nil || minutes < 0 || minutes > 7*24*60 {
+			return ConnectSettings{}, errors.New("APP_SUBSCRIPTION_REVOKE_COOLDOWN_MINUTES must be 0 to 10080")
+		}
+		settings.RevokeCooldown = time.Duration(minutes) * time.Minute
 	}
 	return settings, nil
 }

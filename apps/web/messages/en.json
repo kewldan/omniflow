@@ -3575,7 +3575,12 @@
         "subscription_key_rotated": "A new access link was issued",
         "device_removed": "A device was disconnected",
         "devices_removed_all": "Every device was disconnected"
-      }
+      },
+      "links": "Subscription links",
+      "linksDescription": "If you think your subscription links leaked, re-issue them all. Every device will need the new link from the Connect screen.",
+      "linksReissue": "Re-issue all links",
+      "linksConfirm": "Every subscription gets a new link and the old ones stop working at once. You will need to add the new link on each device.",
+      "linksReissued": "Re-issued {rotated, plural, one {# link} other {# links}}{coolingDown, plural, =0 {} other {; # re-issued too recently were skipped}}."
     },
     "account": {
       "actions": {

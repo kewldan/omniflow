@@ -151,6 +151,8 @@ func (handlers *AccountHandlers) Mount(router chi.Router) {
 			secure.Get("/subscriptions/{subscriptionID}/connection", handlers.connection)
 			secure.With(handlers.requireRecentAuthentication).
 				Post("/subscriptions/{subscriptionID}/rotate-link", handlers.rotateSubscriptionLink)
+			secure.With(handlers.requireRecentAuthentication).
+				Post("/subscriptions/rotate-links", handlers.rotateAllSubscriptionLinks)
 
 			secure.Get("/subscriptions/{subscriptionID}/devices", handlers.listDevices)
 			secure.Delete("/subscriptions/{subscriptionID}/devices/{handle}", handlers.removeDevice)

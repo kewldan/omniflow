@@ -11,6 +11,36 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const claimSubscriptionLinkRotation = `-- name: ClaimSubscriptionLinkRotation :one
+WITH previous AS (
+  SELECT x.id AS subscription_id, x.link_rotated_at FROM subscriptions x
+  WHERE x.id = $2 AND x.user_id = $3 AND x.status = 'active'
+  FOR UPDATE
+)
+UPDATE subscriptions s SET link_rotated_at = now()
+FROM previous
+WHERE s.id = previous.subscription_id
+  AND (previous.link_rotated_at IS NULL
+       OR previous.link_rotated_at <= now() - make_interval(secs => $1::float8))
+RETURNING previous.link_rotated_at AS previous_rotated_at
+`
+
+type ClaimSubscriptionLinkRotationParams struct {
+	CooldownSeconds float64     `json:"cooldown_seconds"`
+	SubscriptionID  pgtype.UUID `json:"subscription_id"`
+	UserID          pgtype.UUID `json:"user_id"`
+}
+
+// Takes the re-issue slot of one subscription when the cooldown has passed,
+// returning when it was last taken so a failed re-issue can give it back. No
+// row means the subscription is not the customer's or is cooling down.
+func (q *Queries) ClaimSubscriptionLinkRotation(ctx context.Context, arg ClaimSubscriptionLinkRotationParams) (pgtype.Timestamptz, error) {
+	row := q.db.QueryRow(ctx, claimSubscriptionLinkRotation, arg.CooldownSeconds, arg.SubscriptionID, arg.UserID)
+	var previous_rotated_at pgtype.Timestamptz
+	err := row.Scan(&previous_rotated_at)
+	return previous_rotated_at, err
+}
+
 const completeRemnawaveWebhookEvent = `-- name: CompleteRemnawaveWebhookEvent :exec
 UPDATE remnawave_webhook_events
 SET status = $1, processed_at = now()
@@ -99,6 +129,23 @@ func (q *Queries) GetNotificationDeliveryStatus(ctx context.Context, arg GetNoti
 	return status, err
 }
 
+const getSubscriptionLinkRotatedAt = `-- name: GetSubscriptionLinkRotatedAt :one
+SELECT link_rotated_at FROM subscriptions
+WHERE id = $1 AND user_id = $2
+`
+
+type GetSubscriptionLinkRotatedAtParams struct {
+	SubscriptionID pgtype.UUID `json:"subscription_id"`
+	UserID         pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) GetSubscriptionLinkRotatedAt(ctx context.Context, arg GetSubscriptionLinkRotatedAtParams) (pgtype.Timestamptz, error) {
+	row := q.db.QueryRow(ctx, getSubscriptionLinkRotatedAt, arg.SubscriptionID, arg.UserID)
+	var link_rotated_at pgtype.Timestamptz
+	err := row.Scan(&link_rotated_at)
+	return link_rotated_at, err
+}
+
 const insertRemnawaveWebhookEvent = `-- name: InsertRemnawaveWebhookEvent :one
 INSERT INTO remnawave_webhook_events (event, body_sha256, remnawave_user_id, details, status, processed_at)
 VALUES (
@@ -185,4 +232,20 @@ func (q *Queries) ListPendingRemnawaveCustomerEvents(ctx context.Context, batchS
 		return nil, err
 	}
 	return items, nil
+}
+
+const restoreSubscriptionLinkRotation = `-- name: RestoreSubscriptionLinkRotation :exec
+UPDATE subscriptions SET link_rotated_at = $1
+WHERE id = $2 AND user_id = $3
+`
+
+type RestoreSubscriptionLinkRotationParams struct {
+	RotatedAt      pgtype.Timestamptz `json:"rotated_at"`
+	SubscriptionID pgtype.UUID        `json:"subscription_id"`
+	UserID         pgtype.UUID        `json:"user_id"`
+}
+
+func (q *Queries) RestoreSubscriptionLinkRotation(ctx context.Context, arg RestoreSubscriptionLinkRotationParams) error {
+	_, err := q.db.Exec(ctx, restoreSubscriptionLinkRotation, arg.RotatedAt, arg.SubscriptionID, arg.UserID)
+	return err
 }

@@ -49,8 +49,73 @@ export default function SecurityPage() {
       <Sessions />
       <SectionLabel>{translate("security.methods")}</SectionLabel>
       <SignInMethods />
+      <SectionLabel>{translate("security.links")}</SectionLabel>
+      <ReissueLinks />
       <SectionLabel>{translate("security.events")}</SectionLabel>
       <Events />
+    </div>
+  );
+}
+
+/**
+ * Re-issues the access link of every subscription at once, for a customer who
+ * believes all of them leaked. Each device then needs the new link, which is
+ * why it asks first and needs a recent sign-in.
+ */
+function ReissueLinks() {
+  const translate = useTranslations("account");
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const { redirectIfRequired } = useReauthentication();
+
+  async function reissue() {
+    setBusy(true);
+    try {
+      const result = await apiFetch<{ rotated: number; coolingDown: number }>(
+        "/v1/account/subscriptions/rotate-links",
+        { body: JSON.stringify({ confirm: true }), method: "POST" },
+      );
+      toast.success(
+        translate("security.linksReissued", {
+          coolingDown: result.coolingDown,
+          rotated: result.rotated,
+        }),
+      );
+    } catch (reissueError) {
+      if (!redirectIfRequired(reissueError)) {
+        toast.error((reissueError as ApiError).message);
+      }
+    } finally {
+      setBusy(false);
+      setOpen(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-[12.5px] text-muted-foreground leading-relaxed">
+        {translate("security.linksDescription")}
+      </p>
+      <Button
+        className="w-full text-destructive"
+        disabled={busy}
+        onClick={() => setOpen(true)}
+        size="lg"
+        variant="outline"
+      >
+        {translate("security.linksReissue")}
+      </Button>
+      <ConfirmDialog
+        cancelLabel={translate("actions.cancel")}
+        confirmLabel={translate("security.linksReissue")}
+        description={translate("security.linksConfirm")}
+        destructive
+        onConfirm={reissue}
+        onOpenChange={setOpen}
+        open={open}
+        pending={busy}
+        title={translate("security.linksReissue")}
+      />
     </div>
   );
 }

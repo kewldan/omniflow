@@ -2032,6 +2032,8 @@ type Subscription struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	ClosedAt          pgtype.Timestamptz `json:"closed_at"`
+	// When the customer last re-issued this subscription's access link. Restored to its previous value when the re-issue fails.
+	LinkRotatedAt pgtype.Timestamptz `json:"link_rotated_at"`
 }
 
 // Installation-wide switches for plan changes and what a paid period resets. One row, edited from the panel.

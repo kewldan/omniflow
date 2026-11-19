@@ -7,10 +7,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/payments"
 	"github.com/omniflow/omniflow/internal/remnawave"
+	"github.com/omniflow/omniflow/internal/remnawavesync"
 )
 
 // loadExpansionView renders the v0.5 routes: wallet top-up, the saved cart, and
@@ -506,7 +508,20 @@ func (app *App) rotateSubscriptionLink(ctx context.Context, session commerceCont
 	if err != nil || !subscription.Provisioned() {
 		return View{Text: text(session.Locale, "subs.notProvisioned"), Keyboard: keyboard(row(actionButton(text(session.Locale, "action.back"), "sub:"+subscriptionID)))}
 	}
-	if err = app.remnawave.RevokeSubscription(ctx, subscription.RemnawaveID); err != nil {
+	back := keyboard(row(actionButton(text(session.Locale, "action.back"), "sub:"+subscriptionID)))
+	var customerID, target pgtype.UUID
+	if customerID.Scan(session.Customer.ID) != nil || target.Scan(subscriptionID) != nil {
+		return app.errorView(session.Locale, routeSubscriptions)
+	}
+	err = remnawavesync.RotateLink(ctx, app.customers.pool, app.remnawave, app.settings.Connect,
+		customerID, target, subscription.RemnawaveID)
+	var cooldown *remnawavesync.RotationCooldownError
+	switch {
+	case errors.Is(err, remnawavesync.ErrRotationDisabled):
+		return View{Text: text(session.Locale, "subs.rotateDisabled"), Keyboard: back}
+	case errors.As(err, &cooldown):
+		return View{Text: text(session.Locale, "subs.rotateCooldown", formatDuration(session.Locale, time.Until(cooldown.RetryAt).Round(time.Minute))), Keyboard: back}
+	case err != nil:
 		app.logger.Error("subscription rotation failed", "error", err)
 		return app.errorView(session.Locale, routeSubscriptions)
 	}

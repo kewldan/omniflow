@@ -140,6 +140,17 @@ that opens `<APP_PUBLIC_URL>/account` as a Mini App, labelled with `APP_BOT_MENU
 «Кабинет»). It needs an `https` public address and is left alone when the setting is off, so a button
 set by hand in BotFather is not overruled.
 
+### Re-issuing the link
+
+A customer re-issues a subscription's link from the bot or the web panel; the old link stops working
+and every device needs the new one. The security page also has **Re-issue all links**, which does it
+for every subscription at once and reports how many were skipped.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `APP_SUBSCRIPTION_REVOKE_ENABLED` | `true` | `false` refuses every customer re-issue (`403 rotation_disabled` on the web, a notice in the bot). Operators can still re-issue in Remnawave |
+| `APP_SUBSCRIPTION_REVOKE_COOLDOWN_MINUTES` | `0` | Least time between two re-issues of one subscription (`429 rotation_cooldown` with `Retry-After`). The slot is stored on the subscription (`subscriptions.link_rotated_at`) and claimed before Remnawave is called, so it holds across the bot and the web; a re-issue Remnawave refused gives the slot back |
+
 ## Permissions and audit
 
 Reading needs `settings.read`; every change needs `settings.write`. Saves and

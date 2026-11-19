@@ -153,6 +153,10 @@ type Querier interface {
 	// Single redemption by construction: the predicate only matches a deliverable,
 	// unexpired gift, so a second claim of the same code updates no row.
 	ClaimGift(ctx context.Context, arg ClaimGiftParams) (Gift, error)
+	// Takes the re-issue slot of one subscription when the cooldown has passed,
+	// returning when it was last taken so a failed re-issue can give it back. No
+	// row means the subscription is not the customer's or is cooling down.
+	ClaimSubscriptionLinkRotation(ctx context.Context, arg ClaimSubscriptionLinkRotationParams) (pgtype.Timestamptz, error)
 	// Claims the customer's one trial for an order.
 	//
 	// A claim whose order closed unpaid is a claim that never happened, so it is
@@ -793,6 +797,7 @@ type Querier interface {
 	// domain. A plan with no price in the currency compares as zero, exactly as
 	// the catalogue's held plans do.
 	GetSubscriptionHeldPlan(ctx context.Context, arg GetSubscriptionHeldPlanParams) (GetSubscriptionHeldPlanRow, error)
+	GetSubscriptionLinkRotatedAt(ctx context.Context, arg GetSubscriptionLinkRotatedAtParams) (pgtype.Timestamptz, error)
 	// The migration seeds the row, so it is always there.
 	GetSubscriptionPolicy(ctx context.Context) (SubscriptionPolicy, error)
 	GetSupportQueue(ctx context.Context, id pgtype.UUID) (SupportQueue, error)
@@ -1778,6 +1783,7 @@ type Querier interface {
 	// An operator's verdict on a parked delivery. 'delivered' records that the
 	// goods did arrive; 'failed' releases it to the refund path.
 	ResolveGoodsDeliveryReview(ctx context.Context, arg ResolveGoodsDeliveryReviewParams) (GoodsDelivery, error)
+	RestoreSubscriptionLinkRotation(ctx context.Context, arg RestoreSubscriptionLinkRotationParams) error
 	// Gives back exactly the time the pause took.
 	//
 	// `ends_at` moves by the elapsed pause and `paused_seconds` records the same

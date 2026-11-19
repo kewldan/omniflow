@@ -2,6 +2,7 @@ package accountpg
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/customer"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
+	"github.com/omniflow/omniflow/internal/remnawavesync"
 )
 
 // ConnectionClient is one documented client application with the link that
@@ -103,8 +105,8 @@ func (service *Service) RotateSubscriptionLink(
 	if row.RemnawaveID <= 0 {
 		return "", ErrNotProvisioned
 	}
-	if err = service.remnawave.RevokeSubscription(ctx, row.RemnawaveID); err != nil {
-		return "", ErrRemnawaveUnavailable
+	if err = service.rotate(ctx, customerID, row); err != nil {
+		return "", err
 	}
 	// The new link is read back rather than assumed: Remnawave mints it, and
 	// showing the customer the old one after a rotation would be worse than
@@ -190,4 +192,80 @@ func uuidString(id pgtype.UUID) string {
 	}
 	text, _ := value.(string)
 	return text
+}
+
+// rotate re-issues one subscription's link under the operator's switch and
+// cooldown, which the bot shares through the same claim.
+func (service *Service) rotate(ctx context.Context, customerID string, row record) error {
+	userID, err := parseUUID(customerID)
+	if err != nil {
+		return err
+	}
+	subscriptionID, err := parseUUID(row.ID)
+	if err != nil {
+		return err
+	}
+	err = remnawavesync.RotateLink(ctx, service.pool, service.remnawave, service.links, userID, subscriptionID, row.RemnawaveID)
+	var cooldown *remnawavesync.RotationCooldownError
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, remnawavesync.ErrRotationDisabled):
+		return ErrRotationDisabled
+	case errors.As(err, &cooldown):
+		return err
+	case errors.Is(err, remnawavesync.ErrRotationUnknown):
+		return ErrNotFound
+	}
+	return ErrRemnawaveUnavailable
+}
+
+// RotationSummary reports what re-issuing every link did.
+type RotationSummary struct {
+	Rotated int
+	// CoolingDown are subscriptions skipped because their link was re-issued
+	// too recently; NotProvisioned have no link yet.
+	CoolingDown    int
+	NotProvisioned int
+}
+
+// RotateAllSubscriptionLinks re-issues the link of every subscription the
+// customer holds, for a customer who suspects all of them leaked at once. A
+// subscription inside its cooldown is skipped and counted rather than failing
+// the rest; a Remnawave failure stops the run and reports it.
+func (service *Service) RotateAllSubscriptionLinks(
+	ctx context.Context, customerID, locale string, request SecurityRequest,
+) (RotationSummary, error) {
+	if !service.links.RevokeAllowed() {
+		return RotationSummary{}, ErrRotationDisabled
+	}
+	overview, err := service.Overview(ctx, customerID, locale)
+	if err != nil {
+		return RotationSummary{}, err
+	}
+	var summary RotationSummary
+	for _, subscription := range overview.Subscriptions {
+		row, recordErr := service.subscriptionRecord(ctx, customerID, subscription.ID, "")
+		if recordErr != nil {
+			return summary, recordErr
+		}
+		if row.RemnawaveID <= 0 {
+			summary.NotProvisioned++
+			continue
+		}
+		rotateErr := service.rotate(ctx, customerID, row)
+		var cooldown *remnawavesync.RotationCooldownError
+		switch {
+		case errors.As(rotateErr, &cooldown):
+			summary.CoolingDown++
+			continue
+		case rotateErr != nil:
+			return summary, rotateErr
+		}
+		summary.Rotated++
+		service.recordSecurity(ctx, customerID, "subscription_key_rotated", request, map[string]any{
+			"subscription": row.Label,
+		})
+	}
+	return summary, nil
 }

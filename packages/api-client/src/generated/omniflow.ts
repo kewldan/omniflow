@@ -6582,6 +6582,16 @@ export type RotateAccountSubscriptionLink200 = {
   subscriptionUrl: string;
 };
 
+export type RotateAllAccountSubscriptionLinksBody = {
+  confirm: boolean;
+};
+
+export type RotateAllAccountSubscriptionLinks200 = {
+  rotated: number;
+  coolingDown: number;
+  notProvisioned: number;
+};
+
 export type RemoveAllAccountDevicesParams = {
   confirm: RemoveAllAccountDevicesConfirm;
 };
@@ -27739,6 +27749,11 @@ export type rotateAccountSubscriptionLinkResponse401 = {
   status: 401;
 };
 
+export type rotateAccountSubscriptionLinkResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
 export type rotateAccountSubscriptionLinkResponse404 = {
   data: ProblemResponse;
   status: 404;
@@ -27747,6 +27762,11 @@ export type rotateAccountSubscriptionLinkResponse404 = {
 export type rotateAccountSubscriptionLinkResponse422 = {
   data: ProblemResponse;
   status: 422;
+};
+
+export type rotateAccountSubscriptionLinkResponse429 = {
+  data: ProblemResponse;
+  status: 429;
 };
 
 export type rotateAccountSubscriptionLinkResponse503 = {
@@ -27760,8 +27780,10 @@ export type rotateAccountSubscriptionLinkResponseSuccess =
   };
 export type rotateAccountSubscriptionLinkResponseError = (
   | rotateAccountSubscriptionLinkResponse401
+  | rotateAccountSubscriptionLinkResponse403
   | rotateAccountSubscriptionLinkResponse404
   | rotateAccountSubscriptionLinkResponse422
+  | rotateAccountSubscriptionLinkResponse429
   | rotateAccountSubscriptionLinkResponse503
 ) & {
   headers: Headers;
@@ -27832,6 +27854,111 @@ export const useRotateAccountSubscriptionLink = <TError = Promise<ProblemRespons
 
   const swrKey = swrOptions?.swrKey ?? getRotateAccountSubscriptionLinkMutationKey(subscriptionID);
   const swrFn = getRotateAccountSubscriptionLinkMutationFetcher(subscriptionID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type rotateAllAccountSubscriptionLinksResponse200 = {
+  data: RotateAllAccountSubscriptionLinks200;
+  status: 200;
+};
+
+export type rotateAllAccountSubscriptionLinksResponse401 = {
+  data: ProblemResponse;
+  status: 401;
+};
+
+export type rotateAllAccountSubscriptionLinksResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type rotateAllAccountSubscriptionLinksResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type rotateAllAccountSubscriptionLinksResponse503 = {
+  data: ProblemResponse;
+  status: 503;
+};
+
+export type rotateAllAccountSubscriptionLinksResponseSuccess =
+  rotateAllAccountSubscriptionLinksResponse200 & {
+    headers: Headers;
+  };
+export type rotateAllAccountSubscriptionLinksResponseError = (
+  | rotateAllAccountSubscriptionLinksResponse401
+  | rotateAllAccountSubscriptionLinksResponse403
+  | rotateAllAccountSubscriptionLinksResponse422
+  | rotateAllAccountSubscriptionLinksResponse503
+) & {
+  headers: Headers;
+};
+
+export type rotateAllAccountSubscriptionLinksResponse =
+  | rotateAllAccountSubscriptionLinksResponseSuccess
+  | rotateAllAccountSubscriptionLinksResponseError;
+
+export const getRotateAllAccountSubscriptionLinksUrl = () => {
+  return `/v1/account/subscriptions/rotate-links`;
+};
+
+/**
+ * Re-issues the access link of every subscription the customer holds. Needs an explicit confirmation and a recent sign-in. A subscription inside the operator's re-issue cooldown is skipped and counted in `coolingDown`; 403 `rotation_disabled` when the operator turned re-issue off.
+ */
+export const rotateAllAccountSubscriptionLinks = async (
+  rotateAllAccountSubscriptionLinksBody: RotateAllAccountSubscriptionLinksBody,
+  options?: RequestInit,
+): Promise<rotateAllAccountSubscriptionLinksResponse> => {
+  const res = await fetch(getRotateAllAccountSubscriptionLinksUrl(), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(rotateAllAccountSubscriptionLinksBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: rotateAllAccountSubscriptionLinksResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as rotateAllAccountSubscriptionLinksResponse;
+};
+
+export const getRotateAllAccountSubscriptionLinksMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: RotateAllAccountSubscriptionLinksBody }) => {
+    return rotateAllAccountSubscriptionLinks(arg, options);
+  };
+};
+export const getRotateAllAccountSubscriptionLinksMutationKey = () =>
+  [`/v1/account/subscriptions/rotate-links`] as const;
+
+export type RotateAllAccountSubscriptionLinksMutationResult = NonNullable<
+  Awaited<ReturnType<typeof rotateAllAccountSubscriptionLinks>>
+>;
+
+export const useRotateAllAccountSubscriptionLinks = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof rotateAllAccountSubscriptionLinks>>,
+    TError,
+    Key,
+    RotateAllAccountSubscriptionLinksBody,
+    Awaited<ReturnType<typeof rotateAllAccountSubscriptionLinks>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRotateAllAccountSubscriptionLinksMutationKey();
+  const swrFn = getRotateAllAccountSubscriptionLinksMutationFetcher(fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

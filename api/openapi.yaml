@@ -3451,7 +3451,36 @@ paths:
       responses:
         "200": {description: Rotated, content: {application/json: {schema: {type: object, required: [subscriptionUrl], properties: {subscriptionUrl: {type: string}}}}}}
         "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
         "404": {$ref: "#/components/responses/Problem"}
+        "429": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
+  /v1/account/subscriptions/rotate-links:
+    post:
+      operationId: rotateAllAccountSubscriptionLinks
+      tags: [account]
+      description: >-
+        Re-issues the access link of every subscription the customer holds. Needs an explicit
+        confirmation and a recent sign-in. A subscription inside the operator's re-issue cooldown is
+        skipped and counted in `coolingDown`; 403 `rotation_disabled` when the operator turned
+        re-issue off.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [confirm], properties: {confirm: {type: boolean}}}}}}
+      responses:
+        "200":
+          description: What was re-issued
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rotated, coolingDown, notProvisioned]
+                properties:
+                  rotated: {type: integer}
+                  coolingDown: {type: integer}
+                  notProvisioned: {type: integer}
+        "401": {$ref: "#/components/responses/Problem"}
+        "403": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
         "503": {$ref: "#/components/responses/Problem"}
   /v1/account/subscriptions/{subscriptionID}/devices:

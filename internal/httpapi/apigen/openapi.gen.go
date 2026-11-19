@@ -10190,6 +10190,17 @@ type UnlinkAccountSignInMethodParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// RotateAllAccountSubscriptionLinksJSONBody defines parameters for RotateAllAccountSubscriptionLinks.
+type RotateAllAccountSubscriptionLinksJSONBody struct {
+	Confirm bool `json:"confirm"`
+}
+
+// RotateAllAccountSubscriptionLinksParams defines parameters for RotateAllAccountSubscriptionLinks.
+type RotateAllAccountSubscriptionLinksParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // GetAccountSubscriptionParams defines parameters for GetAccountSubscription.
 type GetAccountSubscriptionParams struct {
 	Locale *GetAccountSubscriptionParamsLocale `form:"locale,omitempty" json:"locale,omitempty"`
@@ -11750,6 +11761,9 @@ type PurchaseAccountShopProductJSONRequestBody PurchaseAccountShopProductJSONBod
 // ReviewAccountShopRecipientJSONRequestBody defines body for ReviewAccountShopRecipient for application/json ContentType.
 type ReviewAccountShopRecipientJSONRequestBody ReviewAccountShopRecipientJSONBody
 
+// RotateAllAccountSubscriptionLinksJSONRequestBody defines body for RotateAllAccountSubscriptionLinks for application/json ContentType.
+type RotateAllAccountSubscriptionLinksJSONRequestBody RotateAllAccountSubscriptionLinksJSONBody
+
 // RenameAccountSubscriptionJSONRequestBody defines body for RenameAccountSubscription for application/json ContentType.
 type RenameAccountSubscriptionJSONRequestBody RenameAccountSubscriptionJSONBody
 
@@ -12423,6 +12437,9 @@ type ServerInterface interface {
 
 	// (DELETE /v1/account/sign-in-methods/{identityID})
 	UnlinkAccountSignInMethod(w http.ResponseWriter, r *http.Request, identityID openapi_types.UUID, params UnlinkAccountSignInMethodParams)
+
+	// (POST /v1/account/subscriptions/rotate-links)
+	RotateAllAccountSubscriptionLinks(w http.ResponseWriter, r *http.Request, params RotateAllAccountSubscriptionLinksParams)
 
 	// (GET /v1/account/subscriptions/{subscriptionID})
 	GetAccountSubscription(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params GetAccountSubscriptionParams)
@@ -13590,6 +13607,11 @@ func (_ Unimplemented) StartAccountOidcLink(w http.ResponseWriter, r *http.Reque
 
 // (DELETE /v1/account/sign-in-methods/{identityID})
 func (_ Unimplemented) UnlinkAccountSignInMethod(w http.ResponseWriter, r *http.Request, identityID openapi_types.UUID, params UnlinkAccountSignInMethodParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/subscriptions/rotate-links)
+func (_ Unimplemented) RotateAllAccountSubscriptionLinks(w http.ResponseWriter, r *http.Request, params RotateAllAccountSubscriptionLinksParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -17792,6 +17814,51 @@ func (siw *ServerInterfaceWrapper) UnlinkAccountSignInMethod(w http.ResponseWrit
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UnlinkAccountSignInMethod(w, r, identityID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RotateAllAccountSubscriptionLinks operation middleware
+func (siw *ServerInterfaceWrapper) RotateAllAccountSubscriptionLinks(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RotateAllAccountSubscriptionLinksParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RotateAllAccountSubscriptionLinks(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -30239,6 +30306,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/rotate-link", wrapper.RotateAccountSubscriptionLink)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/subscriptions/rotate-links", wrapper.RotateAllAccountSubscriptionLinks)
+	})
+	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/devices", wrapper.RemoveAllAccountDevices)
 	})
 	r.Group(func(r chi.Router) {
@@ -33688,6 +33758,91 @@ func (response UnlinkAccountSignInMethod409ApplicationProblemPlusJSONResponse) V
 	return err
 }
 
+type RotateAllAccountSubscriptionLinksRequestObject struct {
+	Params RotateAllAccountSubscriptionLinksParams
+	Body   *RotateAllAccountSubscriptionLinksJSONRequestBody
+}
+
+type RotateAllAccountSubscriptionLinksResponseObject interface {
+	VisitRotateAllAccountSubscriptionLinksResponse(w http.ResponseWriter) error
+}
+
+type RotateAllAccountSubscriptionLinks200JSONResponse struct {
+	CoolingDown    int `json:"coolingDown"`
+	NotProvisioned int `json:"notProvisioned"`
+	Rotated        int `json:"rotated"`
+}
+
+func (response RotateAllAccountSubscriptionLinks200JSONResponse) VisitRotateAllAccountSubscriptionLinksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RotateAllAccountSubscriptionLinks401ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RotateAllAccountSubscriptionLinks401ApplicationProblemPlusJSONResponse) VisitRotateAllAccountSubscriptionLinksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RotateAllAccountSubscriptionLinks403ApplicationProblemPlusJSONResponse Problem
+
+func (response RotateAllAccountSubscriptionLinks403ApplicationProblemPlusJSONResponse) VisitRotateAllAccountSubscriptionLinksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RotateAllAccountSubscriptionLinks422ApplicationProblemPlusJSONResponse Problem
+
+func (response RotateAllAccountSubscriptionLinks422ApplicationProblemPlusJSONResponse) VisitRotateAllAccountSubscriptionLinksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RotateAllAccountSubscriptionLinks503ApplicationProblemPlusJSONResponse Problem
+
+func (response RotateAllAccountSubscriptionLinks503ApplicationProblemPlusJSONResponse) VisitRotateAllAccountSubscriptionLinksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetAccountSubscriptionRequestObject struct {
 	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
 	Params         GetAccountSubscriptionParams
@@ -34053,6 +34208,20 @@ func (response RotateAccountSubscriptionLink401ApplicationProblemPlusJSONRespons
 	return err
 }
 
+type RotateAccountSubscriptionLink403ApplicationProblemPlusJSONResponse Problem
+
+func (response RotateAccountSubscriptionLink403ApplicationProblemPlusJSONResponse) VisitRotateAccountSubscriptionLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type RotateAccountSubscriptionLink404ApplicationProblemPlusJSONResponse Problem
 
 func (response RotateAccountSubscriptionLink404ApplicationProblemPlusJSONResponse) VisitRotateAccountSubscriptionLinkResponse(w http.ResponseWriter) error {
@@ -34077,6 +34246,20 @@ func (response RotateAccountSubscriptionLink422ApplicationProblemPlusJSONRespons
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RotateAccountSubscriptionLink429ApplicationProblemPlusJSONResponse Problem
+
+func (response RotateAccountSubscriptionLink429ApplicationProblemPlusJSONResponse) VisitRotateAccountSubscriptionLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(429)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -46211,6 +46394,9 @@ type StrictServerInterface interface {
 	// (DELETE /v1/account/sign-in-methods/{identityID})
 	UnlinkAccountSignInMethod(ctx context.Context, request UnlinkAccountSignInMethodRequestObject) (UnlinkAccountSignInMethodResponseObject, error)
 
+	// (POST /v1/account/subscriptions/rotate-links)
+	RotateAllAccountSubscriptionLinks(ctx context.Context, request RotateAllAccountSubscriptionLinksRequestObject) (RotateAllAccountSubscriptionLinksResponseObject, error)
+
 	// (GET /v1/account/subscriptions/{subscriptionID})
 	GetAccountSubscription(ctx context.Context, request GetAccountSubscriptionRequestObject) (GetAccountSubscriptionResponseObject, error)
 
@@ -49137,6 +49323,39 @@ func (sh *strictHandler) UnlinkAccountSignInMethod(w http.ResponseWriter, r *htt
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(UnlinkAccountSignInMethodResponseObject); ok {
 		if err := validResponse.VisitUnlinkAccountSignInMethodResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RotateAllAccountSubscriptionLinks operation middleware
+func (sh *strictHandler) RotateAllAccountSubscriptionLinks(w http.ResponseWriter, r *http.Request, params RotateAllAccountSubscriptionLinksParams) {
+	var request RotateAllAccountSubscriptionLinksRequestObject
+
+	request.Params = params
+
+	var body RotateAllAccountSubscriptionLinksJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RotateAllAccountSubscriptionLinks(ctx, request.(RotateAllAccountSubscriptionLinksRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RotateAllAccountSubscriptionLinks")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RotateAllAccountSubscriptionLinksResponseObject); ok {
+		if err := validResponse.VisitRotateAllAccountSubscriptionLinksResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

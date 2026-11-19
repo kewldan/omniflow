@@ -8029,6 +8029,25 @@ export const RotateAccountSubscriptionLinkResponse = zod.object({
 });
 
 /**
+ * Re-issues the access link of every subscription the customer holds. Needs an explicit confirmation and a recent sign-in. A subscription inside the operator's re-issue cooldown is skipped and counted in `coolingDown`; 403 `rotation_disabled` when the operator turned re-issue off.
+ */
+export const RotateAllAccountSubscriptionLinksHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const RotateAllAccountSubscriptionLinksBody = zod.object({
+  confirm: zod.boolean(),
+});
+
+export const RotateAllAccountSubscriptionLinksResponse = zod.object({
+  rotated: zod.int(),
+  coolingDown: zod.int(),
+  notProvisioned: zod.int(),
+});
+
+/**
  * Connected devices. No hardware identifier and no IP address is returned; a device is named by an opaque handle the server resolves back.
  */
 export const ListAccountDevicesParams = zod.object({

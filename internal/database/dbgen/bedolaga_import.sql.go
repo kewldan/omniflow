@@ -319,7 +319,7 @@ SELECT $1, COALESCE(max(slot), 0) + 1, $2,
        $3, $4,
        $5, now(), $6
 FROM subscriptions WHERE user_id = $1
-RETURNING id, user_id, slot, label, status, remnawave_user_id, remnawave_username, observed_state, reconciled_at, created_at, updated_at, closed_at
+RETURNING id, user_id, slot, label, status, remnawave_user_id, remnawave_username, observed_state, reconciled_at, created_at, updated_at, closed_at, link_rotated_at
 `
 
 type InsertImportedSubscriptionParams struct {
@@ -358,6 +358,7 @@ func (q *Queries) InsertImportedSubscription(ctx context.Context, arg InsertImpo
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ClosedAt,
+		&i.LinkRotatedAt,
 	)
 	return i, err
 }

@@ -185,7 +185,7 @@ const closeSubscription = `-- name: CloseSubscription :one
 UPDATE subscriptions
 SET status = 'closed', closed_at = now(), updated_at = now()
 WHERE id = $1 AND user_id = $2 AND status = 'active'
-RETURNING id, user_id, slot, label, status, remnawave_user_id, remnawave_username, observed_state, reconciled_at, created_at, updated_at, closed_at
+RETURNING id, user_id, slot, label, status, remnawave_user_id, remnawave_username, observed_state, reconciled_at, created_at, updated_at, closed_at, link_rotated_at
 `
 
 type CloseSubscriptionParams struct {
@@ -209,6 +209,7 @@ func (q *Queries) CloseSubscription(ctx context.Context, arg CloseSubscriptionPa
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ClosedAt,
+		&i.LinkRotatedAt,
 	)
 	return i, err
 }
@@ -484,7 +485,7 @@ const createSubscription = `-- name: CreateSubscription :one
 INSERT INTO subscriptions (user_id, slot, label)
 SELECT $1, COALESCE(max(slot), 0) + 1, $2
 FROM subscriptions WHERE user_id = $1
-RETURNING id, user_id, slot, label, status, remnawave_user_id, remnawave_username, observed_state, reconciled_at, created_at, updated_at, closed_at
+RETURNING id, user_id, slot, label, status, remnawave_user_id, remnawave_username, observed_state, reconciled_at, created_at, updated_at, closed_at, link_rotated_at
 `
 
 type CreateSubscriptionParams struct {
@@ -508,6 +509,7 @@ func (q *Queries) CreateSubscription(ctx context.Context, arg CreateSubscription
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ClosedAt,
+		&i.LinkRotatedAt,
 	)
 	return i, err
 }
@@ -681,7 +683,7 @@ WITH candidates AS (
   WHERE subscription_id IN (SELECT id FROM candidates)
 )
 DELETE FROM subscriptions WHERE id IN (SELECT id FROM candidates)
-RETURNING id, user_id, slot, label, status, remnawave_user_id, remnawave_username, observed_state, reconciled_at, created_at, updated_at, closed_at
+RETURNING id, user_id, slot, label, status, remnawave_user_id, remnawave_username, observed_state, reconciled_at, created_at, updated_at, closed_at, link_rotated_at
 `
 
 // Removes a customer's subscriptions that exist only because an order once
@@ -724,6 +726,7 @@ func (q *Queries) DeleteGhostSubscriptions(ctx context.Context, userID pgtype.UU
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ClosedAt,
+			&i.LinkRotatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1036,7 +1039,7 @@ func (q *Queries) GetCartGoods(ctx context.Context, cartID pgtype.UUID) (GetCart
 }
 
 const getCustomerSubscription = `-- name: GetCustomerSubscription :one
-SELECT id, user_id, slot, label, status, remnawave_user_id, remnawave_username, observed_state, reconciled_at, created_at, updated_at, closed_at FROM subscriptions WHERE id = $1 AND user_id = $2
+SELECT id, user_id, slot, label, status, remnawave_user_id, remnawave_username, observed_state, reconciled_at, created_at, updated_at, closed_at, link_rotated_at FROM subscriptions WHERE id = $1 AND user_id = $2
 `
 
 type GetCustomerSubscriptionParams struct {
@@ -1060,6 +1063,7 @@ func (q *Queries) GetCustomerSubscription(ctx context.Context, arg GetCustomerSu
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ClosedAt,
+		&i.LinkRotatedAt,
 	)
 	return i, err
 }
@@ -1163,7 +1167,7 @@ func (q *Queries) GetOperatorTopic(ctx context.Context, kind string) (OperatorTo
 }
 
 const getPrimarySubscription = `-- name: GetPrimarySubscription :one
-SELECT id, user_id, slot, label, status, remnawave_user_id, remnawave_username, observed_state, reconciled_at, created_at, updated_at, closed_at FROM subscriptions
+SELECT id, user_id, slot, label, status, remnawave_user_id, remnawave_username, observed_state, reconciled_at, created_at, updated_at, closed_at, link_rotated_at FROM subscriptions
 WHERE user_id = $1 AND status = 'active'
 ORDER BY slot
 LIMIT 1
@@ -1185,12 +1189,13 @@ func (q *Queries) GetPrimarySubscription(ctx context.Context, userID pgtype.UUID
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ClosedAt,
+		&i.LinkRotatedAt,
 	)
 	return i, err
 }
 
 const getSubscription = `-- name: GetSubscription :one
-SELECT id, user_id, slot, label, status, remnawave_user_id, remnawave_username, observed_state, reconciled_at, created_at, updated_at, closed_at FROM subscriptions WHERE id = $1
+SELECT id, user_id, slot, label, status, remnawave_user_id, remnawave_username, observed_state, reconciled_at, created_at, updated_at, closed_at, link_rotated_at FROM subscriptions WHERE id = $1
 `
 
 func (q *Queries) GetSubscription(ctx context.Context, id pgtype.UUID) (Subscription, error) {
@@ -1209,12 +1214,13 @@ func (q *Queries) GetSubscription(ctx context.Context, id pgtype.UUID) (Subscrip
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ClosedAt,
+		&i.LinkRotatedAt,
 	)
 	return i, err
 }
 
 const getSubscriptionByRemnawaveUser = `-- name: GetSubscriptionByRemnawaveUser :one
-SELECT id, user_id, slot, label, status, remnawave_user_id, remnawave_username, observed_state, reconciled_at, created_at, updated_at, closed_at FROM subscriptions WHERE remnawave_user_id = $1
+SELECT id, user_id, slot, label, status, remnawave_user_id, remnawave_username, observed_state, reconciled_at, created_at, updated_at, closed_at, link_rotated_at FROM subscriptions WHERE remnawave_user_id = $1
 `
 
 func (q *Queries) GetSubscriptionByRemnawaveUser(ctx context.Context, remnawaveUserID pgtype.Int8) (Subscription, error) {
@@ -1233,6 +1239,7 @@ func (q *Queries) GetSubscriptionByRemnawaveUser(ctx context.Context, remnawaveU
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ClosedAt,
+		&i.LinkRotatedAt,
 	)
 	return i, err
 }
@@ -1783,7 +1790,7 @@ func (q *Queries) ListPlanVersionSquads(ctx context.Context, planVersionID pgtyp
 const listSubscriptions = `-- name: ListSubscriptions :many
 
 
-SELECT id, user_id, slot, label, status, remnawave_user_id, remnawave_username, observed_state, reconciled_at, created_at, updated_at, closed_at FROM subscriptions
+SELECT id, user_id, slot, label, status, remnawave_user_id, remnawave_username, observed_state, reconciled_at, created_at, updated_at, closed_at, link_rotated_at FROM subscriptions
 WHERE user_id = $1 AND status = 'active'
 ORDER BY slot
 `
@@ -1815,6 +1822,7 @@ func (q *Queries) ListSubscriptions(ctx context.Context, userID pgtype.UUID) ([]
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ClosedAt,
+			&i.LinkRotatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1827,7 +1835,7 @@ func (q *Queries) ListSubscriptions(ctx context.Context, userID pgtype.UUID) ([]
 }
 
 const listSubscriptionsForAlerts = `-- name: ListSubscriptionsForAlerts :many
-SELECT s.id, s.user_id, s.slot, s.label, s.status, s.remnawave_user_id, s.remnawave_username, s.observed_state, s.reconciled_at, s.created_at, s.updated_at, s.closed_at, u.locale
+SELECT s.id, s.user_id, s.slot, s.label, s.status, s.remnawave_user_id, s.remnawave_username, s.observed_state, s.reconciled_at, s.created_at, s.updated_at, s.closed_at, s.link_rotated_at, u.locale
 FROM subscriptions s
 JOIN users u ON u.id = s.user_id
 WHERE s.status = 'active' AND s.remnawave_user_id IS NOT NULL
@@ -1848,6 +1856,7 @@ type ListSubscriptionsForAlertsRow struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	ClosedAt          pgtype.Timestamptz `json:"closed_at"`
+	LinkRotatedAt     pgtype.Timestamptz `json:"link_rotated_at"`
 	Locale            string             `json:"locale"`
 }
 
@@ -1873,6 +1882,7 @@ func (q *Queries) ListSubscriptionsForAlerts(ctx context.Context, limit int32) (
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ClosedAt,
+			&i.LinkRotatedAt,
 			&i.Locale,
 		); err != nil {
 			return nil, err
@@ -2149,7 +2159,7 @@ func (q *Queries) RecordCartFailure(ctx context.Context, arg RecordCartFailurePa
 const renameSubscription = `-- name: RenameSubscription :one
 UPDATE subscriptions SET label = $1, updated_at = now()
 WHERE id = $2 AND user_id = $3
-RETURNING id, user_id, slot, label, status, remnawave_user_id, remnawave_username, observed_state, reconciled_at, created_at, updated_at, closed_at
+RETURNING id, user_id, slot, label, status, remnawave_user_id, remnawave_username, observed_state, reconciled_at, created_at, updated_at, closed_at, link_rotated_at
 `
 
 type RenameSubscriptionParams struct {
@@ -2174,6 +2184,7 @@ func (q *Queries) RenameSubscription(ctx context.Context, arg RenameSubscription
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ClosedAt,
+		&i.LinkRotatedAt,
 	)
 	return i, err
 }
@@ -2600,7 +2611,7 @@ SET remnawave_user_id = $1,
     remnawave_username = COALESCE($2, remnawave_username),
     observed_state = $3, reconciled_at = now(), updated_at = now()
 WHERE id = $4
-RETURNING id, user_id, slot, label, status, remnawave_user_id, remnawave_username, observed_state, reconciled_at, created_at, updated_at, closed_at
+RETURNING id, user_id, slot, label, status, remnawave_user_id, remnawave_username, observed_state, reconciled_at, created_at, updated_at, closed_at, link_rotated_at
 `
 
 type UpsertSubscriptionRemnawaveUserParams struct {
@@ -2631,6 +2642,7 @@ func (q *Queries) UpsertSubscriptionRemnawaveUser(ctx context.Context, arg Upser
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ClosedAt,
+		&i.LinkRotatedAt,
 	)
 	return i, err
 }
