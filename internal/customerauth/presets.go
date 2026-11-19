@@ -87,7 +87,7 @@ func ProviderPresets() []ProviderPreset {
 			RequireVerifiedEmail: true,
 			Note: "Discord issues an ID token only when the `openid` scope is " +
 				"requested; the `email` scope is what carries the address.",
-		},		{
+		}, {
 			Slug:        "vk",
 			DisplayName: "VK ID",
 			// Not an OIDC issuer: VK ID publishes no discovery document, so
@@ -102,6 +102,5 @@ func ProviderPresets() []ProviderPreset {
 				"as a trusted redirect URL, and paste the app ID as the client ID. " +
 				"No client secret is needed: VK ID uses PKCE.",
 		},
-
 	}
 }
