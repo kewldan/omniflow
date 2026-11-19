@@ -1,0 +1,66 @@
+## CloudPayments
+
+Card acquiring over the CloudPayments REST API (`https://api.cloudpayments.ru`) with HTTP Basic
+authentication: the site's Public ID as the user name and its API secret as the password. Each
+checkout is an order created with `POST /orders/create`; the customer pays on the CloudPayments page
+the order links to.
+
+**Currencies.** One: the currency the site settles in, `RUB` unless `APP_CLOUDPAYMENTS_CURRENCY`
+says otherwise. A plan priced in any other currency does not offer CloudPayments.
+
+### Configuration
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_CLOUDPAYMENTS_PUBLIC_ID` | Yes | — | The site's Public ID from the CloudPayments cabinet. |
+| `APP_CLOUDPAYMENTS_API_SECRET` | Yes | — | The site's API secret. Authenticates API calls and signs notifications. |
+| `APP_CLOUDPAYMENTS_CURRENCY` | No | `RUB` | The single currency orders are sent in. |
+| `APP_CLOUDPAYMENTS_API_URL` | No | `https://api.cloudpayments.ru` | API origin. |
+| `APP_CLOUDPAYMENTS_TEST_MODE` | No | `false` | When `false`, a notification marked `TestMode` is recorded but never settles an order. |
+
+Setting only one of the two credentials fails startup; setting neither leaves the adapter
+unregistered.
+
+### Notifications
+
+In the CloudPayments cabinet, point the **Check**, **Pay**, and **Fail** notifications at the same URL:
+
+```text
+https://<APP_PUBLIC_URL>/v1/payments/webhooks/cloudpayments
+```
+
+Every notification must carry a valid `X-Content-HMAC` or `Content-HMAC` header — base64 of
+HMAC-SHA256 over the body, keyed by the API secret. Both the URL-encoded and the decoded body are
+accepted, because CloudPayments computes the two headers over different forms. Form-encoded and JSON
+notification formats are both read.
+
+One URL receives all three kinds, so they are told apart by content:
+
+- **Pay** — status `Completed` with a `Reason` or `AuthCode`. This is the only notification that
+  settles an order.
+- **Fail** — status `Declined` or `Cancelled`. Recorded; nothing settles.
+- **Check** — anything else, sent before the card is charged. Recorded and allowed; nothing settles.
+
+A status of `Authorized` is a two-stage hold that Omniflow never captures, so it does not settle.
+Use one-stage payments on the site.
+
+Every recorded notification is answered `{"code":0}`, the only body CloudPayments treats as received.
+The event ID is `<kind>:<TransactionId>`, so a redelivery is recognised as a duplicate.
+
+### Capabilities
+
+- **Polling.** `POST /payments/find` by invoice ID, which is Omniflow's order ID. Until a transaction
+  exists the intent stays `pending`.
+- **Refunds.** Full and partial, through `POST /payments/refund` against the transaction found for
+  the invoice. Omniflow's refund idempotency key is sent as `X-Request-ID`, so a repeated request is
+  answered with the original result rather than refunding twice.
+- **Recurring.** Not supported. CloudPayments binds a card token to the `AccountId` it was issued for,
+  which a saved-method charge in Omniflow does not carry.
+- **Connection test.** `POST /payments/find` for an invoice that cannot exist: valid credentials are
+  answered without an error, wrong ones with HTTP 401.
+
+### Testing
+
+Set `APP_CLOUDPAYMENTS_TEST_MODE=true` on a test site, configure the notification URL, and pay an
+order with a CloudPayments test card. The order settles when the Pay notification arrives. Return
+`APP_CLOUDPAYMENTS_TEST_MODE` to `false` before taking live payments.

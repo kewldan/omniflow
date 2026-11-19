@@ -1,0 +1,54 @@
+## ParityPay
+
+RUB invoices, paid by SBP or card, through the ParityPay v2 API (`https://api.paritypay.net`).
+Requests authenticate with the `X-ShopId` and `X-SecretKey` headers (secret key №1). Omniflow creates
+an invoice with `POST /v2/invoice/create`, and the customer pays on the ParityPay page it links to.
+
+**Currencies.** `RUB` only.
+
+### Configuration
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_PARITYPAY_SHOP_ID` | Yes | — | The cash desk UUID, sent as `X-ShopId`. |
+| `APP_PARITYPAY_SECRET_KEY` | Yes | — | Secret key №1, sent as `X-SecretKey`. |
+| `APP_PARITYPAY_CALLBACK_SECRET` | Yes | — | Secret key №2. Verifies notifications. |
+| `APP_PARITYPAY_SERVICE` | No | empty | `sbp` or `card` to force one method; empty lets the customer choose on the page. Set it when the cash desk has exactly one method enabled. |
+| `APP_PARITYPAY_INVOICE_LIFETIME_MINUTES` | No | `60` | Invoice lifetime. |
+| `APP_PARITYPAY_BASE_URL` | No | `https://api.paritypay.net` | API origin. |
+
+Setting some but not all of the three keys fails startup.
+
+### Notifications
+
+Set the notification URL in the ParityPay cash desk settings. When `APP_PUBLIC_URL` is set, Omniflow
+also sends it with each invoice as `callback_url`:
+
+```text
+https://<APP_PUBLIC_URL>/v1/payments/webhooks/paritypay
+```
+
+A notification must carry `X-SIGNATURE`: the hex HMAC-SHA256, keyed by secret key №2, of the body's
+top-level values concatenated in key order, with numbers exactly as sent and `null` as an empty
+string. The signature is checked before anything else is read.
+
+Only status `PAID` settles, and a `PAID` notification without a readable `amount` is rejected. The
+event ID is `<status>:<id>`. Subscription notifications, which share the URL, are recorded and
+acknowledged without changing anything.
+
+ParityPay rejects a repeated `order_id` with HTTP 422. When that happens on a retried checkout,
+Omniflow looks the invoice up by order and reuses it.
+
+### Capabilities
+
+- **Polling.** `GET /v2/invoice/status?id=…`. ParityPay allows 60 requests a minute per IP, so
+  notifications rather than polling carry the normal flow.
+- **Refunds.** Not supported: the API has no refund call.
+- **Recurring.** Not supported. ParityPay subscriptions need separate approval from the provider and
+  are not charged on a merchant's request.
+- **Connection test.** None.
+
+### Testing
+
+Configure the three keys, set the notification URL, and pay a small order. A notification whose
+signature does not verify is rejected and ParityPay retries it.
