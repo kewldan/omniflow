@@ -3066,20 +3066,95 @@ func (e PanelTrafficReportNodesDetail) Valid() bool {
 
 // Defines values for PaymentProvider.
 const (
+	PaymentProviderAnore         PaymentProvider = "anore"
+	PaymentProviderAntilopay     PaymentProvider = "antilopay"
+	PaymentProviderAurapay       PaymentProvider = "aurapay"
+	PaymentProviderCashera       PaymentProvider = "cashera"
+	PaymentProviderCispay        PaymentProvider = "cispay"
+	PaymentProviderCloudpayments PaymentProvider = "cloudpayments"
 	PaymentProviderCryptobot     PaymentProvider = "cryptobot"
+	PaymentProviderDonut         PaymentProvider = "donut"
+	PaymentProviderEtoplatezhi   PaymentProvider = "etoplatezhi"
+	PaymentProviderFreekassa     PaymentProvider = "freekassa"
+	PaymentProviderHeleket       PaymentProvider = "heleket"
+	PaymentProviderJupiter       PaymentProvider = "jupiter"
+	PaymentProviderKassaAi       PaymentProvider = "kassa_ai"
+	PaymentProviderLava          PaymentProvider = "lava"
 	PaymentProviderManual        PaymentProvider = "manual"
+	PaymentProviderMulenpay      PaymentProvider = "mulenpay"
+	PaymentProviderOverpay       PaymentProvider = "overpay"
+	PaymentProviderPal24         PaymentProvider = "pal24"
+	PaymentProviderParitypay     PaymentProvider = "paritypay"
+	PaymentProviderPayhot        PaymentProvider = "payhot"
+	PaymentProviderPlatega       PaymentProvider = "platega"
+	PaymentProviderRiopay        PaymentProvider = "riopay"
+	PaymentProviderRollypay      PaymentProvider = "rollypay"
+	PaymentProviderSeverpay      PaymentProvider = "severpay"
+	PaymentProviderTabpay        PaymentProvider = "tabpay"
 	PaymentProviderTelegramStars PaymentProvider = "telegram_stars"
+	PaymentProviderTribute       PaymentProvider = "tribute"
+	PaymentProviderWata          PaymentProvider = "wata"
 	PaymentProviderYookassa      PaymentProvider = "yookassa"
 )
 
 // Valid indicates whether the value is a known member of the PaymentProvider enum.
 func (e PaymentProvider) Valid() bool {
 	switch e {
+	case PaymentProviderAnore:
+		return true
+	case PaymentProviderAntilopay:
+		return true
+	case PaymentProviderAurapay:
+		return true
+	case PaymentProviderCashera:
+		return true
+	case PaymentProviderCispay:
+		return true
+	case PaymentProviderCloudpayments:
+		return true
 	case PaymentProviderCryptobot:
+		return true
+	case PaymentProviderDonut:
+		return true
+	case PaymentProviderEtoplatezhi:
+		return true
+	case PaymentProviderFreekassa:
+		return true
+	case PaymentProviderHeleket:
+		return true
+	case PaymentProviderJupiter:
+		return true
+	case PaymentProviderKassaAi:
+		return true
+	case PaymentProviderLava:
 		return true
 	case PaymentProviderManual:
 		return true
+	case PaymentProviderMulenpay:
+		return true
+	case PaymentProviderOverpay:
+		return true
+	case PaymentProviderPal24:
+		return true
+	case PaymentProviderParitypay:
+		return true
+	case PaymentProviderPayhot:
+		return true
+	case PaymentProviderPlatega:
+		return true
+	case PaymentProviderRiopay:
+		return true
+	case PaymentProviderRollypay:
+		return true
+	case PaymentProviderSeverpay:
+		return true
+	case PaymentProviderTabpay:
+		return true
 	case PaymentProviderTelegramStars:
+		return true
+	case PaymentProviderTribute:
+		return true
+	case PaymentProviderWata:
 		return true
 	case PaymentProviderYookassa:
 		return true

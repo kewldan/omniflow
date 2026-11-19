@@ -337,14 +337,15 @@ func (service *Service) HandleWebhook(ctx context.Context, providerName string, 
 	if stored.Status == "processed" || stored.Status == "ignored" {
 		return "duplicate", nil
 	}
-	// YooKassa notifications are untrusted hints. Fetch the payment through the
+	// Unsigned notifications (YooKassa and every adapter that declares
+	// PollVerifiedWebhooks) are untrusted hints. Fetch the payment through the
 	// authenticated API and only use that response for financial state changes.
 	//
 	// The poll happens only for a payment this installation actually opened.
 	// The notification is unauthenticated, so without that check anyone could
 	// make the API spend a provider request — and a slot in the provider's
 	// rate limit — for every well-formed body they post.
-	if providerName == "yookassa" {
+	if payments.NeedsWebhookPolling(provider) {
 		if _, lookupErr := service.webhookIntent(ctx, queries, providerName, event); lookupErr != nil {
 			_, _ = queries.CompleteWebhookEvent(ctx, dbgen.CompleteWebhookEventParams{WebhookEventID: stored.ID, Status: "failed", ErrorCode: optionalText("payment_not_found")})
 			service.observeWebhook(providerName, "payment_not_found")
@@ -385,6 +386,21 @@ func (service *Service) HandleWebhook(ctx context.Context, providerName string, 
 		return classification, err
 	}
 	return classification, completeErr
+}
+
+// WebhookAck returns the provider-specific success body for a verified
+// notification, when the adapter's provider requires one.
+func (service *Service) WebhookAck(providerName, classification string) (int, string, []byte, bool) {
+	provider, ok := service.providers[providerName]
+	if !ok {
+		return 0, "", nil, false
+	}
+	acknowledger, ok := provider.(payments.WebhookAcknowledger)
+	if !ok {
+		return 0, "", nil, false
+	}
+	status, contentType, body := acknowledger.WebhookAck(classification)
+	return status, contentType, body, true
 }
 
 func (service *Service) ApproveManual(ctx context.Context, paymentIntentID, operatorID, reason, idempotencyKey, requestID string, approved bool) (dbgen.ManualPaymentApproval, error) {

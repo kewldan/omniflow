@@ -180,6 +180,11 @@ func basicAuth(username, password string) string {
 }
 
 var _ Provider = (*YooKassa)(nil)
+
+// WebhooksNeedPolling marks YooKassa notifications as unsigned hints: the
+// payment service re-fetches the payment before applying one.
+func (provider *YooKassa) WebhooksNeedPolling() bool { return true }
+
 var _ = fmt.Sprintf
 
 // Probe verifies the shop credentials by listing a single payment.

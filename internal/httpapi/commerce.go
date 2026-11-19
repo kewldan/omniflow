@@ -353,9 +353,18 @@ func (handlers *CommerceHandlers) paymentWebhook(writer http.ResponseWriter, req
 		writeProblem(writer, request, 413, "payload_too_large", "Webhook is too large")
 		return
 	}
-	classification, err := handlers.payments.HandleWebhook(request.Context(), chi.URLParam(request, "provider"), request.Header, body)
+	providerName := chi.URLParam(request, "provider")
+	classification, err := handlers.payments.HandleWebhook(request.Context(), providerName, request.Header, body)
 	if err != nil {
 		writeProblem(writer, request, 400, "webhook_rejected", "Webhook could not be verified or processed")
+		return
+	}
+	// Some providers retry until they read an exact body (FreeKassa wants
+	// "YES", CloudPayments wants {"code":0}); the adapter supplies it.
+	if status, contentType, ack, ok := handlers.payments.WebhookAck(providerName, classification); ok {
+		writer.Header().Set("Content-Type", contentType)
+		writer.WriteHeader(status)
+		_, _ = writer.Write(ack)
 		return
 	}
 	writeJSON(writer, 200, map[string]string{"status": classification})

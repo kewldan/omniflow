@@ -126,6 +126,7 @@ func NewCommerceCore(
 		CryptoBotTestnet: cfg.Payments.CryptoBotTestnet,
 		YooKassaShopID:   cfg.Payments.YooKassaShopID,
 		YooKassaSecret:   cfg.Payments.YooKassaSecret,
+		PublicURL:        cfg.Payments.PublicURL,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("configure payment providers: %w", err)

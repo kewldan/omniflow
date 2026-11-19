@@ -62,6 +62,10 @@ type PaymentConfig struct {
 	CryptoBotTestnet bool
 	YooKassaShopID   string
 	YooKassaSecret   string
+	// PublicURL is APP_PUBLIC_URL. Adapters that send a callback URL with each
+	// payment build it from here; every other provider credential is read from
+	// the environment by its builder in payments.Builders.
+	PublicURL string
 }
 
 // CommerceConfig is everything the shared commerce core needs from the
@@ -529,6 +533,7 @@ func (cfg Config) Commerce() CommerceConfig {
 			TelegramToken: cfg.TelegramToken, CryptoBotToken: cfg.CryptoBotToken,
 			CryptoBotTestnet: cfg.CryptoBotTestnet,
 			YooKassaShopID:   cfg.YooKassaShopID, YooKassaSecret: cfg.YooKassaSecret,
+			PublicURL: os.Getenv("APP_PUBLIC_URL"),
 		},
 	}
 }
@@ -541,6 +546,7 @@ func (cfg BotConfig) Commerce() CommerceConfig {
 			TelegramToken: cfg.TelegramToken, CryptoBotToken: cfg.CryptoBotToken,
 			CryptoBotTestnet: cfg.CryptoBotTestnet,
 			YooKassaShopID:   cfg.YooKassaShopID, YooKassaSecret: cfg.YooKassaSecret,
+			PublicURL: os.Getenv("APP_PUBLIC_URL"),
 		},
 	}
 }
@@ -553,6 +559,7 @@ func (cfg WorkerConfig) Commerce() CommerceConfig {
 			TelegramToken: cfg.TelegramToken, CryptoBotToken: cfg.CryptoBotToken,
 			CryptoBotTestnet: cfg.CryptoBotTestnet,
 			YooKassaShopID:   cfg.YooKassaShopID, YooKassaSecret: cfg.YooKassaSecret,
+			PublicURL: os.Getenv("APP_PUBLIC_URL"),
 		},
 	}
 }

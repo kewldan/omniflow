@@ -4700,7 +4700,7 @@ components:
     Order:
       type: object
       properties: {id: {type: string, format: uuid}, customerId: {type: string, format: uuid}, state: {type: string, enum: [draft, pending, paid, fulfilled, cancelled, expired, partially_refunded, refunded]}, operation: {type: string}, currency: {type: string}, subtotalMinor: {type: integer, format: int64}, discountMinor: {type: integer, format: int64}, walletMinor: {type: integer, format: int64}, externalMinor: {type: integer, format: int64}, paidMinor: {type: integer, format: int64}, refundedMinor: {type: integer, format: int64}, expiresAt: {type: string, format: date-time}, createdAt: {type: string, format: date-time}}
-    PaymentProvider: {type: string, enum: [telegram_stars, cryptobot, yookassa, manual]}
+    PaymentProvider: {type: string, enum: [telegram_stars, cryptobot, yookassa, manual, heleket, mulenpay, pal24, platega, cashera, tribute, freekassa, kassa_ai, riopay, severpay, rollypay, aurapay, wata, cloudpayments, lava, overpay, paritypay, payhot, cispay, antilopay, anore, donut, etoplatezhi, jupiter, tabpay]}
     PaymentInput:
       type: object
       required: [provider, description]

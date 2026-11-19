@@ -783,7 +783,7 @@ CREATE TABLE public.auto_renew_settings (
     CONSTRAINT auto_renew_settings_currency_check CHECK (((currency IS NULL) OR (currency ~ '^[A-Z]{3}$'::text))),
     CONSTRAINT auto_renew_settings_funding_check CHECK ((funding = ANY (ARRAY['wallet'::text, 'saved_method'::text]))),
     CONSTRAINT auto_renew_settings_lead_time_seconds_check CHECK ((lead_time_seconds >= 0)),
-    CONSTRAINT auto_renew_settings_provider_check CHECK ((provider = ANY (ARRAY['telegram_stars'::text, 'cryptobot'::text, 'yookassa'::text, 'manual'::text]))),
+    CONSTRAINT auto_renew_settings_provider_check CHECK ((provider = ANY (ARRAY['manual'::text, 'telegram_stars'::text, 'cryptobot'::text, 'yookassa'::text, 'heleket'::text, 'mulenpay'::text, 'pal24'::text, 'platega'::text, 'cashera'::text, 'tribute'::text, 'freekassa'::text, 'kassa_ai'::text, 'riopay'::text, 'severpay'::text, 'rollypay'::text, 'aurapay'::text, 'wata'::text, 'cloudpayments'::text, 'lava'::text, 'overpay'::text, 'paritypay'::text, 'payhot'::text, 'cispay'::text, 'antilopay'::text, 'anore'::text, 'donut'::text, 'etoplatezhi'::text, 'jupiter'::text, 'tabpay'::text]))),
     CONSTRAINT auto_renew_settings_saved_method_present CHECK (((funding <> 'saved_method'::text) OR (payment_method_id IS NOT NULL))),
     CONSTRAINT auto_renew_settings_state_check CHECK ((state = ANY (ARRAY['idle'::text, 'scheduled'::text, 'dunning'::text, 'suspended'::text])))
 );
@@ -948,7 +948,7 @@ CREATE TABLE public.bot_checkout_sessions (
     CONSTRAINT bot_checkout_sessions_currency_check CHECK ((currency ~ '^[A-Z]{3}$'::text)),
     CONSTRAINT bot_checkout_sessions_operation_check CHECK ((operation = ANY (ARRAY['purchase'::text, 'upgrade'::text, 'downgrade'::text, 'extension'::text]))),
     CONSTRAINT bot_checkout_sessions_promo_code_check CHECK (((promo_code IS NULL) OR (promo_code ~ '^[A-Z0-9_-]{3,64}$'::text))),
-    CONSTRAINT bot_checkout_sessions_provider_check CHECK ((provider = ANY (ARRAY['telegram_stars'::text, 'cryptobot'::text, 'yookassa'::text, 'manual'::text])))
+    CONSTRAINT bot_checkout_sessions_provider_check CHECK ((provider = ANY (ARRAY['manual'::text, 'telegram_stars'::text, 'cryptobot'::text, 'yookassa'::text, 'heleket'::text, 'mulenpay'::text, 'pal24'::text, 'platega'::text, 'cashera'::text, 'tribute'::text, 'freekassa'::text, 'kassa_ai'::text, 'riopay'::text, 'severpay'::text, 'rollypay'::text, 'aurapay'::text, 'wata'::text, 'cloudpayments'::text, 'lava'::text, 'overpay'::text, 'paritypay'::text, 'payhot'::text, 'cispay'::text, 'antilopay'::text, 'anore'::text, 'donut'::text, 'etoplatezhi'::text, 'jupiter'::text, 'tabpay'::text])))
 );
 
 
@@ -2700,7 +2700,7 @@ CREATE TABLE public.payment_intents (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT payment_intents_amount_minor_check CHECK ((amount_minor >= 0)),
     CONSTRAINT payment_intents_currency_check CHECK ((currency ~ '^[A-Z]{3}$'::text)),
-    CONSTRAINT payment_intents_provider_check CHECK ((provider = ANY (ARRAY['telegram_stars'::text, 'cryptobot'::text, 'yookassa'::text, 'manual'::text]))),
+    CONSTRAINT payment_intents_provider_check CHECK ((provider = ANY (ARRAY['manual'::text, 'telegram_stars'::text, 'cryptobot'::text, 'yookassa'::text, 'heleket'::text, 'mulenpay'::text, 'pal24'::text, 'platega'::text, 'cashera'::text, 'tribute'::text, 'freekassa'::text, 'kassa_ai'::text, 'riopay'::text, 'severpay'::text, 'rollypay'::text, 'aurapay'::text, 'wata'::text, 'cloudpayments'::text, 'lava'::text, 'overpay'::text, 'paritypay'::text, 'payhot'::text, 'cispay'::text, 'antilopay'::text, 'anore'::text, 'donut'::text, 'etoplatezhi'::text, 'jupiter'::text, 'tabpay'::text]))),
     CONSTRAINT payment_intents_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'requires_action'::text, 'processing'::text, 'succeeded'::text, 'failed'::text, 'cancelled'::text, 'expired'::text])))
 );
 
@@ -2725,7 +2725,7 @@ CREATE TABLE public.payment_methods (
     revoked_at timestamp with time zone,
     CONSTRAINT payment_methods_display_label_check CHECK ((char_length(display_label) <= 64)),
     CONSTRAINT payment_methods_merchant_id_check CHECK ((char_length(merchant_id) <= 64)),
-    CONSTRAINT payment_methods_provider_check CHECK ((provider = ANY (ARRAY['telegram_stars'::text, 'cryptobot'::text, 'yookassa'::text, 'manual'::text]))),
+    CONSTRAINT payment_methods_provider_check CHECK ((provider = ANY (ARRAY['manual'::text, 'telegram_stars'::text, 'cryptobot'::text, 'yookassa'::text, 'heleket'::text, 'mulenpay'::text, 'pal24'::text, 'platega'::text, 'cashera'::text, 'tribute'::text, 'freekassa'::text, 'kassa_ai'::text, 'riopay'::text, 'severpay'::text, 'rollypay'::text, 'aurapay'::text, 'wata'::text, 'cloudpayments'::text, 'lava'::text, 'overpay'::text, 'paritypay'::text, 'payhot'::text, 'cispay'::text, 'antilopay'::text, 'anore'::text, 'donut'::text, 'etoplatezhi'::text, 'jupiter'::text, 'tabpay'::text]))),
     CONSTRAINT payment_methods_provider_token_check CHECK (((char_length(provider_token) >= 1) AND (char_length(provider_token) <= 256))),
     CONSTRAINT payment_methods_revocation_complete CHECK (((status = 'revoked'::text) = (revoked_at IS NOT NULL))),
     CONSTRAINT payment_methods_status_check CHECK ((status = ANY (ARRAY['active'::text, 'expired'::text, 'revoked'::text, 'failed'::text])))
@@ -2757,7 +2757,7 @@ CREATE TABLE public.payment_provider_settings (
     updated_by uuid,
     CONSTRAINT payment_provider_settings_connection_status_check CHECK ((connection_status = ANY (ARRAY['unknown'::text, 'healthy'::text, 'failing'::text]))),
     CONSTRAINT payment_provider_settings_merchant_id_check CHECK ((char_length(merchant_id) <= 64)),
-    CONSTRAINT payment_provider_settings_provider_check CHECK ((provider = ANY (ARRAY['telegram_stars'::text, 'cryptobot'::text, 'yookassa'::text, 'manual'::text]))),
+    CONSTRAINT payment_provider_settings_provider_check CHECK ((provider = ANY (ARRAY['manual'::text, 'telegram_stars'::text, 'cryptobot'::text, 'yookassa'::text, 'heleket'::text, 'mulenpay'::text, 'pal24'::text, 'platega'::text, 'cashera'::text, 'tribute'::text, 'freekassa'::text, 'kassa_ai'::text, 'riopay'::text, 'severpay'::text, 'rollypay'::text, 'aurapay'::text, 'wata'::text, 'cloudpayments'::text, 'lava'::text, 'overpay'::text, 'paritypay'::text, 'payhot'::text, 'cispay'::text, 'antilopay'::text, 'anore'::text, 'donut'::text, 'etoplatezhi'::text, 'jupiter'::text, 'tabpay'::text]))),
     CONSTRAINT payment_provider_settings_recurring_test_status_check CHECK ((recurring_test_status = ANY (ARRAY['untested'::text, 'passed'::text, 'failed'::text]))),
     CONSTRAINT payment_provider_settings_recurring_tested CHECK (((recurring_enabled = false) OR (recurring_test_status = 'passed'::text))),
     CONSTRAINT payment_provider_settings_webhook_status_check CHECK ((webhook_status = ANY (ARRAY['unknown'::text, 'healthy'::text, 'failing'::text])))

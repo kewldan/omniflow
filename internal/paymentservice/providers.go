@@ -1,6 +1,9 @@
 package paymentservice
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omniflow/omniflow/internal/payments"
 )
@@ -16,6 +19,12 @@ type ProviderOptions struct {
 	CryptoBotTestnet bool
 	YooKassaShopID   string
 	YooKassaSecret   string
+	// Env reads the credentials of every adapter in payments.Builders. Nil
+	// means the process environment.
+	Env payments.Env
+	// PublicURL is APP_PUBLIC_URL; adapters that send a callback URL per
+	// payment derive it from here.
+	PublicURL string
 }
 
 // ConfigureProviders builds the adapter set from an installation's credentials.
@@ -51,6 +60,17 @@ func ConfigureProviders(
 		provider, err := payments.NewYooKassa(options.YooKassaShopID, options.YooKassaSecret)
 		if err != nil {
 			return nil, err
+		}
+		providers = append(providers, provider)
+	}
+	settings := payments.Settings{Env: options.Env, PublicURL: options.PublicURL}
+	for _, builder := range payments.Builders {
+		provider, err := builder.Build(settings)
+		if errors.Is(err, payments.ErrNotConfigured) {
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("configure %s: %w", builder.Slug, err)
 		}
 		providers = append(providers, provider)
 	}
