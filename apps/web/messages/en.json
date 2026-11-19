@@ -434,7 +434,8 @@
           "read": "Read",
           "write": "Change",
           "export": "Export",
-          "roles": "Grant roles"
+          "roles": "Grant roles",
+          "manage": "Decide orders"
         },
         "domains": {
           "admins": "Operators",
@@ -1737,7 +1738,8 @@
         "orders": "Orders",
         "products": "Products",
         "providers": "Providers",
-        "review": "Needs review"
+        "review": "Needs review",
+        "stars": "Stars"
       },
       "columns": {
         "createdAt": "Placed",
@@ -1768,7 +1770,8 @@
         "delivering": "Delivering",
         "delivered": "Delivered",
         "failed": "Failed",
-        "refunded": "Refunded"
+        "refunded": "Refunded",
+        "needs_review": "Needs review"
       },
       "failure": {
         "retryable": "Retrying",
@@ -1796,7 +1799,10 @@
         "rounding": "Rounding",
         "quoteTtl": "Quote validity (seconds)",
         "minorUnitsHint": "Enter the price as a customer reads it, such as 499.00. 1500 basis points is a 15% markup, and every rounding mode rounds up.",
-        "save": "Save pricing"
+        "save": "Save pricing",
+        "perStar": "{amount} per Star",
+        "usePerStar": "Price per Star",
+        "perStarAmount": "Price per Star"
       },
       "rounding": {
         "none": "exact",
@@ -1820,6 +1826,91 @@
         "attempts": "Attempts",
         "confirmDelivered": "Confirm delivered",
         "refund": "Refund customer"
+      },
+      "customAmount": "{min}–{max}, chosen by the customer",
+      "stars": {
+        "statusTitle": "Direct Fragment provider",
+        "statusUnavailable": "The provider's state could not be read",
+        "configured": "Configured",
+        "notConfigured": "Not configured",
+        "dryRun": "Dry run",
+        "dryRunExplainer": "Dry run is on: orders pass through every state, but nothing is bought on Fragment and no TON leaves the wallet.",
+        "enabled": "Sell Stars through this provider",
+        "walletVersion": "Wallet",
+        "tonApi": "TON API",
+        "rate": "TON rate",
+        "rateUnknown": "Unavailable",
+        "lowStars": "Low-wallet warning below",
+        "vpnOffer": "VPN offer after delivery",
+        "on": "On",
+        "off": "Off",
+        "secretsHint": "The Fragment cookies, the wallet's seed phrase, and the TON API key are read from APP_FRAGMENT_* environment variables only. They are never stored, shown, or logged.",
+        "walletTitle": "Paying wallet",
+        "walletUnavailable": "The wallet could not be read",
+        "refresh": "Refresh",
+        "copyAddress": "Copy address",
+        "balance": "Balance",
+        "price100": "100 Stars on Fragment",
+        "covers": "Covers",
+        "coversStars": "about {count} Stars",
+        "statsTitle": "Sales",
+        "period": "Period",
+        "days": "{count, plural, one {Last day} other {Last # days}}",
+        "revenue": "Revenue",
+        "starsSold": "Stars sold",
+        "margin": "Margin",
+        "cost": "Cost",
+        "unknown": "Unknown",
+        "delivered": "Delivered / orders",
+        "refunds": "Refunds",
+        "inFlight": "In flight",
+        "needsReview": "Needs review",
+        "ordersTitle": "Stars orders",
+        "search": "Recipient, order, or customer",
+        "statusFilter": "Status",
+        "allStatuses": "All statuses",
+        "stars": "Stars",
+        "payment": "Payment",
+        "unconfirmed": "Fragment not told",
+        "source": {
+          "bot": "bot",
+          "web": "web",
+          "auto_cart": "after top-up",
+          "unknown": "—"
+        },
+        "actions": {
+          "retry": "Retry",
+          "refund": "Refund",
+          "complete": "Delivered",
+          "cancel": "Cancel",
+          "reason": "Reason (required, kept in the audit log)",
+          "txHash": "Transaction hash (optional)",
+          "retryTitle": "Send the order to Fragment again?",
+          "retryExplainer": "Only after checking the wallet's outgoing transfers: if this order's payment did leave, retrying pays for the same Stars a second time.",
+          "retryConfirm": "Retry delivery",
+          "refundTitle": "Refund the customer?",
+          "refundExplainer": "What the customer paid goes back to their wallet. Refund only if the payment did not leave, or the Stars will be both delivered and refunded.",
+          "refundConfirm": "Refund",
+          "completeTitle": "Mark as delivered?",
+          "completeExplainer": "Use this when the wallet shows the payment went through and the Stars reached the recipient.",
+          "completeConfirm": "Mark delivered"
+        },
+        "setup": {
+          "title": "Sell Stars by amount",
+          "description": "Creates the product the bot's “Buy Stars” button and the web shop sell: the customer picks an amount between the bounds and pays a fixed price per Star.",
+          "code": "Code",
+          "min": "Minimum Stars",
+          "max": "Maximum Stars",
+          "presets": "Preset amounts",
+          "currency": "Currency",
+          "price": "Price per Star",
+          "nameRu": "Name (Russian)",
+          "nameEn": "Name (English)",
+          "create": "Create and publish",
+          "badBounds": "The minimum must be at least 50 (Fragment's floor) and not above the maximum.",
+          "badPresets": "Every preset must lie between the minimum and the maximum.",
+          "badPrice": "Enter a price per Star, such as 1.50."
+        }
       }
     },
     "gifts": {
@@ -3467,6 +3558,15 @@
         "notFoundDescription": "The product or order behind this link does not exist, or is no longer yours to see.",
         "orderError": "This order could not be loaded",
         "orderErrorDescription": "Your order is safe — only this page failed. Try again in a moment."
+      },
+      "stars": {
+        "amount": "How many Stars",
+        "hint": "Choose a preset or type an amount from {min} to {max}.",
+        "hintPriced": "Choose a preset or type an amount from {min} to {max}. {price} per Star."
+      },
+      "topUpAndBuy": {
+        "action": "Pay from my wallet, topping up what is missing",
+        "hint": "The purchase is saved at this price. Top up the missing amount and it is bought automatically once the payment lands — if the price rises in between, nothing is charged and you are told."
       }
     },
     "support": {
@@ -4153,7 +4253,8 @@
           "remaining": "You may still add {amount} in this period.",
           "submit": "Add to wallet",
           "startedDescription": "{amount} lands in your wallet as soon as the payment is confirmed. This page does not need to stay open.",
-          "submitting": "Starting the payment…"
+          "submitting": "Starting the payment…",
+          "forShop": "Your shop purchase is saved. Top up {amount} and it is bought automatically as soon as the payment lands."
         },
         "pending": {
           "title": "Waiting to be paid",

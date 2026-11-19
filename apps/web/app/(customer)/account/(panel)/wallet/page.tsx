@@ -5,6 +5,7 @@ import { Button } from "@omniflow/ui/button";
 import { cn } from "@omniflow/ui/lib/utils";
 import { toast } from "@omniflow/ui/toast";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useForm, useWatch } from "react-hook-form";
 import useSWRInfinite from "swr/infinite";
@@ -259,6 +260,16 @@ function TopUpForm({
   const describeProblem = useProblemMessage();
   const describeCode = useProblemCode();
   const submission = useSubmission();
+  // The shop sends a customer here to top up exactly what a saved purchase is
+  // missing; the amount arrives prefilled, raised to the smallest top-up the
+  // policy accepts, and the screen says the purchase will make itself.
+  const searchParams = useSearchParams();
+  const requestedMinor = Number(searchParams.get("topup") ?? "");
+  const forShop = searchParams.get("for") === "shop";
+  const prefilledMinor =
+    Number.isInteger(requestedMinor) && requestedMinor > 0
+      ? Math.max(requestedMinor, policy.minimumMinor)
+      : 0;
 
   // The input is in the currency's major unit because that is what a person
   // types; the API is in minor units because that is the only representation
@@ -295,7 +306,7 @@ function TopUpForm({
   type Values = z.infer<typeof schema>;
   const { control, formState, handleSubmit, register, reset, setValue } = useForm<Values>({
     defaultValues: {
-      amount: "",
+      amount: prefilledMinor > 0 ? minorToInput(prefilledMinor, currency) : "",
       // One way to pay is not a choice. Starting empty left the submit button
       // disabled with nothing on screen saying which of the one options to pick.
       provider: policy.providers.length === 1 ? policy.providers[0].provider : "",
@@ -354,6 +365,14 @@ function TopUpForm({
   return (
     <section className="space-y-2">
       <SectionLabel>{translate("wallet.topUp.title")}</SectionLabel>
+      {forShop && prefilledMinor > 0 && (
+        <p
+          className="rounded-lg border border-info/40 bg-info/10 px-4 py-3 text-[12.5px] leading-relaxed"
+          role="status"
+        >
+          {translate("wallet.topUp.forShop", { amount: money(prefilledMinor, currency) })}
+        </p>
+      )}
 
       <form
         className="space-y-4 rounded-lg border border-border bg-card p-4"

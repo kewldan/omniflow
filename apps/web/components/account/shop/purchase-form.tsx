@@ -25,6 +25,7 @@ import {
   type ShopOrder,
   type ShopProductDetail,
   type ShopQuote,
+  type ShopTopUpPlan,
 } from "@/components/account/shop/types";
 import { AccountNotice, ListSkeleton } from "@/components/account/state";
 import { type ApiError, apiFetch, fetcher, toQuery } from "@/lib/api";
@@ -69,6 +70,11 @@ export function PurchaseForm({ productId }: { productId: string }) {
   const walletId = useId();
 
   const [quantity, setQuantity] = useState(1);
+  // The amount chosen for a custom-amount Stars product. Zero lets the server
+  // pick the first preset, which the response then reports back.
+  const [stars, setStars] = useState(0);
+  const [starsInput, setStarsInput] = useState("");
+  const starsId = useId();
   const [promoInput, setPromoInput] = useState("");
   const [promoCode, setPromoCode] = useState("");
   const [useWallet, setUseWallet] = useState(false);
@@ -80,7 +86,11 @@ export function PurchaseForm({ productId }: { productId: string }) {
     null,
   );
 
-  const key = `/v1/account/shop/products/${productId}${toQuery({ promoCode, quantity })}`;
+  const key = `/v1/account/shop/products/${productId}${toQuery({
+    promoCode,
+    quantity,
+    stars: stars > 0 ? stars : undefined,
+  })}`;
   const { data, error, isLoading, mutate } = useSWR<ShopProductDetail, ApiError>(key, fetcher, {
     // The displayed price only changes when the customer changes something or
     // the hold lapses. A background revalidation swapping the amount under a
@@ -120,6 +130,56 @@ export function PurchaseForm({ productId }: { productId: string }) {
   const total = payableMinor(data.quote.priceMinor, discountMinor);
   const label = measure(data);
 
+  const custom = data.customAmount;
+  const chosenStars = data.stars ?? 0;
+
+  function chooseStars(next: number) {
+    setStars(next);
+    setStarsInput(String(next));
+    setPriceChange(null);
+    setNotice(null);
+  }
+
+  /**
+   * Saves the purchase to buy itself and sends the customer to top up exactly
+   * what is missing — the fork's «К оплате N ₽». Offered only for a price the
+   * operator set, which is the only kind charged unattended.
+   */
+  async function topUpAndBuy(detail: ShopProductDetail) {
+    if (!recipient) {
+      return;
+    }
+    setBusy(true);
+    setNotice(null);
+    try {
+      const plan = await apiFetch<ShopTopUpPlan>("/v1/account/shop/cart", {
+        body: JSON.stringify({
+          forSelf,
+          productId,
+          promoCode: detail.promo && !detail.promo.rejection ? detail.promo.code : undefined,
+          quantity,
+          quote: { currency: detail.quote.currency, priceMinor: detail.quote.priceMinor },
+          recipient: recipient.handle,
+          stars: custom ? chosenStars : undefined,
+        }),
+        method: "POST",
+      });
+      if (plan.shortfallMinor === 0) {
+        const order = await apiFetch<ShopOrder>("/v1/account/shop/cart/purchase", {
+          method: "POST",
+        });
+        void revalidateCommerce();
+        router.push(`/account/shop/orders/${order.id}`);
+        return;
+      }
+      router.push(`/account/wallet${toQuery({ for: "shop", topup: plan.shortfallMinor })}`);
+    } catch (failure) {
+      await handleFailure(failure, detail.quote);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function changeQuantity(next: number) {
     setQuantity(Math.min(MAX_QUANTITY, Math.max(1, Math.round(next))));
     setPriceChange(null);
@@ -150,6 +210,7 @@ export function PurchaseForm({ productId }: { productId: string }) {
     const signature = [
       productId,
       quantity,
+      chosenStars,
       recipient.handle,
       forSelf,
       promoCode,
@@ -168,6 +229,7 @@ export function PurchaseForm({ productId }: { productId: string }) {
           productId,
           promoCode: detail.promo && !detail.promo.rejection ? detail.promo.code : undefined,
           quantity,
+          stars: custom ? chosenStars : undefined,
           // The normalised handle the review step returned, byte for byte. The
           // server refuses anything else, which is what keeps that step
           // load-bearing rather than decorative.
@@ -251,43 +313,91 @@ export function PurchaseForm({ productId }: { productId: string }) {
         />
       ) : (
         <>
-          <section className="space-y-3 rounded-lg border border-border bg-card p-4">
-            <Label htmlFor={quantityId}>{translate("product.quantity")}</Label>
-            <div className="flex items-center gap-2">
-              <Button
-                aria-label={translate("product.decrease")}
-                disabled={quantity <= 1 || busy}
-                onClick={() => changeQuantity(quantity - 1)}
-                size="icon"
-                variant="outline"
-              >
-                <Minus aria-hidden />
-              </Button>
-              <Input
-                className="w-16 text-center font-mono"
-                disabled={busy}
-                id={quantityId}
-                inputMode="numeric"
-                max={MAX_QUANTITY}
-                min={1}
-                onChange={(event) => changeQuantity(Number(event.target.value))}
-                type="number"
-                value={quantity}
-              />
-              <Button
-                aria-label={translate("product.increase")}
-                disabled={quantity >= MAX_QUANTITY || busy}
-                onClick={() => changeQuantity(quantity + 1)}
-                size="icon"
-                variant="outline"
-              >
-                <Plus aria-hidden />
-              </Button>
-            </div>
-            <p className="text-[12px] text-muted-foreground leading-relaxed">
-              {translate("product.quantityHint", { max: MAX_QUANTITY })}
-            </p>
-          </section>
+          {custom ? (
+            <section className="space-y-3 rounded-lg border border-border bg-card p-4">
+              <Label htmlFor={starsId}>{translate("stars.amount")}</Label>
+              {custom.presets.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {custom.presets.map((preset) => (
+                    <Button
+                      disabled={busy}
+                      key={preset}
+                      onClick={() => chooseStars(preset)}
+                      size="sm"
+                      variant={chosenStars === preset ? "secondary" : "outline"}
+                    >
+                      {translate("measure.stars", { count: preset })}
+                    </Button>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <Input
+                  className="w-32 font-mono"
+                  disabled={busy}
+                  id={starsId}
+                  inputMode="numeric"
+                  onBlur={() => {
+                    const typed = Math.round(Number(starsInput));
+                    if (Number.isFinite(typed) && typed >= custom.min && typed <= custom.max) {
+                      chooseStars(typed);
+                    }
+                  }}
+                  onChange={(event) => setStarsInput(event.target.value)}
+                  placeholder={String(chosenStars || custom.min)}
+                  value={starsInput}
+                />
+                <span className="text-[12.5px] text-muted-foreground">⭐</span>
+              </div>
+              <p className="text-[12px] text-muted-foreground leading-relaxed">
+                {data.unitPriceMinor !== undefined
+                  ? translate("stars.hintPriced", {
+                      max: custom.max,
+                      min: custom.min,
+                      price: money(data.unitPriceMinor, data.currency),
+                    })
+                  : translate("stars.hint", { max: custom.max, min: custom.min })}
+              </p>
+            </section>
+          ) : (
+            <section className="space-y-3 rounded-lg border border-border bg-card p-4">
+              <Label htmlFor={quantityId}>{translate("product.quantity")}</Label>
+              <div className="flex items-center gap-2">
+                <Button
+                  aria-label={translate("product.decrease")}
+                  disabled={quantity <= 1 || busy}
+                  onClick={() => changeQuantity(quantity - 1)}
+                  size="icon"
+                  variant="outline"
+                >
+                  <Minus aria-hidden />
+                </Button>
+                <Input
+                  className="w-16 text-center font-mono"
+                  disabled={busy}
+                  id={quantityId}
+                  inputMode="numeric"
+                  max={MAX_QUANTITY}
+                  min={1}
+                  onChange={(event) => changeQuantity(Number(event.target.value))}
+                  type="number"
+                  value={quantity}
+                />
+                <Button
+                  aria-label={translate("product.increase")}
+                  disabled={quantity >= MAX_QUANTITY || busy}
+                  onClick={() => changeQuantity(quantity + 1)}
+                  size="icon"
+                  variant="outline"
+                >
+                  <Plus aria-hidden />
+                </Button>
+              </div>
+              <p className="text-[12px] text-muted-foreground leading-relaxed">
+                {translate("product.quantityHint", { max: MAX_QUANTITY })}
+              </p>
+            </section>
+          )}
 
           <section className="space-y-2 rounded-lg border border-border bg-card p-4">
             <Label htmlFor={promoId}>{translate("product.promo.label")}</Label>
@@ -410,6 +520,22 @@ export function PurchaseForm({ productId }: { productId: string }) {
                 ? translate("purchase.pending")
                 : translate("purchase.confirm", { amount: money(total, data.quote.currency) })}
             </Button>
+            {data.operatorPriced && (
+              <>
+                <Button
+                  className="w-full"
+                  disabled={busy || !recipient || priceChange !== null}
+                  onClick={() => topUpAndBuy(data)}
+                  size="lg"
+                  variant="outline"
+                >
+                  {translate("topUpAndBuy.action")}
+                </Button>
+                <p className="px-1 text-center text-[12px] text-muted-foreground leading-relaxed">
+                  {translate("topUpAndBuy.hint")}
+                </p>
+              </>
+            )}
             {!recipient && (
               <p className="px-1 text-center text-[12px] text-muted-foreground">
                 {translate("recipient.pending")}

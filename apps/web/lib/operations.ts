@@ -334,6 +334,10 @@ export type GoodsProduct = {
   kind: string;
   durationMonths?: number;
   starQuantity?: number;
+  /** A custom-amount Stars product: the customer picks between these. */
+  minStarQuantity?: number;
+  maxStarQuantity?: number;
+  starPresets?: number[];
   visible: boolean;
   sortOrder: number;
   archivedAt?: string;
@@ -343,6 +347,8 @@ export type GoodsProduct = {
     markupBps: number;
     rounding: string;
     fixedAmountMinor?: number;
+    /** A fixed price per Star. */
+    unitPriceMinor?: number;
     quoteTtlSeconds: number;
   };
 };
@@ -356,7 +362,8 @@ export type GoodsOrder = {
   recipientIsSelf: boolean;
   quotedCostMinor: number;
   quotedPriceMinor: number;
-  marginMinor: number;
+  /** Absent when the cost is unknown. */
+  marginMinor?: number;
   currency: string;
   status: string;
   deliveryStatus?: string;
@@ -365,6 +372,21 @@ export type GoodsOrder = {
   errorCode?: string;
   refunded: boolean;
   createdAt: string;
+  productKind: string;
+  productCode: string;
+  starQuantity?: number;
+  source: string;
+  paidMinor: number;
+  provider?: string;
+  providerRequestId?: string;
+  broadcastingAt?: string;
+  txHash?: string;
+  costNano?: number;
+  settledCostMinor?: number;
+  rateMinor?: number;
+  rateSource?: string;
+  providerConfirmed?: boolean;
+  dryRun: boolean;
 };
 
 export type ProviderSettings = {

@@ -6,6 +6,7 @@ import { Card } from "@omniflow/ui/card";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@omniflow/ui/tabs";
+import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR from "swr";
@@ -24,6 +25,7 @@ import {
 import { useSession } from "@/lib/session";
 import { PricingEditor } from "./pricing-editor";
 import { ReviewQueue } from "./review-queue";
+import { StarsPanel } from "./stars-panel";
 
 type GoodsProvider = {
   slug: string;
@@ -48,7 +50,10 @@ type GoodsProvider = {
  */
 export function ShopBrowser() {
   const translate = useTranslations("admin.shop");
-  const [tab, setTab] = useState("orders");
+  // A sale notice in the operator chat links here with ?order=<id>, which opens
+  // the Stars tab already searching for that order.
+  const order = useSearchParams().get("order") ?? "";
+  const [tab, setTab] = useState(order ? "stars" : "orders");
 
   return (
     <div className="flex flex-col gap-5">
@@ -56,12 +61,16 @@ export function ShopBrowser() {
       <Tabs onValueChange={setTab} value={tab}>
         <TabsList>
           <TabsTrigger value="orders">{translate("tabs.orders")}</TabsTrigger>
+          <TabsTrigger value="stars">{translate("tabs.stars")}</TabsTrigger>
           <TabsTrigger value="products">{translate("tabs.products")}</TabsTrigger>
           <TabsTrigger value="providers">{translate("tabs.providers")}</TabsTrigger>
           <TabsTrigger value="review">{translate("tabs.review")}</TabsTrigger>
         </TabsList>
         <TabsContent value="orders">
           <Orders active={tab === "orders"} />
+        </TabsContent>
+        <TabsContent value="stars">
+          <StarsPanel active={tab === "stars"} initialSearch={order} />
         </TabsContent>
         <TabsContent value="products">
           <Products active={tab === "products"} />
@@ -127,7 +136,9 @@ function Orders({ active }: { active: boolean }) {
                 {formatMoney(order.quotedPriceMinor, order.currency, locale)}
               </TableCell>
               <TableCell data-numeric>
-                {formatMoney(order.marginMinor, order.currency, locale)}
+                {order.marginMinor !== undefined
+                  ? formatMoney(order.marginMinor, order.currency, locale)
+                  : "—"}
               </TableCell>
               <TableCell>
                 <Badge
@@ -201,22 +212,35 @@ function Products({ active }: { active: boolean }) {
               <TableCell data-numeric>
                 {product.durationMonths
                   ? translate("months", { count: product.durationMonths })
-                  : (product.starQuantity?.toLocaleString(locale) ?? "—")}
+                  : product.maxStarQuantity !== undefined
+                    ? translate("customAmount", {
+                        max: product.maxStarQuantity.toLocaleString(locale),
+                        min: (product.minStarQuantity ?? 0).toLocaleString(locale),
+                      })
+                    : (product.starQuantity?.toLocaleString(locale) ?? "—")}
               </TableCell>
               <TableCell className="text-muted-foreground text-sm">
                 {product.pricing
-                  ? product.pricing.fixedAmountMinor
-                    ? translate("pricing.fixed", {
+                  ? product.pricing.unitPriceMinor
+                    ? translate("pricing.perStar", {
                         amount: formatMoney(
-                          product.pricing.fixedAmountMinor,
+                          product.pricing.unitPriceMinor,
                           product.pricing.currency,
                           locale,
                         ),
                       })
-                    : translate("pricing.markup", {
-                        percent: (product.pricing.markupBps / 100).toFixed(2),
-                        rounding: translate(`rounding.${product.pricing.rounding}`),
-                      })
+                    : product.pricing.fixedAmountMinor
+                      ? translate("pricing.fixed", {
+                          amount: formatMoney(
+                            product.pricing.fixedAmountMinor,
+                            product.pricing.currency,
+                            locale,
+                          ),
+                        })
+                      : translate("pricing.markup", {
+                          percent: (product.pricing.markupBps / 100).toFixed(2),
+                          rounding: translate(`rounding.${product.pricing.rounding}`),
+                        })
                   : translate("pricing.missing")}
               </TableCell>
               <TableCell>

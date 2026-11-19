@@ -31,6 +31,7 @@ const schema = z
     currency: currencyCode(),
     fixed: z.boolean(),
     fixedAmount: z.string(),
+    perStar: z.boolean(),
     markupBps: wholeNumber({ max: 100_000, min: 0 }),
     rounding: z.string(),
     ttl: wholeNumber({ max: 3600, min: 30 }),
@@ -83,13 +84,18 @@ export function PricingEditor({
   const form = useForm<Values>({
     defaultValues: {
       currency: initialCurrency,
-      fixed: Boolean(pricing?.fixedAmountMinor) || !costPublished,
+      fixed: Boolean(pricing?.fixedAmountMinor || pricing?.unitPriceMinor) || !costPublished,
       // Shown in major units: the stored integer is minor units, which is not
       // how anybody reads a price.
       fixedAmount:
-        pricing?.fixedAmountMinor != null
-          ? minorToInput(pricing.fixedAmountMinor, initialCurrency)
-          : "",
+        pricing?.unitPriceMinor != null
+          ? minorToInput(pricing.unitPriceMinor, initialCurrency)
+          : pricing?.fixedAmountMinor != null
+            ? minorToInput(pricing.fixedAmountMinor, initialCurrency)
+            : "",
+      // A custom-amount Stars product can only be priced per Star: there is no
+      // pack for a fixed amount to be the price of.
+      perStar: Boolean(pricing?.unitPriceMinor) || product.maxStarQuantity !== undefined,
       markupBps: String(pricing?.markupBps ?? 0),
       rounding: pricing?.rounding ?? "up_unit",
       ttl: String(pricing?.quoteTtlSeconds ?? 300),
@@ -97,7 +103,8 @@ export function PricingEditor({
     resolver: zodResolver(schema),
   });
   const { control, formState, handleSubmit, register } = form;
-  const [fixed, currency] = useWatch({ control, name: ["fixed", "currency"] });
+  const [fixed, currency, perStar] = useWatch({ control, name: ["fixed", "currency", "perStar"] });
+  const customAmount = product.maxStarQuantity !== undefined;
   const { run, pending, error } = useOperatorAction();
 
   async function save(values: Values) {
@@ -106,7 +113,11 @@ export function PricingEditor({
     const ok = await run(`/v1/panel/goods/products/${product.id}/pricing`, {
       body: {
         currency: code,
-        fixedAmountMinor: values.fixed && amount.ok ? amount.minor : null,
+        fixedAmountMinor: values.fixed && !values.perStar && amount.ok ? amount.minor : null,
+        // A fixed price per Star is what lets a saved purchase buy itself
+        // after a top-up; it opts out of the provider's cost like a fixed
+        // amount does.
+        unitPriceMinor: values.fixed && values.perStar && amount.ok ? amount.minor : null,
         // A fixed price ignores both, but the API still validates their
         // range, so they are sent as coherent values rather than blanks.
         markupBps: values.fixed ? 0 : Number(values.markupBps),
@@ -146,6 +157,23 @@ export function PricingEditor({
         {!costPublished && (
           <p className="text-muted-foreground text-xs">{translate("pricing.noPublishedCost")}</p>
         )}
+        {costPublished && fixed && (
+          <div className="flex items-center gap-3">
+            <Controller
+              control={control}
+              name="perStar"
+              render={({ field }) => (
+                <Switch
+                  checked={field.value}
+                  disabled={customAmount}
+                  id={`per-star-${product.id}`}
+                  onCheckedChange={field.onChange}
+                />
+              )}
+            />
+            <Label htmlFor={`per-star-${product.id}`}>{translate("pricing.usePerStar")}</Label>
+          </div>
+        )}
 
         <div className="grid gap-3 sm:grid-cols-2">
           <FormField
@@ -166,7 +194,7 @@ export function PricingEditor({
           {fixed ? (
             <FormField
               error={formState.errors.fixedAmount?.message}
-              label={translate("pricing.fixedAmount")}
+              label={translate(perStar ? "pricing.perStarAmount" : "pricing.fixedAmount")}
             >
               {(props) => (
                 <MoneyInput {...props} currency={currency} {...register("fixedAmount")} />

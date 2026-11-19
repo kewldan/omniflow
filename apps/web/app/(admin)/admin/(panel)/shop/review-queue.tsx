@@ -84,7 +84,7 @@ export function ReviewQueue({ active }: { active: boolean }) {
         {translate("reviewExplainer")}
       </Card>
 
-      {can("goods.write") && (
+      {can("goods.manage") && (
         <Card className="p-3">
           <Input
             onChange={(event) => setReason(event.target.value)}
@@ -136,7 +136,7 @@ export function ReviewQueue({ active }: { active: boolean }) {
               {delivery.customerId.slice(0, 8)}
             </Link>
 
-            {can("goods.write") && (
+            {can("goods.manage") && (
               <div className="flex gap-2">
                 <Button
                   disabled={pending || reason.trim().length === 0}

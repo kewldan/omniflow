@@ -29,6 +29,25 @@ export type ShopProduct = {
   priceMinor?: number;
   durationMonths?: number;
   starQuantity?: number;
+  /** A Stars product whose customer picks how many, within these bounds. */
+  customAmount?: { min: number; max: number; presets: number[] };
+  /** The operator's fixed price per Star. */
+  unitPriceMinor?: number;
+  /**
+   * The operator set this price. Only such a product can be saved to buy
+   * itself after a top-up: a provider quote is never charged unattended.
+   */
+  operatorPriced?: boolean;
+};
+
+/** What a saved purchase still needs before it can buy itself. */
+export type ShopTopUpPlan = {
+  priceMinor: number;
+  availableMinor: number;
+  shortfallMinor: number;
+  currency: string;
+  stars: number;
+  autoPurchase: boolean;
 };
 
 /**
@@ -54,6 +73,8 @@ export type ShopPromo = {
 /** One product together with the quote issued when it was opened. */
 export type ShopProductDetail = ShopProduct & {
   quantity: number;
+  /** The Stars this quote delivers in total. */
+  stars?: number;
   quote: ShopQuote;
   promo?: ShopPromo;
 };
