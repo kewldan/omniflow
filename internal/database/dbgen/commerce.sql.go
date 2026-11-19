@@ -3175,10 +3175,14 @@ func (q *Queries) MarkOrderFulfilled(ctx context.Context, id pgtype.UUID) (int64
 }
 
 const nextPlanVersion = `-- name: NextPlanVersion :one
-WITH locked AS (SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0)))
-SELECT COALESCE(max(version), 0)::integer + 1 FROM plan_versions, locked WHERE plan_id = $1
+WITH locked AS (SELECT pg_advisory_xact_lock(hashtextextended($1::uuid::text, 0)))
+SELECT COALESCE(max(version), 0)::integer + 1 FROM plan_versions, locked WHERE plan_id = $1::uuid
 `
 
+// The parameter is typed explicitly in both places. Left as a bare $1 after
+// the ::text cast, PostgreSQL inferred it as text and the comparison with the
+// uuid column failed with "operator does not exist: uuid = text", which made
+// every new plan and plan version fail to save.
 func (q *Queries) NextPlanVersion(ctx context.Context, planID pgtype.UUID) (int32, error) {
 	row := q.db.QueryRow(ctx, nextPlanVersion, planID)
 	var column_1 int32

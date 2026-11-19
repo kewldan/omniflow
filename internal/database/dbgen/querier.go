@@ -1413,6 +1413,10 @@ type Querier interface {
 	MoveSupportTicket(ctx context.Context, arg MoveSupportTicketParams) (SupportTicket, error)
 	NextAddonVersion(ctx context.Context, addonID pgtype.UUID) (int32, error)
 	NextLoyaltyVersion(ctx context.Context) (int32, error)
+	// The parameter is typed explicitly in both places. Left as a bare $1 after
+	// the ::text cast, PostgreSQL inferred it as text and the comparison with the
+	// uuid column failed with "operator does not exist: uuid = text", which made
+	// every new plan and plan version fail to save.
 	NextPlanVersion(ctx context.Context, planID pgtype.UUID) (int32, error)
 	// The first free slot on the target, so moved subscriptions do not collide with
 	// the unique constraint on (user_id, slot).

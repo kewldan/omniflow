@@ -194,8 +194,12 @@ ON CONFLICT (plan_id, locale) DO UPDATE SET name = EXCLUDED.name, description = 
 RETURNING *;
 
 -- name: NextPlanVersion :one
-WITH locked AS (SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0)))
-SELECT COALESCE(max(version), 0)::integer + 1 FROM plan_versions, locked WHERE plan_id = $1;
+-- The parameter is typed explicitly in both places. Left as a bare $1 after
+-- the ::text cast, PostgreSQL inferred it as text and the comparison with the
+-- uuid column failed with "operator does not exist: uuid = text", which made
+-- every new plan and plan version fail to save.
+WITH locked AS (SELECT pg_advisory_xact_lock(hashtextextended(sqlc.arg(plan_id)::uuid::text, 0)))
+SELECT COALESCE(max(version), 0)::integer + 1 FROM plan_versions, locked WHERE plan_id = sqlc.arg(plan_id)::uuid;
 
 -- name: CreatePlanVersion :one
 INSERT INTO plan_versions (
