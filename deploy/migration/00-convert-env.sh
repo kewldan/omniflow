@@ -53,6 +53,10 @@ awk -v known="$known" -v out="$target_env" '
     core["REMNAWAVE_API_KEY"] = "APP_REMNAWAVE_TOKEN"
     core["YOOKASSA_SHOP_ID"] = "APP_YOOKASSA_SHOP_ID"
     core["YOOKASSA_SECRET_KEY"] = "APP_YOOKASSA_SECRET"
+    core["YOOKASSA_DEFAULT_RECEIPT_EMAIL"] = "APP_YOOKASSA_RECEIPT_EMAIL"
+    core["YOOKASSA_VAT_CODE"] = "APP_YOOKASSA_VAT_CODE"
+    core["YOOKASSA_PAYMENT_SUBJECT"] = "APP_YOOKASSA_PAYMENT_SUBJECT"
+    core["YOOKASSA_PAYMENT_MODE"] = "APP_YOOKASSA_PAYMENT_MODE"
     core["CRYPTOBOT_API_TOKEN"] = "APP_CRYPTOBOT_TOKEN"
     core["CRYPTOBOT_TESTNET"] = "APP_CRYPTOBOT_TESTNET"
     core["WEBHOOK_SECRET_TOKEN"] = "APP_TELEGRAM_WEBHOOK_SECRET"
@@ -113,6 +117,10 @@ awk -v known="$known" -v out="$target_env" '
     }
     print ""
     print carried + 0 " variables written. Enabled payment providers carried:" (enabled == "" ? " none" : enabled)
+    if (env["YOOKASSA_SHOP_ID"] != "" && !("APP_YOOKASSA_RECEIPT_EMAIL" in written)) {
+      print "WARNING: Bedolaga always sends YooKassa receipts. Set APP_YOOKASSA_RECEIPT_EMAIL, or every payment"
+      print "         fails if the shop uses \"Чеки от ЮKassa\" or an online cash register."
+    }
     if (tolower(env["STARS_SHOP_ENABLED"]) == "true") {
       print "Stars shop carried. Set the price per Star, limits and presets in /admin/shop -> Stars:"
       print "  STARS_SHOP_PRICE_PER_STAR_KOPEKS, _MIN_QUANTITY, _MAX_QUANTITY and _PRESETS are panel settings in Omniflow."

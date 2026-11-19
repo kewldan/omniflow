@@ -251,6 +251,25 @@ in one step, because nobody is present to confirm a two-phase authorisation.
   states exactly which parts work.
 </Warning>
 
+
+### Receipts (54-FZ)
+
+A shop connected to "Чеки от ЮKassa" or to an online cash register refuses any payment that carries
+no receipt. Turn receipts on and every payment and saved-method charge carries one item: the order
+description (cut to 128 characters), quantity `1.00`, the full amount, and the VAT code, payment
+subject, and payment mode below.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `APP_YOOKASSA_RECEIPTS` | `true` when a receipt e-mail is set | Send a receipt with every payment |
+| `APP_YOOKASSA_RECEIPT_EMAIL` | — | Contact the receipt is issued to. Omniflow never passes a customer's e-mail to a provider, so every receipt goes here. Required when receipts are on |
+| `APP_YOOKASSA_VAT_CODE` | `1` | YooKassa `vat_code`, 1–12 (`1` is "without VAT") |
+| `APP_YOOKASSA_PAYMENT_SUBJECT` | `service` | `payment_subject` |
+| `APP_YOOKASSA_PAYMENT_MODE` | `full_payment` | `payment_mode` |
+
+The defaults are Bedolaga's, so a shop moving over keeps issuing the same receipts. Turning receipts
+on without an e-mail is a startup error rather than a checkout that fails for every customer.
+
 ## Manual payments
 
 An adapter with no external system. `Create` returns an intent whose provider reference is the order

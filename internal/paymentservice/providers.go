@@ -61,7 +61,11 @@ func ConfigureProviders(
 		if err != nil {
 			return nil, err
 		}
-		providers = append(providers, provider)
+		receipt, err := payments.YooKassaReceiptFromEnv(payments.Settings{Env: options.Env})
+		if err != nil {
+			return nil, fmt.Errorf("configure yookassa: %w", err)
+		}
+		providers = append(providers, provider.WithReceipt(receipt))
 	}
 	settings := payments.Settings{Env: options.Env, PublicURL: options.PublicURL}
 	for _, builder := range payments.Builders {

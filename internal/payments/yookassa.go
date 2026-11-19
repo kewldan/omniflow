@@ -20,6 +20,7 @@ type YooKassa struct {
 	baseURL string
 	http    *http.Client
 	clock   func() time.Time
+	receipt YooKassaReceipt
 }
 
 func NewYooKassa(shopID, secret string) (*YooKassa, error) {
@@ -70,6 +71,9 @@ func (provider *YooKassa) Create(ctx context.Context, request CreateRequest) (In
 		"confirmation": map[string]string{"type": "redirect", "return_url": request.ReturnURL},
 		"description":  request.Description,
 		"metadata":     map[string]string{"order_id": request.OrderID},
+	}
+	if receipt := provider.receiptBody(request.Description, formatMinor(request.Amount.Amount, exponent), request.Amount.Currency, request.Metadata); receipt != nil {
+		body["receipt"] = receipt
 	}
 	var payment yooPayment
 	if err := provider.do(ctx, http.MethodPost, "/payments", request.IdempotencyKey, body, &payment); err != nil {
@@ -223,6 +227,9 @@ func (provider *YooKassa) ChargeSaved(ctx context.Context, request SavedChargeRe
 		"description":       request.Description,
 		"payment_method_id": request.MethodToken,
 		"metadata":          map[string]string{"order_id": request.OrderID},
+	}
+	if receipt := provider.receiptBody(request.Description, formatMinor(request.Amount.Amount, exponent), request.Amount.Currency, nil); receipt != nil {
+		body["receipt"] = receipt
 	}
 	var payment yooPayment
 	if err := provider.do(
