@@ -79,3 +79,59 @@ func TestPanelPublishesAVersionWithACustomerSquadChoice(t *testing.T) {
 		t.Fatalf("resolved squads = %v, want the included one plus the choice", quote.SquadIDs)
 	}
 }
+
+// A traffic pack on an unlimited plan was listed, charged, and recorded, and
+// granted nothing: settlement leaves an unlimited allowance unlimited. It is
+// now refused before any money moves — bought with the plan or mid-period —
+// and not offered on either customer surface.
+func TestATrafficPackOnAnUnlimitedPlanIsRefusedBeforeCharging(t *testing.T) {
+	ctx := context.Background()
+	harness := newHarness(t)
+	store := harness.commerceStore(t, testOptions())
+	customerID := harness.customer(ctx, t)
+	planVersionID := harness.catalog(ctx, t, "unlimited-plan", 0)
+	if _, err := harness.pool.Exec(ctx, `UPDATE plan_versions SET traffic_allowance_bytes = NULL WHERE id = $1::uuid`, planVersionID); err != nil {
+		t.Fatalf("make the plan unlimited: %v", err)
+	}
+	pack := harness.addon(ctx, t, planVersionID, "unlimited-pack", 15000, 10737418240, "full_price")
+	harness.seedWallet(ctx, t, customerID, "unlimited-pack-wallet", 50000)
+
+	if _, err := store.CreateOrder(ctx, commercepg.CreateOrderInput{
+		CustomerID: customerID, PlanVersionID: planVersionID, Currency: "RUB",
+		Operation: "purchase", IdempotencyKey: "unlimited-with-pack",
+		Addons: []commercepg.AddonSelection{{AddonVersionID: pack, Quantity: 1}},
+	}); !errors.Is(err, commercepg.ErrAddonNotApplicable) || !errors.Is(err, commercepg.ErrAddonUnavailable) {
+		t.Fatalf("a pack bought with an unlimited plan: %v, want addon_not_applicable", err)
+	}
+	if _, err := store.CreateOrder(ctx, commercepg.CreateOrderInput{
+		CustomerID: customerID, PlanVersionID: planVersionID, Currency: "RUB",
+		Operation: "purchase", IdempotencyKey: "unlimited-plan-only", SkipWallet: true,
+	}); err != nil {
+		t.Fatalf("buy the plan: %v", err)
+	}
+	if _, err := store.CreateAddonOrder(ctx, commercepg.AddonOrderInput{
+		CustomerID: customerID, Currency: "RUB", IdempotencyKey: "unlimited-midperiod-pack",
+		Addons: []commercepg.AddonSelection{{AddonVersionID: pack, Quantity: 1}},
+	}); !errors.Is(err, commercepg.ErrAddonNotApplicable) {
+		t.Fatalf("a mid-period pack on an unlimited subscription: %v, want addon_not_applicable", err)
+	}
+	var addonOrders int
+	if err := harness.pool.QueryRow(ctx, `SELECT count(*) FROM orders WHERE user_id = $1::uuid AND operation = 'addon'`, customerID).Scan(&addonOrders); err != nil {
+		t.Fatalf("count orders: %v", err)
+	}
+	if addonOrders != 0 {
+		t.Fatalf("%d add-on orders were created for nothing", addonOrders)
+	}
+	if balance := harness.walletBalance(ctx, t, customerID); balance != 50000 {
+		t.Fatalf("the wallet moved to %d for a pack that grants nothing", balance)
+	}
+
+	checkout := newAccountCheckout(t, harness, store)
+	offers, err := checkout.Store().PlanAddons(ctx, planVersionID, "en", "RUB")
+	if err != nil {
+		t.Fatalf("list add-ons: %v", err)
+	}
+	if len(offers) != 0 {
+		t.Fatalf("a pack that grants nothing is still offered: %+v", offers)
+	}
+}

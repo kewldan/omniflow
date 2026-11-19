@@ -4064,7 +4064,8 @@
         "trial_trial_already_used": "The trial on this account has already been used.",
         "upstream_unavailable": "The service is temporarily unavailable. Nothing has been charged.",
         "unknown": "That did not go through. Try again, or contact support if it keeps happening.",
-        "offline": "That request did not reach us. Check your connection and try again."
+        "offline": "That request did not reach us. Check your connection and try again.",
+        "addon_not_applicable": "That extra would add nothing: this subscription has no limit for it."
       },
       "breakdown": {
         "subtotal": "Plan",

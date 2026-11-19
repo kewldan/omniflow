@@ -109,3 +109,26 @@ func TestCapacityMultipliesUnitsButNotSquads(t *testing.T) {
 		t.Fatalf("squads are a set and must not be multiplied: %v", capacity.SquadIDs)
 	}
 }
+
+func TestAnAddonAppliesOnlyWhenSomethingItCarriesLands(t *testing.T) {
+	t.Parallel()
+	cases := []struct {
+		name                     string
+		traffic                  int64
+		slots, squads            int
+		trafficLimited, limited2 bool
+		want                     bool
+	}{
+		{"traffic on a limited allowance", 10, 0, 0, true, false, true},
+		{"traffic on an unlimited allowance", 10, 0, 0, false, true, false},
+		{"slots on a limited device count", 0, 1, 0, false, true, true},
+		{"slots on unlimited devices", 0, 1, 0, true, false, false},
+		{"squads on anything", 0, 0, 1, false, false, true},
+		{"traffic and slots where only slots land", 10, 1, 0, false, true, true},
+	}
+	for _, testCase := range cases {
+		if got := AddonApplies(testCase.traffic, testCase.slots, testCase.squads, testCase.trafficLimited, testCase.limited2); got != testCase.want {
+			t.Fatalf("%s: applies = %v, want %v", testCase.name, got, testCase.want)
+		}
+	}
+}

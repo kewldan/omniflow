@@ -119,6 +119,20 @@ type AddonCapacity struct {
 	SquadIDs     []string
 }
 
+// AddonApplies reports whether an add-on grants anything on a subscription
+// whose traffic and device limits are limited or not.
+//
+// Capacity on top of "unlimited" is meaningless: settlement leaves an
+// unlimited allowance unlimited, so a traffic pack on an unlimited plan used to
+// be listed, charged, and recorded, and grant nothing. An add-on applies when
+// at least one thing it carries lands — traffic on a limited allowance, slots
+// on a limited device count, or any squad.
+func AddonApplies(trafficBytes int64, deviceSlots, squadCount int, trafficLimited, devicesLimited bool) bool {
+	return squadCount > 0 ||
+		trafficBytes > 0 && trafficLimited ||
+		deviceSlots > 0 && devicesLimited
+}
+
 // Capacity multiplies one add-on version's capacity by the purchased quantity.
 // Squads are a set, so quantity never duplicates them.
 func Capacity(trafficBytes int64, deviceSlots, quantity int, squadIDs []string) AddonCapacity {

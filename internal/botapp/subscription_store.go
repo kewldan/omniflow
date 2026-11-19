@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/omniflow/omniflow/internal/accountcheckout"
 	"github.com/omniflow/omniflow/internal/commerce"
 )
 
@@ -243,7 +244,9 @@ func (store *PostgresStore) PlanAddons(ctx context.Context, planVersionID string
 			ORDER BY av.version DESC LIMIT 1
 		) v ON true
 		JOIN addon_prices pr ON pr.addon_version_id = v.id AND pr.currency = $3
+		JOIN plan_versions pv ON pv.id = pa.plan_version_id
 		WHERE pa.plan_version_id = $1::uuid AND a.visible AND a.archived_at IS NULL
+		  AND `+accountcheckout.ApplicableAddonFilter+`
 		ORDER BY a.sort_order, a.code`, planVersionID, string(locale), currency)
 	if err != nil {
 		return nil, err

@@ -263,6 +263,11 @@ var (
 	// ErrAddonUnavailable is returned when an add-on is archived, unpriced, or
 	// not offered for the plan being changed.
 	ErrAddonUnavailable = errors.New("addon_unavailable")
+	// ErrAddonNotApplicable is an add-on that would grant nothing on its
+	// target: traffic on an unlimited allowance, or slots on an unlimited
+	// device count. It is refused before any money moves, and it is an
+	// ErrAddonUnavailable to every caller that only knows that reason.
+	ErrAddonNotApplicable = fmt.Errorf("%w: addon_not_applicable", ErrAddonUnavailable)
 	// ErrNoActiveSubscription is returned when an add-on has nothing to attach
 	// to, because the target subscription has no live entitlement.
 	ErrNoActiveSubscription = errors.New("no_active_subscription")

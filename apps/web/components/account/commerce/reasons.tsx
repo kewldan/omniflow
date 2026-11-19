@@ -105,6 +105,7 @@ const PROBLEMS = [
   "trial_subscription_active",
   "trial_trial_already_used",
   "upstream_unavailable",
+  "addon_not_applicable",
 ] as const;
 
 /** Builds a lookup that falls back rather than crashing on an unseen value. */

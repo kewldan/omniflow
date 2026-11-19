@@ -501,7 +501,7 @@ func (store *Store) priceInitialAddons(ctx context.Context, queries *dbgen.Queri
 	total := int64(0)
 	seen := make(map[string]struct{}, len(input.Addons))
 	for _, selection := range input.Addons {
-		row, err := store.addonVersionForPlan(ctx, queries, plan.ID, plan.Currency, selection.AddonVersionID, seen)
+		row, err := store.addonVersionForPlan(ctx, queries, plan.ID, plan.Currency, selection.AddonVersionID, seen, addonTarget{traffic: plan.TrafficAllowanceBytes.Valid, devices: plan.DeviceLimit.Valid})
 		if err != nil {
 			return nil, 0, err
 		}
@@ -517,7 +517,7 @@ func (store *Store) priceInitialAddons(ctx context.Context, queries *dbgen.Queri
 
 // addonVersionForPlan resolves one add-on version and refuses anything the plan
 // does not offer, is archived, is retired, or is unpriced in this currency.
-func (store *Store) addonVersionForPlan(ctx context.Context, queries *dbgen.Queries, planVersionID pgtype.UUID, currency, addonVersionID string, seen map[string]struct{}) (dbgen.GetAddonVersionForOrderRow, error) {
+func (store *Store) addonVersionForPlan(ctx context.Context, queries *dbgen.Queries, planVersionID pgtype.UUID, currency, addonVersionID string, seen map[string]struct{}, target addonTarget) (dbgen.GetAddonVersionForOrderRow, error) {
 	versionID, err := parseUUID(addonVersionID)
 	if err != nil {
 		return dbgen.GetAddonVersionForOrderRow{}, ErrAddonUnavailable
@@ -543,7 +543,17 @@ func (store *Store) addonVersionForPlan(ctx context.Context, queries *dbgen.Quer
 	if row.ArchivedAt.Valid || row.RetiredAt.Valid {
 		return dbgen.GetAddonVersionForOrderRow{}, ErrAddonUnavailable
 	}
+	if !commerce.AddonApplies(row.TrafficBytes.Int64, int(row.DeviceSlots.Int32), len(row.RemnawaveSquadIds), target.traffic, target.devices) {
+		return dbgen.GetAddonVersionForOrderRow{}, ErrAddonNotApplicable
+	}
 	return row, nil
+}
+
+// addonTarget is whether the subscription an add-on lands on has a traffic
+// allowance and a device limit at all. Unlimited is carried as "not limited",
+// and capacity added to it is lost.
+type addonTarget struct {
+	traffic, devices bool
 }
 
 // insertAddonLines snapshots every priced add-on onto the order, so a later
@@ -578,7 +588,7 @@ func (store *Store) priceAddons(ctx context.Context, queries *dbgen.Queries, ent
 	subtotal := int64(0)
 	seen := make(map[string]struct{}, len(input.Addons))
 	for _, selection := range input.Addons {
-		row, err := store.addonVersionForPlan(ctx, queries, entitlement.PlanVersionID, input.Currency, selection.AddonVersionID, seen)
+		row, err := store.addonVersionForPlan(ctx, queries, entitlement.PlanVersionID, input.Currency, selection.AddonVersionID, seen, addonTarget{traffic: entitlement.TrafficAllowanceBytes.Valid, devices: entitlement.DeviceLimit.Valid})
 		if err != nil {
 			return nil, 0, err
 		}

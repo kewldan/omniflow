@@ -445,6 +445,18 @@ func (store *Store) PlanSquads(ctx context.Context, planVersionID, locale string
 	return offer, rows.Err()
 }
 
+// applicableAddon keeps an add-on that would grant nothing on the plan out of
+// the offer: traffic on an unlimited allowance, slots on an unlimited device
+// count. commerce.AddonApplies is the same rule, enforced at order creation;
+// this is the courtesy of not listing what would be refused. It expects the
+// add-on version as `v` and the plan version as `pv`.
+const applicableAddon = `(cardinality(v.remnawave_squad_ids) > 0
+		OR v.traffic_bytes IS NOT NULL AND pv.traffic_allowance_bytes IS NOT NULL
+		OR v.device_slots IS NOT NULL AND pv.device_limit IS NOT NULL)`
+
+// ApplicableAddonFilter is applicableAddon for the bot's own listing.
+const ApplicableAddonFilter = applicableAddon
+
 // PlanAddons lists the add-ons offered for a plan version in one currency.
 func (store *Store) PlanAddons(ctx context.Context, planVersionID, locale, currency string) ([]AddonOffer, error) {
 	rows, err := store.pool.Query(ctx, `SELECT a.id::text, v.id::text, a.code, a.kind, l.name, l.description,
@@ -459,7 +471,9 @@ func (store *Store) PlanAddons(ctx context.Context, planVersionID, locale, curre
 			ORDER BY av.version DESC LIMIT 1
 		) v ON true
 		JOIN addon_prices pr ON pr.addon_version_id = v.id AND pr.currency = $3
+		JOIN plan_versions pv ON pv.id = pa.plan_version_id
 		WHERE pa.plan_version_id = $1::uuid AND a.visible AND a.archived_at IS NULL
+		  AND `+applicableAddon+`
 		ORDER BY a.sort_order, a.code`, planVersionID, normalizeLocale(locale), currency)
 	if err != nil {
 		return nil, err
