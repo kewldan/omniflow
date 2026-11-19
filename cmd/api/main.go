@@ -39,6 +39,7 @@ import (
 	"github.com/omniflow/omniflow/internal/paymentservice"
 	"github.com/omniflow/omniflow/internal/platform"
 	"github.com/omniflow/omniflow/internal/remnawave"
+	"github.com/omniflow/omniflow/internal/remnawavesync"
 	"github.com/omniflow/omniflow/internal/telemetry"
 )
 
@@ -96,6 +97,7 @@ func main() {
 			Health: health, Metrics: metrics, MetricsToken: cfg.MetricsToken,
 			Commerce: runtime.handlers, Admin: runtime.admin,
 			Account:          runtime.account,
+			RemnawaveWebhook: runtime.remnawaveWebhook,
 			CollectorEnabled: cfg.TelemetryCollectorEnabled, Telemetry: telemetryClient, Version: version,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
@@ -128,6 +130,8 @@ type runtimeServices struct {
 	handlers *apihttp.CommerceHandlers
 	admin    *apihttp.AdminHandlers
 	account  *apihttp.AccountHandlers
+	// remnawaveWebhook is nil without APP_REMNAWAVE_WEBHOOK_SECRET.
+	remnawaveWebhook *apihttp.RemnawaveWebhookHandler
 }
 
 func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, health *platform.Health, metrics *platform.Metrics) (runtimeServices, func(), error) {
@@ -195,6 +199,9 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 	handlers.WithOperations(pool, riverClient, commerceStore)
 
 	services := runtimeServices{handlers: handlers}
+	services.remnawaveWebhook = apihttp.NewRemnawaveWebhookHandler(
+		remnawavesync.NewIntake(pool, remnawavesync.IntakeOptionsFromEnv(os.Getenv)), logger,
+	)
 	if cfg.AdminPanel.Enabled {
 		adminHandlers, adminErr := buildAdminPanel(
 			ctx, logger, cfg, pool, platform.NewRateLimiter(valkeyClient), providers, health,

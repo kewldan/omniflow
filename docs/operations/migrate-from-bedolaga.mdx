@@ -233,7 +233,9 @@ Review the result and merge it into Omniflow's `.env`. The usual Bedolaga settin
 | `REDIS_URL` | `APP_VALKEY_URL` | Omniflow's own Valkey; nothing in Bedolaga's Redis carries over |
 | `CABINET_URL` | `APP_PUBLIC_URL` | The customer panel is Omniflow's web app |
 | `TRIAL_*` | — | A plan of kind `trial` in the catalogue |
-| `REMNAWAVE_WEBHOOK_*`, `WEB_API_*`, `MINIAPP_*`, `SERVER_STATUS_*` | — | No equivalent setting |
+| `REMNAWAVE_WEBHOOK_SECRET` | `APP_REMNAWAVE_WEBHOOK_SECRET` | Point the panel's webhook at `https://<api>/v1/remnawave/webhook`; see [Remnawave webhooks](/integrations/remnawave#webhooks) |
+| `WEBHOOK_NOTIFY_*`, `REMNAWAVE_WEBHOOK_NOTIFY_NODE_CONNECTION_STATUS` | `APP_NOTIFY_DISABLED`, `APP_REMNAWAVE_WEBHOOK_NODE_ALERTS` | Switches per notice kind rather than per event |
+| `WEB_API_*`, `MINIAPP_*`, `SERVER_STATUS_*` | — | No equivalent setting |
 
 ## Rehearsal
 

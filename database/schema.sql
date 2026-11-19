@@ -2629,7 +2629,7 @@ CREATE TABLE public.notification_deliveries (
     subscription_id uuid,
     CONSTRAINT notification_deliveries_class_check CHECK ((class = ANY (ARRAY['transactional'::text, 'marketing'::text]))),
     CONSTRAINT notification_deliveries_failure_count_check CHECK ((failure_count >= 0)),
-    CONSTRAINT notification_deliveries_kind_known CHECK ((kind = ANY (ARRAY['expiry'::text, 'traffic'::text, 'renewal'::text, 'grace'::text, 'recovery'::text, 'payment'::text, 'fulfillment'::text, 'support'::text, 'news'::text, 'announcement'::text, 'incident'::text, 'maintenance'::text, 'marketing'::text, 'referral'::text, 'trial'::text, 'test'::text]))),
+    CONSTRAINT notification_deliveries_kind_known CHECK ((kind = ANY (ARRAY['expiry'::text, 'traffic'::text, 'renewal'::text, 'grace'::text, 'recovery'::text, 'payment'::text, 'fulfillment'::text, 'support'::text, 'news'::text, 'announcement'::text, 'incident'::text, 'maintenance'::text, 'marketing'::text, 'referral'::text, 'trial'::text, 'test'::text, 'connection'::text, 'device'::text, 'access'::text, 'reminder'::text]))),
     CONSTRAINT notification_deliveries_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'deferred'::text, 'sent'::text, 'failed'::text, 'suppressed'::text])))
 );
 
@@ -2654,7 +2654,7 @@ CREATE TABLE public.operator_notifications (
     error_code text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     sent_at timestamp with time zone,
-    CONSTRAINT operator_notifications_kind_known CHECK ((kind = ANY (ARRAY['purchase'::text, 'renewal'::text, 'topup'::text, 'refund'::text, 'fulfillment_failure'::text, 'incident'::text, 'backup'::text, 'security'::text, 'anomaly'::text, 'support'::text]))),
+    CONSTRAINT operator_notifications_kind_known CHECK ((kind = ANY (ARRAY['purchase'::text, 'renewal'::text, 'topup'::text, 'refund'::text, 'fulfillment_failure'::text, 'incident'::text, 'backup'::text, 'security'::text, 'anomaly'::text, 'support'::text, 'node'::text, 'monitoring'::text]))),
     CONSTRAINT operator_notifications_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'sent'::text, 'suppressed'::text, 'failed'::text])))
 );
 
@@ -2672,7 +2672,7 @@ CREATE TABLE public.operator_topics (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT operator_topics_check CHECK (((status = 'bound'::text) = (topic_id IS NOT NULL))),
-    CONSTRAINT operator_topics_kind_known CHECK ((kind = ANY (ARRAY['purchase'::text, 'renewal'::text, 'topup'::text, 'refund'::text, 'fulfillment_failure'::text, 'incident'::text, 'backup'::text, 'security'::text, 'anomaly'::text, 'campaign_test'::text, 'notice_test'::text, 'support'::text]))),
+    CONSTRAINT operator_topics_kind_known CHECK ((kind = ANY (ARRAY['purchase'::text, 'renewal'::text, 'topup'::text, 'refund'::text, 'fulfillment_failure'::text, 'incident'::text, 'backup'::text, 'security'::text, 'anomaly'::text, 'campaign_test'::text, 'notice_test'::text, 'support'::text, 'node'::text, 'monitoring'::text]))),
     CONSTRAINT operator_topics_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'bound'::text, 'failed'::text]))),
     CONSTRAINT operator_topics_topic_id_check CHECK (((topic_id IS NULL) OR (topic_id > 0)))
 );
@@ -3324,6 +3324,46 @@ CREATE TABLE public.remnawave_users (
     reconciled_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT remnawave_users_remnawave_id_check CHECK ((remnawave_id > 0))
+);
+
+
+--
+-- Name: remnawave_webhook_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.remnawave_webhook_events (
+    id bigint NOT NULL,
+    event text NOT NULL,
+    body_sha256 bytea NOT NULL,
+    remnawave_user_id bigint,
+    details jsonb DEFAULT '{}'::jsonb NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    received_at timestamp with time zone DEFAULT now() NOT NULL,
+    processed_at timestamp with time zone,
+    CONSTRAINT remnawave_webhook_events_event_shape CHECK (((char_length(event) >= 1) AND (char_length(event) <= 100))),
+    CONSTRAINT remnawave_webhook_events_processed CHECK (((status = 'pending'::text) = (processed_at IS NULL))),
+    CONSTRAINT remnawave_webhook_events_status_known CHECK ((status = ANY (ARRAY['pending'::text, 'delivered'::text, 'ignored'::text, 'failed'::text])))
+);
+
+
+--
+-- Name: TABLE remnawave_webhook_events; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.remnawave_webhook_events IS 'Verified Remnawave webhook deliveries, summarised to an allowlist of fields. The raw body is not kept.';
+
+
+--
+-- Name: remnawave_webhook_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.remnawave_webhook_events ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.remnawave_webhook_events_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
 );
 
 
@@ -5493,6 +5533,14 @@ ALTER TABLE ONLY public.remnawave_users
 
 
 --
+-- Name: remnawave_webhook_events remnawave_webhook_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.remnawave_webhook_events
+    ADD CONSTRAINT remnawave_webhook_events_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: required_channels required_channels_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6497,6 +6545,20 @@ CREATE INDEX referral_signals_recent_idx ON public.referral_signals USING btree 
 --
 
 CREATE INDEX refunds_intent_idx ON public.refunds USING btree (payment_intent_id, created_at DESC);
+
+
+--
+-- Name: remnawave_webhook_events_body_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX remnawave_webhook_events_body_idx ON public.remnawave_webhook_events USING btree (body_sha256);
+
+
+--
+-- Name: remnawave_webhook_events_pending_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX remnawave_webhook_events_pending_idx ON public.remnawave_webhook_events USING btree (id) WHERE (status = 'pending'::text);
 
 
 --

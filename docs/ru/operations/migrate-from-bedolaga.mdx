@@ -235,7 +235,9 @@ sh deploy/migration/00-convert-env.sh /root/remnawave-bedolaga-telegram-bot/.env
 | `REDIS_URL` | `APP_VALKEY_URL` | Собственный Valkey Omniflow; из Redis Bedolaga ничего не переносится |
 | `CABINET_URL` | `APP_PUBLIC_URL` | Клиентская панель — веб-приложение Omniflow |
 | `TRIAL_*` | — | План вида `trial` в каталоге |
-| `REMNAWAVE_WEBHOOK_*`, `WEB_API_*`, `MINIAPP_*`, `SERVER_STATUS_*` | — | Соответствующей настройки нет |
+| `REMNAWAVE_WEBHOOK_SECRET` | `APP_REMNAWAVE_WEBHOOK_SECRET` | Направьте вебхук панели на `https://<api>/v1/remnawave/webhook`; см. [вебхуки Remnawave](/ru/integrations/remnawave) |
+| `WEBHOOK_NOTIFY_*`, `REMNAWAVE_WEBHOOK_NOTIFY_NODE_CONNECTION_STATUS` | `APP_NOTIFY_DISABLED`, `APP_REMNAWAVE_WEBHOOK_NODE_ALERTS` | Выключатели по видам уведомлений, а не по событиям |
+| `WEB_API_*`, `MINIAPP_*`, `SERVER_STATUS_*` | — | Соответствующей настройки нет |
 
 ## Репетиция
 

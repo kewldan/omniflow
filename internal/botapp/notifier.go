@@ -432,6 +432,7 @@ func subscriptionLabelFor(subscription SubscriptionSummary, named bool) string {
 func (notifier *Notifier) runSupportReplies(ctx context.Context) {
 	notifier.deliverSupportReplies(ctx)
 	notifier.deliverGoodsNotices(ctx)
+	notifier.DeliverPanelEvents(ctx)
 	ticker := time.NewTicker(supportReplyInterval)
 	defer ticker.Stop()
 	for {
@@ -441,6 +442,7 @@ func (notifier *Notifier) runSupportReplies(ctx context.Context) {
 		case <-ticker.C:
 			notifier.deliverSupportReplies(ctx)
 			notifier.deliverGoodsNotices(ctx)
+			notifier.DeliverPanelEvents(ctx)
 		}
 	}
 }

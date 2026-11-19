@@ -261,6 +261,40 @@ rename a user and an operator's edit in the panel must not be undone.
 The default name stays a recovery candidate: a user created under it before a template was set is
 adopted rather than duplicated.
 
+## Webhooks
+
+Remnawave can push its own events instead of waiting for Omniflow's next fifteen-minute pass. Set a
+secret in the panel's webhook settings (`WEBHOOK_SECRET_HEADER`), point the webhook at
+`https://<your API>/v1/remnawave/webhook`, and give Omniflow the same secret:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `APP_REMNAWAVE_WEBHOOK_SECRET` | none | The shared secret. Without it the route is not mounted at all |
+| `APP_REMNAWAVE_WEBHOOK_NODE_ALERTS` | `true` | Posts node, panel-service, and infrastructure-billing events to the operator group's **Remnawave nodes** topic |
+
+Every delivery must carry `X-Remnawave-Signature`, the hex HMAC-SHA256 of the raw body under the
+secret; anything else is refused with `401` before it is parsed. A body over 64 KiB is refused with
+`413`. A verified delivery is recorded in `remnawave_webhook_events` with an allowlisted summary — the
+event name, the panel user ID, and fields such as a threshold percentage, a device's own model and
+platform, or a node's name. The raw body is never stored: the panel's user object carries the access
+link and its device object the hardware ID. The SHA-256 of the body makes a retried delivery a no-op.
+
+What happens to an event:
+
+| Event | Effect |
+| --- | --- |
+| `user.first_connected`, `user.not_connected` | A `connection` notice to the customer: "you are connected", or "you have not connected yet" with a **Connect** button |
+| `user.bandwidth_usage_threshold_reached` | A `traffic` warning at the panel's threshold. It shares its key with the lifecycle pass's own warning, so a threshold both report is sent once |
+| `user.traffic_reset`, `user.revoked`, `torrent_blocker.report` | An `access` notice. A revoke the customer made themselves in the last ten minutes is not echoed back |
+| `user_hwid_devices.added`, `user_hwid_devices.deleted` | A `device` notice naming the device by the customer's own name for it, or by its model and platform |
+| `node.*`, `service.*`, `crm.*`, `errors.*` | An operator notice (kind `node`); `torrent_blocker.report` also goes to **Usage monitoring** |
+| anything else | Recorded as `ignored` |
+
+Customer notices go through the same delivery policy as every other notice — the customer's own
+switches, quiet hours, and the installation's `APP_NOTIFY_DISABLED`. An event about a panel user that no
+Omniflow subscription points at is recorded and ignored. A notice deferred by quiet hours is sent when
+the window ends; one that cannot be sent within 48 hours is given up on and the event marked `failed`.
+
 ## Drift
 
 A `reconcile` operation reads the Remnawave user and compares it against what Omniflow intends. Each

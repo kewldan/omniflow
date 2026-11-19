@@ -790,6 +790,19 @@ var catalog = map[string]phrase{
 	// answers. The confirmation names the request, because the customer did not
 	// choose it explicitly and must be able to tell if the bot guessed wrong.
 	"support.routed": {ru: "✅ <b>Сообщение добавлено в обращение</b>\n\n«%s» — поддержка увидит его в этой переписке.", en: "✅ <b>Added to your request</b>\n\n“%s” — support will see it in that conversation."},
+
+	// ---------------------------------------------------------------------
+	// Notices worded from the Remnawave panel's own webhook events.
+	// ---------------------------------------------------------------------
+	"panel.firstConnected": {ru: "🎉 <b>Подключение работает</b>\n\nПервое устройство подключилось к VPN. Приятного пользования!", en: "🎉 <b>You are connected</b>\n\nYour first device has connected to the VPN. Enjoy!"},
+	"panel.notConnected":   {ru: "👋 <b>Вы ещё не подключились</b>\n\nПодписка активна, но ни одно устройство пока не подключилось. Нажмите «Подключиться» — покажем приложение и шаги.", en: "👋 <b>You have not connected yet</b>\n\nYour subscription is active, but no device has connected so far. Tap Connect for the app and the steps."},
+	"panel.trafficReset":   {ru: "🔄 <b>Трафик обнулён</b>\n\nСчётчик трафика подписки сброшен — лимит снова доступен полностью.", en: "🔄 <b>Traffic reset</b>\n\nYour subscription's traffic counter was reset — the full allowance is available again."},
+	"panel.revoked":        {ru: "🔑 <b>Ссылка подписки перевыпущена</b>\n\nСтарая ссылка больше не работает. Откройте «Подключиться» и добавьте новую в приложение на каждом устройстве.", en: "🔑 <b>Your subscription link was re-issued</b>\n\nThe old link no longer works. Open Connect and add the new one to the app on each device."},
+	"panel.torrent":        {ru: "🚫 <b>Торрент-трафик заблокирован</b>\n\nС вашей подписки обнаружен торрент-трафик, и сервер его заблокировал. Если это были не вы, перевыпустите ссылку подписки.", en: "🚫 <b>Torrent traffic blocked</b>\n\nTorrent traffic was detected on your subscription and the server blocked it. If this was not you, re-issue your subscription link."},
+	"panel.deviceAdded":    {ru: "📱 <b>Новое устройство</b>\n\nК подписке подключилось устройство: %s.\n\nЕсли это не вы, удалите его в разделе «Устройства» и перевыпустите ссылку.", en: "📱 <b>New device</b>\n\nA device connected to your subscription: %s.\n\nIf this was not you, remove it under Devices and re-issue your link."},
+	"panel.deviceDeleted":  {ru: "📴 <b>Устройство отключено</b>\n\nОт подписки отключено устройство: %s.", en: "📴 <b>Device removed</b>\n\nA device was disconnected from your subscription: %s."},
+	"panel.deviceUnnamed":  {ru: "без названия", en: "unnamed"},
+	"panel.devicesButton":  {ru: "📱 Устройства", en: "📱 Devices"},
 }
 
 // formatMoney renders an integer minor-unit amount for display. Telegram Stars

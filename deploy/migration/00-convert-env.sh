@@ -58,6 +58,7 @@ awk -v known="$known" -v out="$target_env" '
     core["REMNAWAVE_SECRET_KEY"] = "APP_REMNAWAVE_SECRET_KEY"
     core["REMNAWAVE_API_TOTAL_TIMEOUT"] = "APP_REMNAWAVE_TIMEOUT_SECONDS"
     core["REMNAWAVE_API_REQUESTS_PER_MINUTE"] = "APP_REMNAWAVE_REQUESTS_PER_MINUTE"
+    core["REMNAWAVE_WEBHOOK_SECRET"] = "APP_REMNAWAVE_WEBHOOK_SECRET"
     core["REMNAWAVE_USER_USERNAME_TEMPLATE"] = "APP_REMNAWAVE_USERNAME_TEMPLATE"
     core["REMNAWAVE_USER_DESCRIPTION_TEMPLATE"] = "APP_REMNAWAVE_DESCRIPTION_TEMPLATE"
     core["YOOKASSA_SHOP_ID"] = "APP_YOOKASSA_SHOP_ID"
@@ -155,4 +156,4 @@ awk -v known="$known" -v out="$target_env" '
 ' "$source_env"
 
 echo "Output: $target_env (mode 600). Values were not printed. Review it before merging into Omniflow's .env."
-echo "Not carried (no equivalent): TRIAL_*, WEB_API_*, MINIAPP_*, REMNAWAVE_WEBHOOK_*, Redis and Bedolaga's own database settings."
+echo "Not carried (no equivalent): TRIAL_*, WEB_API_*, MINIAPP_*, Redis and Bedolaga's own database settings."

@@ -176,6 +176,7 @@ type Querier interface {
 	CompleteGoodsDelivery(ctx context.Context, arg CompleteGoodsDeliveryParams) (GoodsDelivery, error)
 	CompleteNoticeTestSend(ctx context.Context, arg CompleteNoticeTestSendParams) error
 	CompleteOperatorNotification(ctx context.Context, arg CompleteOperatorNotificationParams) (OperatorNotification, error)
+	CompleteRemnawaveWebhookEvent(ctx context.Context, arg CompleteRemnawaveWebhookEventParams) error
 	// An operator confirmed the goods arrived. The transaction hash they found is
 	// kept when given; otherwise whatever the adapter recorded stays.
 	CompleteReviewedGoodsDelivery(ctx context.Context, arg CompleteReviewedGoodsDeliveryParams) (GoodsDelivery, error)
@@ -213,6 +214,7 @@ type Querier interface {
 	CountActiveCustomerOIDCIdentities(ctx context.Context, slug string) (int64, error)
 	// Callers must hold LockCustomerSubscriptions for this count to be meaningful.
 	CountActiveSubscriptions(ctx context.Context, arg CountActiveSubscriptionsParams) (CountActiveSubscriptionsRow, error)
+	CountActiveSubscriptionsForCustomer(ctx context.Context, userID pgtype.UUID) (int32, error)
 	CountAdminOIDCIdentities(ctx context.Context, adminUserID pgtype.UUID) (int64, error)
 	CountAdminOIDCIdentitiesForProvider(ctx context.Context, providerID pgtype.UUID) (int64, error)
 	// Guards the "an installation always keeps one owner" invariant. Only accounts
@@ -376,6 +378,9 @@ type Querier interface {
 	// The metric a standing is evaluated on, computed from facts Omniflow already
 	// records. Nothing new is tracked to support loyalty.
 	CustomerLoyaltyMetric(ctx context.Context, arg CustomerLoyaltyMetricParams) (CustomerLoyaltyMetricRow, error)
+	// A customer who re-issued their own link has just seen the result; the
+	// panel's echo of it is not news to them.
+	CustomerRotatedLinkRecently(ctx context.Context, userID pgtype.UUID) (bool, error)
 	// Resolves Remnawave user identifiers back to Omniflow customers for the traffic
 	// report.
 	//
@@ -702,6 +707,7 @@ type Querier interface {
 	GetMCPServerCredentials(ctx context.Context, slug string) ([]byte, error)
 	GetMaintenanceState(ctx context.Context) (MaintenanceState, error)
 	GetMessageTemplate(ctx context.Context, id pgtype.UUID) (MessageTemplate, error)
+	GetNotificationDeliveryStatus(ctx context.Context, arg GetNotificationDeliveryStatusParams) (string, error)
 	GetOpenCart(ctx context.Context, userID pgtype.UUID) (Cart, error)
 	// For providers whose notification names the payer rather than the order
 	// (Tribute donations): the newest open intent of that provider, for exactly
@@ -846,6 +852,8 @@ type Querier interface {
 	// once published, so the offered set is written with it and never edited.
 	InsertPlanVersionSquad(ctx context.Context, arg InsertPlanVersionSquadParams) error
 	InsertPromoRedemption(ctx context.Context, arg InsertPromoRedemptionParams) (PromoRedemption, error)
+	// A retried delivery carries the same bytes and is a no-op: no row comes back.
+	InsertRemnawaveWebhookEvent(ctx context.Context, arg InsertRemnawaveWebhookEventParams) (int64, error)
 	InsertWebhookEvent(ctx context.Context, arg InsertWebhookEventParams) (ProviderWebhookEvent, error)
 	InvalidateAdminPasswordResets(ctx context.Context, adminUserID pgtype.UUID) (int64, error)
 	IsAddonOfferedForPlan(ctx context.Context, arg IsAddonOfferedForPlanParams) (bool, error)
@@ -1205,6 +1213,11 @@ type Querier interface {
 	ListPendingDunningNotifications(ctx context.Context, pageSize int32) ([]ListPendingDunningNotificationsRow, error)
 	ListPendingNoticeTestSends(ctx context.Context, pageSize int32) ([]ListPendingNoticeTestSendsRow, error)
 	ListPendingOperatorNotifications(ctx context.Context, limit int32) ([]OperatorNotification, error)
+	// Each pending event with the subscription it concerns. The subscription is
+	// matched on its own Remnawave user first and on the customer-level mapping
+	// second, which is how a customer imported before subscriptions existed is
+	// still found.
+	ListPendingRemnawaveCustomerEvents(ctx context.Context, batchSize int32) ([]ListPendingRemnawaveCustomerEventsRow, error)
 	// ---------------------------------------------------------------------------
 	// Add-ons
 	// ---------------------------------------------------------------------------

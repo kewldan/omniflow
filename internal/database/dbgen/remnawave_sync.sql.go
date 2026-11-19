@@ -11,6 +11,50 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const completeRemnawaveWebhookEvent = `-- name: CompleteRemnawaveWebhookEvent :exec
+UPDATE remnawave_webhook_events
+SET status = $1, processed_at = now()
+WHERE id = $2 AND status = 'pending'
+`
+
+type CompleteRemnawaveWebhookEventParams struct {
+	Status string `json:"status"`
+	ID     int64  `json:"id"`
+}
+
+func (q *Queries) CompleteRemnawaveWebhookEvent(ctx context.Context, arg CompleteRemnawaveWebhookEventParams) error {
+	_, err := q.db.Exec(ctx, completeRemnawaveWebhookEvent, arg.Status, arg.ID)
+	return err
+}
+
+const countActiveSubscriptionsForCustomer = `-- name: CountActiveSubscriptionsForCustomer :one
+SELECT count(*)::int AS subscriptions FROM subscriptions WHERE user_id = $1 AND status = 'active'
+`
+
+func (q *Queries) CountActiveSubscriptionsForCustomer(ctx context.Context, userID pgtype.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, countActiveSubscriptionsForCustomer, userID)
+	var subscriptions int32
+	err := row.Scan(&subscriptions)
+	return subscriptions, err
+}
+
+const customerRotatedLinkRecently = `-- name: CustomerRotatedLinkRecently :one
+SELECT EXISTS (
+  SELECT 1 FROM customer_security_events
+  WHERE user_id = $1 AND event = 'subscription_key_rotated'
+    AND occurred_at > now() - interval '10 minutes'
+) AS rotated
+`
+
+// A customer who re-issued their own link has just seen the result; the
+// panel's echo of it is not news to them.
+func (q *Queries) CustomerRotatedLinkRecently(ctx context.Context, userID pgtype.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, customerRotatedLinkRecently, userID)
+	var rotated bool
+	err := row.Scan(&rotated)
+	return rotated, err
+}
+
 const getCustomerTelegramID = `-- name: GetCustomerTelegramID :one
 
 SELECT (provider_subject)::bigint AS telegram_id
@@ -27,4 +71,118 @@ func (q *Queries) GetCustomerTelegramID(ctx context.Context, userID pgtype.UUID)
 	var telegram_id int64
 	err := row.Scan(&telegram_id)
 	return telegram_id, err
+}
+
+const getNotificationDeliveryStatus = `-- name: GetNotificationDeliveryStatus :one
+SELECT status FROM notification_deliveries
+WHERE user_id = $1 AND kind = $2
+  AND subscription_id IS NOT DISTINCT FROM $3
+  AND dedupe_key = $4
+`
+
+type GetNotificationDeliveryStatusParams struct {
+	UserID         pgtype.UUID `json:"user_id"`
+	Kind           string      `json:"kind"`
+	SubscriptionID pgtype.UUID `json:"subscription_id"`
+	DedupeKey      string      `json:"dedupe_key"`
+}
+
+func (q *Queries) GetNotificationDeliveryStatus(ctx context.Context, arg GetNotificationDeliveryStatusParams) (string, error) {
+	row := q.db.QueryRow(ctx, getNotificationDeliveryStatus,
+		arg.UserID,
+		arg.Kind,
+		arg.SubscriptionID,
+		arg.DedupeKey,
+	)
+	var status string
+	err := row.Scan(&status)
+	return status, err
+}
+
+const insertRemnawaveWebhookEvent = `-- name: InsertRemnawaveWebhookEvent :one
+INSERT INTO remnawave_webhook_events (event, body_sha256, remnawave_user_id, details, status, processed_at)
+VALUES (
+  $1, $2, $3, $4,
+  $5,
+  CASE WHEN $5::text = 'pending' THEN NULL ELSE now() END
+)
+ON CONFLICT (body_sha256) DO NOTHING
+RETURNING id
+`
+
+type InsertRemnawaveWebhookEventParams struct {
+	Event           string      `json:"event"`
+	BodySha256      []byte      `json:"body_sha256"`
+	RemnawaveUserID pgtype.Int8 `json:"remnawave_user_id"`
+	Details         []byte      `json:"details"`
+	Status          string      `json:"status"`
+}
+
+// A retried delivery carries the same bytes and is a no-op: no row comes back.
+func (q *Queries) InsertRemnawaveWebhookEvent(ctx context.Context, arg InsertRemnawaveWebhookEventParams) (int64, error) {
+	row := q.db.QueryRow(ctx, insertRemnawaveWebhookEvent,
+		arg.Event,
+		arg.BodySha256,
+		arg.RemnawaveUserID,
+		arg.Details,
+		arg.Status,
+	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const listPendingRemnawaveCustomerEvents = `-- name: ListPendingRemnawaveCustomerEvents :many
+SELECT e.id, e.event, e.details, e.received_at,
+       COALESCE(s.user_id, r.user_id) AS user_id,
+       s.id AS subscription_id,
+       COALESCE(s.label, '')::text AS subscription_label
+FROM remnawave_webhook_events e
+LEFT JOIN subscriptions s ON s.remnawave_user_id = e.remnawave_user_id AND s.status = 'active'
+LEFT JOIN remnawave_users r ON s.id IS NULL AND r.remnawave_id = e.remnawave_user_id
+WHERE e.status = 'pending'
+ORDER BY e.id
+LIMIT $1
+`
+
+type ListPendingRemnawaveCustomerEventsRow struct {
+	ID                int64              `json:"id"`
+	Event             string             `json:"event"`
+	Details           []byte             `json:"details"`
+	ReceivedAt        pgtype.Timestamptz `json:"received_at"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	SubscriptionID    pgtype.UUID        `json:"subscription_id"`
+	SubscriptionLabel string             `json:"subscription_label"`
+}
+
+// Each pending event with the subscription it concerns. The subscription is
+// matched on its own Remnawave user first and on the customer-level mapping
+// second, which is how a customer imported before subscriptions existed is
+// still found.
+func (q *Queries) ListPendingRemnawaveCustomerEvents(ctx context.Context, batchSize int32) ([]ListPendingRemnawaveCustomerEventsRow, error) {
+	rows, err := q.db.Query(ctx, listPendingRemnawaveCustomerEvents, batchSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListPendingRemnawaveCustomerEventsRow{}
+	for rows.Next() {
+		var i ListPendingRemnawaveCustomerEventsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Event,
+			&i.Details,
+			&i.ReceivedAt,
+			&i.UserID,
+			&i.SubscriptionID,
+			&i.SubscriptionLabel,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

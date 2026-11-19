@@ -11330,6 +11330,14 @@ type ReplayPanelWebhookParams struct {
 // ReceivePaymentWebhookJSONBody defines parameters for ReceivePaymentWebhook.
 type ReceivePaymentWebhookJSONBody map[string]interface{}
 
+// ReceiveRemnawaveWebhookJSONBody defines parameters for ReceiveRemnawaveWebhook.
+type ReceiveRemnawaveWebhookJSONBody map[string]interface{}
+
+// ReceiveRemnawaveWebhookParams defines parameters for ReceiveRemnawaveWebhook.
+type ReceiveRemnawaveWebhookParams struct {
+	XRemnawaveSignature string `json:"X-Remnawave-Signature"`
+}
+
 // AccountRequestEmailSignInJSONRequestBody defines body for AccountRequestEmailSignIn for application/json ContentType.
 type AccountRequestEmailSignInJSONRequestBody AccountRequestEmailSignInJSONBody
 
@@ -11674,6 +11682,9 @@ type SetPanelSupportTicketStatusJSONRequestBody SetPanelSupportTicketStatusJSONB
 
 // ReceivePaymentWebhookJSONRequestBody defines body for ReceivePaymentWebhook for application/json ContentType.
 type ReceivePaymentWebhookJSONRequestBody ReceivePaymentWebhookJSONBody
+
+// ReceiveRemnawaveWebhookJSONRequestBody defines body for ReceiveRemnawaveWebhook for application/json ContentType.
+type ReceiveRemnawaveWebhookJSONRequestBody ReceiveRemnawaveWebhookJSONBody
 
 // CollectTelemetryEventJSONRequestBody defines body for CollectTelemetryEvent for application/json ContentType.
 type CollectTelemetryEventJSONRequestBody = TelemetryEvent
@@ -12810,6 +12821,9 @@ type ServerInterface interface {
 
 	// (POST /v1/payments/webhooks/{provider})
 	ReceivePaymentWebhook(w http.ResponseWriter, r *http.Request, provider PaymentProvider)
+
+	// (POST /v1/remnawave/webhook)
+	ReceiveRemnawaveWebhook(w http.ResponseWriter, r *http.Request, params ReceiveRemnawaveWebhookParams)
 
 	// (POST /v1/telemetry/events)
 	CollectTelemetryEvent(w http.ResponseWriter, r *http.Request)
@@ -14446,6 +14460,11 @@ func (_ Unimplemented) ReplayPanelWebhook(w http.ResponseWriter, r *http.Request
 
 // (POST /v1/payments/webhooks/{provider})
 func (_ Unimplemented) ReceivePaymentWebhook(w http.ResponseWriter, r *http.Request, provider PaymentProvider) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/remnawave/webhook)
+func (_ Unimplemented) ReceiveRemnawaveWebhook(w http.ResponseWriter, r *http.Request, params ReceiveRemnawaveWebhookParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -28505,6 +28524,51 @@ func (siw *ServerInterfaceWrapper) ReceivePaymentWebhook(w http.ResponseWriter, 
 	handler.ServeHTTP(w, r)
 }
 
+// ReceiveRemnawaveWebhook operation middleware
+func (siw *ServerInterfaceWrapper) ReceiveRemnawaveWebhook(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ReceiveRemnawaveWebhookParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-Remnawave-Signature" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Remnawave-Signature")]; found {
+		var XRemnawaveSignature string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Remnawave-Signature", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Remnawave-Signature", valueList[0], &XRemnawaveSignature, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Remnawave-Signature", Err: err})
+			return
+		}
+
+		params.XRemnawaveSignature = XRemnawaveSignature
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Remnawave-Signature is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Remnawave-Signature", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReceiveRemnawaveWebhook(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CollectTelemetryEvent operation middleware
 func (siw *ServerInterfaceWrapper) CollectTelemetryEvent(w http.ResponseWriter, r *http.Request) {
 
@@ -28712,6 +28776,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/payments/webhooks/{provider}", wrapper.ReceivePaymentWebhook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/remnawave/webhook", wrapper.ReceiveRemnawaveWebhook)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/admin/payments/{paymentID}/reconcile", wrapper.ReconcilePayment)
@@ -44556,6 +44623,81 @@ func (response ReceivePaymentWebhook413ApplicationProblemPlusJSONResponse) Visit
 	return err
 }
 
+type ReceiveRemnawaveWebhookRequestObject struct {
+	Params ReceiveRemnawaveWebhookParams
+	Body   *ReceiveRemnawaveWebhookJSONRequestBody
+}
+
+type ReceiveRemnawaveWebhookResponseObject interface {
+	VisitReceiveRemnawaveWebhookResponse(w http.ResponseWriter) error
+}
+
+type ReceiveRemnawaveWebhook200Response struct {
+}
+
+func (response ReceiveRemnawaveWebhook200Response) VisitReceiveRemnawaveWebhookResponse(w http.ResponseWriter) error {
+	w.WriteHeader(200)
+	return nil
+}
+
+type ReceiveRemnawaveWebhook400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ReceiveRemnawaveWebhook400ApplicationProblemPlusJSONResponse) VisitReceiveRemnawaveWebhookResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReceiveRemnawaveWebhook401ApplicationProblemPlusJSONResponse Problem
+
+func (response ReceiveRemnawaveWebhook401ApplicationProblemPlusJSONResponse) VisitReceiveRemnawaveWebhookResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReceiveRemnawaveWebhook413ApplicationProblemPlusJSONResponse Problem
+
+func (response ReceiveRemnawaveWebhook413ApplicationProblemPlusJSONResponse) VisitReceiveRemnawaveWebhookResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(413)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReceiveRemnawaveWebhook503ApplicationProblemPlusJSONResponse Problem
+
+func (response ReceiveRemnawaveWebhook503ApplicationProblemPlusJSONResponse) VisitReceiveRemnawaveWebhookResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type CollectTelemetryEventRequestObject struct {
 	Body *CollectTelemetryEventJSONRequestBody
 }
@@ -45568,6 +45710,9 @@ type StrictServerInterface interface {
 
 	// (POST /v1/payments/webhooks/{provider})
 	ReceivePaymentWebhook(ctx context.Context, request ReceivePaymentWebhookRequestObject) (ReceivePaymentWebhookResponseObject, error)
+
+	// (POST /v1/remnawave/webhook)
+	ReceiveRemnawaveWebhook(ctx context.Context, request ReceiveRemnawaveWebhookRequestObject) (ReceiveRemnawaveWebhookResponseObject, error)
 
 	// (POST /v1/telemetry/events)
 	CollectTelemetryEvent(ctx context.Context, request CollectTelemetryEventRequestObject) (CollectTelemetryEventResponseObject, error)
@@ -54880,6 +55025,39 @@ func (sh *strictHandler) ReceivePaymentWebhook(w http.ResponseWriter, r *http.Re
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ReceivePaymentWebhookResponseObject); ok {
 		if err := validResponse.VisitReceivePaymentWebhookResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ReceiveRemnawaveWebhook operation middleware
+func (sh *strictHandler) ReceiveRemnawaveWebhook(w http.ResponseWriter, r *http.Request, params ReceiveRemnawaveWebhookParams) {
+	var request ReceiveRemnawaveWebhookRequestObject
+
+	request.Params = params
+
+	var body ReceiveRemnawaveWebhookJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ReceiveRemnawaveWebhook(ctx, request.(ReceiveRemnawaveWebhookRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReceiveRemnawaveWebhook")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ReceiveRemnawaveWebhookResponseObject); ok {
+		if err := validResponse.VisitReceiveRemnawaveWebhookResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

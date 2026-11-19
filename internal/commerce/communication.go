@@ -61,8 +61,16 @@ var notificationClasses = map[string]MessageClass{
 	"announcement": ClassTransactional,
 	"referral":     ClassTransactional,
 	"trial":        ClassTransactional,
-	"news":         ClassMarketing,
-	"marketing":    ClassMarketing,
+	// What the Remnawave panel reported about the customer's own access: a
+	// first connection, a device, a re-issued link.
+	"connection": ClassTransactional,
+	"device":     ClassTransactional,
+	"access":     ClassTransactional,
+	// A service reminder from the reminder constructor; a marketing one
+	// travels as `marketing`.
+	"reminder":  ClassTransactional,
+	"news":      ClassMarketing,
+	"marketing": ClassMarketing,
 }
 
 // urgentNotifications are never deferred by quiet hours: the customer is either

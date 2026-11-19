@@ -28,7 +28,7 @@ import (
 )
 
 // Kinds are the event streams that each get their own forum topic.
-var Kinds = []string{"purchase", "renewal", "topup", "refund", "fulfillment_failure", "incident", "backup", "security", "support", "campaign_test", "notice_test"}
+var Kinds = []string{"purchase", "renewal", "topup", "refund", "fulfillment_failure", "incident", "backup", "security", "support", "campaign_test", "notice_test", "node", "monitoring"}
 
 // KindCampaignTest is the topic campaign previews go to.
 //
@@ -53,6 +53,8 @@ var topicNames = map[string]string{
 	"support":             "💬 Support tickets",
 	"campaign_test":       "📣 Campaign previews",
 	"notice_test":         "🔔 Notice previews",
+	"node":                "🖥 Remnawave nodes",
+	"monitoring":          "📈 Usage monitoring",
 }
 
 // Config binds the operator group and bounds notification volume.
@@ -394,7 +396,7 @@ func renderNotification(notification dbgen.OperatorNotification) string {
 	// nothing else. An operator address, a session token, and a raw client
 	// address all stay out of the group chat; they are available in the audit
 	// trail to anyone entitled to read it.
-	for _, field := range []string{"orderId", "subscriptionId", "entitlementId", "provider", "operation", "currency", "amountMinor", "creditedMinor", "classification", "reason", "source", "errorCode", "fileName", "sizeBytes", "status", "event", "adminUserId", "method", "ticketId", "queueId"} {
+	for _, field := range []string{"orderId", "subscriptionId", "entitlementId", "provider", "operation", "currency", "amountMinor", "creditedMinor", "classification", "reason", "source", "errorCode", "fileName", "sizeBytes", "status", "event", "adminUserId", "method", "ticketId", "queueId", "node", "country", "remnawaveUserId", "customerId", "users", "devices", "limit", "gigabytes", "window"} {
 		value, ok := payload[field]
 		if !ok || value == nil || value == "" {
 			continue

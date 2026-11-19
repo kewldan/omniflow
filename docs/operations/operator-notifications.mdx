@@ -58,6 +58,8 @@ happened — it simply has nobody to tell.
 | 💬 Support tickets | `support` | Every new support ticket, and every later customer message in a ticket (`event: customer_reply`), from the bot or the web panel, as ticket and queue identifiers — never the subject or the message, which are customer text | Database triggers on `support_tickets` and `support_messages` |
 | 📣 Campaign previews | `campaign_test` | One copy of a campaign's message, asked for before the audience is committed to | Campaign test send |
 | 🔔 Notice previews | `notice_test` | One rendered copy of a transactional notice an operator is rewording | Notice test send |
+| 🖥 Remnawave nodes | `node` | Remnawave's own node, panel-service, and infrastructure-billing webhook events, as the event name and the node's name | [Remnawave webhooks](/integrations/remnawave#webhooks) |
+| 📈 Usage monitoring | `monitoring` | Torrent-blocker reports, and the monitoring passes' findings | Remnawave webhooks, the worker's monitoring jobs |
 
 The last two carry something the others deliberately do not: a rendered message body. Everything else here is a set of allowlisted, non-personal fields, and a preview is by definition the copy itself. Both say plainly that nobody else received them — a preview mistaken for a real send is somebody reaching for the pause button. See [Campaigns](/commerce/campaigns) and [Message wording](/operations/message-wording).
 

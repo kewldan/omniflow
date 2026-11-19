@@ -1841,6 +1841,18 @@ type RemnawaveUser struct {
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 }
 
+// Verified Remnawave webhook deliveries, summarised to an allowlist of fields. The raw body is not kept.
+type RemnawaveWebhookEvent struct {
+	ID              int64              `json:"id"`
+	Event           string             `json:"event"`
+	BodySha256      []byte             `json:"body_sha256"`
+	RemnawaveUserID pgtype.Int8        `json:"remnawave_user_id"`
+	Details         []byte             `json:"details"`
+	Status          string             `json:"status"`
+	ReceivedAt      pgtype.Timestamptz `json:"received_at"`
+	ProcessedAt     pgtype.Timestamptz `json:"processed_at"`
+}
+
 type RequiredChannel struct {
 	ID                   pgtype.UUID        `json:"id"`
 	TelegramChatID       int64              `json:"telegram_chat_id"`

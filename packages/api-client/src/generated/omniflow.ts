@@ -5622,6 +5622,8 @@ export type CancelOrderBody = {
 
 export type ReceivePaymentWebhookBody = { [key: string]: unknown };
 
+export type ReceiveRemnawaveWebhookBody = { [key: string]: unknown };
+
 export type ListFulfillmentDriftsParams = {
   /**
    * @minimum 1
@@ -9087,6 +9089,105 @@ export const useReceivePaymentWebhook = <TError = Promise<ProblemResponse>>(
 
   const swrKey = swrOptions?.swrKey ?? getReceivePaymentWebhookMutationKey(provider);
   const swrFn = getReceivePaymentWebhookMutationFetcher(provider, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type receiveRemnawaveWebhookResponse200 = {
+  data: void;
+  status: 200;
+};
+
+export type receiveRemnawaveWebhookResponse400 = {
+  data: ProblemResponse;
+  status: 400;
+};
+
+export type receiveRemnawaveWebhookResponse401 = {
+  data: ProblemResponse;
+  status: 401;
+};
+
+export type receiveRemnawaveWebhookResponse413 = {
+  data: ProblemResponse;
+  status: 413;
+};
+
+export type receiveRemnawaveWebhookResponse503 = {
+  data: ProblemResponse;
+  status: 503;
+};
+
+export type receiveRemnawaveWebhookResponseSuccess = receiveRemnawaveWebhookResponse200 & {
+  headers: Headers;
+};
+export type receiveRemnawaveWebhookResponseError = (
+  | receiveRemnawaveWebhookResponse400
+  | receiveRemnawaveWebhookResponse401
+  | receiveRemnawaveWebhookResponse413
+  | receiveRemnawaveWebhookResponse503
+) & {
+  headers: Headers;
+};
+
+export type receiveRemnawaveWebhookResponse =
+  | receiveRemnawaveWebhookResponseSuccess
+  | receiveRemnawaveWebhookResponseError;
+
+export const getReceiveRemnawaveWebhookUrl = () => {
+  return `/v1/remnawave/webhook`;
+};
+
+/**
+ * Remnawave's own event deliveries, signed with an HMAC-SHA256 of the body in X-Remnawave-Signature under APP_REMNAWAVE_WEBHOOK_SECRET. Mounted only when the secret is set. A retried delivery is acknowledged without being recorded twice.
+ */
+export const receiveRemnawaveWebhook = async (
+  receiveRemnawaveWebhookBody: ReceiveRemnawaveWebhookBody,
+  options?: RequestInit,
+): Promise<receiveRemnawaveWebhookResponse> => {
+  const res = await fetch(getReceiveRemnawaveWebhookUrl(), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(receiveRemnawaveWebhookBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: receiveRemnawaveWebhookResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as receiveRemnawaveWebhookResponse;
+};
+
+export const getReceiveRemnawaveWebhookMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: ReceiveRemnawaveWebhookBody }) => {
+    return receiveRemnawaveWebhook(arg, options);
+  };
+};
+export const getReceiveRemnawaveWebhookMutationKey = () => [`/v1/remnawave/webhook`] as const;
+
+export type ReceiveRemnawaveWebhookMutationResult = NonNullable<
+  Awaited<ReturnType<typeof receiveRemnawaveWebhook>>
+>;
+
+export const useReceiveRemnawaveWebhook = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof receiveRemnawaveWebhook>>,
+    TError,
+    Key,
+    ReceiveRemnawaveWebhookBody,
+    Awaited<ReturnType<typeof receiveRemnawaveWebhook>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getReceiveRemnawaveWebhookMutationKey();
+  const swrFn = getReceiveRemnawaveWebhookMutationFetcher(fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

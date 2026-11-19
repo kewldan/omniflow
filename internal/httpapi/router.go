@@ -28,6 +28,9 @@ type RouterOptions struct {
 	// Account serves the customer web panel API. A nil value leaves /v1/account
 	// unmounted, which is what a Telegram-only installation wants.
 	Account *AccountHandlers
+	// RemnawaveWebhook receives the panel's event deliveries. Nil when no
+	// webhook secret is configured.
+	RemnawaveWebhook *RemnawaveWebhookHandler
 	// CollectorEnabled exposes the anonymous telemetry collector endpoint.
 	CollectorEnabled bool
 	Telemetry        *telemetry.Client
@@ -72,6 +75,9 @@ func NewRouter(logger *slog.Logger, options RouterOptions) http.Handler {
 	}
 	if options.Account != nil {
 		options.Account.Mount(router)
+	}
+	if options.RemnawaveWebhook != nil {
+		options.RemnawaveWebhook.Mount(router)
 	}
 	return router
 }

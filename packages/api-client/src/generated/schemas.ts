@@ -790,6 +790,17 @@ export const ReceivePaymentWebhookBody = zod.record(zod.string(), zod.unknown())
 
 export const ReceivePaymentWebhookResponse = zod.unknown();
 
+/**
+ * Remnawave's own event deliveries, signed with an HMAC-SHA256 of the body in X-Remnawave-Signature under APP_REMNAWAVE_WEBHOOK_SECRET. Mounted only when the secret is set. A retried delivery is acknowledged without being recorded twice.
+ */
+export const ReceiveRemnawaveWebhookHeader = zod.object({
+  "X-Remnawave-Signature": zod.string(),
+});
+
+export const ReceiveRemnawaveWebhookBody = zod.record(zod.string(), zod.unknown());
+
+export const ReceiveRemnawaveWebhookResponse = zod.unknown();
+
 export const ReconcilePaymentParams = zod.object({
   paymentID: zod.uuid(),
 });

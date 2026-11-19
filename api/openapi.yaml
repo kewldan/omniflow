@@ -306,6 +306,23 @@ paths:
         "200": {description: Verified event accepted}
         "400": {$ref: "#/components/responses/Problem"}
         "413": {$ref: "#/components/responses/Problem"}
+  /v1/remnawave/webhook:
+    post:
+      operationId: receiveRemnawaveWebhook
+      tags: [remnawave]
+      description: >-
+        Remnawave's own event deliveries, signed with an HMAC-SHA256 of the body in
+        X-Remnawave-Signature under APP_REMNAWAVE_WEBHOOK_SECRET. Mounted only when the
+        secret is set. A retried delivery is acknowledged without being recorded twice.
+      parameters:
+        - {in: header, name: X-Remnawave-Signature, required: true, schema: {type: string}}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, additionalProperties: true}}}}
+      responses:
+        "200": {description: Verified event accepted}
+        "400": {$ref: "#/components/responses/Problem"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "413": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
   /v1/admin/payments/{paymentID}/reconcile:
     post:
       operationId: reconcilePayment
