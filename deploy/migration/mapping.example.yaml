@@ -1,0 +1,32 @@
+# Operator mapping for cmd/migrate-bedolaga. Copy it, fill in your plan
+# version IDs, and pass the copy as MAPPING_FILE. `03-plan.sh` lists every
+# Omniflow plan version you can name and every Bedolaga tariff still unmapped.
+
+# Bedolaga stores balances in kopeks, which are RUB minor units.
+currency: RUB
+
+# Bedolaga marks a user `blocked` both when an operator bans them and when a
+# broadcast finds they blocked the bot. Choose what that becomes:
+#   suspend — the customer arrives suspended in Omniflow
+#   active  — the customer arrives active
+# Leaving it out turns every blocked user into a conflict until you decide.
+blockedUsers: suspend
+
+# Shown to customers in their wallet history beside the carried-over balance.
+walletReason: "Balance carried over from the previous bot"
+
+# Bedolaga tariff → Omniflow plan version. More specific rules win:
+#   tariffId + periodDays  over  tariffId  over  a tariff-less trial rule.
+# periodDays matches a subscription whose start-to-end length rounds to it.
+plans:
+  - tariffId: 1
+    planVersionId: 00000000-0000-0000-0000-000000000000
+  - tariffId: 1
+    periodDays: 360
+    planVersionId: 00000000-0000-0000-0000-000000000000
+  # Trial subscriptions, whatever tariff they were on.
+  - trial: true
+    planVersionId: 00000000-0000-0000-0000-000000000000
+  # Subscriptions sold in Bedolaga's classic mode, without a tariff.
+  # - noTariff: true
+  #   planVersionId: 00000000-0000-0000-0000-000000000000
