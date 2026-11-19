@@ -74,7 +74,7 @@ const UNTITLED_SECTIONS: Record<string, string> = {
   "/account": "nav.subscriptions",
   "/account/devices": "nav.devices",
   "/account/orders": "nav.orders",
-  "/account/privacy": "hub.privacy",
+  "/account/privacy": "account.hub.privacy",
   "/account/profile": "nav.profile",
   "/account/referrals": "nav.referrals",
   "/account/security": "nav.security",
