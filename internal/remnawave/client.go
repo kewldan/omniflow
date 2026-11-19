@@ -279,9 +279,26 @@ type Client struct {
 	baseURL *url.URL
 	token   string
 	http    *http.Client
+	options Options
+	limiter *limiter
 }
 
-func NewClient(rawURL, token string) (*Client, error) {
+// NewClient builds the adapter. At most one Options value may follow the
+// token; without it the client authenticates with the bearer token alone and
+// waits ten seconds for each call, which is what a panel reached directly or
+// through its own reverse proxy needs.
+func NewClient(rawURL, token string, extra ...Options) (*Client, error) {
+	var options Options
+	if len(extra) > 0 {
+		options = extra[0]
+	}
+	if err := options.Validate(); err != nil {
+		return nil, err
+	}
+	timeout := options.Timeout
+	if timeout <= 0 {
+		timeout = 10 * time.Second
+	}
 	baseURL, err := url.Parse(strings.TrimSpace(rawURL))
 	if err != nil || baseURL.Host == "" || (baseURL.Scheme != "http" && baseURL.Scheme != "https") {
 		return nil, errors.New("Remnawave URL must be an absolute HTTP(S) URL")
@@ -294,10 +311,12 @@ func NewClient(rawURL, token string) (*Client, error) {
 	return &Client{
 		baseURL: baseURL,
 		token:   token,
+		options: options,
+		limiter: newLimiter(options.RequestsPerMinute),
 		// Every panel call is traced as a child of the request or job that
 		// caused it, which is what makes a slow Remnawave visible end to end.
 		http: &http.Client{
-			Timeout:   10 * time.Second,
+			Timeout:   timeout,
 			Transport: otelhttp.NewTransport(http.DefaultTransport),
 			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
 				return http.ErrUseLastResponse
@@ -558,7 +577,7 @@ func (client *Client) do(ctx context.Context, method, path string, body any, tar
 		return fmt.Errorf("create Remnawave request: %w", err)
 	}
 	request.Header.Set("Accept", "application/json")
-	request.Header.Set("Authorization", "Bearer "+client.token)
+	client.options.authenticate(request, client.token)
 	if client.baseURL.Scheme == "http" {
 		// The panel drops the connection of any request that does not look like
 		// it came through an HTTPS reverse proxy. A plain-HTTP base URL is a
@@ -573,6 +592,9 @@ func (client *Client) do(ctx context.Context, method, path string, body any, tar
 		request.Header.Set("Content-Type", "application/json")
 	}
 
+	if err := client.limiter.wait(ctx); err != nil {
+		return fmt.Errorf("call Remnawave API: %w", err)
+	}
 	response, err := client.http.Do(request)
 	if err != nil {
 		return fmt.Errorf("call Remnawave API: %w", err)

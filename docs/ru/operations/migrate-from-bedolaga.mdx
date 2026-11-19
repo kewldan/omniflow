@@ -220,7 +220,9 @@ sh deploy/migration/00-convert-env.sh /root/remnawave-bedolaga-telegram-bot/.env
 | `ADMIN_NOTIFICATIONS_CHAT_ID` | `APP_OPERATOR_CHAT_ID` | Группа с темами; бот сам создаёт свои темы, поэтому ID тем Bedolaga не переносятся |
 | `SUPPORT_USERNAME` | `APP_SUPPORT_URL` | URL, например `https://t.me/<username>` |
 | `REMNAWAVE_API_URL` | `APP_REMNAWAVE_URL` | |
-| `REMNAWAVE_API_KEY` | `APP_REMNAWAVE_TOKEN` | Отправляется как bearer-токен. Режимам Bedolaga с токеном Caddy и basic-auth соответствия нет |
+| `REMNAWAVE_API_KEY` | `APP_REMNAWAVE_TOKEN` | Отправляется как bearer-токен |
+| `REMNAWAVE_AUTH_TYPE`, `REMNAWAVE_USERNAME`, `REMNAWAVE_PASSWORD`, `REMNAWAVE_CADDY_TOKEN`, `REMNAWAVE_SECRET_KEY` | `APP_REMNAWAVE_AUTH_TYPE`, `APP_REMNAWAVE_USERNAME`, `APP_REMNAWAVE_PASSWORD`, `APP_REMNAWAVE_CADDY_TOKEN`, `APP_REMNAWAVE_SECRET_KEY` | Те же режимы и заголовки; см. [Remnawave](/ru/integrations/remnawave) |
+| `REMNAWAVE_API_TOTAL_TIMEOUT`, `REMNAWAVE_API_REQUESTS_PER_MINUTE` | `APP_REMNAWAVE_TIMEOUT_SECONDS`, `APP_REMNAWAVE_REQUESTS_PER_MINUTE` | |
 | `YOOKASSA_SHOP_ID` | `APP_YOOKASSA_SHOP_ID` | |
 | `YOOKASSA_SECRET_KEY` | `APP_YOOKASSA_SECRET` | Ссылки возврата строятся из `APP_PUBLIC_URL`; у `YOOKASSA_RETURN_URL` соответствия нет |
 | `CRYPTOBOT_API_TOKEN` | `APP_CRYPTOBOT_TOKEN` | |

@@ -51,6 +51,11 @@ Both processes that provision and both that read need the same two values.
 | --- | --- | --- |
 | `APP_REMNAWAVE_URL` | none | Base URL of the Remnawave API. Must parse as an absolute `http`/`https` URL with a host; any query string and fragment are stripped. Anything else fails startup with `Remnawave URL must be an absolute HTTP(S) URL`. Use `https://` for a panel behind its reverse proxy, or `http://` for a direct in-network connection to the backend container (see below) |
 | `APP_REMNAWAVE_TOKEN` | none | Bearer credential, sent as `Authorization: Bearer <token>` on every call. Must be non-empty |
+| `APP_REMNAWAVE_AUTH_TYPE` | `bearer` | What the reverse proxy in front of the panel wants on top of the token. `bearer` sends the token alone; `api_key` repeats it as `X-Api-Key`; `basic` adds `X-Api-Key: Basic base64(user:password)` from `APP_REMNAWAVE_USERNAME` and `APP_REMNAWAVE_PASSWORD`; `caddy` adds `X-Api-Key: <APP_REMNAWAVE_CADDY_TOKEN>` for `remnawave/caddy-with-auth`; `cookies` sends the token and the cookies below. The bearer token is always sent, because the panel itself checks it. An unknown value or a missing companion fails startup |
+| `APP_REMNAWAVE_SECRET_KEY` | none | The cookie of a panel installed with a secret URL key, as `name:value` (a value without a colon is sent as `value=value`). Sent on every call in every mode |
+| `APP_REMNAWAVE_COOKIES` | none | Extra cookies, `name=value; other=value` |
+| `APP_REMNAWAVE_TIMEOUT_SECONDS` | `10` | How long one call may take |
+| `APP_REMNAWAVE_REQUESTS_PER_MINUTE` | `0` | Spaces this process's calls evenly so it never exceeds the rate; `0` is no cap. Each of the API, bot, and worker has its own budget |
 
 Obtain the token from your Remnawave installation's own API-token facility. It needs to be able to
 read and modify users, read subscriptions, and manage HWID devices — that is the whole surface

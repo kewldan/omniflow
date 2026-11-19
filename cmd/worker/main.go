@@ -58,7 +58,7 @@ func main() {
 		os.Exit(1)
 	}
 	defer pool.Close()
-	remnawaveClient, err := remnawave.NewClient(cfg.RemnawaveURL, cfg.RemnawaveToken)
+	remnawaveClient, err := remnawave.NewClient(cfg.RemnawaveURL, cfg.RemnawaveToken, remnawave.OptionsFromEnv(os.Getenv))
 	if err != nil {
 		logger.Error("initialize Remnawave", "error", err)
 		os.Exit(1)

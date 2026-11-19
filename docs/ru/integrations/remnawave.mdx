@@ -52,6 +52,11 @@ Remnawave.
 | --- | --- | --- |
 | `APP_REMNAWAVE_URL` | нет | Базовый URL API Remnawave. Должен разбираться как абсолютный `http`/`https` URL с хостом; строка запроса и фрагмент отбрасываются. Всё остальное валит запуск с сообщением `Remnawave URL must be an absolute HTTP(S) URL`. Используйте `https://` для панели за её обратным прокси или `http://` для прямого подключения к контейнеру бэкенда внутри сети (см. ниже) |
 | `APP_REMNAWAVE_TOKEN` | нет | Bearer-учётные данные, отправляются как `Authorization: Bearer <token>` в каждом вызове. Не должны быть пустыми |
+| `APP_REMNAWAVE_AUTH_TYPE` | `bearer` | Что сверх токена ждёт обратный прокси перед панелью. `bearer` — только токен; `api_key` — токен ещё и в `X-Api-Key`; `basic` — `X-Api-Key: Basic base64(user:password)` из `APP_REMNAWAVE_USERNAME` и `APP_REMNAWAVE_PASSWORD`; `caddy` — `X-Api-Key: <APP_REMNAWAVE_CADDY_TOKEN>` для `remnawave/caddy-with-auth`; `cookies` — токен и cookie ниже. Bearer-токен отправляется всегда: его проверяет сама панель. Неизвестное значение или недостающий параметр останавливают запуск |
+| `APP_REMNAWAVE_SECRET_KEY` | нет | Cookie панели, установленной с секретным ключом в URL, в виде `name:value` (значение без двоеточия отправляется как `value=value`). Отправляется в каждом вызове в любом режиме |
+| `APP_REMNAWAVE_COOKIES` | нет | Дополнительные cookie: `name=value; other=value` |
+| `APP_REMNAWAVE_TIMEOUT_SECONDS` | `10` | Сколько может длиться один вызов |
+| `APP_REMNAWAVE_REQUESTS_PER_MINUTE` | `0` | Равномерно разносит вызовы процесса, чтобы не превысить частоту; `0` — без ограничения. У API, бота и воркера свой бюджет у каждого |
 
 Получите токен через собственный механизм API-токенов вашей установки Remnawave. Ему нужно уметь
 читать и изменять пользователей, читать подписки и управлять HWID-устройствами — это вся поверхность,

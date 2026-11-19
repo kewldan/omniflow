@@ -218,7 +218,9 @@ Review the result and merge it into Omniflow's `.env`. The usual Bedolaga settin
 | `ADMIN_NOTIFICATIONS_CHAT_ID` | `APP_OPERATOR_CHAT_ID` | A group with topics; the bot creates its own topics, so the Bedolaga topic IDs do not carry |
 | `SUPPORT_USERNAME` | `APP_SUPPORT_URL` | A URL, e.g. `https://t.me/<username>` |
 | `REMNAWAVE_API_URL` | `APP_REMNAWAVE_URL` | |
-| `REMNAWAVE_API_KEY` | `APP_REMNAWAVE_TOKEN` | Sent as a bearer token. Bedolaga's Caddy-token and basic-auth modes have no equivalent |
+| `REMNAWAVE_API_KEY` | `APP_REMNAWAVE_TOKEN` | Sent as a bearer token |
+| `REMNAWAVE_AUTH_TYPE`, `REMNAWAVE_USERNAME`, `REMNAWAVE_PASSWORD`, `REMNAWAVE_CADDY_TOKEN`, `REMNAWAVE_SECRET_KEY` | `APP_REMNAWAVE_AUTH_TYPE`, `APP_REMNAWAVE_USERNAME`, `APP_REMNAWAVE_PASSWORD`, `APP_REMNAWAVE_CADDY_TOKEN`, `APP_REMNAWAVE_SECRET_KEY` | The same modes and headers; see [Remnawave](/integrations/remnawave#credentials-and-connection) |
+| `REMNAWAVE_API_TOTAL_TIMEOUT`, `REMNAWAVE_API_REQUESTS_PER_MINUTE` | `APP_REMNAWAVE_TIMEOUT_SECONDS`, `APP_REMNAWAVE_REQUESTS_PER_MINUTE` | |
 | `YOOKASSA_SHOP_ID` | `APP_YOOKASSA_SHOP_ID` | |
 | `YOOKASSA_SECRET_KEY` | `APP_YOOKASSA_SECRET` | Return links are built from `APP_PUBLIC_URL`; `YOOKASSA_RETURN_URL` has no equivalent |
 | `CRYPTOBOT_API_TOKEN` | `APP_CRYPTOBOT_TOKEN` | |

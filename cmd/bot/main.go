@@ -57,7 +57,7 @@ func main() {
 		logger.Error("telegram identity store initialization failed", "error", err)
 		os.Exit(1)
 	}
-	remnawaveClient, err := remnawave.NewClient(cfg.RemnawaveURL, cfg.RemnawaveToken)
+	remnawaveClient, err := remnawave.NewClient(cfg.RemnawaveURL, cfg.RemnawaveToken, remnawave.OptionsFromEnv(os.Getenv))
 	if err != nil {
 		logger.Error("Remnawave client initialization failed", "error", err)
 		os.Exit(1)

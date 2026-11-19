@@ -216,7 +216,7 @@ func build(pool *pgxpool.Pool, cfg config.MigrationConfig, actor string, logger 
 	if err != nil {
 		return nil, err
 	}
-	panel, err := remnawave.NewClient(cfg.RemnawaveURL, cfg.RemnawaveToken)
+	panel, err := remnawave.NewClient(cfg.RemnawaveURL, cfg.RemnawaveToken, remnawave.OptionsFromEnv(os.Getenv))
 	if err != nil {
 		return nil, fmt.Errorf("Remnawave: %w", err)
 	}

@@ -164,7 +164,7 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 		return runtimeServices{}, nil, err
 	}
 	commerceStore, providers, paymentService := core.Store, core.Providers, core.Payments
-	remnawaveClient, err := remnawave.NewClient(cfg.RemnawaveURL, cfg.RemnawaveToken)
+	remnawaveClient, err := remnawave.NewClient(cfg.RemnawaveURL, cfg.RemnawaveToken, remnawave.OptionsFromEnv(os.Getenv))
 	if err != nil {
 		closeAll()
 		return runtimeServices{}, nil, err
