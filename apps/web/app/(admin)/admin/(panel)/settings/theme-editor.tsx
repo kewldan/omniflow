@@ -16,7 +16,6 @@ import { useTranslations } from "next-intl";
 import { type CSSProperties, useId, useRef, useState } from "react";
 import useSWR from "swr";
 
-import { PageHeader } from "@/components/admin/resource-table";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 import type { BrandingAssets, Palette, ThemeSettings } from "@/lib/operations";
 import { useOperatorAction } from "@/lib/operations";
@@ -57,7 +56,7 @@ export function ThemeEditor() {
   if (isLoading || !data) {
     return (
       <div className="flex flex-col gap-5">
-        <PageHeader description={translate("description")} title={translate("title")} />
+        <SectionHeader description={translate("description")} title={translate("title")} />
         <Skeleton className="h-96 w-full" />
       </div>
     );
@@ -65,10 +64,23 @@ export function ThemeEditor() {
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader description={translate("description")} title={translate("title")} />
+      <SectionHeader description={translate("description")} title={translate("title")} />
       <ThemeForm editable={editable} onSaved={() => mutate()} settings={data} />
       <BrandAssets editable={editable} />
     </div>
+  );
+}
+
+/**
+ * The appearance editor is a section of the Brand page, which has its own
+ * <h1>; it used the page header and gave that page two.
+ */
+function SectionHeader({ description, title }: { description: string; title: string }) {
+  return (
+    <header className="flex flex-col gap-1 pt-2">
+      <h2 className="font-semibold text-lg tracking-tight">{title}</h2>
+      <p className="max-w-2xl text-muted-foreground text-sm">{description}</p>
+    </header>
   );
 }
 
