@@ -165,7 +165,7 @@ func (service *Service) CreateIntent(ctx context.Context, input CreateIntentInpu
 			return queries.UpdatePaymentIntentStatus(ctx, dbgen.UpdatePaymentIntentStatusParams{PaymentIntentID: intent.ID, Status: recovered.Status, ProviderReference: optionalText(recovered.ProviderReference), CheckoutUrl: optionalText(recovered.CheckoutURL)})
 		}
 	}
-	created, err := service.submit(ctx, provider, input, amount)
+	created, err := service.submit(ctx, provider, input, amount, payerMetadata(ctx, queries, order.UserID))
 	if err != nil {
 		return dbgen.PaymentIntent{}, err
 	}
@@ -195,6 +195,27 @@ func (service *Service) CreateIntent(ctx context.Context, input CreateIntentInpu
 	return queries.GetPaymentIntent(ctx, intent.ID)
 }
 
+// payerMetadata is what a provider may need to identify the payer: Omniflow's
+// own customer ID and, when the customer signed in with Telegram, their
+// Telegram ID. Several acquirers (Platega, MulenPay) refuse a checkout that
+// names no payer. It never carries an email or phone — those are sealed and
+// the payment service holds no key to open them — and a lookup failure only
+// leaves the fields out, because the order itself is still payable.
+func payerMetadata(ctx context.Context, queries *dbgen.Queries, userID pgtype.UUID) map[string]string {
+	metadata := map[string]string{"customer_id": uuidString(userID)}
+	identities, err := queries.ListCustomerIdentities(ctx, userID)
+	if err != nil {
+		return metadata
+	}
+	for _, identity := range identities {
+		if identity.Provider == "telegram" && identity.Status == "active" && identity.ProviderSubject != "" {
+			metadata["customer_telegram_id"] = identity.ProviderSubject
+			break
+		}
+	}
+	return metadata
+}
+
 // SynchronousEventID names the payment event a synchronous settlement writes.
 // It is derived from the provider's reference so the event reads as the charge
 // it records, and falls back to the intent when the provider returned none. A
@@ -217,12 +238,17 @@ func SynchronousEventID(providerReference, intentID string) string {
 // because nothing tells anyone it happened.
 func (service *Service) submit(
 	ctx context.Context, provider payments.Provider, input CreateIntentInput, amount commerce.Money,
+	payer map[string]string,
 ) (payments.Intent, error) {
 	if input.SavedMethodToken == "" {
+		metadata := map[string]string{"order_id": input.OrderID}
+		for key, value := range payer {
+			metadata[key] = value
+		}
 		return provider.Create(ctx, payments.CreateRequest{
 			OrderID: input.OrderID, IdempotencyKey: input.IdempotencyKey, Amount: amount,
 			Description: input.Description, ReturnURL: input.ReturnURL,
-			Metadata: map[string]string{"order_id": input.OrderID},
+			Metadata: metadata,
 		})
 	}
 	charger, ok := provider.(payments.RecurringCharger)
@@ -314,10 +340,18 @@ func (service *Service) Reconcile(ctx context.Context, paymentIntentID string) (
 	return queries.UpdatePaymentIntentStatus(ctx, dbgen.UpdatePaymentIntentStatusParams{PaymentIntentID: intent.ID, Status: remote.Status, ProviderReference: optionalText(remote.ProviderReference), CheckoutUrl: optionalText(remote.CheckoutURL)})
 }
 
+// ErrWebhookRejected marks a notification that will never be applied however
+// often it is delivered: a bad signature, an unknown provider, or a payment
+// this installation never opened. Any other HandleWebhook error is transient
+// (the database, or the provider's API during re-verification), and the HTTP
+// layer answers it with a 5xx so providers that retry only on server errors —
+// Cashera among them — deliver it again.
+var ErrWebhookRejected = errors.New("webhook rejected")
+
 func (service *Service) HandleWebhook(ctx context.Context, providerName string, headers http.Header, body []byte) (string, error) {
 	provider, ok := service.providers[providerName]
 	if !ok || !provider.Capabilities().Webhooks {
-		return "", payments.ErrUnsupported
+		return "", fmt.Errorf("%w: %w", ErrWebhookRejected, payments.ErrUnsupported)
 	}
 	digest := sha256.Sum256(body)
 	event, verifyErr := provider.VerifyWebhook(headers, body)
@@ -328,7 +362,7 @@ func (service *Service) HandleWebhook(ctx context.Context, providerName string, 
 		// request cap, for thirty days — would hand them the database's disk.
 		_, _ = queries.InsertWebhookEvent(ctx, dbgen.InsertWebhookEventParams{Provider: providerName, ProviderEventID: "invalid:" + hex.EncodeToString(digest[:]), SignatureValid: false, BodySha256: digest[:], RawBody: []byte{}, Headers: safeHeaders(headers)})
 		service.observeWebhook(providerName, "signature_invalid")
-		return "", verifyErr
+		return "", fmt.Errorf("%w: %w", ErrWebhookRejected, verifyErr)
 	}
 	stored, err := queries.InsertWebhookEvent(ctx, dbgen.InsertWebhookEventParams{Provider: providerName, ProviderEventID: event.ID, SignatureValid: true, BodySha256: digest[:], RawBody: body, Headers: safeHeaders(headers)})
 	if err != nil {
@@ -349,7 +383,7 @@ func (service *Service) HandleWebhook(ctx context.Context, providerName string, 
 		if _, lookupErr := service.webhookIntent(ctx, queries, providerName, event); lookupErr != nil {
 			_, _ = queries.CompleteWebhookEvent(ctx, dbgen.CompleteWebhookEventParams{WebhookEventID: stored.ID, Status: "failed", ErrorCode: optionalText("payment_not_found")})
 			service.observeWebhook(providerName, "payment_not_found")
-			return "", lookupErr
+			return "", rejectNotFound(lookupErr)
 		}
 		trusted, pollErr := provider.Poll(ctx, event.ProviderReference)
 		if pollErr != nil {
@@ -365,7 +399,7 @@ func (service *Service) HandleWebhook(ctx context.Context, providerName string, 
 	intent, err := service.webhookIntent(ctx, queries, providerName, event)
 	if err != nil {
 		_, _ = queries.CompleteWebhookEvent(ctx, dbgen.CompleteWebhookEventParams{WebhookEventID: stored.ID, Status: "failed", ErrorCode: optionalText("payment_not_found")})
-		return "", err
+		return "", rejectNotFound(err)
 	}
 	order, err := queries.GetOrder(ctx, intent.OrderID)
 	if err != nil {
@@ -386,6 +420,15 @@ func (service *Service) HandleWebhook(ctx context.Context, providerName string, 
 		return classification, err
 	}
 	return classification, completeErr
+}
+
+// rejectNotFound turns "no such payment" into a permanent rejection and leaves
+// any other lookup failure transient.
+func rejectNotFound(err error) error {
+	if errors.Is(err, pgx.ErrNoRows) {
+		return fmt.Errorf("%w: %w", ErrWebhookRejected, err)
+	}
+	return err
 }
 
 // WebhookAck returns the provider-specific success body for a verified

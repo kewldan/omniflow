@@ -25,6 +25,9 @@ func (provider *notifyingProvider) Capabilities() payments.Capabilities {
 	return payments.Capabilities{Polling: true, Webhooks: true}
 }
 
+// WebhooksNeedPolling declares the notification unsigned, as YooKassa does.
+func (provider *notifyingProvider) WebhooksNeedPolling() bool { return true }
+
 func (provider *notifyingProvider) Poll(context.Context, string) (payments.Intent, error) {
 	provider.polls.Add(1)
 	return payments.Intent{Status: "succeeded"}, nil

@@ -356,6 +356,10 @@ func (handlers *CommerceHandlers) paymentWebhook(writer http.ResponseWriter, req
 	providerName := chi.URLParam(request, "provider")
 	classification, err := handlers.payments.HandleWebhook(request.Context(), providerName, request.Header, body)
 	if err != nil {
+		if !errors.Is(err, paymentservice.ErrWebhookRejected) {
+			writeProblem(writer, request, 503, "webhook_retry", "Webhook could not be processed yet; deliver it again")
+			return
+		}
 		writeProblem(writer, request, 400, "webhook_rejected", "Webhook could not be verified or processed")
 		return
 	}
