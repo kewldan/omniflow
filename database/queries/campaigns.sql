@@ -73,15 +73,17 @@ SELECT * FROM message_templates WHERE id = $1;
 
 -- name: UpsertMessageTemplate :one
 INSERT INTO message_templates (
-  code, class, subject_en, subject_ru, body_en, body_ru, variables, updated_by
+  code, class, subject_en, subject_ru, body_en, body_ru, variables, updated_by, photo_url, buttons
 ) VALUES (
   sqlc.arg(code), sqlc.arg(class), sqlc.arg(subject_en), sqlc.arg(subject_ru),
-  sqlc.arg(body_en), sqlc.arg(body_ru), sqlc.arg(variables), sqlc.narg(updated_by)
+  sqlc.arg(body_en), sqlc.arg(body_ru), sqlc.arg(variables), sqlc.narg(updated_by),
+  sqlc.narg(photo_url), sqlc.arg(buttons)
 )
 ON CONFLICT (code) DO UPDATE SET
   class = EXCLUDED.class, subject_en = EXCLUDED.subject_en, subject_ru = EXCLUDED.subject_ru,
   body_en = EXCLUDED.body_en, body_ru = EXCLUDED.body_ru,
   variables = EXCLUDED.variables, archived_at = NULL,
+  photo_url = EXCLUDED.photo_url, buttons = EXCLUDED.buttons,
   updated_at = now(), updated_by = EXCLUDED.updated_by
 RETURNING *;
 

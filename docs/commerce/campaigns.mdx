@@ -146,6 +146,16 @@ capped at 200, and `class` defaults to `marketing`.
   stops the campaign from ever completing. Use `marketing`, which is the default.
 </Warning>
 
+### Pictures and buttons
+
+A template may carry a picture (`photoUrl`, an https link Telegram fetches) and up to six inline
+buttons, one per row. A button has a label in each language and opens either a link (`https://`,
+`http://`, or `tg://`) or a section of the bot: plans, subscriptions, wallet, top-up, referrals,
+support, the Stars shop, gifts, offers, connection, news, or the main menu. With a picture, a body of
+up to 1024 characters becomes the picture's caption with the buttons under it; a longer body is sent
+as a message after the picture. **Marketing → Broadcast template** edits all of it; saving under an
+existing code replaces that template.
+
 ## Building and scheduling a send
 
 <Steps>

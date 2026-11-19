@@ -13,7 +13,7 @@ import { Switch } from "@omniflow/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
 import { useLocale, useTranslations } from "next-intl";
 import { useId, useState } from "react";
-import useSWR from "swr";
+import useSWR, { mutate as revalidate } from "swr";
 
 import { PageHeader } from "@/components/admin/resource-table";
 import { Timestamp } from "@/components/intl/timestamp";
@@ -22,6 +22,7 @@ import { localized } from "@/lib/localized";
 import { formatMoney, type Listing, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 import { AdCampaignsCard } from "./ad-campaigns";
+import { TemplateEditorCard } from "./template-editor";
 
 import type {
   AudienceSegment,
@@ -48,6 +49,9 @@ export function MarketingWorkspace() {
     <div className="flex flex-col gap-5">
       <PageHeader description={translate("description")} title={translate("title")} />
       <CampaignCard editable={can("marketing.write")} />
+      {can("marketing.write") && (
+        <TemplateEditorCard onSaved={() => void revalidate("/v1/panel/marketing/templates")} />
+      )}
       <AdCampaignsCard editable={can("marketing.write")} />
       <SegmentCard />
       <SuppressionCard editable={can("marketing.write")} />

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-telegram/bot/models"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/remnawave"
@@ -587,7 +588,7 @@ func (notifier *Notifier) deliverCampaigns(ctx context.Context) int {
 		}
 
 		body := renderTemplate(message.Body, map[string]string{})
-		view := View{Text: body}
+		view := View{Text: body, Photo: message.Photo, Keyboard: campaignKeyboard(message.Buttons)}
 		if message.Subject != "" {
 			view.Text = "<b>" + html.EscapeString(message.Subject) + "</b>\n\n" + body
 		}
@@ -1046,4 +1047,21 @@ func (notifier *Notifier) maybeSendWinback(
 	}
 	dedupe := fmt.Sprintf("winback%d:%s", wave.Number, entitlement.ID)
 	notifier.deliver(ctx, candidate, subscriptionID, "recovery", dedupe, winbackView(locale, entitlement, wave, code, expiresAt))
+}
+
+// campaignKeyboard turns a template's buttons into one button per row: a URL
+// button opens the link, a route button opens that section of the bot.
+func campaignKeyboard(buttons []campaignButton) *models.InlineKeyboardMarkup {
+	if len(buttons) == 0 {
+		return nil
+	}
+	rows := make([][]models.InlineKeyboardButton, 0, len(buttons))
+	for _, button := range buttons {
+		if button.URL != "" {
+			rows = append(rows, []models.InlineKeyboardButton{{Text: button.Text, URL: button.URL}})
+			continue
+		}
+		rows = append(rows, []models.InlineKeyboardButton{callbackButton(button.Text, button.Route)})
+	}
+	return &models.InlineKeyboardMarkup{InlineKeyboard: rows}
 }

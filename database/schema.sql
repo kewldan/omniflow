@@ -2493,10 +2493,14 @@ CREATE TABLE public.message_templates (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_by uuid,
+    photo_url text,
+    buttons jsonb DEFAULT '[]'::jsonb NOT NULL,
     CONSTRAINT message_templates_body_en_check CHECK (((char_length(body_en) >= 1) AND (char_length(body_en) <= 3500))),
     CONSTRAINT message_templates_body_ru_check CHECK (((char_length(body_ru) >= 1) AND (char_length(body_ru) <= 3500))),
+    CONSTRAINT message_templates_buttons_shape CHECK (((jsonb_typeof(buttons) = 'array'::text) AND (jsonb_array_length(buttons) <= 6))),
     CONSTRAINT message_templates_class_check CHECK ((class = ANY (ARRAY['transactional'::text, 'marketing'::text]))),
     CONSTRAINT message_templates_code_check CHECK ((code ~ '^[a-z][a-z0-9_-]{1,63}$'::text)),
+    CONSTRAINT message_templates_photo_url_shape CHECK (((photo_url IS NULL) OR ((photo_url ~ '^https://'::text) AND (char_length(photo_url) <= 500)))),
     CONSTRAINT message_templates_subject_en_check CHECK ((char_length(subject_en) <= 200)),
     CONSTRAINT message_templates_subject_ru_check CHECK ((char_length(subject_ru) <= 200))
 );

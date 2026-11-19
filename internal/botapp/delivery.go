@@ -83,7 +83,7 @@ func (sender *Sender) Send(ctx context.Context, customerID string, chatID int64,
 				return ctx.Err()
 			}
 		}
-		_, err := sender.client.SendMessage(ctx, sendParams(chatID, view))
+		err := sender.deliver(ctx, chatID, view)
 		if err == nil {
 			if customerID != "" {
 				if recordErr := sender.store.RecordDeliverySuccess(ctx, customerID); recordErr != nil {
@@ -203,4 +203,33 @@ func sleepContext(ctx context.Context, duration time.Duration) {
 	case <-ctx.Done():
 	case <-timer.C:
 	}
+}
+
+// captionLimit is Telegram's limit on a photo caption, in characters.
+const captionLimit = 1024
+
+// deliver sends one view. A view with a photo is a photo whose caption is the
+// text when it fits, or a bare photo followed by the text when it does not; a
+// photo Telegram cannot fetch fails the send like any other refusal.
+func (sender *Sender) deliver(ctx context.Context, chatID int64, view View) error {
+	if view.Photo == "" {
+		_, err := sender.client.SendMessage(ctx, sendParams(chatID, view))
+		return err
+	}
+	photo := &telegram.SendPhotoParams{
+		ChatID: chatID, Photo: &models.InputFileString{Data: view.Photo}, ProtectContent: true,
+	}
+	if len([]rune(view.Text)) <= captionLimit {
+		photo.Caption, photo.ParseMode = view.Text, models.ParseModeHTML
+		if view.Keyboard != nil {
+			photo.ReplyMarkup = view.Keyboard
+		}
+		_, err := sender.client.SendPhoto(ctx, photo)
+		return err
+	}
+	if _, err := sender.client.SendPhoto(ctx, photo); err != nil {
+		return err
+	}
+	_, err := sender.client.SendMessage(ctx, sendParams(chatID, view))
+	return err
 }

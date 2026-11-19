@@ -2545,6 +2545,45 @@
         "resume": "Resume",
         "active": "Active",
         "paused": "Paused"
+      },
+      "templateEditor": {
+        "title": "Broadcast template",
+        "description": "Text in both languages, a picture, and up to six buttons. Saving under an existing code replaces that template. Markup is the HTML Telegram accepts.",
+        "code": "Code",
+        "class": "Kind",
+        "classes": {
+          "marketing": "Marketing (consent and caps apply)",
+          "transactional": "Service"
+        },
+        "subjectRu": "Title (RU)",
+        "subjectEn": "Title (EN)",
+        "bodyRu": "Text (RU)",
+        "bodyEn": "Text (EN)",
+        "photo": "Picture (https link, optional)",
+        "buttons": "Buttons",
+        "buttonTextRu": "Button text (RU)",
+        "buttonTextEn": "Button text (EN)",
+        "buttonTarget": "Button opens",
+        "link": "Link",
+        "routes": {
+          "plans": "Plans",
+          "subs": "My subscriptions",
+          "wallet": "Wallet",
+          "topup": "Top up",
+          "referral": "Invite a friend",
+          "support": "Support",
+          "shop": "Shop (Stars)",
+          "gifts": "Gifts",
+          "offers": "Offers",
+          "connect": "Connect",
+          "news": "News",
+          "home": "Main menu"
+        },
+        "remove": "Remove",
+        "addButton": "Add a button",
+        "invalid": "The template was not saved: check the markup, links, and button texts.",
+        "save": "Save template",
+        "saved": "Template saved"
       }
     },
     "installationSettings": {

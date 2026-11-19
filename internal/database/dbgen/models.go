@@ -1380,6 +1380,8 @@ type MessageTemplate struct {
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
 	UpdatedBy  pgtype.UUID        `json:"updated_by"`
+	PhotoUrl   pgtype.Text        `json:"photo_url"`
+	Buttons    []byte             `json:"buttons"`
 }
 
 type NewsPost struct {

@@ -129,6 +129,48 @@ type MessageTemplate struct {
 	BodyEN    string   `json:"bodyEn"`
 	BodyRU    string   `json:"bodyRu"`
 	Variables []string `json:"variables"`
+	// PhotoURL is an https picture sent above the text.
+	PhotoURL string `json:"photoUrl,omitempty"`
+	// Buttons are inline buttons under the message, one per row.
+	Buttons []TemplateButton `json:"buttons"`
+}
+
+// TemplateButton opens a URL or a section of the bot.
+type TemplateButton struct {
+	TextRU string `json:"textRu"`
+	TextEN string `json:"textEn"`
+	// URL is an http(s) or tg:// link. Route names a bot section instead.
+	URL   string `json:"url,omitempty"`
+	Route string `json:"route,omitempty"`
+}
+
+// TemplateRoutes are the bot sections a broadcast button may open.
+var TemplateRoutes = map[string]bool{
+	"home": true, "plans": true, "subs": true, "wallet": true, "topup": true, "referral": true,
+	"support": true, "shop": true, "gifts": true, "offers": true, "connect": true, "news": true,
+}
+
+func validTemplateButtons(buttons []TemplateButton) bool {
+	if len(buttons) > 6 {
+		return false
+	}
+	for _, button := range buttons {
+		ru, en := strings.TrimSpace(button.TextRU), strings.TrimSpace(button.TextEN)
+		if ru == "" || en == "" || len([]rune(ru)) > 64 || len([]rune(en)) > 64 {
+			return false
+		}
+		hasURL, hasRoute := button.URL != "", button.Route != ""
+		if hasURL == hasRoute {
+			return false
+		}
+		if hasURL && !(strings.HasPrefix(button.URL, "https://") || strings.HasPrefix(button.URL, "http://") || strings.HasPrefix(button.URL, "tg://")) {
+			return false
+		}
+		if hasRoute && !TemplateRoutes[button.Route] {
+			return false
+		}
+	}
+	return true
 }
 
 // templateVariable matches the {{ name }} placeholders a body may use.
@@ -181,6 +223,17 @@ func (service *Service) SaveTemplate(
 			return MessageTemplate{}, fmt.Errorf("%w: %w", ErrValidaton, err)
 		}
 	}
+	template.PhotoURL = strings.TrimSpace(template.PhotoURL)
+	if template.PhotoURL != "" && (!strings.HasPrefix(template.PhotoURL, "https://") || len(template.PhotoURL) > 500) {
+		return MessageTemplate{}, ErrValidaton
+	}
+	if template.Buttons == nil {
+		template.Buttons = []TemplateButton{}
+	}
+	if !validTemplateButtons(template.Buttons) {
+		return MessageTemplate{}, ErrValidaton
+	}
+	buttons, _ := json.Marshal(template.Buttons)
 
 	var saved MessageTemplate
 	err := service.inTx(ctx, func(queries *dbgen.Queries) error {
@@ -189,6 +242,7 @@ func (service *Service) SaveTemplate(
 			SubjectEn: template.SubjectEN, SubjectRu: template.SubjectRU,
 			BodyEn: template.BodyEN, BodyRu: template.BodyRU,
 			Variables: template.Variables, UpdatedBy: optionalUUID(actor.AdminID),
+			PhotoUrl: optionalText(template.PhotoURL), Buttons: buttons,
 		})
 		if txErr != nil {
 			return txErr
@@ -508,7 +562,14 @@ func templateFrom(row dbgen.MessageTemplate) MessageTemplate {
 		ID: uuidString(row.ID), Code: row.Code, Class: row.Class,
 		SubjectEN: row.SubjectEn, SubjectRU: row.SubjectRu,
 		BodyEN: row.BodyEn, BodyRU: row.BodyRu, Variables: row.Variables,
+		PhotoURL: row.PhotoUrl.String, Buttons: decodeTemplateButtons(row.Buttons),
 	}
+}
+
+func decodeTemplateButtons(raw []byte) []TemplateButton {
+	buttons := []TemplateButton{}
+	_ = json.Unmarshal(raw, &buttons)
+	return buttons
 }
 
 func campaignFrom(row dbgen.Campaign) Campaign {

@@ -2,6 +2,7 @@ package botapp
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/omniflow/omniflow/internal/commerce"
 )
@@ -28,6 +29,16 @@ type PendingCampaignMessage struct {
 	Class          string
 	Subject        string
 	Body           string
+	Photo          string
+	Buttons        []campaignButton
+}
+
+// campaignButton is one inline button from the template, in this recipient's
+// language.
+type campaignButton struct {
+	Text  string
+	URL   string
+	Route string
 }
 
 // PendingCampaignMessages reads the next slice of the running campaigns.
@@ -55,7 +66,8 @@ func (store *PostgresStore) PendingCampaignMessages(
 		       c.id::text, pending.user_id::text, COALESCE(recipient.telegram_id, 0),
 		       u.status = 'active', COALESCE(s.status, 'active'),
 		       CASE WHEN COALESCE(p.locale, 'auto') = 'auto' THEN u.locale ELSE p.locale END,
-		       t.class, t.subject_en, t.subject_ru, t.body_en, t.body_ru
+		       t.class, t.subject_en, t.subject_ru, t.body_en, t.body_ru,
+		       COALESCE(t.photo_url, ''), t.buttons
 		FROM campaigns c
 		CROSS JOIN LATERAL (
 			SELECT r.user_id, row_number() OVER (ORDER BY r.queued_at, r.user_id) AS position
@@ -86,10 +98,12 @@ func (store *PostgresStore) PendingCampaignMessages(
 			subjectRU string
 			bodyEN    string
 			bodyRU    string
+			buttons   []byte
 		)
 		if err := rows.Scan(&message.CampaignID, &message.CustomerID, &message.TelegramID,
 			&message.Active, &message.DeliveryStatus,
-			&locale, &message.Class, &subjectEN, &subjectRU, &bodyEN, &bodyRU); err != nil {
+			&locale, &message.Class, &subjectEN, &subjectRU, &bodyEN, &bodyRU,
+			&message.Photo, &buttons); err != nil {
 			return nil, err
 		}
 		message.Locale = localeFrom(locale)
@@ -97,6 +111,20 @@ func (store *PostgresStore) PendingCampaignMessages(
 			message.Subject, message.Body = subjectRU, bodyRU
 		} else {
 			message.Subject, message.Body = subjectEN, bodyEN
+		}
+		var stored []struct {
+			TextRU string `json:"textRu"`
+			TextEN string `json:"textEn"`
+			URL    string `json:"url"`
+			Route  string `json:"route"`
+		}
+		_ = json.Unmarshal(buttons, &stored)
+		for _, button := range stored {
+			label := button.TextEN
+			if message.Locale == LocaleRussian {
+				label = button.TextRU
+			}
+			message.Buttons = append(message.Buttons, campaignButton{Text: label, URL: button.URL, Route: button.Route})
 		}
 		messages = append(messages, message)
 	}

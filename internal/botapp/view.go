@@ -24,6 +24,9 @@ type View struct {
 	Keyboard   *models.InlineKeyboardMarkup
 	Protect    bool
 	RetryRoute string
+	// Photo is an https picture sent with the message: as its caption when
+	// the text fits Telegram's caption limit, above it otherwise.
+	Photo string
 }
 
 func localeFrom(code string) Locale {

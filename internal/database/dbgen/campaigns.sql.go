@@ -220,7 +220,7 @@ func (q *Queries) GetCampaign(ctx context.Context, id pgtype.UUID) (GetCampaignR
 }
 
 const getMessageTemplate = `-- name: GetMessageTemplate :one
-SELECT id, code, class, subject_en, subject_ru, body_en, body_ru, variables, archived_at, created_at, updated_at, updated_by FROM message_templates WHERE id = $1
+SELECT id, code, class, subject_en, subject_ru, body_en, body_ru, variables, archived_at, created_at, updated_at, updated_by, photo_url, buttons FROM message_templates WHERE id = $1
 `
 
 func (q *Queries) GetMessageTemplate(ctx context.Context, id pgtype.UUID) (MessageTemplate, error) {
@@ -239,6 +239,8 @@ func (q *Queries) GetMessageTemplate(ctx context.Context, id pgtype.UUID) (Messa
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.UpdatedBy,
+		&i.PhotoUrl,
+		&i.Buttons,
 	)
 	return i, err
 }
@@ -505,7 +507,7 @@ func (q *Queries) ListDueNewsPosts(ctx context.Context, pageSize int32) ([]NewsP
 }
 
 const listMessageTemplates = `-- name: ListMessageTemplates :many
-SELECT id, code, class, subject_en, subject_ru, body_en, body_ru, variables, archived_at, created_at, updated_at, updated_by FROM message_templates WHERE archived_at IS NULL ORDER BY code
+SELECT id, code, class, subject_en, subject_ru, body_en, body_ru, variables, archived_at, created_at, updated_at, updated_by, photo_url, buttons FROM message_templates WHERE archived_at IS NULL ORDER BY code
 `
 
 func (q *Queries) ListMessageTemplates(ctx context.Context) ([]MessageTemplate, error) {
@@ -530,6 +532,8 @@ func (q *Queries) ListMessageTemplates(ctx context.Context) ([]MessageTemplate, 
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.UpdatedBy,
+			&i.PhotoUrl,
+			&i.Buttons,
 		); err != nil {
 			return nil, err
 		}
@@ -1170,17 +1174,19 @@ func (q *Queries) UpsertAudienceSegment(ctx context.Context, arg UpsertAudienceS
 
 const upsertMessageTemplate = `-- name: UpsertMessageTemplate :one
 INSERT INTO message_templates (
-  code, class, subject_en, subject_ru, body_en, body_ru, variables, updated_by
+  code, class, subject_en, subject_ru, body_en, body_ru, variables, updated_by, photo_url, buttons
 ) VALUES (
   $1, $2, $3, $4,
-  $5, $6, $7, $8
+  $5, $6, $7, $8,
+  $9, $10
 )
 ON CONFLICT (code) DO UPDATE SET
   class = EXCLUDED.class, subject_en = EXCLUDED.subject_en, subject_ru = EXCLUDED.subject_ru,
   body_en = EXCLUDED.body_en, body_ru = EXCLUDED.body_ru,
   variables = EXCLUDED.variables, archived_at = NULL,
+  photo_url = EXCLUDED.photo_url, buttons = EXCLUDED.buttons,
   updated_at = now(), updated_by = EXCLUDED.updated_by
-RETURNING id, code, class, subject_en, subject_ru, body_en, body_ru, variables, archived_at, created_at, updated_at, updated_by
+RETURNING id, code, class, subject_en, subject_ru, body_en, body_ru, variables, archived_at, created_at, updated_at, updated_by, photo_url, buttons
 `
 
 type UpsertMessageTemplateParams struct {
@@ -1192,6 +1198,8 @@ type UpsertMessageTemplateParams struct {
 	BodyRu    string      `json:"body_ru"`
 	Variables []string    `json:"variables"`
 	UpdatedBy pgtype.UUID `json:"updated_by"`
+	PhotoUrl  pgtype.Text `json:"photo_url"`
+	Buttons   []byte      `json:"buttons"`
 }
 
 func (q *Queries) UpsertMessageTemplate(ctx context.Context, arg UpsertMessageTemplateParams) (MessageTemplate, error) {
@@ -1204,6 +1212,8 @@ func (q *Queries) UpsertMessageTemplate(ctx context.Context, arg UpsertMessageTe
 		arg.BodyRu,
 		arg.Variables,
 		arg.UpdatedBy,
+		arg.PhotoUrl,
+		arg.Buttons,
 	)
 	var i MessageTemplate
 	err := row.Scan(
@@ -1219,6 +1229,8 @@ func (q *Queries) UpsertMessageTemplate(ctx context.Context, arg UpsertMessageTe
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.UpdatedBy,
+		&i.PhotoUrl,
+		&i.Buttons,
 	)
 	return i, err
 }
