@@ -62,7 +62,9 @@ test.describe("admin access", () => {
     await page.goto("/admin/login");
     await typeInto(page.getByLabel(/email/i), "nobody@example.test");
     await typeInto(page.getByLabel(/password/i), "not-the-password");
-    await page.getByRole("button", { name: /sign in|войти/i }).click();
+    // Exactly the password submit: the passkey button beside it also says
+    // "Sign in", and a partial match is ambiguous wherever passkeys work.
+    await page.getByRole("button", { name: /^(sign in|войти)$/i }).click();
 
     // A message that distinguishes "no such account" from "wrong password" is
     // an account enumeration oracle.
