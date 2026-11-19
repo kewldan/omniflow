@@ -44,6 +44,9 @@ type CommerceSettings struct {
 	// Notifications are the operator's thresholds and switches for the
 	// lifecycle notices (APP_NOTIFY_*). The zero value sends the defaults.
 	Notifications NotificationSettings
+	// Connect is how subscription links are handed over: encrypted import
+	// links, mirrors, a hidden raw link, and the Connect button's mode.
+	Connect commerce.ConnectSettings
 }
 
 // Commerce ties the bot to the commerce backend.

@@ -7408,9 +7408,21 @@ components:
         degraded: {type: boolean, description: "Remnawave could not be reached for at least one subscription."}
     AccountConnection:
       type: object
-      required: [subscriptionUrl, platform, platforms, clients]
+      required: [subscriptionUrl, linkHidden, mirrors, platform, platforms, clients]
       properties:
-        subscriptionUrl: {type: string}
+        subscriptionUrl:
+          type: string
+          description: Empty when the operator hides the bare link (APP_CONNECT_HIDE_SUBSCRIPTION_LINK).
+        linkHidden: {type: boolean}
+        mirrors:
+          type: array
+          description: The link on the operator's alternative origins (APP_SUBSCRIPTION_MIRRORS).
+          items:
+            type: object
+            required: [label, url]
+            properties:
+              label: {type: string}
+              url: {type: string}
         platform: {type: string}
         platforms:
           type: array

@@ -237,6 +237,8 @@ sh deploy/migration/00-convert-env.sh /root/remnawave-bedolaga-telegram-bot/.env
 | `TRIAL_*` | — | План вида `trial` в каталоге |
 | `REMNAWAVE_WEBHOOK_SECRET` | `APP_REMNAWAVE_WEBHOOK_SECRET` | Направьте вебхук панели на `https://<api>/v1/remnawave/webhook`; см. [вебхуки Remnawave](/ru/integrations/remnawave) |
 | `WEBHOOK_NOTIFY_*`, `REMNAWAVE_WEBHOOK_NOTIFY_NODE_CONNECTION_STATUS` | `APP_NOTIFY_DISABLED`, `APP_REMNAWAVE_WEBHOOK_NODE_ALERTS` | Выключатели по видам уведомлений, а не по событиям |
+| `SUBSCRIPTION_MIRROR_LINKS`, `HIDE_SUBSCRIPTION_LINK`, `INCY_CRYPTOLINK_*`, `MENU_BUTTON_WEBAPP_ENABLED`, `MENU_BUTTON_WEBAPP_TEXT` | `APP_SUBSCRIPTION_MIRRORS`, `APP_CONNECT_HIDE_SUBSCRIPTION_LINK`, `APP_CONNECT_INCY_*`, `APP_BOT_MENU_BUTTON_*` | См. [как передаётся ссылка](/ru/operations/connection-catalogue) |
+| `CONNECT_BUTTON_MODE`, `HAPP_CRYPTOLINK_*` | `APP_CONNECT_BUTTON_MODE`, `APP_CONNECT_HAPP_CRYPTO_LINKS` | Не переносятся: режимы названы иначе (`happ_cryptolink` — это `happ` с включёнными шифрованными ссылками, `miniapp_subscription` — `miniapp`). Страница-переадресация — собственная `/open` в Omniflow, поэтому `HAPP_CRYPTOLINK_REDIRECT_TEMPLATE` не нужен |
 | `WEB_API_*`, `MINIAPP_*`, `SERVER_STATUS_*` | — | Соответствующей настройки нет |
 
 ## Репетиция

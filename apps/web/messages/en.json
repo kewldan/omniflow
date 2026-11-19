@@ -3205,7 +3205,10 @@
       "provisioningDescription": "Your subscription is being prepared. This screen works as soon as it is ready.",
       "noClients": "No application is recommended yet",
       "noClientsDescription": "Copy the subscription link below and import it into any compatible client.",
-      "download": "Get {app}"
+      "download": "Get {app}",
+      "mirrors": "Mirrors",
+      "mirrorsHint": "The same link on another address, for a network that blocks the main one.",
+      "linkHidden": "Use the buttons above to add the subscription to an app. The link itself is not shown on this installation."
     },
     "profile": {
       "signedIn": "Signed in with",
@@ -4547,6 +4550,15 @@
       "en": "English",
       "ru": "Русский",
       "switchTo": "Switch the interface to {language}"
+    },
+    "openApp": {
+      "opening": "Opening the app…",
+      "title": "Open the app",
+      "description": "Your browser should hand over to the VPN app now. If it asks, allow it.",
+      "open": "Open the app",
+      "hint": "Nothing happened? Install the app first, then tap the button again.",
+      "invalidTitle": "This link cannot be opened",
+      "invalidDescription": "It does not point to an app. Go back to the bot and tap the button again."
     }
   }
 }

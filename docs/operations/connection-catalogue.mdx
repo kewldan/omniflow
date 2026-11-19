@@ -95,6 +95,32 @@ https and therefore may be one.
 subscription link, because copying the link into any compatible client is the
 thing that actually has to work.
 
+## How the link is handed over
+
+Five settings decide how the subscription link reaches a customer, in the bot and in the web panel
+alike. They are read at start-up by the bot and the API; an invalid value stops the process.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `APP_CONNECT_HAPP_CRYPTO_LINKS` | `false` | Every Happ import link (scheme starting `happ://`) becomes `happ://crypt4/<…>`: the subscription link encrypted with Happ's public RSA key, the same one Remnawave's own subscription page uses. Only the Happ application can read it, so the link never appears in a button's address. Encryption happens locally, without a network call |
+| `APP_CONNECT_INCY_CRYPTO_LINKS` / `APP_CONNECT_INCY_PROVIDER_NAME` | `false` / none | The same for INCY: `incy://import/…` and `incy://add/…` become `incy://crypt1/<…>` (INCY's published AES-256-GCM format), with the provider name INCY shows for the profile |
+| `APP_CONNECT_HIDE_SUBSCRIPTION_LINK` | `false` | Keeps the bare link off every customer surface: no copy or open button in the bot, no link, QR code, or mirrors on the web, and no link in the answer to a re-issue. Only the import buttons remain |
+| `APP_SUBSCRIPTION_MIRRORS` | none | `Label\|https://mirror.example` entries separated by `;` or new lines (Bedolaga's `SUBSCRIPTION_MIRROR_LINKS` format). Each must be a bare `https` origin; the mirror link is the subscription link with its scheme and host replaced. Offered as extra copy buttons in the bot and on the web, unless the link is hidden |
+| `APP_CONNECT_BUTTON_MODE` | `guide` | What the bot's **Connect** opens: `guide` — the platform picker below; `miniapp` — a Mini App button into the web panel's devices screen; `link` — the subscription page itself and its mirrors; `happ` — one-tap import into Happ. Every mode but `guide` also offers **All apps and instructions** |
+
+A Telegram inline button accepts only `http`, `https`, and `tg` addresses, so the bot cannot make a
+`happ://` link a button. When `APP_PUBLIC_URL` is an `https` address, every import button in the bot
+opens `<APP_PUBLIC_URL>/open#<link>` instead: a page that forwards the browser to the application, with
+a button to do it by hand. The link travels in the fragment, which a browser never sends to a server,
+so neither Omniflow nor a proxy log sees it. The page follows application schemes only — never `http`,
+`https`, `javascript`, `data`, or `file` — so it cannot be used as an open redirect. Without an `https`
+public address the bot offers each link as text to copy, as before.
+
+`APP_BOT_MENU_BUTTON_MINIAPP=true` replaces the commands list beside the message field with a button
+that opens `<APP_PUBLIC_URL>/account` as a Mini App, labelled with `APP_BOT_MENU_BUTTON_TEXT` (default
+«Кабинет»). It needs an `https` public address and is left alone when the setting is off, so a button
+set by hand in BotFather is not overruled.
+
 ## Permissions and audit
 
 Reading needs `settings.read`; every change needs `settings.write`. Saves and

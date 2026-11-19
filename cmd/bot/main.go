@@ -16,6 +16,7 @@ import (
 	"github.com/omniflow/omniflow/internal/backup"
 	"github.com/omniflow/omniflow/internal/botapp"
 	"github.com/omniflow/omniflow/internal/channelworker"
+	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/config"
 	"github.com/omniflow/omniflow/internal/customerauthpg"
 	"github.com/omniflow/omniflow/internal/fulfillment"
@@ -83,10 +84,15 @@ func main() {
 		application.SetBotUsername(me.Username)
 	}
 	configureCommands(ctx, logger, client)
+	botapp.ConfigureMenuButton(ctx, logger, client, botapp.MenuButtonFromEnv(os.Getenv, cfg.PublicURL))
 
 	sender := botapp.NewSender(client, identities, logger)
 	if _, err := botapp.NotificationSettingsFromEnv(os.Getenv); err != nil {
 		logger.Error("notification settings are invalid", "error", err)
+		os.Exit(1)
+	}
+	if _, err := commerce.ConnectSettingsFromEnv(os.Getenv); err != nil {
+		logger.Error("connect settings are invalid", "error", err)
 		os.Exit(1)
 	}
 	settings := commerceSettings(cfg)
@@ -277,6 +283,10 @@ func commerceSettings(cfg config.BotConfig) botapp.CommerceSettings {
 		// Validated at startup; an invalid value never reaches here.
 		Notifications: func() botapp.NotificationSettings {
 			settings, _ := botapp.NotificationSettingsFromEnv(os.Getenv)
+			return settings
+		}(),
+		Connect: func() commerce.ConnectSettings {
+			settings, _ := commerce.ConnectSettingsFromEnv(os.Getenv)
 			return settings
 		}(),
 	}

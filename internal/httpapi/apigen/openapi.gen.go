@@ -5080,6 +5080,13 @@ type AccountConnection struct {
 		Instructions *string `json:"instructions,omitempty"`
 		Name         string  `json:"name"`
 	} `json:"clients"`
+	LinkHidden bool `json:"linkHidden"`
+
+	// Mirrors The link on the operator's alternative origins (APP_SUBSCRIPTION_MIRRORS).
+	Mirrors []struct {
+		Label string `json:"label"`
+		Url   string `json:"url"`
+	} `json:"mirrors"`
 	Platform string `json:"platform"`
 
 	// Platforms The platforms this installation documents, with labels already resolved to the customer's language. They are text rather than keys because the catalogue is operator-editable, and somebody adding a platform from the panel cannot add a message to a compiled catalogue.
@@ -5087,6 +5094,8 @@ type AccountConnection struct {
 		Label string `json:"label"`
 		Slug  string `json:"slug"`
 	} `json:"platforms"`
+
+	// SubscriptionUrl Empty when the operator hides the bare link (APP_CONNECT_HIDE_SUBSCRIPTION_LINK).
 	SubscriptionUrl string `json:"subscriptionUrl"`
 }
 

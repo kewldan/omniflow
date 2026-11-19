@@ -235,6 +235,8 @@ Review the result and merge it into Omniflow's `.env`. The usual Bedolaga settin
 | `TRIAL_*` | — | A plan of kind `trial` in the catalogue |
 | `REMNAWAVE_WEBHOOK_SECRET` | `APP_REMNAWAVE_WEBHOOK_SECRET` | Point the panel's webhook at `https://<api>/v1/remnawave/webhook`; see [Remnawave webhooks](/integrations/remnawave#webhooks) |
 | `WEBHOOK_NOTIFY_*`, `REMNAWAVE_WEBHOOK_NOTIFY_NODE_CONNECTION_STATUS` | `APP_NOTIFY_DISABLED`, `APP_REMNAWAVE_WEBHOOK_NODE_ALERTS` | Switches per notice kind rather than per event |
+| `SUBSCRIPTION_MIRROR_LINKS`, `HIDE_SUBSCRIPTION_LINK`, `INCY_CRYPTOLINK_*`, `MENU_BUTTON_WEBAPP_ENABLED`, `MENU_BUTTON_WEBAPP_TEXT` | `APP_SUBSCRIPTION_MIRRORS`, `APP_CONNECT_HIDE_SUBSCRIPTION_LINK`, `APP_CONNECT_INCY_*`, `APP_BOT_MENU_BUTTON_*` | See [how the link is handed over](/operations/connection-catalogue#how-the-link-is-handed-over) |
+| `CONNECT_BUTTON_MODE`, `HAPP_CRYPTOLINK_*` | `APP_CONNECT_BUTTON_MODE`, `APP_CONNECT_HAPP_CRYPTO_LINKS` | Not converted: the modes are named differently (`happ_cryptolink` is `happ` with crypto links on, `miniapp_subscription` is `miniapp`). The redirect page is Omniflow's own `/open`, so `HAPP_CRYPTOLINK_REDIRECT_TEMPLATE` is not needed |
 | `WEB_API_*`, `MINIAPP_*`, `SERVER_STATUS_*` | — | No equivalent setting |
 
 ## Rehearsal

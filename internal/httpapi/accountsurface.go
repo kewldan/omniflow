@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/omniflow/omniflow/internal/accountpg"
+	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/customerauth"
 	"github.com/omniflow/omniflow/internal/customerauthpg"
 )
@@ -367,8 +368,14 @@ func (handlers *AccountHandlers) connection(writer http.ResponseWriter, request 
 			"downloadUrl": client.DownloadURL, "instructions": client.Instructions,
 		})
 	}
+	mirrors := connection.Mirrors
+	if mirrors == nil {
+		mirrors = []commerce.MirroredLink{}
+	}
 	writeJSON(writer, http.StatusOK, map[string]any{
 		"subscriptionUrl": connection.SubscriptionURL,
+		"linkHidden":      connection.LinkHidden,
+		"mirrors":         mirrors,
 		"platform":        connection.Platform,
 		"platforms":       connection.Platforms,
 		"clients":         clients,

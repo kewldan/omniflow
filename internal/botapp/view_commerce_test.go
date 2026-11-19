@@ -148,7 +148,7 @@ func TestConnectViewOffersDeepLinksAndAManualFallback(t *testing.T) {
 			{Name: "Happ", Scheme: "happ://add/", DownloadURL: "https://apps.example.test/happ"},
 			{Name: "Streisand", Scheme: "streisand://import/"},
 		},
-		[]commerce.ConnectPlatform{{Slug: "ios", Label: "iOS"}},
+		[]commerce.ConnectPlatform{{Slug: "ios", Label: "iOS"}}, connectOptions{},
 	)
 	copyButtons := 0
 	for _, buttonRow := range view.Keyboard.InlineKeyboard {
@@ -174,7 +174,7 @@ func TestConnectViewWithoutASubscriptionExplainsItself(t *testing.T) {
 	view := connectPlatformView(
 		LocaleRussian, "android", remnawave.Subscription{}, "Android",
 		[]commerce.ClientApp{{Name: "Happ", Scheme: "happ://add/"}},
-		[]commerce.ConnectPlatform{{Slug: "android", Label: "Android"}},
+		[]commerce.ConnectPlatform{{Slug: "android", Label: "Android"}}, connectOptions{},
 	)
 	if !strings.Contains(view.Text, "появится после активации") {
 		t.Fatalf("a customer without access must be told why: %s", view.Text)

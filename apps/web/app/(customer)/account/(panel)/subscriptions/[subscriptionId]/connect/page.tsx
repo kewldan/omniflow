@@ -20,7 +20,11 @@ import { type ApiError, fetcher } from "@/lib/api";
 import { POLLING, useBoundedPolling } from "@/lib/polling";
 
 type Connection = {
+  /** Empty when the operator hides the bare link; see `linkHidden`. */
   subscriptionUrl: string;
+  linkHidden: boolean;
+  /** The same link on the operator's alternative origins. */
+  mirrors: { label: string; url: string }[];
   platform: string;
   /**
    * The platforms this installation documents, with their labels already
@@ -191,8 +195,17 @@ export default function ConnectPage() {
         </>
       )}
 
-      <QrPanel value={data.subscriptionUrl} />
-      <CopyLink value={data.subscriptionUrl} />
+      {data.linkHidden || !data.subscriptionUrl ? (
+        <p className="rounded-xl border border-border bg-card p-4 text-[12.5px] text-muted-foreground leading-relaxed">
+          {translate("connect.linkHidden")}
+        </p>
+      ) : (
+        <>
+          <QrPanel value={data.subscriptionUrl} />
+          <CopyLink value={data.subscriptionUrl} />
+          {data.mirrors.length > 0 ? <Mirrors mirrors={data.mirrors} /> : null}
+        </>
+      )}
     </div>
   );
 }
@@ -256,8 +269,25 @@ function QrPanel({ value }: { value: string }) {
   );
 }
 
+/**
+ * The link on the operator's mirrors, for a network that blocks the main
+ * address. Each is the same credential, so each is shown the same way.
+ */
+function Mirrors({ mirrors }: { mirrors: { label: string; url: string }[] }) {
+  const translate = useTranslations("account");
+  return (
+    <div className="space-y-2">
+      <SectionLabel>{translate("connect.mirrors")}</SectionLabel>
+      <p className="text-[12.5px] text-muted-foreground">{translate("connect.mirrorsHint")}</p>
+      {mirrors.map((mirror) => (
+        <CopyLink key={mirror.url} label={mirror.label} value={mirror.url} />
+      ))}
+    </div>
+  );
+}
+
 /** The manual fallback: the link, truncated, with a copy button. */
-function CopyLink({ value }: { value: string }) {
+function CopyLink({ value, label }: { value: string; label?: string }) {
   const translate = useTranslations("account");
   const [copied, setCopied] = useState(false);
 
@@ -276,7 +306,7 @@ function CopyLink({ value }: { value: string }) {
   return (
     <div className="rounded-xl border border-border bg-card p-4">
       <div className="flex items-center justify-between gap-3">
-        <SectionLabel>{translate("connect.link")}</SectionLabel>
+        <SectionLabel>{label ?? translate("connect.link")}</SectionLabel>
         <Button className="gap-1.5" onClick={copy} size="sm" variant="ghost">
           {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
           {copied ? translate("connect.copied") : translate("connect.copy")}

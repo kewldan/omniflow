@@ -20,6 +20,21 @@ import (
 func (app *App) connectPlatformsScreen(
 	ctx context.Context, locale Locale, subscription remnawave.Subscription,
 ) View {
+	if view, ok := connectModeView(locale, subscription, app.connectOptions()); ok {
+		return view
+	}
+	return app.connectGuideScreen(ctx, locale, subscription)
+}
+
+// connectOptions are the link settings this bot was started with.
+func (app *App) connectOptions() connectOptions {
+	return connectOptions{Settings: app.settings.Connect, PublicURL: app.settings.PublicURL}
+}
+
+// connectGuideScreen is the platform picker, whatever the Connect mode.
+func (app *App) connectGuideScreen(
+	ctx context.Context, locale Locale, subscription remnawave.Subscription,
+) View {
 	platforms, err := app.store.ConnectPlatforms(ctx, string(locale))
 	if err != nil {
 		app.logger.Error("connect catalogue read failed", "error", err)
@@ -30,6 +45,9 @@ func (app *App) connectPlatformsScreen(
 func (app *App) connectPlatformScreen(
 	ctx context.Context, locale Locale, platform string, subscription remnawave.Subscription,
 ) View {
+	if platform == "*" {
+		return app.connectGuideScreen(ctx, locale, subscription)
+	}
 	platforms, err := app.store.ConnectPlatforms(ctx, string(locale))
 	if err != nil {
 		app.logger.Error("connect catalogue read failed", "error", err)
@@ -40,6 +58,7 @@ func (app *App) connectPlatformScreen(
 	}
 	return connectPlatformView(
 		locale, platform, subscription, platformLabel(platforms, platform), clients, platforms,
+		app.connectOptions(),
 	)
 }
 

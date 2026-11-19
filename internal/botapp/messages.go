@@ -803,6 +803,12 @@ var catalog = map[string]phrase{
 	"panel.deviceDeleted":  {ru: "📴 <b>Устройство отключено</b>\n\nОт подписки отключено устройство: %s.", en: "📴 <b>Device removed</b>\n\nA device was disconnected from your subscription: %s."},
 	"panel.deviceUnnamed":  {ru: "без названия", en: "unnamed"},
 	"panel.devicesButton":  {ru: "📱 Устройства", en: "📱 Devices"},
+	// Connect screen additions: mirrors, the guide behind a one-tap mode, and
+	// the Mini App button.
+	"connect.mirror":  {ru: "🪞 Ссылка через «%s»", en: "🪞 Link via %s"},
+	"connect.allApps": {ru: "📖 Все приложения и инструкции", en: "📖 All apps and instructions"},
+	"connect.miniApp": {ru: "🚀 Подключить в приложении", en: "🚀 Connect in the app"},
+	"menu.miniApp":    {ru: "Кабинет", en: "Account"},
 }
 
 // formatMoney renders an integer minor-unit amount for display. Telegram Stars

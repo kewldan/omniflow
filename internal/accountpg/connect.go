@@ -32,10 +32,15 @@ type ConnectionClient struct {
 // leak sideways, which is a transport concern the API enforces with a no-store
 // cache policy and a referrer policy on the response.
 type Connection struct {
+	// SubscriptionURL is empty when the operator hides the bare link; the
+	// import buttons still carry it, encrypted where the client allows.
 	SubscriptionURL string
-	Platform        string
-	Platforms       []commerce.ConnectPlatform
-	Clients         []ConnectionClient
+	LinkHidden      bool
+	// Mirrors are the link on the operator's alternative origins.
+	Mirrors   []commerce.MirroredLink
+	Platform  string
+	Platforms []commerce.ConnectPlatform
+	Clients   []ConnectionClient
 }
 
 // Connection builds the connection instructions for one platform.
@@ -62,13 +67,19 @@ func (service *Service) Connection(
 
 	connection := Connection{
 		SubscriptionURL: subscription.SubscriptionURL,
+		LinkHidden:      service.links.HideRawLink,
 		Platform:        chosen,
 		Platforms:       platforms,
 		Clients:         make([]ConnectionClient, 0, len(clients)),
 	}
+	if connection.LinkHidden {
+		connection.SubscriptionURL = ""
+	} else {
+		connection.Mirrors = service.links.MirrorLinks(subscription.SubscriptionURL)
+	}
 	for _, client := range clients {
 		connection.Clients = append(connection.Clients, ConnectionClient{
-			Name: client.Name, DeepLink: client.DeepLink(subscription.SubscriptionURL),
+			Name: client.Name, DeepLink: service.links.DeepLink(client, subscription.SubscriptionURL),
 			DownloadURL: client.DownloadURL, Instructions: client.Instructions,
 		})
 	}
@@ -108,6 +119,9 @@ func (service *Service) RotateSubscriptionLink(
 	service.recordSecurity(ctx, customerID, "subscription_key_rotated", request, map[string]any{
 		"subscription": row.Label,
 	})
+	if service.links.HideRawLink {
+		return "", nil
+	}
 	return rotated.SubscriptionURL, nil
 }
 

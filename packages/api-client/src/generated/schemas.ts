@@ -7952,7 +7952,18 @@ export const GetAccountConnectionQueryParams = zod.object({
 });
 
 export const GetAccountConnectionResponse = zod.object({
-  subscriptionUrl: zod.string(),
+  subscriptionUrl: zod
+    .string()
+    .describe("Empty when the operator hides the bare link (APP_CONNECT_HIDE_SUBSCRIPTION_LINK)."),
+  linkHidden: zod.boolean(),
+  mirrors: zod
+    .array(
+      zod.object({
+        label: zod.string(),
+        url: zod.string(),
+      }),
+    )
+    .describe("The link on the operator's alternative origins (APP_SUBSCRIPTION_MIRRORS)."),
   platform: zod.string(),
   platforms: zod
     .array(

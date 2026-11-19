@@ -20,6 +20,7 @@ import (
 	"github.com/omniflow/omniflow/internal/adminauthpg"
 	"github.com/omniflow/omniflow/internal/app"
 	"github.com/omniflow/omniflow/internal/catalogpg"
+	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/config"
 	"github.com/omniflow/omniflow/internal/customerauthpg"
@@ -344,8 +345,12 @@ func buildCustomerPanel(
 	// The account read model records device removals and link rotations in the
 	// same log the identity adapter writes sign-ins to, so the customer reads one
 	// history rather than two partial ones.
+	connectSettings, err := commerce.ConnectSettingsFromEnv(os.Getenv)
+	if err != nil {
+		return nil, nil, err
+	}
 	account, err := accountpg.New(pool, remnawaveClient, accountpg.Options{
-		Logger: logger,
+		Logger: logger, Connect: connectSettings,
 		Security: accountpg.SecurityRecorderFunc(func(
 			ctx context.Context, customerID, event string,
 			request accountpg.SecurityRequest, metadata map[string]any,

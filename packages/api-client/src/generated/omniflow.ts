@@ -4050,6 +4050,11 @@ export interface AccountOverview {
   degraded: boolean;
 }
 
+export type AccountConnectionMirrorsItem = {
+  label: string;
+  url: string;
+};
+
 export type AccountConnectionPlatformsItem = {
   slug: string;
   label: string;
@@ -4065,7 +4070,11 @@ export type AccountConnectionClientsItem = {
 };
 
 export interface AccountConnection {
+  /** Empty when the operator hides the bare link (APP_CONNECT_HIDE_SUBSCRIPTION_LINK). */
   subscriptionUrl: string;
+  linkHidden: boolean;
+  /** The link on the operator's alternative origins (APP_SUBSCRIPTION_MIRRORS). */
+  mirrors: AccountConnectionMirrorsItem[];
   platform: string;
   /** The platforms this installation documents, with labels already resolved to the customer's language. They are text rather than keys because the catalogue is operator-editable, and somebody adding a platform from the panel cannot add a message to a compiled catalogue. */
   platforms: AccountConnectionPlatformsItem[];

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/connectpg"
 	"github.com/omniflow/omniflow/internal/remnawave"
 )
@@ -90,6 +91,8 @@ type Service struct {
 	// can construct this service without one — and a connect screen with no
 	// catalogue behind it is a screen with no buttons.
 	connect *connectpg.Catalogue
+	// links are the operator's link settings.
+	links commerce.ConnectSettings
 }
 
 // Options configures a Service.
@@ -97,6 +100,9 @@ type Options struct {
 	Security SecurityRecorder
 	Logger   *slog.Logger
 	Clock    func() time.Time
+	// Connect is how links are handed over: encrypted import links, mirrors,
+	// and whether the bare link is shown at all.
+	Connect commerce.ConnectSettings
 }
 
 // Panel is the part of the Remnawave adapter the customer account reads and
@@ -153,7 +159,7 @@ func New(pool *pgxpool.Pool, panel Panel, options Options) (*Service, error) {
 	service := &Service{
 		pool: pool, remnawave: panel,
 		security: options.Security, logger: options.Logger, clock: options.Clock,
-		connect: connectpg.New(pool),
+		connect: connectpg.New(pool), links: options.Connect,
 	}
 	if service.logger == nil {
 		service.logger = slog.Default()
