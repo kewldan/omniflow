@@ -53,6 +53,12 @@ export type EmptyStateProps = Omit<ComponentProps<"div">, "title"> & {
   description?: ReactNode;
   icon?: ReactNode;
   title: ReactNode;
+  /**
+   * The element the title is. A paragraph inside a page that has its own
+   * heading; `h1` when the notice is the whole page (a 404), so the page still
+   * has the heading a screen reader lists first.
+   */
+  titleAs?: "p" | "h1" | "h2";
 };
 
 /**
@@ -66,6 +72,7 @@ export function EmptyState({
   description,
   icon,
   title,
+  titleAs: Title = "p",
   ...props
 }: EmptyStateProps) {
   return (
@@ -87,7 +94,7 @@ export function EmptyState({
         </div>
       )}
       <div className="flex flex-col gap-1">
-        <p className="font-medium text-[15px] text-foreground">{title}</p>
+        <Title className="font-medium text-[15px] text-foreground">{title}</Title>
         {description && <p className="text-muted-foreground text-sm">{description}</p>}
       </div>
       {action}

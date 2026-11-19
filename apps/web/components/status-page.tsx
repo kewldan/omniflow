@@ -15,13 +15,20 @@ import { useTranslations } from "next-intl";
  * /admin address, the account for an /account one, the landing page otherwise.
  */
 export function StatusPage({
+  inPanel = false,
   kind,
   onRetry,
 }: {
+  /**
+   * Rendered inside a panel shell, which already has the page's <main>. A
+   * second one nested in it is invalid, so the notice is a plain section there.
+   */
+  inPanel?: boolean;
   kind: "notFound" | "error";
   /** Offered on a render failure: the error boundary's reset. */
   onRetry?: () => void;
 }) {
+  const Root = inPanel ? "section" : "main";
   const translate = useTranslations("common.status");
   const pathname = usePathname() ?? "/";
   const home = pathname.startsWith("/admin")
@@ -31,7 +38,7 @@ export function StatusPage({
       : { href: "/", label: translate("toHome") };
 
   return (
-    <main className="mx-auto flex min-h-[60dvh] w-full max-w-lg items-center px-4 py-16">
+    <Root className="mx-auto flex min-h-[60dvh] w-full max-w-lg items-center px-4 py-16">
       <StatusNotice
         action={
           <div className="flex flex-wrap justify-center gap-2">
@@ -49,7 +56,8 @@ export function StatusPage({
         description={translate(`${kind}.description`)}
         title={translate(`${kind}.title`)}
         variant={kind === "error" ? "danger" : "empty"}
+        titleAs="h1"
       />
-    </main>
+    </Root>
   );
 }

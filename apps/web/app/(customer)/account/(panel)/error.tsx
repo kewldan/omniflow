@@ -7,5 +7,5 @@ import { StatusPage } from "@/components/status-page";
  * the navigation stays and the customer can retry or go elsewhere.
  */
 export default function AccountError({ reset }: { error: Error; reset: () => void }) {
-  return <StatusPage kind="error" onRetry={reset} />;
+  return <StatusPage inPanel kind="error" onRetry={reset} />;
 }
