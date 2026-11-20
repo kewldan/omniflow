@@ -1,4 +1,4 @@
-h1:hKQWo6A4cHICxwexOfFeLMdoeRbp2lJYIznOxBpCSkU=
+h1:i1WlZB/daa95dGhnip9z7xbatuy52iNkhUIkC6k5eIw=
 20261120000000_baseline.sql h1:xcYk9mdv44B3O0TRxq3RP+hXxJ2VeeOilGnwKO251mQ=
 20261120010000_river_schema_v8.sql h1:AfdQpxaviEf8asJ5gyLmMVZr+zMYaWEw+o/vE8CMj7A=
 20261120020000_customer_email_signin.sql h1:PrCKaTaDm5ggof8aqRooMbqOXEHML5fwq1TF877zQa8=
@@ -17,5 +17,5 @@ h1:hKQWo6A4cHICxwexOfFeLMdoeRbp2lJYIznOxBpCSkU=
 20261121590000_operator_kinds_union.sql h1:pAAc8ztn+j7z6nbgcgx9XdcEvB1j+cFKGEu3y88TKFQ=
 20261121600000_payment_method_binding.sql h1:Zg+q/XQBM8NNhnHcZAQK4LkI1L8dqvBU8hRHjbSN/Rk=
 20261121610000_loyalty_checkout_discount.sql h1:PcP0ZUawYZTX6XOBfHpxTnZHsl1EUXj/3/yGgQ+yrHI=
-20261121620000_customer_event_notices.sql h1:qjN7kdDIkVp1oGQqoSffAR6DSH1hMZn12HTsilNUlNE=
-20261121630000_loyalty_groups.sql h1:YHRNK8WSNkGov5PbVwAQ+MIEPFMe6zUikSPYoraHRKw=
+20261121620000_customer_event_notices.sql h1:kgDyWMeOSdqh4cFd3Vl2CR8o6CyrnDmbLzG0eqA4Uts=
+20261121630000_loyalty_groups.sql h1:+3jDo1WrBSib/Z6Vcu9jhmPUkzEM9C+A97veljztEX0=

@@ -161,7 +161,6 @@ func main() {
 	if err := operator.AnnounceStart(ctx, pool, "bot", version, time.Now()); err != nil {
 		logger.Warn("bot start notice could not be queued", "error", err)
 	}
-	go botapp.NewNotifier(logger, sender, identities, remnawaveClient, commerceService, settings).Run(ctx)
 	customerNotifier := botapp.NewNotifier(logger, sender, identities, remnawaveClient, commerceService, settings)
 	if me, getMeErr := client.GetMe(ctx); getMeErr == nil {
 		customerNotifier.SetBotUsername(me.Username)

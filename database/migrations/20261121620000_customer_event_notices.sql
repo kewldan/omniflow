@@ -29,19 +29,22 @@ ALTER TABLE notification_deliveries DROP CONSTRAINT notification_deliveries_kind
 ALTER TABLE notification_deliveries ADD CONSTRAINT notification_deliveries_kind_known CHECK (kind IN (
   'expiry', 'traffic', 'renewal', 'grace', 'recovery', 'payment', 'fulfillment',
   'support', 'news', 'announcement', 'incident', 'maintenance', 'marketing',
-  'referral', 'trial', 'test', 'loyalty'
+  'referral', 'trial', 'test', 'connection', 'device', 'access', 'reminder', 'loyalty'
 ));
 
 -- Operators hear about loyalty tier changes in their own topic.
 ALTER TABLE operator_notifications DROP CONSTRAINT operator_notifications_kind_known;
 ALTER TABLE operator_notifications ADD CONSTRAINT operator_notifications_kind_known CHECK (kind IN (
   'purchase', 'renewal', 'topup', 'refund', 'fulfillment_failure', 'incident',
-  'backup', 'security', 'anomaly', 'support', 'marketing'
+  'backup', 'security', 'anomaly', 'support', 'trial', 'addon', 'promo', 'partner',
+  'error', 'infrastructure', 'report', 'node', 'monitoring', 'marketing'
 ));
 ALTER TABLE operator_topics DROP CONSTRAINT operator_topics_kind_known;
 ALTER TABLE operator_topics ADD CONSTRAINT operator_topics_kind_known CHECK (kind IN (
   'purchase', 'renewal', 'topup', 'refund', 'fulfillment_failure', 'incident',
-  'backup', 'security', 'anomaly', 'campaign_test', 'notice_test', 'support', 'marketing'
+  'backup', 'security', 'anomaly', 'campaign_test', 'notice_test', 'support', 'trial',
+  'addon', 'promo', 'partner', 'error', 'infrastructure', 'report', 'node', 'monitoring',
+  'marketing'
 ));
 
 -- A pair written live tells the inviter somebody joined and welcomes the

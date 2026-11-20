@@ -103,6 +103,40 @@ $$;
 
 
 --
+-- Name: queue_loyalty_change_notices(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.queue_loyalty_change_notices() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  previous_threshold bigint;
+  next_tier loyalty_tiers%ROWTYPE;
+  previous_code text;
+BEGIN
+  SELECT * INTO next_tier FROM loyalty_tiers WHERE id = NEW.to_tier_id;
+  SELECT threshold, code INTO previous_threshold, previous_code FROM loyalty_tiers WHERE id = NEW.from_tier_id;
+  INSERT INTO customer_event_notices (user_id, kind, params, dedupe_key)
+  VALUES (NEW.user_id, 'loyalty_tier',
+          jsonb_build_object('tierCode', next_tier.code, 'nameEn', next_tier.name_en,
+                             'nameRu', next_tier.name_ru, 'discountBps', next_tier.discount_bps,
+                             'down', NEW.reason = 'evaluation' AND NOT next_tier.manual_only
+                                     AND previous_threshold IS NOT NULL
+                                     AND next_tier.threshold < previous_threshold),
+          'loyalty:' || NEW.id::text)
+  ON CONFLICT (dedupe_key) DO NOTHING;
+  INSERT INTO operator_notifications (kind, dedupe_key, payload)
+  VALUES ('marketing', 'loyalty:' || NEW.id::text,
+          jsonb_build_object('event', 'loyalty_tier', 'customerId', NEW.user_id::text,
+                             'fromTier', COALESCE(previous_code, ''), 'toTier', next_tier.code,
+                             'reason', NEW.reason))
+  ON CONFLICT (kind, dedupe_key) DO NOTHING;
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: queue_operator_stream_notice(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -138,34 +172,6 @@ BEGIN
                                'event', 'addon_purchased'))
     ON CONFLICT (kind, dedupe_key) DO NOTHING;
   END IF;
--- Name: queue_loyalty_change_notices(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.queue_loyalty_change_notices() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-  previous_threshold bigint;
-  next_tier loyalty_tiers%ROWTYPE;
-  previous_code text;
-BEGIN
-  SELECT * INTO next_tier FROM loyalty_tiers WHERE id = NEW.to_tier_id;
-  SELECT threshold, code INTO previous_threshold, previous_code FROM loyalty_tiers WHERE id = NEW.from_tier_id;
-  INSERT INTO customer_event_notices (user_id, kind, params, dedupe_key)
-  VALUES (NEW.user_id, 'loyalty_tier',
-          jsonb_build_object('tierCode', next_tier.code, 'nameEn', next_tier.name_en,
-                             'nameRu', next_tier.name_ru, 'discountBps', next_tier.discount_bps,
-                             'down', NEW.reason = 'evaluation' AND NOT next_tier.manual_only
-                                     AND previous_threshold IS NOT NULL
-                                     AND next_tier.threshold < previous_threshold),
-          'loyalty:' || NEW.id::text)
-  ON CONFLICT (dedupe_key) DO NOTHING;
-  INSERT INTO operator_notifications (kind, dedupe_key, payload)
-  VALUES ('marketing', 'loyalty:' || NEW.id::text,
-          jsonb_build_object('event', 'loyalty_tier', 'customerId', NEW.user_id::text,
-                             'fromTier', COALESCE(previous_code, ''), 'toTier', next_tier.code,
-                             'reason', NEW.reason))
-  ON CONFLICT (kind, dedupe_key) DO NOTHING;
   RETURN NEW;
 END;
 $$;
@@ -2804,8 +2810,7 @@ CREATE TABLE public.notification_deliveries (
     subscription_id uuid,
     CONSTRAINT notification_deliveries_class_check CHECK ((class = ANY (ARRAY['transactional'::text, 'marketing'::text]))),
     CONSTRAINT notification_deliveries_failure_count_check CHECK ((failure_count >= 0)),
-    CONSTRAINT notification_deliveries_kind_known CHECK ((kind = ANY (ARRAY['expiry'::text, 'traffic'::text, 'renewal'::text, 'grace'::text, 'recovery'::text, 'payment'::text, 'fulfillment'::text, 'support'::text, 'news'::text, 'announcement'::text, 'incident'::text, 'maintenance'::text, 'marketing'::text, 'referral'::text, 'trial'::text, 'test'::text, 'connection'::text, 'device'::text, 'access'::text, 'reminder'::text]))),
-    CONSTRAINT notification_deliveries_kind_known CHECK ((kind = ANY (ARRAY['expiry'::text, 'traffic'::text, 'renewal'::text, 'grace'::text, 'recovery'::text, 'payment'::text, 'fulfillment'::text, 'support'::text, 'news'::text, 'announcement'::text, 'incident'::text, 'maintenance'::text, 'marketing'::text, 'referral'::text, 'trial'::text, 'test'::text, 'loyalty'::text]))),
+    CONSTRAINT notification_deliveries_kind_known CHECK ((kind = ANY (ARRAY['expiry'::text, 'traffic'::text, 'renewal'::text, 'grace'::text, 'recovery'::text, 'payment'::text, 'fulfillment'::text, 'support'::text, 'news'::text, 'announcement'::text, 'incident'::text, 'maintenance'::text, 'marketing'::text, 'referral'::text, 'trial'::text, 'test'::text, 'connection'::text, 'device'::text, 'access'::text, 'reminder'::text, 'loyalty'::text]))),
     CONSTRAINT notification_deliveries_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'deferred'::text, 'sent'::text, 'failed'::text, 'suppressed'::text])))
 );
 
@@ -2830,8 +2835,7 @@ CREATE TABLE public.operator_notifications (
     error_code text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     sent_at timestamp with time zone,
-    CONSTRAINT operator_notifications_kind_known CHECK ((kind = ANY (ARRAY['purchase'::text, 'renewal'::text, 'topup'::text, 'refund'::text, 'fulfillment_failure'::text, 'incident'::text, 'backup'::text, 'security'::text, 'anomaly'::text, 'support'::text, 'trial'::text, 'addon'::text, 'promo'::text, 'partner'::text, 'error'::text, 'infrastructure'::text, 'report'::text, 'node'::text, 'monitoring'::text]))),
-    CONSTRAINT operator_notifications_kind_known CHECK ((kind = ANY (ARRAY['purchase'::text, 'renewal'::text, 'topup'::text, 'refund'::text, 'fulfillment_failure'::text, 'incident'::text, 'backup'::text, 'security'::text, 'anomaly'::text, 'support'::text, 'marketing'::text]))),
+    CONSTRAINT operator_notifications_kind_known CHECK ((kind = ANY (ARRAY['purchase'::text, 'renewal'::text, 'topup'::text, 'refund'::text, 'fulfillment_failure'::text, 'incident'::text, 'backup'::text, 'security'::text, 'anomaly'::text, 'support'::text, 'trial'::text, 'addon'::text, 'promo'::text, 'partner'::text, 'error'::text, 'infrastructure'::text, 'report'::text, 'node'::text, 'monitoring'::text, 'marketing'::text]))),
     CONSTRAINT operator_notifications_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'sent'::text, 'suppressed'::text, 'failed'::text])))
 );
 
@@ -2849,8 +2853,7 @@ CREATE TABLE public.operator_topics (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT operator_topics_check CHECK (((status = 'bound'::text) = (topic_id IS NOT NULL))),
-    CONSTRAINT operator_topics_kind_known CHECK ((kind = ANY (ARRAY['purchase'::text, 'renewal'::text, 'topup'::text, 'refund'::text, 'fulfillment_failure'::text, 'incident'::text, 'backup'::text, 'security'::text, 'anomaly'::text, 'campaign_test'::text, 'notice_test'::text, 'support'::text, 'trial'::text, 'addon'::text, 'promo'::text, 'partner'::text, 'error'::text, 'infrastructure'::text, 'report'::text, 'node'::text, 'monitoring'::text]))),
-    CONSTRAINT operator_topics_kind_known CHECK ((kind = ANY (ARRAY['purchase'::text, 'renewal'::text, 'topup'::text, 'refund'::text, 'fulfillment_failure'::text, 'incident'::text, 'backup'::text, 'security'::text, 'anomaly'::text, 'campaign_test'::text, 'notice_test'::text, 'support'::text, 'marketing'::text]))),
+    CONSTRAINT operator_topics_kind_known CHECK ((kind = ANY (ARRAY['purchase'::text, 'renewal'::text, 'topup'::text, 'refund'::text, 'fulfillment_failure'::text, 'incident'::text, 'backup'::text, 'security'::text, 'anomaly'::text, 'campaign_test'::text, 'notice_test'::text, 'support'::text, 'trial'::text, 'addon'::text, 'promo'::text, 'partner'::text, 'error'::text, 'infrastructure'::text, 'report'::text, 'node'::text, 'monitoring'::text, 'marketing'::text]))),
     CONSTRAINT operator_topics_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'bound'::text, 'failed'::text]))),
     CONSTRAINT operator_topics_topic_id_check CHECK (((topic_id IS NULL) OR (topic_id > 0)))
 );
@@ -7042,6 +7045,13 @@ CREATE TRIGGER cart_goods_kind_matches BEFORE INSERT OR UPDATE ON public.cart_go
 
 
 --
+-- Name: loyalty_standing_history loyalty_standing_history_notice; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER loyalty_standing_history_notice AFTER INSERT ON public.loyalty_standing_history FOR EACH ROW EXECUTE FUNCTION public.queue_loyalty_change_notices();
+
+
+--
 -- Name: outbox_events outbox_events_operator_notice; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -7053,10 +7063,6 @@ CREATE TRIGGER outbox_events_operator_notice AFTER INSERT ON public.outbox_event
 --
 
 CREATE TRIGGER promo_redemptions_operator_notice AFTER INSERT ON public.promo_redemptions FOR EACH ROW EXECUTE FUNCTION public.queue_operator_stream_notice();
--- Name: loyalty_standing_history loyalty_standing_history_notice; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER loyalty_standing_history_notice AFTER INSERT ON public.loyalty_standing_history FOR EACH ROW EXECUTE FUNCTION public.queue_loyalty_change_notices();
 
 
 --
@@ -7067,10 +7073,6 @@ CREATE TRIGGER promotion_goods_scope_matches BEFORE INSERT OR UPDATE ON public.p
 
 
 --
--- Name: referral_rewards referral_rewards_operator_notice; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER referral_rewards_operator_notice AFTER INSERT ON public.referral_rewards FOR EACH ROW EXECUTE FUNCTION public.queue_operator_stream_notice();
 -- Name: referral_attributions referral_attributions_notice; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -7082,6 +7084,13 @@ CREATE TRIGGER referral_attributions_notice AFTER INSERT ON public.referral_attr
 --
 
 CREATE TRIGGER referral_rewards_notice AFTER INSERT ON public.referral_rewards FOR EACH ROW EXECUTE FUNCTION public.queue_referral_reward_notice();
+
+
+--
+-- Name: referral_rewards referral_rewards_operator_notice; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER referral_rewards_operator_notice AFTER INSERT ON public.referral_rewards FOR EACH ROW EXECUTE FUNCTION public.queue_operator_stream_notice();
 
 
 --

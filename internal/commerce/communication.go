@@ -94,11 +94,9 @@ var notificationClasses = map[string]MessageClass{
 	// A service reminder from the reminder constructor; a marketing one
 	// travels as `marketing`.
 	"reminder":  ClassTransactional,
+	"loyalty":   ClassTransactional,
 	"news":      ClassMarketing,
 	"marketing": ClassMarketing,
-	"loyalty":      ClassTransactional,
-	"news":         ClassMarketing,
-	"marketing":    ClassMarketing,
 }
 
 // urgentNotifications are never deferred by quiet hours: the customer is either

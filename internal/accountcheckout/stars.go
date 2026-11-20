@@ -72,7 +72,6 @@ func (service *Service) forCustomer(ctx context.Context, customerID string, choi
 	for index := range choices {
 		choices[index].CanSaveMethod = service.payments.RecurringAllowed(ctx, choices[index].Provider)
 	}
-	return choices, nil
 	return LoyaltyChoices(ctx, service.orders, customerID, choices)
 }
 

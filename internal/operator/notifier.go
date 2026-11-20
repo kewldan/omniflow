@@ -31,12 +31,12 @@ import (
 )
 
 // Kinds are the event streams that each get their own forum topic.
-var Kinds = []string{"purchase", "renewal", "topup", "refund", "fulfillment_failure", "incident", "backup", "security", "support", "campaign_test", "notice_test", "anomaly", "trial", "addon", "promo", "partner", "error", "infrastructure", "report", "node", "monitoring"}
+var Kinds = []string{"purchase", "renewal", "topup", "refund", "fulfillment_failure", "incident", "backup", "security", "support", "campaign_test", "notice_test", "anomaly", "trial", "addon", "promo", "partner", "error", "infrastructure", "report", "node", "monitoring", "marketing"}
 
 // SwitchableKinds are the notification streams an operator may turn off in
 // the operator group section. The two preview topics are absent: nothing
 // reaches them unless an operator asked for a preview.
-var SwitchableKinds = []string{"purchase", "renewal", "topup", "refund", "fulfillment_failure", "incident", "backup", "security", "support", "anomaly", "trial", "addon", "promo", "partner", "error", "infrastructure", "report", "node", "monitoring"}
+var SwitchableKinds = []string{"purchase", "renewal", "topup", "refund", "fulfillment_failure", "incident", "backup", "security", "support", "anomaly", "trial", "addon", "promo", "partner", "error", "infrastructure", "report", "node", "monitoring", "marketing"}
 
 // urgentKinds are delivered during quiet hours. Everything else waits, still
 // pending, until the window ends.
@@ -44,7 +44,6 @@ var urgentKinds = map[string]bool{
 	"incident": true, "security": true, "error": true, "fulfillment_failure": true,
 	"backup": true, "anomaly": true, "infrastructure": true, "node": true,
 }
-var Kinds = []string{"purchase", "renewal", "topup", "refund", "fulfillment_failure", "incident", "backup", "security", "support", "campaign_test", "notice_test", "marketing"}
 
 // KindCampaignTest is the topic campaign previews go to.
 //
@@ -511,7 +510,6 @@ func renderNotification(notification dbgen.OperatorNotification) string {
 		return renderReport(notification, payload)
 	}
 	for _, field := range notificationFields {
-	for _, field := range []string{"orderId", "subscriptionId", "entitlementId", "provider", "operation", "currency", "amountMinor", "creditedMinor", "classification", "reason", "source", "errorCode", "fileName", "sizeBytes", "status", "event", "adminUserId", "method", "ticketId", "queueId", "customerId", "fromTier", "toTier"} {
 		value, ok := payload[field]
 		if !ok || value == nil || value == "" {
 			continue
@@ -535,6 +533,8 @@ var notificationFields = []string{
 	"process", "fingerprint", "occurrences", "version", "previousVersion", "releaseUrl",
 	// Support SLA breaches.
 	"overdueMinutes", "priority",
+	// Loyalty tier changes.
+	"fromTier", "toTier",
 }
 
 // MaintenanceChanged posts an incident notice whenever maintenance mode moves.

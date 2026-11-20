@@ -515,8 +515,7 @@ func (app *App) payOrder(ctx context.Context, session commerceContext, orderID s
 	if !orderAwaitsPayment(order) {
 		return app.orderScreen(ctx, session, orderID)
 	}
-	choices := app.saveableChoices(ctx, app.orderPaymentChoices(order))
-	choices := app.orderPaymentChoices(ctx, session.Customer.ID, order)
+	choices := app.saveableChoices(ctx, app.orderPaymentChoices(ctx, session.Customer.ID, order))
 	provider, err := app.customers.OrderCheckoutProvider(ctx, session.Customer.ID, orderID)
 	if err != nil {
 		app.logger.Warn("checkout provider lookup failed", "error", err)
