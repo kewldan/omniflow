@@ -39,3 +39,7 @@ docs/openapi.yaml
 
 # Windows build artefacts. `go build` without -o drops the binary here.
 *.exe
+
+# Binaries `go build ./cmd/<name>` drops at the repository root.
+/bot
+/worker
