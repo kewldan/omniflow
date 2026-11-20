@@ -1,7 +1,7 @@
 import { requirePermissions } from "@/lib/server-session";
 
 import { ContentPagesScreen } from "./content-pages";
-import { NewsEditorCard } from "./news-editor";
+import { NewsCategoriesCard, NewsEditorCard } from "./news-editor";
 
 export default async function ContentPage() {
   await requirePermissions(["marketing.read"], "/admin/content");
@@ -12,6 +12,7 @@ export default async function ContentPage() {
           publishes for customers to read; unlike a page, a post is dated and
           counts towards the unread badge. */}
       <NewsEditorCard />
+      <NewsCategoriesCard />
     </div>
   );
 }

@@ -2380,6 +2380,7 @@ type Querier interface {
 	UpsertLoyaltyStanding(ctx context.Context, arg UpsertLoyaltyStandingParams) (LoyaltyStanding, error)
 	UpsertMCPServer(ctx context.Context, arg UpsertMCPServerParams) (UpsertMCPServerRow, error)
 	UpsertMessageTemplate(ctx context.Context, arg UpsertMessageTemplateParams) (MessageTemplate, error)
+	// The notification kind (category) is copied from the category by a trigger.
 	UpsertNewsPost(ctx context.Context, arg UpsertNewsPostParams) (NewsPost, error)
 	UpsertNewsPostLocalization(ctx context.Context, arg UpsertNewsPostLocalizationParams) error
 	// ---------------------------------------------------------------------------

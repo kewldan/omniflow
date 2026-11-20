@@ -49,6 +49,16 @@ describe("buildCsp", () => {
     expect(policy).not.toContain("oauth.telegram.org");
   });
 
+  test("loads https images for news covers on customer pages only", () => {
+    expect(directive(buildCsp({ nonce: "n", surface: "customer" }), "img-src")).toContain("https:");
+    expect(directive(buildCsp({ nonce: "n", surface: "admin" }), "img-src")).not.toContain(
+      "https:",
+    );
+    expect(directive(buildCsp({ nonce: "n", surface: "sign-in" }), "img-src")).not.toContain(
+      "https:",
+    );
+  });
+
   test("allows the Telegram widget, and eval, on the sign-in screen only", () => {
     const policy = buildCsp({ nonce: "n", surface: "sign-in" });
     expect(directive(policy, "frame-src")).toContain("https://oauth.telegram.org");

@@ -477,7 +477,7 @@ func (q *Queries) ListDueCampaigns(ctx context.Context, pageSize int32) ([]Campa
 }
 
 const listDueNewsPosts = `-- name: ListDueNewsPosts :many
-SELECT id, slug, category, class, published_at, expires_at, created_at, status, scheduled_for, unpublished_at, archived_at, created_by, updated_at FROM news_posts
+SELECT id, slug, category, class, published_at, expires_at, created_at, status, scheduled_for, unpublished_at, archived_at, created_by, updated_at, category_code, tags, cover_url, featured, view_count FROM news_posts
 WHERE status = 'scheduled' AND scheduled_for <= now()
 ORDER BY scheduled_for
 LIMIT $1
@@ -506,6 +506,11 @@ func (q *Queries) ListDueNewsPosts(ctx context.Context, pageSize int32) ([]NewsP
 			&i.ArchivedAt,
 			&i.CreatedBy,
 			&i.UpdatedAt,
+			&i.CategoryCode,
+			&i.Tags,
+			&i.CoverUrl,
+			&i.Featured,
+			&i.ViewCount,
 		); err != nil {
 			return nil, err
 		}
@@ -988,7 +993,7 @@ const searchNewsPosts = `-- name: SearchNewsPosts :many
 
 
 SELECT
-  p.id, p.slug, p.category, p.class, p.published_at, p.expires_at, p.created_at, p.status, p.scheduled_for, p.unpublished_at, p.archived_at, p.created_by, p.updated_at,
+  p.id, p.slug, p.category, p.class, p.published_at, p.expires_at, p.created_at, p.status, p.scheduled_for, p.unpublished_at, p.archived_at, p.created_by, p.updated_at, p.category_code, p.tags, p.cover_url, p.featured, p.view_count,
   COALESCE(en.title, '') AS title_en,
   COALESCE(ru.title, '') AS title_ru
 FROM news_posts p
@@ -1037,6 +1042,11 @@ func (q *Queries) SearchNewsPosts(ctx context.Context, arg SearchNewsPostsParams
 			&i.NewsPost.ArchivedAt,
 			&i.NewsPost.CreatedBy,
 			&i.NewsPost.UpdatedAt,
+			&i.NewsPost.CategoryCode,
+			&i.NewsPost.Tags,
+			&i.NewsPost.CoverUrl,
+			&i.NewsPost.Featured,
+			&i.NewsPost.ViewCount,
 			&i.TitleEn,
 			&i.TitleRu,
 		); err != nil {
@@ -1117,7 +1127,7 @@ SET status = $1,
       WHEN $1::text = 'archived' THEN now() ELSE NULL END,
     updated_at = now()
 WHERE id = $3
-RETURNING id, slug, category, class, published_at, expires_at, created_at, status, scheduled_for, unpublished_at, archived_at, created_by, updated_at
+RETURNING id, slug, category, class, published_at, expires_at, created_at, status, scheduled_for, unpublished_at, archived_at, created_by, updated_at, category_code, tags, cover_url, featured, view_count
 `
 
 type SetNewsPostStateParams struct {
@@ -1145,6 +1155,11 @@ func (q *Queries) SetNewsPostState(ctx context.Context, arg SetNewsPostStatePara
 		&i.ArchivedAt,
 		&i.CreatedBy,
 		&i.UpdatedAt,
+		&i.CategoryCode,
+		&i.Tags,
+		&i.CoverUrl,
+		&i.Featured,
+		&i.ViewCount,
 	)
 	return i, err
 }
@@ -1296,24 +1311,25 @@ func (q *Queries) UpsertMessageTemplate(ctx context.Context, arg UpsertMessageTe
 }
 
 const upsertNewsPost = `-- name: UpsertNewsPost :one
-INSERT INTO news_posts (slug, category, class, created_by)
+INSERT INTO news_posts (slug, category_code, class, created_by)
 VALUES ($1, $2, $3, $4)
 ON CONFLICT (slug) DO UPDATE
-  SET category = EXCLUDED.category, class = EXCLUDED.class, updated_at = now()
-RETURNING id, slug, category, class, published_at, expires_at, created_at, status, scheduled_for, unpublished_at, archived_at, created_by, updated_at
+  SET category_code = EXCLUDED.category_code, class = EXCLUDED.class, updated_at = now()
+RETURNING id, slug, category, class, published_at, expires_at, created_at, status, scheduled_for, unpublished_at, archived_at, created_by, updated_at, category_code, tags, cover_url, featured, view_count
 `
 
 type UpsertNewsPostParams struct {
-	Slug      string      `json:"slug"`
-	Category  string      `json:"category"`
-	Class     string      `json:"class"`
-	CreatedBy pgtype.UUID `json:"created_by"`
+	Slug         string      `json:"slug"`
+	CategoryCode string      `json:"category_code"`
+	Class        string      `json:"class"`
+	CreatedBy    pgtype.UUID `json:"created_by"`
 }
 
+// The notification kind (category) is copied from the category by a trigger.
 func (q *Queries) UpsertNewsPost(ctx context.Context, arg UpsertNewsPostParams) (NewsPost, error) {
 	row := q.db.QueryRow(ctx, upsertNewsPost,
 		arg.Slug,
-		arg.Category,
+		arg.CategoryCode,
 		arg.Class,
 		arg.CreatedBy,
 	)
@@ -1332,6 +1348,11 @@ func (q *Queries) UpsertNewsPost(ctx context.Context, arg UpsertNewsPostParams) 
 		&i.ArchivedAt,
 		&i.CreatedBy,
 		&i.UpdatedAt,
+		&i.CategoryCode,
+		&i.Tags,
+		&i.CoverUrl,
+		&i.Featured,
+		&i.ViewCount,
 	)
 	return i, err
 }

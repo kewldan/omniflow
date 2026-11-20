@@ -19,9 +19,16 @@ const (
 
 // NewsItem is one published post in the customer's inbox.
 type NewsItem struct {
-	ID       string
-	Slug     string
-	Category string
+	ID   string
+	Slug string
+	// Category is the category's code, CategoryName its name in the
+	// resolved locale, and CategoryColor its #rrggbb colour.
+	Category      string
+	CategoryName  string
+	CategoryColor string
+	Tags          []string
+	CoverURL      string
+	Featured      bool
 	// Class separates a service announcement the customer will always receive
 	// from a marketing post that needed consent. It is carried through to the
 	// panel so the inbox can say which is which, not so this package can decide
@@ -35,7 +42,11 @@ type NewsItem struct {
 
 // NewsPage is one page of the inbox with the unread total the badge needs.
 type NewsPage struct {
-	Items      []NewsItem
+	Items []NewsItem
+	// Featured are the posts an operator pinned, newest first. They come
+	// with the first page only and are left out of Items, so the cursor
+	// walks the rest in order without showing a pinned post twice.
+	Featured   []NewsItem
 	NextCursor string
 	Unread     int
 	// Locale is the locale the posts were actually resolved in, which is not
@@ -76,31 +87,15 @@ func (service *Service) News(
 	// A post with no translation in the resolved locale is absent rather than
 	// shown in another language. That is the bot's rule too, and an inbox that
 	// silently switches language mid-list is harder to read than a shorter one.
-	rows, err := service.pool.Query(ctx, `SELECT n.id::text, n.slug, n.category, n.class,
-		l.title, l.body, n.published_at,
-		EXISTS (SELECT 1 FROM news_reads r WHERE r.post_id = n.id AND r.user_id = $1::uuid)
-		FROM news_posts n
-		JOIN news_post_localizations l ON l.post_id = n.id AND l.locale = $2
-		WHERE `+newsVisible+`
-		  AND ($3::timestamptz IS NULL
-		       OR (n.published_at, n.id) < ($3::timestamptz, $4::uuid))
-		ORDER BY n.published_at DESC, n.id DESC
-		LIMIT $5`, customerID, locale, cursorAt, cursorID, size+1)
-	if err != nil {
-		return NewsPage{}, err
-	}
-	defer rows.Close()
-	page := NewsPage{Items: make([]NewsItem, 0, size), Locale: locale}
-	for rows.Next() {
-		var item NewsItem
-		if err = rows.Scan(&item.ID, &item.Slug, &item.Category, &item.Class,
-			&item.Title, &item.Body, &item.PublishedAt, &item.Read); err != nil {
+	page := NewsPage{Items: make([]NewsItem, 0, size), Featured: []NewsItem{}, Locale: locale}
+	if !position.set() {
+		if page.Featured, err = service.newsItems(ctx, `AND n.featured`, `LIMIT 5`, customerID, locale); err != nil {
 			return NewsPage{}, err
 		}
-		item.PublishedAt = item.PublishedAt.UTC()
-		page.Items = append(page.Items, item)
 	}
-	if err = rows.Err(); err != nil {
+	if page.Items, err = service.newsItems(ctx, `AND NOT n.featured
+		  AND ($3::timestamptz IS NULL OR (n.published_at, n.id) < ($3::timestamptz, $4::uuid))`,
+		`LIMIT $5`, customerID, locale, cursorAt, cursorID, size+1); err != nil {
 		return NewsPage{}, err
 	}
 	if len(page.Items) > size {
@@ -117,6 +112,40 @@ func (service *Service) News(
 		return NewsPage{}, err
 	}
 	return page, nil
+}
+
+// newsItems reads visible posts in the locale, newest first, with the
+// category's name and colour. filter and limit are fixed SQL fragments from
+// this file; every value is a parameter.
+func (service *Service) newsItems(ctx context.Context, filter, limit string, args ...any) ([]NewsItem, error) {
+	rows, err := service.pool.Query(ctx, `SELECT n.id::text, n.slug, n.category_code, n.class,
+		l.title, l.body, n.published_at,
+		EXISTS (SELECT 1 FROM news_reads r WHERE r.post_id = n.id AND r.user_id = $1::uuid),
+		CASE WHEN $2 = 'ru' THEN c.name_ru ELSE c.name_en END, c.color, n.tags, COALESCE(n.cover_url, ''), n.featured
+		FROM news_posts n
+		JOIN news_post_localizations l ON l.post_id = n.id AND l.locale = $2
+		JOIN news_categories c ON c.code = n.category_code
+		WHERE `+newsVisible+` `+filter+`
+		ORDER BY n.published_at DESC, n.id DESC `+limit, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []NewsItem{}
+	for rows.Next() {
+		var item NewsItem
+		if err = rows.Scan(&item.ID, &item.Slug, &item.Category, &item.Class,
+			&item.Title, &item.Body, &item.PublishedAt, &item.Read,
+			&item.CategoryName, &item.CategoryColor, &item.Tags, &item.CoverURL, &item.Featured); err != nil {
+			return nil, err
+		}
+		if item.Tags == nil {
+			item.Tags = []string{}
+		}
+		item.PublishedAt = item.PublishedAt.UTC()
+		items = append(items, item)
+	}
+	return items, rows.Err()
 }
 
 // MarkNewsRead records that the customer opened a post.
@@ -138,7 +167,10 @@ func (service *Service) MarkNewsRead(ctx context.Context, customerID, postID str
 	if !visible {
 		return ErrNotFound
 	}
-	_, err = service.pool.Exec(ctx, `INSERT INTO news_reads (user_id, post_id)
+	_, err = service.pool.Exec(ctx, `WITH viewed AS (
+			UPDATE news_posts SET view_count = view_count + 1 WHERE id = $2::uuid
+		)
+		INSERT INTO news_reads (user_id, post_id)
 		VALUES ($1::uuid, $2::uuid) ON CONFLICT (user_id, post_id) DO NOTHING`, customerID, postID)
 	return err
 }

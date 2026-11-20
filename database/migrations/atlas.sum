@@ -1,4 +1,4 @@
-h1:4rOfxM+1kqezBB2K9j+usI+vuIAzOsR8Swu3htjjvM4=
+h1:2BKophsgmopgCeNM5BVV/iWVtiIF+nY2SD6ydwclkFc=
 20261120000000_baseline.sql h1:xcYk9mdv44B3O0TRxq3RP+hXxJ2VeeOilGnwKO251mQ=
 20261120010000_river_schema_v8.sql h1:AfdQpxaviEf8asJ5gyLmMVZr+zMYaWEw+o/vE8CMj7A=
 20261120020000_customer_email_signin.sql h1:PrCKaTaDm5ggof8aqRooMbqOXEHML5fwq1TF877zQa8=
@@ -57,3 +57,4 @@ h1:4rOfxM+1kqezBB2K9j+usI+vuIAzOsR8Swu3htjjvM4=
 20261122200000_campaign_plan_bonus.sql h1:mLHelat29wx3hlnvByl5f+2y9BEJqoGxGhYUg466oTM=
 20261122201000_campaign_stats_index.sql h1:+Elf5mLvH//aFN39HSRXFlvchEXjybZubFeNwGLISKk=
 20261122210000_partner_applications.sql h1:5Vyj07v2anR0FaU3KOZYBDOl3lBys3rStjFrUYxBZGc=
+20261122220000_news_categories.sql h1:VGE7XWBlfXOKoYLGKh2klx4dsOP3iOVd/6T0492DZo0=

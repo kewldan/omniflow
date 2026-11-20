@@ -9,8 +9,9 @@ SELECT * FROM news_post_localizations WHERE post_id = sqlc.arg(post_id) ORDER BY
 
 -- name: UpdateNewsPostMeta :one
 UPDATE news_posts
-SET slug = sqlc.arg(slug), category = sqlc.arg(category), class = sqlc.arg(class),
-    expires_at = sqlc.narg(expires_at), updated_at = now()
+SET slug = sqlc.arg(slug), category_code = sqlc.arg(category_code), class = sqlc.arg(class),
+    expires_at = sqlc.narg(expires_at), tags = sqlc.arg(tags)::text[], cover_url = sqlc.narg(cover_url),
+    featured = sqlc.arg(featured), updated_at = now()
 WHERE id = sqlc.arg(post_id)
 RETURNING *;
 

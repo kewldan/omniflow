@@ -17,10 +17,11 @@ ORDER BY p.created_at DESC
 LIMIT sqlc.arg(page_size);
 
 -- name: UpsertNewsPost :one
-INSERT INTO news_posts (slug, category, class, created_by)
-VALUES (sqlc.arg(slug), sqlc.arg(category), sqlc.arg(class), sqlc.narg(created_by))
+-- The notification kind (category) is copied from the category by a trigger.
+INSERT INTO news_posts (slug, category_code, class, created_by)
+VALUES (sqlc.arg(slug), sqlc.arg(category_code), sqlc.arg(class), sqlc.narg(created_by))
 ON CONFLICT (slug) DO UPDATE
-  SET category = EXCLUDED.category, class = EXCLUDED.class, updated_at = now()
+  SET category_code = EXCLUDED.category_code, class = EXCLUDED.class, updated_at = now()
 RETURNING *;
 
 -- name: SetNewsPostState :one

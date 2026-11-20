@@ -9265,23 +9265,36 @@ components:
               attachments:
                 type: array
                 items: {$ref: "#/components/schemas/AccountAttachment"}
+    AccountNewsItem:
+      type: object
+      required: [id, category, categoryName, categoryColor, title, body, read, publishedAt, tags, featured]
+      properties:
+        id: {type: string, format: uuid}
+        slug: {type: string}
+        category: {type: string, description: "The code of the category the operator filed the post under."}
+        categoryName: {type: string, description: "The category's name in the resolved locale."}
+        categoryColor: {type: string, pattern: "^#[0-9a-f]{6}$"}
+        class: {type: string, enum: [transactional, marketing]}
+        title: {type: string}
+        body: {type: string}
+        tags: {type: array, items: {type: string}}
+        coverUrl: {type: string, format: uri, description: "An https image shown above the post."}
+        featured: {type: boolean}
+        read: {type: boolean}
+        publishedAt: {type: string, format: date-time}
     AccountNewsPage:
       type: object
       required: [items, unreadCount, locale]
       properties:
         items:
           type: array
-          items:
-            type: object
-            required: [id, category, title, body, read, publishedAt]
-            properties:
-              id: {type: string, format: uuid}
-              slug: {type: string}
-              category: {type: string, enum: [news, announcement, incident, maintenance]}
-              title: {type: string}
-              body: {type: string}
-              read: {type: boolean}
-              publishedAt: {type: string, format: date-time}
+          items: {$ref: "#/components/schemas/AccountNewsItem"}
+        featured:
+          type: array
+          description: >-
+            Posts the operator pinned, newest first, with the first page only.
+            They are left out of `items`, so paging never shows one twice.
+          items: {$ref: "#/components/schemas/AccountNewsItem"}
         unreadCount: {type: integer}
         locale: {type: string, enum: [ru, en]}
         nextCursor: {type: string}

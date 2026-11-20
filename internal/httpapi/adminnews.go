@@ -17,12 +17,34 @@ func (handlers *AdminHandlers) mountNews(secure chi.Router) {
 	secure.With(handlers.requirePermission(rbac.PermissionMarketingRead)).Group(func(read chi.Router) {
 		read.Get("/marketing/news", handlers.listNews)
 		read.Get("/marketing/news/{postID}", handlers.getNews)
+		read.Get("/marketing/news-categories", handlers.newsCategories)
 	})
 	secure.With(handlers.requirePermission(rbac.PermissionMarketingWrite)).Group(func(write chi.Router) {
 		write.Post("/marketing/news", handlers.createNews)
 		write.Put("/marketing/news/{postID}", handlers.updateNews)
 		write.Post("/marketing/news/{postID}/state", handlers.setNewsState)
+		write.Put("/marketing/news-categories", handlers.saveNewsCategory)
+		write.Delete("/marketing/news-categories/{code}", handlers.deleteNewsCategory)
 	})
+}
+
+func (handlers *AdminHandlers) newsCategories(writer http.ResponseWriter, request *http.Request) {
+	categories, err := handlers.operations.NewsCategories(request.Context())
+	handlers.respond(writer, request, map[string]any{"items": categories}, err)
+}
+
+func (handlers *AdminHandlers) saveNewsCategory(writer http.ResponseWriter, request *http.Request) {
+	var body panelpg.NewsCategory
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	category, err := handlers.operations.SaveNewsCategory(request.Context(), body, actorFrom(request))
+	handlers.respond(writer, request, category, err)
+}
+
+func (handlers *AdminHandlers) deleteNewsCategory(writer http.ResponseWriter, request *http.Request) {
+	err := handlers.operations.DeleteNewsCategory(request.Context(), chi.URLParam(request, "code"), actorFrom(request))
+	handlers.respond(writer, request, map[string]bool{"deleted": err == nil}, err)
 }
 
 func (handlers *AdminHandlers) listNews(writer http.ResponseWriter, request *http.Request) {

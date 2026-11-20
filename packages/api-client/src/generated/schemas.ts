@@ -13135,18 +13135,53 @@ export const ListAccountNewsQueryParams = zod.object({
   limit: zod.int().min(1).max(listAccountNewsQueryLimitMax).optional(),
 });
 
+export const listAccountNewsResponseItemsItemCategoryColorRegExp = /^#[0-9a-f]{6}$/;
+export const listAccountNewsResponseFeaturedItemCategoryColorRegExp = /^#[0-9a-f]{6}$/;
+
 export const ListAccountNewsResponse = zod.object({
   items: zod.array(
     zod.object({
       id: zod.uuid(),
       slug: zod.string().optional(),
-      category: zod.enum(["news", "announcement", "incident", "maintenance"]),
+      category: zod
+        .string()
+        .describe("The code of the category the operator filed the post under."),
+      categoryName: zod.string().describe("The category's name in the resolved locale."),
+      categoryColor: zod.string().regex(listAccountNewsResponseItemsItemCategoryColorRegExp),
+      class: zod.enum(["transactional", "marketing"]).optional(),
       title: zod.string(),
       body: zod.string(),
+      tags: zod.array(zod.string()),
+      coverUrl: zod.url().optional().describe("An https image shown above the post."),
+      featured: zod.boolean(),
       read: zod.boolean(),
       publishedAt: zod.iso.datetime({ offset: true }),
     }),
   ),
+  featured: zod
+    .array(
+      zod.object({
+        id: zod.uuid(),
+        slug: zod.string().optional(),
+        category: zod
+          .string()
+          .describe("The code of the category the operator filed the post under."),
+        categoryName: zod.string().describe("The category's name in the resolved locale."),
+        categoryColor: zod.string().regex(listAccountNewsResponseFeaturedItemCategoryColorRegExp),
+        class: zod.enum(["transactional", "marketing"]).optional(),
+        title: zod.string(),
+        body: zod.string(),
+        tags: zod.array(zod.string()),
+        coverUrl: zod.url().optional().describe("An https image shown above the post."),
+        featured: zod.boolean(),
+        read: zod.boolean(),
+        publishedAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .optional()
+    .describe(
+      "Posts the operator pinned, newest first, with the first page only. They are left out of `items`, so paging never shows one twice.",
+    ),
   unreadCount: zod.int(),
   locale: zod.enum(["ru", "en"]),
   nextCursor: zod.string().optional(),

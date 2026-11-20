@@ -17,7 +17,10 @@
  *   origin at all, and no framing.
  * - **Public and customer pages** additionally allow the two counter providers
  *   an operator can configure (`internal/adtracking`), and may be framed by
- *   Telegram Web, which opens a Mini App in an iframe.
+ *   Telegram Web, which opens a Mini App in an iframe. The customer panel also
+ *   loads images from any https origin, because a news post's cover is an
+ *   operator's https address on a host nobody can list in advance; an image
+ *   cannot run script, and the sign-in screen does not get this.
  * - **The customer sign-in screen** additionally allows the Telegram login
  *   widget's frame and requests — and `'unsafe-eval'`, because the widget
  *   compiles its `data-onauth` callback from a string with `eval`. That
@@ -91,6 +94,9 @@ export function buildCsp(options: { nonce: string; surface: CspSurface; dev?: bo
     connect.push(...ANALYTICS.connect);
     img.push(...ANALYTICS.img);
     frame.push(...ANALYTICS.frame);
+  }
+  if (surface === "customer") {
+    img.push("https:");
   }
   if (signIn) {
     script.push(...TELEGRAM_WIDGET.script);

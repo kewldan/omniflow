@@ -5449,25 +5449,32 @@ export interface AccountConversation {
   messages: AccountConversationMessagesItem[];
 }
 
-export type AccountNewsPageItemsItemCategory =
-  (typeof AccountNewsPageItemsItemCategory)[keyof typeof AccountNewsPageItemsItemCategory];
+export type AccountNewsItemClass = (typeof AccountNewsItemClass)[keyof typeof AccountNewsItemClass];
 
-export const AccountNewsPageItemsItemCategory = {
-  news: "news",
-  announcement: "announcement",
-  incident: "incident",
-  maintenance: "maintenance",
+export const AccountNewsItemClass = {
+  transactional: "transactional",
+  marketing: "marketing",
 } as const;
 
-export type AccountNewsPageItemsItem = {
+export interface AccountNewsItem {
   id: string;
   slug?: string;
-  category: AccountNewsPageItemsItemCategory;
+  /** The code of the category the operator filed the post under. */
+  category: string;
+  /** The category's name in the resolved locale. */
+  categoryName: string;
+  /** @pattern ^#[0-9a-f]{6}$ */
+  categoryColor: string;
+  class?: AccountNewsItemClass;
   title: string;
   body: string;
+  tags: string[];
+  /** An https image shown above the post. */
+  coverUrl?: string;
+  featured: boolean;
   read: boolean;
   publishedAt: string;
-};
+}
 
 export type AccountNewsPageLocale =
   (typeof AccountNewsPageLocale)[keyof typeof AccountNewsPageLocale];
@@ -5478,7 +5485,9 @@ export const AccountNewsPageLocale = {
 } as const;
 
 export interface AccountNewsPage {
-  items: AccountNewsPageItemsItem[];
+  items: AccountNewsItem[];
+  /** Posts the operator pinned, newest first, with the first page only. They are left out of `items`, so paging never shows one twice. */
+  featured?: AccountNewsItem[];
   unreadCount: number;
   locale: AccountNewsPageLocale;
   nextCursor?: string;

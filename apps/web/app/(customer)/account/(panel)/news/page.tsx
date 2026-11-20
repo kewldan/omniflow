@@ -27,14 +27,6 @@ function newsPageKey(index: number, previous: NewsPagePayload | null) {
   return `/v1/account/news${toQuery({ cursor: previous.nextCursor, limit: 20 })}`;
 }
 
-/** A category's tone. Incidents and maintenance are the two worth colouring. */
-const CATEGORY_TONE = {
-  announcement: "info",
-  incident: "danger",
-  maintenance: "warning",
-  news: "neutral",
-} as const;
-
 /**
  * The announcement inbox.
  *
@@ -54,8 +46,8 @@ export default function NewsInboxPage() {
   >(newsPageKey, fetcher);
 
   const pages = data ?? [];
-  const items = pages.flatMap((page) => page.items);
   const first = pages[0];
+  const items = [...(first?.featured ?? []), ...pages.flatMap((page) => page.items)];
   const hasMore = Boolean(pages.at(-1)?.nextCursor);
   const loadingMore = isValidating && pages.length < size;
 
@@ -156,9 +148,27 @@ function NewsCard({ item, onRead }: { item: NewsItem; onRead: () => Promise<unkn
 
   return (
     <article className="space-y-2.5 rounded-lg border border-border bg-card p-4">
+      {item.coverUrl && (
+        // An operator's https image of unknown size: a plain img with a fixed
+        // aspect box, lazily loaded and sent without a referrer.
+        // biome-ignore lint/performance/noImgElement: operator-hosted image on an unknown host
+        <img
+          alt=""
+          className="aspect-[2/1] w-full rounded-md object-cover"
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          src={item.coverUrl}
+        />
+      )}
       <div className="flex flex-wrap items-center gap-2">
-        <Badge variant={CATEGORY_TONE[item.category]}>
-          {translate(`news.category.${item.category}`)}
+        {item.featured && <Badge variant="solid">{translate("news.featured")}</Badge>}
+        <Badge variant="outline">
+          <span
+            aria-hidden
+            className="size-2 rounded-full"
+            style={{ backgroundColor: item.categoryColor }}
+          />
+          {item.categoryName}
         </Badge>
         {item.class === "marketing" && (
           <Badge variant="outline">{translate("news.class.marketing")}</Badge>
@@ -180,6 +190,15 @@ function NewsCard({ item, onRead }: { item: NewsItem; onRead: () => Promise<unkn
       {/* The body is operator-authored plain text. Their paragraph breaks are
           preserved and nothing in it is interpreted as markup. */}
       <p className="whitespace-pre-wrap text-[13.5px] leading-relaxed">{item.body}</p>
+      {item.tags.length > 0 && (
+        <ul aria-label={translate("news.tags")} className="flex flex-wrap gap-1.5">
+          {item.tags.map((tag) => (
+            <li className="font-mono text-[11px] text-muted-foreground" key={tag}>
+              #{tag}
+            </li>
+          ))}
+        </ul>
+      )}
 
       {item.read ? (
         <p className="font-mono text-[10.5px] text-subtle-foreground">{translate("news.read")}</p>

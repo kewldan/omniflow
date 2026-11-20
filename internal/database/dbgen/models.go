@@ -1596,6 +1596,17 @@ type MessageTemplate struct {
 	Buttons    []byte             `json:"buttons"`
 }
 
+type NewsCategory struct {
+	Code      string             `json:"code"`
+	NameRu    string             `json:"name_ru"`
+	NameEn    string             `json:"name_en"`
+	Color     string             `json:"color"`
+	Kind      string             `json:"kind"`
+	SortOrder int32              `json:"sort_order"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
 type NewsPost struct {
 	ID            pgtype.UUID        `json:"id"`
 	Slug          string             `json:"slug"`
@@ -1610,6 +1621,11 @@ type NewsPost struct {
 	ArchivedAt    pgtype.Timestamptz `json:"archived_at"`
 	CreatedBy     pgtype.UUID        `json:"created_by"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	CategoryCode  string             `json:"category_code"`
+	Tags          []string           `json:"tags"`
+	CoverUrl      pgtype.Text        `json:"cover_url"`
+	Featured      bool               `json:"featured"`
+	ViewCount     int64              `json:"view_count"`
 }
 
 type NewsPostLocalization struct {
@@ -1786,6 +1802,21 @@ type OutboxEvent struct {
 	Payload     []byte             `json:"payload"`
 	OccurredAt  pgtype.Timestamptz `json:"occurred_at"`
 	PublishedAt pgtype.Timestamptz `json:"published_at"`
+}
+
+type PartnerApplication struct {
+	ID                        pgtype.UUID        `json:"id"`
+	UserID                    pgtype.UUID        `json:"user_id"`
+	Status                    string             `json:"status"`
+	Source                    string             `json:"source"`
+	Channel                   string             `json:"channel"`
+	Message                   string             `json:"message"`
+	CommissionBps             pgtype.Int4        `json:"commission_bps"`
+	FirstPaymentCommissionBps pgtype.Int4        `json:"first_payment_commission_bps"`
+	DecisionNote              string             `json:"decision_note"`
+	DecidedBy                 pgtype.UUID        `json:"decided_by"`
+	DecidedAt                 pgtype.Timestamptz `json:"decided_at"`
+	CreatedAt                 pgtype.Timestamptz `json:"created_at"`
 }
 
 type PaymentEvent struct {

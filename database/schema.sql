@@ -128,6 +128,23 @@ $$;
 
 
 --
+-- Name: news_posts_category_kind(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.news_posts_category_kind() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF NEW.category_code IS NULL THEN
+    NEW.category_code := NEW.category;
+  END IF;
+  SELECT kind INTO NEW.category FROM news_categories WHERE code = NEW.category_code;
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: promotion_goods_scope_matches(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3140,6 +3157,26 @@ CREATE TABLE public.message_templates (
 
 
 --
+-- Name: news_categories; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.news_categories (
+    code text NOT NULL,
+    name_ru text NOT NULL,
+    name_en text NOT NULL,
+    color text NOT NULL,
+    kind text NOT NULL,
+    sort_order integer DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT news_categories_code_shape CHECK ((code ~ '^[a-z][a-z0-9_-]{1,31}$'::text)),
+    CONSTRAINT news_categories_color_hex CHECK ((color ~ '^#[0-9a-f]{6}$'::text)),
+    CONSTRAINT news_categories_kind_known CHECK ((kind = ANY (ARRAY['news'::text, 'announcement'::text, 'incident'::text, 'maintenance'::text]))),
+    CONSTRAINT news_categories_names_length CHECK ((((char_length(name_ru) >= 1) AND (char_length(name_ru) <= 40)) AND ((char_length(name_en) >= 1) AND (char_length(name_en) <= 40))))
+);
+
+
+--
 -- Name: news_post_localizations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -3172,12 +3209,20 @@ CREATE TABLE public.news_posts (
     archived_at timestamp with time zone,
     created_by uuid,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    category_code text NOT NULL,
+    tags text[] DEFAULT '{}'::text[] NOT NULL,
+    cover_url text,
+    featured boolean DEFAULT false NOT NULL,
+    view_count bigint DEFAULT 0 NOT NULL,
     CONSTRAINT news_posts_category_check CHECK ((category = ANY (ARRAY['news'::text, 'announcement'::text, 'incident'::text, 'maintenance'::text]))),
     CONSTRAINT news_posts_check CHECK (((expires_at IS NULL) OR (published_at IS NULL) OR (expires_at > published_at))),
     CONSTRAINT news_posts_class_check CHECK ((class = ANY (ARRAY['transactional'::text, 'marketing'::text]))),
+    CONSTRAINT news_posts_cover_https CHECK (((cover_url IS NULL) OR ((cover_url ~ '^https://[^\s<>"]+$'::text) AND (char_length(cover_url) <= 2000)))),
     CONSTRAINT news_posts_schedule_present CHECK (((status <> 'scheduled'::text) OR (scheduled_for IS NOT NULL))),
     CONSTRAINT news_posts_slug_check CHECK ((slug ~ '^[a-z0-9][a-z0-9_-]{2,63}$'::text)),
-    CONSTRAINT news_posts_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'scheduled'::text, 'published'::text, 'unpublished'::text, 'archived'::text])))
+    CONSTRAINT news_posts_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'scheduled'::text, 'published'::text, 'unpublished'::text, 'archived'::text]))),
+    CONSTRAINT news_posts_tags_bounded CHECK (((cardinality(tags) <= 10) AND (array_to_string(tags, ','::text) ~ '^([a-zа-яё0-9_]{1,32}(,|$))*$'::text))),
+    CONSTRAINT news_posts_view_count_nonnegative CHECK ((view_count >= 0))
 );
 
 
@@ -6519,6 +6564,14 @@ ALTER TABLE ONLY public.message_templates
 
 
 --
+-- Name: news_categories news_categories_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.news_categories
+    ADD CONSTRAINT news_categories_pkey PRIMARY KEY (code);
+
+
+--
 -- Name: news_post_localizations news_post_localizations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8186,6 +8239,13 @@ CREATE INDEX mcp_events_server_idx ON public.mcp_events USING btree (server_slug
 
 
 --
+-- Name: news_posts_category_code; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX news_posts_category_code ON public.news_posts USING btree (category_code);
+
+
+--
 -- Name: news_posts_published_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8197,6 +8257,13 @@ CREATE INDEX news_posts_published_idx ON public.news_posts USING btree (publishe
 --
 
 CREATE INDEX news_posts_scheduled_idx ON public.news_posts USING btree (scheduled_for) WHERE (status = 'scheduled'::text);
+
+
+--
+-- Name: news_posts_tags; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX news_posts_tags ON public.news_posts USING gin (tags);
 
 
 --
@@ -8729,6 +8796,13 @@ CREATE TRIGGER cart_goods_kind_matches BEFORE INSERT OR UPDATE ON public.cart_go
 --
 
 CREATE TRIGGER loyalty_standing_history_notice AFTER INSERT ON public.loyalty_standing_history FOR EACH ROW EXECUTE FUNCTION public.queue_loyalty_change_notices();
+
+
+--
+-- Name: news_posts news_posts_category_kind; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER news_posts_category_kind BEFORE INSERT OR UPDATE OF category_code ON public.news_posts FOR EACH ROW EXECUTE FUNCTION public.news_posts_category_kind();
 
 
 --
@@ -10235,6 +10309,14 @@ ALTER TABLE ONLY public.message_templates
 
 ALTER TABLE ONLY public.news_post_localizations
     ADD CONSTRAINT news_post_localizations_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.news_posts(id) ON DELETE CASCADE;
+
+
+--
+-- Name: news_posts news_posts_category_code_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.news_posts
+    ADD CONSTRAINT news_posts_category_code_fkey FOREIGN KEY (category_code) REFERENCES public.news_categories(code);
 
 
 --

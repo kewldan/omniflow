@@ -23,9 +23,16 @@ type NewsTranslation struct {
 
 // NewsPost is a news post as the editor sees it.
 type NewsPost struct {
-	ID           string                     `json:"id"`
-	Slug         string                     `json:"slug"`
+	ID   string `json:"id"`
+	Slug string `json:"slug"`
+	// Category is the category's code; Kind the notification kind it is
+	// announced under, which follows the category.
 	Category     string                     `json:"category"`
+	Kind         string                     `json:"kind"`
+	Tags         []string                   `json:"tags"`
+	CoverURL     string                     `json:"coverUrl,omitempty"`
+	Featured     bool                       `json:"featured"`
+	Views        int64                      `json:"views"`
 	Class        string                     `json:"class"`
 	Status       string                     `json:"status"`
 	ScheduledFor *time.Time                 `json:"scheduledFor,omitempty"`
@@ -41,9 +48,14 @@ type NewsPost struct {
 
 // NewsInput is what the editor saves.
 type NewsInput struct {
-	Slug         string                     `json:"slug"`
-	Category     string                     `json:"category"`
-	Class        string                     `json:"class"`
+	Slug     string `json:"slug"`
+	Category string `json:"category"`
+	Class    string `json:"class"`
+	// Tags are up to ten words of letters, digits, and '_'; CoverURL an
+	// https image shown above the post; Featured pins it to the top.
+	Tags         []string                   `json:"tags"`
+	CoverURL     string                     `json:"coverUrl"`
+	Featured     bool                       `json:"featured"`
 	ExpiresAt    *time.Time                 `json:"expiresAt"`
 	Translations map[string]NewsTranslation `json:"translations"`
 }
@@ -52,9 +64,8 @@ type NewsInput struct {
 var ErrNewsSlugTaken = fmt.Errorf("%w: another news post has that slug", ErrConflict)
 
 var (
-	newsSlug       = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{2,63}$`)
-	newsCategories = map[string]bool{"news": true, "announcement": true, "incident": true, "maintenance": true}
-	newsStates     = map[string]bool{"draft": true, "scheduled": true, "published": true, "unpublished": true, "archived": true}
+	newsSlug   = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{2,63}$`)
+	newsStates = map[string]bool{"draft": true, "scheduled": true, "published": true, "unpublished": true, "archived": true}
 )
 
 // NewsPosts lists posts, newest first, optionally of one status.
@@ -109,8 +120,19 @@ func (service *Service) SaveNewsPost(ctx context.Context, postID string, input N
 	if input.Class == "" {
 		input.Class = "transactional"
 	}
-	if !newsSlug.MatchString(input.Slug) || !newsCategories[input.Category] ||
-		(input.Class != "transactional" && input.Class != "marketing") {
+	input.CoverURL = strings.TrimSpace(input.CoverURL)
+	tags, err := normalizeNewsTags(input.Tags)
+	if err != nil || !newsSlug.MatchString(input.Slug) || input.Category == "" ||
+		(input.Class != "transactional" && input.Class != "marketing") ||
+		(input.CoverURL != "" && !validNewsCover(input.CoverURL)) {
+		return NewsPost{}, ErrValidaton
+	}
+	var categoryKnown bool
+	if err = service.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM news_categories WHERE code = $1)`,
+		input.Category).Scan(&categoryKnown); err != nil {
+		return NewsPost{}, err
+	}
+	if !categoryKnown {
 		return NewsPost{}, ErrValidaton
 	}
 	kept := 0
@@ -131,7 +153,7 @@ func (service *Service) SaveNewsPost(ctx context.Context, postID string, input N
 		return NewsPost{}, ErrValidaton
 	}
 	var id pgtype.UUID
-	err := service.inTx(ctx, func(queries *dbgen.Queries) error {
+	err = service.inTx(ctx, func(queries *dbgen.Queries) error {
 		expires := pgtype.Timestamptz{}
 		if input.ExpiresAt != nil {
 			expires = pgtype.Timestamptz{Time: input.ExpiresAt.UTC(), Valid: true}
@@ -153,7 +175,7 @@ func (service *Service) SaveNewsPost(ctx context.Context, postID string, input N
 				}
 			}
 			created, createErr := queries.UpsertNewsPost(ctx, dbgen.UpsertNewsPostParams{
-				Slug: input.Slug, Category: input.Category, Class: input.Class, CreatedBy: createdBy,
+				Slug: input.Slug, CategoryCode: input.Category, Class: input.Class, CreatedBy: createdBy,
 			})
 			if createErr != nil {
 				return createErr
@@ -167,7 +189,9 @@ func (service *Service) SaveNewsPost(ctx context.Context, postID string, input N
 			id = parsed
 		}
 		if _, err := queries.UpdateNewsPostMeta(ctx, dbgen.UpdateNewsPostMetaParams{
-			PostID: id, Slug: input.Slug, Category: input.Category, Class: input.Class, ExpiresAt: expires,
+			PostID: id, Slug: input.Slug, CategoryCode: input.Category, Class: input.Class, ExpiresAt: expires,
+			Tags: tags, CoverUrl: pgtype.Text{String: input.CoverURL, Valid: input.CoverURL != ""},
+			Featured: input.Featured,
 		}); err != nil {
 			var pgErr *pgconn.PgError
 			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -194,7 +218,8 @@ func (service *Service) SaveNewsPost(ctx context.Context, postID string, input N
 			}
 		}
 		return appendAudit(ctx, queries, actor.audit(action, "marketing", "news_post", uuidString(id),
-			map[string]any{"slug": input.Slug, "category": input.Category, "class": input.Class}))
+			map[string]any{"slug": input.Slug, "category": input.Category, "class": input.Class,
+				"featured": input.Featured, "tags": tags}))
 	})
 	if err != nil {
 		return NewsPost{}, err
@@ -250,8 +275,17 @@ func (service *Service) SetNewsState(
 
 func newsPostFrom(row dbgen.NewsPost) NewsPost {
 	return NewsPost{
-		ID: uuidString(row.ID), Slug: row.Slug, Category: row.Category, Class: row.Class, Status: row.Status,
+		ID: uuidString(row.ID), Slug: row.Slug, Category: row.CategoryCode, Kind: row.Category, Class: row.Class,
+		Status: row.Status, Tags: tagsOrEmpty(row.Tags), CoverURL: row.CoverUrl.String, Featured: row.Featured,
+		Views:        row.ViewCount,
 		ScheduledFor: timePointer(row.ScheduledFor), PublishedAt: timePointer(row.PublishedAt),
 		ExpiresAt: timePointer(row.ExpiresAt), CreatedAt: row.CreatedAt.Time, UpdatedAt: row.UpdatedAt.Time,
 	}
+}
+
+func tagsOrEmpty(tags []string) []string {
+	if tags == nil {
+		return []string{}
+	}
+	return tags
 }

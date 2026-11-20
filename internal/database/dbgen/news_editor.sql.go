@@ -38,7 +38,7 @@ func (q *Queries) DeleteNewsPostLocalization(ctx context.Context, arg DeleteNews
 
 const getNewsPostForEdit = `-- name: GetNewsPostForEdit :one
 
-SELECT id, slug, category, class, published_at, expires_at, created_at, status, scheduled_for, unpublished_at, archived_at, created_by, updated_at FROM news_posts WHERE id = $1
+SELECT id, slug, category, class, published_at, expires_at, created_at, status, scheduled_for, unpublished_at, archived_at, created_by, updated_at, category_code, tags, cover_url, featured, view_count FROM news_posts WHERE id = $1
 `
 
 // The panel's news editor. Listing and publication state live in
@@ -60,6 +60,11 @@ func (q *Queries) GetNewsPostForEdit(ctx context.Context, postID pgtype.UUID) (N
 		&i.ArchivedAt,
 		&i.CreatedBy,
 		&i.UpdatedAt,
+		&i.CategoryCode,
+		&i.Tags,
+		&i.CoverUrl,
+		&i.Featured,
+		&i.ViewCount,
 	)
 	return i, err
 }
@@ -95,26 +100,33 @@ func (q *Queries) ListNewsPostLocalizations(ctx context.Context, postID pgtype.U
 
 const updateNewsPostMeta = `-- name: UpdateNewsPostMeta :one
 UPDATE news_posts
-SET slug = $1, category = $2, class = $3,
-    expires_at = $4, updated_at = now()
-WHERE id = $5
-RETURNING id, slug, category, class, published_at, expires_at, created_at, status, scheduled_for, unpublished_at, archived_at, created_by, updated_at
+SET slug = $1, category_code = $2, class = $3,
+    expires_at = $4, tags = $5::text[], cover_url = $6,
+    featured = $7, updated_at = now()
+WHERE id = $8
+RETURNING id, slug, category, class, published_at, expires_at, created_at, status, scheduled_for, unpublished_at, archived_at, created_by, updated_at, category_code, tags, cover_url, featured, view_count
 `
 
 type UpdateNewsPostMetaParams struct {
-	Slug      string             `json:"slug"`
-	Category  string             `json:"category"`
-	Class     string             `json:"class"`
-	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
-	PostID    pgtype.UUID        `json:"post_id"`
+	Slug         string             `json:"slug"`
+	CategoryCode string             `json:"category_code"`
+	Class        string             `json:"class"`
+	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
+	Tags         []string           `json:"tags"`
+	CoverUrl     pgtype.Text        `json:"cover_url"`
+	Featured     bool               `json:"featured"`
+	PostID       pgtype.UUID        `json:"post_id"`
 }
 
 func (q *Queries) UpdateNewsPostMeta(ctx context.Context, arg UpdateNewsPostMetaParams) (NewsPost, error) {
 	row := q.db.QueryRow(ctx, updateNewsPostMeta,
 		arg.Slug,
-		arg.Category,
+		arg.CategoryCode,
 		arg.Class,
 		arg.ExpiresAt,
+		arg.Tags,
+		arg.CoverUrl,
+		arg.Featured,
 		arg.PostID,
 	)
 	var i NewsPost
@@ -132,6 +144,11 @@ func (q *Queries) UpdateNewsPostMeta(ctx context.Context, arg UpdateNewsPostMeta
 		&i.ArchivedAt,
 		&i.CreatedBy,
 		&i.UpdatedAt,
+		&i.CategoryCode,
+		&i.Tags,
+		&i.CoverUrl,
+		&i.Featured,
+		&i.ViewCount,
 	)
 	return i, err
 }

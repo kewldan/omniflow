@@ -557,6 +557,7 @@ var catalog = map[string]phrase{
 	"news.empty":                 {ru: "📰 <b>Новости и объявления</b>\n\nПока ничего нового.", en: "📰 <b>News and announcements</b>\n\nNothing new right now."},
 	"news.row":                   {ru: "%s%s · %s", en: "%s%s · %s"},
 	"news.unread":                {ru: "🔵 ", en: "🔵 "},
+	"news.featured":              {ru: "📌 ", en: "📌 "},
 	"news.item":                  {ru: "%s\n\n<b>%s</b>\n\n%s", en: "%s\n\n<b>%s</b>\n\n%s"},
 	"news.gone":                  {ru: "📰 Публикация больше недоступна.", en: "📰 That post is no longer available."},
 	"news.category.news":         {ru: "📰 Новость", en: "📰 News"},

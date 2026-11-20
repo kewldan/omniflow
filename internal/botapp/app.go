@@ -1399,12 +1399,11 @@ func referralURL(username, code string) string {
 // delivered, on any installation, and the failure was invisible because these
 // are precisely the sends whose error was discarded.
 func sendParams(chatID int64, view View) *telegram.SendMessageParams {
-	disabled := true
 	params := &telegram.SendMessageParams{
 		ChatID:             chatID,
 		Text:               fitText(view.Text),
 		ParseMode:          models.ParseModeHTML,
-		LinkPreviewOptions: &models.LinkPreviewOptions{IsDisabled: &disabled},
+		LinkPreviewOptions: linkPreview(view),
 		ProtectContent:     true,
 	}
 	if view.Keyboard != nil {
@@ -1417,18 +1416,28 @@ func sendParams(chatID int64, view View) *telegram.SendMessageParams {
 // sendParams: an edit that sent `"reply_markup": null` would be refused rather
 // than clearing the keyboard.
 func editParams(chatID int64, messageID int, view View) *telegram.EditMessageTextParams {
-	disabled := true
 	params := &telegram.EditMessageTextParams{
 		ChatID:             chatID,
 		MessageID:          messageID,
 		Text:               fitText(view.Text),
 		ParseMode:          models.ParseModeHTML,
-		LinkPreviewOptions: &models.LinkPreviewOptions{IsDisabled: &disabled},
+		LinkPreviewOptions: linkPreview(view),
 	}
 	if view.Keyboard != nil {
 		params.ReplyMarkup = view.Keyboard
 	}
 	return params
+}
+
+// linkPreview disables link previews, except for a view that names its own
+// https picture to show large above the text.
+func linkPreview(view View) *models.LinkPreviewOptions {
+	if strings.HasPrefix(view.Preview, "https://") {
+		preview, yes := view.Preview, true
+		return &models.LinkPreviewOptions{URL: &preview, PreferLargeMedia: &yes, ShowAboveText: &yes}
+	}
+	disabled := true
+	return &models.LinkPreviewOptions{IsDisabled: &disabled}
 }
 
 // campaignArgument is what a /start campaign code may look like.

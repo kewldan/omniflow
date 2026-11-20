@@ -572,8 +572,8 @@ are refused (`object-src 'none'`), and the policy depends on the surface:
 | Surface | Third-party origins allowed | Framing |
 | --- | --- | --- |
 | Operator panel (`/admin`) | none | `frame-ancestors 'none'` |
-| Public and customer pages | the Yandex Metrica and Google Analytics hosts, used only when you [configure a counter](/operations/advertising-measurement) | Telegram Web (`https://web.telegram.org`), which opens a Mini App in a frame |
-| Customer sign-in (`/account/sign-in`) | the above, plus the Telegram login widget (`telegram.org`, `oauth.telegram.org`) and `'unsafe-eval'`, which the widget needs to run its callback | as above |
+| Public and customer pages | the Yandex Metrica and Google Analytics hosts, used only when you [configure a counter](/operations/advertising-measurement); images (only images) from any `https` origin, for a [news post's cover](/commerce/referrals-communication#writing-a-post) | Telegram Web (`https://web.telegram.org`), which opens a Mini App in a frame |
+| Customer sign-in (`/account/sign-in`) | the counter hosts above, plus the Telegram login widget (`telegram.org`, `oauth.telegram.org`) and `'unsafe-eval'`, which the widget needs to run its callback | as above |
 
 Advertising counters are never loaded on an operator page, whatever is configured.
 

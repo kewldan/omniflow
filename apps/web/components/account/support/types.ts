@@ -85,12 +85,18 @@ export type SupportTicketPage = {
   telegramLinked: boolean;
 };
 
-export type NewsCategory = "news" | "announcement" | "incident" | "maintenance";
-
 export type NewsItem = {
   id: string;
   slug: string;
-  category: NewsCategory;
+  /** The code of the category the operator filed the post under. */
+  category: string;
+  /** The category's name in the resolved locale, and its #rrggbb colour. */
+  categoryName: string;
+  categoryColor: string;
+  tags: string[];
+  /** An https image shown above the post. */
+  coverUrl?: string;
+  featured: boolean;
   /** 'transactional' for a service notice, 'marketing' for one that needed consent. */
   class: "transactional" | "marketing";
   title: string;
@@ -101,6 +107,8 @@ export type NewsItem = {
 
 export type NewsPage = {
   items: NewsItem[];
+  /** Pinned posts, with the first page only; never repeated in `items`. */
+  featured?: NewsItem[];
   nextCursor?: string;
   unreadCount: number;
   /** The locale the posts were resolved in, which is not always the one asked for. */

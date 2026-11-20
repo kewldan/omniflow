@@ -33,6 +33,10 @@ type View struct {
 	// Photo is an https picture sent with the message: as its caption when
 	// the text fits Telegram's caption limit, above it otherwise.
 	Photo string
+	// Preview is an https picture shown as the message's large link preview
+	// above the text. Unlike Photo it survives editing a screen in place,
+	// which is how a news post's cover is shown.
+	Preview string
 }
 
 func localeFrom(code string) Locale {

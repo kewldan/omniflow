@@ -20,10 +20,12 @@ see [Notifications and consent](/customer/notifications).
 
 ### Categories, and what each one costs
 
-A post carries a `category` and a `class`. Four categories exist, and the category
-is what the delivery machinery treats as the notification kind:
+A post is filed under a category an operator manages, and every category names one of
+four **notification kinds**. The kind — stored in `news_posts.category` and copied from
+the category by a trigger, so the two cannot disagree — is what the delivery machinery
+reads:
 
-| Category | Class it is delivered under | Consent required | Deferred by quiet hours |
+| Kind | Class it is delivered under | Consent required | Deferred by quiet hours |
 | --- | --- | --- | --- |
 | `news` | marketing | Yes — marketing consent, and it consumes the frequency cap | Yes |
 | `announcement` | transactional | No | Yes |
@@ -33,6 +35,17 @@ is what the delivery machinery treats as the notification kind:
 All four are additionally governed by the customer's single **news** preference
 switch, so a customer who turns news off stops receiving announcements and
 incident notices too.
+
+The four former fixed categories — `news`, `announcement`, `incident`, and `maintenance`
+— are seeded as categories of the same kind, and posts written before categories existed
+stay in them. **News categories** at `/admin/content` adds, edits, and deletes
+categories: a code (`^[a-z][a-z0-9_-]{1,31}$`, fixed once saved), a name in Russian and in
+English (up to 40 characters each), a colour as `#rrggbb`, an order, and the notification
+kind. Changing a category's kind moves its existing posts to the new kind in the same
+transaction. A category with posts cannot be deleted (`409`); move the posts first. Saves
+and deletions need `marketing.write` and are audited as `news.category_saved` and
+`news.category_deleted`. The routes are `GET`/`PUT /v1/panel/marketing/news-categories`
+and `DELETE /v1/panel/marketing/news-categories/{code}`.
 
 <Note>
   `news_posts.class` is a separate column carried through to the customer inbox
@@ -65,8 +78,24 @@ then **Publish now**, **Schedule** for a future moment (the worker's `campaign_e
 pass publishes due posts every minute, up to 50 at a time), **Unpublish**, **Archive**,
 or **Back to draft**. A post with no text cannot be published or scheduled, a schedule
 must be in the future, and a slug already used by another post is refused with `409`.
-The editor shows how many customers have read the post. Every save and state change is
-audited as `news.created`, `news.updated`, or `news.state_changed`.
+The editor also takes:
+
+- **Tags** — up to ten, each 1–32 lowercase letters (Latin or Cyrillic), digits, or `_`; a
+  leading `#` is dropped, case is folded, and duplicates are removed.
+- **Cover image** — an absolute `https` address of up to 2000 characters with no spaces,
+  quotes, or angle brackets; anything else is refused with `422`, and the column has a
+  `CHECK` to the same effect. The bot shows it as the post's large link preview above the
+  text — Telegram fetches the picture, not the customer — and the web panel shows it above
+  the post, loaded by the customer's browser from your host (the customer panel's
+  Content-Security-Policy allows `https:` images for this; operator pages and the sign-in
+  screen do not).
+- **Pin to the top** — a featured post is listed first in the bot, and on the web panel is
+  shown above the list, apart from the paged posts.
+
+The editor shows how many customers have read the post and how many times it was opened
+(views count every open in the bot and every **Mark as read** on the web; readers count
+each customer once). Every save and state change is audited as `news.created`,
+`news.updated`, or `news.state_changed`.
 
 The routes are `GET`/`POST /v1/panel/marketing/news`, `GET`/`PUT
 /v1/panel/marketing/news/{postID}`, and `POST /v1/panel/marketing/news/{postID}/state`
@@ -107,10 +136,16 @@ pretending.
 
 | Route | Notes |
 | --- | --- |
-| `GET /v1/account/news?locale&cursor&limit` | Default 20, maximum 50; returns `{items, unreadCount, locale, nextCursor}` |
-| `POST /v1/account/news/{postID}/read` | 204 |
+| `GET /v1/account/news?locale&cursor&limit` | Default 20, maximum 50; returns `{items, featured, unreadCount, locale, nextCursor}` |
+| `POST /v1/account/news/{postID}/read` | 204; counts a view |
 
-Items are ordered newest first on `(published_at, id)` on both surfaces, so a
+Each item carries its category's code, its name in the resolved locale, its colour, the
+tags, the cover address when there is one, and whether it is pinned. `featured` holds the
+pinned posts (up to five, newest first) on the first page only, and they are left out of
+`items`, so paging never shows one twice.
+
+Items are ordered newest first on `(published_at, id)` on both surfaces, pinned posts
+first, so a
 batch published in the same instant reads in the same order everywhere.
 `unreadCount` counts every visible post with a localisation in the resolved
 locale that has no read row, and is not bounded by the page.

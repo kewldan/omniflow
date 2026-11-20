@@ -278,24 +278,18 @@ func (e AccountExportVersion) Valid() bool {
 	}
 }
 
-// Defines values for AccountNewsPageItemsCategory.
+// Defines values for AccountNewsItemClass.
 const (
-	AccountNewsPageItemsCategoryAnnouncement AccountNewsPageItemsCategory = "announcement"
-	AccountNewsPageItemsCategoryIncident     AccountNewsPageItemsCategory = "incident"
-	AccountNewsPageItemsCategoryMaintenance  AccountNewsPageItemsCategory = "maintenance"
-	AccountNewsPageItemsCategoryNews         AccountNewsPageItemsCategory = "news"
+	AccountNewsItemClassMarketing     AccountNewsItemClass = "marketing"
+	AccountNewsItemClassTransactional AccountNewsItemClass = "transactional"
 )
 
-// Valid indicates whether the value is a known member of the AccountNewsPageItemsCategory enum.
-func (e AccountNewsPageItemsCategory) Valid() bool {
+// Valid indicates whether the value is a known member of the AccountNewsItemClass enum.
+func (e AccountNewsItemClass) Valid() bool {
 	switch e {
-	case AccountNewsPageItemsCategoryAnnouncement:
+	case AccountNewsItemClassMarketing:
 		return true
-	case AccountNewsPageItemsCategoryIncident:
-		return true
-	case AccountNewsPageItemsCategoryMaintenance:
-		return true
-	case AccountNewsPageItemsCategoryNews:
+	case AccountNewsItemClassTransactional:
 		return true
 	default:
 		return false
@@ -5858,24 +5852,41 @@ type AccountMoney struct {
 	Currency    string `json:"currency"`
 }
 
+// AccountNewsItem defines model for AccountNewsItem.
+type AccountNewsItem struct {
+	Body string `json:"body"`
+
+	// Category The code of the category the operator filed the post under.
+	Category      string `json:"category"`
+	CategoryColor string `json:"categoryColor"`
+
+	// CategoryName The category's name in the resolved locale.
+	CategoryName string                `json:"categoryName"`
+	Class        *AccountNewsItemClass `json:"class,omitempty"`
+
+	// CoverUrl An https image shown above the post.
+	CoverUrl    *string            `json:"coverUrl,omitempty"`
+	Featured    bool               `json:"featured"`
+	Id          openapi_types.UUID `json:"id"`
+	PublishedAt time.Time          `json:"publishedAt"`
+	Read        bool               `json:"read"`
+	Slug        *string            `json:"slug,omitempty"`
+	Tags        []string           `json:"tags"`
+	Title       string             `json:"title"`
+}
+
+// AccountNewsItemClass defines model for AccountNewsItem.Class.
+type AccountNewsItemClass string
+
 // AccountNewsPage defines model for AccountNewsPage.
 type AccountNewsPage struct {
-	Items []struct {
-		Body        string                       `json:"body"`
-		Category    AccountNewsPageItemsCategory `json:"category"`
-		Id          openapi_types.UUID           `json:"id"`
-		PublishedAt time.Time                    `json:"publishedAt"`
-		Read        bool                         `json:"read"`
-		Slug        *string                      `json:"slug,omitempty"`
-		Title       string                       `json:"title"`
-	} `json:"items"`
+	// Featured Posts the operator pinned, newest first, with the first page only. They are left out of `items`, so paging never shows one twice.
+	Featured    *[]AccountNewsItem    `json:"featured,omitempty"`
+	Items       []AccountNewsItem     `json:"items"`
 	Locale      AccountNewsPageLocale `json:"locale"`
 	NextCursor  *string               `json:"nextCursor,omitempty"`
 	UnreadCount int                   `json:"unreadCount"`
 }
-
-// AccountNewsPageItemsCategory defines model for AccountNewsPage.Items.Category.
-type AccountNewsPageItemsCategory string
 
 // AccountNewsPageLocale defines model for AccountNewsPage.Locale.
 type AccountNewsPageLocale string

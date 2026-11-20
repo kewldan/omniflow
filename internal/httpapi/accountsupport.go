@@ -412,16 +412,26 @@ func (handlers *AccountHandlers) listSupportNews(writer http.ResponseWriter, req
 	if handlers.writeSupportError(writer, request, err) {
 		return
 	}
-	items := make([]map[string]any, 0, len(page.Items))
-	for _, item := range page.Items {
-		items = append(items, map[string]any{
-			"id": item.ID, "slug": item.Slug, "category": item.Category,
-			"class": item.Class, "title": item.Title, "body": item.Body,
-			"read":        item.Read,
-			"publishedAt": item.PublishedAt.Format(time.RFC3339),
-		})
+	render := func(list []accountsupport.NewsItem) []map[string]any {
+		items := make([]map[string]any, 0, len(list))
+		for _, item := range list {
+			entry := map[string]any{
+				"id": item.ID, "slug": item.Slug, "category": item.Category,
+				"categoryName": item.CategoryName, "categoryColor": item.CategoryColor,
+				"class": item.Class, "title": item.Title, "body": item.Body,
+				"tags": item.Tags, "featured": item.Featured,
+				"read":        item.Read,
+				"publishedAt": item.PublishedAt.Format(time.RFC3339),
+			}
+			if item.CoverURL != "" {
+				entry["coverUrl"] = item.CoverURL
+			}
+			items = append(items, entry)
+		}
+		return items
 	}
-	payload := map[string]any{"items": items, "unreadCount": page.Unread, "locale": page.Locale}
+	payload := map[string]any{"items": render(page.Items), "featured": render(page.Featured),
+		"unreadCount": page.Unread, "locale": page.Locale}
 	if page.NextCursor != "" {
 		payload["nextCursor"] = page.NextCursor
 	}

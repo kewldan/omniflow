@@ -10,22 +10,34 @@ import (
 
 // NewsItem is one published post in the customer's inbox.
 type NewsItem struct {
-	ID          string
-	Slug        string
-	Category    string
-	Class       string
-	Title       string
-	Body        string
-	PublishedAt time.Time
-	Read        bool
+	ID   string
+	Slug string
+	// Category is the category's code and CategoryName its name in the
+	// customer's language.
+	Category     string
+	CategoryName string
+	Tags         []string
+	CoverURL     string
+	Featured     bool
+	Class        string
+	Title        string
+	Body         string
+	PublishedAt  time.Time
+	Read         bool
 }
 
 // ErrNewsNotFound is returned when a post is unpublished, expired, or missing a
 // translation for the requested locale.
 var ErrNewsNotFound = errors.New("news post not found")
 
-const newsColumns = `n.id::text, n.slug, n.category, n.class, l.title, l.body, n.published_at,
-	EXISTS (SELECT 1 FROM news_reads r WHERE r.post_id = n.id AND r.user_id = $1::uuid)`
+const newsColumns = `n.id::text, n.slug, n.category_code, n.class, l.title, l.body, n.published_at,
+	EXISTS (SELECT 1 FROM news_reads r WHERE r.post_id = n.id AND r.user_id = $1::uuid),
+	CASE WHEN $2 = 'ru' THEN c.name_ru ELSE c.name_en END, n.tags, COALESCE(n.cover_url, ''), n.featured`
+
+// newsFrom joins the category a post is filed under.
+const newsFrom = `news_posts n
+	JOIN news_post_localizations l ON l.post_id = n.id AND l.locale = $2
+	JOIN news_categories c ON c.code = n.category_code`
 
 // newsVisible is what a customer may read.
 //
@@ -49,10 +61,9 @@ const newsVisible = `n.status = 'published'
 // orders.
 func (store *PostgresStore) News(ctx context.Context, customerID string, locale Locale, limit int) ([]NewsItem, error) {
 	rows, err := store.pool.Query(ctx, `SELECT `+newsColumns+`
-		FROM news_posts n
-		JOIN news_post_localizations l ON l.post_id = n.id AND l.locale = $2
+		FROM `+newsFrom+`
 		WHERE `+newsVisible+`
-		ORDER BY n.published_at DESC, n.id DESC LIMIT $3`, customerID, string(locale), limit)
+		ORDER BY n.featured DESC, n.published_at DESC, n.id DESC LIMIT $3`, customerID, string(locale), limit)
 	if err != nil {
 		return nil, err
 	}
@@ -71,8 +82,7 @@ func (store *PostgresStore) News(ctx context.Context, customerID string, locale 
 // NewsItem reads one post and marks nothing; reading is recorded explicitly.
 func (store *PostgresStore) NewsItem(ctx context.Context, customerID, postID string, locale Locale) (NewsItem, error) {
 	item, err := scanNews(store.pool.QueryRow(ctx, `SELECT `+newsColumns+`
-		FROM news_posts n
-		JOIN news_post_localizations l ON l.post_id = n.id AND l.locale = $2
+		FROM `+newsFrom+`
 		WHERE n.id = $3::uuid AND `+newsVisible, customerID, string(locale), postID))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return NewsItem{}, ErrNewsNotFound
@@ -92,9 +102,12 @@ func (store *PostgresStore) UnreadNewsCount(ctx context.Context, customerID stri
 	return unread, err
 }
 
-// MarkNewsRead records that the customer opened a post.
+// MarkNewsRead records that the customer opened a post, and counts the view.
 func (store *PostgresStore) MarkNewsRead(ctx context.Context, customerID, postID string) error {
-	_, err := store.pool.Exec(ctx, `INSERT INTO news_reads (user_id, post_id)
+	_, err := store.pool.Exec(ctx, `WITH viewed AS (
+			UPDATE news_posts SET view_count = view_count + 1 WHERE id = $2::uuid
+		)
+		INSERT INTO news_reads (user_id, post_id)
 		VALUES ($1::uuid, $2::uuid) ON CONFLICT (user_id, post_id) DO NOTHING`, customerID, postID)
 	return err
 }
@@ -162,6 +175,7 @@ func (store *PostgresStore) PendingNewsAnnouncements(ctx context.Context, since 
 
 func scanNews(row pgx.Row) (NewsItem, error) {
 	var item NewsItem
-	err := row.Scan(&item.ID, &item.Slug, &item.Category, &item.Class, &item.Title, &item.Body, &item.PublishedAt, &item.Read)
+	err := row.Scan(&item.ID, &item.Slug, &item.Category, &item.Class, &item.Title, &item.Body, &item.PublishedAt, &item.Read,
+		&item.CategoryName, &item.Tags, &item.CoverURL, &item.Featured)
 	return item, err
 }
