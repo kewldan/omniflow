@@ -26,6 +26,7 @@ import { EmailDeliveryCard } from "./email-delivery";
 import { EngagementCard } from "./engagement";
 import { LoyaltyCard } from "./loyalty-card";
 import { ReferralCommissionFields } from "./referral-commission";
+import { ReferralInsightsCard } from "./referral-insights";
 import { ReferralLevelsCard } from "./referral-levels";
 import { RemindersCard } from "./reminders-card";
 import { TemplateEditorCard } from "./template-editor";
@@ -64,6 +65,7 @@ export function MarketingWorkspace() {
       <SuppressionCard editable={can("marketing.write")} />
       <ReferralCard editable={can("settings.write")} />
       <LoyaltyCard editable={can("marketing.write")} />
+      <ReferralInsightsCard currency="RUB" editable={can("marketing.write")} />
       {can("settings.read") && <EmailDeliveryCard editable={can("settings.write")} />}
       <EngagementCard editable={can("marketing.write")} />
       <ReferralLevelsCard canPay={can("finance.write")} editable={can("marketing.write")} />

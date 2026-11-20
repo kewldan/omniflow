@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/emailpg"
 	"github.com/omniflow/omniflow/internal/engagement"
 	"github.com/omniflow/omniflow/internal/fxrate"
@@ -46,6 +47,8 @@ type GrowthServices struct {
 	ReferralPlus *referralplus.Service
 	// Languages lists the languages the operator offers customers.
 	Languages func(ctx context.Context) []string
+	// Referrals back-credits lost referrals through the commerce store.
+	Referrals *commercepg.Store
 }
 
 // WithGrowth attaches the growth services to the panel.
@@ -72,6 +75,7 @@ func (handlers *AdminHandlers) mountGrowth(secure chi.Router) {
 	handlers.mountCurrency(secure)
 	handlers.mountEngagement(secure)
 	handlers.mountReferralPlus(secure)
+	handlers.mountReferralAdmin(secure)
 }
 
 // mountGrowthPublic registers the routes reachable without a session.

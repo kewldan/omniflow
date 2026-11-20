@@ -181,6 +181,22 @@ behaves once it exists.
 The invitee reward goes to the customer who placed the order; the inviter reward
 goes to whoever invited them.
 
+## Referral administration
+
+| Route | Permission | What it does |
+| --- | --- | --- |
+| `GET /v1/panel/referrals/top?days=30` | `marketing.read` | Inviters ranked by what invites and commissions earned them in the period, then by friends who paid |
+| `GET /v1/panel/referrals/lost` | `marketing.read` | Pairs whose friend has a settled subscription order but that never qualified, with the likely cause: attributed after the first payment, paid after the attribution window, or the programme paid nothing then |
+| `POST /v1/panel/referrals/lost/{customerID}/credit` | `marketing.write` | Grants what the programme in force pays on the friend's first settled subscription order, without the attribution window; 409 `referral_not_lost` for a pair that qualified or was rejected, 422 `referral_nothing_granted` when the programme pays nothing |
+| `POST /v1/panel/customers/{customerID}/referrer` | `marketing.write` | `{"code": "…"}` attaches the customer to the owner of that code; never to themselves, never a second inviter (409) |
+| `DELETE /v1/panel/customers/{customerID}/referrer` | `marketing.write` | Detaches a pair that has paid nothing out; one with live rewards answers 409 `referral_locked` — reject it in review instead, which reverses them |
+| `GET`/`PUT /v1/panel/customers/{customerID}/referral-terms` | `marketing.read`/`write` | Personal commission rates for this customer as an inviter: `commissionBps`, `firstPaymentCommissionBps`, `note`; both empty removes them |
+
+The marketing screen shows the leaderboard and the lost referrals with a **Credit** button; the
+customer card's **Referrals** tab has **Referral administration** for attaching, detaching, and
+personal rates. Each change is audited (`panel.referral.attached`, `panel.referral.detached`,
+`panel.referral.terms_saved`); back-credited rewards carry the usual `referral.reward_granted`.
+
 ## Referral review and reversal
 
 Deciding that somebody gamed the programme and taking their reward back is an

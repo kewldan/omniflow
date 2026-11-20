@@ -1088,6 +1088,20 @@
         "balance": "Balance",
         "endsAt": "Access until",
         "lastActivity": "Last active"
+      },
+      "referralAdmin": {
+        "title": "Referral administration",
+        "code": "Inviter's code",
+        "attach": "Attach to inviter",
+        "detach": "Detach from inviter",
+        "rate": "Personal rate, %",
+        "first": "Personal first-payment rate, %",
+        "note": "Note",
+        "save": "Save rates",
+        "hint": "Personal rates apply when this customer invites others and override the programme's rates and tiers. Leave both empty to remove them.",
+        "locked": "This referral has paid out; reject it in review to reverse the rewards.",
+        "conflict": "This customer already has an inviter.",
+        "invalid": "Not saved: check the code and the rates (0–100%)."
       }
     },
     "merge": {
@@ -3174,6 +3188,32 @@
         "minute": "Minute",
         "prizes": "Prizes per place, in rubles (first place first)",
         "create": "Create contest"
+      },
+      "referralInsights": {
+        "title": "Top referrers and lost referrals",
+        "description": "Who brings the most customers, and friends who paid without their inviter being rewarded. Crediting a lost referral grants what the programme pays now, ignoring the attribution window.",
+        "period": "Period",
+        "days": "{days, plural, one {# day} other {# days}}",
+        "noTop": "Nobody invited anyone in this period.",
+        "lostTitle": "Lost referrals",
+        "noLost": "No lost referrals.",
+        "credit": "Credit",
+        "credited": "Rewards credited",
+        "columns": {
+          "inviter": "Inviter",
+          "invited": "Invited",
+          "qualified": "Paid",
+          "earned": "Earned",
+          "friend": "Friend",
+          "attributed": "Invited at",
+          "paid": "First paid",
+          "reason": "Likely cause"
+        },
+        "reasons": {
+          "attributed_after_payment": "Attributed after the first payment",
+          "outside_window": "Paid after the attribution window",
+          "not_rewarded": "The programme paid nothing then"
+        }
       }
     },
     "installationSettings": {

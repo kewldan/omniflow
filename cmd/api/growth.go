@@ -42,7 +42,7 @@ func buildGrowth(
 	if err != nil {
 		return apihttp.GrowthServices{}, err
 	}
-	services := apihttp.GrowthServices{Email: email, EmailSending: mail.Configured()}
+	services := apihttp.GrowthServices{Email: email, EmailSending: mail.Configured(), Referrals: commerceStore}
 	if services.Withdrawals, err = referralpayout.New(pool, cfg.DataEncryptionKey, email, logger); err != nil {
 		return apihttp.GrowthServices{}, err
 	}
