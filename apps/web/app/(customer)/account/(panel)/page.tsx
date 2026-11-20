@@ -3,7 +3,7 @@
 import { Button } from "@omniflow/ui/button";
 import { cn } from "@omniflow/ui/lib/utils";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR from "swr";
 
@@ -24,6 +24,13 @@ type Overview = {
   degraded: boolean;
   /** Present only while maintenance or an incident is active. */
   notice?: { active: boolean; message?: string; expectedReturnAt?: string };
+  /** A subscription that ended recently, with the customer's best live discount. */
+  recovery?: {
+    subscriptionId: string;
+    label: string;
+    endedAt: string;
+    offer?: { kind: "percent" | "fixed"; value: number; expiresAt: string };
+  };
 };
 
 /**
@@ -98,6 +105,7 @@ export default function AccountDashboard() {
         />
       )}
       {data.degraded && <StaleDataNotice />}
+      {data.recovery && <RecoveryCard recovery={data.recovery} />}
 
       {data.showSwitcher && data.subscriptions.length > 1 && (
         <SubscriptionSwitcher
@@ -166,5 +174,39 @@ function SubscriptionSwitcher({
         </Button>
       ))}
     </fieldset>
+  );
+}
+
+/**
+ * Brings back a subscription that ended recently — the web side of the bot's
+ * recovery message. It names the discount waiting for the customer, which the
+ * checkout applies by itself, so there is no code to copy.
+ */
+function RecoveryCard({ recovery }: { recovery: NonNullable<Overview["recovery"]> }) {
+  const translate = useTranslations("account.recovery");
+  const format = useFormatter();
+  return (
+    <div className="space-y-3 rounded-xl border border-primary/40 bg-card p-4">
+      <p className="font-semibold text-[15px]">{translate("title", { label: recovery.label })}</p>
+      <p className="text-[13px] text-muted-foreground leading-relaxed">
+        {translate("description", { ended: format.relativeTime(new Date(recovery.endedAt)) })}
+      </p>
+      {recovery.offer && recovery.offer.kind === "percent" ? (
+        <p className="font-medium text-[13px] text-primary">
+          {translate("offer", {
+            percent: recovery.offer.value,
+            until: format.dateTime(new Date(recovery.offer.expiresAt), {
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+              month: "short",
+            }),
+          })}
+        </p>
+      ) : null}
+      <Button asChild className="w-full" size="lg">
+        <Link href="/account/store">{translate("action")}</Link>
+      </Button>
+    </div>
   );
 }

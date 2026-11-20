@@ -7849,6 +7849,23 @@ export const getAccountOverviewResponseSubscriptionsItemTrafficPercentMin = 0;
 export const getAccountOverviewResponseSubscriptionsItemTrafficPercentMax = 100;
 
 export const GetAccountOverviewResponse = zod.object({
+  recovery: zod
+    .object({
+      subscriptionId: zod.uuid(),
+      label: zod.string(),
+      endedAt: zod.iso.datetime({ offset: true }),
+      offer: zod
+        .object({
+          kind: zod.enum(["percent", "fixed"]),
+          value: zod.int(),
+          expiresAt: zod.iso.datetime({ offset: true }),
+        })
+        .optional(),
+    })
+    .optional()
+    .describe(
+      "A subscription that ended inside the recovery window, with the customer's best live plan discount.",
+    ),
   customer: zod.object({
     id: zod.uuid(),
     locale: zod.enum(["ru", "en"]),

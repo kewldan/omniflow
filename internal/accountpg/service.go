@@ -96,6 +96,8 @@ type Service struct {
 	connect *connectpg.Catalogue
 	// links are the operator's link settings.
 	links commerce.ConnectSettings
+	// recoveryWindow is Options.RecoveryWindow.
+	recoveryWindow time.Duration
 }
 
 // Options configures a Service.
@@ -106,6 +108,9 @@ type Options struct {
 	// Connect is how links are handed over: encrypted import links, mirrors,
 	// and whether the bare link is shown at all.
 	Connect commerce.ConnectSettings
+	// RecoveryWindow is how long after it ended an expired subscription is
+	// offered back on the dashboard (APP_RECOVERY_WINDOW_HOURS, the bot's).
+	RecoveryWindow time.Duration
 }
 
 // Panel is the part of the Remnawave adapter the customer account reads and
@@ -162,7 +167,7 @@ func New(pool *pgxpool.Pool, panel Panel, options Options) (*Service, error) {
 	service := &Service{
 		pool: pool, remnawave: panel,
 		security: options.Security, logger: options.Logger, clock: options.Clock,
-		connect: connectpg.New(pool), links: options.Connect,
+		connect: connectpg.New(pool), links: options.Connect, recoveryWindow: options.RecoveryWindow,
 	}
 	if service.logger == nil {
 		service.logger = slog.Default()

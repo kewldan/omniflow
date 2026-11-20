@@ -380,6 +380,24 @@ func (e AccountOrderState) Valid() bool {
 	}
 }
 
+// Defines values for AccountOverviewRecoveryOfferKind.
+const (
+	AccountOverviewRecoveryOfferKindFixed   AccountOverviewRecoveryOfferKind = "fixed"
+	AccountOverviewRecoveryOfferKindPercent AccountOverviewRecoveryOfferKind = "percent"
+)
+
+// Valid indicates whether the value is a known member of the AccountOverviewRecoveryOfferKind enum.
+func (e AccountOverviewRecoveryOfferKind) Valid() bool {
+	switch e {
+	case AccountOverviewRecoveryOfferKindFixed:
+		return true
+	case AccountOverviewRecoveryOfferKindPercent:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AccountPaymentHandleHandoff.
 const (
 	AccountPaymentHandleHandoffHosted          AccountPaymentHandleHandoff = "hosted"
@@ -5567,10 +5585,25 @@ type AccountOverview struct {
 	// Notice Present only while maintenance or an incident is active.
 	Notice *AccountNotice `json:"notice,omitempty"`
 
+	// Recovery A subscription that ended inside the recovery window, with the customer's best live plan discount.
+	Recovery *struct {
+		EndedAt time.Time `json:"endedAt"`
+		Label   string    `json:"label"`
+		Offer   *struct {
+			ExpiresAt time.Time                        `json:"expiresAt"`
+			Kind      AccountOverviewRecoveryOfferKind `json:"kind"`
+			Value     int64                            `json:"value"`
+		} `json:"offer,omitempty"`
+		SubscriptionId openapi_types.UUID `json:"subscriptionId"`
+	} `json:"recovery,omitempty"`
+
 	// ShowSwitcher Concurrent subscriptions are enabled. A single-subscription installation gets one screen with no selection step.
 	ShowSwitcher  bool                  `json:"showSwitcher"`
 	Subscriptions []AccountSubscription `json:"subscriptions"`
 }
+
+// AccountOverviewRecoveryOfferKind defines model for AccountOverview.Recovery.Offer.Kind.
+type AccountOverviewRecoveryOfferKind string
 
 // AccountPaymentChoice defines model for AccountPaymentChoice.
 type AccountPaymentChoice struct {

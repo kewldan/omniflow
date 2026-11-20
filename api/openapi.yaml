@@ -7717,6 +7717,21 @@ components:
       type: object
       required: [customer, subscriptions, showSwitcher, degraded]
       properties:
+        recovery:
+          type: object
+          description: A subscription that ended inside the recovery window, with the customer's best live plan discount.
+          required: [subscriptionId, label, endedAt]
+          properties:
+            subscriptionId: {type: string, format: uuid}
+            label: {type: string}
+            endedAt: {type: string, format: date-time}
+            offer:
+              type: object
+              required: [kind, value, expiresAt]
+              properties:
+                kind: {type: string, enum: [percent, fixed]}
+                value: {type: integer, format: int64}
+                expiresAt: {type: string, format: date-time}
         customer: {$ref: "#/components/schemas/AccountCustomer"}
         subscriptions: {type: array, items: {$ref: "#/components/schemas/AccountSubscription"}}
         notice:

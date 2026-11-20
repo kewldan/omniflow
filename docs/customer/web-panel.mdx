@@ -511,6 +511,14 @@ On `/account/subscriptions/{id}` a customer renames the subscription — up to 4
 characters, no control characters, refused rather than silently truncated because
 the label is shown back to them verbatim — and finds the link-rotation control.
 
+### Bringing back an ended subscription
+
+When a subscription ended (its end plus any grace period) within `APP_RECOVERY_WINDOW_HOURS` — the same
+window the bot's recovery message uses, 14 days by default — the dashboard shows a recovery card above
+the subscriptions: which one ended, when, and a **Renew** button into the store. When the customer holds
+a live plan discount, such as a win-back wave, the card names it and when it ends; checkout applies it by
+itself. The overview carries it as `recovery`.
+
 ### Connecting a device
 
 The connect screen exists to move one string onto another device. It offers a

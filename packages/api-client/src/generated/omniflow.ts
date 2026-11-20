@@ -4043,7 +4043,33 @@ export interface AccountNotice {
   expectedReturnAt?: string;
 }
 
+export type AccountOverviewRecoveryOfferKind = typeof AccountOverviewRecoveryOfferKind[keyof typeof AccountOverviewRecoveryOfferKind];
+
+
+export const AccountOverviewRecoveryOfferKind = {
+  percent: 'percent',
+  fixed: 'fixed',
+} as const;
+
+export type AccountOverviewRecoveryOffer = {
+  kind: AccountOverviewRecoveryOfferKind;
+  value: number;
+  expiresAt: string;
+};
+
+/**
+ * A subscription that ended inside the recovery window, with the customer's best live plan discount.
+ */
+export type AccountOverviewRecovery = {
+  subscriptionId: string;
+  label: string;
+  endedAt: string;
+  offer?: AccountOverviewRecoveryOffer;
+};
+
 export interface AccountOverview {
+  /** A subscription that ended inside the recovery window, with the customer's best live plan discount. */
+  recovery?: AccountOverviewRecovery;
   customer: AccountCustomer;
   subscriptions: AccountSubscription[];
   /** Present only while maintenance or an incident is active. */

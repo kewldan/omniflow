@@ -4902,6 +4902,12 @@
         "revoked": "Revoked",
         "refunded": "Refunded"
       }
+    },
+    "recovery": {
+      "title": "Bring back “{label}”",
+      "description": "Your subscription ended {ended}. Renew it and your devices connect again with the same link.",
+      "offer": "{percent}% off is waiting for you until {until} — it applies at checkout by itself.",
+      "action": "Renew"
     }
   },
   "pages": {

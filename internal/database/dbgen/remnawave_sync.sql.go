@@ -162,6 +162,32 @@ func (q *Queries) GetNotificationDeliveryStatus(ctx context.Context, arg GetNoti
 	return status, err
 }
 
+const getRecoveryOffer = `-- name: GetRecoveryOffer :one
+SELECT p.kind, p.value, o.expires_at
+FROM personal_offers o
+JOIN promotions p ON p.id = o.promotion_id
+WHERE o.user_id = $1 AND o.status = 'active'
+  AND o.starts_at <= now() AND o.expires_at > now()
+  AND p.active AND p.applies_to = 'plans' AND p.kind IN ('percent', 'fixed')
+ORDER BY (p.kind = 'percent') DESC, p.value DESC, o.expires_at
+LIMIT 1
+`
+
+type GetRecoveryOfferRow struct {
+	Kind      string             `json:"kind"`
+	Value     int64              `json:"value"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+}
+
+// The customer's best live plan discount, for the web panel's recovery card:
+// the same ordering checkout applies it in.
+func (q *Queries) GetRecoveryOffer(ctx context.Context, userID pgtype.UUID) (GetRecoveryOfferRow, error) {
+	row := q.db.QueryRow(ctx, getRecoveryOffer, userID)
+	var i GetRecoveryOfferRow
+	err := row.Scan(&i.Kind, &i.Value, &i.ExpiresAt)
+	return i, err
+}
+
 const getSubscriptionLinkRotatedAt = `-- name: GetSubscriptionLinkRotatedAt :one
 SELECT link_rotated_at FROM subscriptions
 WHERE id = $1 AND user_id = $2

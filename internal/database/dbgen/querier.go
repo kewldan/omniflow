@@ -777,6 +777,9 @@ type Querier interface {
 	// that exists in English only must still answer at its address for a Russian
 	// reader, because the address is what a provider approved.
 	GetPublishedInfoPage(ctx context.Context, arg GetPublishedInfoPageParams) (GetPublishedInfoPageRow, error)
+	// The customer's best live plan discount, for the web panel's recovery card:
+	// the same ordering checkout applies it in.
+	GetRecoveryOffer(ctx context.Context, userID pgtype.UUID) (GetRecoveryOfferRow, error)
 	// The single referral configuration. The table is a singleton because a second
 	// programme would mean two answers to "what does an invite earn?", and the
 	// customer would have been told one of them.

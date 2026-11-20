@@ -405,7 +405,7 @@ func buildCustomerPanel(
 		return nil, nil, err
 	}
 	account, err := accountpg.New(pool, remnawaveClient, accountpg.Options{
-		Logger: logger, Connect: connectSettings,
+		Logger: logger, Connect: connectSettings, RecoveryWindow: cfg.RecoveryWindow,
 		Security: accountpg.SecurityRecorderFunc(func(
 			ctx context.Context, customerID, event string,
 			request accountpg.SecurityRequest, metadata map[string]any,

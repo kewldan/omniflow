@@ -261,6 +261,19 @@ func (handlers *AccountHandlers) overview(writer http.ResponseWriter, request *h
 		"showSwitcher":  overview.ShowSwitcher,
 		"degraded":      overview.Degraded,
 	}
+	if recovery, ok := handlers.account.Recovery(request.Context(), principal.Customer.ID, overview.Subscriptions); ok {
+		card := map[string]any{
+			"subscriptionId": recovery.SubscriptionID, "label": recovery.Label,
+			"endedAt": recovery.EndedAt.Format(time.RFC3339),
+		}
+		if recovery.OfferKind != "" {
+			card["offer"] = map[string]any{
+				"kind": recovery.OfferKind, "value": recovery.OfferValue,
+				"expiresAt": recovery.OfferExpiresAt.Format(time.RFC3339),
+			}
+		}
+		payload["recovery"] = card
+	}
 	if overview.Notice.Active {
 		notice := map[string]any{"active": true, "message": overview.Notice.Message}
 		if !overview.Notice.ExpectedReturnAt.IsZero() {

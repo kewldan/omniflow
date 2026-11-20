@@ -408,3 +408,56 @@ func (service *Service) SubscriptionURL(
 	}
 	return subscription, nil
 }
+
+// Recovery is the dashboard's offer to bring back a subscription that ended
+// recently, with the customer's best live discount when they have one — the
+// web counterpart of the bot's recovery message.
+type Recovery struct {
+	SubscriptionID string
+	Label          string
+	EndedAt        time.Time
+	// OfferKind is percent or fixed, empty without an offer; OfferValue is the
+	// whole percentage or the amount in minor units.
+	OfferKind      string
+	OfferValue     int64
+	OfferExpiresAt time.Time
+}
+
+// Recovery picks the most recently ended subscription still inside the
+// recovery window, or reports there is none.
+func (service *Service) Recovery(ctx context.Context, customerID string, subscriptions []Subscription) (Recovery, bool) {
+	window := service.recoveryWindow
+	if window <= 0 {
+		window = 14 * 24 * time.Hour
+	}
+	now := service.now()
+	var chosen *Subscription
+	for index := range subscriptions {
+		subscription := &subscriptions[index]
+		if subscription.Phase != commerce.PhaseExpired || subscription.EndsAt.IsZero() {
+			continue
+		}
+		ended := subscription.EndsAt.Add(subscription.GracePeriod)
+		if now.Sub(ended) > window {
+			continue
+		}
+		if chosen == nil || subscription.EndsAt.After(chosen.EndsAt) {
+			chosen = subscription
+		}
+	}
+	if chosen == nil {
+		return Recovery{}, false
+	}
+	recovery := Recovery{SubscriptionID: chosen.ID, Label: chosen.Label, EndedAt: chosen.EndsAt.Add(chosen.GracePeriod)}
+	if userID, err := parseUUID(customerID); err == nil {
+		if offer, offerErr := dbgen.New(service.pool).GetRecoveryOffer(ctx, userID); offerErr == nil {
+			recovery.OfferKind, recovery.OfferValue = offer.Kind, offer.Value
+			// A percent promotion stores basis points; the card speaks percent.
+			if offer.Kind == "percent" {
+				recovery.OfferValue = offer.Value / 100
+			}
+			recovery.OfferExpiresAt = offer.ExpiresAt.Time
+		}
+	}
+	return recovery, true
+}

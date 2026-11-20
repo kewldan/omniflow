@@ -98,3 +98,15 @@ WHERE subscription_id = sqlc.arg(subscription_id) AND user_id = sqlc.arg(user_id
 -- name: GetDeviceAlias :one
 SELECT alias FROM device_aliases
 WHERE subscription_id = sqlc.arg(subscription_id) AND device_handle = sqlc.arg(device_handle);
+
+-- name: GetRecoveryOffer :one
+-- The customer's best live plan discount, for the web panel's recovery card:
+-- the same ordering checkout applies it in.
+SELECT p.kind, p.value, o.expires_at
+FROM personal_offers o
+JOIN promotions p ON p.id = o.promotion_id
+WHERE o.user_id = sqlc.arg(user_id) AND o.status = 'active'
+  AND o.starts_at <= now() AND o.expires_at > now()
+  AND p.active AND p.applies_to = 'plans' AND p.kind IN ('percent', 'fixed')
+ORDER BY (p.kind = 'percent') DESC, p.value DESC, o.expires_at
+LIMIT 1;
