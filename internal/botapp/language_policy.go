@@ -65,8 +65,19 @@ func (app *App) applyLanguagePolicy() {
 	if app.installation == nil {
 		return
 	}
-	SetLanguagePolicy(app.section("branding").String("defaultLocale", ""),
-		app.section("bot").Strings("languages", nil))
+	bot := app.section("bot")
+	SetLanguagePolicy(app.section("branding").String("defaultLocale", ""), bot.Strings("languages", nil))
+	applyCustomization(bot)
+}
+
+// TextCatalog lists every bot text key with its shipped Russian and English
+// wording, for the panel's text override editor.
+func TextCatalog() map[string][2]string {
+	out := make(map[string][2]string, len(catalog))
+	for key, value := range catalog {
+		out[key] = [2]string{value.ru, value.en}
+	}
+	return out
 }
 
 // SettingsMiddleware refreshes the settings-driven policies before an update

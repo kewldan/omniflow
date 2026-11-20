@@ -914,6 +914,10 @@ func (app *App) handleCommerceAction(ctx context.Context, session commerceContex
 		return app.setTicketStatus(ctx, session, argument, "closed"), true
 	case "ticket-open":
 		return app.setTicketStatus(ctx, session, argument, "open"), true
+	case "pages":
+		return app.pagesScreen(ctx, session.Locale), true
+	case "page":
+		return app.pageScreen(ctx, session.Locale, argument), true
 	case "support-new":
 		if argument == "payment" || argument == "urgent" {
 			if err := app.customers.ChooseSupportTopic(ctx, session.Customer.ID, argument); err != nil {
@@ -1304,6 +1308,7 @@ var commerceActions = func() map[string]bool {
 		"pay": true, "order-pm": true, "opms": true,
 		"order-cancel": true, "news": true, "ticket": true, "ticket-reply": true,
 		"ticket-close": true, "ticket-open": true, "support-new": true, "connect": true,
+		"pages": true, "page": true,
 		"autorenew": true, "renew-settings": true, "renew-funding": true, "renew-lead": true,
 		"method-default": true, "method-remove": true,
 		"quiet": true, "quiet-menu": true, "tz-menu": true, "tz": true, "invoice": true,

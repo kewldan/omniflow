@@ -168,6 +168,26 @@ export const SECTIONS: SectionSchema[] = [
     messageKey: "bot",
     fields: [
       { name: "languages", kind: "multiselect", messageKey: "botLanguages", options: ["ru", "en"] },
+      { name: "miniAppUrl", kind: "url", messageKey: "miniAppUrl" },
+      { name: "cabinetOnly", kind: "boolean", messageKey: "cabinetOnly" },
+      {
+        name: "hiddenMenu",
+        kind: "multiselect",
+        messageKey: "hiddenMenu",
+        options: [
+          "plans",
+          "subscription",
+          "connect",
+          "devices",
+          "orders",
+          "wallet",
+          "gifts",
+          "support",
+          "news",
+          "referral",
+          "settings",
+        ],
+      },
     ],
   },
   {

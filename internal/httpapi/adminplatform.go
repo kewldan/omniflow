@@ -2,6 +2,9 @@ package httpapi
 
 import (
 	"net/http"
+	"slices"
+
+	"github.com/omniflow/omniflow/internal/botapp"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/omniflow/omniflow/internal/rbac"
@@ -19,6 +22,25 @@ func (handlers *AdminHandlers) mountPlatform(secure chi.Router) {
 		Post("/system/errors/{errorID}/resolve", handlers.resolveAppError)
 	secure.With(handlers.requirePermission(rbac.PermissionSystemWrite)).
 		Post("/system/errors/resolve-all", handlers.resolveAllAppErrors)
+	// The bot's shipped wording and its menu entries, for the override and
+	// menu editors on the settings screen. Saving goes through the bot
+	// section like any other setting.
+	secure.With(handlers.requirePermission(rbac.PermissionSettingsRead)).
+		Get("/bot/texts", handlers.botTexts)
+}
+
+func (handlers *AdminHandlers) botTexts(writer http.ResponseWriter, _ *http.Request) {
+	catalog := botapp.TextCatalog()
+	keys := make([]string, 0, len(catalog))
+	for key := range catalog {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+	items := make([]map[string]string, 0, len(keys))
+	for _, key := range keys {
+		items = append(items, map[string]string{"key": key, "ru": catalog[key][0], "en": catalog[key][1]})
+	}
+	writeJSON(writer, http.StatusOK, map[string]any{"items": items, "menuRoutes": botapp.MenuRoutes})
 }
 
 func (handlers *AdminHandlers) listAppErrors(writer http.ResponseWriter, request *http.Request) {

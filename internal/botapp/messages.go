@@ -28,6 +28,10 @@ func text(locale Locale, key string, args ...any) string {
 	if !found {
 		return key
 	}
+	// The operator's own wording from the bot section, when set.
+	if override, overridden := overrideText(key); overridden {
+		message = override
+	}
 	rendered := message.get(locale)
 	if len(args) == 0 {
 		return rendered
@@ -832,6 +836,10 @@ var catalog = map[string]phrase{
 	"support.newPayment":          {ru: "💳 Проблема с оплатой", en: "💳 Payment problem"},
 	"support.newUrgent":           {ru: "🔥 Срочно", en: "🔥 Urgent"},
 	"support.contactOnly":         {ru: "💬 Напишите нам — мы ответим.", en: "💬 Write to us and we will answer."},
+	"menu.cabinet":                {ru: "🖥 Личный кабинет", en: "🖥 My account"},
+	"menu.pages":                  {ru: "📄 Правила и FAQ", en: "📄 Rules and FAQ"},
+	"pages.list":                  {ru: "📄 <b>Правила, оферта и ответы на вопросы</b>", en: "📄 <b>Rules, offer, and answers</b>"},
+	"pages.empty":                 {ru: "Страниц пока нет.", en: "No pages yet."},
 }
 
 // formatMoney renders an integer minor-unit amount for display. Telegram Stars

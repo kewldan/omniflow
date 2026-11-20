@@ -52,6 +52,12 @@ func (app *App) HandleFAQ(ctx context.Context, client *telegram.Bot, update *mod
 		return
 	}
 	locale := app.locale(ctx, message.From.ID, message.From.LanguageCode)
+	// The pages are read inside Telegram when the bot can reach them; the
+	// web link stays the fallback for a bot without the commerce surface.
+	if app.customers != nil {
+		app.sendPages(ctx, client, message.Chat.ID, locale)
+		return
+	}
 	base := strings.TrimRight(strings.TrimSpace(app.settings.PublicURL), "/")
 	if base == "" {
 		app.handleCommandRoute(ctx, client, update, routeSupport)

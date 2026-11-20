@@ -61,6 +61,9 @@ description: "Что хранит экран настроек, что из эт�
 | Брендинг | `timezone` | воркер, бот | Часовой пояс IANA, в котором считаются тихие часы, время бэкапа и плановые отчёты | `UTC` |
 | Remnawave | `reconcileIntervalMinutes` | воркер | Как часто каждая подписка перечитывается из Remnawave | 15 минут |
 | Telegram-бот | `languages` | бот | Предлагаемые языки. С одним языком все сообщения на нём, а переключатель языка пропадает из настроек бота | оба |
+| Telegram-бот | `miniAppUrl`, `cabinetOnly` | бот | Адрес Mini App (https) добавляет кнопку «Личный кабинет», открывающую его внутри Telegram; режим «только кабинет» оставляет в меню лишь её и поддержку | нет |
+| Telegram-бот | `hiddenMenu` | бот | Встроенные пункты главного меню, которые нужно скрыть (тарифы, подписка, подключение, устройства, заказы, кошелёк, подарки, поддержка, новости, приглашение, настройки) | ничего не скрыто |
+| Telegram-бот | `buttons`, `texts` | бот | Свои кнопки главного меню со ссылкой https или Mini App и замены любого текста бота по языкам — на карточке **Меню и тексты бота** под разделами. Замена должна сохранять подстановки `%s`/`%d` в том же порядке | нет |
 | Группа операторов | `chatId` | бот | Группа для уведомлений; при смене все топики создаются заново в новой группе | `APP_OPERATOR_CHAT_ID` |
 | Группа операторов | `createTopics` | бот | Выключено — все уведомления идут в саму группу, для группы без топиков | включено |
 | Группа операторов | `notificationCap`, `windowMinutes` | бот | Лимит на тип уведомлений и его окно; `0` снимает лимит | `APP_OPERATOR_NOTIFICATION_CAP`, `APP_OPERATOR_NOTIFICATION_WINDOW_MINUTES` |
@@ -161,7 +164,7 @@ description: "Что хранит экран настроек, что из эт�
 | --- | --- | --- |
 | `branding` | `serviceName`, `supportContact`, `termsUrl`, `defaultLocale`, `timezone` | — |
 | `remnawave` | `reconcileIntervalMinutes` | — |
-| `bot` | `languages` | — |
+| `bot` | `languages`, `miniAppUrl`, `cabinetOnly`, `hiddenMenu`, `buttons`, `texts` | — |
 | `operator_group` | `chatId`, `createTopics`, `notificationCap`, `windowMinutes`, `disabledKinds` | — |
 | `reports` | `periods`, `time` | — |
 | `maintenance` | `autoEnable`, `failureThreshold`, `noticeEn`, `noticeRu` | — |

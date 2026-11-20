@@ -150,8 +150,9 @@ func commerceMainKeyboard(locale Locale, menu MenuState) *models.InlineKeyboardM
 	}
 	rows = append(rows,
 		row(callbackButton(supportLabel, routeSupport), callbackButton(newsLabel, routeNews)),
+		row(actionButton(text(locale, "menu.pages"), "pages")),
 		row(callbackButton(referral, routeReferral), callbackButton(settings, routeSettings)),
 		row(callbackButton(text(locale, "action.refresh"), routeHome)),
 	)
-	return keyboard(rows...)
+	return keyboard(customizeMenu(locale, rows)...)
 }

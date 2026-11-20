@@ -58,6 +58,9 @@ diagnostics bundle needs `system.read` and lives on the system screen. See
 | Branding | `timezone` | worker, bot | The IANA zone quiet hours, the backup time of day, and scheduled reports are counted in | `UTC` |
 | Remnawave | `reconcileIntervalMinutes` | worker | How often every subscription is re-read from Remnawave | 15 minutes |
 | Telegram bot | `languages` | bot | The languages offered. With one, every message is in it and the language switch disappears from the bot's settings | both |
+| Telegram bot | `miniAppUrl`, `cabinetOnly` | bot | An https Mini App address adds a «My account» button that opens it inside Telegram; cabinet-only shrinks the menu to that button and support | none |
+| Telegram bot | `hiddenMenu` | bot | Built-in main-menu entries to hide (plans, subscription, connect, devices, orders, wallet, gifts, support, news, invite, settings) | none hidden |
+| Telegram bot | `buttons`, `texts` | bot | Custom main-menu buttons opening an https link or a Mini App, and overrides of any bot message per language — edited on the **Bot menu and wording** card below the sections. An override must keep the message's `%s`/`%d` placeholders in order | none |
 | Operator group | `chatId` | bot | The group notices go to; changing it rebinds every topic in the new group | `APP_OPERATOR_CHAT_ID` |
 | Operator group | `createTopics` | bot | Off sends every notice to the group itself, for a group without topics | on |
 | Operator group | `notificationCap`, `windowMinutes` | bot | The per-kind volume cap and its window; `0` removes the cap | `APP_OPERATOR_NOTIFICATION_CAP`, `APP_OPERATOR_NOTIFICATION_WINDOW_MINUTES` |
@@ -156,7 +159,7 @@ somewhere it does not belong.
 | --- | --- | --- |
 | `branding` | `serviceName`, `supportContact`, `termsUrl`, `defaultLocale`, `timezone` | — |
 | `remnawave` | `reconcileIntervalMinutes` | — |
-| `bot` | `languages` | — |
+| `bot` | `languages`, `miniAppUrl`, `cabinetOnly`, `hiddenMenu`, `buttons`, `texts` | — |
 | `operator_group` | `chatId`, `createTopics`, `notificationCap`, `windowMinutes`, `disabledKinds` | — |
 | `reports` | `periods`, `time` | — |
 | `maintenance` | `autoEnable`, `failureThreshold`, `noticeEn`, `noticeRu` | — |

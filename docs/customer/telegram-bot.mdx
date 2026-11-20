@@ -1057,6 +1057,13 @@ additionally require the commerce surface to be enabled; on an installation
 without it, they answer "Action was not completed". See
 [Backup and restore](/operations/backup-restore).
 
+## Rules, offer, and FAQ inside the bot
+
+The **📄 Rules and FAQ** menu entry and the `/faq` command list the published, listed
+[information pages](/operations/information-pages) — FAQ, terms, offer, privacy — as buttons, and
+each opens as text inside Telegram in the customer's language, falling back to the other
+one. Without the commerce surface `/faq` keeps linking to the web pages.
+
 ## Health and metrics
 
 The bot process exposes `/healthz`, `/livez`, `/readyz`, and `/metrics` on a

@@ -3074,7 +3074,17 @@
           "en": "English",
           "both": "Tickets and contact link",
           "tickets": "Tickets only",
-          "contact": "Contact link only"
+          "contact": "Contact link only",
+          "plans": "Plans",
+          "subscription": "Subscription",
+          "connect": "Connect",
+          "devices": "Devices",
+          "orders": "Orders",
+          "wallet": "Wallet",
+          "gifts": "Gifts",
+          "news": "News",
+          "referral": "Invite",
+          "settings": "Settings"
         },
         "botLanguages": "Languages offered (none selected means both)",
         "filterDisplayNames": "Filter dangerous display names",
@@ -3084,7 +3094,10 @@
         "supportIntroEn": "Introduction (English)",
         "notifyNewTicket": "Tell operators about new tickets",
         "notifyCustomerReply": "Tell operators about customer replies",
-        "notifySlaBreach": "Tell operators about overdue first responses"
+        "notifySlaBreach": "Tell operators about overdue first responses",
+        "miniAppUrl": "Mini App address (https; adds a «My account» button)",
+        "cabinetOnly": "Cabinet only: the menu is just the Mini App and support",
+        "hiddenMenu": "Hide menu entries"
       },
       "telemetryPreview": {
         "title": "What telemetry would send",
@@ -3563,6 +3576,30 @@
           "rules": "Rules violation"
         }
       }
+    },
+    "botCustomization": {
+      "title": "Bot menu and wording",
+      "description": "Add your own main-menu buttons that open a link or a Mini App, and replace any bot message in Russian or English. Applies within a minute.",
+      "buttons": "Custom buttons",
+      "labelRu": "Label (Russian)",
+      "labelEn": "Label (English)",
+      "url": "https:// address",
+      "kind": "Opens as",
+      "kinds": {
+        "url": "Link",
+        "webapp": "Mini App"
+      },
+      "remove": "Remove",
+      "addButton": "Add button",
+      "texts": "Text overrides",
+      "searchPlaceholder": "Search by key or wording",
+      "textsHint": "Empty keeps the shipped wording. Keep placeholders such as %s and %d in the same order.",
+      "key": "Key",
+      "ru": "Russian",
+      "en": "English",
+      "save": "Save",
+      "saved": "Saved",
+      "saveFailed": "Not saved — reload if somebody else changed the bot section"
     }
   },
   "account": {
