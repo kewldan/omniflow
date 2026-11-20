@@ -29,12 +29,15 @@ import (
 // settled amount in USD cents without the rouble source amount. Only the
 // status endpoint answers both questions.
 type CisPay struct {
-	shopID  string
-	apiKey  string
-	method  string
-	baseURL string
-	http    *http.Client
-	clock   func() time.Time
+	// methodOrder and methodCodes are APP_CISPAY_PAYMENT_METHODS.
+	methodOrder []string
+	methodCodes map[string]string
+	shopID      string
+	apiKey      string
+	method      string
+	baseURL     string
+	http        *http.Client
+	clock       func() time.Time
 }
 
 const cispayDefaultBaseURL = "https://api.cispay.app"
@@ -59,12 +62,18 @@ func buildCisPay(settings Settings) (Provider, error) {
 	default:
 		return nil, fmt.Errorf("APP_CISPAY_PAYMENT_METHOD must be CARD, SBP or CRYPTO, got %q", method)
 	}
+	methodOrder, methodCodes, err := parseMethodCodes("APP_CISPAY_PAYMENT_METHODS",
+		settings.String("APP_CISPAY_PAYMENT_METHODS"), map[string]string{"card": "CARD", "sbp": "SBP", "crypto": "CRYPTO"})
+	if err != nil {
+		return nil, err
+	}
 	baseURL := strings.TrimSuffix(settings.String("APP_CISPAY_BASE_URL"), "/")
 	if baseURL == "" {
 		baseURL = cispayDefaultBaseURL
 	}
 	return &CisPay{
 		shopID: shopID, apiKey: apiKey, method: method, baseURL: baseURL,
+		methodOrder: methodOrder, methodCodes: methodCodes,
 		http: tracedClient(30 * time.Second), clock: time.Now,
 	}, nil
 }
@@ -109,6 +118,9 @@ type cispayPayment struct {
 	SubscriptionID   *string      `json:"subscription_id"`
 }
 
+// Methods lists the CisPay methods shown as separate buttons.
+func (provider *CisPay) Methods() []string { return provider.methodOrder }
+
 func (provider *CisPay) Create(ctx context.Context, request CreateRequest) (Intent, error) {
 	if !provider.SupportsCurrency(request.Amount.Currency) {
 		return Intent{}, fmt.Errorf("%w: CisPay settles RUB only", ErrUnsupported)
@@ -116,7 +128,11 @@ func (provider *CisPay) Create(ctx context.Context, request CreateRequest) (Inte
 	if request.Amount.Amount <= 0 || request.Amount.Amount > 2_147_483_647 {
 		return Intent{}, fmt.Errorf("%w: CisPay amount is out of range", ErrUnsupported)
 	}
-	if provider.method == "CARD" && request.Amount.Amount < cispayCardMinimum {
+	method := provider.method
+	if code, ok := provider.methodCodes[request.Method]; ok {
+		method = code
+	}
+	if method == "CARD" && request.Amount.Amount < cispayCardMinimum {
 		return Intent{}, fmt.Errorf("%w: CisPay card payments start at 50.00 RUB", ErrUnsupported)
 	}
 	body := map[string]any{
@@ -124,8 +140,8 @@ func (provider *CisPay) Create(ctx context.Context, request CreateRequest) (Inte
 		"currency": "RUB",
 		"order_id": request.OrderID,
 	}
-	if provider.method != "" {
-		body["payment_method"] = provider.method
+	if method != "" {
+		body["payment_method"] = method
 	}
 	// The hosted chooser and SBP require a customer identifier. Omniflow does
 	// not hand a customer ID to adapters, so the order ID stands in, as

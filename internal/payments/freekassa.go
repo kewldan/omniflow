@@ -56,6 +56,10 @@ type freekassaCore struct {
 	currency        string
 	exponent        int
 	paymentSystemID int
+	// methodOrder and methodIDs are APP_*_PAYMENT_METHODS: the payment
+	// systems an installation shows as separate buttons.
+	methodOrder     []string
+	methodIDs       map[string]int
 	serverIP        string
 	notificationURL string
 	baseURL         string
@@ -81,7 +85,12 @@ func buildFreeKassa(settings Settings) (Provider, error) {
 	if err != nil {
 		return nil, err
 	}
-	useAPI := settings.Bool("APP_FREEKASSA_USE_API", false) || paymentSystemID != 0
+	methodOrder, methodIDs, err := parseMethodIDs("APP_FREEKASSA_PAYMENT_METHODS",
+		settings.String("APP_FREEKASSA_PAYMENT_METHODS"), map[string]int{"sbp": 44, "card": 36})
+	if err != nil {
+		return nil, err
+	}
+	useAPI := settings.Bool("APP_FREEKASSA_USE_API", false) || paymentSystemID != 0 || len(methodIDs) > 0
 	core, err := freekassaNewCore(
 		"freekassa", "FreeKassa", required["APP_FREEKASSA_SHOP_ID"],
 		required["APP_FREEKASSA_API_KEY"], required["APP_FREEKASSA_SECRET_WORD_2"],
@@ -100,6 +109,7 @@ func buildFreeKassa(settings Settings) (Provider, error) {
 		paymentSystemID = 1
 	}
 	core.paymentSystemID = paymentSystemID
+	core.methodOrder, core.methodIDs = methodOrder, methodIDs
 	return &FreeKassa{core: core, secretWord1: required["APP_FREEKASSA_SECRET_WORD_1"], useAPI: useAPI, formURL: freekassaFormURL}, nil
 }
 
@@ -305,7 +315,7 @@ func (text *freekassaText) UnmarshalJSON(raw []byte) error {
 func (core *freekassaCore) createOrder(ctx context.Context, request CreateRequest, extra []freekassaParam) (Intent, error) {
 	params := []freekassaParam{
 		{key: "paymentId", value: request.OrderID},
-		{key: "i", value: strconv.Itoa(core.paymentSystemID), number: true},
+		{key: "i", value: strconv.Itoa(core.systemFor(request.Method)), number: true},
 		{key: "email", value: freekassaPayerEmail(request)},
 		{key: "ip", value: core.serverIP},
 		{key: "amount", value: freekassaAmount(request.Amount.Amount, core.exponent), number: true},
@@ -321,6 +331,18 @@ func (core *freekassaCore) createOrder(ctx context.Context, request CreateReques
 	}
 	return Intent{ProviderReference: request.OrderID, Status: "pending", CheckoutURL: envelope.Location, Amount: request.Amount}, nil
 }
+
+// systemFor is the payment system a chosen method maps to, or the pinned
+// default for the default method and for a method this adapter does not know.
+func (core *freekassaCore) systemFor(method string) int {
+	if id, ok := core.methodIDs[method]; ok {
+		return id
+	}
+	return core.paymentSystemID
+}
+
+// Methods lists the payment systems shown as separate buttons.
+func (provider *FreeKassa) Methods() []string { return provider.core.methodOrder }
 
 // freekassaPayerEmail is the email the order API requires. Omniflow does not
 // pass a customer's address to the provider; it sends the placeholder form

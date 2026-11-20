@@ -3125,6 +3125,62 @@ export interface PanelProviderSettingsInput {
   webhookSecret?: string | null;
 }
 
+export type PanelPaymentMethodSettingsLoginKindsItem = typeof PanelPaymentMethodSettingsLoginKindsItem[keyof typeof PanelPaymentMethodSettingsLoginKindsItem];
+
+
+export const PanelPaymentMethodSettingsLoginKindsItem = {
+  telegram: 'telegram',
+  email: 'email',
+  vk: 'vk',
+  oidc: 'oidc',
+} as const;
+
+export type PanelPaymentMethodSettingsTopUpAudience = typeof PanelPaymentMethodSettingsTopUpAudience[keyof typeof PanelPaymentMethodSettingsTopUpAudience];
+
+
+export const PanelPaymentMethodSettingsTopUpAudience = {
+  all: 'all',
+  first_topup: 'first_topup',
+  repeat_topup: 'repeat_topup',
+} as const;
+
+export interface PanelPaymentMethodSettings {
+  readonly provider?: string;
+  /** @pattern ^[a-z0-9_]{0,10}$ */
+  method: string;
+  readonly key?: string;
+  /** The adapter is loaded in this deployment and offers this method. */
+  readonly configured?: boolean;
+  enabled: boolean;
+  displayOrder: number;
+  /** @maxLength 64 */
+  nameRu?: string;
+  /** @maxLength 64 */
+  nameEn?: string;
+  /** @maxLength 240 */
+  descriptionRu?: string;
+  /** @maxLength 240 */
+  descriptionEn?: string;
+  /** @minimum 1 */
+  minMinor?: number;
+  /** @minimum 1 */
+  maxMinor?: number;
+  /**
+     * @maxItems 8
+     * @items.minimum 1
+     */
+  quickAmountsMinor?: number[];
+  loginKinds?: PanelPaymentMethodSettingsLoginKindsItem[];
+  topUpAudience?: PanelPaymentMethodSettingsTopUpAudience;
+  loyaltyTierCodes?: string[];
+  openDirectly?: boolean;
+  readonly updatedAt?: string;
+}
+
+export interface PanelPaymentMethodSettingsList {
+  items: PanelPaymentMethodSettings[];
+}
+
 export interface PanelRecurringTest {
   merchantId?: string;
   passed: boolean;
@@ -4423,6 +4479,11 @@ export interface AccountCheckoutQuote {
   loyaltyTier?: string;
 }
 
+export interface LocalizedText {
+  ru?: string;
+  en?: string;
+}
+
 export interface AccountPaymentChoice {
   provider: string;
   currency: string;
@@ -4430,6 +4491,17 @@ export interface AccountPaymentChoice {
   recurring: boolean;
   /** The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test. */
   canSaveMethod?: boolean;
+  /** The provider method this button opens (sbp, card, ...). Empty is the adapter's default. */
+  method?: string;
+  /** The button's identity, provider or provider.method. */
+  key?: string;
+  name?: LocalizedText;
+  description?: LocalizedText;
+  minMinor?: number;
+  maxMinor?: number;
+  quickAmountsMinor?: number[];
+  /** Open the provider's page as soon as the payment starts. */
+  openDirectly?: boolean;
 }
 
 export type AccountSavedMethodStatus =
@@ -7007,6 +7079,8 @@ export const GetAccountOrderLocale = {
 
 export type StartAccountOrderPaymentBody = {
   provider?: string;
+  /** The provider method of the button pressed; empty is the adapter's default. `422 provider_amount_out_of_range` when the amount is outside the method's bounds. */
+  method?: string;
   /** Explicit consent to keep the instrument for automatic renewal. Ignored for a method that cannot bind one. */
   saveMethod?: boolean;
 };
@@ -7078,6 +7152,7 @@ export type StartAccountTopUpBody = {
   amountMinor: number;
   currency?: string;
   provider?: string;
+  method?: string;
   /** Explicit consent to keep the instrument for automatic renewal. */
   saveMethod?: boolean;
 };
@@ -23341,6 +23416,161 @@ export const useConfigurePanelRecurring = <TError = Promise<ProblemResponse>>(
     ...query,
   };
 };
+
+export type listPanelPaymentMethodSettingsResponse200 = {
+  data: PanelPaymentMethodSettingsList
+  status: 200
+}
+
+export type listPanelPaymentMethodSettingsResponse403 = {
+  data: ProblemResponse
+  status: 403
+}
+
+export type listPanelPaymentMethodSettingsResponseSuccess = (listPanelPaymentMethodSettingsResponse200) & {
+  headers: Headers;
+};
+export type listPanelPaymentMethodSettingsResponseError = (listPanelPaymentMethodSettingsResponse403) & {
+  headers: Headers;
+};
+
+export type listPanelPaymentMethodSettingsResponse = (listPanelPaymentMethodSettingsResponseSuccess | listPanelPaymentMethodSettingsResponseError)
+
+export const getListPanelPaymentMethodSettingsUrl = () => {
+
+
+
+
+  return `/v1/panel/settings/payment-methods`
+}
+
+/**
+ * Requires settings.read. Every customer-facing payment button this deployment can show — one per method of each configured adapter — with the operator's presentation and audience rules.
+ */
+export const listPanelPaymentMethodSettings = async ( options?: RequestInit): Promise<listPanelPaymentMethodSettingsResponse> => {
+
+  const res = await fetch(getListPanelPaymentMethodSettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelPaymentMethodSettingsResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as listPanelPaymentMethodSettingsResponse
+}
+
+
+
+
+export const getListPanelPaymentMethodSettingsKey = () => [`/v1/panel/settings/payment-methods`] as const;
+
+export type ListPanelPaymentMethodSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof listPanelPaymentMethodSettings>>>
+
+export const useListPanelPaymentMethodSettings = <TError = Promise<ProblemResponse>>(
+   options?: { swr?:SWRConfiguration<Awaited<ReturnType<typeof listPanelPaymentMethodSettings>>, TError> & { swrKey?: Key, enabled?: boolean }, fetch?: RequestInit }
+) => {
+  const {swr: swrOptions, fetch: fetchOptions} = options ?? {}
+
+  const isEnabled = swrOptions?.enabled !== false
+  const swrKey = swrOptions?.swrKey ?? (() => isEnabled ? getListPanelPaymentMethodSettingsKey() : null);
+  const swrFn = () => listPanelPaymentMethodSettings(fetchOptions)
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions)
+
+  return {
+    swrKey,
+    ...query
+  }
+}
+
+export type savePanelPaymentMethodSettingsResponse200 = {
+  data: PanelPaymentMethodSettings
+  status: 200
+}
+
+export type savePanelPaymentMethodSettingsResponse403 = {
+  data: ProblemResponse
+  status: 403
+}
+
+export type savePanelPaymentMethodSettingsResponse422 = {
+  data: ProblemResponse
+  status: 422
+}
+
+export type savePanelPaymentMethodSettingsResponseSuccess = (savePanelPaymentMethodSettingsResponse200) & {
+  headers: Headers;
+};
+export type savePanelPaymentMethodSettingsResponseError = (savePanelPaymentMethodSettingsResponse403 | savePanelPaymentMethodSettingsResponse422) & {
+  headers: Headers;
+};
+
+export type savePanelPaymentMethodSettingsResponse = (savePanelPaymentMethodSettingsResponseSuccess | savePanelPaymentMethodSettingsResponseError)
+
+export const getSavePanelPaymentMethodSettingsUrl = (provider: string,) => {
+
+
+
+
+  return `/v1/panel/settings/payment-methods/${provider}`
+}
+
+/**
+ * Requires settings.write. Stores how one button (`method` in the body, empty for the adapter's default) is named, described, bounded, and to whom it is shown. Customer lists pick it up within thirty seconds.
+ */
+export const savePanelPaymentMethodSettings = async (provider: string,
+    panelPaymentMethodSettings: NonReadonly<PanelPaymentMethodSettings>, options?: RequestInit): Promise<savePanelPaymentMethodSettingsResponse> => {
+
+  const res = await fetch(getSavePanelPaymentMethodSettingsUrl(provider),
+  {
+    ...options,
+    method: 'PUT',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(panelPaymentMethodSettings)
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelPaymentMethodSettingsResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as savePanelPaymentMethodSettingsResponse
+}
+
+
+
+
+export const getSavePanelPaymentMethodSettingsMutationFetcher = (provider: string, options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: NonReadonly<PanelPaymentMethodSettings> }) => {
+    return savePanelPaymentMethodSettings(provider, arg, options);
+  }
+}
+export const getSavePanelPaymentMethodSettingsMutationKey = (provider: string,) => [`/v1/panel/settings/payment-methods/${provider}`] as const;
+
+export type SavePanelPaymentMethodSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof savePanelPaymentMethodSettings>>>
+
+export const useSavePanelPaymentMethodSettings = <TError = Promise<ProblemResponse>>(
+  provider: string, options?: { swr?:SWRMutationConfiguration<Awaited<ReturnType<typeof savePanelPaymentMethodSettings>>, TError, Key, NonReadonly<PanelPaymentMethodSettings>, Awaited<ReturnType<typeof savePanelPaymentMethodSettings>>> & { swrKey?: string }, fetch?: RequestInit}
+) => {
+
+  const {swr: swrOptions, fetch: fetchOptions} = options ?? {}
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelPaymentMethodSettingsMutationKey(provider);
+  const swrFn = getSavePanelPaymentMethodSettingsMutationFetcher(provider, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions)
+
+  return {
+    swrKey,
+    ...query
+  }
+}
 
 export type listPanelAIProvidersResponse200 = {
   data: PanelAIProviderList;

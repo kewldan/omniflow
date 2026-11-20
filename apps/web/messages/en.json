@@ -2286,6 +2286,43 @@
           "disable": "Disable the user",
           "delete": "Delete the user"
         }
+      },
+      "paymentMethods": {
+        "title": "Payment buttons",
+        "description": "Each method of each provider is its own button. Rename it, describe it, bound the amount, set quick top-up amounts, and choose who sees it. Amounts are in minor units (kopecks, cents). Changes reach customers within 30 seconds.",
+        "empty": "No payment provider is configured.",
+        "shown": "Shown",
+        "hidden": "Hidden",
+        "notLoaded": "Adapter not loaded",
+        "configure": "Configure",
+        "close": "Close",
+        "enabled": "Show this button",
+        "openDirectly": "Open the provider's page at once",
+        "nameRu": "Name (Russian)",
+        "nameEn": "Name (English)",
+        "descriptionRu": "Description (Russian)",
+        "descriptionEn": "Description (English)",
+        "displayOrder": "Order within the provider",
+        "quickAmounts": "Quick top-up amounts, comma-separated",
+        "minMinor": "Minimum amount",
+        "maxMinor": "Maximum amount",
+        "audience": "Top-up history",
+        "audiences": {
+          "all": "Everyone",
+          "first_topup": "Only before the first top-up",
+          "repeat_topup": "Only after a top-up"
+        },
+        "loyaltyTiers": "Loyalty tier codes, comma-separated (empty: all)",
+        "loginKinds": "Shown to customers who sign in with",
+        "loginKindsHint": "Nothing selected shows the button to everyone.",
+        "login": {
+          "telegram": "Telegram",
+          "email": "E-mail",
+          "vk": "VK ID",
+          "oidc": "OIDC"
+        },
+        "reason": "Reason",
+        "save": "Save"
       }
     },
     "nav": {
@@ -4882,7 +4919,8 @@
         "subscription_busy": "An unpaid order is still open for this subscription. Pay or cancel it first.",
         "squad_unavailable": "One of the servers this purchase includes is not available right now. Nothing was charged; please contact support.",
         "traffic_reset_unavailable": "This subscription cannot buy a traffic reset.",
-        "period_unavailable": "This plan is not sold for that period here."
+        "period_unavailable": "This plan is not sold for that period here.",
+        "provider_amount_out_of_range": "This payment method does not accept this amount. Choose another amount or method."
       },
       "breakdown": {
         "subtotal": "Plan",
@@ -5017,7 +5055,15 @@
             "jupiter": "Jupiter",
             "tabpay": "TabPay",
             "unknown": "Another method"
-          }
+          },
+          "methods": {
+            "sbp": "SBP",
+            "card": "card",
+            "sberpay": "SberPay",
+            "crypto": "crypto",
+            "intl": "foreign card"
+          },
+          "bounds": "From {minimum} to {maximum}"
         }
       },
       "orders": {

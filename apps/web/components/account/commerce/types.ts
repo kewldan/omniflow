@@ -132,6 +132,18 @@ export type PaymentChoice = {
   recurring: boolean;
   /** The customer may ask to keep the card for automatic renewal. */
   canSaveMethod?: boolean;
+  /** The provider method this button opens; empty is the adapter's default. */
+  method?: string;
+  /** The button's identity: provider, or provider.method. */
+  key?: string;
+  /** The operator's own name and description, per language. */
+  name?: { ru?: string; en?: string };
+  description?: { ru?: string; en?: string };
+  minMinor?: number;
+  maxMinor?: number;
+  quickAmountsMinor?: number[];
+  /** Go straight to the provider's page once the payment starts. */
+  openDirectly?: boolean;
 };
 
 /**
@@ -238,6 +250,8 @@ export type CheckoutView = {
 export type OrderPayment = {
   id: string;
   provider: string;
+  /** The provider method of the payment; empty is the adapter's default. */
+  method?: string;
   status: string;
   /** "hosted", "telegram_invoice", "manual", or "none". */
   handoff: string;

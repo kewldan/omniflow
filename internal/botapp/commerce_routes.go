@@ -3,6 +3,7 @@ package botapp
 import (
 	"context"
 	"errors"
+	"github.com/omniflow/omniflow/internal/payments"
 	"log/slog"
 	"strconv"
 	"strings"
@@ -430,7 +431,7 @@ func (app *App) confirmCheckout(ctx context.Context, session commerceContext) Vi
 		return orderStatusView(session.Locale, order, nil)
 	}
 	description := plan.Name + " · " + formatDuration(session.Locale, plan.Duration)
-	if _, err = app.commerce.StartPayment(ctx, order, checkout.Provider, session.TelegramID, description); err != nil {
+	if _, err = app.commerce.StartPayment(ctx, order, payments.OptionKey(checkout.Provider, checkout.Method), session.TelegramID, description); err != nil {
 		app.logger.Error("payment intent creation failed", "provider", checkout.Provider, "error", err)
 		// The order exists and holds its wallet reservation; only the provider
 		// payment is missing. "Try again" starts that payment rather than
@@ -522,7 +523,7 @@ func (app *App) payOrder(ctx context.Context, session commerceContext, orderID s
 	if !orderAwaitsPayment(order) {
 		return app.orderScreen(ctx, session, orderID)
 	}
-	choices := app.saveableChoices(ctx, app.orderPaymentChoices(ctx, session.Customer.ID, order))
+	choices := app.saveableChoices(ctx, app.commerce.VisibleChoices(ctx, session.Customer.ID, app.orderPaymentChoices(ctx, session.Customer.ID, order)))
 	provider, err := app.customers.OrderCheckoutProvider(ctx, session.Customer.ID, orderID)
 	if err != nil {
 		app.logger.Warn("checkout provider lookup failed", "error", err)
@@ -550,7 +551,7 @@ func (app *App) selectOrderProvider(ctx context.Context, session commerceContext
 	if !orderAwaitsPayment(order) {
 		return app.orderScreen(ctx, session, orderID)
 	}
-	if !paymentChoiceOffered(app.orderPaymentChoices(ctx, session.Customer.ID, order), provider, order.Currency) {
+	if !paymentChoiceOffered(app.commerce.VisibleChoices(ctx, session.Customer.ID, app.orderPaymentChoices(ctx, session.Customer.ID, order)), provider, order.Currency) {
 		return View{Text: text(session.Locale, "pay.none"), Keyboard: keyboard(row(actionButton(text(session.Locale, "action.back"), "order:"+orderID)))}
 	}
 	return app.startOrderPayment(ctx, session, order, provider, saveMethod)
@@ -593,6 +594,9 @@ func (app *App) orderPaymentChoices(ctx context.Context, customerID string, orde
 		if choice.Provider == order.Provider && paymentIntentDead(order.PaymentStatus) {
 			continue
 		}
+		if !choice.Presentation.Accepts(order.ExternalMinor) {
+			continue
+		}
 		choice.AmountMinor = order.ExternalMinor
 		choices = append(choices, choice)
 	}
@@ -617,9 +621,9 @@ func paymentIntentDead(status string) bool {
 	}
 }
 
-func paymentChoiceOffered(choices []PaymentChoice, provider, currency string) bool {
+func paymentChoiceOffered(choices []PaymentChoice, key, currency string) bool {
 	for _, choice := range choices {
-		if choice.Provider == provider && choice.Currency == currency {
+		if choiceKey(choice) == key && choice.Currency == currency {
 			return true
 		}
 	}
@@ -899,14 +903,15 @@ func (app *App) handleCommerceAction(ctx context.Context, session commerceContex
 			return app.errorView(session.Locale, routeOrders), true
 		}
 		return app.selectOrderProvider(ctx, session, parts[1], parts[2], false), true
-	case "opms":
-		// "Pay and keep the card": the order identifier is compacted so the
-		// callback stays inside Telegram's 64 bytes with the longest provider.
+	case "opms", "opm":
+		// A method button ("opm") or "pay and keep the card" ("opms"): the
+		// order identifier is compacted so the callback stays inside
+		// Telegram's 64 bytes with the longest provider and a method.
 		orderID, ok := expandCompactID(argument)
 		if len(parts) != 3 || !ok {
 			return app.errorView(session.Locale, routeOrders), true
 		}
-		return app.selectOrderProvider(ctx, session, orderID, parts[2], true), true
+		return app.selectOrderProvider(ctx, session, orderID, parts[2], parts[0] == "opms"), true
 	case "order-cancel":
 		return app.cancelOrder(ctx, session, argument), true
 	case "news":
@@ -968,8 +973,8 @@ func (app *App) selectProvider(ctx context.Context, session commerceContext, pro
 	// The chosen method must still be one of the offered ones: callback data is
 	// customer-controlled and cannot be trusted to name a compatible adapter.
 	valid := false
-	for _, choice := range choices {
-		if choice.Provider == provider && choice.Currency == currency {
+	for _, choice := range app.commerce.VisibleChoices(ctx, session.Customer.ID, choices) {
+		if choiceKey(choice) == provider && choice.Currency == currency {
 			valid = true
 			break
 		}
@@ -1310,7 +1315,7 @@ var commerceActions = func() map[string]bool {
 	actions := map[string]bool{
 		"plan": true, "buy": true, "pm": true, "checkout": true, "confirm": true,
 		"promo": true, "promo-clear": true, "wallet-toggle": true, "order": true,
-		"pay": true, "order-pm": true, "opms": true,
+		"pay": true, "order-pm": true, "opms": true, "opm": true,
 		"order-cancel": true, "news": true, "ticket": true, "ticket-reply": true,
 		"ticket-close": true, "ticket-open": true, "support-new": true, "connect": true,
 		"pages": true, "page": true,

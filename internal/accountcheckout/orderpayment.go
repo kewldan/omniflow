@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/omniflow/omniflow/internal/commerce"
+	"github.com/omniflow/omniflow/internal/payments"
 )
 
 // OrderPayable reports whether an order can still take a provider payment.
@@ -44,15 +45,61 @@ func (service *Service) OrderPaymentChoices(ctx context.Context, customerID stri
 		return choices, nil
 	}
 	for _, option := range service.payments.Options() {
-		if !option.Enabled || !option.Supports(order.Currency) {
+		if !option.Enabled || !option.Supports(order.Currency) || !option.Presentation.Accepts(order.ExternalMinor) {
 			continue
 		}
-		choices = append(choices, PaymentChoice{
-			Provider: option.Provider, Currency: order.Currency,
-			AmountMinor: order.ExternalMinor, Recurring: option.Recurring,
-		})
+		choices = append(choices, ChoiceFrom(option, order.Currency, order.ExternalMinor))
 	}
 	return service.forCustomer(ctx, customerID, choices)
+}
+
+// VisibleChoices drops the buttons the operator's audience rules hide from
+// this customer: a sign-in kind they do not hold, a first-top-up-only button
+// for someone who already topped up, or a loyalty tier they are not in.
+func (service *Service) VisibleChoices(ctx context.Context, customerID string, choices []PaymentChoice) ([]PaymentChoice, error) {
+	audience, err := service.payments.Audience(ctx, customerID)
+	if err != nil {
+		return nil, err
+	}
+	kept := make([]PaymentChoice, 0, len(choices))
+	for _, choice := range choices {
+		if choice.Presentation.VisibleTo(audience) {
+			kept = append(kept, choice)
+		}
+	}
+	return kept, nil
+}
+
+// MethodAllowed is the server-side check behind the button: the method must be
+// one the operator has not hidden from this customer and must accept the
+// amount. A button the screen did not offer is refused, however its request
+// was made.
+func (service *Service) MethodAllowed(ctx context.Context, customerID, provider, method string, amountMinor int64) error {
+	option, ok := service.payments.Option(payments.OptionKey(provider, method))
+	if !ok {
+		return ErrProviderUnavailable
+	}
+	if amountMinor > 0 && !option.Presentation.Accepts(amountMinor) {
+		return ErrProviderAmount
+	}
+	audience, err := service.payments.Audience(ctx, customerID)
+	if err != nil {
+		return err
+	}
+	if !option.Presentation.VisibleTo(audience) {
+		return ErrProviderUnavailable
+	}
+	return nil
+}
+
+// MethodAllowedForOrder is MethodAllowed for the customer who owns an order,
+// for surfaces that hold the order rather than the customer.
+func (service *Service) MethodAllowedForOrder(ctx context.Context, orderID, provider, method string, amountMinor int64) error {
+	var customerID string
+	if err := service.store.pool.QueryRow(ctx, `SELECT user_id::text FROM orders WHERE id = $1::uuid`, orderID).Scan(&customerID); err != nil {
+		return err
+	}
+	return service.MethodAllowed(ctx, customerID, provider, method, amountMinor)
 }
 
 // ProviderSettles reports whether a configured method can take this order's
@@ -89,7 +136,8 @@ func (service *Service) ProviderSettles(provider, currency string) error {
 // checkout used to pass along.
 func (store *Store) RecordedOrderProvider(ctx context.Context, customerID, orderID string) (string, error) {
 	var provider string
-	err := store.pool.QueryRow(ctx, `SELECT COALESCE(provider, '')
+	err := store.pool.QueryRow(ctx, `SELECT COALESCE(provider, '') ||
+			CASE WHEN payment_method <> '' AND provider IS NOT NULL THEN '.' || payment_method ELSE '' END
 		FROM bot_checkout_sessions WHERE user_id = $1::uuid AND order_id = $2::uuid`,
 		customerID, orderID).Scan(&provider)
 	if errors.Is(err, pgx.ErrNoRows) {

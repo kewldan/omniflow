@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"sort"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -19,13 +18,6 @@ import (
 // providerDisplayOrder keeps customer-facing provider lists stable regardless of
 // map iteration order.
 var providerDisplayOrder = map[string]int{"telegram_stars": 1, "yookassa": 2, "cryptobot": 3, "manual": 9}
-
-// Options lists the configured adapters for customer-facing provider selection.
-func (service *Service) Options() []commerce.PaymentOption {
-	options := payments.Options(service.providers, providerDisplayOrder)
-	sort.SliceStable(options, func(left, right int) bool { return options[left].Provider < options[right].Provider })
-	return options
-}
 
 // Enabled reports whether an adapter is configured for this installation.
 func (service *Service) Enabled(provider string) bool {

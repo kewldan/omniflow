@@ -69,6 +69,9 @@ func (service *Service) forCustomer(ctx context.Context, customerID string, choi
 	if !linked {
 		choices = WithoutStars(choices)
 	}
+	if choices, err = service.VisibleChoices(ctx, customerID, choices); err != nil {
+		return nil, err
+	}
 	for index := range choices {
 		choices[index].CanSaveMethod = service.payments.RecurringAllowed(ctx, choices[index].Provider)
 	}

@@ -16,6 +16,7 @@ import { useForm } from "react-hook-form";
 import useSWR from "swr";
 import * as z from "zod/mini";
 import { PeriodPicker } from "@/components/account/commerce/period-picker";
+import { choiceKey, useChoiceCopy } from "@/components/account/commerce/payment-choice";
 import { OPERATIONS, usePeriodLabel } from "@/components/account/commerce/plan-card";
 import { QuoteBreakdown } from "@/components/account/commerce/quote-breakdown";
 import {
@@ -41,7 +42,6 @@ import { attachAttribution } from "@/lib/attach-attribution";
 import { requiredText } from "@/lib/form-schema";
 import { useBytes, useDuration, useMoney } from "@/lib/format";
 import { useSubmission } from "@/lib/idempotency";
-import { providerKey } from "@/lib/payment-providers";
 import { useRevalidateCommerce } from "@/lib/polling";
 
 /**
@@ -767,7 +767,8 @@ function ProviderPicker({
 }) {
   const translate = useTranslations("account.commerce");
   const money = useMoney();
-  const single = checkout.providers.length === 1 ? checkout.providers[0].provider : null;
+  const single = checkout.providers.length === 1 ? choiceKey(checkout.providers[0]) : null;
+  const copy = useChoiceCopy();
   const chosen = checkout.provider;
   const claimed = useRef(false);
 
@@ -799,20 +800,23 @@ function ProviderPicker({
           {checkout.providers.map((choice) => (
             <label
               className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 has-[:checked]:border-primary"
-              key={choice.provider}
+              key={choiceKey(choice)}
             >
               <input
-                checked={checkout.provider === choice.provider}
+                checked={checkout.provider === choiceKey(choice)}
                 className="size-4 accent-[color:var(--primary)]"
                 disabled={disabled}
                 name="checkout-provider"
-                onChange={() => onChange({ provider: choice.provider })}
+                onChange={() => onChange({ provider: choiceKey(choice) })}
                 type="radio"
               />
               <span className="min-w-0 flex-1">
-                <span className="block font-medium text-[13.5px]">
-                  {translate(`checkout.provider.names.${providerKey(choice.provider)}`)}
-                </span>
+                <span className="block font-medium text-[13.5px]">{copy(choice).label}</span>
+                {copy(choice).description && (
+                  <span className="block text-[12px] text-muted-foreground">
+                    {copy(choice).description}
+                  </span>
+                )}
                 {choice.recurring && (
                   <span className="block font-mono text-[11px] text-subtle-foreground">
                     {translate("checkout.provider.recurring")}

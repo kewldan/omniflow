@@ -2852,6 +2852,51 @@ func (e PanelOfferStatus) Valid() bool {
 	}
 }
 
+// Defines values for PanelPaymentMethodSettingsLoginKinds.
+const (
+	PanelPaymentMethodSettingsLoginKindsEmail    PanelPaymentMethodSettingsLoginKinds = "email"
+	PanelPaymentMethodSettingsLoginKindsOidc     PanelPaymentMethodSettingsLoginKinds = "oidc"
+	PanelPaymentMethodSettingsLoginKindsTelegram PanelPaymentMethodSettingsLoginKinds = "telegram"
+	PanelPaymentMethodSettingsLoginKindsVk       PanelPaymentMethodSettingsLoginKinds = "vk"
+)
+
+// Valid indicates whether the value is a known member of the PanelPaymentMethodSettingsLoginKinds enum.
+func (e PanelPaymentMethodSettingsLoginKinds) Valid() bool {
+	switch e {
+	case PanelPaymentMethodSettingsLoginKindsEmail:
+		return true
+	case PanelPaymentMethodSettingsLoginKindsOidc:
+		return true
+	case PanelPaymentMethodSettingsLoginKindsTelegram:
+		return true
+	case PanelPaymentMethodSettingsLoginKindsVk:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelPaymentMethodSettingsTopUpAudience.
+const (
+	All         PanelPaymentMethodSettingsTopUpAudience = "all"
+	FirstTopup  PanelPaymentMethodSettingsTopUpAudience = "first_topup"
+	RepeatTopup PanelPaymentMethodSettingsTopUpAudience = "repeat_topup"
+)
+
+// Valid indicates whether the value is a known member of the PanelPaymentMethodSettingsTopUpAudience enum.
+func (e PanelPaymentMethodSettingsTopUpAudience) Valid() bool {
+	switch e {
+	case All:
+		return true
+	case FirstTopup:
+		return true
+	case RepeatTopup:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PanelPlanSummaryKind.
 const (
 	PanelPlanSummaryKindFree      PanelPlanSummaryKind = "free"
@@ -5763,10 +5808,24 @@ type AccountPaymentChoice struct {
 	AmountMinor *int64 `json:"amountMinor,omitempty"`
 
 	// CanSaveMethod The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.
-	CanSaveMethod *bool  `json:"canSaveMethod,omitempty"`
-	Currency      string `json:"currency"`
-	Provider      string `json:"provider"`
-	Recurring     bool   `json:"recurring"`
+	CanSaveMethod *bool          `json:"canSaveMethod,omitempty"`
+	Currency      string         `json:"currency"`
+	Description   *LocalizedText `json:"description,omitempty"`
+
+	// Key The button's identity, provider or provider.method.
+	Key      *string `json:"key,omitempty"`
+	MaxMinor *int64  `json:"maxMinor,omitempty"`
+
+	// Method The provider method this button opens (sbp, card, ...). Empty is the adapter's default.
+	Method   *string        `json:"method,omitempty"`
+	MinMinor *int64         `json:"minMinor,omitempty"`
+	Name     *LocalizedText `json:"name,omitempty"`
+
+	// OpenDirectly Open the provider's page as soon as the payment starts.
+	OpenDirectly      *bool    `json:"openDirectly,omitempty"`
+	Provider          string   `json:"provider"`
+	QuickAmountsMinor *[]int64 `json:"quickAmountsMinor,omitempty"`
+	Recurring         bool     `json:"recurring"`
 }
 
 // AccountPaymentHandle defines model for AccountPaymentHandle.
@@ -6984,6 +7043,12 @@ type LifecycleInputActorType string
 type Localization struct {
 	Description *string `json:"description,omitempty"`
 	Name        string  `json:"name"`
+}
+
+// LocalizedText defines model for LocalizedText.
+type LocalizedText struct {
+	En *string `json:"en,omitempty"`
+	Ru *string `json:"ru,omitempty"`
 }
 
 // LoginInput defines model for LoginInput.
@@ -8479,6 +8544,40 @@ type PanelPaymentIntent struct {
 	ProviderReference *string              `json:"providerReference,omitempty"`
 	Status            string               `json:"status"`
 	UpdatedAt         time.Time            `json:"updatedAt"`
+}
+
+// PanelPaymentMethodSettings defines model for PanelPaymentMethodSettings.
+type PanelPaymentMethodSettings struct {
+	// Configured The adapter is loaded in this deployment and offers this method.
+	Configured        *bool                                    `json:"configured,omitempty"`
+	DescriptionEn     *string                                  `json:"descriptionEn,omitempty"`
+	DescriptionRu     *string                                  `json:"descriptionRu,omitempty"`
+	DisplayOrder      int                                      `json:"displayOrder"`
+	Enabled           bool                                     `json:"enabled"`
+	Key               *string                                  `json:"key,omitempty"`
+	LoginKinds        *[]PanelPaymentMethodSettingsLoginKinds  `json:"loginKinds,omitempty"`
+	LoyaltyTierCodes  *[]string                                `json:"loyaltyTierCodes,omitempty"`
+	MaxMinor          *int64                                   `json:"maxMinor,omitempty"`
+	Method            string                                   `json:"method"`
+	MinMinor          *int64                                   `json:"minMinor,omitempty"`
+	NameEn            *string                                  `json:"nameEn,omitempty"`
+	NameRu            *string                                  `json:"nameRu,omitempty"`
+	OpenDirectly      *bool                                    `json:"openDirectly,omitempty"`
+	Provider          *string                                  `json:"provider,omitempty"`
+	QuickAmountsMinor *[]int64                                 `json:"quickAmountsMinor,omitempty"`
+	TopUpAudience     *PanelPaymentMethodSettingsTopUpAudience `json:"topUpAudience,omitempty"`
+	UpdatedAt         *time.Time                               `json:"updatedAt,omitempty"`
+}
+
+// PanelPaymentMethodSettingsLoginKinds defines model for PanelPaymentMethodSettings.LoginKinds.
+type PanelPaymentMethodSettingsLoginKinds string
+
+// PanelPaymentMethodSettingsTopUpAudience defines model for PanelPaymentMethodSettings.TopUpAudience.
+type PanelPaymentMethodSettingsTopUpAudience string
+
+// PanelPaymentMethodSettingsList defines model for PanelPaymentMethodSettingsList.
+type PanelPaymentMethodSettingsList struct {
+	Items []PanelPaymentMethodSettings `json:"items"`
 }
 
 // PanelPeriodRefunds defines model for PanelPeriodRefunds.
@@ -10207,6 +10306,8 @@ type CancelAccountOrderParams struct {
 
 // StartAccountOrderPaymentJSONBody defines parameters for StartAccountOrderPayment.
 type StartAccountOrderPaymentJSONBody struct {
+	// Method The provider method of the button pressed; empty is the adapter's default. `422 provider_amount_out_of_range` when the amount is outside the method's bounds.
+	Method   *string `json:"method,omitempty"`
 	Provider *string `json:"provider,omitempty"`
 
 	// SaveMethod Explicit consent to keep the instrument for automatic renewal. Ignored for a method that cannot bind one.
@@ -10669,6 +10770,7 @@ type GetAccountWalletParams struct {
 type StartAccountTopUpJSONBody struct {
 	AmountMinor int64   `json:"amountMinor"`
 	Currency    *string `json:"currency,omitempty"`
+	Method      *string `json:"method,omitempty"`
 	Provider    *string `json:"provider,omitempty"`
 
 	// SaveMethod Explicit consent to keep the instrument for automatic renewal.
@@ -11777,6 +11879,12 @@ type DeletePanelCustomerOidcProviderParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// SavePanelPaymentMethodSettingsParams defines parameters for SavePanelPaymentMethodSettings.
+type SavePanelPaymentMethodSettingsParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // SavePanelProviderSettingsParams defines parameters for SavePanelProviderSettings.
 type SavePanelProviderSettingsParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
@@ -12368,6 +12476,9 @@ type SavePanelConnectPlatformJSONRequestBody = PanelConnectPlatform
 
 // SavePanelCustomerOidcProviderJSONRequestBody defines body for SavePanelCustomerOidcProvider for application/json ContentType.
 type SavePanelCustomerOidcProviderJSONRequestBody = CustomerOidcProviderInput
+
+// SavePanelPaymentMethodSettingsJSONRequestBody defines body for SavePanelPaymentMethodSettings for application/json ContentType.
+type SavePanelPaymentMethodSettingsJSONRequestBody = PanelPaymentMethodSettings
 
 // SavePanelProviderSettingsJSONRequestBody defines body for SavePanelProviderSettings for application/json ContentType.
 type SavePanelProviderSettingsJSONRequestBody = PanelProviderSettingsInput
@@ -13510,6 +13621,12 @@ type ServerInterface interface {
 
 	// (DELETE /v1/panel/settings/customer-oidc/{slug})
 	DeletePanelCustomerOidcProvider(w http.ResponseWriter, r *http.Request, slug OidcSlug, params DeletePanelCustomerOidcProviderParams)
+
+	// (GET /v1/panel/settings/payment-methods)
+	ListPanelPaymentMethodSettings(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /v1/panel/settings/payment-methods/{provider})
+	SavePanelPaymentMethodSettings(w http.ResponseWriter, r *http.Request, provider string, params SavePanelPaymentMethodSettingsParams)
 
 	// (GET /v1/panel/settings/providers)
 	ListPanelProviderSettings(w http.ResponseWriter, r *http.Request)
@@ -15202,6 +15319,16 @@ func (_ Unimplemented) ListPanelCustomerOidcPresets(w http.ResponseWriter, r *ht
 
 // (DELETE /v1/panel/settings/customer-oidc/{slug})
 func (_ Unimplemented) DeletePanelCustomerOidcProvider(w http.ResponseWriter, r *http.Request, slug OidcSlug, params DeletePanelCustomerOidcProviderParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/settings/payment-methods)
+func (_ Unimplemented) ListPanelPaymentMethodSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /v1/panel/settings/payment-methods/{provider})
+func (_ Unimplemented) SavePanelPaymentMethodSettings(w http.ResponseWriter, r *http.Request, provider string, params SavePanelPaymentMethodSettingsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -28686,6 +28813,74 @@ func (siw *ServerInterfaceWrapper) DeletePanelCustomerOidcProvider(w http.Respon
 	handler.ServeHTTP(w, r)
 }
 
+// ListPanelPaymentMethodSettings operation middleware
+func (siw *ServerInterfaceWrapper) ListPanelPaymentMethodSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPanelPaymentMethodSettings(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SavePanelPaymentMethodSettings operation middleware
+func (siw *ServerInterfaceWrapper) SavePanelPaymentMethodSettings(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "provider" -------------
+	var provider string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "provider", chi.URLParam(r, "provider"), &provider, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "provider", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SavePanelPaymentMethodSettingsParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SavePanelPaymentMethodSettings(w, r, provider, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPanelProviderSettings operation middleware
 func (siw *ServerInterfaceWrapper) ListPanelProviderSettings(w http.ResponseWriter, r *http.Request) {
 
@@ -31283,6 +31478,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/panel/settings/providers/{provider}/recurring", wrapper.ConfigurePanelRecurring)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/settings/payment-methods", wrapper.ListPanelPaymentMethodSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/v1/panel/settings/payment-methods/{provider}", wrapper.SavePanelPaymentMethodSettings)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/settings/ai/providers", wrapper.ListPanelAIProviders)
@@ -45951,6 +46152,97 @@ func (response DeletePanelCustomerOidcProvider404ApplicationProblemPlusJSONRespo
 	return err
 }
 
+type ListPanelPaymentMethodSettingsRequestObject struct {
+}
+
+type ListPanelPaymentMethodSettingsResponseObject interface {
+	VisitListPanelPaymentMethodSettingsResponse(w http.ResponseWriter) error
+}
+
+type ListPanelPaymentMethodSettings200JSONResponse PanelPaymentMethodSettingsList
+
+func (response ListPanelPaymentMethodSettings200JSONResponse) VisitListPanelPaymentMethodSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelPaymentMethodSettings403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListPanelPaymentMethodSettings403ApplicationProblemPlusJSONResponse) VisitListPanelPaymentMethodSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelPaymentMethodSettingsRequestObject struct {
+	Provider string `json:"provider"`
+	Params   SavePanelPaymentMethodSettingsParams
+	Body     *SavePanelPaymentMethodSettingsJSONRequestBody
+}
+
+type SavePanelPaymentMethodSettingsResponseObject interface {
+	VisitSavePanelPaymentMethodSettingsResponse(w http.ResponseWriter) error
+}
+
+type SavePanelPaymentMethodSettings200JSONResponse PanelPaymentMethodSettings
+
+func (response SavePanelPaymentMethodSettings200JSONResponse) VisitSavePanelPaymentMethodSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelPaymentMethodSettings403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SavePanelPaymentMethodSettings403ApplicationProblemPlusJSONResponse) VisitSavePanelPaymentMethodSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelPaymentMethodSettings422ApplicationProblemPlusJSONResponse Problem
+
+func (response SavePanelPaymentMethodSettings422ApplicationProblemPlusJSONResponse) VisitSavePanelPaymentMethodSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListPanelProviderSettingsRequestObject struct {
 }
 
@@ -49067,6 +49359,12 @@ type StrictServerInterface interface {
 
 	// (DELETE /v1/panel/settings/customer-oidc/{slug})
 	DeletePanelCustomerOidcProvider(ctx context.Context, request DeletePanelCustomerOidcProviderRequestObject) (DeletePanelCustomerOidcProviderResponseObject, error)
+
+	// (GET /v1/panel/settings/payment-methods)
+	ListPanelPaymentMethodSettings(ctx context.Context, request ListPanelPaymentMethodSettingsRequestObject) (ListPanelPaymentMethodSettingsResponseObject, error)
+
+	// (PUT /v1/panel/settings/payment-methods/{provider})
+	SavePanelPaymentMethodSettings(ctx context.Context, request SavePanelPaymentMethodSettingsRequestObject) (SavePanelPaymentMethodSettingsResponseObject, error)
 
 	// (GET /v1/panel/settings/providers)
 	ListPanelProviderSettings(ctx context.Context, request ListPanelProviderSettingsRequestObject) (ListPanelProviderSettingsResponseObject, error)
@@ -58101,6 +58399,64 @@ func (sh *strictHandler) DeletePanelCustomerOidcProvider(w http.ResponseWriter, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(DeletePanelCustomerOidcProviderResponseObject); ok {
 		if err := validResponse.VisitDeletePanelCustomerOidcProviderResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPanelPaymentMethodSettings operation middleware
+func (sh *strictHandler) ListPanelPaymentMethodSettings(w http.ResponseWriter, r *http.Request) {
+	var request ListPanelPaymentMethodSettingsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPanelPaymentMethodSettings(ctx, request.(ListPanelPaymentMethodSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPanelPaymentMethodSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPanelPaymentMethodSettingsResponseObject); ok {
+		if err := validResponse.VisitListPanelPaymentMethodSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SavePanelPaymentMethodSettings operation middleware
+func (sh *strictHandler) SavePanelPaymentMethodSettings(w http.ResponseWriter, r *http.Request, provider string, params SavePanelPaymentMethodSettingsParams) {
+	var request SavePanelPaymentMethodSettingsRequestObject
+
+	request.Provider = provider
+	request.Params = params
+
+	var body SavePanelPaymentMethodSettingsJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SavePanelPaymentMethodSettings(ctx, request.(SavePanelPaymentMethodSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SavePanelPaymentMethodSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SavePanelPaymentMethodSettingsResponseObject); ok {
+		if err := validResponse.VisitSavePanelPaymentMethodSettingsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

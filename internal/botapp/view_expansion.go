@@ -64,8 +64,8 @@ func topUpMethodView(locale Locale, amountMinor int64, currency string, choices 
 	}
 	buttons := make([][]models.InlineKeyboardButton, 0, len(choices)+1)
 	for _, choice := range choices {
-		label := text(locale, "pay."+choice.Provider)
-		buttons = append(buttons, row(actionButton(label, "topup-pm:"+choice.Provider+":"+strconv.FormatInt(amountMinor, 10))))
+		label := choiceLabel(locale, choice)
+		buttons = append(buttons, row(actionButton(label, "topup-pm:"+choiceKey(choice)+":"+strconv.FormatInt(amountMinor, 10))))
 	}
 	buttons = append(buttons, row(callbackButton(text(locale, "action.back"), routeTopUp)))
 	return View{Text: text(locale, "topup.method", formatMoney(amountMinor, currency)), Keyboard: keyboard(buttons...)}

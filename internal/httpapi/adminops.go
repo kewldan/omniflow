@@ -148,6 +148,7 @@ func (handlers *AdminHandlers) mountOperations(secure chi.Router) {
 	secure.With(handlers.requirePermission(rbac.PermissionSettingsRead)).Group(func(read chi.Router) {
 		read.Get("/settings/commerce", handlers.commerceSettings)
 		read.Get("/settings/providers", handlers.listProviderSettings)
+		read.Get("/settings/payment-methods", handlers.listPaymentMethodSettings)
 	})
 	secure.With(handlers.requirePermission(rbac.PermissionSettingsWrite)).Group(func(write chi.Router) {
 		write.Put("/settings/commerce/topup", handlers.saveTopUpSettings)
@@ -155,6 +156,7 @@ func (handlers *AdminHandlers) mountOperations(secure chi.Router) {
 		write.Put("/settings/providers/{provider}", handlers.saveProviderSettings)
 		write.Post("/settings/providers/{provider}/recurring", handlers.configureRecurring)
 		write.Post("/settings/providers/{provider}/test", handlers.testProviderConnection)
+		write.Put("/settings/payment-methods/{provider}", handlers.savePaymentMethodSettings)
 	})
 
 	// -- Risk ----------------------------------------------------------------

@@ -3,6 +3,7 @@ package botapp
 import (
 	"context"
 	"errors"
+	"github.com/omniflow/omniflow/internal/payments"
 	"log/slog"
 	"time"
 
@@ -149,11 +150,33 @@ func (service *Commerce) StartPayment(ctx context.Context, order OrderSummary, p
 // StartPaymentWith is StartPayment with the customer's consent to keep the
 // instrument for automatic renewal, given by pressing the "and save the card"
 // button rather than the plain one.
+//
+// The provider may be a button key (provider.method): the bot's callbacks
+// carry the key, and it is split here, at the one place a payment is opened.
 func (service *Commerce) StartPaymentWith(ctx context.Context, order OrderSummary, provider string, telegramID int64, description string, saveMethod bool) (PaymentHandle, error) {
+	provider, method := payments.SplitOptionKey(provider)
+	if !payments.ValidMethodKey(method) {
+		return PaymentHandle{}, accountcheckout.ErrProviderUnavailable
+	}
+	if err := service.checkout.MethodAllowedForOrder(ctx, order.ID, provider, method, order.ExternalMinor); err != nil {
+		return PaymentHandle{}, err
+	}
 	return service.checkout.StartPayment(ctx, accountcheckout.PaymentRequest{
 		OrderID: order.ID, Provider: provider, Description: description,
-		Channel: "telegram_bot", TelegramID: telegramID, SaveMethod: saveMethod,
+		Channel: "telegram_bot", TelegramID: telegramID, SaveMethod: saveMethod, Method: method,
 	})
+}
+
+// VisibleChoices drops the buttons the operator's audience rules hide from a
+// customer. A lookup failure keeps the list: hiding every method because a
+// read failed would strand the customer with nothing to pay with.
+func (service *Commerce) VisibleChoices(ctx context.Context, customerID string, choices []PaymentChoice) []PaymentChoice {
+	visible, err := service.checkout.VisibleChoices(ctx, customerID, choices)
+	if err != nil {
+		service.logger.Warn("payment audience lookup failed", "error", err)
+		return choices
+	}
+	return visible
 }
 
 // Refresh re-reads a provider payment so a customer who returns before the

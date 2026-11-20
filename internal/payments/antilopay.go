@@ -42,6 +42,9 @@ type Antilopay struct {
 	productName string
 	productType string
 	preferred   string
+	// methodOrder and methodCodes are APP_ANTILOPAY_PAYMENT_METHODS.
+	methodOrder []string
+	methodCodes map[string]string
 	baseURL     string
 	http        *http.Client
 	clock       func() time.Time
@@ -89,6 +92,11 @@ func buildAntilopay(settings Settings) (Provider, error) {
 	default:
 		return nil, fmt.Errorf("APP_ANTILOPAY_PREFER_METHOD must be SBP, CARD_RU or SBER_PAY, got %q", preferred)
 	}
+	methodOrder, methodCodes, err := parseMethodCodes("APP_ANTILOPAY_PAYMENT_METHODS",
+		settings.String("APP_ANTILOPAY_PAYMENT_METHODS"), map[string]string{"sbp": "SBP", "card": "CARD_RU", "sberpay": "SBER_PAY"})
+	if err != nil {
+		return nil, err
+	}
 	productName := settings.String("APP_ANTILOPAY_PRODUCT_NAME")
 	if productName == "" {
 		productName = "VPN подписка"
@@ -100,6 +108,7 @@ func buildAntilopay(settings Settings) (Provider, error) {
 	return &Antilopay{
 		secretID: secretID, projectID: projectID, privateKey: privateKey, publicKey: publicKey,
 		productName: productName, productType: productType, preferred: preferred,
+		methodOrder: methodOrder, methodCodes: methodCodes,
 		baseURL: antilopayDefaultBaseURL, http: tracedClient(30 * time.Second), clock: time.Now,
 	}, nil
 }
@@ -180,7 +189,9 @@ func (provider *Antilopay) Create(ctx context.Context, request CreateRequest) (I
 		FailURL:       request.ReturnURL,
 		MerchantExtra: antilopayTruncate(request.OrderID, 255),
 	}
-	if provider.preferred != "" {
+	if code, ok := provider.methodCodes[request.Method]; ok {
+		body.PreferMethods = []string{code}
+	} else if provider.preferred != "" {
 		body.PreferMethods = []string{provider.preferred}
 	}
 	var payment antilopayPayment
@@ -502,3 +513,7 @@ func antilopayTruncate(value string, limit int) string {
 }
 
 var _ Provider = (*Antilopay)(nil)
+
+// Methods lists the Antilopay methods shown as separate buttons; each opens
+// the hosted page with that method preferred.
+func (provider *Antilopay) Methods() []string { return provider.methodOrder }

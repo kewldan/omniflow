@@ -1880,7 +1880,7 @@ func (q *Queries) ListOpenDriftsDetailed(ctx context.Context, pageSize int32) ([
 }
 
 const listOrderPaymentIntents = `-- name: ListOrderPaymentIntents :many
-SELECT id, order_id, provider, status, amount_minor, currency, provider_reference, checkout_url, idempotency_key, capabilities, receipt_metadata, created_at, updated_at, save_method_consent_at FROM payment_intents WHERE order_id = $1 ORDER BY created_at
+SELECT id, order_id, provider, status, amount_minor, currency, provider_reference, checkout_url, idempotency_key, capabilities, receipt_metadata, created_at, updated_at, save_method_consent_at, method FROM payment_intents WHERE order_id = $1 ORDER BY created_at
 `
 
 func (q *Queries) ListOrderPaymentIntents(ctx context.Context, orderID pgtype.UUID) ([]PaymentIntent, error) {
@@ -1907,6 +1907,7 @@ func (q *Queries) ListOrderPaymentIntents(ctx context.Context, orderID pgtype.UU
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.SaveMethodConsentAt,
+			&i.Method,
 		); err != nil {
 			return nil, err
 		}
@@ -2349,7 +2350,7 @@ func (q *Queries) ListRefundsForOrder(ctx context.Context, orderID pgtype.UUID) 
 }
 
 const listStuckPaymentIntents = `-- name: ListStuckPaymentIntents :many
-SELECT i.id, i.order_id, i.provider, i.status, i.amount_minor, i.currency, i.provider_reference, i.checkout_url, i.idempotency_key, i.capabilities, i.receipt_metadata, i.created_at, i.updated_at, i.save_method_consent_at, o.user_id, o.operation
+SELECT i.id, i.order_id, i.provider, i.status, i.amount_minor, i.currency, i.provider_reference, i.checkout_url, i.idempotency_key, i.capabilities, i.receipt_metadata, i.created_at, i.updated_at, i.save_method_consent_at, i.method, o.user_id, o.operation
 FROM payment_intents i
 JOIN orders o ON o.id = i.order_id
 WHERE i.status IN ('pending', 'requires_action', 'processing')
@@ -2396,6 +2397,7 @@ func (q *Queries) ListStuckPaymentIntents(ctx context.Context, arg ListStuckPaym
 			&i.PaymentIntent.CreatedAt,
 			&i.PaymentIntent.UpdatedAt,
 			&i.PaymentIntent.SaveMethodConsentAt,
+			&i.PaymentIntent.Method,
 			&i.UserID,
 			&i.Operation,
 		); err != nil {

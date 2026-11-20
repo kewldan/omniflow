@@ -2,7 +2,7 @@ package botapp
 
 import (
 	"context"
-	"sort"
+	"github.com/omniflow/omniflow/internal/accountcheckout"
 	"time"
 
 	"github.com/omniflow/omniflow/internal/commerce"
@@ -33,9 +33,8 @@ func (service *Commerce) ExternalPaymentChoices(currency string) []PaymentChoice
 		if !option.Enabled || !option.Supports(currency) {
 			continue
 		}
-		choices = append(choices, PaymentChoice{Provider: option.Provider, Currency: currency, Recurring: option.Recurring})
+		choices = append(choices, accountcheckout.ChoiceFrom(option, currency, 0))
 	}
-	sort.SliceStable(choices, func(left, right int) bool { return choices[left].Provider < choices[right].Provider })
 	return choices
 }
 

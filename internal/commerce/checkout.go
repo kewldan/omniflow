@@ -60,6 +60,94 @@ type PaymentOption struct {
 	Recurring  bool
 	// Order controls presentation only.
 	Order int
+	// Method is the provider method this button opens; empty is the
+	// adapter's default. Key is the button's identity, provider[.method].
+	Method string
+	Key    string
+	// Presentation is the operator's per-button configuration.
+	Presentation MethodPresentation
+}
+
+// MethodPresentation is how one payment button is shown and to whom, as the
+// operator configured it. The zero value is the default: the built-in name,
+// no description, no amount bounds, shown to everyone.
+type MethodPresentation struct {
+	NameRU, NameEN               string
+	DescriptionRU, DescriptionEN string
+	MinMinor, MaxMinor           int64
+	QuickAmountsMinor            []int64
+	LoginKinds                   []string
+	TopUpAudience                string
+	LoyaltyTierCodes             []string
+	OpenDirectly                 bool
+}
+
+// PaymentAudience is what visibility rules know about one customer.
+type PaymentAudience struct {
+	LoginKinds []string
+	ToppedUp   bool
+	TierCode   string
+}
+
+// VisibleTo reports whether a button with this presentation is offered to a
+// customer: every configured rule must hold, and an unconfigured rule holds.
+func (presentation MethodPresentation) VisibleTo(audience PaymentAudience) bool {
+	if len(presentation.LoginKinds) > 0 && !intersects(presentation.LoginKinds, audience.LoginKinds) {
+		return false
+	}
+	switch presentation.TopUpAudience {
+	case "first_topup":
+		if audience.ToppedUp {
+			return false
+		}
+	case "repeat_topup":
+		if !audience.ToppedUp {
+			return false
+		}
+	}
+	if len(presentation.LoyaltyTierCodes) > 0 && !intersects(presentation.LoyaltyTierCodes, []string{audience.TierCode}) {
+		return false
+	}
+	return true
+}
+
+// Accepts reports whether an amount is inside the button's bounds.
+func (presentation MethodPresentation) Accepts(amountMinor int64) bool {
+	if presentation.MinMinor > 0 && amountMinor < presentation.MinMinor {
+		return false
+	}
+	if presentation.MaxMinor > 0 && amountMinor > presentation.MaxMinor {
+		return false
+	}
+	return true
+}
+
+// Name is the operator's name for the button in a locale, or "" for the
+// built-in one.
+func (presentation MethodPresentation) Name(locale string) string {
+	if strings.HasPrefix(locale, "ru") {
+		return presentation.NameRU
+	}
+	return presentation.NameEN
+}
+
+// Description is the operator's text under the button in a locale.
+func (presentation MethodPresentation) Description(locale string) string {
+	if strings.HasPrefix(locale, "ru") {
+		return presentation.DescriptionRU
+	}
+	return presentation.DescriptionEN
+}
+
+func intersects(left, right []string) bool {
+	for _, a := range left {
+		for _, b := range right {
+			if a != "" && a == b {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // Supports reports whether the adapter can settle the given currency.
@@ -94,7 +182,7 @@ func EligibleProviders(options []PaymentOption, currency string, externalMinor i
 		if eligible[left].Order != eligible[right].Order {
 			return eligible[left].Order < eligible[right].Order
 		}
-		return eligible[left].Provider < eligible[right].Provider
+		return eligible[left].Key < eligible[right].Key
 	})
 	return eligible
 }

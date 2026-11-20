@@ -232,7 +232,7 @@ var consequentialActions = map[string]bool{
 	"topup-pm": true, "cart-buy": true, "cart-clear": true, "cart-save": true,
 	"cart-auto": true, "addon-confirm": true, "sub-revoke": true, "sub-dev-del": true, "sub-devs-del": true,
 	"renew-funding": true, "renew-lead": true, "method-default": true, "method-remove": true,
-	"ops-backup": true, "ops-restore": true, "opms": true,
+	"ops-backup": true, "ops-restore": true, "opms": true, "opm": true,
 }
 
 // legacyActions is the closed set of actions handleAction serves itself, after
@@ -247,7 +247,7 @@ var legacyActions = map[string]bool{
 // checkoutBudgetActions are the callbacks that create a provider payment. They
 // share the checkout budget with the free-text top-up amount, so a customer
 // cannot start payments faster than they could confirm checkouts.
-var checkoutBudgetActions = map[string]bool{"confirm": true, "pay": true, "order-pm": true, "opms": true}
+var checkoutBudgetActions = map[string]bool{"confirm": true, "pay": true, "order-pm": true, "opms": true, "opm": true}
 
 func (app *App) Register(client *telegram.Bot) {
 	// A username getMe could not supply at startup is looked up again when a

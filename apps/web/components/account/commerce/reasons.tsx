@@ -116,6 +116,7 @@ const PROBLEMS = [
   "trial_sign_in_method",
   "recurring_unavailable",
   "no_saved_method",
+  "provider_amount_out_of_range",
 ] as const;
 
 /** Builds a lookup that falls back rather than crashing on an unseen value. */

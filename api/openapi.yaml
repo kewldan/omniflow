@@ -2718,6 +2718,33 @@ paths:
         "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelProviderSettings"}}}}
         "403": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/payment-methods:
+    get:
+      operationId: listPanelPaymentMethodSettings
+      tags: [panel]
+      description: >-
+        Requires settings.read. Every customer-facing payment button this
+        deployment can show — one per method of each configured adapter — with
+        the operator's presentation and audience rules.
+      responses:
+        "200": {description: Payment buttons, content: {application/json: {schema: {$ref: "#/components/schemas/PanelPaymentMethodSettingsList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/payment-methods/{provider}:
+    put:
+      operationId: savePanelPaymentMethodSettings
+      tags: [panel]
+      description: >-
+        Requires settings.write. Stores how one button (`method` in the body,
+        empty for the adapter's default) is named, described, bounded, and to
+        whom it is shown. Customer lists pick it up within thirty seconds.
+      parameters:
+        - {in: path, name: provider, required: true, schema: {type: string}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelPaymentMethodSettings"}}}}
+      responses:
+        "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelPaymentMethodSettings"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
   /v1/panel/settings/ai/providers:
     get:
       operationId: listPanelAIProviders
@@ -3970,7 +3997,7 @@ paths:
         - {$ref: "#/components/parameters/OrderID"}
         - {$ref: "#/components/parameters/CSRFToken"}
         - {$ref: "#/components/parameters/IdempotencyKey"}
-      requestBody: {required: true, content: {application/json: {schema: {type: object, properties: {provider: {type: string}, saveMethod: {type: boolean, description: "Explicit consent to keep the instrument for automatic renewal. Ignored for a method that cannot bind one."}}}}}}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, properties: {provider: {type: string}, method: {type: string, description: "The provider method of the button pressed; empty is the adapter's default. `422 provider_amount_out_of_range` when the amount is outside the method's bounds."}, saveMethod: {type: boolean, description: "Explicit consent to keep the instrument for automatic renewal. Ignored for a method that cannot bind one."}}}}}}
       responses:
         "200": {description: Payment handoff, content: {application/json: {schema: {$ref: "#/components/schemas/AccountPaymentHandle"}}}}
         "404": {$ref: "#/components/responses/Problem"}
@@ -4172,6 +4199,7 @@ paths:
                 amountMinor: {type: integer, format: int64, minimum: 1}
                 currency: {type: string}
                 provider: {type: string}
+                method: {type: string}
                 saveMethod: {type: boolean, description: "Explicit consent to keep the instrument for automatic renewal."}
       responses:
         "201": {description: Top-up opened, content: {application/json: {schema: {$ref: "#/components/schemas/AccountTopUpStarted"}}}}
@@ -7263,6 +7291,33 @@ components:
         displayOrder: {type: integer}
         credentials: {type: string, nullable: true, description: "Omit or send null to keep the stored credential."}
         webhookSecret: {type: string, nullable: true}
+    PanelPaymentMethodSettings:
+      type: object
+      required: [method, enabled, displayOrder]
+      properties:
+        provider: {type: string, readOnly: true}
+        method: {type: string, pattern: "^[a-z0-9_]{0,10}$"}
+        key: {type: string, readOnly: true}
+        configured: {type: boolean, readOnly: true, description: "The adapter is loaded in this deployment and offers this method."}
+        enabled: {type: boolean}
+        displayOrder: {type: integer}
+        nameRu: {type: string, maxLength: 64}
+        nameEn: {type: string, maxLength: 64}
+        descriptionRu: {type: string, maxLength: 240}
+        descriptionEn: {type: string, maxLength: 240}
+        minMinor: {type: integer, format: int64, minimum: 1}
+        maxMinor: {type: integer, format: int64, minimum: 1}
+        quickAmountsMinor: {type: array, maxItems: 8, items: {type: integer, format: int64, minimum: 1}}
+        loginKinds: {type: array, items: {type: string, enum: [telegram, email, vk, oidc]}}
+        topUpAudience: {type: string, enum: [all, first_topup, repeat_topup]}
+        loyaltyTierCodes: {type: array, items: {type: string}}
+        openDirectly: {type: boolean}
+        updatedAt: {type: string, format: date-time, readOnly: true}
+    PanelPaymentMethodSettingsList:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/PanelPaymentMethodSettings"}}
     PanelRecurringTest:
       type: object
       required: [passed, enable]
@@ -8139,6 +8194,19 @@ components:
         amountMinor: {type: integer, format: int64}
         recurring: {type: boolean}
         canSaveMethod: {type: boolean, description: "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test."}
+        method: {type: string, description: "The provider method this button opens (sbp, card, ...). Empty is the adapter's default."}
+        key: {type: string, description: "The button's identity, provider or provider.method."}
+        name: {$ref: "#/components/schemas/LocalizedText"}
+        description: {$ref: "#/components/schemas/LocalizedText"}
+        minMinor: {type: integer, format: int64}
+        maxMinor: {type: integer, format: int64}
+        quickAmountsMinor: {type: array, items: {type: integer, format: int64}}
+        openDirectly: {type: boolean, description: "Open the provider's page as soon as the payment starts."}
+    LocalizedText:
+      type: object
+      properties:
+        ru: {type: string}
+        en: {type: string}
     AccountSavedMethod:
       type: object
       required: [id, provider, label, status, isDefault, createdAt]

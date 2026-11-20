@@ -77,6 +77,10 @@ const (
 
 // invalidInput wraps a value the customer supplied that this package refused,
 // carrying the reason so the panel can show why without restating the rule.
+// ErrProviderAmount is returned for a payment button whose operator-set
+// minimum or maximum the amount falls outside.
+var ErrProviderAmount = errors.New("the amount is outside this payment method's limits")
+
 func invalidInput(format string, arguments ...any) error {
 	return fmt.Errorf("%w: %s", accountpg.ErrInvalidInput, fmt.Sprintf(format, arguments...))
 }

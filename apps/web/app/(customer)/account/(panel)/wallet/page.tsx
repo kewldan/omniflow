@@ -11,6 +11,11 @@ import { useForm, useWatch } from "react-hook-form";
 import useSWRInfinite from "swr/infinite";
 import * as z from "zod/mini";
 import { PaymentHandoff } from "@/components/account/commerce/order-status";
+import {
+  choiceKey,
+  splitChoiceKey,
+  useChoiceCopy,
+} from "@/components/account/commerce/payment-choice";
 import { useProblemCode, useProblemMessage } from "@/components/account/commerce/reasons";
 import { RedeemCode } from "@/components/account/commerce/redeem-code";
 import type {
@@ -30,7 +35,6 @@ import { issue, moneyIssue } from "@/lib/form-schema";
 import { useMoney } from "@/lib/format";
 import { useSubmission } from "@/lib/idempotency";
 import { minorToInput, parseMajorToMinor } from "@/lib/money";
-import { providerKey } from "@/lib/payment-providers";
 import { useRevalidateCommerce } from "@/lib/polling";
 
 /** The ledger movements this build has copy for, from `ledger_transactions.type`. */
@@ -317,12 +321,18 @@ function TopUpForm({
       amount: prefilledMinor > 0 ? minorToInput(prefilledMinor, currency) : "",
       // One way to pay is not a choice. Starting empty left the submit button
       // disabled with nothing on screen saying which of the one options to pick.
-      provider: policy.providers.length === 1 ? policy.providers[0].provider : "",
+      provider: policy.providers.length === 1 ? choiceKey(policy.providers[0]) : "",
     },
     resolver: zodResolver(schema),
   });
   const parsed = parseMajorToMinor(useWatch({ control, name: "amount" }), currency);
   const minor = parsed.ok ? parsed.minor : 0;
+  const copy = useChoiceCopy();
+  const chosenKey = useWatch({ control, name: "provider" });
+  const chosen = policy.providers.find((choice) => choiceKey(choice) === chosenKey);
+  // A method the operator gave its own quick amounts shows those instead of
+  // the wallet-wide presets.
+  const presets = chosen?.quickAmountsMinor?.length ? chosen.quickAmountsMinor : policy.presets;
 
   if (!policy.enabled) {
     return (
@@ -343,7 +353,11 @@ function TopUpForm({
     const key = submission.begin();
     try {
       const result = await apiFetch<TopUpResult>("/v1/account/wallet/top-up", {
-        body: JSON.stringify({ amountMinor: amount.minor, currency, provider: values.provider }),
+        body: JSON.stringify({
+          amountMinor: amount.minor,
+          currency,
+          ...splitChoiceKey(values.provider),
+        }),
         headers: { "Idempotency-Key": key },
         method: "POST",
       });
@@ -387,9 +401,9 @@ function TopUpForm({
         noValidate
         onSubmit={handleSubmit(submit)}
       >
-        {policy.presets.length > 0 && (
+        {presets.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {policy.presets.map((preset) => (
+            {presets.map((preset) => (
               <Button
                 key={preset}
                 onClick={() =>
@@ -446,16 +460,29 @@ function TopUpForm({
                     "flex cursor-pointer items-center gap-3 rounded-md border border-border p-3",
                     "has-[:checked]:border-primary",
                   )}
-                  key={choice.provider}
+                  key={choiceKey(choice)}
                 >
                   <input
                     className="size-4 accent-[color:var(--primary)]"
                     type="radio"
-                    value={choice.provider}
+                    value={choiceKey(choice)}
                     {...register("provider")}
                   />
-                  <span className="font-medium text-[13.5px]">
-                    {translate(`checkout.provider.names.${providerKey(choice.provider)}`)}
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-medium text-[13.5px]">{copy(choice).label}</span>
+                    {copy(choice).description && (
+                      <span className="block text-[12px] text-muted-foreground">
+                        {copy(choice).description}
+                      </span>
+                    )}
+                    {(choice.minMinor || choice.maxMinor) && (
+                      <span className="block text-[12px] text-muted-foreground">
+                        {translate("checkout.provider.bounds", {
+                          maximum: choice.maxMinor ? money(choice.maxMinor, currency) : "—",
+                          minimum: choice.minMinor ? money(choice.minMinor, currency) : "—",
+                        })}
+                      </span>
+                    )}
                   </span>
                 </label>
               ))}

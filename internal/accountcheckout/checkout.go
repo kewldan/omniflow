@@ -25,11 +25,30 @@ type PaymentChoice struct {
 	// keep the instrument for automatic renewal: the adapter binds methods and
 	// the operator enabled recurring after a passing capability test.
 	CanSaveMethod bool
+	// Method is the provider method this button opens, and Key the button's
+	// identity (provider[.method]).
+	Method string
+	Key    string
+	// Presentation is the operator's name, description, bounds, quick
+	// amounts, and audience for this button.
+	Presentation commerce.MethodPresentation
+}
+
+// ChoiceFrom projects a payment option onto a choice priced in one currency.
+func ChoiceFrom(option commerce.PaymentOption, currency string, amountMinor int64) PaymentChoice {
+	return PaymentChoice{
+		Provider: option.Provider, Method: option.Method, Key: option.Key,
+		Currency: currency, AmountMinor: amountMinor, Recurring: option.Recurring,
+		Presentation: option.Presentation,
+	}
 }
 
 // PaymentSelection is what the customer picked on a payment screen.
 type PaymentSelection struct {
 	Provider string
+	// Method is the provider method of the button pressed; empty is the
+	// adapter's default.
+	Method string
 	// SaveMethod is the explicit consent to keep the card or mandate for
 	// automatic renewal. It is ignored for a method that cannot bind one.
 	SaveMethod bool
@@ -61,14 +80,11 @@ func (service *Service) choicesFor(prices map[string]int64) []PaymentChoice {
 		if currency == "" {
 			continue
 		}
-		choices = append(choices, PaymentChoice{
-			Provider: option.Provider, Currency: currency,
-			AmountMinor: prices[currency], Recurring: option.Recurring,
-		})
+		if !option.Presentation.Accepts(prices[currency]) {
+			continue
+		}
+		choices = append(choices, ChoiceFrom(option, currency, prices[currency]))
 	}
-	sort.SliceStable(choices, func(left, right int) bool {
-		return choices[left].Provider < choices[right].Provider
-	})
 	return choices
 }
 
@@ -270,6 +286,8 @@ type PaymentRequest struct {
 	TelegramID int64
 	// SaveMethod carries the customer's consent to keep the instrument.
 	SaveMethod bool
+	// Method is the provider method of the button pressed.
+	Method string
 }
 
 // PaymentHandle is the customer-facing result of starting a payment.
@@ -318,6 +336,11 @@ func (service *Service) StartPayment(ctx context.Context, request PaymentRequest
 		receipt["telegramUserId"] = request.TelegramID
 	}
 	key := "order-" + request.OrderID + "-" + request.Provider
+	if request.Method != "" {
+		// Each button is its own payment: pressing SBP after card opens a new
+		// intent rather than resuming the card one.
+		key += "-" + request.Method
+	}
 	saveMethod := request.SaveMethod && service.payments.RecurringAllowed(ctx, request.Provider)
 	if saveMethod {
 		// A payment opened with consent to keep the card is a different
@@ -331,6 +354,7 @@ func (service *Service) StartPayment(ctx context.Context, request PaymentRequest
 		ReturnURL:       service.returnURL(request.OrderID),
 		ReceiptMetadata: receipt,
 		SaveMethod:      saveMethod,
+		Method:          request.Method,
 	})
 	if err != nil {
 		return PaymentHandle{}, err

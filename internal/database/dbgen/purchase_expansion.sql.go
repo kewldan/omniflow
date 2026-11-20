@@ -1906,7 +1906,7 @@ SELECT t.order_id, t.user_id, t.currency, t.requested_minor, t.credited_minor, t
 FROM wallet_topups t
 JOIN orders o ON o.id = t.order_id
 LEFT JOIN LATERAL (
-  SELECT id, order_id, provider, status, amount_minor, currency, provider_reference, checkout_url, idempotency_key, capabilities, receipt_metadata, created_at, updated_at, save_method_consent_at FROM payment_intents intent WHERE intent.order_id = o.id
+  SELECT id, order_id, provider, status, amount_minor, currency, provider_reference, checkout_url, idempotency_key, capabilities, receipt_metadata, created_at, updated_at, save_method_consent_at, method FROM payment_intents intent WHERE intent.order_id = o.id
   ORDER BY intent.created_at DESC LIMIT 1
 ) pi ON true
 WHERE t.user_id = $1

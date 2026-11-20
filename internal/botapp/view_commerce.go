@@ -135,11 +135,47 @@ func paymentMethodView(locale Locale, plan Plan, choices []PaymentChoice, back s
 	}
 	rows := make([][]models.InlineKeyboardButton, 0, len(choices)+1)
 	for _, choice := range choices {
-		label := text(locale, "pay.option", providerLabel(locale, choice.Provider), formatMoney(choice.AmountMinor, choice.Currency))
-		rows = append(rows, row(actionButton(label, "pm:"+choice.Provider+":"+choice.Currency)))
+		label := text(locale, "pay.option", choiceLabel(locale, choice), formatMoney(choice.AmountMinor, choice.Currency))
+		rows = append(rows, row(actionButton(label, "pm:"+choiceKey(choice)+":"+choice.Currency)))
 	}
 	rows = append(rows, row(actionButton(text(locale, "action.back"), back)))
 	return View{Text: text(locale, "pay.choose"), Keyboard: keyboard(rows...)}
+}
+
+// choiceKey is a choice's button identity, provider[.method].
+func choiceKey(choice PaymentChoice) string {
+	if choice.Key != "" {
+		return choice.Key
+	}
+	return choice.Provider
+}
+
+// choiceLabel is what a payment button says: the operator's name for it when
+// they wrote one, else the provider's name with the method beside it.
+func choiceLabel(locale Locale, choice PaymentChoice) string {
+	if name := choice.Presentation.Name(string(locale)); name != "" {
+		return name
+	}
+	label := providerLabel(locale, choice.Provider)
+	if choice.Method == "" {
+		return label
+	}
+	method := text(locale, "pay.method."+choice.Method)
+	if method == "pay.method."+choice.Method {
+		method = strings.ToUpper(choice.Method)
+	}
+	return label + " · " + method
+}
+
+// topUpChoices keeps the buttons whose operator-set bounds accept an amount.
+func topUpChoices(choices []PaymentChoice, amountMinor int64) []PaymentChoice {
+	kept := make([]PaymentChoice, 0, len(choices))
+	for _, choice := range choices {
+		if choice.Presentation.Accepts(amountMinor) {
+			kept = append(kept, choice)
+		}
+	}
+	return kept
 }
 
 func providerLabel(locale Locale, provider string) string {
@@ -252,11 +288,15 @@ func orderPaymentMethodView(locale Locale, order OrderSummary, choices []Payment
 	}
 	rows := make([][]models.InlineKeyboardButton, 0, len(choices)+1)
 	for _, choice := range choices {
-		label := text(locale, "pay.option", providerLabel(locale, choice.Provider), formatMoney(choice.AmountMinor, choice.Currency))
-		rows = append(rows, row(actionButton(label, "order-pm:"+order.ID+":"+choice.Provider)))
+		label := text(locale, "pay.option", choiceLabel(locale, choice), formatMoney(choice.AmountMinor, choice.Currency))
+		if choice.Method == "" {
+			rows = append(rows, row(actionButton(label, "order-pm:"+order.ID+":"+choice.Provider)))
+		} else {
+			rows = append(rows, row(actionButton(label, "opm:"+compactID(order.ID)+":"+choiceKey(choice))))
+		}
 		if choice.CanSaveMethod {
-			saveLabel := text(locale, "pay.optionSave", providerLabel(locale, choice.Provider))
-			rows = append(rows, row(actionButton(saveLabel, "opms:"+compactID(order.ID)+":"+choice.Provider)))
+			saveLabel := text(locale, "pay.optionSave", choiceLabel(locale, choice))
+			rows = append(rows, row(actionButton(saveLabel, "opms:"+compactID(order.ID)+":"+choiceKey(choice))))
 		}
 	}
 	rows = append(rows, row(actionButton(text(locale, "action.back"), "order:"+order.ID)))

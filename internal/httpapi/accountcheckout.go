@@ -534,6 +534,7 @@ func (handlers *AccountHandlers) startOrderPayment(writer http.ResponseWriter, r
 	}
 	var body struct {
 		Provider   string `json:"provider"`
+		Method     string `json:"method"`
 		SaveMethod bool   `json:"saveMethod"`
 	}
 	if !decodeJSON(writer, request, &body) {
@@ -542,7 +543,8 @@ func (handlers *AccountHandlers) startOrderPayment(writer http.ResponseWriter, r
 	handle, err := handlers.checkout.StartOrderPaymentWith(
 		request.Context(), principal.Customer.ID, chi.URLParam(request, "orderID"),
 		accountLocale(request, principal.Customer.Locale), accountcheckout.PaymentSelection{
-			Provider: strings.TrimSpace(body.Provider), SaveMethod: body.SaveMethod,
+			Provider: strings.TrimSpace(body.Provider), Method: strings.TrimSpace(body.Method),
+			SaveMethod: body.SaveMethod,
 		},
 	)
 	if handlers.writeCheckoutError(writer, request, err) {
@@ -609,7 +611,7 @@ func orderPayloadWith(
 	}
 	if order.PaymentIntentID != "" {
 		payment := map[string]any{
-			"id": order.PaymentIntentID, "provider": order.Provider, "status": order.PaymentStatus,
+			"id": order.PaymentIntentID, "provider": order.Provider, "method": order.PaymentMethod, "status": order.PaymentStatus,
 			"handoff": handoff,
 		}
 		if checkoutURL != "" {
@@ -648,11 +650,37 @@ func orderPayloadWith(
 // paymentChoicePayload is one offered method with the currency and price it
 // would charge, the shape both the checkout and the order screens read.
 func paymentChoicePayload(choice accountcheckout.PaymentChoice) map[string]any {
-	return map[string]any{
+	key := choice.Key
+	if key == "" {
+		key = choice.Provider
+	}
+	presentation := choice.Presentation
+	quick := presentation.QuickAmountsMinor
+	if quick == nil {
+		quick = []int64{}
+	}
+	payload := map[string]any{
 		"provider": choice.Provider, "currency": choice.Currency,
 		"amountMinor": choice.AmountMinor, "recurring": choice.Recurring,
-		"canSaveMethod": choice.CanSaveMethod,
+		"canSaveMethod": choice.CanSaveMethod, "method": choice.Method, "key": key,
+		"quickAmountsMinor": quick, "openDirectly": presentation.OpenDirectly,
 	}
+	// The operator's own names and descriptions travel in both languages;
+	// the panel picks the one it renders in and falls back to its built-in
+	// name when the operator wrote none.
+	if presentation.NameRU != "" || presentation.NameEN != "" {
+		payload["name"] = map[string]string{"ru": presentation.NameRU, "en": presentation.NameEN}
+	}
+	if presentation.DescriptionRU != "" || presentation.DescriptionEN != "" {
+		payload["description"] = map[string]string{"ru": presentation.DescriptionRU, "en": presentation.DescriptionEN}
+	}
+	if presentation.MinMinor > 0 {
+		payload["minMinor"] = presentation.MinMinor
+	}
+	if presentation.MaxMinor > 0 {
+		payload["maxMinor"] = presentation.MaxMinor
+	}
+	return payload
 }
 
 func paymentPayload(handle accountcheckout.PaymentHandle) map[string]any {
@@ -699,9 +727,7 @@ func (handlers *AccountHandlers) readWallet(writer http.ResponseWriter, request 
 	}
 	providers := make([]map[string]any, 0, len(view.Providers))
 	for _, choice := range view.Providers {
-		providers = append(providers, map[string]any{
-			"provider": choice.Provider, "currency": choice.Currency, "recurring": choice.Recurring,
-		})
+		providers = append(providers, paymentChoicePayload(choice))
 	}
 	pendingTopUps := make([]map[string]any, 0, len(view.PendingTopUps))
 	for _, order := range view.PendingTopUps {
@@ -753,6 +779,7 @@ func (handlers *AccountHandlers) startTopUp(writer http.ResponseWriter, request 
 		AmountMinor int64  `json:"amountMinor"`
 		Currency    string `json:"currency"`
 		Provider    string `json:"provider"`
+		Method      string `json:"method"`
 		SaveMethod  bool   `json:"saveMethod"`
 	}
 	if !decodeJSON(writer, request, &body) {
@@ -761,7 +788,8 @@ func (handlers *AccountHandlers) startTopUp(writer http.ResponseWriter, request 
 	topUp, err := handlers.checkout.StartTopUpWith(
 		request.Context(), principal.Customer.ID, strings.ToUpper(strings.TrimSpace(body.Currency)),
 		body.AmountMinor, accountcheckout.PaymentSelection{
-			Provider: strings.TrimSpace(body.Provider), SaveMethod: body.SaveMethod,
+			Provider: strings.TrimSpace(body.Provider), Method: strings.TrimSpace(body.Method),
+			SaveMethod: body.SaveMethod,
 		}, key,
 	)
 	if err != nil && topUp.OrderID == "" {
@@ -801,6 +829,8 @@ func topUpPaymentProblem(err error) string {
 	switch {
 	case errors.Is(err, accountcheckout.ErrProviderUnavailable):
 		return "provider_unavailable"
+	case errors.Is(err, accountcheckout.ErrProviderAmount):
+		return "provider_amount_out_of_range"
 	case errors.Is(err, accountcheckout.ErrProviderCurrency):
 		return "provider_currency_unsupported"
 	case errors.Is(err, accountcheckout.ErrOrderNotPayable):
@@ -893,6 +923,11 @@ func (handlers *AccountHandlers) writeCheckoutError(
 		writeProblem(
 			writer, request, http.StatusConflict,
 			"order_not_payable", "This order can no longer be paid; reload it to see its state",
+		)
+	case errors.Is(err, accountcheckout.ErrProviderAmount):
+		writeProblem(
+			writer, request, http.StatusUnprocessableEntity,
+			"provider_amount_out_of_range", "That payment method does not accept this amount",
 		)
 	case errors.Is(err, accountcheckout.ErrProviderCurrency):
 		writeProblem(

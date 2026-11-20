@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base32"
 	"errors"
+	"github.com/omniflow/omniflow/internal/payments"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -25,12 +26,15 @@ import (
 // makes the checkout genuinely shared: opening one in the browser supersedes one
 // left open in the chat, because there is only ever one row to open.
 type Session struct {
-	ID             string
-	CustomerID     string
-	PlanVersionID  string
-	Operation      string
-	Currency       string
-	Provider       string
+	ID            string
+	CustomerID    string
+	PlanVersionID string
+	Operation     string
+	Currency      string
+	Provider      string
+	// Method is the provider method of the button chosen; empty is the
+	// adapter's default.
+	Method         string
 	PromoCode      string
 	PromoRejection string
 	ApplyWallet    bool
@@ -74,7 +78,7 @@ func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
 // between both surfaces regardless of what the table is called.
 const checkoutColumns = `id::text, user_id::text, plan_version_id::text, operation, currency, provider,
 	promo_code, promo_rejection, apply_wallet, order_id::text, idempotency_key, expires_at,
-	subscription_id::text, selected_squad_ids, COALESCE(period_days, 0)`
+	subscription_id::text, selected_squad_ids, COALESCE(period_days, 0), payment_method`
 
 // OpenCheckout replaces any unfinished checkout for the customer with a new one.
 // Only one checkout may be open at a time, which keeps the confirmation screen
@@ -144,11 +148,18 @@ func (store *Store) SetCheckoutPromo(ctx context.Context, sessionID, code, rejec
 // SetCheckoutProvider records the payment method the customer chose together
 // with the currency that method settles in. Choosing a method is what fixes the
 // order currency, so both are written at once.
+//
+// The provider may be a button key (provider.method); the method is stored
+// beside the provider so the payment opened later presses the same button.
 func (store *Store) SetCheckoutProvider(ctx context.Context, sessionID, provider, currency string) (Session, error) {
+	provider, method := payments.SplitOptionKey(provider)
+	if !payments.ValidMethodKey(method) {
+		method = ""
+	}
 	return store.update(ctx, `UPDATE bot_checkout_sessions
-		SET provider = NULLIF($2, ''), currency = $3, updated_at = now()
+		SET provider = NULLIF($2, ''), payment_method = $4, currency = $3, updated_at = now()
 		WHERE id = $1::uuid AND order_id IS NULL
-		RETURNING `+checkoutColumns, sessionID, provider, currency)
+		RETURNING `+checkoutColumns, sessionID, provider, currency, method)
 }
 
 // SetCheckoutWallet toggles whether the customer's wallet funds this order.
@@ -281,7 +292,7 @@ func scanCheckout(row pgx.Row) (Session, error) {
 	)
 	err := row.Scan(&session.ID, &session.CustomerID, &session.PlanVersionID, &session.Operation,
 		&session.Currency, &provider, &promo, &rejection, &session.ApplyWallet, &orderID,
-		&session.IdempotencyKey, &session.ExpiresAt, &subscription, &squadIDs, &session.PeriodDays)
+		&session.IdempotencyKey, &session.ExpiresAt, &subscription, &squadIDs, &session.PeriodDays, &session.Method)
 	if err != nil {
 		return Session{}, err
 	}

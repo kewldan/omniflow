@@ -6252,6 +6252,145 @@ export const ConfigurePanelRecurringResponse = zod.object({
 });
 
 /**
+ * Requires settings.read. Every customer-facing payment button this deployment can show — one per method of each configured adapter — with the operator's presentation and audience rules.
+ */
+export const listPanelPaymentMethodSettingsResponseItemsItemMethodRegExp = /^[a-z0-9_]{0,10}$/;
+export const listPanelPaymentMethodSettingsResponseItemsItemNameRuMax = 64;
+
+export const listPanelPaymentMethodSettingsResponseItemsItemNameEnMax = 64;
+
+export const listPanelPaymentMethodSettingsResponseItemsItemDescriptionRuMax = 240;
+
+export const listPanelPaymentMethodSettingsResponseItemsItemDescriptionEnMax = 240;
+
+export const listPanelPaymentMethodSettingsResponseItemsItemQuickAmountsMinorMax = 8;
+
+export const ListPanelPaymentMethodSettingsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      provider: zod.string().optional(),
+      method: zod.string().regex(listPanelPaymentMethodSettingsResponseItemsItemMethodRegExp),
+      key: zod.string().optional(),
+      configured: zod
+        .boolean()
+        .optional()
+        .describe("The adapter is loaded in this deployment and offers this method."),
+      enabled: zod.boolean(),
+      displayOrder: zod.int(),
+      nameRu: zod.string().max(listPanelPaymentMethodSettingsResponseItemsItemNameRuMax).optional(),
+      nameEn: zod.string().max(listPanelPaymentMethodSettingsResponseItemsItemNameEnMax).optional(),
+      descriptionRu: zod
+        .string()
+        .max(listPanelPaymentMethodSettingsResponseItemsItemDescriptionRuMax)
+        .optional(),
+      descriptionEn: zod
+        .string()
+        .max(listPanelPaymentMethodSettingsResponseItemsItemDescriptionEnMax)
+        .optional(),
+      minMinor: zod.int().min(1).optional(),
+      maxMinor: zod.int().min(1).optional(),
+      quickAmountsMinor: zod
+        .array(zod.int().min(1))
+        .max(listPanelPaymentMethodSettingsResponseItemsItemQuickAmountsMinorMax)
+        .optional(),
+      loginKinds: zod.array(zod.enum(["telegram", "email", "vk", "oidc"])).optional(),
+      topUpAudience: zod.enum(["all", "first_topup", "repeat_topup"]).optional(),
+      loyaltyTierCodes: zod.array(zod.string()).optional(),
+      openDirectly: zod.boolean().optional(),
+      updatedAt: zod.iso.datetime({ offset: true }).optional(),
+    }),
+  ),
+});
+
+/**
+ * Requires settings.write. Stores how one button (`method` in the body, empty for the adapter's default) is named, described, bounded, and to whom it is shown. Customer lists pick it up within thirty seconds.
+ */
+export const SavePanelPaymentMethodSettingsParams = zod.object({
+  provider: zod.string(),
+});
+
+export const SavePanelPaymentMethodSettingsHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const savePanelPaymentMethodSettingsBodyMethodRegExp = /^[a-z0-9_]{0,10}$/;
+export const savePanelPaymentMethodSettingsBodyNameRuMax = 64;
+
+export const savePanelPaymentMethodSettingsBodyNameEnMax = 64;
+
+export const savePanelPaymentMethodSettingsBodyDescriptionRuMax = 240;
+
+export const savePanelPaymentMethodSettingsBodyDescriptionEnMax = 240;
+
+export const savePanelPaymentMethodSettingsBodyQuickAmountsMinorMax = 8;
+
+export const SavePanelPaymentMethodSettingsBody = zod.object({
+  method: zod.string().regex(savePanelPaymentMethodSettingsBodyMethodRegExp),
+  enabled: zod.boolean(),
+  displayOrder: zod.int(),
+  nameRu: zod.string().max(savePanelPaymentMethodSettingsBodyNameRuMax).optional(),
+  nameEn: zod.string().max(savePanelPaymentMethodSettingsBodyNameEnMax).optional(),
+  descriptionRu: zod.string().max(savePanelPaymentMethodSettingsBodyDescriptionRuMax).optional(),
+  descriptionEn: zod.string().max(savePanelPaymentMethodSettingsBodyDescriptionEnMax).optional(),
+  minMinor: zod.int().min(1).optional(),
+  maxMinor: zod.int().min(1).optional(),
+  quickAmountsMinor: zod
+    .array(zod.int().min(1))
+    .max(savePanelPaymentMethodSettingsBodyQuickAmountsMinorMax)
+    .optional(),
+  loginKinds: zod.array(zod.enum(["telegram", "email", "vk", "oidc"])).optional(),
+  topUpAudience: zod.enum(["all", "first_topup", "repeat_topup"]).optional(),
+  loyaltyTierCodes: zod.array(zod.string()).optional(),
+  openDirectly: zod.boolean().optional(),
+});
+
+export const savePanelPaymentMethodSettingsResponseMethodRegExp = /^[a-z0-9_]{0,10}$/;
+export const savePanelPaymentMethodSettingsResponseNameRuMax = 64;
+
+export const savePanelPaymentMethodSettingsResponseNameEnMax = 64;
+
+export const savePanelPaymentMethodSettingsResponseDescriptionRuMax = 240;
+
+export const savePanelPaymentMethodSettingsResponseDescriptionEnMax = 240;
+
+export const savePanelPaymentMethodSettingsResponseQuickAmountsMinorMax = 8;
+
+export const SavePanelPaymentMethodSettingsResponse = zod.object({
+  provider: zod.string().optional(),
+  method: zod.string().regex(savePanelPaymentMethodSettingsResponseMethodRegExp),
+  key: zod.string().optional(),
+  configured: zod
+    .boolean()
+    .optional()
+    .describe("The adapter is loaded in this deployment and offers this method."),
+  enabled: zod.boolean(),
+  displayOrder: zod.int(),
+  nameRu: zod.string().max(savePanelPaymentMethodSettingsResponseNameRuMax).optional(),
+  nameEn: zod.string().max(savePanelPaymentMethodSettingsResponseNameEnMax).optional(),
+  descriptionRu: zod
+    .string()
+    .max(savePanelPaymentMethodSettingsResponseDescriptionRuMax)
+    .optional(),
+  descriptionEn: zod
+    .string()
+    .max(savePanelPaymentMethodSettingsResponseDescriptionEnMax)
+    .optional(),
+  minMinor: zod.int().min(1).optional(),
+  maxMinor: zod.int().min(1).optional(),
+  quickAmountsMinor: zod
+    .array(zod.int().min(1))
+    .max(savePanelPaymentMethodSettingsResponseQuickAmountsMinorMax)
+    .optional(),
+  loginKinds: zod.array(zod.enum(["telegram", "email", "vk", "oidc"])).optional(),
+  topUpAudience: zod.enum(["all", "first_topup", "repeat_topup"]).optional(),
+  loyaltyTierCodes: zod.array(zod.string()).optional(),
+  openDirectly: zod.boolean().optional(),
+  updatedAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+/**
  * Requires settings.read. The model backends an owner has approved. The API key is never returned; `keyConfigured` reports only whether one is held. What a provider does with the data is recorded from its own terms, which Omniflow cannot verify.
  */
 export const listPanelAIProvidersResponseItemsItemSlugRegExp = /^[a-z0-9][a-z0-9_-]{1,40}$/;
@@ -9059,6 +9198,32 @@ export const GetAccountCheckoutResponse = zod.object({
         .describe(
           "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
         ),
+      method: zod
+        .string()
+        .optional()
+        .describe(
+          "The provider method this button opens (sbp, card, ...). Empty is the adapter's default.",
+        ),
+      key: zod.string().optional().describe("The button's identity, provider or provider.method."),
+      name: zod
+        .object({
+          ru: zod.string().optional(),
+          en: zod.string().optional(),
+        })
+        .optional(),
+      description: zod
+        .object({
+          ru: zod.string().optional(),
+          en: zod.string().optional(),
+        })
+        .optional(),
+      minMinor: zod.int().optional(),
+      maxMinor: zod.int().optional(),
+      quickAmountsMinor: zod.array(zod.int()).optional(),
+      openDirectly: zod
+        .boolean()
+        .optional()
+        .describe("Open the provider's page as soon as the payment starts."),
     }),
   ),
   applyWallet: zod.boolean(),
@@ -9237,6 +9402,32 @@ export const OpenAccountCheckoutResponse = zod.object({
         .describe(
           "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
         ),
+      method: zod
+        .string()
+        .optional()
+        .describe(
+          "The provider method this button opens (sbp, card, ...). Empty is the adapter's default.",
+        ),
+      key: zod.string().optional().describe("The button's identity, provider or provider.method."),
+      name: zod
+        .object({
+          ru: zod.string().optional(),
+          en: zod.string().optional(),
+        })
+        .optional(),
+      description: zod
+        .object({
+          ru: zod.string().optional(),
+          en: zod.string().optional(),
+        })
+        .optional(),
+      minMinor: zod.int().optional(),
+      maxMinor: zod.int().optional(),
+      quickAmountsMinor: zod.array(zod.int()).optional(),
+      openDirectly: zod
+        .boolean()
+        .optional()
+        .describe("Open the provider's page as soon as the payment starts."),
     }),
   ),
   applyWallet: zod.boolean(),
@@ -9423,6 +9614,32 @@ export const UpdateAccountCheckoutResponse = zod.object({
         .describe(
           "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
         ),
+      method: zod
+        .string()
+        .optional()
+        .describe(
+          "The provider method this button opens (sbp, card, ...). Empty is the adapter's default.",
+        ),
+      key: zod.string().optional().describe("The button's identity, provider or provider.method."),
+      name: zod
+        .object({
+          ru: zod.string().optional(),
+          en: zod.string().optional(),
+        })
+        .optional(),
+      description: zod
+        .object({
+          ru: zod.string().optional(),
+          en: zod.string().optional(),
+        })
+        .optional(),
+      minMinor: zod.int().optional(),
+      maxMinor: zod.int().optional(),
+      quickAmountsMinor: zod.array(zod.int()).optional(),
+      openDirectly: zod
+        .boolean()
+        .optional()
+        .describe("Open the provider's page as soon as the payment starts."),
     }),
   ),
   applyWallet: zod.boolean(),
@@ -9604,6 +9821,32 @@ export const ApplyAccountPromoCodeResponse = zod.object({
         .describe(
           "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
         ),
+      method: zod
+        .string()
+        .optional()
+        .describe(
+          "The provider method this button opens (sbp, card, ...). Empty is the adapter's default.",
+        ),
+      key: zod.string().optional().describe("The button's identity, provider or provider.method."),
+      name: zod
+        .object({
+          ru: zod.string().optional(),
+          en: zod.string().optional(),
+        })
+        .optional(),
+      description: zod
+        .object({
+          ru: zod.string().optional(),
+          en: zod.string().optional(),
+        })
+        .optional(),
+      minMinor: zod.int().optional(),
+      maxMinor: zod.int().optional(),
+      quickAmountsMinor: zod.array(zod.int()).optional(),
+      openDirectly: zod
+        .boolean()
+        .optional()
+        .describe("Open the provider's page as soon as the payment starts."),
     }),
   ),
   applyWallet: zod.boolean(),
@@ -9770,6 +10013,32 @@ export const RemoveAccountPromoCodeResponse = zod.object({
         .describe(
           "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
         ),
+      method: zod
+        .string()
+        .optional()
+        .describe(
+          "The provider method this button opens (sbp, card, ...). Empty is the adapter's default.",
+        ),
+      key: zod.string().optional().describe("The button's identity, provider or provider.method."),
+      name: zod
+        .object({
+          ru: zod.string().optional(),
+          en: zod.string().optional(),
+        })
+        .optional(),
+      description: zod
+        .object({
+          ru: zod.string().optional(),
+          en: zod.string().optional(),
+        })
+        .optional(),
+      minMinor: zod.int().optional(),
+      maxMinor: zod.int().optional(),
+      quickAmountsMinor: zod.array(zod.int()).optional(),
+      openDirectly: zod
+        .boolean()
+        .optional()
+        .describe("Open the provider's page as soon as the payment starts."),
     }),
   ),
   applyWallet: zod.boolean(),
@@ -9940,6 +10209,32 @@ export const ToggleAccountCheckoutAddonResponse = zod.object({
         .describe(
           "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
         ),
+      method: zod
+        .string()
+        .optional()
+        .describe(
+          "The provider method this button opens (sbp, card, ...). Empty is the adapter's default.",
+        ),
+      key: zod.string().optional().describe("The button's identity, provider or provider.method."),
+      name: zod
+        .object({
+          ru: zod.string().optional(),
+          en: zod.string().optional(),
+        })
+        .optional(),
+      description: zod
+        .object({
+          ru: zod.string().optional(),
+          en: zod.string().optional(),
+        })
+        .optional(),
+      minMinor: zod.int().optional(),
+      maxMinor: zod.int().optional(),
+      quickAmountsMinor: zod.array(zod.int()).optional(),
+      openDirectly: zod
+        .boolean()
+        .optional()
+        .describe("Open the provider's page as soon as the payment starts."),
     }),
   ),
   applyWallet: zod.boolean(),
@@ -10131,6 +10426,35 @@ export const ConfirmAccountCheckoutResponse = zod.object({
           .describe(
             "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
           ),
+        method: zod
+          .string()
+          .optional()
+          .describe(
+            "The provider method this button opens (sbp, card, ...). Empty is the adapter's default.",
+          ),
+        key: zod
+          .string()
+          .optional()
+          .describe("The button's identity, provider or provider.method."),
+        name: zod
+          .object({
+            ru: zod.string().optional(),
+            en: zod.string().optional(),
+          })
+          .optional(),
+        description: zod
+          .object({
+            ru: zod.string().optional(),
+            en: zod.string().optional(),
+          })
+          .optional(),
+        minMinor: zod.int().optional(),
+        maxMinor: zod.int().optional(),
+        quickAmountsMinor: zod.array(zod.int()).optional(),
+        openDirectly: zod
+          .boolean()
+          .optional()
+          .describe("Open the provider's page as soon as the payment starts."),
       }),
     )
     .optional()
@@ -10229,6 +10553,35 @@ export const ListAccountOrdersResponse = zod.object({
               .describe(
                 "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
               ),
+            method: zod
+              .string()
+              .optional()
+              .describe(
+                "The provider method this button opens (sbp, card, ...). Empty is the adapter's default.",
+              ),
+            key: zod
+              .string()
+              .optional()
+              .describe("The button's identity, provider or provider.method."),
+            name: zod
+              .object({
+                ru: zod.string().optional(),
+                en: zod.string().optional(),
+              })
+              .optional(),
+            description: zod
+              .object({
+                ru: zod.string().optional(),
+                en: zod.string().optional(),
+              })
+              .optional(),
+            minMinor: zod.int().optional(),
+            maxMinor: zod.int().optional(),
+            quickAmountsMinor: zod.array(zod.int()).optional(),
+            openDirectly: zod
+              .boolean()
+              .optional()
+              .describe("Open the provider's page as soon as the payment starts."),
           }),
         )
         .optional()
@@ -10331,6 +10684,35 @@ export const GetAccountOrderResponse = zod.object({
           .describe(
             "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
           ),
+        method: zod
+          .string()
+          .optional()
+          .describe(
+            "The provider method this button opens (sbp, card, ...). Empty is the adapter's default.",
+          ),
+        key: zod
+          .string()
+          .optional()
+          .describe("The button's identity, provider or provider.method."),
+        name: zod
+          .object({
+            ru: zod.string().optional(),
+            en: zod.string().optional(),
+          })
+          .optional(),
+        description: zod
+          .object({
+            ru: zod.string().optional(),
+            en: zod.string().optional(),
+          })
+          .optional(),
+        minMinor: zod.int().optional(),
+        maxMinor: zod.int().optional(),
+        quickAmountsMinor: zod.array(zod.int()).optional(),
+        openDirectly: zod
+          .boolean()
+          .optional()
+          .describe("Open the provider's page as soon as the payment starts."),
       }),
     )
     .optional()
@@ -10367,6 +10749,12 @@ export const StartAccountOrderPaymentHeader = zod.object({
 
 export const StartAccountOrderPaymentBody = zod.object({
   provider: zod.string().optional(),
+  method: zod
+    .string()
+    .optional()
+    .describe(
+      "The provider method of the button pressed; empty is the adapter's default. `422 provider_amount_out_of_range` when the amount is outside the method's bounds.",
+    ),
   saveMethod: zod
     .boolean()
     .optional()
@@ -10475,6 +10863,35 @@ export const RefreshAccountOrderResponse = zod.object({
           .describe(
             "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
           ),
+        method: zod
+          .string()
+          .optional()
+          .describe(
+            "The provider method this button opens (sbp, card, ...). Empty is the adapter's default.",
+          ),
+        key: zod
+          .string()
+          .optional()
+          .describe("The button's identity, provider or provider.method."),
+        name: zod
+          .object({
+            ru: zod.string().optional(),
+            en: zod.string().optional(),
+          })
+          .optional(),
+        description: zod
+          .object({
+            ru: zod.string().optional(),
+            en: zod.string().optional(),
+          })
+          .optional(),
+        minMinor: zod.int().optional(),
+        maxMinor: zod.int().optional(),
+        quickAmountsMinor: zod.array(zod.int()).optional(),
+        openDirectly: zod
+          .boolean()
+          .optional()
+          .describe("Open the provider's page as soon as the payment starts."),
       }),
     )
     .optional()
@@ -10548,6 +10965,35 @@ export const GetAccountWalletResponse = zod.object({
           .describe(
             "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
           ),
+        method: zod
+          .string()
+          .optional()
+          .describe(
+            "The provider method this button opens (sbp, card, ...). Empty is the adapter's default.",
+          ),
+        key: zod
+          .string()
+          .optional()
+          .describe("The button's identity, provider or provider.method."),
+        name: zod
+          .object({
+            ru: zod.string().optional(),
+            en: zod.string().optional(),
+          })
+          .optional(),
+        description: zod
+          .object({
+            ru: zod.string().optional(),
+            en: zod.string().optional(),
+          })
+          .optional(),
+        minMinor: zod.int().optional(),
+        maxMinor: zod.int().optional(),
+        quickAmountsMinor: zod.array(zod.int()).optional(),
+        openDirectly: zod
+          .boolean()
+          .optional()
+          .describe("Open the provider's page as soon as the payment starts."),
       }),
     ),
   }),
@@ -10636,6 +11082,35 @@ export const GetAccountWalletResponse = zod.object({
                 .describe(
                   "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
                 ),
+              method: zod
+                .string()
+                .optional()
+                .describe(
+                  "The provider method this button opens (sbp, card, ...). Empty is the adapter's default.",
+                ),
+              key: zod
+                .string()
+                .optional()
+                .describe("The button's identity, provider or provider.method."),
+              name: zod
+                .object({
+                  ru: zod.string().optional(),
+                  en: zod.string().optional(),
+                })
+                .optional(),
+              description: zod
+                .object({
+                  ru: zod.string().optional(),
+                  en: zod.string().optional(),
+                })
+                .optional(),
+              minMinor: zod.int().optional(),
+              maxMinor: zod.int().optional(),
+              quickAmountsMinor: zod.array(zod.int()).optional(),
+              openDirectly: zod
+                .boolean()
+                .optional()
+                .describe("Open the provider's page as soon as the payment starts."),
             }),
           )
           .optional()
@@ -10933,6 +11408,7 @@ export const StartAccountTopUpBody = zod.object({
   amountMinor: zod.int().min(1),
   currency: zod.string().optional(),
   provider: zod.string().optional(),
+  method: zod.string().optional(),
   saveMethod: zod
     .boolean()
     .optional()

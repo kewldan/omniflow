@@ -172,6 +172,9 @@ func (service *Service) StartTopUpWith(
 	if err := service.ProviderSettles(provider, currency); err != nil {
 		return TopUp{}, err
 	}
+	if err := service.MethodAllowed(ctx, customerID, provider, selection.Method, amountMinor); err != nil {
+		return TopUp{}, err
+	}
 	if provider == ProviderTelegramStars {
 		linked, err := service.store.HasTelegramIdentity(ctx, customerID)
 		if err != nil {
@@ -195,7 +198,7 @@ func (service *Service) StartTopUpWith(
 	handle, err := service.StartPayment(ctx, PaymentRequest{
 		OrderID: result.OrderID, Provider: provider,
 		Description: "Wallet top-up", Channel: "customer_web",
-		SaveMethod: selection.SaveMethod,
+		SaveMethod: selection.SaveMethod, Method: selection.Method,
 	})
 	if err != nil {
 		return result, err
@@ -251,9 +254,7 @@ func (service *Service) externalChoices(currency string) []PaymentChoice {
 		if !option.Enabled || !option.Supports(currency) {
 			continue
 		}
-		choices = append(choices, PaymentChoice{
-			Provider: option.Provider, Currency: currency, Recurring: option.Recurring,
-		})
+		choices = append(choices, ChoiceFrom(option, currency, 0))
 	}
 	return choices
 }

@@ -23,6 +23,7 @@ import {
 import { useSession } from "@/lib/session";
 import { useUnsavedChanges } from "@/lib/use-unsaved-changes";
 
+import { PaymentMethodsCard } from "./payment-methods";
 import { ProviderEditor } from "./provider-editor";
 import { SubscriptionPolicyCard } from "./subscription-policy";
 
@@ -60,6 +61,7 @@ export function CommerceSettingsForm() {
         </>
       )}
       <ProviderCard />
+      <PaymentMethodsCard />
     </div>
   );
 }
@@ -307,7 +309,7 @@ function ProviderCard() {
       connectionStatus: "unconfigured",
       credentialsSet: false,
       displayOrder: 0,
-      enabled: false,
+      enabled: true,
       merchantId: "",
       provider: name,
       recurringEnabled: false,

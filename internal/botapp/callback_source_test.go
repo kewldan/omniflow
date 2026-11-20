@@ -37,6 +37,10 @@ var boundedValues = map[string]int{
 	"enabled": 3, "state": 3, "action": 20, "label": 20,
 	"choice.Provider": 14, "choice.Currency": 3, "amount": integerWidth,
 	"option": 12,
+	// Helpers whose result is bounded by construction: a UUID compacted to
+	// base64url, and a payment button key (a provider and a method of at most
+	// ten characters).
+	"compactID()": 22, "choiceKey()": 25,
 }
 
 // callbackEvaluator turns a callback expression into the widest string it can
@@ -171,6 +175,9 @@ func (evaluator *callbackEvaluator) evalCall(call *ast.CallExpr, environment map
 		}
 		return placeholder(uuidWidth), false
 	case *ast.Ident:
+		if width, known := boundedValues[function.Name+"()"]; known {
+			return placeholder(width), false
+		}
 		declaration, local := evaluator.functions[function.Name]
 		if !local || evaluator.depth > 4 {
 			return placeholder(widthOf(function.Name)), false

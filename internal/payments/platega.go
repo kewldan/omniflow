@@ -38,11 +38,14 @@ type Platega struct {
 	baseURL       string
 	apiVersion    string
 	paymentMethod int
-	currency      string
-	returnURL     string
-	failedURL     string
-	http          *http.Client
-	clock         func() time.Time
+	// methodOrder and methodCodes are APP_PLATEGA_PAYMENT_METHODS.
+	methodOrder []string
+	methodCodes map[string]int
+	currency    string
+	returnURL   string
+	failedURL   string
+	http        *http.Client
+	clock       func() time.Time
 }
 
 // buildPlatega reads APP_PLATEGA_* and constructs the adapter.
@@ -80,6 +83,16 @@ func buildPlatega(settings Settings) (Provider, error) {
 	if method <= 0 || method == plategaSubscriptionMethod {
 		return nil, errors.New("platega: APP_PLATEGA_PAYMENT_METHOD must be a one-off payment method code")
 	}
+	methodOrder, methodCodes, err := parseMethodIDs("APP_PLATEGA_PAYMENT_METHODS",
+		settings.String("APP_PLATEGA_PAYMENT_METHODS"), map[string]int{"sbp": 2, "card": 11, "intl": 12, "crypto": 13})
+	if err != nil {
+		return nil, fmt.Errorf("platega: %w", err)
+	}
+	for key, code := range methodCodes {
+		if code == plategaSubscriptionMethod {
+			return nil, fmt.Errorf("platega: APP_PLATEGA_PAYMENT_METHODS method %q names the subscription code", key)
+		}
+	}
 	currency := strings.ToUpper(settings.String("APP_PLATEGA_CURRENCY"))
 	if currency == "" {
 		currency = "RUB"
@@ -92,12 +105,12 @@ func buildPlatega(settings Settings) (Provider, error) {
 		secret:        secret,
 		baseURL:       baseURL,
 		apiVersion:    version,
-		paymentMethod: method,
-		currency:      currency,
-		returnURL:     settings.String("APP_PLATEGA_RETURN_URL"),
-		failedURL:     settings.String("APP_PLATEGA_FAILED_URL"),
-		http:          tracedClient(30 * time.Second),
-		clock:         time.Now,
+		paymentMethod: method, methodOrder: methodOrder, methodCodes: methodCodes,
+		currency:  currency,
+		returnURL: settings.String("APP_PLATEGA_RETURN_URL"),
+		failedURL: settings.String("APP_PLATEGA_FAILED_URL"),
+		http:      tracedClient(30 * time.Second),
+		clock:     time.Now,
 	}, nil
 }
 
@@ -196,7 +209,7 @@ func (provider *Platega) Create(ctx context.Context, request CreateRequest) (Int
 		return Intent{}, err
 	}
 	body := map[string]any{
-		"paymentMethod": provider.paymentMethod,
+		"paymentMethod": provider.methodFor(request.Method),
 		"paymentDetails": map[string]any{
 			"amount":   json.Number(formatMinor(request.Amount.Amount, exponent)),
 			"currency": provider.currency,
@@ -422,3 +435,14 @@ var (
 	_ Provider        = (*Platega)(nil)
 	_ CurrencySupport = (*Platega)(nil)
 )
+
+// Methods lists the Platega methods shown as separate buttons.
+func (provider *Platega) Methods() []string { return provider.methodOrder }
+
+// methodFor is the Platega method code for a chosen method, or the default.
+func (provider *Platega) methodFor(method string) int {
+	if code, ok := provider.methodCodes[method]; ok {
+		return code
+	}
+	return provider.paymentMethod
+}

@@ -24,6 +24,41 @@ https://<APP_PUBLIC_URL>/v1/payments/webhooks/<slug>
 
 Where a provider takes the callback address in its own cabinet instead, enter the same URL there.
 
+## Payment buttons and methods
+
+What a customer sees is a list of **buttons**. By default each configured provider is one button.
+A provider whose acquirer offers several ways to pay can show each as its own button by listing
+them in its `APP_<SLUG>_PAYMENT_METHODS` variable — entries are `key` for a known method or
+`key:code` for any provider code, comma-separated, in the order they should appear:
+
+| Provider | Variable | Known keys (code) |
+| --- | --- | --- |
+| FreeKassa | `APP_FREEKASSA_PAYMENT_METHODS` | `sbp` (44), `card` (36); setting it switches to the order API, which needs `APP_FREEKASSA_SERVER_IP` |
+| KassaAI | `APP_KASSA_AI_PAYMENT_METHODS` | `sbp` (44), `card` (36), `sberpay` (43) |
+| CisPay | `APP_CISPAY_PAYMENT_METHODS` | `card` (CARD), `sbp` (SBP), `crypto` (CRYPTO) |
+| Platega | `APP_PLATEGA_PAYMENT_METHODS` | `sbp` (2), `card` (11), `intl` (12), `crypto` (13) |
+| Antilopay | `APP_ANTILOPAY_PAYMENT_METHODS` | `sbp` (SBP), `card` (CARD_RU), `sberpay` (SBER_PAY) — sent as `prefer_methods` |
+
+A method key is at most ten lowercase letters, digits, or underscores. The button the customer
+pressed is stored on the payment intent (`payment_intents.method`), so resuming a payment presses
+the same button.
+
+**Settings → Commerce** in the panel then drives the list:
+
+- The provider row's **Enabled** switch and **Display order** decide whether a provider is offered
+  and where. A provider with no saved row is offered, as it always was; one saved as disabled is
+  left out of every customer list, and a payment started for it anyway is refused.
+- **Payment buttons** (`GET`/`PUT /v1/panel/settings/payment-methods`, `settings.read` /
+  `settings.write`) configures each button: its Russian and English name and description, the
+  order within its provider, a minimum and maximum amount, up to eight quick top-up amounts that
+  replace the wallet-wide presets while it is selected, whether the provider's page opens at once,
+  and who sees it — customers with a given sign-in kind (Telegram, e-mail, VK ID, OIDC), only
+  before or only after their first paid top-up, or only some loyalty tiers.
+
+The same rules are applied in the bot and the web panel, and again on the server when a payment
+starts, so a hidden button cannot be pressed through a stale screen. Saved changes reach every
+process within thirty seconds.
+
 ## What every adapter shares
 
 - **Payer identity.** Omniflow passes the customer's own ID and, when the customer signed in with

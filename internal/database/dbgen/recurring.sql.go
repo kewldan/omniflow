@@ -473,7 +473,7 @@ func (q *Queries) ListDunningAttemptsForCustomer(ctx context.Context, arg ListDu
 }
 
 const listOpenIntentsForOrder = `-- name: ListOpenIntentsForOrder :many
-SELECT id, order_id, provider, status, amount_minor, currency, provider_reference, checkout_url, idempotency_key, capabilities, receipt_metadata, created_at, updated_at, save_method_consent_at FROM payment_intents
+SELECT id, order_id, provider, status, amount_minor, currency, provider_reference, checkout_url, idempotency_key, capabilities, receipt_metadata, created_at, updated_at, save_method_consent_at, method FROM payment_intents
 WHERE order_id = $1
   AND status NOT IN ('succeeded', 'failed', 'cancelled', 'expired', 'refunded')
 ORDER BY created_at DESC
@@ -507,6 +507,7 @@ func (q *Queries) ListOpenIntentsForOrder(ctx context.Context, orderID pgtype.UU
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.SaveMethodConsentAt,
+			&i.Method,
 		); err != nil {
 			return nil, err
 		}

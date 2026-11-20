@@ -74,17 +74,17 @@ func (app *App) topUpMethodScreen(ctx context.Context, session commerceContext, 
 			Keyboard: keyboard(row(callbackButton(text(session.Locale, "action.back"), routeTopUp))),
 		}
 	}
-	return topUpMethodView(session.Locale, amountMinor, currency, app.commerce.ExternalPaymentChoices(currency))
+	return topUpMethodView(session.Locale, amountMinor, currency, topUpChoices(app.commerce.VisibleChoices(ctx, session.Customer.ID, app.commerce.ExternalPaymentChoices(currency)), amountMinor))
 }
 
 // startTopUp creates the top-up order and its payment. Both steps are keyed on
 // the tap's idempotency key, so a redelivered callback or a second tap on the
 // same button reaches the same order rather than a second one.
 func (app *App) startTopUp(ctx context.Context, session commerceContext, provider string, amountMinor int64) View {
-	choices := app.commerce.ExternalPaymentChoices(app.settings.Currency)
+	choices := topUpChoices(app.commerce.VisibleChoices(ctx, session.Customer.ID, app.commerce.ExternalPaymentChoices(app.settings.Currency)), amountMinor)
 	offered := false
 	for _, choice := range choices {
-		if choice.Provider == provider {
+		if choiceKey(choice) == provider {
 			offered = true
 			break
 		}

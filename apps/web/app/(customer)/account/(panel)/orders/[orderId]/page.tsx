@@ -19,6 +19,11 @@ import {
   PaymentHandoff,
   RefundList,
 } from "@/components/account/commerce/order-status";
+import {
+  choiceKey,
+  splitChoiceKey,
+  useChoiceCopy,
+} from "@/components/account/commerce/payment-choice";
 import { OPERATIONS } from "@/components/account/commerce/plan-card";
 import { useProblemMessage } from "@/components/account/commerce/reasons";
 import type {
@@ -36,7 +41,6 @@ import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 import { useMoney } from "@/lib/format";
 import { useSubmission } from "@/lib/idempotency";
-import { providerKey } from "@/lib/payment-providers";
 import { useBoundedPolling, useRevalidateCommerce } from "@/lib/polling";
 
 /** Phases that are still moving, and so are worth re-reading on a timer. */
@@ -95,17 +99,21 @@ export default function OrderPage() {
   const [saveMethod, setSaveMethod] = useState(false);
 
   const choices = data?.paymentChoices ?? [];
-  const serverProvider = data?.payment?.provider || data?.preferredProvider || "";
+  const serverProvider = data?.payment
+    ? data.payment.method
+      ? `${data.payment.provider}.${data.payment.method}`
+      : data.payment.provider
+    : data?.preferredProvider || "";
   const urlProvider = search.get("provider") ?? "";
   useEffect(() => {
     if (chosenProvider) {
       return;
     }
     const candidate = serverProvider || urlProvider;
-    if (candidate && (choices.length === 0 || choices.some((c) => c.provider === candidate))) {
+    if (candidate && (choices.length === 0 || choices.some((c) => choiceKey(c) === candidate))) {
       setChosenProvider(candidate);
     } else if (choices.length === 1) {
-      setChosenProvider(choices[0].provider);
+      setChosenProvider(choiceKey(choices[0]));
     }
   }, [choices, chosenProvider, serverProvider, urlProvider]);
 
@@ -131,9 +139,9 @@ export default function OrderPage() {
   // Once an intent exists the order's own record wins, because it is what the
   // provider will actually settle against. Before that, the method is whatever
   // the customer chose from the server's list of what can settle this order.
-  const provider = data.payment?.provider || chosenProvider;
-  const saveable =
-    !data.payment && choices.some((choice) => choice.provider === provider && choice.canSaveMethod);
+  const provider = serverProvider && data.payment ? serverProvider : chosenProvider;
+  const chosenChoice = choices.find((choice) => choiceKey(choice) === provider);
+  const saveable = !data.payment && Boolean(chosenChoice?.canSaveMethod);
   const owes = data.externalMinor > 0;
   const payable = owes && CANCELLABLE.includes(data.state);
 
@@ -142,11 +150,17 @@ export default function OrderPage() {
     const idempotencyKey = payment.begin();
     try {
       const handle = await apiFetch<PaymentHandle>(`${key}/payment`, {
-        body: JSON.stringify({ provider, saveMethod: saveable && saveMethod }),
+        body: JSON.stringify({ ...splitChoiceKey(provider), saveMethod: saveable && saveMethod }),
         headers: { "Idempotency-Key": idempotencyKey },
         method: "POST",
       });
       payment.settle();
+      // The operator asked for this button to open the provider's page at
+      // once rather than showing the order screen with a link first.
+      if (chosenChoice?.openDirectly && handle.handoff === "hosted" && handle.checkoutUrl) {
+        window.location.assign(handle.checkoutUrl);
+        return;
+      }
       // The handoff is rendered from the order rather than from this response, so
       // the same panel appears on a reload. Re-reading is how it gets there.
       const fresh = await mutate();
@@ -378,26 +392,30 @@ function OrderMethodPicker({
 }) {
   const translate = useTranslations("account.commerce");
   const money = useMoney();
+  const copy = useChoiceCopy();
   return (
     <fieldset className="space-y-2">
       <legend className="sr-only">{translate("checkout.provider.title")}</legend>
       {choices.map((choice) => (
         <label
           className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 has-[:checked]:border-primary"
-          key={choice.provider}
+          key={choiceKey(choice)}
         >
           <input
-            checked={chosen === choice.provider}
+            checked={chosen === choiceKey(choice)}
             className="size-4 accent-[color:var(--primary)]"
             disabled={disabled}
             name="order-provider"
-            onChange={() => onChange(choice.provider)}
+            onChange={() => onChange(choiceKey(choice))}
             type="radio"
           />
           <span className="min-w-0 flex-1">
-            <span className="block font-medium text-[13.5px]">
-              {translate(`checkout.provider.names.${providerKey(choice.provider)}`)}
-            </span>
+            <span className="block font-medium text-[13.5px]">{copy(choice).label}</span>
+            {copy(choice).description && (
+              <span className="block text-[12px] text-muted-foreground">
+                {copy(choice).description}
+              </span>
+            )}
           </span>
           {choice.amountMinor !== undefined && (
             <span className="shrink-0 font-medium text-[13px]" data-numeric>

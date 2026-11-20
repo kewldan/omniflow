@@ -3,6 +3,7 @@ package accountcheckout
 import (
 	"context"
 	"errors"
+	"github.com/omniflow/omniflow/internal/payments"
 	"strings"
 	"time"
 
@@ -284,7 +285,8 @@ func (service *Service) chooseProvider(
 		return Session{}, err
 	}
 	for _, choice := range choices {
-		if choice.Provider != provider {
+		// The request names a button: the provider alone or provider.method.
+		if choice.Key != provider && (choice.Key != "" || choice.Provider != provider) {
 			continue
 		}
 		settlement := choice.Currency
@@ -456,7 +458,7 @@ func (service *Service) view(ctx context.Context, session Session, locale string
 	multi := service.orders.SubscriptionPolicy().MultiEnabled
 	return CheckoutView{
 		ID: session.ID, PlanVersionID: session.PlanVersionID, Plan: record.offer,
-		Operation: session.Operation, Currency: session.Currency, Provider: session.Provider,
+		Operation: session.Operation, Currency: session.Currency, Provider: payments.OptionKey(session.Provider, session.Method),
 		Providers: choices, ApplyWallet: session.ApplyWallet, Quote: quote,
 		PromoRejection: quote.PromoRejection,
 		SubscriptionID: session.SubscriptionID, NewSubscription: session.NewSubscription,
@@ -578,6 +580,10 @@ func (service *Service) StartOrderPaymentWith(
 	}
 	if provider == "" {
 		provider = order.Provider
+		if selection.Method == "" {
+			// Resuming the payment that exists presses the same button.
+			selection.Method = order.PaymentMethod
+		}
 	}
 	if provider == "" {
 		if provider, err = service.store.RecordedOrderProvider(ctx, customerID, orderID); err != nil {
@@ -587,7 +593,13 @@ func (service *Service) StartOrderPaymentWith(
 	if provider == "" {
 		return PaymentHandle{}, invalidInput("a payment method is required")
 	}
+	if recorded, method := payments.SplitOptionKey(provider); method != "" && selection.Method == "" {
+		provider, selection.Method = recorded, method
+	}
 	if err = service.ProviderSettles(provider, order.Currency); err != nil {
+		return PaymentHandle{}, err
+	}
+	if err = service.MethodAllowed(ctx, customerID, provider, selection.Method, order.ExternalMinor); err != nil {
 		return PaymentHandle{}, err
 	}
 	// Stars is refused, not merely hidden, for a customer the bot cannot
@@ -603,7 +615,7 @@ func (service *Service) StartOrderPaymentWith(
 	}
 	handle, err := service.StartPayment(ctx, PaymentRequest{
 		OrderID: order.ID, Provider: provider, Description: order.PlanName, Channel: "customer_web",
-		SaveMethod: selection.SaveMethod,
+		SaveMethod: selection.SaveMethod, Method: selection.Method,
 	})
 	if err != nil {
 		return PaymentHandle{}, err

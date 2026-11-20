@@ -35,6 +35,10 @@ type CreateRequest struct {
 	// ticked the consent on this very checkout; an adapter that cannot bind
 	// a method ignores it, and the checkout proceeds as an ordinary payment.
 	SavePaymentMethod bool
+	// Method is the provider method the customer chose, one of the adapter's
+	// Methods(). Empty is the adapter's default; an adapter ignores a method
+	// it does not know rather than guessing at one.
+	Method string
 }
 
 // BoundMethod is the reusable token a provider issued for an instrument the
@@ -189,6 +193,9 @@ func Options(providers map[string]Provider, order map[string]int) []commerce.Pay
 	}
 	return options
 }
+
+// SettlementCurrencies is the closed set of currencies Omniflow prices plans in.
+func SettlementCurrencies() []string { return append([]string(nil), settlementCurrencies...) }
 
 // settlementCurrencies is the closed set of currencies Omniflow prices plans in.
 // It exists so provider selection can enumerate compatibility without asking an

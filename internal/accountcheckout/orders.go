@@ -19,21 +19,23 @@ import (
 // a second tab, or a switch from the browser to the chat show the same progress:
 // the state lives in the database, not in a client that can be closed.
 type OrderSummary struct {
-	ID                string
-	State             commerce.OrderState
-	Operation         string
-	Currency          string
-	SubtotalMinor     int64
-	DiscountMinor     int64
-	WalletMinor       int64
-	ExternalMinor     int64
-	PaidMinor         int64
-	RefundedMinor     int64
-	CreatedAt         time.Time
-	ExpiresAt         time.Time
-	PlanName          string
-	PaymentIntentID   string
-	Provider          string
+	ID              string
+	State           commerce.OrderState
+	Operation       string
+	Currency        string
+	SubtotalMinor   int64
+	DiscountMinor   int64
+	WalletMinor     int64
+	ExternalMinor   int64
+	PaidMinor       int64
+	RefundedMinor   int64
+	CreatedAt       time.Time
+	ExpiresAt       time.Time
+	PlanName        string
+	PaymentIntentID string
+	Provider        string
+	// PaymentMethod is the provider method of the latest payment intent.
+	PaymentMethod     string
 	PaymentStatus     string
 	CheckoutURL       string
 	ReceiptURL        string
@@ -57,7 +59,8 @@ const orderColumns = `o.id::text, o.state, o.operation, o.currency, o.subtotal_m
 	COALESCE(pi.status, ''), COALESCE(pi.checkout_url, ''),
 	COALESCE(pi.receipt_metadata ->> 'receiptUrl', ''),
 	COALESCE(fo.status, ''), COALESCE(e.id::text, ''), COALESCE(o.subscription_id::text, ''),
-	COALESCE(fo.attempt_count, 0), COALESCE(fo.last_error_code, ''), fo.updated_at`
+	COALESCE(fo.attempt_count, 0), COALESCE(fo.last_error_code, ''), fo.updated_at,
+	COALESCE(pi.method, '')`
 
 // orderJoins reaches an order's plan, payment, entitlement, and provisioning.
 //
@@ -150,7 +153,7 @@ func scanOrder(row pgx.Row) (OrderSummary, error) {
 		&summary.RefundedMinor, &summary.CreatedAt, &expiresAt, &summary.PlanName,
 		&summary.PaymentIntentID, &summary.Provider, &summary.PaymentStatus, &summary.CheckoutURL,
 		&summary.ReceiptURL, &summary.FulfillmentStatus, &summary.EntitlementID, &summary.SubscriptionID,
-		&attempts, &summary.FulfillmentErrorCode, &fulfilledAt)
+		&attempts, &summary.FulfillmentErrorCode, &fulfilledAt, &summary.PaymentMethod)
 	if err != nil {
 		return OrderSummary{}, err
 	}

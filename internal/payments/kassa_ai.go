@@ -44,6 +44,10 @@ func buildKassaAI(settings Settings) (Provider, error) {
 		return nil, err
 	}
 	core.paymentSystemID = paymentSystemID
+	if core.methodOrder, core.methodIDs, err = parseMethodIDs("APP_KASSA_AI_PAYMENT_METHODS",
+		settings.String("APP_KASSA_AI_PAYMENT_METHODS"), map[string]int{"sbp": 44, "card": 36, "sberpay": 43}); err != nil {
+		return nil, err
+	}
 	core.serverIP = required["APP_KASSA_AI_SERVER_IP"]
 	// The notification URL travels with each order when the installation has a
 	// public origin, as Bedolaga did; otherwise the one set in the merchant
@@ -62,6 +66,9 @@ func (provider *KassaAI) Capabilities() Capabilities {
 func (provider *KassaAI) SupportsCurrency(currency string) bool {
 	return provider.core.supportsCurrency(currency)
 }
+
+// Methods lists the payment systems shown as separate buttons.
+func (provider *KassaAI) Methods() []string { return provider.core.methodOrder }
 
 func (provider *KassaAI) Create(ctx context.Context, request CreateRequest) (Intent, error) {
 	if !provider.core.supportsCurrency(request.Amount.Currency) {

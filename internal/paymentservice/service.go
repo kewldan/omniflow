@@ -27,6 +27,7 @@ type Service struct {
 	metrics   *platform.Metrics
 	clock     func() time.Time
 	contacts  ContactResolver
+	options   optionCache
 }
 
 // ContactResolver opens a customer's verified contact. It is customerpg's
@@ -130,6 +131,9 @@ type CreateIntentInput struct {
 	// method is bound. Callers include it in the idempotency key, because a
 	// payment opened with consent is a different request from one without.
 	SaveMethod bool
+	// Method is the provider method the customer chose; empty is the
+	// adapter's default. It is stored on the intent and sent to the adapter.
+	Method string
 }
 
 func (service *Service) CreateIntent(ctx context.Context, input CreateIntentInput) (dbgen.PaymentIntent, error) {
@@ -199,7 +203,7 @@ func (service *Service) CreateIntent(ctx context.Context, input CreateIntentInpu
 		return dbgen.PaymentIntent{}, existingErr
 	}
 	if errors.Is(existingErr, pgx.ErrNoRows) {
-		intent, err = queries.CreatePaymentIntent(ctx, dbgen.CreatePaymentIntentParams{OrderID: orderID, Provider: provider.Name(), Status: "processing", AmountMinor: amount.Amount, Currency: amount.Currency, IdempotencyKey: input.IdempotencyKey, Capabilities: capabilities, ReceiptMetadata: receipt, SaveMethodConsentAt: consentAt})
+		intent, err = queries.CreatePaymentIntent(ctx, dbgen.CreatePaymentIntentParams{OrderID: orderID, Provider: provider.Name(), Status: "processing", AmountMinor: amount.Amount, Currency: amount.Currency, IdempotencyKey: input.IdempotencyKey, Capabilities: capabilities, ReceiptMetadata: receipt, SaveMethodConsentAt: consentAt, Method: input.Method})
 		if err != nil {
 			return dbgen.PaymentIntent{}, err
 		}
@@ -214,6 +218,7 @@ func (service *Service) CreateIntent(ctx context.Context, input CreateIntentInpu
 		}
 	}
 	input.SaveMethod = intent.SaveMethodConsentAt.Valid
+	input.Method = intent.Method
 	payer := payerMetadata(ctx, queries, order.UserID)
 	service.payerContact(ctx, provider, payer)
 	created, err := service.submit(ctx, provider, input, amount, payer)
@@ -341,7 +346,7 @@ func (service *Service) submit(
 		return provider.Create(ctx, payments.CreateRequest{
 			OrderID: input.OrderID, IdempotencyKey: input.IdempotencyKey, Amount: amount,
 			Description: input.Description, ReturnURL: input.ReturnURL,
-			Metadata: metadata, SavePaymentMethod: input.SaveMethod,
+			Metadata: metadata, SavePaymentMethod: input.SaveMethod, Method: input.Method,
 		})
 	}
 	charger, ok := provider.(payments.RecurringCharger)
