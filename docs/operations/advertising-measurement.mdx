@@ -97,8 +97,10 @@ regardless of consent. A verification tag that only appeared after somebody
 consented would verify nothing — the thing fetching the page is a tool, not a
 person who can consent.
 
-Four are supported: `google-site-verification`, `yandex-verification`,
-`msvalidate.01`, and `facebook-domain-verification`. The name comes from that
+Five are supported: `google-site-verification`, `yandex-verification`,
+`msvalidate.01`, `facebook-domain-verification`, and `apay-tag` — Antilopay's Apple Pay domain
+check, which the web app also serves as plain text at `/apay-meta-file.txt` for the file-based
+variant of that check. The name comes from that
 allowlist and the content must be an opaque token; "any meta tag an operator
 wants" is a much larger feature than "prove you own this domain".
 

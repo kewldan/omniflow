@@ -103,13 +103,16 @@ var verificationNames = map[string]bool{
 	"yandex-verification":          true,
 	"msvalidate.01":                true,
 	"facebook-domain-verification": true,
+	// Antilopay checks Apple Pay domain ownership with this tag, and with
+	// the same value served at /apay-meta-file.txt by the web app.
+	"apay-tag": true,
 }
 
 // verificationToken is what a webmaster tool issues: an opaque token. None of
 // them contain a quote, a space, or a bracket.
 var verificationToken = regexp.MustCompile(`^[A-Za-z0-9_.=-]{8,128}$`)
 
-// maxVerifications bounds the head. Four tools are supported and an
+// maxVerifications bounds the head. Five tools are supported and an
 // installation needs at most one tag each; the limit is generous rather than
 // tight because the cost of a wrong guess is an operator who cannot add a tag.
 const maxVerifications = 8
