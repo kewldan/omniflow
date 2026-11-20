@@ -158,6 +158,12 @@ func giftClaimedView(locale Locale, claimed ClaimedGift) View {
 			row(callbackButton(text(locale, "menu.subs"), routeSubscriptions)),
 			row(callbackButton(text(locale, "action.menu"), routeHome)),
 		)}
+	case commercepg.RewardSquadAccess:
+		body += "\n\n" + text(locale, "gift.claimedSquad", formatDate(claimed.EndsAt))
+		return View{Text: body, Keyboard: keyboard(
+			row(callbackButton(text(locale, "menu.subs"), routeSubscriptions)),
+			row(callbackButton(text(locale, "action.menu"), routeHome)),
+		)}
 	case commercepg.RewardLoyaltyTier:
 		body += "\n\n" + text(locale, "gift.claimedTier")
 		return View{Text: body, Keyboard: keyboard(row(callbackButton(text(locale, "action.menu"), routeHome)))}

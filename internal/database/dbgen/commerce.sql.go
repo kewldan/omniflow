@@ -910,11 +910,11 @@ func (q *Queries) CreatePromoCode(ctx context.Context, arg CreatePromoCodeParams
 const createPromotion = `-- name: CreatePromotion :one
 INSERT INTO promotions (
   code, kind, value, currency, starts_at, ends_at, redemption_limit,
-  per_customer_limit, eligibility, active, credit_minor, tier_code
+  per_customer_limit, eligibility, active, credit_minor, tier_code, squad_id
 )
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, $11, $12)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, $11, $12, $13)
 ON CONFLICT (code) DO UPDATE SET code = EXCLUDED.code
-RETURNING id, code, kind, value, currency, starts_at, ends_at, redemption_limit, per_customer_limit, eligibility, active, created_at, stackable, precedence, applies_to, credit_minor, tier_code
+RETURNING id, code, kind, value, currency, starts_at, ends_at, redemption_limit, per_customer_limit, eligibility, active, created_at, stackable, precedence, applies_to, credit_minor, tier_code, squad_id
 `
 
 type CreatePromotionParams struct {
@@ -930,6 +930,7 @@ type CreatePromotionParams struct {
 	Active           bool               `json:"active"`
 	CreditMinor      pgtype.Int8        `json:"credit_minor"`
 	TierCode         pgtype.Text        `json:"tier_code"`
+	SquadID          pgtype.UUID        `json:"squad_id"`
 }
 
 func (q *Queries) CreatePromotion(ctx context.Context, arg CreatePromotionParams) (Promotion, error) {
@@ -946,6 +947,7 @@ func (q *Queries) CreatePromotion(ctx context.Context, arg CreatePromotionParams
 		arg.Active,
 		arg.CreditMinor,
 		arg.TierCode,
+		arg.SquadID,
 	)
 	var i Promotion
 	err := row.Scan(
@@ -966,6 +968,7 @@ func (q *Queries) CreatePromotion(ctx context.Context, arg CreatePromotionParams
 		&i.AppliesTo,
 		&i.CreditMinor,
 		&i.TierCode,
+		&i.SquadID,
 	)
 	return i, err
 }
@@ -1789,7 +1792,7 @@ func (q *Queries) GetPlanVersionGracePeriod(ctx context.Context, id pgtype.UUID)
 const getPromoForRedemption = `-- name: GetPromoForRedemption :one
 SELECT pc.id, pc.promotion_id, pc.normalized_code, pc.redemption_limit, pc.active, pc.created_at, p.kind, p.value, p.currency, p.starts_at, p.ends_at,
        p.redemption_limit AS promotion_redemption_limit, p.per_customer_limit, p.eligibility,
-       p.applies_to, p.credit_minor, p.tier_code
+       p.applies_to, p.credit_minor, p.tier_code, p.squad_id AS squad_id
 FROM promo_codes pc
 JOIN promotions p ON p.id = pc.promotion_id
 WHERE pc.normalized_code = $1 AND pc.active AND p.active
@@ -1814,6 +1817,7 @@ type GetPromoForRedemptionRow struct {
 	AppliesTo                string             `json:"applies_to"`
 	CreditMinor              pgtype.Int8        `json:"credit_minor"`
 	TierCode                 pgtype.Text        `json:"tier_code"`
+	SquadID                  pgtype.UUID        `json:"squad_id"`
 }
 
 func (q *Queries) GetPromoForRedemption(ctx context.Context, normalizedCode string) (GetPromoForRedemptionRow, error) {
@@ -1837,6 +1841,7 @@ func (q *Queries) GetPromoForRedemption(ctx context.Context, normalizedCode stri
 		&i.AppliesTo,
 		&i.CreditMinor,
 		&i.TierCode,
+		&i.SquadID,
 	)
 	return i, err
 }

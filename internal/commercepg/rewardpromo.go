@@ -12,6 +12,7 @@ import (
 	"github.com/omniflow/omniflow/internal/commerce"
 	databaseutil "github.com/omniflow/omniflow/internal/database"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
+	"github.com/omniflow/omniflow/internal/fulfillment"
 )
 
 // Reward promo kinds: codes redeemed on their own rather than at checkout.
@@ -25,6 +26,9 @@ const (
 	RewardTraffic = "traffic"
 	// RewardLoyaltyTier grants a loyalty group for a number of days.
 	RewardLoyaltyTier = "loyalty_tier"
+	// RewardSquadAccess grants temporary access to one squad for a number of
+	// hours.
+	RewardSquadAccess = "squad_access"
 )
 
 var (
@@ -47,6 +51,9 @@ type RedeemedReward struct {
 	// loyalty code granted.
 	TrafficBytes int64
 	TierCode     string
+	// Hours is how long a squad access code grants its squad; EndsAt is
+	// then when that access ends.
+	Hours int
 }
 
 // RedeemRewardPromo applies a promo code that rewards on its own — days added
@@ -93,7 +100,7 @@ func (store *Store) redeemRewardPromo(ctx context.Context, normalized string, us
 		return RedeemedReward{}, err
 	}
 	switch promo.Kind {
-	case RewardWalletCredit, RewardDays, RewardTrial, RewardBalanceDays, RewardTraffic, RewardLoyaltyTier:
+	case RewardWalletCredit, RewardDays, RewardTrial, RewardBalanceDays, RewardTraffic, RewardLoyaltyTier, RewardSquadAccess:
 	default:
 		return RedeemedReward{}, ErrPromoNotReward
 	}
@@ -148,6 +155,34 @@ func (store *Store) redeemRewardPromo(ctx context.Context, normalized string, us
 		reward.TrafficBytes = bytes
 		if _, err = queries.InsertPromoRedemption(ctx, dbgen.InsertPromoRedemptionParams{
 			PromoCodeID: promo.ID, PromotionID: promo.PromotionID, UserID: userID, OrderID: orderID,
+		}); err != nil {
+			return RedeemedReward{}, err
+		}
+	case RewardSquadAccess:
+		entitlement, liveErr := queries.GetLiveEntitlementForReward(ctx, userID)
+		if errors.Is(liveErr, pgx.ErrNoRows) {
+			return RedeemedReward{}, ErrPromoNotApplicable
+		}
+		if liveErr != nil {
+			return RedeemedReward{}, liveErr
+		}
+		order, orderErr := store.rewardOrder(ctx, queries, userID, store.rewardCurrency(ctx, userID, ""), key, entitlement.SubscriptionID)
+		if orderErr != nil {
+			return RedeemedReward{}, orderErr
+		}
+		grant, grantErr := fulfillment.GrantSquadAccessTx(ctx, tx, queries, fulfillment.InsertJob(store.enqueue), now, fulfillment.SquadGrantInput{
+			CustomerID: userID, SubscriptionID: entitlement.SubscriptionID, SquadID: uuidString(promo.SquadID),
+			Hours: int(promo.Value), Source: "promo", OrderID: order.ID, IdempotencyKey: key,
+		})
+		if errors.Is(grantErr, fulfillment.ErrSquadGrantUnavailable) || errors.Is(grantErr, fulfillment.ErrSquadGrantInvalid) {
+			return RedeemedReward{}, ErrPromoNotApplicable
+		}
+		if grantErr != nil {
+			return RedeemedReward{}, grantErr
+		}
+		reward.Hours, reward.EndsAt = int(promo.Value), grant.EndsAt.Time
+		if _, err = queries.InsertPromoRedemption(ctx, dbgen.InsertPromoRedemptionParams{
+			PromoCodeID: promo.ID, PromotionID: promo.PromotionID, UserID: userID, OrderID: order.ID,
 		}); err != nil {
 			return RedeemedReward{}, err
 		}

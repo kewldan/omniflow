@@ -13,7 +13,7 @@ import { type ApiError, apiFetch } from "@/lib/api";
 import { useMoney } from "@/lib/format";
 
 type Redeemed = {
-  kind: "subscription" | "wallet_credit" | "traffic" | "loyalty_tier";
+  kind: "subscription" | "wallet_credit" | "traffic" | "loyalty_tier" | "squad_access";
   endsAt?: string;
   creditMinor?: number;
   currency?: string;
@@ -37,6 +37,10 @@ function redeemedMessage(
       });
     case "loyalty_tier":
       return translate("tier");
+    case "squad_access":
+      return translate("squad", {
+        until: result.endsAt ? new Date(result.endsAt).toLocaleString() : "",
+      });
     default:
       return result.creditMinor && result.currency
         ? translate("extendedAndCredited", { amount: money(result.creditMinor, result.currency) })

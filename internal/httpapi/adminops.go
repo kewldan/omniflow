@@ -224,6 +224,7 @@ func (handlers *AdminHandlers) mountOperations(secure chi.Router) {
 	})
 
 	handlers.mountSubscriptionOperations(secure)
+	handlers.mountSquadAccess(secure)
 	handlers.mountSubscriptionSync(secure)
 
 	// -- Bulk actions --------------------------------------------------------

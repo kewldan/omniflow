@@ -1848,6 +1848,59 @@ paths:
         "200": {description: Updated, content: {application/json: {schema: {$ref: "#/components/schemas/PanelInfoPage"}}}}
         "403": {$ref: "#/components/responses/Problem"}
         "404": {$ref: "#/components/responses/Problem"}
+  /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/squad-access:
+    get:
+      operationId: listPanelSquadAccess
+      tags: [panel]
+      description: Requires subscriptions.read. The subscription's recent temporary squad grants.
+      parameters:
+        - {in: path, name: customerID, required: true, schema: {type: string, format: uuid}}
+        - {in: path, name: subscriptionID, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200": {description: Grants, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSquadGrantList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+    post:
+      operationId: grantPanelSquadAccess
+      tags: [panel]
+      description: >-
+        Requires subscriptions.write and an operator reason. Opens one squad on
+        the subscription for 1 to 720 hours, on top of what it holds, through
+        the fulfillment pipeline; the worker takes it back when the hours are
+        up. 409 when the subscription has no running period.
+      parameters:
+        - {in: path, name: customerID, required: true, schema: {type: string, format: uuid}}
+        - {in: path, name: subscriptionID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [squadId, hours]
+              properties:
+                squadId: {type: string, format: uuid}
+                hours: {type: integer, minimum: 1, maximum: 720}
+      responses:
+        "202": {description: Granted, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSquadGrant"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/squad-access/{grantID}:
+    delete:
+      operationId: revokePanelSquadAccess
+      tags: [panel]
+      description: Requires subscriptions.write and an operator reason. Takes a grant back before its hours are up.
+      parameters:
+        - {in: path, name: customerID, required: true, schema: {type: string, format: uuid}}
+        - {in: path, name: subscriptionID, required: true, schema: {type: string, format: uuid}}
+        - {in: path, name: grantID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "202": {description: Revoked, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSquadGrant"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
   /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/pause:
     post:
       operationId: pausePanelSubscription
@@ -4679,7 +4732,7 @@ paths:
                 type: object
                 required: [kind]
                 properties:
-                  kind: {type: string, enum: [subscription, wallet_credit, traffic, loyalty_tier]}
+                  kind: {type: string, enum: [subscription, wallet_credit, traffic, loyalty_tier, squad_access]}
                   endsAt: {type: string, format: date-time}
                   creditMinor: {type: integer, format: int64, description: "Wallet credit, including the credit half of a balance-and-days code."}
                   trafficBytes: {type: integer, format: int64}
@@ -7355,10 +7408,11 @@ components:
       properties:
         code: {type: string, pattern: "^[a-z][a-z0-9_-]{1,63}$"}
         kind: {$ref: "#/components/schemas/PanelPromotionKind"}
-        value: {type: integer, format: int64, minimum: 1, description: "Basis points for percent; minor units for fixed and wallet_credit; days for days, trial, balance_days, and loyalty_tier; gigabytes for traffic."}
+        value: {type: integer, format: int64, minimum: 1, description: "Basis points for percent; minor units for fixed and wallet_credit; days for days, trial, balance_days, and loyalty_tier; gigabytes for traffic; hours (at most 720) for squad_access."}
         currency: {type: string, pattern: "^[A-Z]{3}$"}
         creditMinor: {type: integer, format: int64, description: Wallet part of a balance_days code.}
         tierCode: {type: string, description: Group a loyalty_tier code grants.}
+        squadId: {type: string, format: uuid, description: "Squad a squad_access code opens for value hours."}
         startsAt: {type: string, format: date-time}
         endsAt: {type: string, format: date-time}
         redemptionLimit: {type: integer, minimum: 1}
@@ -7366,9 +7420,24 @@ components:
         planIds: {type: array, items: {type: string, format: uuid}}
         codes: {type: array, minItems: 1, items: {type: string}}
         active: {type: boolean}
+    PanelSquadGrant:
+      type: object
+      required: [id, squadId, source, status, startsAt, endsAt]
+      properties:
+        id: {type: string, format: uuid}
+        squadId: {type: string, format: uuid}
+        source: {type: string, enum: [operator, promo]}
+        status: {type: string, enum: [active, ended, revoked]}
+        startsAt: {type: string, format: date-time}
+        endsAt: {type: string, format: date-time}
+    PanelSquadGrantList:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/PanelSquadGrant"}}
     PanelPromotionKind:
       type: string
-      enum: [percent, fixed, wallet_credit, days, trial, balance_days, traffic, loyalty_tier]
+      enum: [percent, fixed, wallet_credit, days, trial, balance_days, traffic, loyalty_tier, squad_access]
     PanelPromotion:
       type: object
       required: [id, code, kind, value, active, stackable, precedence, perCustomerLimit, redemptionCount, discountMinor, createdAt]

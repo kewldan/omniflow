@@ -625,7 +625,6 @@ type BotCheckoutSession struct {
 	SelectedSquadIds []pgtype.UUID      `json:"selected_squad_ids"`
 	PeriodDays       pgtype.Int4        `json:"period_days"`
 	PaymentMethod    string             `json:"payment_method"`
-	TrafficGb        pgtype.Int4        `json:"traffic_gb"`
 }
 
 type BotDeliveryState struct {
@@ -1845,7 +1844,6 @@ type Order struct {
 	LoyaltyDiscountMinor int64              `json:"loyalty_discount_minor"`
 	LoyaltyTierCode      pgtype.Text        `json:"loyalty_tier_code"`
 	PeriodSeconds        pgtype.Int8        `json:"period_seconds"`
-	TrafficGb            pgtype.Int4        `json:"traffic_gb"`
 }
 
 type OrderAddonLine struct {
@@ -2128,10 +2126,6 @@ type PlanVersion struct {
 	TrafficResetPriceBps  pgtype.Int4        `json:"traffic_reset_price_bps"`
 	CustomDaysMin         pgtype.Int4        `json:"custom_days_min"`
 	CustomDaysMax         pgtype.Int4        `json:"custom_days_max"`
-	CustomTrafficMinGb    pgtype.Int4        `json:"custom_traffic_min_gb"`
-	CustomTrafficMaxGb    pgtype.Int4        `json:"custom_traffic_max_gb"`
-	TrafficMode           string             `json:"traffic_mode"`
-	DailyBilling          bool               `json:"daily_billing"`
 }
 
 type PlanVersionAddon struct {
@@ -2140,12 +2134,6 @@ type PlanVersionAddon struct {
 }
 
 type PlanVersionDayPrice struct {
-	PlanVersionID pgtype.UUID `json:"plan_version_id"`
-	Currency      string      `json:"currency"`
-	AmountMinor   int64       `json:"amount_minor"`
-}
-
-type PlanVersionGbPrice struct {
 	PlanVersionID pgtype.UUID `json:"plan_version_id"`
 	Currency      string      `json:"currency"`
 	AmountMinor   int64       `json:"amount_minor"`
@@ -2166,13 +2154,6 @@ type PlanVersionSquad struct {
 	LabelRu       string      `json:"label_ru"`
 	LabelEn       string      `json:"label_en"`
 	SortOrder     int32       `json:"sort_order"`
-}
-
-type PlanVersionTrafficPackage struct {
-	PlanVersionID pgtype.UUID `json:"plan_version_id"`
-	TrafficGb     int32       `json:"traffic_gb"`
-	Currency      string      `json:"currency"`
-	AmountMinor   int64       `json:"amount_minor"`
 }
 
 type Poll struct {
@@ -2235,6 +2216,7 @@ type Promotion struct {
 	AppliesTo   string      `json:"applies_to"`
 	CreditMinor pgtype.Int8 `json:"credit_minor"`
 	TierCode    pgtype.Text `json:"tier_code"`
+	SquadID     pgtype.UUID `json:"squad_id"`
 }
 
 type PromotionGood struct {
@@ -2581,34 +2563,21 @@ type SelfEmployedSetting struct {
 	UpdatedBy          pgtype.UUID        `json:"updated_by"`
 }
 
-type ServerCatalog struct {
-	SquadID       pgtype.UUID        `json:"squad_id"`
-	NameRu        string             `json:"name_ru"`
-	NameEn        string             `json:"name_en"`
-	CountryCode   pgtype.Text        `json:"country_code"`
-	MaxUsers      pgtype.Int4        `json:"max_users"`
-	TrialEligible bool               `json:"trial_eligible"`
-	SortOrder     int32              `json:"sort_order"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
-	UpdatedBy     pgtype.UUID        `json:"updated_by"`
-}
-
-type ServerCatalogPrice struct {
-	SquadID     pgtype.UUID `json:"squad_id"`
-	Currency    string      `json:"currency"`
-	AmountMinor int64       `json:"amount_minor"`
-}
-
-type SimpleSubscription struct {
-	Singleton      bool               `json:"singleton"`
-	Enabled        bool               `json:"enabled"`
-	PlanID         pgtype.UUID        `json:"plan_id"`
-	PeriodDays     pgtype.Int4        `json:"period_days"`
-	TrafficGb      pgtype.Int4        `json:"traffic_gb"`
-	DeviceAddonID  pgtype.UUID        `json:"device_addon_id"`
-	DeviceQuantity int32              `json:"device_quantity"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
-	UpdatedBy      pgtype.UUID        `json:"updated_by"`
+type SquadAccessGrant struct {
+	ID             pgtype.UUID        `json:"id"`
+	UserID         pgtype.UUID        `json:"user_id"`
+	SubscriptionID pgtype.UUID        `json:"subscription_id"`
+	SquadID        pgtype.UUID        `json:"squad_id"`
+	Source         string             `json:"source"`
+	GrantedBy      pgtype.UUID        `json:"granted_by"`
+	OrderID        pgtype.UUID        `json:"order_id"`
+	Reason         pgtype.Text        `json:"reason"`
+	IdempotencyKey string             `json:"idempotency_key"`
+	StartsAt       pgtype.Timestamptz `json:"starts_at"`
+	EndsAt         pgtype.Timestamptz `json:"ends_at"`
+	Status         string             `json:"status"`
+	EndedAt        pgtype.Timestamptz `json:"ended_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
 type StarsQuote struct {

@@ -30,7 +30,9 @@ type NewPromotion struct {
 	// CreditMinor is the wallet part of a balance_days code.
 	CreditMinor int64 `json:"creditMinor,omitempty"`
 	// TierCode is the group a loyalty_tier code grants.
-	TierCode        string     `json:"tierCode,omitempty"`
+	TierCode string `json:"tierCode,omitempty"`
+	// SquadID is the squad a squad_access code grants for value hours.
+	SquadID         string     `json:"squadId,omitempty"`
 	StartsAt        *time.Time `json:"startsAt,omitempty"`
 	EndsAt          *time.Time `json:"endsAt,omitempty"`
 	RedemptionLimit *int32     `json:"redemptionLimit,omitempty"`
@@ -44,7 +46,7 @@ type NewPromotion struct {
 
 var promotionKinds = map[string]bool{
 	"percent": true, "fixed": true, "wallet_credit": true, "days": true, "trial": true,
-	"traffic": true, "balance_days": true, "loyalty_tier": true,
+	"traffic": true, "balance_days": true, "loyalty_tier": true, "squad_access": true,
 }
 
 // validate refuses what the CHECK constraints would refuse, so the operator
@@ -78,6 +80,13 @@ func (promotion NewPromotion) validate() error {
 		if promotion.Value > 100000 {
 			return ErrValidaton
 		}
+	case "squad_access":
+		if promotion.Value > 720 {
+			return ErrValidaton
+		}
+	}
+	if (promotion.Kind == "squad_access") != optionalUUID(promotion.SquadID).Valid {
+		return ErrValidaton
 	}
 	if (promotion.Kind == "loyalty_tier") != (promotion.TierCode != "") {
 		return ErrValidaton
@@ -111,6 +120,7 @@ func (service *Service) CreatePromotion(ctx context.Context, promotion NewPromot
 			Active:      promotion.Active,
 			CreditMinor: pgtype.Int8{Int64: promotion.CreditMinor, Valid: promotion.Kind == "balance_days"},
 			TierCode:    optionalText(promotion.TierCode),
+			SquadID:     optionalUUID(promotion.SquadID),
 		})
 		if txErr != nil {
 			return rejected(txErr)

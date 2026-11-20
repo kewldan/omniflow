@@ -54,6 +54,9 @@ func (service *Service) RedeemCode(ctx context.Context, customerID, code string)
 		return RedeemedCode{Kind: "traffic", TrafficBytes: reward.TrafficBytes}, nil
 	case commercepg.RewardLoyaltyTier:
 		return RedeemedCode{Kind: "loyalty_tier"}, nil
+	case commercepg.RewardSquadAccess:
+		endsAt := reward.EndsAt
+		return RedeemedCode{Kind: "squad_access", EndsAt: &endsAt}, nil
 	}
 	endsAt := reward.EndsAt
 	return RedeemedCode{Kind: "subscription", EndsAt: &endsAt, CreditMinor: reward.CreditMinor, Currency: reward.Currency}, nil

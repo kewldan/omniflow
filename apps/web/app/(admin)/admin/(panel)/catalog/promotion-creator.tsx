@@ -15,6 +15,8 @@ import useSWR from "swr";
 import { type ApiError, fetcher } from "@/lib/api";
 import { type Listing, type PlanSummary, useOperatorAction } from "@/lib/operations";
 
+import { SquadPicker } from "./squad-picker";
+
 /** Reward kinds the API accepts, discounts first. */
 const KINDS = [
   "percent",
@@ -25,6 +27,7 @@ const KINDS = [
   "traffic",
   "balance_days",
   "loyalty_tier",
+  "squad_access",
 ] as const;
 type Kind = (typeof KINDS)[number];
 
@@ -46,6 +49,7 @@ export function PromotionCreator({ onCreated }: { onCreated: () => void }) {
     currency: useId(),
     credit: useId(),
     tier: useId(),
+    squad: useId(),
     perCustomer: useId(),
     limit: useId(),
     starts: useId(),
@@ -57,6 +61,7 @@ export function PromotionCreator({ onCreated }: { onCreated: () => void }) {
     fetcher,
   );
   const [kind, setKind] = useState<Kind>("percent");
+  const [squad, setSquad] = useState("");
   const [form, setForm] = useState({
     code: "",
     value: "",
@@ -96,6 +101,7 @@ export function PromotionCreator({ onCreated }: { onCreated: () => void }) {
             ? Math.round((Number(form.credit.replace(",", ".")) || 0) * 100)
             : undefined,
         tierCode: kind === "loyalty_tier" ? form.tier.trim().toLowerCase() : undefined,
+        squadId: kind === "squad_access" && squad ? squad : undefined,
         perCustomerLimit: Number(form.perCustomer) || 1,
         redemptionLimit: form.limit ? Number(form.limit) : undefined,
         startsAt: form.starts ? new Date(form.starts).toISOString() : undefined,
@@ -188,6 +194,17 @@ export function PromotionCreator({ onCreated }: { onCreated: () => void }) {
                   onChange={(event) => set({ tier: event.target.value })}
                   placeholder="vip"
                   value={form.tier}
+                />
+              </div>
+            )}
+            {kind === "squad_access" && (
+              <div className="flex flex-col gap-1">
+                <Label htmlFor={ids.squad}>{translate("squad")}</Label>
+                <SquadPicker
+                  control={{ id: ids.squad, "aria-invalid": false }}
+                  multiple={false}
+                  onChange={(next) => setSquad(next[0] ?? "")}
+                  value={squad ? [squad] : []}
                 />
               </div>
             )}

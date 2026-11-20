@@ -332,6 +332,8 @@ function describeReward(
       return translate("reward.balanceDays", { value: promotion.value });
     case "loyalty_tier":
       return translate("reward.loyaltyTier", { value: promotion.value });
+    case "squad_access":
+      return translate("reward.squadAccess", { value: promotion.value });
     default:
       return promotion.kind;
   }

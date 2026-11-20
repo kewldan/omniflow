@@ -288,7 +288,7 @@ A `promotions` row is the campaign, not the redeemable code. It carries a lowerc
 ### Reward kinds
 
 `promotions_kind_known` allows `percent`, `fixed`, `wallet_credit`, `days`, `trial`, `balance_days`,
-`traffic`, and `loyalty_tier`.
+`traffic`, `loyalty_tier`, and `squad_access`.
 
 | Kind | Value means | Where it applies |
 | --- | --- | --- |
@@ -300,6 +300,7 @@ A `promotions` row is the campaign, not the redeemable code. It carries a lowerc
 | `balance_days` | Days, at most 3650, plus `credit_minor` in the promotion's currency | On its own |
 | `traffic` | Gigabytes added to the current period, at most 100 000 | On its own |
 | `loyalty_tier` | Days the loyalty group named by `tier_code` is held, at most 3650 | On its own |
+| `squad_access` | Hours the squad named by `squad_id` is open, 1–720 | On its own |
 
 `percent` and `fixed` are discounts and apply on the checkout screen. The three reward kinds work the
 way Bedolaga's promo codes do: the customer enters the code under **🔑 Redeem a code** in the bot or
@@ -319,6 +320,10 @@ once, through a zero-amount order of operation `code` so it shows in the order h
   than spending the code on nothing.
 - `loyalty_tier` grants the loyalty group (`loyalty_memberships`, source `promo_code`) until that
   many days from now; a group held already keeps the later of the two expiries.
+- `squad_access` opens the squad on the customer's live subscription for that many hours, as
+  [temporary squad access](/commerce/fulfillment#temporary-squad-access) from the customer card
+  does. A customer with no running period is refused. In the promotion editor the squad is picked
+  by name from the panel's list.
 
 A code can also arrive in a link: `https://t.me/<bot>?start=coupon_<code>` redeems it the moment the
 customer opens the bot, with the same rules and the same confirmation as typing it.

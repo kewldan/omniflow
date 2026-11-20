@@ -285,6 +285,8 @@ func (service *Commerce) ClaimGift(
 		return ClaimedGift{Kind: commercepg.RewardTraffic, TrafficBytes: reward.TrafficBytes}, nil
 	case commercepg.RewardLoyaltyTier:
 		return ClaimedGift{Kind: commercepg.RewardLoyaltyTier, TierCode: reward.TierCode}, nil
+	case commercepg.RewardSquadAccess:
+		return ClaimedGift{Kind: commercepg.RewardSquadAccess, EndsAt: reward.EndsAt}, nil
 	}
 	// Days, a trial, or days with wallet credit.
 	return ClaimedGift{Kind: gifts.KindSubscription, EndsAt: reward.EndsAt, CreditMinor: reward.CreditMinor, Currency: reward.Currency}, nil

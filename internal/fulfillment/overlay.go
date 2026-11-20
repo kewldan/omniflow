@@ -29,7 +29,8 @@ type limitedOverlay struct {
 // do not push a state at all.
 func overlaid(operation string) bool {
 	switch operation {
-	case "create", "extend", "set_limits", "set_squads", "reconcile", "resume", "limit_access", "restore_access":
+	case "create", "extend", "set_limits", "set_squads", "reconcile", "resume", "limit_access", "restore_access",
+		"grant_squad", "revoke_squad":
 		return true
 	default:
 		return false
@@ -93,7 +94,9 @@ const LimitedAccessInterval = time.Minute
 // limitedAccessBatch bounds one pass.
 const limitedAccessBatch = 200
 
-// LimitedAccess opens a limited access period for every subscription that has
+// LimitedAccess is the worker's once-a-minute access pass. It ends temporary
+// squad grants whose hours are up and that no scheduled operation ended, and
+// it opens a limited access period for every subscription that has
 // just expired or run out of traffic while the installation offers one, and
 // closes periods nobody closed. Opening is one transaction per subscription:
 // the period, the `limit_access` operation that applies it, and the
@@ -101,6 +104,9 @@ const limitedAccessBatch = 200
 func (scheduler *Scheduler) LimitedAccess(ctx context.Context) error {
 	queries := dbgen.New(scheduler.pool)
 	if _, err := queries.EndStaleLimitedAccess(ctx); err != nil {
+		return err
+	}
+	if err := scheduler.endExpiredGrants(ctx); err != nil {
 		return err
 	}
 	candidates, err := queries.ListLimitedAccessCandidates(ctx, limitedAccessBatch)

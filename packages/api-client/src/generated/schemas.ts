@@ -3334,16 +3334,18 @@ export const CreatePanelPromotionBody = zod.object({
     "balance_days",
     "traffic",
     "loyalty_tier",
+    "squad_access",
   ]),
   value: zod
     .int()
     .min(1)
     .describe(
-      "Basis points for percent; minor units for fixed and wallet_credit; days for days, trial, balance_days, and loyalty_tier; gigabytes for traffic.",
+      "Basis points for percent; minor units for fixed and wallet_credit; days for days, trial, balance_days, and loyalty_tier; gigabytes for traffic; hours (at most 720) for squad_access.",
     ),
   currency: zod.string().regex(createPanelPromotionBodyCurrencyRegExp).optional(),
   creditMinor: zod.int().optional().describe("Wallet part of a balance_days code."),
   tierCode: zod.string().optional().describe("Group a loyalty_tier code grants."),
+  squadId: zod.uuid().optional().describe("Squad a squad_access code opens for value hours."),
   startsAt: zod.iso.datetime({ offset: true }).optional(),
   endsAt: zod.iso.datetime({ offset: true }).optional(),
   redemptionLimit: zod.int().min(1).optional(),
@@ -3378,6 +3380,7 @@ export const ListPanelPromotionsQueryParams = zod.object({
       "balance_days",
       "traffic",
       "loyalty_tier",
+      "squad_access",
     ])
     .optional(),
 });
@@ -3397,6 +3400,7 @@ export const ListPanelPromotionsResponse = zod.object({
           "balance_days",
           "traffic",
           "loyalty_tier",
+          "squad_access",
         ]),
         value: zod.int(),
         currency: zod.string().optional(),
@@ -4738,6 +4742,81 @@ export const SetPanelInfoPagePublicationResponse = zod.object({
   availableLocales: zod.array(zod.string()).optional(),
   updatedAt: zod.iso.datetime({ offset: true }),
   updatedBy: zod.uuid().optional(),
+});
+
+/**
+ * Requires subscriptions.read. The subscription's recent temporary squad grants.
+ */
+export const ListPanelSquadAccessParams = zod.object({
+  customerID: zod.uuid(),
+  subscriptionID: zod.uuid(),
+});
+
+export const ListPanelSquadAccessResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      squadId: zod.uuid(),
+      source: zod.enum(["operator", "promo"]),
+      status: zod.enum(["active", "ended", "revoked"]),
+      startsAt: zod.iso.datetime({ offset: true }),
+      endsAt: zod.iso.datetime({ offset: true }),
+    }),
+  ),
+});
+
+/**
+ * Requires subscriptions.write and an operator reason. Opens one squad on the subscription for 1 to 720 hours, on top of what it holds, through the fulfillment pipeline; the worker takes it back when the hours are up. 409 when the subscription has no running period.
+ */
+export const GrantPanelSquadAccessParams = zod.object({
+  customerID: zod.uuid(),
+  subscriptionID: zod.uuid(),
+});
+
+export const GrantPanelSquadAccessHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const grantPanelSquadAccessBodyHoursMax = 720;
+
+export const GrantPanelSquadAccessBody = zod.object({
+  squadId: zod.uuid(),
+  hours: zod.int().min(1).max(grantPanelSquadAccessBodyHoursMax),
+});
+
+export const GrantPanelSquadAccessResponse = zod.object({
+  id: zod.uuid(),
+  squadId: zod.uuid(),
+  source: zod.enum(["operator", "promo"]),
+  status: zod.enum(["active", "ended", "revoked"]),
+  startsAt: zod.iso.datetime({ offset: true }),
+  endsAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * Requires subscriptions.write and an operator reason. Takes a grant back before its hours are up.
+ */
+export const RevokePanelSquadAccessParams = zod.object({
+  customerID: zod.uuid(),
+  subscriptionID: zod.uuid(),
+  grantID: zod.uuid(),
+});
+
+export const RevokePanelSquadAccessHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const RevokePanelSquadAccessResponse = zod.object({
+  id: zod.uuid(),
+  squadId: zod.uuid(),
+  source: zod.enum(["operator", "promo"]),
+  status: zod.enum(["active", "ended", "revoked"]),
+  startsAt: zod.iso.datetime({ offset: true }),
+  endsAt: zod.iso.datetime({ offset: true }),
 });
 
 /**
@@ -12694,7 +12773,7 @@ export const AccountRedeemCodeBody = zod.object({
 });
 
 export const AccountRedeemCodeResponse = zod.object({
-  kind: zod.enum(["subscription", "wallet_credit", "traffic", "loyalty_tier"]),
+  kind: zod.enum(["subscription", "wallet_credit", "traffic", "loyalty_tier", "squad_access"]),
   endsAt: zod.iso.datetime({ offset: true }).optional(),
   creditMinor: zod
     .int()

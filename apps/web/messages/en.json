@@ -903,7 +903,12 @@
           "failed": "The message could not be sent."
         },
         "squads": "Squads",
-        "setSquads": "Set squads"
+        "setSquads": "Set squads",
+        "squadAccess": "Temporary server access",
+        "squadAccessHours": "Hours",
+        "squadAccessGrant": "Grant",
+        "squadAccessUntil": "until {until}",
+        "squadAccessRevoke": "Revoke"
       },
       "empty": {
         "subscriptions": "No subscriptions",
@@ -1833,7 +1838,8 @@
         "traffic": "{value} GB of traffic",
         "balanceDays": "{value} extra days plus wallet credit",
         "loyaltyTier": "Loyalty group for {value} days",
-        "daysWallet": "{value} extra days plus wallet credit"
+        "daysWallet": "{value} extra days plus wallet credit",
+        "squadAccess": "Extra server for {value} hours"
       },
       "version": {
         "open": "New version",
@@ -2026,7 +2032,8 @@
           "traffic": "Extra traffic",
           "balance_days": "Extra days plus wallet credit",
           "loyalty_tier": "Loyalty group",
-          "days_wallet": "Extra days plus wallet credit"
+          "days_wallet": "Extra days plus wallet credit",
+          "squad_access": "Temporary server access"
         },
         "value": {
           "percent": "Percent",
@@ -2037,7 +2044,8 @@
           "traffic": "Gigabytes",
           "balance_days": "Days",
           "loyalty_tier": "Days in the group",
-          "days_wallet": "Days"
+          "days_wallet": "Days",
+          "squad_access": "Hours (1–720)"
         },
         "currency": "Currency",
         "credit": "Wallet credit",
@@ -2057,7 +2065,8 @@
         "conflict": "That promotion code or one of the codes already exists.",
         "invalid": "Not created: check the code format, the value, and the currency.",
         "create": "Create promotion",
-        "created": "Promotion created"
+        "created": "Promotion created",
+        "squad": "Server (squad)"
       },
       "customTraffic": {
         "title": "Traffic",
@@ -6157,7 +6166,8 @@
           "rateLimited": "Too many attempts. Try again in an hour.",
           "traffic": "{gigabytes} GB of traffic was added to your current period.",
           "tier": "A new loyalty tier is yours — its discounts already apply.",
-          "extendedAndCredited": "Your subscription was extended and {amount} was added to your wallet."
+          "extendedAndCredited": "Your subscription was extended and {amount} was added to your wallet.",
+          "squad": "An extra server is open on your subscription until {until}."
         }
       },
       "operationKinds": {

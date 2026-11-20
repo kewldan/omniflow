@@ -101,6 +101,9 @@ type desiredState struct {
 	// SessionID names the limited access period a `limit_access` applies and
 	// a `restore_access` ends.
 	SessionID string `json:"sessionId,omitempty"`
+	// GrantID names the temporary squad access a `grant_squad` adds and a
+	// `revoke_squad` takes back.
+	GrantID string `json:"grantId,omitempty"`
 	// limited is the open limited access period the claim folded in, if any.
 	limited *limitedOverlay
 	// remoteExpireAt is EndsAt plus the grace period, resolved by the worker
@@ -327,7 +330,7 @@ func (worker *Worker) apply(ctx context.Context, claimed claim) (remnawave.User,
 		return remnawave.User{}, remnawave.ErrNotFound
 	}
 	switch operation {
-	case "extend", "set_limits", "set_squads":
+	case "extend", "set_limits", "set_squads", "grant_squad", "revoke_squad":
 		return worker.provisioner.UpdateUser(ctx, remoteID, provision)
 	case "limit_access", "restore_access":
 		// A limited access period keeps an expired or exhausted user

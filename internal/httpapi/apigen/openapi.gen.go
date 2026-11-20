@@ -3204,6 +3204,7 @@ const (
 	PanelPromotionKindFixed        PanelPromotionKind = "fixed"
 	PanelPromotionKindLoyaltyTier  PanelPromotionKind = "loyalty_tier"
 	PanelPromotionKindPercent      PanelPromotionKind = "percent"
+	PanelPromotionKindSquadAccess  PanelPromotionKind = "squad_access"
 	PanelPromotionKindTraffic      PanelPromotionKind = "traffic"
 	PanelPromotionKindTrial        PanelPromotionKind = "trial"
 	PanelPromotionKindWalletCredit PanelPromotionKind = "wallet_credit"
@@ -3221,6 +3222,8 @@ func (e PanelPromotionKind) Valid() bool {
 	case PanelPromotionKindLoyaltyTier:
 		return true
 	case PanelPromotionKindPercent:
+		return true
+	case PanelPromotionKindSquadAccess:
 		return true
 	case PanelPromotionKindTraffic:
 		return true
@@ -3458,6 +3461,45 @@ const (
 func (e PanelSearchResultsHints) Valid() bool {
 	switch e {
 	case TelegramHandleNotStored:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelSquadGrantSource.
+const (
+	PanelSquadGrantSourceOperator PanelSquadGrantSource = "operator"
+	PanelSquadGrantSourcePromo    PanelSquadGrantSource = "promo"
+)
+
+// Valid indicates whether the value is a known member of the PanelSquadGrantSource enum.
+func (e PanelSquadGrantSource) Valid() bool {
+	switch e {
+	case PanelSquadGrantSourceOperator:
+		return true
+	case PanelSquadGrantSourcePromo:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelSquadGrantStatus.
+const (
+	PanelSquadGrantStatusActive  PanelSquadGrantStatus = "active"
+	PanelSquadGrantStatusEnded   PanelSquadGrantStatus = "ended"
+	PanelSquadGrantStatusRevoked PanelSquadGrantStatus = "revoked"
+)
+
+// Valid indicates whether the value is a known member of the PanelSquadGrantStatus enum.
+func (e PanelSquadGrantStatus) Valid() bool {
+	switch e {
+	case PanelSquadGrantStatusActive:
+		return true
+	case PanelSquadGrantStatusEnded:
+		return true
+	case PanelSquadGrantStatusRevoked:
 		return true
 	default:
 		return false
@@ -4433,6 +4475,7 @@ func (e OpenAccountCheckoutJSONBodyOperation) Valid() bool {
 // Defines values for AccountRedeemCode200JSONResponseBodyKind.
 const (
 	AccountRedeemCode200JSONResponseBodyKindLoyaltyTier  AccountRedeemCode200JSONResponseBodyKind = "loyalty_tier"
+	AccountRedeemCode200JSONResponseBodyKindSquadAccess  AccountRedeemCode200JSONResponseBodyKind = "squad_access"
 	AccountRedeemCode200JSONResponseBodyKindSubscription AccountRedeemCode200JSONResponseBodyKind = "subscription"
 	AccountRedeemCode200JSONResponseBodyKindTraffic      AccountRedeemCode200JSONResponseBodyKind = "traffic"
 	AccountRedeemCode200JSONResponseBodyKindWalletCredit AccountRedeemCode200JSONResponseBodyKind = "wallet_credit"
@@ -4442,6 +4485,8 @@ const (
 func (e AccountRedeemCode200JSONResponseBodyKind) Valid() bool {
 	switch e {
 	case AccountRedeemCode200JSONResponseBodyKindLoyaltyTier:
+		return true
+	case AccountRedeemCode200JSONResponseBodyKindSquadAccess:
 		return true
 	case AccountRedeemCode200JSONResponseBodyKindSubscription:
 		return true
@@ -9361,12 +9406,15 @@ type PanelPromotionInput struct {
 	PerCustomerLimit int                   `json:"perCustomerLimit"`
 	PlanIds          *[]openapi_types.UUID `json:"planIds,omitempty"`
 	RedemptionLimit  *int                  `json:"redemptionLimit,omitempty"`
-	StartsAt         *time.Time            `json:"startsAt,omitempty"`
+
+	// SquadId Squad a squad_access code opens for value hours.
+	SquadId  *openapi_types.UUID `json:"squadId,omitempty"`
+	StartsAt *time.Time          `json:"startsAt,omitempty"`
 
 	// TierCode Group a loyalty_tier code grants.
 	TierCode *string `json:"tierCode,omitempty"`
 
-	// Value Basis points for percent; minor units for fixed and wallet_credit; days for days, trial, balance_days, and loyalty_tier; gigabytes for traffic.
+	// Value Basis points for percent; minor units for fixed and wallet_credit; days for days, trial, balance_days, and loyalty_tier; gigabytes for traffic; hours (at most 720) for squad_access.
 	Value int64 `json:"value"`
 }
 
@@ -9672,6 +9720,27 @@ type PanelSession struct {
 	Permissions            []string           `json:"permissions"`
 	RemainingRecoveryCodes *int               `json:"remainingRecoveryCodes,omitempty"`
 	SessionId              openapi_types.UUID `json:"sessionId"`
+}
+
+// PanelSquadGrant defines model for PanelSquadGrant.
+type PanelSquadGrant struct {
+	EndsAt   time.Time             `json:"endsAt"`
+	Id       openapi_types.UUID    `json:"id"`
+	Source   PanelSquadGrantSource `json:"source"`
+	SquadId  openapi_types.UUID    `json:"squadId"`
+	StartsAt time.Time             `json:"startsAt"`
+	Status   PanelSquadGrantStatus `json:"status"`
+}
+
+// PanelSquadGrantSource defines model for PanelSquadGrant.Source.
+type PanelSquadGrantSource string
+
+// PanelSquadGrantStatus defines model for PanelSquadGrant.Status.
+type PanelSquadGrantStatus string
+
+// PanelSquadGrantList defines model for PanelSquadGrantList.
+type PanelSquadGrantList struct {
+	Items []PanelSquadGrant `json:"items"`
 }
 
 // PanelSquadListing defines model for PanelSquadListing.
@@ -12202,6 +12271,24 @@ type ResumePanelSubscriptionParams struct {
 	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
 }
 
+// GrantPanelSquadAccessJSONBody defines parameters for GrantPanelSquadAccess.
+type GrantPanelSquadAccessJSONBody struct {
+	Hours   int                `json:"hours"`
+	SquadId openapi_types.UUID `json:"squadId"`
+}
+
+// GrantPanelSquadAccessParams defines parameters for GrantPanelSquadAccess.
+type GrantPanelSquadAccessParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// RevokePanelSquadAccessParams defines parameters for RevokePanelSquadAccess.
+type RevokePanelSquadAccessParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // ApplyPanelSubscriptionSyncParams defines parameters for ApplyPanelSubscriptionSync.
 type ApplyPanelSubscriptionSyncParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
@@ -13318,6 +13405,9 @@ type SetPanelCustomerStatusJSONRequestBody SetPanelCustomerStatusJSONBody
 // RenamePanelSubscriptionJSONRequestBody defines body for RenamePanelSubscription for application/json ContentType.
 type RenamePanelSubscriptionJSONRequestBody RenamePanelSubscriptionJSONBody
 
+// GrantPanelSquadAccessJSONRequestBody defines body for GrantPanelSquadAccess for application/json ContentType.
+type GrantPanelSquadAccessJSONRequestBody GrantPanelSquadAccessJSONBody
+
 // RecordPanelRefundJSONRequestBody defines body for RecordPanelRefund for application/json ContentType.
 type RecordPanelRefundJSONRequestBody = PanelRefundRecord
 
@@ -14399,6 +14489,15 @@ type ServerInterface interface {
 
 	// (POST /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/resume)
 	ResumePanelSubscription(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, subscriptionID openapi_types.UUID, params ResumePanelSubscriptionParams)
+
+	// (GET /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/squad-access)
+	ListPanelSquadAccess(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, subscriptionID openapi_types.UUID)
+
+	// (POST /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/squad-access)
+	GrantPanelSquadAccess(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, subscriptionID openapi_types.UUID, params GrantPanelSquadAccessParams)
+
+	// (DELETE /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/squad-access/{grantID})
+	RevokePanelSquadAccess(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, subscriptionID openapi_types.UUID, grantID openapi_types.UUID, params RevokePanelSquadAccessParams)
 
 	// (GET /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/sync)
 	PreviewPanelSubscriptionSync(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, subscriptionID openapi_types.UUID)
@@ -16112,6 +16211,21 @@ func (_ Unimplemented) PausePanelSubscription(w http.ResponseWriter, r *http.Req
 
 // (POST /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/resume)
 func (_ Unimplemented) ResumePanelSubscription(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, subscriptionID openapi_types.UUID, params ResumePanelSubscriptionParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/squad-access)
+func (_ Unimplemented) ListPanelSquadAccess(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, subscriptionID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/squad-access)
+func (_ Unimplemented) GrantPanelSquadAccess(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, subscriptionID openapi_types.UUID, params GrantPanelSquadAccessParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/squad-access/{grantID})
+func (_ Unimplemented) RevokePanelSquadAccess(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, subscriptionID openapi_types.UUID, grantID openapi_types.UUID, params RevokePanelSquadAccessParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -27356,6 +27470,176 @@ func (siw *ServerInterfaceWrapper) ResumePanelSubscription(w http.ResponseWriter
 	handler.ServeHTTP(w, r)
 }
 
+// ListPanelSquadAccess operation middleware
+func (siw *ServerInterfaceWrapper) ListPanelSquadAccess(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerID" -------------
+	var customerID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerID", chi.URLParam(r, "customerID"), &customerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPanelSquadAccess(w, r, customerID, subscriptionID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GrantPanelSquadAccess operation middleware
+func (siw *ServerInterfaceWrapper) GrantPanelSquadAccess(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerID" -------------
+	var customerID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerID", chi.URLParam(r, "customerID"), &customerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GrantPanelSquadAccessParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GrantPanelSquadAccess(w, r, customerID, subscriptionID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokePanelSquadAccess operation middleware
+func (siw *ServerInterfaceWrapper) RevokePanelSquadAccess(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerID" -------------
+	var customerID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerID", chi.URLParam(r, "customerID"), &customerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "grantID" -------------
+	var grantID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "grantID", chi.URLParam(r, "grantID"), &grantID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "grantID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RevokePanelSquadAccessParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokePanelSquadAccess(w, r, customerID, subscriptionID, grantID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PreviewPanelSubscriptionSync operation middleware
 func (siw *ServerInterfaceWrapper) PreviewPanelSubscriptionSync(w http.ResponseWriter, r *http.Request) {
 
@@ -34112,6 +34396,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/panel/content/pages/{slug}/publication", wrapper.SetPanelInfoPagePublication)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/squad-access", wrapper.ListPanelSquadAccess)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/squad-access", wrapper.GrantPanelSquadAccess)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/squad-access/{grantID}", wrapper.RevokePanelSquadAccess)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/pause", wrapper.PausePanelSubscription)
@@ -46294,6 +46587,183 @@ func (response ResumePanelSubscription422ApplicationProblemPlusJSONResponse) Vis
 	return err
 }
 
+type ListPanelSquadAccessRequestObject struct {
+	CustomerID     openapi_types.UUID `json:"customerID"`
+	SubscriptionID openapi_types.UUID `json:"subscriptionID"`
+}
+
+type ListPanelSquadAccessResponseObject interface {
+	VisitListPanelSquadAccessResponse(w http.ResponseWriter) error
+}
+
+type ListPanelSquadAccess200JSONResponse PanelSquadGrantList
+
+func (response ListPanelSquadAccess200JSONResponse) VisitListPanelSquadAccessResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelSquadAccess403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListPanelSquadAccess403ApplicationProblemPlusJSONResponse) VisitListPanelSquadAccessResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelSquadAccess404ApplicationProblemPlusJSONResponse Problem
+
+func (response ListPanelSquadAccess404ApplicationProblemPlusJSONResponse) VisitListPanelSquadAccessResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GrantPanelSquadAccessRequestObject struct {
+	CustomerID     openapi_types.UUID `json:"customerID"`
+	SubscriptionID openapi_types.UUID `json:"subscriptionID"`
+	Params         GrantPanelSquadAccessParams
+	Body           *GrantPanelSquadAccessJSONRequestBody
+}
+
+type GrantPanelSquadAccessResponseObject interface {
+	VisitGrantPanelSquadAccessResponse(w http.ResponseWriter) error
+}
+
+type GrantPanelSquadAccess202JSONResponse PanelSquadGrant
+
+func (response GrantPanelSquadAccess202JSONResponse) VisitGrantPanelSquadAccessResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GrantPanelSquadAccess403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GrantPanelSquadAccess403ApplicationProblemPlusJSONResponse) VisitGrantPanelSquadAccessResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GrantPanelSquadAccess409ApplicationProblemPlusJSONResponse Problem
+
+func (response GrantPanelSquadAccess409ApplicationProblemPlusJSONResponse) VisitGrantPanelSquadAccessResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GrantPanelSquadAccess422ApplicationProblemPlusJSONResponse Problem
+
+func (response GrantPanelSquadAccess422ApplicationProblemPlusJSONResponse) VisitGrantPanelSquadAccessResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokePanelSquadAccessRequestObject struct {
+	CustomerID     openapi_types.UUID `json:"customerID"`
+	SubscriptionID openapi_types.UUID `json:"subscriptionID"`
+	GrantID        openapi_types.UUID `json:"grantID"`
+	Params         RevokePanelSquadAccessParams
+}
+
+type RevokePanelSquadAccessResponseObject interface {
+	VisitRevokePanelSquadAccessResponse(w http.ResponseWriter) error
+}
+
+type RevokePanelSquadAccess202JSONResponse PanelSquadGrant
+
+func (response RevokePanelSquadAccess202JSONResponse) VisitRevokePanelSquadAccessResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokePanelSquadAccess403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RevokePanelSquadAccess403ApplicationProblemPlusJSONResponse) VisitRevokePanelSquadAccessResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokePanelSquadAccess409ApplicationProblemPlusJSONResponse Problem
+
+func (response RevokePanelSquadAccess409ApplicationProblemPlusJSONResponse) VisitRevokePanelSquadAccessResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type PreviewPanelSubscriptionSyncRequestObject struct {
 	CustomerID     openapi_types.UUID `json:"customerID"`
 	SubscriptionID openapi_types.UUID `json:"subscriptionID"`
@@ -53843,6 +54313,15 @@ type StrictServerInterface interface {
 
 	// (POST /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/resume)
 	ResumePanelSubscription(ctx context.Context, request ResumePanelSubscriptionRequestObject) (ResumePanelSubscriptionResponseObject, error)
+
+	// (GET /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/squad-access)
+	ListPanelSquadAccess(ctx context.Context, request ListPanelSquadAccessRequestObject) (ListPanelSquadAccessResponseObject, error)
+
+	// (POST /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/squad-access)
+	GrantPanelSquadAccess(ctx context.Context, request GrantPanelSquadAccessRequestObject) (GrantPanelSquadAccessResponseObject, error)
+
+	// (DELETE /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/squad-access/{grantID})
+	RevokePanelSquadAccess(ctx context.Context, request RevokePanelSquadAccessRequestObject) (RevokePanelSquadAccessResponseObject, error)
 
 	// (GET /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/sync)
 	PreviewPanelSubscriptionSync(ctx context.Context, request PreviewPanelSubscriptionSyncRequestObject) (PreviewPanelSubscriptionSyncResponseObject, error)
@@ -61709,6 +62188,97 @@ func (sh *strictHandler) ResumePanelSubscription(w http.ResponseWriter, r *http.
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ResumePanelSubscriptionResponseObject); ok {
 		if err := validResponse.VisitResumePanelSubscriptionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPanelSquadAccess operation middleware
+func (sh *strictHandler) ListPanelSquadAccess(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, subscriptionID openapi_types.UUID) {
+	var request ListPanelSquadAccessRequestObject
+
+	request.CustomerID = customerID
+	request.SubscriptionID = subscriptionID
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPanelSquadAccess(ctx, request.(ListPanelSquadAccessRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPanelSquadAccess")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPanelSquadAccessResponseObject); ok {
+		if err := validResponse.VisitListPanelSquadAccessResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GrantPanelSquadAccess operation middleware
+func (sh *strictHandler) GrantPanelSquadAccess(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, subscriptionID openapi_types.UUID, params GrantPanelSquadAccessParams) {
+	var request GrantPanelSquadAccessRequestObject
+
+	request.CustomerID = customerID
+	request.SubscriptionID = subscriptionID
+	request.Params = params
+
+	var body GrantPanelSquadAccessJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GrantPanelSquadAccess(ctx, request.(GrantPanelSquadAccessRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GrantPanelSquadAccess")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GrantPanelSquadAccessResponseObject); ok {
+		if err := validResponse.VisitGrantPanelSquadAccessResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RevokePanelSquadAccess operation middleware
+func (sh *strictHandler) RevokePanelSquadAccess(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, subscriptionID openapi_types.UUID, grantID openapi_types.UUID, params RevokePanelSquadAccessParams) {
+	var request RevokePanelSquadAccessRequestObject
+
+	request.CustomerID = customerID
+	request.SubscriptionID = subscriptionID
+	request.GrantID = grantID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RevokePanelSquadAccess(ctx, request.(RevokePanelSquadAccessRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RevokePanelSquadAccess")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RevokePanelSquadAccessResponseObject); ok {
+		if err := validResponse.VisitRevokePanelSquadAccessResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

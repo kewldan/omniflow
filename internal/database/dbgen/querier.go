@@ -563,7 +563,11 @@ type Querier interface {
 	// Whatever the move above left behind, which is exactly the duplicates.
 	DropDuplicateNewsReads(ctx context.Context, source pgtype.UUID) error
 	DueWebhookDeliveries(ctx context.Context) ([]DueWebhookDeliveriesRow, error)
+	// Grants whose hours are up and that no scheduled operation ended — the
+	// entitlement it was queued for was retired in between.
+	EndExpiredSquadGrants(ctx context.Context) ([]SquadAccessGrant, error)
 	EndLimitedAccess(ctx context.Context, sessionID pgtype.UUID) error
+	EndSquadAccessGrant(ctx context.Context, grantID pgtype.UUID) error
 	// Periods that ran out, or whose entitlement a renewal, a gift or a code
 	// retired, and that no operation ended.
 	EndStaleLimitedAccess(ctx context.Context) ([]LimitedAccessSession, error)
@@ -869,6 +873,8 @@ type Querier interface {
 	// that answers an operator.
 	GetSettingSecrets(ctx context.Context, section string) ([]byte, error)
 	GetSettingSection(ctx context.Context, section string) (GetSettingSectionRow, error)
+	GetSquadAccessGrant(ctx context.Context, grantID pgtype.UUID) (SquadAccessGrant, error)
+	GetSquadAccessGrantByKey(ctx context.Context, idempotencyKey string) (SquadAccessGrant, error)
 	GetSubscription(ctx context.Context, id pgtype.UUID) (Subscription, error)
 	GetSubscriptionByRemnawaveUser(ctx context.Context, remnawaveUserID pgtype.Int8) (Subscription, error)
 	// The plan a subscription currently carries, priced in the order's currency,
@@ -971,6 +977,8 @@ type Querier interface {
 	InsertPromoRedemption(ctx context.Context, arg InsertPromoRedemptionParams) (PromoRedemption, error)
 	// A retried delivery carries the same bytes and is a no-op: no row comes back.
 	InsertRemnawaveWebhookEvent(ctx context.Context, arg InsertRemnawaveWebhookEventParams) (int64, error)
+	// Temporary squad access: one squad added for some hours.
+	InsertSquadAccessGrant(ctx context.Context, arg InsertSquadAccessGrantParams) (SquadAccessGrant, error)
 	InsertWebhookEvent(ctx context.Context, arg InsertWebhookEventParams) (ProviderWebhookEvent, error)
 	InvalidateAdminPasswordResets(ctx context.Context, adminUserID pgtype.UUID) (int64, error)
 	IsAddonOfferedForPlan(ctx context.Context, arg IsAddonOfferedForPlanParams) (bool, error)
@@ -1061,6 +1069,8 @@ type Querier interface {
 	ListActiveOffersForCustomer(ctx context.Context, arg ListActiveOffersForCustomerParams) ([]ListActiveOffersForCustomerRow, error)
 	ListActiveReminders(ctx context.Context) ([]Reminder, error)
 	ListActiveRetentionHolds(ctx context.Context) ([]AiRetentionHold, error)
+	// The temporary squads in force on a subscription now.
+	ListActiveSquadGrants(ctx context.Context, subscriptionID pgtype.UUID) ([]SquadAccessGrant, error)
 	ListAddonPrices(ctx context.Context, addonVersionID pgtype.UUID) ([]AddonPrice, error)
 	ListAddonVersions(ctx context.Context, addonID pgtype.UUID) ([]AddonVersion, error)
 	ListAddonsAdmin(ctx context.Context) ([]ListAddonsAdminRow, error)
@@ -1448,6 +1458,7 @@ type Querier interface {
 	// Every section without its secrets. This is the query the settings screens
 	// read, and it cannot return a credential because the column is not selected.
 	ListSettingSections(ctx context.Context) ([]ListSettingSectionsRow, error)
+	ListSquadGrantsForSubscription(ctx context.Context, subscriptionID pgtype.UUID) ([]SquadAccessGrant, error)
 	// Operations that should have run by now and have not: a settlement whose
 	// process could not insert the job, or a job the queue discarded after its
 	// last attempt. The worker re-inserts the job for each; River's uniqueness on
@@ -2047,6 +2058,8 @@ type Querier interface {
 	// historical charge still resolves to the method that made it.
 	RevokePaymentMethod(ctx context.Context, arg RevokePaymentMethodParams) (PaymentMethod, error)
 	RevokePersonalOffer(ctx context.Context, offerID pgtype.UUID) (PersonalOffer, error)
+	// An operator takes a grant back before its hours are up.
+	RevokeSquadAccessGrant(ctx context.Context, arg RevokeSquadAccessGrantParams) (SquadAccessGrant, error)
 	RotateAdminSessionToken(ctx context.Context, arg RotateAdminSessionTokenParams) (AdminSession, error)
 	// Swapping the token behind a live session shortens the window in which one
 	// captured from a log or a proxy stays replayable. The unique index on

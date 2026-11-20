@@ -1982,6 +1982,7 @@ export const PanelPromotionKind = {
   balance_days: "balance_days",
   traffic: "traffic",
   loyalty_tier: "loyalty_tier",
+  squad_access: "squad_access",
 } as const;
 
 export interface PanelPromotionInput {
@@ -1989,7 +1990,7 @@ export interface PanelPromotionInput {
   code: string;
   kind: PanelPromotionKind;
   /**
-   * Basis points for percent; minor units for fixed and wallet_credit; days for days, trial, balance_days, and loyalty_tier; gigabytes for traffic.
+   * Basis points for percent; minor units for fixed and wallet_credit; days for days, trial, balance_days, and loyalty_tier; gigabytes for traffic; hours (at most 720) for squad_access.
    * @minimum 1
    */
   value: number;
@@ -1999,6 +2000,8 @@ export interface PanelPromotionInput {
   creditMinor?: number;
   /** Group a loyalty_tier code grants. */
   tierCode?: string;
+  /** Squad a squad_access code opens for value hours. */
+  squadId?: string;
   startsAt?: string;
   endsAt?: string;
   /** @minimum 1 */
@@ -2009,6 +2012,36 @@ export interface PanelPromotionInput {
   /** @minItems 1 */
   codes: string[];
   active: boolean;
+}
+
+export type PanelSquadGrantSource =
+  (typeof PanelSquadGrantSource)[keyof typeof PanelSquadGrantSource];
+
+export const PanelSquadGrantSource = {
+  operator: "operator",
+  promo: "promo",
+} as const;
+
+export type PanelSquadGrantStatus =
+  (typeof PanelSquadGrantStatus)[keyof typeof PanelSquadGrantStatus];
+
+export const PanelSquadGrantStatus = {
+  active: "active",
+  ended: "ended",
+  revoked: "revoked",
+} as const;
+
+export interface PanelSquadGrant {
+  id: string;
+  squadId: string;
+  source: PanelSquadGrantSource;
+  status: PanelSquadGrantStatus;
+  startsAt: string;
+  endsAt: string;
+}
+
+export interface PanelSquadGrantList {
+  items: PanelSquadGrant[];
 }
 
 export type PanelPromotionEligibility = { [key: string]: unknown };
@@ -6704,6 +6737,15 @@ export type SetPanelInfoPagePublicationBody = {
   published: boolean;
 };
 
+export type GrantPanelSquadAccessBody = {
+  squadId: string;
+  /**
+   * @minimum 1
+   * @maximum 720
+   */
+  hours: number;
+};
+
 export type ApplyPanelSubscriptionSync202 = {
   operations: PanelSubscriptionOperationAccepted[];
   preview: PanelSubscriptionSync;
@@ -7562,6 +7604,7 @@ export const AccountRedeemCode200Kind = {
   wallet_credit: "wallet_credit",
   traffic: "traffic",
   loyalty_tier: "loyalty_tier",
+  squad_access: "squad_access",
 } as const;
 
 export type AccountRedeemCode200 = {
@@ -20155,6 +20198,316 @@ export const useSetPanelInfoPagePublication = <TError = Promise<ProblemResponse>
 
   const swrKey = swrOptions?.swrKey ?? getSetPanelInfoPagePublicationMutationKey(slug);
   const swrFn = getSetPanelInfoPagePublicationMutationFetcher(slug, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelSquadAccessResponse200 = {
+  data: PanelSquadGrantList;
+  status: 200;
+};
+
+export type listPanelSquadAccessResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelSquadAccessResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type listPanelSquadAccessResponseSuccess = listPanelSquadAccessResponse200 & {
+  headers: Headers;
+};
+export type listPanelSquadAccessResponseError = (
+  | listPanelSquadAccessResponse403
+  | listPanelSquadAccessResponse404
+) & {
+  headers: Headers;
+};
+
+export type listPanelSquadAccessResponse =
+  | listPanelSquadAccessResponseSuccess
+  | listPanelSquadAccessResponseError;
+
+export const getListPanelSquadAccessUrl = (customerID: string, subscriptionID: string) => {
+  return `/v1/panel/customers/${customerID}/subscriptions/${subscriptionID}/squad-access`;
+};
+
+/**
+ * Requires subscriptions.read. The subscription's recent temporary squad grants.
+ */
+export const listPanelSquadAccess = async (
+  customerID: string,
+  subscriptionID: string,
+  options?: RequestInit,
+): Promise<listPanelSquadAccessResponse> => {
+  const res = await fetch(getListPanelSquadAccessUrl(customerID, subscriptionID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelSquadAccessResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelSquadAccessResponse;
+};
+
+export const getListPanelSquadAccessKey = (customerID: string, subscriptionID: string) =>
+  [`/v1/panel/customers/${customerID}/subscriptions/${subscriptionID}/squad-access`] as const;
+
+export type ListPanelSquadAccessQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelSquadAccess>>
+>;
+
+export const useListPanelSquadAccess = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  subscriptionID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelSquadAccess>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false &&
+    customerID !== null &&
+    customerID !== undefined &&
+    subscriptionID !== null &&
+    subscriptionID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ??
+    (() => (isEnabled ? getListPanelSquadAccessKey(customerID, subscriptionID) : null));
+  const swrFn = () => listPanelSquadAccess(customerID, subscriptionID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type grantPanelSquadAccessResponse202 = {
+  data: PanelSquadGrant;
+  status: 202;
+};
+
+export type grantPanelSquadAccessResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type grantPanelSquadAccessResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type grantPanelSquadAccessResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type grantPanelSquadAccessResponseSuccess = grantPanelSquadAccessResponse202 & {
+  headers: Headers;
+};
+export type grantPanelSquadAccessResponseError = (
+  | grantPanelSquadAccessResponse403
+  | grantPanelSquadAccessResponse409
+  | grantPanelSquadAccessResponse422
+) & {
+  headers: Headers;
+};
+
+export type grantPanelSquadAccessResponse =
+  | grantPanelSquadAccessResponseSuccess
+  | grantPanelSquadAccessResponseError;
+
+export const getGrantPanelSquadAccessUrl = (customerID: string, subscriptionID: string) => {
+  return `/v1/panel/customers/${customerID}/subscriptions/${subscriptionID}/squad-access`;
+};
+
+/**
+ * Requires subscriptions.write and an operator reason. Opens one squad on the subscription for 1 to 720 hours, on top of what it holds, through the fulfillment pipeline; the worker takes it back when the hours are up. 409 when the subscription has no running period.
+ */
+export const grantPanelSquadAccess = async (
+  customerID: string,
+  subscriptionID: string,
+  grantPanelSquadAccessBody: GrantPanelSquadAccessBody,
+  options?: RequestInit,
+): Promise<grantPanelSquadAccessResponse> => {
+  const res = await fetch(getGrantPanelSquadAccessUrl(customerID, subscriptionID), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(grantPanelSquadAccessBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: grantPanelSquadAccessResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as grantPanelSquadAccessResponse;
+};
+
+export const getGrantPanelSquadAccessMutationFetcher = (
+  customerID: string,
+  subscriptionID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: GrantPanelSquadAccessBody }) => {
+    return grantPanelSquadAccess(customerID, subscriptionID, arg, options);
+  };
+};
+export const getGrantPanelSquadAccessMutationKey = (customerID: string, subscriptionID: string) =>
+  [`/v1/panel/customers/${customerID}/subscriptions/${subscriptionID}/squad-access`] as const;
+
+export type GrantPanelSquadAccessMutationResult = NonNullable<
+  Awaited<ReturnType<typeof grantPanelSquadAccess>>
+>;
+
+export const useGrantPanelSquadAccess = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  subscriptionID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof grantPanelSquadAccess>>,
+      TError,
+      Key,
+      GrantPanelSquadAccessBody,
+      Awaited<ReturnType<typeof grantPanelSquadAccess>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey =
+    swrOptions?.swrKey ?? getGrantPanelSquadAccessMutationKey(customerID, subscriptionID);
+  const swrFn = getGrantPanelSquadAccessMutationFetcher(customerID, subscriptionID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type revokePanelSquadAccessResponse202 = {
+  data: PanelSquadGrant;
+  status: 202;
+};
+
+export type revokePanelSquadAccessResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type revokePanelSquadAccessResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type revokePanelSquadAccessResponseSuccess = revokePanelSquadAccessResponse202 & {
+  headers: Headers;
+};
+export type revokePanelSquadAccessResponseError = (
+  | revokePanelSquadAccessResponse403
+  | revokePanelSquadAccessResponse409
+) & {
+  headers: Headers;
+};
+
+export type revokePanelSquadAccessResponse =
+  | revokePanelSquadAccessResponseSuccess
+  | revokePanelSquadAccessResponseError;
+
+export const getRevokePanelSquadAccessUrl = (
+  customerID: string,
+  subscriptionID: string,
+  grantID: string,
+) => {
+  return `/v1/panel/customers/${customerID}/subscriptions/${subscriptionID}/squad-access/${grantID}`;
+};
+
+/**
+ * Requires subscriptions.write and an operator reason. Takes a grant back before its hours are up.
+ */
+export const revokePanelSquadAccess = async (
+  customerID: string,
+  subscriptionID: string,
+  grantID: string,
+  options?: RequestInit,
+): Promise<revokePanelSquadAccessResponse> => {
+  const res = await fetch(getRevokePanelSquadAccessUrl(customerID, subscriptionID, grantID), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: revokePanelSquadAccessResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as revokePanelSquadAccessResponse;
+};
+
+export const getRevokePanelSquadAccessMutationFetcher = (
+  customerID: string,
+  subscriptionID: string,
+  grantID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return revokePanelSquadAccess(customerID, subscriptionID, grantID, options);
+  };
+};
+export const getRevokePanelSquadAccessMutationKey = (
+  customerID: string,
+  subscriptionID: string,
+  grantID: string,
+) =>
+  [
+    `/v1/panel/customers/${customerID}/subscriptions/${subscriptionID}/squad-access/${grantID}`,
+  ] as const;
+
+export type RevokePanelSquadAccessMutationResult = NonNullable<
+  Awaited<ReturnType<typeof revokePanelSquadAccess>>
+>;
+
+export const useRevokePanelSquadAccess = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  subscriptionID: string,
+  grantID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof revokePanelSquadAccess>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof revokePanelSquadAccess>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey =
+    swrOptions?.swrKey ?? getRevokePanelSquadAccessMutationKey(customerID, subscriptionID, grantID);
+  const swrFn = getRevokePanelSquadAccessMutationFetcher(
+    customerID,
+    subscriptionID,
+    grantID,
+    fetchOptions,
+  );
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

@@ -197,6 +197,11 @@ func (worker *Worker) claim(ctx context.Context, operationID pgtype.UUID) (claim
 			return claim{}, false, err
 		}
 	}
+	if operation.Operation == "revoke_squad" {
+		if err = endScheduledGrant(ctx, queries, desired, now); err != nil {
+			return claim{}, false, err
+		}
+	}
 	if overlaid(operation.Operation) {
 		if desired, err = withAccessOverlay(ctx, queries, entitlement.ID, desired); err != nil {
 			return claim{}, false, err
@@ -208,6 +213,13 @@ func (worker *Worker) claim(ctx context.Context, operationID pgtype.UUID) (claim
 	}
 	if err != nil {
 		return claim{}, false, err
+	}
+	// Temporary squads granted to the subscription ride on top of whatever
+	// the operation pushes, while their hours last.
+	if overlaid(operation.Operation) {
+		if desired, err = withSquadGrants(ctx, queries, subscription.ID, desired); err != nil {
+			return claim{}, false, err
+		}
 	}
 	remoteID, err := worker.remoteUserID(ctx, queries, entitlement, subscription)
 	if err != nil {

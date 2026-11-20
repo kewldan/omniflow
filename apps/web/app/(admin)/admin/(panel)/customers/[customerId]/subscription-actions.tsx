@@ -218,6 +218,13 @@ export function SubscriptionActions({
         </Button>
       </div>
 
+      <TemporarySquadAccess
+        customerId={customerId}
+        ready={ready}
+        reason={reason.trim()}
+        subscriptionId={subscriptionId}
+      />
+
       {error && <p className="text-danger-foreground text-sm">{error.message}</p>}
       {queued && (
         // The worker applies it, so the honest report is "queued", not "done".
@@ -226,6 +233,113 @@ export function SubscriptionActions({
         </p>
       )}
     </Card>
+  );
+}
+
+type SquadGrant = {
+  id: string;
+  squadId: string;
+  source: string;
+  status: string;
+  endsAt: string;
+};
+
+/**
+ * Temporary access to one squad for some hours, on top of what the
+ * subscription holds. The grant goes through fulfillment like every other
+ * change, and the worker takes it back when the hours are up.
+ */
+function TemporarySquadAccess({
+  customerId,
+  ready,
+  reason,
+  subscriptionId,
+}: {
+  customerId: string;
+  ready: boolean;
+  reason: string;
+  subscriptionId: string;
+}) {
+  const translate = useTranslations("admin.customers");
+  const squadId = useId();
+  const hoursId = useId();
+  const [squad, setSquad] = useState<string[]>([]);
+  const [hours, setHours] = useState("24");
+  const key = `/v1/panel/customers/${customerId}/subscriptions/${subscriptionId}/squad-access`;
+  const { data, mutate } = useSWR<{ items: SquadGrant[] }, ApiError>(key, fetcher);
+  const { run, pending, error } = useOperatorAction();
+  const parsedHours = Number.parseInt(hours, 10);
+  const active = (data?.items ?? []).filter((grant) => grant.status === "active");
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor={squadId}>{translate("actions.squadAccess")}</Label>
+      <SquadPicker
+        control={{ id: squadId, "aria-invalid": false }}
+        multiple={false}
+        onChange={setSquad}
+        value={squad}
+      />
+      <div className="flex items-end gap-2">
+        <div className="flex flex-col gap-1">
+          <Label htmlFor={hoursId}>{translate("actions.squadAccessHours")}</Label>
+          <Input
+            className="w-24"
+            id={hoursId}
+            inputMode="numeric"
+            onChange={(event) => setHours(event.target.value)}
+            value={hours}
+          />
+        </div>
+        <Button
+          disabled={
+            !ready || pending || squad.length === 0 || !(parsedHours >= 1 && parsedHours <= 720)
+          }
+          onClick={async () => {
+            const ok = await run(key, {
+              body: { hours: parsedHours, squadId: squad[0] },
+              method: "POST",
+              reason,
+            });
+            if (ok) {
+              setSquad([]);
+              void mutate();
+            }
+          }}
+          size="sm"
+          variant="outline"
+        >
+          {translate("actions.squadAccessGrant")}
+        </Button>
+      </div>
+      {active.length > 0 && (
+        <ul className="flex flex-col gap-1 text-xs">
+          {active.map((grant) => (
+            <li className="flex items-center justify-between gap-2" key={grant.id}>
+              <span className="font-mono">
+                {grant.squadId.slice(0, 8)} ·{" "}
+                {translate("actions.squadAccessUntil", {
+                  until: new Date(grant.endsAt).toLocaleString(),
+                })}
+              </span>
+              <Button
+                disabled={!ready || pending}
+                onClick={async () => {
+                  if (await run(`${key}/${grant.id}`, { method: "DELETE", reason })) {
+                    void mutate();
+                  }
+                }}
+                size="sm"
+                variant="ghost"
+              >
+                {translate("actions.squadAccessRevoke")}
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {error && <p className="text-danger-foreground text-xs">{error.message}</p>}
+    </div>
   );
 }
 

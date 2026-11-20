@@ -83,6 +83,7 @@ enqueues them.
 | `reconcile` | Compare first, then the same `PATCH` as `create`, without the reset or the enable |
 | `limit_access` | `GET /api/users/{id}` for the used bytes, `PATCH /api/users/` with the limited squad and allowance, then `POST /api/users/{id}/actions/enable` when the user is not active. See [limited access](/commerce/subscriptions#limited-access-after-expiry-or-exhausted-traffic) |
 | `restore_access` | `PATCH /api/users/` with the entitlement's own state, ending its limited access period |
+| `grant_squad`, `revoke_squad` | `PATCH /api/users/` with the squads plus, or without, a temporary squad grant. See [temporary squad access](#temporary-squad-access) |
 
 Anything outside that set is cancelled permanently rather than retried, because an operation the
 worker cannot perform will not become performable by waiting.
@@ -141,6 +142,7 @@ reads the existing operation back rather than creating a second one.
 | `reconcile:<entitlementID>:<15-minute bucket>` | The reconciliation sweep |
 | `panel:<subscriptionID>:<operation>:<requestID>` | An operator action in the panel |
 | `limited:<sessionID>:start`, `:end`, `:restore` | A limited access period opened, its scheduled end, and its end by payment |
+| `squad-grant:<grantID>:grant`, `:revoke` | A temporary squad grant applied, and taken back when its hours are up |
 | `bulk:<operationID>:<position>` | One item of a bulk operation |
 
 Reading the row back is not enough on its own, so the service then re-verifies the parameters. Reusing
@@ -398,6 +400,31 @@ Its refusals are worth knowing:
 
 `set_squads` is accepted by the API but has no control in the panel form; the panel offers enable,
 disable, reset traffic, extend, and set limits.
+
+### Temporary squad access
+
+An operator can open one squad on a subscription for a number of hours — to let a customer try a
+country, or to work around an outage — as Bedolaga's temporary access does. On the customer card,
+each subscription's actions panel has **Temporary server access**: pick the squad by name, enter
+1–720 hours, type the reason, and **Grant**. Active grants are listed below it with **Revoke**. A
+`squad_access` [promo code](/commerce/catalog-promotions#reward-kinds) grants the same thing to the
+customer who redeems it.
+
+| Route | Permission | Effect |
+| --- | --- | --- |
+| `GET /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/squad-access` | `subscriptions.read` | Recent grants |
+| `POST …/squad-access` with `{squadId, hours}` | `subscriptions.write`, reason | Grant; audit `panel.subscription.squad_access_granted` |
+| `DELETE …/squad-access/{grantID}` | `subscriptions.write`, reason | Take it back early; audit `panel.subscription.squad_access_revoked` |
+
+A grant is a `squad_access_grants` row with its end, written in one transaction with a `grant_squad`
+operation keyed `squad-grant:<id>:grant` and a `revoke_squad` keyed `squad-grant:<id>:revoke`
+scheduled for when the hours are up. The squad is never written to the entitlement: while a grant
+lasts, the claim adds its squad to the squads every state-pushing operation sends — a reconcile
+included — so the sweep keeps it and does not report it as drift. When the hours are up the revoke
+ends the grant and pushes the squads without it. A grant whose scheduled revoke was cancelled because
+a renewal retired its entitlement is ended by the worker's once-a-minute pass, which pushes the
+current entitlement without it. A subscription with no running period — none, paused, or not yet
+provisioned — cannot take a grant (`409 squad_access_unavailable`).
 
 ### Sync one subscription with Remnawave
 
