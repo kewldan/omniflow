@@ -7,7 +7,8 @@
 -- account, the guest checkout, so payment, refunds, expiry, and the claim all
 -- run through the gift machinery that already exists. The account holds no
 -- identity and cannot sign in.
-INSERT INTO users (id, status, locale) VALUES ('00000000-0000-4000-8000-00000000600e', 'active', 'ru');
+-- The account is created by the first guest purchase, not here, so an
+-- installation that never sells to guests has no extra customer.
 
 CREATE TABLE guest_purchases (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

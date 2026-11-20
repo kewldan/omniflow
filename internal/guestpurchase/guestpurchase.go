@@ -139,6 +139,13 @@ func (service *Service) Start(ctx context.Context, idempotencyKey string, input 
 	if input.Provider == "" || input.Provider == "telegram_stars" || input.Provider == "manual" || !service.payments.Enabled(input.Provider) {
 		return Started{}, ErrProvider
 	}
+	// The guest checkout account exists from the first guest purchase on. Its
+	// creation date is set in the past so it never reads as a new customer in
+	// a report.
+	if _, err := service.pool.Exec(ctx, `INSERT INTO users (id, status, locale, created_at)
+		VALUES ($1::uuid, 'active', 'ru', '2000-01-01T00:00:00Z') ON CONFLICT (id) DO NOTHING`, AccountID); err != nil {
+		return Started{}, err
+	}
 	purchase, err := service.orders.CreateGiftOrder(ctx, commercepg.GiftOrderInput{
 		SenderID: AccountID, Kind: gifts.KindSubscription, PlanVersionID: input.PlanVersionID,
 		Currency: input.Currency, SenderMessage: input.Message, IdempotencyKey: "guest:" + idempotencyKey,
