@@ -1432,11 +1432,13 @@ CREATE TABLE public.bot_checkout_sessions (
     selected_squad_ids uuid[] DEFAULT '{}'::uuid[] NOT NULL,
     period_days integer,
     payment_method text DEFAULT ''::text NOT NULL,
+    traffic_gb integer,
     CONSTRAINT bot_checkout_sessions_currency_check CHECK ((currency ~ '^[A-Z]{3}$'::text)),
     CONSTRAINT bot_checkout_sessions_operation_check CHECK ((operation = ANY (ARRAY['purchase'::text, 'upgrade'::text, 'downgrade'::text, 'extension'::text]))),
     CONSTRAINT bot_checkout_sessions_period_days_range CHECK (((period_days IS NULL) OR ((period_days >= 1) AND (period_days <= 3650)))),
     CONSTRAINT bot_checkout_sessions_promo_code_check CHECK (((promo_code IS NULL) OR (promo_code ~ '^[A-Z0-9_-]{3,64}$'::text))),
-    CONSTRAINT bot_checkout_sessions_provider_check CHECK ((provider = ANY (ARRAY['manual'::text, 'telegram_stars'::text, 'cryptobot'::text, 'yookassa'::text, 'heleket'::text, 'mulenpay'::text, 'pal24'::text, 'platega'::text, 'cashera'::text, 'tribute'::text, 'freekassa'::text, 'kassa_ai'::text, 'riopay'::text, 'severpay'::text, 'rollypay'::text, 'aurapay'::text, 'wata'::text, 'cloudpayments'::text, 'lava'::text, 'overpay'::text, 'paritypay'::text, 'payhot'::text, 'cispay'::text, 'antilopay'::text, 'anore'::text, 'donut'::text, 'etoplatezhi'::text, 'jupiter'::text, 'tabpay'::text])))
+    CONSTRAINT bot_checkout_sessions_provider_check CHECK ((provider = ANY (ARRAY['manual'::text, 'telegram_stars'::text, 'cryptobot'::text, 'yookassa'::text, 'heleket'::text, 'mulenpay'::text, 'pal24'::text, 'platega'::text, 'cashera'::text, 'tribute'::text, 'freekassa'::text, 'kassa_ai'::text, 'riopay'::text, 'severpay'::text, 'rollypay'::text, 'aurapay'::text, 'wata'::text, 'cloudpayments'::text, 'lava'::text, 'overpay'::text, 'paritypay'::text, 'payhot'::text, 'cispay'::text, 'antilopay'::text, 'anore'::text, 'donut'::text, 'etoplatezhi'::text, 'jupiter'::text, 'tabpay'::text]))),
+    CONSTRAINT bot_checkout_sessions_traffic_gb_positive CHECK (((traffic_gb IS NULL) OR (traffic_gb >= 1)))
 );
 
 
@@ -2026,7 +2028,7 @@ CREATE TABLE public.customer_event_notices (
     params jsonb DEFAULT '{}'::jsonb NOT NULL,
     dedupe_key text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT customer_event_notices_kind_known CHECK ((kind = ANY (ARRAY['referral_joined'::text, 'referral_welcome'::text, 'referral_reward'::text, 'loyalty_tier'::text, 'renewal_low_balance'::text]))),
+    CONSTRAINT customer_event_notices_kind_known CHECK ((kind = ANY (ARRAY['referral_joined'::text, 'referral_welcome'::text, 'referral_reward'::text, 'loyalty_tier'::text, 'renewal_low_balance'::text, 'daily_low_balance'::text, 'daily_suspended'::text]))),
     CONSTRAINT customer_event_notices_params_object CHECK ((jsonb_typeof(params) = 'object'::text))
 );
 
@@ -3699,6 +3701,7 @@ CREATE TABLE public.orders (
     loyalty_discount_minor bigint DEFAULT 0 NOT NULL,
     loyalty_tier_code text,
     period_seconds bigint,
+    traffic_gb integer,
     CONSTRAINT orders_check CHECK ((discount_minor <= subtotal_minor)),
     CONSTRAINT orders_check1 CHECK (((wallet_minor + external_minor) = (subtotal_minor - discount_minor))),
     CONSTRAINT orders_check2 CHECK ((refunded_minor <= paid_minor)),
@@ -3713,6 +3716,7 @@ CREATE TABLE public.orders (
     CONSTRAINT orders_refunded_minor_check CHECK ((refunded_minor >= 0)),
     CONSTRAINT orders_state_check CHECK ((state = ANY (ARRAY['draft'::text, 'pending'::text, 'paid'::text, 'fulfilled'::text, 'cancelled'::text, 'expired'::text, 'partially_refunded'::text, 'refunded'::text]))),
     CONSTRAINT orders_subtotal_minor_check CHECK ((subtotal_minor >= 0)),
+    CONSTRAINT orders_traffic_gb_positive CHECK (((traffic_gb IS NULL) OR (traffic_gb >= 1))),
     CONSTRAINT orders_wallet_minor_check CHECK ((wallet_minor >= 0))
 );
 
@@ -4040,6 +4044,19 @@ CREATE TABLE public.plan_version_day_prices (
 
 
 --
+-- Name: plan_version_gb_prices; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.plan_version_gb_prices (
+    plan_version_id uuid NOT NULL,
+    currency text NOT NULL,
+    amount_minor bigint NOT NULL,
+    CONSTRAINT plan_version_gb_prices_amount_positive CHECK ((amount_minor > 0)),
+    CONSTRAINT plan_version_gb_prices_currency_shape CHECK ((currency ~ '^[A-Z]{3}$'::text))
+);
+
+
+--
 -- Name: plan_version_periods; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -4073,6 +4090,21 @@ CREATE TABLE public.plan_version_squads (
 
 
 --
+-- Name: plan_version_traffic_packages; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.plan_version_traffic_packages (
+    plan_version_id uuid NOT NULL,
+    traffic_gb integer NOT NULL,
+    currency text NOT NULL,
+    amount_minor bigint NOT NULL,
+    CONSTRAINT plan_version_traffic_packages_amount_nonnegative CHECK ((amount_minor >= 0)),
+    CONSTRAINT plan_version_traffic_packages_currency_shape CHECK ((currency ~ '^[A-Z]{3}$'::text)),
+    CONSTRAINT plan_version_traffic_packages_volume_range CHECK (((traffic_gb >= 1) AND (traffic_gb <= 1000000)))
+);
+
+
+--
 -- Name: plan_versions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -4102,9 +4134,15 @@ CREATE TABLE public.plan_versions (
     traffic_reset_price_bps integer,
     custom_days_min integer,
     custom_days_max integer,
+    custom_traffic_min_gb integer,
+    custom_traffic_max_gb integer,
+    traffic_mode text DEFAULT 'fixed_with_topup'::text NOT NULL,
+    daily_billing boolean DEFAULT false NOT NULL,
     CONSTRAINT plan_versions_billing_period_check CHECK ((billing_period = ANY (ARRAY['none'::text, 'day'::text, 'week'::text, 'month'::text, 'quarter'::text, 'half_year'::text, 'year'::text, 'custom'::text]))),
     CONSTRAINT plan_versions_cancellation_policy_check CHECK ((cancellation_policy = ANY (ARRAY['forbid'::text, 'immediate'::text, 'at_expiry'::text]))),
     CONSTRAINT plan_versions_custom_days_range CHECK ((((custom_days_min IS NULL) = (custom_days_max IS NULL)) AND ((custom_days_min IS NULL) OR ((custom_days_min >= 1) AND (custom_days_max >= custom_days_min) AND (custom_days_max <= 3650))))),
+    CONSTRAINT plan_versions_custom_traffic_range CHECK ((((custom_traffic_min_gb IS NULL) = (custom_traffic_max_gb IS NULL)) AND ((custom_traffic_min_gb IS NULL) OR ((custom_traffic_min_gb >= 1) AND (custom_traffic_max_gb >= custom_traffic_min_gb) AND (custom_traffic_max_gb <= 1000000))))),
+    CONSTRAINT plan_versions_daily_billing_day CHECK (((NOT daily_billing) OR ((billing_period = 'day'::text) AND (duration_seconds = 86400) AND (custom_days_min IS NULL)))),
     CONSTRAINT plan_versions_device_limit_check CHECK (((device_limit IS NULL) OR (device_limit >= 0))),
     CONSTRAINT plan_versions_downgrade_policy_check CHECK ((downgrade_policy = ANY (ARRAY['forbid'::text, 'immediate'::text, 'at_expiry'::text]))),
     CONSTRAINT plan_versions_duration_seconds_check CHECK ((duration_seconds > 0)),
@@ -4115,6 +4153,7 @@ CREATE TABLE public.plan_versions (
     CONSTRAINT plan_versions_selectable_squad_range_check CHECK (((max_selectable_squads IS NULL) OR (max_selectable_squads >= min_selectable_squads))),
     CONSTRAINT plan_versions_squad_selection_check CHECK ((squad_selection = ANY (ARRAY['automatic'::text, 'optional'::text, 'required'::text]))),
     CONSTRAINT plan_versions_traffic_allowance_bytes_check CHECK (((traffic_allowance_bytes IS NULL) OR (traffic_allowance_bytes >= 0))),
+    CONSTRAINT plan_versions_traffic_mode_known CHECK ((traffic_mode = ANY (ARRAY['fixed'::text, 'fixed_with_topup'::text, 'selectable'::text]))),
     CONSTRAINT plan_versions_traffic_reset_price_bps_range CHECK (((traffic_reset_price_bps IS NULL) OR ((traffic_reset_price_bps >= 1) AND (traffic_reset_price_bps <= 100000)))),
     CONSTRAINT plan_versions_traffic_reset_strategy_known CHECK ((traffic_reset_strategy = ANY (ARRAY['NO_RESET'::text, 'DAY'::text, 'WEEK'::text, 'MONTH'::text, 'MONTH_ROLLING'::text]))),
     CONSTRAINT plan_versions_trial_eligibility_check CHECK ((trial_eligibility = ANY (ARRAY['new_customer'::text, 'never_trialled'::text, 'any'::text]))),
@@ -4894,6 +4933,62 @@ CREATE TABLE public.self_employed_settings (
     CONSTRAINT self_employed_settings_inn_format CHECK (((inn = ''::text) OR (inn ~ '^[0-9]{12}$'::text))),
     CONSTRAINT self_employed_settings_service_name_length CHECK (((char_length(service_name) >= 1) AND (char_length(service_name) <= 128))),
     CONSTRAINT self_employed_settings_singleton CHECK (singleton)
+);
+
+
+--
+-- Name: server_catalog; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.server_catalog (
+    squad_id uuid NOT NULL,
+    name_ru text NOT NULL,
+    name_en text NOT NULL,
+    country_code text,
+    max_users integer,
+    trial_eligible boolean DEFAULT true NOT NULL,
+    sort_order integer DEFAULT 0 NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by uuid,
+    CONSTRAINT server_catalog_country_shape CHECK (((country_code IS NULL) OR (country_code ~ '^[A-Z]{2}$'::text))),
+    CONSTRAINT server_catalog_max_users_positive CHECK (((max_users IS NULL) OR (max_users > 0))),
+    CONSTRAINT server_catalog_names_present CHECK ((((length(name_ru) >= 1) AND (length(name_ru) <= 80)) AND ((length(name_en) >= 1) AND (length(name_en) <= 80))))
+);
+
+
+--
+-- Name: server_catalog_prices; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.server_catalog_prices (
+    squad_id uuid NOT NULL,
+    currency text NOT NULL,
+    amount_minor bigint NOT NULL,
+    CONSTRAINT server_catalog_prices_amount_positive CHECK ((amount_minor > 0)),
+    CONSTRAINT server_catalog_prices_currency_shape CHECK ((currency ~ '^[A-Z]{3}$'::text))
+);
+
+
+--
+-- Name: simple_subscription; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.simple_subscription (
+    singleton boolean DEFAULT true NOT NULL,
+    enabled boolean DEFAULT false NOT NULL,
+    plan_id uuid,
+    period_days integer,
+    traffic_gb integer,
+    device_addon_id uuid,
+    device_quantity integer DEFAULT 0 NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by uuid,
+    CONSTRAINT simple_subscription_device_quantity_range CHECK (((device_quantity >= 0) AND (device_quantity <= 100))),
+    CONSTRAINT simple_subscription_devices_named CHECK (((device_quantity = 0) OR (device_addon_id IS NOT NULL))),
+    CONSTRAINT simple_subscription_period_range CHECK (((period_days IS NULL) OR ((period_days >= 1) AND (period_days <= 3650)))),
+    CONSTRAINT simple_subscription_plan_when_enabled CHECK (((NOT enabled) OR (plan_id IS NOT NULL))),
+    CONSTRAINT simple_subscription_singleton CHECK (singleton),
+    CONSTRAINT simple_subscription_traffic_range CHECK (((traffic_gb IS NULL) OR ((traffic_gb >= 1) AND (traffic_gb <= 1000000))))
 );
 
 
@@ -7222,6 +7317,14 @@ ALTER TABLE ONLY public.plan_version_day_prices
 
 
 --
+-- Name: plan_version_gb_prices plan_version_gb_prices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.plan_version_gb_prices
+    ADD CONSTRAINT plan_version_gb_prices_pkey PRIMARY KEY (plan_version_id, currency);
+
+
+--
 -- Name: plan_version_periods plan_version_periods_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7235,6 +7338,14 @@ ALTER TABLE ONLY public.plan_version_periods
 
 ALTER TABLE ONLY public.plan_version_squads
     ADD CONSTRAINT plan_version_squads_pkey PRIMARY KEY (plan_version_id, squad_id);
+
+
+--
+-- Name: plan_version_traffic_packages plan_version_traffic_packages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.plan_version_traffic_packages
+    ADD CONSTRAINT plan_version_traffic_packages_pkey PRIMARY KEY (plan_version_id, traffic_gb, currency);
 
 
 --
@@ -7635,6 +7746,30 @@ ALTER TABLE ONLY public.self_employed_receipts
 
 ALTER TABLE ONLY public.self_employed_settings
     ADD CONSTRAINT self_employed_settings_pkey PRIMARY KEY (singleton);
+
+
+--
+-- Name: server_catalog server_catalog_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.server_catalog
+    ADD CONSTRAINT server_catalog_pkey PRIMARY KEY (squad_id);
+
+
+--
+-- Name: server_catalog_prices server_catalog_prices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.server_catalog_prices
+    ADD CONSTRAINT server_catalog_prices_pkey PRIMARY KEY (squad_id, currency);
+
+
+--
+-- Name: simple_subscription simple_subscription_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.simple_subscription
+    ADD CONSTRAINT simple_subscription_pkey PRIMARY KEY (singleton);
 
 
 --
@@ -8443,6 +8578,13 @@ CREATE INDEX entitlement_drifts_open_idx ON public.entitlement_drifts USING btre
 --
 
 CREATE INDEX entitlements_customer_updated_idx ON public.entitlements USING btree (user_id, updated_at DESC);
+
+
+--
+-- Name: entitlements_live_squads; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX entitlements_live_squads ON public.entitlements USING gin (remnawave_squad_ids) WHERE (status = ANY (ARRAY['pending'::text, 'active'::text, 'limited'::text, 'paused'::text]));
 
 
 --
@@ -11282,6 +11424,14 @@ ALTER TABLE ONLY public.plan_version_day_prices
 
 
 --
+-- Name: plan_version_gb_prices plan_version_gb_prices_plan_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.plan_version_gb_prices
+    ADD CONSTRAINT plan_version_gb_prices_plan_version_id_fkey FOREIGN KEY (plan_version_id) REFERENCES public.plan_versions(id) ON DELETE CASCADE;
+
+
+--
 -- Name: plan_version_periods plan_version_periods_plan_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -11295,6 +11445,14 @@ ALTER TABLE ONLY public.plan_version_periods
 
 ALTER TABLE ONLY public.plan_version_squads
     ADD CONSTRAINT plan_version_squads_plan_version_id_fkey FOREIGN KEY (plan_version_id) REFERENCES public.plan_versions(id);
+
+
+--
+-- Name: plan_version_traffic_packages plan_version_traffic_packages_plan_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.plan_version_traffic_packages
+    ADD CONSTRAINT plan_version_traffic_packages_plan_version_id_fkey FOREIGN KEY (plan_version_id) REFERENCES public.plan_versions(id) ON DELETE CASCADE;
 
 
 --
@@ -11639,6 +11797,30 @@ ALTER TABLE ONLY public.required_channels
 
 ALTER TABLE ONLY public.self_employed_receipts
     ADD CONSTRAINT self_employed_receipts_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id);
+
+
+--
+-- Name: server_catalog_prices server_catalog_prices_squad_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.server_catalog_prices
+    ADD CONSTRAINT server_catalog_prices_squad_id_fkey FOREIGN KEY (squad_id) REFERENCES public.server_catalog(squad_id) ON DELETE CASCADE;
+
+
+--
+-- Name: simple_subscription simple_subscription_device_addon_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.simple_subscription
+    ADD CONSTRAINT simple_subscription_device_addon_id_fkey FOREIGN KEY (device_addon_id) REFERENCES public.addons(id) ON DELETE SET NULL;
+
+
+--
+-- Name: simple_subscription simple_subscription_plan_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.simple_subscription
+    ADD CONSTRAINT simple_subscription_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.plans(id) ON DELETE SET NULL;
 
 
 --

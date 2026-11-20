@@ -249,6 +249,22 @@ func (q *Queries) InsertPlanVersionDayPrice(ctx context.Context, arg InsertPlanV
 	return err
 }
 
+const insertPlanVersionGBPrice = `-- name: InsertPlanVersionGBPrice :exec
+INSERT INTO plan_version_gb_prices (plan_version_id, currency, amount_minor)
+VALUES ($1, $2, $3)
+`
+
+type InsertPlanVersionGBPriceParams struct {
+	PlanVersionID pgtype.UUID `json:"plan_version_id"`
+	Currency      string      `json:"currency"`
+	AmountMinor   int64       `json:"amount_minor"`
+}
+
+func (q *Queries) InsertPlanVersionGBPrice(ctx context.Context, arg InsertPlanVersionGBPriceParams) error {
+	_, err := q.db.Exec(ctx, insertPlanVersionGBPrice, arg.PlanVersionID, arg.Currency, arg.AmountMinor)
+	return err
+}
+
 const insertPlanVersionPeriod = `-- name: InsertPlanVersionPeriod :exec
 INSERT INTO plan_version_periods (plan_version_id, days, currency, amount_minor, for_purchase, for_renewal)
 VALUES ($1, $2, $3, $4,
@@ -305,6 +321,28 @@ func (q *Queries) InsertPlanVersionSquad(ctx context.Context, arg InsertPlanVers
 	return err
 }
 
+const insertPlanVersionTrafficPackage = `-- name: InsertPlanVersionTrafficPackage :exec
+INSERT INTO plan_version_traffic_packages (plan_version_id, traffic_gb, currency, amount_minor)
+VALUES ($1, $2, $3, $4)
+`
+
+type InsertPlanVersionTrafficPackageParams struct {
+	PlanVersionID pgtype.UUID `json:"plan_version_id"`
+	TrafficGb     int32       `json:"traffic_gb"`
+	Currency      string      `json:"currency"`
+	AmountMinor   int64       `json:"amount_minor"`
+}
+
+func (q *Queries) InsertPlanVersionTrafficPackage(ctx context.Context, arg InsertPlanVersionTrafficPackageParams) error {
+	_, err := q.db.Exec(ctx, insertPlanVersionTrafficPackage,
+		arg.PlanVersionID,
+		arg.TrafficGb,
+		arg.Currency,
+		arg.AmountMinor,
+	)
+	return err
+}
+
 const lastOrderPeriod = `-- name: LastOrderPeriod :one
 SELECT o.period_seconds FROM orders o
 WHERE o.subscription_id = $1
@@ -321,6 +359,24 @@ func (q *Queries) LastOrderPeriod(ctx context.Context, subscriptionID pgtype.UUI
 	var period_seconds pgtype.Int8
 	err := row.Scan(&period_seconds)
 	return period_seconds, err
+}
+
+const lastOrderTraffic = `-- name: LastOrderTraffic :one
+SELECT o.traffic_gb FROM orders o
+WHERE o.subscription_id = $1
+  AND o.operation IN ('purchase', 'extension', 'renewal', 'upgrade', 'downgrade')
+  AND o.state IN ('paid', 'fulfilled', 'partially_refunded')
+ORDER BY o.created_at DESC
+LIMIT 1
+`
+
+// The traffic the subscription's latest settled subscription order bought,
+// which an automatic renewal repeats when the version still sells it.
+func (q *Queries) LastOrderTraffic(ctx context.Context, subscriptionID pgtype.UUID) (pgtype.Int4, error) {
+	row := q.db.QueryRow(ctx, lastOrderTraffic, subscriptionID)
+	var traffic_gb pgtype.Int4
+	err := row.Scan(&traffic_gb)
+	return traffic_gb, err
 }
 
 const listDueTrafficPacks = `-- name: ListDueTrafficPacks :many
@@ -400,6 +456,30 @@ func (q *Queries) ListPlanVersionDayPrices(ctx context.Context, planVersionID pg
 	return items, nil
 }
 
+const listPlanVersionGBPrices = `-- name: ListPlanVersionGBPrices :many
+SELECT plan_version_id, currency, amount_minor FROM plan_version_gb_prices WHERE plan_version_id = $1 ORDER BY currency
+`
+
+func (q *Queries) ListPlanVersionGBPrices(ctx context.Context, planVersionID pgtype.UUID) ([]PlanVersionGbPrice, error) {
+	rows, err := q.db.Query(ctx, listPlanVersionGBPrices, planVersionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []PlanVersionGbPrice{}
+	for rows.Next() {
+		var i PlanVersionGbPrice
+		if err := rows.Scan(&i.PlanVersionID, &i.Currency, &i.AmountMinor); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPlanVersionPeriods = `-- name: ListPlanVersionPeriods :many
 SELECT plan_version_id, days, currency, amount_minor, for_purchase, for_renewal FROM plan_version_periods WHERE plan_version_id = $1 ORDER BY days, currency
 `
@@ -420,6 +500,35 @@ func (q *Queries) ListPlanVersionPeriods(ctx context.Context, planVersionID pgty
 			&i.AmountMinor,
 			&i.ForPurchase,
 			&i.ForRenewal,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPlanVersionTrafficPackages = `-- name: ListPlanVersionTrafficPackages :many
+SELECT plan_version_id, traffic_gb, currency, amount_minor FROM plan_version_traffic_packages WHERE plan_version_id = $1 ORDER BY traffic_gb, currency
+`
+
+func (q *Queries) ListPlanVersionTrafficPackages(ctx context.Context, planVersionID pgtype.UUID) ([]PlanVersionTrafficPackage, error) {
+	rows, err := q.db.Query(ctx, listPlanVersionTrafficPackages, planVersionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []PlanVersionTrafficPackage{}
+	for rows.Next() {
+		var i PlanVersionTrafficPackage
+		if err := rows.Scan(
+			&i.PlanVersionID,
+			&i.TrafficGb,
+			&i.Currency,
+			&i.AmountMinor,
 		); err != nil {
 			return nil, err
 		}
@@ -544,6 +653,21 @@ func (q *Queries) SetOrderPeriod(ctx context.Context, arg SetOrderPeriodParams) 
 	return err
 }
 
+const setOrderTraffic = `-- name: SetOrderTraffic :exec
+UPDATE orders SET traffic_gb = $1 WHERE id = $2
+`
+
+type SetOrderTrafficParams struct {
+	TrafficGb pgtype.Int4 `json:"traffic_gb"`
+	OrderID   pgtype.UUID `json:"order_id"`
+}
+
+// Written once, in the transaction that creates the order.
+func (q *Queries) SetOrderTraffic(ctx context.Context, arg SetOrderTrafficParams) error {
+	_, err := q.db.Exec(ctx, setOrderTraffic, arg.TrafficGb, arg.OrderID)
+	return err
+}
+
 const setPlanChangeProration = `-- name: SetPlanChangeProration :one
 UPDATE subscription_policy SET prorate_plan_changes = $1, updated_at = now()
 WHERE singleton
@@ -639,6 +763,37 @@ func (q *Queries) SetPlanVersionCustomDays(ctx context.Context, arg SetPlanVersi
 	return err
 }
 
+const setPlanVersionCustomTraffic = `-- name: SetPlanVersionCustomTraffic :exec
+UPDATE plan_versions
+SET custom_traffic_min_gb = $1, custom_traffic_max_gb = $2
+WHERE id = $3
+`
+
+type SetPlanVersionCustomTrafficParams struct {
+	CustomTrafficMinGb pgtype.Int4 `json:"custom_traffic_min_gb"`
+	CustomTrafficMaxGb pgtype.Int4 `json:"custom_traffic_max_gb"`
+	PlanVersionID      pgtype.UUID `json:"plan_version_id"`
+}
+
+func (q *Queries) SetPlanVersionCustomTraffic(ctx context.Context, arg SetPlanVersionCustomTrafficParams) error {
+	_, err := q.db.Exec(ctx, setPlanVersionCustomTraffic, arg.CustomTrafficMinGb, arg.CustomTrafficMaxGb, arg.PlanVersionID)
+	return err
+}
+
+const setPlanVersionDailyBilling = `-- name: SetPlanVersionDailyBilling :exec
+UPDATE plan_versions SET daily_billing = $1 WHERE id = $2
+`
+
+type SetPlanVersionDailyBillingParams struct {
+	DailyBilling  bool        `json:"daily_billing"`
+	PlanVersionID pgtype.UUID `json:"plan_version_id"`
+}
+
+func (q *Queries) SetPlanVersionDailyBilling(ctx context.Context, arg SetPlanVersionDailyBillingParams) error {
+	_, err := q.db.Exec(ctx, setPlanVersionDailyBilling, arg.DailyBilling, arg.PlanVersionID)
+	return err
+}
+
 const setPlanVersionRemnawaveProfile = `-- name: SetPlanVersionRemnawaveProfile :exec
 UPDATE plan_versions
 SET traffic_reset_strategy = $1,
@@ -655,6 +810,20 @@ type SetPlanVersionRemnawaveProfileParams struct {
 // Written once, in the transaction that publishes the version.
 func (q *Queries) SetPlanVersionRemnawaveProfile(ctx context.Context, arg SetPlanVersionRemnawaveProfileParams) error {
 	_, err := q.db.Exec(ctx, setPlanVersionRemnawaveProfile, arg.TrafficResetStrategy, arg.ExternalSquadID, arg.PlanVersionID)
+	return err
+}
+
+const setPlanVersionTrafficMode = `-- name: SetPlanVersionTrafficMode :exec
+UPDATE plan_versions SET traffic_mode = $1 WHERE id = $2
+`
+
+type SetPlanVersionTrafficModeParams struct {
+	TrafficMode   string      `json:"traffic_mode"`
+	PlanVersionID pgtype.UUID `json:"plan_version_id"`
+}
+
+func (q *Queries) SetPlanVersionTrafficMode(ctx context.Context, arg SetPlanVersionTrafficModeParams) error {
+	_, err := q.db.Exec(ctx, setPlanVersionTrafficMode, arg.TrafficMode, arg.PlanVersionID)
 	return err
 }
 

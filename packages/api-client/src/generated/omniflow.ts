@@ -1652,6 +1652,17 @@ export const PanelPlanVersionSummaryTrafficResetStrategy = {
 
 export type PanelPlanVersionSummaryDayPrices = { [key: string]: number };
 
+export type PanelPlanVersionSummaryGbPrices = { [key: string]: number };
+
+export type PanelPlanVersionSummaryTrafficMode =
+  (typeof PanelPlanVersionSummaryTrafficMode)[keyof typeof PanelPlanVersionSummaryTrafficMode];
+
+export const PanelPlanVersionSummaryTrafficMode = {
+  fixed: "fixed",
+  fixed_with_topup: "fixed_with_topup",
+  selectable: "selectable",
+} as const;
+
 export interface PanelOfferedSquad {
   squadId: string;
   /**
@@ -1678,6 +1689,21 @@ export interface PanelPlanPeriod {
   amountMinor: number;
   forPurchase: boolean;
   forRenewal: boolean;
+}
+
+export interface PanelTrafficPackage {
+  /**
+   * @minimum 1
+   * @maximum 1000000
+   */
+  gb: number;
+  /** @pattern ^[A-Z]{3}$ */
+  currency: string;
+  /**
+   * The package's price for the version's own duration.
+   * @minimum 0
+   */
+  amountMinor: number;
 }
 
 export interface PanelPlanVersionSummary {
@@ -1714,6 +1740,70 @@ export interface PanelPlanVersionSummary {
   customDaysMin?: number;
   customDaysMax?: number;
   dayPrices?: PanelPlanVersionSummaryDayPrices;
+  customTrafficMinGb?: number;
+  customTrafficMaxGb?: number;
+  gbPrices?: PanelPlanVersionSummaryGbPrices;
+  trafficMode?: PanelPlanVersionSummaryTrafficMode;
+  /** @nullable */
+  trafficPackages?: PanelTrafficPackage[] | null;
+  dailyBilling?: boolean;
+}
+
+/**
+ * What choosing the squad adds to a plan's price, per currency, for the version's own duration.
+ */
+export type PanelServerPrices = { [key: string]: number };
+
+export interface PanelServer {
+  squadId?: string;
+  /**
+   * @minLength 1
+   * @maxLength 80
+   */
+  nameRu: string;
+  /**
+   * @minLength 1
+   * @maxLength 80
+   */
+  nameEn: string;
+  /** ISO 3166-1 alpha-2, shown as a flag; empty for none. */
+  countryCode?: string;
+  /**
+   * The most customers a sale may put on the squad; null is no limit.
+   * @minimum 1
+   * @nullable
+   */
+  maxUsers?: number | null;
+  trialEligible: boolean;
+  sortOrder?: number;
+  /** What choosing the squad adds to a plan's price, per currency, for the version's own duration. */
+  prices?: PanelServerPrices;
+  readonly liveCustomers?: number;
+}
+
+export interface PanelSimpleSubscription {
+  enabled: boolean;
+  /** The plan sold; empty for none. */
+  planId: string;
+  /**
+   * 0 is the version's own period.
+   * @minimum 0
+   * @maximum 3650
+   */
+  periodDays: number;
+  /**
+   * 0 is the version's own traffic.
+   * @minimum 0
+   * @maximum 1000000
+   */
+  trafficGb: number;
+  /** A devices add-on bought with the plan; empty for none. */
+  deviceAddonId: string;
+  /**
+   * @minimum 0
+   * @maximum 100
+   */
+  deviceQuantity: number;
 }
 
 export type PanelPlanVersionInputBillingPeriod =
@@ -1796,6 +1886,23 @@ export const PanelPlanVersionInputTrafficResetStrategy = {
  */
 export type PanelPlanVersionInputDayPrices = { [key: string]: number };
 
+/**
+ * Price per chosen gigabyte by currency, for the version's own duration.
+ */
+export type PanelPlanVersionInputGbPrices = { [key: string]: number };
+
+/**
+ * How the version sells traffic. Empty is selectable when packages or a custom range are sent, and fixed_with_topup otherwise.
+ */
+export type PanelPlanVersionInputTrafficMode =
+  (typeof PanelPlanVersionInputTrafficMode)[keyof typeof PanelPlanVersionInputTrafficMode];
+
+export const PanelPlanVersionInputTrafficMode = {
+  fixed: "fixed",
+  fixed_with_topup: "fixed_with_topup",
+  selectable: "selectable",
+} as const;
+
 export interface PanelPlanVersionInput {
   billingPeriod: PanelPlanVersionInputBillingPeriod;
   /** @minimum 1 */
@@ -1865,6 +1972,25 @@ export interface PanelPlanVersionInput {
   customDaysMax?: number | null;
   /** Price per custom day by currency. */
   dayPrices?: PanelPlanVersionInputDayPrices;
+  /**
+   * The smallest traffic volume a customer may choose; null sells none.
+   * @minimum 1
+   * @nullable
+   */
+  customTrafficMinGb?: number | null;
+  /**
+   * @maximum 1000000
+   * @nullable
+   */
+  customTrafficMaxGb?: number | null;
+  /** Price per chosen gigabyte by currency, for the version's own duration. */
+  gbPrices?: PanelPlanVersionInputGbPrices;
+  /** How the version sells traffic. Empty is selectable when packages or a custom range are sent, and fixed_with_topup otherwise. */
+  trafficMode?: PanelPlanVersionInputTrafficMode;
+  /** The traffic volumes a selectable version is sold with. */
+  trafficPackages?: PanelTrafficPackage[];
+  /** Bill the version one day at a time from the wallet, pausable by the customer. Needs billingPeriod day, durationSeconds 86400, and no other periods. */
+  dailyBilling?: boolean;
 }
 
 export interface PanelPlanOptions {
@@ -4929,6 +5055,36 @@ export interface AccountCheckout {
   expiresAt?: string;
 }
 
+export type AccountSimpleSubscriptionTotal = {
+  amountMinor: number;
+  currency: string;
+};
+
+export interface AccountSimpleSubscription {
+  enabled: boolean;
+  planVersionId?: string;
+  plan?: AccountPlan;
+  /** 0 is the plan's own period. */
+  periodDays?: number;
+  /** 0 is the plan's own traffic. */
+  trafficGb?: number;
+  extraDevices?: number;
+  total?: AccountSimpleSubscriptionTotal;
+}
+
+export type AccountDailyBillingPrice = {
+  amountMinor: number;
+  currency: string;
+};
+
+export interface AccountDailyBilling {
+  daily: boolean;
+  paused?: boolean;
+  suspended?: boolean;
+  endsAt?: string;
+  price?: AccountDailyBillingPrice;
+}
+
 /**
  * How the customer completes the payment. `none` means nothing further is owed, which is what a wallet-covered order looks like.
  */
@@ -6602,6 +6758,8 @@ export type ApplyPanelPlanSquads202 = {
   subscriptions?: number;
 };
 
+export type ListPanelServers200 = { [key: string]: unknown };
+
 export type CreatePanelPromotion201 = { [key: string]: unknown };
 
 export type ListPanelPromotionsParams = {
@@ -7332,6 +7490,10 @@ export const ListAccountSquadAddonsLocale = {
   en: "en",
 } as const;
 
+export type SetAccountDailyBillingBody = {
+  paused: boolean;
+};
+
 export type ListAccountSubscriptionAddonsParams = {
   locale?: ListAccountSubscriptionAddonsLocale;
 };
@@ -7512,6 +7674,12 @@ export type UpdateAccountCheckoutBody = {
    * @maximum 3650
    */
   periodDays?: number;
+  /**
+   * A traffic volume in gigabytes other than the plan version's own allowance, priced per gigabyte; 0 returns to it.
+   * @minimum 0
+   * @maximum 1000000
+   */
+  trafficGb?: number;
 };
 
 export type ApplyAccountPromoCodeBody = {
@@ -16972,6 +17140,411 @@ export const useSavePanelPlanOptions = <TError = Promise<ProblemResponse>>(
 
   const swrKey = swrOptions?.swrKey ?? getSavePanelPlanOptionsMutationKey(planID);
   const swrFn = getSavePanelPlanOptionsMutationFetcher(planID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelServersResponse200 = {
+  data: ListPanelServers200;
+  status: 200;
+};
+
+export type listPanelServersResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelServersResponseSuccess = listPanelServersResponse200 & {
+  headers: Headers;
+};
+export type listPanelServersResponseError = listPanelServersResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelServersResponse =
+  | listPanelServersResponseSuccess
+  | listPanelServersResponseError;
+
+export const getListPanelServersUrl = () => {
+  return `/v1/panel/catalog/servers`;
+};
+
+/**
+ * Requires catalog.read. The server catalogue beside the Remnawave panel's internal squads: each row carries the catalogue entry when there is one, the panel's name and member count read live (never stored; `reported` is false when the panel could not be read), and whether its customer limit is reached. `entry.liveCustomers` is Omniflow's own count of customers with a live entitlement on it.
+ */
+export const listPanelServers = async (
+  options?: RequestInit,
+): Promise<listPanelServersResponse> => {
+  const res = await fetch(getListPanelServersUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelServersResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelServersResponse;
+};
+
+export const getListPanelServersKey = () => [`/v1/panel/catalog/servers`] as const;
+
+export type ListPanelServersQueryResult = NonNullable<Awaited<ReturnType<typeof listPanelServers>>>;
+
+export const useListPanelServers = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelServers>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelServersKey() : null));
+  const swrFn = () => listPanelServers(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelServerResponse200 = {
+  data: PanelServer;
+  status: 200;
+};
+
+export type savePanelServerResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelServerResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type savePanelServerResponseSuccess = savePanelServerResponse200 & {
+  headers: Headers;
+};
+export type savePanelServerResponseError = (
+  | savePanelServerResponse403
+  | savePanelServerResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelServerResponse = savePanelServerResponseSuccess | savePanelServerResponseError;
+
+export const getSavePanelServerUrl = (squadID: string) => {
+  return `/v1/panel/catalog/servers/${squadID}`;
+};
+
+/**
+ * Requires catalog.write. Creates or replaces how Omniflow labels and limits the sale of one Remnawave internal squad. Nothing is changed in Remnawave.
+ */
+export const savePanelServer = async (
+  squadID: string,
+  panelServer: NonReadonly<PanelServer>,
+  options?: RequestInit,
+): Promise<savePanelServerResponse> => {
+  const res = await fetch(getSavePanelServerUrl(squadID), {
+    ...options,
+    method: "PUT",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(panelServer),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelServerResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as savePanelServerResponse;
+};
+
+export const getSavePanelServerMutationFetcher = (squadID: string, options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: NonReadonly<PanelServer> }) => {
+    return savePanelServer(squadID, arg, options);
+  };
+};
+export const getSavePanelServerMutationKey = (squadID: string) =>
+  [`/v1/panel/catalog/servers/${squadID}`] as const;
+
+export type SavePanelServerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelServer>>
+>;
+
+export const useSavePanelServer = <TError = Promise<ProblemResponse>>(
+  squadID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof savePanelServer>>,
+      TError,
+      Key,
+      NonReadonly<PanelServer>,
+      Awaited<ReturnType<typeof savePanelServer>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelServerMutationKey(squadID);
+  const swrFn = getSavePanelServerMutationFetcher(squadID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type deletePanelServerResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type deletePanelServerResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type deletePanelServerResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type deletePanelServerResponseSuccess = deletePanelServerResponse204 & {
+  headers: Headers;
+};
+export type deletePanelServerResponseError = (
+  | deletePanelServerResponse403
+  | deletePanelServerResponse404
+) & {
+  headers: Headers;
+};
+
+export type deletePanelServerResponse =
+  | deletePanelServerResponseSuccess
+  | deletePanelServerResponseError;
+
+export const getDeletePanelServerUrl = (squadID: string) => {
+  return `/v1/panel/catalog/servers/${squadID}`;
+};
+
+/**
+ * Requires catalog.write. Removes the squad's catalogue entry; it is then sold with no label, limit, or price of its own.
+ */
+export const deletePanelServer = async (
+  squadID: string,
+  options?: RequestInit,
+): Promise<deletePanelServerResponse> => {
+  const res = await fetch(getDeletePanelServerUrl(squadID), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: deletePanelServerResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as deletePanelServerResponse;
+};
+
+export const getDeletePanelServerMutationFetcher = (squadID: string, options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return deletePanelServer(squadID, options);
+  };
+};
+export const getDeletePanelServerMutationKey = (squadID: string) =>
+  [`/v1/panel/catalog/servers/${squadID}`] as const;
+
+export type DeletePanelServerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deletePanelServer>>
+>;
+
+export const useDeletePanelServer = <TError = Promise<ProblemResponse>>(
+  squadID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof deletePanelServer>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof deletePanelServer>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getDeletePanelServerMutationKey(squadID);
+  const swrFn = getDeletePanelServerMutationFetcher(squadID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelSimpleSubscriptionResponse200 = {
+  data: PanelSimpleSubscription;
+  status: 200;
+};
+
+export type getPanelSimpleSubscriptionResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelSimpleSubscriptionResponseSuccess = getPanelSimpleSubscriptionResponse200 & {
+  headers: Headers;
+};
+export type getPanelSimpleSubscriptionResponseError = getPanelSimpleSubscriptionResponse403 & {
+  headers: Headers;
+};
+
+export type getPanelSimpleSubscriptionResponse =
+  | getPanelSimpleSubscriptionResponseSuccess
+  | getPanelSimpleSubscriptionResponseError;
+
+export const getGetPanelSimpleSubscriptionUrl = () => {
+  return `/v1/panel/catalog/simple-subscription`;
+};
+
+/**
+ * Requires catalog.read. The simple subscription setting.
+ */
+export const getPanelSimpleSubscription = async (
+  options?: RequestInit,
+): Promise<getPanelSimpleSubscriptionResponse> => {
+  const res = await fetch(getGetPanelSimpleSubscriptionUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelSimpleSubscriptionResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelSimpleSubscriptionResponse;
+};
+
+export const getGetPanelSimpleSubscriptionKey = () =>
+  [`/v1/panel/catalog/simple-subscription`] as const;
+
+export type GetPanelSimpleSubscriptionQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelSimpleSubscription>>
+>;
+
+export const useGetPanelSimpleSubscription = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelSimpleSubscription>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelSimpleSubscriptionKey() : null));
+  const swrFn = () => getPanelSimpleSubscription(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelSimpleSubscriptionResponse200 = {
+  data: PanelSimpleSubscription;
+  status: 200;
+};
+
+export type savePanelSimpleSubscriptionResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelSimpleSubscriptionResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type savePanelSimpleSubscriptionResponseSuccess = savePanelSimpleSubscriptionResponse200 & {
+  headers: Headers;
+};
+export type savePanelSimpleSubscriptionResponseError = (
+  | savePanelSimpleSubscriptionResponse403
+  | savePanelSimpleSubscriptionResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelSimpleSubscriptionResponse =
+  | savePanelSimpleSubscriptionResponseSuccess
+  | savePanelSimpleSubscriptionResponseError;
+
+export const getSavePanelSimpleSubscriptionUrl = () => {
+  return `/v1/panel/catalog/simple-subscription`;
+};
+
+/**
+ * Requires catalog.write. When enabled, the bot and the web store show the one plan named here with one Buy button, its period, traffic, and extra devices chosen in advance. An enabled setting needs a plan with a live version; extra devices need a devices add-on.
+ */
+export const savePanelSimpleSubscription = async (
+  panelSimpleSubscription: PanelSimpleSubscription,
+  options?: RequestInit,
+): Promise<savePanelSimpleSubscriptionResponse> => {
+  const res = await fetch(getSavePanelSimpleSubscriptionUrl(), {
+    ...options,
+    method: "PUT",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(panelSimpleSubscription),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelSimpleSubscriptionResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as savePanelSimpleSubscriptionResponse;
+};
+
+export const getSavePanelSimpleSubscriptionMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PanelSimpleSubscription }) => {
+    return savePanelSimpleSubscription(arg, options);
+  };
+};
+export const getSavePanelSimpleSubscriptionMutationKey = () =>
+  [`/v1/panel/catalog/simple-subscription`] as const;
+
+export type SavePanelSimpleSubscriptionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelSimpleSubscription>>
+>;
+
+export const useSavePanelSimpleSubscription = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof savePanelSimpleSubscription>>,
+    TError,
+    Key,
+    PanelSimpleSubscription,
+    Awaited<ReturnType<typeof savePanelSimpleSubscription>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelSimpleSubscriptionMutationKey();
+  const swrFn = getSavePanelSimpleSubscriptionMutationFetcher(fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 
@@ -31278,6 +31851,324 @@ export const useRemoveAccountSquadAddon = <TError = Promise<ProblemResponse>>(
   const swrKey =
     swrOptions?.swrKey ?? getRemoveAccountSquadAddonMutationKey(subscriptionID, packID);
   const swrFn = getRemoveAccountSquadAddonMutationFetcher(subscriptionID, packID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountSimpleSubscriptionResponse200 = {
+  data: AccountSimpleSubscription;
+  status: 200;
+};
+
+export type getAccountSimpleSubscriptionResponseSuccess =
+  getAccountSimpleSubscriptionResponse200 & {
+    headers: Headers;
+  };
+
+export type getAccountSimpleSubscriptionResponse = getAccountSimpleSubscriptionResponseSuccess;
+
+export const getGetAccountSimpleSubscriptionUrl = () => {
+  return `/v1/account/simple-subscription`;
+};
+
+/**
+ * The one plan the store shows when the operator turned the simple subscription on, priced for this customer; `enabled` is false otherwise and the store shows the catalogue.
+ */
+export const getAccountSimpleSubscription = async (
+  options?: RequestInit,
+): Promise<getAccountSimpleSubscriptionResponse> => {
+  const res = await fetch(getGetAccountSimpleSubscriptionUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountSimpleSubscriptionResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getAccountSimpleSubscriptionResponse;
+};
+
+export const getGetAccountSimpleSubscriptionKey = () =>
+  [`/v1/account/simple-subscription`] as const;
+
+export type GetAccountSimpleSubscriptionQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountSimpleSubscription>>
+>;
+
+export const useGetAccountSimpleSubscription = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountSimpleSubscription>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetAccountSimpleSubscriptionKey() : null));
+  const swrFn = () => getAccountSimpleSubscription(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type openAccountSimpleCheckoutResponse201 = {
+  data: AccountCheckout;
+  status: 201;
+};
+
+export type openAccountSimpleCheckoutResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type openAccountSimpleCheckoutResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type openAccountSimpleCheckoutResponseSuccess = openAccountSimpleCheckoutResponse201 & {
+  headers: Headers;
+};
+export type openAccountSimpleCheckoutResponseError = (
+  | openAccountSimpleCheckoutResponse409
+  | openAccountSimpleCheckoutResponse422
+) & {
+  headers: Headers;
+};
+
+export type openAccountSimpleCheckoutResponse =
+  | openAccountSimpleCheckoutResponseSuccess
+  | openAccountSimpleCheckoutResponseError;
+
+export const getOpenAccountSimpleCheckoutUrl = () => {
+  return `/v1/account/simple-subscription/checkout`;
+};
+
+/**
+ * The Buy button: opens the checkout for the simple subscription's plan with its period, traffic, and extra devices already chosen, replacing any open checkout. A customer with a live subscription extends it.
+ */
+export const openAccountSimpleCheckout = async (
+  options?: RequestInit,
+): Promise<openAccountSimpleCheckoutResponse> => {
+  const res = await fetch(getOpenAccountSimpleCheckoutUrl(), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: openAccountSimpleCheckoutResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as openAccountSimpleCheckoutResponse;
+};
+
+export const getOpenAccountSimpleCheckoutMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return openAccountSimpleCheckout(options);
+  };
+};
+export const getOpenAccountSimpleCheckoutMutationKey = () =>
+  [`/v1/account/simple-subscription/checkout`] as const;
+
+export type OpenAccountSimpleCheckoutMutationResult = NonNullable<
+  Awaited<ReturnType<typeof openAccountSimpleCheckout>>
+>;
+
+export const useOpenAccountSimpleCheckout = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof openAccountSimpleCheckout>>,
+    TError,
+    Key,
+    Arguments,
+    Awaited<ReturnType<typeof openAccountSimpleCheckout>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getOpenAccountSimpleCheckoutMutationKey();
+  const swrFn = getOpenAccountSimpleCheckoutMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountDailyBillingResponse200 = {
+  data: AccountDailyBilling;
+  status: 200;
+};
+
+export type getAccountDailyBillingResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type getAccountDailyBillingResponseSuccess = getAccountDailyBillingResponse200 & {
+  headers: Headers;
+};
+export type getAccountDailyBillingResponseError = getAccountDailyBillingResponse404 & {
+  headers: Headers;
+};
+
+export type getAccountDailyBillingResponse =
+  | getAccountDailyBillingResponseSuccess
+  | getAccountDailyBillingResponseError;
+
+export const getGetAccountDailyBillingUrl = (subscriptionID: string) => {
+  return `/v1/account/subscriptions/${subscriptionID}/daily-billing`;
+};
+
+/**
+ * How a subscription on a daily plan is billed. `daily` is false for any other plan; otherwise `paused` is the customer's pause, `suspended` a day the wallet did not cover (it resumes on its own after a top-up), `endsAt` when the paid day runs out, and `price` one day's price.
+ */
+export const getAccountDailyBilling = async (
+  subscriptionID: string,
+  options?: RequestInit,
+): Promise<getAccountDailyBillingResponse> => {
+  const res = await fetch(getGetAccountDailyBillingUrl(subscriptionID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountDailyBillingResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getAccountDailyBillingResponse;
+};
+
+export const getGetAccountDailyBillingKey = (subscriptionID: string) =>
+  [`/v1/account/subscriptions/${subscriptionID}/daily-billing`] as const;
+
+export type GetAccountDailyBillingQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountDailyBilling>>
+>;
+
+export const useGetAccountDailyBilling = <TError = Promise<ProblemResponse>>(
+  subscriptionID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountDailyBilling>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && subscriptionID !== null && subscriptionID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetAccountDailyBillingKey(subscriptionID) : null));
+  const swrFn = () => getAccountDailyBilling(subscriptionID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type setAccountDailyBillingResponse200 = {
+  data: AccountDailyBilling;
+  status: 200;
+};
+
+export type setAccountDailyBillingResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type setAccountDailyBillingResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type setAccountDailyBillingResponseSuccess = setAccountDailyBillingResponse200 & {
+  headers: Headers;
+};
+export type setAccountDailyBillingResponseError = (
+  | setAccountDailyBillingResponse404
+  | setAccountDailyBillingResponse409
+) & {
+  headers: Headers;
+};
+
+export type setAccountDailyBillingResponse =
+  | setAccountDailyBillingResponseSuccess
+  | setAccountDailyBillingResponseError;
+
+export const getSetAccountDailyBillingUrl = (subscriptionID: string) => {
+  return `/v1/account/subscriptions/${subscriptionID}/daily-billing`;
+};
+
+/**
+ * Pauses or resumes a daily subscription. A pause stops the daily charge and disables access through fulfillment; a resume gives back the part of the day the pause held. Asking for the state the subscription is already in succeeds without doing anything.
+ */
+export const setAccountDailyBilling = async (
+  subscriptionID: string,
+  setAccountDailyBillingBody: SetAccountDailyBillingBody,
+  options?: RequestInit,
+): Promise<setAccountDailyBillingResponse> => {
+  const res = await fetch(getSetAccountDailyBillingUrl(subscriptionID), {
+    ...options,
+    method: "PUT",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(setAccountDailyBillingBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: setAccountDailyBillingResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as setAccountDailyBillingResponse;
+};
+
+export const getSetAccountDailyBillingMutationFetcher = (
+  subscriptionID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: SetAccountDailyBillingBody }) => {
+    return setAccountDailyBilling(subscriptionID, arg, options);
+  };
+};
+export const getSetAccountDailyBillingMutationKey = (subscriptionID: string) =>
+  [`/v1/account/subscriptions/${subscriptionID}/daily-billing`] as const;
+
+export type SetAccountDailyBillingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setAccountDailyBilling>>
+>;
+
+export const useSetAccountDailyBilling = <TError = Promise<ProblemResponse>>(
+  subscriptionID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof setAccountDailyBilling>>,
+      TError,
+      Key,
+      SetAccountDailyBillingBody,
+      Awaited<ReturnType<typeof setAccountDailyBilling>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSetAccountDailyBillingMutationKey(subscriptionID);
+  const swrFn = getSetAccountDailyBillingMutationFetcher(subscriptionID, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

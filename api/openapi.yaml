@@ -3946,51 +3946,6 @@ paths:
         "201": {description: Order created, content: {application/json: {schema: {$ref: "#/components/schemas/AccountOrder"}}}}
         "409": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
-  /v1/account/simple-subscription:
-    get:
-      operationId: getAccountSimpleSubscription
-      tags: [account]
-      description: >-
-        The one plan the store shows when the operator turned the simple
-        subscription on, priced for this customer; `enabled` is false
-        otherwise and the store shows the catalogue.
-      responses:
-        "200": {description: Offer, content: {application/json: {schema: {$ref: "#/components/schemas/AccountSimpleSubscription"}}}}
-  /v1/account/simple-subscription/checkout:
-    post:
-      operationId: openAccountSimpleCheckout
-      tags: [account]
-      description: >-
-        The Buy button: opens the checkout for the simple subscription's plan
-        with its period, traffic, and extra devices already chosen, replacing
-        any open checkout. A customer with a live subscription extends it.
-      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
-      responses:
-        "201": {description: Opened, content: {application/json: {schema: {$ref: "#/components/schemas/AccountCheckout"}}}}
-        "409": {$ref: "#/components/responses/Problem"}
-        "422": {$ref: "#/components/responses/Problem"}
-  /v1/account/subscriptions/{subscriptionID}/daily-billing:
-    get:
-      operationId: getAccountDailyBilling
-      tags: [account]
-      description: >-
-        How a subscription on a daily plan is billed. `daily` is false for
-        any other plan; otherwise `paused` is the customer's pause,
-        `suspended` a day the wallet did not cover (it resumes on its own
-        after a top-up), `endsAt` when the paid day runs out, and `price` one
-        day's price.
-      parameters: [{$ref: "#/components/parameters/AccountSubscriptionID"}]
-      responses:
-        "200": {description: Daily billing, content: {application/json: {schema: {$ref: "#/components/schemas/AccountDailyBilling"}}}}
-        "404": {$ref: "#/components/responses/Problem"}
-    put:
-      operationId: setAccountDailyBilling
-      tags: [account]
-      description: >-
-        Pauses or resumes a daily subscription. A pause stops the daily
-        charge and disables access through fulfillment; a resume gives back
-        the part of the day the pause held. Asking for the state the
-        subscription is already in succeeds without doing anything.
   /v1/account/subscriptions/{subscriptionID}/traffic-package:
     get:
       operationId: getAccountTrafficPackages
@@ -4025,13 +3980,6 @@ paths:
           application/json:
             schema:
               type: object
-              required: [paused]
-              properties:
-                paused: {type: boolean}
-      responses:
-        "200": {description: Daily billing, content: {application/json: {schema: {$ref: "#/components/schemas/AccountDailyBilling"}}}}
-        "404": {$ref: "#/components/responses/Problem"}
-        "409": {$ref: "#/components/responses/Problem"}
               properties:
                 addonVersionId: {type: string, format: uuid, description: The package to switch to; omitted to drop the current packages.}
       responses:
@@ -4107,6 +4055,68 @@ paths:
         "201": {description: Order created, content: {application/json: {schema: {$ref: "#/components/schemas/AccountOrder"}}}}
         "409": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/account/simple-subscription:
+    get:
+      operationId: getAccountSimpleSubscription
+      tags: [account]
+      description: >-
+        The one plan the store shows when the operator turned the simple
+        subscription on, priced for this customer; `enabled` is false
+        otherwise and the store shows the catalogue.
+      responses:
+        "200": {description: Offer, content: {application/json: {schema: {$ref: "#/components/schemas/AccountSimpleSubscription"}}}}
+  /v1/account/simple-subscription/checkout:
+    post:
+      operationId: openAccountSimpleCheckout
+      tags: [account]
+      description: >-
+        The Buy button: opens the checkout for the simple subscription's plan
+        with its period, traffic, and extra devices already chosen, replacing
+        any open checkout. A customer with a live subscription extends it.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      responses:
+        "201": {description: Opened, content: {application/json: {schema: {$ref: "#/components/schemas/AccountCheckout"}}}}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/account/subscriptions/{subscriptionID}/daily-billing:
+    get:
+      operationId: getAccountDailyBilling
+      tags: [account]
+      description: >-
+        How a subscription on a daily plan is billed. `daily` is false for
+        any other plan; otherwise `paused` is the customer's pause,
+        `suspended` a day the wallet did not cover (it resumes on its own
+        after a top-up), `endsAt` when the paid day runs out, and `price` one
+        day's price.
+      parameters: [{$ref: "#/components/parameters/AccountSubscriptionID"}]
+      responses:
+        "200": {description: Daily billing, content: {application/json: {schema: {$ref: "#/components/schemas/AccountDailyBilling"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+    put:
+      operationId: setAccountDailyBilling
+      tags: [account]
+      description: >-
+        Pauses or resumes a daily subscription. A pause stops the daily
+        charge and disables access through fulfillment; a resume gives back
+        the part of the day the pause held. Asking for the state the
+        subscription is already in succeeds without doing anything.
+      parameters:
+        - {$ref: "#/components/parameters/AccountSubscriptionID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [paused]
+              properties:
+                paused: {type: boolean}
+      responses:
+        "200": {description: Daily billing, content: {application/json: {schema: {$ref: "#/components/schemas/AccountDailyBilling"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
   /v1/account/subscriptions/{subscriptionID}/addons:
     get:
       operationId: listAccountSubscriptionAddons
