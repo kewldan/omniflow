@@ -1210,6 +1210,28 @@ offers **Add to Home Screen** / **Install app**. The installed app opens the cus
 at `/account` in its own window, under the installation's service name and favicon from
 [branding](/operations/branding); a rename applies the next time the manifest is read.
 
+## Inside Telegram as a Mini App
+
+With `miniAppUrl` set in the bot section, the bot's «My account» button opens this panel as
+a Telegram Mini App, which signs the customer in from Telegram's own launch data. Two more
+switches in the same section (`/admin/settings/integrations`) shape it there; outside
+Telegram neither changes anything:
+
+- **Open the Mini App full screen** (`miniAppFullscreen`, off by default). The panel tells
+  Telegram it is ready, always asks to be expanded, and with this on asks for full screen —
+  on Telegram clients with Bot API 8.0 and later; older clients just expand it. In full
+  screen Telegram draws its controls over the top of the page, so the panel starts, and its
+  header sticks, below the safe area plus room for them.
+- **Lite Mini App** (`miniAppLite`, off by default). The navigation keeps only the
+  subscription, store, and support destinations — the errands a customer opens the bot's
+  Mini App for — and drops the wallet, profile, and the secondary list. Everything else is
+  still in the bot, and a direct link still opens its page.
+
+The panel reads both from `GET /v1/account/miniapp`, which is public because the sign-in
+screen a Mini App opens on needs them. It talks to Telegram through the Mini Apps protocol
+directly rather than loading Telegram's script, and remembers for the tab that it was opened
+inside Telegram.
+
 ## Related
 
 <CardGroup cols={2}>

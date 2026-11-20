@@ -5836,6 +5836,28 @@ paths:
       responses:
         "200": {description: Answered, content: {application/json: {schema: {type: object, required: [rewarded], properties: {rewarded: {type: boolean}}}}}}
         "409": {$ref: "#/components/responses/Problem"}
+  /v1/account/miniapp:
+    get:
+      operationId: getAccountMiniAppSettings
+      tags: [account]
+      description: >-
+        How the customer panel behaves when Telegram opens it as a Mini App,
+        from the bot section of the installation settings: `fullscreen` asks
+        Telegram for full screen (`miniAppFullscreen`), `lite` keeps only the
+        subscription, store, and support destinations in the navigation
+        (`miniAppLite`). Reachable before sign-in; it describes the
+        installation, not an account.
+      responses:
+        "200":
+          description: Mini App settings
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [fullscreen, lite]
+                properties:
+                  fullscreen: {type: boolean}
+                  lite: {type: boolean}
   /v1/account/languages:
     get:
       operationId: listAccountLanguages

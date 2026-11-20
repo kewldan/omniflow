@@ -14906,6 +14906,14 @@ export const AnswerAccountPollResponse = zod.object({
 });
 
 /**
+ * How the customer panel behaves when Telegram opens it as a Mini App, from the bot section of the installation settings: `fullscreen` asks Telegram for full screen (`miniAppFullscreen`), `lite` keeps only the subscription, store, and support destinations in the navigation (`miniAppLite`). Reachable before sign-in; it describes the installation, not an account.
+ */
+export const GetAccountMiniAppSettingsResponse = zod.object({
+  fullscreen: zod.boolean(),
+  lite: zod.boolean(),
+});
+
+/**
  * The interface languages the operator offers customers (the bot section's `languages`), from ru, en, uk, zh, fa. Russian and English when none are chosen. Reachable before sign-in.
  */
 export const ListAccountLanguagesResponse = zod.object({

@@ -13525,6 +13525,9 @@ type ServerInterface interface {
 	// (PATCH /v1/account/me)
 	UpdateAccountProfile(w http.ResponseWriter, r *http.Request, params UpdateAccountProfileParams)
 
+	// (GET /v1/account/miniapp)
+	GetAccountMiniAppSettings(w http.ResponseWriter, r *http.Request)
+
 	// (GET /v1/account/news)
 	ListAccountNews(w http.ResponseWriter, r *http.Request, params ListAccountNewsParams)
 
@@ -14782,6 +14785,11 @@ func (_ Unimplemented) GetAccountSession(w http.ResponseWriter, r *http.Request)
 
 // (PATCH /v1/account/me)
 func (_ Unimplemented) UpdateAccountProfile(w http.ResponseWriter, r *http.Request, params UpdateAccountProfileParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/miniapp)
+func (_ Unimplemented) GetAccountMiniAppSettings(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -17916,6 +17924,20 @@ func (siw *ServerInterfaceWrapper) UpdateAccountProfile(w http.ResponseWriter, r
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateAccountProfile(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountMiniAppSettings operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountMiniAppSettings(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountMiniAppSettings(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -34184,6 +34206,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/v1/account/engagement/polls/{pollID}/answer", wrapper.AnswerAccountPoll)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/miniapp", wrapper.GetAccountMiniAppSettings)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/account/languages", wrapper.ListAccountLanguages)
 	})
 	r.Group(func(r chi.Router) {
@@ -36047,6 +36072,30 @@ func (response UpdateAccountProfile422ApplicationProblemPlusJSONResponse) VisitU
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountMiniAppSettingsRequestObject struct {
+}
+
+type GetAccountMiniAppSettingsResponseObject interface {
+	VisitGetAccountMiniAppSettingsResponse(w http.ResponseWriter) error
+}
+
+type GetAccountMiniAppSettings200JSONResponse struct {
+	Fullscreen bool `json:"fullscreen"`
+	Lite       bool `json:"lite"`
+}
+
+func (response GetAccountMiniAppSettings200JSONResponse) VisitGetAccountMiniAppSettingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -52228,6 +52277,9 @@ type StrictServerInterface interface {
 	// (PATCH /v1/account/me)
 	UpdateAccountProfile(ctx context.Context, request UpdateAccountProfileRequestObject) (UpdateAccountProfileResponseObject, error)
 
+	// (GET /v1/account/miniapp)
+	GetAccountMiniAppSettings(ctx context.Context, request GetAccountMiniAppSettingsRequestObject) (GetAccountMiniAppSettingsResponseObject, error)
+
 	// (GET /v1/account/news)
 	ListAccountNews(ctx context.Context, request ListAccountNewsRequestObject) (ListAccountNewsResponseObject, error)
 
@@ -54539,6 +54591,30 @@ func (sh *strictHandler) UpdateAccountProfile(w http.ResponseWriter, r *http.Req
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(UpdateAccountProfileResponseObject); ok {
 		if err := validResponse.VisitUpdateAccountProfileResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountMiniAppSettings operation middleware
+func (sh *strictHandler) GetAccountMiniAppSettings(w http.ResponseWriter, r *http.Request) {
+	var request GetAccountMiniAppSettingsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountMiniAppSettings(ctx, request.(GetAccountMiniAppSettingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountMiniAppSettings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountMiniAppSettingsResponseObject); ok {
+		if err := validResponse.VisitGetAccountMiniAppSettingsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

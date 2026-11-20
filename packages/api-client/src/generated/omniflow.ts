@@ -7967,6 +7967,11 @@ export type AnswerAccountPoll200 = {
   rewarded: boolean;
 };
 
+export type GetAccountMiniAppSettings200 = {
+  fullscreen: boolean;
+  lite: boolean;
+};
+
 export type ListAccountLanguages200LanguagesItem =
   (typeof ListAccountLanguages200LanguagesItem)[keyof typeof ListAccountLanguages200LanguagesItem];
 
@@ -40662,6 +40667,66 @@ export const useAnswerAccountPoll = <TError = Promise<ProblemResponse>>(
   const swrFn = getAnswerAccountPollMutationFetcher(pollID, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountMiniAppSettingsResponse200 = {
+  data: GetAccountMiniAppSettings200;
+  status: 200;
+};
+
+export type getAccountMiniAppSettingsResponseSuccess = getAccountMiniAppSettingsResponse200 & {
+  headers: Headers;
+};
+
+export type getAccountMiniAppSettingsResponse = getAccountMiniAppSettingsResponseSuccess;
+
+export const getGetAccountMiniAppSettingsUrl = () => {
+  return `/v1/account/miniapp`;
+};
+
+/**
+ * How the customer panel behaves when Telegram opens it as a Mini App, from the bot section of the installation settings: `fullscreen` asks Telegram for full screen (`miniAppFullscreen`), `lite` keeps only the subscription, store, and support destinations in the navigation (`miniAppLite`). Reachable before sign-in; it describes the installation, not an account.
+ */
+export const getAccountMiniAppSettings = async (
+  options?: RequestInit,
+): Promise<getAccountMiniAppSettingsResponse> => {
+  const res = await fetch(getGetAccountMiniAppSettingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountMiniAppSettingsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getAccountMiniAppSettingsResponse;
+};
+
+export const getGetAccountMiniAppSettingsKey = () => [`/v1/account/miniapp`] as const;
+
+export type GetAccountMiniAppSettingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountMiniAppSettings>>
+>;
+
+export const useGetAccountMiniAppSettings = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountMiniAppSettings>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetAccountMiniAppSettingsKey() : null));
+  const swrFn = () => getAccountMiniAppSettings(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,

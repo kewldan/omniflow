@@ -256,6 +256,16 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 			return runtimeServices{}, nil, accountErr
 		}
 		services.account = accountHandlers
+		// How the panel behaves inside Telegram: full screen, and the lite
+		// navigation. Read per request, so a save in the panel applies within
+		// the settings cache period.
+		accountHandlers.SetMiniApp(func(ctx context.Context) apihttp.MiniAppSettings {
+			bot := installation.Section(ctx, "bot")
+			return apihttp.MiniAppSettings{
+				Fullscreen: bot.Bool("miniAppFullscreen", false),
+				Lite:       bot.Bool("miniAppLite", false),
+			}
+		})
 		// The operator panel manages the customer sign-in providers, so it needs
 		// the same service the customer surface authenticates against.
 		if services.admin != nil {

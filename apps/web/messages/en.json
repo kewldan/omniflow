@@ -3761,7 +3761,9 @@
         "inactiveDays": "Days without activity before a customer is dormant (default 180)",
         "deleteAfterDays": "Delete dormant customers after this many days (0 = never)",
         "broadcastCustomers": "Tell customers in the bot when maintenance starts and ends",
-        "broadcastEmail": "Also e-mail customers with a verified address"
+        "broadcastEmail": "Also e-mail customers with a verified address",
+        "miniAppFullscreen": "Open the Mini App full screen (Telegram 8.0 and later; older clients expand it)",
+        "miniAppLite": "Lite Mini App: only subscription, store, and support in its navigation"
       },
       "telemetryPreview": {
         "title": "What telemetry would send",

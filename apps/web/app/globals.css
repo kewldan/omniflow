@@ -13,3 +13,17 @@
 * {
   box-sizing: border-box;
 }
+
+/*
+ * A Mini App opened full screen has Telegram's close and menu controls drawn
+ * over the top of the page. The customer panel sets data-miniapp on <html>
+ * (components/account/miniapp.tsx) and starts below them; its sticky header
+ * sticks there too.
+ */
+html[data-miniapp="fullscreen"] {
+  --miniapp-top: calc(env(safe-area-inset-top, 0px) + 46px);
+}
+
+html[data-miniapp="fullscreen"] body {
+  padding-top: var(--miniapp-top);
+}

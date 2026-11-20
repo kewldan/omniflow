@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"time"
@@ -43,6 +44,8 @@ type AccountHandlers struct {
 	growth GrowthServices
 	// terms holds purchases until the terms are accepted; see accountterms.go.
 	terms *termsgate.Gate
+	// miniApp reads the Mini App settings; see accountminiapp.go.
+	miniApp func(context.Context) MiniAppSettings
 
 	cookieName   string
 	cookieSecure bool
@@ -126,6 +129,7 @@ func (handlers *AccountHandlers) Mount(router chi.Router) {
 		account.Get("/auth/oidc/{slug}/start", handlers.startOIDC)
 		account.Get("/auth/oidc/{slug}/callback", handlers.callbackOIDC)
 		handlers.mountGrowthPublic(account)
+		handlers.mountMiniApp(account)
 
 		account.Group(func(secure chi.Router) {
 			secure.Use(handlers.requireCustomerSession)

@@ -175,6 +175,8 @@ export const SECTIONS: SectionSchema[] = [
       },
       { name: "miniAppUrl", kind: "url", messageKey: "miniAppUrl" },
       { name: "cabinetOnly", kind: "boolean", messageKey: "cabinetOnly" },
+      { name: "miniAppFullscreen", kind: "boolean", messageKey: "miniAppFullscreen" },
+      { name: "miniAppLite", kind: "boolean", messageKey: "miniAppLite" },
       {
         name: "hiddenMenu",
         kind: "multiselect",

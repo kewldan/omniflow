@@ -18,6 +18,7 @@ import { useTranslations } from "next-intl";
 import { type ReactNode, useEffect, useState } from "react";
 
 import { AccountLiveUpdates } from "@/components/account/live-updates";
+import { useMiniApp } from "@/components/account/miniapp";
 import { AccountNotice } from "@/components/account/state";
 import { useBrandName } from "@/components/brand-name";
 import { LocaleSync } from "@/components/intl/locale-switch";
@@ -47,6 +48,12 @@ const TABS: { href: string; icon: LucideIcon; key: string }[] = [
   { href: "/account/support", icon: LifeBuoy, key: "support" },
   { href: "/account/profile", icon: UserRound, key: "profile" },
 ];
+
+/**
+ * The tabs a Mini App in lite mode keeps: the errands a customer opens the bot's
+ * Mini App for. Everything else stays reachable from the bot itself.
+ */
+const LITE_TABS = new Set(["subscriptions", "store", "support"]);
 
 /**
  * The destinations a phone reaches through the account tab.
@@ -119,6 +126,8 @@ export function AccountShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const search = useSearchParams();
   const router = useRouter();
+  const { lite } = useMiniApp();
+  const tabs = lite ? TABS.filter((tab) => LITE_TABS.has(tab.key)) : TABS;
 
   // Signing in is the only thing a signed-out visitor can do here, so the panel
   // sends them to do it instead of rendering a card whose single button does.
@@ -170,10 +179,15 @@ export function AccountShell({ children }: { children: ReactNode }) {
       {/* Mounted only with a session: the stream answers 401 without one, and
           EventSource would retry it forever. */}
       <AccountLiveUpdates />
-      <DesktopSidebar customerId={session.customer.id} pathname={pathname} />
+      <DesktopSidebar
+        customerId={session.customer.id}
+        lite={lite}
+        pathname={pathname}
+        tabs={tabs}
+      />
 
       <div className="flex min-h-dvh flex-1 flex-col md:min-h-0">
-        <header className="sticky top-0 z-20 flex items-center gap-1 border-chrome-border border-b bg-chrome px-3 py-2 md:hidden">
+        <header className="sticky top-[var(--miniapp-top,0px)] z-20 flex items-center gap-1 border-chrome-border border-b bg-chrome px-3 py-2 md:hidden">
           {showBack ? (
             <Button
               className="-ml-1 h-8 gap-1 px-2"
@@ -208,7 +222,7 @@ export function AccountShell({ children }: { children: ReactNode }) {
         </main>
       </div>
 
-      <TabBar pathname={pathname} />
+      <TabBar pathname={pathname} tabs={tabs} />
     </div>
   );
 }
@@ -221,7 +235,17 @@ export function AccountShell({ children }: { children: ReactNode }) {
  * five is all a thumb bar can hold — does not apply to a column with room left
  * over.
  */
-function DesktopSidebar({ customerId, pathname }: { customerId: string; pathname: string }) {
+function DesktopSidebar({
+  customerId,
+  lite,
+  pathname,
+  tabs,
+}: {
+  customerId: string;
+  lite: boolean;
+  pathname: string;
+  tabs: typeof TABS;
+}) {
   const translate = useTranslations("account");
   const serviceName = useBrandName(translate("nav.title"));
 
@@ -236,7 +260,7 @@ function DesktopSidebar({ customerId, pathname }: { customerId: string; pathname
 
       <nav aria-label={translate("nav.tabs")} className="flex-1 overflow-y-auto px-3 pb-4">
         <ul className="flex flex-col gap-0.5">
-          {TABS.map((tab) => (
+          {tabs.map((tab) => (
             <SidebarLink
               href={tab.href}
               icon={tab.icon}
@@ -247,15 +271,17 @@ function DesktopSidebar({ customerId, pathname }: { customerId: string; pathname
           ))}
         </ul>
 
-        <p className="px-3 pt-5 pb-2 font-medium font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.14em]">
-          {translate("nav.more")}
-        </p>
+        {lite ? null : (
+          <p className="px-3 pt-5 pb-2 font-medium font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.14em]">
+            {translate("nav.more")}
+          </p>
+        )}
         {/* The secondary group carries no icons. Five more glyphs would cost
             every account route their bytes for a list whose labels already say
             what each destination is — the shell is in every bundle, so what it
             imports is charged to screens that never render it. */}
         <ul className="flex flex-col gap-0.5">
-          {SECONDARY.map((item) => (
+          {(lite ? [] : SECONDARY).map((item) => (
             <SidebarLink
               href={item.href}
               key={item.href}
@@ -357,13 +383,13 @@ function AccountFooter({ customerId }: { customerId: string }) {
   );
 }
 
-function TabBar({ pathname }: { pathname: string }) {
+function TabBar({ pathname, tabs }: { pathname: string; tabs: typeof TABS }) {
   const translate = useTranslations("account");
   // The active tab is the longest matching prefix, so a detail route under a tab
   // keeps that tab lit rather than falling back to the first one.
-  const activeIndex = TABS.reduce((best, tab, index) => {
+  const activeIndex = tabs.reduce((best, tab, index) => {
     const matches = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
-    return matches && tab.href.length >= TABS[best].href.length ? index : best;
+    return matches && tab.href.length >= tabs[best].href.length ? index : best;
   }, 0);
 
   return (
@@ -379,10 +405,10 @@ function TabBar({ pathname }: { pathname: string }) {
           className="absolute top-1.5 bottom-1.5 left-1.5 rounded-full bg-[color:var(--glass-pill)] shadow-[inset_0_1px_0_rgb(255_255_255/0.18)] transition-transform duration-[440ms] ease-[cubic-bezier(0.22,1,0.3,1)] motion-reduce:transition-none"
           style={{
             transform: `translateX(${activeIndex * 100}%)`,
-            width: `calc((100% - 0.75rem) / ${TABS.length})`,
+            width: `calc((100% - 0.75rem) / ${tabs.length})`,
           }}
         />
-        {TABS.map((tab, index) => {
+        {tabs.map((tab, index) => {
           const Icon = tab.icon;
           const active = index === activeIndex;
           return (

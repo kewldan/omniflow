@@ -59,6 +59,7 @@ diagnostics bundle needs `system.read` and lives on the system screen. See
 | Remnawave | `reconcileIntervalMinutes` | worker | How often every subscription is re-read from Remnawave | 15 minutes |
 | Telegram bot | `languages` | bot, web | The languages offered to customers: `ru`, `en`, `uk` (Ukrainian), `zh` (Chinese), `fa` (Persian). With one, every bot message is in it and the language switch disappears from the bot's settings; the web panel's language picker lists only these. See [Languages](#languages) | `ru` and `en` |
 | Telegram bot | `miniAppUrl`, `cabinetOnly` | bot | An https Mini App address adds a «My account» button that opens it inside Telegram; cabinet-only shrinks the menu to that button and support | none |
+| Telegram bot | `miniAppFullscreen`, `miniAppLite` | api, web | Inside Telegram, open the customer panel full screen, and keep only subscription, store, and support in its navigation. See [Customer web panel](/customer/web-panel#inside-telegram-as-a-mini-app) | off |
 | Telegram bot | `menuLayout` | bot | The order of the main menu, row by row — edited on the **Main menu layout** card with a live preview. See [Main menu layout](#main-menu-layout) | the shipped order |
 | Telegram bot | `hiddenMenu` | bot | Built-in main-menu entries to hide (plans, subscription, connect, devices, orders, wallet, gifts, support, news, invite, settings) | none hidden |
 | Telegram bot | `buttons`, `texts` | bot | Custom main-menu buttons opening an https link or a Mini App, and overrides of any bot message per language — edited on the **Bot menu and wording** card below the sections. An override must keep the message's `%s`/`%d` placeholders in order | none |
@@ -162,7 +163,7 @@ somewhere it does not belong.
 | --- | --- | --- |
 | `branding` | `serviceName`, `supportContact`, `termsUrl`, `defaultLocale`, `timezone` | — |
 | `remnawave` | `reconcileIntervalMinutes` | — |
-| `bot` | `languages`, `miniAppUrl`, `cabinetOnly`, `hiddenMenu`, `buttons`, `texts`, `menuLayout` | — |
+| `bot` | `languages`, `miniAppUrl`, `cabinetOnly`, `miniAppFullscreen`, `miniAppLite`, `hiddenMenu`, `buttons`, `texts`, `menuLayout` | — |
 | `operator_group` | `chatId`, `createTopics`, `notificationCap`, `windowMinutes`, `disabledKinds` | — |
 | `reports` | `periods`, `time` | — |
 | `maintenance` | `autoEnable`, `failureThreshold`, `noticeEn`, `noticeRu`, `broadcastCustomers`, `broadcastEmail` | — |
