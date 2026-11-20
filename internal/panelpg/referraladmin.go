@@ -112,7 +112,7 @@ func (service *Service) AttachReferrer(ctx context.Context, customerID, code str
 		return err
 	}
 	code = strings.ToUpper(strings.TrimSpace(code))
-	return service.inRawTx(ctx, func(tx pgx.Tx, queries *dbgen.Queries) error {
+	return service.inTxRaw(ctx, func(tx pgx.Tx, queries *dbgen.Queries) error {
 		var referrer pgtype.UUID
 		err := tx.QueryRow(ctx, `SELECT user_id FROM referral_codes WHERE code = $1`, code).Scan(&referrer)
 		if errors.Is(err, pgx.ErrNoRows) || err == nil && referrer == id {
@@ -142,7 +142,7 @@ func (service *Service) DetachReferrer(ctx context.Context, customerID string, a
 	if err != nil {
 		return err
 	}
-	return service.inRawTx(ctx, func(tx pgx.Tx, queries *dbgen.Queries) error {
+	return service.inTxRaw(ctx, func(tx pgx.Tx, queries *dbgen.Queries) error {
 		var live int
 		if err := tx.QueryRow(ctx, `SELECT count(*) FROM referral_rewards
 			WHERE referred_user_id = $1 AND reversed_at IS NULL`, id).Scan(&live); err != nil {
@@ -203,7 +203,7 @@ func (service *Service) SaveReferralInviterTerms(ctx context.Context, customerID
 	if len([]rune(terms.Note)) > 400 {
 		return ErrValidaton
 	}
-	return service.inRawTx(ctx, func(tx pgx.Tx, queries *dbgen.Queries) error {
+	return service.inTxRaw(ctx, func(tx pgx.Tx, queries *dbgen.Queries) error {
 		if terms.CommissionBPS == nil && terms.FirstPaymentCommissionBPS == nil {
 			if _, err := tx.Exec(ctx, `DELETE FROM referral_inviter_terms WHERE user_id = $1`, id); err != nil {
 				return err
@@ -223,17 +223,4 @@ func (service *Service) SaveReferralInviterTerms(ctx context.Context, customerID
 			map[string]any{"commissionBps": terms.CommissionBPS, "firstPaymentBps": terms.FirstPaymentCommissionBPS},
 		))
 	})
-}
-
-// inRawTx is inTx for a body that also runs its own SQL in the transaction.
-func (service *Service) inRawTx(ctx context.Context, body func(pgx.Tx, *dbgen.Queries) error) error {
-	tx, err := service.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	if err = body(tx, dbgen.New(tx)); err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
 }
