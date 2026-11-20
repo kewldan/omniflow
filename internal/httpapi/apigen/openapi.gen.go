@@ -10762,6 +10762,12 @@ type UpdatePanelPlanPresentationParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// ApplyPanelPlanSquadsParams defines parameters for ApplyPanelPlanSquads.
+type ApplyPanelPlanSquadsParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // ArchivePanelPlanJSONBody defines parameters for ArchivePanelPlan.
 type ArchivePanelPlanJSONBody struct {
 	Archived bool `json:"archived"`
@@ -12854,6 +12860,9 @@ type ServerInterface interface {
 	// (PATCH /v1/panel/catalog/plans/{planID})
 	UpdatePanelPlanPresentation(w http.ResponseWriter, r *http.Request, planID PlanID, params UpdatePanelPlanPresentationParams)
 
+	// (POST /v1/panel/catalog/plans/{planID}/apply-squads)
+	ApplyPanelPlanSquads(w http.ResponseWriter, r *http.Request, planID PlanID, params ApplyPanelPlanSquadsParams)
+
 	// (POST /v1/panel/catalog/plans/{planID}/archive)
 	ArchivePanelPlan(w http.ResponseWriter, r *http.Request, planID PlanID, params ArchivePanelPlanParams)
 
@@ -14243,6 +14252,11 @@ func (_ Unimplemented) GetPanelPlan(w http.ResponseWriter, r *http.Request, plan
 
 // (PATCH /v1/panel/catalog/plans/{planID})
 func (_ Unimplemented) UpdatePanelPlanPresentation(w http.ResponseWriter, r *http.Request, planID PlanID, params UpdatePanelPlanPresentationParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/catalog/plans/{planID}/apply-squads)
+func (_ Unimplemented) ApplyPanelPlanSquads(w http.ResponseWriter, r *http.Request, planID PlanID, params ApplyPanelPlanSquadsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -22128,6 +22142,60 @@ func (siw *ServerInterfaceWrapper) UpdatePanelPlanPresentation(w http.ResponseWr
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdatePanelPlanPresentation(w, r, planID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApplyPanelPlanSquads operation middleware
+func (siw *ServerInterfaceWrapper) ApplyPanelPlanSquads(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "planID" -------------
+	var planID PlanID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "planID", chi.URLParam(r, "planID"), &planID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "planID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ApplyPanelPlanSquadsParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApplyPanelPlanSquads(w, r, planID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -30123,6 +30191,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/panel/catalog/plans/{planID}/versions", wrapper.CreatePanelPlanVersion)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/catalog/plans/{planID}/apply-squads", wrapper.ApplyPanelPlanSquads)
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/v1/panel/catalog/plans/{planID}/options", wrapper.SavePanelPlanOptions)
@@ -38644,6 +38715,61 @@ func (response UpdatePanelPlanPresentation422ApplicationProblemPlusJSONResponse)
 	return err
 }
 
+type ApplyPanelPlanSquadsRequestObject struct {
+	PlanID PlanID `json:"planID"`
+	Params ApplyPanelPlanSquadsParams
+}
+
+type ApplyPanelPlanSquadsResponseObject interface {
+	VisitApplyPanelPlanSquadsResponse(w http.ResponseWriter) error
+}
+
+type ApplyPanelPlanSquads202JSONResponse struct {
+	Subscriptions *int `json:"subscriptions,omitempty"`
+}
+
+func (response ApplyPanelPlanSquads202JSONResponse) VisitApplyPanelPlanSquadsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplyPanelPlanSquads403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ApplyPanelPlanSquads403ApplicationProblemPlusJSONResponse) VisitApplyPanelPlanSquadsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplyPanelPlanSquads422ApplicationProblemPlusJSONResponse Problem
+
+func (response ApplyPanelPlanSquads422ApplicationProblemPlusJSONResponse) VisitApplyPanelPlanSquadsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ArchivePanelPlanRequestObject struct {
 	PlanID PlanID `json:"planID"`
 	Params ArchivePanelPlanParams
@@ -46999,6 +47125,9 @@ type StrictServerInterface interface {
 	// (PATCH /v1/panel/catalog/plans/{planID})
 	UpdatePanelPlanPresentation(ctx context.Context, request UpdatePanelPlanPresentationRequestObject) (UpdatePanelPlanPresentationResponseObject, error)
 
+	// (POST /v1/panel/catalog/plans/{planID}/apply-squads)
+	ApplyPanelPlanSquads(ctx context.Context, request ApplyPanelPlanSquadsRequestObject) (ApplyPanelPlanSquadsResponseObject, error)
+
 	// (POST /v1/panel/catalog/plans/{planID}/archive)
 	ArchivePanelPlan(ctx context.Context, request ArchivePanelPlanRequestObject) (ArchivePanelPlanResponseObject, error)
 
@@ -52675,6 +52804,33 @@ func (sh *strictHandler) UpdatePanelPlanPresentation(w http.ResponseWriter, r *h
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(UpdatePanelPlanPresentationResponseObject); ok {
 		if err := validResponse.VisitUpdatePanelPlanPresentationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ApplyPanelPlanSquads operation middleware
+func (sh *strictHandler) ApplyPanelPlanSquads(w http.ResponseWriter, r *http.Request, planID PlanID, params ApplyPanelPlanSquadsParams) {
+	var request ApplyPanelPlanSquadsRequestObject
+
+	request.PlanID = planID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ApplyPanelPlanSquads(ctx, request.(ApplyPanelPlanSquadsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApplyPanelPlanSquads")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ApplyPanelPlanSquadsResponseObject); ok {
+		if err := validResponse.VisitApplyPanelPlanSquadsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

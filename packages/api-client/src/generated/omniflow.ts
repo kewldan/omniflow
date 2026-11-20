@@ -6116,6 +6116,10 @@ export type ArchivePanelPlanBody = {
   archived: boolean;
 };
 
+export type ApplyPanelPlanSquads202 = {
+  subscriptions?: number;
+};
+
 export type ListPanelPromotionsParams = {
   /**
    * @minimum 1
@@ -15927,6 +15931,95 @@ export const useCreatePanelPlanVersion = <TError = Promise<ProblemResponse>>(
 
   const swrKey = swrOptions?.swrKey ?? getCreatePanelPlanVersionMutationKey(planID);
   const swrFn = getCreatePanelPlanVersionMutationFetcher(planID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type applyPanelPlanSquadsResponse202 = {
+  data: ApplyPanelPlanSquads202;
+  status: 202;
+};
+
+export type applyPanelPlanSquadsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type applyPanelPlanSquadsResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type applyPanelPlanSquadsResponseSuccess = applyPanelPlanSquadsResponse202 & {
+  headers: Headers;
+};
+export type applyPanelPlanSquadsResponseError = (
+  | applyPanelPlanSquadsResponse403
+  | applyPanelPlanSquadsResponse422
+) & {
+  headers: Headers;
+};
+
+export type applyPanelPlanSquadsResponse =
+  | applyPanelPlanSquadsResponseSuccess
+  | applyPanelPlanSquadsResponseError;
+
+export const getApplyPanelPlanSquadsUrl = (planID: string) => {
+  return `/v1/panel/catalog/plans/${planID}/apply-squads`;
+};
+
+/**
+ * Requires subscriptions.write and an X-Operator-Reason header. Moves every live subscription on the plan onto its newest live version's squads, keeping squads customers chose or bought, and queues one set_squads operation each. Pressing it again queues nothing new.
+ */
+export const applyPanelPlanSquads = async (
+  planID: string,
+  options?: RequestInit,
+): Promise<applyPanelPlanSquadsResponse> => {
+  const res = await fetch(getApplyPanelPlanSquadsUrl(planID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: applyPanelPlanSquadsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as applyPanelPlanSquadsResponse;
+};
+
+export const getApplyPanelPlanSquadsMutationFetcher = (planID: string, options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return applyPanelPlanSquads(planID, options);
+  };
+};
+export const getApplyPanelPlanSquadsMutationKey = (planID: string) =>
+  [`/v1/panel/catalog/plans/${planID}/apply-squads`] as const;
+
+export type ApplyPanelPlanSquadsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof applyPanelPlanSquads>>
+>;
+
+export const useApplyPanelPlanSquads = <TError = Promise<ProblemResponse>>(
+  planID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof applyPanelPlanSquads>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof applyPanelPlanSquads>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getApplyPanelPlanSquadsMutationKey(planID);
+  const swrFn = getApplyPanelPlanSquadsMutationFetcher(planID, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

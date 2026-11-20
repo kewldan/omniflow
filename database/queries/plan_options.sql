@@ -148,3 +148,28 @@ UPDATE entitlements
 SET status = 'superseded', paused_at = NULL, updated_at = now()
 WHERE subscription_id = sqlc.arg(subscription_id) AND status <> 'superseded'
 RETURNING *;
+
+-- name: ApplyPlanSquadsToEntitlements :many
+-- Moves every live entitlement of a plan onto its newest live version's
+-- squads. Only the plan's own squads are swapped: what the customer chose at
+-- checkout and what squad add-ons granted — the entitlement's squads beyond
+-- its own version's set — are kept.
+WITH latest AS (
+  SELECT pv.remnawave_squad_ids FROM plan_versions pv
+  WHERE pv.plan_id = sqlc.arg(plan_id) AND pv.retired_at IS NULL
+  ORDER BY pv.version DESC LIMIT 1
+)
+UPDATE entitlements e
+SET remnawave_squad_ids = (
+      SELECT COALESCE(array_agg(DISTINCT squad ORDER BY squad), '{}')
+      FROM unnest((SELECT remnawave_squad_ids FROM latest) || ARRAY(
+        SELECT unnest(e.remnawave_squad_ids) EXCEPT SELECT unnest(v.remnawave_squad_ids)
+      )) AS squad
+    ),
+    updated_at = now()
+FROM plan_versions v
+WHERE v.id = e.plan_version_id AND v.plan_id = sqlc.arg(plan_id)
+  AND EXISTS (SELECT 1 FROM latest)
+  AND e.status IN ('pending', 'active', 'limited', 'paused')
+  AND (e.status = 'paused' OR e.ends_at > now())
+RETURNING e.*;

@@ -24,6 +24,12 @@ func (handlers *AdminHandlers) mountPlanOptions(secure chi.Router) {
 		Get("/remnawave/squads", handlers.remnawaveSquads)
 	secure.With(handlers.requirePermission(rbac.PermissionCatalogWrite)).
 		Put("/catalog/plans/{planID}/options", handlers.savePlanOptions)
+	// Moving live subscriptions onto new squads changes what customers can
+	// reach, so it needs the subscription permission, not only the catalogue.
+	if handlers.fulfillment != nil {
+		secure.With(handlers.requirePermission(rbac.PermissionSubscriptionsWrite)).
+			Post("/catalog/plans/{planID}/apply-squads", handlers.applyPlanSquads)
+	}
 	secure.With(handlers.requirePermission(rbac.PermissionSettingsRead)).
 		Get("/settings/subscription-policy", handlers.subscriptionPolicy)
 	secure.With(handlers.requirePermission(rbac.PermissionSettingsWrite)).
@@ -39,6 +45,28 @@ func (handlers *AdminHandlers) savePlanOptions(writer http.ResponseWriter, reque
 		request.Context(), chi.URLParam(request, "planID"), body, actorFrom(request),
 	)
 	handlers.respond(writer, request, options, err)
+}
+
+// applyPlanSquads moves every live subscription on a plan onto the squads of
+// its newest version. A reason is required: this changes what every customer
+// on the plan can reach.
+func (handlers *AdminHandlers) applyPlanSquads(writer http.ResponseWriter, request *http.Request) {
+	actor := actorFrom(request)
+	if actor.Reason == "" {
+		writeProblem(writer, request, http.StatusUnprocessableEntity, "reason_required", "A reason is required")
+		return
+	}
+	planID := chi.URLParam(request, "planID")
+	moved, err := handlers.fulfillment.ApplyPlanSquads(request.Context(), planID, "panel:"+actor.RequestID)
+	if err != nil {
+		handlers.operationsError(writer, request, err)
+		return
+	}
+	if err = handlers.operations.RecordPlanSquadsApplied(request.Context(), planID, moved, actor); err != nil {
+		handlers.operationsError(writer, request, err)
+		return
+	}
+	writeJSON(writer, http.StatusAccepted, map[string]any{"subscriptions": moved})
 }
 
 func (handlers *AdminHandlers) subscriptionPolicy(writer http.ResponseWriter, request *http.Request) {

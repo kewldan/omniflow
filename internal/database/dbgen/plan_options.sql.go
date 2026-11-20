@@ -11,6 +11,71 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const applyPlanSquadsToEntitlements = `-- name: ApplyPlanSquadsToEntitlements :many
+WITH latest AS (
+  SELECT pv.remnawave_squad_ids FROM plan_versions pv
+  WHERE pv.plan_id = $1 AND pv.retired_at IS NULL
+  ORDER BY pv.version DESC LIMIT 1
+)
+UPDATE entitlements e
+SET remnawave_squad_ids = (
+      SELECT COALESCE(array_agg(DISTINCT squad ORDER BY squad), '{}')
+      FROM unnest((SELECT remnawave_squad_ids FROM latest) || ARRAY(
+        SELECT unnest(e.remnawave_squad_ids) EXCEPT SELECT unnest(v.remnawave_squad_ids)
+      )) AS squad
+    ),
+    updated_at = now()
+FROM plan_versions v
+WHERE v.id = e.plan_version_id AND v.plan_id = $1
+  AND EXISTS (SELECT 1 FROM latest)
+  AND e.status IN ('pending', 'active', 'limited', 'paused')
+  AND (e.status = 'paused' OR e.ends_at > now())
+RETURNING e.id, e.user_id, e.order_id, e.plan_version_id, e.status, e.starts_at, e.ends_at, e.traffic_allowance_bytes, e.device_limit, e.remnawave_squad_ids, e.remnawave_user_id, e.observed_state, e.reconciled_at, e.created_at, e.updated_at, e.subscription_id, e.paused_at, e.paused_seconds
+`
+
+// Moves every live entitlement of a plan onto its newest live version's
+// squads. Only the plan's own squads are swapped: what the customer chose at
+// checkout and what squad add-ons granted — the entitlement's squads beyond
+// its own version's set — are kept.
+func (q *Queries) ApplyPlanSquadsToEntitlements(ctx context.Context, planID pgtype.UUID) ([]Entitlement, error) {
+	rows, err := q.db.Query(ctx, applyPlanSquadsToEntitlements, planID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Entitlement{}
+	for rows.Next() {
+		var i Entitlement
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.OrderID,
+			&i.PlanVersionID,
+			&i.Status,
+			&i.StartsAt,
+			&i.EndsAt,
+			&i.TrafficAllowanceBytes,
+			&i.DeviceLimit,
+			&i.RemnawaveSquadIds,
+			&i.RemnawaveUserID,
+			&i.ObservedState,
+			&i.ReconciledAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.SubscriptionID,
+			&i.PausedAt,
+			&i.PausedSeconds,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const countOpenSubscriptionOrders = `-- name: CountOpenSubscriptionOrders :one
 SELECT count(*)::integer FROM orders
 WHERE subscription_id = $1 AND state IN ('draft', 'pending')

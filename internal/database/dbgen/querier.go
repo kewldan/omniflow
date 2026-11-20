@@ -53,6 +53,11 @@ type Querier interface {
 	// Add-on capacity is folded into the entitlement itself, so the existing
 	// fulfillment pipeline reads one desired state and never sums add-ons again.
 	ApplyEntitlementAddonTotals(ctx context.Context, arg ApplyEntitlementAddonTotalsParams) (Entitlement, error)
+	// Moves every live entitlement of a plan onto its newest live version's
+	// squads. Only the plan's own squads are swapped: what the customer chose at
+	// checkout and what squad add-ons granted — the entitlement's squads beyond
+	// its own version's set — are kept.
+	ApplyPlanSquadsToEntitlements(ctx context.Context, planID pgtype.UUID) ([]Entitlement, error)
 	ApproveManualPayment(ctx context.Context, arg ApproveManualPaymentParams) (ManualPaymentApproval, error)
 	ArchiveCannedResponse(ctx context.Context, responseID pgtype.UUID) (SupportCannedResponse, error)
 	ArchivePlan(ctx context.Context, arg ArchivePlanParams) (Plan, error)

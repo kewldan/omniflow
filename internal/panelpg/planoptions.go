@@ -65,3 +65,15 @@ func (service *Service) SavePlanOptions(
 	})
 	return saved, err
 }
+
+// RecordPlanSquadsApplied audits an operator moving a plan's live
+// subscriptions onto its newest squads. The move itself is a set of
+// fulfillment operations the fulfillment service queued.
+func (service *Service) RecordPlanSquadsApplied(ctx context.Context, planID string, moved int, actor Actor) error {
+	return service.inTx(ctx, func(queries *dbgen.Queries) error {
+		return appendAudit(ctx, queries, actor.audit(
+			"panel.plan.squads_applied", "configuration", "plan", planID,
+			map[string]any{"subscriptions": moved},
+		))
+	})
+}

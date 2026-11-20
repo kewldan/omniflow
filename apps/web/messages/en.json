@@ -1870,7 +1870,12 @@
         "description": "Apply to every version of the plan and reach existing subscriptions the next time they are pushed to Remnawave.",
         "tag": "Remnawave user tag",
         "tagHint": "Up to 16 capital letters, digits, and underscores. Empty falls back to the trial or paid tag in Settings → Commerce.",
-        "save": "Save plan settings"
+        "save": "Save plan settings",
+        "applySquads": "Move live subscriptions onto the newest squads",
+        "applySquadsHint": "A new version only reaches new purchases. This swaps the plan's own squads on every live subscription to the newest version's, keeping what customers chose or added.",
+        "applySquadsReason": "Reason",
+        "applySquadsAction": "Apply squads",
+        "applySquadsDone": "Queued. Each subscription is updated in Remnawave within a minute."
       }
     },
     "codes": {

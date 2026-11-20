@@ -8,6 +8,7 @@ import { useState } from "react";
 
 import { FormField } from "@/components/forms/field";
 import { type PlanSummary, useOperatorAction } from "@/lib/operations";
+import { useSession } from "@/lib/session";
 
 /**
  * The plan-level settings that change what a customer on the plan gets,
@@ -20,6 +21,7 @@ export function PlanOptionsEditor({ onSaved, plan }: { onSaved: () => void; plan
   const translate = useTranslations("admin.catalog.planOptions");
   const translateForm = useTranslations("common.form");
   const [tag, setTag] = useState(plan.remnawaveTag ?? "");
+  const { can } = useSession();
   const { run, pending, error } = useOperatorAction();
 
   return (
@@ -60,7 +62,62 @@ export function PlanOptionsEditor({ onSaved, plan }: { onSaved: () => void; plan
         >
           {pending ? translateForm("saving") : translate("save")}
         </Button>
+        {can("subscriptions.write") && <ApplySquads planId={plan.id} />}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Moves the plan's live subscriptions onto its newest version's squads.
+ *
+ * A new version only reaches new purchases; this is the deliberate step that
+ * takes existing customers along. A customer's own choices and squad add-ons
+ * are kept, and pressing it twice queues nothing more.
+ */
+function ApplySquads({ planId }: { planId: string }) {
+  const translate = useTranslations("admin.catalog.planOptions");
+  const [reason, setReason] = useState("");
+  const [applied, setApplied] = useState(false);
+  const { run, pending, error } = useOperatorAction();
+
+  return (
+    <div className="flex flex-col gap-2 border-border border-t pt-3">
+      <p className="font-medium text-sm">{translate("applySquads")}</p>
+      <p className="text-muted-foreground text-xs">{translate("applySquadsHint")}</p>
+      <FormField label={translate("applySquadsReason")}>
+        {(props) => (
+          <Input {...props} onChange={(event) => setReason(event.target.value)} value={reason} />
+        )}
+      </FormField>
+      {error && (
+        <p className="text-danger-foreground text-sm" role="alert">
+          {error.message}
+        </p>
+      )}
+      {applied && (
+        <p className="text-sm" role="status">
+          {translate("applySquadsDone")}
+        </p>
+      )}
+      <Button
+        className="self-start"
+        disabled={pending || reason.trim() === ""}
+        onClick={async () => {
+          const ok = await run(`/v1/panel/catalog/plans/${planId}/apply-squads`, {
+            method: "POST",
+            reason: reason.trim(),
+          });
+          if (ok) {
+            setApplied(true);
+            setReason("");
+          }
+        }}
+        size="sm"
+        variant="outline"
+      >
+        {translate("applySquadsAction")}
+      </Button>
+    </div>
   );
 }

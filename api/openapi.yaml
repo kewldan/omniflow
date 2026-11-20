@@ -1256,6 +1256,20 @@ paths:
         "200": {description: Published version, content: {application/json: {schema: {$ref: "#/components/schemas/PanelPlanVersionSummary"}}}}
         "403": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/catalog/plans/{planID}/apply-squads:
+    post:
+      operationId: applyPanelPlanSquads
+      tags: [panel]
+      description: >-
+        Requires subscriptions.write and an X-Operator-Reason header. Moves every
+        live subscription on the plan onto its newest live version's squads,
+        keeping squads customers chose or bought, and queues one set_squads
+        operation each. Pressing it again queues nothing new.
+      parameters: [{$ref: "#/components/parameters/PlanID"}, {$ref: "#/components/parameters/CSRFToken"}]
+      responses:
+        "202": {description: Queued, content: {application/json: {schema: {type: object, properties: {subscriptions: {type: integer}}}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
   /v1/panel/catalog/plans/{planID}/options:
     put:
       operationId: savePanelPlanOptions

@@ -3063,6 +3063,23 @@ export const CreatePanelPlanVersionResponse = zod.object({
 });
 
 /**
+ * Requires subscriptions.write and an X-Operator-Reason header. Moves every live subscription on the plan onto its newest live version's squads, keeping squads customers chose or bought, and queues one set_squads operation each. Pressing it again queues nothing new.
+ */
+export const ApplyPanelPlanSquadsParams = zod.object({
+  planID: zod.uuid(),
+});
+
+export const ApplyPanelPlanSquadsHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const ApplyPanelPlanSquadsResponse = zod.object({
+  subscriptions: zod.int().optional(),
+});
+
+/**
  * Requires catalog.write. Plan-level settings that apply to every version: the Remnawave user tag subscriptions on the plan carry.
  */
 export const SavePanelPlanOptionsParams = zod.object({
