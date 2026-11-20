@@ -51,7 +51,15 @@ func TestADraftIsInvisibleUntilItIsPublished(t *testing.T) {
 	if err != nil {
 		t.Fatalf("panel list: %v", err)
 	}
-	if len(pages) != 1 || !pages[0].PublishedAt.IsZero() {
+	// The installation also ships the recurring-payment terms page; only the
+	// draft written here is under test.
+	var draft *panelpg.InfoPage
+	for index := range pages {
+		if pages[index].Slug == "privacy" {
+			draft = &pages[index]
+		}
+	}
+	if draft == nil || !draft.PublishedAt.IsZero() {
 		t.Fatalf("the operator view is %+v", pages)
 	}
 
