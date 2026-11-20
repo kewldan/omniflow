@@ -78,7 +78,11 @@ func (store *Store) revokeRefundedAccess(ctx context.Context, tx pgx.Tx, queries
 		return nil, err
 	}
 	now := store.clock().UTC()
-	revocation := commerce.RevokeRefundedPeriod(now, entitlement.StartsAt.Time, entitlement.EndsAt.Time, entitlement.PausedAt.Time, time.Duration(spec.DurationSeconds)*time.Second)
+	period := time.Duration(spec.DurationSeconds) * time.Second
+	if order.PeriodSeconds.Valid {
+		period = time.Duration(order.PeriodSeconds.Int64) * time.Second
+	}
+	revocation := commerce.RevokeRefundedPeriod(now, entitlement.StartsAt.Time, entitlement.EndsAt.Time, entitlement.PausedAt.Time, period)
 	if revocation.Retire {
 		// Nothing was delivered: an at_expiry downgrade still waiting for the
 		// current period to end. It is withdrawn whole, and its snoozed

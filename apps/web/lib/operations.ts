@@ -246,6 +246,16 @@ export type PlanVersion = {
   maxAddonTrafficBytes?: number;
   /** A paid traffic reset's price as a share of the version's, in basis points. */
   trafficResetPriceBps?: number;
+  periods?: {
+    days: number;
+    currency: string;
+    amountMinor: number;
+    forPurchase: boolean;
+    forRenewal: boolean;
+  }[];
+  customDaysMin?: number;
+  customDaysMax?: number;
+  dayPrices?: Record<string, number>;
 };
 
 export type PersonalOffer = {

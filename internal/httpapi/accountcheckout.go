@@ -288,6 +288,7 @@ func (handlers *AccountHandlers) updateCheckout(writer http.ResponseWriter, requ
 		SubscriptionID  *string   `json:"subscriptionId"`
 		NewSubscription *bool     `json:"newSubscription"`
 		SquadIDs        *[]string `json:"squadIds"`
+		PeriodDays      *int      `json:"periodDays"`
 	}
 	if !decodeJSON(writer, request, &body) {
 		return
@@ -297,7 +298,7 @@ func (handlers *AccountHandlers) updateCheckout(writer http.ResponseWriter, requ
 		accountcheckout.UpdateRequest{
 			Provider: body.Provider, Currency: body.Currency, ApplyWallet: body.ApplyWallet,
 			SubscriptionID: body.SubscriptionID, NewSubscription: body.NewSubscription,
-			SquadIDs: body.SquadIDs,
+			SquadIDs: body.SquadIDs, PeriodDays: body.PeriodDays,
 		},
 	)
 	if handlers.writeCheckoutError(writer, request, err) {
@@ -435,6 +436,8 @@ func checkoutPayload(view accountcheckout.CheckoutView) map[string]any {
 		"addons":            addons,
 		"selectedAddons":    selected,
 		"termsUrl":          view.TermsURL,
+		"periodDays":        view.PeriodDays,
+		"periods":           periodPayload(view.Periods),
 	}
 	if view.SelectedSquadIDs == nil {
 		payload["selectedSquadIds"] = []string{}
@@ -956,6 +959,11 @@ func (handlers *AccountHandlers) writeCheckoutError(
 		)
 	case errors.Is(err, commercepg.ErrSubscriptionUnknown):
 		writeProblem(writer, request, http.StatusNotFound, "not_found", "That subscription was not found")
+	case errors.Is(err, commercepg.ErrPeriodUnavailable):
+		writeProblem(
+			writer, request, http.StatusUnprocessableEntity,
+			"period_unavailable", "This plan is not sold for that period",
+		)
 	case errors.Is(err, commercepg.ErrSquadUnavailable):
 		writeProblem(
 			writer, request, http.StatusUnprocessableEntity,

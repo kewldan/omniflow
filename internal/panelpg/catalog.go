@@ -85,10 +85,14 @@ type PlanVersion struct {
 	AddonIDs      []string       `json:"addonIds"`
 	// TrafficResetStrategy and ExternalSquadID are what the version asks of
 	// the Remnawave user beside its limits.
-	TrafficResetStrategy string `json:"trafficResetStrategy"`
-	ExternalSquadID      string `json:"externalSquadId,omitempty"`
-	MaxAddonTrafficBytes *int64 `json:"maxAddonTrafficBytes,omitempty"`
-	TrafficResetPriceBps *int32 `json:"trafficResetPriceBps,omitempty"`
+	TrafficResetStrategy string           `json:"trafficResetStrategy"`
+	ExternalSquadID      string           `json:"externalSquadId,omitempty"`
+	MaxAddonTrafficBytes *int64           `json:"maxAddonTrafficBytes,omitempty"`
+	TrafficResetPriceBps *int32           `json:"trafficResetPriceBps,omitempty"`
+	Periods              []PlanPeriod     `json:"periods"`
+	CustomDaysMin        *int32           `json:"customDaysMin,omitempty"`
+	CustomDaysMax        *int32           `json:"customDaysMax,omitempty"`
+	DayPrices            map[string]int64 `json:"dayPrices,omitempty"`
 }
 
 // PlanDetail is one plan with its versions and localisations.
@@ -180,6 +184,10 @@ func (service *Service) PlanDetail(ctx context.Context, planID string) (PlanDeta
 		for _, price := range prices {
 			converted.Prices[price.Currency] = price.AmountMinor
 		}
+		if converted.Periods, converted.DayPrices, err = versionPeriods(ctx, queries, version); err != nil {
+			return PlanDetail{}, err
+		}
+		converted.CustomDaysMin, converted.CustomDaysMax = int4Pointer(version.CustomDaysMin), int4Pointer(version.CustomDaysMax)
 		if converted.OfferedSquads, converted.AddonIDs, err = versionOffers(ctx, queries, version.ID); err != nil {
 			return PlanDetail{}, err
 		}

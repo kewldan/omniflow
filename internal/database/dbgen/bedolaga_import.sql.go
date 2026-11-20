@@ -193,7 +193,7 @@ VALUES (
   $5
 )
 ON CONFLICT (user_id, idempotency_key) DO UPDATE SET idempotency_key = EXCLUDED.idempotency_key
-RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at, loyalty_discount_minor, loyalty_tier_code
+RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at, loyalty_discount_minor, loyalty_tier_code, period_seconds
 `
 
 type InsertImportedOrderParams struct {
@@ -238,6 +238,7 @@ func (q *Queries) InsertImportedOrder(ctx context.Context, arg InsertImportedOrd
 		&i.PaidAt,
 		&i.LoyaltyDiscountMinor,
 		&i.LoyaltyTierCode,
+		&i.PeriodSeconds,
 	)
 	return i, err
 }

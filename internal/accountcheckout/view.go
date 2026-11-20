@@ -2,10 +2,12 @@ package accountcheckout
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
 	"github.com/omniflow/omniflow/internal/commerce"
+	"github.com/omniflow/omniflow/internal/commercepg"
 )
 
 // CheckoutView is the whole confirmation screen in one response.
@@ -51,6 +53,10 @@ type CheckoutView struct {
 	SelectedAddons []CheckoutAddon
 	ExpiresAt      time.Time
 	TermsURL       string
+	// Periods are the billing periods the version is sold for in this kind of
+	// order beside its own; PeriodDays is the one chosen, zero for its own.
+	Periods    PeriodOffer
+	PeriodDays int
 }
 
 // OpenRequest is what the panel submits to start a checkout.
@@ -81,6 +87,9 @@ type UpdateRequest struct {
 	SubscriptionID  *string
 	NewSubscription *bool
 	SquadIDs        *[]string
+	// PeriodDays chooses a billing period other than the version's own; zero
+	// returns to it.
+	PeriodDays *int
 }
 
 // Open starts a checkout, replacing whatever the customer had open.
@@ -219,6 +228,22 @@ func (service *Service) Update(
 			}
 		}
 		if session, err = service.store.SetCheckoutSubscription(ctx, session.ID, target); err != nil {
+			return CheckoutView{}, err
+		}
+	}
+	if request.PeriodDays != nil {
+		// The period is checked by pricing it, the same rule order creation
+		// applies, so a period the version does not sell is refused here.
+		candidate := session
+		candidate.PeriodDays = *request.PeriodDays
+		input, inputErr := service.OrderInput(ctx, candidate)
+		if inputErr != nil {
+			return CheckoutView{}, inputErr
+		}
+		if _, quoteErr := service.orders.PreviewOrder(ctx, input); errors.Is(quoteErr, commercepg.ErrPeriodUnavailable) {
+			return CheckoutView{}, quoteErr
+		}
+		if session, err = service.store.SetCheckoutPeriod(ctx, session.ID, *request.PeriodDays); err != nil {
 			return CheckoutView{}, err
 		}
 	}
@@ -408,6 +433,10 @@ func (service *Service) view(ctx context.Context, session Session, locale string
 	if choices, err = service.forCustomer(ctx, session.CustomerID, choices); err != nil {
 		return CheckoutView{}, err
 	}
+	periods, err := service.store.PlanPeriods(ctx, session.PlanVersionID, session.Currency, session.Operation)
+	if err != nil {
+		return CheckoutView{}, err
+	}
 	squads, err := service.store.PlanSquads(ctx, session.PlanVersionID, locale)
 	if err != nil {
 		return CheckoutView{}, err
@@ -439,6 +468,7 @@ func (service *Service) view(ctx context.Context, session Session, locale string
 		SquadSelection: selection,
 		Addons:         addons, SelectedAddons: selected,
 		ExpiresAt: session.ExpiresAt, TermsURL: service.settings.TermsURL,
+		Periods: periods, PeriodDays: session.PeriodDays,
 	}, nil
 }
 

@@ -191,7 +191,7 @@ func (q *Queries) GetAutoRenewSettings(ctx context.Context, arg GetAutoRenewSett
 }
 
 const getCycleOrder = `-- name: GetCycleOrder :one
-SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at, loyalty_discount_minor, loyalty_tier_code FROM orders
+SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at, loyalty_discount_minor, loyalty_tier_code, period_seconds FROM orders
 WHERE user_id = $1 AND idempotency_key = $2
 `
 
@@ -229,6 +229,7 @@ func (q *Queries) GetCycleOrder(ctx context.Context, arg GetCycleOrderParams) (O
 		&i.PaidAt,
 		&i.LoyaltyDiscountMinor,
 		&i.LoyaltyTierCode,
+		&i.PeriodSeconds,
 	)
 	return i, err
 }

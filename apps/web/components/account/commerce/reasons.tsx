@@ -112,6 +112,7 @@ const PROBLEMS = [
   "subscription_busy",
   "squad_unavailable",
   "traffic_reset_unavailable",
+  "period_unavailable",
   "trial_sign_in_method",
   "recurring_unavailable",
   "no_saved_method",

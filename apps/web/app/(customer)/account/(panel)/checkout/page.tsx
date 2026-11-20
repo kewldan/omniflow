@@ -15,7 +15,7 @@ import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import useSWR from "swr";
 import * as z from "zod/mini";
-
+import { PeriodPicker } from "@/components/account/commerce/period-picker";
 import { OPERATIONS, usePeriodLabel } from "@/components/account/commerce/plan-card";
 import { QuoteBreakdown } from "@/components/account/commerce/quote-breakdown";
 import {
@@ -272,6 +272,8 @@ function Checkout({
       {checkout.squads.configurable && (
         <SquadPicker checkout={checkout} disabled={busy} onChange={patch} />
       )}
+
+      <PeriodPicker checkout={checkout} disabled={busy} onChange={patch} />
 
       {checkout.addons.length > 0 && (
         <AddonPicker checkout={checkout} disabled={busy} onToggle={apply} />

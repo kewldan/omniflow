@@ -2805,6 +2805,11 @@ export const getPanelPlanResponseVersionsItemOfferedSquadsItemLabelRuMax = 80;
 
 export const getPanelPlanResponseVersionsItemOfferedSquadsItemLabelEnMax = 80;
 
+export const getPanelPlanResponseVersionsItemPeriodsItemDaysMax = 3650;
+
+export const getPanelPlanResponseVersionsItemPeriodsItemCurrencyRegExp = /^[A-Z]{3}$/;
+export const getPanelPlanResponseVersionsItemPeriodsItemAmountMinorMin = 0;
+
 export const GetPanelPlanResponse = zod.object({
   plan: zod.object({
     id: zod.uuid(),
@@ -2870,6 +2875,22 @@ export const GetPanelPlanResponse = zod.object({
         externalSquadId: zod.uuid().optional(),
         maxAddonTrafficBytes: zod.int().optional(),
         trafficResetPriceBps: zod.int().optional(),
+        periods: zod
+          .array(
+            zod.object({
+              days: zod.int().min(1).max(getPanelPlanResponseVersionsItemPeriodsItemDaysMax),
+              currency: zod
+                .string()
+                .regex(getPanelPlanResponseVersionsItemPeriodsItemCurrencyRegExp),
+              amountMinor: zod.int().min(getPanelPlanResponseVersionsItemPeriodsItemAmountMinorMin),
+              forPurchase: zod.boolean(),
+              forRenewal: zod.boolean(),
+            }),
+          )
+          .nullish(),
+        customDaysMin: zod.int().optional(),
+        customDaysMax: zod.int().optional(),
+        dayPrices: zod.record(zod.string(), zod.int()).optional(),
       }),
     )
     .nullable(),
@@ -2969,6 +2990,13 @@ export const createPanelPlanVersionBodyPricesMinOne = 0;
 
 export const createPanelPlanVersionBodyTrafficResetPriceBpsMax = 100000;
 
+export const createPanelPlanVersionBodyPeriodsItemDaysMax = 3650;
+
+export const createPanelPlanVersionBodyPeriodsItemCurrencyRegExp = /^[A-Z]{3}$/;
+export const createPanelPlanVersionBodyPeriodsItemAmountMinorMin = 0;
+
+export const createPanelPlanVersionBodyCustomDaysMaxMax = 3650;
+
 export const CreatePanelPlanVersionBody = zod.object({
   billingPeriod: zod.enum([
     "none",
@@ -3032,11 +3060,34 @@ export const CreatePanelPlanVersionBody = zod.object({
     .describe(
       "A paid traffic reset at this share of the version price in basis points; null sells none.",
     ),
+  periods: zod
+    .array(
+      zod.object({
+        days: zod.int().min(1).max(createPanelPlanVersionBodyPeriodsItemDaysMax),
+        currency: zod.string().regex(createPanelPlanVersionBodyPeriodsItemCurrencyRegExp),
+        amountMinor: zod.int().min(createPanelPlanVersionBodyPeriodsItemAmountMinorMin),
+        forPurchase: zod.boolean(),
+        forRenewal: zod.boolean(),
+      }),
+    )
+    .optional()
+    .describe("Further billing periods the version is sold for."),
+  customDaysMin: zod.int().min(1).nullish(),
+  customDaysMax: zod.int().max(createPanelPlanVersionBodyCustomDaysMaxMax).nullish(),
+  dayPrices: zod
+    .record(zod.string(), zod.int().min(1))
+    .optional()
+    .describe("Price per custom day by currency."),
 });
 
 export const createPanelPlanVersionResponseOfferedSquadsItemLabelRuMax = 80;
 
 export const createPanelPlanVersionResponseOfferedSquadsItemLabelEnMax = 80;
+
+export const createPanelPlanVersionResponsePeriodsItemDaysMax = 3650;
+
+export const createPanelPlanVersionResponsePeriodsItemCurrencyRegExp = /^[A-Z]{3}$/;
+export const createPanelPlanVersionResponsePeriodsItemAmountMinorMin = 0;
 
 export const CreatePanelPlanVersionResponse = zod.object({
   id: zod.uuid(),
@@ -3072,6 +3123,20 @@ export const CreatePanelPlanVersionResponse = zod.object({
   externalSquadId: zod.uuid().optional(),
   maxAddonTrafficBytes: zod.int().optional(),
   trafficResetPriceBps: zod.int().optional(),
+  periods: zod
+    .array(
+      zod.object({
+        days: zod.int().min(1).max(createPanelPlanVersionResponsePeriodsItemDaysMax),
+        currency: zod.string().regex(createPanelPlanVersionResponsePeriodsItemCurrencyRegExp),
+        amountMinor: zod.int().min(createPanelPlanVersionResponsePeriodsItemAmountMinorMin),
+        forPurchase: zod.boolean(),
+        forRenewal: zod.boolean(),
+      }),
+    )
+    .nullish(),
+  customDaysMin: zod.int().optional(),
+  customDaysMax: zod.int().optional(),
+  dayPrices: zod.record(zod.string(), zod.int()).optional(),
 });
 
 /**
@@ -9283,12 +9348,21 @@ export const UpdateAccountCheckoutHeader = zod.object({
     .describe("Echoes the token from the current session. Required on every unsafe method."),
 });
 
+export const updateAccountCheckoutBodyPeriodDaysMin = 0;
+export const updateAccountCheckoutBodyPeriodDaysMax = 3650;
+
 export const UpdateAccountCheckoutBody = zod.object({
   provider: zod.string().optional(),
   currency: zod.string().optional(),
   applyWallet: zod.boolean().optional(),
   subscriptionId: zod.string().optional(),
   squadIds: zod.array(zod.uuid()).optional(),
+  periodDays: zod
+    .int()
+    .min(updateAccountCheckoutBodyPeriodDaysMin)
+    .max(updateAccountCheckoutBodyPeriodDaysMax)
+    .optional()
+    .describe("A billing period other than the plan version's own; 0 returns to it."),
 });
 
 export const UpdateAccountCheckoutResponse = zod.object({

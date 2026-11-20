@@ -177,3 +177,36 @@ RETURNING e.*;
 -- name: SetPlanVersionTrafficResetPrice :exec
 UPDATE plan_versions SET traffic_reset_price_bps = sqlc.narg(traffic_reset_price_bps)
 WHERE id = sqlc.arg(plan_version_id);
+
+-- name: ListPlanVersionPeriods :many
+SELECT * FROM plan_version_periods WHERE plan_version_id = $1 ORDER BY days, currency;
+
+-- name: InsertPlanVersionPeriod :exec
+INSERT INTO plan_version_periods (plan_version_id, days, currency, amount_minor, for_purchase, for_renewal)
+VALUES (sqlc.arg(plan_version_id), sqlc.arg(days), sqlc.arg(currency), sqlc.arg(amount_minor),
+        sqlc.arg(for_purchase), sqlc.arg(for_renewal));
+
+-- name: ListPlanVersionDayPrices :many
+SELECT * FROM plan_version_day_prices WHERE plan_version_id = $1 ORDER BY currency;
+
+-- name: InsertPlanVersionDayPrice :exec
+INSERT INTO plan_version_day_prices (plan_version_id, currency, amount_minor)
+VALUES (sqlc.arg(plan_version_id), sqlc.arg(currency), sqlc.arg(amount_minor));
+
+-- name: SetPlanVersionCustomDays :exec
+UPDATE plan_versions SET custom_days_min = sqlc.narg(custom_days_min), custom_days_max = sqlc.narg(custom_days_max)
+WHERE id = sqlc.arg(plan_version_id);
+
+-- name: SetOrderPeriod :exec
+-- Written once, in the transaction that creates the order.
+UPDATE orders SET period_seconds = sqlc.arg(period_seconds) WHERE id = sqlc.arg(order_id);
+
+-- name: LastOrderPeriod :one
+-- The period the subscription's latest settled subscription order bought,
+-- which an automatic renewal repeats when the version still offers it.
+SELECT o.period_seconds FROM orders o
+WHERE o.subscription_id = sqlc.arg(subscription_id)
+  AND o.operation IN ('purchase', 'extension', 'renewal', 'upgrade', 'downgrade')
+  AND o.state IN ('paid', 'fulfilled', 'partially_refunded')
+ORDER BY o.created_at DESC
+LIMIT 1;

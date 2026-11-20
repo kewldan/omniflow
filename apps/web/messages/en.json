@@ -1878,6 +1878,22 @@
         "applySquadsReason": "Reason",
         "applySquadsAction": "Apply squads",
         "applySquadsDone": "Queued. Each subscription is updated in Remnawave within a minute."
+      },
+      "periods": {
+        "title": "More periods and custom days",
+        "hint": "Sell this version for other periods too, each priced per currency. A period offered for renewals only appears on extensions and automatic renewals.",
+        "days": "Days",
+        "currency": "Currency",
+        "price": "Price",
+        "forPurchase": "Purchases",
+        "forRenewal": "Renewals",
+        "remove": "Remove",
+        "add": "Add a period",
+        "customMin": "Custom days from",
+        "customMax": "Custom days up to",
+        "customHint": "Let the customer type a number of days in this range. Leave both empty to sell none.",
+        "dayPrice": "Price per day",
+        "addDayPrice": "Add a day price"
       }
     },
     "codes": {
@@ -4865,7 +4881,8 @@
         "subscription_primary": "The first subscription cannot be closed.",
         "subscription_busy": "An unpaid order is still open for this subscription. Pay or cancel it first.",
         "squad_unavailable": "One of the servers this purchase includes is not available right now. Nothing was charged; please contact support.",
-        "traffic_reset_unavailable": "This subscription cannot buy a traffic reset."
+        "traffic_reset_unavailable": "This subscription cannot buy a traffic reset.",
+        "period_unavailable": "This plan is not sold for that period here."
       },
       "breakdown": {
         "subtotal": "Plan",
@@ -5300,6 +5317,16 @@
       "confirm": "Your used traffic starts again from zero, for {price}. The period's end does not change.",
       "cancel": "Cancel",
       "done": "Traffic reset. It reaches your connection within a minute."
+    },
+    "periodPicker": {
+      "title": "Period",
+      "label": "How long to buy",
+      "own": "The plan's own period",
+      "choice": "{days} days — {price}",
+      "custom": "Choose the number of days",
+      "days": "Days ({min}–{max})",
+      "perDay": "{price} a day",
+      "apply": "Apply"
     }
   },
   "pages": {

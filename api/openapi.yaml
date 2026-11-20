@@ -3868,6 +3868,7 @@ paths:
                 applyWallet: {type: boolean}
                 subscriptionId: {type: string}
                 squadIds: {type: array, items: {type: string, format: uuid}}
+                periodDays: {type: integer, minimum: 0, maximum: 3650, description: A billing period other than the plan version's own; 0 returns to it.}
       responses:
         "200": {description: Updated, content: {application/json: {schema: {$ref: "#/components/schemas/AccountCheckout"}}}}
         "404": {$ref: "#/components/responses/Problem"}
@@ -6278,6 +6279,19 @@ components:
         externalSquadId: {type: string, format: uuid}
         maxAddonTrafficBytes: {type: integer, format: int64}
         trafficResetPriceBps: {type: integer}
+        periods: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelPlanPeriod"}}
+        customDaysMin: {type: integer}
+        customDaysMax: {type: integer}
+        dayPrices: {type: object, additionalProperties: {type: integer, format: int64}}
+    PanelPlanPeriod:
+      type: object
+      required: [days, currency, amountMinor, forPurchase, forRenewal]
+      properties:
+        days: {type: integer, minimum: 1, maximum: 3650}
+        currency: {type: string, pattern: "^[A-Z]{3}$"}
+        amountMinor: {type: integer, format: int64, minimum: 0}
+        forPurchase: {type: boolean}
+        forRenewal: {type: boolean}
     PanelOfferedSquad:
       type: object
       required: [squadId, labelRu, labelEn]
@@ -6310,6 +6324,10 @@ components:
         externalSquadId: {type: string, description: A Remnawave external squad UUID; empty for none.}
         maxAddonTrafficBytes: {type: integer, format: int64, minimum: 1, nullable: true, description: Most traffic add-ons may add to one entitlement; null is no cap.}
         trafficResetPriceBps: {type: integer, minimum: 1, maximum: 100000, nullable: true, description: A paid traffic reset at this share of the version price in basis points; null sells none.}
+        periods: {type: array, items: {$ref: "#/components/schemas/PanelPlanPeriod"}, description: Further billing periods the version is sold for.}
+        customDaysMin: {type: integer, minimum: 1, nullable: true}
+        customDaysMax: {type: integer, maximum: 3650, nullable: true}
+        dayPrices: {type: object, additionalProperties: {type: integer, format: int64, minimum: 1}, description: Price per custom day by currency.}
     PanelPlanOptions:
       type: object
       properties:

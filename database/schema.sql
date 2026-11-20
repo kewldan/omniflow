@@ -1325,8 +1325,10 @@ CREATE TABLE public.bot_checkout_sessions (
     expires_at timestamp with time zone DEFAULT (now() + '01:00:00'::interval) NOT NULL,
     subscription_id uuid,
     selected_squad_ids uuid[] DEFAULT '{}'::uuid[] NOT NULL,
+    period_days integer,
     CONSTRAINT bot_checkout_sessions_currency_check CHECK ((currency ~ '^[A-Z]{3}$'::text)),
     CONSTRAINT bot_checkout_sessions_operation_check CHECK ((operation = ANY (ARRAY['purchase'::text, 'upgrade'::text, 'downgrade'::text, 'extension'::text]))),
+    CONSTRAINT bot_checkout_sessions_period_days_range CHECK (((period_days IS NULL) OR ((period_days >= 1) AND (period_days <= 3650)))),
     CONSTRAINT bot_checkout_sessions_promo_code_check CHECK (((promo_code IS NULL) OR (promo_code ~ '^[A-Z0-9_-]{3,64}$'::text))),
     CONSTRAINT bot_checkout_sessions_provider_check CHECK ((provider = ANY (ARRAY['manual'::text, 'telegram_stars'::text, 'cryptobot'::text, 'yookassa'::text, 'heleket'::text, 'mulenpay'::text, 'pal24'::text, 'platega'::text, 'cashera'::text, 'tribute'::text, 'freekassa'::text, 'kassa_ai'::text, 'riopay'::text, 'severpay'::text, 'rollypay'::text, 'aurapay'::text, 'wata'::text, 'cloudpayments'::text, 'lava'::text, 'overpay'::text, 'paritypay'::text, 'payhot'::text, 'cispay'::text, 'antilopay'::text, 'anore'::text, 'donut'::text, 'etoplatezhi'::text, 'jupiter'::text, 'tabpay'::text])))
 );
@@ -3196,6 +3198,7 @@ CREATE TABLE public.orders (
     paid_at timestamp with time zone,
     loyalty_discount_minor bigint DEFAULT 0 NOT NULL,
     loyalty_tier_code text,
+    period_seconds bigint,
     CONSTRAINT orders_check CHECK ((discount_minor <= subtotal_minor)),
     CONSTRAINT orders_check1 CHECK (((wallet_minor + external_minor) = (subtotal_minor - discount_minor))),
     CONSTRAINT orders_check2 CHECK ((refunded_minor <= paid_minor)),
@@ -3206,6 +3209,7 @@ CREATE TABLE public.orders (
     CONSTRAINT orders_loyalty_tier_present CHECK (((loyalty_discount_minor = 0) OR (loyalty_tier_code IS NOT NULL))),
     CONSTRAINT orders_operation_known CHECK ((operation = ANY (ARRAY['purchase'::text, 'upgrade'::text, 'downgrade'::text, 'extension'::text, 'topup'::text, 'addon'::text, 'gift'::text, 'goods'::text, 'renewal'::text, 'code'::text, 'traffic_reset'::text]))),
     CONSTRAINT orders_paid_minor_check CHECK ((paid_minor >= 0)),
+    CONSTRAINT orders_period_seconds_positive CHECK (((period_seconds IS NULL) OR (period_seconds > 0))),
     CONSTRAINT orders_refunded_minor_check CHECK ((refunded_minor >= 0)),
     CONSTRAINT orders_state_check CHECK ((state = ANY (ARRAY['draft'::text, 'pending'::text, 'paid'::text, 'fulfilled'::text, 'cancelled'::text, 'expired'::text, 'partially_refunded'::text, 'refunded'::text]))),
     CONSTRAINT orders_subtotal_minor_check CHECK ((subtotal_minor >= 0)),
@@ -3419,6 +3423,37 @@ CREATE TABLE public.plan_version_addons (
 
 
 --
+-- Name: plan_version_day_prices; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.plan_version_day_prices (
+    plan_version_id uuid NOT NULL,
+    currency text NOT NULL,
+    amount_minor bigint NOT NULL,
+    CONSTRAINT plan_version_day_prices_amount_positive CHECK ((amount_minor > 0)),
+    CONSTRAINT plan_version_day_prices_currency_shape CHECK ((currency ~ '^[A-Z]{3}$'::text))
+);
+
+
+--
+-- Name: plan_version_periods; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.plan_version_periods (
+    plan_version_id uuid NOT NULL,
+    days integer NOT NULL,
+    currency text NOT NULL,
+    amount_minor bigint NOT NULL,
+    for_purchase boolean DEFAULT true NOT NULL,
+    for_renewal boolean DEFAULT true NOT NULL,
+    CONSTRAINT plan_version_periods_amount_nonnegative CHECK ((amount_minor >= 0)),
+    CONSTRAINT plan_version_periods_currency_shape CHECK ((currency ~ '^[A-Z]{3}$'::text)),
+    CONSTRAINT plan_version_periods_days_range CHECK (((days >= 1) AND (days <= 3650))),
+    CONSTRAINT plan_version_periods_offered CHECK ((for_purchase OR for_renewal))
+);
+
+
+--
 -- Name: plan_version_squads; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -3461,8 +3496,11 @@ CREATE TABLE public.plan_versions (
     external_squad_id uuid,
     max_addon_traffic_bytes bigint,
     traffic_reset_price_bps integer,
+    custom_days_min integer,
+    custom_days_max integer,
     CONSTRAINT plan_versions_billing_period_check CHECK ((billing_period = ANY (ARRAY['none'::text, 'day'::text, 'week'::text, 'month'::text, 'quarter'::text, 'half_year'::text, 'year'::text, 'custom'::text]))),
     CONSTRAINT plan_versions_cancellation_policy_check CHECK ((cancellation_policy = ANY (ARRAY['forbid'::text, 'immediate'::text, 'at_expiry'::text]))),
+    CONSTRAINT plan_versions_custom_days_range CHECK ((((custom_days_min IS NULL) = (custom_days_max IS NULL)) AND ((custom_days_min IS NULL) OR ((custom_days_min >= 1) AND (custom_days_max >= custom_days_min) AND (custom_days_max <= 3650))))),
     CONSTRAINT plan_versions_device_limit_check CHECK (((device_limit IS NULL) OR (device_limit >= 0))),
     CONSTRAINT plan_versions_downgrade_policy_check CHECK ((downgrade_policy = ANY (ARRAY['forbid'::text, 'immediate'::text, 'at_expiry'::text]))),
     CONSTRAINT plan_versions_duration_seconds_check CHECK ((duration_seconds > 0)),
@@ -5981,6 +6019,22 @@ ALTER TABLE ONLY public.plan_prices
 
 ALTER TABLE ONLY public.plan_version_addons
     ADD CONSTRAINT plan_version_addons_pkey PRIMARY KEY (plan_version_id, addon_id);
+
+
+--
+-- Name: plan_version_day_prices plan_version_day_prices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.plan_version_day_prices
+    ADD CONSTRAINT plan_version_day_prices_pkey PRIMARY KEY (plan_version_id, currency);
+
+
+--
+-- Name: plan_version_periods plan_version_periods_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.plan_version_periods
+    ADD CONSTRAINT plan_version_periods_pkey PRIMARY KEY (plan_version_id, days, currency);
 
 
 --
@@ -9308,6 +9362,22 @@ ALTER TABLE ONLY public.plan_version_addons
 
 ALTER TABLE ONLY public.plan_version_addons
     ADD CONSTRAINT plan_version_addons_plan_version_id_fkey FOREIGN KEY (plan_version_id) REFERENCES public.plan_versions(id);
+
+
+--
+-- Name: plan_version_day_prices plan_version_day_prices_plan_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.plan_version_day_prices
+    ADD CONSTRAINT plan_version_day_prices_plan_version_id_fkey FOREIGN KEY (plan_version_id) REFERENCES public.plan_versions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: plan_version_periods plan_version_periods_plan_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.plan_version_periods
+    ADD CONSTRAINT plan_version_periods_plan_version_id_fkey FOREIGN KEY (plan_version_id) REFERENCES public.plan_versions(id) ON DELETE CASCADE;
 
 
 --

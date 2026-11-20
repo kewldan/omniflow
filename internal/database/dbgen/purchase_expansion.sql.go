@@ -74,7 +74,7 @@ const attachOrderSubscription = `-- name: AttachOrderSubscription :one
 UPDATE orders
 SET subscription_id = $1, updated_at = now()
 WHERE id = $2 AND subscription_id IS NULL
-RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at, loyalty_discount_minor, loyalty_tier_code
+RETURNING id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at, loyalty_discount_minor, loyalty_tier_code, period_seconds
 `
 
 type AttachOrderSubscriptionParams struct {
@@ -109,6 +109,7 @@ func (q *Queries) AttachOrderSubscription(ctx context.Context, arg AttachOrderSu
 		&i.PaidAt,
 		&i.LoyaltyDiscountMinor,
 		&i.LoyaltyTierCode,
+		&i.PeriodSeconds,
 	)
 	return i, err
 }

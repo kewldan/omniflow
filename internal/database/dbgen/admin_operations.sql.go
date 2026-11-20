@@ -271,7 +271,7 @@ INSERT INTO plan_versions (
   $11, $12, $13,
   $14, $15, $16
 )
-RETURNING id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads, traffic_reset_strategy, external_squad_id, max_addon_traffic_bytes, traffic_reset_price_bps
+RETURNING id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads, traffic_reset_strategy, external_squad_id, max_addon_traffic_bytes, traffic_reset_price_bps, custom_days_min, custom_days_max
 `
 
 type CreatePlanVersionFullParams struct {
@@ -343,6 +343,8 @@ func (q *Queries) CreatePlanVersionFull(ctx context.Context, arg CreatePlanVersi
 		&i.ExternalSquadID,
 		&i.MaxAddonTrafficBytes,
 		&i.TrafficResetPriceBps,
+		&i.CustomDaysMin,
+		&i.CustomDaysMax,
 	)
 	return i, err
 }
@@ -1549,7 +1551,7 @@ func (q *Queries) ListCustomerLedgerEntries(ctx context.Context, arg ListCustome
 }
 
 const listCustomerOrders = `-- name: ListCustomerOrders :many
-SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at, loyalty_discount_minor, loyalty_tier_code FROM orders
+SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at, loyalty_discount_minor, loyalty_tier_code, period_seconds FROM orders
 WHERE user_id = $1
 ORDER BY created_at DESC
 LIMIT $2
@@ -1590,6 +1592,7 @@ func (q *Queries) ListCustomerOrders(ctx context.Context, arg ListCustomerOrders
 			&i.PaidAt,
 			&i.LoyaltyDiscountMinor,
 			&i.LoyaltyTierCode,
+			&i.PeriodSeconds,
 		); err != nil {
 			return nil, err
 		}
@@ -2091,7 +2094,7 @@ func (q *Queries) ListPlanPrices(ctx context.Context, planVersionID pgtype.UUID)
 }
 
 const listPlanVersions = `-- name: ListPlanVersions :many
-SELECT id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads, traffic_reset_strategy, external_squad_id, max_addon_traffic_bytes, traffic_reset_price_bps FROM plan_versions WHERE plan_id = $1 ORDER BY version DESC
+SELECT id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads, traffic_reset_strategy, external_squad_id, max_addon_traffic_bytes, traffic_reset_price_bps, custom_days_min, custom_days_max FROM plan_versions WHERE plan_id = $1 ORDER BY version DESC
 `
 
 func (q *Queries) ListPlanVersions(ctx context.Context, planID pgtype.UUID) ([]PlanVersion, error) {
@@ -2127,6 +2130,8 @@ func (q *Queries) ListPlanVersions(ctx context.Context, planID pgtype.UUID) ([]P
 			&i.ExternalSquadID,
 			&i.MaxAddonTrafficBytes,
 			&i.TrafficResetPriceBps,
+			&i.CustomDaysMin,
+			&i.CustomDaysMax,
 		); err != nil {
 			return nil, err
 		}
@@ -2717,7 +2722,7 @@ const retirePlanVersion = `-- name: RetirePlanVersion :one
 UPDATE plan_versions
 SET retired_at = now()
 WHERE id = $1 AND retired_at IS NULL
-RETURNING id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads, traffic_reset_strategy, external_squad_id, max_addon_traffic_bytes, traffic_reset_price_bps
+RETURNING id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads, traffic_reset_strategy, external_squad_id, max_addon_traffic_bytes, traffic_reset_price_bps, custom_days_min, custom_days_max
 `
 
 func (q *Queries) RetirePlanVersion(ctx context.Context, planVersionID pgtype.UUID) (PlanVersion, error) {
@@ -2747,6 +2752,8 @@ func (q *Queries) RetirePlanVersion(ctx context.Context, planVersionID pgtype.UU
 		&i.ExternalSquadID,
 		&i.MaxAddonTrafficBytes,
 		&i.TrafficResetPriceBps,
+		&i.CustomDaysMin,
+		&i.CustomDaysMax,
 	)
 	return i, err
 }
@@ -2937,7 +2944,7 @@ func (q *Queries) SearchFulfillmentOperations(ctx context.Context, arg SearchFul
 
 const searchOrders = `-- name: SearchOrders :many
 
-SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at, loyalty_discount_minor, loyalty_tier_code FROM orders
+SELECT id, user_id, state, operation, currency, subtotal_minor, discount_minor, wallet_minor, external_minor, paid_minor, refunded_minor, idempotency_key, expires_at, created_at, updated_at, subscription_id, selected_squad_ids, paid_at, loyalty_discount_minor, loyalty_tier_code, period_seconds FROM orders
 WHERE (
     $1::timestamptz IS NULL
     OR (created_at, id) < ($1::timestamptz, $2::uuid)
@@ -3007,6 +3014,7 @@ func (q *Queries) SearchOrders(ctx context.Context, arg SearchOrdersParams) ([]O
 			&i.PaidAt,
 			&i.LoyaltyDiscountMinor,
 			&i.LoyaltyTierCode,
+			&i.PeriodSeconds,
 		); err != nil {
 			return nil, err
 		}

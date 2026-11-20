@@ -62,6 +62,13 @@ type PlanVersionOptions struct {
 	// TrafficResetPriceBps sells a customer a reset of the traffic counter at
 	// this share of the version's own price, in basis points; nil sells none.
 	TrafficResetPriceBps *int32 `json:"trafficResetPriceBps"`
+	// Periods are the further billing periods the version is sold for, each
+	// priced per currency; CustomDaysMin and CustomDaysMax bound a number of
+	// days the customer chooses, priced per day by DayPrices.
+	Periods       []PlanPeriod     `json:"periods"`
+	CustomDaysMin *int32           `json:"customDaysMin"`
+	CustomDaysMax *int32           `json:"customDaysMax"`
+	DayPrices     map[string]int64 `json:"dayPrices"`
 }
 
 var validTrafficResetStrategy = map[string]bool{
@@ -201,6 +208,9 @@ func (service *Service) CreatePlanVersion(
 		}); txErr != nil {
 			return txErr
 		}
+		if txErr = writePeriods(ctx, queries, row.ID, input); txErr != nil {
+			return txErr
+		}
 		if txErr = queries.SetPlanVersionTrafficResetPrice(ctx, dbgen.SetPlanVersionTrafficResetPriceParams{
 			PlanVersionID: row.ID, TrafficResetPriceBps: optionalInt4(input.TrafficResetPriceBps),
 		}); txErr != nil {
@@ -255,6 +265,9 @@ func validatePlanVersion(input PlanVersionInput) error {
 		if amount < 0 {
 			return ErrValidaton
 		}
+	}
+	if err := validatePeriods(input); err != nil {
+		return err
 	}
 	if input.TrafficResetPriceBps != nil && (*input.TrafficResetPriceBps < 1 || *input.TrafficResetPriceBps > 100_000) {
 		return ErrValidaton

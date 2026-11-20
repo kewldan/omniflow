@@ -227,6 +227,9 @@ export type CheckoutView = {
   quoteAvailable: boolean;
   addons: AddonOffer[];
   selectedAddons: CheckoutAddon[];
+  /** Further billing periods the plan is sold for here, and the one chosen (0 is its own). */
+  periods?: PeriodOffer;
+  periodDays?: number;
   termsUrl: string;
   expiresAt?: string;
 };
@@ -383,4 +386,10 @@ export type TopUpResult = {
   payment?: PaymentHandle | null;
   /** Present instead of `payment`: why the payment did not start. */
   paymentProblem?: { code: string; detail: string };
+};
+
+/** A plan version's further billing periods in one currency. */
+export type PeriodOffer = {
+  choices: { days: number; price: Money }[];
+  custom?: { minDays: number; maxDays: number; pricePerDay: Money };
 };

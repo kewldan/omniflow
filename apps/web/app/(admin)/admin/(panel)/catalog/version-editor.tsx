@@ -38,6 +38,7 @@ import { minorToInput } from "@/lib/money";
 import type { Listing, PlanVersion } from "@/lib/operations";
 import { useOperatorAction } from "@/lib/operations";
 
+import { PeriodsEditor, periodDefaults, readPeriods } from "./periods-editor";
 import { SquadPicker, squadName, useSquads } from "./squad-picker";
 
 // Each list is exactly what the `plan_versions` CHECK constraints accept and
@@ -89,6 +90,19 @@ const schema = z.object({
   // editor always sends it; leaving it out used to publish a version that
   // offered nothing.
   addonIds: z.array(z.string()),
+  // Further billing periods and custom days; see periods-editor.tsx.
+  customMax: z.string(),
+  customMin: z.string(),
+  dayPrices: z.array(z.object({ amount: z.string(), currency: z.string() })),
+  periods: z.array(
+    z.object({
+      amount: z.string(),
+      currency: z.string(),
+      days: z.string(),
+      forPurchase: z.boolean(),
+      forRenewal: z.boolean(),
+    }),
+  ),
   // Remnawave's own trafficLimitStrategy for users on this version, and the
   // external squad that shapes their subscription page.
   externalSquadId: z.array(z.string()),
@@ -155,6 +169,7 @@ export function PlanVersionEditor({
 function defaults(current?: PlanVersion): Values {
   return {
     addonIds: current?.addonIds ?? [],
+    ...periodDefaults(current),
     externalSquadId: current?.externalSquadId ? [current.externalSquadId] : [],
     trafficResetStrategy: current?.trafficResetStrategy ?? "NO_RESET",
     billingPeriod: current?.billingPeriod ?? "month",
@@ -223,6 +238,7 @@ function VersionForm({
     const ok = await run(`/v1/panel/catalog/plans/${planId}/versions`, {
       body: {
         addonIds: values.addonIds,
+        ...readPeriods(values),
         externalSquadId: values.externalSquadId[0] ?? "",
         trafficResetStrategy: values.trafficResetStrategy,
         billingPeriod: values.billingPeriod,
@@ -527,6 +543,8 @@ function VersionForm({
             </div>
 
             <PriceListField hint={translate("pricesHint")} label={translate("prices")} />
+
+            <PeriodsEditor />
 
             <FormField
               error={errors.reason?.message}

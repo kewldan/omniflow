@@ -8368,6 +8368,15 @@ type PanelPlanOptions struct {
 	RemnawaveTag *string `json:"remnawaveTag,omitempty"`
 }
 
+// PanelPlanPeriod defines model for PanelPlanPeriod.
+type PanelPlanPeriod struct {
+	AmountMinor int64  `json:"amountMinor"`
+	Currency    string `json:"currency"`
+	Days        int    `json:"days"`
+	ForPurchase bool   `json:"forPurchase"`
+	ForRenewal  bool   `json:"forRenewal"`
+}
+
 // PanelPlanPresentation defines model for PanelPlanPresentation.
 type PanelPlanPresentation struct {
 	// MaxConcurrentPerCustomer Narrows the installation ceiling for this plan; it can never widen it.
@@ -8412,6 +8421,11 @@ type PanelPlanVersionInput struct {
 	AddonIds           *[]openapi_types.UUID                   `json:"addonIds,omitempty"`
 	BillingPeriod      PanelPlanVersionInputBillingPeriod      `json:"billingPeriod"`
 	CancellationPolicy PanelPlanVersionInputCancellationPolicy `json:"cancellationPolicy"`
+	CustomDaysMax      *int                                    `json:"customDaysMax,omitempty"`
+	CustomDaysMin      *int                                    `json:"customDaysMin,omitempty"`
+
+	// DayPrices Price per custom day by currency.
+	DayPrices *map[string]int64 `json:"dayPrices,omitempty"`
 
 	// DeviceLimit Null is unlimited.
 	DeviceLimit     *int                                 `json:"deviceLimit,omitempty"`
@@ -8428,9 +8442,12 @@ type PanelPlanVersionInput struct {
 	MinSelectableSquads  *int   `json:"minSelectableSquads,omitempty"`
 
 	// OfferedSquads The squads a customer may choose; empty for automatic selection.
-	OfferedSquads    *[]PanelOfferedSquad `json:"offeredSquads,omitempty"`
-	Prices           map[string]int64     `json:"prices"`
-	RecurringCapable *bool                `json:"recurringCapable,omitempty"`
+	OfferedSquads *[]PanelOfferedSquad `json:"offeredSquads,omitempty"`
+
+	// Periods Further billing periods the version is sold for.
+	Periods          *[]PanelPlanPeriod `json:"periods,omitempty"`
+	Prices           map[string]int64   `json:"prices"`
+	RecurringCapable *bool              `json:"recurringCapable,omitempty"`
 
 	// SquadIds Squads every subscription on the version is given.
 	SquadIds       *[]openapi_types.UUID               `json:"squadIds,omitempty"`
@@ -8475,6 +8492,9 @@ type PanelPlanVersionSummary struct {
 	BillingPeriod         string                                       `json:"billingPeriod"`
 	CancellationPolicy    string                                       `json:"cancellationPolicy"`
 	CreatedAt             time.Time                                    `json:"createdAt"`
+	CustomDaysMax         *int                                         `json:"customDaysMax,omitempty"`
+	CustomDaysMin         *int                                         `json:"customDaysMin,omitempty"`
+	DayPrices             *map[string]int64                            `json:"dayPrices,omitempty"`
 	DeviceLimit           *int                                         `json:"deviceLimit,omitempty"`
 	DowngradePolicy       string                                       `json:"downgradePolicy"`
 	DurationSeconds       int64                                        `json:"durationSeconds"`
@@ -8485,6 +8505,7 @@ type PanelPlanVersionSummary struct {
 	MaxSelectableSquads   *int                                         `json:"maxSelectableSquads,omitempty"`
 	MinSelectableSquads   *int                                         `json:"minSelectableSquads,omitempty"`
 	OfferedSquads         *[]PanelOfferedSquad                         `json:"offeredSquads,omitempty"`
+	Periods               *[]PanelPlanPeriod                           `json:"periods,omitempty"`
 	Prices                map[string]int64                             `json:"prices"`
 	RecurringCapable      *bool                                        `json:"recurringCapable,omitempty"`
 	RetiredAt             *time.Time                                   `json:"retiredAt,omitempty"`
@@ -9830,8 +9851,11 @@ type GetAccountCheckoutParamsLocale string
 
 // UpdateAccountCheckoutJSONBody defines parameters for UpdateAccountCheckout.
 type UpdateAccountCheckoutJSONBody struct {
-	ApplyWallet    *bool                 `json:"applyWallet,omitempty"`
-	Currency       *string               `json:"currency,omitempty"`
+	ApplyWallet *bool   `json:"applyWallet,omitempty"`
+	Currency    *string `json:"currency,omitempty"`
+
+	// PeriodDays A billing period other than the plan version's own; 0 returns to it.
+	PeriodDays     *int                  `json:"periodDays,omitempty"`
 	Provider       *string               `json:"provider,omitempty"`
 	SquadIds       *[]openapi_types.UUID `json:"squadIds,omitempty"`
 	SubscriptionId *string               `json:"subscriptionId,omitempty"`

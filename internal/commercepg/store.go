@@ -241,6 +241,10 @@ type CreateOrderInput struct {
 	// so one confirmation is one payment. They cover the full first period, so
 	// no proration applies to them here.
 	Addons []AddonSelection
+	// PeriodDays chooses a billing period other than the version's own: one of
+	// its listed periods, or a custom number of days. Zero is the version's
+	// own duration and price.
+	PeriodDays int
 }
 
 // Promotion and policy rejections carry a stable machine reason so a customer
@@ -356,6 +360,13 @@ func (store *Store) quoteWith(ctx context.Context, queries *dbgen.Queries, userI
 	}
 	if err != nil {
 		return OrderQuote{}, err
+	}
+	// A chosen period other than the version's own replaces its price and its
+	// duration for this order; the order records the period it bought.
+	if input.PeriodDays > 0 {
+		if plan.AmountMinor, plan.DurationSeconds, err = store.periodPrice(ctx, queries, plan, input); err != nil {
+			return OrderQuote{}, err
+		}
 	}
 	// The installation's switches sit above the version's own policies: an
 	// upgrade or downgrade turned off everywhere reads as forbidden here, so
@@ -583,6 +594,9 @@ func (store *Store) CreateOrder(ctx context.Context, input CreateOrderInput) (db
 	}
 	// Add-ons bought with the plan are charged on this order, so one
 	// confirmation is one payment rather than two.
+	if order, err = recordOrderPeriod(ctx, queries, order, input, plan.DurationSeconds); err != nil {
+		return dbgen.Order{}, err
+	}
 	if err = store.insertAddonLines(ctx, queries, order.ID, quote.addons, expiresAt); err != nil {
 		return dbgen.Order{}, err
 	}
@@ -997,7 +1011,12 @@ func (store *Store) settlePaidOrder(ctx context.Context, tx pgx.Tx, queries *dbg
 	if err != nil {
 		return err
 	}
-	schedule, err := commerce.ScheduleEntitlement(startsAt, time.Duration(spec.DurationSeconds)*time.Second, order.Operation, upgradePolicy, spec.DowngradePolicy, currentEndsAt)
+	period := time.Duration(spec.DurationSeconds) * time.Second
+	if order.PeriodSeconds.Valid {
+		// The order bought a period other than the version's own.
+		period = time.Duration(order.PeriodSeconds.Int64) * time.Second
+	}
+	schedule, err := commerce.ScheduleEntitlement(startsAt, period, order.Operation, upgradePolicy, spec.DowngradePolicy, currentEndsAt)
 	if err != nil {
 		return err
 	}

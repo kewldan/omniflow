@@ -1600,6 +1600,8 @@ export const PanelPlanVersionSummaryTrafficResetStrategy = {
   MONTH_ROLLING: "MONTH_ROLLING",
 } as const;
 
+export type PanelPlanVersionSummaryDayPrices = { [key: string]: number };
+
 export interface PanelOfferedSquad {
   squadId: string;
   /**
@@ -1612,6 +1614,20 @@ export interface PanelOfferedSquad {
    * @maxLength 80
    */
   labelEn: string;
+}
+
+export interface PanelPlanPeriod {
+  /**
+   * @minimum 1
+   * @maximum 3650
+   */
+  days: number;
+  /** @pattern ^[A-Z]{3}$ */
+  currency: string;
+  /** @minimum 0 */
+  amountMinor: number;
+  forPurchase: boolean;
+  forRenewal: boolean;
 }
 
 export interface PanelPlanVersionSummary {
@@ -1643,6 +1659,11 @@ export interface PanelPlanVersionSummary {
   externalSquadId?: string;
   maxAddonTrafficBytes?: number;
   trafficResetPriceBps?: number;
+  /** @nullable */
+  periods?: PanelPlanPeriod[] | null;
+  customDaysMin?: number;
+  customDaysMax?: number;
+  dayPrices?: PanelPlanVersionSummaryDayPrices;
 }
 
 export type PanelPlanVersionInputBillingPeriod =
@@ -1720,6 +1741,11 @@ export const PanelPlanVersionInputTrafficResetStrategy = {
   MONTH_ROLLING: "MONTH_ROLLING",
 } as const;
 
+/**
+ * Price per custom day by currency.
+ */
+export type PanelPlanVersionInputDayPrices = { [key: string]: number };
+
 export interface PanelPlanVersionInput {
   billingPeriod: PanelPlanVersionInputBillingPeriod;
   /** @minimum 1 */
@@ -1775,6 +1801,20 @@ export interface PanelPlanVersionInput {
    * @nullable
    */
   trafficResetPriceBps?: number | null;
+  /** Further billing periods the version is sold for. */
+  periods?: PanelPlanPeriod[];
+  /**
+   * @minimum 1
+   * @nullable
+   */
+  customDaysMin?: number | null;
+  /**
+   * @maximum 3650
+   * @nullable
+   */
+  customDaysMax?: number | null;
+  /** Price per custom day by currency. */
+  dayPrices?: PanelPlanVersionInputDayPrices;
 }
 
 export interface PanelPlanOptions {
@@ -6921,6 +6961,12 @@ export type UpdateAccountCheckoutBody = {
   applyWallet?: boolean;
   subscriptionId?: string;
   squadIds?: string[];
+  /**
+   * A billing period other than the plan version's own; 0 returns to it.
+   * @minimum 0
+   * @maximum 3650
+   */
+  periodDays?: number;
 };
 
 export type ApplyAccountPromoCodeBody = {

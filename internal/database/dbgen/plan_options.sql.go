@@ -224,6 +224,49 @@ func (q *Queries) GetSubscriptionPolicy(ctx context.Context) (SubscriptionPolicy
 	return i, err
 }
 
+const insertPlanVersionDayPrice = `-- name: InsertPlanVersionDayPrice :exec
+INSERT INTO plan_version_day_prices (plan_version_id, currency, amount_minor)
+VALUES ($1, $2, $3)
+`
+
+type InsertPlanVersionDayPriceParams struct {
+	PlanVersionID pgtype.UUID `json:"plan_version_id"`
+	Currency      string      `json:"currency"`
+	AmountMinor   int64       `json:"amount_minor"`
+}
+
+func (q *Queries) InsertPlanVersionDayPrice(ctx context.Context, arg InsertPlanVersionDayPriceParams) error {
+	_, err := q.db.Exec(ctx, insertPlanVersionDayPrice, arg.PlanVersionID, arg.Currency, arg.AmountMinor)
+	return err
+}
+
+const insertPlanVersionPeriod = `-- name: InsertPlanVersionPeriod :exec
+INSERT INTO plan_version_periods (plan_version_id, days, currency, amount_minor, for_purchase, for_renewal)
+VALUES ($1, $2, $3, $4,
+        $5, $6)
+`
+
+type InsertPlanVersionPeriodParams struct {
+	PlanVersionID pgtype.UUID `json:"plan_version_id"`
+	Days          int32       `json:"days"`
+	Currency      string      `json:"currency"`
+	AmountMinor   int64       `json:"amount_minor"`
+	ForPurchase   bool        `json:"for_purchase"`
+	ForRenewal    bool        `json:"for_renewal"`
+}
+
+func (q *Queries) InsertPlanVersionPeriod(ctx context.Context, arg InsertPlanVersionPeriodParams) error {
+	_, err := q.db.Exec(ctx, insertPlanVersionPeriod,
+		arg.PlanVersionID,
+		arg.Days,
+		arg.Currency,
+		arg.AmountMinor,
+		arg.ForPurchase,
+		arg.ForRenewal,
+	)
+	return err
+}
+
 const insertPlanVersionSquad = `-- name: InsertPlanVersionSquad :exec
 
 INSERT INTO plan_version_squads (plan_version_id, squad_id, label_ru, label_en, sort_order)
@@ -251,6 +294,24 @@ func (q *Queries) InsertPlanVersionSquad(ctx context.Context, arg InsertPlanVers
 		arg.SortOrder,
 	)
 	return err
+}
+
+const lastOrderPeriod = `-- name: LastOrderPeriod :one
+SELECT o.period_seconds FROM orders o
+WHERE o.subscription_id = $1
+  AND o.operation IN ('purchase', 'extension', 'renewal', 'upgrade', 'downgrade')
+  AND o.state IN ('paid', 'fulfilled', 'partially_refunded')
+ORDER BY o.created_at DESC
+LIMIT 1
+`
+
+// The period the subscription's latest settled subscription order bought,
+// which an automatic renewal repeats when the version still offers it.
+func (q *Queries) LastOrderPeriod(ctx context.Context, subscriptionID pgtype.UUID) (pgtype.Int8, error) {
+	row := q.db.QueryRow(ctx, lastOrderPeriod, subscriptionID)
+	var period_seconds pgtype.Int8
+	err := row.Scan(&period_seconds)
+	return period_seconds, err
 }
 
 const listDueTrafficPacks = `-- name: ListDueTrafficPacks :many
@@ -299,6 +360,61 @@ func (q *Queries) ListPlanVersionAddonIDs(ctx context.Context, planVersionID pgt
 			return nil, err
 		}
 		items = append(items, addon_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPlanVersionDayPrices = `-- name: ListPlanVersionDayPrices :many
+SELECT plan_version_id, currency, amount_minor FROM plan_version_day_prices WHERE plan_version_id = $1 ORDER BY currency
+`
+
+func (q *Queries) ListPlanVersionDayPrices(ctx context.Context, planVersionID pgtype.UUID) ([]PlanVersionDayPrice, error) {
+	rows, err := q.db.Query(ctx, listPlanVersionDayPrices, planVersionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []PlanVersionDayPrice{}
+	for rows.Next() {
+		var i PlanVersionDayPrice
+		if err := rows.Scan(&i.PlanVersionID, &i.Currency, &i.AmountMinor); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPlanVersionPeriods = `-- name: ListPlanVersionPeriods :many
+SELECT plan_version_id, days, currency, amount_minor, for_purchase, for_renewal FROM plan_version_periods WHERE plan_version_id = $1 ORDER BY days, currency
+`
+
+func (q *Queries) ListPlanVersionPeriods(ctx context.Context, planVersionID pgtype.UUID) ([]PlanVersionPeriod, error) {
+	rows, err := q.db.Query(ctx, listPlanVersionPeriods, planVersionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []PlanVersionPeriod{}
+	for rows.Next() {
+		var i PlanVersionPeriod
+		if err := rows.Scan(
+			&i.PlanVersionID,
+			&i.Days,
+			&i.Currency,
+			&i.AmountMinor,
+			&i.ForPurchase,
+			&i.ForRenewal,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -398,6 +514,21 @@ func (q *Queries) SetMaxDeviceLimit(ctx context.Context, maxDeviceLimit pgtype.I
 	return i, err
 }
 
+const setOrderPeriod = `-- name: SetOrderPeriod :exec
+UPDATE orders SET period_seconds = $1 WHERE id = $2
+`
+
+type SetOrderPeriodParams struct {
+	PeriodSeconds pgtype.Int8 `json:"period_seconds"`
+	OrderID       pgtype.UUID `json:"order_id"`
+}
+
+// Written once, in the transaction that creates the order.
+func (q *Queries) SetOrderPeriod(ctx context.Context, arg SetOrderPeriodParams) error {
+	_, err := q.db.Exec(ctx, setOrderPeriod, arg.PeriodSeconds, arg.OrderID)
+	return err
+}
+
 const setPlanRemnawaveTag = `-- name: SetPlanRemnawaveTag :one
 UPDATE plans SET remnawave_tag = $1
 WHERE id = $2
@@ -439,6 +570,22 @@ type SetPlanVersionAddonTrafficCapParams struct {
 
 func (q *Queries) SetPlanVersionAddonTrafficCap(ctx context.Context, arg SetPlanVersionAddonTrafficCapParams) error {
 	_, err := q.db.Exec(ctx, setPlanVersionAddonTrafficCap, arg.MaxAddonTrafficBytes, arg.PlanVersionID)
+	return err
+}
+
+const setPlanVersionCustomDays = `-- name: SetPlanVersionCustomDays :exec
+UPDATE plan_versions SET custom_days_min = $1, custom_days_max = $2
+WHERE id = $3
+`
+
+type SetPlanVersionCustomDaysParams struct {
+	CustomDaysMin pgtype.Int4 `json:"custom_days_min"`
+	CustomDaysMax pgtype.Int4 `json:"custom_days_max"`
+	PlanVersionID pgtype.UUID `json:"plan_version_id"`
+}
+
+func (q *Queries) SetPlanVersionCustomDays(ctx context.Context, arg SetPlanVersionCustomDaysParams) error {
+	_, err := q.db.Exec(ctx, setPlanVersionCustomDays, arg.CustomDaysMin, arg.CustomDaysMax, arg.PlanVersionID)
 	return err
 }
 
