@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Switch } from "@omniflow/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
+import dynamic from "next/dynamic";
 import { useLocale, useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR, { mutate as revalidate } from "swr";
@@ -21,19 +22,7 @@ import { type ApiError, fetcher } from "@/lib/api";
 import { localized } from "@/lib/localized";
 import { formatMoney, type Listing, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
-import { AdCampaignsCard } from "./ad-campaigns";
-import { DailyGamesCard } from "./daily-games";
-import { EmailDeliveryCard } from "./email-delivery";
-import { EngagementCard } from "./engagement";
-import { LoyaltyCard } from "./loyalty-card";
-import { PartnerApplicationsCard } from "./partner-applications";
-import { PinnedMessageCard } from "./pinned-message";
 import { ReferralCommissionFields } from "./referral-commission";
-import { ReferralInsightsCard } from "./referral-insights";
-import { ReferralLevelsCard } from "./referral-levels";
-import { RemindersCard } from "./reminders-card";
-import { SegmentEditorCard } from "./segment-editor";
-import { TemplateEditorCard } from "./template-editor";
 
 import type {
   AudienceSegment,
@@ -42,6 +31,92 @@ import type {
   ReferralProgram,
   Suppression,
 } from "./types";
+
+// The workspace is one long page of independent cards. Everything below the
+// campaign list is loaded on demand, so the screen an operator opens first does
+// not wait for — or download — the editors, charts, and games further down.
+const cardFallback = () => <Skeleton className="h-40 w-full" />;
+const AdCampaignsCard = dynamic(
+  () => import("./ad-campaigns").then((module) => module.AdCampaignsCard),
+  {
+    loading: cardFallback,
+    ssr: false,
+  },
+);
+const DailyGamesCard = dynamic(
+  () => import("./daily-games").then((module) => module.DailyGamesCard),
+  {
+    loading: cardFallback,
+    ssr: false,
+  },
+);
+const EmailDeliveryCard = dynamic(
+  () => import("./email-delivery").then((module) => module.EmailDeliveryCard),
+  {
+    loading: cardFallback,
+    ssr: false,
+  },
+);
+const EngagementCard = dynamic(
+  () => import("./engagement").then((module) => module.EngagementCard),
+  {
+    loading: cardFallback,
+    ssr: false,
+  },
+);
+const LoyaltyCard = dynamic(() => import("./loyalty-card").then((module) => module.LoyaltyCard), {
+  loading: cardFallback,
+  ssr: false,
+});
+const PartnerApplicationsCard = dynamic(
+  () => import("./partner-applications").then((module) => module.PartnerApplicationsCard),
+  {
+    loading: cardFallback,
+    ssr: false,
+  },
+);
+const PinnedMessageCard = dynamic(
+  () => import("./pinned-message").then((module) => module.PinnedMessageCard),
+  {
+    loading: cardFallback,
+    ssr: false,
+  },
+);
+const ReferralInsightsCard = dynamic(
+  () => import("./referral-insights").then((module) => module.ReferralInsightsCard),
+  {
+    loading: cardFallback,
+    ssr: false,
+  },
+);
+const ReferralLevelsCard = dynamic(
+  () => import("./referral-levels").then((module) => module.ReferralLevelsCard),
+  {
+    loading: cardFallback,
+    ssr: false,
+  },
+);
+const RemindersCard = dynamic(
+  () => import("./reminders-card").then((module) => module.RemindersCard),
+  {
+    loading: cardFallback,
+    ssr: false,
+  },
+);
+const SegmentEditorCard = dynamic(
+  () => import("./segment-editor").then((module) => module.SegmentEditorCard),
+  {
+    loading: cardFallback,
+    ssr: false,
+  },
+);
+const TemplateEditorCard = dynamic(
+  () => import("./template-editor").then((module) => module.TemplateEditorCard),
+  {
+    loading: cardFallback,
+    ssr: false,
+  },
+);
 
 /**
  * Campaigns, segments, suppressions, and the referral programme.
