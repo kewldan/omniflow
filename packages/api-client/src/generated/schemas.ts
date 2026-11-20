@@ -2869,6 +2869,7 @@ export const GetPanelPlanResponse = zod.object({
           .optional(),
         externalSquadId: zod.uuid().optional(),
         maxAddonTrafficBytes: zod.int().optional(),
+        trafficResetPriceBps: zod.int().optional(),
       }),
     )
     .nullable(),
@@ -2966,6 +2967,8 @@ export const createPanelPlanVersionBodyGracePeriodSecondsMin = 0;
 
 export const createPanelPlanVersionBodyPricesMinOne = 0;
 
+export const createPanelPlanVersionBodyTrafficResetPriceBpsMax = 100000;
+
 export const CreatePanelPlanVersionBody = zod.object({
   billingPeriod: zod.enum([
     "none",
@@ -3021,6 +3024,14 @@ export const CreatePanelPlanVersionBody = zod.object({
     .min(1)
     .nullish()
     .describe("Most traffic add-ons may add to one entitlement; null is no cap."),
+  trafficResetPriceBps: zod
+    .int()
+    .min(1)
+    .max(createPanelPlanVersionBodyTrafficResetPriceBpsMax)
+    .nullish()
+    .describe(
+      "A paid traffic reset at this share of the version price in basis points; null sells none.",
+    ),
 });
 
 export const createPanelPlanVersionResponseOfferedSquadsItemLabelRuMax = 80;
@@ -3060,6 +3071,7 @@ export const CreatePanelPlanVersionResponse = zod.object({
   trafficResetStrategy: zod.enum(["NO_RESET", "DAY", "WEEK", "MONTH", "MONTH_ROLLING"]).optional(),
   externalSquadId: zod.uuid().optional(),
   maxAddonTrafficBytes: zod.int().optional(),
+  trafficResetPriceBps: zod.int().optional(),
 });
 
 /**
@@ -8216,6 +8228,122 @@ export const GetAccountOverviewResponse = zod.object({
       "Concurrent subscriptions are enabled. A single-subscription installation gets one screen with no selection step.",
     ),
   degraded: zod.boolean().describe("Remnawave could not be reached for at least one subscription."),
+});
+
+/**
+ * What restarting the subscription's traffic counter costs now; available is false when its plan sells no resets or its traffic is unlimited.
+ */
+export const GetAccountTrafficResetParams = zod.object({
+  subscriptionID: zod.uuid(),
+});
+
+export const GetAccountTrafficResetResponse = zod.record(zod.string(), zod.unknown());
+
+/**
+ * Opens a paid traffic reset order; the wallet settles it when it covers the price. A repeated key is the same order.
+ */
+export const BuyAccountTrafficResetParams = zod.object({
+  subscriptionID: zod.uuid(),
+});
+
+export const buyAccountTrafficResetHeaderIdempotencyKeyMin = 8;
+export const buyAccountTrafficResetHeaderIdempotencyKeyMax = 128;
+
+export const BuyAccountTrafficResetHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "Idempotency-Key": zod
+    .string()
+    .min(buyAccountTrafficResetHeaderIdempotencyKeyMin)
+    .max(buyAccountTrafficResetHeaderIdempotencyKeyMax),
+});
+
+export const BuyAccountTrafficResetResponse = zod.object({
+  id: zod.uuid(),
+  state: zod.enum([
+    "draft",
+    "pending",
+    "paid",
+    "fulfilled",
+    "cancelled",
+    "expired",
+    "partially_refunded",
+    "refunded",
+  ]),
+  operation: zod.string(),
+  phase: zod
+    .string()
+    .describe(
+      "The combined payment and provisioning state the panel renders: what the customer is waiting for, rather than which table changed.",
+    ),
+  currency: zod.string(),
+  subtotalMinor: zod.int(),
+  discountMinor: zod.int(),
+  walletMinor: zod.int(),
+  externalMinor: zod.int(),
+  paidMinor: zod.int(),
+  refundedMinor: zod.int(),
+  plan: zod.string(),
+  subscriptionId: zod.string().optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+  expiresAt: zod.iso.datetime({ offset: true }).optional(),
+  payment: zod
+    .object({
+      id: zod.uuid(),
+      provider: zod.string(),
+      status: zod.string(),
+      handoff: zod.enum(["hosted", "telegram_invoice", "manual", "none"]),
+      checkoutUrl: zod.string().optional(),
+      receiptUrl: zod.string().optional(),
+    })
+    .optional(),
+  fulfillment: zod
+    .object({
+      status: zod.string(),
+      attempts: zod.int(),
+      errorCode: zod.string().optional(),
+      updatedAt: zod.iso.datetime({ offset: true }).optional(),
+    })
+    .optional()
+    .describe(
+      "Provisioning progress, read from the fulfillment operation rather than carried by the client.",
+    ),
+  refunds: zod
+    .array(
+      zod.object({
+        status: zod.string(),
+        amountMinor: zod.int(),
+        currency: zod.string(),
+        createdAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .optional(),
+  paymentChoices: zod
+    .array(
+      zod.object({
+        provider: zod.string(),
+        currency: zod.string(),
+        amountMinor: zod.int().optional(),
+        recurring: zod.boolean(),
+        canSaveMethod: zod
+          .boolean()
+          .optional()
+          .describe(
+            "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
+          ),
+      }),
+    )
+    .optional()
+    .describe(
+      "The methods that can settle this order in its currency, each priced at what the order still owes. Present on the detail response while the order is pending and owes something, so the page can offer a method without depending on the URL the checkout redirected to. Telegram Stars appears only for a customer with a Telegram identity.",
+    ),
+  preferredProvider: zod
+    .string()
+    .optional()
+    .describe(
+      "The method the checkout recorded, while that checkout is still attached to the order.",
+    ),
 });
 
 /**

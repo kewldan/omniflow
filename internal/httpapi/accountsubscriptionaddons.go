@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/commercepg"
 )
 
@@ -18,6 +19,8 @@ func (handlers *AccountHandlers) mountSubscriptionAddons(router chi.Router) {
 	}
 	router.Get("/subscriptions/{subscriptionID}/addons", handlers.subscriptionAddons)
 	router.Post("/subscriptions/{subscriptionID}/addons", handlers.buySubscriptionAddon)
+	router.Get("/subscriptions/{subscriptionID}/traffic-reset", handlers.trafficResetQuote)
+	router.Post("/subscriptions/{subscriptionID}/traffic-reset", handlers.buyTrafficReset)
 	router.With(handlers.requireRecentAuthentication).
 		Delete("/subscriptions/{subscriptionID}", handlers.closeSubscription)
 }
@@ -91,4 +94,35 @@ func (handlers *AccountHandlers) closeSubscription(writer http.ResponseWriter, r
 		return
 	}
 	writer.WriteHeader(http.StatusNoContent)
+}
+
+func (handlers *AccountHandlers) trafficResetQuote(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := CustomerFrom(request.Context())
+	quote, err := handlers.checkout.TrafficResetQuote(request.Context(), principal.Customer.ID, chi.URLParam(request, "subscriptionID"))
+	if handlers.writeCheckoutError(writer, request, err) {
+		return
+	}
+	writeJSON(writer, http.StatusOK, map[string]any{
+		"available": quote.Available,
+		"price":     map[string]any{"amountMinor": quote.AmountMinor, "currency": quote.Currency},
+	})
+}
+
+func (handlers *AccountHandlers) buyTrafficReset(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := CustomerFrom(request.Context())
+	if !requireIdempotencyKey(writer, request) {
+		return
+	}
+	order, err := handlers.checkout.BuyTrafficReset(
+		request.Context(), principal.Customer.ID, chi.URLParam(request, "subscriptionID"),
+		strings.TrimSpace(request.Header.Get("Idempotency-Key")), accountLocale(request, principal.Customer.Locale),
+	)
+	if errors.Is(err, commerce.ErrTrafficResetUnavailable) {
+		writeProblem(writer, request, http.StatusUnprocessableEntity, "traffic_reset_unavailable", "This subscription cannot buy a traffic reset")
+		return
+	}
+	if handlers.writeCheckoutError(writer, request, err) {
+		return
+	}
+	writeJSON(writer, http.StatusCreated, handlers.orderPayload(request.Context(), order, nil))
 }

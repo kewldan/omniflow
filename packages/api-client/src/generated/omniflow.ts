@@ -1642,6 +1642,7 @@ export interface PanelPlanVersionSummary {
   trafficResetStrategy?: PanelPlanVersionSummaryTrafficResetStrategy;
   externalSquadId?: string;
   maxAddonTrafficBytes?: number;
+  trafficResetPriceBps?: number;
 }
 
 export type PanelPlanVersionInputBillingPeriod =
@@ -1767,6 +1768,13 @@ export interface PanelPlanVersionInput {
    * @nullable
    */
   maxAddonTrafficBytes?: number | null;
+  /**
+   * A paid traffic reset at this share of the version price in basis points; null sells none.
+   * @minimum 1
+   * @maximum 100000
+   * @nullable
+   */
+  trafficResetPriceBps?: number | null;
 }
 
 export interface PanelPlanOptions {
@@ -6746,6 +6754,8 @@ export const GetAccountOverviewLocale = {
   ru: "ru",
   en: "en",
 } as const;
+
+export type GetAccountTrafficReset200 = { [key: string]: unknown };
 
 export type ListAccountSubscriptionAddonsParams = {
   locale?: ListAccountSubscriptionAddonsLocale;
@@ -28329,6 +28339,164 @@ export const useGetAccountOverview = <TError = Promise<unknown>>(
   const swrFn = () => getAccountOverview(params, fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountTrafficResetResponse200 = {
+  data: GetAccountTrafficReset200;
+  status: 200;
+};
+
+export type getAccountTrafficResetResponseSuccess = getAccountTrafficResetResponse200 & {
+  headers: Headers;
+};
+
+export type getAccountTrafficResetResponse = getAccountTrafficResetResponseSuccess;
+
+export const getGetAccountTrafficResetUrl = (subscriptionID: string) => {
+  return `/v1/account/subscriptions/${subscriptionID}/traffic-reset`;
+};
+
+/**
+ * What restarting the subscription's traffic counter costs now; available is false when its plan sells no resets or its traffic is unlimited.
+ */
+export const getAccountTrafficReset = async (
+  subscriptionID: string,
+  options?: RequestInit,
+): Promise<getAccountTrafficResetResponse> => {
+  const res = await fetch(getGetAccountTrafficResetUrl(subscriptionID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountTrafficResetResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getAccountTrafficResetResponse;
+};
+
+export const getGetAccountTrafficResetKey = (subscriptionID: string) =>
+  [`/v1/account/subscriptions/${subscriptionID}/traffic-reset`] as const;
+
+export type GetAccountTrafficResetQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountTrafficReset>>
+>;
+
+export const useGetAccountTrafficReset = <TError = Promise<unknown>>(
+  subscriptionID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountTrafficReset>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && subscriptionID !== null && subscriptionID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetAccountTrafficResetKey(subscriptionID) : null));
+  const swrFn = () => getAccountTrafficReset(subscriptionID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type buyAccountTrafficResetResponse201 = {
+  data: AccountOrder;
+  status: 201;
+};
+
+export type buyAccountTrafficResetResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type buyAccountTrafficResetResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type buyAccountTrafficResetResponseSuccess = buyAccountTrafficResetResponse201 & {
+  headers: Headers;
+};
+export type buyAccountTrafficResetResponseError = (
+  | buyAccountTrafficResetResponse409
+  | buyAccountTrafficResetResponse422
+) & {
+  headers: Headers;
+};
+
+export type buyAccountTrafficResetResponse =
+  | buyAccountTrafficResetResponseSuccess
+  | buyAccountTrafficResetResponseError;
+
+export const getBuyAccountTrafficResetUrl = (subscriptionID: string) => {
+  return `/v1/account/subscriptions/${subscriptionID}/traffic-reset`;
+};
+
+/**
+ * Opens a paid traffic reset order; the wallet settles it when it covers the price. A repeated key is the same order.
+ */
+export const buyAccountTrafficReset = async (
+  subscriptionID: string,
+  options?: RequestInit,
+): Promise<buyAccountTrafficResetResponse> => {
+  const res = await fetch(getBuyAccountTrafficResetUrl(subscriptionID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: buyAccountTrafficResetResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as buyAccountTrafficResetResponse;
+};
+
+export const getBuyAccountTrafficResetMutationFetcher = (
+  subscriptionID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return buyAccountTrafficReset(subscriptionID, options);
+  };
+};
+export const getBuyAccountTrafficResetMutationKey = (subscriptionID: string) =>
+  [`/v1/account/subscriptions/${subscriptionID}/traffic-reset`] as const;
+
+export type BuyAccountTrafficResetMutationResult = NonNullable<
+  Awaited<ReturnType<typeof buyAccountTrafficReset>>
+>;
+
+export const useBuyAccountTrafficReset = <TError = Promise<ProblemResponse>>(
+  subscriptionID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof buyAccountTrafficReset>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof buyAccountTrafficReset>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getBuyAccountTrafficResetMutationKey(subscriptionID);
+  const swrFn = getBuyAccountTrafficResetMutationFetcher(subscriptionID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,

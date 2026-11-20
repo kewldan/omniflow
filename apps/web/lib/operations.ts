@@ -244,6 +244,8 @@ export type PlanVersion = {
   externalSquadId?: string;
   /** The most traffic add-ons may add to one subscription. */
   maxAddonTrafficBytes?: number;
+  /** A paid traffic reset's price as a share of the version's, in basis points. */
+  trafficResetPriceBps?: number;
 };
 
 export type PersonalOffer = {

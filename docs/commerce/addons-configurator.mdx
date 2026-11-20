@@ -157,6 +157,10 @@ A mid-period purchase refuses with:
 
 Maintenance blocks the purchase entirely, like any other order. Reusing an idempotency key with different add-on parameters is refused rather than silently resolved to the earlier order. The same add-on twice in one order is refused outright.
 
+### Paid traffic reset
+
+A plan version may sell a reset of the traffic counter before the period ends, as Bedolaga's paid traffic reset does. **Paid traffic reset (% of the price)** in the version editor (`trafficResetPriceBps`, basis points of the version's own price in the order currency, rounded up) turns it on; empty sells none. A subscription on such a version with limited traffic shows **Reset traffic** on its page — `GET /v1/account/subscriptions/{subscriptionID}/traffic-reset` prices it and `POST` on the same route, with an `Idempotency-Key`, opens an order with operation `traffic_reset`. The wallet settles it when it covers the price; otherwise the order page takes the rest. Settlement queues one `reset_traffic` operation keyed `order:<id>:reset`, so a replayed settlement resets once. The period's end does not move. A version that sells no resets, unlimited traffic, and a paused or lapsed subscription answer `traffic_reset_unavailable` or `no_active_subscription` before any money moves.
+
 ### Proration rules
 
 The proration rule is a property of the add-on version, and it is always explicit. Omniflow never infers a partial price from remaining time unless the add-on says so. It applies only to a mid-period purchase; an add-on bought with the plan covers a full period and is charged at the catalog price whatever its rule says.

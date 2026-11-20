@@ -176,3 +176,21 @@ func Capacity(trafficBytes int64, deviceSlots, quantity int, squadIDs []string) 
 	}
 	return capacity
 }
+
+// ErrTrafficResetUnavailable refuses a paid traffic reset the subscription's
+// plan does not sell, or one on unlimited traffic, which has no counter worth
+// paying to restart.
+var ErrTrafficResetUnavailable = errors.New("traffic_reset_unavailable")
+
+// TrafficResetPrice is what restarting the traffic counter costs: a share of
+// the plan version's own price, in basis points, rounded up so a cheap plan
+// never resets for nothing.
+func TrafficResetPrice(planAmountMinor int64, bps int) (int64, error) {
+	if bps <= 0 || planAmountMinor < 0 {
+		return 0, ErrTrafficResetUnavailable
+	}
+	if planAmountMinor > (1<<62)/int64(bps) {
+		return 0, ErrInvalidAmount
+	}
+	return divideRoundingUp(planAmountMinor*int64(bps), 10_000), nil
+}

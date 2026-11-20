@@ -461,6 +461,21 @@ func (q *Queries) SetPlanVersionRemnawaveProfile(ctx context.Context, arg SetPla
 	return err
 }
 
+const setPlanVersionTrafficResetPrice = `-- name: SetPlanVersionTrafficResetPrice :exec
+UPDATE plan_versions SET traffic_reset_price_bps = $1
+WHERE id = $2
+`
+
+type SetPlanVersionTrafficResetPriceParams struct {
+	TrafficResetPriceBps pgtype.Int4 `json:"traffic_reset_price_bps"`
+	PlanVersionID        pgtype.UUID `json:"plan_version_id"`
+}
+
+func (q *Queries) SetPlanVersionTrafficResetPrice(ctx context.Context, arg SetPlanVersionTrafficResetPriceParams) error {
+	_, err := q.db.Exec(ctx, setPlanVersionTrafficResetPrice, arg.TrafficResetPriceBps, arg.PlanVersionID)
+	return err
+}
+
 const setPolicyTags = `-- name: SetPolicyTags :one
 UPDATE subscription_policy
 SET trial_tag = $1, paid_tag = $2, updated_at = now()

@@ -59,6 +59,9 @@ type PlanVersionOptions struct {
 	// MaxAddonTrafficBytes caps the traffic add-ons may add to one
 	// entitlement of this version; nil is no cap.
 	MaxAddonTrafficBytes *int64 `json:"maxAddonTrafficBytes"`
+	// TrafficResetPriceBps sells a customer a reset of the traffic counter at
+	// this share of the version's own price, in basis points; nil sells none.
+	TrafficResetPriceBps *int32 `json:"trafficResetPriceBps"`
 }
 
 var validTrafficResetStrategy = map[string]bool{
@@ -198,6 +201,12 @@ func (service *Service) CreatePlanVersion(
 		}); txErr != nil {
 			return txErr
 		}
+		if txErr = queries.SetPlanVersionTrafficResetPrice(ctx, dbgen.SetPlanVersionTrafficResetPriceParams{
+			PlanVersionID: row.ID, TrafficResetPriceBps: optionalInt4(input.TrafficResetPriceBps),
+		}); txErr != nil {
+			return txErr
+		}
+		row.TrafficResetPriceBps = optionalInt4(input.TrafficResetPriceBps)
 		if txErr = queries.SetPlanVersionAddonTrafficCap(ctx, dbgen.SetPlanVersionAddonTrafficCapParams{
 			PlanVersionID: row.ID, MaxAddonTrafficBytes: optionalInt8(input.MaxAddonTrafficBytes),
 		}); txErr != nil {
@@ -246,6 +255,9 @@ func validatePlanVersion(input PlanVersionInput) error {
 		if amount < 0 {
 			return ErrValidaton
 		}
+	}
+	if input.TrafficResetPriceBps != nil && (*input.TrafficResetPriceBps < 1 || *input.TrafficResetPriceBps > 100_000) {
+		return ErrValidaton
 	}
 	if input.MaxAddonTrafficBytes != nil && *input.MaxAddonTrafficBytes <= 0 {
 		return ErrValidaton
@@ -486,6 +498,7 @@ func planVersionFromRow(row dbgen.PlanVersion, prices map[string]int64) PlanVers
 
 		TrafficResetStrategy: row.TrafficResetStrategy,
 		MaxAddonTrafficBytes: int8Pointer(row.MaxAddonTrafficBytes),
+		TrafficResetPriceBps: int4Pointer(row.TrafficResetPriceBps),
 		ExternalSquadID:      uuidString(row.ExternalSquadID),
 	}
 }

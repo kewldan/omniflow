@@ -789,7 +789,7 @@ INSERT INTO plan_versions (
   cancellation_policy, recurring_capable, grace_period_seconds, trial_eligibility
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-RETURNING id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads, traffic_reset_strategy, external_squad_id, max_addon_traffic_bytes
+RETURNING id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads, traffic_reset_strategy, external_squad_id, max_addon_traffic_bytes, traffic_reset_price_bps
 `
 
 type CreatePlanVersionParams struct {
@@ -848,6 +848,7 @@ func (q *Queries) CreatePlanVersion(ctx context.Context, arg CreatePlanVersionPa
 		&i.TrafficResetStrategy,
 		&i.ExternalSquadID,
 		&i.MaxAddonTrafficBytes,
+		&i.TrafficResetPriceBps,
 	)
 	return i, err
 }
@@ -1637,7 +1638,7 @@ func (q *Queries) GetPlanVersionCurrency(ctx context.Context, planVersionID pgty
 }
 
 const getPlanVersionForOrder = `-- name: GetPlanVersionForOrder :one
-SELECT p.code, p.kind, p.max_concurrent_per_customer, v.id, v.plan_id, v.version, v.billing_period, v.duration_seconds, v.traffic_allowance_bytes, v.device_limit, v.remnawave_squad_ids, v.upgrade_policy, v.downgrade_policy, v.cancellation_policy, v.recurring_capable, v.created_at, v.retired_at, v.grace_period_seconds, v.trial_eligibility, v.squad_selection, v.min_selectable_squads, v.max_selectable_squads, v.traffic_reset_strategy, v.external_squad_id, v.max_addon_traffic_bytes, pr.currency, pr.amount_minor
+SELECT p.code, p.kind, p.max_concurrent_per_customer, v.id, v.plan_id, v.version, v.billing_period, v.duration_seconds, v.traffic_allowance_bytes, v.device_limit, v.remnawave_squad_ids, v.upgrade_policy, v.downgrade_policy, v.cancellation_policy, v.recurring_capable, v.created_at, v.retired_at, v.grace_period_seconds, v.trial_eligibility, v.squad_selection, v.min_selectable_squads, v.max_selectable_squads, v.traffic_reset_strategy, v.external_squad_id, v.max_addon_traffic_bytes, v.traffic_reset_price_bps, pr.currency, pr.amount_minor
 FROM plan_versions v
 JOIN plans p ON p.id = v.plan_id
 JOIN plan_prices pr ON pr.plan_version_id = v.id
@@ -1675,6 +1676,7 @@ type GetPlanVersionForOrderRow struct {
 	TrafficResetStrategy     string             `json:"traffic_reset_strategy"`
 	ExternalSquadID          pgtype.UUID        `json:"external_squad_id"`
 	MaxAddonTrafficBytes     pgtype.Int8        `json:"max_addon_traffic_bytes"`
+	TrafficResetPriceBps     pgtype.Int4        `json:"traffic_reset_price_bps"`
 	Currency                 string             `json:"currency"`
 	AmountMinor              int64              `json:"amount_minor"`
 }
@@ -1708,6 +1710,7 @@ func (q *Queries) GetPlanVersionForOrder(ctx context.Context, arg GetPlanVersion
 		&i.TrafficResetStrategy,
 		&i.ExternalSquadID,
 		&i.MaxAddonTrafficBytes,
+		&i.TrafficResetPriceBps,
 		&i.Currency,
 		&i.AmountMinor,
 	)
@@ -3061,7 +3064,7 @@ SELECT p.id, p.code, p.kind, p.sort_order, l.locale, l.name, l.description,
 FROM plans p
 JOIN plan_localizations l ON l.plan_id = p.id AND l.locale = $1
 JOIN LATERAL (
-  SELECT id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads, traffic_reset_strategy, external_squad_id, max_addon_traffic_bytes FROM plan_versions pv
+  SELECT id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads, traffic_reset_strategy, external_squad_id, max_addon_traffic_bytes, traffic_reset_price_bps FROM plan_versions pv
   WHERE pv.plan_id = p.id AND pv.retired_at IS NULL
   ORDER BY pv.version DESC LIMIT 1
 ) v ON true

@@ -8439,6 +8439,9 @@ type PanelPlanVersionInput struct {
 	// TrafficAllowanceBytes Null is unlimited.
 	TrafficAllowanceBytes *int64 `json:"trafficAllowanceBytes,omitempty"`
 
+	// TrafficResetPriceBps A paid traffic reset at this share of the version price in basis points; null sells none.
+	TrafficResetPriceBps *int `json:"trafficResetPriceBps,omitempty"`
+
 	// TrafficResetStrategy Remnawave trafficLimitStrategy; empty is NO_RESET.
 	TrafficResetStrategy *PanelPlanVersionInputTrafficResetStrategy `json:"trafficResetStrategy,omitempty"`
 	TrialEligibility     PanelPlanVersionInputTrialEligibility      `json:"trialEligibility"`
@@ -8488,6 +8491,7 @@ type PanelPlanVersionSummary struct {
 	SquadIds              *[]openapi_types.UUID                        `json:"squadIds,omitempty"`
 	SquadSelection        PanelPlanVersionSummarySquadSelection        `json:"squadSelection"`
 	TrafficAllowanceBytes *int64                                       `json:"trafficAllowanceBytes,omitempty"`
+	TrafficResetPriceBps  *int                                         `json:"trafficResetPriceBps,omitempty"`
 	TrafficResetStrategy  *PanelPlanVersionSummaryTrafficResetStrategy `json:"trafficResetStrategy,omitempty"`
 	TrialEligibility      *string                                      `json:"trialEligibility,omitempty"`
 	UpgradePolicy         string                                       `json:"upgradePolicy"`
@@ -10347,6 +10351,13 @@ type RotateAccountSubscriptionLinkJSONBody struct {
 type RotateAccountSubscriptionLinkParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// BuyAccountTrafficResetParams defines parameters for BuyAccountTrafficReset.
+type BuyAccountTrafficResetParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
 // ListAccountSupportTicketsParams defines parameters for ListAccountSupportTickets.
@@ -12569,6 +12580,12 @@ type ServerInterface interface {
 	// (POST /v1/account/subscriptions/{subscriptionID}/rotate-link)
 	RotateAccountSubscriptionLink(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params RotateAccountSubscriptionLinkParams)
 
+	// (GET /v1/account/subscriptions/{subscriptionID}/traffic-reset)
+	GetAccountTrafficReset(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID)
+
+	// (POST /v1/account/subscriptions/{subscriptionID}/traffic-reset)
+	BuyAccountTrafficReset(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params BuyAccountTrafficResetParams)
+
 	// (GET /v1/account/support/attachments/{attachmentID})
 	DownloadAccountSupportAttachment(w http.ResponseWriter, r *http.Request, attachmentID openapi_types.UUID)
 
@@ -13767,6 +13784,16 @@ func (_ Unimplemented) RemoveAccountDevice(w http.ResponseWriter, r *http.Reques
 
 // (POST /v1/account/subscriptions/{subscriptionID}/rotate-link)
 func (_ Unimplemented) RotateAccountSubscriptionLink(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params RotateAccountSubscriptionLinkParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/subscriptions/{subscriptionID}/traffic-reset)
+func (_ Unimplemented) GetAccountTrafficReset(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/subscriptions/{subscriptionID}/traffic-reset)
+func (_ Unimplemented) BuyAccountTrafficReset(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params BuyAccountTrafficResetParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -18460,6 +18487,109 @@ func (siw *ServerInterfaceWrapper) RotateAccountSubscriptionLink(w http.Response
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RotateAccountSubscriptionLink(w, r, subscriptionID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountTrafficReset operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountTrafficReset(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID AccountSubscriptionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountTrafficReset(w, r, subscriptionID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// BuyAccountTrafficReset operation middleware
+func (siw *ServerInterfaceWrapper) BuyAccountTrafficReset(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID AccountSubscriptionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params BuyAccountTrafficResetParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BuyAccountTrafficReset(w, r, subscriptionID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -30604,6 +30734,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/v1/account/overview", wrapper.GetAccountOverview)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/traffic-reset", wrapper.GetAccountTrafficReset)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/traffic-reset", wrapper.BuyAccountTrafficReset)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/addons", wrapper.ListAccountSubscriptionAddons)
 	})
 	r.Group(func(r chi.Router) {
@@ -34629,6 +34765,81 @@ func (response RotateAccountSubscriptionLink503ApplicationProblemPlusJSONRespons
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountTrafficResetRequestObject struct {
+	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
+}
+
+type GetAccountTrafficResetResponseObject interface {
+	VisitGetAccountTrafficResetResponse(w http.ResponseWriter) error
+}
+
+type GetAccountTrafficReset200JSONResponse map[string]interface{}
+
+func (response GetAccountTrafficReset200JSONResponse) VisitGetAccountTrafficResetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BuyAccountTrafficResetRequestObject struct {
+	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
+	Params         BuyAccountTrafficResetParams
+}
+
+type BuyAccountTrafficResetResponseObject interface {
+	VisitBuyAccountTrafficResetResponse(w http.ResponseWriter) error
+}
+
+type BuyAccountTrafficReset201JSONResponse AccountOrder
+
+func (response BuyAccountTrafficReset201JSONResponse) VisitBuyAccountTrafficResetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BuyAccountTrafficReset409ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response BuyAccountTrafficReset409ApplicationProblemPlusJSONResponse) VisitBuyAccountTrafficResetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BuyAccountTrafficReset422ApplicationProblemPlusJSONResponse Problem
+
+func (response BuyAccountTrafficReset422ApplicationProblemPlusJSONResponse) VisitBuyAccountTrafficResetResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -46834,6 +47045,12 @@ type StrictServerInterface interface {
 	// (POST /v1/account/subscriptions/{subscriptionID}/rotate-link)
 	RotateAccountSubscriptionLink(ctx context.Context, request RotateAccountSubscriptionLinkRequestObject) (RotateAccountSubscriptionLinkResponseObject, error)
 
+	// (GET /v1/account/subscriptions/{subscriptionID}/traffic-reset)
+	GetAccountTrafficReset(ctx context.Context, request GetAccountTrafficResetRequestObject) (GetAccountTrafficResetResponseObject, error)
+
+	// (POST /v1/account/subscriptions/{subscriptionID}/traffic-reset)
+	BuyAccountTrafficReset(ctx context.Context, request BuyAccountTrafficResetRequestObject) (BuyAccountTrafficResetResponseObject, error)
+
 	// (GET /v1/account/support/attachments/{attachmentID})
 	DownloadAccountSupportAttachment(ctx context.Context, request DownloadAccountSupportAttachmentRequestObject) (DownloadAccountSupportAttachmentResponseObject, error)
 
@@ -50033,6 +50250,59 @@ func (sh *strictHandler) RotateAccountSubscriptionLink(w http.ResponseWriter, r 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(RotateAccountSubscriptionLinkResponseObject); ok {
 		if err := validResponse.VisitRotateAccountSubscriptionLinkResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountTrafficReset operation middleware
+func (sh *strictHandler) GetAccountTrafficReset(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID) {
+	var request GetAccountTrafficResetRequestObject
+
+	request.SubscriptionID = subscriptionID
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountTrafficReset(ctx, request.(GetAccountTrafficResetRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountTrafficReset")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountTrafficResetResponseObject); ok {
+		if err := validResponse.VisitGetAccountTrafficResetResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// BuyAccountTrafficReset operation middleware
+func (sh *strictHandler) BuyAccountTrafficReset(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params BuyAccountTrafficResetParams) {
+	var request BuyAccountTrafficResetRequestObject
+
+	request.SubscriptionID = subscriptionID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.BuyAccountTrafficReset(ctx, request.(BuyAccountTrafficResetRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "BuyAccountTrafficReset")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(BuyAccountTrafficResetResponseObject); ok {
+		if err := validResponse.VisitBuyAccountTrafficResetResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

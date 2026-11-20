@@ -15,6 +15,7 @@ import useSWR from "swr";
 import * as z from "zod/mini";
 import { CloseSubscription } from "@/components/account/commerce/close-subscription";
 import { SubscriptionAddons } from "@/components/account/commerce/subscription-addons";
+import { TrafficReset } from "@/components/account/commerce/traffic-reset";
 import { ReauthNotice, useReauthentication } from "@/components/account/reauth";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
 import {
@@ -69,6 +70,7 @@ export default function SubscriptionPage() {
       <PrimaryAction page={page} subscription={data} />
 
       <SubscriptionAddons onBought={() => void mutate()} subscriptionId={data.id} />
+      <TrafficReset onReset={() => void mutate()} subscriptionId={data.id} />
 
       <RenameForm current={data.label} onRenamed={mutate} subscriptionId={data.id} />
       {/* Rotating a link is only meaningful for a provisioned subscription. */}

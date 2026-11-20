@@ -2039,6 +2039,7 @@ type Querier interface {
 	SetPlanVersionAddons(ctx context.Context, planVersionID pgtype.UUID) error
 	// Written once, in the transaction that publishes the version.
 	SetPlanVersionRemnawaveProfile(ctx context.Context, arg SetPlanVersionRemnawaveProfileParams) error
+	SetPlanVersionTrafficResetPrice(ctx context.Context, arg SetPlanVersionTrafficResetPriceParams) error
 	SetPlanVisibility(ctx context.Context, arg SetPlanVisibilityParams) (Plan, error)
 	SetPolicyTags(ctx context.Context, arg SetPolicyTagsParams) (SubscriptionPolicy, error)
 	SetPromoCodeActive(ctx context.Context, arg SetPromoCodeActiveParams) (PromoCode, error)

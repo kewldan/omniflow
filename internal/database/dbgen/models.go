@@ -1827,6 +1827,7 @@ type PlanVersion struct {
 	TrafficResetStrategy  string             `json:"traffic_reset_strategy"`
 	ExternalSquadID       pgtype.UUID        `json:"external_squad_id"`
 	MaxAddonTrafficBytes  pgtype.Int8        `json:"max_addon_traffic_bytes"`
+	TrafficResetPriceBps  pgtype.Int4        `json:"traffic_reset_price_bps"`
 }
 
 type PlanVersionAddon struct {

@@ -3543,6 +3543,26 @@ paths:
         - {in: query, name: locale, schema: {type: string, enum: [ru, en]}}
       responses:
         "200": {description: Dashboard, content: {application/json: {schema: {$ref: "#/components/schemas/AccountOverview"}}}}
+  /v1/account/subscriptions/{subscriptionID}/traffic-reset:
+    get:
+      operationId: getAccountTrafficReset
+      tags: [account]
+      description: What restarting the subscription's traffic counter costs now; available is false when its plan sells no resets or its traffic is unlimited.
+      parameters: [{$ref: "#/components/parameters/AccountSubscriptionID"}]
+      responses:
+        "200": {description: Quote, content: {application/json: {schema: {type: object, additionalProperties: true}}}}
+    post:
+      operationId: buyAccountTrafficReset
+      tags: [account]
+      description: Opens a paid traffic reset order; the wallet settles it when it covers the price. A repeated key is the same order.
+      parameters:
+        - {$ref: "#/components/parameters/AccountSubscriptionID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      responses:
+        "201": {description: Order created, content: {application/json: {schema: {$ref: "#/components/schemas/AccountOrder"}}}}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
   /v1/account/subscriptions/{subscriptionID}/addons:
     get:
       operationId: listAccountSubscriptionAddons
@@ -6257,6 +6277,7 @@ components:
         trafficResetStrategy: {type: string, enum: [NO_RESET, DAY, WEEK, MONTH, MONTH_ROLLING]}
         externalSquadId: {type: string, format: uuid}
         maxAddonTrafficBytes: {type: integer, format: int64}
+        trafficResetPriceBps: {type: integer}
     PanelOfferedSquad:
       type: object
       required: [squadId, labelRu, labelEn]
@@ -6288,6 +6309,7 @@ components:
         trafficResetStrategy: {type: string, enum: [NO_RESET, DAY, WEEK, MONTH, MONTH_ROLLING], description: Remnawave trafficLimitStrategy; empty is NO_RESET.}
         externalSquadId: {type: string, description: A Remnawave external squad UUID; empty for none.}
         maxAddonTrafficBytes: {type: integer, format: int64, minimum: 1, nullable: true, description: Most traffic add-ons may add to one entitlement; null is no cap.}
+        trafficResetPriceBps: {type: integer, minimum: 1, maximum: 100000, nullable: true, description: A paid traffic reset at this share of the version price in basis points; null sells none.}
     PanelPlanOptions:
       type: object
       properties:

@@ -112,3 +112,24 @@ func (service *Service) BuySubscriptionAddon(
 func (service *Service) CloseSubscription(ctx context.Context, customerID, subscriptionID string) error {
 	return service.orders.CloseSubscription(ctx, customerID, subscriptionID)
 }
+
+// TrafficResetQuote is what restarting a subscription's traffic counter costs
+// now in the settlement currency.
+func (service *Service) TrafficResetQuote(ctx context.Context, customerID, subscriptionID string) (commercepg.TrafficResetQuote, error) {
+	return service.orders.TrafficResetQuote(ctx, customerID, subscriptionID, service.settings.Currency)
+}
+
+// BuyTrafficReset opens the order for a paid traffic reset.
+func (service *Service) BuyTrafficReset(ctx context.Context, customerID, subscriptionID, idempotencyKey, locale string) (OrderSummary, error) {
+	if err := service.ChannelGate(ctx, customerID); err != nil {
+		return OrderSummary{}, err
+	}
+	order, err := service.orders.CreateTrafficResetOrder(ctx, commercepg.TrafficResetOrderInput{
+		CustomerID: customerID, SubscriptionID: subscriptionID, Currency: service.settings.Currency,
+		IdempotencyKey: "web-reset:" + idempotencyKey,
+	})
+	if err != nil {
+		return OrderSummary{}, err
+	}
+	return service.store.Order(ctx, customerID, UUIDText(order.ID), locale)
+}

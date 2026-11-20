@@ -955,6 +955,8 @@ func (store *Store) settlePaidOrder(ctx context.Context, tx pgx.Tx, queries *dbg
 		// A top-up buys nothing but credit, so it never creates an entitlement
 		// and never qualifies a referral.
 		return store.creditTopUp(ctx, queries, order, idempotencyKey)
+	case "traffic_reset":
+		return store.settleTrafficReset(ctx, tx, queries, order, idempotencyKey)
 	case "addon":
 		if err := store.recordOrderRevenue(ctx, queries, order, idempotencyKey); err != nil {
 			return err

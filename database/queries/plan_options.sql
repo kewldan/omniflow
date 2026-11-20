@@ -173,3 +173,7 @@ WHERE v.id = e.plan_version_id AND v.plan_id = sqlc.arg(plan_id)
   AND e.status IN ('pending', 'active', 'limited', 'paused')
   AND (e.status = 'paused' OR e.ends_at > now())
 RETURNING e.*;
+
+-- name: SetPlanVersionTrafficResetPrice :exec
+UPDATE plan_versions SET traffic_reset_price_bps = sqlc.narg(traffic_reset_price_bps)
+WHERE id = sqlc.arg(plan_version_id);

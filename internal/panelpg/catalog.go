@@ -88,6 +88,7 @@ type PlanVersion struct {
 	TrafficResetStrategy string `json:"trafficResetStrategy"`
 	ExternalSquadID      string `json:"externalSquadId,omitempty"`
 	MaxAddonTrafficBytes *int64 `json:"maxAddonTrafficBytes,omitempty"`
+	TrafficResetPriceBps *int32 `json:"trafficResetPriceBps,omitempty"`
 }
 
 // PlanDetail is one plan with its versions and localisations.
@@ -173,6 +174,7 @@ func (service *Service) PlanDetail(ctx context.Context, planID string) (PlanDeta
 
 			TrafficResetStrategy: version.TrafficResetStrategy,
 			MaxAddonTrafficBytes: int8Pointer(version.MaxAddonTrafficBytes),
+			TrafficResetPriceBps: int4Pointer(version.TrafficResetPriceBps),
 			ExternalSquadID:      uuidString(version.ExternalSquadID),
 		}
 		for _, price := range prices {

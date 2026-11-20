@@ -96,6 +96,8 @@ const schema = z.object({
   trafficGb: decimalNumber({ min: 0, optional: true }),
   // The most traffic add-ons may add to one subscription; empty is no cap.
   addonTrafficCapGb: decimalNumber({ min: 0, optional: true }),
+  // A paid traffic reset, as a percentage of this version's price; empty sells none.
+  trafficResetPercent: decimalNumber({ min: 0, optional: true }),
   trialEligibility: z.string(),
   upgradePolicy: z.string(),
 });
@@ -177,6 +179,9 @@ function defaults(current?: PlanVersion): Values {
     squadSelection: (SQUAD_SELECTIONS as readonly string[]).includes(current?.squadSelection ?? "")
       ? (current?.squadSelection ?? "automatic")
       : "automatic",
+    trafficResetPercent: current?.trafficResetPriceBps
+      ? String(current.trafficResetPriceBps / 100)
+      : "",
     addonTrafficCapGb: current?.maxAddonTrafficBytes
       ? String(current.maxAddonTrafficBytes / GIBIBYTE)
       : "",
@@ -249,6 +254,10 @@ function VersionForm({
           const gigabytes = readDecimal(values.addonTrafficCapGb);
           return gigabytes === null || gigabytes <= 0 ? null : Math.round(gigabytes * GIBIBYTE);
         })(),
+        trafficResetPriceBps: (() => {
+          const percent = readDecimal(values.trafficResetPercent);
+          return percent === null || percent <= 0 ? null : Math.round(percent * 100);
+        })(),
         trialEligibility: values.trialEligibility,
         upgradePolicy: values.upgradePolicy,
       },
@@ -316,6 +325,15 @@ function VersionForm({
               >
                 {(props) => (
                   <Input {...props} inputMode="decimal" {...register("addonTrafficCapGb")} />
+                )}
+              </FormField>
+              <FormField
+                error={errors.trafficResetPercent?.message}
+                hint={translate("trafficResetPriceHint")}
+                label={translate("trafficResetPrice")}
+              >
+                {(props) => (
+                  <Input {...props} inputMode="decimal" {...register("trafficResetPercent")} />
                 )}
               </FormField>
             </div>

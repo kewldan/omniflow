@@ -1805,7 +1805,9 @@
         "externalSquad": "External squad",
         "externalSquadHint": "Shapes the subscription page and client configuration in Remnawave. Leave empty for none.",
         "addonTrafficCap": "Most traffic add-ons may add (GB)",
-        "addonTrafficCapHint": "Per subscription period. Leave empty for no cap."
+        "addonTrafficCapHint": "Per subscription period. Leave empty for no cap.",
+        "trafficResetPrice": "Paid traffic reset (% of the price)",
+        "trafficResetPriceHint": "Customers may restart their traffic counter for this share of the version's price. Empty sells no resets."
       },
       "addons": {
         "create": "New add-on",
@@ -4862,7 +4864,8 @@
         "addon_limit_reached": "That extra would go past this subscription's limit on devices or bought traffic.",
         "subscription_primary": "The first subscription cannot be closed.",
         "subscription_busy": "An unpaid order is still open for this subscription. Pay or cancel it first.",
-        "squad_unavailable": "One of the servers this purchase includes is not available right now. Nothing was charged; please contact support."
+        "squad_unavailable": "One of the servers this purchase includes is not available right now. Nothing was charged; please contact support.",
+        "traffic_reset_unavailable": "This subscription cannot buy a traffic reset."
       },
       "breakdown": {
         "subtotal": "Plan",
@@ -5289,6 +5292,14 @@
       "phrase": "CLOSE",
       "prompt": "Type CLOSE to confirm",
       "closed": "The subscription is closed."
+    },
+    "trafficReset": {
+      "title": "Reset traffic",
+      "hint": "Start this period's traffic counter from zero now, instead of waiting for the renewal.",
+      "action": "Reset for {price}",
+      "confirm": "Your used traffic starts again from zero, for {price}. The period's end does not change.",
+      "cancel": "Cancel",
+      "done": "Traffic reset. It reaches your connection within a minute."
     }
   },
   "pages": {
