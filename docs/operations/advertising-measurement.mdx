@@ -164,7 +164,15 @@ are written.
 - **Edit** on a row loads the campaign into the form; saving under the same code changes its name and
   bonus. The code is the link and does not change.
 - The table counts, per campaign, sign-ups, those who took a trial, those with a settled
-  subscription order, and their revenue net of refunds in the campaign currency.
+  subscription order, the conversion (paying customers over sign-ups), and their revenue net of
+  refunds in the campaign currency.
+- **Report** on a row opens the campaign's report: the same totals with the share of sign-ups that
+  took a trial, the share that paid, the share of trial takers who paid, and revenue per sign-up;
+  then two charts by UTC day for the last 7, 30, 90, or 365 days — sign-ups, trials, and first
+  payments on one, revenue on the other — each with its figures in a table. A sign-up is counted on
+  the day of attribution, a trial on the day it was claimed, a first payment on the day of the
+  customer's first settled subscription order, and revenue on the day each order settled. The same
+  report is `GET /v1/panel/marketing/ad-campaigns/{campaignID}/stats?days=30` (`marketing.read`).
 
 Pausing a campaign stops new attributions and bonuses; its history stays. Saving requires
 `marketing.write`, reading `marketing.read`. Nothing is sent to any advertising network.

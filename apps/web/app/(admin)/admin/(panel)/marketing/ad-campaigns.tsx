@@ -14,6 +14,7 @@ import useSWR from "swr";
 import { type ApiError, fetcher } from "@/lib/api";
 import { formatMoney, type Listing, type PlanSummary, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
+import { AdCampaignStatsPanel } from "./ad-campaign-stats";
 
 const BONUS_KINDS = ["none", "wallet", "days", "trial", "plan"] as const;
 
@@ -64,6 +65,7 @@ export function AdCampaignsCard({ editable }: { editable: boolean }) {
   const [bonusKind, setBonusKind] = useState<AdCampaign["bonusKind"]>("none");
   const [bonusValue, setBonusValue] = useState("");
   const [bonusPlanId, setBonusPlanId] = useState("");
+  const [reportFor, setReportFor] = useState<string | null>(null);
 
   async function save(campaign: Partial<AdCampaign>) {
     const ok = await run("/v1/panel/marketing/ad-campaigns", {
@@ -151,6 +153,7 @@ export function AdCampaignsCard({ editable }: { editable: boolean }) {
                   <TableHead className="text-right">{translate("columns.registrations")}</TableHead>
                   <TableHead className="text-right">{translate("columns.trials")}</TableHead>
                   <TableHead className="text-right">{translate("columns.paying")}</TableHead>
+                  <TableHead className="text-right">{translate("columns.conversion")}</TableHead>
                   <TableHead className="text-right">{translate("columns.revenue")}</TableHead>
                   <TableHead />
                 </TableRow>
@@ -166,35 +169,56 @@ export function AdCampaignsCard({ editable }: { editable: boolean }) {
                     <TableCell className="text-right">{campaign.registrations}</TableCell>
                     <TableCell className="text-right">{campaign.trials}</TableCell>
                     <TableCell className="text-right">{campaign.paying}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {campaign.registrations > 0
+                        ? `${Math.round((campaign.paying * 1000) / campaign.registrations) / 10}%`
+                        : "—"}
+                    </TableCell>
                     <TableCell className="text-right">
                       {formatMoney(campaign.revenueMinor, campaign.currency, locale)}
                     </TableCell>
                     <TableCell className="text-right">
-                      {editable ? (
-                        <div className="flex justify-end gap-2">
-                          <Button onClick={() => edit(campaign)} size="sm" variant="ghost">
-                            {translate("edit")}
-                          </Button>
-                          <Button
-                            disabled={pending}
-                            onClick={() => void save({ ...campaign, active: !campaign.active })}
-                            size="sm"
-                            variant="outline"
-                          >
-                            {campaign.active ? translate("pause") : translate("resume")}
-                          </Button>
-                        </div>
-                      ) : (
-                        <Badge variant="outline">
-                          {campaign.active ? translate("active") : translate("paused")}
-                        </Badge>
-                      )}
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          aria-pressed={reportFor === campaign.id}
+                          onClick={() =>
+                            setReportFor(reportFor === campaign.id ? null : campaign.id)
+                          }
+                          size="sm"
+                          variant="ghost"
+                        >
+                          {translate("report")}
+                        </Button>
+                        {editable ? (
+                          <>
+                            <Button onClick={() => edit(campaign)} size="sm" variant="ghost">
+                              {translate("edit")}
+                            </Button>
+                            <Button
+                              disabled={pending}
+                              onClick={() => void save({ ...campaign, active: !campaign.active })}
+                              size="sm"
+                              variant="outline"
+                            >
+                              {campaign.active ? translate("pause") : translate("resume")}
+                            </Button>
+                          </>
+                        ) : (
+                          <Badge variant="outline">
+                            {campaign.active ? translate("active") : translate("paused")}
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
+        )}
+
+        {reportFor && (
+          <AdCampaignStatsPanel campaignId={reportFor} onClose={() => setReportFor(null)} />
         )}
 
         {editable && (

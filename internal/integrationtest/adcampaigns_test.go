@@ -53,6 +53,27 @@ func TestAdCampaignAttributesNewCustomersOnce(t *testing.T) {
 	if err != nil || len(campaigns) != 1 || campaigns[0].Registrations != 1 || campaigns[0].Code != "stars_elite" {
 		t.Fatalf("campaigns = %+v (%v)", campaigns, err)
 	}
+
+	// The report has every day of the period, today last, with the sign-up
+	// on it; a paid order of the newcomer is a first payment and revenue.
+	if _, err := harness.pool.Exec(ctx, `INSERT INTO orders (user_id, state, operation, currency, subtotal_minor,
+			external_minor, paid_minor, paid_at, idempotency_key, selected_squad_ids)
+		VALUES ($1::uuid, 'fulfilled', 'purchase', 'RUB', 20000, 20000, 20000, now(), 'campaign-first-order', '{}')`,
+		newcomer); err != nil {
+		t.Fatalf("seed a paid order: %v", err)
+	}
+	stats, err := panel.AdCampaignStats(ctx, campaigns[0].ID, 7)
+	if err != nil || len(stats.Days) != 7 {
+		t.Fatalf("stats = %+v (%v)", stats, err)
+	}
+	today := stats.Days[6]
+	if today.Registrations != 1 || today.FirstPayments != 1 || today.RevenueMinor != 20000 ||
+		stats.PayingPercent != 100 || stats.Campaign.Paying != 1 {
+		t.Fatalf("today = %+v, stats = %+v", today, stats)
+	}
+	if _, err := panel.AdCampaignStats(ctx, "00000000-0000-0000-0000-000000000000", 7); err == nil {
+		t.Fatal("a report for no campaign was returned")
+	}
 }
 
 // A campaign can grant the trial or days of a chosen plan. The trial is the

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -29,6 +30,7 @@ func (handlers *AdminHandlers) mountMarketing(secure chi.Router) {
 		read.Get("/marketing/suppressions", handlers.suppressions)
 		read.Get("/marketing/referrals", handlers.referralProgram)
 		read.Get("/marketing/ad-campaigns", handlers.adCampaigns)
+		read.Get("/marketing/ad-campaigns/{campaignID}/stats", handlers.adCampaignStats)
 	})
 
 	secure.With(handlers.requirePermission(rbac.PermissionMarketingWrite)).Group(func(write chi.Router) {
@@ -196,6 +198,14 @@ func (handlers *AdminHandlers) saveReferralProgram(
 func (handlers *AdminHandlers) adCampaigns(writer http.ResponseWriter, request *http.Request) {
 	items, err := handlers.operations.AdCampaigns(request.Context())
 	handlers.respond(writer, request, map[string]any{"items": items}, err)
+}
+
+// adCampaignStats is one campaign's report: totals, conversions, and a series
+// of the last ?days= days (default 30, at most 365) for the chart.
+func (handlers *AdminHandlers) adCampaignStats(writer http.ResponseWriter, request *http.Request) {
+	days, _ := strconv.Atoi(request.URL.Query().Get("days"))
+	stats, err := handlers.operations.AdCampaignStats(request.Context(), chi.URLParam(request, "campaignID"), days)
+	handlers.respond(writer, request, stats, err)
 }
 
 func (handlers *AdminHandlers) saveAdCampaign(writer http.ResponseWriter, request *http.Request) {

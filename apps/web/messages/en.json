@@ -3041,7 +3041,8 @@
           "registrations": "Sign-ups",
           "trials": "Trials",
           "paying": "Paying",
-          "revenue": "Revenue"
+          "revenue": "Revenue",
+          "conversion": "Conversion"
         },
         "bonus": {
           "none": "No bonus",
@@ -3069,7 +3070,30 @@
         "bonusPlan": "Plan",
         "pickPlan": "Choose a plan",
         "edit": "Edit",
-        "save": "Save"
+        "save": "Save",
+        "report": "Report",
+        "stats": {
+          "title": "Report: {name}",
+          "period": "Period",
+          "days": "Last {count} days",
+          "close": "Close",
+          "error": "The report could not be loaded.",
+          "empty": "Nothing in this period.",
+          "registrations": "Sign-ups",
+          "trials": "Trials",
+          "paying": "Paying",
+          "firstPayments": "First payments",
+          "trialToPaid": "Trial → paid",
+          "revenue": "Revenue",
+          "perRegistration": "Revenue per sign-up",
+          "day": "Day (UTC)",
+          "table": "Figures by day",
+          "peopleTitle": "Sign-ups, trials, and first payments",
+          "peopleDescription": "Per UTC day: sign-ups on the day of attribution, trials on the day claimed, first payments on the day of each customer's first settled subscription order.",
+          "revenueTitle": "Revenue",
+          "revenueDescription": "What the campaign's customers paid each UTC day, net of refunds, in {currency} only.",
+          "legend": "Totals and conversions cover the campaign's whole life; the charts cover the period. Conversion is paying customers over sign-ups."
+        }
       },
       "templateEditor": {
         "title": "Broadcast template",

@@ -7859,6 +7859,13 @@ CREATE INDEX customer_campaign_attributions_campaign ON public.customer_campaign
 
 
 --
+-- Name: customer_campaign_attributions_campaign_day; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX customer_campaign_attributions_campaign_day ON public.customer_campaign_attributions USING btree (campaign_id, attributed_at);
+
+
+--
 -- Name: customer_direct_messages_pending; Type: INDEX; Schema: public; Owner: -
 --
 
