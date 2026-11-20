@@ -1,4 +1,4 @@
-h1:VNNwmorQ620+heqsBvJyRwpWW8KvImj+kD3h1v+QdXs=
+h1:+infmVLjEkys2LYzobZFpSGVn/OUlEK//2yansPU9Cc=
 20261120000000_baseline.sql h1:xcYk9mdv44B3O0TRxq3RP+hXxJ2VeeOilGnwKO251mQ=
 20261120010000_river_schema_v8.sql h1:AfdQpxaviEf8asJ5gyLmMVZr+zMYaWEw+o/vE8CMj7A=
 20261120020000_customer_email_signin.sql h1:PrCKaTaDm5ggof8aqRooMbqOXEHML5fwq1TF877zQa8=
@@ -28,3 +28,4 @@ h1:VNNwmorQ620+heqsBvJyRwpWW8KvImj+kD3h1v+QdXs=
 20261121730000_moderation.sql h1:kf/AF1iKnF03qSv1mpxLxQ3S+DI0Ln/ylnJzGBuYfmw=
 20261121740000_support_controls.sql h1:eNICp01thxcTW5j7ipfKSVDYGTaF4sCDiMOGkZ7xFJQ=
 20261121750000_backup_requests.sql h1:xF1RDXUT8oIjlxgcDP01wz0Xe6gZBxIpigXQLL7yZog=
+20261121760000_custom_roles.sql h1:KIMcLp5CpUCklfwVfb2yq/oSUjPtSS+2+7lN+Ct+t0I=

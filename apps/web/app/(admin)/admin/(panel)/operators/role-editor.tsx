@@ -24,15 +24,15 @@ import { ApiError, apiFetch } from "@/lib/api";
 import { useSession } from "@/lib/session";
 
 import {
+  allRoles,
   assignable,
+  customRoleName,
   type Operator,
   orderedRoles,
   type RbacCatalog,
-  ROLES,
-  type Role,
 } from "./roles";
 
-const schema = z.object({ roles: z.array(z.enum(ROLES)).min(1) });
+const schema = z.object({ roles: z.array(z.string()).min(1) });
 type Values = z.infer<typeof schema>;
 
 /**
@@ -119,7 +119,7 @@ export function RoleEditor({
               name="roles"
               render={({ field }) => (
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {ROLES.map((role) => {
+                  {allRoles(catalog).map((role) => {
                     const checkboxId = `${rolesId}-${role}`;
                     const allowed = assignable(role, catalog, can, actorRoles);
                     return (
@@ -132,11 +132,13 @@ export function RoleEditor({
                             field.onChange(
                               checked
                                 ? [...field.value, role]
-                                : field.value.filter((value: Role) => value !== role),
+                                : field.value.filter((value: string) => value !== role),
                             )
                           }
                         />
-                        <Label htmlFor={checkboxId}>{translateRole(role)}</Label>
+                        <Label htmlFor={checkboxId}>
+                          {customRoleName(role, catalog) ?? translateRole(role)}
+                        </Label>
                       </div>
                     );
                   })}

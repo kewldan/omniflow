@@ -459,6 +459,11 @@ func (service *Service) proveSecondFactor(
 // Resolve turns a session token into a request principal, sliding the idle
 // window and rotating the token when it is due.
 func (service *Service) Resolve(ctx context.Context, sessionToken string) (Principal, error) {
+	// Custom roles are part of what a grant means; a stale copy is refreshed
+	// before the session's roles are turned into permissions.
+	if err := service.RefreshCustomRoles(ctx, false); err != nil {
+		return Principal{}, err
+	}
 	now := service.now()
 	row, err := dbgen.New(service.pool).GetAdminSessionByToken(ctx, adminauth.HashSessionToken(sessionToken))
 	if errors.Is(err, pgx.ErrNoRows) {

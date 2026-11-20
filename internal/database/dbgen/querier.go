@@ -472,6 +472,7 @@ type Querier interface {
 	DeleteCartAddon(ctx context.Context, arg DeleteCartAddonParams) error
 	DeleteConnectClient(ctx context.Context, id pgtype.UUID) (int64, error)
 	DeleteConnectPlatform(ctx context.Context, slug string) (int64, error)
+	DeleteCustomRole(ctx context.Context, role string) (int64, error)
 	DeleteCustomerOIDCProvider(ctx context.Context, slug string) (int64, error)
 	DeleteCustomerRestriction(ctx context.Context, arg DeleteCustomerRestrictionParams) (int64, error)
 	// ---------------------------------------------------------------------------
@@ -1072,6 +1073,8 @@ type Querier interface {
 	ListConnectClients(ctx context.Context) ([]ConnectClient, error)
 	ListConnectPlatforms(ctx context.Context) ([]ConnectPlatform, error)
 	ListContactChannels(ctx context.Context, userID pgtype.UUID) ([]ListContactChannelsRow, error)
+	// Operator-defined roles.
+	ListCustomRoles(ctx context.Context) ([]AdminCustomRole, error)
 	ListCustomerActivity(ctx context.Context, arg ListCustomerActivityParams) ([]ListCustomerActivityRow, error)
 	ListCustomerConsents(ctx context.Context, userID pgtype.UUID) ([]ConsentRecord, error)
 	ListCustomerDirectMessages(ctx context.Context, userID pgtype.UUID) ([]ListCustomerDirectMessagesRow, error)
@@ -1858,6 +1861,8 @@ type Querier interface {
 	// actually killed rather than how many the operator imagined.
 	RevokeBatchCodes(ctx context.Context, batchID pgtype.UUID) (int64, error)
 	RevokeChannelExemption(ctx context.Context, userID pgtype.UUID) error
+	// A deleted role leaves nobody holding it, and no invitation offering it.
+	RevokeCustomRoleGrants(ctx context.Context, role string) error
 	RevokeCustomerIdentity(ctx context.Context, arg RevokeCustomerIdentityParams) (Identity, error)
 	// Guarded by `user_id` as well as `id`, so a customer can only ever end one of
 	// their own sessions even if they learn another session's identifier.
@@ -2230,6 +2235,7 @@ type Querier interface {
 	// table rather than silently producing two rows the screen shows twice.
 	UpsertConnectClient(ctx context.Context, arg UpsertConnectClientParams) (ConnectClient, error)
 	UpsertConnectPlatform(ctx context.Context, arg UpsertConnectPlatformParams) (ConnectPlatform, error)
+	UpsertCustomRole(ctx context.Context, arg UpsertCustomRoleParams) (AdminCustomRole, error)
 	UpsertCustomerImportItem(ctx context.Context, arg UpsertCustomerImportItemParams) (CustomerImportItem, error)
 	// The client secret is only overwritten when a new one is supplied, so saving
 	// the form without retyping it does not blank the stored credential.

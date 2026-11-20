@@ -131,9 +131,9 @@ func Known(candidate Permission) bool {
 	return slices.Contains(AllPermissions, candidate)
 }
 
-// Role is a built-in operator role. The set is fixed in v0.6; operator-defined
-// roles are planned for a later version and will extend this catalogue rather
-// than replace it.
+// Role is an operator role: one of the built-in set below, or a custom role
+// defined as a named subset of the catalogue (see custom.go), which extends
+// the built-in set rather than replacing it.
 type Role string
 
 const (
@@ -230,16 +230,18 @@ var rolePermissions = map[Role][]Permission{
 // ParseRole validates a role string coming from the database or an API request.
 func ParseRole(value string) (Role, error) {
 	role := Role(strings.TrimSpace(strings.ToLower(value)))
-	if !slices.Contains(AllRoles, role) {
+	if _, known := permissionsOf(role); !known {
 		return "", fmt.Errorf("%w: %q", ErrUnknownRole, value)
 	}
 	return role, nil
 }
 
-// PermissionsFor returns the permissions a single role grants. The returned
-// slice is a copy, so a caller cannot mutate the compiled-in catalogue.
+// PermissionsFor returns the permissions a single role grants, built-in or
+// custom. The returned slice is a copy, so a caller cannot mutate the
+// catalogue.
 func PermissionsFor(role Role) []Permission {
-	return slices.Clone(rolePermissions[role])
+	permissions, _ := permissionsOf(role)
+	return slices.Clone(permissions)
 }
 
 // Grant is the effective authority of one operator: the union of every role
@@ -259,7 +261,7 @@ func NewGrant(roles ...Role) Grant {
 		permissions: make(map[Permission]struct{}, len(AllPermissions)),
 	}
 	for _, role := range roles {
-		permissions, known := rolePermissions[role]
+		permissions, known := permissionsOf(role)
 		if !known {
 			continue
 		}
@@ -329,7 +331,7 @@ func (grant Grant) Permissions() []Permission {
 // grant it has no business revoking it either.
 func (grant Grant) CanAssign(roles ...Role) bool {
 	for _, role := range roles {
-		permissions, known := rolePermissions[role]
+		permissions, known := permissionsOf(role)
 		if !known {
 			return false
 		}

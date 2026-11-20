@@ -325,6 +325,7 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 			handlers.mountModeration(secure)
 			handlers.mountSupportControls(secure)
 			handlers.mountBackups(secure)
+			handlers.mountCustomRoles(secure)
 			handlers.mountGrowth(secure)
 		})
 	})
@@ -1013,6 +1014,13 @@ func (handlers *AdminHandlers) permissionCatalog(writer http.ResponseWriter, req
 		roles = append(roles, map[string]any{
 			"role":        string(role),
 			"permissions": permissionStrings(rbac.PermissionsFor(role)),
+		})
+	}
+	// Operator-defined roles follow the built-in ones, with their names.
+	for _, custom := range rbac.CustomRoles() {
+		roles = append(roles, map[string]any{
+			"role": string(custom.Role), "name": custom.Name, "custom": true,
+			"permissions": permissionStrings(custom.Permissions),
 		})
 	}
 	writeJSON(writer, http.StatusOK, map[string]any{

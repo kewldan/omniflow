@@ -120,6 +120,15 @@ type AddonVersion struct {
 	RetiredAt         pgtype.Timestamptz `json:"retired_at"`
 }
 
+type AdminCustomRole struct {
+	Role        string             `json:"role"`
+	Name        string             `json:"name"`
+	Permissions []string           `json:"permissions"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy   pgtype.UUID        `json:"updated_by"`
+}
+
 type AdminInvitation struct {
 	ID                  pgtype.UUID        `json:"id"`
 	Email               string             `json:"email"`

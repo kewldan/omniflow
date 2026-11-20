@@ -69,7 +69,7 @@ export function PermissionMatrix({
               <TableHead scope="col">{translate("area")}</TableHead>
               {ROLES.map((role) => (
                 <TableHead key={role} scope="col">
-                  {translateRole(role)}
+                  {translateRole.has(role) ? translateRole(role) : role}
                 </TableHead>
               ))}
             </TableRow>

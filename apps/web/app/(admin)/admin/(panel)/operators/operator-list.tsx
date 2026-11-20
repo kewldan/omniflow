@@ -181,7 +181,7 @@ export function OperatorList() {
                           <div className="flex flex-wrap gap-1">
                             {operator.roles.map((role) => (
                               <Badge key={role} variant="neutral">
-                                {translateRole(role)}
+                                {translateRole.has(role) ? translateRole(role) : role}
                               </Badge>
                             ))}
                           </div>

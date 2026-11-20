@@ -458,6 +458,23 @@ CREATE TABLE public.addons (
 
 
 --
+-- Name: admin_custom_roles; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.admin_custom_roles (
+    role text NOT NULL,
+    name text NOT NULL,
+    permissions text[] NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by uuid,
+    CONSTRAINT admin_custom_roles_key_shape CHECK ((role ~ '^custom-[a-z0-9-]{2,32}$'::text)),
+    CONSTRAINT admin_custom_roles_name_length CHECK (((char_length(name) >= 1) AND (char_length(name) <= 80))),
+    CONSTRAINT admin_custom_roles_permissions_present CHECK ((cardinality(permissions) >= 1))
+);
+
+
+--
 -- Name: admin_invitations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -479,7 +496,7 @@ CREATE TABLE public.admin_invitations (
     CONSTRAINT admin_invitations_email_normalized_check CHECK (((char_length(email_normalized) >= 3) AND (char_length(email_normalized) <= 254))),
     CONSTRAINT admin_invitations_expiry_after_creation CHECK ((expires_at > created_at)),
     CONSTRAINT admin_invitations_revocation_complete CHECK (((revoked_at IS NULL) = (revoked_by IS NULL))),
-    CONSTRAINT admin_invitations_roles_known CHECK ((((cardinality(roles) >= 1) AND (cardinality(roles) <= 6)) AND (roles <@ ARRAY['owner'::text, 'administrator'::text, 'support'::text, 'finance'::text, 'marketing'::text, 'auditor'::text]))),
+    CONSTRAINT admin_invitations_roles_known CHECK ((((cardinality(roles) >= 1) AND (cardinality(roles) <= 6)) AND (array_to_string(roles, ','::text) ~ '^((owner|administrator|support|finance|marketing|auditor|custom-[a-z0-9-]{2,32})(,|$))+$'::text))),
     CONSTRAINT admin_invitations_settled_once CHECK (((accepted_at IS NULL) OR (revoked_at IS NULL))),
     CONSTRAINT admin_invitations_token_hash_check CHECK ((octet_length(token_hash) = 32))
 );
@@ -657,7 +674,7 @@ CREATE TABLE public.admin_user_roles (
     role text NOT NULL,
     granted_at timestamp with time zone DEFAULT now() NOT NULL,
     granted_by uuid,
-    CONSTRAINT admin_user_roles_role_check CHECK ((role = ANY (ARRAY['owner'::text, 'administrator'::text, 'support'::text, 'finance'::text, 'marketing'::text, 'auditor'::text])))
+    CONSTRAINT admin_user_roles_role_check CHECK (((role = ANY (ARRAY['owner'::text, 'administrator'::text, 'support'::text, 'finance'::text, 'marketing'::text, 'auditor'::text])) OR (role ~ '^custom-[a-z0-9-]{2,32}$'::text)))
 );
 
 
@@ -4410,6 +4427,14 @@ ALTER TABLE ONLY public.addons
 
 
 --
+-- Name: admin_custom_roles admin_custom_roles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.admin_custom_roles
+    ADD CONSTRAINT admin_custom_roles_pkey PRIMARY KEY (role);
+
+
+--
 -- Name: admin_invitations admin_invitations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7563,6 +7588,14 @@ ALTER TABLE ONLY public.addon_prices
 
 ALTER TABLE ONLY public.addon_versions
     ADD CONSTRAINT addon_versions_addon_id_fkey FOREIGN KEY (addon_id) REFERENCES public.addons(id);
+
+
+--
+-- Name: admin_custom_roles admin_custom_roles_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.admin_custom_roles
+    ADD CONSTRAINT admin_custom_roles_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.admin_users(id) ON DELETE SET NULL;
 
 
 --

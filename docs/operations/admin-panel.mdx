@@ -61,6 +61,20 @@ v0.7 adds `risk`, `gifts`, and `goods` to the catalogue. What they cover and why
 they are separate capabilities is described in
 [Admin operations](/operations/admin-operations).
 
+### Custom roles
+
+Beside the six built-in roles, an operator holding `admins.roles` can define **custom
+roles** on `/admin/operators`: a key `custom-<name>`, a display name, and a set of
+permissions from the same catalogue (`PUT`/`DELETE /v1/panel/rbac/custom-roles/{role}`).
+`internal/rbac` validates every definition and still decides what each role may do: a
+custom role is only a named subset of compiled-in permissions, it may never carry
+`admins.write` or `admins.roles` — managing operators and grants stays with owners — and
+its author must hold every permission in it, so nobody defines a role stronger than their
+own. A custom role is granted and invited exactly like a built-in one, under the same
+`CanAssign` rule. Deleting it removes it from every operator and pending invitation that
+held it. Every api replica re-reads the definitions within thirty seconds; saves and
+deletions are audited as `admin.custom_role.saved` and `admin.custom_role.deleted`.
+
 ## Inviting operators and changing roles
 
 An owner adds an operator from `/admin/operators` with **Invite operator**:

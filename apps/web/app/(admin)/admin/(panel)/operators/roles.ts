@@ -16,7 +16,8 @@ export const ROLES = [
   "auditor",
 ] as const;
 
-export type Role = (typeof ROLES)[number];
+/** A built-in role, or an operator-defined one (`custom-…`). */
+export type Role = (typeof ROLES)[number] | `custom-${string}`;
 
 export type Operator = {
   id: string;
@@ -40,8 +41,19 @@ export type Invitation = {
 
 export type RbacCatalog = {
   permissions: string[];
-  roles: { role: Role; permissions: string[] }[];
+  roles: { role: Role; permissions: string[]; name?: string; custom?: boolean }[];
 };
+
+/** Built-in roles first, then the custom roles the catalogue lists. */
+export function allRoles(catalog: RbacCatalog | undefined): Role[] {
+  const custom = (catalog?.roles ?? []).filter((entry) => entry.custom).map((entry) => entry.role);
+  return [...ROLES, ...custom];
+}
+
+/** The custom role's own name, or undefined for a built-in role. */
+export function customRoleName(role: Role, catalog: RbacCatalog | undefined): string | undefined {
+  return catalog?.roles.find((entry) => entry.role === role && entry.custom)?.name;
+}
 
 /**
  * Whether the signed-in operator could hand this role to somebody else: every

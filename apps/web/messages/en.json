@@ -3625,6 +3625,17 @@
         "restore": "Restore",
         "delete": "Deletion"
       }
+    },
+    "customRoles": {
+      "title": "Custom roles",
+      "description": "Name a set of permissions and grant it like a built-in role. You can include only permissions you hold; managing operators and roles stays with owners. Deleting a role removes it from everybody who holds it.",
+      "empty": "No custom roles yet.",
+      "edit": "Edit",
+      "delete": "Delete",
+      "key": "Key (custom-…)",
+      "name": "Name",
+      "save": "Save role",
+      "saved": "Role saved"
     }
   },
   "account": {

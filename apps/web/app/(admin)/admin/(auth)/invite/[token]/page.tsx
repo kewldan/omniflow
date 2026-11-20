@@ -179,7 +179,7 @@ export default function InvitationPage() {
                   <dd className="flex flex-wrap gap-1">
                     {preview.data.roles.map((role) => (
                       <Badge key={role} variant="neutral">
-                        {translateRole(role)}
+                        {translateRole.has(role) ? translateRole(role) : role}
                       </Badge>
                     ))}
                   </dd>
