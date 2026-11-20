@@ -11,6 +11,20 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countOpenSubscriptionOrders = `-- name: CountOpenSubscriptionOrders :one
+SELECT count(*)::integer FROM orders
+WHERE subscription_id = $1 AND state IN ('draft', 'pending')
+`
+
+// Orders still waiting for money against a subscription. Closing it under
+// them would leave a payment with nowhere to land.
+func (q *Queries) CountOpenSubscriptionOrders(ctx context.Context, subscriptionID pgtype.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, countOpenSubscriptionOrders, subscriptionID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const expireTrafficPack = `-- name: ExpireTrafficPack :one
 UPDATE entitlement_addons SET expired_at = now()
 WHERE id = $1 AND expired_at IS NULL
@@ -118,7 +132,7 @@ func (q *Queries) GetProvisioningProfile(ctx context.Context, planVersionID pgty
 }
 
 const getSubscriptionPolicy = `-- name: GetSubscriptionPolicy :one
-SELECT singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag, trial_disabled_methods, trial_warning_hours, max_device_limit FROM subscription_policy WHERE singleton
+SELECT singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag, trial_disabled_methods, trial_warning_hours, max_device_limit, remnawave_close_mode FROM subscription_policy WHERE singleton
 `
 
 // The migration seeds the row, so it is always there.
@@ -140,6 +154,7 @@ func (q *Queries) GetSubscriptionPolicy(ctx context.Context) (SubscriptionPolicy
 		&i.TrialDisabledMethods,
 		&i.TrialWarningHours,
 		&i.MaxDeviceLimit,
+		&i.RemnawaveCloseMode,
 	)
 	return i, err
 }
@@ -226,6 +241,54 @@ func (q *Queries) ListPlanVersionAddonIDs(ctx context.Context, planVersionID pgt
 	return items, nil
 }
 
+const retireSubscriptionEntitlements = `-- name: RetireSubscriptionEntitlements :many
+UPDATE entitlements
+SET status = 'superseded', paused_at = NULL, updated_at = now()
+WHERE subscription_id = $1 AND status <> 'superseded'
+RETURNING id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id, paused_at, paused_seconds
+`
+
+// Retires every entitlement of a subscription being closed. A paused one
+// leaves its pause with it, which the pairing constraint requires.
+func (q *Queries) RetireSubscriptionEntitlements(ctx context.Context, subscriptionID pgtype.UUID) ([]Entitlement, error) {
+	rows, err := q.db.Query(ctx, retireSubscriptionEntitlements, subscriptionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []Entitlement{}
+	for rows.Next() {
+		var i Entitlement
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.OrderID,
+			&i.PlanVersionID,
+			&i.Status,
+			&i.StartsAt,
+			&i.EndsAt,
+			&i.TrafficAllowanceBytes,
+			&i.DeviceLimit,
+			&i.RemnawaveSquadIds,
+			&i.RemnawaveUserID,
+			&i.ObservedState,
+			&i.ReconciledAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.SubscriptionID,
+			&i.PausedAt,
+			&i.PausedSeconds,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setAddonVersionLifetime = `-- name: SetAddonVersionLifetime :exec
 UPDATE addon_versions SET lifetime_days = $1
 WHERE id = $2
@@ -244,7 +307,7 @@ func (q *Queries) SetAddonVersionLifetime(ctx context.Context, arg SetAddonVersi
 const setMaxDeviceLimit = `-- name: SetMaxDeviceLimit :one
 UPDATE subscription_policy SET max_device_limit = $1, updated_at = now()
 WHERE singleton
-RETURNING singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag, trial_disabled_methods, trial_warning_hours, max_device_limit
+RETURNING singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag, trial_disabled_methods, trial_warning_hours, max_device_limit, remnawave_close_mode
 `
 
 func (q *Queries) SetMaxDeviceLimit(ctx context.Context, maxDeviceLimit pgtype.Int4) (SubscriptionPolicy, error) {
@@ -265,6 +328,7 @@ func (q *Queries) SetMaxDeviceLimit(ctx context.Context, maxDeviceLimit pgtype.I
 		&i.TrialDisabledMethods,
 		&i.TrialWarningHours,
 		&i.MaxDeviceLimit,
+		&i.RemnawaveCloseMode,
 	)
 	return i, err
 }
@@ -336,7 +400,7 @@ const setPolicyTags = `-- name: SetPolicyTags :one
 UPDATE subscription_policy
 SET trial_tag = $1, paid_tag = $2, updated_at = now()
 WHERE singleton
-RETURNING singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag, trial_disabled_methods, trial_warning_hours, max_device_limit
+RETURNING singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag, trial_disabled_methods, trial_warning_hours, max_device_limit, remnawave_close_mode
 `
 
 type SetPolicyTagsParams struct {
@@ -362,6 +426,36 @@ func (q *Queries) SetPolicyTags(ctx context.Context, arg SetPolicyTagsParams) (S
 		&i.TrialDisabledMethods,
 		&i.TrialWarningHours,
 		&i.MaxDeviceLimit,
+		&i.RemnawaveCloseMode,
+	)
+	return i, err
+}
+
+const setRemnawaveCloseMode = `-- name: SetRemnawaveCloseMode :one
+UPDATE subscription_policy SET remnawave_close_mode = $1, updated_at = now()
+WHERE singleton
+RETURNING singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag, trial_disabled_methods, trial_warning_hours, max_device_limit, remnawave_close_mode
+`
+
+func (q *Queries) SetRemnawaveCloseMode(ctx context.Context, remnawaveCloseMode string) (SubscriptionPolicy, error) {
+	row := q.db.QueryRow(ctx, setRemnawaveCloseMode, remnawaveCloseMode)
+	var i SubscriptionPolicy
+	err := row.Scan(
+		&i.Singleton,
+		&i.UpgradesEnabled,
+		&i.DowngradesEnabled,
+		&i.ResetTrafficOnRenewal,
+		&i.ResetTrafficOnPlanChange,
+		&i.ResetDevicesOnRenewal,
+		&i.TrialRemainder,
+		&i.UpdatedAt,
+		&i.UpdatedBy,
+		&i.TrialTag,
+		&i.PaidTag,
+		&i.TrialDisabledMethods,
+		&i.TrialWarningHours,
+		&i.MaxDeviceLimit,
+		&i.RemnawaveCloseMode,
 	)
 	return i, err
 }
@@ -372,7 +466,7 @@ SET trial_disabled_methods = $1::text[],
     trial_warning_hours = $2,
     updated_at = now()
 WHERE singleton
-RETURNING singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag, trial_disabled_methods, trial_warning_hours, max_device_limit
+RETURNING singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag, trial_disabled_methods, trial_warning_hours, max_device_limit, remnawave_close_mode
 `
 
 type SetTrialPolicyParams struct {
@@ -398,6 +492,7 @@ func (q *Queries) SetTrialPolicy(ctx context.Context, arg SetTrialPolicyParams) 
 		&i.TrialDisabledMethods,
 		&i.TrialWarningHours,
 		&i.MaxDeviceLimit,
+		&i.RemnawaveCloseMode,
 	)
 	return i, err
 }
@@ -467,7 +562,7 @@ SET upgrades_enabled = $1,
     updated_at = now(),
     updated_by = $7
 WHERE singleton
-RETURNING singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag, trial_disabled_methods, trial_warning_hours, max_device_limit
+RETURNING singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag, trial_disabled_methods, trial_warning_hours, max_device_limit, remnawave_close_mode
 `
 
 type UpdateSubscriptionPolicyParams struct {
@@ -506,6 +601,7 @@ func (q *Queries) UpdateSubscriptionPolicy(ctx context.Context, arg UpdateSubscr
 		&i.TrialDisabledMethods,
 		&i.TrialWarningHours,
 		&i.MaxDeviceLimit,
+		&i.RemnawaveCloseMode,
 	)
 	return i, err
 }

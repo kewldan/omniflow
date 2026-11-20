@@ -2237,7 +2237,7 @@ CREATE TABLE public.fulfillment_operations (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     completed_at timestamp with time zone,
     CONSTRAINT fulfillment_operations_attempt_count_check CHECK ((attempt_count >= 0)),
-    CONSTRAINT fulfillment_operations_operation_known CHECK ((operation = ANY (ARRAY['create'::text, 'extend'::text, 'enable'::text, 'disable'::text, 'reset_traffic'::text, 'set_limits'::text, 'set_squads'::text, 'reconcile'::text, 'pause'::text, 'resume'::text]))),
+    CONSTRAINT fulfillment_operations_operation_known CHECK ((operation = ANY (ARRAY['create'::text, 'extend'::text, 'enable'::text, 'disable'::text, 'reset_traffic'::text, 'set_limits'::text, 'set_squads'::text, 'reconcile'::text, 'pause'::text, 'resume'::text, 'close'::text]))),
     CONSTRAINT fulfillment_operations_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'running'::text, 'succeeded'::text, 'retrying'::text, 'failed'::text, 'cancelled'::text])))
 );
 
@@ -4019,8 +4019,10 @@ CREATE TABLE public.subscription_policy (
     trial_disabled_methods text[] DEFAULT '{}'::text[] NOT NULL,
     trial_warning_hours integer DEFAULT 0 NOT NULL,
     max_device_limit integer,
+    remnawave_close_mode text DEFAULT 'disable'::text NOT NULL,
     CONSTRAINT subscription_policy_max_device_limit_positive CHECK (((max_device_limit IS NULL) OR (max_device_limit > 0))),
     CONSTRAINT subscription_policy_paid_tag_shape CHECK ((paid_tag ~ '^[A-Z0-9_]{1,16}$'::text)),
+    CONSTRAINT subscription_policy_remnawave_close_mode_known CHECK ((remnawave_close_mode = ANY (ARRAY['disable'::text, 'delete'::text]))),
     CONSTRAINT subscription_policy_singleton CHECK (singleton),
     CONSTRAINT subscription_policy_trial_methods_known CHECK ((trial_disabled_methods <@ ARRAY['telegram'::text, 'email'::text, 'oidc'::text])),
     CONSTRAINT subscription_policy_trial_remainder_known CHECK ((trial_remainder = ANY (ARRAY['policy'::text, 'carry'::text, 'reset'::text]))),

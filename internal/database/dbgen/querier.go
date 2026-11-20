@@ -244,6 +244,9 @@ type Querier interface {
 	CountNotificationDeliveries(ctx context.Context, arg CountNotificationDeliveriesParams) (int64, error)
 	CountOpenAnomalySignals(ctx context.Context) (int64, error)
 	CountOpenBlocklistMatches(ctx context.Context) (int64, error)
+	// Orders still waiting for money against a subscription. Closing it under
+	// them would leave a payment with nowhere to land.
+	CountOpenSubscriptionOrders(ctx context.Context, subscriptionID pgtype.UUID) (int32, error)
 	CountPlanVersionSquads(ctx context.Context, arg CountPlanVersionSquadsParams) (int32, error)
 	// A redemption is written when the order is created, before any money moves,
 	// so a redemption whose order closed unpaid — cancelled by the customer or
@@ -1800,6 +1803,9 @@ type Querier interface {
 	// only the newest link can ever be redeemed.
 	RetireOpenAdminInvitations(ctx context.Context, arg RetireOpenAdminInvitationsParams) (int64, error)
 	RetirePlanVersion(ctx context.Context, planVersionID pgtype.UUID) (PlanVersion, error)
+	// Retires every entitlement of a subscription being closed. A paused one
+	// leaves its pause with it, which the pairing constraint requires.
+	RetireSubscriptionEntitlements(ctx context.Context, subscriptionID pgtype.UUID) ([]Entitlement, error)
 	// Retires an entitlement that was never provisioned and never will be: its
 	// order was refunded before the first push reached Remnawave, or it was
 	// scheduled to start later and the change it carried was given back. It is
@@ -2036,6 +2042,7 @@ type Querier interface {
 	// violates it.
 	SetProviderRecurring(ctx context.Context, arg SetProviderRecurringParams) (PaymentProviderSetting, error)
 	SetReferralReviewState(ctx context.Context, arg SetReferralReviewStateParams) (ReferralAttribution, error)
+	SetRemnawaveCloseMode(ctx context.Context, remnawaveCloseMode string) (SubscriptionPolicy, error)
 	SetSupportTicketPriority(ctx context.Context, arg SetSupportTicketPriorityParams) (SupportTicket, error)
 	// Resolution and reopening are recorded rather than inferred.
 	//

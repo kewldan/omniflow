@@ -2256,7 +2256,13 @@
         "trialWarningHours": "Warn before a trial ends (hours)",
         "trialWarningHoursHint": "The bot sends one extra notice this many hours before the end. Zero sends none; at most 168.",
         "maxDeviceLimit": "Most devices per subscription",
-        "maxDeviceLimitHint": "Device add-ons cannot take a subscription past this. Empty is no ceiling."
+        "maxDeviceLimitHint": "Device add-ons cannot take a subscription past this. Empty is no ceiling.",
+        "remnawaveCloseMode": "When a customer closes a subscription",
+        "remnawaveCloseModeHint": "What happens to its Remnawave user.",
+        "remnawaveCloseModeValue": {
+          "disable": "Disable the user",
+          "delete": "Delete the user"
+        }
       }
     },
     "nav": {
@@ -4848,7 +4854,9 @@
         "recurring_unavailable": "No payment method can renew this subscription automatically.",
         "no_saved_method": "Save a card on a payment first, then choose it here.",
         "trial_sign_in_method": "The trial is not available for the way this account signs in.",
-        "addon_limit_reached": "That extra would go past this subscription's limit on devices or bought traffic."
+        "addon_limit_reached": "That extra would go past this subscription's limit on devices or bought traffic.",
+        "subscription_primary": "The first subscription cannot be closed.",
+        "subscription_busy": "An unpaid order is still open for this subscription. Pay or cancel it first."
       },
       "breakdown": {
         "subtotal": "Plan",
@@ -5267,6 +5275,14 @@
       "buy": "Add for {price}",
       "buying": "Adding…",
       "bought": "{name} added. It reaches your connection within a minute."
+    },
+    "closeSubscription": {
+      "title": "Close this subscription",
+      "warning": "The time this subscription has left is given up and nothing is refunded. Its connection stops working and the slot frees up for another subscription.",
+      "action": "Close subscription",
+      "phrase": "CLOSE",
+      "prompt": "Type CLOSE to confirm",
+      "closed": "The subscription is closed."
     }
   },
   "pages": {

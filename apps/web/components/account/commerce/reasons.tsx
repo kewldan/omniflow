@@ -108,6 +108,8 @@ const PROBLEMS = [
   "upstream_unavailable",
   "addon_not_applicable",
   "addon_limit_reached",
+  "subscription_primary",
+  "subscription_busy",
   "trial_sign_in_method",
   "recurring_unavailable",
   "no_saved_method",

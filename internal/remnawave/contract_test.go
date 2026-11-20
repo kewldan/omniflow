@@ -78,6 +78,8 @@ func TestSupportedRoutesAreCalledExactly(t *testing.T) {
 			func(client *Client) error { return client.DeleteAllDevices(context.Background(), 7) }},
 		{"list nodes", http.MethodGet, "/api/nodes", "", `{"response":[]}`,
 			func(client *Client) error { _, err := client.Nodes(context.Background()); return err }},
+		{"delete user", http.MethodDelete, "/api/users/7", "", ``,
+			func(client *Client) error { return client.DeleteUser(context.Background(), 7) }},
 		{"list internal squads", http.MethodGet, "/api/internal-squads", "", `{"response":{"total":0,"internalSquads":[]}}`,
 			func(client *Client) error { _, err := client.InternalSquads(context.Background()); return err }},
 		{"list external squads", http.MethodGet, "/api/external-squads", "", `{"response":{"total":0,"externalSquads":[]}}`,

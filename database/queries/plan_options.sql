@@ -129,3 +129,22 @@ SET traffic_allowance_bytes = CASE WHEN traffic_allowance_bytes IS NULL THEN NUL
     updated_at = now()
 WHERE id = sqlc.arg(entitlement_id)
 RETURNING *;
+
+-- name: SetRemnawaveCloseMode :one
+UPDATE subscription_policy SET remnawave_close_mode = sqlc.arg(remnawave_close_mode), updated_at = now()
+WHERE singleton
+RETURNING *;
+
+-- name: CountOpenSubscriptionOrders :one
+-- Orders still waiting for money against a subscription. Closing it under
+-- them would leave a payment with nowhere to land.
+SELECT count(*)::integer FROM orders
+WHERE subscription_id = sqlc.arg(subscription_id) AND state IN ('draft', 'pending');
+
+-- name: RetireSubscriptionEntitlements :many
+-- Retires every entitlement of a subscription being closed. A paused one
+-- leaves its pause with it, which the pairing constraint requires.
+UPDATE entitlements
+SET status = 'superseded', paused_at = NULL, updated_at = now()
+WHERE subscription_id = sqlc.arg(subscription_id) AND status <> 'superseded'
+RETURNING *;

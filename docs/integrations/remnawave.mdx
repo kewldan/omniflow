@@ -120,6 +120,7 @@ Omniflow, because nothing else is implemented.
 | `PATCH /api/users/` (the body carries `id` and no `username`: the contract addresses the user by exactly one of them) | `create`, `reconcile`, `extend`, `set_limits`, `set_squads` |
 | `POST /api/users/{id}/actions/enable` | The `enable` operation |
 | `POST /api/users/{id}/actions/disable` | The `disable` operation |
+| `DELETE /api/users/{id}` | The `close` operation, when a customer closes an additional subscription and the installation deletes rather than disables; a user already gone is success |
 | `POST /api/users/{id}/actions/reset-traffic` | The `reset_traffic` operation |
 | `POST /api/users/{id}/actions/revoke` | Customer-initiated access-link rotation |
 | `GET /api/subscriptions/by-id/{id}` | Reading the current access link and subscription status |
@@ -203,7 +204,7 @@ state change that requires it also means a crash between "paid" and "provisioned
 rather than money to reconcile.
 
 The supported operations are `create`, `reconcile`, `extend`, `set_limits`, `set_squads`, `enable`,
-`disable`, and `reset_traffic`.
+`disable`, `reset_traffic`, and `close` (a customer closing an additional subscription: disable or delete its user).
 
 | Operation | Remnawave call |
 | --- | --- |
@@ -392,7 +393,7 @@ is in [customers and imports](/commerce/customers-imports).
 
 ## What Omniflow will never do to your panel
 
-- **It never touches Remnawave's database.** Every interaction is one of the fifteen HTTP calls above.
+- **It never touches Remnawave's database.** Every interaction is one of the HTTP calls listed above.
 - **It never manages Xray**, nodes, hosts, or squad definitions. Squads are referenced by UUID; they
   are created and configured in Remnawave.
 - **It never stores an access link.** There is no subscription-URL column anywhere in the schema;

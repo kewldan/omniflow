@@ -29,8 +29,11 @@ type SubscriptionPolicy struct {
 	TrialWarningHours    int32    `json:"trialWarningHours"`
 	// MaxDeviceLimit is the most devices any subscription may reach through
 	// add-ons; nil is no ceiling.
-	MaxDeviceLimit *int32    `json:"maxDeviceLimit"`
-	UpdatedAt      time.Time `json:"updatedAt"`
+	MaxDeviceLimit *int32 `json:"maxDeviceLimit"`
+	// RemnawaveCloseMode is what happens to the Remnawave user of a
+	// subscription the customer closes: `disable` or `delete`.
+	RemnawaveCloseMode string    `json:"remnawaveCloseMode"`
+	UpdatedAt          time.Time `json:"updatedAt"`
 }
 
 var validTrialRemainder = map[string]bool{"policy": true, "carry": true, "reset": true}
@@ -65,7 +68,8 @@ func (service *Service) SaveSubscriptionPolicy(
 		return SubscriptionPolicy{}, err
 	}
 	if policy.TrialWarningHours < 0 || policy.TrialWarningHours > 168 ||
-		policy.MaxDeviceLimit != nil && *policy.MaxDeviceLimit < 1 {
+		policy.MaxDeviceLimit != nil && *policy.MaxDeviceLimit < 1 ||
+		policy.RemnawaveCloseMode != "disable" && policy.RemnawaveCloseMode != "delete" {
 		return SubscriptionPolicy{}, ErrValidaton
 	}
 	methods := make([]string, 0, len(policy.TrialDisabledMethods))
@@ -100,7 +104,10 @@ func (service *Service) SaveSubscriptionPolicy(
 		}); txErr != nil {
 			return txErr
 		}
-		row, txErr := queries.SetMaxDeviceLimit(ctx, optionalInt4(policy.MaxDeviceLimit))
+		if _, txErr := queries.SetMaxDeviceLimit(ctx, optionalInt4(policy.MaxDeviceLimit)); txErr != nil {
+			return txErr
+		}
+		row, txErr := queries.SetRemnawaveCloseMode(ctx, policy.RemnawaveCloseMode)
 		if txErr != nil {
 			return txErr
 		}
@@ -126,6 +133,7 @@ func subscriptionPolicyFrom(row dbgen.SubscriptionPolicy) SubscriptionPolicy {
 		TrialDisabledMethods:     row.TrialDisabledMethods,
 		TrialWarningHours:        row.TrialWarningHours,
 		MaxDeviceLimit:           int4Pointer(row.MaxDeviceLimit),
+		RemnawaveCloseMode:       row.RemnawaveCloseMode,
 		UpdatedAt:                timeValue(row.UpdatedAt),
 	}
 }

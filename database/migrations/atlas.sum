@@ -1,4 +1,4 @@
-h1:yqUu7Ruo9AqbNGzUURObcPuXb96p2IeeKZm1jtgGZVw=
+h1:vmKqp0yMWVpe3PhB5XBBuBGgH/tn5pjOEPDj9JD+nFY=
 20261120000000_baseline.sql h1:xcYk9mdv44B3O0TRxq3RP+hXxJ2VeeOilGnwKO251mQ=
 20261120010000_river_schema_v8.sql h1:AfdQpxaviEf8asJ5gyLmMVZr+zMYaWEw+o/vE8CMj7A=
 20261120020000_customer_email_signin.sql h1:PrCKaTaDm5ggof8aqRooMbqOXEHML5fwq1TF877zQa8=
@@ -32,3 +32,4 @@ h1:yqUu7Ruo9AqbNGzUURObcPuXb96p2IeeKZm1jtgGZVw=
 20261121770000_api_tokens_webhooks.sql h1:vTSxKL+fOYjosiN++mwXOO8LR4D44L96grcZLqfIhvw=
 20261121780000_trial_policy.sql h1:mHPsPmkDOPeQClbOzIOEG5l8ji++yevHi0L8J9bJSts=
 20261121790000_addon_limits.sql h1:wwSQX5kb8gtpKE+BtIlrDCO2n1QLE11MFmorOh8/fyU=
+20261121800000_subscription_close.sql h1:AtRpL0ZwRgfc+9WtQGNtgoPtoPVz2RxGjvaFO6V1KFM=

@@ -106,3 +106,9 @@ func (service *Service) BuySubscriptionAddon(
 	}
 	return service.store.Order(ctx, customerID, UUIDText(order.ID), locale)
 }
+
+// CloseSubscription closes one of the customer's additional subscriptions at
+// their request; see commercepg.Store.CloseSubscription.
+func (service *Service) CloseSubscription(ctx context.Context, customerID, subscriptionID string) error {
+	return service.orders.CloseSubscription(ctx, customerID, subscriptionID)
+}

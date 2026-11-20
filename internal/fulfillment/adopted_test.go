@@ -76,3 +76,4 @@ func TestAdoptedRemoteUserIsPatchedUnderItsOwnName(t *testing.T) {
 }
 
 func (provisioner *recordingProvisioner) DeleteAllDevices(context.Context, int64) error { return nil }
+func (provisioner *recordingProvisioner) DeleteUser(context.Context, int64) error       { return nil }

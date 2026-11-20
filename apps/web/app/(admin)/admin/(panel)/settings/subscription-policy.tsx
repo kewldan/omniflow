@@ -29,10 +29,12 @@ export type SubscriptionPolicy = {
   trialDisabledMethods?: string[];
   trialWarningHours?: number;
   maxDeviceLimit?: number | null;
+  remnawaveCloseMode?: string;
   updatedAt?: string;
 };
 
 const TRIAL_REMAINDER = ["policy", "carry", "reset"] as const;
+const CLOSE_MODES = ["disable", "delete"] as const;
 
 /** Free-text fields: Remnawave user tags, upper-cased as the panel requires. */
 type TextField = "trialTag" | "paidTag";
@@ -92,6 +94,7 @@ function PolicyForm({
   const [maxDevices, setMaxDevices] = useState(String(policy.maxDeviceLimit ?? ""));
   const { run, pending, error } = useOperatorAction();
   const remainderId = useId();
+  const closeModeId = useId();
 
   return (
     <Card>
@@ -131,6 +134,30 @@ function PolicyForm({
             </SelectContent>
           </Select>
           <span className="text-muted-foreground text-xs">{translate("trialRemainderHint")}</span>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={closeModeId}>{translate("remnawaveCloseMode")}</Label>
+          <Select
+            disabled={!editable}
+            onValueChange={(value) =>
+              setDraft((current) => ({ ...current, remnawaveCloseMode: value }))
+            }
+            value={draft.remnawaveCloseMode ?? "disable"}
+          >
+            <SelectTrigger id={closeModeId}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CLOSE_MODES.map((value) => (
+                <SelectItem key={value} value={value}>
+                  {translate(`remnawaveCloseModeValue.${value}`)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="text-muted-foreground text-xs">
+            {translate("remnawaveCloseModeHint")}
+          </span>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           {TEXT_FIELDS.map((field) => (

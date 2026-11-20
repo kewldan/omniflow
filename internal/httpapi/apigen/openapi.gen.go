@@ -1570,22 +1570,22 @@ func (e FulfillmentOperationInputOperation) Valid() bool {
 
 // Defines values for LifecycleInputAction.
 const (
-	Anonymize LifecycleInputAction = "anonymize"
-	Delete    LifecycleInputAction = "delete"
-	Restore   LifecycleInputAction = "restore"
-	Suspend   LifecycleInputAction = "suspend"
+	LifecycleInputActionAnonymize LifecycleInputAction = "anonymize"
+	LifecycleInputActionDelete    LifecycleInputAction = "delete"
+	LifecycleInputActionRestore   LifecycleInputAction = "restore"
+	LifecycleInputActionSuspend   LifecycleInputAction = "suspend"
 )
 
 // Valid indicates whether the value is a known member of the LifecycleInputAction enum.
 func (e LifecycleInputAction) Valid() bool {
 	switch e {
-	case Anonymize:
+	case LifecycleInputActionAnonymize:
 		return true
-	case Delete:
+	case LifecycleInputActionDelete:
 		return true
-	case Restore:
+	case LifecycleInputActionRestore:
 		return true
-	case Suspend:
+	case LifecycleInputActionSuspend:
 		return true
 	default:
 		return false
@@ -3311,6 +3311,24 @@ func (e PanelSubscriptionStatus) Valid() bool {
 	case PanelSubscriptionStatusActive:
 		return true
 	case PanelSubscriptionStatusClosed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelSubscriptionPolicyRemnawaveCloseMode.
+const (
+	PanelSubscriptionPolicyRemnawaveCloseModeDelete  PanelSubscriptionPolicyRemnawaveCloseMode = "delete"
+	PanelSubscriptionPolicyRemnawaveCloseModeDisable PanelSubscriptionPolicyRemnawaveCloseMode = "disable"
+)
+
+// Valid indicates whether the value is a known member of the PanelSubscriptionPolicyRemnawaveCloseMode enum.
+func (e PanelSubscriptionPolicyRemnawaveCloseMode) Valid() bool {
+	switch e {
+	case PanelSubscriptionPolicyRemnawaveCloseModeDelete:
+		return true
+	case PanelSubscriptionPolicyRemnawaveCloseModeDisable:
 		return true
 	default:
 		return false
@@ -8933,6 +8951,9 @@ type PanelSubscriptionPolicy struct {
 	// PaidTag Remnawave user tag once paid when the plan names none; empty for none.
 	PaidTag *string `json:"paidTag,omitempty"`
 
+	// RemnawaveCloseMode What happens to the Remnawave user of a subscription the customer closes.
+	RemnawaveCloseMode *PanelSubscriptionPolicyRemnawaveCloseMode `json:"remnawaveCloseMode,omitempty"`
+
 	// ResetDevicesOnRenewal An extension or renewal removes every registered device.
 	ResetDevicesOnRenewal bool `json:"resetDevicesOnRenewal"`
 
@@ -8958,6 +8979,9 @@ type PanelSubscriptionPolicy struct {
 	// UpgradesEnabled Off refuses every upgrade whatever a version allows.
 	UpgradesEnabled bool `json:"upgradesEnabled"`
 }
+
+// PanelSubscriptionPolicyRemnawaveCloseMode What happens to the Remnawave user of a subscription the customer closes.
+type PanelSubscriptionPolicyRemnawaveCloseMode string
 
 // PanelSubscriptionPolicyTrialDisabledMethods defines model for PanelSubscriptionPolicy.TrialDisabledMethods.
 type PanelSubscriptionPolicyTrialDisabledMethods string
@@ -10241,6 +10265,12 @@ type ReviewAccountShopRecipientParams struct {
 
 // UnlinkAccountSignInMethodParams defines parameters for UnlinkAccountSignInMethod.
 type UnlinkAccountSignInMethodParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// CloseAccountSubscriptionParams defines parameters for CloseAccountSubscription.
+type CloseAccountSubscriptionParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
@@ -12503,6 +12533,9 @@ type ServerInterface interface {
 	// (DELETE /v1/account/sign-in-methods/{identityID})
 	UnlinkAccountSignInMethod(w http.ResponseWriter, r *http.Request, identityID openapi_types.UUID, params UnlinkAccountSignInMethodParams)
 
+	// (DELETE /v1/account/subscriptions/{subscriptionID})
+	CloseAccountSubscription(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params CloseAccountSubscriptionParams)
+
 	// (GET /v1/account/subscriptions/{subscriptionID})
 	GetAccountSubscription(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params GetAccountSubscriptionParams)
 
@@ -13675,6 +13708,11 @@ func (_ Unimplemented) StartAccountOidcLink(w http.ResponseWriter, r *http.Reque
 
 // (DELETE /v1/account/sign-in-methods/{identityID})
 func (_ Unimplemented) UnlinkAccountSignInMethod(w http.ResponseWriter, r *http.Request, identityID openapi_types.UUID, params UnlinkAccountSignInMethodParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /v1/account/subscriptions/{subscriptionID})
+func (_ Unimplemented) CloseAccountSubscription(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params CloseAccountSubscriptionParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -17887,6 +17925,60 @@ func (siw *ServerInterfaceWrapper) UnlinkAccountSignInMethod(w http.ResponseWrit
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UnlinkAccountSignInMethod(w, r, identityID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CloseAccountSubscription operation middleware
+func (siw *ServerInterfaceWrapper) CloseAccountSubscription(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID AccountSubscriptionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CloseAccountSubscriptionParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CloseAccountSubscription(w, r, subscriptionID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -30447,6 +30539,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/addons", wrapper.BuyAccountSubscriptionAddon)
 	})
 	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}", wrapper.CloseAccountSubscription)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}", wrapper.GetAccountSubscription)
 	})
 	r.Group(func(r chi.Router) {
@@ -33897,6 +33992,67 @@ func (response UnlinkAccountSignInMethod404ApplicationProblemPlusJSONResponse) V
 type UnlinkAccountSignInMethod409ApplicationProblemPlusJSONResponse Problem
 
 func (response UnlinkAccountSignInMethod409ApplicationProblemPlusJSONResponse) VisitUnlinkAccountSignInMethodResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CloseAccountSubscriptionRequestObject struct {
+	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
+	Params         CloseAccountSubscriptionParams
+}
+
+type CloseAccountSubscriptionResponseObject interface {
+	VisitCloseAccountSubscriptionResponse(w http.ResponseWriter) error
+}
+
+type CloseAccountSubscription204Response struct {
+}
+
+func (response CloseAccountSubscription204Response) VisitCloseAccountSubscriptionResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type CloseAccountSubscription403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CloseAccountSubscription403ApplicationProblemPlusJSONResponse) VisitCloseAccountSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CloseAccountSubscription404ApplicationProblemPlusJSONResponse Problem
+
+func (response CloseAccountSubscription404ApplicationProblemPlusJSONResponse) VisitCloseAccountSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CloseAccountSubscription409ApplicationProblemPlusJSONResponse Problem
+
+func (response CloseAccountSubscription409ApplicationProblemPlusJSONResponse) VisitCloseAccountSubscriptionResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -46522,6 +46678,9 @@ type StrictServerInterface interface {
 	// (DELETE /v1/account/sign-in-methods/{identityID})
 	UnlinkAccountSignInMethod(ctx context.Context, request UnlinkAccountSignInMethodRequestObject) (UnlinkAccountSignInMethodResponseObject, error)
 
+	// (DELETE /v1/account/subscriptions/{subscriptionID})
+	CloseAccountSubscription(ctx context.Context, request CloseAccountSubscriptionRequestObject) (CloseAccountSubscriptionResponseObject, error)
+
 	// (GET /v1/account/subscriptions/{subscriptionID})
 	GetAccountSubscription(ctx context.Context, request GetAccountSubscriptionRequestObject) (GetAccountSubscriptionResponseObject, error)
 
@@ -49454,6 +49613,33 @@ func (sh *strictHandler) UnlinkAccountSignInMethod(w http.ResponseWriter, r *htt
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(UnlinkAccountSignInMethodResponseObject); ok {
 		if err := validResponse.VisitUnlinkAccountSignInMethodResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CloseAccountSubscription operation middleware
+func (sh *strictHandler) CloseAccountSubscription(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params CloseAccountSubscriptionParams) {
+	var request CloseAccountSubscriptionRequestObject
+
+	request.SubscriptionID = subscriptionID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CloseAccountSubscription(ctx, request.(CloseAccountSubscriptionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CloseAccountSubscription")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CloseAccountSubscriptionResponseObject); ok {
+		if err := validResponse.VisitCloseAccountSubscriptionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

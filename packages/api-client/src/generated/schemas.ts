@@ -4012,6 +4012,10 @@ export const GetPanelSubscriptionPolicyResponse = zod.object({
     .min(1)
     .nullish()
     .describe("Most devices add-ons may take a subscription to; null is no ceiling."),
+  remnawaveCloseMode: zod
+    .enum(["disable", "delete"])
+    .optional()
+    .describe("What happens to the Remnawave user of a subscription the customer closes."),
   updatedAt: zod.iso.datetime({ offset: true }).optional(),
 });
 
@@ -4065,6 +4069,10 @@ export const SavePanelSubscriptionPolicyBody = zod.object({
     .min(1)
     .nullish()
     .describe("Most devices add-ons may take a subscription to; null is no ceiling."),
+  remnawaveCloseMode: zod
+    .enum(["disable", "delete"])
+    .optional()
+    .describe("What happens to the Remnawave user of a subscription the customer closes."),
 });
 
 export const savePanelSubscriptionPolicyResponseTrialWarningHoursMin = 0;
@@ -4108,6 +4116,10 @@ export const SavePanelSubscriptionPolicyResponse = zod.object({
     .min(1)
     .nullish()
     .describe("Most devices add-ons may take a subscription to; null is no ceiling."),
+  remnawaveCloseMode: zod
+    .enum(["disable", "delete"])
+    .optional()
+    .describe("What happens to the Remnawave user of a subscription the customer closes."),
   updatedAt: zod.iso.datetime({ offset: true }).optional(),
 });
 
@@ -8315,6 +8327,21 @@ export const BuyAccountSubscriptionAddonResponse = zod.object({
       "The method the checkout recorded, while that checkout is still attached to the order.",
     ),
 });
+
+/**
+ * Closes one of the customer's additional subscriptions. Its remaining time is given up and nothing is refunded; its Remnawave user is disabled or deleted as the installation says. Needs a recent sign-in. The first subscription answers 409 subscription_primary, and one with an unpaid order 409 subscription_busy.
+ */
+export const CloseAccountSubscriptionParams = zod.object({
+  subscriptionID: zod.uuid(),
+});
+
+export const CloseAccountSubscriptionHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const CloseAccountSubscriptionResponse = zod.void();
 
 export const GetAccountSubscriptionParams = zod.object({
   subscriptionID: zod.uuid(),

@@ -2162,6 +2162,7 @@ type SubscriptionPolicy struct {
 	TrialDisabledMethods     []string           `json:"trial_disabled_methods"`
 	TrialWarningHours        int32              `json:"trial_warning_hours"`
 	MaxDeviceLimit           pgtype.Int4        `json:"max_device_limit"`
+	RemnawaveCloseMode       string             `json:"remnawave_close_mode"`
 }
 
 type SupportAttachment struct {

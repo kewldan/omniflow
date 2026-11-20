@@ -130,7 +130,7 @@ func (worker *Worker) claim(ctx context.Context, operationID pgtype.UUID) (claim
 	// that has been retired, which is two live entitlements and an expiry
 	// that flickers every fifteen minutes. It is cancelled, with the reason,
 	// before anything is asked of Remnawave.
-	if reason, obsolete := obsoleteOperation(entitlement.Status); obsolete {
+	if reason, obsolete := obsoleteOperation(entitlement.Status); obsolete && operation.Operation != "close" {
 		return claim{}, false, worker.cancel(ctx, tx, queries, operation, reason)
 	}
 	if operation.Operation == "create" {
@@ -406,6 +406,9 @@ func (worker *Worker) recordSuccess(ctx context.Context, claimed claim, result o
 	entitlement, err := queries.GetEntitlement(ctx, claimed.entitlement.ID)
 	if err != nil {
 		return err
+	}
+	if operation.Operation == "close" {
+		return worker.recordClosed(ctx, tx, queries, operation, claimed)
 	}
 	if reason, obsolete := obsoleteOperation(entitlement.Status); obsolete {
 		return worker.cancel(ctx, tx, queries, operation, reason)

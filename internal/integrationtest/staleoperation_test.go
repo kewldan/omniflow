@@ -49,6 +49,9 @@ func (p untouchableProvisioner) ResetUserTraffic(context.Context, int64) error {
 func (p untouchableProvisioner) DeleteAllDevices(context.Context, int64) error {
 	return p.fail("DeleteAllDevices")
 }
+func (p untouchableProvisioner) DeleteUser(context.Context, int64) error {
+	return p.fail("DeleteUser")
+}
 
 // TestAnOperationOnASupersededEntitlementIsCancelledUntouched proves the
 // guard against a stale reconcile: once a newer entitlement has retired the

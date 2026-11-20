@@ -40,6 +40,9 @@ type Provisioner interface {
 	// DeleteAllDevices removes every HWID device a user has registered, which
 	// a renewal does when the installation resets devices on renewal.
 	DeleteAllDevices(context.Context, int64) error
+	// DeleteUser removes a user from the panel. Closing a subscription does
+	// this when the installation deletes rather than disables.
+	DeleteUser(context.Context, int64) error
 }
 
 type Importer interface {
@@ -433,6 +436,17 @@ func (client *Client) EnableUser(ctx context.Context, userID int64) error {
 func (client *Client) DisableUser(ctx context.Context, userID int64) error {
 	err := client.post(ctx, "/api/users/"+strconv.FormatInt(userID, 10)+"/actions/disable", nil)
 	if hasCode(err, codeUserAlreadyDisabled) {
+		return nil
+	}
+	return err
+}
+
+// DeleteUser deletes a user. A user that is already gone is success: the
+// state asked for is the state the panel is in, and a retried operation whose
+// first attempt landed must not fail for good.
+func (client *Client) DeleteUser(ctx context.Context, userID int64) error {
+	err := client.do(ctx, http.MethodDelete, "/api/users/"+strconv.FormatInt(userID, 10), nil, nil)
+	if errors.Is(err, ErrNotFound) {
 		return nil
 	}
 	return err

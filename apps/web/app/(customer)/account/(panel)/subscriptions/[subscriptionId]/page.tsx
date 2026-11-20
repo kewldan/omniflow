@@ -13,6 +13,7 @@ import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import useSWR from "swr";
 import * as z from "zod/mini";
+import { CloseSubscription } from "@/components/account/commerce/close-subscription";
 import { SubscriptionAddons } from "@/components/account/commerce/subscription-addons";
 import { ReauthNotice, useReauthentication } from "@/components/account/reauth";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
@@ -72,6 +73,9 @@ export default function SubscriptionPage() {
       <RenameForm current={data.label} onRenamed={mutate} subscriptionId={data.id} />
       {/* Rotating a link is only meaningful for a provisioned subscription. */}
       {data.provisioned && <RotateLink subscriptionId={data.id} />}
+      {/* Only an additional subscription can be closed; the first one is what
+          every single-subscription screen resolves to. */}
+      {data.slot > 1 && <CloseSubscription subscriptionId={data.id} />}
     </div>
   );
 }

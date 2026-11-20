@@ -95,6 +95,9 @@ type desiredState struct {
 	// new state is applied. Settlement sets it for an extension and a renewal
 	// when the installation resets devices on renewal.
 	ResetDevices bool `json:"resetDevices,omitempty"`
+	// CloseMode is what a `close` does to the Remnawave user of a subscription
+	// the customer closed: `disable` or `delete`.
+	CloseMode string `json:"closeMode,omitempty"`
 	// remoteExpireAt is EndsAt plus the grace period, resolved by the worker
 	// per operation rather than stored, so every creator agrees on it.
 	remoteExpireAt time.Time
@@ -293,6 +296,9 @@ func (worker *Worker) apply(ctx context.Context, claimed claim) (remnawave.User,
 		}
 		created, createErr := worker.provisioner.CreateUser(ctx, provision)
 		return created, true, createErr
+	}
+	if operation == "close" {
+		return worker.close(ctx, remoteID, desired.CloseMode)
 	}
 	if operation == "create" || operation == "reconcile" {
 		var (

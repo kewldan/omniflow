@@ -58,6 +58,11 @@ func (fake *fakeProvisioner) DeleteAllDevices(context.Context, int64) error {
 	return nil
 }
 
+func (fake *fakeProvisioner) DeleteUser(context.Context, int64) error {
+	fake.calls = append(fake.calls, "delete")
+	return nil
+}
+
 func equalCalls(got, want []string) bool {
 	if len(got) != len(want) {
 		return false

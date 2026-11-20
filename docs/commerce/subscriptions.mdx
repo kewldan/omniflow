@@ -185,6 +185,7 @@ A `renewal` is the renewal worker's own operation, opened from the customer's st
 | Trial user tag, Paid user tag | empty | The Remnawave user tag a subscription carries on a trial and once paid, when its plan names none. With both empty and no plan tag, Omniflow leaves the panel's tags alone |
 | No trial for accounts that sign in only with | none | Telegram, an e-mail link, or OpenID Connect. A customer whose every way of signing in is listed is refused a trial with the reason `sign_in_method` on the web and in the bot; one who also signs in another way still qualifies |
 | Warn before a trial ends | 0 | Hours (at most 168) before a trial ends that the bot sends one extra `trial` notice with a button to the plans, on top of the day-based reminders |
+| When a customer closes a subscription | disable | What happens to the Remnawave user of a subscription the customer closed: disabled, which keeps it for an operator to look at, or deleted |
 
 The defaults are what Omniflow did before the switches existed, so an installation that never opens the card behaves as it always has. A gift or an access code that extends a subscription follows the traffic reset switch as well.
 
@@ -372,14 +373,14 @@ Nothing is orphaned in either direction: the switch controls creation, never exi
 
 ### Reducing a customer to one subscription
 
-<Warning>
-  There is no way to close a subscription. The `status` column allows `closed`
-  and a query exists to set it, but nothing calls it: no route, no panel control,
-  and no bot action. A subscription that has been opened stays on the customer's
-  record.
-</Warning>
+A customer can close any of their subscriptions except the first, from **Close this subscription** on `/account/subscriptions/{id}` — `DELETE /v1/account/subscriptions/{subscriptionID}`, which needs a recent sign-in. The time it has left is given up and nothing is refunded. Closing it, in one transaction:
 
-What an operator can do instead, from `/admin/customers/{customerId}` with `subscriptions.write` and a reason:
+- refuses the first subscription with `subscription_primary` (it is what the customer-level Remnawave mapping and every single-subscription screen resolve to) and one an unpaid order still targets with `subscription_busy`;
+- retires every entitlement of the subscription, so reconciliation, renewal, reminders, and both catalogues stop treating it as held, and sets the subscription `closed`, which frees its concurrency slot;
+- queues a `close` fulfillment operation keyed `subscription:{id}:close` that disables or deletes its Remnawave user, as **When a customer closes a subscription** in [the installation-wide switches](#installation-wide-switches) says (`disable` by default). A user already gone or already disabled counts as success;
+- writes a `subscription.closed` audit event.
+
+What an operator can do for a customer's first subscription, from `/admin/customers/{customerId}` with `subscriptions.write` and a reason:
 
 <Steps>
   <Step title="Let it lapse, or disable it">
@@ -399,7 +400,7 @@ What an operator can do instead, from `/admin/customers/{customerId}` with `subs
   </Step>
 </Steps>
 
-Disabling a subscription does not delete its Remnawave user, and neither does anything else in Omniflow. Removing that is a deliberate action in the Remnawave panel, so nothing here destroys access a customer paid for.
+Disabling a subscription does not delete its Remnawave user. The one thing in Omniflow that does is a customer closing an additional subscription while the close mode is `delete` — access the customer gave up themselves.
 
 <Note>
   Suspending a **customer** does not reach Remnawave either. Suspension records
