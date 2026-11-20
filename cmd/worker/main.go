@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -22,6 +24,7 @@ import (
 	"github.com/omniflow/omniflow/internal/fulfillment"
 	"github.com/omniflow/omniflow/internal/goodsdelivery"
 	apihttp "github.com/omniflow/omniflow/internal/httpapi"
+	"github.com/omniflow/omniflow/internal/importservice"
 	"github.com/omniflow/omniflow/internal/installsettings"
 	"github.com/omniflow/omniflow/internal/jobs"
 	"github.com/omniflow/omniflow/internal/operator"
@@ -409,6 +412,28 @@ func monitoringTasks(
 	}
 	monitor := remnawavesync.NewMonitor(pool, panel, store, settings, logger)
 	var tasks []jobs.Task
+	// The scheduled import turns users created directly in the panel into
+	// customers, through the same staging and conflict rules as a manual one.
+	if raw := strings.TrimSpace(os.Getenv("APP_REMNAWAVE_AUTO_IMPORT_HOURS")); raw != "" {
+		hours, parseErr := strconv.Atoi(raw)
+		if parseErr != nil || hours < 1 || hours > 24*7 {
+			return nil, errors.New("APP_REMNAWAVE_AUTO_IMPORT_HOURS must be 1 to 168")
+		}
+		importer := importservice.New(pool, panel)
+		tasks = append(tasks, jobs.Task{Name: "remnawave_auto_import", Interval: time.Hour, Timeout: 50 * time.Minute,
+			Run: func(ctx context.Context) error {
+				due, claimErr := claims.Claim(ctx, "remnawave_auto_import", time.Duration(hours)*time.Hour)
+				if claimErr != nil || !due {
+					return claimErr
+				}
+				run, runErr := importer.RunAll(ctx)
+				if runErr == nil {
+					logger.Info("scheduled Remnawave import finished", "status", run.Status,
+						"total", run.TotalCount, "valid", run.ValidCount, "conflicts", run.ConflictCount)
+				}
+				return runErr
+			}})
+	}
 	if settings.FastInterval > 0 && store != nil {
 		tasks = append(tasks, jobs.Task{Name: "traffic_monitor_fast", Interval: settings.FastInterval, Timeout: 10 * time.Minute,
 			Run: func(ctx context.Context) error {
