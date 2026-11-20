@@ -42,6 +42,10 @@ type CommerceSettings struct {
 	// Winback is the schedule of automatic discount waves after a
 	// subscription lapses (APP_WINBACK_*). Empty turns them off.
 	Winback []WinbackWave
+	// TrialWinback is the dedicated discount sent when a trial ends without
+	// a purchase (APP_TRIAL_WINBACK_*). A zero Percent turns it off, and
+	// lapsed trials then get the Winback waves like any subscription.
+	TrialWinback WinbackWave
 	// Notifications are the operator's thresholds and switches for the
 	// lifecycle notices (APP_NOTIFY_*). The zero value sends the defaults.
 	Notifications NotificationSettings

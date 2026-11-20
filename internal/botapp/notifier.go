@@ -1068,6 +1068,10 @@ func (notifier *Notifier) maybeSendWinback(
 	ctx context.Context, candidate notificationCandidate, subscriptionID string,
 	entitlement Entitlement, locale Locale, now time.Time,
 ) {
+	if entitlement.PlanKind == "trial" && notifier.settings.TrialWinback.Percent > 0 {
+		notifier.maybeSendTrialWinback(ctx, candidate, subscriptionID, entitlement, locale, now)
+		return
+	}
 	if len(notifier.settings.Winback) == 0 || now.Before(entitlement.EndsAt.Add(entitlement.GracePeriod)) {
 		return
 	}
@@ -1082,6 +1086,33 @@ func (notifier *Notifier) maybeSendWinback(
 	}
 	dedupe := fmt.Sprintf("winback%d:%s", wave.Number, entitlement.ID)
 	notifier.deliver(ctx, candidate, subscriptionID, "recovery", dedupe, winbackView(locale, entitlement, wave, code, expiresAt))
+}
+
+// maybeSendTrialWinback offers a discount on a first subscription to a
+// customer whose trial ended without a purchase, once per trial. It takes the
+// place of the expiry waves for a trial: a trial is converted, not renewed.
+func (notifier *Notifier) maybeSendTrialWinback(
+	ctx context.Context, candidate notificationCandidate, subscriptionID string,
+	entitlement Entitlement, locale Locale, now time.Time,
+) {
+	wave := notifier.settings.TrialWinback
+	if !trialWinbackDue(wave, entitlement.EndsAt, now) {
+		return
+	}
+	paid, err := notifier.store.HasPaidSubscription(ctx, candidate.UserID)
+	if err != nil {
+		notifier.logger.Warn("trial win-back purchase check failed", "error", err)
+		return
+	}
+	if paid {
+		return
+	}
+	code, expiresAt, err := notifier.store.IssueWinbackOffer(ctx, candidate.UserID, entitlement.ID, wave)
+	if err != nil {
+		notifier.logger.Warn("trial win-back offer failed", "error", err)
+		return
+	}
+	notifier.deliver(ctx, candidate, subscriptionID, "recovery", "winback-trial:"+entitlement.ID, trialWinbackView(locale, wave, code, expiresAt))
 }
 
 // campaignKeyboard turns a template's buttons into one button per row: a URL

@@ -295,6 +295,7 @@ func commerceSettings(cfg config.BotConfig) botapp.CommerceSettings {
 		MultiSubscription:      cfg.Subscriptions.MultiEnabled,
 		GoodsVPNOffer:          cfg.Fragment.VPNOffer,
 		Winback:                botapp.WinbackWavesFromEnv(),
+		TrialWinback:           trialWinback(),
 		// Validated at startup; an invalid value never reaches here.
 		Notifications: func() botapp.NotificationSettings {
 			settings, _ := botapp.NotificationSettingsFromEnv(os.Getenv)
@@ -405,4 +406,10 @@ func configureCommands(ctx context.Context, logger *slog.Logger, client *telegra
 	if _, err := client.SetMyCommands(ctx, &telegram.SetMyCommandsParams{Commands: russian, LanguageCode: "ru"}); err != nil {
 		logger.Warn("telegram Russian command setup failed", "error", err)
 	}
+}
+
+// trialWinback is the trial-end discount, or the zero wave when it is off.
+func trialWinback() botapp.WinbackWave {
+	wave, _ := botapp.TrialWinbackFromEnv()
+	return wave
 }

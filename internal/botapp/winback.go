@@ -22,6 +22,47 @@ type WinbackWave struct {
 	AfterDays int
 	Percent   int
 	ValidFor  time.Duration
+	// Trial marks the dedicated wave sent when a trial ends without a
+	// purchase; AfterHours is then when it is sent, counted from the trial's
+	// end.
+	Trial      bool
+	AfterHours int
+}
+
+// TrialWinbackFromEnv reads APP_TRIAL_WINBACK_*: by default a trial that ends
+// without a purchase is offered 20% off a first subscription for 48 hours,
+// two hours after it ends. APP_TRIAL_WINBACK_ENABLED=false or a zero percent
+// turns it off, and lapsed trials then get the ordinary expiry waves instead.
+func TrialWinbackFromEnv() (WinbackWave, bool) {
+	if value, err := strconv.ParseBool(strings.TrimSpace(os.Getenv("APP_TRIAL_WINBACK_ENABLED"))); err == nil && !value {
+		return WinbackWave{}, false
+	}
+	read := func(key string, fallback int) int {
+		value, err := strconv.Atoi(strings.TrimSpace(os.Getenv(key)))
+		if err != nil {
+			return fallback
+		}
+		return value
+	}
+	wave := WinbackWave{
+		Number: 1, Trial: true,
+		AfterHours: read("APP_TRIAL_WINBACK_AFTER_HOURS", 2),
+		Percent:    read("APP_TRIAL_WINBACK_PERCENT", 20),
+		ValidFor:   time.Duration(read("APP_TRIAL_WINBACK_VALID_HOURS", 48)) * time.Hour,
+	}
+	if wave.Percent <= 0 || wave.Percent > 100 || wave.AfterHours < 0 || wave.ValidFor <= 0 {
+		return WinbackWave{}, false
+	}
+	return wave, true
+}
+
+// trialWinbackDue reports whether a trial that ended at endedAt is in its
+// win-back window: from AfterHours past the end, for two days, so a missed
+// notifier pass still sends it.
+func trialWinbackDue(wave WinbackWave, endedAt, now time.Time) bool {
+	since := now.Sub(endedAt)
+	start := time.Duration(wave.AfterHours) * time.Hour
+	return since >= start && since < start+48*time.Hour
 }
 
 // WinbackWavesFromEnv reads APP_WINBACK_*; APP_WINBACK_ENABLED=false or a
@@ -80,6 +121,15 @@ func (store *PostgresStore) IssueWinbackOffer(
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	slug := fmt.Sprintf("wb%d-%s", wave.Number, strings.ReplaceAll(entitlementID, "-", ""))
+	prefix := fmt.Sprintf("BACK%d-", wave.Percent)
+	titleRU, titleEN := fmt.Sprintf("Скидка %d%% на продление", wave.Percent), fmt.Sprintf("%d%% off your renewal", wave.Percent)
+	if wave.Trial {
+		// A trial is not renewed but converted, so its offer reads as a first
+		// subscription and its slug cannot collide with an expiry wave's.
+		slug = "wbt-" + strings.ReplaceAll(entitlementID, "-", "")
+		prefix = fmt.Sprintf("TRIAL%d-", wave.Percent)
+		titleRU, titleEN = fmt.Sprintf("Скидка %d%% на первую подписку", wave.Percent), fmt.Sprintf("%d%% off your first subscription", wave.Percent)
+	}
 	var promotionID string
 	err = tx.QueryRow(ctx, `INSERT INTO promotions (code, kind, value, per_customer_limit, redemption_limit, starts_at, ends_at, applies_to)
 		VALUES ($1, 'percent', $2, 1, 1, now(), now() + $3::interval, 'plans')
@@ -94,7 +144,7 @@ func (store *PostgresStore) IssueWinbackOffer(
 	if err != nil {
 		return "", time.Time{}, err
 	}
-	code = fmt.Sprintf("BACK%d-%s", wave.Percent, randomCode(6))
+	code = prefix + randomCode(6)
 	if _, err = tx.Exec(ctx, `INSERT INTO promo_codes (promotion_id, normalized_code) VALUES ($1::uuid, $2)`, promotionID, code); err != nil {
 		return "", time.Time{}, err
 	}
@@ -102,7 +152,7 @@ func (store *PostgresStore) IssueWinbackOffer(
 		SELECT $1::uuid, $2::uuid, $3, $4, $5, $6, ends_at FROM promotions WHERE id = $2::uuid
 		RETURNING expires_at`,
 		customerID, promotionID,
-		fmt.Sprintf("Скидка %d%% на продление", wave.Percent), fmt.Sprintf("%d%% off your renewal", wave.Percent),
+		titleRU, titleEN,
 		"Применяется автоматически при оплате, один раз.", "Applied automatically at checkout, once.",
 	).Scan(&expiresAt)
 	if err != nil {
@@ -133,6 +183,31 @@ func winbackView(locale Locale, entitlement Entitlement, wave WinbackWave, code 
 		Keyboard: keyboard(
 			row(actionButton(text(locale, "winback.renew", wave.Percent), "buy:"+entitlement.PlanVersionID+":purchase")),
 			row(callbackButton(text(locale, "menu.plans"), routePlans)),
+		),
+	}
+}
+
+// HasPaidSubscription reports whether the customer has ever paid for a
+// subscription. A trial win-back goes only to somebody who has not: a customer
+// who bought, here or on a second subscription, has already converted.
+func (store *PostgresStore) HasPaidSubscription(ctx context.Context, customerID string) (bool, error) {
+	var paid bool
+	err := store.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM orders
+		WHERE user_id = $1::uuid AND operation IN ('purchase', 'extension', 'renewal', 'upgrade', 'downgrade')
+		  AND state IN ('paid', 'fulfilled', 'partially_refunded') AND external_minor + wallet_minor > 0)`,
+		customerID).Scan(&paid)
+	return paid, err
+}
+
+func trialWinbackView(locale Locale, wave WinbackWave, code string, expiresAt time.Time) View {
+	hours := int(time.Until(expiresAt).Round(time.Hour).Hours())
+	if hours < 1 {
+		hours = 1
+	}
+	return View{
+		Text: text(locale, "winback.trialBody", wave.Percent, hours, code),
+		Keyboard: keyboard(
+			row(callbackButton(text(locale, "winback.trialBuy", wave.Percent), routePlans)),
 		),
 	}
 }

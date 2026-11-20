@@ -127,6 +127,24 @@ hours govern it.
 | `APP_WINBACK_WAVE3_AFTER_DAYS` / `APP_WINBACK_WAVE3_PERCENT` | `5` / `20` | Day and discount of wave 3 |
 | `APP_WINBACK_VALID_HOURS` | `24` | How long each wave's discount lasts |
 
+### Win-back after a trial
+
+A trial is converted rather than renewed, so a trial that ends without a purchase gets its own offer
+instead of the expiry waves: by default two hours after the trial ends the bot sends a 20% discount on
+a first subscription, valid for 48 hours, with a button to the plans. It is a single-use personal offer
+like a wave's, applied by itself to the next purchase in the bot or on the web, and the message carries
+the code as a fallback. It is sent once per trial and only to a customer who has never paid for a
+subscription — one who bought, on this or another subscription, has already converted. It travels as a
+`recovery` message. With the trial win-back turned off, a lapsed trial gets the expiry waves above like
+any other subscription.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `APP_TRIAL_WINBACK_ENABLED` | `true` | `false` turns the trial win-back off |
+| `APP_TRIAL_WINBACK_AFTER_HOURS` | `2` | Hours after the trial ends before the offer is sent |
+| `APP_TRIAL_WINBACK_PERCENT` | `20` | Discount on the first subscription; `0` turns it off |
+| `APP_TRIAL_WINBACK_VALID_HOURS` | `48` | How long the discount lasts |
+
 ### Thresholds and switches
 
 The days and percentages in the table above are defaults the operator can change, and any lifecycle
