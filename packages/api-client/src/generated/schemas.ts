@@ -791,6 +791,20 @@ export const ReceivePaymentWebhookBody = zod.record(zod.string(), zod.unknown())
 export const ReceivePaymentWebhookResponse = zod.unknown();
 
 /**
+ * Public and opt-in (APP_SERVER_STATUS_ENABLED). Each Remnawave node the operator has not disabled, with its name, country label, and whether the panel reports it connected. No address, traffic, or user count. Cached for a minute; 404 when the page is off.
+ */
+export const GetServerStatusResponse = zod.object({
+  checkedAt: zod.iso.datetime({ offset: true }),
+  servers: zod.array(
+    zod.object({
+      name: zod.string(),
+      countryCode: zod.string().optional(),
+      online: zod.boolean(),
+    }),
+  ),
+});
+
+/**
  * Remnawave's own event deliveries, signed with an HMAC-SHA256 of the body in X-Remnawave-Signature under APP_REMNAWAVE_WEBHOOK_SECRET. Mounted only when the secret is set. A retried delivery is acknowledged without being recorded twice.
  */
 export const ReceiveRemnawaveWebhookHeader = zod.object({

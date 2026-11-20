@@ -109,6 +109,7 @@ func main() {
 			Commerce: runtime.handlers, Admin: runtime.admin,
 			Account:          runtime.account,
 			RemnawaveWebhook: runtime.remnawaveWebhook,
+			ServerStatus:     runtime.serverStatus,
 			CollectorEnabled: cfg.TelemetryCollectorEnabled, Telemetry: telemetryClient, Version: version,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
@@ -143,6 +144,8 @@ type runtimeServices struct {
 	account  *apihttp.AccountHandlers
 	// remnawaveWebhook is nil without APP_REMNAWAVE_WEBHOOK_SECRET.
 	remnawaveWebhook *apihttp.RemnawaveWebhookHandler
+	// serverStatus is nil unless APP_SERVER_STATUS_ENABLED is true.
+	serverStatus *apihttp.ServerStatusHandler
 	// pool and installation are shared with main for the error log and the
 	// telemetry switch.
 	pool         *pgxpool.Pool
@@ -223,6 +226,7 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 	handlers.WithOperations(pool, riverClient, commerceStore)
 
 	services := runtimeServices{handlers: handlers, pool: pool, installation: installation}
+	services.serverStatus = apihttp.NewServerStatusHandler(remnawaveClient, logger, os.Getenv)
 	services.remnawaveWebhook = apihttp.NewRemnawaveWebhookHandler(
 		remnawavesync.NewIntake(pool, remnawavesync.IntakeOptionsFromEnv(os.Getenv)), logger,
 	)

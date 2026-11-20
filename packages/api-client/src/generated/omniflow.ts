@@ -5755,6 +5755,17 @@ export type CancelOrderBody = {
 
 export type ReceivePaymentWebhookBody = { [key: string]: unknown };
 
+export type GetServerStatus200ServersItem = {
+  name: string;
+  countryCode?: string;
+  online: boolean;
+};
+
+export type GetServerStatus200 = {
+  checkedAt: string;
+  servers: GetServerStatus200ServersItem[];
+};
+
 export type ReceiveRemnawaveWebhookBody = { [key: string]: unknown };
 
 export type ListFulfillmentDriftsParams = {
@@ -9347,6 +9358,78 @@ export const useReceivePaymentWebhook = <TError = Promise<ProblemResponse>>(
     ...query,
   };
 };
+
+export type getServerStatusResponse200 = {
+  data: GetServerStatus200
+  status: 200
+}
+
+export type getServerStatusResponse503 = {
+  data: ProblemResponse
+  status: 503
+}
+
+export type getServerStatusResponseSuccess = (getServerStatusResponse200) & {
+  headers: Headers;
+};
+export type getServerStatusResponseError = (getServerStatusResponse503) & {
+  headers: Headers;
+};
+
+export type getServerStatusResponse = (getServerStatusResponseSuccess | getServerStatusResponseError)
+
+export const getGetServerStatusUrl = () => {
+
+
+
+
+  return `/v1/status/servers`
+}
+
+/**
+ * Public and opt-in (APP_SERVER_STATUS_ENABLED). Each Remnawave node the operator has not disabled, with its name, country label, and whether the panel reports it connected. No address, traffic, or user count. Cached for a minute; 404 when the page is off.
+ */
+export const getServerStatus = async ( options?: RequestInit): Promise<getServerStatusResponse> => {
+
+  const res = await fetch(getGetServerStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getServerStatusResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getServerStatusResponse
+}
+
+
+
+
+export const getGetServerStatusKey = () => [`/v1/status/servers`] as const;
+
+export type GetServerStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getServerStatus>>>
+
+export const useGetServerStatus = <TError = Promise<ProblemResponse>>(
+   options?: { swr?:SWRConfiguration<Awaited<ReturnType<typeof getServerStatus>>, TError> & { swrKey?: Key, enabled?: boolean }, fetch?: RequestInit }
+) => {
+  const {swr: swrOptions, fetch: fetchOptions} = options ?? {}
+
+  const isEnabled = swrOptions?.enabled !== false
+  const swrKey = swrOptions?.swrKey ?? (() => isEnabled ? getGetServerStatusKey() : null);
+  const swrFn = () => getServerStatus(fetchOptions)
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions)
+
+  return {
+    swrKey,
+    ...query
+  }
+}
 
 export type receiveRemnawaveWebhookResponse200 = {
   data: void;

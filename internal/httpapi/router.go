@@ -31,6 +31,8 @@ type RouterOptions struct {
 	// RemnawaveWebhook receives the panel's event deliveries. Nil when no
 	// webhook secret is configured.
 	RemnawaveWebhook *RemnawaveWebhookHandler
+	// ServerStatus is the public server status. Nil unless enabled.
+	ServerStatus *ServerStatusHandler
 	// CollectorEnabled exposes the anonymous telemetry collector endpoint.
 	CollectorEnabled bool
 	Telemetry        *telemetry.Client
@@ -78,6 +80,9 @@ func NewRouter(logger *slog.Logger, options RouterOptions) http.Handler {
 	}
 	if options.RemnawaveWebhook != nil {
 		options.RemnawaveWebhook.Mount(router)
+	}
+	if options.ServerStatus != nil {
+		options.ServerStatus.Mount(router)
 	}
 	return router
 }

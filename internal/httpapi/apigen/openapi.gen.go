@@ -13259,6 +13259,9 @@ type ServerInterface interface {
 	// (POST /v1/remnawave/webhook)
 	ReceiveRemnawaveWebhook(w http.ResponseWriter, r *http.Request, params ReceiveRemnawaveWebhookParams)
 
+	// (GET /v1/status/servers)
+	GetServerStatus(w http.ResponseWriter, r *http.Request)
+
 	// (POST /v1/telemetry/events)
 	CollectTelemetryEvent(w http.ResponseWriter, r *http.Request)
 }
@@ -14969,6 +14972,11 @@ func (_ Unimplemented) ReceivePaymentWebhook(w http.ResponseWriter, r *http.Requ
 
 // (POST /v1/remnawave/webhook)
 func (_ Unimplemented) ReceiveRemnawaveWebhook(w http.ResponseWriter, r *http.Request, params ReceiveRemnawaveWebhookParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/status/servers)
+func (_ Unimplemented) GetServerStatus(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -29593,6 +29601,20 @@ func (siw *ServerInterfaceWrapper) ReceiveRemnawaveWebhook(w http.ResponseWriter
 	handler.ServeHTTP(w, r)
 }
 
+// GetServerStatus operation middleware
+func (siw *ServerInterfaceWrapper) GetServerStatus(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetServerStatus(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CollectTelemetryEvent operation middleware
 func (siw *ServerInterfaceWrapper) CollectTelemetryEvent(w http.ResponseWriter, r *http.Request) {
 
@@ -29800,6 +29822,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/payments/webhooks/{provider}", wrapper.ReceivePaymentWebhook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/status/servers", wrapper.GetServerStatus)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/remnawave/webhook", wrapper.ReceiveRemnawaveWebhook)
@@ -46506,6 +46531,50 @@ func (response ReceiveRemnawaveWebhook503ApplicationProblemPlusJSONResponse) Vis
 	return err
 }
 
+type GetServerStatusRequestObject struct {
+}
+
+type GetServerStatusResponseObject interface {
+	VisitGetServerStatusResponse(w http.ResponseWriter) error
+}
+
+type GetServerStatus200JSONResponse struct {
+	CheckedAt time.Time `json:"checkedAt"`
+	Servers   []struct {
+		CountryCode *string `json:"countryCode,omitempty"`
+		Name        string  `json:"name"`
+		Online      bool    `json:"online"`
+	} `json:"servers"`
+}
+
+func (response GetServerStatus200JSONResponse) VisitGetServerStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetServerStatus503ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetServerStatus503ApplicationProblemPlusJSONResponse) VisitGetServerStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type CollectTelemetryEventRequestObject struct {
 	Body *CollectTelemetryEventJSONRequestBody
 }
@@ -47563,6 +47632,9 @@ type StrictServerInterface interface {
 
 	// (POST /v1/remnawave/webhook)
 	ReceiveRemnawaveWebhook(ctx context.Context, request ReceiveRemnawaveWebhookRequestObject) (ReceiveRemnawaveWebhookResponseObject, error)
+
+	// (GET /v1/status/servers)
+	GetServerStatus(ctx context.Context, request GetServerStatusRequestObject) (GetServerStatusResponseObject, error)
 
 	// (POST /v1/telemetry/events)
 	CollectTelemetryEvent(ctx context.Context, request CollectTelemetryEventRequestObject) (CollectTelemetryEventResponseObject, error)
@@ -57330,6 +57402,30 @@ func (sh *strictHandler) ReceiveRemnawaveWebhook(w http.ResponseWriter, r *http.
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ReceiveRemnawaveWebhookResponseObject); ok {
 		if err := validResponse.VisitReceiveRemnawaveWebhookResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetServerStatus operation middleware
+func (sh *strictHandler) GetServerStatus(w http.ResponseWriter, r *http.Request) {
+	var request GetServerStatusRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetServerStatus(ctx, request.(GetServerStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetServerStatus")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetServerStatusResponseObject); ok {
+		if err := validResponse.VisitGetServerStatusResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

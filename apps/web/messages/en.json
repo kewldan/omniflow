@@ -4995,6 +4995,16 @@
       "hint": "Nothing happened? Install the app first, then tap the button again.",
       "invalidTitle": "This link cannot be opened",
       "invalidDescription": "It does not point to an app. Go back to the bot and tap the button again."
+    },
+    "serverStatus": {
+      "title": "Server status",
+      "allUp": "All servers are working.",
+      "someDown": "{count, plural, one {# server is} other {# servers are}} not responding. We are on it.",
+      "up": "Working",
+      "down": "Not responding",
+      "checked": "Checked",
+      "disabled": "This service does not publish server status.",
+      "unavailable": "Server status cannot be read right now. Try again in a minute."
     }
   },
   "public": {

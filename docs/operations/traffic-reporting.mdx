@@ -108,6 +108,15 @@ Disabled and expired users are skipped, and a counter that went down — a reset
 point rather than a negative spike. The first pass of each kind only takes a reading. A notice names
 the panel user IDs (at most 20, then a count), the window, and the threshold.
 
+## Public server status
+
+`APP_SERVER_STATUS_ENABLED=true` publishes `/status` in the web app, backed by `GET /v1/status/servers`
+on the API: every node the operator has not disabled in Remnawave, with its name, its country label, and
+whether the panel reports it connected. It exists so a customer can tell whether a problem is theirs
+before writing to support. It is read from `GET /api/nodes`, cached for a minute so a busy page is not
+load on the panel, and stored nowhere. No address, traffic figure, or user count is shown. Off by
+default; without it the route answers 404 and the page says the service does not publish status.
+
 ## Permissions
 
 Both routes need `customers.read`. The half that matters names customers and
