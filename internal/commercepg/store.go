@@ -76,6 +76,9 @@ func (store *Store) MaintenancePass(ctx context.Context) error {
 	// only when a top-up settles, so a referral reward or an operator
 	// correction releases it too.
 	store.SweepCarts(ctx, store.options.Logger)
+	if _, err := store.ExpireTrafficPacks(ctx); err != nil {
+		store.options.Logger.Warn("traffic pack expiry pass failed", "error", err)
+	}
 	return ctx.Err()
 }
 

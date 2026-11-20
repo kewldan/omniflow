@@ -87,6 +87,7 @@ type PlanVersion struct {
 	// the Remnawave user beside its limits.
 	TrafficResetStrategy string `json:"trafficResetStrategy"`
 	ExternalSquadID      string `json:"externalSquadId,omitempty"`
+	MaxAddonTrafficBytes *int64 `json:"maxAddonTrafficBytes,omitempty"`
 }
 
 // PlanDetail is one plan with its versions and localisations.
@@ -171,6 +172,7 @@ func (service *Service) PlanDetail(ctx context.Context, planID string) (PlanDeta
 			RetiredAt:           timePointer(version.RetiredAt),
 
 			TrafficResetStrategy: version.TrafficResetStrategy,
+			MaxAddonTrafficBytes: int8Pointer(version.MaxAddonTrafficBytes),
 			ExternalSquadID:      uuidString(version.ExternalSquadID),
 		}
 		for _, price := range prices {
@@ -581,6 +583,8 @@ type AddonVersion struct {
 	Prices    map[string]int64 `json:"prices"`
 	CreatedAt time.Time        `json:"createdAt"`
 	RetiredAt *time.Time       `json:"retiredAt,omitempty"`
+	// LifetimeDays is how long a traffic pack lasts; nil lasts the period.
+	LifetimeDays *int32 `json:"lifetimeDays,omitempty"`
 }
 
 // AddonVersions reads the priced versions of one add-on.
@@ -611,6 +615,7 @@ func (service *Service) AddonVersions(ctx context.Context, addonID string) ([]Ad
 			Prices:       make(map[string]int64, len(prices)),
 			CreatedAt:    timeValue(row.CreatedAt),
 			RetiredAt:    timePointer(row.RetiredAt),
+			LifetimeDays: int4Pointer(row.LifetimeDays),
 		}
 		for _, price := range prices {
 			version.Prices[price.Currency] = price.AmountMinor

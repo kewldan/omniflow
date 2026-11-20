@@ -1641,6 +1641,7 @@ export interface PanelPlanVersionSummary {
   addonIds?: string[] | null;
   trafficResetStrategy?: PanelPlanVersionSummaryTrafficResetStrategy;
   externalSquadId?: string;
+  maxAddonTrafficBytes?: number;
 }
 
 export type PanelPlanVersionInputBillingPeriod =
@@ -1760,6 +1761,12 @@ export interface PanelPlanVersionInput {
   trafficResetStrategy?: PanelPlanVersionInputTrafficResetStrategy;
   /** A Remnawave external squad UUID; empty for none. */
   externalSquadId?: string;
+  /**
+     * Most traffic add-ons may add to one entitlement; null is no cap.
+     * @minimum 1
+     * @nullable
+     */
+  maxAddonTrafficBytes?: number | null;
 }
 
 export interface PanelPlanOptions {
@@ -2148,6 +2155,12 @@ export interface PanelSubscriptionPolicy {
      * @maximum 168
      */
   trialWarningHours?: number;
+  /**
+     * Most devices add-ons may take a subscription to; null is no ceiling.
+     * @minimum 1
+     * @nullable
+     */
+  maxDeviceLimit?: number | null;
   readonly updatedAt?: string;
 }
 

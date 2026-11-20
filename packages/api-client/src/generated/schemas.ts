@@ -2868,6 +2868,7 @@ export const GetPanelPlanResponse = zod.object({
           .enum(["NO_RESET", "DAY", "WEEK", "MONTH", "MONTH_ROLLING"])
           .optional(),
         externalSquadId: zod.uuid().optional(),
+        maxAddonTrafficBytes: zod.int().optional(),
       }),
     )
     .nullable(),
@@ -3015,6 +3016,11 @@ export const CreatePanelPlanVersionBody = zod.object({
     .string()
     .optional()
     .describe("A Remnawave external squad UUID; empty for none."),
+  maxAddonTrafficBytes: zod
+    .int()
+    .min(1)
+    .nullish()
+    .describe("Most traffic add-ons may add to one entitlement; null is no cap."),
 });
 
 export const createPanelPlanVersionResponseOfferedSquadsItemLabelRuMax = 80;
@@ -3053,6 +3059,7 @@ export const CreatePanelPlanVersionResponse = zod.object({
   addonIds: zod.array(zod.uuid()).nullish(),
   trafficResetStrategy: zod.enum(["NO_RESET", "DAY", "WEEK", "MONTH", "MONTH_ROLLING"]).optional(),
   externalSquadId: zod.uuid().optional(),
+  maxAddonTrafficBytes: zod.int().optional(),
 });
 
 /**
@@ -4000,6 +4007,11 @@ export const GetPanelSubscriptionPolicyResponse = zod.object({
     .max(getPanelSubscriptionPolicyResponseTrialWarningHoursMax)
     .optional()
     .describe("Hours before a trial ends that the bot warns; zero for never."),
+  maxDeviceLimit: zod
+    .int()
+    .min(1)
+    .nullish()
+    .describe("Most devices add-ons may take a subscription to; null is no ceiling."),
   updatedAt: zod.iso.datetime({ offset: true }).optional(),
 });
 
@@ -4048,6 +4060,11 @@ export const SavePanelSubscriptionPolicyBody = zod.object({
     .max(savePanelSubscriptionPolicyBodyTrialWarningHoursMax)
     .optional()
     .describe("Hours before a trial ends that the bot warns; zero for never."),
+  maxDeviceLimit: zod
+    .int()
+    .min(1)
+    .nullish()
+    .describe("Most devices add-ons may take a subscription to; null is no ceiling."),
 });
 
 export const savePanelSubscriptionPolicyResponseTrialWarningHoursMin = 0;
@@ -4086,6 +4103,11 @@ export const SavePanelSubscriptionPolicyResponse = zod.object({
     .max(savePanelSubscriptionPolicyResponseTrialWarningHoursMax)
     .optional()
     .describe("Hours before a trial ends that the bot warns; zero for never."),
+  maxDeviceLimit: zod
+    .int()
+    .min(1)
+    .nullish()
+    .describe("Most devices add-ons may take a subscription to; null is no ceiling."),
   updatedAt: zod.iso.datetime({ offset: true }).optional(),
 });
 

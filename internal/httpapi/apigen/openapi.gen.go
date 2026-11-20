@@ -8521,10 +8521,13 @@ type PanelPlanVersionInput struct {
 	DurationSeconds int64                                `json:"durationSeconds"`
 
 	// ExternalSquadId A Remnawave external squad UUID; empty for none.
-	ExternalSquadId     *string `json:"externalSquadId,omitempty"`
-	GracePeriodSeconds  *int64  `json:"gracePeriodSeconds,omitempty"`
-	MaxSelectableSquads *int    `json:"maxSelectableSquads,omitempty"`
-	MinSelectableSquads *int    `json:"minSelectableSquads,omitempty"`
+	ExternalSquadId    *string `json:"externalSquadId,omitempty"`
+	GracePeriodSeconds *int64  `json:"gracePeriodSeconds,omitempty"`
+
+	// MaxAddonTrafficBytes Most traffic add-ons may add to one entitlement; null is no cap.
+	MaxAddonTrafficBytes *int64 `json:"maxAddonTrafficBytes,omitempty"`
+	MaxSelectableSquads  *int   `json:"maxSelectableSquads,omitempty"`
+	MinSelectableSquads  *int   `json:"minSelectableSquads,omitempty"`
 
 	// OfferedSquads The squads a customer may choose; empty for automatic selection.
 	OfferedSquads    *[]PanelOfferedSquad `json:"offeredSquads,omitempty"`
@@ -8577,6 +8580,7 @@ type PanelPlanVersionSummary struct {
 	ExternalSquadId       *openapi_types.UUID                          `json:"externalSquadId,omitempty"`
 	GracePeriodSeconds    *int64                                       `json:"gracePeriodSeconds,omitempty"`
 	Id                    openapi_types.UUID                           `json:"id"`
+	MaxAddonTrafficBytes  *int64                                       `json:"maxAddonTrafficBytes,omitempty"`
 	MaxSelectableSquads   *int                                         `json:"maxSelectableSquads,omitempty"`
 	MinSelectableSquads   *int                                         `json:"minSelectableSquads,omitempty"`
 	OfferedSquads         *[]PanelOfferedSquad                         `json:"offeredSquads,omitempty"`
@@ -9072,6 +9076,9 @@ type PanelSubscriptionOperationAccepted struct {
 type PanelSubscriptionPolicy struct {
 	// DowngradesEnabled Off refuses every downgrade whatever a version allows.
 	DowngradesEnabled bool `json:"downgradesEnabled"`
+
+	// MaxDeviceLimit Most devices add-ons may take a subscription to; null is no ceiling.
+	MaxDeviceLimit *int `json:"maxDeviceLimit,omitempty"`
 
 	// PaidTag Remnawave user tag once paid when the plan names none; empty for none.
 	PaidTag *string `json:"paidTag,omitempty"`

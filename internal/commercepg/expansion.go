@@ -545,7 +545,56 @@ func (store *Store) priceInitialAddons(ctx context.Context, queries *dbgen.Queri
 		total += charge.ChargedMinor
 		priced = append(priced, pricedAddon{row: row, charge: charge})
 	}
+	maxDevices, err := store.maxDeviceLimit(ctx, queries)
+	if err != nil {
+		return nil, 0, err
+	}
+	limits := commerce.AddonLimits{MaxDevices: maxDevices, MaxBoughtTraffic: optionalInt64(plan.MaxAddonTrafficBytes)}
+	if err = checkPricedLimits(limits, plan.DeviceLimit, priced); err != nil {
+		return nil, 0, err
+	}
 	return priced, total, nil
+}
+
+// maxDeviceLimit reads the installation's device ceiling, nil for none.
+func (store *Store) maxDeviceLimit(ctx context.Context, queries *dbgen.Queries) (*int, error) {
+	row, err := queries.GetSubscriptionPolicy(ctx)
+	if errors.Is(err, pgx.ErrNoRows) || err == nil && !row.MaxDeviceLimit.Valid {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	value := int(row.MaxDeviceLimit.Int32)
+	return &value, nil
+}
+
+// checkPricedLimits totals what the priced lines add and refuses it when it
+// would cross a cap.
+func checkPricedLimits(limits commerce.AddonLimits, deviceLimit pgtype.Int4, priced []pricedAddon) error {
+	slots, traffic := 0, int64(0)
+	for _, line := range priced {
+		capacity := commerce.Capacity(line.row.TrafficBytes.Int64, int(line.row.DeviceSlots.Int32), line.charge.Quantity, nil)
+		slots += capacity.DeviceSlots
+		traffic += capacity.TrafficBytes
+	}
+	var devices *int
+	if deviceLimit.Valid {
+		value := int(deviceLimit.Int32)
+		devices = &value
+	}
+	if err := commerce.CheckAddonLimits(limits, devices, slots, traffic); err != nil {
+		return fmt.Errorf("%w: %w", ErrAddonUnavailable, err)
+	}
+	return nil
+}
+
+func optionalInt64(value pgtype.Int8) *int64 {
+	if !value.Valid {
+		return nil
+	}
+	result := value.Int64
+	return &result
 }
 
 // addonVersionForPlan resolves one add-on version and refuses anything the plan
@@ -634,6 +683,20 @@ func (store *Store) priceAddons(ctx context.Context, queries *dbgen.Queries, ent
 		subtotal += charge.ChargedMinor
 		priced = append(priced, pricedAddon{row: row, charge: charge})
 	}
+	bounds, err := queries.GetAddonLimits(ctx, entitlement.ID)
+	if err != nil {
+		return nil, 0, err
+	}
+	limits := commerce.AddonLimits{
+		MaxBoughtTraffic: optionalInt64(bounds.MaxAddonTrafficBytes), BoughtTraffic: bounds.BoughtTrafficBytes,
+	}
+	if bounds.MaxDeviceLimit.Valid {
+		value := int(bounds.MaxDeviceLimit.Int32)
+		limits.MaxDevices = &value
+	}
+	if err = checkPricedLimits(limits, entitlement.DeviceLimit, priced); err != nil {
+		return nil, 0, err
+	}
 	return priced, subtotal, nil
 }
 
@@ -656,7 +719,7 @@ func (store *Store) applyAddonLines(ctx context.Context, queries *dbgen.Queries,
 			return entitlement, versionErr
 		}
 		capacity := commerce.Capacity(row.TrafficBytes.Int64, int(row.DeviceSlots.Int32), int(line.Quantity), databaseutil.UUIDStrings(row.RemnawaveSquadIds))
-		_, insertErr := queries.InsertEntitlementAddon(ctx, dbgen.InsertEntitlementAddonParams{
+		inserted, insertErr := queries.InsertEntitlementAddon(ctx, dbgen.InsertEntitlementAddonParams{
 			EntitlementID: entitlement.ID, OrderID: order.ID, AddonVersionID: line.AddonVersionID,
 			Quantity:          line.Quantity,
 			TrafficBytes:      pgtype.Int8{Int64: capacity.TrafficBytes, Valid: row.TrafficBytes.Valid},
@@ -668,6 +731,11 @@ func (store *Store) applyAddonLines(ctx context.Context, queries *dbgen.Queries,
 			continue
 		}
 		if insertErr != nil {
+			return entitlement, insertErr
+		}
+		// A pack with a lifetime starts counting down now; the maintenance
+		// pass takes it back off the entitlement when it runs out.
+		if insertErr = queries.StartAddonLifetime(ctx, inserted.ID); insertErr != nil {
 			return entitlement, insertErr
 		}
 		applied = true

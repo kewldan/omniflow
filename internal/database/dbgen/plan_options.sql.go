@@ -11,6 +11,59 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const expireTrafficPack = `-- name: ExpireTrafficPack :one
+UPDATE entitlement_addons SET expired_at = now()
+WHERE id = $1 AND expired_at IS NULL
+RETURNING id, entitlement_id, order_id, addon_version_id, quantity, traffic_bytes, device_slots, remnawave_squad_ids, applied_at, expires_at, expired_at
+`
+
+// Marks one pack as taken back. The predicate makes a replayed pass match
+// nothing, so the traffic is subtracted once.
+func (q *Queries) ExpireTrafficPack(ctx context.Context, entitlementAddonID pgtype.UUID) (EntitlementAddon, error) {
+	row := q.db.QueryRow(ctx, expireTrafficPack, entitlementAddonID)
+	var i EntitlementAddon
+	err := row.Scan(
+		&i.ID,
+		&i.EntitlementID,
+		&i.OrderID,
+		&i.AddonVersionID,
+		&i.Quantity,
+		&i.TrafficBytes,
+		&i.DeviceSlots,
+		&i.RemnawaveSquadIds,
+		&i.AppliedAt,
+		&i.ExpiresAt,
+		&i.ExpiredAt,
+	)
+	return i, err
+}
+
+const getAddonLimits = `-- name: GetAddonLimits :one
+SELECT v.max_addon_traffic_bytes,
+       COALESCE((SELECT sum(ea.traffic_bytes) FROM entitlement_addons ea
+                 WHERE ea.entitlement_id = e.id AND ea.expired_at IS NULL), 0)::bigint AS bought_traffic_bytes,
+       (SELECT sp.max_device_limit FROM subscription_policy sp WHERE sp.singleton) AS max_device_limit
+FROM entitlements e
+JOIN plan_versions v ON v.id = e.plan_version_id
+WHERE e.id = $1
+`
+
+type GetAddonLimitsRow struct {
+	MaxAddonTrafficBytes pgtype.Int8 `json:"max_addon_traffic_bytes"`
+	BoughtTrafficBytes   int64       `json:"bought_traffic_bytes"`
+	MaxDeviceLimit       pgtype.Int4 `json:"max_device_limit"`
+}
+
+// What bounds an add-on purchase against one entitlement: the version's cap
+// on bought traffic, what is already bought and still counting, and the
+// installation's device ceiling.
+func (q *Queries) GetAddonLimits(ctx context.Context, entitlementID pgtype.UUID) (GetAddonLimitsRow, error) {
+	row := q.db.QueryRow(ctx, getAddonLimits, entitlementID)
+	var i GetAddonLimitsRow
+	err := row.Scan(&i.MaxAddonTrafficBytes, &i.BoughtTrafficBytes, &i.MaxDeviceLimit)
+	return i, err
+}
+
 const getHeldPlanKind = `-- name: GetHeldPlanKind :one
 SELECT p.kind
 FROM entitlements e
@@ -65,7 +118,7 @@ func (q *Queries) GetProvisioningProfile(ctx context.Context, planVersionID pgty
 }
 
 const getSubscriptionPolicy = `-- name: GetSubscriptionPolicy :one
-SELECT singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag, trial_disabled_methods, trial_warning_hours FROM subscription_policy WHERE singleton
+SELECT singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag, trial_disabled_methods, trial_warning_hours, max_device_limit FROM subscription_policy WHERE singleton
 `
 
 // The migration seeds the row, so it is always there.
@@ -86,6 +139,7 @@ func (q *Queries) GetSubscriptionPolicy(ctx context.Context) (SubscriptionPolicy
 		&i.PaidTag,
 		&i.TrialDisabledMethods,
 		&i.TrialWarningHours,
+		&i.MaxDeviceLimit,
 	)
 	return i, err
 }
@@ -119,6 +173,35 @@ func (q *Queries) InsertPlanVersionSquad(ctx context.Context, arg InsertPlanVers
 	return err
 }
 
+const listDueTrafficPacks = `-- name: ListDueTrafficPacks :many
+SELECT ea.id FROM entitlement_addons ea
+JOIN entitlements e ON e.id = ea.entitlement_id
+WHERE ea.expires_at <= now() AND ea.expired_at IS NULL
+  AND e.status NOT IN ('superseded', 'expired', 'failed')
+ORDER BY ea.expires_at
+LIMIT $1
+`
+
+func (q *Queries) ListDueTrafficPacks(ctx context.Context, rowLimit int32) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, listDueTrafficPacks, rowLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []pgtype.UUID{}
+	for rows.Next() {
+		var id pgtype.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPlanVersionAddonIDs = `-- name: ListPlanVersionAddonIDs :many
 SELECT addon_id FROM plan_version_addons WHERE plan_version_id = $1 ORDER BY addon_id
 `
@@ -141,6 +224,49 @@ func (q *Queries) ListPlanVersionAddonIDs(ctx context.Context, planVersionID pgt
 		return nil, err
 	}
 	return items, nil
+}
+
+const setAddonVersionLifetime = `-- name: SetAddonVersionLifetime :exec
+UPDATE addon_versions SET lifetime_days = $1
+WHERE id = $2
+`
+
+type SetAddonVersionLifetimeParams struct {
+	LifetimeDays   pgtype.Int4 `json:"lifetime_days"`
+	AddonVersionID pgtype.UUID `json:"addon_version_id"`
+}
+
+func (q *Queries) SetAddonVersionLifetime(ctx context.Context, arg SetAddonVersionLifetimeParams) error {
+	_, err := q.db.Exec(ctx, setAddonVersionLifetime, arg.LifetimeDays, arg.AddonVersionID)
+	return err
+}
+
+const setMaxDeviceLimit = `-- name: SetMaxDeviceLimit :one
+UPDATE subscription_policy SET max_device_limit = $1, updated_at = now()
+WHERE singleton
+RETURNING singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag, trial_disabled_methods, trial_warning_hours, max_device_limit
+`
+
+func (q *Queries) SetMaxDeviceLimit(ctx context.Context, maxDeviceLimit pgtype.Int4) (SubscriptionPolicy, error) {
+	row := q.db.QueryRow(ctx, setMaxDeviceLimit, maxDeviceLimit)
+	var i SubscriptionPolicy
+	err := row.Scan(
+		&i.Singleton,
+		&i.UpgradesEnabled,
+		&i.DowngradesEnabled,
+		&i.ResetTrafficOnRenewal,
+		&i.ResetTrafficOnPlanChange,
+		&i.ResetDevicesOnRenewal,
+		&i.TrialRemainder,
+		&i.UpdatedAt,
+		&i.UpdatedBy,
+		&i.TrialTag,
+		&i.PaidTag,
+		&i.TrialDisabledMethods,
+		&i.TrialWarningHours,
+		&i.MaxDeviceLimit,
+	)
+	return i, err
 }
 
 const setPlanRemnawaveTag = `-- name: SetPlanRemnawaveTag :one
@@ -172,6 +298,21 @@ func (q *Queries) SetPlanRemnawaveTag(ctx context.Context, arg SetPlanRemnawaveT
 	return i, err
 }
 
+const setPlanVersionAddonTrafficCap = `-- name: SetPlanVersionAddonTrafficCap :exec
+UPDATE plan_versions SET max_addon_traffic_bytes = $1
+WHERE id = $2
+`
+
+type SetPlanVersionAddonTrafficCapParams struct {
+	MaxAddonTrafficBytes pgtype.Int8 `json:"max_addon_traffic_bytes"`
+	PlanVersionID        pgtype.UUID `json:"plan_version_id"`
+}
+
+func (q *Queries) SetPlanVersionAddonTrafficCap(ctx context.Context, arg SetPlanVersionAddonTrafficCapParams) error {
+	_, err := q.db.Exec(ctx, setPlanVersionAddonTrafficCap, arg.MaxAddonTrafficBytes, arg.PlanVersionID)
+	return err
+}
+
 const setPlanVersionRemnawaveProfile = `-- name: SetPlanVersionRemnawaveProfile :exec
 UPDATE plan_versions
 SET traffic_reset_strategy = $1,
@@ -195,7 +336,7 @@ const setPolicyTags = `-- name: SetPolicyTags :one
 UPDATE subscription_policy
 SET trial_tag = $1, paid_tag = $2, updated_at = now()
 WHERE singleton
-RETURNING singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag, trial_disabled_methods, trial_warning_hours
+RETURNING singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag, trial_disabled_methods, trial_warning_hours, max_device_limit
 `
 
 type SetPolicyTagsParams struct {
@@ -220,6 +361,7 @@ func (q *Queries) SetPolicyTags(ctx context.Context, arg SetPolicyTagsParams) (S
 		&i.PaidTag,
 		&i.TrialDisabledMethods,
 		&i.TrialWarningHours,
+		&i.MaxDeviceLimit,
 	)
 	return i, err
 }
@@ -230,7 +372,7 @@ SET trial_disabled_methods = $1::text[],
     trial_warning_hours = $2,
     updated_at = now()
 WHERE singleton
-RETURNING singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag, trial_disabled_methods, trial_warning_hours
+RETURNING singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag, trial_disabled_methods, trial_warning_hours, max_device_limit
 `
 
 type SetTrialPolicyParams struct {
@@ -255,6 +397,61 @@ func (q *Queries) SetTrialPolicy(ctx context.Context, arg SetTrialPolicyParams) 
 		&i.PaidTag,
 		&i.TrialDisabledMethods,
 		&i.TrialWarningHours,
+		&i.MaxDeviceLimit,
+	)
+	return i, err
+}
+
+const startAddonLifetime = `-- name: StartAddonLifetime :exec
+UPDATE entitlement_addons ea
+SET expires_at = ea.applied_at + make_interval(days => av.lifetime_days)
+FROM addon_versions av
+WHERE ea.id = $1 AND av.id = ea.addon_version_id
+  AND av.lifetime_days IS NOT NULL AND ea.traffic_bytes IS NOT NULL
+`
+
+// A pack with a lifetime stops counting that many days after it is applied.
+func (q *Queries) StartAddonLifetime(ctx context.Context, entitlementAddonID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, startAddonLifetime, entitlementAddonID)
+	return err
+}
+
+const subtractEntitlementTraffic = `-- name: SubtractEntitlementTraffic :one
+UPDATE entitlements
+SET traffic_allowance_bytes = CASE WHEN traffic_allowance_bytes IS NULL THEN NULL
+      ELSE greatest(traffic_allowance_bytes - $1::bigint, 0) END,
+    updated_at = now()
+WHERE id = $2
+RETURNING id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id, paused_at, paused_seconds
+`
+
+type SubtractEntitlementTrafficParams struct {
+	TrafficBytes  int64       `json:"traffic_bytes"`
+	EntitlementID pgtype.UUID `json:"entitlement_id"`
+}
+
+func (q *Queries) SubtractEntitlementTraffic(ctx context.Context, arg SubtractEntitlementTrafficParams) (Entitlement, error) {
+	row := q.db.QueryRow(ctx, subtractEntitlementTraffic, arg.TrafficBytes, arg.EntitlementID)
+	var i Entitlement
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.OrderID,
+		&i.PlanVersionID,
+		&i.Status,
+		&i.StartsAt,
+		&i.EndsAt,
+		&i.TrafficAllowanceBytes,
+		&i.DeviceLimit,
+		&i.RemnawaveSquadIds,
+		&i.RemnawaveUserID,
+		&i.ObservedState,
+		&i.ReconciledAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SubscriptionID,
+		&i.PausedAt,
+		&i.PausedSeconds,
 	)
 	return i, err
 }
@@ -270,7 +467,7 @@ SET upgrades_enabled = $1,
     updated_at = now(),
     updated_by = $7
 WHERE singleton
-RETURNING singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag, trial_disabled_methods, trial_warning_hours
+RETURNING singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag, trial_disabled_methods, trial_warning_hours, max_device_limit
 `
 
 type UpdateSubscriptionPolicyParams struct {
@@ -308,6 +505,7 @@ func (q *Queries) UpdateSubscriptionPolicy(ctx context.Context, arg UpdateSubscr
 		&i.PaidTag,
 		&i.TrialDisabledMethods,
 		&i.TrialWarningHours,
+		&i.MaxDeviceLimit,
 	)
 	return i, err
 }

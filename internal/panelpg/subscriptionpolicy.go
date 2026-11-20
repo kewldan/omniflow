@@ -25,9 +25,12 @@ type SubscriptionPolicy struct {
 	// TrialDisabledMethods are the sign-in methods (telegram, email, oidc)
 	// that do not qualify for a trial; TrialWarningHours is how long before a
 	// trial ends the customer is told, zero for never.
-	TrialDisabledMethods []string  `json:"trialDisabledMethods"`
-	TrialWarningHours    int32     `json:"trialWarningHours"`
-	UpdatedAt            time.Time `json:"updatedAt"`
+	TrialDisabledMethods []string `json:"trialDisabledMethods"`
+	TrialWarningHours    int32    `json:"trialWarningHours"`
+	// MaxDeviceLimit is the most devices any subscription may reach through
+	// add-ons; nil is no ceiling.
+	MaxDeviceLimit *int32    `json:"maxDeviceLimit"`
+	UpdatedAt      time.Time `json:"updatedAt"`
 }
 
 var validTrialRemainder = map[string]bool{"policy": true, "carry": true, "reset": true}
@@ -61,7 +64,8 @@ func (service *Service) SaveSubscriptionPolicy(
 	if err != nil {
 		return SubscriptionPolicy{}, err
 	}
-	if policy.TrialWarningHours < 0 || policy.TrialWarningHours > 168 {
+	if policy.TrialWarningHours < 0 || policy.TrialWarningHours > 168 ||
+		policy.MaxDeviceLimit != nil && *policy.MaxDeviceLimit < 1 {
 		return SubscriptionPolicy{}, ErrValidaton
 	}
 	methods := make([]string, 0, len(policy.TrialDisabledMethods))
@@ -91,9 +95,12 @@ func (service *Service) SaveSubscriptionPolicy(
 		if _, txErr := queries.SetPolicyTags(ctx, dbgen.SetPolicyTagsParams{TrialTag: trialTag, PaidTag: paidTag}); txErr != nil {
 			return txErr
 		}
-		row, txErr := queries.SetTrialPolicy(ctx, dbgen.SetTrialPolicyParams{
+		if _, txErr := queries.SetTrialPolicy(ctx, dbgen.SetTrialPolicyParams{
 			TrialDisabledMethods: methods, TrialWarningHours: policy.TrialWarningHours,
-		})
+		}); txErr != nil {
+			return txErr
+		}
+		row, txErr := queries.SetMaxDeviceLimit(ctx, optionalInt4(policy.MaxDeviceLimit))
 		if txErr != nil {
 			return txErr
 		}
@@ -118,6 +125,7 @@ func subscriptionPolicyFrom(row dbgen.SubscriptionPolicy) SubscriptionPolicy {
 		PaidTag:                  row.PaidTag.String,
 		TrialDisabledMethods:     row.TrialDisabledMethods,
 		TrialWarningHours:        row.TrialWarningHours,
+		MaxDeviceLimit:           int4Pointer(row.MaxDeviceLimit),
 		UpdatedAt:                timeValue(row.UpdatedAt),
 	}
 }

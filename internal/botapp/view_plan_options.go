@@ -20,6 +20,10 @@ var planOptionPhrases = map[string]phrase{
 		en: "⏳ Your trial of “%s” ends in %s. Pick a plan to keep your access.",
 	},
 	"trial.hours": {ru: "%s ч", en: "%s h"},
+	"addon.limit": {
+		ru: "Это дополнение превысит лимит подписки: устройств или докупленного трафика.",
+		en: "That add-on would go past this subscription's limit on devices or bought traffic.",
+	},
 }
 
 func init() {

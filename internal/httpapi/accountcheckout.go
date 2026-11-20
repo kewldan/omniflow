@@ -956,6 +956,11 @@ func (handlers *AccountHandlers) writeCheckoutError(
 		)
 	case errors.Is(err, commercepg.ErrSubscriptionUnknown):
 		writeProblem(writer, request, http.StatusNotFound, "not_found", "That subscription was not found")
+	case errors.Is(err, commerce.ErrAddonLimit):
+		writeProblem(
+			writer, request, http.StatusUnprocessableEntity,
+			"addon_limit_reached", "That add-on would go past the limit for this subscription",
+		)
 	case errors.Is(err, commercepg.ErrAddonNotApplicable):
 		writeProblem(
 			writer, request, http.StatusUnprocessableEntity,

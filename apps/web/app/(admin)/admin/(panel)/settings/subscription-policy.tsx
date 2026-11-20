@@ -28,6 +28,7 @@ export type SubscriptionPolicy = {
   paidTag: string;
   trialDisabledMethods?: string[];
   trialWarningHours?: number;
+  maxDeviceLimit?: number | null;
   updatedAt?: string;
 };
 
@@ -88,6 +89,7 @@ function PolicyForm({
   const translateSettings = useTranslations("admin.settings");
   const [draft, setDraft] = useState<SubscriptionPolicy>(policy);
   const [hours, setHours] = useState(String(policy.trialWarningHours ?? 0));
+  const [maxDevices, setMaxDevices] = useState(String(policy.maxDeviceLimit ?? ""));
   const { run, pending, error } = useOperatorAction();
   const remainderId = useId();
 
@@ -177,6 +179,17 @@ function PolicyForm({
             {translate("trialDisabledMethodsHint")}
           </span>
         </fieldset>
+        <FormField hint={translate("maxDeviceLimitHint")} label={translate("maxDeviceLimit")}>
+          {(props) => (
+            <Input
+              {...props}
+              inputMode="numeric"
+              onChange={(event) => setMaxDevices(event.target.value)}
+              readOnly={!editable}
+              value={maxDevices}
+            />
+          )}
+        </FormField>
         <FormField hint={translate("trialWarningHoursHint")} label={translate("trialWarningHours")}>
           {(props) => (
             <Input
@@ -195,7 +208,12 @@ function PolicyForm({
             disabled={pending}
             onClick={async () => {
               const ok = await run("/v1/panel/settings/subscription-policy", {
-                body: { ...draft, trialWarningHours: Number.parseInt(hours || "0", 10) || 0 },
+                body: {
+                  ...draft,
+                  maxDeviceLimit:
+                    Number.parseInt(maxDevices, 10) > 0 ? Number.parseInt(maxDevices, 10) : null,
+                  trialWarningHours: Number.parseInt(hours || "0", 10) || 0,
+                },
                 method: "PUT",
               });
               if (ok) {

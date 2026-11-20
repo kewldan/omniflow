@@ -914,7 +914,7 @@ func (q *Queries) FailOperatorTopic(ctx context.Context, arg FailOperatorTopicPa
 }
 
 const getAddonVersionForOrder = `-- name: GetAddonVersionForOrder :one
-SELECT a.id AS addon_id, a.code, a.kind, a.archived_at, v.id, v.addon_id, v.version, v.traffic_bytes, v.device_slots, v.remnawave_squad_ids, v.max_quantity, v.proration, v.created_at, v.retired_at, pr.currency, pr.amount_minor
+SELECT a.id AS addon_id, a.code, a.kind, a.archived_at, v.id, v.addon_id, v.version, v.traffic_bytes, v.device_slots, v.remnawave_squad_ids, v.max_quantity, v.proration, v.created_at, v.retired_at, v.lifetime_days, pr.currency, pr.amount_minor
 FROM addon_versions v
 JOIN addons a ON a.id = v.addon_id
 JOIN addon_prices pr ON pr.addon_version_id = v.id
@@ -941,6 +941,7 @@ type GetAddonVersionForOrderRow struct {
 	Proration         string             `json:"proration"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	RetiredAt         pgtype.Timestamptz `json:"retired_at"`
+	LifetimeDays      pgtype.Int4        `json:"lifetime_days"`
 	Currency          string             `json:"currency"`
 	AmountMinor       int64              `json:"amount_minor"`
 }
@@ -963,6 +964,7 @@ func (q *Queries) GetAddonVersionForOrder(ctx context.Context, arg GetAddonVersi
 		&i.Proration,
 		&i.CreatedAt,
 		&i.RetiredAt,
+		&i.LifetimeDays,
 		&i.Currency,
 		&i.AmountMinor,
 	)
@@ -1292,7 +1294,7 @@ INSERT INTO entitlement_addons (
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7)
 ON CONFLICT (order_id, addon_version_id) DO NOTHING
-RETURNING id, entitlement_id, order_id, addon_version_id, quantity, traffic_bytes, device_slots, remnawave_squad_ids, applied_at
+RETURNING id, entitlement_id, order_id, addon_version_id, quantity, traffic_bytes, device_slots, remnawave_squad_ids, applied_at, expires_at, expired_at
 `
 
 type InsertEntitlementAddonParams struct {
@@ -1326,6 +1328,8 @@ func (q *Queries) InsertEntitlementAddon(ctx context.Context, arg InsertEntitlem
 		&i.DeviceSlots,
 		&i.RemnawaveSquadIds,
 		&i.AppliedAt,
+		&i.ExpiresAt,
+		&i.ExpiredAt,
 	)
 	return i, err
 }
@@ -1684,7 +1688,7 @@ FROM plan_version_addons pa
 JOIN addons a ON a.id = pa.addon_id
 JOIN addon_localizations l ON l.addon_id = a.id AND l.locale = $1
 JOIN LATERAL (
-  SELECT id, addon_id, version, traffic_bytes, device_slots, remnawave_squad_ids, max_quantity, proration, created_at, retired_at FROM addon_versions av
+  SELECT id, addon_id, version, traffic_bytes, device_slots, remnawave_squad_ids, max_quantity, proration, created_at, retired_at, lifetime_days FROM addon_versions av
   WHERE av.addon_id = a.id AND av.retired_at IS NULL
   ORDER BY av.version DESC LIMIT 1
 ) v ON true

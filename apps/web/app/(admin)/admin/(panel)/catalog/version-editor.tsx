@@ -94,6 +94,8 @@ const schema = z.object({
   externalSquadId: z.array(z.string()),
   trafficResetStrategy: z.string(),
   trafficGb: decimalNumber({ min: 0, optional: true }),
+  // The most traffic add-ons may add to one subscription; empty is no cap.
+  addonTrafficCapGb: decimalNumber({ min: 0, optional: true }),
   trialEligibility: z.string(),
   upgradePolicy: z.string(),
 });
@@ -175,6 +177,9 @@ function defaults(current?: PlanVersion): Values {
     squadSelection: (SQUAD_SELECTIONS as readonly string[]).includes(current?.squadSelection ?? "")
       ? (current?.squadSelection ?? "automatic")
       : "automatic",
+    addonTrafficCapGb: current?.maxAddonTrafficBytes
+      ? String(current.maxAddonTrafficBytes / GIBIBYTE)
+      : "",
     trafficGb: current?.trafficAllowanceBytes
       ? String(current.trafficAllowanceBytes / GIBIBYTE)
       : "",
@@ -240,6 +245,10 @@ function VersionForm({
           const gigabytes = readDecimal(values.trafficGb);
           return gigabytes === null ? null : Math.round(gigabytes * GIBIBYTE);
         })(),
+        maxAddonTrafficBytes: (() => {
+          const gigabytes = readDecimal(values.addonTrafficCapGb);
+          return gigabytes === null || gigabytes <= 0 ? null : Math.round(gigabytes * GIBIBYTE);
+        })(),
         trialEligibility: values.trialEligibility,
         upgradePolicy: values.upgradePolicy,
       },
@@ -299,6 +308,15 @@ function VersionForm({
                 label={translate("devices")}
               >
                 {(props) => <Input {...props} inputMode="numeric" {...register("deviceLimit")} />}
+              </FormField>
+              <FormField
+                error={errors.addonTrafficCapGb?.message}
+                hint={translate("addonTrafficCapHint")}
+                label={translate("addonTrafficCap")}
+              >
+                {(props) => (
+                  <Input {...props} inputMode="decimal" {...register("addonTrafficCapGb")} />
+                )}
               </FormField>
             </div>
 

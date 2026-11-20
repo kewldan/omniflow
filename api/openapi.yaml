@@ -6186,6 +6186,7 @@ components:
         addonIds: {type: array, nullable: true, items: {type: string, format: uuid}}
         trafficResetStrategy: {type: string, enum: [NO_RESET, DAY, WEEK, MONTH, MONTH_ROLLING]}
         externalSquadId: {type: string, format: uuid}
+        maxAddonTrafficBytes: {type: integer, format: int64}
     PanelOfferedSquad:
       type: object
       required: [squadId, labelRu, labelEn]
@@ -6216,6 +6217,7 @@ components:
         addonIds: {type: array, items: {type: string, format: uuid}, description: The add-ons sold with the version; the set is replaced.}
         trafficResetStrategy: {type: string, enum: [NO_RESET, DAY, WEEK, MONTH, MONTH_ROLLING], description: Remnawave trafficLimitStrategy; empty is NO_RESET.}
         externalSquadId: {type: string, description: A Remnawave external squad UUID; empty for none.}
+        maxAddonTrafficBytes: {type: integer, format: int64, minimum: 1, nullable: true, description: Most traffic add-ons may add to one entitlement; null is no cap.}
     PanelPlanOptions:
       type: object
       properties:
@@ -6488,6 +6490,7 @@ components:
         paidTag: {type: string, description: Remnawave user tag once paid when the plan names none; empty for none.}
         trialDisabledMethods: {type: array, items: {type: string, enum: [telegram, email, oidc]}, description: A customer whose every sign-in method is listed is refused a trial.}
         trialWarningHours: {type: integer, minimum: 0, maximum: 168, description: Hours before a trial ends that the bot warns; zero for never.}
+        maxDeviceLimit: {type: integer, minimum: 1, nullable: true, description: Most devices add-ons may take a subscription to; null is no ceiling.}
         updatedAt: {type: string, format: date-time, readOnly: true}
     ThemeDocument:
       type: object

@@ -104,6 +104,8 @@ const composerSchema = z
   .object({
     code: requiredText(64),
     kind: z.string(),
+    // How many days a traffic pack lasts; empty lasts the subscription period.
+    lifetimeDays: wholeNumber({ max: 3650, min: 1, optional: true }),
     maxQuantity: wholeNumber({ max: 1000, min: 1 }),
     nameEn: requiredText(),
     nameRu: requiredText(),
@@ -170,6 +172,7 @@ function AddonComposer({ onSaved }: { onSaved: () => void }) {
     defaultValues: {
       code: "",
       kind: "traffic",
+      lifetimeDays: "",
       maxQuantity: "1",
       nameEn: "",
       nameRu: "",
@@ -195,6 +198,10 @@ function AddonComposer({ onSaved }: { onSaved: () => void }) {
         descriptionRu: "",
         deviceSlots: values.kind === "devices" ? Number(payload) : null,
         kind: values.kind,
+        lifetimeDays:
+          values.kind === "traffic" && values.lifetimeDays.trim() !== ""
+            ? Number(values.lifetimeDays)
+            : null,
         maxQuantity: Number(values.maxQuantity),
         nameEn: values.nameEn.trim(),
         nameRu: values.nameRu.trim(),
@@ -259,6 +266,15 @@ function AddonComposer({ onSaved }: { onSaved: () => void }) {
                 />
               )}
             </FormField>
+            {kind === "traffic" && (
+              <FormField
+                error={errors.lifetimeDays?.message}
+                hint={translate("composer.lifetimeHint")}
+                label={translate("composer.lifetime")}
+              >
+                {(props) => <Input {...props} inputMode="numeric" {...register("lifetimeDays")} />}
+              </FormField>
+            )}
 
             <div className="grid gap-3 sm:grid-cols-2">
               <FormField

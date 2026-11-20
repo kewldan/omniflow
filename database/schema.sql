@@ -431,8 +431,10 @@ CREATE TABLE public.addon_versions (
     proration text DEFAULT 'full_price'::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     retired_at timestamp with time zone,
+    lifetime_days integer,
     CONSTRAINT addon_versions_check CHECK (((traffic_bytes IS NOT NULL) OR (device_slots IS NOT NULL) OR (cardinality(remnawave_squad_ids) > 0))),
     CONSTRAINT addon_versions_device_slots_check CHECK (((device_slots IS NULL) OR (device_slots > 0))),
+    CONSTRAINT addon_versions_lifetime_days_positive CHECK (((lifetime_days IS NULL) OR (lifetime_days > 0))),
     CONSTRAINT addon_versions_max_quantity_check CHECK ((max_quantity > 0)),
     CONSTRAINT addon_versions_proration_check CHECK ((proration = ANY (ARRAY['full_price'::text, 'remaining_period'::text, 'daily_rate'::text]))),
     CONSTRAINT addon_versions_traffic_bytes_check CHECK (((traffic_bytes IS NULL) OR (traffic_bytes > 0))),
@@ -2135,6 +2137,8 @@ CREATE TABLE public.entitlement_addons (
     device_slots integer,
     remnawave_squad_ids uuid[] DEFAULT '{}'::uuid[] NOT NULL,
     applied_at timestamp with time zone DEFAULT now() NOT NULL,
+    expires_at timestamp with time zone,
+    expired_at timestamp with time zone,
     CONSTRAINT entitlement_addons_device_slots_check CHECK (((device_slots IS NULL) OR (device_slots >= 0))),
     CONSTRAINT entitlement_addons_quantity_check CHECK ((quantity > 0)),
     CONSTRAINT entitlement_addons_traffic_bytes_check CHECK (((traffic_bytes IS NULL) OR (traffic_bytes >= 0)))
@@ -3455,12 +3459,14 @@ CREATE TABLE public.plan_versions (
     max_selectable_squads integer,
     traffic_reset_strategy text DEFAULT 'NO_RESET'::text NOT NULL,
     external_squad_id uuid,
+    max_addon_traffic_bytes bigint,
     CONSTRAINT plan_versions_billing_period_check CHECK ((billing_period = ANY (ARRAY['none'::text, 'day'::text, 'week'::text, 'month'::text, 'quarter'::text, 'half_year'::text, 'year'::text, 'custom'::text]))),
     CONSTRAINT plan_versions_cancellation_policy_check CHECK ((cancellation_policy = ANY (ARRAY['forbid'::text, 'immediate'::text, 'at_expiry'::text]))),
     CONSTRAINT plan_versions_device_limit_check CHECK (((device_limit IS NULL) OR (device_limit >= 0))),
     CONSTRAINT plan_versions_downgrade_policy_check CHECK ((downgrade_policy = ANY (ARRAY['forbid'::text, 'immediate'::text, 'at_expiry'::text]))),
     CONSTRAINT plan_versions_duration_seconds_check CHECK ((duration_seconds > 0)),
     CONSTRAINT plan_versions_grace_period_seconds_check CHECK ((grace_period_seconds >= 0)),
+    CONSTRAINT plan_versions_max_addon_traffic_positive CHECK (((max_addon_traffic_bytes IS NULL) OR (max_addon_traffic_bytes > 0))),
     CONSTRAINT plan_versions_max_selectable_squads_check CHECK (((max_selectable_squads IS NULL) OR (max_selectable_squads > 0))),
     CONSTRAINT plan_versions_min_selectable_squads_check CHECK ((min_selectable_squads >= 0)),
     CONSTRAINT plan_versions_selectable_squad_range_check CHECK (((max_selectable_squads IS NULL) OR (max_selectable_squads >= min_selectable_squads))),
@@ -4012,6 +4018,8 @@ CREATE TABLE public.subscription_policy (
     paid_tag text,
     trial_disabled_methods text[] DEFAULT '{}'::text[] NOT NULL,
     trial_warning_hours integer DEFAULT 0 NOT NULL,
+    max_device_limit integer,
+    CONSTRAINT subscription_policy_max_device_limit_positive CHECK (((max_device_limit IS NULL) OR (max_device_limit > 0))),
     CONSTRAINT subscription_policy_paid_tag_shape CHECK ((paid_tag ~ '^[A-Z0-9_]{1,16}$'::text)),
     CONSTRAINT subscription_policy_singleton CHECK (singleton),
     CONSTRAINT subscription_policy_trial_methods_known CHECK ((trial_disabled_methods <@ ARRAY['telegram'::text, 'email'::text, 'oidc'::text])),
@@ -6984,6 +6992,13 @@ CREATE INDEX email_outbox_due_idx ON public.email_outbox USING btree (next_attem
 --
 
 CREATE INDEX email_outbox_marketing_sent_idx ON public.email_outbox USING btree (user_id, sent_at) WHERE ((class = 'marketing'::text) AND (status = 'sent'::text));
+
+
+--
+-- Name: entitlement_addons_due_expiry_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX entitlement_addons_due_expiry_idx ON public.entitlement_addons USING btree (expires_at) WHERE ((expires_at IS NOT NULL) AND (expired_at IS NULL));
 
 
 --

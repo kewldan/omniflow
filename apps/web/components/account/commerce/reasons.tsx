@@ -107,6 +107,7 @@ const PROBLEMS = [
   "trial_trial_already_used",
   "upstream_unavailable",
   "addon_not_applicable",
+  "addon_limit_reached",
   "trial_sign_in_method",
   "recurring_unavailable",
   "no_saved_method",

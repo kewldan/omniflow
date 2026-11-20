@@ -1803,7 +1803,9 @@
           "MONTH_ROLLING": "Every month from the purchase"
         },
         "externalSquad": "External squad",
-        "externalSquadHint": "Shapes the subscription page and client configuration in Remnawave. Leave empty for none."
+        "externalSquadHint": "Shapes the subscription page and client configuration in Remnawave. Leave empty for none.",
+        "addonTrafficCap": "Most traffic add-ons may add (GB)",
+        "addonTrafficCapHint": "Per subscription period. Leave empty for no cap."
       },
       "addons": {
         "create": "New add-on",
@@ -1849,7 +1851,9 @@
           "visible": "Offer this add-on to customers",
           "reason": "Reason",
           "immutability": "Both languages are required. Saving publishes a new version; orders already placed keep the version they were bought at.",
-          "submit": "Save add-on"
+          "submit": "Save add-on",
+          "lifetime": "Pack lasts (days)",
+          "lifetimeHint": "From the purchase. Empty lasts until the subscription period ends."
         }
       },
       "squadPicker": {
@@ -2250,7 +2254,9 @@
           "oidc": "OpenID Connect (Google, Yandex, VK ID…)"
         },
         "trialWarningHours": "Warn before a trial ends (hours)",
-        "trialWarningHoursHint": "The bot sends one extra notice this many hours before the end. Zero sends none; at most 168."
+        "trialWarningHoursHint": "The bot sends one extra notice this many hours before the end. Zero sends none; at most 168.",
+        "maxDeviceLimit": "Most devices per subscription",
+        "maxDeviceLimitHint": "Device add-ons cannot take a subscription past this. Empty is no ceiling."
       }
     },
     "nav": {
@@ -4841,7 +4847,8 @@
         "addon_not_applicable": "That extra would add nothing: this subscription has no limit for it.",
         "recurring_unavailable": "No payment method can renew this subscription automatically.",
         "no_saved_method": "Save a card on a payment first, then choose it here.",
-        "trial_sign_in_method": "The trial is not available for the way this account signs in."
+        "trial_sign_in_method": "The trial is not available for the way this account signs in.",
+        "addon_limit_reached": "That extra would go past this subscription's limit on devices or bought traffic."
       },
       "breakdown": {
         "subtotal": "Plan",

@@ -1298,6 +1298,7 @@ func (handlers *AdminHandlers) saveAddon(writer http.ResponseWriter, request *ht
 		SquadIDs      []string         `json:"squadIds"`
 		MaxQuantity   int32            `json:"maxQuantity"`
 		Proration     string           `json:"proration"`
+		LifetimeDays  *int32           `json:"lifetimeDays"`
 		Prices        map[string]int64 `json:"prices"`
 	}
 	if !decodeJSON(writer, request, &body) {
@@ -1309,7 +1310,7 @@ func (handlers *AdminHandlers) saveAddon(writer http.ResponseWriter, request *ht
 		DescriptionEN: body.DescriptionEN, DescriptionRU: body.DescriptionRU,
 		TrafficBytes: body.TrafficBytes, DeviceSlots: body.DeviceSlots,
 		SquadIDs: body.SquadIDs, MaxQuantity: body.MaxQuantity,
-		Proration: body.Proration, Prices: body.Prices,
+		Proration: body.Proration, Prices: body.Prices, LifetimeDays: body.LifetimeDays,
 	}, actorFrom(request))
 	handlers.respond(writer, request, map[string]any{"id": addonID}, err)
 }

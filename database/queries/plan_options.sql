@@ -73,3 +73,59 @@ SET trial_disabled_methods = sqlc.arg(trial_disabled_methods)::text[],
     updated_at = now()
 WHERE singleton
 RETURNING *;
+
+-- name: SetMaxDeviceLimit :one
+UPDATE subscription_policy SET max_device_limit = sqlc.narg(max_device_limit), updated_at = now()
+WHERE singleton
+RETURNING *;
+
+-- name: SetPlanVersionAddonTrafficCap :exec
+UPDATE plan_versions SET max_addon_traffic_bytes = sqlc.narg(max_addon_traffic_bytes)
+WHERE id = sqlc.arg(plan_version_id);
+
+-- name: SetAddonVersionLifetime :exec
+UPDATE addon_versions SET lifetime_days = sqlc.narg(lifetime_days)
+WHERE id = sqlc.arg(addon_version_id);
+
+-- name: GetAddonLimits :one
+-- What bounds an add-on purchase against one entitlement: the version's cap
+-- on bought traffic, what is already bought and still counting, and the
+-- installation's device ceiling.
+SELECT v.max_addon_traffic_bytes,
+       COALESCE((SELECT sum(ea.traffic_bytes) FROM entitlement_addons ea
+                 WHERE ea.entitlement_id = e.id AND ea.expired_at IS NULL), 0)::bigint AS bought_traffic_bytes,
+       (SELECT sp.max_device_limit FROM subscription_policy sp WHERE sp.singleton) AS max_device_limit
+FROM entitlements e
+JOIN plan_versions v ON v.id = e.plan_version_id
+WHERE e.id = sqlc.arg(entitlement_id);
+
+-- name: StartAddonLifetime :exec
+-- A pack with a lifetime stops counting that many days after it is applied.
+UPDATE entitlement_addons ea
+SET expires_at = ea.applied_at + make_interval(days => av.lifetime_days)
+FROM addon_versions av
+WHERE ea.id = sqlc.arg(entitlement_addon_id) AND av.id = ea.addon_version_id
+  AND av.lifetime_days IS NOT NULL AND ea.traffic_bytes IS NOT NULL;
+
+-- name: ListDueTrafficPacks :many
+SELECT ea.id FROM entitlement_addons ea
+JOIN entitlements e ON e.id = ea.entitlement_id
+WHERE ea.expires_at <= now() AND ea.expired_at IS NULL
+  AND e.status NOT IN ('superseded', 'expired', 'failed')
+ORDER BY ea.expires_at
+LIMIT sqlc.arg(row_limit);
+
+-- name: ExpireTrafficPack :one
+-- Marks one pack as taken back. The predicate makes a replayed pass match
+-- nothing, so the traffic is subtracted once.
+UPDATE entitlement_addons SET expired_at = now()
+WHERE id = sqlc.arg(entitlement_addon_id) AND expired_at IS NULL
+RETURNING *;
+
+-- name: SubtractEntitlementTraffic :one
+UPDATE entitlements
+SET traffic_allowance_bytes = CASE WHEN traffic_allowance_bytes IS NULL THEN NULL
+      ELSE greatest(traffic_allowance_bytes - sqlc.arg(traffic_bytes)::bigint, 0) END,
+    updated_at = now()
+WHERE id = sqlc.arg(entitlement_id)
+RETURNING *;

@@ -543,6 +543,9 @@ type Querier interface {
 	ExpireGifts(ctx context.Context) ([]Gift, error)
 	ExpirePendingOrders(ctx context.Context) ([]Order, error)
 	ExpirePersonalOffers(ctx context.Context) (int64, error)
+	// Marks one pack as taken back. The predicate makes a replayed pass match
+	// nothing, so the traffic is subtracted once.
+	ExpireTrafficPack(ctx context.Context, entitlementAddonID pgtype.UUID) (EntitlementAddon, error)
 	// The export that answers "which of these were shaped by a model?".
 	ExportAIDecisions(ctx context.Context, arg ExportAIDecisionsParams) ([]ExportAIDecisionsRow, error)
 	// The customer export, in a stable column order.
@@ -593,6 +596,10 @@ type Querier interface {
 	// change a non-event: the subject is the identifier, the address is a claim.
 	GetActiveIdentityBySubject(ctx context.Context, arg GetActiveIdentityBySubjectParams) (GetActiveIdentityBySubjectRow, error)
 	GetActiveOfferForPromotion(ctx context.Context, arg GetActiveOfferForPromotionParams) (PersonalOffer, error)
+	// What bounds an add-on purchase against one entitlement: the version's cap
+	// on bought traffic, what is already bought and still counting, and the
+	// installation's device ceiling.
+	GetAddonLimits(ctx context.Context, entitlementID pgtype.UUID) (GetAddonLimitsRow, error)
 	GetAddonVersionForOrder(ctx context.Context, arg GetAddonVersionForOrderParams) (GetAddonVersionForOrderRow, error)
 	GetAdminInvitationByToken(ctx context.Context, tokenHash []byte) (AdminInvitation, error)
 	GetAdminOIDCIdentity(ctx context.Context, arg GetAdminOIDCIdentityParams) (GetAdminOIDCIdentityRow, error)
@@ -1104,6 +1111,7 @@ type Querier interface {
 	// pending and are delivered when the quiet window ends; excluding them here
 	// rather than skipping them in Go keeps them from filling every batch.
 	ListDueOperatorNotifications(ctx context.Context, arg ListDueOperatorNotificationsParams) ([]OperatorNotification, error)
+	ListDueTrafficPacks(ctx context.Context, rowLimit int32) ([]pgtype.UUID, error)
 	ListDunningAttemptsForCustomer(ctx context.Context, arg ListDunningAttemptsForCustomerParams) ([]DunningAttempt, error)
 	ListEnabledAdminOIDCProviders(ctx context.Context) ([]AdminOidcProvider, error)
 	ListEnabledChannels(ctx context.Context) ([]RequiredChannel, error)
@@ -1965,6 +1973,7 @@ type Querier interface {
 	// there are the starting point; every later change comes from the panel.
 	SeedCommerceSettings(ctx context.Context, arg SeedCommerceSettingsParams) (CommerceSetting, error)
 	SetAIProviderCredentials(ctx context.Context, arg SetAIProviderCredentialsParams) error
+	SetAddonVersionLifetime(ctx context.Context, arg SetAddonVersionLifetimeParams) error
 	// Starts enrolment. `totp_confirmed_at` is deliberately cleared: a secret that
 	// has not been proven by a code cannot satisfy a login challenge. The replay
 	// watermark and failure count belong to the old secret and go with it.
@@ -2008,10 +2017,12 @@ type Querier interface {
 	// writes. Separate from discovery for the reason above.
 	SetMCPToolPolicy(ctx context.Context, arg SetMCPToolPolicyParams) (McpTool, error)
 	SetMaintenanceState(ctx context.Context, arg SetMaintenanceStateParams) (MaintenanceState, error)
+	SetMaxDeviceLimit(ctx context.Context, maxDeviceLimit pgtype.Int4) (SubscriptionPolicy, error)
 	// Publication is recorded, not inferred. `published_at` is set once and kept, so
 	// unpublishing and republishing does not rewrite when customers first saw it.
 	SetNewsPostState(ctx context.Context, arg SetNewsPostStateParams) (NewsPost, error)
 	SetPlanRemnawaveTag(ctx context.Context, arg SetPlanRemnawaveTagParams) (Plan, error)
+	SetPlanVersionAddonTrafficCap(ctx context.Context, arg SetPlanVersionAddonTrafficCapParams) error
 	// Replaces the add-ons offered with a plan version. Deleting first keeps the
 	// set exactly what the operator chose rather than the union of every edit.
 	SetPlanVersionAddons(ctx context.Context, planVersionID pgtype.UUID) error
@@ -2039,9 +2050,12 @@ type Querier interface {
 	// Moves an entitlement's end earlier, for a refund that takes back the period
 	// its order bought. LEAST keeps it from ever lengthening one.
 	ShortenEntitlement(ctx context.Context, arg ShortenEntitlementParams) (Entitlement, error)
+	// A pack with a lifetime stops counting that many days after it is applied.
+	StartAddonLifetime(ctx context.Context, entitlementAddonID pgtype.UUID) error
 	// Only a previewed operation may run. That is what enforces "impact preview
 	// before bulk change" in the database rather than only in the panel.
 	StartBulkOperation(ctx context.Context, operationID pgtype.UUID) (BulkOperation, error)
+	SubtractEntitlementTraffic(ctx context.Context, arg SubtractEntitlementTrafficParams) (Entitlement, error)
 	// What the importer has moved into each wallet so far, keyed by Bedolaga user.
 	// The ledger is the record rather than a counter beside it: a run that dies
 	// between the movement and its bookkeeping still sees the movement here, so

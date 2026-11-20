@@ -166,7 +166,7 @@ INSERT INTO addon_versions (
   $4, $5,
   $6, $7
 )
-RETURNING id, addon_id, version, traffic_bytes, device_slots, remnawave_squad_ids, max_quantity, proration, created_at, retired_at
+RETURNING id, addon_id, version, traffic_bytes, device_slots, remnawave_squad_ids, max_quantity, proration, created_at, retired_at, lifetime_days
 `
 
 type CreateAddonVersionParams struct {
@@ -201,6 +201,7 @@ func (q *Queries) CreateAddonVersion(ctx context.Context, arg CreateAddonVersion
 		&i.Proration,
 		&i.CreatedAt,
 		&i.RetiredAt,
+		&i.LifetimeDays,
 	)
 	return i, err
 }
@@ -270,7 +271,7 @@ INSERT INTO plan_versions (
   $11, $12, $13,
   $14, $15, $16
 )
-RETURNING id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads, traffic_reset_strategy, external_squad_id
+RETURNING id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads, traffic_reset_strategy, external_squad_id, max_addon_traffic_bytes
 `
 
 type CreatePlanVersionFullParams struct {
@@ -340,6 +341,7 @@ func (q *Queries) CreatePlanVersionFull(ctx context.Context, arg CreatePlanVersi
 		&i.MaxSelectableSquads,
 		&i.TrafficResetStrategy,
 		&i.ExternalSquadID,
+		&i.MaxAddonTrafficBytes,
 	)
 	return i, err
 }
@@ -1257,7 +1259,7 @@ func (q *Queries) ListAddonPrices(ctx context.Context, addonVersionID pgtype.UUI
 }
 
 const listAddonVersions = `-- name: ListAddonVersions :many
-SELECT id, addon_id, version, traffic_bytes, device_slots, remnawave_squad_ids, max_quantity, proration, created_at, retired_at FROM addon_versions WHERE addon_id = $1 ORDER BY version DESC
+SELECT id, addon_id, version, traffic_bytes, device_slots, remnawave_squad_ids, max_quantity, proration, created_at, retired_at, lifetime_days FROM addon_versions WHERE addon_id = $1 ORDER BY version DESC
 `
 
 func (q *Queries) ListAddonVersions(ctx context.Context, addonID pgtype.UUID) ([]AddonVersion, error) {
@@ -1280,6 +1282,7 @@ func (q *Queries) ListAddonVersions(ctx context.Context, addonID pgtype.UUID) ([
 			&i.Proration,
 			&i.CreatedAt,
 			&i.RetiredAt,
+			&i.LifetimeDays,
 		); err != nil {
 			return nil, err
 		}
@@ -2087,7 +2090,7 @@ func (q *Queries) ListPlanPrices(ctx context.Context, planVersionID pgtype.UUID)
 }
 
 const listPlanVersions = `-- name: ListPlanVersions :many
-SELECT id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads, traffic_reset_strategy, external_squad_id FROM plan_versions WHERE plan_id = $1 ORDER BY version DESC
+SELECT id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads, traffic_reset_strategy, external_squad_id, max_addon_traffic_bytes FROM plan_versions WHERE plan_id = $1 ORDER BY version DESC
 `
 
 func (q *Queries) ListPlanVersions(ctx context.Context, planID pgtype.UUID) ([]PlanVersion, error) {
@@ -2121,6 +2124,7 @@ func (q *Queries) ListPlanVersions(ctx context.Context, planID pgtype.UUID) ([]P
 			&i.MaxSelectableSquads,
 			&i.TrafficResetStrategy,
 			&i.ExternalSquadID,
+			&i.MaxAddonTrafficBytes,
 		); err != nil {
 			return nil, err
 		}
@@ -2685,7 +2689,7 @@ func (q *Queries) RequeueFulfillmentOperation(ctx context.Context, operationID p
 const retireAddonVersion = `-- name: RetireAddonVersion :one
 UPDATE addon_versions SET retired_at = now()
 WHERE id = $1 AND retired_at IS NULL
-RETURNING id, addon_id, version, traffic_bytes, device_slots, remnawave_squad_ids, max_quantity, proration, created_at, retired_at
+RETURNING id, addon_id, version, traffic_bytes, device_slots, remnawave_squad_ids, max_quantity, proration, created_at, retired_at, lifetime_days
 `
 
 func (q *Queries) RetireAddonVersion(ctx context.Context, addonVersionID pgtype.UUID) (AddonVersion, error) {
@@ -2702,6 +2706,7 @@ func (q *Queries) RetireAddonVersion(ctx context.Context, addonVersionID pgtype.
 		&i.Proration,
 		&i.CreatedAt,
 		&i.RetiredAt,
+		&i.LifetimeDays,
 	)
 	return i, err
 }
@@ -2710,7 +2715,7 @@ const retirePlanVersion = `-- name: RetirePlanVersion :one
 UPDATE plan_versions
 SET retired_at = now()
 WHERE id = $1 AND retired_at IS NULL
-RETURNING id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads, traffic_reset_strategy, external_squad_id
+RETURNING id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads, traffic_reset_strategy, external_squad_id, max_addon_traffic_bytes
 `
 
 func (q *Queries) RetirePlanVersion(ctx context.Context, planVersionID pgtype.UUID) (PlanVersion, error) {
@@ -2738,6 +2743,7 @@ func (q *Queries) RetirePlanVersion(ctx context.Context, planVersionID pgtype.UU
 		&i.MaxSelectableSquads,
 		&i.TrafficResetStrategy,
 		&i.ExternalSquadID,
+		&i.MaxAddonTrafficBytes,
 	)
 	return i, err
 }

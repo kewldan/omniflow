@@ -56,6 +56,9 @@ type PlanVersionOptions struct {
 	// ExternalSquadID is the Remnawave external squad that shapes the
 	// subscription page of users on this version. Empty sets none.
 	ExternalSquadID string `json:"externalSquadId"`
+	// MaxAddonTrafficBytes caps the traffic add-ons may add to one
+	// entitlement of this version; nil is no cap.
+	MaxAddonTrafficBytes *int64 `json:"maxAddonTrafficBytes"`
 }
 
 var validTrafficResetStrategy = map[string]bool{
@@ -195,7 +198,13 @@ func (service *Service) CreatePlanVersion(
 		}); txErr != nil {
 			return txErr
 		}
+		if txErr = queries.SetPlanVersionAddonTrafficCap(ctx, dbgen.SetPlanVersionAddonTrafficCapParams{
+			PlanVersionID: row.ID, MaxAddonTrafficBytes: optionalInt8(input.MaxAddonTrafficBytes),
+		}); txErr != nil {
+			return txErr
+		}
 		row.TrafficResetStrategy, row.ExternalSquadID = strategy, externalSquad
+		row.MaxAddonTrafficBytes = optionalInt8(input.MaxAddonTrafficBytes)
 		created = planVersionFromRow(row, input.Prices)
 		created.OfferedSquads = input.OfferedSquads
 		created.AddonIDs = input.AddonIDs
@@ -237,6 +246,9 @@ func validatePlanVersion(input PlanVersionInput) error {
 		if amount < 0 {
 			return ErrValidaton
 		}
+	}
+	if input.MaxAddonTrafficBytes != nil && *input.MaxAddonTrafficBytes <= 0 {
+		return ErrValidaton
 	}
 	if input.TrafficResetStrategy != "" && !validTrafficResetStrategy[input.TrafficResetStrategy] {
 		return ErrValidaton
@@ -312,7 +324,10 @@ type AddonInput struct {
 	// the whole amount whatever is left of the period, `remaining_period`
 	// scales it, and `daily_rate` prices by day.
 	Proration string
-	Prices    map[string]int64
+	// LifetimeDays is how long a traffic pack lasts from its purchase; nil
+	// lasts as long as the subscription period it was added to.
+	LifetimeDays *int32
+	Prices       map[string]int64
 }
 
 // SaveAddon creates or updates an add-on and publishes a new version of it.
@@ -373,6 +388,11 @@ func (service *Service) SaveAddon(
 		if txErr != nil {
 			return txErr
 		}
+		if txErr = queries.SetAddonVersionLifetime(ctx, dbgen.SetAddonVersionLifetimeParams{
+			AddonVersionID: version.ID, LifetimeDays: optionalInt4(input.LifetimeDays),
+		}); txErr != nil {
+			return txErr
+		}
 		for currency, amount := range input.Prices {
 			if _, txErr = queries.CreateAddonPrice(ctx, dbgen.CreateAddonPriceParams{
 				AddonVersionID: version.ID, Currency: strings.ToUpper(currency), AmountMinor: amount,
@@ -397,6 +417,10 @@ func validateAddon(input AddonInput) error {
 		!validProration[input.Proration],
 		input.MaxQuantity < 1,
 		len(input.Prices) == 0:
+		return ErrValidaton
+	}
+	// Only a traffic pack runs out: slots and squads last the period.
+	if input.LifetimeDays != nil && (*input.LifetimeDays < 1 || input.Kind != "traffic") {
 		return ErrValidaton
 	}
 	switch input.Kind {
@@ -461,6 +485,7 @@ func planVersionFromRow(row dbgen.PlanVersion, prices map[string]int64) PlanVers
 		CreatedAt:           timeValue(row.CreatedAt),
 
 		TrafficResetStrategy: row.TrafficResetStrategy,
+		MaxAddonTrafficBytes: int8Pointer(row.MaxAddonTrafficBytes),
 		ExternalSquadID:      uuidString(row.ExternalSquadID),
 	}
 }

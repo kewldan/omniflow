@@ -187,6 +187,18 @@ An entitlement with an unlimited allowance stays unlimited: the update leaves a 
 
 Squads are a set and are never multiplied by quantity. Buying two of the same squad add-on charges twice and grants the same squads once, which is why `max_quantity` on a squad add-on should be 1.
 
+### Caps and pack lifetime
+
+Three limits bound what add-ons may add, and each is checked at order creation, before any money moves, for add-ons bought with the plan and mid-period alike. A refusal is `addon_limit_reached` on the web and a matching message in the bot.
+
+| Limit | Where it is set | Effect |
+| --- | --- | --- |
+| Most devices per subscription | Settings → Commerce → Plan changes and resets (`maxDeviceLimit`) | Device add-ons cannot take a subscription's device limit past it. An unlimited device count has nothing to cross |
+| Most traffic add-ons may add | The plan version editor (`maxAddonTrafficBytes`) | The traffic of every pack still counting on the entitlement, plus the new one, may not exceed it |
+| Pack lasts (days) | The add-on editor, traffic add-ons only (`lifetimeDays`) | The pack stops counting that many days after it is applied |
+
+A pack with a lifetime gets `entitlement_addons.expires_at` when it is applied. The commerce maintenance pass the worker runs takes every pack past it back off its entitlement — the allowance is lowered by exactly what the pack added, never below zero — and queues a `set_limits` operation keyed `addon:<pack id>:expire`. The pack is marked `expired_at` in the same transaction, so a replayed pass subtracts nothing. A paused entitlement keeps the lower allowance in its row and its resume pushes it. A pack without a lifetime lasts as long as the entitlement it was added to, as every pack did before.
+
 Every priced line is snapshotted onto `order_addon_lines` with the code, kind, version, traffic, slots, squads, proration rule, and period end, so an order explains itself years later without reading the catalogue.
 
 ### Idempotent fulfillment

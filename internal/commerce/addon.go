@@ -133,6 +133,34 @@ func AddonApplies(trafficBytes int64, deviceSlots, squadCount int, trafficLimite
 		deviceSlots > 0 && devicesLimited
 }
 
+// ErrAddonLimit refuses an add-on that would take a subscription past a cap:
+// the installation's device ceiling, or the plan's cap on bought traffic.
+var ErrAddonLimit = errors.New("addon_limit_reached")
+
+// AddonLimits are the caps an add-on purchase is checked against. A nil cap
+// is no cap.
+type AddonLimits struct {
+	// MaxDevices is the installation's device ceiling.
+	MaxDevices *int
+	// MaxBoughtTraffic caps the traffic add-ons may add to one entitlement;
+	// BoughtTraffic is what is already bought there and still counting.
+	MaxBoughtTraffic *int64
+	BoughtTraffic    int64
+}
+
+// CheckAddonLimits refuses capacity that would cross a cap. `devices` is the
+// subscription's device limit now, nil when unlimited; an unlimited device
+// count has no ceiling to cross because no slot is added to it.
+func CheckAddonLimits(limits AddonLimits, devices *int, addedSlots int, addedTraffic int64) error {
+	if addedSlots > 0 && devices != nil && limits.MaxDevices != nil && *devices+addedSlots > *limits.MaxDevices {
+		return ErrAddonLimit
+	}
+	if addedTraffic > 0 && limits.MaxBoughtTraffic != nil && limits.BoughtTraffic+addedTraffic > *limits.MaxBoughtTraffic {
+		return ErrAddonLimit
+	}
+	return nil
+}
+
 // Capacity multiplies one add-on version's capacity by the purchased quantity.
 // Squads are a set, so quantity never duplicates them.
 func Capacity(trafficBytes int64, deviceSlots, quantity int, squadIDs []string) AddonCapacity {

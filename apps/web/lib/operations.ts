@@ -242,6 +242,8 @@ export type PlanVersion = {
   trafficResetStrategy?: string;
   /** The Remnawave external squad that shapes the subscription page. */
   externalSquadId?: string;
+  /** The most traffic add-ons may add to one subscription. */
+  maxAddonTrafficBytes?: number;
 };
 
 export type PersonalOffer = {

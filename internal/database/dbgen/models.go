@@ -118,6 +118,7 @@ type AddonVersion struct {
 	Proration         string             `json:"proration"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	RetiredAt         pgtype.Timestamptz `json:"retired_at"`
+	LifetimeDays      pgtype.Int4        `json:"lifetime_days"`
 }
 
 type AdminCustomRole struct {
@@ -1102,6 +1103,8 @@ type EntitlementAddon struct {
 	DeviceSlots       pgtype.Int4        `json:"device_slots"`
 	RemnawaveSquadIds []pgtype.UUID      `json:"remnawave_squad_ids"`
 	AppliedAt         pgtype.Timestamptz `json:"applied_at"`
+	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
+	ExpiredAt         pgtype.Timestamptz `json:"expired_at"`
 }
 
 type EntitlementDrift struct {
@@ -1823,6 +1826,7 @@ type PlanVersion struct {
 	MaxSelectableSquads   pgtype.Int4        `json:"max_selectable_squads"`
 	TrafficResetStrategy  string             `json:"traffic_reset_strategy"`
 	ExternalSquadID       pgtype.UUID        `json:"external_squad_id"`
+	MaxAddonTrafficBytes  pgtype.Int8        `json:"max_addon_traffic_bytes"`
 }
 
 type PlanVersionAddon struct {
@@ -2157,6 +2161,7 @@ type SubscriptionPolicy struct {
 	PaidTag                  pgtype.Text        `json:"paid_tag"`
 	TrialDisabledMethods     []string           `json:"trial_disabled_methods"`
 	TrialWarningHours        int32              `json:"trial_warning_hours"`
+	MaxDeviceLimit           pgtype.Int4        `json:"max_device_limit"`
 }
 
 type SupportAttachment struct {
