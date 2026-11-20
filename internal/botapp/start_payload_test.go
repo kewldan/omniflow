@@ -30,6 +30,8 @@ func TestParseStartPayloadRecognisesEveryDeepLink(t *testing.T) {
 		{"not a campaign code", "/start c_!!", startPayload{}},
 		{"unknown shape", "/start some-thing.else", startPayload{}},
 		{"two arguments", "/start ref_A ref_B", startPayload{}},
+		{"coupon", "/start coupon_SPRING-2026", startPayload{Kind: startPayloadCoupon, Value: "SPRING-2026"}},
+		{"coupon needs a code", "/start coupon_", startPayload{}},
 		{"surrounding whitespace", "  /start   login  ", startPayload{Kind: startPayloadLogin}},
 	}
 	for _, tc := range cases {

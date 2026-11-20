@@ -232,6 +232,10 @@ type ClaimedGift struct {
 	// EndsAt is set when the code granted a subscription, so the confirmation
 	// can say what the customer now has rather than only that it worked.
 	EndsAt time.Time
+	// TrafficBytes is what a traffic code added; TierCode the loyalty group
+	// a code granted.
+	TrafficBytes int64
+	TierCode     string
 }
 
 // ClaimGift redeems a code for the claiming customer.
@@ -274,10 +278,16 @@ func (service *Commerce) ClaimGift(
 		// learning which codes exist.
 		return ClaimedGift{}, err
 	}
-	if reward.Kind == commercepg.RewardWalletCredit {
+	switch reward.Kind {
+	case commercepg.RewardWalletCredit:
 		return ClaimedGift{Kind: gifts.KindCredit, CreditMinor: reward.CreditMinor, Currency: reward.Currency}, nil
+	case commercepg.RewardTraffic:
+		return ClaimedGift{Kind: commercepg.RewardTraffic, TrafficBytes: reward.TrafficBytes}, nil
+	case commercepg.RewardLoyaltyTier:
+		return ClaimedGift{Kind: commercepg.RewardLoyaltyTier, TierCode: reward.TierCode}, nil
 	}
-	return ClaimedGift{Kind: gifts.KindSubscription, EndsAt: reward.EndsAt}, nil
+	// Days, a trial, or days with wallet credit.
+	return ClaimedGift{Kind: gifts.KindSubscription, EndsAt: reward.EndsAt, CreditMinor: reward.CreditMinor, Currency: reward.Currency}, nil
 }
 
 // SavedShopPurchase is a shop selection the customer kept for later.

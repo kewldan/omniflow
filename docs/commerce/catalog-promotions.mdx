@@ -265,7 +265,8 @@ A `promotions` row is the campaign, not the redeemable code. It carries a lowerc
 
 ### Reward kinds
 
-`promotions_kind_known` allows `percent`, `fixed`, `wallet_credit`, `days`, and `trial`.
+`promotions_kind_known` allows `percent`, `fixed`, `wallet_credit`, `days`, `trial`, `balance_days`,
+`traffic`, and `loyalty_tier`.
 
 | Kind | Value means | Where it applies |
 | --- | --- | --- |
@@ -274,6 +275,9 @@ A `promotions` row is the campaign, not the redeemable code. It carries a lowerc
 | `wallet_credit` | Minor units, credited to the wallet | On its own |
 | `days` | Days added to the subscription, at most 3650 | On its own |
 | `trial` | A trial of that many days, at most 3650 | On its own |
+| `balance_days` | Days, at most 3650, plus `credit_minor` in the promotion's currency | On its own |
+| `traffic` | Gigabytes added to the current period, at most 100 000 | On its own |
+| `loyalty_tier` | Days the loyalty group named by `tier_code` is held, at most 3650 | On its own |
 
 `percent` and `fixed` are discounts and apply on the checkout screen. The three reward kinds work the
 way Bedolaga's promo codes do: the customer enters the code under **🔑 Redeem a code** in the bot or
@@ -286,6 +290,19 @@ once, through a zero-amount order of operation `code` so it shows in the order h
   claim) and only to a customer without access.
 - `wallet_credit` credits the wallet with a balanced ledger transaction (`reference_type =
   promotion`).
+- `balance_days` does both in one redemption: the days as `days` does, then the credit. A customer
+  who never had a subscription is refused and is credited nothing.
+- `traffic` adds the gigabytes to the entitlement in force right now and queues the new limit for
+  Remnawave (`set_limits`). A period with unlimited traffic, or no live period, is refused rather
+  than spending the code on nothing.
+- `loyalty_tier` grants the loyalty group (`loyalty_memberships`, source `promo_code`) until that
+  many days from now; a group held already keeps the later of the two expiries.
+
+A code can also arrive in a link: `https://t.me/<bot>?start=coupon_<code>` redeems it the moment the
+customer opens the bot, with the same rules and the same confirmation as typing it.
+
+Bearer-token clients create these with `POST /v1/admin/promotions` (`creditMinor` and `tierCode`
+beside `kind` and `value`).
 
 Dates, eligibility, the promotion's and the code's total limits, and the per-customer limit apply as
 at checkout, and the redemption, its order, and the reward commit together. A discount code entered
@@ -566,6 +583,7 @@ loses it has to issue a new batch.
 | Quantity | 1 to 10 000. A larger arrangement is several batches. |
 | Agreed price per code | Recorded, never charged. Zero is allowed: a batch given away for a partnership is a real thing, and pretending it had a price would be worse than recording that it had none. |
 | Expiry | Optional. No expiry is a decision an operator may make and a liability they then carry. |
+| Per customer | Optional `maxPerCustomer`: how many codes of this batch one customer may redeem. A code past the limit is refused and stays issued for somebody else. |
 
 ### Redeeming
 

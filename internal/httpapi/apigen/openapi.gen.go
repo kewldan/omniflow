@@ -3934,16 +3934,34 @@ func (e PlanVersionInputUpgradePolicy) Valid() bool {
 
 // Defines values for PromotionInputKind.
 const (
-	PromotionInputKindFixed   PromotionInputKind = "fixed"
-	PromotionInputKindPercent PromotionInputKind = "percent"
+	PromotionInputKindBalanceDays  PromotionInputKind = "balance_days"
+	PromotionInputKindDays         PromotionInputKind = "days"
+	PromotionInputKindFixed        PromotionInputKind = "fixed"
+	PromotionInputKindLoyaltyTier  PromotionInputKind = "loyalty_tier"
+	PromotionInputKindPercent      PromotionInputKind = "percent"
+	PromotionInputKindTraffic      PromotionInputKind = "traffic"
+	PromotionInputKindTrial        PromotionInputKind = "trial"
+	PromotionInputKindWalletCredit PromotionInputKind = "wallet_credit"
 )
 
 // Valid indicates whether the value is a known member of the PromotionInputKind enum.
 func (e PromotionInputKind) Valid() bool {
 	switch e {
+	case PromotionInputKindBalanceDays:
+		return true
+	case PromotionInputKindDays:
+		return true
 	case PromotionInputKindFixed:
 		return true
+	case PromotionInputKindLoyaltyTier:
+		return true
 	case PromotionInputKindPercent:
+		return true
+	case PromotionInputKindTraffic:
+		return true
+	case PromotionInputKindTrial:
+		return true
+	case PromotionInputKindWalletCredit:
 		return true
 	default:
 		return false
@@ -4282,14 +4300,20 @@ func (e OpenAccountCheckoutJSONBodyOperation) Valid() bool {
 
 // Defines values for AccountRedeemCode200JSONResponseBodyKind.
 const (
+	AccountRedeemCode200JSONResponseBodyKindLoyaltyTier  AccountRedeemCode200JSONResponseBodyKind = "loyalty_tier"
 	AccountRedeemCode200JSONResponseBodyKindSubscription AccountRedeemCode200JSONResponseBodyKind = "subscription"
+	AccountRedeemCode200JSONResponseBodyKindTraffic      AccountRedeemCode200JSONResponseBodyKind = "traffic"
 	AccountRedeemCode200JSONResponseBodyKindWalletCredit AccountRedeemCode200JSONResponseBodyKind = "wallet_credit"
 )
 
 // Valid indicates whether the value is a known member of the AccountRedeemCode200JSONResponseBodyKind enum.
 func (e AccountRedeemCode200JSONResponseBodyKind) Valid() bool {
 	switch e {
+	case AccountRedeemCode200JSONResponseBodyKindLoyaltyTier:
+		return true
 	case AccountRedeemCode200JSONResponseBodyKindSubscription:
+		return true
+	case AccountRedeemCode200JSONResponseBodyKindTraffic:
 		return true
 	case AccountRedeemCode200JSONResponseBodyKindWalletCredit:
 		return true
@@ -9765,21 +9789,25 @@ type Promotion struct {
 
 // PromotionInput defines model for PromotionInput.
 type PromotionInput struct {
-	Active           bool                    `json:"active"`
-	Code             string                  `json:"code"`
-	Codes            []string                `json:"codes"`
-	Currency         *string                 `json:"currency,omitempty"`
-	Eligibility      *map[string]interface{} `json:"eligibility,omitempty"`
-	EndsAt           *time.Time              `json:"endsAt,omitempty"`
-	Kind             PromotionInputKind      `json:"kind"`
-	PerCustomerLimit int                     `json:"perCustomerLimit"`
-	PlanIDs          *[]openapi_types.UUID   `json:"planIDs,omitempty"`
-	RedemptionLimit  *int                    `json:"redemptionLimit,omitempty"`
-	StartsAt         *time.Time              `json:"startsAt,omitempty"`
-	Value            int64                   `json:"value"`
+	Active      bool                    `json:"active"`
+	Code        string                  `json:"code"`
+	Codes       []string                `json:"codes"`
+	CreditMinor *int64                  `json:"creditMinor,omitempty"`
+	Currency    *string                 `json:"currency,omitempty"`
+	Eligibility *map[string]interface{} `json:"eligibility,omitempty"`
+	EndsAt      *time.Time              `json:"endsAt,omitempty"`
+
+	// Kind percent and fixed discount a checkout; the others reward on their own when redeemed: wallet_credit (value in minor units), days and trial (value in days), balance_days (value days plus creditMinor), traffic (value gigabytes added to the current period), and loyalty_tier (tierCode held for value days).
+	Kind             PromotionInputKind    `json:"kind"`
+	PerCustomerLimit int                   `json:"perCustomerLimit"`
+	PlanIDs          *[]openapi_types.UUID `json:"planIDs,omitempty"`
+	RedemptionLimit  *int                  `json:"redemptionLimit,omitempty"`
+	StartsAt         *time.Time            `json:"startsAt,omitempty"`
+	TierCode         *string               `json:"tierCode,omitempty"`
+	Value            int64                 `json:"value"`
 }
 
-// PromotionInputKind defines model for PromotionInput.Kind.
+// PromotionInputKind percent and fixed discount a checkout; the others reward on their own when redeemed: wallet_credit (value in minor units), days and trial (value in days), balance_days (value days plus creditMinor), traffic (value gigabytes added to the current period), and loyalty_tier (tierCode held for value days).
 type PromotionInputKind string
 
 // PublicAnalytics defines model for PublicAnalytics.
@@ -33038,10 +33066,12 @@ type AccountRedeemCodeResponseObject interface {
 }
 
 type AccountRedeemCode200JSONResponse struct {
-	CreditMinor *int64                                   `json:"creditMinor,omitempty"`
-	Currency    *string                                  `json:"currency,omitempty"`
-	EndsAt      *time.Time                               `json:"endsAt,omitempty"`
-	Kind        AccountRedeemCode200JSONResponseBodyKind `json:"kind"`
+	// CreditMinor Wallet credit, including the credit half of a balance-and-days code.
+	CreditMinor  *int64                                   `json:"creditMinor,omitempty"`
+	Currency     *string                                  `json:"currency,omitempty"`
+	EndsAt       *time.Time                               `json:"endsAt,omitempty"`
+	Kind         AccountRedeemCode200JSONResponseBodyKind `json:"kind"`
+	TrafficBytes *int64                                   `json:"trafficBytes,omitempty"`
 }
 
 func (response AccountRedeemCode200JSONResponse) VisitAccountRedeemCodeResponse(w http.ResponseWriter) error {

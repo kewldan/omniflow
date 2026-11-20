@@ -203,7 +203,7 @@ export const GetBrandingAssetQueryParams = zod.object({
 
 export const GetBrandingAssetResponse = zod.unknown();
 
-export const createPlanBodyCodeRegExp = new RegExp("^[a-z][a-z0-9_-]{1,63}$");
+export const createPlanBodyCodeRegExp = /^[a-z][a-z0-9_-]{1,63}$/;
 export const createPlanBodyVisibleDefault = false;
 export const createPlanBodyLocalizationsNameMax = 120;
 
@@ -219,7 +219,7 @@ export const createPlanBodyVersionGracePeriodSecondsMin = 0;
 export const createPlanBodyVersionTrialEligibilityDefault = `new_customer`;
 export const createPlanBodyVersionPricesItemAmountMinorMin = 0;
 
-export const createPlanBodyVersionPricesItemCurrencyRegExp = new RegExp("^[A-Z]{3}$");
+export const createPlanBodyVersionPricesItemCurrencyRegExp = /^[A-Z]{3}$/;
 
 export const CreatePlanBody = zod.object({
   code: zod.string().regex(createPlanBodyCodeRegExp),
@@ -294,7 +294,7 @@ export const createPlanVersionBodyGracePeriodSecondsMin = 0;
 export const createPlanVersionBodyTrialEligibilityDefault = `new_customer`;
 export const createPlanVersionBodyPricesItemAmountMinorMin = 0;
 
-export const createPlanVersionBodyPricesItemCurrencyRegExp = new RegExp("^[A-Z]{3}$");
+export const createPlanVersionBodyPricesItemCurrencyRegExp = /^[A-Z]{3}$/;
 
 export const CreatePlanVersionBody = zod.object({
   billingPeriod: zod.enum([
@@ -342,13 +342,30 @@ export const CreatePlanVersionResponse = zod.object({
   version: zod.int().optional(),
 });
 
-export const createPromotionBodyCurrencyRegExp = new RegExp("^[A-Z]{3}$");
+export const createPromotionBodyCurrencyRegExp = /^[A-Z]{3}$/;
+
+export const createPromotionBodyTierCodeRegExp = /^[a-z][a-z0-9_-]{1,31}$/;
 
 export const CreatePromotionBody = zod.object({
   code: zod.string(),
-  kind: zod.enum(["percent", "fixed"]),
+  kind: zod
+    .enum([
+      "percent",
+      "fixed",
+      "wallet_credit",
+      "days",
+      "trial",
+      "balance_days",
+      "traffic",
+      "loyalty_tier",
+    ])
+    .describe(
+      "percent and fixed discount a checkout; the others reward on their own when redeemed: wallet_credit (value in minor units), days and trial (value in days), balance_days (value days plus creditMinor), traffic (value gigabytes added to the current period), and loyalty_tier (tierCode held for value days).",
+    ),
   value: zod.int().min(1),
   currency: zod.string().regex(createPromotionBodyCurrencyRegExp).optional(),
+  creditMinor: zod.int().min(1).optional(),
+  tierCode: zod.string().regex(createPromotionBodyTierCodeRegExp).optional(),
   startsAt: zod.iso.datetime({ offset: true }).nullish(),
   endsAt: zod.iso.datetime({ offset: true }).nullish(),
   redemptionLimit: zod.int().min(1).nullish(),
@@ -545,7 +562,7 @@ export const CreateOrderHeader = zod.object({
     .max(createOrderHeaderIdempotencyKeyMax),
 });
 
-export const createOrderBodyCurrencyRegExp = new RegExp("^[A-Z]{3}$");
+export const createOrderBodyCurrencyRegExp = /^[A-Z]{3}$/;
 
 export const CreateOrderBody = zod.object({
   customerID: zod.uuid(),
@@ -888,7 +905,7 @@ export const CreateRefundHeader = zod.object({
 
 export const createRefundBodyOneAmountMinorMin = 0;
 
-export const createRefundBodyOneCurrencyRegExp = new RegExp("^[A-Z]{3}$");
+export const createRefundBodyOneCurrencyRegExp = /^[A-Z]{3}$/;
 
 export const CreateRefundBody = zod
   .object({
@@ -904,7 +921,7 @@ export const CreateRefundBody = zod
 
 export const createRefundResponseOneAmountMinorMin = 0;
 
-export const createRefundResponseOneCurrencyRegExp = new RegExp("^[A-Z]{3}$");
+export const createRefundResponseOneCurrencyRegExp = /^[A-Z]{3}$/;
 
 export const CreateRefundResponse = zod
   .object({
@@ -955,7 +972,7 @@ export const AdjustCustomerWalletHeader = zod.object({
     .max(adjustCustomerWalletHeaderIdempotencyKeyMax),
 });
 
-export const adjustCustomerWalletBodyCurrencyRegExp = new RegExp("^[A-Z]{3}$");
+export const adjustCustomerWalletBodyCurrencyRegExp = /^[A-Z]{3}$/;
 
 export const AdjustCustomerWalletBody = zod.object({
   amountMinor: zod.int(),
@@ -2764,7 +2781,7 @@ export const RemovePanelAllowlistResponse = zod.void();
 /**
  * Requires catalog.read. Archived plans are included, with how many order lines reference each, so archiving one in active use is a visible decision.
  */
-export const listPanelPlansResponseItemsItemRemnawaveTagRegExp = new RegExp("^[A-Z0-9_]{1,16}$");
+export const listPanelPlansResponseItemsItemRemnawaveTagRegExp = /^[A-Z0-9_]{1,16}$/;
 
 export const ListPanelPlansResponse = zod.object({
   items: zod
@@ -2796,7 +2813,7 @@ export const GetPanelPlanParams = zod.object({
   planID: zod.uuid(),
 });
 
-export const getPanelPlanResponsePlanRemnawaveTagRegExp = new RegExp("^[A-Z0-9_]{1,16}$");
+export const getPanelPlanResponsePlanRemnawaveTagRegExp = /^[A-Z0-9_]{1,16}$/;
 export const getPanelPlanResponseLocalizationsNameMax = 120;
 
 export const getPanelPlanResponseLocalizationsDescriptionMax = 2000;
@@ -6361,9 +6378,7 @@ export const ConfigurePanelRecurringResponse = zod.object({
 /**
  * Requires settings.read. Every customer-facing payment button this deployment can show — one per method of each configured adapter — with the operator's presentation and audience rules.
  */
-export const listPanelPaymentMethodSettingsResponseItemsItemMethodRegExp = new RegExp(
-  "^[a-z0-9_]{0,10}$",
-);
+export const listPanelPaymentMethodSettingsResponseItemsItemMethodRegExp = /^[a-z0-9_]{0,10}$/;
 export const listPanelPaymentMethodSettingsResponseItemsItemNameRuMax = 64;
 
 export const listPanelPaymentMethodSettingsResponseItemsItemNameEnMax = 64;
@@ -6424,7 +6439,7 @@ export const SavePanelPaymentMethodSettingsHeader = zod.object({
     .describe("Echoes the token from the current session. Required on every unsafe method."),
 });
 
-export const savePanelPaymentMethodSettingsBodyMethodRegExp = new RegExp("^[a-z0-9_]{0,10}$");
+export const savePanelPaymentMethodSettingsBodyMethodRegExp = /^[a-z0-9_]{0,10}$/;
 export const savePanelPaymentMethodSettingsBodyNameRuMax = 64;
 
 export const savePanelPaymentMethodSettingsBodyNameEnMax = 64;
@@ -6455,7 +6470,7 @@ export const SavePanelPaymentMethodSettingsBody = zod.object({
   openDirectly: zod.boolean().optional(),
 });
 
-export const savePanelPaymentMethodSettingsResponseMethodRegExp = new RegExp("^[a-z0-9_]{0,10}$");
+export const savePanelPaymentMethodSettingsResponseMethodRegExp = /^[a-z0-9_]{0,10}$/;
 export const savePanelPaymentMethodSettingsResponseNameRuMax = 64;
 
 export const savePanelPaymentMethodSettingsResponseNameEnMax = 64;
@@ -6502,9 +6517,7 @@ export const SavePanelPaymentMethodSettingsResponse = zod.object({
 /**
  * Requires settings.read. The model backends an owner has approved. The API key is never returned; `keyConfigured` reports only whether one is held. What a provider does with the data is recorded from its own terms, which Omniflow cannot verify.
  */
-export const listPanelAIProvidersResponseItemsItemSlugRegExp = new RegExp(
-  "^[a-z0-9][a-z0-9_-]{1,40}$",
-);
+export const listPanelAIProvidersResponseItemsItemSlugRegExp = /^[a-z0-9][a-z0-9_-]{1,40}$/;
 export const listPanelAIProvidersResponseItemsItemDisplayNameMax = 120;
 
 export const listPanelAIProvidersResponseItemsItemRetentionNoteMax = 2000;
@@ -6563,7 +6576,7 @@ export const SavePanelAIProviderHeader = zod.object({
     .describe("Echoes the token from the current session. Required on every unsafe method."),
 });
 
-export const savePanelAIProviderBodyOneSlugRegExp = new RegExp("^[a-z0-9][a-z0-9_-]{1,40}$");
+export const savePanelAIProviderBodyOneSlugRegExp = /^[a-z0-9][a-z0-9_-]{1,40}$/;
 export const savePanelAIProviderBodyOneDisplayNameMax = 120;
 
 export const savePanelAIProviderBodyOneRetentionNoteMax = 2000;
@@ -6617,7 +6630,7 @@ export const SavePanelAIProviderBody = zod
     }),
   );
 
-export const savePanelAIProviderResponseSlugRegExp = new RegExp("^[a-z0-9][a-z0-9_-]{1,40}$");
+export const savePanelAIProviderResponseSlugRegExp = /^[a-z0-9][a-z0-9_-]{1,40}$/;
 export const savePanelAIProviderResponseDisplayNameMax = 120;
 
 export const savePanelAIProviderResponseRetentionNoteMax = 2000;
@@ -6663,7 +6676,7 @@ export const SavePanelAIProviderResponse = zod.object({
 /**
  * Requires settings.write. Refused while a feature still points at the provider: removing it would switch that feature off without saying so.
  */
-export const deletePanelAIProviderPathSlugRegExp = new RegExp("^[a-z0-9][a-z0-9_-]{1,40}$");
+export const deletePanelAIProviderPathSlugRegExp = /^[a-z0-9][a-z0-9_-]{1,40}$/;
 
 export const DeletePanelAIProviderParams = zod.object({
   slug: zod.string().regex(deletePanelAIProviderPathSlugRegExp),
@@ -6686,7 +6699,7 @@ export const DeletePanelAIProviderResponse = zod.object({
  *
  * It sits behind settings.write rather than settings.read: it opens a sealed credential and spends the installation's money. It is rate limited per operator.
  */
-export const testPanelAIProviderPathSlugRegExp = new RegExp("^[a-z0-9][a-z0-9_-]{1,40}$");
+export const testPanelAIProviderPathSlugRegExp = /^[a-z0-9][a-z0-9_-]{1,40}$/;
 
 export const TestPanelAIProviderParams = zod.object({
   slug: zod.string().regex(testPanelAIProviderPathSlugRegExp),
@@ -6710,7 +6723,7 @@ export const TestPanelAIProviderBody = zod.object({
     ),
 });
 
-export const testPanelAIProviderResponseSlugRegExp = new RegExp("^[a-z0-9][a-z0-9_-]{1,40}$");
+export const testPanelAIProviderResponseSlugRegExp = /^[a-z0-9][a-z0-9_-]{1,40}$/;
 export const testPanelAIProviderResponseDisplayNameMax = 120;
 
 export const testPanelAIProviderResponseRetentionNoteMax = 2000;
@@ -6787,7 +6800,7 @@ export const SavePanelBlocklistSourceHeader = zod.object({
     .describe("Echoes the token from the current session. Required on every unsafe method."),
 });
 
-export const savePanelBlocklistSourceBodyUrlRegExp = new RegExp("^https:/");
+export const savePanelBlocklistSourceBodyUrlRegExp = /^https:\//;
 export const savePanelBlocklistSourceBodyRefreshIntervalSecondsMin = 300;
 
 export const SavePanelBlocklistSourceBody = zod.object({
@@ -7376,7 +7389,7 @@ export const CreatePanelGoodsProductHeader = zod.object({
     .describe("Echoes the token from the current session. Required on every unsafe method."),
 });
 
-export const createPanelGoodsProductBodyCodeRegExp = new RegExp("^[a-z][a-z0-9_-]{1,63}$");
+export const createPanelGoodsProductBodyCodeRegExp = /^[a-z][a-z0-9_-]{1,63}$/;
 
 export const createPanelGoodsProductBodyMinStarQuantityMin = 50;
 
@@ -8240,7 +8253,7 @@ export const AccountRequestEmailSignInBody = zod.object({
 
 export const AccountRequestEmailSignInResponse = zod.void();
 
-export const startAccountOidcPathSlugRegExp = new RegExp("^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$");
+export const startAccountOidcPathSlugRegExp = /^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$/;
 
 export const StartAccountOidcParams = zod.object({
   slug: zod.string().regex(startAccountOidcPathSlugRegExp),
@@ -8252,7 +8265,7 @@ export const StartAccountOidcQueryParams = zod.object({
 
 export const StartAccountOidcResponse = zod.void();
 
-export const completeAccountOidcPathSlugRegExp = new RegExp("^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$");
+export const completeAccountOidcPathSlugRegExp = /^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$/;
 
 export const CompleteAccountOidcParams = zod.object({
   slug: zod.string().regex(completeAccountOidcPathSlugRegExp),
@@ -8423,7 +8436,7 @@ export const UnlinkAccountSignInMethodResponse = zod.void();
 /**
  * Attaches a provider to the account already signed in. This is the only route by which an existing customer gains an OIDC method: signing in with an unlinked subject never adopts an existing account by email.
  */
-export const startAccountOidcLinkPathSlugRegExp = new RegExp("^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$");
+export const startAccountOidcLinkPathSlugRegExp = /^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$/;
 
 export const StartAccountOidcLinkParams = zod.object({
   slug: zod.string().regex(startAccountOidcLinkPathSlugRegExp),
@@ -11365,9 +11378,13 @@ export const AccountRedeemCodeBody = zod.object({
 });
 
 export const AccountRedeemCodeResponse = zod.object({
-  kind: zod.enum(["subscription", "wallet_credit"]),
+  kind: zod.enum(["subscription", "wallet_credit", "traffic", "loyalty_tier"]),
   endsAt: zod.iso.datetime({ offset: true }).optional(),
-  creditMinor: zod.int().optional(),
+  creditMinor: zod
+    .int()
+    .optional()
+    .describe("Wallet credit, including the credit half of a balance-and-days code."),
+  trafficBytes: zod.int().optional(),
   currency: zod.string().optional(),
 });
 
@@ -13165,7 +13182,7 @@ export const SavePanelSupportQueueHeader = zod.object({
     .describe("Echoes the token from the current session. Required on every unsafe method."),
 });
 
-export const savePanelSupportQueueBodyCodeRegExp = new RegExp("^[a-z][a-z0-9_-]{1,63}$");
+export const savePanelSupportQueueBodyCodeRegExp = /^[a-z][a-z0-9_-]{1,63}$/;
 export const savePanelSupportQueueBodyFirstResponseTargetSecondsMin = 0;
 
 export const savePanelSupportQueueBodyResolutionTargetSecondsMin = 0;
@@ -13848,9 +13865,7 @@ export const SavePanelCustomerOidcProviderHeader = zod.object({
     .describe("Echoes the token from the current session. Required on every unsafe method."),
 });
 
-export const savePanelCustomerOidcProviderBodySlugRegExp = new RegExp(
-  "^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$",
-);
+export const savePanelCustomerOidcProviderBodySlugRegExp = /^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$/;
 export const savePanelCustomerOidcProviderBodyDisplayNameMax = 80;
 
 export const savePanelCustomerOidcProviderBodyEnabledDefault = false;
@@ -13923,9 +13938,7 @@ export const ListPanelCustomerOidcPresetsResponse = zod.object({
 /**
  * Requires settings.write. Removes a provider and ends its sessions. The linked identities are kept: deleting them would silently take a sign-in method away from customers who may have no other one.
  */
-export const deletePanelCustomerOidcProviderPathSlugRegExp = new RegExp(
-  "^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$",
-);
+export const deletePanelCustomerOidcProviderPathSlugRegExp = /^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$/;
 
 export const DeletePanelCustomerOidcProviderParams = zod.object({
   slug: zod.string().regex(deletePanelCustomerOidcProviderPathSlugRegExp),

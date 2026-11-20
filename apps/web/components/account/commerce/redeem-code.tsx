@@ -12,11 +12,36 @@ import { type ApiError, apiFetch } from "@/lib/api";
 import { useMoney } from "@/lib/format";
 
 type Redeemed = {
-  kind: "subscription" | "wallet_credit";
+  kind: "subscription" | "wallet_credit" | "traffic" | "loyalty_tier";
   endsAt?: string;
   creditMinor?: number;
   currency?: string;
+  trafficBytes?: number;
 };
+
+/** The confirmation for what a code gave. */
+function redeemedMessage(
+  result: Redeemed,
+  translate: (key: string, values?: Record<string, string | number>) => string,
+  money: (minor: number, currency: string) => string,
+): string {
+  switch (result.kind) {
+    case "wallet_credit":
+      return result.creditMinor !== undefined && result.currency
+        ? translate("credited", { amount: money(result.creditMinor, result.currency) })
+        : translate("extended");
+    case "traffic":
+      return translate("traffic", {
+        gigabytes: Math.round((result.trafficBytes ?? 0) / 1024 ** 3),
+      });
+    case "loyalty_tier":
+      return translate("tier");
+    default:
+      return result.creditMinor && result.currency
+        ? translate("extendedAndCredited", { amount: money(result.creditMinor, result.currency) })
+        : translate("extended");
+  }
+}
 
 /**
  * Applies a gift code, an access code, or a promo code that rewards on its
@@ -39,11 +64,7 @@ export function RedeemCode({ onRedeemed }: { onRedeemed: () => void }) {
         body: JSON.stringify({ code: code.trim() }),
         method: "POST",
       });
-      toast.success(
-        result.kind === "wallet_credit" && result.creditMinor !== undefined && result.currency
-          ? translate("credited", { amount: money(result.creditMinor, result.currency) })
-          : translate("extended"),
-      );
+      toast.success(redeemedMessage(result, translate, money));
       setCode("");
       onRedeemed();
     } catch (failure) {

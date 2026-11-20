@@ -1517,7 +1517,9 @@ CREATE TABLE public.code_batches (
     revoke_reason text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     created_by uuid,
+    max_per_customer integer,
     CONSTRAINT code_batches_currency_check CHECK ((currency ~ '^[A-Z]{3}$'::text)),
+    CONSTRAINT code_batches_max_per_customer_positive CHECK (((max_per_customer IS NULL) OR (max_per_customer > 0))),
     CONSTRAINT code_batches_note_check CHECK (((note IS NULL) OR (char_length(note) <= 500))),
     CONSTRAINT code_batches_quantity_check CHECK (((quantity >= 1) AND (quantity <= 10000))),
     CONSTRAINT code_batches_reference_check CHECK ((reference ~ '^[a-zA-Z0-9][a-zA-Z0-9 ._-]{2,79}$'::text)),
@@ -3407,7 +3409,10 @@ CREATE TABLE public.promotions (
     stackable boolean DEFAULT false NOT NULL,
     precedence integer DEFAULT 0 NOT NULL,
     applies_to text DEFAULT 'plans'::text NOT NULL,
+    credit_minor bigint,
+    tier_code text,
     CONSTRAINT promotions_applies_to_check CHECK ((applies_to = ANY (ARRAY['plans'::text, 'goods'::text]))),
+    CONSTRAINT promotions_balance_days_complete CHECK (((kind <> 'balance_days'::text) OR ((currency IS NOT NULL) AND (credit_minor IS NOT NULL) AND (credit_minor > 0) AND (value <= 3650)))),
     CONSTRAINT promotions_check CHECK (((ends_at IS NULL) OR (starts_at IS NULL) OR (ends_at > starts_at))),
     CONSTRAINT promotions_check1 CHECK ((((kind = 'fixed'::text) AND (currency IS NOT NULL)) OR (kind <> 'fixed'::text))),
     CONSTRAINT promotions_check2 CHECK ((((kind = 'percent'::text) AND (value <= 10000)) OR (kind <> 'percent'::text))),
@@ -3415,9 +3420,11 @@ CREATE TABLE public.promotions (
     CONSTRAINT promotions_credit_currency_present CHECK (((kind <> 'wallet_credit'::text) OR (currency IS NOT NULL))),
     CONSTRAINT promotions_currency_check CHECK (((currency IS NULL) OR (currency ~ '^[A-Z]{3}$'::text))),
     CONSTRAINT promotions_day_reward_bounded CHECK (((kind <> ALL (ARRAY['days'::text, 'trial'::text])) OR (value <= 3650))),
-    CONSTRAINT promotions_kind_known CHECK ((kind = ANY (ARRAY['percent'::text, 'fixed'::text, 'wallet_credit'::text, 'days'::text, 'trial'::text]))),
+    CONSTRAINT promotions_kind_known CHECK ((kind = ANY (ARRAY['percent'::text, 'fixed'::text, 'wallet_credit'::text, 'days'::text, 'trial'::text, 'balance_days'::text, 'traffic'::text, 'loyalty_tier'::text]))),
     CONSTRAINT promotions_per_customer_limit_check CHECK ((per_customer_limit > 0)),
     CONSTRAINT promotions_redemption_limit_check CHECK (((redemption_limit IS NULL) OR (redemption_limit > 0))),
+    CONSTRAINT promotions_tier_complete CHECK (((kind <> 'loyalty_tier'::text) OR ((tier_code ~ '^[a-z][a-z0-9_-]{1,31}$'::text) AND (value <= 3650)))),
+    CONSTRAINT promotions_traffic_bounded CHECK (((kind <> 'traffic'::text) OR (value <= 100000))),
     CONSTRAINT promotions_value_check CHECK ((value > 0))
 );
 

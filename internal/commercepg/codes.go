@@ -96,6 +96,19 @@ func (store *Store) redeemAccessCode(ctx context.Context, normalized string, use
 	if err != nil {
 		return RedeemedCode{}, err
 	}
+	if limit, limitErr := queries.GetCodeBatchCustomerLimit(ctx, redeemed.BatchID); limitErr == nil && limit.Valid {
+		held, countErr := queries.CountBatchRedemptionsByCustomer(ctx, dbgen.CountBatchRedemptionsByCustomerParams{
+			BatchID: redeemed.BatchID, UserID: userID,
+		})
+		if countErr != nil {
+			return RedeemedCode{}, countErr
+		}
+		if held > int64(limit.Int32) {
+			// Over the batch's per-customer limit: the transaction rolls
+			// back, so the code stays issued for somebody else.
+			return RedeemedCode{}, ErrCodeNotRedeemable
+		}
+	}
 	plan, err := queries.GetPlanVersionForOrder(ctx, dbgen.GetPlanVersionForOrderParams{
 		PlanVersionID: batch.PlanVersionID, Currency: batch.Currency,
 	})

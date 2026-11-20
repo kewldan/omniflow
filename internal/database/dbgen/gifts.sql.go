@@ -530,7 +530,7 @@ func (q *Queries) GetPersonalOffer(ctx context.Context, id pgtype.UUID) (Persona
 }
 
 const listActiveOffersForCustomer = `-- name: ListActiveOffersForCustomer :many
-SELECT o.id, o.user_id, o.promotion_id, o.plan_id, o.title_ru, o.title_en, o.terms_ru, o.terms_en, o.status, o.starts_at, o.expires_at, o.order_id, o.created_by, o.created_at, o.resolved_at, o.notify_email, p.id, p.code, p.kind, p.value, p.currency, p.starts_at, p.ends_at, p.redemption_limit, p.per_customer_limit, p.eligibility, p.active, p.created_at, p.stackable, p.precedence, p.applies_to
+SELECT o.id, o.user_id, o.promotion_id, o.plan_id, o.title_ru, o.title_en, o.terms_ru, o.terms_en, o.status, o.starts_at, o.expires_at, o.order_id, o.created_by, o.created_at, o.resolved_at, o.notify_email, p.id, p.code, p.kind, p.value, p.currency, p.starts_at, p.ends_at, p.redemption_limit, p.per_customer_limit, p.eligibility, p.active, p.created_at, p.stackable, p.precedence, p.applies_to, p.credit_minor, p.tier_code
 FROM personal_offers o
 JOIN promotions p ON p.id = o.promotion_id
 WHERE o.user_id = $1
@@ -595,6 +595,8 @@ func (q *Queries) ListActiveOffersForCustomer(ctx context.Context, arg ListActiv
 			&i.Promotion.Stackable,
 			&i.Promotion.Precedence,
 			&i.Promotion.AppliesTo,
+			&i.Promotion.CreditMinor,
+			&i.Promotion.TierCode,
 		); err != nil {
 			return nil, err
 		}

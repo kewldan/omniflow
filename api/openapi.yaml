@@ -4123,9 +4123,10 @@ paths:
                 type: object
                 required: [kind]
                 properties:
-                  kind: {type: string, enum: [subscription, wallet_credit]}
+                  kind: {type: string, enum: [subscription, wallet_credit, traffic, loyalty_tier]}
                   endsAt: {type: string, format: date-time}
-                  creditMinor: {type: integer, format: int64}
+                  creditMinor: {type: integer, format: int64, description: "Wallet credit, including the credit half of a balance-and-days code."}
+                  trafficBytes: {type: integer, format: int64}
                   currency: {type: string}
         "403": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
@@ -5532,9 +5533,19 @@ components:
       required: [code, kind, value, perCustomerLimit, active, codes]
       properties:
         code: {type: string}
-        kind: {type: string, enum: [percent, fixed]}
+        kind:
+          type: string
+          enum: [percent, fixed, wallet_credit, days, trial, balance_days, traffic, loyalty_tier]
+          description: >-
+            percent and fixed discount a checkout; the others reward on their
+            own when redeemed: wallet_credit (value in minor units), days and
+            trial (value in days), balance_days (value days plus creditMinor),
+            traffic (value gigabytes added to the current period), and
+            loyalty_tier (tierCode held for value days).
         value: {type: integer, format: int64, minimum: 1}
         currency: {type: string, pattern: "^[A-Z]{3}$"}
+        creditMinor: {type: integer, format: int64, minimum: 1}
+        tierCode: {type: string, pattern: "^[a-z][a-z0-9_-]{1,31}$"}
         startsAt: {type: string, format: date-time, nullable: true}
         endsAt: {type: string, format: date-time, nullable: true}
         redemptionLimit: {type: integer, minimum: 1, nullable: true}

@@ -1942,7 +1942,9 @@
         "expiryHint": "Leave empty and the codes never expire, which is a liability you then carry.",
         "hour": "Hour",
         "minute": "Minute",
-        "generate": "Generate codes"
+        "generate": "Generate codes",
+        "perCustomer": "Codes per customer",
+        "perCustomerHint": "Empty for no limit."
       },
       "list": {
         "reference": "Batch",
@@ -5265,7 +5267,10 @@
           "credited": "{amount} added to your balance",
           "extended": "Code applied — your subscription updates within a minute",
           "refused": "That code cannot be used or was already used.",
-          "rateLimited": "Too many attempts. Try again in an hour."
+          "rateLimited": "Too many attempts. Try again in an hour.",
+          "traffic": "{gigabytes} GB of traffic was added to your current period.",
+          "tier": "A new loyalty tier is yours — its discounts already apply.",
+          "extendedAndCredited": "Your subscription was extended and {amount} was added to your wallet."
         }
       },
       "operationKinds": {

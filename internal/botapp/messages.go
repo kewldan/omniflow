@@ -849,6 +849,8 @@ var catalog = map[string]phrase{
 	"pay.method.crypto":       {ru: "криптовалюта", en: "crypto"},
 	"pay.method.intl":         {ru: "зарубежная карта", en: "foreign card"},
 	"wallet.supportTopUp":     {ru: "💬 Пополнить через поддержку", en: "💬 Top up through support"},
+	"gift.claimedTraffic":     {ru: "К текущему периоду подписки добавлено %d ГБ трафика.", en: "%d GB of traffic was added to your current subscription period."},
+	"gift.claimedTier":        {ru: "Вам открыт новый уровень лояльности — скидки уже действуют.", en: "A new loyalty tier is now yours — its discounts already apply."},
 	"event.renewalLowBalance": {ru: "💳 <b>Не хватает баланса для автопродления</b>\n\nЧерез %s подписка продлится с баланса, но на нём не хватает %s. Пополните кошелёк, чтобы продление прошло.", en: "💳 <b>Your balance will not cover auto-renew</b>\n\nIn %s your subscription renews from your wallet, which is %s short. Top up so the renewal goes through."},
 }
 

@@ -237,6 +237,9 @@ type Querier interface {
 	// Administrator accounts
 	// ---------------------------------------------------------------------------
 	CountAdminUsers(ctx context.Context) (int64, error)
+	// How many codes of one batch a customer holds, the one being redeemed
+	// included, for the batch's per-customer limit.
+	CountBatchRedemptionsByCustomer(ctx context.Context, arg CountBatchRedemptionsByCustomerParams) (int64, error)
 	CountCannedResponseUse(ctx context.Context, responseID pgtype.UUID) error
 	CountDunningAttemptsForCycle(ctx context.Context, cycleKey string) (int64, error)
 	CountGiftsByStatus(ctx context.Context) ([]CountGiftsByStatusRow, error)
@@ -642,6 +645,7 @@ type Querier interface {
 	GetCannedResponse(ctx context.Context, id pgtype.UUID) (SupportCannedResponse, error)
 	GetCartGoods(ctx context.Context, cartID pgtype.UUID) (GetCartGoodsRow, error)
 	GetChannelEnforcement(ctx context.Context, userID pgtype.UUID) (ChannelEnforcement, error)
+	GetCodeBatchCustomerLimit(ctx context.Context, batchID pgtype.UUID) (pgtype.Int4, error)
 	GetCodeBatchForRedemption(ctx context.Context, id pgtype.UUID) (GetCodeBatchForRedemptionRow, error)
 	// Operator panel queries for v0.7: settings, dashboard, customer and finance
 	// operations, fulfillment and job diagnostics, and bulk actions.
@@ -731,6 +735,9 @@ type Querier interface {
 	// reading ends_at, which is frozen at the pause instant.
 	GetLatestEntitlementForChange(ctx context.Context, arg GetLatestEntitlementForChangeParams) (Entitlement, error)
 	GetLedgerTransactionByIdempotency(ctx context.Context, idempotencyKey string) (LedgerTransaction, error)
+	// The period a traffic code adds to: the customer's entitlement that is in
+	// force right now, the latest one when several subscriptions run.
+	GetLiveEntitlementForReward(ctx context.Context, userID pgtype.UUID) (Entitlement, error)
 	GetLoyaltyStanding(ctx context.Context, userID pgtype.UUID) (GetLoyaltyStandingRow, error)
 	GetMCPServer(ctx context.Context, slug string) (GetMCPServerRow, error)
 	GetMCPServerCredentials(ctx context.Context, slug string) ([]byte, error)

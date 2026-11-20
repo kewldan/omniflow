@@ -326,22 +326,36 @@ export interface PlanList {
   items: PlanListItemsItem[];
 }
 
+/**
+ * percent and fixed discount a checkout; the others reward on their own when redeemed: wallet_credit (value in minor units), days and trial (value in days), balance_days (value days plus creditMinor), traffic (value gigabytes added to the current period), and loyalty_tier (tierCode held for value days).
+ */
 export type PromotionInputKind = (typeof PromotionInputKind)[keyof typeof PromotionInputKind];
 
 export const PromotionInputKind = {
   percent: "percent",
   fixed: "fixed",
+  wallet_credit: "wallet_credit",
+  days: "days",
+  trial: "trial",
+  balance_days: "balance_days",
+  traffic: "traffic",
+  loyalty_tier: "loyalty_tier",
 } as const;
 
 export type PromotionInputEligibility = { [key: string]: unknown };
 
 export interface PromotionInput {
   code: string;
+  /** percent and fixed discount a checkout; the others reward on their own when redeemed: wallet_credit (value in minor units), days and trial (value in days), balance_days (value days plus creditMinor), traffic (value gigabytes added to the current period), and loyalty_tier (tierCode held for value days). */
   kind: PromotionInputKind;
   /** @minimum 1 */
   value: number;
   /** @pattern ^[A-Z]{3}$ */
   currency?: string;
+  /** @minimum 1 */
+  creditMinor?: number;
+  /** @pattern ^[a-z][a-z0-9_-]{1,31}$ */
+  tierCode?: string;
   /** @nullable */
   startsAt?: string | null;
   /** @nullable */
@@ -1345,7 +1359,7 @@ export interface PanelOrderList {
   items: PanelOrderSummary[] | null;
 }
 
-export type PanelOrderPageStateCounts = {[key: string]: number};
+export type PanelOrderPageStateCounts = { [key: string]: number };
 
 export interface PanelOrderPage {
   /** @nullable */
@@ -3137,23 +3151,23 @@ export interface PanelProviderSettingsInput {
   webhookSecret?: string | null;
 }
 
-export type PanelPaymentMethodSettingsLoginKindsItem = typeof PanelPaymentMethodSettingsLoginKindsItem[keyof typeof PanelPaymentMethodSettingsLoginKindsItem];
-
+export type PanelPaymentMethodSettingsLoginKindsItem =
+  (typeof PanelPaymentMethodSettingsLoginKindsItem)[keyof typeof PanelPaymentMethodSettingsLoginKindsItem];
 
 export const PanelPaymentMethodSettingsLoginKindsItem = {
-  telegram: 'telegram',
-  email: 'email',
-  vk: 'vk',
-  oidc: 'oidc',
+  telegram: "telegram",
+  email: "email",
+  vk: "vk",
+  oidc: "oidc",
 } as const;
 
-export type PanelPaymentMethodSettingsTopUpAudience = typeof PanelPaymentMethodSettingsTopUpAudience[keyof typeof PanelPaymentMethodSettingsTopUpAudience];
-
+export type PanelPaymentMethodSettingsTopUpAudience =
+  (typeof PanelPaymentMethodSettingsTopUpAudience)[keyof typeof PanelPaymentMethodSettingsTopUpAudience];
 
 export const PanelPaymentMethodSettingsTopUpAudience = {
-  all: 'all',
-  first_topup: 'first_topup',
-  repeat_topup: 'repeat_topup',
+  all: "all",
+  first_topup: "first_topup",
+  repeat_topup: "repeat_topup",
 } as const;
 
 export interface PanelPaymentMethodSettings {
@@ -3178,9 +3192,9 @@ export interface PanelPaymentMethodSettings {
   /** @minimum 1 */
   maxMinor?: number;
   /**
-     * @maxItems 8
-     * @items.minimum 1
-     */
+   * @maxItems 8
+   * @items.minimum 1
+   */
   quickAmountsMinor?: number[];
   loginKinds?: PanelPaymentMethodSettingsLoginKindsItem[];
   topUpAudience?: PanelPaymentMethodSettingsTopUpAudience;
@@ -7139,12 +7153,16 @@ export type AccountRedeemCode200Kind =
 export const AccountRedeemCode200Kind = {
   subscription: "subscription",
   wallet_credit: "wallet_credit",
+  traffic: "traffic",
+  loyalty_tier: "loyalty_tier",
 } as const;
 
 export type AccountRedeemCode200 = {
   kind: AccountRedeemCode200Kind;
   endsAt?: string;
+  /** Wallet credit, including the credit half of a balance-and-days code. */
   creditMinor?: number;
+  trafficBytes?: number;
   currency?: string;
 };
 
@@ -18744,86 +18762,92 @@ export const useSavePanelSubscriptionSettings = <TError = Promise<ProblemRespons
 };
 
 export type savePanelPaymentGuidanceResponse200 = {
-  data: PanelCommerceSettings
-  status: 200
-}
+  data: PanelCommerceSettings;
+  status: 200;
+};
 
 export type savePanelPaymentGuidanceResponse403 = {
-  data: ProblemResponse
-  status: 403
-}
+  data: ProblemResponse;
+  status: 403;
+};
 
 export type savePanelPaymentGuidanceResponse422 = {
-  data: ProblemResponse
-  status: 422
-}
-
-export type savePanelPaymentGuidanceResponseSuccess = (savePanelPaymentGuidanceResponse200) & {
-  headers: Headers;
-};
-export type savePanelPaymentGuidanceResponseError = (savePanelPaymentGuidanceResponse403 | savePanelPaymentGuidanceResponse422) & {
-  headers: Headers;
+  data: ProblemResponse;
+  status: 422;
 };
 
-export type savePanelPaymentGuidanceResponse = (savePanelPaymentGuidanceResponseSuccess | savePanelPaymentGuidanceResponseError)
+export type savePanelPaymentGuidanceResponseSuccess = savePanelPaymentGuidanceResponse200 & {
+  headers: Headers;
+};
+export type savePanelPaymentGuidanceResponseError = (
+  | savePanelPaymentGuidanceResponse403
+  | savePanelPaymentGuidanceResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelPaymentGuidanceResponse =
+  | savePanelPaymentGuidanceResponseSuccess
+  | savePanelPaymentGuidanceResponseError;
 
 export const getSavePanelPaymentGuidanceUrl = () => {
-
-
-
-
-  return `/v1/panel/settings/commerce/payment-guidance`
-}
+  return `/v1/panel/settings/commerce/payment-guidance`;
+};
 
 /**
  * Requires settings.write. The transfer instructions customers see for a manual payment, in Russian and English (up to 2000 characters each), and whether the wallet offers to top up through support.
  */
-export const savePanelPaymentGuidance = async (panelPaymentGuidance: PanelPaymentGuidance, options?: RequestInit): Promise<savePanelPaymentGuidanceResponse> => {
-
-  const res = await fetch(getSavePanelPaymentGuidanceUrl(),
-  {
+export const savePanelPaymentGuidance = async (
+  panelPaymentGuidance: PanelPaymentGuidance,
+  options?: RequestInit,
+): Promise<savePanelPaymentGuidanceResponse> => {
+  const res = await fetch(getSavePanelPaymentGuidanceUrl(), {
     ...options,
-    method: 'PUT',
-    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
-    body: JSON.stringify(panelPaymentGuidance)
-  }
-)
-
+    method: "PUT",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(panelPaymentGuidance),
+  });
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
 
-  const data: savePanelPaymentGuidanceResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as savePanelPaymentGuidanceResponse
-}
+  const data: savePanelPaymentGuidanceResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as savePanelPaymentGuidanceResponse;
+};
 
-
-
-
-export const getSavePanelPaymentGuidanceMutationFetcher = ( options?: RequestInit) => {
+export const getSavePanelPaymentGuidanceMutationFetcher = (options?: RequestInit) => {
   return (_: Key, { arg }: { arg: PanelPaymentGuidance }) => {
     return savePanelPaymentGuidance(arg, options);
-  }
-}
-export const getSavePanelPaymentGuidanceMutationKey = () => [`/v1/panel/settings/commerce/payment-guidance`] as const;
+  };
+};
+export const getSavePanelPaymentGuidanceMutationKey = () =>
+  [`/v1/panel/settings/commerce/payment-guidance`] as const;
 
-export type SavePanelPaymentGuidanceMutationResult = NonNullable<Awaited<ReturnType<typeof savePanelPaymentGuidance>>>
+export type SavePanelPaymentGuidanceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelPaymentGuidance>>
+>;
 
-export const useSavePanelPaymentGuidance = <TError = Promise<ProblemResponse>>(
-   options?: { swr?:SWRMutationConfiguration<Awaited<ReturnType<typeof savePanelPaymentGuidance>>, TError, Key, PanelPaymentGuidance, Awaited<ReturnType<typeof savePanelPaymentGuidance>>> & { swrKey?: string }, fetch?: RequestInit}
-) => {
-
-  const {swr: swrOptions, fetch: fetchOptions} = options ?? {}
+export const useSavePanelPaymentGuidance = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof savePanelPaymentGuidance>>,
+    TError,
+    Key,
+    PanelPaymentGuidance,
+    Awaited<ReturnType<typeof savePanelPaymentGuidance>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
 
   const swrKey = swrOptions?.swrKey ?? getSavePanelPaymentGuidanceMutationKey();
   const swrFn = getSavePanelPaymentGuidanceMutationFetcher(fetchOptions);
 
-  const query = useSWRMutation(swrKey, swrFn, swrOptions)
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,
-    ...query
-  }
-}
+    ...query,
+  };
+};
 
 export type getPanelSubscriptionPolicyResponse200 = {
   data: PanelSubscriptionPolicy;
@@ -23519,159 +23543,181 @@ export const useConfigurePanelRecurring = <TError = Promise<ProblemResponse>>(
 };
 
 export type listPanelPaymentMethodSettingsResponse200 = {
-  data: PanelPaymentMethodSettingsList
-  status: 200
-}
+  data: PanelPaymentMethodSettingsList;
+  status: 200;
+};
 
 export type listPanelPaymentMethodSettingsResponse403 = {
-  data: ProblemResponse
-  status: 403
-}
-
-export type listPanelPaymentMethodSettingsResponseSuccess = (listPanelPaymentMethodSettingsResponse200) & {
-  headers: Headers;
-};
-export type listPanelPaymentMethodSettingsResponseError = (listPanelPaymentMethodSettingsResponse403) & {
-  headers: Headers;
+  data: ProblemResponse;
+  status: 403;
 };
 
-export type listPanelPaymentMethodSettingsResponse = (listPanelPaymentMethodSettingsResponseSuccess | listPanelPaymentMethodSettingsResponseError)
+export type listPanelPaymentMethodSettingsResponseSuccess =
+  listPanelPaymentMethodSettingsResponse200 & {
+    headers: Headers;
+  };
+export type listPanelPaymentMethodSettingsResponseError =
+  listPanelPaymentMethodSettingsResponse403 & {
+    headers: Headers;
+  };
+
+export type listPanelPaymentMethodSettingsResponse =
+  | listPanelPaymentMethodSettingsResponseSuccess
+  | listPanelPaymentMethodSettingsResponseError;
 
 export const getListPanelPaymentMethodSettingsUrl = () => {
-
-
-
-
-  return `/v1/panel/settings/payment-methods`
-}
+  return `/v1/panel/settings/payment-methods`;
+};
 
 /**
  * Requires settings.read. Every customer-facing payment button this deployment can show — one per method of each configured adapter — with the operator's presentation and audience rules.
  */
-export const listPanelPaymentMethodSettings = async ( options?: RequestInit): Promise<listPanelPaymentMethodSettingsResponse> => {
-
-  const res = await fetch(getListPanelPaymentMethodSettingsUrl(),
-  {
+export const listPanelPaymentMethodSettings = async (
+  options?: RequestInit,
+): Promise<listPanelPaymentMethodSettingsResponse> => {
+  const res = await fetch(getListPanelPaymentMethodSettingsUrl(), {
     ...options,
-    method: 'GET'
-
-
-  }
-)
-
+    method: "GET",
+  });
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
 
-  const data: listPanelPaymentMethodSettingsResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as listPanelPaymentMethodSettingsResponse
-}
+  const data: listPanelPaymentMethodSettingsResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as listPanelPaymentMethodSettingsResponse;
+};
 
+export const getListPanelPaymentMethodSettingsKey = () =>
+  [`/v1/panel/settings/payment-methods`] as const;
 
+export type ListPanelPaymentMethodSettingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelPaymentMethodSettings>>
+>;
 
+export const useListPanelPaymentMethodSettings = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelPaymentMethodSettings>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
 
-export const getListPanelPaymentMethodSettingsKey = () => [`/v1/panel/settings/payment-methods`] as const;
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelPaymentMethodSettingsKey() : null));
+  const swrFn = () => listPanelPaymentMethodSettings(fetchOptions);
 
-export type ListPanelPaymentMethodSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof listPanelPaymentMethodSettings>>>
-
-export const useListPanelPaymentMethodSettings = <TError = Promise<ProblemResponse>>(
-   options?: { swr?:SWRConfiguration<Awaited<ReturnType<typeof listPanelPaymentMethodSettings>>, TError> & { swrKey?: Key, enabled?: boolean }, fetch?: RequestInit }
-) => {
-  const {swr: swrOptions, fetch: fetchOptions} = options ?? {}
-
-  const isEnabled = swrOptions?.enabled !== false
-  const swrKey = swrOptions?.swrKey ?? (() => isEnabled ? getListPanelPaymentMethodSettingsKey() : null);
-  const swrFn = () => listPanelPaymentMethodSettings(fetchOptions)
-
-  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions)
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,
-    ...query
-  }
-}
+    ...query,
+  };
+};
 
 export type savePanelPaymentMethodSettingsResponse200 = {
-  data: PanelPaymentMethodSettings
-  status: 200
-}
+  data: PanelPaymentMethodSettings;
+  status: 200;
+};
 
 export type savePanelPaymentMethodSettingsResponse403 = {
-  data: ProblemResponse
-  status: 403
-}
+  data: ProblemResponse;
+  status: 403;
+};
 
 export type savePanelPaymentMethodSettingsResponse422 = {
-  data: ProblemResponse
-  status: 422
-}
-
-export type savePanelPaymentMethodSettingsResponseSuccess = (savePanelPaymentMethodSettingsResponse200) & {
-  headers: Headers;
-};
-export type savePanelPaymentMethodSettingsResponseError = (savePanelPaymentMethodSettingsResponse403 | savePanelPaymentMethodSettingsResponse422) & {
-  headers: Headers;
+  data: ProblemResponse;
+  status: 422;
 };
 
-export type savePanelPaymentMethodSettingsResponse = (savePanelPaymentMethodSettingsResponseSuccess | savePanelPaymentMethodSettingsResponseError)
+export type savePanelPaymentMethodSettingsResponseSuccess =
+  savePanelPaymentMethodSettingsResponse200 & {
+    headers: Headers;
+  };
+export type savePanelPaymentMethodSettingsResponseError = (
+  | savePanelPaymentMethodSettingsResponse403
+  | savePanelPaymentMethodSettingsResponse422
+) & {
+  headers: Headers;
+};
 
-export const getSavePanelPaymentMethodSettingsUrl = (provider: string,) => {
+export type savePanelPaymentMethodSettingsResponse =
+  | savePanelPaymentMethodSettingsResponseSuccess
+  | savePanelPaymentMethodSettingsResponseError;
 
-
-
-
-  return `/v1/panel/settings/payment-methods/${provider}`
-}
+export const getSavePanelPaymentMethodSettingsUrl = (provider: string) => {
+  return `/v1/panel/settings/payment-methods/${provider}`;
+};
 
 /**
  * Requires settings.write. Stores how one button (`method` in the body, empty for the adapter's default) is named, described, bounded, and to whom it is shown. Customer lists pick it up within thirty seconds.
  */
-export const savePanelPaymentMethodSettings = async (provider: string,
-    panelPaymentMethodSettings: NonReadonly<PanelPaymentMethodSettings>, options?: RequestInit): Promise<savePanelPaymentMethodSettingsResponse> => {
-
-  const res = await fetch(getSavePanelPaymentMethodSettingsUrl(provider),
-  {
+export const savePanelPaymentMethodSettings = async (
+  provider: string,
+  panelPaymentMethodSettings: NonReadonly<PanelPaymentMethodSettings>,
+  options?: RequestInit,
+): Promise<savePanelPaymentMethodSettingsResponse> => {
+  const res = await fetch(getSavePanelPaymentMethodSettingsUrl(provider), {
     ...options,
-    method: 'PUT',
-    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
-    body: JSON.stringify(panelPaymentMethodSettings)
-  }
-)
-
+    method: "PUT",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(panelPaymentMethodSettings),
+  });
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
 
-  const data: savePanelPaymentMethodSettingsResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as savePanelPaymentMethodSettingsResponse
-}
+  const data: savePanelPaymentMethodSettingsResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as savePanelPaymentMethodSettingsResponse;
+};
 
-
-
-
-export const getSavePanelPaymentMethodSettingsMutationFetcher = (provider: string, options?: RequestInit) => {
+export const getSavePanelPaymentMethodSettingsMutationFetcher = (
+  provider: string,
+  options?: RequestInit,
+) => {
   return (_: Key, { arg }: { arg: NonReadonly<PanelPaymentMethodSettings> }) => {
     return savePanelPaymentMethodSettings(provider, arg, options);
-  }
-}
-export const getSavePanelPaymentMethodSettingsMutationKey = (provider: string,) => [`/v1/panel/settings/payment-methods/${provider}`] as const;
+  };
+};
+export const getSavePanelPaymentMethodSettingsMutationKey = (provider: string) =>
+  [`/v1/panel/settings/payment-methods/${provider}`] as const;
 
-export type SavePanelPaymentMethodSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof savePanelPaymentMethodSettings>>>
+export type SavePanelPaymentMethodSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelPaymentMethodSettings>>
+>;
 
 export const useSavePanelPaymentMethodSettings = <TError = Promise<ProblemResponse>>(
-  provider: string, options?: { swr?:SWRMutationConfiguration<Awaited<ReturnType<typeof savePanelPaymentMethodSettings>>, TError, Key, NonReadonly<PanelPaymentMethodSettings>, Awaited<ReturnType<typeof savePanelPaymentMethodSettings>>> & { swrKey?: string }, fetch?: RequestInit}
+  provider: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof savePanelPaymentMethodSettings>>,
+      TError,
+      Key,
+      NonReadonly<PanelPaymentMethodSettings>,
+      Awaited<ReturnType<typeof savePanelPaymentMethodSettings>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
 ) => {
-
-  const {swr: swrOptions, fetch: fetchOptions} = options ?? {}
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
 
   const swrKey = swrOptions?.swrKey ?? getSavePanelPaymentMethodSettingsMutationKey(provider);
   const swrFn = getSavePanelPaymentMethodSettingsMutationFetcher(provider, fetchOptions);
 
-  const query = useSWRMutation(swrKey, swrFn, swrOptions)
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,
-    ...query
-  }
-}
+    ...query,
+  };
+};
 
 export type listPanelAIProvidersResponse200 = {
   data: PanelAIProviderList;

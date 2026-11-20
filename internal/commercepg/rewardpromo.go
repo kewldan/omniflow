@@ -19,6 +19,12 @@ const (
 	RewardWalletCredit = "wallet_credit"
 	RewardDays         = "days"
 	RewardTrial        = "trial"
+	// RewardBalanceDays credits the wallet and adds days in one code.
+	RewardBalanceDays = "balance_days"
+	// RewardTraffic adds gigabytes to the current subscription period.
+	RewardTraffic = "traffic"
+	// RewardLoyaltyTier grants a loyalty group for a number of days.
+	RewardLoyaltyTier = "loyalty_tier"
 )
 
 var (
@@ -37,6 +43,10 @@ type RedeemedReward struct {
 	EndsAt      time.Time
 	CreditMinor int64
 	Currency    string
+	// TrafficBytes is what a traffic code added; TierCode the group a
+	// loyalty code granted.
+	TrafficBytes int64
+	TierCode     string
 }
 
 // RedeemRewardPromo applies a promo code that rewards on its own — days added
@@ -83,7 +93,7 @@ func (store *Store) redeemRewardPromo(ctx context.Context, normalized string, us
 		return RedeemedReward{}, err
 	}
 	switch promo.Kind {
-	case RewardWalletCredit, RewardDays, RewardTrial:
+	case RewardWalletCredit, RewardDays, RewardTrial, RewardBalanceDays, RewardTraffic, RewardLoyaltyTier:
 	default:
 		return RedeemedReward{}, ErrPromoNotReward
 	}
@@ -124,6 +134,57 @@ func (store *Store) redeemRewardPromo(ctx context.Context, normalized string, us
 		}
 		if _, err = queries.InsertPromoRedemption(ctx, dbgen.InsertPromoRedemptionParams{
 			PromoCodeID: promo.ID, PromotionID: promo.PromotionID, UserID: userID, OrderID: order.ID,
+		}); err != nil {
+			return RedeemedReward{}, err
+		}
+	case RewardTraffic:
+		orderID, bytes, trafficErr := store.grantRewardTraffic(ctx, tx, queries, userID, promo.Value, key)
+		if trafficErr != nil {
+			return RedeemedReward{}, trafficErr
+		}
+		reward.TrafficBytes = bytes
+		if _, err = queries.InsertPromoRedemption(ctx, dbgen.InsertPromoRedemptionParams{
+			PromoCodeID: promo.ID, PromotionID: promo.PromotionID, UserID: userID, OrderID: orderID,
+		}); err != nil {
+			return RedeemedReward{}, err
+		}
+	case RewardLoyaltyTier:
+		reward.TierCode, reward.Days = promo.TierCode.String, int(promo.Value)
+		order, orderErr := store.rewardOrder(ctx, queries, userID, store.rewardCurrency(ctx, userID, promo.Currency.String), key, pgtype.UUID{})
+		if orderErr != nil {
+			return RedeemedReward{}, orderErr
+		}
+		if _, err = queries.UpsertLoyaltyMembership(ctx, dbgen.UpsertLoyaltyMembershipParams{
+			UserID: userID, TierCode: promo.TierCode.String, Source: "promo_code",
+			Note:      "promo code",
+			ExpiresAt: pgtype.Timestamptz{Time: now.Add(time.Duration(promo.Value) * 24 * time.Hour), Valid: true},
+		}); err != nil {
+			return RedeemedReward{}, err
+		}
+		if _, err = queries.InsertPromoRedemption(ctx, dbgen.InsertPromoRedemptionParams{
+			PromoCodeID: promo.ID, PromotionID: promo.PromotionID, UserID: userID, OrderID: order.ID,
+		}); err != nil {
+			return RedeemedReward{}, err
+		}
+	case RewardBalanceDays:
+		// Days first: a customer who never had a subscription cannot take
+		// this code, and the credit must not be granted alone.
+		reward.Days, reward.CreditMinor, reward.Currency = int(promo.Value), promo.CreditMinor.Int64, promo.Currency.String
+		planVersionID, currency, planErr := store.rewardPlan(ctx, queries, userID, RewardDays)
+		if planErr != nil {
+			return RedeemedReward{}, planErr
+		}
+		endsAt, orderID, grantErr := store.grantRewardDays(ctx, tx, queries, userID, planVersionID, currency,
+			time.Duration(promo.Value)*24*time.Hour, false, key)
+		if grantErr != nil {
+			return RedeemedReward{}, grantErr
+		}
+		reward.EndsAt = endsAt
+		if err = store.creditRewardWallet(ctx, queries, userID, promo.Currency.String, promo.CreditMinor.Int64, key+":credit"); err != nil {
+			return RedeemedReward{}, err
+		}
+		if _, err = queries.InsertPromoRedemption(ctx, dbgen.InsertPromoRedemptionParams{
+			PromoCodeID: promo.ID, PromotionID: promo.PromotionID, UserID: userID, OrderID: orderID,
 		}); err != nil {
 			return RedeemedReward{}, err
 		}
@@ -293,4 +354,68 @@ func (store *Store) creditRewardWallet(ctx context.Context, queries *dbgen.Queri
 	}
 	_, err = queries.InsertLedgerEntry(ctx, dbgen.InsertLedgerEntryParams{TransactionID: transaction.ID, AccountType: "platform_clearing", Currency: currency, AmountMinor: -amount})
 	return err
+}
+
+// rewardCurrency is the currency a reward with none of its own is recorded
+// in: the customer's most recent order's, so the zero-amount order sits beside
+// their others.
+func (store *Store) rewardCurrency(ctx context.Context, userID pgtype.UUID, currency string) string {
+	if currency != "" {
+		return currency
+	}
+	var latest string
+	if err := store.pool.QueryRow(ctx, `SELECT currency FROM orders WHERE user_id = $1
+		ORDER BY created_at DESC LIMIT 1`, userID).Scan(&latest); err == nil && latest != "" {
+		return latest
+	}
+	return "RUB"
+}
+
+// grantRewardTraffic adds gigabytes to the customer's live subscription
+// period and queues the new limit for Remnawave. A period with unlimited
+// traffic, or no live period, cannot take the code: adding to "unlimited"
+// would grant nothing while consuming the code.
+func (store *Store) grantRewardTraffic(
+	ctx context.Context, tx pgx.Tx, queries *dbgen.Queries, userID pgtype.UUID, gigabytes int64, key string,
+) (pgtype.UUID, int64, error) {
+	entitlement, err := queries.GetLiveEntitlementForReward(ctx, userID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return pgtype.UUID{}, 0, ErrPromoNotApplicable
+	}
+	if err != nil {
+		return pgtype.UUID{}, 0, err
+	}
+	now := store.clock().UTC()
+	if !entitlement.TrafficAllowanceBytes.Valid || !entitlement.EndsAt.Valid || !entitlement.EndsAt.Time.After(now) ||
+		(entitlement.Status != "active" && entitlement.Status != "limited") {
+		return pgtype.UUID{}, 0, ErrPromoNotApplicable
+	}
+	bytes := gigabytes * 1024 * 1024 * 1024
+	order, err := store.rewardOrder(ctx, queries, userID, store.rewardCurrency(ctx, userID, ""), key, entitlement.SubscriptionID)
+	if err != nil {
+		return pgtype.UUID{}, 0, err
+	}
+	updated, err := queries.ApplyEntitlementAddonTotals(ctx, dbgen.ApplyEntitlementAddonTotalsParams{
+		EntitlementID: entitlement.ID, ExtraTrafficBytes: bytes, ExtraDeviceSlots: 0, ExtraSquadIds: nil,
+	})
+	if err != nil {
+		return pgtype.UUID{}, 0, err
+	}
+	desired, _ := json.Marshal(map[string]any{
+		"effectiveAt": now, "endsAt": updated.EndsAt.Time,
+		"trafficAllowanceBytes": nullableInt8(updated.TrafficAllowanceBytes),
+		"deviceLimit":           nullableInt4(updated.DeviceLimit),
+		"squadIds":              databaseutil.UUIDStrings(updated.RemnawaveSquadIds),
+	})
+	operation, err := queries.CreateFulfillmentOperation(ctx, dbgen.CreateFulfillmentOperationParams{
+		EntitlementID: updated.ID, Operation: "set_limits",
+		IdempotencyKey: key + ":traffic", CorrelationID: key, DesiredState: desired,
+	})
+	if err != nil {
+		return pgtype.UUID{}, 0, err
+	}
+	if err = store.enqueue(ctx, tx, uuidString(operation.ID)); err != nil {
+		return pgtype.UUID{}, 0, err
+	}
+	return order.ID, bytes, nil
 }

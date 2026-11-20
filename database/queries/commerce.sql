@@ -222,9 +222,9 @@ WHERE id = sqlc.arg(id) RETURNING *;
 -- name: CreatePromotion :one
 INSERT INTO promotions (
   code, kind, value, currency, starts_at, ends_at, redemption_limit,
-  per_customer_limit, eligibility, active
+  per_customer_limit, eligibility, active, credit_minor, tier_code
 )
-VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, sqlc.narg(credit_minor), sqlc.narg(tier_code))
 ON CONFLICT (code) DO UPDATE SET code = EXCLUDED.code
 RETURNING *;
 
@@ -247,7 +247,7 @@ WHERE v.id = sqlc.arg(plan_version_id) AND pr.currency = sqlc.arg(currency);
 -- name: GetPromoForRedemption :one
 SELECT pc.*, p.kind, p.value, p.currency, p.starts_at, p.ends_at,
        p.redemption_limit AS promotion_redemption_limit, p.per_customer_limit, p.eligibility,
-       p.applies_to
+       p.applies_to, p.credit_minor, p.tier_code
 FROM promo_codes pc
 JOIN promotions p ON p.id = pc.promotion_id
 WHERE pc.normalized_code = sqlc.arg(normalized_code) AND pc.active AND p.active

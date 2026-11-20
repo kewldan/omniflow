@@ -136,6 +136,8 @@ func createVersion(ctx context.Context, tx pgx.Tx, q *dbgen.Queries, planID pgty
 type PromotionInput struct {
 	Code, Kind, Currency string
 	Value                int64
+	CreditMinor          int64
+	TierCode             string
 	StartsAt, EndsAt     *time.Time
 	RedemptionLimit      *int32
 	PerCustomerLimit     int32
@@ -153,7 +155,7 @@ func (service *Service) CreatePromotion(ctx context.Context, input PromotionInpu
 	defer func() { _ = tx.Rollback(ctx) }()
 	q := dbgen.New(tx)
 	eligibility, _ := json.Marshal(input.Eligibility)
-	promotion, err := q.CreatePromotion(ctx, dbgen.CreatePromotionParams{Code: input.Code, Kind: input.Kind, Value: input.Value, Currency: optionalText(input.Currency), StartsAt: optionalTime(input.StartsAt), EndsAt: optionalTime(input.EndsAt), RedemptionLimit: optionalInt4(input.RedemptionLimit), PerCustomerLimit: input.PerCustomerLimit, Eligibility: eligibility, Active: input.Active})
+	promotion, err := q.CreatePromotion(ctx, dbgen.CreatePromotionParams{Code: input.Code, Kind: input.Kind, Value: input.Value, Currency: optionalText(input.Currency), StartsAt: optionalTime(input.StartsAt), EndsAt: optionalTime(input.EndsAt), RedemptionLimit: optionalInt4(input.RedemptionLimit), PerCustomerLimit: input.PerCustomerLimit, Eligibility: eligibility, Active: input.Active, CreditMinor: pgtype.Int8{Int64: input.CreditMinor, Valid: input.CreditMinor > 0}, TierCode: optionalText(input.TierCode)})
 	if err != nil {
 		return dbgen.Promotion{}, err
 	}

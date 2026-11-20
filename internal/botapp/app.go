@@ -315,6 +315,11 @@ func (app *App) HandleStart(ctx context.Context, client *telegram.Bot, update *m
 			app.handleStartPayment(ctx, client, update, locale, payload.Value)
 			return
 		}
+	case startPayloadCoupon:
+		if app.commerceEnabled() {
+			app.handleStartCoupon(ctx, client, update, locale, payload.Value)
+			return
+		}
 	}
 	view := app.loadView(ctx, message.From.ID, locale, routeHome)
 	if _, err := client.SendMessage(ctx, sendParams(message.Chat.ID, view)); err != nil {
@@ -336,7 +341,34 @@ const (
 	// startPayloadCampaign is an advertising campaign: `c_<code>`, or the
 	// bare code the way Bedolaga links are written.
 	startPayloadCampaign = "campaign"
+	// startPayloadCoupon redeems a code from a link: `coupon_<code>`, the
+	// form Bedolaga's coupon links use.
+	startPayloadCoupon = "coupon"
 )
+
+// couponArgument is a code a deep link may carry: the characters of a promo,
+// gift, or wholesale code and nothing else.
+var couponArgument = regexp.MustCompile(`^[A-Za-z0-9_-]{3,57}$`)
+
+// handleStartCoupon redeems the code a `/start coupon_<code>` link carries,
+// exactly as typing it into "redeem a code" does, and shows the outcome.
+func (app *App) handleStartCoupon(ctx context.Context, client *telegram.Bot, update *models.Update, locale Locale, code string) {
+	message := update.Message
+	session, err := app.commerceContext(ctx, message.From.ID, message.From.LanguageCode, message.From.Username)
+	if err != nil {
+		app.withCorrelation(update).Error("customer resolution failed", "error", err)
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, app.errorView(locale, routeHome)))
+		return
+	}
+	if !accountActive(session.Customer) {
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, accountUnavailableView(session.Locale, session.Customer, app.supportLink())))
+		return
+	}
+	view := app.SubmitGiftCode(ctx, session, code)
+	if _, err := client.SendMessage(ctx, sendParams(message.Chat.ID, view)); err != nil {
+		app.withCorrelation(update).Error("telegram view send failed", "view", "coupon", "error", err)
+	}
+}
 
 // parseStartPayload reads the deep-link argument of a /start command.
 //
@@ -361,6 +393,10 @@ func parseStartPayload(messageText string) startPayload {
 	case strings.HasPrefix(argument, "pay_"):
 		if parsed, err := databaseutil.ParseUUIDs([]string{strings.TrimPrefix(argument, "pay_")}); err == nil {
 			return startPayload{Kind: startPayloadPay, Value: databaseutil.UUIDStrings(parsed)[0]}
+		}
+	case strings.HasPrefix(argument, "coupon_"):
+		if code := strings.TrimPrefix(argument, "coupon_"); couponArgument.MatchString(code) {
+			return startPayload{Kind: startPayloadCoupon, Value: code}
 		}
 	case strings.HasPrefix(argument, "c_"):
 		if code := strings.ToLower(strings.TrimPrefix(argument, "c_")); campaignArgument.MatchString(code) {

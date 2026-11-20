@@ -25,14 +25,33 @@ func (q *Queries) AttachAccessCodeEntitlement(ctx context.Context, arg AttachAcc
 	return err
 }
 
+const countBatchRedemptionsByCustomer = `-- name: CountBatchRedemptionsByCustomer :one
+SELECT count(*)::bigint FROM access_codes
+WHERE batch_id = $1 AND redeemed_by = $2 AND status = 'redeemed'
+`
+
+type CountBatchRedemptionsByCustomerParams struct {
+	BatchID pgtype.UUID `json:"batch_id"`
+	UserID  pgtype.UUID `json:"user_id"`
+}
+
+// How many codes of one batch a customer holds, the one being redeemed
+// included, for the batch's per-customer limit.
+func (q *Queries) CountBatchRedemptionsByCustomer(ctx context.Context, arg CountBatchRedemptionsByCustomerParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countBatchRedemptionsByCustomer, arg.BatchID, arg.UserID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createCodeBatch = `-- name: CreateCodeBatch :one
 
 INSERT INTO code_batches (
   reference, plan_version_id, quantity, unit_price_minor, currency,
-  note, expires_at, created_by
+  note, expires_at, created_by, max_per_customer
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, reference, plan_version_id, quantity, unit_price_minor, currency, note, expires_at, revoked_at, revoked_by, revoke_reason, created_at, created_by
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, reference, plan_version_id, quantity, unit_price_minor, currency, note, expires_at, revoked_at, revoked_by, revoke_reason, created_at, created_by, max_per_customer
 `
 
 type CreateCodeBatchParams struct {
@@ -44,6 +63,7 @@ type CreateCodeBatchParams struct {
 	Note           pgtype.Text        `json:"note"`
 	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
 	CreatedBy      pgtype.UUID        `json:"created_by"`
+	MaxPerCustomer pgtype.Int4        `json:"max_per_customer"`
 }
 
 // Wholesale code batches.
@@ -57,6 +77,7 @@ func (q *Queries) CreateCodeBatch(ctx context.Context, arg CreateCodeBatchParams
 		arg.Note,
 		arg.ExpiresAt,
 		arg.CreatedBy,
+		arg.MaxPerCustomer,
 	)
 	var i CodeBatch
 	err := row.Scan(
@@ -73,8 +94,20 @@ func (q *Queries) CreateCodeBatch(ctx context.Context, arg CreateCodeBatchParams
 		&i.RevokeReason,
 		&i.CreatedAt,
 		&i.CreatedBy,
+		&i.MaxPerCustomer,
 	)
 	return i, err
+}
+
+const getCodeBatchCustomerLimit = `-- name: GetCodeBatchCustomerLimit :one
+SELECT max_per_customer FROM code_batches WHERE id = $1
+`
+
+func (q *Queries) GetCodeBatchCustomerLimit(ctx context.Context, batchID pgtype.UUID) (pgtype.Int4, error) {
+	row := q.db.QueryRow(ctx, getCodeBatchCustomerLimit, batchID)
+	var max_per_customer pgtype.Int4
+	err := row.Scan(&max_per_customer)
+	return max_per_customer, err
 }
 
 const getCodeBatchForRedemption = `-- name: GetCodeBatchForRedemption :one
@@ -109,6 +142,43 @@ func (q *Queries) GetCodeBatchForRedemption(ctx context.Context, id pgtype.UUID)
 		&i.DeviceLimit,
 		&i.RemnawaveSquadIds,
 		&i.GracePeriodSeconds,
+	)
+	return i, err
+}
+
+const getLiveEntitlementForReward = `-- name: GetLiveEntitlementForReward :one
+SELECT id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id, paused_at, paused_seconds FROM entitlements
+WHERE user_id = $1 AND status IN ('active', 'limited')
+  AND starts_at <= now() AND ends_at > now()
+ORDER BY ends_at DESC
+LIMIT 1
+FOR UPDATE
+`
+
+// The period a traffic code adds to: the customer's entitlement that is in
+// force right now, the latest one when several subscriptions run.
+func (q *Queries) GetLiveEntitlementForReward(ctx context.Context, userID pgtype.UUID) (Entitlement, error) {
+	row := q.db.QueryRow(ctx, getLiveEntitlementForReward, userID)
+	var i Entitlement
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.OrderID,
+		&i.PlanVersionID,
+		&i.Status,
+		&i.StartsAt,
+		&i.EndsAt,
+		&i.TrafficAllowanceBytes,
+		&i.DeviceLimit,
+		&i.RemnawaveSquadIds,
+		&i.RemnawaveUserID,
+		&i.ObservedState,
+		&i.ReconciledAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SubscriptionID,
+		&i.PausedAt,
+		&i.PausedSeconds,
 	)
 	return i, err
 }
@@ -254,7 +324,7 @@ SET revoked_at = COALESCE(revoked_at, now()),
     revoked_by = COALESCE(revoked_by, $1),
     revoke_reason = COALESCE(revoke_reason, $2)
 WHERE id = $3
-RETURNING id, reference, plan_version_id, quantity, unit_price_minor, currency, note, expires_at, revoked_at, revoked_by, revoke_reason, created_at, created_by
+RETURNING id, reference, plan_version_id, quantity, unit_price_minor, currency, note, expires_at, revoked_at, revoked_by, revoke_reason, created_at, created_by, max_per_customer
 `
 
 type MarkCodeBatchRevokedParams struct {
@@ -285,6 +355,7 @@ func (q *Queries) MarkCodeBatchRevoked(ctx context.Context, arg MarkCodeBatchRev
 		&i.RevokeReason,
 		&i.CreatedAt,
 		&i.CreatedBy,
+		&i.MaxPerCustomer,
 	)
 	return i, err
 }

@@ -760,6 +760,7 @@ type CodeBatch struct {
 	RevokeReason   pgtype.Text        `json:"revoke_reason"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	CreatedBy      pgtype.UUID        `json:"created_by"`
+	MaxPerCustomer pgtype.Int4        `json:"max_per_customer"`
 }
 
 type CommerceSetting struct {
@@ -1822,7 +1823,9 @@ type Promotion struct {
 	Stackable        bool               `json:"stackable"`
 	Precedence       int32              `json:"precedence"`
 	// Which catalogue this promotion discounts. Existing rows default to plans, so no promotion widens on upgrade.
-	AppliesTo string `json:"applies_to"`
+	AppliesTo   string      `json:"applies_to"`
+	CreditMinor pgtype.Int8 `json:"credit_minor"`
+	TierCode    pgtype.Text `json:"tier_code"`
 }
 
 type PromotionGood struct {

@@ -171,6 +171,7 @@ function BatchForm({
   const [reference, setReference] = useState("");
   const [planVersionId, setPlanVersionId] = useState("");
   const [quantity, setQuantity] = useState("50");
+  const [perCustomer, setPerCustomer] = useState("");
   const [unitPrice, setUnitPrice] = useState("0");
   const [currency, setCurrency] = useState("USD");
   const [note, setNote] = useState("");
@@ -179,6 +180,7 @@ function BatchForm({
 
   const referenceId = useId();
   const quantityId = useId();
+  const perCustomerId = useId();
   const priceId = useId();
   const currencyId = useId();
   const noteId = useId();
@@ -195,6 +197,7 @@ function BatchForm({
           expiresAt: expiresAt ? new Date(expiresAt).toISOString() : undefined,
           note: note.trim() || undefined,
           planVersionId,
+          maxPerCustomer: Number(perCustomer) > 0 ? Number(perCustomer) : undefined,
           quantity: Number(quantity) || 0,
           reference: reference.trim(),
           unitPriceMinor: Number(unitPrice) || 0,
@@ -230,6 +233,13 @@ function BatchForm({
             label={translate("form.quantity")}
             onChange={setQuantity}
             value={quantity}
+          />
+          <Field
+            hint={translate("form.perCustomerHint")}
+            id={perCustomerId}
+            label={translate("form.perCustomer")}
+            onChange={setPerCustomer}
+            value={perCustomer}
           />
           <Field
             hint={translate("form.priceHint")}

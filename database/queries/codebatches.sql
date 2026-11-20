@@ -3,10 +3,19 @@
 -- name: CreateCodeBatch :one
 INSERT INTO code_batches (
   reference, plan_version_id, quantity, unit_price_minor, currency,
-  note, expires_at, created_by
+  note, expires_at, created_by, max_per_customer
 )
-VALUES ($1, $2, $3, $4, $5, sqlc.narg(note), sqlc.narg(expires_at), sqlc.narg(created_by))
+VALUES ($1, $2, $3, $4, $5, sqlc.narg(note), sqlc.narg(expires_at), sqlc.narg(created_by), sqlc.narg(max_per_customer))
 RETURNING *;
+
+-- name: GetCodeBatchCustomerLimit :one
+SELECT max_per_customer FROM code_batches WHERE id = sqlc.arg(batch_id);
+
+-- name: CountBatchRedemptionsByCustomer :one
+-- How many codes of one batch a customer holds, the one being redeemed
+-- included, for the batch's per-customer limit.
+SELECT count(*)::bigint FROM access_codes
+WHERE batch_id = sqlc.arg(batch_id) AND redeemed_by = sqlc.arg(user_id) AND status = 'redeemed';
 
 -- name: InsertAccessCode :exec
 INSERT INTO access_codes (batch_id, code_hash, code_hint)
@@ -89,3 +98,13 @@ WHERE b.id = $1;
 
 -- name: AttachAccessCodeEntitlement :exec
 UPDATE access_codes SET redeemed_entitlement_id = $2 WHERE id = $1;
+
+-- name: GetLiveEntitlementForReward :one
+-- The period a traffic code adds to: the customer's entitlement that is in
+-- force right now, the latest one when several subscriptions run.
+SELECT * FROM entitlements
+WHERE user_id = sqlc.arg(user_id) AND status IN ('active', 'limited')
+  AND starts_at <= now() AND ends_at > now()
+ORDER BY ends_at DESC
+LIMIT 1
+FOR UPDATE;

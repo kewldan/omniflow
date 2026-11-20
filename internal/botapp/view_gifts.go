@@ -2,6 +2,7 @@ package botapp
 
 import (
 	"fmt"
+	"github.com/omniflow/omniflow/internal/commercepg"
 	"html"
 	"strconv"
 
@@ -145,9 +146,21 @@ func giftClaimedView(locale Locale, claimed ClaimedGift) View {
 			row(callbackButton(text(locale, "menu.wallet"), routeWallet)),
 			row(callbackButton(text(locale, "action.menu"), routeHome)),
 		)}
+	case commercepg.RewardTraffic:
+		body += "\n\n" + text(locale, "gift.claimedTraffic", claimed.TrafficBytes/(1024*1024*1024))
+		return View{Text: body, Keyboard: keyboard(
+			row(callbackButton(text(locale, "menu.subs"), routeSubscriptions)),
+			row(callbackButton(text(locale, "action.menu"), routeHome)),
+		)}
+	case commercepg.RewardLoyaltyTier:
+		body += "\n\n" + text(locale, "gift.claimedTier")
+		return View{Text: body, Keyboard: keyboard(row(callbackButton(text(locale, "action.menu"), routeHome)))}
 	default:
 		// Provisioning is the worker's job, so the honest word is "activating".
 		body += "\n\n" + text(locale, "gift.claimedSubscription")
+		if claimed.CreditMinor > 0 {
+			body += "\n" + text(locale, "gift.claimedCredit", formatMoney(claimed.CreditMinor, claimed.Currency))
+		}
 		return View{Text: body, Keyboard: keyboard(
 			row(callbackButton(text(locale, "menu.subs"), routeSubscriptions)),
 			row(callbackButton(text(locale, "action.menu"), routeHome)),

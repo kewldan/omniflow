@@ -40,6 +40,9 @@ type CodeBatch struct {
 	UnitPriceMinor int64  `json:"unitPriceMinor"`
 	Currency       string `json:"currency"`
 	Note           string `json:"note,omitempty"`
+	// MaxPerCustomer caps how many codes of this batch one customer may
+	// redeem; zero is no limit.
+	MaxPerCustomer int32 `json:"maxPerCustomer,omitempty"`
 
 	Issued   int64 `json:"issued"`
 	Redeemed int64 `json:"redeemed"`
@@ -149,6 +152,9 @@ func (service *Service) CreateCodeBatch(
 	if err != nil {
 		return GeneratedBatch{}, wrapValidation(fmt.Errorf("a batch needs a plan version to grant"))
 	}
+	if batch.MaxPerCustomer < 0 {
+		return GeneratedBatch{}, wrapValidation(fmt.Errorf("a per-customer limit cannot be negative"))
+	}
 	if !batch.ExpiresAt.IsZero() && !batch.ExpiresAt.After(time.Now()) {
 		return GeneratedBatch{}, wrapValidation(fmt.Errorf("an expiry in the past issues dead codes"))
 	}
@@ -173,7 +179,8 @@ func (service *Service) CreateCodeBatch(
 		row, insertErr := queries.CreateCodeBatch(ctx, dbgen.CreateCodeBatchParams{
 			Reference: batch.Reference, PlanVersionID: planVersion,
 			Quantity: batch.Quantity, UnitPriceMinor: batch.UnitPriceMinor,
-			Currency: batch.Currency, Note: optionalText(batch.Note),
+			MaxPerCustomer: pgtype.Int4{Int32: batch.MaxPerCustomer, Valid: batch.MaxPerCustomer > 0},
+			Currency:       batch.Currency, Note: optionalText(batch.Note),
 			ExpiresAt: expiryOrNever(batch.ExpiresAt),
 			CreatedBy: optionalUUID(actor.AdminID),
 		})

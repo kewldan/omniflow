@@ -21,6 +21,8 @@ type RedeemedCode struct {
 	EndsAt      *time.Time
 	CreditMinor int64
 	Currency    string
+	// TrafficBytes is what a traffic code added.
+	TrafficBytes int64
 }
 
 // RedeemCode applies a code outside checkout, the way the bot's "redeem a
@@ -45,9 +47,14 @@ func (service *Service) RedeemCode(ctx context.Context, customerID, code string)
 	if err != nil {
 		return RedeemedCode{}, ErrCodeRefused
 	}
-	if reward.Kind == commercepg.RewardWalletCredit {
+	switch reward.Kind {
+	case commercepg.RewardWalletCredit:
 		return RedeemedCode{Kind: "wallet_credit", CreditMinor: reward.CreditMinor, Currency: reward.Currency}, nil
+	case commercepg.RewardTraffic:
+		return RedeemedCode{Kind: "traffic", TrafficBytes: reward.TrafficBytes}, nil
+	case commercepg.RewardLoyaltyTier:
+		return RedeemedCode{Kind: "loyalty_tier"}, nil
 	}
 	endsAt := reward.EndsAt
-	return RedeemedCode{Kind: "subscription", EndsAt: &endsAt}, nil
+	return RedeemedCode{Kind: "subscription", EndsAt: &endsAt, CreditMinor: reward.CreditMinor, Currency: reward.Currency}, nil
 }

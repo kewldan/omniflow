@@ -1133,8 +1133,12 @@ func (handlers *AccountHandlers) redeemCode(writer http.ResponseWriter, request 
 	if redeemed.EndsAt != nil {
 		payload["endsAt"] = redeemed.EndsAt.UTC()
 	}
-	if redeemed.Kind == "wallet_credit" {
+	if redeemed.CreditMinor > 0 {
+		// A wallet credit, or the credit half of a "balance + days" code.
 		payload["creditMinor"], payload["currency"] = redeemed.CreditMinor, redeemed.Currency
+	}
+	if redeemed.TrafficBytes > 0 {
+		payload["trafficBytes"] = redeemed.TrafficBytes
 	}
 	writeJSON(writer, http.StatusOK, payload)
 }
