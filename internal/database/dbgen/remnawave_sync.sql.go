@@ -85,6 +85,22 @@ func (q *Queries) CustomerRotatedLinkRecently(ctx context.Context, userID pgtype
 	return rotated, err
 }
 
+const deleteDeviceAlias = `-- name: DeleteDeviceAlias :exec
+DELETE FROM device_aliases
+WHERE subscription_id = $1 AND user_id = $2 AND device_handle = $3
+`
+
+type DeleteDeviceAliasParams struct {
+	SubscriptionID pgtype.UUID `json:"subscription_id"`
+	UserID         pgtype.UUID `json:"user_id"`
+	DeviceHandle   string      `json:"device_handle"`
+}
+
+func (q *Queries) DeleteDeviceAlias(ctx context.Context, arg DeleteDeviceAliasParams) error {
+	_, err := q.db.Exec(ctx, deleteDeviceAlias, arg.SubscriptionID, arg.UserID, arg.DeviceHandle)
+	return err
+}
+
 const getCustomerTelegramID = `-- name: GetCustomerTelegramID :one
 
 SELECT (provider_subject)::bigint AS telegram_id
@@ -101,6 +117,23 @@ func (q *Queries) GetCustomerTelegramID(ctx context.Context, userID pgtype.UUID)
 	var telegram_id int64
 	err := row.Scan(&telegram_id)
 	return telegram_id, err
+}
+
+const getDeviceAlias = `-- name: GetDeviceAlias :one
+SELECT alias FROM device_aliases
+WHERE subscription_id = $1 AND device_handle = $2
+`
+
+type GetDeviceAliasParams struct {
+	SubscriptionID pgtype.UUID `json:"subscription_id"`
+	DeviceHandle   string      `json:"device_handle"`
+}
+
+func (q *Queries) GetDeviceAlias(ctx context.Context, arg GetDeviceAliasParams) (string, error) {
+	row := q.db.QueryRow(ctx, getDeviceAlias, arg.SubscriptionID, arg.DeviceHandle)
+	var alias string
+	err := row.Scan(&alias)
+	return alias, err
 }
 
 const getNotificationDeliveryStatus = `-- name: GetNotificationDeliveryStatus :one
@@ -179,6 +212,41 @@ func (q *Queries) InsertRemnawaveWebhookEvent(ctx context.Context, arg InsertRem
 	return id, err
 }
 
+const listDeviceAliases = `-- name: ListDeviceAliases :many
+SELECT device_handle, alias FROM device_aliases
+WHERE subscription_id = $1 AND user_id = $2
+`
+
+type ListDeviceAliasesParams struct {
+	SubscriptionID pgtype.UUID `json:"subscription_id"`
+	UserID         pgtype.UUID `json:"user_id"`
+}
+
+type ListDeviceAliasesRow struct {
+	DeviceHandle string `json:"device_handle"`
+	Alias        string `json:"alias"`
+}
+
+func (q *Queries) ListDeviceAliases(ctx context.Context, arg ListDeviceAliasesParams) ([]ListDeviceAliasesRow, error) {
+	rows, err := q.db.Query(ctx, listDeviceAliases, arg.SubscriptionID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListDeviceAliasesRow{}
+	for rows.Next() {
+		var i ListDeviceAliasesRow
+		if err := rows.Scan(&i.DeviceHandle, &i.Alias); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPendingRemnawaveCustomerEvents = `-- name: ListPendingRemnawaveCustomerEvents :many
 SELECT e.id, e.event, e.details, e.received_at,
        COALESCE(s.user_id, r.user_id) AS user_id,
@@ -247,5 +315,28 @@ type RestoreSubscriptionLinkRotationParams struct {
 
 func (q *Queries) RestoreSubscriptionLinkRotation(ctx context.Context, arg RestoreSubscriptionLinkRotationParams) error {
 	_, err := q.db.Exec(ctx, restoreSubscriptionLinkRotation, arg.RotatedAt, arg.SubscriptionID, arg.UserID)
+	return err
+}
+
+const upsertDeviceAlias = `-- name: UpsertDeviceAlias :exec
+INSERT INTO device_aliases (subscription_id, user_id, device_handle, alias)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (subscription_id, device_handle) DO UPDATE SET alias = EXCLUDED.alias, updated_at = now()
+`
+
+type UpsertDeviceAliasParams struct {
+	SubscriptionID pgtype.UUID `json:"subscription_id"`
+	UserID         pgtype.UUID `json:"user_id"`
+	DeviceHandle   string      `json:"device_handle"`
+	Alias          string      `json:"alias"`
+}
+
+func (q *Queries) UpsertDeviceAlias(ctx context.Context, arg UpsertDeviceAliasParams) error {
+	_, err := q.db.Exec(ctx, upsertDeviceAlias,
+		arg.SubscriptionID,
+		arg.UserID,
+		arg.DeviceHandle,
+		arg.Alias,
+	)
 	return err
 }

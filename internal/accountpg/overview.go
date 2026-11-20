@@ -62,6 +62,9 @@ type Subscription struct {
 	// rather than as a subscription that is not active and cannot be
 	// connected.
 	PendingOrderID string
+	// LastOnlineAt is when Remnawave last saw a connection on this
+	// subscription; zero when it never has or the panel did not say.
+	LastOnlineAt time.Time
 }
 
 // Notice is a service-wide message the dashboard shows above everything else.
@@ -302,6 +305,9 @@ func (service *Service) projectSubscription(ctx context.Context, row record) (Su
 		if user, err := service.remnawave.User(ctx, row.RemnawaveID); err == nil {
 			live = true
 			subscription.Traffic.UsedBytes = user.Traffic.UsedBytes
+			if user.Traffic.OnlineAt != nil {
+				subscription.LastOnlineAt = user.Traffic.OnlineAt.UTC()
+			}
 			if user.TrafficLimitBytes > 0 {
 				subscription.Traffic.LimitBytes = user.TrafficLimitBytes
 				subscription.Traffic.Unlimited = false

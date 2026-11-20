@@ -960,6 +960,14 @@ type CustomerSession struct {
 	RevokedReason     pgtype.Text        `json:"revoked_reason"`
 }
 
+type DeviceAlias struct {
+	SubscriptionID pgtype.UUID        `json:"subscription_id"`
+	UserID         pgtype.UUID        `json:"user_id"`
+	DeviceHandle   string             `json:"device_handle"`
+	Alias          string             `json:"alias"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
 type DunningAttempt struct {
 	ID              pgtype.UUID        `json:"id"`
 	UserID          pgtype.UUID        `json:"user_id"`

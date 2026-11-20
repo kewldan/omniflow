@@ -179,6 +179,13 @@ func (notifier *Notifier) deliverPanelEvent(
 			return "ignored"
 		}
 	}
+	if digest, ok := details["deviceDigest"].(string); ok && event.SubscriptionID.Valid {
+		if alias, aliasErr := queries.GetDeviceAlias(ctx, dbgen.GetDeviceAliasParams{
+			SubscriptionID: event.SubscriptionID, DeviceHandle: digest,
+		}); aliasErr == nil {
+			details["alias"] = alias
+		}
+	}
 	locale := localeFrom(candidate.Locale)
 	label := ""
 	if event.SubscriptionID.Valid {

@@ -466,6 +466,7 @@ type Querier interface {
 	DeleteConnectClient(ctx context.Context, id pgtype.UUID) (int64, error)
 	DeleteConnectPlatform(ctx context.Context, slug string) (int64, error)
 	DeleteCustomerOIDCProvider(ctx context.Context, slug string) (int64, error)
+	DeleteDeviceAlias(ctx context.Context, arg DeleteDeviceAliasParams) error
 	// ---------------------------------------------------------------------------
 	// Retention and cleanup
 	// ---------------------------------------------------------------------------
@@ -693,6 +694,7 @@ type Querier interface {
 	// created instead of opening a second one.
 	GetCycleOrder(ctx context.Context, arg GetCycleOrderParams) (Order, error)
 	GetDefaultSupportQueue(ctx context.Context) (SupportQueue, error)
+	GetDeviceAlias(ctx context.Context, arg GetDeviceAliasParams) (string, error)
 	GetDunningAttempt(ctx context.Context, arg GetDunningAttemptParams) (DunningAttempt, error)
 	GetEnabledLoyaltyProgram(ctx context.Context) (LoyaltyProgram, error)
 	GetEnabledLoyaltyTierByCode(ctx context.Context, code string) (LoyaltyTier, error)
@@ -1098,6 +1100,7 @@ type Querier interface {
 	// A customer with no record at all is included, because "never checked" and
 	// "checked long ago" need the same thing done about them.
 	ListCustomersForChannelRecheck(ctx context.Context, arg ListCustomersForChannelRecheckParams) ([]ListCustomersForChannelRecheckRow, error)
+	ListDeviceAliases(ctx context.Context, arg ListDeviceAliasesParams) ([]ListDeviceAliasesRow, error)
 	ListDueBlocklistSources(ctx context.Context, pageSize int32) ([]BlocklistSource, error)
 	ListDueCampaigns(ctx context.Context, pageSize int32) ([]Campaign, error)
 	ListDueDunningAttempts(ctx context.Context, pageSize int32) ([]DunningAttempt, error)
@@ -2192,6 +2195,7 @@ type Querier interface {
 	// The client secret is only overwritten when a new one is supplied, so saving
 	// the form without retyping it does not blank the stored credential.
 	UpsertCustomerOIDCProvider(ctx context.Context, arg UpsertCustomerOIDCProviderParams) (CustomerOidcProvider, error)
+	UpsertDeviceAlias(ctx context.Context, arg UpsertDeviceAliasParams) error
 	// Saving a shop purchase for later.
 	//
 	// It replaces whatever open cart the customer had, because there is one open

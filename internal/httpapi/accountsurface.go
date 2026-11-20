@@ -310,6 +310,12 @@ func subscriptionPayload(subscription accountpg.Subscription) map[string]any {
 	if subscription.PendingOrderID != "" {
 		payload["pendingOrderId"] = subscription.PendingOrderID
 	}
+	// Remnawave marks a user online while its last connection is under a
+	// minute old, which is what its own panel's green dot means.
+	if !subscription.LastOnlineAt.IsZero() {
+		payload["lastOnlineAt"] = subscription.LastOnlineAt.Format(time.RFC3339)
+		payload["online"] = time.Since(subscription.LastOnlineAt) < time.Minute
+	}
 	return payload
 }
 
@@ -460,7 +466,7 @@ func (handlers *AccountHandlers) listDevices(writer http.ResponseWriter, request
 	items := make([]map[string]any, 0, len(devices))
 	for _, device := range devices {
 		items = append(items, map[string]any{
-			"handle": device.Handle, "name": device.Name, "platform": device.Platform,
+			"handle": device.Handle, "name": device.Name, "platform": device.Platform, "alias": device.Alias,
 			"lastSeen": device.LastSeen.Format(time.RFC3339),
 		})
 	}
@@ -475,6 +481,27 @@ func (handlers *AccountHandlers) removeDevice(writer http.ResponseWriter, reques
 	err := handlers.account.RemoveDevice(
 		request.Context(), principal.Customer.ID, chi.URLParam(request, "subscriptionID"),
 		chi.URLParam(request, "handle"), handlers.securityRequest(request),
+	)
+	if handlers.writeAccountError(writer, request, err) {
+		return
+	}
+	writer.WriteHeader(http.StatusNoContent)
+}
+
+func (handlers *AccountHandlers) renameDevice(writer http.ResponseWriter, request *http.Request) {
+	if !handlers.requireAccount(writer, request) {
+		return
+	}
+	principal, _ := CustomerFrom(request.Context())
+	var body struct {
+		Alias string `json:"alias"`
+	}
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	err := handlers.account.RenameDevice(
+		request.Context(), principal.Customer.ID, chi.URLParam(request, "subscriptionID"),
+		chi.URLParam(request, "handle"), body.Alias,
 	)
 	if handlers.writeAccountError(writer, request, err) {
 		return

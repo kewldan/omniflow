@@ -558,6 +558,16 @@ a request line, a proxy log, and the browser cache.
 per-platform client table, deep links, the QR, the manual fallback, the device
 list, removal, and link rotation.
 
+A customer can give any device a name of their own, up to 40 characters, by tapping its name on
+`/account/devices` (`PATCH /v1/account/subscriptions/{id}/devices/{handle}` with `{"alias": "…"}`; an
+empty alias clears it). Remnawave owns the list; the name is kept by Omniflow in `device_aliases`, keyed
+by the handle, and only for a device the subscription has at that moment. The bot uses the same name in
+its new-device and removed-device notices.
+
+The subscription card says **Connected now** while Remnawave's last connection on the subscription is
+under a minute old — the panel's own green dot — and **Last connected …** otherwise, from the user's
+`onlineAt`. The API exposes it as `lastOnlineAt` and `online` on the subscription.
+
 ## Account history
 
 The security screen lists live sessions (up to 50), the linked sign-in methods,

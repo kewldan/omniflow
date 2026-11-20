@@ -5342,6 +5342,9 @@ type AccountDeliveryStatus string
 // AccountDeviceList defines model for AccountDeviceList.
 type AccountDeviceList struct {
 	Items []struct {
+		// Alias The customer's own name for the device; empty when unnamed.
+		Alias *string `json:"alias,omitempty"`
+
 		// Handle Opaque reference. Never the hardware identifier.
 		Handle   string    `json:"handle"`
 		LastSeen time.Time `json:"lastSeen"`
@@ -6150,8 +6153,14 @@ type AccountSubscription struct {
 	Id       openapi_types.UUID `json:"id"`
 	Label    string             `json:"label"`
 
+	// LastOnlineAt When Remnawave last saw a connection on this subscription.
+	LastOnlineAt *time.Time `json:"lastOnlineAt,omitempty"`
+
 	// Live The traffic and device figures were read from Remnawave. When false they are the last observed values and the panel says so.
 	Live bool `json:"live"`
+
+	// Online True while that connection is under a minute old, as the panel's own indicator.
+	Online *bool `json:"online,omitempty"`
 
 	// PendingOrderId The unpaid order that opened this subscription, present only while no entitlement has been provisioned. The panel renders the card as "payment pending" with a way to the order rather than as a subscription that is not active.
 	PendingOrderId *openapi_types.UUID      `json:"pendingOrderId,omitempty"`
@@ -10243,6 +10252,17 @@ type RemoveAccountDeviceParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// RenameAccountDeviceJSONBody defines parameters for RenameAccountDevice.
+type RenameAccountDeviceJSONBody struct {
+	Alias string `json:"alias"`
+}
+
+// RenameAccountDeviceParams defines parameters for RenameAccountDevice.
+type RenameAccountDeviceParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // RotateAccountSubscriptionLinkJSONBody defines parameters for RotateAccountSubscriptionLink.
 type RotateAccountSubscriptionLinkJSONBody struct {
 	Confirm bool `json:"confirm"`
@@ -11767,6 +11787,9 @@ type RotateAllAccountSubscriptionLinksJSONRequestBody RotateAllAccountSubscripti
 // RenameAccountSubscriptionJSONRequestBody defines body for RenameAccountSubscription for application/json ContentType.
 type RenameAccountSubscriptionJSONRequestBody RenameAccountSubscriptionJSONBody
 
+// RenameAccountDeviceJSONRequestBody defines body for RenameAccountDevice for application/json ContentType.
+type RenameAccountDeviceJSONRequestBody RenameAccountDeviceJSONBody
+
 // RotateAccountSubscriptionLinkJSONRequestBody defines body for RotateAccountSubscriptionLink for application/json ContentType.
 type RotateAccountSubscriptionLinkJSONRequestBody RotateAccountSubscriptionLinkJSONBody
 
@@ -12458,6 +12481,9 @@ type ServerInterface interface {
 
 	// (DELETE /v1/account/subscriptions/{subscriptionID}/devices/{handle})
 	RemoveAccountDevice(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, handle string, params RemoveAccountDeviceParams)
+
+	// (PATCH /v1/account/subscriptions/{subscriptionID}/devices/{handle})
+	RenameAccountDevice(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, handle string, params RenameAccountDeviceParams)
 
 	// (POST /v1/account/subscriptions/{subscriptionID}/rotate-link)
 	RotateAccountSubscriptionLink(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params RotateAccountSubscriptionLinkParams)
@@ -13642,6 +13668,11 @@ func (_ Unimplemented) ListAccountDevices(w http.ResponseWriter, r *http.Request
 
 // (DELETE /v1/account/subscriptions/{subscriptionID}/devices/{handle})
 func (_ Unimplemented) RemoveAccountDevice(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, handle string, params RemoveAccountDeviceParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /v1/account/subscriptions/{subscriptionID}/devices/{handle})
+func (_ Unimplemented) RenameAccountDevice(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, handle string, params RenameAccountDeviceParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -18153,6 +18184,69 @@ func (siw *ServerInterfaceWrapper) RemoveAccountDevice(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RemoveAccountDevice(w, r, subscriptionID, handle, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RenameAccountDevice operation middleware
+func (siw *ServerInterfaceWrapper) RenameAccountDevice(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID AccountSubscriptionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "handle" -------------
+	var handle string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "handle", chi.URLParam(r, "handle"), &handle, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "handle", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RenameAccountDeviceParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RenameAccountDevice(w, r, subscriptionID, handle, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -30318,6 +30412,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Delete(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/devices/{handle}", wrapper.RemoveAccountDevice)
 	})
 	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/devices/{handle}", wrapper.RenameAccountDevice)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/account/plans", wrapper.ListAccountPlans)
 	})
 	r.Group(func(r chi.Router) {
@@ -34155,6 +34252,69 @@ func (response RemoveAccountDevice404ApplicationProblemPlusJSONResponse) VisitRe
 type RemoveAccountDevice503ApplicationProblemPlusJSONResponse Problem
 
 func (response RemoveAccountDevice503ApplicationProblemPlusJSONResponse) VisitRemoveAccountDeviceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RenameAccountDeviceRequestObject struct {
+	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
+	Handle         string                `json:"handle"`
+	Params         RenameAccountDeviceParams
+	Body           *RenameAccountDeviceJSONRequestBody
+}
+
+type RenameAccountDeviceResponseObject interface {
+	VisitRenameAccountDeviceResponse(w http.ResponseWriter) error
+}
+
+type RenameAccountDevice204Response struct {
+}
+
+func (response RenameAccountDevice204Response) VisitRenameAccountDeviceResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type RenameAccountDevice404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RenameAccountDevice404ApplicationProblemPlusJSONResponse) VisitRenameAccountDeviceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RenameAccountDevice422ApplicationProblemPlusJSONResponse Problem
+
+func (response RenameAccountDevice422ApplicationProblemPlusJSONResponse) VisitRenameAccountDeviceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RenameAccountDevice503ApplicationProblemPlusJSONResponse Problem
+
+func (response RenameAccountDevice503ApplicationProblemPlusJSONResponse) VisitRenameAccountDeviceResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -46415,6 +46575,9 @@ type StrictServerInterface interface {
 	// (DELETE /v1/account/subscriptions/{subscriptionID}/devices/{handle})
 	RemoveAccountDevice(ctx context.Context, request RemoveAccountDeviceRequestObject) (RemoveAccountDeviceResponseObject, error)
 
+	// (PATCH /v1/account/subscriptions/{subscriptionID}/devices/{handle})
+	RenameAccountDevice(ctx context.Context, request RenameAccountDeviceRequestObject) (RenameAccountDeviceResponseObject, error)
+
 	// (POST /v1/account/subscriptions/{subscriptionID}/rotate-link)
 	RotateAccountSubscriptionLink(ctx context.Context, request RotateAccountSubscriptionLinkRequestObject) (RotateAccountSubscriptionLinkResponseObject, error)
 
@@ -49525,6 +49688,41 @@ func (sh *strictHandler) RemoveAccountDevice(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(RemoveAccountDeviceResponseObject); ok {
 		if err := validResponse.VisitRemoveAccountDeviceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RenameAccountDevice operation middleware
+func (sh *strictHandler) RenameAccountDevice(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, handle string, params RenameAccountDeviceParams) {
+	var request RenameAccountDeviceRequestObject
+
+	request.SubscriptionID = subscriptionID
+	request.Handle = handle
+	request.Params = params
+
+	var body RenameAccountDeviceJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RenameAccountDevice(ctx, request.(RenameAccountDeviceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RenameAccountDevice")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RenameAccountDeviceResponseObject); ok {
+		if err := validResponse.VisitRenameAccountDeviceResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

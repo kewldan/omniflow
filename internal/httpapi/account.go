@@ -156,6 +156,7 @@ func (handlers *AccountHandlers) Mount(router chi.Router) {
 
 			secure.Get("/subscriptions/{subscriptionID}/devices", handlers.listDevices)
 			secure.Delete("/subscriptions/{subscriptionID}/devices/{handle}", handlers.removeDevice)
+			secure.Patch("/subscriptions/{subscriptionID}/devices/{handle}", handlers.renameDevice)
 			secure.With(handlers.requireRecentAuthentication).
 				Delete("/subscriptions/{subscriptionID}/devices", handlers.removeAllDevices)
 

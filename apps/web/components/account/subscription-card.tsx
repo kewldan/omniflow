@@ -31,6 +31,9 @@ export type AccountSubscription = {
   devices: { used: number; limit?: number | null; unlimited: boolean };
   /** The unpaid order that opened this subscription, while nothing has been provisioned. */
   pendingOrderId?: string;
+  /** When Remnawave last saw a connection; `online` while it is under a minute old. */
+  lastOnlineAt?: string;
+  online?: boolean;
 };
 
 /**
@@ -178,6 +181,7 @@ export function TrafficMeter({ traffic }: { traffic: AccountSubscription["traffi
 export function SubscriptionStatus({ subscription }: { subscription: AccountSubscription }) {
   const translate = useTranslations("account");
   const phaseLabel = usePhaseLabel();
+  const format = useFormatter();
   const tone = subscription.pendingOrderId ? "warn" : PHASE_TONE[subscription.phase];
 
   const status = phaseLabel(subscription);
@@ -197,6 +201,15 @@ export function SubscriptionStatus({ subscription }: { subscription: AccountSubs
           {status}
         </p>
         <p className="font-mono text-[11px] text-subtle-foreground">{devices}</p>
+        {subscription.lastOnlineAt ? (
+          <p className="font-mono text-[11px] text-subtle-foreground">
+            {subscription.online
+              ? translate("subscription.onlineNow")
+              : translate("subscription.lastOnline", {
+                  when: format.relativeTime(new Date(subscription.lastOnlineAt)),
+                })}
+          </p>
+        ) : null}
       </div>
       <div className="shrink-0 text-right">
         <div className="font-bold text-[26px] leading-none tracking-[-0.04em]" data-numeric>

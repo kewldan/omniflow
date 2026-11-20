@@ -7820,6 +7820,16 @@ export const GetAccountOverviewResponse = zod.object({
       endsAt: zod.iso.datetime({ offset: true }).optional(),
       daysLeft: zod.int(),
       provisioned: zod.boolean(),
+      lastOnlineAt: zod.iso
+        .datetime({ offset: true })
+        .optional()
+        .describe("When Remnawave last saw a connection on this subscription."),
+      online: zod
+        .boolean()
+        .optional()
+        .describe(
+          "True while that connection is under a minute old, as the panel's own indicator.",
+        ),
       live: zod
         .boolean()
         .describe(
@@ -7903,6 +7913,14 @@ export const GetAccountSubscriptionResponse = zod.object({
   endsAt: zod.iso.datetime({ offset: true }).optional(),
   daysLeft: zod.int(),
   provisioned: zod.boolean(),
+  lastOnlineAt: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("When Remnawave last saw a connection on this subscription."),
+  online: zod
+    .boolean()
+    .optional()
+    .describe("True while that connection is under a minute old, as the panel's own indicator."),
   live: zod
     .boolean()
     .describe(
@@ -8061,6 +8079,10 @@ export const ListAccountDevicesResponse = zod.object({
       name: zod.string().optional(),
       platform: zod.string().optional(),
       lastSeen: zod.iso.datetime({ offset: true }),
+      alias: zod
+        .string()
+        .optional()
+        .describe("The customer's own name for the device; empty when unnamed."),
     }),
   ),
 });
@@ -8098,6 +8120,28 @@ export const RemoveAccountDeviceHeader = zod.object({
 });
 
 export const RemoveAccountDeviceResponse = zod.void();
+
+/**
+ * Stores the customer's own name for one device, kept by Omniflow beside Remnawave's list. An empty alias clears it. The handle must name a device the subscription has now.
+ */
+export const RenameAccountDeviceParams = zod.object({
+  subscriptionID: zod.uuid(),
+  handle: zod.string(),
+});
+
+export const RenameAccountDeviceHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const renameAccountDeviceBodyAliasMax = 40;
+
+export const RenameAccountDeviceBody = zod.object({
+  alias: zod.string().max(renameAccountDeviceBodyAliasMax),
+});
+
+export const RenameAccountDeviceResponse = zod.void();
 
 /**
  * The comparable catalogue, with this customer's eligibility already decided. `operations` names the lifecycle actions the configured plan policy allows against their current subscriptions, so the panel offers renew, upgrade, or downgrade because the server said so rather than because React worked it out a second time.

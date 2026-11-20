@@ -3490,7 +3490,9 @@
         "failed": "Setup failed — contact support",
         "paused": "Paused — your days are kept",
         "payment_pending": "Payment pending — the order is waiting to be paid"
-      }
+      },
+      "onlineNow": "Connected now",
+      "lastOnline": "Last connected {when}"
     },
     "devices": {
       "title": "Connected devices",
@@ -3506,7 +3508,11 @@
       "confirmRemove": "Disconnect this device?",
       "confirmRemoveDescription": "It stops connecting until the subscription is added again.",
       "confirmRemoveAll": "Disconnect every device?",
-      "confirmRemoveAllDescription": "Every device stops connecting until the subscription is added again."
+      "confirmRemoveAllDescription": "Every device stops connecting until the subscription is added again.",
+      "alias": "Device name",
+      "rename": "Rename",
+      "saveAlias": "Save",
+      "renamed": "Device name saved"
     },
     "connect": {
       "platform": "Platform",

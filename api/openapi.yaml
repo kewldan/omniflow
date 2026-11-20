@@ -3520,6 +3520,22 @@ paths:
         "204": {description: Disconnected}
         "404": {$ref: "#/components/responses/Problem"}
         "503": {$ref: "#/components/responses/Problem"}
+    patch:
+      operationId: renameAccountDevice
+      tags: [account]
+      description: >-
+        Stores the customer's own name for one device, kept by Omniflow beside Remnawave's list. An
+        empty alias clears it. The handle must name a device the subscription has now.
+      parameters:
+        - {$ref: "#/components/parameters/AccountSubscriptionID"}
+        - {in: path, name: handle, required: true, schema: {type: string}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [alias], properties: {alias: {type: string, maxLength: 40}}}}}}
+      responses:
+        "204": {description: Renamed}
+        "404": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
   /v1/account/plans:
     get:
       operationId: listAccountPlans
@@ -7567,6 +7583,13 @@ components:
         endsAt: {type: string, format: date-time}
         daysLeft: {type: integer}
         provisioned: {type: boolean}
+        lastOnlineAt:
+          type: string
+          format: date-time
+          description: When Remnawave last saw a connection on this subscription.
+        online:
+          type: boolean
+          description: True while that connection is under a minute old, as the panel's own indicator.
         live:
           type: boolean
           description: >-
@@ -7667,6 +7690,7 @@ components:
               name: {type: string}
               platform: {type: string}
               lastSeen: {type: string, format: date-time}
+              alias: {type: string, description: "The customer's own name for the device; empty when unnamed."}
     AccountMoney:
       type: object
       required: [amountMinor, currency]

@@ -2,6 +2,7 @@
 
 import { Button } from "@omniflow/ui/button";
 import { ConfirmDialog } from "@omniflow/ui/confirm-dialog";
+import { Input } from "@omniflow/ui/input";
 import { cn } from "@omniflow/ui/lib/utils";
 import { toast } from "@omniflow/ui/toast";
 import { Laptop, Smartphone, TabletSmartphone } from "lucide-react";
@@ -16,7 +17,14 @@ import type { AccountSubscription } from "@/components/account/subscription-card
 import { useAccount } from "@/lib/account-session";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 
-type Device = { handle: string; name?: string; platform?: string; lastSeen: string };
+type Device = {
+  handle: string;
+  name?: string;
+  platform?: string;
+  lastSeen: string;
+  /** The customer's own name for the device. */
+  alias?: string;
+};
 type Overview = { subscriptions: AccountSubscription[]; showSwitcher: boolean };
 
 /** Picks an icon from the platform the client reported, defaulting to a phone. */
@@ -91,6 +99,8 @@ function DeviceList({ subscription }: { subscription: AccountSubscription }) {
   const { data, error, isLoading, mutate } = useSWR<{ items: Device[] }, ApiError>(key, fetcher);
   const [pendingHandle, setPendingHandle] = useState<string | null>(null);
   const [removeAllOpen, setRemoveAllOpen] = useState(false);
+  const [renaming, setRenaming] = useState<string | null>(null);
+  const [aliasDraft, setAliasDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const { session } = useAccount();
   const { redirectIfRequired } = useReauthentication();
@@ -107,6 +117,23 @@ function DeviceList({ subscription }: { subscription: AccountSubscription }) {
     } finally {
       setBusy(false);
       setPendingHandle(null);
+    }
+  }
+
+  async function rename(handle: string) {
+    setBusy(true);
+    try {
+      await apiFetch(`${key}/${encodeURIComponent(handle)}`, {
+        body: JSON.stringify({ alias: aliasDraft }),
+        method: "PATCH",
+      });
+      await mutate();
+      setRenaming(null);
+      toast.success(translate("devices.renamed"));
+    } catch (renameError) {
+      toast.error((renameError as ApiError).message);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -205,9 +232,41 @@ function DeviceList({ subscription }: { subscription: AccountSubscription }) {
                   <Icon aria-hidden className="size-[19px] text-muted-foreground" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold text-[15px]">
-                    {device.name || translate("devices.unknown")}
-                  </p>
+                  {renaming === device.handle ? (
+                    <form
+                      className="flex gap-2"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        void rename(device.handle);
+                      }}
+                    >
+                      <Input
+                        aria-label={translate("devices.alias")}
+                        autoFocus
+                        maxLength={40}
+                        onChange={(event) => setAliasDraft(event.target.value)}
+                        value={aliasDraft}
+                      />
+                      <Button disabled={busy} size="sm" type="submit">
+                        {translate("devices.saveAlias")}
+                      </Button>
+                    </form>
+                  ) : (
+                    <button
+                      className="block max-w-full truncate text-left font-semibold text-[15px] hover:underline"
+                      onClick={() => {
+                        setAliasDraft(device.alias ?? "");
+                        setRenaming(device.handle);
+                      }}
+                      title={translate("devices.rename")}
+                      type="button"
+                    >
+                      {device.alias || device.name || translate("devices.unknown")}
+                    </button>
+                  )}
+                  {device.alias && device.name ? (
+                    <p className="truncate text-[12px] text-muted-foreground">{device.name}</p>
+                  ) : null}
                   {/* A date, not a timestamp: the customer needs to recognise
                       their own device, not to be handed a movement log. */}
                   <p className="mt-1 font-mono text-[11px] text-subtle-foreground">

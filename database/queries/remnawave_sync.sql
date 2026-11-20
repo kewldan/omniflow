@@ -81,3 +81,20 @@ WHERE id = sqlc.arg(subscription_id) AND user_id = sqlc.arg(user_id);
 -- name: GetSubscriptionLinkRotatedAt :one
 SELECT link_rotated_at FROM subscriptions
 WHERE id = sqlc.arg(subscription_id) AND user_id = sqlc.arg(user_id);
+
+-- name: ListDeviceAliases :many
+SELECT device_handle, alias FROM device_aliases
+WHERE subscription_id = sqlc.arg(subscription_id) AND user_id = sqlc.arg(user_id);
+
+-- name: UpsertDeviceAlias :exec
+INSERT INTO device_aliases (subscription_id, user_id, device_handle, alias)
+VALUES (sqlc.arg(subscription_id), sqlc.arg(user_id), sqlc.arg(device_handle), sqlc.arg(alias))
+ON CONFLICT (subscription_id, device_handle) DO UPDATE SET alias = EXCLUDED.alias, updated_at = now();
+
+-- name: DeleteDeviceAlias :exec
+DELETE FROM device_aliases
+WHERE subscription_id = sqlc.arg(subscription_id) AND user_id = sqlc.arg(user_id) AND device_handle = sqlc.arg(device_handle);
+
+-- name: GetDeviceAlias :one
+SELECT alias FROM device_aliases
+WHERE subscription_id = sqlc.arg(subscription_id) AND device_handle = sqlc.arg(device_handle);

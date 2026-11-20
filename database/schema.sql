@@ -1870,6 +1870,21 @@ CREATE TABLE public.customer_sessions (
 
 
 --
+-- Name: device_aliases; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.device_aliases (
+    subscription_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    device_handle text NOT NULL,
+    alias text NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT device_aliases_alias_length CHECK (((char_length(alias) >= 1) AND (char_length(alias) <= 40))),
+    CONSTRAINT device_aliases_handle_shape CHECK ((device_handle ~ '^[A-Za-z0-9_-]{16,64}$'::text))
+);
+
+
+--
 -- Name: dunning_attempts; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -4985,6 +5000,14 @@ ALTER TABLE ONLY public.customer_sessions
 
 
 --
+-- Name: device_aliases device_aliases_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.device_aliases
+    ADD CONSTRAINT device_aliases_pkey PRIMARY KEY (subscription_id, device_handle);
+
+
+--
 -- Name: dunning_attempts dunning_attempts_cycle_key_attempt_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8081,6 +8104,22 @@ ALTER TABLE ONLY public.customer_security_events
 
 ALTER TABLE ONLY public.customer_sessions
     ADD CONSTRAINT customer_sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: device_aliases device_aliases_subscription_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.device_aliases
+    ADD CONSTRAINT device_aliases_subscription_id_fkey FOREIGN KEY (subscription_id) REFERENCES public.subscriptions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: device_aliases device_aliases_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.device_aliases
+    ADD CONSTRAINT device_aliases_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --

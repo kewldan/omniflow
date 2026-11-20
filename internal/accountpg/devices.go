@@ -3,7 +3,11 @@ package accountpg
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
+	"unicode/utf8"
+
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
@@ -22,6 +26,9 @@ type Device struct {
 	Name     string
 	Platform string
 	LastSeen time.Time
+	// Alias is the customer's own name for the device, kept by Omniflow
+	// beside the panel's list. Empty when they never named it.
+	Alias string
 }
 
 // Devices lists the devices connected to one subscription.
@@ -39,7 +46,82 @@ func (service *Service) Devices(
 	if err != nil {
 		return nil, ErrRemnawaveUnavailable
 	}
-	return projectDevices(devices), nil
+	projected := projectDevices(devices)
+	userID, subscription, err := service.ownedSubscription(customerID, row.ID)
+	if err != nil {
+		return projected, nil
+	}
+	aliases, err := dbgen.New(service.pool).ListDeviceAliases(ctx, dbgen.ListDeviceAliasesParams{
+		SubscriptionID: subscription, UserID: userID,
+	})
+	if err != nil {
+		// A label is a convenience; the list itself is what the customer came for.
+		service.logger.Warn("device aliases unavailable", "error", err)
+		return projected, nil
+	}
+	byHandle := map[string]string{}
+	for _, alias := range aliases {
+		byHandle[alias.DeviceHandle] = alias.Alias
+	}
+	for index := range projected {
+		projected[index].Alias = byHandle[projected[index].Handle]
+	}
+	return projected, nil
+}
+
+func (service *Service) ownedSubscription(customerID, subscriptionID string) (pgtype.UUID, pgtype.UUID, error) {
+	userID, err := parseUUID(customerID)
+	if err != nil {
+		return pgtype.UUID{}, pgtype.UUID{}, err
+	}
+	subscription, err := parseUUID(subscriptionID)
+	return userID, subscription, err
+}
+
+// RenameDevice stores the customer's own name for one device, or clears it
+// when the name is empty. The handle must name a device the subscription has
+// now, so a name cannot be parked against a device that is not there.
+func (service *Service) RenameDevice(
+	ctx context.Context, customerID, subscriptionID, handle, alias string,
+) error {
+	alias = strings.Join(strings.Fields(alias), " ")
+	if utf8.RuneCountInString(alias) > 40 {
+		return fmt.Errorf("%w: a device name is at most 40 characters", ErrInvalidInput)
+	}
+	row, err := service.subscriptionRecord(ctx, customerID, subscriptionID, "")
+	if err != nil {
+		return err
+	}
+	if row.RemnawaveID <= 0 {
+		return ErrNotProvisioned
+	}
+	devices, err := service.remnawave.Devices(ctx, row.RemnawaveID)
+	if err != nil {
+		return ErrRemnawaveUnavailable
+	}
+	found := false
+	for _, device := range devices.Devices {
+		if commerce.DeviceHandle(device.HWID) == handle {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return ErrNotFound
+	}
+	userID, subscription, err := service.ownedSubscription(customerID, row.ID)
+	if err != nil {
+		return err
+	}
+	queries := dbgen.New(service.pool)
+	if alias == "" {
+		return queries.DeleteDeviceAlias(ctx, dbgen.DeleteDeviceAliasParams{
+			SubscriptionID: subscription, UserID: userID, DeviceHandle: handle,
+		})
+	}
+	return queries.UpsertDeviceAlias(ctx, dbgen.UpsertDeviceAliasParams{
+		SubscriptionID: subscription, UserID: userID, DeviceHandle: handle, Alias: alias,
+	})
 }
 
 func projectDevices(devices remnawave.Devices) []Device {

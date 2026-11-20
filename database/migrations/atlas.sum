@@ -1,4 +1,4 @@
-h1:Dq7+fIC0PIVFkUM9K3pkEKwFg2g0HSWBO083SEFp/o8=
+h1:IJQeP9Q6GPjvj2XGcz3lor1A6FPuB9rcrPAzRHUx1bI=
 20261120000000_baseline.sql h1:xcYk9mdv44B3O0TRxq3RP+hXxJ2VeeOilGnwKO251mQ=
 20261120010000_river_schema_v8.sql h1:AfdQpxaviEf8asJ5gyLmMVZr+zMYaWEw+o/vE8CMj7A=
 20261120020000_customer_email_signin.sql h1:PrCKaTaDm5ggof8aqRooMbqOXEHML5fwq1TF877zQa8=
@@ -22,3 +22,4 @@ h1:Dq7+fIC0PIVFkUM9K3pkEKwFg2g0HSWBO083SEFp/o8=
 20261121640000_email_delivery.sql h1:/SFtYYhMBCaxlsHeF4rxL06hk3kvdFzRGLO1jPBcCcI=
 20261121650000_referral_withdrawals.sql h1:q/yDPjXPqtuc9xzvtXw+6yK3AA/tKvl0sSVhzmEG1Wo=
 20261121660000_subscription_link_rotation.sql h1:j+xQ6UFpYd32bJpl7S8SWXJj3umVnOVLDrVxiH6/+R0=
+20261121670000_device_aliases.sql h1:l8/K0+3TITzNFxHIWMuFQQxXf6vOk0TSrmB3WtQWXTc=

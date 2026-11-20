@@ -4023,6 +4023,10 @@ export interface AccountSubscription {
   endsAt?: string;
   daysLeft: number;
   provisioned: boolean;
+  /** When Remnawave last saw a connection on this subscription. */
+  lastOnlineAt?: string;
+  /** True while that connection is under a minute old, as the panel's own indicator. */
+  online?: boolean;
   /** The traffic and device figures were read from Remnawave. When false they are the last observed values and the panel says so. */
   live: boolean;
   traffic: AccountTraffic;
@@ -4087,6 +4091,8 @@ export type AccountDeviceListItemsItem = {
   name?: string;
   platform?: string;
   lastSeen: string;
+  /** The customer's own name for the device; empty when unnamed. */
+  alias?: string;
 };
 
 export interface AccountDeviceList {
@@ -6605,6 +6611,11 @@ export const RemoveAllAccountDevicesConfirm = {
 
 export type RemoveAllAccountDevices200 = {
   removed: number;
+};
+
+export type RenameAccountDeviceBody = {
+  /** @maxLength 40 */
+  alias: string;
 };
 
 export type ListAccountPlansParams = {
@@ -28262,6 +28273,99 @@ export const useRemoveAccountDevice = <TError = Promise<ProblemResponse>>(
     ...query,
   };
 };
+
+export type renameAccountDeviceResponse204 = {
+  data: void
+  status: 204
+}
+
+export type renameAccountDeviceResponse404 = {
+  data: ProblemResponse
+  status: 404
+}
+
+export type renameAccountDeviceResponse422 = {
+  data: ProblemResponse
+  status: 422
+}
+
+export type renameAccountDeviceResponse503 = {
+  data: ProblemResponse
+  status: 503
+}
+
+export type renameAccountDeviceResponseSuccess = (renameAccountDeviceResponse204) & {
+  headers: Headers;
+};
+export type renameAccountDeviceResponseError = (renameAccountDeviceResponse404 | renameAccountDeviceResponse422 | renameAccountDeviceResponse503) & {
+  headers: Headers;
+};
+
+export type renameAccountDeviceResponse = (renameAccountDeviceResponseSuccess | renameAccountDeviceResponseError)
+
+export const getRenameAccountDeviceUrl = (subscriptionID: string,
+    handle: string,) => {
+
+
+
+
+  return `/v1/account/subscriptions/${subscriptionID}/devices/${handle}`
+}
+
+/**
+ * Stores the customer's own name for one device, kept by Omniflow beside Remnawave's list. An empty alias clears it. The handle must name a device the subscription has now.
+ */
+export const renameAccountDevice = async (subscriptionID: string,
+    handle: string,
+    renameAccountDeviceBody: RenameAccountDeviceBody, options?: RequestInit): Promise<renameAccountDeviceResponse> => {
+
+  const res = await fetch(getRenameAccountDeviceUrl(subscriptionID,handle),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(renameAccountDeviceBody)
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: renameAccountDeviceResponse['data'] = body ? JSON.parse(body) : undefined
+  return { data, status: res.status, headers: res.headers } as renameAccountDeviceResponse
+}
+
+
+
+
+export const getRenameAccountDeviceMutationFetcher = (subscriptionID: string,
+    handle: string, options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: RenameAccountDeviceBody }) => {
+    return renameAccountDevice(subscriptionID, handle, arg, options);
+  }
+}
+export const getRenameAccountDeviceMutationKey = (subscriptionID: string,
+    handle: string,) => [`/v1/account/subscriptions/${subscriptionID}/devices/${handle}`] as const;
+
+export type RenameAccountDeviceMutationResult = NonNullable<Awaited<ReturnType<typeof renameAccountDevice>>>
+
+export const useRenameAccountDevice = <TError = Promise<ProblemResponse>>(
+  subscriptionID: string,
+    handle: string, options?: { swr?:SWRMutationConfiguration<Awaited<ReturnType<typeof renameAccountDevice>>, TError, Key, RenameAccountDeviceBody, Awaited<ReturnType<typeof renameAccountDevice>>> & { swrKey?: string }, fetch?: RequestInit}
+) => {
+
+  const {swr: swrOptions, fetch: fetchOptions} = options ?? {}
+
+  const swrKey = swrOptions?.swrKey ?? getRenameAccountDeviceMutationKey(subscriptionID,handle);
+  const swrFn = getRenameAccountDeviceMutationFetcher(subscriptionID,handle, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions)
+
+  return {
+    swrKey,
+    ...query
+  }
+}
 
 export type listAccountPlansResponse200 = {
   data: AccountPlanList;
