@@ -20,7 +20,7 @@ func activityAction(update *models.Update) string {
 	case update == nil:
 		return ""
 	case update.CallbackQuery != nil:
-		raw = update.CallbackQuery.Data
+		raw = strings.TrimPrefix(strings.TrimPrefix(update.CallbackQuery.Data, callbackPrefix), actionPrefix)
 		if route, _, found := strings.Cut(raw, ":"); found {
 			raw = route
 		}

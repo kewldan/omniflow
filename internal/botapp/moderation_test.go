@@ -29,8 +29,8 @@ func TestDangerousNames(t *testing.T) {
 
 func TestActivityActionKeepsOnlyTheRoute(t *testing.T) {
 	cases := map[string]*models.Update{
-		"plans":     {CallbackQuery: &models.CallbackQuery{Data: "plans"}},
-		"pay":       {CallbackQuery: &models.CallbackQuery{Data: "pay:018f0000-0000:1500"}},
+		"plans":     {CallbackQuery: &models.CallbackQuery{Data: "nav:plans"}},
+		"pay":       {CallbackQuery: &models.CallbackQuery{Data: "act:pay:018f0000-0000:1500"}},
 		"cmd:start": {Message: &models.Message{Text: "/start ref_ABC"}},
 		"":          {Message: &models.Message{Text: "my private message"}},
 	}
