@@ -11,6 +11,7 @@ import (
 	"github.com/omniflow/omniflow/internal/emailpg"
 	"github.com/omniflow/omniflow/internal/jobs"
 	"github.com/omniflow/omniflow/internal/mailer"
+	"github.com/omniflow/omniflow/internal/selfemployed"
 )
 
 // emailInterval is how often the mail pass runs. A receipt or a sign-in
@@ -51,6 +52,16 @@ func growthTasks(logger *slog.Logger, cfg config.WorkerConfig, pool *pgxpool.Poo
 			return nil, emailErr
 		}
 		tasks = append(tasks, jobs.Task{Name: "email_delivery", Interval: emailInterval, Timeout: 2 * time.Minute, Run: email.Pass})
+	}
+	// Self-employed receipts. The pass does nothing until an operator switches
+	// the integration on in the panel, so it is registered whenever the
+	// password can be unsealed.
+	if len(cfg.DataEncryptionKey) == 32 {
+		receipts, err := selfemployed.New(pool, selfemployed.Options{DataKey: cfg.DataEncryptionKey, Logger: logger})
+		if err != nil {
+			return nil, err
+		}
+		tasks = append(tasks, jobs.Task{Name: "self_employed_receipts", Interval: time.Minute, Timeout: 5 * time.Minute, Run: receipts.Pass})
 	}
 	return tasks, nil
 }

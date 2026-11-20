@@ -2177,6 +2177,37 @@ type RiverQueue struct {
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
+type SelfEmployedReceipt struct {
+	ID            pgtype.UUID        `json:"id"`
+	OrderID       pgtype.UUID        `json:"order_id"`
+	AmountMinor   int64              `json:"amount_minor"`
+	ServiceName   string             `json:"service_name"`
+	OperationTime pgtype.Timestamptz `json:"operation_time"`
+	Status        string             `json:"status"`
+	Attempts      int32              `json:"attempts"`
+	NextAttemptAt pgtype.Timestamptz `json:"next_attempt_at"`
+	ReceiptUuid   pgtype.Text        `json:"receipt_uuid"`
+	ReceiptUrl    pgtype.Text        `json:"receipt_url"`
+	LastErrorCode pgtype.Text        `json:"last_error_code"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	IssuedAt      pgtype.Timestamptz `json:"issued_at"`
+	CancelledAt   pgtype.Timestamptz `json:"cancelled_at"`
+}
+
+type SelfEmployedSetting struct {
+	Singleton          bool               `json:"singleton"`
+	Enabled            bool               `json:"enabled"`
+	EnabledAt          pgtype.Timestamptz `json:"enabled_at"`
+	Inn                string             `json:"inn"`
+	PasswordCiphertext []byte             `json:"password_ciphertext"`
+	TokenCiphertext    []byte             `json:"token_ciphertext"`
+	DeviceID           string             `json:"device_id"`
+	ServiceName        string             `json:"service_name"`
+	Providers          []string           `json:"providers"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy          pgtype.UUID        `json:"updated_by"`
+}
+
 type Subscription struct {
 	ID                pgtype.UUID        `json:"id"`
 	UserID            pgtype.UUID        `json:"user_id"`

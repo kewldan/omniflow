@@ -1,0 +1,44 @@
+---
+title: "0010 — Self-employed receipts use the unofficial «Мой налог» API, isolated and deduplicated"
+description: Why Omniflow integrates with an unpublished tax-service API, how it avoids duplicate receipts, and what would replace it
+---
+
+**Status:** Accepted.
+
+## Context
+
+Operators registered as self-employed (НПД) must register every payment in «Мой
+налог». Bedolaga does it automatically, and operators moving from it would
+otherwise file receipts by hand. The Federal Tax Service publishes no versioned
+API for this; every integration, Bedolaga's included, uses the endpoints of the
+web cabinet with the taxpayer's own password.
+
+## Decision
+
+**Integrate with the web cabinet API, behind one package** (`internal/nalogo`),
+so a change on the tax service's side is one file to fix. The password and the
+cached token are sealed with the data key and never shown again.
+
+**One receipt per order, ever.** The receipt row is unique by order. An attempt
+whose outcome is unknown (timeout, 5xx) is not retried blindly: the next attempt
+first searches the taxpayer's incomes for the same amount near the payment time.
+
+**Only external ruble payments settled after the integration was enabled**, and
+optionally only through chosen providers, so a provider that issues its own
+fiscal receipt is not receipted twice.
+
+## Consequences
+
+- An outage or API change in «Мой налог» delays receipts by up to twelve hours
+  of retries, then needs an operator's retry; nothing is lost.
+- A refund cancels the receipt only when the order is fully refunded; a partial
+  refund is the operator's to correct by hand.
+- The search-before-retry is heuristic: two equal payments within ten minutes
+  could adopt one receipt for both. It errs toward a missing receipt, which the
+  operator can issue by hand, over a duplicate, which costs tax.
+
+## Revisit when
+
+The tax service publishes an official partner API (the ФНС partner programme
+for НПД platforms) available to small operators, or a fiscal-data operator
+offers НПД receipts through a stable contract.

@@ -40,7 +40,8 @@
               "architecture/decision-0006-ai-is-optional",
               "architecture/decision-0007-no-customer-password",
               "architecture/decision-0008-email-delivery-channel",
-              "architecture/decision-0009-referral-withdrawals"
+              "architecture/decision-0009-referral-withdrawals",
+              "architecture/decision-0010-self-employed-receipts"
             ]
           },
           {
@@ -81,6 +82,7 @@
               "integrations/telegram",
               "integrations/oidc",
               "integrations/email",
+              "integrations/self-employed-receipts",
               "integrations/api",
               "integrations/extending"
             ]
@@ -176,7 +178,8 @@
               "ru/architecture/decision-0006-ai-is-optional",
               "ru/architecture/decision-0007-no-customer-password",
               "ru/architecture/decision-0008-email-delivery-channel",
-              "ru/architecture/decision-0009-referral-withdrawals"
+              "ru/architecture/decision-0009-referral-withdrawals",
+              "ru/architecture/decision-0010-self-employed-receipts"
             ]
           },
           {
@@ -217,6 +220,7 @@
               "ru/integrations/telegram",
               "ru/integrations/oidc",
               "ru/integrations/email",
+              "ru/integrations/self-employed-receipts",
               "ru/integrations/api",
               "ru/integrations/extending"
             ]

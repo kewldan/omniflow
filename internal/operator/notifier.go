@@ -31,12 +31,12 @@ import (
 )
 
 // Kinds are the event streams that each get their own forum topic.
-var Kinds = []string{"purchase", "renewal", "topup", "refund", "fulfillment_failure", "incident", "backup", "security", "support", "campaign_test", "notice_test", "anomaly", "trial", "addon", "promo", "partner", "error", "infrastructure", "report", "node", "monitoring", "marketing"}
+var Kinds = []string{"purchase", "renewal", "topup", "refund", "fulfillment_failure", "incident", "backup", "security", "support", "campaign_test", "notice_test", "anomaly", "trial", "addon", "promo", "partner", "error", "infrastructure", "report", "node", "monitoring", "marketing", "receipt"}
 
 // SwitchableKinds are the notification streams an operator may turn off in
 // the operator group section. The two preview topics are absent: nothing
 // reaches them unless an operator asked for a preview.
-var SwitchableKinds = []string{"purchase", "renewal", "topup", "refund", "fulfillment_failure", "incident", "backup", "security", "support", "anomaly", "trial", "addon", "promo", "partner", "error", "infrastructure", "report", "node", "monitoring", "marketing"}
+var SwitchableKinds = []string{"purchase", "renewal", "topup", "refund", "fulfillment_failure", "incident", "backup", "security", "support", "anomaly", "trial", "addon", "promo", "partner", "error", "infrastructure", "report", "node", "monitoring", "marketing", "receipt"}
 
 // urgentKinds are delivered during quiet hours. Everything else waits, still
 // pending, until the window ends.
@@ -79,6 +79,7 @@ var topicNames = map[string]string{
 	"infrastructure":      "🛠 Infrastructure",
 	"report":              "📊 Reports",
 	"marketing":           "🎯 Loyalty and referrals",
+	"receipt":             "🧾 Self-employed receipts",
 }
 
 // Config binds the operator group and bounds notification volume.
@@ -559,6 +560,8 @@ var notificationFields = []string{
 	"overdueMinutes", "priority",
 	// Loyalty tier changes.
 	"fromTier", "toTier",
+	// Self-employed receipts.
+	"receiptUrl",
 }
 
 // MaintenanceChanged posts an incident notice whenever maintenance mode moves.

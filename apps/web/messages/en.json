@@ -3603,6 +3603,39 @@
           "paid": "Withdrawal paid out",
           "reveal": "Paying out a withdrawal"
         }
+      },
+      "selfEmployed": {
+        "title": "Self-employed receipts («Мой налог»)",
+        "description": "For an operator registered as self-employed (НПД): every ruble payment settled after you switch this on gets a receipt in «Мой налог», retried for twelve hours if the service is down, never issued twice, and cancelled when the order is fully refunded.",
+        "enabled": "Issue receipts",
+        "inn": "Taxpayer number (12 digits)",
+        "password": "«Мой налог» password",
+        "passwordKept": "Stored; leave empty to keep it",
+        "serviceName": "Service name on the receipt",
+        "providers": "Only for these payment providers",
+        "providersHint": "Leave empty for every provider. Leave out a provider that issues its own fiscal receipt.",
+        "save": "Save",
+        "check": "Check sign-in",
+        "checkOk": "«Мой налог» accepted the credentials.",
+        "settingsReason": "Self-employed receipt settings",
+        "checkReason": "Checking the «Мой налог» sign-in",
+        "retryReason": "Retrying a self-employed receipt",
+        "empty": "No receipts yet.",
+        "columns": {
+          "order": "Order",
+          "amount": "Amount",
+          "status": "Status"
+        },
+        "statuses": {
+          "pending": "Waiting",
+          "uncertain": "Checking",
+          "issued": "Issued",
+          "failed": "Failed",
+          "cancelled": "Cancelled"
+        },
+        "attempts": "{count, plural, one {# attempt} other {# attempts}}",
+        "open": "Open receipt",
+        "retry": "Retry"
       }
     },
     "reminders": {
@@ -5218,7 +5251,8 @@
           "failed": "Refund failed",
           "cancelled": "Refund cancelled",
           "unknown": "Refund"
-        }
+        },
+        "taxReceipt": "Open the receipt"
       },
       "wallet": {
         "available": "Available",

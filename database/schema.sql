@@ -3125,7 +3125,7 @@ CREATE TABLE public.operator_notifications (
     error_code text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     sent_at timestamp with time zone,
-    CONSTRAINT operator_notifications_kind_known CHECK ((kind = ANY (ARRAY['purchase'::text, 'renewal'::text, 'topup'::text, 'refund'::text, 'fulfillment_failure'::text, 'incident'::text, 'backup'::text, 'security'::text, 'anomaly'::text, 'support'::text, 'trial'::text, 'addon'::text, 'promo'::text, 'partner'::text, 'error'::text, 'infrastructure'::text, 'report'::text, 'node'::text, 'monitoring'::text, 'marketing'::text]))),
+    CONSTRAINT operator_notifications_kind_known CHECK ((kind = ANY (ARRAY['purchase'::text, 'renewal'::text, 'topup'::text, 'refund'::text, 'fulfillment_failure'::text, 'incident'::text, 'backup'::text, 'security'::text, 'anomaly'::text, 'support'::text, 'trial'::text, 'addon'::text, 'promo'::text, 'partner'::text, 'error'::text, 'infrastructure'::text, 'report'::text, 'node'::text, 'monitoring'::text, 'marketing'::text, 'receipt'::text]))),
     CONSTRAINT operator_notifications_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'sent'::text, 'suppressed'::text, 'failed'::text])))
 );
 
@@ -3143,7 +3143,7 @@ CREATE TABLE public.operator_topics (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT operator_topics_check CHECK (((status = 'bound'::text) = (topic_id IS NOT NULL))),
-    CONSTRAINT operator_topics_kind_known CHECK ((kind = ANY (ARRAY['purchase'::text, 'renewal'::text, 'topup'::text, 'refund'::text, 'fulfillment_failure'::text, 'incident'::text, 'backup'::text, 'security'::text, 'anomaly'::text, 'campaign_test'::text, 'notice_test'::text, 'support'::text, 'trial'::text, 'addon'::text, 'promo'::text, 'partner'::text, 'error'::text, 'infrastructure'::text, 'report'::text, 'node'::text, 'monitoring'::text, 'marketing'::text]))),
+    CONSTRAINT operator_topics_kind_known CHECK ((kind = ANY (ARRAY['purchase'::text, 'renewal'::text, 'topup'::text, 'refund'::text, 'fulfillment_failure'::text, 'incident'::text, 'backup'::text, 'security'::text, 'anomaly'::text, 'campaign_test'::text, 'notice_test'::text, 'support'::text, 'trial'::text, 'addon'::text, 'promo'::text, 'partner'::text, 'error'::text, 'infrastructure'::text, 'report'::text, 'node'::text, 'monitoring'::text, 'marketing'::text, 'receipt'::text]))),
     CONSTRAINT operator_topics_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'bound'::text, 'failed'::text]))),
     CONSTRAINT operator_topics_topic_id_check CHECK (((topic_id IS NULL) OR (topic_id > 0)))
 );
@@ -4184,6 +4184,56 @@ CREATE TABLE public.river_queue (
     metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
     paused_at timestamp with time zone,
     updated_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+
+--
+-- Name: self_employed_receipts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.self_employed_receipts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    order_id uuid NOT NULL,
+    amount_minor bigint NOT NULL,
+    service_name text NOT NULL,
+    operation_time timestamp with time zone NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    attempts integer DEFAULT 0 NOT NULL,
+    next_attempt_at timestamp with time zone DEFAULT now() NOT NULL,
+    receipt_uuid text,
+    receipt_url text,
+    last_error_code text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    issued_at timestamp with time zone,
+    cancelled_at timestamp with time zone,
+    CONSTRAINT self_employed_receipts_amount_positive CHECK ((amount_minor > 0)),
+    CONSTRAINT self_employed_receipts_attempts_nonnegative CHECK ((attempts >= 0)),
+    CONSTRAINT self_employed_receipts_cancelled_complete CHECK (((status = 'cancelled'::text) = (cancelled_at IS NOT NULL))),
+    CONSTRAINT self_employed_receipts_issued_complete CHECK (((status = ANY (ARRAY['issued'::text, 'cancelled'::text])) = ((receipt_uuid IS NOT NULL) AND (issued_at IS NOT NULL)))),
+    CONSTRAINT self_employed_receipts_status_known CHECK ((status = ANY (ARRAY['pending'::text, 'uncertain'::text, 'issued'::text, 'failed'::text, 'cancelled'::text])))
+);
+
+
+--
+-- Name: self_employed_settings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.self_employed_settings (
+    singleton boolean DEFAULT true NOT NULL,
+    enabled boolean DEFAULT false NOT NULL,
+    enabled_at timestamp with time zone,
+    inn text DEFAULT ''::text NOT NULL,
+    password_ciphertext bytea,
+    token_ciphertext bytea,
+    device_id text DEFAULT ''::text NOT NULL,
+    service_name text DEFAULT 'Услуги VPN'::text NOT NULL,
+    providers text[] DEFAULT '{}'::text[] NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by uuid,
+    CONSTRAINT self_employed_settings_enabled_complete CHECK (((NOT enabled) OR ((enabled_at IS NOT NULL) AND (inn <> ''::text) AND (password_ciphertext IS NOT NULL)))),
+    CONSTRAINT self_employed_settings_inn_format CHECK (((inn = ''::text) OR (inn ~ '^[0-9]{12}$'::text))),
+    CONSTRAINT self_employed_settings_service_name_length CHECK (((char_length(service_name) >= 1) AND (char_length(service_name) <= 128))),
+    CONSTRAINT self_employed_settings_singleton CHECK (singleton)
 );
 
 
@@ -6537,6 +6587,30 @@ ALTER TABLE ONLY public.river_queue
 
 
 --
+-- Name: self_employed_receipts self_employed_receipts_order_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.self_employed_receipts
+    ADD CONSTRAINT self_employed_receipts_order_unique UNIQUE (order_id);
+
+
+--
+-- Name: self_employed_receipts self_employed_receipts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.self_employed_receipts
+    ADD CONSTRAINT self_employed_receipts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: self_employed_settings self_employed_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.self_employed_settings
+    ADD CONSTRAINT self_employed_settings_pkey PRIMARY KEY (singleton);
+
+
+--
 -- Name: subscription_policy subscription_policy_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7706,6 +7780,13 @@ CREATE INDEX river_notification_created_at_idx ON public.river_notification USIN
 --
 
 CREATE INDEX river_notification_topic_id_idx ON public.river_notification USING btree (topic, id);
+
+
+--
+-- Name: self_employed_receipts_due_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX self_employed_receipts_due_idx ON public.self_employed_receipts USING btree (next_attempt_at) WHERE (status = ANY (ARRAY['pending'::text, 'uncertain'::text]));
 
 
 --
@@ -9836,6 +9917,14 @@ ALTER TABLE ONLY public.remnawave_users
 
 ALTER TABLE ONLY public.required_channels
     ADD CONSTRAINT required_channels_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.admin_users(id);
+
+
+--
+-- Name: self_employed_receipts self_employed_receipts_order_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.self_employed_receipts
+    ADD CONSTRAINT self_employed_receipts_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id);
 
 
 --

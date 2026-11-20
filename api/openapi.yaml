@@ -5301,6 +5301,19 @@ paths:
       responses:
         "204": {description: Cancelled}
         "404": {$ref: "#/components/responses/Problem"}
+  /v1/account/orders/{orderID}/tax-receipt:
+    get:
+      operationId: getAccountOrderTaxReceipt
+      tags: [account]
+      description: >-
+        The self-employed («Мой налог») receipt link for the customer's own
+        order. `receiptUrl` is empty while none has been issued, or when the
+        operator does not issue them.
+      parameters:
+        - {in: path, name: orderID, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200": {description: Receipt link, content: {application/json: {schema: {type: object, required: [receiptUrl], properties: {receiptUrl: {type: string}}}}}}
+        "404": {$ref: "#/components/responses/Problem"}
 components:
   securitySchemes:
     operatorToken: {type: http, scheme: bearer}

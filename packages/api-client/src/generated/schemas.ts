@@ -14152,3 +14152,14 @@ export const CancelAccountReferralWithdrawalParams = zod.object({
 });
 
 export const CancelAccountReferralWithdrawalResponse = zod.void();
+
+/**
+ * The self-employed («Мой налог») receipt link for the customer's own order. `receiptUrl` is empty while none has been issued, or when the operator does not issue them.
+ */
+export const GetAccountOrderTaxReceiptParams = zod.object({
+  orderID: zod.uuid(),
+});
+
+export const GetAccountOrderTaxReceiptResponse = zod.object({
+  receiptUrl: zod.string(),
+});

@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { PageHeader } from "@/components/admin/resource-table";
 import { useSession } from "@/lib/session";
 
+import { SelfEmployedCard } from "./self-employed";
 import { WithdrawalsCard } from "./withdrawals";
 
 /**
@@ -18,6 +19,7 @@ export function PayoutsWorkspace() {
     <div className="flex flex-col gap-5">
       <PageHeader description={translate("description")} title={translate("title")} />
       <WithdrawalsCard editable={can("finance.write")} />
+      <SelfEmployedCard editable={can("finance.write")} />
     </div>
   );
 }

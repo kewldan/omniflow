@@ -12866,6 +12866,9 @@ type ServerInterface interface {
 	// (POST /v1/account/orders/{orderID}/refresh)
 	RefreshAccountOrder(w http.ResponseWriter, r *http.Request, orderID OrderID, params RefreshAccountOrderParams)
 
+	// (GET /v1/account/orders/{orderID}/tax-receipt)
+	GetAccountOrderTaxReceipt(w http.ResponseWriter, r *http.Request, orderID openapi_types.UUID)
+
 	// (GET /v1/account/overview)
 	GetAccountOverview(w http.ResponseWriter, r *http.Request, params GetAccountOverviewParams)
 
@@ -14026,6 +14029,11 @@ func (_ Unimplemented) StartAccountOrderPayment(w http.ResponseWriter, r *http.R
 
 // (POST /v1/account/orders/{orderID}/refresh)
 func (_ Unimplemented) RefreshAccountOrder(w http.ResponseWriter, r *http.Request, orderID OrderID, params RefreshAccountOrderParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/orders/{orderID}/tax-receipt)
+func (_ Unimplemented) GetAccountOrderTaxReceipt(w http.ResponseWriter, r *http.Request, orderID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -17172,6 +17180,32 @@ func (siw *ServerInterfaceWrapper) RefreshAccountOrder(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RefreshAccountOrder(w, r, orderID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountOrderTaxReceipt operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountOrderTaxReceipt(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "orderID" -------------
+	var orderID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "orderID", chi.URLParam(r, "orderID"), &orderID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "orderID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountOrderTaxReceipt(w, r, orderID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -32116,6 +32150,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/v1/account/referrals/withdrawals/{withdrawalID}", wrapper.CancelAccountReferralWithdrawal)
 	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/orders/{orderID}/tax-receipt", wrapper.GetAccountOrderTaxReceipt)
+	})
 
 	return r
 }
@@ -33920,6 +33957,46 @@ type RefreshAccountOrder404ApplicationProblemPlusJSONResponse struct {
 }
 
 func (response RefreshAccountOrder404ApplicationProblemPlusJSONResponse) VisitRefreshAccountOrderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountOrderTaxReceiptRequestObject struct {
+	OrderID openapi_types.UUID `json:"orderID"`
+}
+
+type GetAccountOrderTaxReceiptResponseObject interface {
+	VisitGetAccountOrderTaxReceiptResponse(w http.ResponseWriter) error
+}
+
+type GetAccountOrderTaxReceipt200JSONResponse struct {
+	ReceiptUrl string `json:"receiptUrl"`
+}
+
+func (response GetAccountOrderTaxReceipt200JSONResponse) VisitGetAccountOrderTaxReceiptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountOrderTaxReceipt404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetAccountOrderTaxReceipt404ApplicationProblemPlusJSONResponse) VisitGetAccountOrderTaxReceiptResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response); err != nil {
@@ -48741,6 +48818,9 @@ type StrictServerInterface interface {
 	// (POST /v1/account/orders/{orderID}/refresh)
 	RefreshAccountOrder(ctx context.Context, request RefreshAccountOrderRequestObject) (RefreshAccountOrderResponseObject, error)
 
+	// (GET /v1/account/orders/{orderID}/tax-receipt)
+	GetAccountOrderTaxReceipt(ctx context.Context, request GetAccountOrderTaxReceiptRequestObject) (GetAccountOrderTaxReceiptResponseObject, error)
+
 	// (GET /v1/account/overview)
 	GetAccountOverview(ctx context.Context, request GetAccountOverviewRequestObject) (GetAccountOverviewResponseObject, error)
 
@@ -50918,6 +50998,32 @@ func (sh *strictHandler) RefreshAccountOrder(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(RefreshAccountOrderResponseObject); ok {
 		if err := validResponse.VisitRefreshAccountOrderResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountOrderTaxReceipt operation middleware
+func (sh *strictHandler) GetAccountOrderTaxReceipt(w http.ResponseWriter, r *http.Request, orderID openapi_types.UUID) {
+	var request GetAccountOrderTaxReceiptRequestObject
+
+	request.OrderID = orderID
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountOrderTaxReceipt(ctx, request.(GetAccountOrderTaxReceiptRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountOrderTaxReceipt")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountOrderTaxReceiptResponseObject); ok {
+		if err := validResponse.VisitGetAccountOrderTaxReceiptResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

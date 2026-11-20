@@ -1,0 +1,65 @@
+---
+title: Self-employed receipts
+description: Issue «Мой налог» receipts for every ruble payment when the operator is registered as self-employed (НПД) — queued, retried, never duplicated, cancelled on refund, announced in their own operator topic
+---
+
+An operator registered in Russia as self-employed (налог на профессиональный
+доход) must register every payment in «Мой налог» and give the payer a receipt.
+Bedolaga does this through its NaloGO integration; Omniflow does the same.
+
+It is off until you configure it in **Payouts → Self-employed receipts**
+(`finance.write`).
+
+## Configure
+
+| Field | What it does |
+| --- | --- |
+| Issue receipts | Turns the integration on. Only payments settled **after** this moment get a receipt, so switching it on never files old income |
+| Taxpayer number | Your 12-digit ИНН |
+| «Мой налог» password | The password of the «Мой налог» web cabinet. Stored sealed with `APP_DATA_ENCRYPTION_KEY`, never shown again; leave the field empty to keep it |
+| Service name | The line on the receipt, `Услуги VPN` by default |
+| Payment providers | Only payments through these providers get a receipt. Empty means every provider. Leave out a provider that already issues a fiscal receipt itself (for example YooKassa with 54-ФЗ receipts) |
+
+**Check sign-in** signs in with the stored credentials, so a wrong password shows
+now rather than as a failed receipt.
+
+## What gets a receipt
+
+A ruble order that settled through an external payment (`external_minor > 0`, a
+succeeded payment intent through an included provider), after the integration
+was switched on. The amount is what the customer paid through the provider; the
+wallet part was already receipted when the wallet was topped up. Payments in
+other currencies are not receipted.
+
+## How sending works
+
+The worker's `self_employed_receipts` pass runs every minute.
+
+- **One receipt per order.** The receipt row is unique per order, so a repeated
+  pass never queues a second one.
+- **No duplicate on a timeout.** When «Мой налог» does not answer, or answers with
+  a server error, the receipt may have been registered anyway. It is marked
+  *checking*; before the next attempt the pass looks for a receipt with the same
+  amount within ten minutes of the payment and adopts it if it exists.
+- **Retries.** A failed attempt is retried every ten minutes for twelve hours
+  (72 attempts), then marked *failed*. **Retry** puts a failed receipt back in
+  the queue.
+- **Refunds.** When an order becomes fully refunded, its receipt is cancelled in
+  «Мой налог» with the reason «Возврат средств».
+- **Tokens.** The access token is cached sealed in the database and renewed with
+  the refresh token, or by signing in again.
+
+## Where receipts appear
+
+- The **Payouts** page lists every receipt with its status and a link.
+- The operator group gets its own **🧾 Self-employed receipts** topic: issued,
+  failed, and cancelled receipts, each with the order, the amount, and the link.
+  No customer data is posted.
+- The customer sees **Open the receipt** on the order's page in the web panel.
+
+<Warning>
+«Мой налог» has no published, versioned API for third parties. Omniflow uses the
+same endpoints as the web cabinet and every open-source integration, including
+Bedolaga's. If the tax service changes them, receipts fail and are retried
+until fixed; check the topic after an Omniflow upgrade or an outage.
+</Warning>

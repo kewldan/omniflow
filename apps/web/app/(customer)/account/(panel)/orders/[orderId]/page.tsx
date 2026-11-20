@@ -26,6 +26,7 @@ import {
 } from "@/components/account/commerce/payment-choice";
 import { OPERATIONS } from "@/components/account/commerce/plan-card";
 import { useProblemMessage } from "@/components/account/commerce/reasons";
+import { TaxReceiptLink } from "@/components/account/commerce/tax-receipt-link";
 import type {
   OrderSummary,
   PaymentChoice,
@@ -327,6 +328,10 @@ export default function OrderPage() {
           <OrderAmounts order={data} />
         </div>
       </section>
+
+      {(data.state === "paid" ||
+        data.state === "fulfilled" ||
+        data.state === "partially_refunded") && <TaxReceiptLink orderId={params.orderId} />}
 
       {data.refunds && data.refunds.length > 0 && (
         <section className="space-y-2">

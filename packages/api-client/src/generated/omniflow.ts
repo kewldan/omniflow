@@ -7585,9 +7585,11 @@ export type RequestAccountReferralWithdrawalBody = {
   details: string;
 };
 
-const getHeaders = (
-  ...sources: (RequestInit["headers"] | Record<string, string | undefined>)[]
-) => {
+export type GetAccountOrderTaxReceipt200 = {
+  receiptUrl: string;
+};
+
+const getHeaders = (...sources: (RequestInit['headers'] | Record<string, string | undefined>)[]) => {
   const seen = new Set<string>();
   const layers: [string, string | readonly string[]][][] = [];
   for (const source of sources.reverse()) {
@@ -38023,6 +38025,78 @@ export const useCancelAccountReferralWithdrawal = <TError = Promise<ProblemRespo
 
   return {
     swrKey,
-    ...query,
-  };
+    ...query
+  }
+}
+
+export type getAccountOrderTaxReceiptResponse200 = {
+  data: GetAccountOrderTaxReceipt200
+  status: 200
+}
+
+export type getAccountOrderTaxReceiptResponse404 = {
+  data: ProblemResponse
+  status: 404
+}
+
+export type getAccountOrderTaxReceiptResponseSuccess = (getAccountOrderTaxReceiptResponse200) & {
+  headers: Headers;
 };
+export type getAccountOrderTaxReceiptResponseError = (getAccountOrderTaxReceiptResponse404) & {
+  headers: Headers;
+};
+
+export type getAccountOrderTaxReceiptResponse = (getAccountOrderTaxReceiptResponseSuccess | getAccountOrderTaxReceiptResponseError)
+
+export const getGetAccountOrderTaxReceiptUrl = (orderID: string,) => {
+
+
+
+
+  return `/v1/account/orders/${orderID}/tax-receipt`
+}
+
+/**
+ * The self-employed («Мой налог») receipt link for the customer's own order. `receiptUrl` is empty while none has been issued, or when the operator does not issue them.
+ */
+export const getAccountOrderTaxReceipt = async (orderID: string, options?: RequestInit): Promise<getAccountOrderTaxReceiptResponse> => {
+
+  const res = await fetch(getGetAccountOrderTaxReceiptUrl(orderID),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountOrderTaxReceiptResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getAccountOrderTaxReceiptResponse
+}
+
+
+
+
+export const getGetAccountOrderTaxReceiptKey = (orderID: string,) => [`/v1/account/orders/${orderID}/tax-receipt`] as const;
+
+export type GetAccountOrderTaxReceiptQueryResult = NonNullable<Awaited<ReturnType<typeof getAccountOrderTaxReceipt>>>
+
+export const useGetAccountOrderTaxReceipt = <TError = Promise<ProblemResponse>>(
+  orderID: string, options?: { swr?:SWRConfiguration<Awaited<ReturnType<typeof getAccountOrderTaxReceipt>>, TError> & { swrKey?: Key, enabled?: boolean }, fetch?: RequestInit }
+) => {
+  const {swr: swrOptions, fetch: fetchOptions} = options ?? {}
+
+  const isEnabled = swrOptions?.enabled !== false && orderID !== null && orderID !== undefined
+  const swrKey = swrOptions?.swrKey ?? (() => isEnabled ? getGetAccountOrderTaxReceiptKey(orderID) : null);
+  const swrFn = () => getAccountOrderTaxReceipt(orderID, fetchOptions)
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions)
+
+  return {
+    swrKey,
+    ...query
+  }
+}

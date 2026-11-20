@@ -11,6 +11,7 @@ import (
 	"github.com/omniflow/omniflow/internal/mailer"
 	"github.com/omniflow/omniflow/internal/paymentservice"
 	"github.com/omniflow/omniflow/internal/referralpayout"
+	"github.com/omniflow/omniflow/internal/selfemployed"
 )
 
 // buildGrowth wires the Bedolaga-parity services the api serves: the e-mail
@@ -39,6 +40,9 @@ func buildGrowth(
 	}
 	services := apihttp.GrowthServices{Email: email, EmailSending: mail.Configured()}
 	if services.Withdrawals, err = referralpayout.New(pool, cfg.DataEncryptionKey, email, logger); err != nil {
+		return apihttp.GrowthServices{}, err
+	}
+	if services.SelfEmployed, err = selfemployed.New(pool, selfemployed.Options{DataKey: cfg.DataEncryptionKey, Logger: logger}); err != nil {
 		return apihttp.GrowthServices{}, err
 	}
 	return services, nil
