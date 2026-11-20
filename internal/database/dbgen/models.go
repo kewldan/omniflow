@@ -118,6 +118,16 @@ type AddonVersion struct {
 	Proration         string             `json:"proration"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	RetiredAt         pgtype.Timestamptz `json:"retired_at"`
+	LifetimeDays      pgtype.Int4        `json:"lifetime_days"`
+}
+
+type AdminCustomRole struct {
+	Role        string             `json:"role"`
+	Name        string             `json:"name"`
+	Permissions []string           `json:"permissions"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy   pgtype.UUID        `json:"updated_by"`
 }
 
 type AdminInvitation struct {
@@ -384,6 +394,26 @@ type AnomalySignal struct {
 	DedupeKey       string             `json:"dedupe_key"`
 }
 
+type ApiToken struct {
+	ID         pgtype.UUID        `json:"id"`
+	Name       string             `json:"name"`
+	TokenHash  []byte             `json:"token_hash"`
+	Prefix     string             `json:"prefix"`
+	CreatedBy  pgtype.UUID        `json:"created_by"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	LastUsedAt pgtype.Timestamptz `json:"last_used_at"`
+	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
+}
+
+type ApiTokenRequest struct {
+	ID         int64              `json:"id"`
+	TokenID    pgtype.UUID        `json:"token_id"`
+	Method     string             `json:"method"`
+	Route      string             `json:"route"`
+	Status     int32              `json:"status"`
+	OccurredAt pgtype.Timestamptz `json:"occurred_at"`
+}
+
 type AppError struct {
 	ID          pgtype.UUID        `json:"id"`
 	Fingerprint string             `json:"fingerprint"`
@@ -457,6 +487,18 @@ type Backup struct {
 	RetainUntil pgtype.Timestamptz `json:"retain_until"`
 }
 
+type BackupRequest struct {
+	ID          pgtype.UUID        `json:"id"`
+	Action      string             `json:"action"`
+	BackupID    pgtype.UUID        `json:"backup_id"`
+	Reason      string             `json:"reason"`
+	RequestedBy pgtype.UUID        `json:"requested_by"`
+	Status      string             `json:"status"`
+	ErrorCode   pgtype.Text        `json:"error_code"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	FinishedAt  pgtype.Timestamptz `json:"finished_at"`
+}
+
 type BackupRestore struct {
 	ID          pgtype.UUID        `json:"id"`
 	BackupID    pgtype.UUID        `json:"backup_id"`
@@ -490,6 +532,17 @@ type BedolagaImportRun struct {
 	Report     []byte             `json:"report"`
 	StartedAt  pgtype.Timestamptz `json:"started_at"`
 	FinishedAt pgtype.Timestamptz `json:"finished_at"`
+}
+
+type BlockerScan struct {
+	ID          pgtype.UUID        `json:"id"`
+	Status      string             `json:"status"`
+	Checked     int32              `json:"checked"`
+	Blocked     int32              `json:"blocked"`
+	RequestedBy pgtype.UUID        `json:"requested_by"`
+	RequestedAt pgtype.Timestamptz `json:"requested_at"`
+	StartedAt   pgtype.Timestamptz `json:"started_at"`
+	FinishedAt  pgtype.Timestamptz `json:"finished_at"`
 }
 
 type BlocklistAllowlist struct {
@@ -561,6 +614,7 @@ type BotCheckoutSession struct {
 	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
 	SubscriptionID   pgtype.UUID        `json:"subscription_id"`
 	SelectedSquadIds []pgtype.UUID      `json:"selected_squad_ids"`
+	PeriodDays       pgtype.Int4        `json:"period_days"`
 	PaymentMethod    string             `json:"payment_method"`
 }
 
@@ -840,6 +894,14 @@ type ContactChannel struct {
 	RevokedAt            pgtype.Timestamptz `json:"revoked_at"`
 }
 
+type CustomerActivity struct {
+	ID         int64              `json:"id"`
+	UserID     pgtype.UUID        `json:"user_id"`
+	Surface    string             `json:"surface"`
+	Action     string             `json:"action"`
+	OccurredAt pgtype.Timestamptz `json:"occurred_at"`
+}
+
 type CustomerCampaignAttribution struct {
 	UserID         pgtype.UUID        `json:"user_id"`
 	CampaignID     pgtype.UUID        `json:"campaign_id"`
@@ -936,6 +998,14 @@ type CustomerOidcProvider struct {
 	DisabledAt             pgtype.Timestamptz `json:"disabled_at"`
 }
 
+type CustomerRestriction struct {
+	UserID    pgtype.UUID        `json:"user_id"`
+	Kind      string             `json:"kind"`
+	Reason    string             `json:"reason"`
+	CreatedBy pgtype.UUID        `json:"created_by"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type CustomerSecurityEvent struct {
 	ID         pgtype.UUID        `json:"id"`
 	UserID     pgtype.UUID        `json:"user_id"`
@@ -963,6 +1033,14 @@ type CustomerSession struct {
 	AbsoluteExpiresAt pgtype.Timestamptz `json:"absolute_expires_at"`
 	RevokedAt         pgtype.Timestamptz `json:"revoked_at"`
 	RevokedReason     pgtype.Text        `json:"revoked_reason"`
+}
+
+type DeviceAlias struct {
+	SubscriptionID pgtype.UUID        `json:"subscription_id"`
+	UserID         pgtype.UUID        `json:"user_id"`
+	DeviceHandle   string             `json:"device_handle"`
+	Alias          string             `json:"alias"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type DunningAttempt struct {
@@ -1031,6 +1109,8 @@ type EntitlementAddon struct {
 	DeviceSlots       pgtype.Int4        `json:"device_slots"`
 	RemnawaveSquadIds []pgtype.UUID      `json:"remnawave_squad_ids"`
 	AppliedAt         pgtype.Timestamptz `json:"applied_at"`
+	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
+	ExpiredAt         pgtype.Timestamptz `json:"expired_at"`
 }
 
 type EntitlementDrift struct {
@@ -1558,6 +1638,7 @@ type Order struct {
 	PaidAt               pgtype.Timestamptz `json:"paid_at"`
 	LoyaltyDiscountMinor int64              `json:"loyalty_discount_minor"`
 	LoyaltyTierCode      pgtype.Text        `json:"loyalty_tier_code"`
+	PeriodSeconds        pgtype.Int8        `json:"period_seconds"`
 }
 
 type OrderAddonLine struct {
@@ -1773,11 +1854,30 @@ type PlanVersion struct {
 	MaxSelectableSquads   pgtype.Int4        `json:"max_selectable_squads"`
 	TrafficResetStrategy  string             `json:"traffic_reset_strategy"`
 	ExternalSquadID       pgtype.UUID        `json:"external_squad_id"`
+	MaxAddonTrafficBytes  pgtype.Int8        `json:"max_addon_traffic_bytes"`
+	TrafficResetPriceBps  pgtype.Int4        `json:"traffic_reset_price_bps"`
+	CustomDaysMin         pgtype.Int4        `json:"custom_days_min"`
+	CustomDaysMax         pgtype.Int4        `json:"custom_days_max"`
 }
 
 type PlanVersionAddon struct {
 	PlanVersionID pgtype.UUID `json:"plan_version_id"`
 	AddonID       pgtype.UUID `json:"addon_id"`
+}
+
+type PlanVersionDayPrice struct {
+	PlanVersionID pgtype.UUID `json:"plan_version_id"`
+	Currency      string      `json:"currency"`
+	AmountMinor   int64       `json:"amount_minor"`
+}
+
+type PlanVersionPeriod struct {
+	PlanVersionID pgtype.UUID `json:"plan_version_id"`
+	Days          int32       `json:"days"`
+	Currency      string      `json:"currency"`
+	AmountMinor   int64       `json:"amount_minor"`
+	ForPurchase   bool        `json:"for_purchase"`
+	ForRenewal    bool        `json:"for_renewal"`
 }
 
 type PlanVersionSquad struct {
@@ -1962,6 +2062,36 @@ type Refund struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
+type Reminder struct {
+	ID                pgtype.UUID        `json:"id"`
+	Name              string             `json:"name"`
+	Active            bool               `json:"active"`
+	Category          string             `json:"category"`
+	Segment           string             `json:"segment"`
+	SegmentDays       int32              `json:"segment_days"`
+	BalanceBelowMinor int64              `json:"balance_below_minor"`
+	Currency          string             `json:"currency"`
+	RepeatEveryDays   int32              `json:"repeat_every_days"`
+	MaxSends          int32              `json:"max_sends"`
+	TitleRu           string             `json:"title_ru"`
+	BodyRu            string             `json:"body_ru"`
+	TitleEn           string             `json:"title_en"`
+	BodyEn            string             `json:"body_en"`
+	ButtonRoute       pgtype.Text        `json:"button_route"`
+	ShowInCabinet     bool               `json:"show_in_cabinet"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy         pgtype.UUID        `json:"updated_by"`
+}
+
+type ReminderState struct {
+	ReminderID  pgtype.UUID        `json:"reminder_id"`
+	UserID      pgtype.UUID        `json:"user_id"`
+	Sends       int32              `json:"sends"`
+	LastSentAt  pgtype.Timestamptz `json:"last_sent_at"`
+	DismissedAt pgtype.Timestamptz `json:"dismissed_at"`
+}
+
 type RemnawaveUser struct {
 	UserID        pgtype.UUID        `json:"user_id"`
 	RemnawaveID   int64              `json:"remnawave_id"`
@@ -2060,6 +2190,8 @@ type Subscription struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	ClosedAt          pgtype.Timestamptz `json:"closed_at"`
+	// When the customer last re-issued this subscription's access link. Restored to its previous value when the re-issue fails.
+	LinkRotatedAt pgtype.Timestamptz `json:"link_rotated_at"`
 }
 
 // Installation-wide switches for plan changes and what a paid period resets. One row, edited from the panel.
@@ -2075,6 +2207,10 @@ type SubscriptionPolicy struct {
 	UpdatedBy                pgtype.UUID        `json:"updated_by"`
 	TrialTag                 pgtype.Text        `json:"trial_tag"`
 	PaidTag                  pgtype.Text        `json:"paid_tag"`
+	TrialDisabledMethods     []string           `json:"trial_disabled_methods"`
+	TrialWarningHours        int32              `json:"trial_warning_hours"`
+	MaxDeviceLimit           pgtype.Int4        `json:"max_device_limit"`
+	RemnawaveCloseMode       string             `json:"remnawave_close_mode"`
 }
 
 type SupportAttachment struct {
@@ -2118,6 +2254,8 @@ type SupportMessage struct {
 	ReadAt            pgtype.Timestamptz `json:"read_at"`
 	AuthorID          pgtype.UUID        `json:"author_id"`
 	CannedResponseID  pgtype.UUID        `json:"canned_response_id"`
+	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
+	DeletedBy         pgtype.UUID        `json:"deleted_by"`
 }
 
 type SupportNote struct {
@@ -2140,6 +2278,7 @@ type SupportQueue struct {
 	ArchivedAt                 pgtype.Timestamptz `json:"archived_at"`
 	CreatedAt                  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt                  pgtype.Timestamptz `json:"updated_at"`
+	CustomerSelectable         bool               `json:"customer_selectable"`
 }
 
 type SupportTag struct {
@@ -2177,6 +2316,13 @@ type SupportTicketTag struct {
 	TagID    pgtype.UUID        `json:"tag_id"`
 	TaggedBy pgtype.UUID        `json:"tagged_by"`
 	TaggedAt pgtype.Timestamptz `json:"tagged_at"`
+}
+
+type SupportTopicChoice struct {
+	UserID   pgtype.UUID        `json:"user_id"`
+	QueueID  pgtype.UUID        `json:"queue_id"`
+	Priority string             `json:"priority"`
+	ChosenAt pgtype.Timestamptz `json:"chosen_at"`
 }
 
 type TelemetryEvent struct {
@@ -2218,8 +2364,9 @@ type User struct {
 	AnonymizedAt   pgtype.Timestamptz `json:"anonymized_at"`
 	RetentionUntil pgtype.Timestamptz `json:"retention_until"`
 	// Where this account went. A merged account keeps its rows and its history; everything transferable was moved to the target.
-	MergedInto pgtype.UUID        `json:"merged_into"`
-	MergedAt   pgtype.Timestamptz `json:"merged_at"`
+	MergedInto     pgtype.UUID        `json:"merged_into"`
+	MergedAt       pgtype.Timestamptz `json:"merged_at"`
+	LastActivityAt pgtype.Timestamptz `json:"last_activity_at"`
 }
 
 type WalletTopup struct {
@@ -2231,4 +2378,30 @@ type WalletTopup struct {
 	LedgerTransactionID pgtype.UUID        `json:"ledger_transaction_id"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 	CreditedAt          pgtype.Timestamptz `json:"credited_at"`
+}
+
+type WebhookDelivery struct {
+	ID             pgtype.UUID        `json:"id"`
+	EndpointID     pgtype.UUID        `json:"endpoint_id"`
+	EventID        pgtype.UUID        `json:"event_id"`
+	Topic          string             `json:"topic"`
+	Payload        []byte             `json:"payload"`
+	Status         string             `json:"status"`
+	Attempts       int32              `json:"attempts"`
+	ResponseStatus pgtype.Int4        `json:"response_status"`
+	NextAttemptAt  pgtype.Timestamptz `json:"next_attempt_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	DeliveredAt    pgtype.Timestamptz `json:"delivered_at"`
+}
+
+type WebhookEndpoint struct {
+	ID               pgtype.UUID        `json:"id"`
+	Name             string             `json:"name"`
+	Url              string             `json:"url"`
+	Events           []string           `json:"events"`
+	SecretCiphertext []byte             `json:"secret_ciphertext"`
+	Enabled          bool               `json:"enabled"`
+	CreatedBy        pgtype.UUID        `json:"created_by"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }

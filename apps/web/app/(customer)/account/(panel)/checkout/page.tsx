@@ -15,8 +15,8 @@ import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import useSWR from "swr";
 import * as z from "zod/mini";
-import { PeriodPicker } from "@/components/account/commerce/period-picker";
 import { choiceKey, useChoiceCopy } from "@/components/account/commerce/payment-choice";
+import { PeriodPicker } from "@/components/account/commerce/period-picker";
 import { OPERATIONS, usePeriodLabel } from "@/components/account/commerce/plan-card";
 import { QuoteBreakdown } from "@/components/account/commerce/quote-breakdown";
 import {

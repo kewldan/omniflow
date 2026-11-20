@@ -8660,6 +8660,35 @@ export const BuyAccountTrafficResetResponse = zod.object({
           .describe(
             "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
           ),
+        method: zod
+          .string()
+          .optional()
+          .describe(
+            "The provider method this button opens (sbp, card, ...). Empty is the adapter's default.",
+          ),
+        key: zod
+          .string()
+          .optional()
+          .describe("The button's identity, provider or provider.method."),
+        name: zod
+          .object({
+            ru: zod.string().optional(),
+            en: zod.string().optional(),
+          })
+          .optional(),
+        description: zod
+          .object({
+            ru: zod.string().optional(),
+            en: zod.string().optional(),
+          })
+          .optional(),
+        minMinor: zod.int().optional(),
+        maxMinor: zod.int().optional(),
+        quickAmountsMinor: zod.array(zod.int()).optional(),
+        openDirectly: zod
+          .boolean()
+          .optional()
+          .describe("Open the provider's page as soon as the payment starts."),
       }),
     )
     .optional()
@@ -8671,6 +8700,12 @@ export const BuyAccountTrafficResetResponse = zod.object({
     .optional()
     .describe(
       "The method the checkout recorded, while that checkout is still attached to the order.",
+    ),
+  manualInstructions: zod
+    .string()
+    .optional()
+    .describe(
+      "The operator's transfer instructions, in the customer's language, when the order is paid or payable by manual transfer.",
     ),
 });
 
@@ -8787,6 +8822,35 @@ export const BuyAccountSubscriptionAddonResponse = zod.object({
           .describe(
             "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
           ),
+        method: zod
+          .string()
+          .optional()
+          .describe(
+            "The provider method this button opens (sbp, card, ...). Empty is the adapter's default.",
+          ),
+        key: zod
+          .string()
+          .optional()
+          .describe("The button's identity, provider or provider.method."),
+        name: zod
+          .object({
+            ru: zod.string().optional(),
+            en: zod.string().optional(),
+          })
+          .optional(),
+        description: zod
+          .object({
+            ru: zod.string().optional(),
+            en: zod.string().optional(),
+          })
+          .optional(),
+        minMinor: zod.int().optional(),
+        maxMinor: zod.int().optional(),
+        quickAmountsMinor: zod.array(zod.int()).optional(),
+        openDirectly: zod
+          .boolean()
+          .optional()
+          .describe("Open the provider's page as soon as the payment starts."),
       }),
     )
     .optional()
@@ -8798,6 +8862,12 @@ export const BuyAccountSubscriptionAddonResponse = zod.object({
     .optional()
     .describe(
       "The method the checkout recorded, while that checkout is still attached to the order.",
+    ),
+  manualInstructions: zod
+    .string()
+    .optional()
+    .describe(
+      "The operator's transfer instructions, in the customer's language, when the order is paid or payable by manual transfer.",
     ),
 });
 
