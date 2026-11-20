@@ -495,7 +495,7 @@ func (service *Service) Answer(ctx context.Context, customerID, pollID string, o
 	}
 	if rewarded {
 		if err = service.pay(ctx, tx, customerID, settings, poll.RewardKind, poll.RewardValue,
-			"poll-reward:"+pollID+":"+customerID, "poll_reward", pollID); err != nil {
+			"poll-reward:"+pollID+":"+customerID, "poll_reward", pollID+":"+customerID); err != nil {
 			return false, err
 		}
 	}

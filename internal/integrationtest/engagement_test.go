@@ -111,8 +111,13 @@ func TestPollRewardsOnce(t *testing.T) {
 	if balance := harness.walletBalance(ctx, t, voter); balance != 1500 {
 		t.Fatalf("reward balance = %d", balance)
 	}
+	// A second rewarded customer on the same poll is paid as well.
+	second := harness.agedCustomer(ctx, t)
+	if rewarded, err := service.Answer(ctx, second, poll.ID, 0); err != nil || !rewarded {
+		t.Fatalf("second voter = %v (%v)", rewarded, err)
+	}
 	all, err := service.Polls(ctx, "")
-	if err != nil || len(all) != 1 || all[0].Counts[0] != 1 || all[0].Counts[1] != 1 {
+	if err != nil || len(all) != 1 || all[0].Counts[0] != 2 || all[0].Counts[1] != 1 {
 		t.Fatalf("results = %+v (%v)", all, err)
 	}
 	if err = service.ClosePoll(ctx, poll.ID, actor); err != nil {
