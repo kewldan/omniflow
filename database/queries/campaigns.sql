@@ -310,3 +310,14 @@ ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name, bonus_kind = EXCLUDED.bonus_kind, bonus_value = EXCLUDED.bonus_value,
   currency = EXCLUDED.currency, active = EXCLUDED.active
 RETURNING *;
+
+-- name: SaveReferralCommission :exec
+-- The commission half of the referral programme, saved beside the rest.
+UPDATE referral_programs SET
+  commission_bps = sqlc.arg(commission_bps),
+  first_payment_commission_bps = sqlc.narg(first_payment_commission_bps),
+  commission_payment_cap = sqlc.narg(commission_payment_cap),
+  commission_min_payment_minor = sqlc.arg(commission_min_payment_minor),
+  commission_triggers = sqlc.arg(commission_triggers)::text[],
+  commission_tiers = sqlc.arg(commission_tiers)
+WHERE singleton;

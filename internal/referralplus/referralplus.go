@@ -97,7 +97,7 @@ func (service *Service) grant(ctx context.Context, settings LevelSettings) error
 	rows, err := service.pool.Query(ctx, `SELECT r.id::text, upper.referrer_user_id::text, r.amount_minor, r.currency
 		FROM referral_rewards r
 		JOIN referral_attributions upper ON upper.referred_user_id = r.beneficiary_user_id AND upper.review_state <> 'rejected'
-		WHERE r.role = 'inviter' AND r.days IS NULL AND r.reversed_at IS NULL
+		WHERE r.role IN ('inviter', 'commission') AND r.days IS NULL AND r.reversed_at IS NULL
 		  AND r.granted_at >= (SELECT updated_at FROM referral_level_settings) - interval '1 day'
 		  AND upper.referrer_user_id <> r.referred_user_id
 		  AND NOT EXISTS (SELECT 1 FROM referral_level2_rewards l WHERE l.source_reward_id = r.id)

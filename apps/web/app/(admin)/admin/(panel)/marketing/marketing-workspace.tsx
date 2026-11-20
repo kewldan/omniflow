@@ -25,6 +25,7 @@ import { AdCampaignsCard } from "./ad-campaigns";
 import { EmailDeliveryCard } from "./email-delivery";
 import { EngagementCard } from "./engagement";
 import { LoyaltyCard } from "./loyalty-card";
+import { ReferralCommissionFields } from "./referral-commission";
 import { ReferralLevelsCard } from "./referral-levels";
 import { RemindersCard } from "./reminders-card";
 import { TemplateEditorCard } from "./template-editor";
@@ -544,7 +545,10 @@ function ReferralCard({ editable }: { editable: boolean }) {
     program.inviterRewardMinor === 0 &&
     program.inviteeRewardMinor === 0 &&
     !program.inviterRewardDays &&
-    !program.inviteeRewardDays;
+    !program.inviteeRewardDays &&
+    !program.commissionBps &&
+    !program.firstPaymentCommissionBps &&
+    !(program.commissionTiers ?? []).some((tier) => tier.bps > 0);
 
   return (
     <Card>
@@ -565,6 +569,8 @@ function ReferralCard({ editable }: { editable: boolean }) {
             {program.currency}
           </Badge>
         </div>
+
+        <ReferralCommissionFields editable={editable} program={program} update={update} />
 
         {payless ? (
           <Alert variant="danger">

@@ -2079,6 +2079,15 @@ type ReferralContestWinner struct {
 	LedgerTransactionID pgtype.UUID `json:"ledger_transaction_id"`
 }
 
+type ReferralInviterTerm struct {
+	UserID                    pgtype.UUID        `json:"user_id"`
+	CommissionBps             pgtype.Int4        `json:"commission_bps"`
+	FirstPaymentCommissionBps pgtype.Int4        `json:"first_payment_commission_bps"`
+	Note                      string             `json:"note"`
+	UpdatedBy                 pgtype.UUID        `json:"updated_by"`
+	UpdatedAt                 pgtype.Timestamptz `json:"updated_at"`
+}
+
 type ReferralLevel2Reward struct {
 	SourceRewardID              pgtype.UUID        `json:"source_reward_id"`
 	BeneficiaryUserID           pgtype.UUID        `json:"beneficiary_user_id"`
@@ -2099,19 +2108,25 @@ type ReferralLevelSetting struct {
 }
 
 type ReferralProgram struct {
-	Singleton               bool               `json:"singleton"`
-	Enabled                 bool               `json:"enabled"`
-	Currency                string             `json:"currency"`
-	InviterRewardMinor      int64              `json:"inviter_reward_minor"`
-	InviteeRewardMinor      int64              `json:"invitee_reward_minor"`
-	Qualification           string             `json:"qualification"`
-	InviterRewardCap        pgtype.Int4        `json:"inviter_reward_cap"`
-	AttributionValidityDays int32              `json:"attribution_validity_days"`
-	RewardExpiryDays        pgtype.Int4        `json:"reward_expiry_days"`
-	TermsUrl                pgtype.Text        `json:"terms_url"`
-	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
-	InviterRewardDays       int32              `json:"inviter_reward_days"`
-	InviteeRewardDays       int32              `json:"invitee_reward_days"`
+	Singleton                 bool               `json:"singleton"`
+	Enabled                   bool               `json:"enabled"`
+	Currency                  string             `json:"currency"`
+	InviterRewardMinor        int64              `json:"inviter_reward_minor"`
+	InviteeRewardMinor        int64              `json:"invitee_reward_minor"`
+	Qualification             string             `json:"qualification"`
+	InviterRewardCap          pgtype.Int4        `json:"inviter_reward_cap"`
+	AttributionValidityDays   int32              `json:"attribution_validity_days"`
+	RewardExpiryDays          pgtype.Int4        `json:"reward_expiry_days"`
+	TermsUrl                  pgtype.Text        `json:"terms_url"`
+	UpdatedAt                 pgtype.Timestamptz `json:"updated_at"`
+	InviterRewardDays         int32              `json:"inviter_reward_days"`
+	InviteeRewardDays         int32              `json:"invitee_reward_days"`
+	CommissionBps             int32              `json:"commission_bps"`
+	FirstPaymentCommissionBps pgtype.Int4        `json:"first_payment_commission_bps"`
+	CommissionPaymentCap      pgtype.Int4        `json:"commission_payment_cap"`
+	CommissionMinPaymentMinor int64              `json:"commission_min_payment_minor"`
+	CommissionTriggers        []string           `json:"commission_triggers"`
+	CommissionTiers           []byte             `json:"commission_tiers"`
 }
 
 type ReferralReward struct {

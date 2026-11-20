@@ -72,6 +72,34 @@ never had a subscription has nothing to extend and receives nothing; the friend'
 blocked. Rejecting a referral in review does not take granted days back — only money rewards are
 reversed through the ledger.
 
+### Commission on every payment
+
+Beside or instead of the one-off rewards, the inviter can earn a share of what their friend pays, as
+Bedolaga's referral commission does. The **Commission on payments** block of the referral card sets:
+
+| Field | Meaning |
+| --- | --- |
+| `commissionBps` | Share of every counted payment, in basis points |
+| `firstPaymentCommissionBps` | Share of the friend's first counted payment; empty uses `commissionBps` |
+| `commissionPaymentCap` | How many of one friend's payments earn; empty is no limit |
+| `commissionMinPaymentMinor` | The smallest payment that earns |
+| `commissionTriggers` | `subscription` (purchases, extensions, renewals, changes) and/or `topup` (wallet top-ups) |
+| `commissionTiers` | `[{"referrals": 10, "bps": 1500}]`: the rate once the inviter has that many qualified referrals |
+
+The commission is computed on what a provider settled — the wallet part of an order never earns,
+since it may itself be a reward — rounded down, in the programme currency only, and not for a pair
+rejected in review. It is credited in the transaction that settles the payment as a
+`referral_rewards` row of role `commission`, one per order (a replayed webhook pays nothing twice),
+with a balanced ledger transaction keyed `referral-commission:<order>` and the audit action
+`referral.commission_granted`. Commissions therefore count in the customer's earnings and
+withdrawals, are reversed when the pair is rejected, and are announced like other rewards. A
+programme that pays only commission is a programme that pays: it may be enabled with both one-off
+rewards at zero.
+
+An operator can give one inviter a personal rate — `commission_bps` and
+`first_payment_commission_bps` in `referral_inviter_terms` — which overrides the programme's rates
+and tiers for them.
+
 ## What actually qualifies a referral
 
 ### Attribution comes first, and only once
@@ -270,8 +298,9 @@ credit keyed by the first-level reward, so it is paid once. The worker's
 `referral_level2` pass grants it within a minute; switching the level on pays
 rewards from the day before onwards, never the whole history. When an operator
 reverses the first-level reward during referral review, the pass posts the
-matching correction to the second level. Day rewards have no second level, and
-there is no third.
+matching correction to the second level. A commission on a referee's payment
+is a money reward too, so the second level gets its share of every commission.
+Day rewards have no second level, and there is no third.
 
 **Contests.** A contest has titles, a window, and a prize per place (up to ten).
 The leaderboard counts each inviter's referrals that qualified inside the window

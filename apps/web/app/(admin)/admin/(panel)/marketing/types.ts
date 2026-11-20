@@ -65,6 +65,13 @@ export type ReferralProgram = {
   rewardExpiryDays?: number;
   termsUrl?: string;
   updatedAt?: string;
+  /** A share of every referee payment, in basis points; see referral-commission.tsx. */
+  commissionBps?: number;
+  firstPaymentCommissionBps?: number;
+  commissionPaymentCap?: number;
+  commissionMinPaymentMinor?: number;
+  commissionTriggers?: string[];
+  commissionTiers?: { referrals: number; bps: number }[];
   /** What the current configuration has actually produced. */
   record: {
     attributed: number;

@@ -3990,6 +3990,22 @@ CREATE TABLE public.referral_contests (
 
 
 --
+-- Name: referral_inviter_terms; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.referral_inviter_terms (
+    user_id uuid NOT NULL,
+    commission_bps integer,
+    first_payment_commission_bps integer,
+    note text DEFAULT ''::text NOT NULL,
+    updated_by uuid,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT referral_inviter_terms_bounded CHECK ((((commission_bps IS NULL) OR ((commission_bps >= 0) AND (commission_bps <= 10000))) AND ((first_payment_commission_bps IS NULL) OR ((first_payment_commission_bps >= 0) AND (first_payment_commission_bps <= 10000))))),
+    CONSTRAINT referral_inviter_terms_note_length CHECK ((char_length(note) <= 400))
+);
+
+
+--
 -- Name: referral_level2_rewards; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -4040,7 +4056,14 @@ CREATE TABLE public.referral_programs (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     inviter_reward_days integer DEFAULT 0 NOT NULL,
     invitee_reward_days integer DEFAULT 0 NOT NULL,
+    commission_bps integer DEFAULT 0 NOT NULL,
+    first_payment_commission_bps integer,
+    commission_payment_cap integer,
+    commission_min_payment_minor bigint DEFAULT 0 NOT NULL,
+    commission_triggers text[] DEFAULT '{subscription}'::text[] NOT NULL,
+    commission_tiers jsonb DEFAULT '[]'::jsonb NOT NULL,
     CONSTRAINT referral_programs_attribution_validity_days_check CHECK ((attribution_validity_days > 0)),
+    CONSTRAINT referral_programs_commission_bounded CHECK ((((commission_bps >= 0) AND (commission_bps <= 10000)) AND ((first_payment_commission_bps IS NULL) OR ((first_payment_commission_bps >= 0) AND (first_payment_commission_bps <= 10000))) AND ((commission_payment_cap IS NULL) OR (commission_payment_cap > 0)) AND (commission_min_payment_minor >= 0) AND (commission_triggers <@ ARRAY['subscription'::text, 'topup'::text]) AND (jsonb_typeof(commission_tiers) = 'array'::text))),
     CONSTRAINT referral_programs_currency_check CHECK ((currency ~ '^[A-Z]{3}$'::text)),
     CONSTRAINT referral_programs_invitee_reward_minor_check CHECK ((invitee_reward_minor >= 0)),
     CONSTRAINT referral_programs_inviter_reward_cap_check CHECK (((inviter_reward_cap IS NULL) OR (inviter_reward_cap > 0))),
@@ -4075,7 +4098,7 @@ CREATE TABLE public.referral_rewards (
     CONSTRAINT referral_rewards_reversal_complete CHECK (((reversed_at IS NULL) = (reversal_ledger_transaction_id IS NULL))),
     CONSTRAINT referral_rewards_reversal_reason_check CHECK (((reversal_reason IS NULL) OR (char_length(reversal_reason) <= 400))),
     CONSTRAINT referral_rewards_reward_complete CHECK ((((days IS NULL) AND (amount_minor > 0) AND (ledger_transaction_id IS NOT NULL)) OR ((days > 0) AND (amount_minor = 0) AND (ledger_transaction_id IS NULL)))),
-    CONSTRAINT referral_rewards_role_check CHECK ((role = ANY (ARRAY['inviter'::text, 'invitee'::text])))
+    CONSTRAINT referral_rewards_role_check CHECK ((role = ANY (ARRAY['inviter'::text, 'invitee'::text, 'commission'::text])))
 );
 
 
@@ -6776,6 +6799,14 @@ ALTER TABLE ONLY public.referral_contests
 
 
 --
+-- Name: referral_inviter_terms referral_inviter_terms_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.referral_inviter_terms
+    ADD CONSTRAINT referral_inviter_terms_pkey PRIMARY KEY (user_id);
+
+
+--
 -- Name: referral_level2_rewards referral_level2_rewards_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6805,14 +6836,6 @@ ALTER TABLE ONLY public.referral_programs
 
 ALTER TABLE ONLY public.referral_rewards
     ADD CONSTRAINT referral_rewards_pkey PRIMARY KEY (id);
-
-
---
--- Name: referral_rewards referral_rewards_referred_user_id_role_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.referral_rewards
-    ADD CONSTRAINT referral_rewards_referred_user_id_role_key UNIQUE (referred_user_id, role);
 
 
 --
@@ -8096,6 +8119,20 @@ CREATE INDEX referral_attributions_review_idx ON public.referral_attributions US
 --
 
 CREATE INDEX referral_rewards_beneficiary_idx ON public.referral_rewards USING btree (beneficiary_user_id, granted_at DESC);
+
+
+--
+-- Name: referral_rewards_one_commission_per_order; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX referral_rewards_one_commission_per_order ON public.referral_rewards USING btree (order_id) WHERE (role = 'commission'::text);
+
+
+--
+-- Name: referral_rewards_one_per_role; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX referral_rewards_one_per_role ON public.referral_rewards USING btree (referred_user_id, role) WHERE (role <> 'commission'::text);
 
 
 --
@@ -10311,6 +10348,22 @@ ALTER TABLE ONLY public.referral_contest_winners
 
 ALTER TABLE ONLY public.referral_contest_winners
     ADD CONSTRAINT referral_contest_winners_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: referral_inviter_terms referral_inviter_terms_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.referral_inviter_terms
+    ADD CONSTRAINT referral_inviter_terms_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.admin_users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: referral_inviter_terms referral_inviter_terms_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.referral_inviter_terms
+    ADD CONSTRAINT referral_inviter_terms_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --

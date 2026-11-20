@@ -2926,7 +2926,27 @@
         "rewarded": "Paid out",
         "inviterDays": "Days for the inviter",
         "inviteeDays": "Days for the friend",
-        "daysHint": "Days, when set, are added to the subscription instead of crediting the wallet."
+        "daysHint": "Days, when set, are added to the subscription instead of crediting the wallet.",
+        "commission": {
+          "title": "Commission on payments",
+          "hint": "The inviter earns a share of what their friend pays, on top of or instead of the one-off rewards. It is credited to the wallet in the programme's currency.",
+          "rate": "Share of every payment, %",
+          "first": "Share of the first payment, %",
+          "sameAsRate": "Same as every payment",
+          "cap": "Payments that earn, per friend",
+          "noCap": "No limit",
+          "minimum": "Smallest payment that earns (minor units)",
+          "triggers": {
+            "subscription": "Subscription payments",
+            "topup": "Wallet top-ups"
+          },
+          "tiers": "Rates by friends brought (qualified referrals → share)",
+          "tierReferrals": "Qualified referrals",
+          "tierArrow": "or more →",
+          "tierRate": "Share, %",
+          "removeTier": "Remove",
+          "addTier": "Add a rate"
+        }
       },
       "adCampaigns": {
         "title": "Advertising campaigns (/start)",
@@ -4292,7 +4312,8 @@
         "historyEmptyDescription": "Rewards appear here once a friend joins with your code and their first order goes through.",
         "role": {
           "inviter": "For an invite you sent",
-          "invitee": "For joining with a code"
+          "invitee": "For joining with a code",
+          "commission": "Commission on a friend's payment"
         },
         "state": {
           "pending": "Being checked",

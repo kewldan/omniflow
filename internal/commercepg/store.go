@@ -981,8 +981,12 @@ func (store *Store) settlePaidOrder(ctx context.Context, tx pgx.Tx, queries *dbg
 	switch order.Operation {
 	case "topup":
 		// A top-up buys nothing but credit, so it never creates an entitlement
-		// and never qualifies a referral.
-		return store.creditTopUp(ctx, queries, order, idempotencyKey)
+		// and never qualifies a referral; it can earn the inviter a commission
+		// when the programme counts top-ups.
+		if err := store.creditTopUp(ctx, queries, order, idempotencyKey); err != nil {
+			return err
+		}
+		return store.grantReferralCommission(ctx, tx, queries, order)
 	case "traffic_reset":
 		return store.settleTrafficReset(ctx, tx, queries, order, idempotencyKey)
 	case "addon":
@@ -1069,6 +1073,9 @@ func (store *Store) settlePaidOrder(ctx context.Context, tx pgx.Tx, queries *dbg
 		return err
 	}
 	if err = store.grantReferralRewards(ctx, tx, queries, order, program); err != nil {
+		return err
+	}
+	if err = store.grantReferralCommission(ctx, tx, queries, order); err != nil {
 		return err
 	}
 	return store.enqueue(ctx, tx, uuidString(operation.ID))

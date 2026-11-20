@@ -2020,6 +2020,8 @@ type Querier interface {
 	// holds one binding, so the row is refreshed rather than duplicated. Consent is
 	// re-stamped because the customer just granted it again.
 	SavePaymentMethod(ctx context.Context, arg SavePaymentMethodParams) (PaymentMethod, error)
+	// The commission half of the referral programme, saved beside the rest.
+	SaveReferralCommission(ctx context.Context, arg SaveReferralCommissionParams) error
 	SaveReferralProgram(ctx context.Context, arg SaveReferralProgramParams) (ReferralProgram, error)
 	// Secrets are written on their own so a screen that did not change a token does
 	// not have to re-send it, which is what makes a write-only field workable.

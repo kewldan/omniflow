@@ -221,7 +221,7 @@ func (store *Store) recordReferralReward(ctx context.Context, tx pgx.Tx, queries
 	inserted, err := tx.Exec(ctx, `INSERT INTO referral_rewards (
 			referred_user_id, beneficiary_user_id, role, order_id, amount_minor, currency, ledger_transaction_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		ON CONFLICT (referred_user_id, role) DO NOTHING`,
+		ON CONFLICT (referred_user_id, role) WHERE role <> 'commission' DO NOTHING`,
 		order.UserID, beneficiary, reward.Role, order.ID, reward.Amount.Amount, reward.Amount.Currency, transaction.ID)
 	if err != nil {
 		return err
@@ -271,7 +271,7 @@ func (store *Store) recordReferralDays(
 	if _, err = tx.Exec(ctx, `INSERT INTO referral_rewards (
 			referred_user_id, beneficiary_user_id, role, order_id, amount_minor, currency, days)
 		VALUES ($1, $2, $3, $4, 0, $5, $6)
-		ON CONFLICT (referred_user_id, role) DO NOTHING`,
+		ON CONFLICT (referred_user_id, role) WHERE role <> 'commission' DO NOTHING`,
 		order.UserID, beneficiary, reward.Role, rewardOrderID, currency, reward.Days); err != nil {
 		return err
 	}

@@ -248,7 +248,7 @@ func (q *Queries) GetMessageTemplate(ctx context.Context, id pgtype.UUID) (Messa
 }
 
 const getReferralProgram = `-- name: GetReferralProgram :one
-SELECT singleton, enabled, currency, inviter_reward_minor, invitee_reward_minor, qualification, inviter_reward_cap, attribution_validity_days, reward_expiry_days, terms_url, updated_at, inviter_reward_days, invitee_reward_days FROM referral_programs WHERE singleton
+SELECT singleton, enabled, currency, inviter_reward_minor, invitee_reward_minor, qualification, inviter_reward_cap, attribution_validity_days, reward_expiry_days, terms_url, updated_at, inviter_reward_days, invitee_reward_days, commission_bps, first_payment_commission_bps, commission_payment_cap, commission_min_payment_minor, commission_triggers, commission_tiers FROM referral_programs WHERE singleton
 `
 
 // The single referral configuration. The table is a singleton because a second
@@ -271,6 +271,12 @@ func (q *Queries) GetReferralProgram(ctx context.Context) (ReferralProgram, erro
 		&i.UpdatedAt,
 		&i.InviterRewardDays,
 		&i.InviteeRewardDays,
+		&i.CommissionBps,
+		&i.FirstPaymentCommissionBps,
+		&i.CommissionPaymentCap,
+		&i.CommissionMinPaymentMinor,
+		&i.CommissionTriggers,
+		&i.CommissionTiers,
 	)
 	return i, err
 }
@@ -854,6 +860,39 @@ func (q *Queries) SaveAdCampaign(ctx context.Context, arg SaveAdCampaignParams) 
 	return i, err
 }
 
+const saveReferralCommission = `-- name: SaveReferralCommission :exec
+UPDATE referral_programs SET
+  commission_bps = $1,
+  first_payment_commission_bps = $2,
+  commission_payment_cap = $3,
+  commission_min_payment_minor = $4,
+  commission_triggers = $5::text[],
+  commission_tiers = $6
+WHERE singleton
+`
+
+type SaveReferralCommissionParams struct {
+	CommissionBps             int32       `json:"commission_bps"`
+	FirstPaymentCommissionBps pgtype.Int4 `json:"first_payment_commission_bps"`
+	CommissionPaymentCap      pgtype.Int4 `json:"commission_payment_cap"`
+	CommissionMinPaymentMinor int64       `json:"commission_min_payment_minor"`
+	CommissionTriggers        []string    `json:"commission_triggers"`
+	CommissionTiers           []byte      `json:"commission_tiers"`
+}
+
+// The commission half of the referral programme, saved beside the rest.
+func (q *Queries) SaveReferralCommission(ctx context.Context, arg SaveReferralCommissionParams) error {
+	_, err := q.db.Exec(ctx, saveReferralCommission,
+		arg.CommissionBps,
+		arg.FirstPaymentCommissionBps,
+		arg.CommissionPaymentCap,
+		arg.CommissionMinPaymentMinor,
+		arg.CommissionTriggers,
+		arg.CommissionTiers,
+	)
+	return err
+}
+
 const saveReferralProgram = `-- name: SaveReferralProgram :one
 INSERT INTO referral_programs (
   singleton, enabled, currency, inviter_reward_minor, invitee_reward_minor,
@@ -880,7 +919,7 @@ ON CONFLICT (singleton) DO UPDATE SET
   reward_expiry_days = EXCLUDED.reward_expiry_days,
   terms_url = EXCLUDED.terms_url,
   updated_at = now()
-RETURNING singleton, enabled, currency, inviter_reward_minor, invitee_reward_minor, qualification, inviter_reward_cap, attribution_validity_days, reward_expiry_days, terms_url, updated_at, inviter_reward_days, invitee_reward_days
+RETURNING singleton, enabled, currency, inviter_reward_minor, invitee_reward_minor, qualification, inviter_reward_cap, attribution_validity_days, reward_expiry_days, terms_url, updated_at, inviter_reward_days, invitee_reward_days, commission_bps, first_payment_commission_bps, commission_payment_cap, commission_min_payment_minor, commission_triggers, commission_tiers
 `
 
 type SaveReferralProgramParams struct {
@@ -926,6 +965,12 @@ func (q *Queries) SaveReferralProgram(ctx context.Context, arg SaveReferralProgr
 		&i.UpdatedAt,
 		&i.InviterRewardDays,
 		&i.InviteeRewardDays,
+		&i.CommissionBps,
+		&i.FirstPaymentCommissionBps,
+		&i.CommissionPaymentCap,
+		&i.CommissionMinPaymentMinor,
+		&i.CommissionTriggers,
+		&i.CommissionTiers,
 	)
 	return i, err
 }

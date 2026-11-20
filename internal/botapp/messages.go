@@ -866,6 +866,7 @@ var catalog = map[string]phrase{
 	"welcome.referralPrompt":   {ru: "🎟 <b>Код приглашения</b>\n\nОтправьте код друга одним сообщением.", en: "🎟 <b>Invite code</b>\n\nSend your friend's code in one message."},
 	"welcome.referralAccepted": {ru: "✅ Код принят: вы пришли по приглашению друга.", en: "✅ Code accepted: you joined through a friend's invite."},
 	"welcome.referralRefused":  {ru: "Код не подошёл. Код приглашения можно ввести только новому пользователю и только один раз.", en: "That code did not work. An invite code can be entered only by a new customer, and only once."},
+	"event.referralCommission": {ru: "💸 <b>Процент с оплаты друга</b>\n\nНа баланс начислено: %s.", en: "💸 <b>Commission on a friend's payment</b>\n\nCredited to your balance: %s."},
 }
 
 // formatMoney renders an integer minor-unit amount for display. Telegram Stars

@@ -2,11 +2,13 @@ package panelpg
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 )
 
@@ -44,6 +46,15 @@ type ReferralProgram struct {
 	TermsURL         string    `json:"termsUrl,omitempty"`
 	UpdatedAt        time.Time `json:"updatedAt,omitzero"`
 
+	// Commission is a share of every payment a referee makes, beside or
+	// instead of the one-off rewards.
+	CommissionBPS             int32                     `json:"commissionBps"`
+	FirstPaymentCommissionBPS *int32                    `json:"firstPaymentCommissionBps,omitempty"`
+	CommissionPaymentCap      *int32                    `json:"commissionPaymentCap,omitempty"`
+	CommissionMinPaymentMinor int64                     `json:"commissionMinPaymentMinor"`
+	CommissionTriggers        []string                  `json:"commissionTriggers"`
+	CommissionTiers           []commerce.CommissionTier `json:"commissionTiers"`
+
 	// Record is what the current configuration has actually produced, so an
 	// operator changing a reward can see what the last one did. It is named
 	// separately from the per-customer ReferralSummary because they answer
@@ -74,6 +85,7 @@ func (service *Service) ReferralProgram(ctx context.Context) (ReferralProgram, e
 		// has to render something, and "off" is the honest rendering.
 		Enabled: false, Currency: "RUB",
 		Qualification: "first_paid_order", AttributionValidityDays: 90,
+		CommissionTriggers: []string{"subscription"}, CommissionTiers: []commerce.CommissionTier{},
 	}
 	if err == nil {
 		program.Enabled = row.Enabled
@@ -88,6 +100,12 @@ func (service *Service) ReferralProgram(ctx context.Context) (ReferralProgram, e
 		program.RewardExpiryDays = int32Pointer(row.RewardExpiryDays)
 		program.TermsURL = row.TermsUrl.String
 		program.UpdatedAt = row.UpdatedAt.Time
+		program.CommissionBPS = row.CommissionBps
+		program.FirstPaymentCommissionBPS = int32Pointer(row.FirstPaymentCommissionBps)
+		program.CommissionPaymentCap = int32Pointer(row.CommissionPaymentCap)
+		program.CommissionMinPaymentMinor = row.CommissionMinPaymentMinor
+		program.CommissionTriggers = row.CommissionTriggers
+		_ = json.Unmarshal(row.CommissionTiers, &program.CommissionTiers)
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return ReferralProgram{}, err
 	}
@@ -123,8 +141,16 @@ func (service *Service) SaveReferralProgram(
 		program.InviterRewardDays > 3650 || program.InviteeRewardDays > 3650 {
 		return ReferralProgram{}, ErrValidaton
 	}
+	if !validCommission(program) {
+		return ReferralProgram{}, ErrValidaton
+	}
+	commissionTerms := commerce.CommissionTerms{BPS: int(program.CommissionBPS), Tiers: program.CommissionTiers}
+	if program.FirstPaymentCommissionBPS != nil {
+		first := int(*program.FirstPaymentCommissionBPS)
+		commissionTerms.FirstPaymentBPS = &first
+	}
 	if program.Enabled && program.InviterRewardMinor == 0 && program.InviteeRewardMinor == 0 &&
-		program.InviterRewardDays == 0 && program.InviteeRewardDays == 0 {
+		program.InviterRewardDays == 0 && program.InviteeRewardDays == 0 && !commissionTerms.Configured() {
 		return ReferralProgram{}, ErrValidaton
 	}
 	if program.AttributionValidityDays <= 0 {
@@ -152,6 +178,20 @@ func (service *Service) SaveReferralProgram(
 		}); err != nil {
 			return err
 		}
+		tiers, _ := json.Marshal(nonNilTiers(program.CommissionTiers))
+		triggers := program.CommissionTriggers
+		if triggers == nil {
+			triggers = []string{"subscription"}
+		}
+		if err := queries.SaveReferralCommission(ctx, dbgen.SaveReferralCommissionParams{
+			CommissionBps:             program.CommissionBPS,
+			FirstPaymentCommissionBps: optionalInt4(program.FirstPaymentCommissionBPS),
+			CommissionPaymentCap:      optionalInt4(program.CommissionPaymentCap),
+			CommissionMinPaymentMinor: program.CommissionMinPaymentMinor,
+			CommissionTriggers:        triggers, CommissionTiers: tiers,
+		}); err != nil {
+			return err
+		}
 		return appendAudit(ctx, queries, actor.audit(
 			"referral.program.saved", "marketing", "referral_program", "singleton",
 			map[string]any{
@@ -161,6 +201,9 @@ func (service *Service) SaveReferralProgram(
 				"inviterRewardDays":  program.InviterRewardDays,
 				"inviteeRewardDays":  program.InviteeRewardDays,
 				"cap":                program.InviterRewardCap,
+				"commissionBps":      program.CommissionBPS,
+				"firstPaymentBps":    program.FirstPaymentCommissionBPS,
+				"commissionTiers":    len(program.CommissionTiers),
 			},
 		))
 	})
@@ -168,4 +211,36 @@ func (service *Service) SaveReferralProgram(
 		return ReferralProgram{}, err
 	}
 	return service.ReferralProgram(ctx)
+}
+
+// validCommission checks the commission half of a programme.
+func validCommission(program ReferralProgram) bool {
+	inRange := func(bps int32) bool { return bps >= 0 && bps <= 10000 }
+	if !inRange(program.CommissionBPS) || program.CommissionMinPaymentMinor < 0 {
+		return false
+	}
+	if program.FirstPaymentCommissionBPS != nil && !inRange(*program.FirstPaymentCommissionBPS) {
+		return false
+	}
+	if program.CommissionPaymentCap != nil && *program.CommissionPaymentCap <= 0 {
+		return false
+	}
+	for _, trigger := range program.CommissionTriggers {
+		if trigger != "subscription" && trigger != "topup" {
+			return false
+		}
+	}
+	for _, tier := range program.CommissionTiers {
+		if tier.Referrals < 1 || tier.BPS < 0 || tier.BPS > 10000 {
+			return false
+		}
+	}
+	return true
+}
+
+func nonNilTiers(tiers []commerce.CommissionTier) []commerce.CommissionTier {
+	if tiers == nil {
+		return []commerce.CommissionTier{}
+	}
+	return tiers
 }

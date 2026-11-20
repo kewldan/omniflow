@@ -148,8 +148,11 @@ func (notifier *Notifier) eventNoticeView(ctx context.Context, locale Locale, no
 			reward = dayCount(locale, params.Days)
 		}
 		key := "event.referralRewardInvitee"
-		if params.Role == "inviter" {
+		switch params.Role {
+		case "inviter":
 			key = "event.referralRewardInviter"
+		case "commission":
+			key = "event.referralCommission"
 		}
 		return View{Text: text(locale, key, reward), Keyboard: referralNoticeKeyboard(locale)}, true
 	case "loyalty_tier":

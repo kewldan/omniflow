@@ -94,7 +94,9 @@ export function RewardHistory({ firstPage }: { firstPage: ReferralRewardPage }) 
           <li className="flex items-start gap-3 px-4 py-3.5" key={reward.id}>
             <div className="min-w-0 flex-1">
               <p className="font-medium text-[14px]">
-                {translate(`referrals.role.${reward.role === "invitee" ? "invitee" : "inviter"}`)}
+                {translate(
+                  `referrals.role.${reward.role === "invitee" || reward.role === "commission" ? reward.role : "inviter"}`,
+                )}
               </p>
               <p className="mt-0.5 font-mono text-[11px] text-subtle-foreground">
                 {format.dateTime(new Date(reward.grantedAt), {
