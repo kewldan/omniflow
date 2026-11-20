@@ -3404,6 +3404,27 @@ func (e PanelSubscriptionStatus) Valid() bool {
 	}
 }
 
+// Defines values for PanelSubscriptionPolicyTrialDisabledMethods.
+const (
+	PanelSubscriptionPolicyTrialDisabledMethodsEmail    PanelSubscriptionPolicyTrialDisabledMethods = "email"
+	PanelSubscriptionPolicyTrialDisabledMethodsOidc     PanelSubscriptionPolicyTrialDisabledMethods = "oidc"
+	PanelSubscriptionPolicyTrialDisabledMethodsTelegram PanelSubscriptionPolicyTrialDisabledMethods = "telegram"
+)
+
+// Valid indicates whether the value is a known member of the PanelSubscriptionPolicyTrialDisabledMethods enum.
+func (e PanelSubscriptionPolicyTrialDisabledMethods) Valid() bool {
+	switch e {
+	case PanelSubscriptionPolicyTrialDisabledMethodsEmail:
+		return true
+	case PanelSubscriptionPolicyTrialDisabledMethodsOidc:
+		return true
+	case PanelSubscriptionPolicyTrialDisabledMethodsTelegram:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PanelSubscriptionPolicyTrialRemainder.
 const (
 	Carry  PanelSubscriptionPolicyTrialRemainder = "carry"
@@ -9064,16 +9085,25 @@ type PanelSubscriptionPolicy struct {
 	// ResetTrafficOnRenewal An extension or renewal restarts the traffic counter.
 	ResetTrafficOnRenewal bool `json:"resetTrafficOnRenewal"`
 
+	// TrialDisabledMethods A customer whose every sign-in method is listed is refused a trial.
+	TrialDisabledMethods *[]PanelSubscriptionPolicyTrialDisabledMethods `json:"trialDisabledMethods,omitempty"`
+
 	// TrialRemainder What a trial's or free plan's remaining time does on a move to a paid plan.
 	TrialRemainder PanelSubscriptionPolicyTrialRemainder `json:"trialRemainder"`
 
 	// TrialTag Remnawave user tag on a trial when the plan names none; empty for none.
-	TrialTag  *string    `json:"trialTag,omitempty"`
-	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
+	TrialTag *string `json:"trialTag,omitempty"`
+
+	// TrialWarningHours Hours before a trial ends that the bot warns; zero for never.
+	TrialWarningHours *int       `json:"trialWarningHours,omitempty"`
+	UpdatedAt         *time.Time `json:"updatedAt,omitempty"`
 
 	// UpgradesEnabled Off refuses every upgrade whatever a version allows.
 	UpgradesEnabled bool `json:"upgradesEnabled"`
 }
+
+// PanelSubscriptionPolicyTrialDisabledMethods defines model for PanelSubscriptionPolicy.TrialDisabledMethods.
+type PanelSubscriptionPolicyTrialDisabledMethods string
 
 // PanelSubscriptionPolicyTrialRemainder What a trial's or free plan's remaining time does on a move to a paid plan.
 type PanelSubscriptionPolicyTrialRemainder string

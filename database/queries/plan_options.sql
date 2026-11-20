@@ -65,3 +65,11 @@ UPDATE subscription_policy
 SET trial_tag = sqlc.narg(trial_tag), paid_tag = sqlc.narg(paid_tag), updated_at = now()
 WHERE singleton
 RETURNING *;
+
+-- name: SetTrialPolicy :one
+UPDATE subscription_policy
+SET trial_disabled_methods = sqlc.arg(trial_disabled_methods)::text[],
+    trial_warning_hours = sqlc.arg(trial_warning_hours),
+    updated_at = now()
+WHERE singleton
+RETURNING *;

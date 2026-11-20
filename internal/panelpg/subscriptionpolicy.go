@@ -20,12 +20,21 @@ type SubscriptionPolicy struct {
 	// TrialTag and PaidTag are the Remnawave user tags a subscription carries
 	// when its plan names none: one on a trial, the other once paid. Both
 	// empty leaves the panel's tags alone.
-	TrialTag  string    `json:"trialTag"`
-	PaidTag   string    `json:"paidTag"`
-	UpdatedAt time.Time `json:"updatedAt"`
+	TrialTag string `json:"trialTag"`
+	PaidTag  string `json:"paidTag"`
+	// TrialDisabledMethods are the sign-in methods (telegram, email, oidc)
+	// that do not qualify for a trial; TrialWarningHours is how long before a
+	// trial ends the customer is told, zero for never.
+	TrialDisabledMethods []string  `json:"trialDisabledMethods"`
+	TrialWarningHours    int32     `json:"trialWarningHours"`
+	UpdatedAt            time.Time `json:"updatedAt"`
 }
 
 var validTrialRemainder = map[string]bool{"policy": true, "carry": true, "reset": true}
+
+// validSignInMethod is what a trial may be refused by: Telegram, an e-mail
+// link, or any OpenID Connect provider.
+var validSignInMethod = map[string]bool{"telegram": true, "email": true, "oidc": true}
 
 // SubscriptionPolicy reads the installation's plan-change switches.
 func (service *Service) SubscriptionPolicy(ctx context.Context) (SubscriptionPolicy, error) {
@@ -52,6 +61,20 @@ func (service *Service) SaveSubscriptionPolicy(
 	if err != nil {
 		return SubscriptionPolicy{}, err
 	}
+	if policy.TrialWarningHours < 0 || policy.TrialWarningHours > 168 {
+		return SubscriptionPolicy{}, ErrValidaton
+	}
+	methods := make([]string, 0, len(policy.TrialDisabledMethods))
+	seen := map[string]bool{}
+	for _, method := range policy.TrialDisabledMethods {
+		if !validSignInMethod[method] {
+			return SubscriptionPolicy{}, ErrValidaton
+		}
+		if !seen[method] {
+			seen[method] = true
+			methods = append(methods, method)
+		}
+	}
 	var saved SubscriptionPolicy
 	err = service.inTx(ctx, func(queries *dbgen.Queries) error {
 		if _, txErr := queries.UpdateSubscriptionPolicy(ctx, dbgen.UpdateSubscriptionPolicyParams{
@@ -65,7 +88,12 @@ func (service *Service) SaveSubscriptionPolicy(
 		}); txErr != nil {
 			return notFound(txErr)
 		}
-		row, txErr := queries.SetPolicyTags(ctx, dbgen.SetPolicyTagsParams{TrialTag: trialTag, PaidTag: paidTag})
+		if _, txErr := queries.SetPolicyTags(ctx, dbgen.SetPolicyTagsParams{TrialTag: trialTag, PaidTag: paidTag}); txErr != nil {
+			return txErr
+		}
+		row, txErr := queries.SetTrialPolicy(ctx, dbgen.SetTrialPolicyParams{
+			TrialDisabledMethods: methods, TrialWarningHours: policy.TrialWarningHours,
+		})
 		if txErr != nil {
 			return txErr
 		}
@@ -88,6 +116,8 @@ func subscriptionPolicyFrom(row dbgen.SubscriptionPolicy) SubscriptionPolicy {
 		TrialRemainder:           row.TrialRemainder,
 		TrialTag:                 row.TrialTag.String,
 		PaidTag:                  row.PaidTag.String,
+		TrialDisabledMethods:     row.TrialDisabledMethods,
+		TrialWarningHours:        row.TrialWarningHours,
 		UpdatedAt:                timeValue(row.UpdatedAt),
 	}
 }

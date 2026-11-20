@@ -2241,7 +2241,16 @@
         "trialTag": "Trial user tag",
         "trialTagHint": "The Remnawave tag a subscription carries while on a trial, when its plan names none.",
         "paidTag": "Paid user tag",
-        "paidTagHint": "The tag once it has paid. With both empty Omniflow leaves the panel's tags alone."
+        "paidTagHint": "The tag once it has paid. With both empty Omniflow leaves the panel's tags alone.",
+        "trialDisabledMethods": "No trial for accounts that sign in only with",
+        "trialDisabledMethodsHint": "An account that also signs in another way still gets the trial.",
+        "signInMethod": {
+          "telegram": "Telegram",
+          "email": "E-mail link",
+          "oidc": "OpenID Connect (Google, Yandex, VK ID…)"
+        },
+        "trialWarningHours": "Warn before a trial ends (hours)",
+        "trialWarningHoursHint": "The bot sends one extra notice this many hours before the end. Zero sends none; at most 168."
       }
     },
     "nav": {
@@ -4770,7 +4779,8 @@
         "subscription_limit_reached": "You already hold as many subscriptions as this service allows. Extend or upgrade one of them instead.",
         "trial_already_used": "The trial on this account has already been used.",
         "unsupported_trial_rule": "This trial cannot be started right now. Support can tell you why.",
-        "unknown": "This plan cannot be started on your account at the moment."
+        "unknown": "This plan cannot be started on your account at the moment.",
+        "sign_in_method": "The trial is not available for the way this account signs in. Pick a paid plan, or sign in another way."
       },
       "promoRejection": {
         "promo_unknown": "That code is not recognised. Check the spelling, or continue without it.",
@@ -4830,7 +4840,8 @@
         "offline": "That request did not reach us. Check your connection and try again.",
         "addon_not_applicable": "That extra would add nothing: this subscription has no limit for it.",
         "recurring_unavailable": "No payment method can renew this subscription automatically.",
-        "no_saved_method": "Save a card on a payment first, then choose it here."
+        "no_saved_method": "Save a card on a payment first, then choose it here.",
+        "trial_sign_in_method": "The trial is not available for the way this account signs in."
       },
       "breakdown": {
         "subtotal": "Plan",

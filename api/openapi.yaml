@@ -6486,6 +6486,8 @@ components:
         trialRemainder: {type: string, enum: [policy, carry, reset], description: What a trial's or free plan's remaining time does on a move to a paid plan.}
         trialTag: {type: string, description: Remnawave user tag on a trial when the plan names none; empty for none.}
         paidTag: {type: string, description: Remnawave user tag once paid when the plan names none; empty for none.}
+        trialDisabledMethods: {type: array, items: {type: string, enum: [telegram, email, oidc]}, description: A customer whose every sign-in method is listed is refused a trial.}
+        trialWarningHours: {type: integer, minimum: 0, maximum: 168, description: Hours before a trial ends that the bot warns; zero for never.}
         updatedAt: {type: string, format: date-time, readOnly: true}
     ThemeDocument:
       type: object

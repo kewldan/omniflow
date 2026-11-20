@@ -4010,10 +4010,14 @@ CREATE TABLE public.subscription_policy (
     updated_by uuid,
     trial_tag text,
     paid_tag text,
+    trial_disabled_methods text[] DEFAULT '{}'::text[] NOT NULL,
+    trial_warning_hours integer DEFAULT 0 NOT NULL,
     CONSTRAINT subscription_policy_paid_tag_shape CHECK ((paid_tag ~ '^[A-Z0-9_]{1,16}$'::text)),
     CONSTRAINT subscription_policy_singleton CHECK (singleton),
+    CONSTRAINT subscription_policy_trial_methods_known CHECK ((trial_disabled_methods <@ ARRAY['telegram'::text, 'email'::text, 'oidc'::text])),
     CONSTRAINT subscription_policy_trial_remainder_known CHECK ((trial_remainder = ANY (ARRAY['policy'::text, 'carry'::text, 'reset'::text]))),
-    CONSTRAINT subscription_policy_trial_tag_shape CHECK ((trial_tag ~ '^[A-Z0-9_]{1,16}$'::text))
+    CONSTRAINT subscription_policy_trial_tag_shape CHECK ((trial_tag ~ '^[A-Z0-9_]{1,16}$'::text)),
+    CONSTRAINT subscription_policy_trial_warning_hours_range CHECK (((trial_warning_hours >= 0) AND (trial_warning_hours <= 168)))
 );
 
 

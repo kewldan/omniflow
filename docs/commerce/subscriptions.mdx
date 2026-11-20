@@ -183,6 +183,8 @@ A `renewal` is the renewal worker's own operation, opened from the customer's st
 | Remove devices on renewal | off | An extension or a renewal removes every HWID device the subscription registered, through the same fulfillment operation |
 | Time left on a trial | follow the policy | On a move off a `trial` or `free` plan: follow the paid version's upgrade policy, carry the remaining time over (scheduled as `extend`), or start the paid period now (scheduled as `replace`) |
 | Trial user tag, Paid user tag | empty | The Remnawave user tag a subscription carries on a trial and once paid, when its plan names none. With both empty and no plan tag, Omniflow leaves the panel's tags alone |
+| No trial for accounts that sign in only with | none | Telegram, an e-mail link, or OpenID Connect. A customer whose every way of signing in is listed is refused a trial with the reason `sign_in_method` on the web and in the bot; one who also signs in another way still qualifies |
+| Warn before a trial ends | 0 | Hours (at most 168) before a trial ends that the bot sends one extra `trial` notice with a button to the plans, on top of the day-based reminders |
 
 The defaults are what Omniflow did before the switches existed, so an installation that never opens the card behaves as it always has. A gift or an access code that extends a subscription follows the traffic reset switch as well.
 

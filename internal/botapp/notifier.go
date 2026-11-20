@@ -342,6 +342,11 @@ func (notifier *Notifier) deliverSubscriptionAlerts(ctx context.Context, candida
 		dedupe := fmt.Sprintf("%s:%d", entitlement.ID, offset)
 		notifier.deliver(ctx, candidate, subscription.ID, "renewal", dedupe, renewalReminderView(notifier.notices, locale, entitlement, offset))
 	}
+	// A trial gets one more warning, hours rather than days before its end, so
+	// a customer on a short trial hears about it before it is over.
+	if commerce.TrialEndingDue(now, entitlement.EndsAt, entitlement.PlanKind, entitlement.TrialWarningHours) {
+		notifier.deliver(ctx, candidate, subscription.ID, "trial", entitlement.ID+":ending", trialEndingView(locale, entitlement, now))
+	}
 	if entitlement.GracePeriod > 0 && !now.Before(entitlement.EndsAt) && now.Before(entitlement.EndsAt.Add(entitlement.GracePeriod)) {
 		notifier.deliver(ctx, candidate, subscription.ID, "grace", entitlement.ID, gracePeriodView(notifier.notices, locale, entitlement))
 	}

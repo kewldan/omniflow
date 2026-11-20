@@ -2,6 +2,7 @@
 
 import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
+import { Checkbox } from "@omniflow/ui/checkbox";
 import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
@@ -25,6 +26,8 @@ export type SubscriptionPolicy = {
   trialRemainder: string;
   trialTag: string;
   paidTag: string;
+  trialDisabledMethods?: string[];
+  trialWarningHours?: number;
   updatedAt?: string;
 };
 
@@ -33,6 +36,9 @@ const TRIAL_REMAINDER = ["policy", "carry", "reset"] as const;
 /** Free-text fields: Remnawave user tags, upper-cased as the panel requires. */
 type TextField = "trialTag" | "paidTag";
 const TEXT_FIELDS: TextField[] = ["trialTag", "paidTag"];
+
+/** The ways of signing in a trial can be refused by. */
+const SIGN_IN_METHODS = ["telegram", "email", "oidc"] as const;
 
 type Toggle =
   | "upgradesEnabled"
@@ -81,6 +87,7 @@ function PolicyForm({
   const translate = useTranslations("admin.settings.subscriptionPolicy");
   const translateSettings = useTranslations("admin.settings");
   const [draft, setDraft] = useState<SubscriptionPolicy>(policy);
+  const [hours, setHours] = useState(String(policy.trialWarningHours ?? 0));
   const { run, pending, error } = useOperatorAction();
   const remainderId = useId();
 
@@ -143,6 +150,44 @@ function PolicyForm({
             </FormField>
           ))}
         </div>
+        <fieldset className="flex flex-col gap-2">
+          <legend className="font-medium text-sm">{translate("trialDisabledMethods")}</legend>
+          <div className="flex flex-wrap gap-4">
+            {SIGN_IN_METHODS.map((method) => (
+              <MethodCheckbox
+                checked={(draft.trialDisabledMethods ?? []).includes(method)}
+                disabled={!editable}
+                key={method}
+                label={translate(`signInMethod.${method}`)}
+                onChange={(checked) =>
+                  setDraft((current) => {
+                    const methods = (current.trialDisabledMethods ?? []).filter(
+                      (entry) => entry !== method,
+                    );
+                    return {
+                      ...current,
+                      trialDisabledMethods: checked ? [...methods, method] : methods,
+                    };
+                  })
+                }
+              />
+            ))}
+          </div>
+          <span className="text-muted-foreground text-xs">
+            {translate("trialDisabledMethodsHint")}
+          </span>
+        </fieldset>
+        <FormField hint={translate("trialWarningHoursHint")} label={translate("trialWarningHours")}>
+          {(props) => (
+            <Input
+              {...props}
+              inputMode="numeric"
+              onChange={(event) => setHours(event.target.value)}
+              readOnly={!editable}
+              value={hours}
+            />
+          )}
+        </FormField>
         {error && <p className="text-danger-foreground text-sm">{error.message}</p>}
         {editable && (
           <Button
@@ -150,7 +195,7 @@ function PolicyForm({
             disabled={pending}
             onClick={async () => {
               const ok = await run("/v1/panel/settings/subscription-policy", {
-                body: draft,
+                body: { ...draft, trialWarningHours: Number.parseInt(hours || "0", 10) || 0 },
                 method: "PUT",
               });
               if (ok) {
@@ -188,6 +233,31 @@ function PolicySwitch({
         <Label htmlFor={id}>{label}</Label>
         <span className="text-muted-foreground text-xs">{hint}</span>
       </div>
+    </div>
+  );
+}
+
+function MethodCheckbox({
+  checked,
+  disabled,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  disabled: boolean;
+  label: string;
+  onChange: (checked: boolean) => void;
+}) {
+  const id = useId();
+  return (
+    <div className="flex items-center gap-2">
+      <Checkbox
+        checked={checked}
+        disabled={disabled}
+        id={id}
+        onCheckedChange={(state) => onChange(state === true)}
+      />
+      <Label htmlFor={id}>{label}</Label>
     </div>
   );
 }

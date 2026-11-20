@@ -2114,6 +2114,15 @@ export const PanelSubscriptionPolicyTrialRemainder = {
   reset: "reset",
 } as const;
 
+export type PanelSubscriptionPolicyTrialDisabledMethodsItem = typeof PanelSubscriptionPolicyTrialDisabledMethodsItem[keyof typeof PanelSubscriptionPolicyTrialDisabledMethodsItem];
+
+
+export const PanelSubscriptionPolicyTrialDisabledMethodsItem = {
+  telegram: 'telegram',
+  email: 'email',
+  oidc: 'oidc',
+} as const;
+
 export interface PanelSubscriptionPolicy {
   /** Off refuses every upgrade whatever a version allows. */
   upgradesEnabled: boolean;
@@ -2131,6 +2140,14 @@ export interface PanelSubscriptionPolicy {
   trialTag?: string;
   /** Remnawave user tag once paid when the plan names none; empty for none. */
   paidTag?: string;
+  /** A customer whose every sign-in method is listed is refused a trial. */
+  trialDisabledMethods?: PanelSubscriptionPolicyTrialDisabledMethodsItem[];
+  /**
+     * Hours before a trial ends that the bot warns; zero for never.
+     * @minimum 0
+     * @maximum 168
+     */
+  trialWarningHours?: number;
   readonly updatedAt?: string;
 }
 

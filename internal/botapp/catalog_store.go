@@ -167,6 +167,12 @@ type Entitlement struct {
 	// SubscriptionLabel is set when a notification has to name the subscription
 	// unambiguously, which is whenever a customer holds more than one.
 	SubscriptionLabel string
+	// PlanKind is the kind of plan behind the entitlement; a trial gets the
+	// installation's hours-before-the-end warning.
+	PlanKind string
+	// TrialWarningHours is the installation's trial warning window; zero sends
+	// nothing.
+	TrialWarningHours int
 }
 
 // Entitlement reads the customer's most recent non-superseded entitlement across
@@ -191,7 +197,8 @@ func (store *PostgresStore) entitlement(ctx context.Context, customerID, subscri
 	)
 	err := store.pool.QueryRow(ctx, `SELECT e.id::text, e.status, e.starts_at, e.ends_at,
 		v.grace_period_seconds, v.id::text, p.id::text, p.code, l.name, pr.amount_minor,
-		COALESCE(e.subscription_id::text, '')
+		COALESCE(e.subscription_id::text, ''), p.kind,
+		COALESCE((SELECT sp.trial_warning_hours FROM subscription_policy sp WHERE sp.singleton), 0)
 		FROM entitlements e
 		JOIN plan_versions v ON v.id = e.plan_version_id
 		JOIN plans p ON p.id = v.plan_id
@@ -201,7 +208,8 @@ func (store *PostgresStore) entitlement(ctx context.Context, customerID, subscri
 		  AND ($4 = '' OR e.subscription_id = $4::uuid)
 		ORDER BY (e.starts_at <= now()) DESC, e.ends_at DESC LIMIT 1`, customerID, string(locale), currency, subscriptionID).
 		Scan(&entitlement.ID, &entitlement.Status, &entitlement.StartsAt, &entitlement.EndsAt,
-			&graceSeconds, &entitlement.PlanVersionID, &entitlement.PlanID, &entitlement.PlanCode, &planName, &price, &subscription)
+			&graceSeconds, &entitlement.PlanVersionID, &entitlement.PlanID, &entitlement.PlanCode, &planName, &price, &subscription,
+			&entitlement.PlanKind, &entitlement.TrialWarningHours)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Entitlement{}, nil
 	}
@@ -298,6 +306,7 @@ func (store *PostgresStore) TrialContext(ctx context.Context, customerID string)
 	var request commerce.TrialRequest
 	var createdAt time.Time
 	var settledOrders, activeEntitlements int64
+	var methods, disabled []string
 	err := store.pool.QueryRow(ctx, `SELECT u.created_at,
 		EXISTS (SELECT 1 FROM trial_claims c JOIN orders co ON co.id = c.order_id
 			WHERE c.user_id = u.id AND co.state NOT IN ('cancelled', 'expired')),
@@ -313,15 +322,18 @@ func (store *PostgresStore) TrialContext(ctx context.Context, customerID string)
 			JOIN orders claimed_order ON claimed_order.id = claimed.order_id
 				AND claimed_order.state NOT IN ('cancelled', 'expired')
 			WHERE mine.user_id = u.id AND mine.status = 'active'
-		)
+		),
+		`+accountcheckout.TrialSignInColumns+`
 		FROM users u WHERE u.id = $1::uuid`, customerID).
-		Scan(&createdAt, &request.AlreadyClaimed, &settledOrders, &activeEntitlements, &request.SharedIdentitySignal)
+		Scan(&createdAt, &request.AlreadyClaimed, &settledOrders, &activeEntitlements, &request.SharedIdentitySignal,
+			&methods, &disabled)
 	if err != nil {
 		return commerce.TrialRequest{}, err
 	}
 	request.AccountAge = time.Since(createdAt)
 	request.CompletedOrders = int(settledOrders)
 	request.ActiveEntitlement = activeEntitlements > 0
+	request.SignInMethodExcluded = commerce.TrialSignInMethodExcluded(methods, disabled)
 	return request, nil
 }
 

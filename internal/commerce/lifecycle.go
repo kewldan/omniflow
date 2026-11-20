@@ -246,6 +246,40 @@ type TrialRequest struct {
 	// already consumed a trial. It never punishes silently: the caller shows the
 	// returned reason and offers support.
 	SharedIdentitySignal bool
+	// SignInMethodExcluded is set when every way this customer signs in is one
+	// the installation excludes from trials.
+	SignInMethodExcluded bool
+}
+
+// TrialSignInMethodExcluded reports whether a customer who signs in with
+// `methods` is refused a trial when the installation excludes `disabled`.
+// Only a customer whose every method is excluded is refused: one who also
+// signs in with an allowed method still qualifies. A customer with no known
+// method is not refused, because nothing is known to exclude.
+func TrialSignInMethodExcluded(methods, disabled []string) bool {
+	if len(methods) == 0 || len(disabled) == 0 {
+		return false
+	}
+	excluded := make(map[string]bool, len(disabled))
+	for _, method := range disabled {
+		excluded[method] = true
+	}
+	for _, method := range methods {
+		if !excluded[method] {
+			return false
+		}
+	}
+	return true
+}
+
+// TrialEndingDue reports whether a trial ending at endsAt is inside the
+// installation's warning window: within `hours` of its end and not past it.
+func TrialEndingDue(now, endsAt time.Time, planKind string, hours int) bool {
+	if planKind != "trial" || hours <= 0 || endsAt.IsZero() {
+		return false
+	}
+	remaining := endsAt.Sub(now)
+	return remaining > 0 && remaining <= time.Duration(hours)*time.Hour
 }
 
 // EvaluateTrial returns a stable machine reason when a trial must be refused.
@@ -261,6 +295,9 @@ func EvaluateTrial(request TrialRequest) (string, error) {
 	}
 	if request.SharedIdentitySignal {
 		return "identity_already_trialled", ErrTrialNotEligible
+	}
+	if request.SignInMethodExcluded {
+		return "sign_in_method", ErrTrialNotEligible
 	}
 	if request.AccountAge < request.MinimumAccountAge {
 		return "account_too_new", ErrTrialNotEligible

@@ -46,6 +46,7 @@ const INELIGIBILITY = [
   "subscription_limit_reached",
   "trial_already_used",
   "unsupported_trial_rule",
+  "sign_in_method",
 ] as const;
 
 /**
@@ -106,6 +107,7 @@ const PROBLEMS = [
   "trial_trial_already_used",
   "upstream_unavailable",
   "addon_not_applicable",
+  "trial_sign_in_method",
   "recurring_unavailable",
   "no_saved_method",
 ] as const;

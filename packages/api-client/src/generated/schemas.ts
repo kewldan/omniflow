@@ -3964,6 +3964,9 @@ export const SavePanelSubscriptionSettingsResponse = zod.object({
 /**
  * Requires settings.read. The installation-wide rules above each plan version's own policies: whether upgrades and downgrades are allowed at all, and what a paid period resets.
  */
+export const getPanelSubscriptionPolicyResponseTrialWarningHoursMin = 0;
+export const getPanelSubscriptionPolicyResponseTrialWarningHoursMax = 168;
+
 export const GetPanelSubscriptionPolicyResponse = zod.object({
   upgradesEnabled: zod.boolean().describe("Off refuses every upgrade whatever a version allows."),
   downgradesEnabled: zod
@@ -3987,6 +3990,16 @@ export const GetPanelSubscriptionPolicyResponse = zod.object({
     .string()
     .optional()
     .describe("Remnawave user tag once paid when the plan names none; empty for none."),
+  trialDisabledMethods: zod
+    .array(zod.enum(["telegram", "email", "oidc"]))
+    .optional()
+    .describe("A customer whose every sign-in method is listed is refused a trial."),
+  trialWarningHours: zod
+    .int()
+    .min(getPanelSubscriptionPolicyResponseTrialWarningHoursMin)
+    .max(getPanelSubscriptionPolicyResponseTrialWarningHoursMax)
+    .optional()
+    .describe("Hours before a trial ends that the bot warns; zero for never."),
   updatedAt: zod.iso.datetime({ offset: true }).optional(),
 });
 
@@ -3998,6 +4011,9 @@ export const SavePanelSubscriptionPolicyHeader = zod.object({
     .string()
     .describe("Echoes the token from the current session. Required on every unsafe method."),
 });
+
+export const savePanelSubscriptionPolicyBodyTrialWarningHoursMin = 0;
+export const savePanelSubscriptionPolicyBodyTrialWarningHoursMax = 168;
 
 export const SavePanelSubscriptionPolicyBody = zod.object({
   upgradesEnabled: zod.boolean().describe("Off refuses every upgrade whatever a version allows."),
@@ -4022,7 +4038,20 @@ export const SavePanelSubscriptionPolicyBody = zod.object({
     .string()
     .optional()
     .describe("Remnawave user tag once paid when the plan names none; empty for none."),
+  trialDisabledMethods: zod
+    .array(zod.enum(["telegram", "email", "oidc"]))
+    .optional()
+    .describe("A customer whose every sign-in method is listed is refused a trial."),
+  trialWarningHours: zod
+    .int()
+    .min(savePanelSubscriptionPolicyBodyTrialWarningHoursMin)
+    .max(savePanelSubscriptionPolicyBodyTrialWarningHoursMax)
+    .optional()
+    .describe("Hours before a trial ends that the bot warns; zero for never."),
 });
+
+export const savePanelSubscriptionPolicyResponseTrialWarningHoursMin = 0;
+export const savePanelSubscriptionPolicyResponseTrialWarningHoursMax = 168;
 
 export const SavePanelSubscriptionPolicyResponse = zod.object({
   upgradesEnabled: zod.boolean().describe("Off refuses every upgrade whatever a version allows."),
@@ -4047,6 +4076,16 @@ export const SavePanelSubscriptionPolicyResponse = zod.object({
     .string()
     .optional()
     .describe("Remnawave user tag once paid when the plan names none; empty for none."),
+  trialDisabledMethods: zod
+    .array(zod.enum(["telegram", "email", "oidc"]))
+    .optional()
+    .describe("A customer whose every sign-in method is listed is refused a trial."),
+  trialWarningHours: zod
+    .int()
+    .min(savePanelSubscriptionPolicyResponseTrialWarningHoursMin)
+    .max(savePanelSubscriptionPolicyResponseTrialWarningHoursMax)
+    .optional()
+    .describe("Hours before a trial ends that the bot warns; zero for never."),
   updatedAt: zod.iso.datetime({ offset: true }).optional(),
 });
 

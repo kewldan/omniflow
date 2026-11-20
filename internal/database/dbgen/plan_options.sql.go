@@ -65,7 +65,7 @@ func (q *Queries) GetProvisioningProfile(ctx context.Context, planVersionID pgty
 }
 
 const getSubscriptionPolicy = `-- name: GetSubscriptionPolicy :one
-SELECT singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag FROM subscription_policy WHERE singleton
+SELECT singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag, trial_disabled_methods, trial_warning_hours FROM subscription_policy WHERE singleton
 `
 
 // The migration seeds the row, so it is always there.
@@ -84,6 +84,8 @@ func (q *Queries) GetSubscriptionPolicy(ctx context.Context) (SubscriptionPolicy
 		&i.UpdatedBy,
 		&i.TrialTag,
 		&i.PaidTag,
+		&i.TrialDisabledMethods,
+		&i.TrialWarningHours,
 	)
 	return i, err
 }
@@ -193,7 +195,7 @@ const setPolicyTags = `-- name: SetPolicyTags :one
 UPDATE subscription_policy
 SET trial_tag = $1, paid_tag = $2, updated_at = now()
 WHERE singleton
-RETURNING singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag
+RETURNING singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag, trial_disabled_methods, trial_warning_hours
 `
 
 type SetPolicyTagsParams struct {
@@ -216,6 +218,43 @@ func (q *Queries) SetPolicyTags(ctx context.Context, arg SetPolicyTagsParams) (S
 		&i.UpdatedBy,
 		&i.TrialTag,
 		&i.PaidTag,
+		&i.TrialDisabledMethods,
+		&i.TrialWarningHours,
+	)
+	return i, err
+}
+
+const setTrialPolicy = `-- name: SetTrialPolicy :one
+UPDATE subscription_policy
+SET trial_disabled_methods = $1::text[],
+    trial_warning_hours = $2,
+    updated_at = now()
+WHERE singleton
+RETURNING singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag, trial_disabled_methods, trial_warning_hours
+`
+
+type SetTrialPolicyParams struct {
+	TrialDisabledMethods []string `json:"trial_disabled_methods"`
+	TrialWarningHours    int32    `json:"trial_warning_hours"`
+}
+
+func (q *Queries) SetTrialPolicy(ctx context.Context, arg SetTrialPolicyParams) (SubscriptionPolicy, error) {
+	row := q.db.QueryRow(ctx, setTrialPolicy, arg.TrialDisabledMethods, arg.TrialWarningHours)
+	var i SubscriptionPolicy
+	err := row.Scan(
+		&i.Singleton,
+		&i.UpgradesEnabled,
+		&i.DowngradesEnabled,
+		&i.ResetTrafficOnRenewal,
+		&i.ResetTrafficOnPlanChange,
+		&i.ResetDevicesOnRenewal,
+		&i.TrialRemainder,
+		&i.UpdatedAt,
+		&i.UpdatedBy,
+		&i.TrialTag,
+		&i.PaidTag,
+		&i.TrialDisabledMethods,
+		&i.TrialWarningHours,
 	)
 	return i, err
 }
@@ -231,7 +270,7 @@ SET upgrades_enabled = $1,
     updated_at = now(),
     updated_by = $7
 WHERE singleton
-RETURNING singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag
+RETURNING singleton, upgrades_enabled, downgrades_enabled, reset_traffic_on_renewal, reset_traffic_on_plan_change, reset_devices_on_renewal, trial_remainder, updated_at, updated_by, trial_tag, paid_tag, trial_disabled_methods, trial_warning_hours
 `
 
 type UpdateSubscriptionPolicyParams struct {
@@ -267,6 +306,8 @@ func (q *Queries) UpdateSubscriptionPolicy(ctx context.Context, arg UpdateSubscr
 		&i.UpdatedBy,
 		&i.TrialTag,
 		&i.PaidTag,
+		&i.TrialDisabledMethods,
+		&i.TrialWarningHours,
 	)
 	return i, err
 }

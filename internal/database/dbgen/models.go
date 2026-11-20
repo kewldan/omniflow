@@ -2155,6 +2155,8 @@ type SubscriptionPolicy struct {
 	UpdatedBy                pgtype.UUID        `json:"updated_by"`
 	TrialTag                 pgtype.Text        `json:"trial_tag"`
 	PaidTag                  pgtype.Text        `json:"paid_tag"`
+	TrialDisabledMethods     []string           `json:"trial_disabled_methods"`
+	TrialWarningHours        int32              `json:"trial_warning_hours"`
 }
 
 type SupportAttachment struct {

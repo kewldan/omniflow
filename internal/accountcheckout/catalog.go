@@ -639,6 +639,7 @@ func (store *Store) TrialContext(ctx context.Context, customerID string) (commer
 		createdAt          time.Time
 		settledOrders      int64
 		activeEntitlements int64
+		methods, disabled  []string
 	)
 	err := store.pool.QueryRow(ctx, `SELECT u.created_at,
 		EXISTS (SELECT 1 FROM trial_claims c JOIN orders co ON co.id = c.order_id
@@ -655,18 +656,33 @@ func (store *Store) TrialContext(ctx context.Context, customerID string) (commer
 			JOIN orders claimed_order ON claimed_order.id = claimed.order_id
 				AND claimed_order.state NOT IN ('cancelled', 'expired')
 			WHERE mine.user_id = u.id AND mine.status = 'active'
-		)
+		),
+		`+TrialSignInColumns+`
 		FROM users u WHERE u.id = $1::uuid`, customerID).
 		Scan(&createdAt, &request.AlreadyClaimed, &settledOrders, &activeEntitlements,
-			&request.SharedIdentitySignal)
+			&request.SharedIdentitySignal, &methods, &disabled)
 	if err != nil {
 		return commerce.TrialRequest{}, err
 	}
 	request.AccountAge = time.Since(createdAt)
 	request.CompletedOrders = int(settledOrders)
 	request.ActiveEntitlement = activeEntitlements > 0
+	request.SignInMethodExcluded = commerce.TrialSignInMethodExcluded(methods, disabled)
 	return request, nil
 }
+
+// TrialSignInColumns reads, for the customer `u`, every way they sign in —
+// `telegram`, `oidc` for any OpenID Connect provider, `email` for a live
+// e-mail contact — and the methods the installation excludes from trials.
+// The bot's own trial query reads them through this too.
+const TrialSignInColumns = `ARRAY(
+			SELECT CASE WHEN i.provider LIKE 'oidc:%' THEN 'oidc' ELSE i.provider END
+			FROM identities i WHERE i.user_id = u.id AND i.status = 'active'
+			UNION
+			SELECT 'email' FROM contact_channels c
+			WHERE c.user_id = u.id AND c.kind = 'email' AND c.revoked_at IS NULL
+		)::text[],
+		COALESCE((SELECT sp.trial_disabled_methods FROM subscription_policy sp WHERE sp.singleton), '{}')::text[]`
 
 // PlanPrices lists every currency a plan version is priced in. Payment-method
 // selection needs it because the chosen adapter fixes the order currency.
