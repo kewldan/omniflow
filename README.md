@@ -1,235 +1,245 @@
-<!-- markdownlint-disable MD013 -->
+<!-- markdownlint-disable MD013 MD033 MD041 -->
 
-# 🌊 Omniflow
+<h1 align="center">🌊 Omniflow</h1>
 
-## The open-source customer and operations platform for Remnawave VPN services
+<p align="center">
+  <b>Sell, support, and run your Remnawave VPN from one self-hosted platform.</b><br>
+  A Telegram bot, a customer web panel, and an operator panel, installed on your own server next to your Remnawave installation.
+</p>
 
-Build Telegram-first self-service, subscriptions, billing, support, marketing, and administration around your existing Remnawave installation—without taking ownership of Xray or duplicating VPN state.
+<p align="center">
+  <a href="#-self-host-it"><b>🚀 Self-host it</b></a>
+  &nbsp;·&nbsp;
+  <a href="./docs/operations/migrate-from-bedolaga.mdx">Coming from Bedolaga</a>
+  &nbsp;·&nbsp;
+  <a href="./docs/index.mdx">Documentation</a>
+  &nbsp;·&nbsp;
+  <a href="./docs/comparison.mdx">Comparison</a>
+</p>
 
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-0ea5e9.svg)](./LICENSE)
-[![Go 1.27](https://img.shields.io/badge/Go-1.27-00ADD8?logo=go&logoColor=white)](./go.mod)
-[![Next.js 16.4](https://img.shields.io/badge/Next.js-16.4-000000?logo=next.js&logoColor=white)](./apps/web/package.json)
-[![TypeScript 7](https://img.shields.io/badge/TypeScript-7-3178C6?logo=typescript&logoColor=white)](./package.json)
-[![Bun](https://img.shields.io/badge/Bun-1.4-fbf0df?logo=bun&logoColor=black)](./package.json)
-[![Remnawave](https://img.shields.io/badge/Remnawave-3.4.11-8b5cf6)](https://docs.rw/api/)
+<p align="center">
+  <a href="https://github.com/kewldan/omniflow/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/kewldan/omniflow?label=release&color=0ea5e9"></a>
+  <a href="https://github.com/kewldan/omniflow/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/kewldan/omniflow/ci.yml?branch=main&label=CI"></a>
+  <a href="./LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache%202.0-blue"></a>
+  <img alt="Self-hosted" src="https://img.shields.io/badge/self--hosted-Docker%20Compose-2496ED?logo=docker&logoColor=white">
+  <br>
+  <img alt="Go 1.27" src="https://img.shields.io/badge/Go-1.27-00ADD8?logo=go&logoColor=white">
+  <img alt="Next.js 16" src="https://img.shields.io/badge/Next.js-16-000000?logo=next.js&logoColor=white">
+  <img alt="PostgreSQL 18" src="https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&logoColor=white">
+  <img alt="Valkey 9" src="https://img.shields.io/badge/Valkey-9-6E3CBC">
+  <a href="https://docs.rw/api/"><img alt="Remnawave 3.4.11" src="https://img.shields.io/badge/Remnawave-3.4.11-8b5cf6"></a>
+  <br>
+  <img alt="Payment providers" src="https://img.shields.io/badge/payment%20providers-29-16a34a">
+  <img alt="Telegram Stars" src="https://img.shields.io/badge/Telegram%20Stars-shop%20%2B%20payments-26A5E4?logo=telegram&logoColor=white">
+  <img alt="Languages" src="https://img.shields.io/badge/languages-RU%20%7C%20EN%20%7C%20UK%20%7C%20ZH%20%7C%20FA-5E5CE6">
+  <img alt="Go tests" src="https://img.shields.io/badge/Go%20tests-1.5k-34C759?logo=go&logoColor=white">
+  <img alt="Telemetry" src="https://img.shields.io/badge/telemetry-anonymous%2C%20opt--out-248A3D">
+</p>
 
-[Quick start](#-quick-start) · [Roadmap](./ROADMAP.md) · [Documentation](./docs/index.mdx) · [Architecture](./docs/architecture/overview.mdx) · [Contributing](./CONTRIBUTING.md)
+<p align="center">
+  <img src="docs/screenshots/admin-dashboard.png" width="900" alt="Operator dashboard: 14,480 active customers, 9,326 live subscriptions, and payment health for the last 30 days">
+</p>
 
-Omniflow is a complete, production-ready platform: the Telegram bot, the customer web panel at `/account`, the operator panel at `/admin`, the commerce backend, and the background worker all ship from `main`, verified against PostgreSQL 18 and a live Remnawave panel. Customers sign in with Telegram, a magic link, or OIDC; buy, renew, upgrade, and downgrade plans; pay through any of the bundled payment providers or the wallet; buy Telegram Stars and Premium for themselves or somebody else; and manage devices, access links, support tickets, referrals, and their own data. Operators run support, campaigns, referrals, loyalty, reporting, branding, and every installation setting without SQL or shell access.
-
-Coming from Bedolaga? [Migrating from Bedolaga](./docs/operations/migrate-from-bedolaga.mdx) moves customers, balances, subscriptions, and referrals over in one rehearsed cutover.
+> [!NOTE]
+> The screenshots come from a demo installation filled with generated data: customers, orders, and payments are fake.
 
 ## ✨ Highlights
 
-| | Capability | What it provides |
-| --- | --- | --- |
-| 🤖 | **Telegram-first experience** | Russian and English self-service with subscription security, device management, notifications, referrals, support tickets, and responsive inline navigation. |
-| 🔗 | **Remnawave-native integration** | Targets the official Remnawave 3.4.11 API and keeps Remnawave authoritative for VPN users, traffic, devices, links, nodes, and squads. |
-| 💳 | **Commerce-ready backend** | Immutable plan versions, promotions, provider-neutral payments, refunds, wallet ledger, entitlements, durable fulfillment, and drift recovery. |
-| 🧭 | **One web application** | Customer routes and the `/admin` workspace share Next.js, localization, API bindings, and the same shadcn component system. |
-| 🔐 | **Operator panel with real access control** | Argon2id passwords, passwordless passkeys with clone detection, TOTP with recovery codes, optional OIDC, dual-expiry rotating sessions, six built-in roles, and an append-only audit trail enforced in the API rather than by hidden routes. |
-| 📊 | **An operations dashboard that explains itself** | Every tile publishes the definition of what it counted, times are UTC, and revenue is reported as three separate figures rather than one number that double-counts wallet credit. |
-| 🛑 | **Risk signals that never punish anybody** | External blocklists are stored as salted digests, anomaly rules are operator-configured per metric, and every adverse decision is a human one with a mandatory reason and an audit event. |
-| 🔔 | **Security notices where you already look** | Sign-ins from a new address, password changes, second factors removed, and owner grants reach the operator Telegram group — naming the event and the account, never an address or a token. |
-| 🛡️ | **Privacy-conscious by design** | Protected Telegram messages, no HWID/IP display, no subscription-link storage, explicit secret boundaries, and optional anonymous telemetry. |
-| 🧱 | **Production-oriented foundation** | PostgreSQL migrations, durable River jobs, transactional outbox, Valkey, generated contracts, structured logs, observability, and security automation. |
-| 🎫 | **A support desk that is a desk** | Queues, assignment, priority, tags, SLA timestamps, internal notes distinct from customer-visible messages, canned responses, merge and reopen, and workload reporting with the definitions published beside the numbers. |
-| 📣 | **Campaigns you can check before you send** | A segment's definition is rendered in words beside its live count, generated from the filters themselves so it cannot describe something the query does not do. Suppressed is reported beside sent, because not messaging somebody on purpose is not a failure. |
-| 🧠 | **AI that is optional, grounded, and never in charge** | Off until an owner configures it, enabled per feature, redacted inside the gateway so a feature cannot forget. Answers cite records an operator can open, drafts stay drafts until a person accepts them, and abuse analysis recommends a look rather than taking an action. **No feature invokes a provider in this build** — the registry and the budgets are real, the surfaces that would use them are not mounted. |
-| 🔌 | **MCP on both sides, with the same rules** | Connections are off until enabled and reach only allowlisted tools on named hosts; arguments and results are schema-validated, external writes need a confirmation and a reason, and everything a server returns is fenced as data. The first-party server authorises as the operator whose token was presented and makes every mutation idempotent. **Neither side is mounted in this build**, for the same reason. |
-| 🔑 | **Secrets that are write-only by construction** | The listing queries do not select the ciphertext column, an omitted credential keeps the stored one, and the diagnostics bundle is built from an allowlist rather than by filtering a dump. |
-| 🎨 | **White-label past the name on the tab** | An operator sets the palette, the logo, the permitted themes, the client applications a customer is told to install, and the wording of every message the installation sends on its own initiative — and publishes the FAQ, terms, offer, and privacy policy at addresses of their own. A colour is parsed from hex and rendered by the API; a client scheme and a message body are validated before they are stored, because both become something a customer is asked to trust. |
-| 📈 | **Measurement that stays yours** | Advertising measurement is off by default, reported to nobody but the operator's own provider, and rendered only for a visitor who agreed to it. A counter is a validated identifier rather than a snippet, so no settings field can run code in a customer's browser. The click identifier is carried into the order that settles a day later — which is the only way a backend payment can be attributed at all — and the conversion export is a file the operator hands over, because this software calls no advertising network. |
-| 🧾 | **Evidence, not just settings** | The preference screen says what a customer should receive; the delivery history says what they did, and why anything did not — `quiet_hours`, `frequency_cap`, and `no_consent` each point back at a control on the same page. An operator can send one test through the same worker, the same call, and the same failure codes the real notices travel. |
-| 🧰 | **Contributor-friendly tooling** | Bun workspaces, Biome, TypeScript 7, Orval, sqlc, Atlas, Mintlify, Renovate, Release Please, and Conventional Commits. |
+- 🤖 **A complete Telegram bot.** Plans, checkout, renewals, upgrades, devices, connection guides, support tickets, referrals, gifts, news, and a Telegram Stars and Premium shop, all in one message that updates as the customer moves through it.
+- 🖥️ **Two web panels in one app.** The customer panel at `/account` mirrors the bot, so a cart started in the chat is the cart the browser shows. Operators work in `/admin`, which needs no SQL and no shell for anything.
+- 💳 **29 payment providers.** YooKassa with 54-FZ receipts, Telegram Stars, CryptoBot, and 25 regional collectors carried over from Bedolaga. Each method can be its own button, with its own limits and visibility rules. Saved cards and mandates renew subscriptions automatically, and only with the customer's explicit consent.
+- ⭐ **A Stars shop on your own wallet.** Customers buy Telegram Stars and Premium, and Omniflow delivers them through Fragment from your own TON wallet. The wallet's secrets live only in environment variables.
+- 🧮 **Money handled like money.** Every order and payment mutation is idempotent, provider webhooks are replay-safe, and wallet balances come from an append-only double-entry ledger. Refunds and chargebacks reported by a provider take back what they paid for.
+- 📈 **Growth tools.** Campaigns with `/start` links and UTM attribution, percentage referral commissions, a second referral level and referral contests, loyalty groups, personal offers, win-back waves with a discount, a fortune wheel and polls, and broadcasts by Telegram and e-mail.
+- 🎫 **A real support desk.** Queues, assignment, SLA timers, internal notes, canned replies, customer topics and urgency, and an operator Telegram group with auto-created topics.
+- 🔗 **Remnawave-native.** Omniflow uses Remnawave's public API only. It receives the panel's signed webhooks, encrypts Happ and INCY links, and reads devices and traffic live. Remnawave stays the owner of users, nodes, and traffic.
+- 🔐 **Operator security.** Argon2id passwords, passkeys, TOTP, optional OIDC, custom roles, and an append-only audit trail. Every adverse action needs a reason, and secrets are write-only by construction.
+- 🛡️ **Private by default.** Omniflow keeps no subscription links, HWIDs, or customer IP addresses. Advertising measurement is off until you turn it on, and the anonymous installation telemetry can be switched off with one variable.
 
-## 🤖 Telegram experience
+## 📸 Screenshots
 
-The bot is a complete customer product in a single-message interface:
+| Sales | Customer card |
+| :---: | :---: |
+| ![Sales report: 674 trials claimed, 41.1% converted, revenue by kind of sale](docs/screenshots/admin-sales.png) | ![Customer card with the subscription, live devices, and every operator action](docs/screenshots/admin-customer.png) |
+| **Finance** | **Support desk** |
+| ![Finance: fulfilled orders with provider and amounts, filters, and CSV export](docs/screenshots/admin-finance.png) | ![Support desk: queues with unassigned counts and the ticket list](docs/screenshots/admin-support.png) |
+| **Catalog** | **Traffic** |
+| ![Catalog: plans with versions, order lines, visibility, and best-deal flags](docs/screenshots/admin-catalog.png) | ![Traffic: heaviest users and Remnawave nodes, read live from the panel](docs/screenshots/admin-traffic.png) |
 
-- 🛒 Plan catalog with period, traffic, device, and price comparison, plan details, and policy-aware purchase, renewal, upgrade, and downgrade
-- 💳 Telegram Stars, CryptoBot, YooKassa, audited manual payments, and 25 more providers carried over from Bedolaga (Platega, FreeKassa, CloudPayments, Lava, Heleket, HOT Pay, and others) — offered only when configured and currency-compatible
-- 🏷 Promo-code entry with a specific rejection reason, and wallet credit applied first by default
-- ⏳ Pending, succeeded, provisioning, completed, failed, cancelled, expired, and refunded screens with retry-safe refresh
-- 🧾 Order history with payment status, receipts, and refund state
-- ♻️ Trials with abuse controls, renewal reminders, grace-period explanations, expired-subscription recovery, and honest auto-renew status
-- 📊 Subscription status, expiry, remaining days, and traffic progress
-- 🚀 Per-platform connection guides with client deep links and a manual-copy fallback
-- 📱 Privacy-safe device management with per-device and remove-all confirmation
-- 🔐 Subscription-link rotation for compromised credentials
-- 💬 Support desk with conversation history, replies, attachments, unread state, and close/reopen
-- 📰 News and service-announcement inbox with read state
-- 🔔 Classified notifications with explicit marketing consent, quiet hours, and frequency caps
-- 🎁 Referral terms, qualified-referral progress, and rewards granted exactly once
-- 🌍 Complete Russian and English copy for every success, empty, pending, and failure state
+**The customer panel on a phone**: subscriptions, the plan store, devices, invitations, and the wallet.
 
-A first-time visitor can browse and buy before any Remnawave user exists. For an existing customer, Omniflow performs an exact Telegram-ID lookup through Remnawave and persists the numeric user mapping under a concurrency-safe database lock. It never guesses account ownership or offers an insecure self-link.
+<p align="center">
+  <img src="docs/screenshots/customer-mobile.png" alt="Customer web panel on a phone: subscriptions, store, devices, referrals with a QR code, and the wallet">
+</p>
 
-## 🧩 Clear ownership boundaries
+## 🚀 Self-host it
 
-```mermaid
-flowchart LR
-    Customer["Customer"] --> Telegram["Telegram bot"]
-    Customer --> Web["Unified web app"]
-    Operator["Operator"] --> Admin["/admin workspace"]
-    Telegram --> API["Go application"]
-    Web --> API
-    Admin --> API
-    API --> PostgreSQL[("PostgreSQL")]
-    API --> Valkey[("Valkey")]
-    API --> Remnawave["Remnawave API"]
-    Remnawave --> Xray["Xray core"]
-```
+Omniflow runs on your server, next to (or far from) your Remnawave panel. Nothing is hosted for you and nothing phones home except the [anonymous telemetry](#-privacy-and-telemetry), which you can turn off.
 
-**Remnawave owns:** VPN users, traffic, devices, access links, nodes, squads, and Xray state.
+> [!IMPORTANT]
+> You need **Docker with Compose v2**, a reachable **Remnawave 3.4.x** installation with an API token, and a **Telegram bot token** from [@BotFather](https://t.me/BotFather). A public HTTPS domain is needed for payment webhooks and the web panels.
 
-**Omniflow owns:** customer identity, plans, orders, payments, wallet entries, support, campaigns, referrals, loyalty, RBAC, and audit history.
+1. **Get the code and the config.**
 
-Omniflow never connects to Remnawave storage and never manages Xray processes directly.
+   ```bash
+   git clone https://github.com/kewldan/omniflow.git && cd omniflow
+   cp .env.example .env
+   ```
 
-## 🛠️ Technology stack
+2. **Fill in `.env`.** At minimum: `APP_REMNAWAVE_URL`, `APP_REMNAWAVE_TOKEN`, `APP_TELEGRAM_TOKEN`, `APP_PUBLIC_URL`, `APP_OPERATOR_TOKEN`, and `APP_DATA_ENCRYPTION_KEY` (`openssl rand -base64 32`). Every project variable starts with `APP_`; payment providers are switched on by setting their own `APP_<PROVIDER>_*` keys. See [Configuration](./docs/getting-started/configuration.mdx).
 
-| Layer | Technology |
-| --- | --- |
-| Backend | Go 1.27, Chi, pgx, sqlc, River, OpenAPI, OpenTelemetry |
-| Data | PostgreSQL 18, Atlas migrations, Valkey 9 |
-| Telegram | `go-telegram/bot`, localized inline keyboards, long polling |
-| Web | Next.js 16.4, React 19, TypeScript 7, SWR, Zustand |
-| UI and forms | Tailwind CSS v4, shadcn/ui, React Day Picker, Recharts, React Hook Form, Zod |
-| API generation | `oapi-codegen`, Orval Fetch/SWR clients and Zod schemas |
-| Tooling | Bun workspaces, Biome, Mintlify, Docker Compose |
-| Delivery | GitHub Actions, Renovate, Release Please, Trivy, Gitleaks, CodeQL, Cosign |
+3. **Start everything.**
 
-## 🚀 Quick start
+   ```bash
+   docker compose --profile web up -d --build
+   ```
 
-### Requirements
+   This runs PostgreSQL, Valkey, the migrations, the API, the bot, the background worker, and the web app. Check it with `curl http://localhost:8080/healthz`.
 
-- Docker with Compose v2
-- A reachable Remnawave 3.4.11 installation
-- A Telegram bot token if you want to run bot flows
+4. **Put it behind HTTPS.** Route your domain to the web service (port 3000) and `/v1` to the API, as the Caddy and Traefik examples in [`deploy/proxies`](./deploy/proxies) do. See [Reverse proxy](./docs/operations/reverse-proxy.mdx).
 
-### 1. Configure the application
+5. **Create the first owner.** On first start the API prints a one-time setup token to its log (`docker compose logs api`). Redeem it at `https://your-domain/admin/setup`, then configure plans, providers, branding, and the bot from the panel.
+
+<details>
+<summary>⬆️ Upgrading</summary>
 
 ```bash
-cp .env.example .env
+git pull
+docker compose --profile web up -d --build
 ```
 
-Set at least the database, Remnawave, and Telegram values required by the services you want to run. All project-owned environment variables use the `APP_*` prefix.
+The `migrate` service applies new database migrations before the API, bot, and worker start. Encrypted backups run on a schedule once `APP_BACKUP_ENABLED=true`; see [Backup and restore](./docs/operations/backup-restore.mdx).
 
-### 2. Start the backend and bot
+</details>
 
-```bash
-docker compose up --build postgres valkey migrate api bot worker
-```
+<details>
+<summary>🧪 Trying it locally without HTTPS</summary>
 
-The bot remains disabled when `APP_TELEGRAM_TOKEN` is empty. Check the API at:
-
-```bash
-curl http://localhost:8080/healthz
-```
-
-### 3. Start the unified web application
-
-A local stack speaks plain HTTP, and a session cookie marked `Secure` is one a
-browser will not send back over it. Both panels would render and refuse every
-sign-in. Turn the flag off for local use only:
+A local stack speaks plain HTTP, and browsers do not send a `Secure` cookie back over it. Turn the flag off for local use only:
 
 ```env
 APP_ADMIN_COOKIE_SECURE=false
 APP_CUSTOMER_COOKIE_SECURE=false
 ```
 
-```bash
-docker compose --profile web up --build
+Then open the customer panel at <http://localhost:3000> and the operator panel at <http://localhost:3000/admin>.
+
+</details>
+
+The full guides: [Quick start](./docs/getting-started/quickstart.mdx) · [Deployment](./docs/operations/deployment.mdx) · [Your first sale](./docs/getting-started/first-sale.mdx) · [Troubleshooting](./docs/operations/troubleshooting.mdx).
+
+## 🔁 Coming from Bedolaga
+
+Omniflow covers the Bedolaga bot and cabinet feature by feature: payment providers, the Stars shop, promo codes, referrals, campaigns, win-back waves, and e-mail sign-in. Moving over is a scripted, rehearsable cutover.
+
+| Step | Tool |
+| --- | --- |
+| Convert Bedolaga's `.env` into Omniflow's | [`deploy/migration/00-convert-env.sh`](./deploy/migration) |
+| Plan the import and see every conflict before writing anything | `migrate-bedolaga plan` |
+| Import customers, balances, subscriptions, referrals, promo codes, and OAuth links | `migrate-bedolaga apply` |
+| Check that totals and balances match | `migrate-bedolaga verify` |
+| Switch the bot over and roll back if needed | `deploy/migration/06-cutover.sh`, `07-rollback.sh` |
+
+Read [Migrating from Bedolaga](./docs/operations/migrate-from-bedolaga.mdx) before you start. Every Bedolaga capability and its status in Omniflow is listed in [`bedolaga-bot-gaps.md`](./bedolaga-bot-gaps.md).
+
+## 💳 Payments
+
+| Kind | Providers |
+| --- | --- |
+| Bank cards, SBP, and wallets | YooKassa (with 54-FZ receipts), CloudPayments, Platega, FreeKassa, KassaAI, Lava, MulenPay, Pal24, Overpay, Antilopay, PayHot, CisPay, Cashera, WATA, Tribute, RioPay, SeverPay, RollyPay, AuraPay, ParityPay, Anore, Donut, Etoplatezhi, Jupiter, TabPay |
+| Crypto | CryptoBot, Heleket |
+| Telegram | Telegram Stars, including Stars at ruble prices |
+| Your own | Manual transfer with operator confirmation, and top-up through support |
+
+Self-employed receipts go to «Мой налог» through NaloGO. Guest purchases need no account. See [Payment providers](./docs/integrations/payment-providers.mdx) for the full list and each provider's settings.
+
+## 🛡️ How money stays correct
+
+- 🔑 **Idempotent by default.** Every order and payment mutation carries an idempotency key, so a double click, a retried request, or a replayed webhook settles once.
+- 📒 **An append-only ledger.** Wallet balances are derived from double-entry ledger lines. A correction is a compensating entry, never an update, and a balance cannot go negative.
+- 📨 **Replay-safe webhooks.** Provider callbacks are verified, stored raw, and processed once. A provider that cannot be verified is polled instead of trusted.
+- 🚚 **Fulfillment that cannot lose a payment.** Access is granted in Remnawave by durable jobs with retries and drift detection. A paid order waits out a Remnawave outage instead of failing.
+- 🧾 **Reasons on every adverse action.** Refunds, suspensions, and balance corrections need a reason and leave an audit event with the before and after state.
+
+The invariants are written down and tested; see [Financial invariants](./docs/commerce/financial-invariants.mdx).
+
+## 🏗️ Architecture
+
+```mermaid
+flowchart LR
+    Customer["Customer"] --> Telegram["Telegram bot"]
+    Customer --> Account["/account web panel"]
+    Operator["Operator"] --> Admin["/admin web panel"]
+    Telegram --> API["Go application<br/>api · bot · worker"]
+    Account --> API
+    Admin --> API
+    API --> PostgreSQL[("PostgreSQL 18")]
+    API --> Valkey[("Valkey 9")]
+    API --> Remnawave["Remnawave API"]
+    Remnawave -. "signed webhooks" .-> API
+    Remnawave --> Xray["Xray nodes"]
 ```
 
-- 👤 Customer account: [http://localhost:3000](http://localhost:3000)
-- 🧑‍💻 Admin workspace: [http://localhost:3000/admin](http://localhost:3000/admin)
+- **Remnawave owns** VPN users, traffic, devices, access links, nodes, squads, and Xray state.
+- **Omniflow owns** customers, plans, orders, payments, the wallet ledger, support, campaigns, referrals, loyalty, operators, and the audit trail.
+- Omniflow never connects to Remnawave's database and never manages nodes. See [Data ownership](./docs/architecture/data-ownership.mdx) and the [decision records](./docs/architecture/decisions.mdx).
 
-Both panels call the API on their own origin, and the web service forwards `/v1`
-to it. Behind a reverse proxy, route `/v1` on the web host as the examples in
-`deploy/proxies` do; see [Reverse proxy](./docs/operations/reverse-proxy.mdx).
+| Layer | Technology |
+| --- | --- |
+| Backend | Go 1.27, Chi, pgx, sqlc, River jobs, transactional outbox, OpenAPI, OpenTelemetry |
+| Data | PostgreSQL 18 with Atlas migrations, Valkey 9 |
+| Web | Next.js 16, React 19, TypeScript 7, Tailwind CSS 4, shadcn/ui, SWR |
+| Tooling | Bun workspaces, Biome, Orval, Mintlify, Playwright, Testcontainers |
+| Delivery | GitHub Actions, Release Please, Renovate, Trivy, Gitleaks, CodeQL, Cosign-signed images |
 
-On first start the API writes a one-time setup token to its log. Redeem it at
-`/admin/setup` to create the first owner; see [Admin panel](./docs/operations/admin-panel.mdx).
-- ❤️ API health: [http://localhost:8080/healthz](http://localhost:8080/healthz)
-
-For complete configuration and deployment guidance, see the [quick-start documentation](./docs/getting-started/quickstart.mdx).
-
-## 🗂️ Repository layout
+<details>
+<summary>🗂️ Project layout</summary>
 
 ```text
-apps/web/             Unified customer and admin Next.js application
+apps/web/             Customer (/account) and operator (/admin) Next.js app
 cmd/api/              REST API process
 cmd/bot/              Telegram bot process
-cmd/worker/           River background worker
-internal/botapp/      Telegram navigation, rendering, and identity linking
-internal/remnawave/   Versioned Remnawave HTTP adapter
+cmd/worker/           Background worker: fulfillment, renewals, backups, reports
+cmd/migrate-bedolaga/ Import from a Bedolaga database
+internal/             Domain packages: commerce, payments, botapp, remnawave, …
 packages/api-client/  Generated Fetch, SWR, and Zod bindings
 packages/ui/          Shared shadcn component system
-database/             Desired schema, Atlas migrations, and sqlc queries
-docs/                 Mintlify documentation
-deploy/proxies/       Optional reverse-proxy examples
+database/             Schema, Atlas migrations, and sqlc queries
+deploy/               Reverse-proxy examples, observability, Bedolaga migration scripts
+docs/                 Mintlify documentation in English and Russian
 ```
 
-## 🔭 Roadmap
+</details>
 
-The complete versioned delivery contract is maintained in [ROADMAP.md](./ROADMAP.md). The mandatory order is Telegram bot and backend, then the admin panel, then the customer panel.
+## 🌍 Localization
 
-- [x] Go, PostgreSQL, Valkey, Atlas, River, and OpenAPI foundation
-- [x] Remnawave 3.4.11 client boundary and exact Telegram account linking
-- [x] Telegram subscription, security, devices, preferences, alerts, referrals, and support UX
-- [x] Unified customer/admin Next.js application and shared components
-- [x] Plans, orders, payments, refunds, wallet ledger, entitlements, and Remnawave fulfillment backend
-- [x] Telegram plan discovery, checkout, renewals, and post-payment lifecycle UX
-- [x] Telegram support desk, news inbox, communication consent, and referral reward policies
-- [x] Operator authentication, two-factor, passkeys, optional OIDC, RBAC enforcement, and audit search
-- [x] Responsive `/admin` shell with command search, localization, and URL-backed filters
-- [x] Operator dashboard, customer, subscription, catalogue, finance, risk, and job workflows
-- [x] Customer-facing gift, digital-goods, and auto-renew flows in the bot
-- [x] Operator support desk, audience segments, campaigns, referrals, and loyalty
-- [x] Installation settings, diagnostics, and telemetry preview without SQL access
-- [x] Optional AI features and MCP connections, off until an owner configures them
-- [x] End-to-end browser coverage with accessibility, layout, and localization gates
-- [x] Customer web panel: sign-in, dashboard, and subscription management
-- [x] Customer web checkout, shop, support, and referrals
-- [x] 1.0: compatibility matrix, signed release artifacts, reliability runbooks, and the complete public documentation set
-- [x] Post-1.0 product gaps: branding and presentation, reporting and growth measurement, content and communication, and identity and lifecycle
+The bot, both web panels, and the documentation are complete in **Russian** and **English**. Ukrainian, Chinese, and Persian are partly translated: navigation, settings, and errors are covered, and anything else falls back to English. The operator chooses which languages customers can pick.
 
-Restores are rehearsed with `tools/restore-drill.sh`, which passes against a
-live installation.
+## 📡 Privacy and telemetry
 
-## 📡 Anonymous telemetry
-
-Privacy-preserving installation telemetry is enabled by default to help prioritize compatibility and features across the open-source community. It never includes customer identities, Telegram IDs, payment values, VPN traffic, domains, tokens, links, or message content.
-
-Disable all telemetry requests with:
+Anonymous installation telemetry is on by default and helps decide what to build next. It never includes customer identities, Telegram IDs, payment amounts, traffic, domains, tokens, links, or message text. Turn it off with:
 
 ```bash
 APP_TELEMETRY_ENABLED=false
 ```
 
-The exact payload, retention policy, and opt-out behavior are documented in [Anonymous telemetry](./docs/operations/telemetry.mdx).
+The exact payload is shown in the operator panel before anything is sent; see [Anonymous telemetry](./docs/operations/telemetry.mdx). Advertising measurement for your own storefront is a separate switch, off by default, reported only to your own analytics provider; see [Advertising measurement](./docs/operations/advertising-measurement.mdx).
 
-This is not the same thing as the advertising measurement an operator can turn on for their own storefront. That is **off** by default, is never reported to this project or to anybody but the operator's own analytics provider, renders only for a visitor who agreed to it, and uploads nothing anywhere — the conversion export is a file the operator downloads and hands over themselves. See [Advertising measurement](./docs/operations/advertising-measurement.mdx).
+## 🗺️ Known limitations
+
+- 📅 No daily plans with daily charging, and no plan switch that credits the unused remainder yet.
+- 💸 Payments always open the provider's page; paying by SBP QR code inside the bot is not supported yet.
+- 🍏 Apple In-App Purchase waits for a native app ([decision 0014](./docs/architecture/decision-0014-apple-iap-native-only.mdx)).
+- 🧭 Node management, per-node traffic limits, and Omniflow's own traffic accounting are deliberately left to Remnawave.
+
+Everything still open is tracked in [`BACKLOG.md`](./BACKLOG.md) and [`ROADMAP.md`](./ROADMAP.md).
 
 ## 🤝 Contributing
 
-Contributions are welcome. Before opening a pull request:
+Contributions are welcome. Read [CONTRIBUTING.md](./CONTRIBUTING.md) and [AGENTS.md](./AGENTS.md), check the [architecture](./docs/architecture/overview.mdx) and the ownership boundary, run the relevant `make help` targets, and use a focused [Conventional Commit](https://www.conventionalcommits.org/). Building on top of Omniflow rather than in it? The [extension policy](./docs/integrations/extending.mdx) says which surfaces are stable.
 
-1. Read [CONTRIBUTING.md](./CONTRIBUTING.md) and [AGENTS.md](./AGENTS.md).
-2. Review the [architecture](./docs/architecture/overview.mdx), the ownership boundaries, and the [decision records](./docs/architecture/decisions.mdx) that constrain what a change may do.
-3. Run the relevant commands from `make help`.
-4. Use a focused [Conventional Commit](https://www.conventionalcommits.org/) — the type decides the next version, as described in the [release process](./docs/contributing/releases.mdx).
-
-Building against Omniflow rather than on it? [Extension policy](./docs/integrations/extending.mdx) says which surfaces are public and stable, what you can plug in with configuration alone, and what deliberately cannot be extended.
-
-Questions, bug reports, and feature proposals each have their own route — see [SUPPORT.md](./SUPPORT.md).
-
-Please report security vulnerabilities privately using [SECURITY.md](./SECURITY.md), not public issues.
+Questions and bug reports go through [SUPPORT.md](./SUPPORT.md). Report security issues privately as described in [SECURITY.md](./SECURITY.md).
 
 ## 📄 License
 
-Copyright © 2026 Omniflow contributors.
-
-Licensed under the **Apache License, Version 2.0**. You may use, modify, and distribute this project under the terms in [LICENSE](./LICENSE).
+Omniflow is released under the [Apache License 2.0](./LICENSE). Copyright © 2026 Omniflow contributors.
