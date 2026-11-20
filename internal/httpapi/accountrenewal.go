@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/omniflow/omniflow/internal/accountcheckout"
+	"github.com/omniflow/omniflow/internal/recurringpg"
 )
 
 // mountRenewal exposes automatic renewal and saved payment methods to the
@@ -41,12 +42,14 @@ func (handlers *AccountHandlers) updateRenewal(writer http.ResponseWriter, reque
 		Enabled       *bool  `json:"enabled"`
 		Funding       string `json:"funding"`
 		LeadTimeHours int    `json:"leadTimeHours"`
+		PeriodDays    *int   `json:"periodDays"`
 	}
 	if !decodeJSON(writer, request, &body) {
 		return
 	}
 	err := handlers.checkout.SetRenewal(request.Context(), principal.Customer.ID, chi.URLParam(request, "subscriptionID"), accountcheckout.RenewalInput{
 		Enabled: body.Enabled, Funding: body.Funding, LeadTime: time.Duration(body.LeadTimeHours) * time.Hour,
+		PeriodDays: body.PeriodDays,
 	})
 	if handlers.writeRenewalError(writer, request, err) {
 		return
@@ -82,6 +85,8 @@ func (handlers *AccountHandlers) writeRenewalError(writer http.ResponseWriter, r
 		writeProblem(writer, request, http.StatusUnprocessableEntity, "recurring_unavailable", "No payment method can renew this subscription automatically")
 	case errors.Is(err, accountcheckout.ErrNoSavedMethod):
 		writeProblem(writer, request, http.StatusUnprocessableEntity, "no_saved_method", "Save a card on a payment first")
+	case errors.Is(err, accountcheckout.ErrRenewalPeriodUnavailable):
+		writeProblem(writer, request, http.StatusUnprocessableEntity, "period_unavailable", "That period is not offered for renewal")
 	default:
 		return handlers.writeCheckoutError(writer, request, err)
 	}
@@ -102,7 +107,9 @@ func renewalPayload(overview accountcheckout.RenewalOverview) map[string]any {
 			"subscriptionId": entry.Target.ID, "label": entry.Target.Label, "planName": entry.Target.PlanName,
 			"supported": entry.Supported, "enabled": entry.Settings.Enabled, "funding": entry.Settings.Funding,
 			"leadTimeHours": int(entry.Settings.LeadTime / time.Hour), "state": entry.Settings.State,
-			"methodLabel": entry.Settings.MethodLabel,
+			"methodLabel": entry.Settings.MethodLabel, "periodDays": entry.Settings.PeriodDays,
+			"currency": entry.Settings.Currency,
+			"periods":  renewalPeriodsPayload(entry.Periods),
 		}
 		if !entry.Target.EndsAt.IsZero() {
 			item["endsAt"] = entry.Target.EndsAt
@@ -110,4 +117,12 @@ func renewalPayload(overview accountcheckout.RenewalOverview) map[string]any {
 		subscriptions = append(subscriptions, item)
 	}
 	return map[string]any{"available": overview.Available, "methods": methods, "subscriptions": subscriptions}
+}
+
+func renewalPeriodsPayload(periods []recurringpg.RenewalPeriod) []map[string]any {
+	payload := make([]map[string]any, 0, len(periods))
+	for _, period := range periods {
+		payload = append(payload, map[string]any{"days": period.Days, "amountMinor": period.AmountMinor, "own": period.Own})
+	}
+	return payload
 }

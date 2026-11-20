@@ -28,6 +28,9 @@ type autoRenewScreen struct {
 	// so the screen never leaves "which one?" to be guessed.
 	SubscriptionLabel string
 	Supported         bool
+	// Periods is what an enabled renewal may buy. A choice is offered only
+	// when there is more than one.
+	Periods []RenewalPeriod
 	// BackRoute is where "Back" leads: the settings screen on a
 	// single-subscription installation, the subscription picker otherwise.
 	BackRoute string
@@ -97,6 +100,9 @@ func autoRenewSettingsView(locale Locale, screen autoRenewScreen) View {
 	body := heading + text(locale, "renew.on", html.EscapeString(screen.PlanName), providerLabel(locale, settings.Provider)) +
 		"\n\n" + text(locale, "renew.funding", fundingLabel(locale, settings, methods)) +
 		"\n" + text(locale, "renew.lead", leadDays(settings.LeadTime))
+	if len(screen.Periods) > 1 {
+		body += "\n" + text(locale, "renew.period", periodLabel(locale, settings, screen.Periods))
+	}
 	if len(methods) == 0 {
 		// No card is on file, so the wallet is the only place a charge can come
 		// from. Saying so here is what keeps the screen honest: the saved-method
@@ -133,6 +139,9 @@ func autoRenewSettingsView(locale Locale, screen autoRenewScreen) View {
 		leadRow = append(leadRow, actionButton(label, renewCallback(fmt.Sprintf("renew-lead:%d", days), subscription)))
 	}
 	rows = append(rows, leadRow)
+	if len(screen.Periods) > 1 {
+		rows = append(rows, periodRows(locale, settings, screen.Periods)...)
+	}
 	if len(methods) > 0 {
 		rows = append(rows, row(callbackButton(text(locale, "renew.methods"), routeMethods)))
 	}
@@ -239,4 +248,41 @@ func leadDays(lead time.Duration) int {
 		return 1
 	}
 	return days
+}
+
+// periodLabel names the period the next renewal buys.
+func periodLabel(locale Locale, settings RenewalSettings, periods []RenewalPeriod) string {
+	for _, period := range periods {
+		if period.Days == settings.PeriodDays {
+			return text(locale, "renew.periodDays", period.Days, formatMoney(period.AmountMinor, settings.Currency))
+		}
+	}
+	return text(locale, "renew.periodAsBought")
+}
+
+// periodRows offers the renewal periods three to a row, the current choice
+// marked, with "as bought" first.
+func periodRows(locale Locale, settings RenewalSettings, periods []RenewalPeriod) [][]models.InlineKeyboardButton {
+	mark := func(selected bool, label string) string {
+		if selected {
+			return "• " + label
+		}
+		return label
+	}
+	subscription := settings.SubscriptionID
+	buttons := []models.InlineKeyboardButton{
+		actionButton(mark(settings.PeriodDays == 0, text(locale, "renew.periodAsBought")), renewCallback("renew-days:0", subscription)),
+	}
+	for _, period := range periods {
+		buttons = append(buttons, actionButton(
+			mark(settings.PeriodDays == period.Days, text(locale, "renew.periodShort", period.Days)),
+			renewCallback(fmt.Sprintf("renew-days:%d", period.Days), subscription)))
+	}
+	rows := make([][]models.InlineKeyboardButton, 0, (len(buttons)+2)/3)
+	for len(buttons) > 0 {
+		size := min(3, len(buttons))
+		rows = append(rows, buttons[:size])
+		buttons = buttons[size:]
+	}
+	return rows
 }

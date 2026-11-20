@@ -6671,16 +6671,28 @@ type AccountSubscriptionPhase string
 
 // AccountSubscriptionRenewal defines model for AccountSubscriptionRenewal.
 type AccountSubscriptionRenewal struct {
-	Enabled        bool                              `json:"enabled"`
-	EndsAt         *time.Time                        `json:"endsAt,omitempty"`
-	Funding        AccountSubscriptionRenewalFunding `json:"funding"`
-	Label          string                            `json:"label"`
-	LeadTimeHours  int                               `json:"leadTimeHours"`
-	MethodLabel    string                            `json:"methodLabel"`
-	PlanName       string                            `json:"planName"`
-	State          AccountSubscriptionRenewalState   `json:"state"`
-	SubscriptionId openapi_types.UUID                `json:"subscriptionId"`
-	Supported      bool                              `json:"supported"`
+	// Currency The renewal currency; empty while renewal is off.
+	Currency      *string                           `json:"currency,omitempty"`
+	Enabled       bool                              `json:"enabled"`
+	EndsAt        *time.Time                        `json:"endsAt,omitempty"`
+	Funding       AccountSubscriptionRenewalFunding `json:"funding"`
+	Label         string                            `json:"label"`
+	LeadTimeHours int                               `json:"leadTimeHours"`
+	MethodLabel   string                            `json:"methodLabel"`
+
+	// PeriodDays The period the renewal buys, in days. 0 repeats the period last bought.
+	PeriodDays int `json:"periodDays"`
+
+	// Periods What an enabled renewal may buy: the plan's own duration (`own`) and every period offered for renewal, priced in the renewal currency. Empty while renewal is off.
+	Periods []struct {
+		AmountMinor int64 `json:"amountMinor"`
+		Days        int   `json:"days"`
+		Own         bool  `json:"own"`
+	} `json:"periods"`
+	PlanName       string                          `json:"planName"`
+	State          AccountSubscriptionRenewalState `json:"state"`
+	SubscriptionId openapi_types.UUID              `json:"subscriptionId"`
+	Supported      bool                            `json:"supported"`
 }
 
 // AccountSubscriptionRenewalFunding defines model for AccountSubscriptionRenewal.Funding.
@@ -10882,6 +10894,9 @@ type UpdateAccountRenewalJSONBody struct {
 	Enabled       *bool                                `json:"enabled,omitempty"`
 	Funding       *UpdateAccountRenewalJSONBodyFunding `json:"funding,omitempty"`
 	LeadTimeHours *int                                 `json:"leadTimeHours,omitempty"`
+
+	// PeriodDays One of the subscription's `periods`; 0 repeats the period last bought.
+	PeriodDays *int `json:"periodDays,omitempty"`
 }
 
 // UpdateAccountRenewalParams defines parameters for UpdateAccountRenewal.

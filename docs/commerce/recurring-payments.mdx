@@ -138,6 +138,23 @@ The bot offers one, three, or seven days rather than a free-text duration,
 because the only question a customer is really answering is how much warning
 they want if the card fails.
 
+## Renewal period
+
+A plan sold for several periods (see [Catalog and promotions](/commerce/catalog-promotions)) can be renewed
+for any of the periods offered for renewal, not only the one the customer last
+bought. Each subscription's renewal screen — in the bot and on the web panel's
+**Auto-renewal** page — lists the plan's own duration and every period marked
+*for renewal*, with its price, once auto-renew is on. A plan with a single
+renewal period offers no choice.
+
+The choice is stored in `auto_renew_settings.period_days`. Nothing chosen (the
+default, and "as last bought" on the screen) keeps the earlier rule: the renewal
+repeats the period the subscription's last paid order bought. The worker
+re-checks the choice when it opens the cycle's order; a period the operator has
+since withdrawn falls back to that rule rather than failing the renewal.
+Switching auto-renew off forgets the choice along with the plan and currency it
+was checked against, so turning it on again starts from "as last bought".
+
 ## Low-balance warning
 
 A wallet-funded renewal that the balance will not cover is announced before its first charge
@@ -321,6 +338,7 @@ on a single-subscription installation it resolves to the primary one.
 | Disable | `autorenew:off:<subscriptionID>` | Clears consent, sets state `idle`, stamps `cancelled_at`, and leaves saved methods alone |
 | Funding | `renew-funding:wallet:<subscriptionID>`, `renew-funding:saved_method:<subscriptionID>` | Chooses where the charge comes from. The saved-method button is rendered only when a method is saved |
 | Lead time | `renew-lead:1:<subscriptionID>`, `:3:…`, `:7:…` | Days of warning before expiry |
+| Renewal period | `renew-days:<days>:<subscriptionID>`; `renew-days:0:…` is "as last bought" | Shown only when the plan offers more than one renewal period |
 | Payment methods | `methods` route | List, `method-default:<id>`, `method-remove:<id>` |
 
 If no enabled provider declares recurring support for the customer's currency,

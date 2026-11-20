@@ -412,7 +412,14 @@ var catalog = map[string]phrase{
 	"renew.fromWallet": {ru: "Баланс", en: "Wallet"},
 	"renew.fromMethod": {ru: "Сохранённая карта", en: "Saved card"},
 	"renew.leadDays":   {ru: "%d дн.", en: "%d d"},
-	"renew.methods":    {ru: "💳 Способы оплаты", en: "💳 Payment methods"},
+	// The period each renewal buys. "As bought" repeats the period the
+	// subscription was last paid for, which is what renewal did before the
+	// choice existed.
+	"renew.period":         {ru: "Период продления: <b>%s</b>", en: "Renewal period: <b>%s</b>"},
+	"renew.periodAsBought": {ru: "как при покупке", en: "as last bought"},
+	"renew.periodDays":     {ru: "%d дн. · %s", en: "%d d · %s"},
+	"renew.periodShort":    {ru: "%d дн.", en: "%d d"},
+	"renew.methods":        {ru: "💳 Способы оплаты", en: "💳 Payment methods"},
 	"renew.noMethod": {ru: "У вас нет сохранённого способа оплаты. Он появится после оплаты картой с включённым автопродлением.",
 		en: "You have no saved payment method. One appears after you pay by card with auto-renew turned on."},
 	"renew.dunning": {ru: "⚠️ Последнее списание не прошло. Мы попробуем ещё раз автоматически.",

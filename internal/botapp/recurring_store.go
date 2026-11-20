@@ -13,9 +13,13 @@ type (
 	AutoRenew       = recurringpg.AutoRenew
 	SavedMethod     = recurringpg.SavedMethod
 	RenewalSettings = recurringpg.RenewalSettings
+	RenewalPeriod   = recurringpg.RenewalPeriod
 )
 
-var errNoSavedMethod = recurringpg.ErrNoSavedMethod
+var (
+	errNoSavedMethod     = recurringpg.ErrNoSavedMethod
+	errPeriodUnavailable = recurringpg.ErrPeriodUnavailable
+)
 
 func (store *PostgresStore) renewals() *recurringpg.Store { return recurringpg.New(store.pool) }
 
@@ -57,4 +61,14 @@ func (store *PostgresStore) SetRenewalLeadTime(ctx context.Context, customerID, 
 // RenewalSettings reads one subscription's auto-renew configuration.
 func (store *PostgresStore) RenewalSettings(ctx context.Context, customerID, subscriptionID string) (RenewalSettings, error) {
 	return store.renewals().RenewalSettings(ctx, customerID, subscriptionID)
+}
+
+// RenewalPeriods lists what a plan version may be renewed for.
+func (store *PostgresStore) RenewalPeriods(ctx context.Context, planVersionID, currency string) ([]RenewalPeriod, error) {
+	return store.renewals().RenewalPeriods(ctx, planVersionID, currency)
+}
+
+// SetRenewalPeriod chooses the period one subscription's renewal buys.
+func (store *PostgresStore) SetRenewalPeriod(ctx context.Context, customerID, subscriptionID string, days int) error {
+	return store.renewals().SetRenewalPeriod(ctx, customerID, subscriptionID, days)
 }

@@ -76,15 +76,55 @@ func recordOrderPeriod(ctx context.Context, queries *dbgen.Queries, order dbgen.
 	return order, nil
 }
 
+// chosenRenewalPeriod is the period the customer chose for the subscription's
+// automatic renewal: zero for the version's own duration, the days for one of
+// its renewal periods, and -1 when nothing is chosen or the choice is no
+// longer offered, which leaves the decision to the period last bought.
+func (store *Store) chosenRenewalPeriod(ctx context.Context, queries *dbgen.Queries, subscription pgtype.UUID, planVersionID, currency string) (int, error) {
+	var days pgtype.Int4
+	err := store.pool.QueryRow(ctx, `SELECT period_days FROM auto_renew_settings
+		WHERE subscription_id = $1 AND enabled`, subscription).Scan(&days)
+	if errors.Is(err, pgx.ErrNoRows) || err == nil && !days.Valid {
+		return -1, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	versionID, err := parseUUID(planVersionID)
+	if err != nil {
+		return -1, nil
+	}
+	plan, err := queries.GetPlanVersionForOrder(ctx, dbgen.GetPlanVersionForOrderParams{PlanVersionID: versionID, Currency: currency})
+	if err != nil {
+		return -1, nil
+	}
+	if int64(days.Int32)*86_400 == plan.DurationSeconds {
+		return 0, nil
+	}
+	options, custom, err := periodOptions(ctx, queries, plan)
+	if err != nil {
+		return 0, err
+	}
+	if _, _, resolveErr := commerce.ResolvePeriod(int(days.Int32), "renewal", options, custom); resolveErr != nil {
+		return -1, nil
+	}
+	return int(days.Int32), nil
+}
+
 // RenewalPeriodDays is the period an automatic renewal of a subscription
-// repeats: the one its last paid order bought, when the version still offers
-// it for renewal, and otherwise the version's own (zero).
+// buys: the one the customer chose for it, when the version still offers it
+// for renewal; otherwise the one its last paid order bought, under the same
+// condition; and otherwise the version's own (zero).
 func (store *Store) RenewalPeriodDays(ctx context.Context, subscriptionID, planVersionID, currency string) (int, error) {
 	subscription, err := parseUUID(subscriptionID)
 	if err != nil {
 		return 0, nil
 	}
 	queries := dbgen.New(store.pool)
+	chosen, err := store.chosenRenewalPeriod(ctx, queries, subscription, planVersionID, currency)
+	if err != nil || chosen >= 0 {
+		return max(chosen, 0), err
+	}
 	last, err := queries.LastOrderPeriod(ctx, subscription)
 	if errors.Is(err, pgx.ErrNoRows) || err == nil && !last.Valid {
 		return 0, nil

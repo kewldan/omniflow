@@ -14,6 +14,7 @@ import { useProblemMessage } from "@/components/account/commerce/reasons";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
 import { Timestamp } from "@/components/intl/timestamp";
 import { apiFetch, fetcher } from "@/lib/api";
+import { useMoney } from "@/lib/format";
 import { providerKey } from "@/lib/payment-providers";
 
 type SavedMethod = {
@@ -36,6 +37,15 @@ type SubscriptionRenewal = {
   leadTimeHours: number;
   state: "idle" | "scheduled" | "dunning" | "suspended";
   methodLabel: string;
+  periodDays: number;
+  currency: string;
+  periods: RenewalPeriod[];
+};
+
+type RenewalPeriod = {
+  days: number;
+  amountMinor: number;
+  own: boolean;
 };
 
 type Renewal = {
@@ -60,6 +70,7 @@ const ENDPOINT = "/v1/account/renewal";
 export default function RenewalPage() {
   const translate = useTranslations("account.commerce.renewal");
   const describeProblem = useProblemMessage();
+  const money = useMoney();
   const { data, error, isLoading, mutate } = useSWR<Renewal>(ENDPOINT, fetcher);
   const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState<SavedMethod | null>(null);
@@ -189,6 +200,33 @@ export default function RenewalPage() {
                         </SelectContent>
                       </Select>
                     </div>
+                    {entry.periods.length > 1 && (
+                      <div className="space-y-1 sm:col-span-2">
+                        <p className="text-[12.5px] text-muted-foreground">{translate("period")}</p>
+                        <Select
+                          disabled={busy}
+                          onValueChange={(days) =>
+                            change(entry.subscriptionId, { periodDays: Number(days) })
+                          }
+                          value={String(entry.periodDays)}
+                        >
+                          <SelectTrigger aria-label={translate("period")}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="0">{translate("periodRepeat")}</SelectItem>
+                            {entry.periods.map((period) => (
+                              <SelectItem key={period.days} value={String(period.days)}>
+                                {translate("periodOption", {
+                                  days: period.days,
+                                  price: money(period.amountMinor, entry.currency),
+                                })}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
                 )}
               </li>

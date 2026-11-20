@@ -4619,6 +4619,12 @@ export const AccountSubscriptionRenewalState = {
   suspended: "suspended",
 } as const;
 
+export type AccountSubscriptionRenewalPeriodsItem = {
+  days: number;
+  amountMinor: number;
+  own: boolean;
+};
+
 export interface AccountSubscriptionRenewal {
   subscriptionId: string;
   label: string;
@@ -4630,6 +4636,12 @@ export interface AccountSubscriptionRenewal {
   leadTimeHours: number;
   state: AccountSubscriptionRenewalState;
   methodLabel: string;
+  /** The period the renewal buys, in days. 0 repeats the period last bought. */
+  periodDays: number;
+  /** The renewal currency; empty while renewal is off. */
+  currency?: string;
+  /** What an enabled renewal may buy: the plan's own duration (`own`) and every period offered for renewal, priced in the renewal currency. Empty while renewal is off. */
+  periods: AccountSubscriptionRenewalPeriodsItem[];
 }
 
 export interface AccountRenewal {
@@ -7315,6 +7327,12 @@ export type UpdateAccountRenewalBody = {
    * @maximum 336
    */
   leadTimeHours?: number;
+  /**
+   * One of the subscription's `periods`; 0 repeats the period last bought.
+   * @minimum 0
+   * @maximum 3650
+   */
+  periodDays?: number;
 };
 
 export type StartAccountTopUpBody = {
@@ -32844,7 +32862,7 @@ export const getUpdateAccountRenewalUrl = (subscriptionID: string) => {
 };
 
 /**
- * Turns automatic renewal on or off for one of the customer's own subscriptions, chooses whether it is paid from the wallet or a saved method, and sets how many hours before expiry it is attempted (clamped to at most 14 days). Turning it on records the customer's consent. `422 recurring_unavailable` when no configured method can charge the plan again; `422 no_saved_method` when card funding is chosen with no saved card.
+ * Turns automatic renewal on or off for one of the customer's own subscriptions, chooses whether it is paid from the wallet or a saved method, sets how many hours before expiry it is attempted (clamped to at most 14 days), and chooses the period each renewal buys. Turning it on records the customer's consent. `422 recurring_unavailable` when no configured method can charge the plan again; `422 no_saved_method` when card funding is chosen with no saved card; `422 period_unavailable` for a period the plan does not offer for renewal or while renewal is off.
  */
 export const updateAccountRenewal = async (
   subscriptionID: string,

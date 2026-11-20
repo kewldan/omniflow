@@ -784,6 +784,14 @@ func (app *App) autoRenewScreenFor(ctx context.Context, session commerceContext,
 		return app.errorView(session.Locale, routeSettings)
 	}
 	screen := autoRenewScreen{Settings: settings, Methods: methods, Supported: supported, BackRoute: routeSettings}
+	if settings.Enabled {
+		periods, periodErr := app.customers.RenewalPeriods(ctx, settings.PlanVersionID, settings.Currency)
+		if periodErr != nil {
+			app.logger.Error("renewal period lookup failed", "error", periodErr)
+			return app.errorView(session.Locale, routeSettings)
+		}
+		screen.Periods = periods
+	}
 	if target.ID != "" {
 		entitlement, entitlementErr := app.customers.EntitlementForSubscription(ctx, session.Customer.ID, target.ID, session.Locale, app.settings.Currency)
 		if entitlementErr != nil {
@@ -846,6 +854,26 @@ func (app *App) setRenewalLeadTime(ctx context.Context, session commerceContext,
 		ctx, session.Customer.ID, target.ID, time.Duration(parsed)*24*time.Hour,
 	); err != nil {
 		app.logger.Error("renewal lead time update failed", "error", err)
+		return app.errorView(session.Locale, routeSettings)
+	}
+	return app.autoRenewScreenFor(ctx, session, target.ID)
+}
+
+// setRenewalPeriod chooses the period the subscription's renewal buys. A
+// period the plan does not offer for renewal leaves the setting as it was.
+func (app *App) setRenewalPeriod(ctx context.Context, session commerceContext, days, subscriptionID string) View {
+	target, err := app.renewalTarget(ctx, session, subscriptionID)
+	if err != nil {
+		app.logger.Error("subscription lookup failed", "error", err)
+		return app.errorView(session.Locale, routeSettings)
+	}
+	parsed, err := strconv.Atoi(days)
+	if err != nil || parsed < 0 {
+		return app.autoRenewScreenFor(ctx, session, target.ID)
+	}
+	err = app.customers.SetRenewalPeriod(ctx, session.Customer.ID, target.ID, parsed)
+	if err != nil && !errors.Is(err, errPeriodUnavailable) {
+		app.logger.Error("renewal period update failed", "error", err)
 		return app.errorView(session.Locale, routeSettings)
 	}
 	return app.autoRenewScreenFor(ctx, session, target.ID)
@@ -973,6 +1001,8 @@ func (app *App) handleCommerceAction(ctx context.Context, session commerceContex
 		return app.setRenewalFunding(ctx, session, fundingFromCallback(argument), argumentAt(parts, 2)), true
 	case "renew-lead":
 		return app.setRenewalLeadTime(ctx, session, argument, argumentAt(parts, 2)), true
+	case "renew-days":
+		return app.setRenewalPeriod(ctx, session, argument, argumentAt(parts, 2)), true
 	case "method-default":
 		return app.setDefaultMethod(ctx, session, argument), true
 	case "method-remove":
@@ -1364,6 +1394,7 @@ var commerceActions = func() map[string]bool {
 		"ticket-close": true, "ticket-open": true, "support-new": true, "connect": true,
 		"pages": true, "page": true,
 		"autorenew": true, "renew-settings": true, "renew-funding": true, "renew-lead": true,
+		"renew-days":     true,
 		"method-default": true, "method-remove": true,
 		"quiet": true, "quiet-menu": true, "tz-menu": true, "tz": true, "invoice": true,
 		"ref-qr": true,

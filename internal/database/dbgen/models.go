@@ -470,6 +470,7 @@ type AutoRenewSetting struct {
 	State           string             `json:"state"`
 	LastAttemptAt   pgtype.Timestamptz `json:"last_attempt_at"`
 	LastFailureCode pgtype.Text        `json:"last_failure_code"`
+	PeriodDays      pgtype.Int4        `json:"period_days"`
 }
 
 type Backup struct {

@@ -1169,11 +1169,13 @@ CREATE TABLE public.auto_renew_settings (
     state text DEFAULT 'idle'::text NOT NULL,
     last_attempt_at timestamp with time zone,
     last_failure_code text,
+    period_days integer,
     CONSTRAINT auto_renew_settings_check CHECK (((NOT enabled) OR ((plan_version_id IS NOT NULL) AND (provider IS NOT NULL) AND (currency IS NOT NULL)))),
     CONSTRAINT auto_renew_settings_consent_recorded CHECK (((enabled = false) OR (consent_at IS NOT NULL))),
     CONSTRAINT auto_renew_settings_currency_check CHECK (((currency IS NULL) OR (currency ~ '^[A-Z]{3}$'::text))),
     CONSTRAINT auto_renew_settings_funding_check CHECK ((funding = ANY (ARRAY['wallet'::text, 'saved_method'::text]))),
     CONSTRAINT auto_renew_settings_lead_time_seconds_check CHECK ((lead_time_seconds >= 0)),
+    CONSTRAINT auto_renew_settings_period_days_range CHECK (((period_days IS NULL) OR ((period_days >= 1) AND (period_days <= 3650)))),
     CONSTRAINT auto_renew_settings_provider_check CHECK ((provider = ANY (ARRAY['manual'::text, 'telegram_stars'::text, 'cryptobot'::text, 'yookassa'::text, 'heleket'::text, 'mulenpay'::text, 'pal24'::text, 'platega'::text, 'cashera'::text, 'tribute'::text, 'freekassa'::text, 'kassa_ai'::text, 'riopay'::text, 'severpay'::text, 'rollypay'::text, 'aurapay'::text, 'wata'::text, 'cloudpayments'::text, 'lava'::text, 'overpay'::text, 'paritypay'::text, 'payhot'::text, 'cispay'::text, 'antilopay'::text, 'anore'::text, 'donut'::text, 'etoplatezhi'::text, 'jupiter'::text, 'tabpay'::text]))),
     CONSTRAINT auto_renew_settings_saved_method_present CHECK (((funding <> 'saved_method'::text) OR (payment_method_id IS NOT NULL))),
     CONSTRAINT auto_renew_settings_state_check CHECK ((state = ANY (ARRAY['idle'::text, 'scheduled'::text, 'dunning'::text, 'suspended'::text])))

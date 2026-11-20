@@ -154,7 +154,7 @@ func (q *Queries) FailPaymentMethodsFromIntent(ctx context.Context, paymentInten
 
 const getAutoRenewSettings = `-- name: GetAutoRenewSettings :one
 
-SELECT user_id, enabled, plan_version_id, provider, currency, cancelled_at, updated_at, subscription_id, payment_method_id, funding, lead_time_seconds, consent_at, state, last_attempt_at, last_failure_code FROM auto_renew_settings
+SELECT user_id, enabled, plan_version_id, provider, currency, cancelled_at, updated_at, subscription_id, payment_method_id, funding, lead_time_seconds, consent_at, state, last_attempt_at, last_failure_code, period_days FROM auto_renew_settings
 WHERE user_id = $1
   AND subscription_id IS NOT DISTINCT FROM $2::uuid
 `
@@ -186,6 +186,7 @@ func (q *Queries) GetAutoRenewSettings(ctx context.Context, arg GetAutoRenewSett
 		&i.State,
 		&i.LastAttemptAt,
 		&i.LastFailureCode,
+		&i.PeriodDays,
 	)
 	return i, err
 }
@@ -295,7 +296,7 @@ func (q *Queries) GetPaymentMethod(ctx context.Context, id pgtype.UUID) (Payment
 
 const listAutoRenewDue = `-- name: ListAutoRenewDue :many
 SELECT
-  a.user_id, a.enabled, a.plan_version_id, a.provider, a.currency, a.cancelled_at, a.updated_at, a.subscription_id, a.payment_method_id, a.funding, a.lead_time_seconds, a.consent_at, a.state, a.last_attempt_at, a.last_failure_code,
+  a.user_id, a.enabled, a.plan_version_id, a.provider, a.currency, a.cancelled_at, a.updated_at, a.subscription_id, a.payment_method_id, a.funding, a.lead_time_seconds, a.consent_at, a.state, a.last_attempt_at, a.last_failure_code, a.period_days,
   e.id AS entitlement_id,
   e.ends_at AS entitlement_ends_at,
   ((e.id::text || ':' || extract(epoch FROM e.ends_at)::bigint::text))::text AS cycle_key
@@ -332,6 +333,7 @@ type ListAutoRenewDueRow struct {
 	State             string             `json:"state"`
 	LastAttemptAt     pgtype.Timestamptz `json:"last_attempt_at"`
 	LastFailureCode   pgtype.Text        `json:"last_failure_code"`
+	PeriodDays        pgtype.Int4        `json:"period_days"`
 	EntitlementID     pgtype.UUID        `json:"entitlement_id"`
 	EntitlementEndsAt pgtype.Timestamptz `json:"entitlement_ends_at"`
 	CycleKey          string             `json:"cycle_key"`
@@ -367,6 +369,7 @@ func (q *Queries) ListAutoRenewDue(ctx context.Context, pageSize int32) ([]ListA
 			&i.State,
 			&i.LastAttemptAt,
 			&i.LastFailureCode,
+			&i.PeriodDays,
 			&i.EntitlementID,
 			&i.EntitlementEndsAt,
 			&i.CycleKey,
@@ -969,7 +972,7 @@ SET state = $1,
     updated_at = now()
 WHERE user_id = $4
   AND subscription_id IS NOT DISTINCT FROM $5::uuid
-RETURNING user_id, enabled, plan_version_id, provider, currency, cancelled_at, updated_at, subscription_id, payment_method_id, funding, lead_time_seconds, consent_at, state, last_attempt_at, last_failure_code
+RETURNING user_id, enabled, plan_version_id, provider, currency, cancelled_at, updated_at, subscription_id, payment_method_id, funding, lead_time_seconds, consent_at, state, last_attempt_at, last_failure_code, period_days
 `
 
 type SetAutoRenewStateParams struct {
@@ -1005,6 +1008,7 @@ func (q *Queries) SetAutoRenewState(ctx context.Context, arg SetAutoRenewStatePa
 		&i.State,
 		&i.LastAttemptAt,
 		&i.LastFailureCode,
+		&i.PeriodDays,
 	)
 	return i, err
 }
@@ -1080,7 +1084,7 @@ SET enabled = EXCLUDED.enabled,
     cancelled_at = CASE WHEN EXCLUDED.enabled THEN NULL ELSE now() END,
     state = CASE WHEN EXCLUDED.enabled THEN 'scheduled' ELSE 'idle' END,
     updated_at = now()
-RETURNING user_id, enabled, plan_version_id, provider, currency, cancelled_at, updated_at, subscription_id, payment_method_id, funding, lead_time_seconds, consent_at, state, last_attempt_at, last_failure_code
+RETURNING user_id, enabled, plan_version_id, provider, currency, cancelled_at, updated_at, subscription_id, payment_method_id, funding, lead_time_seconds, consent_at, state, last_attempt_at, last_failure_code, period_days
 `
 
 type UpsertAutoRenewSettingsParams struct {
@@ -1127,6 +1131,7 @@ func (q *Queries) UpsertAutoRenewSettings(ctx context.Context, arg UpsertAutoRen
 		&i.State,
 		&i.LastAttemptAt,
 		&i.LastFailureCode,
+		&i.PeriodDays,
 	)
 	return i, err
 }

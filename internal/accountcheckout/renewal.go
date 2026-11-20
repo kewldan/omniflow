@@ -27,6 +27,8 @@ type SubscriptionRenewal struct {
 	Target    SubscriptionTarget
 	Settings  recurringpg.RenewalSettings
 	Supported bool
+	// Periods is what an enabled renewal may buy; empty while it is off.
+	Periods []recurringpg.RenewalPeriod
 }
 
 // RenewalOverview is everything the web panel's auto-renew screen shows: the
@@ -44,7 +46,13 @@ type RenewalInput struct {
 	Enabled  *bool
 	Funding  string
 	LeadTime time.Duration
+	// PeriodDays chooses the renewal period; zero clears the choice.
+	PeriodDays *int
 }
+
+// ErrRenewalPeriodUnavailable is returned for a renewal period the plan does
+// not offer for renewal.
+var ErrRenewalPeriodUnavailable = recurringpg.ErrPeriodUnavailable
 
 func (service *Service) renewals() *recurringpg.Store { return recurringpg.New(service.store.pool) }
 
@@ -74,9 +82,13 @@ func (service *Service) Renewal(ctx context.Context, customerID, locale string) 
 		if err != nil {
 			return RenewalOverview{}, err
 		}
-		overview.Subscriptions = append(overview.Subscriptions, SubscriptionRenewal{
-			Target: target, Settings: settings, Supported: supported,
-		})
+		entry := SubscriptionRenewal{Target: target, Settings: settings, Supported: supported}
+		if settings.Enabled {
+			if entry.Periods, err = service.renewals().RenewalPeriods(ctx, settings.PlanVersionID, settings.Currency); err != nil {
+				return RenewalOverview{}, err
+			}
+		}
+		overview.Subscriptions = append(overview.Subscriptions, entry)
 	}
 	return overview, nil
 }
@@ -120,6 +132,14 @@ func (service *Service) SetRenewal(ctx context.Context, customerID, subscription
 	}
 	if input.LeadTime > 0 {
 		if err = store.SetRenewalLeadTime(ctx, customerID, subscriptionID, input.LeadTime); err != nil {
+			return err
+		}
+	}
+	if input.PeriodDays != nil {
+		if *input.PeriodDays < 0 {
+			return ErrRenewalPeriodUnavailable
+		}
+		if err = store.SetRenewalPeriod(ctx, customerID, subscriptionID, *input.PeriodDays); err != nil {
 			return err
 		}
 	}

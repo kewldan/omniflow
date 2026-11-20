@@ -90,7 +90,7 @@ func (store *Store) SetAutoRenew(ctx context.Context, customerID string, setting
 			VALUES ($1::uuid, NULLIF($2, '')::uuid, false, now())
 			ON CONFLICT (user_id, subscription_id) DO UPDATE SET enabled = false, plan_version_id = NULL, provider = NULL,
 				currency = NULL, cancelled_at = now(), consent_at = NULL, state = 'idle',
-				updated_at = now()`, customerID, setting.SubscriptionID)
+				period_days = NULL, updated_at = now()`, customerID, setting.SubscriptionID)
 		return err
 	}
 	if setting.PlanVersionID == "" || setting.Provider == "" || setting.Currency == "" {
@@ -321,6 +321,9 @@ type RenewalSettings struct {
 	State       string
 	MethodLabel string
 	Consented   bool
+	// PeriodDays is the period the customer chose for the renewal. Zero
+	// repeats the period the subscription was last bought for.
+	PeriodDays int
 }
 
 // RenewalSettings reads one subscription's auto-renew configuration and the
@@ -337,16 +340,18 @@ func (store *Store) RenewalSettings(
 		consentAt     pgtype.Timestamptz
 		methodLabel   pgtype.Text
 		leadSeconds   int64
+		periodDays    pgtype.Int4
 	)
 	err := store.pool.QueryRow(ctx,
 		`SELECT a.enabled, a.plan_version_id::text, a.provider, a.currency, a.cancelled_at,
-		        a.funding, a.lead_time_seconds, a.state, a.consent_at, m.display_label
+		        a.funding, a.lead_time_seconds, a.state, a.consent_at, m.display_label,
+		        a.period_days
 		 FROM auto_renew_settings a
 		 LEFT JOIN payment_methods m ON m.id = a.payment_method_id
 		 WHERE a.user_id = $1::uuid
 		   AND a.subscription_id IS NOT DISTINCT FROM NULLIF($2, '')::uuid`, customerID, subscriptionID).
 		Scan(&settings.Enabled, &planVersionID, &provider, &currency, &cancelledAt,
-			&settings.Funding, &leadSeconds, &settings.State, &consentAt, &methodLabel)
+			&settings.Funding, &leadSeconds, &settings.State, &consentAt, &methodLabel, &periodDays)
 	if errors.Is(err, pgx.ErrNoRows) {
 		// No row is the documented default: auto-renew is off, funded from the
 		// wallet, with the standard lead time.
@@ -365,5 +370,94 @@ func (store *Store) RenewalSettings(
 	settings.LeadTime = time.Duration(leadSeconds) * time.Second
 	settings.MethodLabel = methodLabel.String
 	settings.Consented = consentAt.Valid
+	settings.PeriodDays = int(periodDays.Int32)
 	return settings, nil
+}
+
+// ErrPeriodUnavailable is returned for a renewal period the subscription's
+// plan does not offer for renewal, or when automatic renewal is off and there
+// is no plan to check it against.
+var ErrPeriodUnavailable = errors.New("that period is not offered for renewal")
+
+// RenewalPeriod is one period an automatic renewal may buy, priced in the
+// renewal's currency. Own marks the plan version's own duration.
+type RenewalPeriod struct {
+	Days        int
+	AmountMinor int64
+	Own         bool
+}
+
+// RenewalPeriods lists what a plan version may be renewed for in one
+// currency: its own duration, then every further period offered for renewal.
+// The bot and the web panel offer exactly this list, and SetRenewalPeriod
+// accepts nothing else. A version whose own duration is not a whole number
+// of days lists only its further periods.
+func (store *Store) RenewalPeriods(ctx context.Context, planVersionID, currency string) ([]RenewalPeriod, error) {
+	if planVersionID == "" || currency == "" {
+		return nil, nil
+	}
+	rows, err := store.pool.Query(ctx, `SELECT (v.duration_seconds / 86400)::integer, p.amount_minor, true
+		FROM plan_versions v JOIN plan_prices p ON p.plan_version_id = v.id AND p.currency = $2
+		WHERE v.id = $1::uuid AND v.duration_seconds % 86400 = 0
+		UNION ALL
+		SELECT o.days, o.amount_minor, false FROM plan_version_periods o
+		WHERE o.plan_version_id = $1::uuid AND o.currency = $2 AND o.for_renewal
+		ORDER BY 1, 3 DESC`, planVersionID, currency)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	periods := []RenewalPeriod{}
+	seen := map[int]bool{}
+	for rows.Next() {
+		var (
+			days   int32
+			period RenewalPeriod
+		)
+		if err = rows.Scan(&days, &period.AmountMinor, &period.Own); err != nil {
+			return nil, err
+		}
+		period.Days = int(days)
+		if seen[period.Days] {
+			continue
+		}
+		seen[period.Days] = true
+		periods = append(periods, period)
+	}
+	return periods, rows.Err()
+}
+
+// SetRenewalPeriod chooses the period one subscription's automatic renewal
+// buys. Zero clears the choice, so the renewal repeats the period last bought.
+// A period is accepted only while renewal is on, because the plan and the
+// currency it is checked against are the ones renewal was switched on for;
+// switching renewal off clears the choice with them.
+func (store *Store) SetRenewalPeriod(ctx context.Context, customerID, subscriptionID string, days int) error {
+	if days == 0 {
+		_, err := store.pool.Exec(ctx, `UPDATE auto_renew_settings SET period_days = NULL, updated_at = now()
+			WHERE user_id = $1::uuid AND subscription_id IS NOT DISTINCT FROM NULLIF($2, '')::uuid`,
+			customerID, subscriptionID)
+		return err
+	}
+	settings, err := store.RenewalSettings(ctx, customerID, subscriptionID)
+	if err != nil {
+		return err
+	}
+	if !settings.Enabled {
+		return ErrPeriodUnavailable
+	}
+	periods, err := store.RenewalPeriods(ctx, settings.PlanVersionID, settings.Currency)
+	if err != nil {
+		return err
+	}
+	for _, period := range periods {
+		if period.Days != days {
+			continue
+		}
+		_, err = store.pool.Exec(ctx, `UPDATE auto_renew_settings SET period_days = $3, updated_at = now()
+			WHERE user_id = $1::uuid AND subscription_id IS NOT DISTINCT FROM NULLIF($2, '')::uuid AND enabled`,
+			customerID, subscriptionID, days)
+		return err
+	}
+	return ErrPeriodUnavailable
 }

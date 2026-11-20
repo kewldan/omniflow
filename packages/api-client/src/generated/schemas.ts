@@ -11675,12 +11675,30 @@ export const GetAccountRenewalResponse = zod.object({
       leadTimeHours: zod.int(),
       state: zod.enum(["idle", "scheduled", "dunning", "suspended"]),
       methodLabel: zod.string(),
+      periodDays: zod
+        .int()
+        .describe("The period the renewal buys, in days. 0 repeats the period last bought."),
+      currency: zod
+        .string()
+        .optional()
+        .describe("The renewal currency; empty while renewal is off."),
+      periods: zod
+        .array(
+          zod.object({
+            days: zod.int(),
+            amountMinor: zod.int(),
+            own: zod.boolean(),
+          }),
+        )
+        .describe(
+          "What an enabled renewal may buy: the plan's own duration (`own`) and every period offered for renewal, priced in the renewal currency. Empty while renewal is off.",
+        ),
     }),
   ),
 });
 
 /**
- * Turns automatic renewal on or off for one of the customer's own subscriptions, chooses whether it is paid from the wallet or a saved method, and sets how many hours before expiry it is attempted (clamped to at most 14 days). Turning it on records the customer's consent. `422 recurring_unavailable` when no configured method can charge the plan again; `422 no_saved_method` when card funding is chosen with no saved card.
+ * Turns automatic renewal on or off for one of the customer's own subscriptions, chooses whether it is paid from the wallet or a saved method, sets how many hours before expiry it is attempted (clamped to at most 14 days), and chooses the period each renewal buys. Turning it on records the customer's consent. `422 recurring_unavailable` when no configured method can charge the plan again; `422 no_saved_method` when card funding is chosen with no saved card; `422 period_unavailable` for a period the plan does not offer for renewal or while renewal is off.
  */
 export const UpdateAccountRenewalParams = zod.object({
   subscriptionID: zod.uuid(),
@@ -11694,10 +11712,19 @@ export const UpdateAccountRenewalHeader = zod.object({
 
 export const updateAccountRenewalBodyLeadTimeHoursMax = 336;
 
+export const updateAccountRenewalBodyPeriodDaysMin = 0;
+export const updateAccountRenewalBodyPeriodDaysMax = 3650;
+
 export const UpdateAccountRenewalBody = zod.object({
   enabled: zod.boolean().optional(),
   funding: zod.enum(["wallet", "saved_method"]).optional(),
   leadTimeHours: zod.int().min(1).max(updateAccountRenewalBodyLeadTimeHoursMax).optional(),
+  periodDays: zod
+    .int()
+    .min(updateAccountRenewalBodyPeriodDaysMin)
+    .max(updateAccountRenewalBodyPeriodDaysMax)
+    .optional()
+    .describe("One of the subscription's `periods`; 0 repeats the period last bought."),
 });
 
 export const UpdateAccountRenewalResponse = zod.object({
@@ -11724,6 +11751,24 @@ export const UpdateAccountRenewalResponse = zod.object({
       leadTimeHours: zod.int(),
       state: zod.enum(["idle", "scheduled", "dunning", "suspended"]),
       methodLabel: zod.string(),
+      periodDays: zod
+        .int()
+        .describe("The period the renewal buys, in days. 0 repeats the period last bought."),
+      currency: zod
+        .string()
+        .optional()
+        .describe("The renewal currency; empty while renewal is off."),
+      periods: zod
+        .array(
+          zod.object({
+            days: zod.int(),
+            amountMinor: zod.int(),
+            own: zod.boolean(),
+          }),
+        )
+        .describe(
+          "What an enabled renewal may buy: the plan's own duration (`own`) and every period offered for renewal, priced in the renewal currency. Empty while renewal is off.",
+        ),
     }),
   ),
 });
@@ -11765,6 +11810,24 @@ export const SetAccountDefaultPaymentMethodResponse = zod.object({
       leadTimeHours: zod.int(),
       state: zod.enum(["idle", "scheduled", "dunning", "suspended"]),
       methodLabel: zod.string(),
+      periodDays: zod
+        .int()
+        .describe("The period the renewal buys, in days. 0 repeats the period last bought."),
+      currency: zod
+        .string()
+        .optional()
+        .describe("The renewal currency; empty while renewal is off."),
+      periods: zod
+        .array(
+          zod.object({
+            days: zod.int(),
+            amountMinor: zod.int(),
+            own: zod.boolean(),
+          }),
+        )
+        .describe(
+          "What an enabled renewal may buy: the plan's own duration (`own`) and every period offered for renewal, priced in the renewal currency. Empty while renewal is off.",
+        ),
     }),
   ),
 });
@@ -11806,6 +11869,24 @@ export const RemoveAccountPaymentMethodResponse = zod.object({
       leadTimeHours: zod.int(),
       state: zod.enum(["idle", "scheduled", "dunning", "suspended"]),
       methodLabel: zod.string(),
+      periodDays: zod
+        .int()
+        .describe("The period the renewal buys, in days. 0 repeats the period last bought."),
+      currency: zod
+        .string()
+        .optional()
+        .describe("The renewal currency; empty while renewal is off."),
+      periods: zod
+        .array(
+          zod.object({
+            days: zod.int(),
+            amountMinor: zod.int(),
+            own: zod.boolean(),
+          }),
+        )
+        .describe(
+          "What an enabled renewal may buy: the plan's own duration (`own`) and every period offered for renewal, priced in the renewal currency. Empty while renewal is off.",
+        ),
     }),
   ),
 });
