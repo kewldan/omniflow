@@ -42,6 +42,8 @@ The configurator only appears when a plan actually offers a choice. A plan with 
 
 All five wrap one domain error and surface as HTTP 422 with the reason as the RFC 9457 `type`, which both customer surfaces translate into their own copy.
 
+One more check runs before anything is charged: every squad the order would grant — the plan's own, the chosen ones, and a squad add-on's — must still exist in the Remnawave panel. The api and the bot read the panel's internal squads (`GET /api/internal-squads`, cached for a minute) and refuse a squad it no longer has with HTTP 422 `squad_unavailable` and a matching bot message. A panel that does not answer does not block the sale: the check is there to catch a squad an operator deleted, and an outage is what fulfillment retries are for. An automatic renewal is never refused this way.
+
 The database backs the bounds up: `min_selectable_squads` at least 0, `max_selectable_squads` above 0 when set, a named cross-column check requiring the maximum to be at least the minimum, and labels of 1–80 characters in each language.
 
 ### Choosing squads at checkout

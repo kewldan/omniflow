@@ -103,7 +103,7 @@ func main() {
 		os.Exit(1)
 	}
 	settings := commerceSettings(cfg)
-	commerceService, fulfillmentService, err := buildCommerce(logger, cfg, pool, identities, metrics)
+	commerceService, fulfillmentService, err := buildCommerce(logger, cfg, pool, identities, metrics, remnawaveClient)
 	if err != nil {
 		logger.Error("bot commerce initialization failed", "error", err)
 		os.Exit(1)
@@ -323,7 +323,7 @@ func buildLimiter(valkeyURL string) (*platform.RateLimiter, error) {
 // is the only process that runs jobs.
 func buildCommerce(
 	logger *slog.Logger, cfg config.BotConfig, pool *pgxpool.Pool,
-	store *botapp.PostgresStore, metrics *platform.Metrics,
+	store *botapp.PostgresStore, metrics *platform.Metrics, remnawaveClient *remnawave.Client,
 ) (*botapp.Commerce, *fulfillment.Service, error) {
 	riverClient, err := jobs.NewInsertOnlyClient(pool)
 	if err != nil {
@@ -335,6 +335,7 @@ func buildCommerce(
 	if err != nil {
 		return nil, nil, err
 	}
+	core.Store.SetSquadLister(app.SquadLister(remnawaveClient))
 	commerceService, err := botapp.NewCommerce(logger, store, core.Store, core.Payments, commerceSettings(cfg))
 	if err != nil {
 		return nil, nil, err

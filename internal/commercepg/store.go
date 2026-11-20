@@ -37,6 +37,9 @@ type Store struct {
 	enqueue EnqueueFulfillment
 	clock   func() time.Time
 	options Options
+	// squads checks an order's squads against Remnawave before charging;
+	// nil skips the check.
+	squads *squadCheck
 }
 
 // New builds the store. The pool and the fulfillment hook are required; see
@@ -442,6 +445,11 @@ func (store *Store) quoteWith(ctx context.Context, queries *dbgen.Queries, userI
 	}
 	squads, err := store.resolveSquads(ctx, queries, plan, input.SelectedSquadIDs, tier)
 	if err != nil {
+		return OrderQuote{}, err
+	}
+	// Every squad the order would grant must still exist in the panel before
+	// the customer is charged for it.
+	if err = store.assertSquadsExist(ctx, squads); err != nil && input.Operation != "renewal" {
 		return OrderQuote{}, err
 	}
 	// Add-ons bought with the plan cover the whole first period, so they are

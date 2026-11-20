@@ -411,6 +411,8 @@ func (app *App) addonSelectionError(ctx context.Context, session commerceContext
 		return View{Text: text(session.Locale, "subs.gone"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "subs.back"), routeSubscriptions)))}, true
 	case errors.Is(err, commercepg.ErrNoActiveSubscription):
 		return View{Text: text(session.Locale, "addon.noSubscription"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "menu.plans"), routePlans)))}, true
+	case errors.Is(err, commercepg.ErrSquadUnavailable):
+		return View{Text: text(session.Locale, "squad.unavailable"), Keyboard: keyboard(row(back))}, true
 	case errors.Is(err, commerce.ErrAddonLimit):
 		return View{Text: text(session.Locale, "addon.limit"), Keyboard: keyboard(row(back))}, true
 	case errors.Is(err, commercepg.ErrAddonUnavailable):

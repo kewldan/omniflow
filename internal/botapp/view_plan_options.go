@@ -20,6 +20,10 @@ var planOptionPhrases = map[string]phrase{
 		en: "⏳ Your trial of “%s” ends in %s. Pick a plan to keep your access.",
 	},
 	"trial.hours": {ru: "%s ч", en: "%s h"},
+	"squad.unavailable": {
+		ru: "Один из серверов этого тарифа сейчас недоступен, поэтому покупка не оформлена и деньги не списаны. Напишите в поддержку.",
+		en: "One of this plan's servers is not available right now, so nothing was bought or charged. Please contact support.",
+	},
 	"addon.limit": {
 		ru: "Это дополнение превысит лимит подписки: устройств или докупленного трафика.",
 		en: "That add-on would go past this subscription's limit on devices or bought traffic.",

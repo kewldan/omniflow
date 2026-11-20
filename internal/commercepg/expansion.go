@@ -550,6 +550,9 @@ func (store *Store) priceInitialAddons(ctx context.Context, queries *dbgen.Queri
 		return nil, 0, err
 	}
 	limits := commerce.AddonLimits{MaxDevices: maxDevices, MaxBoughtTraffic: optionalInt64(plan.MaxAddonTrafficBytes)}
+	if err = store.assertSquadsExist(ctx, pricedSquads(priced)); err != nil {
+		return nil, 0, err
+	}
 	if err = checkPricedLimits(limits, plan.DeviceLimit, priced); err != nil {
 		return nil, 0, err
 	}
@@ -693,6 +696,9 @@ func (store *Store) priceAddons(ctx context.Context, queries *dbgen.Queries, ent
 	if bounds.MaxDeviceLimit.Valid {
 		value := int(bounds.MaxDeviceLimit.Int32)
 		limits.MaxDevices = &value
+	}
+	if err = store.assertSquadsExist(ctx, pricedSquads(priced)); err != nil {
+		return nil, 0, err
 	}
 	if err = checkPricedLimits(limits, entitlement.DeviceLimit, priced); err != nil {
 		return nil, 0, err

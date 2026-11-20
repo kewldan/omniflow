@@ -400,6 +400,11 @@ func (app *App) confirmCheckout(ctx context.Context, session commerceContext) Vi
 			Text:     text(session.Locale, "subs.rejected", text(session.Locale, "subs."+commerce.SubscriptionRejectionReason(err))),
 			Keyboard: keyboard(row(callbackButton(text(session.Locale, "subs.back"), routeSubscriptions))),
 		}
+	case errors.Is(err, commercepg.ErrSquadUnavailable):
+		return View{
+			Text:     text(session.Locale, "squad.unavailable"),
+			Keyboard: keyboard(row(callbackButton(text(session.Locale, "menu.plans"), routePlans))),
+		}
 	case errors.Is(err, commerce.ErrSquadSelection):
 		return View{
 			Text:     text(session.Locale, "squad.title") + "\n\n" + text(session.Locale, "error.forbidden"),

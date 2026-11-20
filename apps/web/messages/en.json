@@ -4856,7 +4856,8 @@
         "trial_sign_in_method": "The trial is not available for the way this account signs in.",
         "addon_limit_reached": "That extra would go past this subscription's limit on devices or bought traffic.",
         "subscription_primary": "The first subscription cannot be closed.",
-        "subscription_busy": "An unpaid order is still open for this subscription. Pay or cancel it first."
+        "subscription_busy": "An unpaid order is still open for this subscription. Pay or cancel it first.",
+        "squad_unavailable": "One of the servers this purchase includes is not available right now. Nothing was charged; please contact support."
       },
       "breakdown": {
         "subtotal": "Plan",

@@ -193,6 +193,8 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 		closeAll()
 		return runtimeServices{}, nil, err
 	}
+	// Orders refuse squads the panel no longer has before anything is charged.
+	commerceStore.SetSquadLister(app.SquadLister(remnawaveClient))
 	customerService, err := customerpg.New(pool, cfg.DataEncryptionKey, 30*24*time.Hour)
 	if err != nil {
 		closeAll()
