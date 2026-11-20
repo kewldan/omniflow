@@ -170,6 +170,7 @@ somewhere it does not belong.
 | `security` | `sessionIdleMinutes`, `sessionAbsoluteHours`, `requireTotp` | — |
 | `theme` | The palette, corner and spacing scales, offered modes, default mode — see [White-label appearance](/operations/branding) | — |
 | `analytics` | `enabled`, counter identifiers per provider, webmaster verification tags — see [Advertising measurement](/operations/advertising-measurement) | — |
+| `marketing` | `promoDailyCodeLimit`, `requireTerms`, `termsVersion` — see [Marketing settings](#marketing-settings) | — |
 | `telegram`, `required_channels` | Kept for history; nothing reads them (see above) | — |
 
 Four of these are not fields on the generic renderer. `ai` and `mcp` have their own
@@ -186,6 +187,27 @@ The notice wording at `/admin/settings/notices` is the exception that is not a s
 at all. It is a table of overrides rather than one document: a row is the exception and
 its absence is the shipped wording, which is what makes reverting a delete and lets a
 later upgrade improve a default nobody has touched.
+
+## Marketing settings
+
+**Settings → Marketing** holds what Bedolaga configures in its marketing admin.
+
+| Field | Effect |
+| --- | --- |
+| `promoDailyCodeLimit` | How many different promo codes one customer may use in 24 hours; `0` or empty is no limit. See [Catalog and promotions](/commerce/catalog-promotions#daily-limit-of-distinct-codes) |
+| `requireTerms` | Hold the bot's menu and the web panel until the customer accepts the terms |
+| `termsVersion` | The version a customer accepts; `1` when empty. Changing it asks every customer again |
+
+With `requireTerms` on, `/start` and every menu, command, and button in the bot answer with the
+terms — the page named by `branding.termsUrl`, else `APP_TERMS_URL` — and an **I accept** button,
+until the customer accepts the current version; `/terms`, `/paysupport`, `/faq`, `/support`, and
+`/login` stay available, and a `/start` deep link (a referral, a campaign, a code) is still recorded
+before the gate shows. The web panel shows an undismissable dialog over every page, backed by
+`GET /v1/account/terms` and `POST /v1/account/terms/accept` (409 `terms_changed` when the version
+moved while the dialog was open), and checkout confirmation answers 403 `terms_required` meanwhile.
+Each acceptance is a `consent_records` row of purpose `terms` with the version and its source,
+`telegram_bot` or `web_panel`, so it appears with the customer's other consents. An unreadable
+settings section requires nothing: a settings outage does not lock customers out.
 
 ## Commerce settings
 

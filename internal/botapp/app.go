@@ -24,6 +24,7 @@ import (
 	"github.com/omniflow/omniflow/internal/platform"
 	"github.com/omniflow/omniflow/internal/remnawave"
 	"github.com/omniflow/omniflow/internal/remnawavesync"
+	"github.com/omniflow/omniflow/internal/termsgate"
 )
 
 const (
@@ -98,6 +99,9 @@ type App struct {
 	// installation reads the settings an operator saves in the panel. It is
 	// nil in tests, where every value falls back to the environment.
 	installation *installsettings.Reader
+
+	// terms is the gate that holds the menu until the terms are accepted.
+	terms *termsgate.Gate
 }
 
 // UseInstallationSettings lets panel-saved settings override the environment
@@ -144,6 +148,7 @@ func New(logger *slog.Logger, store Store, remnawaveService remnawave.Service, s
 func (app *App) EnableCommerce(customers *PostgresStore, commerceService *Commerce, limiter *platform.RateLimiter, sender *Sender, settings CommerceSettings) {
 	app.customers, app.commerce, app.limiter, app.sender, app.settings = customers, commerceService, limiter, sender, settings
 	app.termsURL = strings.TrimSpace(settings.TermsURL)
+	app.useTermsGate(termsgate.New(customers.pool))
 }
 
 func (app *App) SetBotUsername(username string) {
@@ -262,21 +267,25 @@ func (app *App) Register(client *telegram.Bot) {
 	// Every registered handler notes the update first, which is what clears a
 	// blocked or never-started delivery state once the customer is heard from.
 	inbound := app.inboundMiddleware
+	// The terms gate holds every menu and button until the customer accepted
+	// the terms, when the operator requires it. /start runs its deep link
+	// first — a referral or a campaign must not be lost — and gates itself.
+	gated := app.termsMiddleware
 	client.RegisterHandler(telegram.HandlerTypeMessageText, "start", telegram.MatchTypeCommandStartOnly, app.HandleStart, inbound)
 	client.RegisterHandler(telegram.HandlerTypeMessageText, "menu", telegram.MatchTypeCommandStartOnly, app.HandleStart, inbound)
-	client.RegisterHandler(telegram.HandlerTypeMessageText, "settings", telegram.MatchTypeCommandStartOnly, app.HandleSettings, inbound)
+	client.RegisterHandler(telegram.HandlerTypeMessageText, "settings", telegram.MatchTypeCommandStartOnly, app.HandleSettings, inbound, gated)
 	client.RegisterHandler(telegram.HandlerTypeMessageText, "support", telegram.MatchTypeCommandStartOnly, app.HandleSupport, inbound)
-	client.RegisterHandler(telegram.HandlerTypeMessageText, "plans", telegram.MatchTypeCommandStartOnly, app.HandlePlans, inbound)
-	client.RegisterHandler(telegram.HandlerTypeMessageText, "orders", telegram.MatchTypeCommandStartOnly, app.HandleOrders, inbound)
-	client.RegisterHandler(telegram.HandlerTypeMessageText, "wallet", telegram.MatchTypeCommandStartOnly, app.HandleWallet, inbound)
+	client.RegisterHandler(telegram.HandlerTypeMessageText, "plans", telegram.MatchTypeCommandStartOnly, app.HandlePlans, inbound, gated)
+	client.RegisterHandler(telegram.HandlerTypeMessageText, "orders", telegram.MatchTypeCommandStartOnly, app.HandleOrders, inbound, gated)
+	client.RegisterHandler(telegram.HandlerTypeMessageText, "wallet", telegram.MatchTypeCommandStartOnly, app.HandleWallet, inbound, gated)
 	client.RegisterHandler(telegram.HandlerTypeMessageText, "ops", telegram.MatchTypeCommandStartOnly, app.HandleOps, inbound)
 	client.RegisterHandler(telegram.HandlerTypeMessageText, "login", telegram.MatchTypeCommandStartOnly, app.HandleWebLogin, inbound)
 	client.RegisterHandler(telegram.HandlerTypeMessageText, "cancel", telegram.MatchTypeCommandStartOnly, app.HandleCancel, inbound)
 	client.RegisterHandler(telegram.HandlerTypeMessageText, "terms", telegram.MatchTypeCommandStartOnly, app.HandleTerms, inbound)
 	client.RegisterHandler(telegram.HandlerTypeMessageText, "paysupport", telegram.MatchTypeCommandStartOnly, app.HandlePaySupport, inbound)
 	client.RegisterHandler(telegram.HandlerTypeMessageText, "faq", telegram.MatchTypeCommandStartOnly, app.HandleFAQ, inbound)
-	client.RegisterHandler(telegram.HandlerTypeCallbackQueryData, callbackPrefix, telegram.MatchTypePrefix, app.HandleCallback, inbound)
-	client.RegisterHandler(telegram.HandlerTypeCallbackQueryData, actionPrefix, telegram.MatchTypePrefix, app.HandleCallback, inbound)
+	client.RegisterHandler(telegram.HandlerTypeCallbackQueryData, callbackPrefix, telegram.MatchTypePrefix, app.HandleCallback, inbound, gated)
+	client.RegisterHandler(telegram.HandlerTypeCallbackQueryData, actionPrefix, telegram.MatchTypePrefix, app.HandleCallback, inbound, gated)
 }
 
 func (app *App) HandleStart(ctx context.Context, client *telegram.Bot, update *models.Update) {
@@ -326,6 +335,9 @@ func (app *App) HandleStart(ctx context.Context, client *telegram.Bot, update *m
 		}
 	}
 	view := app.loadView(ctx, message.From.ID, locale, routeHome)
+	if app.termsBlocked(ctx, message.From) {
+		view = termsGateView(locale, app.configuredTerms())
+	}
 	if _, err := client.SendMessage(ctx, sendParams(message.Chat.ID, view)); err != nil {
 		app.withCorrelation(update).Error("telegram view send failed", "view", routeHome, "error", err)
 	}

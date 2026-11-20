@@ -13,6 +13,7 @@ import (
 	"github.com/omniflow/omniflow/internal/accountsupport"
 	"github.com/omniflow/omniflow/internal/customerauthpg"
 	"github.com/omniflow/omniflow/internal/platform"
+	"github.com/omniflow/omniflow/internal/termsgate"
 )
 
 // AccountHandlers serves the customer web panel API.
@@ -40,6 +41,8 @@ type AccountHandlers struct {
 	referral *accountreferral.Service
 	// growth holds the Bedolaga-parity services; see growth.go.
 	growth GrowthServices
+	// terms holds purchases until the terms are accepted; see accountterms.go.
+	terms *termsgate.Gate
 
 	cookieName   string
 	cookieSecure bool
@@ -172,6 +175,7 @@ func (handlers *AccountHandlers) Mount(router chi.Router) {
 			handlers.mountReferral(secure)
 			handlers.mountGrowth(secure)
 			handlers.mountSubscriptionAddons(secure)
+			handlers.mountTerms(secure)
 		})
 	})
 }

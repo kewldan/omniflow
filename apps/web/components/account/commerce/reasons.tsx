@@ -86,6 +86,7 @@ const PROBLEMS = [
   "promo_unknown",
   "promo_daily_limit",
   "rate_limited",
+  "terms_required",
   "provider_currency_unsupported",
   "provider_unavailable",
   "request_failed",

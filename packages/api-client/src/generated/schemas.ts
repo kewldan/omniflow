@@ -11504,6 +11504,36 @@ export const AccountBuyGiftResponse = zod.object({
 });
 
 /**
+ * Whether the operator requires accepting the terms (Settings → Marketing), the current version, and whether this customer accepted it. The panel shows a gate until they do, and checkout confirmation answers 403 terms_required meanwhile.
+ */
+export const GetAccountTermsResponse = zod.object({
+  required: zod.boolean(),
+  accepted: zod.boolean(),
+  version: zod.string(),
+  termsUrl: zod.string().optional(),
+});
+
+/**
+ * Records a consent of purpose `terms` for the version the customer read; 409 terms_changed when the operator raised it meanwhile.
+ */
+export const AcceptAccountTermsHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const AcceptAccountTermsBody = zod.object({
+  version: zod.string(),
+});
+
+export const AcceptAccountTermsResponse = zod.object({
+  required: zod.boolean(),
+  accepted: zod.boolean(),
+  version: zod.string(),
+  termsUrl: zod.string().optional(),
+});
+
+/**
  * Applies a code outside checkout: a gift code, a wholesale access code, or a promo code that rewards on its own (days added to the subscription, a trial, or wallet credit). A discount promo code is refused here; it is applied on the checkout screen. Every refusal is the same 422 code_refused. Throttled to ten attempts an hour per customer.
  */
 export const accountRedeemCodeBodyCodeMax = 64;

@@ -366,6 +366,9 @@ func (handlers *AccountHandlers) toggleCheckoutAddon(writer http.ResponseWriter,
 }
 
 func (handlers *AccountHandlers) confirmCheckout(writer http.ResponseWriter, request *http.Request) {
+	if handlers.termsHold(writer, request) {
+		return
+	}
 	principal, _ := CustomerFrom(request.Context())
 	// The header is required so a client that retries has said it means to. It is
 	// not what makes the retry safe: the checkout's own stored key is, so two

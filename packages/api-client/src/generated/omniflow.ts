@@ -4977,6 +4977,13 @@ export interface AccountReferrals {
   rewards: AccountReferralsRewards;
 }
 
+export interface AccountTerms {
+  required: boolean;
+  accepted: boolean;
+  version: string;
+  termsUrl?: string;
+}
+
 export type AccountLoyaltyRules = {
   metric?: string;
   currency?: string;
@@ -7190,6 +7197,10 @@ export type AccountBuyGiftBody = {
   currency?: string;
   /** @maxLength 500 */
   message?: string;
+};
+
+export type AcceptAccountTermsBody = {
+  version: string;
 };
 
 export type AccountRedeemCodeBody = {
@@ -31958,6 +31969,140 @@ export const useAccountBuyGift = <TError = Promise<ProblemResponse>>(options?: {
 
   const swrKey = swrOptions?.swrKey ?? getAccountBuyGiftMutationKey();
   const swrFn = getAccountBuyGiftMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountTermsResponse200 = {
+  data: AccountTerms;
+  status: 200;
+};
+
+export type getAccountTermsResponseSuccess = getAccountTermsResponse200 & {
+  headers: Headers;
+};
+
+export type getAccountTermsResponse = getAccountTermsResponseSuccess;
+
+export const getGetAccountTermsUrl = () => {
+  return `/v1/account/terms`;
+};
+
+/**
+ * Whether the operator requires accepting the terms (Settings → Marketing), the current version, and whether this customer accepted it. The panel shows a gate until they do, and checkout confirmation answers 403 terms_required meanwhile.
+ */
+export const getAccountTerms = async (options?: RequestInit): Promise<getAccountTermsResponse> => {
+  const res = await fetch(getGetAccountTermsUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountTermsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getAccountTermsResponse;
+};
+
+export const getGetAccountTermsKey = () => [`/v1/account/terms`] as const;
+
+export type GetAccountTermsQueryResult = NonNullable<Awaited<ReturnType<typeof getAccountTerms>>>;
+
+export const useGetAccountTerms = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountTerms>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetAccountTermsKey() : null));
+  const swrFn = () => getAccountTerms(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type acceptAccountTermsResponse200 = {
+  data: AccountTerms;
+  status: 200;
+};
+
+export type acceptAccountTermsResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type acceptAccountTermsResponseSuccess = acceptAccountTermsResponse200 & {
+  headers: Headers;
+};
+export type acceptAccountTermsResponseError = acceptAccountTermsResponse409 & {
+  headers: Headers;
+};
+
+export type acceptAccountTermsResponse =
+  | acceptAccountTermsResponseSuccess
+  | acceptAccountTermsResponseError;
+
+export const getAcceptAccountTermsUrl = () => {
+  return `/v1/account/terms/accept`;
+};
+
+/**
+ * Records a consent of purpose `terms` for the version the customer read; 409 terms_changed when the operator raised it meanwhile.
+ */
+export const acceptAccountTerms = async (
+  acceptAccountTermsBody: AcceptAccountTermsBody,
+  options?: RequestInit,
+): Promise<acceptAccountTermsResponse> => {
+  const res = await fetch(getAcceptAccountTermsUrl(), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(acceptAccountTermsBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: acceptAccountTermsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as acceptAccountTermsResponse;
+};
+
+export const getAcceptAccountTermsMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: AcceptAccountTermsBody }) => {
+    return acceptAccountTerms(arg, options);
+  };
+};
+export const getAcceptAccountTermsMutationKey = () => [`/v1/account/terms/accept`] as const;
+
+export type AcceptAccountTermsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof acceptAccountTerms>>
+>;
+
+export const useAcceptAccountTerms = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof acceptAccountTerms>>,
+    TError,
+    Key,
+    AcceptAccountTermsBody,
+    Awaited<ReturnType<typeof acceptAccountTerms>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getAcceptAccountTermsMutationKey();
+  const swrFn = getAcceptAccountTermsMutationFetcher(fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

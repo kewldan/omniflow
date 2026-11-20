@@ -45,6 +45,7 @@ import (
 	"github.com/omniflow/omniflow/internal/remnawave"
 	"github.com/omniflow/omniflow/internal/remnawavesync"
 	"github.com/omniflow/omniflow/internal/telemetry"
+	"github.com/omniflow/omniflow/internal/termsgate"
 )
 
 var version = "dev"
@@ -270,6 +271,7 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 	}
 	if services.account != nil {
 		services.account.WithGrowth(growth)
+		services.account.WithTermsGate(termsgate.New(pool).WithTermsURL(cfg.TermsURL))
 	}
 	return services, closeAll, nil
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 import { AccountShell } from "@/components/account/account-shell";
+import { TermsGate } from "@/components/account/terms-gate";
 import { AccountTimeZone } from "@/components/intl/panel-time-zones";
 import { AccountProvider } from "@/lib/account-session";
 import { areaTitle } from "@/lib/metadata";
@@ -28,6 +29,7 @@ export default function AccountLayout({ children }: { children: ReactNode }) {
     <AccountProvider>
       <AccountTimeZone>
         <AccountShell>{children}</AccountShell>
+        <TermsGate />
       </AccountTimeZone>
     </AccountProvider>
   );

@@ -3339,7 +3339,9 @@
         "allowReferrals": "Referral links count as invitations",
         "allowedCampaigns": "Campaign codes that count as invitations (comma-separated; empty means all)",
         "inviteCodes": "Invite codes for t.me/BOT?start=inv_CODE (comma-separated)",
-        "promoDailyCodeLimit": "Different promo codes a customer may use per day (0 = no limit)"
+        "promoDailyCodeLimit": "Different promo codes a customer may use per day (0 = no limit)",
+        "requireTerms": "Require accepting the terms before using the bot and the web panel",
+        "termsVersion": "Terms version (change it to ask everybody again)"
       },
       "telemetryPreview": {
         "title": "What telemetry would send",
@@ -5143,7 +5145,8 @@
         "period_unavailable": "This plan is not sold for that period here.",
         "provider_amount_out_of_range": "This payment method does not accept this amount. Choose another amount or method.",
         "promo_daily_limit": "You have used as many different promo codes today as allowed.",
-        "rate_limited": "Too many attempts. Try again later."
+        "rate_limited": "Too many attempts. Try again later.",
+        "terms_required": "Accept the terms before buying."
       },
       "breakdown": {
         "subtotal": "Plan",
@@ -5602,6 +5605,13 @@
       "days": "Days ({min}–{max})",
       "perDay": "{price} a day",
       "apply": "Apply"
+    },
+    "terms": {
+      "title": "Terms of service",
+      "description": "To use the service, read the offer and the rules and confirm that you accept them.",
+      "read": "Read the terms",
+      "accept": "I accept",
+      "failed": "Your acceptance was not saved. Try again."
     }
   },
   "pages": {

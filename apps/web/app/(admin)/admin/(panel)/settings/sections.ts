@@ -257,7 +257,11 @@ export const SECTIONS: SectionSchema[] = [
     section: "marketing",
     group: "integrations",
     messageKey: "marketing",
-    fields: [{ name: "promoDailyCodeLimit", kind: "number", messageKey: "promoDailyCodeLimit" }],
+    fields: [
+      { name: "promoDailyCodeLimit", kind: "number", messageKey: "promoDailyCodeLimit" },
+      { name: "requireTerms", kind: "boolean", messageKey: "requireTerms", defaultValue: false },
+      { name: "termsVersion", kind: "text", messageKey: "termsVersion" },
+    ],
   },
   {
     section: "reports",

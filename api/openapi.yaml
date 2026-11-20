@@ -4113,6 +4113,39 @@ paths:
         "400": {$ref: "#/components/responses/Problem"}
         "403": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/account/terms:
+    get:
+      operationId: getAccountTerms
+      tags: [account]
+      description: >-
+        Whether the operator requires accepting the terms (Settings → Marketing),
+        the current version, and whether this customer accepted it. The panel
+        shows a gate until they do, and checkout confirmation answers 403
+        terms_required meanwhile.
+      responses:
+        "200":
+          description: Terms status
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AccountTerms"}
+  /v1/account/terms/accept:
+    post:
+      operationId: acceptAccountTerms
+      tags: [account]
+      description: Records a consent of purpose `terms` for the version the customer read; 409 terms_changed when the operator raised it meanwhile.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [version], properties: {version: {type: string}}}
+      responses:
+        "200":
+          description: Accepted
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/AccountTerms"}
+        "409": {$ref: "#/components/responses/Problem"}
   /v1/account/codes/redeem:
     post:
       operationId: accountRedeemCode
@@ -8711,6 +8744,14 @@ components:
                   grantedAt: {type: string, format: date-time}
                   reversedAt: {type: string, format: date-time}
             nextCursor: {type: string}
+    AccountTerms:
+      type: object
+      required: [required, accepted, version]
+      properties:
+        required: {type: boolean}
+        accepted: {type: boolean}
+        version: {type: string}
+        termsUrl: {type: string}
     AccountLoyalty:
       type: object
       required: [enabled]
