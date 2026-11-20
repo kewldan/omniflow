@@ -2544,6 +2544,24 @@ type SelfEmployedSetting struct {
 	UpdatedBy          pgtype.UUID        `json:"updated_by"`
 }
 
+type ServerCatalog struct {
+	SquadID       pgtype.UUID        `json:"squad_id"`
+	NameRu        string             `json:"name_ru"`
+	NameEn        string             `json:"name_en"`
+	CountryCode   pgtype.Text        `json:"country_code"`
+	MaxUsers      pgtype.Int4        `json:"max_users"`
+	TrialEligible bool               `json:"trial_eligible"`
+	SortOrder     int32              `json:"sort_order"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy     pgtype.UUID        `json:"updated_by"`
+}
+
+type ServerCatalogPrice struct {
+	SquadID     pgtype.UUID `json:"squad_id"`
+	Currency    string      `json:"currency"`
+	AmountMinor int64       `json:"amount_minor"`
+}
+
 type SimpleSubscription struct {
 	Singleton      bool               `json:"singleton"`
 	Enabled        bool               `json:"enabled"`

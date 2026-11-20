@@ -46,6 +46,20 @@ One more check runs before anything is charged: every squad the order would gran
 
 The database backs the bounds up: `min_selectable_squads` at least 0, `max_selectable_squads` above 0 when set, a named cross-column check requiring the maximum to be at least the minimum, and labels of 1–80 characters in each language.
 
+### The server catalogue
+
+**Servers** on the catalogue page is how Omniflow labels and limits the sale of each Remnawave internal squad, as Bedolaga's server list does — without managing the squad or its nodes, which Remnawave keeps ([decision 0004](/architecture/decision-0004-remnawave-boundary)). It lists the panel's internal squads with their member count, read live and never stored, beside each one's catalogue entry (`GET /v1/panel/catalog/servers`, `catalog.read`). An entry (`PUT`/`DELETE /v1/panel/catalog/servers/{squadID}`, `catalog.write`, audit `panel.server.saved` and `panel.server.deleted`) holds:
+
+| Field | What it does |
+| --- | --- |
+| Name in each language | The catalogue's own name for the squad |
+| Country | Two letters shown as a flag in front of the squad's label wherever a customer chooses squads, in the bot and on the web |
+| Customer limit (`maxUsers`) | The most customers a sale may put on the squad, counted as customers with a live entitlement on it. At checkout a full squad is refused with `squad_full` to a customer not already on it; a renewal, and a customer already on it, are never refused |
+| Price for choosing it (`prices`) | What choosing the squad in the configurator adds to the plan's price, per currency, for the version's own duration and scaled to the period bought. A squad the version includes for everyone is never charged. Loyalty and promo discounts do not apply to it |
+| Trials may use it | A trial order keeps only the squads open to trials; one left with none is refused with `squad_unavailable` |
+
+The screen also shows Omniflow's count of live customers on each squad against its limit, and flags a catalogued squad the panel no longer has. A squad without an entry is sold exactly as before. An automatic renewal keeps the squads the customer chose last time that the version still offers, and prices them the same way, so a chosen server costs the same on every renewal.
+
 ### Choosing squads at checkout
 
 *Web.* On `/account/checkout`, a **Servers** fieldset appears only when the plan reports the selection as configurable. Each checkbox sends `PATCH /v1/account/checkout` with the whole `squadIds` array, and the server re-prices and returns the entire checkout. The bounds the page shows are guidance only: the real check runs at order creation, because a second implementation of the same counting rule in React is exactly what would eventually let through a set the order then refuses.

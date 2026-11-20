@@ -1299,6 +1299,45 @@ paths:
         "403": {$ref: "#/components/responses/Problem"}
         "404": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/catalog/servers:
+    get:
+      operationId: listPanelServers
+      tags: [panel]
+      description: >-
+        Requires catalog.read. The server catalogue beside the Remnawave
+        panel's internal squads: each row carries the catalogue entry when
+        there is one, the panel's name and member count read live (never
+        stored; `reported` is false when the panel could not be read), and
+        whether its customer limit is reached. `entry.liveCustomers` is
+        Omniflow's own count of customers with a live entitlement on it.
+      responses:
+        "200": {description: Servers, content: {application/json: {schema: {type: object, additionalProperties: true}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/catalog/servers/{squadID}:
+    parameters:
+      - {in: path, name: squadID, required: true, schema: {type: string, format: uuid}}
+    put:
+      operationId: savePanelServer
+      tags: [panel]
+      description: >-
+        Requires catalog.write. Creates or replaces how Omniflow labels and
+        limits the sale of one Remnawave internal squad. Nothing is changed
+        in Remnawave.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelServer"}}}}
+      responses:
+        "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelServer"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+    delete:
+      operationId: deletePanelServer
+      tags: [panel]
+      description: Requires catalog.write. Removes the squad's catalogue entry; it is then sold with no label, limit, or price of its own.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      responses:
+        "204": {description: Removed}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
   /v1/panel/catalog/simple-subscription:
     get:
       operationId: getPanelSimpleSubscription
@@ -7063,6 +7102,19 @@ components:
         trafficMode: {type: string, enum: [fixed, fixed_with_topup, selectable]}
         trafficPackages: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelTrafficPackage"}}
         dailyBilling: {type: boolean}
+    PanelServer:
+      type: object
+      required: [nameRu, nameEn, trialEligible]
+      properties:
+        squadId: {type: string, format: uuid}
+        nameRu: {type: string, minLength: 1, maxLength: 80}
+        nameEn: {type: string, minLength: 1, maxLength: 80}
+        countryCode: {type: string, description: "ISO 3166-1 alpha-2, shown as a flag; empty for none."}
+        maxUsers: {type: integer, minimum: 1, nullable: true, description: The most customers a sale may put on the squad; null is no limit.}
+        trialEligible: {type: boolean}
+        sortOrder: {type: integer}
+        prices: {type: object, additionalProperties: {type: integer, format: int64, minimum: 1}, description: "What choosing the squad adds to a plan's price, per currency, for the version's own duration."}
+        liveCustomers: {type: integer, readOnly: true}
     PanelSimpleSubscription:
       type: object
       required: [enabled, planId, periodDays, trafficGb, deviceAddonId, deviceQuantity]

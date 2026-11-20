@@ -327,6 +327,10 @@ func (worker *Worker) cycleOrder(
 	if input.PeriodDays, input.TrafficGB, err = worker.orders.RenewalSelection(ctx, input.SubscriptionID, input.PlanVersionID, input.Currency); err != nil {
 		return dbgen.Order{}, err
 	}
+	// The servers the customer chose are kept, and priced, on the renewal.
+	if input.SelectedSquadIDs, err = worker.orders.RenewalSquads(ctx, input.SubscriptionID, input.PlanVersionID); err != nil {
+		return dbgen.Order{}, err
+	}
 	if attempt.Funding == recurring.FundingWallet {
 		// A wallet renewal is only opened once the balance covers it. Opening
 		// it short would reserve what the customer has for the whole dunning

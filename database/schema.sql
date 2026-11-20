@@ -4876,6 +4876,39 @@ CREATE TABLE public.self_employed_settings (
 
 
 --
+-- Name: server_catalog; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.server_catalog (
+    squad_id uuid NOT NULL,
+    name_ru text NOT NULL,
+    name_en text NOT NULL,
+    country_code text,
+    max_users integer,
+    trial_eligible boolean DEFAULT true NOT NULL,
+    sort_order integer DEFAULT 0 NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by uuid,
+    CONSTRAINT server_catalog_country_shape CHECK (((country_code IS NULL) OR (country_code ~ '^[A-Z]{2}$'::text))),
+    CONSTRAINT server_catalog_max_users_positive CHECK (((max_users IS NULL) OR (max_users > 0))),
+    CONSTRAINT server_catalog_names_present CHECK ((((length(name_ru) >= 1) AND (length(name_ru) <= 80)) AND ((length(name_en) >= 1) AND (length(name_en) <= 80))))
+);
+
+
+--
+-- Name: server_catalog_prices; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.server_catalog_prices (
+    squad_id uuid NOT NULL,
+    currency text NOT NULL,
+    amount_minor bigint NOT NULL,
+    CONSTRAINT server_catalog_prices_amount_positive CHECK ((amount_minor > 0)),
+    CONSTRAINT server_catalog_prices_currency_shape CHECK ((currency ~ '^[A-Z]{3}$'::text))
+);
+
+
+--
 -- Name: simple_subscription; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -7589,6 +7622,22 @@ ALTER TABLE ONLY public.self_employed_settings
 
 
 --
+-- Name: server_catalog server_catalog_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.server_catalog
+    ADD CONSTRAINT server_catalog_pkey PRIMARY KEY (squad_id);
+
+
+--
+-- Name: server_catalog_prices server_catalog_prices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.server_catalog_prices
+    ADD CONSTRAINT server_catalog_prices_pkey PRIMARY KEY (squad_id, currency);
+
+
+--
 -- Name: simple_subscription simple_subscription_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8386,6 +8435,13 @@ CREATE INDEX entitlement_drifts_open_idx ON public.entitlement_drifts USING btre
 --
 
 CREATE INDEX entitlements_customer_updated_idx ON public.entitlements USING btree (user_id, updated_at DESC);
+
+
+--
+-- Name: entitlements_live_squads; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX entitlements_live_squads ON public.entitlements USING gin (remnawave_squad_ids) WHERE (status = ANY (ARRAY['pending'::text, 'active'::text, 'limited'::text, 'paused'::text]));
 
 
 --
@@ -11514,6 +11570,14 @@ ALTER TABLE ONLY public.required_channels
 
 ALTER TABLE ONLY public.self_employed_receipts
     ADD CONSTRAINT self_employed_receipts_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id);
+
+
+--
+-- Name: server_catalog_prices server_catalog_prices_squad_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.server_catalog_prices
+    ADD CONSTRAINT server_catalog_prices_squad_id_fkey FOREIGN KEY (squad_id) REFERENCES public.server_catalog(squad_id) ON DELETE CASCADE;
 
 
 --

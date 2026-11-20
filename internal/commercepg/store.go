@@ -485,6 +485,11 @@ func (store *Store) quoteWith(ctx context.Context, queries *dbgen.Queries, userI
 	if err != nil {
 		return OrderQuote{}, err
 	}
+	// The server catalogue keeps a trial to its servers, refuses a full one,
+	// and prices a chosen one; see servers.go.
+	if squads, err = applyServerRules(ctx, queries, &plan, userID, input.Operation, squads, ownSeconds); err != nil {
+		return OrderQuote{}, err
+	}
 	// Every squad the order would grant must still exist in the panel before
 	// the customer is charged for it.
 	if err = store.assertSquadsExist(ctx, squads); err != nil && input.Operation != "renewal" {

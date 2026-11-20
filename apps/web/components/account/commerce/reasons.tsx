@@ -121,6 +121,7 @@ const PROBLEMS = [
   "not_daily",
   "not_pausable",
   "simple_subscription_unavailable",
+  "squad_full",
   "trial_sign_in_method",
   "recurring_unavailable",
   "no_saved_method",

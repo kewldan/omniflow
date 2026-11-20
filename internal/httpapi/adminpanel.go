@@ -323,6 +323,7 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 			handlers.mountCustomerAuth(secure)
 			handlers.mountSearch(secure)
 			handlers.mountPlanOptions(secure)
+			handlers.mountServers(secure)
 			handlers.mountPlatform(secure)
 			handlers.mountNews(secure)
 			handlers.mountImports(secure)

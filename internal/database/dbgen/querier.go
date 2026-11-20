@@ -284,6 +284,8 @@ type Querier interface {
 	CountRecentOperatorNotifications(ctx context.Context, arg CountRecentOperatorNotificationsParams) (int32, error)
 	CountReminderAudience(ctx context.Context, reminderID pgtype.UUID) (int64, error)
 	CountRunningBackups(ctx context.Context) (int32, error)
+	// Customers other than this one with a live entitlement on the squad.
+	CountSquadCustomers(ctx context.Context, arg CountSquadCustomersParams) (int32, error)
 	CountUnpublishedOutboxEvents(ctx context.Context) (CountUnpublishedOutboxEventsRow, error)
 	CountUnusedAdminRecoveryCodes(ctx context.Context, adminUserID pgtype.UUID) (int64, error)
 	// Named API tokens and outgoing webhooks.
@@ -416,6 +418,7 @@ type Querier interface {
 	CreateWalletTopup(ctx context.Context, arg CreateWalletTopupParams) (WalletTopup, error)
 	CreateWebhookEndpoint(ctx context.Context, arg CreateWebhookEndpointParams) (WebhookEndpoint, error)
 	CreditWalletTopup(ctx context.Context, arg CreditWalletTopupParams) (WalletTopup, error)
+	CustomerHoldsSquad(ctx context.Context, arg CustomerHoldsSquadParams) (bool, error)
 	CustomerLastActivity(ctx context.Context, userID pgtype.UUID) (pgtype.Timestamptz, error)
 	// The metric a standing is evaluated on, computed from facts Omniflow already
 	// records. Nothing new is tracked to support loyalty.
@@ -972,6 +975,9 @@ type Querier interface {
 	// The period the subscription's latest settled subscription order bought,
 	// which an automatic renewal repeats when the version still offers it.
 	LastOrderPeriod(ctx context.Context, subscriptionID pgtype.UUID) (pgtype.Int8, error)
+	// The squads the subscription's latest settled subscription order granted,
+	// which an automatic renewal keeps choosing.
+	LastOrderSquads(ctx context.Context, subscriptionID pgtype.UUID) ([]pgtype.UUID, error)
 	// The traffic the subscription's latest settled subscription order bought,
 	// which an automatic renewal repeats when the version still sells it.
 	LastOrderTraffic(ctx context.Context, subscriptionID pgtype.UUID) (pgtype.Int4, error)
@@ -1421,6 +1427,11 @@ type Querier interface {
 	ListRemnawaveMappings(ctx context.Context) ([]ListRemnawaveMappingsRow, error)
 	// Mandatory channel subscription.
 	ListRequiredChannels(ctx context.Context) ([]RequiredChannel, error)
+	// The server catalogue: Omniflow's labels and sale limits over Remnawave
+	// internal squads.
+	// What the catalogue says about the squads an order would grant, with the
+	// price of choosing each in the order's currency.
+	ListServerRules(ctx context.Context, arg ListServerRulesParams) ([]ListServerRulesRow, error)
 	// AI governance, MCP connections, and installation settings.
 	// Every section without its secrets. This is the query the settings screens
 	// read, and it cannot return a credential because the column is not selected.

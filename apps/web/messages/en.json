@@ -2099,6 +2099,34 @@
         "deviceQuantity": "Add-ons to include",
         "reason": "Reason",
         "save": "Save"
+      },
+      "servers": {
+        "title": "Servers",
+        "description": "How Omniflow names, prices, and limits the sale of each Remnawave squad. Remnawave stays in charge of squads and nodes: nothing here changes them.",
+        "panelUnavailable": "The Remnawave panel could not be read, so only catalogued servers are listed and member counts are missing.",
+        "empty": "No squads in the panel and nothing catalogued yet.",
+        "members": "{count} in the panel",
+        "customers": "{count} customers",
+        "customersOf": "{count} of {max} customers",
+        "full": "Full",
+        "noTrials": "No trials",
+        "notInPanel": "Not in the panel",
+        "add": "Catalogue",
+        "edit": "Edit",
+        "close": "Close",
+        "nameRu": "Name (Russian)",
+        "nameEn": "Name (English)",
+        "country": "Country",
+        "countryHint": "Two letters, such as DE; shown as a flag.",
+        "maxUsers": "Customer limit",
+        "maxUsersHint": "Empty is no limit. A full server is refused to new customers at checkout; renewals keep who is there.",
+        "currency": "Currency",
+        "price": "Price for choosing it",
+        "priceHint": "Added when a customer chooses this server, for the plan version's own duration. Empty is free.",
+        "trialEligible": "Trials may use this server",
+        "reason": "Reason",
+        "save": "Save",
+        "remove": "Remove from the catalogue"
       }
     },
     "codes": {
@@ -5774,7 +5802,8 @@
         "traffic_unavailable": "This plan is not sold with that traffic volume.",
         "not_daily": "This subscription is not billed by the day.",
         "not_pausable": "This subscription cannot be paused or resumed right now.",
-        "simple_subscription_unavailable": "This offer is no longer available. Refresh the store."
+        "simple_subscription_unavailable": "This offer is no longer available. Refresh the store.",
+        "squad_full": "One of the chosen servers has no room left. Choose another one."
       },
       "breakdown": {
         "subtotal": "Plan",

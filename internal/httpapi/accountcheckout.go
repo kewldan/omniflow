@@ -1033,6 +1033,11 @@ func (handlers *AccountHandlers) writeCheckoutError(
 		)
 	case errors.Is(err, commercepg.ErrSubscriptionUnknown):
 		writeProblem(writer, request, http.StatusNotFound, "not_found", "That subscription was not found")
+	case errors.Is(err, commercepg.ErrServerFull):
+		writeProblem(
+			writer, request, http.StatusUnprocessableEntity,
+			"squad_full", "One of the chosen servers has no room for another customer",
+		)
 	case errors.Is(err, commercepg.ErrTrafficUnavailable):
 		writeProblem(
 			writer, request, http.StatusUnprocessableEntity,

@@ -3318,6 +3318,94 @@ export const SavePanelPlanOptionsResponse = zod.object({
 });
 
 /**
+ * Requires catalog.read. The server catalogue beside the Remnawave panel's internal squads: each row carries the catalogue entry when there is one, the panel's name and member count read live (never stored; `reported` is false when the panel could not be read), and whether its customer limit is reached. `entry.liveCustomers` is Omniflow's own count of customers with a live entitlement on it.
+ */
+export const ListPanelServersResponse = zod.record(zod.string(), zod.unknown());
+
+/**
+ * Requires catalog.write. Creates or replaces how Omniflow labels and limits the sale of one Remnawave internal squad. Nothing is changed in Remnawave.
+ */
+export const SavePanelServerParams = zod.object({
+  squadID: zod.uuid(),
+});
+
+export const SavePanelServerHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const savePanelServerBodyNameRuMax = 80;
+
+export const savePanelServerBodyNameEnMax = 80;
+
+export const SavePanelServerBody = zod.object({
+  squadId: zod.uuid().optional(),
+  nameRu: zod.string().min(1).max(savePanelServerBodyNameRuMax),
+  nameEn: zod.string().min(1).max(savePanelServerBodyNameEnMax),
+  countryCode: zod
+    .string()
+    .optional()
+    .describe("ISO 3166-1 alpha-2, shown as a flag; empty for none."),
+  maxUsers: zod
+    .int()
+    .min(1)
+    .nullish()
+    .describe("The most customers a sale may put on the squad; null is no limit."),
+  trialEligible: zod.boolean(),
+  sortOrder: zod.int().optional(),
+  prices: zod
+    .record(zod.string(), zod.int().min(1))
+    .optional()
+    .describe(
+      "What choosing the squad adds to a plan's price, per currency, for the version's own duration.",
+    ),
+});
+
+export const savePanelServerResponseNameRuMax = 80;
+
+export const savePanelServerResponseNameEnMax = 80;
+
+export const SavePanelServerResponse = zod.object({
+  squadId: zod.uuid().optional(),
+  nameRu: zod.string().min(1).max(savePanelServerResponseNameRuMax),
+  nameEn: zod.string().min(1).max(savePanelServerResponseNameEnMax),
+  countryCode: zod
+    .string()
+    .optional()
+    .describe("ISO 3166-1 alpha-2, shown as a flag; empty for none."),
+  maxUsers: zod
+    .int()
+    .min(1)
+    .nullish()
+    .describe("The most customers a sale may put on the squad; null is no limit."),
+  trialEligible: zod.boolean(),
+  sortOrder: zod.int().optional(),
+  prices: zod
+    .record(zod.string(), zod.int().min(1))
+    .optional()
+    .describe(
+      "What choosing the squad adds to a plan's price, per currency, for the version's own duration.",
+    ),
+  liveCustomers: zod.int().optional(),
+});
+
+/**
+ * Requires catalog.write. Removes the squad's catalogue entry; it is then sold with no label, limit, or price of its own.
+ */
+export const DeletePanelServerParams = zod.object({
+  squadID: zod.uuid(),
+});
+
+export const DeletePanelServerHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const DeletePanelServerResponse = zod.void();
+
+/**
  * Requires catalog.read. The simple subscription setting.
  */
 export const getPanelSimpleSubscriptionResponsePeriodDaysMin = 0;

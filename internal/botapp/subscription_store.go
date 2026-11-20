@@ -196,8 +196,10 @@ func (store *PostgresStore) PlanSquads(ctx context.Context, planVersionID string
 	if locale == LocaleRussian {
 		labelColumn = "label_ru"
 	}
-	rows, err := store.pool.Query(ctx, `SELECT squad_id::text, `+labelColumn+`
-		FROM plan_version_squads WHERE plan_version_id = $1::uuid ORDER BY sort_order, squad_id`, planVersionID)
+	rows, err := store.pool.Query(ctx, `SELECT s.squad_id::text, `+accountcheckout.FlaggedLabel("s."+labelColumn)+`
+		FROM plan_version_squads s
+		LEFT JOIN server_catalog c ON c.squad_id = s.squad_id
+		WHERE s.plan_version_id = $1::uuid ORDER BY s.sort_order, s.squad_id`, planVersionID)
 	if err != nil {
 		return PlanSquadPolicy{}, err
 	}

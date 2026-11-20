@@ -1749,6 +1749,38 @@ export interface PanelPlanVersionSummary {
   dailyBilling?: boolean;
 }
 
+/**
+ * What choosing the squad adds to a plan's price, per currency, for the version's own duration.
+ */
+export type PanelServerPrices = { [key: string]: number };
+
+export interface PanelServer {
+  squadId?: string;
+  /**
+   * @minLength 1
+   * @maxLength 80
+   */
+  nameRu: string;
+  /**
+   * @minLength 1
+   * @maxLength 80
+   */
+  nameEn: string;
+  /** ISO 3166-1 alpha-2, shown as a flag; empty for none. */
+  countryCode?: string;
+  /**
+   * The most customers a sale may put on the squad; null is no limit.
+   * @minimum 1
+   * @nullable
+   */
+  maxUsers?: number | null;
+  trialEligible: boolean;
+  sortOrder?: number;
+  /** What choosing the squad adds to a plan's price, per currency, for the version's own duration. */
+  prices?: PanelServerPrices;
+  readonly liveCustomers?: number;
+}
+
 export interface PanelSimpleSubscription {
   enabled: boolean;
   /** The plan sold; empty for none. */
@@ -6578,6 +6610,8 @@ export type ArchivePanelPlanBody = {
 export type ApplyPanelPlanSquads202 = {
   subscriptions?: number;
 };
+
+export type ListPanelServers200 = { [key: string]: unknown };
 
 export type CreatePanelPromotion201 = { [key: string]: unknown };
 
@@ -16915,6 +16949,252 @@ export const useSavePanelPlanOptions = <TError = Promise<ProblemResponse>>(
 
   const swrKey = swrOptions?.swrKey ?? getSavePanelPlanOptionsMutationKey(planID);
   const swrFn = getSavePanelPlanOptionsMutationFetcher(planID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelServersResponse200 = {
+  data: ListPanelServers200;
+  status: 200;
+};
+
+export type listPanelServersResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelServersResponseSuccess = listPanelServersResponse200 & {
+  headers: Headers;
+};
+export type listPanelServersResponseError = listPanelServersResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelServersResponse =
+  | listPanelServersResponseSuccess
+  | listPanelServersResponseError;
+
+export const getListPanelServersUrl = () => {
+  return `/v1/panel/catalog/servers`;
+};
+
+/**
+ * Requires catalog.read. The server catalogue beside the Remnawave panel's internal squads: each row carries the catalogue entry when there is one, the panel's name and member count read live (never stored; `reported` is false when the panel could not be read), and whether its customer limit is reached. `entry.liveCustomers` is Omniflow's own count of customers with a live entitlement on it.
+ */
+export const listPanelServers = async (
+  options?: RequestInit,
+): Promise<listPanelServersResponse> => {
+  const res = await fetch(getListPanelServersUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelServersResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelServersResponse;
+};
+
+export const getListPanelServersKey = () => [`/v1/panel/catalog/servers`] as const;
+
+export type ListPanelServersQueryResult = NonNullable<Awaited<ReturnType<typeof listPanelServers>>>;
+
+export const useListPanelServers = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelServers>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelServersKey() : null));
+  const swrFn = () => listPanelServers(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelServerResponse200 = {
+  data: PanelServer;
+  status: 200;
+};
+
+export type savePanelServerResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelServerResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type savePanelServerResponseSuccess = savePanelServerResponse200 & {
+  headers: Headers;
+};
+export type savePanelServerResponseError = (
+  | savePanelServerResponse403
+  | savePanelServerResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelServerResponse = savePanelServerResponseSuccess | savePanelServerResponseError;
+
+export const getSavePanelServerUrl = (squadID: string) => {
+  return `/v1/panel/catalog/servers/${squadID}`;
+};
+
+/**
+ * Requires catalog.write. Creates or replaces how Omniflow labels and limits the sale of one Remnawave internal squad. Nothing is changed in Remnawave.
+ */
+export const savePanelServer = async (
+  squadID: string,
+  panelServer: NonReadonly<PanelServer>,
+  options?: RequestInit,
+): Promise<savePanelServerResponse> => {
+  const res = await fetch(getSavePanelServerUrl(squadID), {
+    ...options,
+    method: "PUT",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(panelServer),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelServerResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as savePanelServerResponse;
+};
+
+export const getSavePanelServerMutationFetcher = (squadID: string, options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: NonReadonly<PanelServer> }) => {
+    return savePanelServer(squadID, arg, options);
+  };
+};
+export const getSavePanelServerMutationKey = (squadID: string) =>
+  [`/v1/panel/catalog/servers/${squadID}`] as const;
+
+export type SavePanelServerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelServer>>
+>;
+
+export const useSavePanelServer = <TError = Promise<ProblemResponse>>(
+  squadID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof savePanelServer>>,
+      TError,
+      Key,
+      NonReadonly<PanelServer>,
+      Awaited<ReturnType<typeof savePanelServer>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelServerMutationKey(squadID);
+  const swrFn = getSavePanelServerMutationFetcher(squadID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type deletePanelServerResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type deletePanelServerResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type deletePanelServerResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type deletePanelServerResponseSuccess = deletePanelServerResponse204 & {
+  headers: Headers;
+};
+export type deletePanelServerResponseError = (
+  | deletePanelServerResponse403
+  | deletePanelServerResponse404
+) & {
+  headers: Headers;
+};
+
+export type deletePanelServerResponse =
+  | deletePanelServerResponseSuccess
+  | deletePanelServerResponseError;
+
+export const getDeletePanelServerUrl = (squadID: string) => {
+  return `/v1/panel/catalog/servers/${squadID}`;
+};
+
+/**
+ * Requires catalog.write. Removes the squad's catalogue entry; it is then sold with no label, limit, or price of its own.
+ */
+export const deletePanelServer = async (
+  squadID: string,
+  options?: RequestInit,
+): Promise<deletePanelServerResponse> => {
+  const res = await fetch(getDeletePanelServerUrl(squadID), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: deletePanelServerResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as deletePanelServerResponse;
+};
+
+export const getDeletePanelServerMutationFetcher = (squadID: string, options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return deletePanelServer(squadID, options);
+  };
+};
+export const getDeletePanelServerMutationKey = (squadID: string) =>
+  [`/v1/panel/catalog/servers/${squadID}`] as const;
+
+export type DeletePanelServerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deletePanelServer>>
+>;
+
+export const useDeletePanelServer = <TError = Promise<ProblemResponse>>(
+  squadID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof deletePanelServer>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof deletePanelServer>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getDeletePanelServerMutationKey(squadID);
+  const swrFn = getDeletePanelServerMutationFetcher(squadID, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

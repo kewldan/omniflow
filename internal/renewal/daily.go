@@ -151,10 +151,14 @@ func (worker *Worker) chargeDay(ctx context.Context, candidate dailyCandidate) e
 	if err != nil {
 		return err
 	}
+	squads, err := worker.orders.RenewalSquads(ctx, candidate.subscriptionID, candidate.planVersionID)
+	if err != nil {
+		return err
+	}
 	input := commercepg.CreateOrderInput{
 		CustomerID: candidate.userID, PlanVersionID: candidate.planVersionID, Currency: candidate.currency,
 		Operation: "renewal", SubscriptionID: candidate.subscriptionID, IdempotencyKey: key,
-		TrafficGB: trafficGB, WalletOnly: true,
+		TrafficGB: trafficGB, SelectedSquadIDs: squads, WalletOnly: true,
 	}
 	order, err := worker.orders.CreateOrder(ctx, input)
 	if errors.Is(err, commercepg.ErrWalletShort) {

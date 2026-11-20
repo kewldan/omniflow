@@ -9610,6 +9610,24 @@ type PanelSearchResults struct {
 // PanelSearchResultsHints defines model for PanelSearchResults.Hints.
 type PanelSearchResultsHints string
 
+// PanelServer defines model for PanelServer.
+type PanelServer struct {
+	// CountryCode ISO 3166-1 alpha-2, shown as a flag; empty for none.
+	CountryCode   *string `json:"countryCode,omitempty"`
+	LiveCustomers *int    `json:"liveCustomers,omitempty"`
+
+	// MaxUsers The most customers a sale may put on the squad; null is no limit.
+	MaxUsers *int   `json:"maxUsers,omitempty"`
+	NameEn   string `json:"nameEn"`
+	NameRu   string `json:"nameRu"`
+
+	// Prices What choosing the squad adds to a plan's price, per currency, for the version's own duration.
+	Prices        *map[string]int64   `json:"prices,omitempty"`
+	SortOrder     *int                `json:"sortOrder,omitempty"`
+	SquadId       *openapi_types.UUID `json:"squadId,omitempty"`
+	TrialEligible bool                `json:"trialEligible"`
+}
+
 // PanelSession defines model for PanelSession.
 type PanelSession struct {
 	Account   AdminAccount `json:"account"`
@@ -11955,6 +11973,18 @@ type UpdatePanelPromotionParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// DeletePanelServerParams defines parameters for DeletePanelServer.
+type DeletePanelServerParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// SavePanelServerParams defines parameters for SavePanelServer.
+type SavePanelServerParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // SavePanelSimpleSubscriptionParams defines parameters for SavePanelSimpleSubscription.
 type SavePanelSimpleSubscriptionParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
@@ -13228,6 +13258,9 @@ type CreatePanelPromotionJSONRequestBody = PanelPromotionInput
 // UpdatePanelPromotionJSONRequestBody defines body for UpdatePanelPromotion for application/json ContentType.
 type UpdatePanelPromotionJSONRequestBody = PanelPromotionUpdate
 
+// SavePanelServerJSONRequestBody defines body for SavePanelServer for application/json ContentType.
+type SavePanelServerJSONRequestBody = PanelServer
+
 // SavePanelSimpleSubscriptionJSONRequestBody defines body for SavePanelSimpleSubscription for application/json ContentType.
 type SavePanelSimpleSubscriptionJSONRequestBody = PanelSimpleSubscription
 
@@ -14237,6 +14270,15 @@ type ServerInterface interface {
 
 	// (GET /v1/panel/catalog/promotions/{promotionID}/codes)
 	ListPanelPromoCodes(w http.ResponseWriter, r *http.Request, promotionID openapi_types.UUID)
+
+	// (GET /v1/panel/catalog/servers)
+	ListPanelServers(w http.ResponseWriter, r *http.Request)
+
+	// (DELETE /v1/panel/catalog/servers/{squadID})
+	DeletePanelServer(w http.ResponseWriter, r *http.Request, squadID openapi_types.UUID, params DeletePanelServerParams)
+
+	// (PUT /v1/panel/catalog/servers/{squadID})
+	SavePanelServer(w http.ResponseWriter, r *http.Request, squadID openapi_types.UUID, params SavePanelServerParams)
 
 	// (GET /v1/panel/catalog/simple-subscription)
 	GetPanelSimpleSubscription(w http.ResponseWriter, r *http.Request)
@@ -15886,6 +15928,21 @@ func (_ Unimplemented) UpdatePanelPromotion(w http.ResponseWriter, r *http.Reque
 
 // (GET /v1/panel/catalog/promotions/{promotionID}/codes)
 func (_ Unimplemented) ListPanelPromoCodes(w http.ResponseWriter, r *http.Request, promotionID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/catalog/servers)
+func (_ Unimplemented) ListPanelServers(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /v1/panel/catalog/servers/{squadID})
+func (_ Unimplemented) DeletePanelServer(w http.ResponseWriter, r *http.Request, squadID openapi_types.UUID, params DeletePanelServerParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /v1/panel/catalog/servers/{squadID})
+func (_ Unimplemented) SavePanelServer(w http.ResponseWriter, r *http.Request, squadID openapi_types.UUID, params SavePanelServerParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -25640,6 +25697,128 @@ func (siw *ServerInterfaceWrapper) ListPanelPromoCodes(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// ListPanelServers operation middleware
+func (siw *ServerInterfaceWrapper) ListPanelServers(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPanelServers(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeletePanelServer operation middleware
+func (siw *ServerInterfaceWrapper) DeletePanelServer(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "squadID" -------------
+	var squadID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "squadID", chi.URLParam(r, "squadID"), &squadID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "squadID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeletePanelServerParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeletePanelServer(w, r, squadID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SavePanelServer operation middleware
+func (siw *ServerInterfaceWrapper) SavePanelServer(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "squadID" -------------
+	var squadID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "squadID", chi.URLParam(r, "squadID"), &squadID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "squadID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SavePanelServerParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SavePanelServer(w, r, squadID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetPanelSimpleSubscription operation middleware
 func (siw *ServerInterfaceWrapper) GetPanelSimpleSubscription(w http.ResponseWriter, r *http.Request) {
 
@@ -33803,6 +33982,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/v1/panel/catalog/plans/{planID}/options", wrapper.SavePanelPlanOptions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/catalog/servers", wrapper.ListPanelServers)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/panel/catalog/servers/{squadID}", wrapper.DeletePanelServer)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/v1/panel/catalog/servers/{squadID}", wrapper.SavePanelServer)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/catalog/simple-subscription", wrapper.GetPanelSimpleSubscription)
@@ -44498,6 +44686,144 @@ func (response ListPanelPromoCodes403ApplicationProblemPlusJSONResponse) VisitLi
 	return err
 }
 
+type ListPanelServersRequestObject struct {
+}
+
+type ListPanelServersResponseObject interface {
+	VisitListPanelServersResponse(w http.ResponseWriter) error
+}
+
+type ListPanelServers200JSONResponse map[string]interface{}
+
+func (response ListPanelServers200JSONResponse) VisitListPanelServersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelServers403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListPanelServers403ApplicationProblemPlusJSONResponse) VisitListPanelServersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePanelServerRequestObject struct {
+	SquadID openapi_types.UUID `json:"squadID"`
+	Params  DeletePanelServerParams
+}
+
+type DeletePanelServerResponseObject interface {
+	VisitDeletePanelServerResponse(w http.ResponseWriter) error
+}
+
+type DeletePanelServer204Response struct {
+}
+
+func (response DeletePanelServer204Response) VisitDeletePanelServerResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeletePanelServer403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DeletePanelServer403ApplicationProblemPlusJSONResponse) VisitDeletePanelServerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePanelServer404ApplicationProblemPlusJSONResponse Problem
+
+func (response DeletePanelServer404ApplicationProblemPlusJSONResponse) VisitDeletePanelServerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelServerRequestObject struct {
+	SquadID openapi_types.UUID `json:"squadID"`
+	Params  SavePanelServerParams
+	Body    *SavePanelServerJSONRequestBody
+}
+
+type SavePanelServerResponseObject interface {
+	VisitSavePanelServerResponse(w http.ResponseWriter) error
+}
+
+type SavePanelServer200JSONResponse PanelServer
+
+func (response SavePanelServer200JSONResponse) VisitSavePanelServerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelServer403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SavePanelServer403ApplicationProblemPlusJSONResponse) VisitSavePanelServerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelServer422ApplicationProblemPlusJSONResponse Problem
+
+func (response SavePanelServer422ApplicationProblemPlusJSONResponse) VisitSavePanelServerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetPanelSimpleSubscriptionRequestObject struct {
 }
 
@@ -53532,6 +53858,15 @@ type StrictServerInterface interface {
 	// (GET /v1/panel/catalog/promotions/{promotionID}/codes)
 	ListPanelPromoCodes(ctx context.Context, request ListPanelPromoCodesRequestObject) (ListPanelPromoCodesResponseObject, error)
 
+	// (GET /v1/panel/catalog/servers)
+	ListPanelServers(ctx context.Context, request ListPanelServersRequestObject) (ListPanelServersResponseObject, error)
+
+	// (DELETE /v1/panel/catalog/servers/{squadID})
+	DeletePanelServer(ctx context.Context, request DeletePanelServerRequestObject) (DeletePanelServerResponseObject, error)
+
+	// (PUT /v1/panel/catalog/servers/{squadID})
+	SavePanelServer(ctx context.Context, request SavePanelServerRequestObject) (SavePanelServerResponseObject, error)
+
 	// (GET /v1/panel/catalog/simple-subscription)
 	GetPanelSimpleSubscription(ctx context.Context, request GetPanelSimpleSubscriptionRequestObject) (GetPanelSimpleSubscriptionResponseObject, error)
 
@@ -60580,6 +60915,91 @@ func (sh *strictHandler) ListPanelPromoCodes(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListPanelPromoCodesResponseObject); ok {
 		if err := validResponse.VisitListPanelPromoCodesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPanelServers operation middleware
+func (sh *strictHandler) ListPanelServers(w http.ResponseWriter, r *http.Request) {
+	var request ListPanelServersRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPanelServers(ctx, request.(ListPanelServersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPanelServers")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPanelServersResponseObject); ok {
+		if err := validResponse.VisitListPanelServersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeletePanelServer operation middleware
+func (sh *strictHandler) DeletePanelServer(w http.ResponseWriter, r *http.Request, squadID openapi_types.UUID, params DeletePanelServerParams) {
+	var request DeletePanelServerRequestObject
+
+	request.SquadID = squadID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeletePanelServer(ctx, request.(DeletePanelServerRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeletePanelServer")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeletePanelServerResponseObject); ok {
+		if err := validResponse.VisitDeletePanelServerResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SavePanelServer operation middleware
+func (sh *strictHandler) SavePanelServer(w http.ResponseWriter, r *http.Request, squadID openapi_types.UUID, params SavePanelServerParams) {
+	var request SavePanelServerRequestObject
+
+	request.SquadID = squadID
+	request.Params = params
+
+	var body SavePanelServerJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SavePanelServer(ctx, request.(SavePanelServerRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SavePanelServer")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SavePanelServerResponseObject); ok {
+		if err := validResponse.VisitSavePanelServerResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
