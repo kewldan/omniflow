@@ -222,6 +222,18 @@ existing code replaces that template.
   </Step>
 </Steps>
 
+## The pinned message
+
+**Pinned message** on `/admin/marketing` (`marketing.write`) is Bedolaga's pinned message: one
+message, in both languages and optionally with an `https` picture, that the bot sends to every
+customer it can reach, a batch at a time beside the campaigns. With **Pin in the chat** it is pinned
+silently; with **Show on /start** a customer who opens the bot before their batch gets it then. Each
+customer gets it once (`pinned_message_deliveries`), and the card shows how many were sent and
+failed. Only one message is in force: publishing a new one retires it, and **Retire and unpin**, or
+that retirement, makes the bot unpin it everywhere it pinned it. The text follows the same markup
+rule as templates. Routes: `GET`/`POST /v1/panel/marketing/pinned`,
+`POST /v1/panel/marketing/pinned/{id}/retire`.
+
 ## Previewing a campaign
 
 `POST /v1/panel/marketing/campaigns/{campaignID}/test` with `{"locale": "en"}`

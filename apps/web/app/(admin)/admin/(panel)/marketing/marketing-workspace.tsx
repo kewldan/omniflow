@@ -25,6 +25,7 @@ import { AdCampaignsCard } from "./ad-campaigns";
 import { EmailDeliveryCard } from "./email-delivery";
 import { EngagementCard } from "./engagement";
 import { LoyaltyCard } from "./loyalty-card";
+import { PinnedMessageCard } from "./pinned-message";
 import { ReferralCommissionFields } from "./referral-commission";
 import { ReferralInsightsCard } from "./referral-insights";
 import { ReferralLevelsCard } from "./referral-levels";
@@ -62,6 +63,7 @@ export function MarketingWorkspace() {
       )}
       <AdCampaignsCard editable={can("marketing.write")} />
       <RemindersCard editable={can("marketing.write")} />
+      <PinnedMessageCard editable={can("marketing.write")} />
       <SegmentCard />
       {can("marketing.write") && (
         <SegmentEditorCard onSaved={() => void revalidate("/v1/panel/marketing/segments")} />

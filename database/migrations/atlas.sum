@@ -1,4 +1,4 @@
-h1:tsQntMSL5gPpnXc1ijwJA8iv3DPfa9aNQEwXdy/Flcw=
+h1:BxzprYGpZVXspYTUjGjihXxtDmXHwRMSLg1JnwZsgxU=
 20261120000000_baseline.sql h1:xcYk9mdv44B3O0TRxq3RP+hXxJ2VeeOilGnwKO251mQ=
 20261120010000_river_schema_v8.sql h1:AfdQpxaviEf8asJ5gyLmMVZr+zMYaWEw+o/vE8CMj7A=
 20261120020000_customer_email_signin.sql h1:PrCKaTaDm5ggof8aqRooMbqOXEHML5fwq1TF877zQa8=
@@ -52,3 +52,4 @@ h1:tsQntMSL5gPpnXc1ijwJA8iv3DPfa9aNQEwXdy/Flcw=
 20261121970000_referral_reward_choice.sql h1:cZ7Ke3d7EdgN3/n9jB7/ZJTQlMjE0F4MiKsvRm5cmnc=
 20261121980000_blocked_bot_disables.sql h1:4E4vuviLquxe0XL3d5XqiEaYCYCN37DY5VLvzkQVNhg=
 20261121990000_offer_templates.sql h1:ZTFL0mQIaekKbvXFHmRxwI5t63oh9bWZy5WrhdAmmF8=
+20261121995000_pinned_messages.sql h1:6IafPke5Yqzyjdi4OnVZ9YOWbop5tNPAncgkBwEWoh0=

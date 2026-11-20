@@ -3319,6 +3319,22 @@
           "vkid": "VK ID",
           "oidc": "external provider"
         }
+      },
+      "pinned": {
+        "title": "Pinned message",
+        "description": "One message the bot sends to every customer it can reach, pins in the chat if you ask, and shows on /start to whoever has not had it. Publishing a new one retires the current one, which is unpinned everywhere.",
+        "active": "In force",
+        "reach": "sent {sent}, failed {failed}",
+        "none": "No pinned message is in force.",
+        "retire": "Retire and unpin",
+        "textRu": "Text (RU)",
+        "textEn": "Text (EN)",
+        "photo": "Picture (https link, optional)",
+        "pin": "Pin in the chat",
+        "showOnStart": "Show on /start to whoever has not had it",
+        "invalid": "Not published: check the markup and the picture link.",
+        "publish": "Publish",
+        "published": "Pinned message published"
       }
     },
     "installationSettings": {

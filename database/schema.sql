@@ -3663,6 +3663,46 @@ CREATE TABLE public.personal_offers (
 
 
 --
+-- Name: pinned_message_deliveries; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.pinned_message_deliveries (
+    pinned_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    chat_id bigint NOT NULL,
+    telegram_message_id bigint,
+    status text NOT NULL,
+    pinned boolean DEFAULT false NOT NULL,
+    unpinned_at timestamp with time zone,
+    error_code text,
+    delivered_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT pinned_message_deliveries_status_known CHECK ((status = ANY (ARRAY['sent'::text, 'failed'::text])))
+);
+
+
+--
+-- Name: pinned_messages; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.pinned_messages (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    text_ru text NOT NULL,
+    text_en text NOT NULL,
+    photo_url text,
+    pin boolean DEFAULT true NOT NULL,
+    show_on_start boolean DEFAULT true NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    retired_at timestamp with time zone,
+    CONSTRAINT pinned_messages_photo_shape CHECK (((photo_url IS NULL) OR ((photo_url ~ '^https://'::text) AND (char_length(photo_url) <= 500)))),
+    CONSTRAINT pinned_messages_retired_consistent CHECK (((status = 'retired'::text) = (retired_at IS NOT NULL))),
+    CONSTRAINT pinned_messages_status_known CHECK ((status = ANY (ARRAY['active'::text, 'retired'::text]))),
+    CONSTRAINT pinned_messages_text_length CHECK ((((char_length(text_ru) >= 1) AND (char_length(text_ru) <= 3500)) AND ((char_length(text_en) >= 1) AND (char_length(text_en) <= 3500))))
+);
+
+
+--
 -- Name: plan_localizations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -6688,6 +6728,22 @@ ALTER TABLE ONLY public.personal_offers
 
 
 --
+-- Name: pinned_message_deliveries pinned_message_deliveries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pinned_message_deliveries
+    ADD CONSTRAINT pinned_message_deliveries_pkey PRIMARY KEY (pinned_id, user_id);
+
+
+--
+-- Name: pinned_messages pinned_messages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pinned_messages
+    ADD CONSTRAINT pinned_messages_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: plan_localizations plan_localizations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8211,6 +8267,20 @@ CREATE INDEX personal_offers_expiry_idx ON public.personal_offers USING btree (e
 --
 
 CREATE UNIQUE INDEX personal_offers_one_active_idx ON public.personal_offers USING btree (user_id, promotion_id) WHERE (status = 'active'::text);
+
+
+--
+-- Name: pinned_message_deliveries_to_unpin; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX pinned_message_deliveries_to_unpin ON public.pinned_message_deliveries USING btree (pinned_id) WHERE (pinned AND (unpinned_at IS NULL));
+
+
+--
+-- Name: pinned_messages_one_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX pinned_messages_one_active ON public.pinned_messages USING btree ((true)) WHERE (status = 'active'::text);
 
 
 --
@@ -10324,6 +10394,30 @@ ALTER TABLE ONLY public.personal_offers
 
 ALTER TABLE ONLY public.personal_offers
     ADD CONSTRAINT personal_offers_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: pinned_message_deliveries pinned_message_deliveries_pinned_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pinned_message_deliveries
+    ADD CONSTRAINT pinned_message_deliveries_pinned_id_fkey FOREIGN KEY (pinned_id) REFERENCES public.pinned_messages(id) ON DELETE CASCADE;
+
+
+--
+-- Name: pinned_message_deliveries pinned_message_deliveries_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pinned_message_deliveries
+    ADD CONSTRAINT pinned_message_deliveries_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: pinned_messages pinned_messages_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pinned_messages
+    ADD CONSTRAINT pinned_messages_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.admin_users(id) ON DELETE SET NULL;
 
 
 --

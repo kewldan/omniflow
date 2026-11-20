@@ -1905,6 +1905,31 @@ type PersonalOffer struct {
 	BonusCurrency   pgtype.Text        `json:"bonus_currency"`
 }
 
+type PinnedMessage struct {
+	ID          pgtype.UUID        `json:"id"`
+	TextRu      string             `json:"text_ru"`
+	TextEn      string             `json:"text_en"`
+	PhotoUrl    pgtype.Text        `json:"photo_url"`
+	Pin         bool               `json:"pin"`
+	ShowOnStart bool               `json:"show_on_start"`
+	Status      string             `json:"status"`
+	CreatedBy   pgtype.UUID        `json:"created_by"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	RetiredAt   pgtype.Timestamptz `json:"retired_at"`
+}
+
+type PinnedMessageDelivery struct {
+	PinnedID          pgtype.UUID        `json:"pinned_id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	ChatID            int64              `json:"chat_id"`
+	TelegramMessageID pgtype.Int8        `json:"telegram_message_id"`
+	Status            string             `json:"status"`
+	Pinned            bool               `json:"pinned"`
+	UnpinnedAt        pgtype.Timestamptz `json:"unpinned_at"`
+	ErrorCode         pgtype.Text        `json:"error_code"`
+	DeliveredAt       pgtype.Timestamptz `json:"delivered_at"`
+}
+
 type Plan struct {
 	ID                       pgtype.UUID        `json:"id"`
 	Code                     string             `json:"code"`

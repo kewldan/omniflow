@@ -215,6 +215,9 @@ func (notifier *Notifier) runBroadcasts(ctx context.Context) {
 // either still comes back full, and stops when both are short, when the
 // context ends, or when Telegram has paused the bot.
 func (notifier *Notifier) drainBroadcasts(ctx context.Context) {
+	// The operator's pinned message goes out a batch per drain, beside the
+	// campaigns, and a retired one is unpinned.
+	notifier.deliverPinned(ctx)
 	for ctx.Err() == nil && !notifier.paused() {
 		campaigns := notifier.deliverCampaigns(ctx)
 		announcements := notifier.deliverNews(ctx)

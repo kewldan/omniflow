@@ -102,7 +102,7 @@ func (stub *botTelegram) serve(writer http.ResponseWriter, request *http.Request
 		return
 	}
 	switch method {
-	case "answerCallbackQuery", "sendChatAction":
+	case "answerCallbackQuery", "sendChatAction", "pinChatMessage", "unpinChatMessage":
 		_, _ = writer.Write([]byte(`{"ok":true,"result":true}`))
 	default:
 		_, _ = writer.Write([]byte(`{"ok":true,"result":{"message_id":1,"date":0,"chat":{"id":1,"type":"private"}}}`))

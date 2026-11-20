@@ -345,6 +345,9 @@ func (app *App) HandleStart(ctx context.Context, client *telegram.Bot, update *m
 	if _, err := client.SendMessage(ctx, sendParams(message.Chat.ID, view)); err != nil {
 		app.withCorrelation(update).Error("telegram view send failed", "view", routeHome, "error", err)
 	}
+	if !app.termsBlocked(ctx, message.From) {
+		app.showPinnedOnStart(ctx, message.Chat.ID, message.From, locale)
+	}
 }
 
 // startPayload is the argument Telegram appends to /start from a deep link.

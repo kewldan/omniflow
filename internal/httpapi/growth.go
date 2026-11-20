@@ -77,6 +77,7 @@ func (handlers *AdminHandlers) mountGrowth(secure chi.Router) {
 	handlers.mountReferralPlus(secure)
 	handlers.mountReferralAdmin(secure)
 	handlers.mountOfferTemplates(secure)
+	handlers.mountPinned(secure)
 }
 
 // mountGrowthPublic registers the routes reachable without a session.
