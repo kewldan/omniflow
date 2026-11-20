@@ -120,4 +120,28 @@ var definitions = []Definition{
 				"оплату. Продлите подписку вручную, чтобы сохранить доступ.",
 		},
 	},
+	{
+		// The maintenance notices go to every customer when maintenance is
+		// entered or left, if the maintenance settings ask for it. {notice}
+		// is the customer notice set on the switch, and {until} the expected
+		// return, or "soon" when none was given.
+		Code: CodeMaintenanceStarted,
+		Variables: []Variable{
+			{Name: "notice", Purpose: "The customer notice set when maintenance was switched on", Sample: "We are upgrading the servers."},
+			{Name: "until", Purpose: "When the service is expected back, or \"soon\"", Sample: "12 Sep 2026, 18:00 UTC"},
+		},
+		Default: map[string]string{
+			"en": "🛠 <b>Maintenance</b>\n\n{notice}\n\nPurchases and subscription changes are " +
+				"paused for now; nothing you have paid for is lost. Expected back: {until}.",
+			"ru": "🛠 <b>Технические работы</b>\n\n{notice}\n\nПокупки и изменения подписки " +
+				"временно приостановлены; оплаченное не пропадёт. Ожидаемое завершение: {until}.",
+		},
+	},
+	{
+		Code: CodeMaintenanceEnded,
+		Default: map[string]string{
+			"en": "✅ <b>Maintenance is over</b>\n\nEverything works again. Thank you for waiting.",
+			"ru": "✅ <b>Технические работы завершены</b>\n\nВсё снова работает. Спасибо за терпение.",
+		},
+	},
 }

@@ -220,9 +220,12 @@ func (notifier *Notifier) drainBroadcasts(ctx context.Context) {
 	// campaigns, and a retired one is unpinned.
 	notifier.deliverPinned(ctx)
 	for ctx.Err() == nil && !notifier.paused() {
+		// A maintenance notice is time-sensitive, so it goes ahead of the
+		// campaigns in each round.
+		maintenance := notifier.deliverMaintenance(ctx)
 		campaigns := notifier.deliverCampaigns(ctx)
 		announcements := notifier.deliverNews(ctx)
-		if campaigns < notificationBatch && announcements < notificationBatch {
+		if maintenance < notificationBatch && campaigns < notificationBatch && announcements < notificationBatch {
 			return
 		}
 	}

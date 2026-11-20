@@ -14,7 +14,7 @@ by an event rather than by a decision to send, and they are the voice your
 customers hear from you most often — which is why leaving them compiled in was
 the wrong default.
 
-## The nine notices
+## The eleven notices
 
 | Notice | Sent when | Values it carries |
 | --- | --- | --- |
@@ -27,6 +27,8 @@ the wrong default.
 | Activation delayed | Provisioning is slow enough to deserve an explanation | — |
 | Automatic charge failed | A charge failed and will be retried | — |
 | Automatic renewal stopped | Dunning gave up | — |
+| Maintenance started | Maintenance was switched on, when the maintenance settings ask customers to be told | `{notice}`, `{until}` |
+| Maintenance ended | Maintenance was cleared, under the same setting | — |
 
 Most carry nothing to substitute. That is not an oversight — the wording an
 installation wants to change is usually the tone rather than the data.

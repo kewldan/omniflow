@@ -96,10 +96,16 @@ func (store *Store) SetMaintenance(ctx context.Context, desired commerce.Mainten
 		if state.Active {
 			action = "activated"
 		}
-		if _, err = queries.InsertMaintenanceEvent(ctx, dbgen.InsertMaintenanceEventParams{
+		event, eventErr := queries.InsertMaintenanceEvent(ctx, dbgen.InsertMaintenanceEventParams{
 			Action: action, Source: state.Source, Reason: state.Reason,
 			ActorType: actorType, ActorID: optionalText(actorID),
-		}); err != nil {
+		})
+		if eventErr != nil {
+			return commerce.Maintenance{}, eventErr
+		}
+		// Customers are told in the same transaction, when the maintenance
+		// settings ask for it; see maintenance_broadcasts.
+		if _, err = queries.QueueMaintenanceBroadcast(ctx, event.ID); err != nil {
 			return commerce.Maintenance{}, err
 		}
 	}

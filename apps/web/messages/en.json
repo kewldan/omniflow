@@ -3759,7 +3759,9 @@
         "blockedGraceHours": "Hours a customer must stay blocked before that (default 24)",
         "dormancyEnabled": "Mark inactive customers as dormant",
         "inactiveDays": "Days without activity before a customer is dormant (default 180)",
-        "deleteAfterDays": "Delete dormant customers after this many days (0 = never)"
+        "deleteAfterDays": "Delete dormant customers after this many days (0 = never)",
+        "broadcastCustomers": "Tell customers in the bot when maintenance starts and ends",
+        "broadcastEmail": "Also e-mail customers with a verified address"
       },
       "telemetryPreview": {
         "title": "What telemetry would send",
@@ -3975,7 +3977,9 @@
         "fulfillment_succeeded": "Activation finished",
         "fulfillment_failed": "Activation delayed",
         "dunning_retry": "Automatic charge failed",
-        "dunning_abandoned": "Automatic renewal stopped"
+        "dunning_abandoned": "Automatic renewal stopped",
+        "maintenance_started": "Maintenance started",
+        "maintenance_ended": "Maintenance ended"
       },
       "about": {
         "expiry": "Sent 7, 3, and 1 days before a subscription expires, and on the day.",
@@ -3986,7 +3990,9 @@
         "fulfillment_succeeded": "Sent when provisioning finishes and the customer can connect.",
         "fulfillment_failed": "Sent when provisioning is taking long enough to deserve an explanation. The payment is not at risk.",
         "dunning_retry": "Sent when an automatic charge failed and will be retried.",
-        "dunning_abandoned": "Sent when automatic renewal has stopped trying."
+        "dunning_abandoned": "Sent when automatic renewal has stopped trying.",
+        "maintenance_started": "Sent to customers when maintenance is switched on, if the maintenance settings ask for it.",
+        "maintenance_ended": "Sent to customers when maintenance is cleared, if the maintenance settings ask for it."
       }
     },
     "analytics": {

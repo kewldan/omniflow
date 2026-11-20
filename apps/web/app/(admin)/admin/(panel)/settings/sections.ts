@@ -320,6 +320,18 @@ export const SECTIONS: SectionSchema[] = [
       { name: "failureThreshold", kind: "number", messageKey: "failureThreshold" },
       { name: "noticeEn", kind: "textarea", messageKey: "noticeEn" },
       { name: "noticeRu", kind: "textarea", messageKey: "noticeRu" },
+      {
+        name: "broadcastCustomers",
+        kind: "boolean",
+        messageKey: "broadcastCustomers",
+        defaultValue: false,
+      },
+      {
+        name: "broadcastEmail",
+        kind: "boolean",
+        messageKey: "broadcastEmail",
+        defaultValue: false,
+      },
     ],
   },
   {

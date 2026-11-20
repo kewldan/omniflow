@@ -46,14 +46,15 @@ func text(locale Locale, key string, args ...any) string {
 // failure states are all represented here in Russian and English.
 var catalog = map[string]phrase{
 	// Navigation and shared actions.
-	"action.back":     {ru: "‹ Назад", en: "‹ Back"},
-	"action.menu":     {ru: "‹ В меню", en: "‹ Menu"},
-	"action.refresh":  {ru: "🔄 Обновить", en: "🔄 Refresh"},
-	"action.retry":    {ru: "🔄 Повторить", en: "🔄 Try again"},
-	"action.cancel":   {ru: "Отмена", en: "Cancel"},
-	"action.confirm":  {ru: "Подтвердить", en: "Confirm"},
-	"action.continue": {ru: "Продолжить", en: "Continue"},
-	"action.terms":    {ru: "📄 Условия обслуживания", en: "📄 Terms of service"},
+	"action.back":      {ru: "‹ Назад", en: "‹ Back"},
+	"action.menu":      {ru: "‹ В меню", en: "‹ Menu"},
+	"maintenance.soon": {ru: "скоро", en: "soon"},
+	"action.refresh":   {ru: "🔄 Обновить", en: "🔄 Refresh"},
+	"action.retry":     {ru: "🔄 Повторить", en: "🔄 Try again"},
+	"action.cancel":    {ru: "Отмена", en: "Cancel"},
+	"action.confirm":   {ru: "Подтвердить", en: "Confirm"},
+	"action.continue":  {ru: "Продолжить", en: "Continue"},
+	"action.terms":     {ru: "📄 Условия обслуживания", en: "📄 Terms of service"},
 
 	// Main menu additions.
 	"menu.plans":    {ru: "🛒 Тарифы", en: "🛒 Plans"},

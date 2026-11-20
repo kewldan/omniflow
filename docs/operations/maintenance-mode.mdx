@@ -35,6 +35,14 @@ When the worker picks up a fulfillment job during a window, it parks the operati
 
 Read-only screens are never blocked. A customer in a maintenance window can still see their subscription, their orders and their wallet, which is exactly what they will want to check.
 
+### Telling customers when it starts and ends
+
+The screens above only reach a customer who opens them. To tell everybody, switch on **Tell customers in the bot when maintenance starts and ends** in the maintenance section of `/admin/settings/operations` (`broadcastCustomers`, off by default), and optionally **Also e-mail customers with a verified address** (`broadcastEmail`).
+
+With it on, every real transition — switched on or cleared, by an operator, by the bearer API, or by automatic detection — writes one notice in the same transaction as the maintenance event. Rewording the notice while maintenance stays on is not a transition and sends nothing. The bot then sends it to every reachable customer through its ordinary delivery pipeline: the `maintenance` notification kind, the customer's news preference, quiet hours, the operator's per-kind switch, and the bot's send rate all apply, and each customer gets it at most once. With e-mail on, the worker's mail pass queues it, in batches, for customers whose verified address accepts transactional mail. Only the latest notice goes out, and only for a day: when maintenance flickers on and off, a customer not yet told it started is told it ended instead.
+
+The wording is two overridable notices, **Maintenance started** (`{notice}` is the customer notice set on the switch, `{until}` the expected return or "soon") and **Maintenance ended**. Edit them under [Message wording](/operations/message-wording), where **Send test** delivers a rendered copy to the operator group before any customer sees it.
+
 ## Operating it from the panel
 
 <Steps>

@@ -52,6 +52,7 @@ const (
 	KindGuestGift     = "guest_gift"
 	KindWithdrawal    = "withdrawal"
 	KindTest          = "test"
+	// KindMaintenance is declared in maintenance.go.
 )
 
 const (

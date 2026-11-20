@@ -80,10 +80,16 @@ func (service *Service) SetMaintenance(
 		if input.Active {
 			action = "activated"
 		}
-		if _, txErr = queries.InsertMaintenanceEvent(ctx, dbgen.InsertMaintenanceEventParams{
+		event, txErr := queries.InsertMaintenanceEvent(ctx, dbgen.InsertMaintenanceEventParams{
 			Action: action, Source: "manual", Reason: actor.Reason,
 			ActorType: "operator", ActorID: optionalText(actor.AdminID),
-		}); txErr != nil {
+		})
+		if txErr != nil {
+			return txErr
+		}
+		// The customer notice, when the settings ask for one, commits with
+		// the transition that it announces.
+		if _, txErr = queries.QueueMaintenanceBroadcast(ctx, event.ID); txErr != nil {
 			return txErr
 		}
 		return appendAudit(ctx, queries, actor.audit(

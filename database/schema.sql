@@ -2327,7 +2327,7 @@ CREATE TABLE public.email_outbox (
     CONSTRAINT email_outbox_attempts_nonnegative CHECK ((attempts >= 0)),
     CONSTRAINT email_outbox_class_known CHECK ((class = ANY (ARRAY['transactional'::text, 'marketing'::text]))),
     CONSTRAINT email_outbox_dedupe_key_length CHECK (((char_length(dedupe_key) >= 1) AND (char_length(dedupe_key) <= 200))),
-    CONSTRAINT email_outbox_kind_known CHECK ((kind = ANY (ARRAY['receipt'::text, 'campaign'::text, 'offer'::text, 'guest_purchase'::text, 'guest_gift'::text, 'withdrawal'::text, 'test'::text]))),
+    CONSTRAINT email_outbox_kind_known CHECK ((kind = ANY (ARRAY['receipt'::text, 'campaign'::text, 'offer'::text, 'guest_purchase'::text, 'guest_gift'::text, 'withdrawal'::text, 'test'::text, 'maintenance'::text]))),
     CONSTRAINT email_outbox_sent_complete CHECK (((status = 'sent'::text) = (sent_at IS NOT NULL))),
     CONSTRAINT email_outbox_status_known CHECK ((status = ANY (ARRAY['pending'::text, 'sent'::text, 'failed'::text])))
 );
@@ -3079,6 +3079,25 @@ CREATE TABLE public.loyalty_tiers (
     CONSTRAINT loyalty_tiers_name_ru_check CHECK (((char_length(name_ru) >= 1) AND (char_length(name_ru) <= 60))),
     CONSTRAINT loyalty_tiers_period_discounts_object CHECK ((jsonb_typeof(period_discounts) = 'object'::text)),
     CONSTRAINT loyalty_tiers_threshold_check CHECK ((threshold >= 0))
+);
+
+
+--
+-- Name: maintenance_broadcasts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.maintenance_broadcasts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    event_id uuid NOT NULL,
+    transition text NOT NULL,
+    notice_ru text DEFAULT ''::text NOT NULL,
+    notice_en text DEFAULT ''::text NOT NULL,
+    expected_return_at timestamp with time zone,
+    email boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT maintenance_broadcasts_notice_en_length CHECK ((char_length(notice_en) <= 1000)),
+    CONSTRAINT maintenance_broadcasts_notice_ru_length CHECK ((char_length(notice_ru) <= 1000)),
+    CONSTRAINT maintenance_broadcasts_transition_known CHECK ((transition = ANY (ARRAY['activated'::text, 'cleared'::text])))
 );
 
 
@@ -6652,6 +6671,22 @@ ALTER TABLE ONLY public.loyalty_tiers
 
 
 --
+-- Name: maintenance_broadcasts maintenance_broadcasts_event_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.maintenance_broadcasts
+    ADD CONSTRAINT maintenance_broadcasts_event_unique UNIQUE (event_id);
+
+
+--
+-- Name: maintenance_broadcasts maintenance_broadcasts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.maintenance_broadcasts
+    ADD CONSTRAINT maintenance_broadcasts_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: maintenance_events maintenance_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8440,6 +8475,13 @@ CREATE INDEX loyalty_standings_tier_idx ON public.loyalty_standings USING btree 
 --
 
 CREATE UNIQUE INDEX loyalty_tiers_program_threshold_ladder_idx ON public.loyalty_tiers USING btree (program_id, threshold) WHERE (NOT manual_only);
+
+
+--
+-- Name: maintenance_broadcasts_created_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX maintenance_broadcasts_created_at_idx ON public.maintenance_broadcasts USING btree (created_at DESC);
 
 
 --
@@ -10573,6 +10615,14 @@ ALTER TABLE ONLY public.loyalty_standings
 
 ALTER TABLE ONLY public.loyalty_tiers
     ADD CONSTRAINT loyalty_tiers_program_id_fkey FOREIGN KEY (program_id) REFERENCES public.loyalty_programs(id) ON DELETE CASCADE;
+
+
+--
+-- Name: maintenance_broadcasts maintenance_broadcasts_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.maintenance_broadcasts
+    ADD CONSTRAINT maintenance_broadcasts_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.maintenance_events(id);
 
 
 --

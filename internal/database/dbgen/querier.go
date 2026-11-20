@@ -1763,6 +1763,12 @@ type Querier interface {
 	// The primary key is the deduplication: a paused-and-resumed campaign continues
 	// rather than restarting, and a recipient cannot be queued twice.
 	QueueCampaignRecipient(ctx context.Context, arg QueueCampaignRecipientParams) error
+	// Records a customer notice for a maintenance transition, when the maintenance
+	// settings ask for one. Only a real transition counts: an event whose action
+	// repeats the previous event's — an operator rewording the notice while
+	// maintenance stays on — announces nothing new. The notice and the expected
+	// return are copied from the current state.
+	QueueMaintenanceBroadcast(ctx context.Context, eventID pgtype.UUID) (int64, error)
 	// One support notice per ticket whose first response is overdue. The dedupe
 	// key is the ticket, so a breach is announced once however long it lasts.
 	QueueSupportSLABreaches(ctx context.Context) (int64, error)

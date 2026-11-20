@@ -73,6 +73,7 @@ description: "Что хранит экран настроек, что из эт�
 | Плановые отчёты | `periods`, `time` | воркер | Ежедневная, еженедельная (по понедельникам) и ежемесячная (1-го числа) сводка в топик «Отчёты» в заданное местное время | не отправляются |
 | Обслуживание | `autoEnable`, `failureThreshold` | api | Включают ли сбои зависимостей режим обслуживания и после скольких неудачных проверок подряд | `APP_MAINTENANCE_AUTO_DETECT`, `APP_MAINTENANCE_FAILURE_STREAK` |
 | Обслуживание | `noticeRu`, `noticeEn` | api | Уведомление клиентам, которое ставит автоматическое включение, если в сохранённом состоянии его нет | встроенный текст |
+| Обслуживание | `broadcastCustomers`, `broadcastEmail` | api, bot, worker | Сообщать клиентам в боте и по почте о начале и окончании техработ. См. [Режим обслуживания](/ru/operations/maintenance-mode#оповещение-клиентов-о-начале-и-окончании) | выключено |
 | Оповещения | `fulfillmentAlertAttempts` | воркер | Сколько неудачных попыток выдачи доступа до сообщения в топик «Сбои выдачи» | 3 |
 | Оповещения | `quietHoursStart`, `quietHoursEnd` | бот | Несрочные уведомления ждут в очереди до конца окна. Инциденты, безопасность, ошибки, сбои выдачи, бэкапы, аномалии и инфраструктура доставляются всегда | тихих часов нет |
 | Телеметрия | `enabled` | api | Выключено — heartbeat не отправляется. Настройка только сужает `APP_TELEMETRY_ENABLED`: при false не отправляется ничего | включено |
@@ -168,7 +169,7 @@ description: "Что хранит экран настроек, что из эт�
 | `bot` | `languages`, `miniAppUrl`, `cabinetOnly`, `hiddenMenu`, `buttons`, `texts` | — |
 | `operator_group` | `chatId`, `createTopics`, `notificationCap`, `windowMinutes`, `disabledKinds` | — |
 | `reports` | `periods`, `time` | — |
-| `maintenance` | `autoEnable`, `failureThreshold`, `noticeEn`, `noticeRu` | — |
+| `maintenance` | `autoEnable`, `failureThreshold`, `noticeEn`, `noticeRu`, `broadcastCustomers`, `broadcastEmail` | — |
 | `notifications` | `fulfillmentAlertAttempts`, `quietHoursStart`, `quietHoursEnd` | — |
 | `telemetry` | `enabled` | — |
 | `backup` | `enabled`, `intervalHours`, `timeOfDay`, `retentionDays`, `telegramChatId`, `telegramThreadId` | — |

@@ -70,6 +70,7 @@ diagnostics bundle needs `system.read` and lives on the system screen. See
 | Scheduled reports | `periods`, `time` | worker | Daily, weekly (Mondays), and monthly (the 1st) summaries in the Reports topic, at the local time given | none sent |
 | Maintenance | `autoEnable`, `failureThreshold` | api | Whether dependency failures switch maintenance on, and after how many consecutive failed probes | `APP_MAINTENANCE_AUTO_DETECT`, `APP_MAINTENANCE_FAILURE_STREAK` |
 | Maintenance | `noticeRu`, `noticeEn` | api | The customer notice an automatic activation sets when the stored state has none | the built-in wording |
+| Maintenance | `broadcastCustomers`, `broadcastEmail` | api, bot, worker | Tell customers in the bot, and by e-mail, when maintenance starts and ends. See [Maintenance mode](/operations/maintenance-mode#telling-customers-when-it-starts-and-ends) | off |
 | Alerting | `fulfillmentAlertAttempts` | worker | Failed provisioning attempts before the Fulfillment failures topic hears about it | 3 |
 | Alerting | `quietHoursStart`, `quietHoursEnd` | bot | Non-urgent notices wait, still pending, until the window ends. Incidents, security, errors, fulfillment failures, backups, anomalies, and infrastructure are always delivered | no quiet hours |
 | Telemetry | `enabled` | api | Off stops the heartbeat. It can only narrow `APP_TELEMETRY_ENABLED`: with the variable false nothing is ever sent | on |
@@ -163,7 +164,7 @@ somewhere it does not belong.
 | `bot` | `languages`, `miniAppUrl`, `cabinetOnly`, `hiddenMenu`, `buttons`, `texts` | — |
 | `operator_group` | `chatId`, `createTopics`, `notificationCap`, `windowMinutes`, `disabledKinds` | — |
 | `reports` | `periods`, `time` | — |
-| `maintenance` | `autoEnable`, `failureThreshold`, `noticeEn`, `noticeRu` | — |
+| `maintenance` | `autoEnable`, `failureThreshold`, `noticeEn`, `noticeRu`, `broadcastCustomers`, `broadcastEmail` | — |
 | `notifications` | `fulfillmentAlertAttempts`, `quietHoursStart`, `quietHoursEnd` | — |
 | `telemetry` | `enabled` | — |
 | `backup` | `enabled`, `intervalHours`, `timeOfDay`, `retentionDays`, `telegramChatId`, `telegramThreadId` | — |

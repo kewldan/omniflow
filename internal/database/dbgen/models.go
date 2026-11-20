@@ -1549,6 +1549,17 @@ type LoyaltyTier struct {
 	AllowedProviders   []string      `json:"allowed_providers"`
 }
 
+type MaintenanceBroadcast struct {
+	ID               pgtype.UUID        `json:"id"`
+	EventID          pgtype.UUID        `json:"event_id"`
+	Transition       string             `json:"transition"`
+	NoticeRu         string             `json:"notice_ru"`
+	NoticeEn         string             `json:"notice_en"`
+	ExpectedReturnAt pgtype.Timestamptz `json:"expected_return_at"`
+	Email            bool               `json:"email"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
 type MaintenanceEvent struct {
 	ID         pgtype.UUID        `json:"id"`
 	Action     string             `json:"action"`

@@ -49,6 +49,8 @@ const (
 	CodeFulfillmentFailed    Code = "fulfillment_failed"
 	CodeDunningRetry         Code = "dunning_retry"
 	CodeDunningAbandoned     Code = "dunning_abandoned"
+	CodeMaintenanceStarted   Code = "maintenance_started"
+	CodeMaintenanceEnded     Code = "maintenance_ended"
 )
 
 // Variable is one value a notice can carry.
