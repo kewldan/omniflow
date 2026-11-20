@@ -33,7 +33,7 @@ func (app *App) EnableGiftEmail(sealer ContactSealer) {
 	app.giftEmail = sealer
 }
 
-// giftRecipientPrompt asks who the gift is for. The flow's idempotency key is
+// giftAskRecipient asks who the gift is for. The flow's idempotency key is
 // minted here, at its first step, and travels with it.
 func (app *App) giftAskRecipient(ctx context.Context, session commerceContext, token string) View {
 	if gate := app.checkPurchaseChannels(ctx, session.Customer.ID, session.TelegramID); !gate.Allowed() {
@@ -109,10 +109,10 @@ func (app *App) SubmitGiftRecipient(ctx context.Context, session commerceContext
 			app.logger.Error("gift recipient lookup failed", "error", err)
 			return app.errorView(session.Locale, routeGifts)
 		}
-		if !known {
-			return retry("gift.recipientUnknown")
-		}
 		flow["recipientUsername"] = username
+		// Somebody who has not started the bot yet still gets the gift: it
+		// waits for their first message. The sender is told so now.
+		flow["recipientWaiting"] = !known
 		return app.giftAskNote(ctx, session, flow)
 	}
 	if app.giftEmail == nil {
@@ -138,7 +138,11 @@ func (app *App) giftAskNote(ctx context.Context, session commerceContext, flow m
 	}
 	view := giftMessagePromptView(session.Locale, "")
 	if username, _ := flow["recipientUsername"].(string); username != "" {
-		view.Text = text(session.Locale, "gift.recipientFor", html.EscapeString("@"+username)) + "\n\n" + view.Text
+		header := text(session.Locale, "gift.recipientFor", html.EscapeString("@"+username))
+		if waiting, _ := flow["recipientWaiting"].(bool); waiting {
+			header += "\n" + text(session.Locale, "gift.recipientPhantom", html.EscapeString("@"+username))
+		}
+		view.Text = header + "\n\n" + view.Text
 	} else if _, ok := flow["recipientEmail"].(string); ok {
 		view.Text = text(session.Locale, "gift.recipientForEmail") + "\n\n" + view.Text
 	}
@@ -184,8 +188,6 @@ func giftRecipientRefusal(locale Locale, err error) (View, bool) {
 	switch {
 	case errors.Is(err, commercepg.ErrGiftRecipientSelf):
 		reason = "gift.recipientSelf"
-	case errors.Is(err, commercepg.ErrGiftRecipientUnknown):
-		reason = "gift.recipientUnknown"
 	case errors.Is(err, commercepg.ErrGiftRecipientInvalid):
 		reason = "gift.recipientInvalid"
 	default:
@@ -250,7 +252,27 @@ func (notifier *Notifier) deliverGifts(ctx context.Context) {
 			Kind: claimed.Kind, CreditMinor: claimed.CreditMinor.Int64, Currency: claimed.Currency,
 		})
 		notifier.deliver(ctx, candidate, "", "fulfillment", "gift:"+gift.GiftID, view)
+		notifier.tellGiftSender(ctx, lookup, gift)
 	}
+}
+
+// tellGiftSender lets the sender know their addressed gift reached its
+// recipient — the answer to "did they get it?", which matters most for a gift
+// that waited for somebody to start the bot.
+func (notifier *Notifier) tellGiftSender(ctx context.Context, lookup func(context.Context, string) (notificationCandidate, bool, error), gift commercepg.AddressedGift) {
+	candidate, reachable, err := lookup(ctx, gift.SenderID)
+	if err != nil || !reachable {
+		return
+	}
+	locale := localeFrom(candidate.Locale)
+	recipient := text(locale, "gift.deliveredToEmail")
+	if gift.Username != "" {
+		recipient = html.EscapeString("@" + gift.Username)
+	}
+	notifier.deliver(ctx, candidate, "", "fulfillment", "gift-sent:"+gift.GiftID, View{
+		Text:     text(locale, "gift.deliveredToSender", recipient),
+		Keyboard: keyboard(row(callbackButton(text(locale, "menu.gifts"), routeGifts))),
+	})
 }
 
 // giftDeliveredView tells a recipient what they were given and that it is

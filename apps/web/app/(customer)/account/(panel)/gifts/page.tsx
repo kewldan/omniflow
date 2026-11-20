@@ -40,7 +40,6 @@ type Gift = {
 const RECIPIENT_PROBLEMS = [
   "gift_recipient_invalid",
   "gift_recipient_self",
-  "gift_recipient_unknown",
   "gift_email_unavailable",
 ] as const;
 

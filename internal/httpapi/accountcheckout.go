@@ -1215,8 +1215,6 @@ func giftRecipientProblem(err error) (giftProblem, bool) {
 		return giftProblem{"gift_recipient_invalid", "The recipient is neither a Telegram @username nor an e-mail address"}, true
 	case errors.Is(err, commercepg.ErrGiftRecipientSelf):
 		return giftProblem{"gift_recipient_self", "A gift cannot be addressed to its sender"}, true
-	case errors.Is(err, commercepg.ErrGiftRecipientUnknown):
-		return giftProblem{"gift_recipient_unknown", "Nobody with that Telegram username uses this bot yet"}, true
 	case errors.Is(err, accountcheckout.ErrGiftEmailUnavailable):
 		return giftProblem{"gift_email_unavailable", "Gifts cannot be addressed to an e-mail address here"}, true
 	default:

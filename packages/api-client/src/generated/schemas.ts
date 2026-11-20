@@ -11646,7 +11646,7 @@ export const AccountBuyGiftBody = zod.object({
     .max(accountBuyGiftBodyRecipientMax)
     .optional()
     .describe(
-      "Who the gift is for: a Telegram @username or an e-mail address. Once paid it is claimed for the customer who uses that username or verified address in the bot and they are told there; an address nobody there holds is mailed a claim code. Empty leaves the code to the sender. `422 gift_recipient_invalid`, `gift_recipient_self`, `gift_recipient_unknown` (a username nobody has used the bot with), or `gift_email_unavailable`.",
+      "Who the gift is for: a Telegram @username or an e-mail address. Once paid it is claimed for the customer who uses that username or verified address in the bot and they are told there; an address nobody there holds is mailed a claim code. A username nobody has used the bot with yet is accepted: the gift waits for that person's first message to the bot and is claimed for them then, until it expires. Empty leaves the code to the sender. `422 gift_recipient_invalid`, `gift_recipient_self`, or `gift_email_unavailable`.",
     ),
 });
 

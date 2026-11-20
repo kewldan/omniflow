@@ -322,6 +322,14 @@ func (app *App) HandleStart(ctx context.Context, client *telegram.Bot, update *m
 		if err := app.customers.RememberTelegramName(ctx, message.From.ID, message.From.FirstName); err != nil {
 			app.logger.Warn("telegram name could not be kept", "error", err)
 		}
+		// The username is what a gift addressed to @username finds, including
+		// one bought before this customer ever started the bot: it is claimed
+		// for them by the next delivery pass.
+		if app.commerce != nil {
+			if _, err := app.commerceContext(ctx, message.From.ID, message.From.LanguageCode, message.From.Username); err != nil {
+				app.logger.Warn("telegram username could not be kept", "error", err)
+			}
+		}
 	}
 	payload := parseStartPayload(message.Text)
 	switch payload.Kind {

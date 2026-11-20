@@ -211,7 +211,15 @@ func (app *App) buyGift(
 	// order's own method screen — not the first adapter in alphabetical order,
 	// which is what used to be chosen for them.
 	view := giftCodeView(session.Locale, purchase, order)
+	recipientWaiting := false
+	if recipient.Username != "" {
+		known, knownErr := app.commerce.orders.TelegramUsernameKnown(ctx, recipient.Username)
+		recipientWaiting = knownErr == nil && !known
+	}
 	switch {
+	case recipient.Username != "" && recipientWaiting:
+		view.Text += "\n\n" + text(session.Locale, "gift.recipientDeliveryPhantom",
+			html.EscapeString("@"+recipient.Username), formatDate(purchase.ExpiresAt))
 	case recipient.Username != "":
 		view.Text += "\n\n" + text(session.Locale, "gift.recipientDelivery", html.EscapeString("@"+recipient.Username))
 	case len(recipient.EmailCiphertext) > 0:

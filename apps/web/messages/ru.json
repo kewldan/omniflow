@@ -6059,18 +6059,17 @@
       "redeemHint": "Подарили вам? Введите код на <link>странице кошелька</link>.",
       "recipient": "Получатель (необязательно)",
       "recipientPlaceholder": "@username или name@example.com",
-      "recipientHint": "Как только подарок будет оплачен, мы передадим его сами: в Telegram-боте, если получатель им пользуется, иначе письмом. Оставьте пустым, чтобы передать код самостоятельно.",
+      "recipientHint": "Как только подарок будет оплачен, мы передадим его сами: в Telegram-боте, если получатель им пользуется, иначе письмом. Если у @username ещё нет нашего бота, подарок станет его с первым сообщением боту. Оставьте пустым, чтобы передать код самостоятельно.",
       "recipientFor": "для {recipient}",
       "recipientEmail": "адреса e-mail",
       "recipientDelivery": "После оплаты подарок получит {recipient}, и мы сообщим об этом. Код тоже действует.",
       "recipientProblem": {
         "gift_recipient_invalid": "Это не похоже ни на @username в Telegram, ни на e-mail.",
         "gift_recipient_self": "Себе подарок отправить нельзя.",
-        "gift_recipient_unknown": "Пользователь с таким @username ещё не пользовался нашим Telegram-ботом.",
         "gift_email_unavailable": "Подарок на e-mail здесь недоступен."
       },
       "delivery": {
-        "waiting": "ждёт доставки",
+        "waiting": "ждёт получателя",
         "delivered": "доставлен",
         "closed": "активирован кодом"
       },

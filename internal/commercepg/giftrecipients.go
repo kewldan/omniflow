@@ -5,6 +5,7 @@ import (
 	"errors"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -26,9 +27,6 @@ var (
 	ErrGiftRecipientInvalid = errors.New("gift_recipient_invalid")
 	// ErrGiftRecipientSelf refuses a gift addressed to its own sender.
 	ErrGiftRecipientSelf = errors.New("gift_recipient_self")
-	// ErrGiftRecipientUnknown refuses a Telegram username no customer of this
-	// bot has written from.
-	ErrGiftRecipientUnknown = errors.New("gift_recipient_unknown")
 )
 
 var (
@@ -130,15 +128,18 @@ func (store *Store) recordGiftRecipient(ctx context.Context, tx pgx.Tx, giftID, 
 		if !usernamePattern.MatchString(recipient.Username) {
 			return ErrGiftRecipientInvalid
 		}
+		// A username nobody has written to the bot under yet is accepted: the
+		// gift waits for its owner's first message, and is claimed for them
+		// then (a "phantom" recipient, as Bedolaga calls it).
 		var holder pgtype.UUID
 		err := tx.QueryRow(ctx, `SELECT user_id FROM telegram_usernames WHERE username = $1`, recipient.Username).Scan(&holder)
 		switch {
 		case errors.Is(err, pgx.ErrNoRows):
-			return ErrGiftRecipientUnknown
 		case err != nil:
 			return err
+		default:
+			self = holder == senderID
 		}
-		self = holder == senderID
 	} else if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM contact_channels
 			WHERE user_id = $1 AND kind = 'email' AND value_fingerprint = $2 AND revoked_at IS NULL)`,
 		senderID, recipient.EmailFingerprint).Scan(&self); err != nil {
@@ -162,8 +163,11 @@ func nilIfEmpty(value []byte) []byte {
 
 // AddressedGift is a paid gift waiting to reach the person it is for.
 type AddressedGift struct {
-	GiftID           string
-	SenderID         string
+	GiftID   string
+	SenderID string
+	// ExpiresAt is when an unclaimed gift lapses; a gift waiting for a
+	// username's owner waits until then.
+	ExpiresAt        time.Time
 	Username         string
 	EmailFingerprint []byte
 	Kind             string
@@ -176,7 +180,7 @@ type AddressedGift struct {
 // WaitingAddressedGifts lists paid, unexpired, unclaimed gifts addressed to
 // somebody and not yet delivered, oldest first.
 func (store *Store) WaitingAddressedGifts(ctx context.Context, limit int) ([]AddressedGift, error) {
-	rows, err := store.pool.Query(ctx, `SELECT g.id::text, g.sender_user_id::text, COALESCE(r.username, ''),
+	rows, err := store.pool.Query(ctx, `SELECT g.id::text, g.sender_user_id::text, g.expires_at, COALESCE(r.username, ''),
 			r.email_fingerprint, g.kind,
 			COALESCE((SELECT l.name FROM plan_versions v JOIN plan_localizations l ON l.plan_id = v.plan_id
 				WHERE v.id = g.plan_version_id ORDER BY (l.locale = r.locale) DESC LIMIT 1), ''),
@@ -191,7 +195,7 @@ func (store *Store) WaitingAddressedGifts(ctx context.Context, limit int) ([]Add
 	result := []AddressedGift{}
 	for rows.Next() {
 		var gift AddressedGift
-		if err = rows.Scan(&gift.GiftID, &gift.SenderID, &gift.Username, &gift.EmailFingerprint, &gift.Kind,
+		if err = rows.Scan(&gift.GiftID, &gift.SenderID, &gift.ExpiresAt, &gift.Username, &gift.EmailFingerprint, &gift.Kind,
 			&gift.PlanName, &gift.CreditMinor, &gift.Currency, &gift.Message); err != nil {
 			return nil, err
 		}

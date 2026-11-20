@@ -75,9 +75,9 @@ and keeps working.
   delivered.
 
 The bot remembers the Telegram username each customer last wrote to it with (`telegram_usernames`),
-taking it from whoever held it before, since Telegram gives a username to one account at a time. A
-gift to a `@username` nobody has used the bot with is refused (`gift_recipient_unknown`), as is one
-addressed to its own sender (`gift_recipient_self`) or to something that is neither
+taking it from whoever held it before, since Telegram gives a username to one account at a time. It
+is recorded on `/start` and on every message after. A gift addressed to its own sender is refused
+(`gift_recipient_self`), as is one addressed to something that is neither a username nor an address
 (`gift_recipient_invalid`). An e-mail address is sealed with the installation's data key as a contact
 is, before it is stored; a bot without `APP_DATA_ENCRYPTION_KEY` takes `@usernames` only, and the web
 answers `gift_email_unavailable` in the same situation.
@@ -87,14 +87,29 @@ Once the gift is paid it is delivered (`gift_recipients`):
 | Addressed to | Delivered by | What happens |
 | --- | --- | --- |
 | A `@username` a customer uses | The bot, within a minute | The gift is claimed for that customer and they are told in the bot what they were given, with the sender's note |
+| A `@username` nobody has used the bot with yet | The bot, after that person's first message | The gift waits; see [Gifts for somebody not in the bot yet](#gifts-for-somebody-not-in-the-bot-yet) |
 | An e-mail address a Telegram customer holds, verified | The bot, within a minute | The same |
 | Any other e-mail address | The worker's mail pass | The address is mailed a claim code of its own with an activation link to the wallet page; the address is erased once the mail is queued |
 
 Claiming and recording the delivery are one transaction, and the bot's notice is keyed on the gift,
-so a gift is delivered and announced once however often the passes run. A gift redeemed with its code
+so a gift is delivered and announced once however often the passes run. When a gift reaches its
+recipient through the bot, the sender is told too, once. A gift redeemed with its code
 before it is delivered is closed instead of delivered again. The mailed code is a second code for the
 same gift; whichever is used first claims it. Anonymising a sender drops the addresses of gifts still
 waiting, and anonymising a customer forgets their username.
+
+### Gifts for somebody not in the bot yet
+
+A gift can be bought for a `@username` that has never written to the bot — Bedolaga's "phantom
+users". The sender is told at once that the recipient has not used the bot and that the gift will
+wait for them; the code screen says until when. The gift is held as an ordinary paid gift with a
+waiting recipient. When somebody with that username sends `/start` (or any message), the bot records
+the username and the next delivery pass — every 30 seconds — claims the gift for them, tells them what
+they were given, and tells the sender it arrived.
+
+Nothing about the money changes: the sender paid when they bought it, and a gift nobody claims
+expires after its lifetime like any other, after which an operator can refund it. The sender's code
+works the whole time, so the sender can still hand it over by other means.
 
 ### Revocation and refunds
 
