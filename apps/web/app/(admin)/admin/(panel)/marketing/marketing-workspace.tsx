@@ -29,6 +29,7 @@ import { ReferralCommissionFields } from "./referral-commission";
 import { ReferralInsightsCard } from "./referral-insights";
 import { ReferralLevelsCard } from "./referral-levels";
 import { RemindersCard } from "./reminders-card";
+import { SegmentEditorCard } from "./segment-editor";
 import { TemplateEditorCard } from "./template-editor";
 
 import type {
@@ -62,6 +63,9 @@ export function MarketingWorkspace() {
       <AdCampaignsCard editable={can("marketing.write")} />
       <RemindersCard editable={can("marketing.write")} />
       <SegmentCard />
+      {can("marketing.write") && (
+        <SegmentEditorCard onSaved={() => void revalidate("/v1/panel/marketing/segments")} />
+      )}
       <SuppressionCard editable={can("marketing.write")} />
       <ReferralCard editable={can("settings.write")} />
       <LoyaltyCard editable={can("marketing.write")} />

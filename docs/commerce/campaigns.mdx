@@ -14,9 +14,9 @@ because the mistake this page exists to prevent is sending the right message to
 the wrong people, and nobody catches that by reading a segment code.
 
 <Note>
-  Several parts of this area are API-only today. Segments, templates, and
-  suppression entries can be read in `/admin/marketing` but are created through
-  `/v1/panel` requests, not through a form. Each section below says which.
+  Segments and templates are created on `/admin/marketing` (**Audience segment**
+  and **Broadcast template**); suppression entries are added through `/v1/panel`
+  requests. Each section below says which.
 </Note>
 
 ## A segment is filters, never stored SQL
@@ -49,6 +49,15 @@ reading a table it has no business reading.
 | `minimumSpendMinor` | Integer, zero or above | Settled spend at or above the amount | "has spent at least 500000 (minor units)" |
 | `loyaltyTier` | A tier code | Currently standing in that tier | "stands in the gold loyalty tier" |
 | `planCode` | A plan code | Holds an entitlement for that plan | "holds the pro plan" |
+| `trial` | `active`, `used`, `never` | On a live trial plan, ever had one, or never | "is on a live trial" |
+| `trafficUsedPercent` | 1–100 | A live subscription used at least that share of its allowance, as last observed from Remnawave | "has used at least 80% of their traffic" |
+| `registeredWithinDays`, `registeredBeforeDays` | Days | Signed up within, or more than, that many days ago | "signed up within the last 7 days" |
+| `activeWithinDays` | Days | Used the web panel or paid for something in that window | "used the web panel or paid within 30 days" |
+| `referrals` | `inviter`, `invitee` | Invited somebody, or was invited | "has invited somebody" |
+| `adCampaign` | A `/start` campaign code | A Telegram advertising campaign brought them | "came from the stars_elite campaign" |
+| `signInMethod` | `telegram`, `email`, `vkid`, `oidc` | Has that sign-in method; `email` is a verified address | "signs in with Telegram" |
+| `zeroBalance` | `true`, `false` | The wallet is empty, or holds money | "has an empty wallet" |
+| `customerIds` | Up to 1000 customer IDs | Exactly those customers | "is one of 12 selected customers" |
 
 A key outside this list is refused on write with `unknown audience filter`, and
 a value the filter cannot use with `invalid audience filter value`; both surface

@@ -17,6 +17,7 @@ package audience
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -43,6 +44,31 @@ const (
 	FilterLoyaltyTier = "loyaltyTier"
 	// FilterPlanCode selects customers holding a given plan.
 	FilterPlanCode = "planCode"
+	// FilterTrial selects by trial: active (on a live trial), used (ever had
+	// one), or never.
+	FilterTrial = "trial"
+	// FilterTrafficUsedPercent selects customers whose live subscription has
+	// used at least that share of its traffic allowance, as last observed.
+	FilterTrafficUsedPercent = "trafficUsedPercent"
+	// FilterRegisteredWithinDays and FilterRegisteredBeforeDays select by
+	// sign-up date.
+	FilterRegisteredWithinDays = "registeredWithinDays"
+	FilterRegisteredBeforeDays = "registeredBeforeDays"
+	// FilterActiveWithinDays selects customers who used the web panel or paid
+	// for something within that many days.
+	FilterActiveWithinDays = "activeWithinDays"
+	// FilterReferrals selects inviters (who brought somebody) or invitees
+	// (who were brought).
+	FilterReferrals = "referrals"
+	// FilterAdCampaign selects customers a /start advertising campaign brought.
+	FilterAdCampaign = "adCampaign"
+	// FilterSignInMethod selects by a linked sign-in method: telegram, email,
+	// vkid, or oidc.
+	FilterSignInMethod = "signInMethod"
+	// FilterZeroBalance selects customers whose wallet is empty (true) or not.
+	FilterZeroBalance = "zeroBalance"
+	// FilterCustomerIDs is an explicit selection, at most 1000 customers.
+	FilterCustomerIDs = "customerIds"
 )
 
 var (
@@ -214,10 +240,141 @@ func compileOne(
 			WHERE e.user_id = u.id AND e.status IN ('active', 'limited') AND p.code = %s)`, next()),
 			"holds the " + code + " plan", args, nil
 
+	case FilterTrial:
+		state, ok := value.(string)
+		trialEntitlement := `SELECT 1 FROM entitlements e JOIN plan_versions v ON v.id = e.plan_version_id
+			JOIN plans p ON p.id = v.plan_id WHERE e.user_id = u.id AND p.kind = 'trial'`
+		switch {
+		case !ok:
+			return "", "", nil, ErrInvalidValue
+		case state == "active":
+			return "EXISTS (" + trialEntitlement + " AND e.status IN ('active', 'limited') AND e.ends_at > now())",
+				"is on a live trial", args, nil
+		case state == "used":
+			return "EXISTS (" + trialEntitlement + ")", "has had a trial", args, nil
+		case state == "never":
+			return "NOT EXISTS (" + trialEntitlement + ")", "has never had a trial", args, nil
+		default:
+			return "", "", nil, ErrInvalidValue
+		}
+
+	case FilterTrafficUsedPercent:
+		percent, err := wholeNumber(value)
+		if err != nil || percent < 1 || percent > 100 {
+			return "", "", nil, ErrInvalidValue
+		}
+		args = append(args, percent)
+		return fmt.Sprintf(`EXISTS (SELECT 1 FROM subscriptions s
+			JOIN entitlements e ON e.subscription_id = s.id AND e.status IN ('active', 'limited') AND e.ends_at > now()
+			WHERE s.user_id = u.id AND e.traffic_allowance_bytes > 0
+			  AND COALESCE((s.observed_state->>'usedTrafficBytes')::bigint, 0) * 100 >= e.traffic_allowance_bytes * %s::bigint)`, next()),
+			fmt.Sprintf("has used at least %d%% of their traffic", percent), args, nil
+
+	case FilterRegisteredWithinDays, FilterRegisteredBeforeDays:
+		days, err := wholeNumber(value)
+		if err != nil || days <= 0 {
+			return "", "", nil, ErrInvalidValue
+		}
+		args = append(args, days)
+		if key == FilterRegisteredWithinDays {
+			return fmt.Sprintf("u.created_at > now() - make_interval(days => %s::int)", next()),
+				fmt.Sprintf("signed up within the last %d days", days), args, nil
+		}
+		return fmt.Sprintf("u.created_at <= now() - make_interval(days => %s::int)", next()),
+			fmt.Sprintf("signed up more than %d days ago", days), args, nil
+
+	case FilterActiveWithinDays:
+		days, err := wholeNumber(value)
+		if err != nil || days <= 0 {
+			return "", "", nil, ErrInvalidValue
+		}
+		args = append(args, days)
+		return fmt.Sprintf(`(EXISTS (SELECT 1 FROM customer_sessions cs WHERE cs.user_id = u.id
+				AND cs.last_seen_at > now() - make_interval(days => %[1]s::int))
+			OR EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id AND o.paid_at > now() - make_interval(days => %[1]s::int)))`, next()),
+			fmt.Sprintf("used the web panel or paid within %d days", days), args, nil
+
+	case FilterReferrals:
+		role, ok := value.(string)
+		switch {
+		case ok && role == "inviter":
+			return "EXISTS (SELECT 1 FROM referral_attributions a WHERE a.referrer_user_id = u.id)",
+				"has invited somebody", args, nil
+		case ok && role == "invitee":
+			return "EXISTS (SELECT 1 FROM referral_attributions a WHERE a.referred_user_id = u.id)",
+				"was invited by somebody", args, nil
+		default:
+			return "", "", nil, ErrInvalidValue
+		}
+
+	case FilterAdCampaign:
+		code, ok := value.(string)
+		if !ok || strings.TrimSpace(code) == "" {
+			return "", "", nil, ErrInvalidValue
+		}
+		args = append(args, strings.ToLower(strings.TrimSpace(code)))
+		return fmt.Sprintf(`EXISTS (SELECT 1 FROM customer_campaign_attributions ca
+			JOIN ad_campaigns c ON c.id = ca.campaign_id WHERE ca.user_id = u.id AND c.code = %s)`, next()),
+			"came from the " + code + " campaign", args, nil
+
+	case FilterSignInMethod:
+		method, ok := value.(string)
+		if !ok {
+			return "", "", nil, ErrInvalidValue
+		}
+		identity := "EXISTS (SELECT 1 FROM identities i WHERE i.user_id = u.id AND i.status = 'active' AND "
+		switch method {
+		case "telegram":
+			return identity + "i.provider = 'telegram')", "signs in with Telegram", args, nil
+		case "vkid":
+			return identity + `i.provider IN (SELECT 'oidc:' || p.slug FROM customer_oidc_providers p
+				WHERE p.issuer = 'https://id.vk.ru'))`, "signs in with VK ID", args, nil
+		case "oidc":
+			return identity + "i.provider LIKE 'oidc:%')", "signs in with an external provider", args, nil
+		case "email":
+			// E-mail sign-in is a link to a verified address, not an identity.
+			return `EXISTS (SELECT 1 FROM contact_channels c WHERE c.user_id = u.id AND c.kind = 'email'
+				AND c.verified_at IS NOT NULL AND c.revoked_at IS NULL)`, "has a verified e-mail address", args, nil
+		default:
+			return "", "", nil, ErrInvalidValue
+		}
+
+	case FilterZeroBalance:
+		zero, ok := value.(bool)
+		if !ok {
+			return "", "", nil, ErrInvalidValue
+		}
+		balance := `COALESCE((SELECT sum(l.amount_minor) FROM ledger_entries l
+			WHERE l.account_type = 'customer_wallet' AND l.user_id = u.id), 0)`
+		if zero {
+			return balance + " = 0", "has an empty wallet", args, nil
+		}
+		return balance + " > 0", "has money in their wallet", args, nil
+
+	case FilterCustomerIDs:
+		raw, ok := value.([]any)
+		if !ok || len(raw) == 0 || len(raw) > 1000 {
+			return "", "", nil, ErrInvalidValue
+		}
+		ids := make([]string, 0, len(raw))
+		for _, item := range raw {
+			id, ok := item.(string)
+			if !ok || !uuidShape.MatchString(id) {
+				return "", "", nil, ErrInvalidValue
+			}
+			ids = append(ids, strings.ToLower(id))
+		}
+		args = append(args, ids)
+		return fmt.Sprintf("u.id = ANY(%s::uuid[])", next()),
+			fmt.Sprintf("is one of %d selected customers", len(ids)), args, nil
+
 	default:
 		return "", "", nil, ErrUnknownFilter
 	}
 }
+
+// uuidShape matches a customer identifier.
+var uuidShape = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
 // Validate reports whether a filter set can be saved.
 //
