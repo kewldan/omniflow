@@ -213,7 +213,7 @@ docs/                 Mintlify documentation in English and Russian
 
 ## 🌍 Localization
 
-The bot, both web panels, and the documentation are complete in **Russian** and **English**. Ukrainian, Chinese, and Persian are partly translated: navigation, settings, and errors are covered, and anything else falls back to English. The operator chooses which languages customers can pick.
+The bot, both web panels, and the documentation are complete in **Russian** and **English**. **Ukrainian**, **Chinese**, and **Persian** cover every string of the bot and both web panels as machine translations awaiting a native speaker's review; Persian renders right to left. The operator chooses which languages customers can pick.
 
 ## 📡 Privacy and telemetry
 

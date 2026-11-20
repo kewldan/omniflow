@@ -380,14 +380,14 @@ it.
 
 Russian and English are complete in the bot and the web panel. Ukrainian
 (`uk`), Chinese (`zh`), and Persian (`fa`) are offered only when listed in the
-bot section's `languages`, and their catalogues are **partial, machine-quality
-translations marked for review**: the navigation, settings, common states, and
-errors a customer meets first are translated, and every other message renders
-in English rather than blank. Persian pages render right to left. Content an
+bot section's `languages`. Their catalogues cover every string of the bot and
+both web panels, and are **machine translations marked for review**: keys,
+placeholders, plurals, and markup are checked against English, but the wording
+has not yet been read by a native speaker. Persian pages render right to left. Content an
 operator writes per language — plans, pages, templates, offers — stays Russian
 and English; customers in the new languages read the English version.
 
 A native speaker's review is welcome: the catalogues are
-`apps/web/messages/{uk,zh,fa}.json` and `internal/botapp/messages_extra.go`, and
+`apps/web/messages/{uk,zh,fa}.json` and `internal/botapp/messages_{uk,zh,fa}_full.go`, and
 a test checks that every translated message is an English key with the same
 placeholders.
