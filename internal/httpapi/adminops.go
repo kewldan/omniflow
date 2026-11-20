@@ -105,6 +105,7 @@ func (handlers *AdminHandlers) mountOperations(secure chi.Router) {
 		write.Post("/catalog/plan-versions/{planVersionID}/retire", handlers.retirePlanVersion)
 		write.Put("/catalog/addons", handlers.saveAddon)
 		write.Post("/catalog/addon-versions/{addonVersionID}/retire", handlers.retireAddonVersion)
+		write.Post("/catalog/promotions", handlers.createPromotion)
 		write.Patch("/catalog/promotions/{promotionID}", handlers.updatePromotion)
 		write.Post("/catalog/promo-codes/{promoCodeID}/status", handlers.setPromoCodeActive)
 	})
@@ -676,6 +677,20 @@ func (handlers *AdminHandlers) listPromotions(writer http.ResponseWriter, reques
 		PageSize: queryInt(request, "pageSize"),
 	})
 	handlers.respond(writer, request, map[string]any{"items": items}, err)
+}
+
+// createPromotion creates a promotion and its codes from the panel.
+func (handlers *AdminHandlers) createPromotion(writer http.ResponseWriter, request *http.Request) {
+	var body panelpg.NewPromotion
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	promotion, err := handlers.operations.CreatePromotion(request.Context(), body, actorFrom(request))
+	if err != nil {
+		handlers.operationsError(writer, request, err)
+		return
+	}
+	writeJSON(writer, http.StatusCreated, promotion)
 }
 
 func (handlers *AdminHandlers) updatePromotion(writer http.ResponseWriter, request *http.Request) {

@@ -1946,7 +1946,37 @@ export const PanelPromotionKind = {
   wallet_credit: "wallet_credit",
   days: "days",
   trial: "trial",
+  balance_days: "balance_days",
+  traffic: "traffic",
+  loyalty_tier: "loyalty_tier",
 } as const;
+
+export interface PanelPromotionInput {
+  /** @pattern ^[a-z][a-z0-9_-]{1,63}$ */
+  code: string;
+  kind: PanelPromotionKind;
+  /**
+   * Basis points for percent; minor units for fixed and wallet_credit; days for days, trial, balance_days, and loyalty_tier; gigabytes for traffic.
+   * @minimum 1
+   */
+  value: number;
+  /** @pattern ^[A-Z]{3}$ */
+  currency?: string;
+  /** Wallet part of a balance_days code. */
+  creditMinor?: number;
+  /** Group a loyalty_tier code grants. */
+  tierCode?: string;
+  startsAt?: string;
+  endsAt?: string;
+  /** @minimum 1 */
+  redemptionLimit?: number;
+  /** @minimum 1 */
+  perCustomerLimit: number;
+  planIds?: string[];
+  /** @minItems 1 */
+  codes: string[];
+  active: boolean;
+}
 
 export type PanelPromotionEligibility = { [key: string]: unknown };
 
@@ -6287,6 +6317,8 @@ export type ArchivePanelPlanBody = {
 export type ApplyPanelPlanSquads202 = {
   subscriptions?: number;
 };
+
+export type CreatePanelPromotion201 = { [key: string]: unknown };
 
 export type ListPanelPromotionsParams = {
   /**
@@ -16678,6 +16710,99 @@ export const useListPanelAddonVersions = <TError = Promise<ProblemResponse>>(
   const swrFn = () => listPanelAddonVersions(addonID, fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type createPanelPromotionResponse201 = {
+  data: CreatePanelPromotion201;
+  status: 201;
+};
+
+export type createPanelPromotionResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type createPanelPromotionResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type createPanelPromotionResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type createPanelPromotionResponseSuccess = createPanelPromotionResponse201 & {
+  headers: Headers;
+};
+export type createPanelPromotionResponseError = (
+  | createPanelPromotionResponse403
+  | createPanelPromotionResponse409
+  | createPanelPromotionResponse422
+) & {
+  headers: Headers;
+};
+
+export type createPanelPromotionResponse =
+  | createPanelPromotionResponseSuccess
+  | createPanelPromotionResponseError;
+
+export const getCreatePanelPromotionUrl = () => {
+  return `/v1/panel/catalog/promotions`;
+};
+
+/**
+ * Requires catalog.write. Creates a promotion and the codes that redeem it. Discounts (percent, fixed) apply at checkout to the plans named; the other kinds reward on their own when a code is redeemed.
+ */
+export const createPanelPromotion = async (
+  panelPromotionInput: PanelPromotionInput,
+  options?: RequestInit,
+): Promise<createPanelPromotionResponse> => {
+  const res = await fetch(getCreatePanelPromotionUrl(), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(panelPromotionInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: createPanelPromotionResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as createPanelPromotionResponse;
+};
+
+export const getCreatePanelPromotionMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PanelPromotionInput }) => {
+    return createPanelPromotion(arg, options);
+  };
+};
+export const getCreatePanelPromotionMutationKey = () => [`/v1/panel/catalog/promotions`] as const;
+
+export type CreatePanelPromotionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createPanelPromotion>>
+>;
+
+export const useCreatePanelPromotion = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof createPanelPromotion>>,
+    TError,
+    Key,
+    PanelPromotionInput,
+    Awaited<ReturnType<typeof createPanelPromotion>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getCreatePanelPromotionMutationKey();
+  const swrFn = getCreatePanelPromotionMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,

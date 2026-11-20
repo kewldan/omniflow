@@ -1732,7 +1732,10 @@
         "fixed": "{amount} off",
         "credit": "{amount} wallet credit",
         "days": "{value} extra days",
-        "trial": "{value}-day trial"
+        "trial": "{value}-day trial",
+        "traffic": "{value} GB of traffic",
+        "balanceDays": "{value} extra days plus wallet credit",
+        "loyaltyTier": "Loyalty group for {value} days"
       },
       "version": {
         "open": "New version",
@@ -1908,6 +1911,51 @@
         "customHint": "Let the customer type a number of days in this range. Leave both empty to sell none.",
         "dayPrice": "Price per day",
         "addDayPrice": "Add a day price"
+      },
+      "promotionCreator": {
+        "title": "New promotion",
+        "description": "A discount applies at checkout to the plans you tick. Every other kind rewards on its own when a customer redeems a code in the bot or on the web.",
+        "code": "Promotion code (internal)",
+        "kind": "Reward",
+        "kinds": {
+          "percent": "Percent off a plan",
+          "fixed": "Amount off a plan",
+          "wallet_credit": "Wallet credit",
+          "days": "Extra days",
+          "trial": "Trial",
+          "traffic": "Extra traffic",
+          "balance_days": "Extra days plus wallet credit",
+          "loyalty_tier": "Loyalty group"
+        },
+        "value": {
+          "percent": "Percent",
+          "fixed": "Amount",
+          "wallet_credit": "Amount",
+          "days": "Days",
+          "trial": "Trial days",
+          "traffic": "Gigabytes",
+          "balance_days": "Days",
+          "loyalty_tier": "Days in the group"
+        },
+        "currency": "Currency",
+        "credit": "Wallet credit",
+        "tier": "Group code",
+        "perCustomer": "Uses per customer",
+        "limit": "Total uses",
+        "unlimited": "No limit",
+        "startsAt": "Starts",
+        "endsAt": "Ends",
+        "now": "Right away",
+        "never": "No end",
+        "hour": "Hour",
+        "minute": "Minute",
+        "codes": "Codes customers enter (comma or space separated)",
+        "plans": "Plans the discount applies to",
+        "plansHint": "A discount with no plan ticked applies to no plan.",
+        "conflict": "That promotion code or one of the codes already exists.",
+        "invalid": "Not created: check the code format, the value, and the currency.",
+        "create": "Create promotion",
+        "created": "Promotion created"
       }
     },
     "codes": {

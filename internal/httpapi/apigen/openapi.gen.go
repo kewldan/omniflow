@@ -3166,9 +3166,12 @@ func (e PanelPlanVersionSummaryTrafficResetStrategy) Valid() bool {
 
 // Defines values for PanelPromotionKind.
 const (
+	PanelPromotionKindBalanceDays  PanelPromotionKind = "balance_days"
 	PanelPromotionKindDays         PanelPromotionKind = "days"
 	PanelPromotionKindFixed        PanelPromotionKind = "fixed"
+	PanelPromotionKindLoyaltyTier  PanelPromotionKind = "loyalty_tier"
 	PanelPromotionKindPercent      PanelPromotionKind = "percent"
+	PanelPromotionKindTraffic      PanelPromotionKind = "traffic"
 	PanelPromotionKindTrial        PanelPromotionKind = "trial"
 	PanelPromotionKindWalletCredit PanelPromotionKind = "wallet_credit"
 )
@@ -3176,11 +3179,17 @@ const (
 // Valid indicates whether the value is a known member of the PanelPromotionKind enum.
 func (e PanelPromotionKind) Valid() bool {
 	switch e {
+	case PanelPromotionKindBalanceDays:
+		return true
 	case PanelPromotionKindDays:
 		return true
 	case PanelPromotionKindFixed:
 		return true
+	case PanelPromotionKindLoyaltyTier:
+		return true
 	case PanelPromotionKindPercent:
+		return true
+	case PanelPromotionKindTraffic:
 		return true
 	case PanelPromotionKindTrial:
 		return true
@@ -8922,6 +8931,29 @@ type PanelPromotion struct {
 	Value     int64      `json:"value"`
 }
 
+// PanelPromotionInput defines model for PanelPromotionInput.
+type PanelPromotionInput struct {
+	Active bool     `json:"active"`
+	Code   string   `json:"code"`
+	Codes  []string `json:"codes"`
+
+	// CreditMinor Wallet part of a balance_days code.
+	CreditMinor      *int64                `json:"creditMinor,omitempty"`
+	Currency         *string               `json:"currency,omitempty"`
+	EndsAt           *time.Time            `json:"endsAt,omitempty"`
+	Kind             PanelPromotionKind    `json:"kind"`
+	PerCustomerLimit int                   `json:"perCustomerLimit"`
+	PlanIds          *[]openapi_types.UUID `json:"planIds,omitempty"`
+	RedemptionLimit  *int                  `json:"redemptionLimit,omitempty"`
+	StartsAt         *time.Time            `json:"startsAt,omitempty"`
+
+	// TierCode Group a loyalty_tier code grants.
+	TierCode *string `json:"tierCode,omitempty"`
+
+	// Value Basis points for percent; minor units for fixed and wallet_credit; days for days, trial, balance_days, and loyalty_tier; gigabytes for traffic.
+	Value int64 `json:"value"`
+}
+
 // PanelPromotionKind defines model for PanelPromotionKind.
 type PanelPromotionKind string
 
@@ -11328,6 +11360,12 @@ type ListPanelPromotionsParams struct {
 	Kind     *PanelPromotionKind `form:"kind,omitempty" json:"kind,omitempty"`
 }
 
+// CreatePanelPromotionParams defines parameters for CreatePanelPromotion.
+type CreatePanelPromotionParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // UpdatePanelPromotionParams defines parameters for UpdatePanelPromotion.
 type UpdatePanelPromotionParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
@@ -12551,6 +12589,9 @@ type CreatePanelPlanVersionJSONRequestBody = PanelPlanVersionInput
 // SetPanelPromoCodeActiveJSONRequestBody defines body for SetPanelPromoCodeActive for application/json ContentType.
 type SetPanelPromoCodeActiveJSONRequestBody SetPanelPromoCodeActiveJSONBody
 
+// CreatePanelPromotionJSONRequestBody defines body for CreatePanelPromotion for application/json ContentType.
+type CreatePanelPromotionJSONRequestBody = PanelPromotionInput
+
 // UpdatePanelPromotionJSONRequestBody defines body for UpdatePanelPromotion for application/json ContentType.
 type UpdatePanelPromotionJSONRequestBody = PanelPromotionUpdate
 
@@ -13485,6 +13526,9 @@ type ServerInterface interface {
 
 	// (GET /v1/panel/catalog/promotions)
 	ListPanelPromotions(w http.ResponseWriter, r *http.Request, params ListPanelPromotionsParams)
+
+	// (POST /v1/panel/catalog/promotions)
+	CreatePanelPromotion(w http.ResponseWriter, r *http.Request, params CreatePanelPromotionParams)
 
 	// (PATCH /v1/panel/catalog/promotions/{promotionID})
 	UpdatePanelPromotion(w http.ResponseWriter, r *http.Request, promotionID openapi_types.UUID, params UpdatePanelPromotionParams)
@@ -15002,6 +15046,11 @@ func (_ Unimplemented) SetPanelPromoCodeActive(w http.ResponseWriter, r *http.Re
 
 // (GET /v1/panel/catalog/promotions)
 func (_ Unimplemented) ListPanelPromotions(w http.ResponseWriter, r *http.Request, params ListPanelPromotionsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/catalog/promotions)
+func (_ Unimplemented) CreatePanelPromotion(w http.ResponseWriter, r *http.Request, params CreatePanelPromotionParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -23860,6 +23909,51 @@ func (siw *ServerInterfaceWrapper) ListPanelPromotions(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// CreatePanelPromotion operation middleware
+func (siw *ServerInterfaceWrapper) CreatePanelPromotion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreatePanelPromotionParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreatePanelPromotion(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // UpdatePanelPromotion operation middleware
 func (siw *ServerInterfaceWrapper) UpdatePanelPromotion(w http.ResponseWriter, r *http.Request) {
 
@@ -31864,6 +31958,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/catalog/promotions", wrapper.ListPanelPromotions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/catalog/promotions", wrapper.CreatePanelPromotion)
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/v1/panel/catalog/promotions/{promotionID}", wrapper.UpdatePanelPromotion)
@@ -41422,6 +41519,73 @@ func (response ListPanelPromotions403ApplicationProblemPlusJSONResponse) VisitLi
 	return err
 }
 
+type CreatePanelPromotionRequestObject struct {
+	Params CreatePanelPromotionParams
+	Body   *CreatePanelPromotionJSONRequestBody
+}
+
+type CreatePanelPromotionResponseObject interface {
+	VisitCreatePanelPromotionResponse(w http.ResponseWriter) error
+}
+
+type CreatePanelPromotion201JSONResponse map[string]interface{}
+
+func (response CreatePanelPromotion201JSONResponse) VisitCreatePanelPromotionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePanelPromotion403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreatePanelPromotion403ApplicationProblemPlusJSONResponse) VisitCreatePanelPromotionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePanelPromotion409ApplicationProblemPlusJSONResponse Problem
+
+func (response CreatePanelPromotion409ApplicationProblemPlusJSONResponse) VisitCreatePanelPromotionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePanelPromotion422ApplicationProblemPlusJSONResponse Problem
+
+func (response CreatePanelPromotion422ApplicationProblemPlusJSONResponse) VisitCreatePanelPromotionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type UpdatePanelPromotionRequestObject struct {
 	PromotionID openapi_types.UUID `json:"promotionID"`
 	Params      UpdatePanelPromotionParams
@@ -50080,6 +50244,9 @@ type StrictServerInterface interface {
 	// (GET /v1/panel/catalog/promotions)
 	ListPanelPromotions(ctx context.Context, request ListPanelPromotionsRequestObject) (ListPanelPromotionsResponseObject, error)
 
+	// (POST /v1/panel/catalog/promotions)
+	CreatePanelPromotion(ctx context.Context, request CreatePanelPromotionRequestObject) (CreatePanelPromotionResponseObject, error)
+
 	// (PATCH /v1/panel/catalog/promotions/{promotionID})
 	UpdatePanelPromotion(ctx context.Context, request UpdatePanelPromotionRequestObject) (UpdatePanelPromotionResponseObject, error)
 
@@ -56431,6 +56598,39 @@ func (sh *strictHandler) ListPanelPromotions(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListPanelPromotionsResponseObject); ok {
 		if err := validResponse.VisitListPanelPromotionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreatePanelPromotion operation middleware
+func (sh *strictHandler) CreatePanelPromotion(w http.ResponseWriter, r *http.Request, params CreatePanelPromotionParams) {
+	var request CreatePanelPromotionRequestObject
+
+	request.Params = params
+
+	var body CreatePanelPromotionJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreatePanelPromotion(ctx, request.(CreatePanelPromotionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreatePanelPromotion")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreatePanelPromotionResponseObject); ok {
+		if err := validResponse.VisitCreatePanelPromotionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

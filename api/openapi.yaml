@@ -1327,6 +1327,20 @@ paths:
         "200": {description: Add-on versions, content: {application/json: {schema: {$ref: "#/components/schemas/PanelAddonVersionList"}}}}
         "403": {$ref: "#/components/responses/Problem"}
   /v1/panel/catalog/promotions:
+    post:
+      operationId: createPanelPromotion
+      tags: [panel]
+      description: >-
+        Requires catalog.write. Creates a promotion and the codes that redeem it.
+        Discounts (percent, fixed) apply at checkout to the plans named; the
+        other kinds reward on their own when a code is redeemed.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelPromotionInput"}}}}
+      responses:
+        "201": {description: Created, content: {application/json: {schema: {type: object, additionalProperties: true}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
     get:
       operationId: listPanelPromotions
       tags: [panel]
@@ -6581,9 +6595,26 @@ components:
       type: object
       required: [items]
       properties: {items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelAddonVersionSummary"}}}
+    PanelPromotionInput:
+      type: object
+      required: [code, kind, value, perCustomerLimit, active, codes]
+      properties:
+        code: {type: string, pattern: "^[a-z][a-z0-9_-]{1,63}$"}
+        kind: {$ref: "#/components/schemas/PanelPromotionKind"}
+        value: {type: integer, format: int64, minimum: 1, description: "Basis points for percent; minor units for fixed and wallet_credit; days for days, trial, balance_days, and loyalty_tier; gigabytes for traffic."}
+        currency: {type: string, pattern: "^[A-Z]{3}$"}
+        creditMinor: {type: integer, format: int64, description: Wallet part of a balance_days code.}
+        tierCode: {type: string, description: Group a loyalty_tier code grants.}
+        startsAt: {type: string, format: date-time}
+        endsAt: {type: string, format: date-time}
+        redemptionLimit: {type: integer, minimum: 1}
+        perCustomerLimit: {type: integer, minimum: 1}
+        planIds: {type: array, items: {type: string, format: uuid}}
+        codes: {type: array, minItems: 1, items: {type: string}}
+        active: {type: boolean}
     PanelPromotionKind:
       type: string
-      enum: [percent, fixed, wallet_credit, days, trial]
+      enum: [percent, fixed, wallet_credit, days, trial, balance_days, traffic, loyalty_tier]
     PanelPromotion:
       type: object
       required: [id, code, kind, value, active, stackable, precedence, perCustomerLimit, redemptionCount, discountMinor, createdAt]

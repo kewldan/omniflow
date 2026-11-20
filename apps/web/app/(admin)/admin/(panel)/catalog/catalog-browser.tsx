@@ -25,6 +25,7 @@ import { useSession } from "@/lib/session";
 
 import { Addons } from "./addon-editor";
 import { PlanOptionsEditor } from "./plan-options";
+import { PromotionCreator } from "./promotion-creator";
 import { PlanVersionEditor } from "./version-editor";
 
 /**
@@ -209,81 +210,92 @@ function Promotions({ active }: { active: boolean }) {
     return <Skeleton className="h-32 w-full" />;
   }
   const items = data?.items ?? [];
+  const creator = can("catalog.write") ? (
+    <PromotionCreator onCreated={() => void mutate()} />
+  ) : null;
   if (items.length === 0) {
-    return <StateNotice title={translate("empty.promotions")} variant="empty" />;
+    return (
+      <div className="flex flex-col gap-4">
+        {creator}
+        <StateNotice title={translate("empty.promotions")} variant="empty" />
+      </div>
+    );
   }
 
   return (
-    <Card className="overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{translate("columns.code")}</TableHead>
-            <TableHead>{translate("columns.reward")}</TableHead>
-            <TableHead>{translate("columns.stacking")}</TableHead>
-            <TableHead>{translate("columns.redemptions")}</TableHead>
-            <TableHead>{translate("columns.discount")}</TableHead>
-            <TableHead>{translate("columns.active")}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {items.map((promotion) => (
-            <TableRow key={promotion.id}>
-              <TableCell className="font-mono text-[12px]">{promotion.code}</TableCell>
-              <TableCell>{describeReward(promotion, locale, translate)}</TableCell>
-              <TableCell>
-                {/* Stacking is off by default: two promotions combine only when
-                    both say they may, and precedence orders the evaluation. */}
-                <span className="flex items-center gap-2">
-                  <Badge variant={promotion.stackable ? "success" : "neutral"}>
-                    {translate(promotion.stackable ? "stackable" : "exclusive")}
-                  </Badge>
-                  <span className="font-mono text-[11px] text-muted-foreground">
-                    #{promotion.precedence}
-                  </span>
-                </span>
-              </TableCell>
-              <TableCell data-numeric>
-                {promotion.redemptionCount}
-                {promotion.redemptionLimit ? ` / ${promotion.redemptionLimit}` : ""}
-              </TableCell>
-              <TableCell data-numeric>
-                {promotion.discountMinor > 0 && promotion.currency
-                  ? formatMoney(promotion.discountMinor, promotion.currency, locale)
-                  : "—"}
-              </TableCell>
-              <TableCell>
-                <Switch
-                  aria-label={translate("columns.active")}
-                  checked={promotion.active}
-                  disabled={!can("catalog.write") || pending}
-                  onCheckedChange={async (nextActive) => {
-                    const ok = await run(`/v1/panel/catalog/promotions/${promotion.id}`, {
-                      body: {
-                        active: nextActive,
-                        currency: promotion.currency ?? "",
-                        eligibility: {},
-                        endsAt: promotion.endsAt ?? null,
-                        perCustomerLimit: promotion.perCustomerLimit,
-                        precedence: promotion.precedence,
-                        redemptionLimit: promotion.redemptionLimit ?? null,
-                        stackable: promotion.stackable,
-                        startsAt: promotion.startsAt ?? null,
-                        value: promotion.value,
-                      },
-                      method: "PATCH",
-                    });
-                    if (ok) {
-                      await mutate();
-                    }
-                  }}
-                />
-              </TableCell>
+    <div className="flex flex-col gap-4">
+      {creator}
+      <Card className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{translate("columns.code")}</TableHead>
+              <TableHead>{translate("columns.reward")}</TableHead>
+              <TableHead>{translate("columns.stacking")}</TableHead>
+              <TableHead>{translate("columns.redemptions")}</TableHead>
+              <TableHead>{translate("columns.discount")}</TableHead>
+              <TableHead>{translate("columns.active")}</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </Card>
+          </TableHeader>
+          <TableBody>
+            {items.map((promotion) => (
+              <TableRow key={promotion.id}>
+                <TableCell className="font-mono text-[12px]">{promotion.code}</TableCell>
+                <TableCell>{describeReward(promotion, locale, translate)}</TableCell>
+                <TableCell>
+                  {/* Stacking is off by default: two promotions combine only when
+                    both say they may, and precedence orders the evaluation. */}
+                  <span className="flex items-center gap-2">
+                    <Badge variant={promotion.stackable ? "success" : "neutral"}>
+                      {translate(promotion.stackable ? "stackable" : "exclusive")}
+                    </Badge>
+                    <span className="font-mono text-[11px] text-muted-foreground">
+                      #{promotion.precedence}
+                    </span>
+                  </span>
+                </TableCell>
+                <TableCell data-numeric>
+                  {promotion.redemptionCount}
+                  {promotion.redemptionLimit ? ` / ${promotion.redemptionLimit}` : ""}
+                </TableCell>
+                <TableCell data-numeric>
+                  {promotion.discountMinor > 0 && promotion.currency
+                    ? formatMoney(promotion.discountMinor, promotion.currency, locale)
+                    : "—"}
+                </TableCell>
+                <TableCell>
+                  <Switch
+                    aria-label={translate("columns.active")}
+                    checked={promotion.active}
+                    disabled={!can("catalog.write") || pending}
+                    onCheckedChange={async (nextActive) => {
+                      const ok = await run(`/v1/panel/catalog/promotions/${promotion.id}`, {
+                        body: {
+                          active: nextActive,
+                          currency: promotion.currency ?? "",
+                          eligibility: {},
+                          endsAt: promotion.endsAt ?? null,
+                          perCustomerLimit: promotion.perCustomerLimit,
+                          precedence: promotion.precedence,
+                          redemptionLimit: promotion.redemptionLimit ?? null,
+                          stackable: promotion.stackable,
+                          startsAt: promotion.startsAt ?? null,
+                          value: promotion.value,
+                        },
+                        method: "PATCH",
+                      });
+                      if (ok) {
+                        await mutate();
+                      }
+                    }}
+                  />
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Card>
+    </div>
   );
 }
 
@@ -314,6 +326,12 @@ function describeReward(
       return translate("reward.days", { value: promotion.value });
     case "trial":
       return translate("reward.trial", { value: promotion.value });
+    case "traffic":
+      return translate("reward.traffic", { value: promotion.value });
+    case "balance_days":
+      return translate("reward.balanceDays", { value: promotion.value });
+    case "loyalty_tier":
+      return translate("reward.loyaltyTier", { value: promotion.value });
     default:
       return promotion.kind;
   }

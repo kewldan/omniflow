@@ -3294,6 +3294,51 @@ export const ListPanelAddonVersionsResponse = zod.object({
 });
 
 /**
+ * Requires catalog.write. Creates a promotion and the codes that redeem it. Discounts (percent, fixed) apply at checkout to the plans named; the other kinds reward on their own when a code is redeemed.
+ */
+export const CreatePanelPromotionHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const createPanelPromotionBodyCodeRegExp = /^[a-z][a-z0-9_-]{1,63}$/;
+
+export const createPanelPromotionBodyCurrencyRegExp = /^[A-Z]{3}$/;
+
+export const CreatePanelPromotionBody = zod.object({
+  code: zod.string().regex(createPanelPromotionBodyCodeRegExp),
+  kind: zod.enum([
+    "percent",
+    "fixed",
+    "wallet_credit",
+    "days",
+    "trial",
+    "balance_days",
+    "traffic",
+    "loyalty_tier",
+  ]),
+  value: zod
+    .int()
+    .min(1)
+    .describe(
+      "Basis points for percent; minor units for fixed and wallet_credit; days for days, trial, balance_days, and loyalty_tier; gigabytes for traffic.",
+    ),
+  currency: zod.string().regex(createPanelPromotionBodyCurrencyRegExp).optional(),
+  creditMinor: zod.int().optional().describe("Wallet part of a balance_days code."),
+  tierCode: zod.string().optional().describe("Group a loyalty_tier code grants."),
+  startsAt: zod.iso.datetime({ offset: true }).optional(),
+  endsAt: zod.iso.datetime({ offset: true }).optional(),
+  redemptionLimit: zod.int().min(1).optional(),
+  perCustomerLimit: zod.int().min(1),
+  planIds: zod.array(zod.uuid()).optional(),
+  codes: zod.array(zod.string()).min(1),
+  active: zod.boolean(),
+});
+
+export const CreatePanelPromotionResponse = zod.record(zod.string(), zod.unknown());
+
+/**
  * Requires catalog.read. Promotions with their redemption analytics.
  */
 export const listPanelPromotionsQueryPageSizeDefault = 100;
@@ -3306,7 +3351,18 @@ export const ListPanelPromotionsQueryParams = zod.object({
     .max(listPanelPromotionsQueryPageSizeMax)
     .default(listPanelPromotionsQueryPageSizeDefault),
   active: zod.boolean().optional(),
-  kind: zod.enum(["percent", "fixed", "wallet_credit", "days", "trial"]).optional(),
+  kind: zod
+    .enum([
+      "percent",
+      "fixed",
+      "wallet_credit",
+      "days",
+      "trial",
+      "balance_days",
+      "traffic",
+      "loyalty_tier",
+    ])
+    .optional(),
 });
 
 export const ListPanelPromotionsResponse = zod.object({
@@ -3315,7 +3371,16 @@ export const ListPanelPromotionsResponse = zod.object({
       zod.object({
         id: zod.uuid(),
         code: zod.string(),
-        kind: zod.enum(["percent", "fixed", "wallet_credit", "days", "trial"]),
+        kind: zod.enum([
+          "percent",
+          "fixed",
+          "wallet_credit",
+          "days",
+          "trial",
+          "balance_days",
+          "traffic",
+          "loyalty_tier",
+        ]),
         value: zod.int(),
         currency: zod.string().optional(),
         startsAt: zod.iso.datetime({ offset: true }).optional(),
