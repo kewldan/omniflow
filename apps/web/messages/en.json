@@ -3674,6 +3674,16 @@
       "hookName": "Name",
       "hookUrl": "https:// address",
       "createWebhook": "Create webhook"
+    },
+    "buttonStats": {
+      "title": "Bot button statistics",
+      "description": "Which bot screens, buttons, and commands customers use — counts only, with no customer in them.",
+      "period": "Period",
+      "days": "{count} days",
+      "empty": "No bot activity in this period.",
+      "action": "Screen, button, or command",
+      "clicks": "Uses",
+      "customers": "Customers"
     }
   },
   "account": {
