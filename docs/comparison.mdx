@@ -6,7 +6,7 @@ description: How Omniflow differs from Bedolaga Bot, Bedolaga Cabinet, and Remna
 Omniflow is not the only open-source way to sell Remnawave subscriptions. This page compares it with the projects operators most often evaluate alongside it, using each project's own public documentation.
 
 <Note>
-Bedolaga Bot and RemnaCore were compared on 11 August 2026 against their public `main` branches and have not been re-checked since. The Bedolaga Cabinet rows were re-checked on 14 August 2026 against its published 1.61.0 feature list, which is more detailed than the README the first pass used and is why several rows below are new. Omniflow's own column tracks this repository and was last updated on 14 August 2026. Feature sets move quickly. Verify against the upstream repository before making a decision, and open an issue if anything here is out of date or unfair.
+Bedolaga Bot and RemnaCore were compared on 11 August 2026 against their public `main` branches and have not been re-checked since. The Bedolaga Cabinet rows were re-checked on 14 August 2026 against its published 1.61.0 feature list, which is more detailed than the README the first pass used and is why several rows below are new. Omniflow's own column tracks this repository and was last updated on 20 November 2026, against the Bedolaga gap review of 19 November 2026. Feature sets move quickly. Verify against the upstream repository before making a decision, and open an issue if anything here is out of date or unfair.
 </Note>
 
 ## The projects
@@ -57,7 +57,7 @@ Omniflow's shipped surface today is v0.1–v0.10: the complete backend commerce 
 
 | Capability | Omniflow | Bedolaga | RemnaCore |
 | --- | --- | --- | --- |
-| Bundled payment providers | 4: Telegram Stars, CryptoBot, YooKassa, manual | 24+ | Stripe plugin only |
+| Bundled payment providers | ~29: Telegram Stars, CryptoBot, YooKassa, manual transfer, and 25 regional collectors | 24+ | Stripe plugin only |
 | Provider-neutral adapter contract | ✅ | ✅ | ✅ (WASM plugins) |
 | Wallet top-up by any enabled provider | ✅ | ✅ | — |
 | Automatic purchase after top-up | ✅ | ✅ | — |
@@ -129,7 +129,14 @@ This table's Bedolaga column covers the bot and the cabinet together, because th
 | Operator-published information pages: FAQ, terms, offer, privacy | ✅ | ✅ | — |
 | Transactional message wording an operator can override | ✅ (Telegram) | ✅ (e-mail) | — |
 | White-label theming: palette, logo, permitted themes | ✅ | ✅ | — |
-| Command palette and live updates without a refresh | 🔭 | ✅ | — |
+| Command palette and live updates without a refresh | ✅ | ✅ | — |
+| Custom operator roles on top of the built-in ones | ✅ (named subsets of the compiled-in permissions) | ✅ | — |
+| Named API tokens with request logs; signed outgoing webhooks | ✅ | ✅ | — |
+| Backup, restore any backup, and upload a backup from the web panel | ✅ | ✅ | — |
+| Scheduled reports, error alerts, and SLA pings in the operator group | ✅ | ✅ | — |
+| Bot menu buttons, text overrides, cabinet-only mode | ✅ | ✅ | — |
+| Invite-only or closed registration | ✅ | ✅ | — |
+| Customer card: grants, purchases on behalf, restrictions, activity log | ✅ | ✅ | — |
 | Remnawave node and squad control from the panel | ❌ | ✅ | ✅ |
 
 Two of those marks are decisions rather than backlog. Node and squad control is ❌ for the same reason node health and routing are further down: Remnawave owns nodes, hosts, squads, and Xray state, and an operator reaches them in Remnawave's own panel. Account-sharing detection is 🔭 with a condition attached — whether Omniflow may hold per-connection observations at all is a boundary question that has to be settled before it is a feature, not after.

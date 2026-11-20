@@ -643,6 +643,8 @@ Goal: finish support, communication, configuration, and operational readiness be
 ### News, campaigns, and communication
 
 - [x] Localized news posts with draft, preview, schedule, publish, unpublish, and archive
+      (the panel editor arrived on 20 November 2026; before it the item was marked
+      done with no screen)
 - [x] Audience segments using explicit, reviewable filters
 - [x] Campaign preview, estimated audience, schedule, pause, cancel, and results — the panel shows the segment's definition in words beside its live count before a draft is created; test delivery to a single operator account remains and is tracked in the verification debt below
 - [x] Transactional and marketing templates with variables validated before send
@@ -1958,15 +1960,17 @@ under Panel and customer experience.
 
 ### Panel and customer experience
 
-- [ ] Command palette over records — `⌘K` exists and moves between the panel's
+- [x] Command palette over records — `⌘K` exists and moves between the panel's
       thirty-odd screens, which is the half of this that was built. It matches
       nothing else: a customer handle, an email, an order, or a payment reference
       returns "nothing matched", so the panel's most frequent action is the one
       the palette cannot start. It offers no commands either, only destinations.
-- [ ] Live updates — every panel and account surface polls. A ticket reply, a
+      Done: records are searched and a found customer offers its actions.
+- [x] Live updates (panel) — every panel and account surface polls. A ticket reply, a
       settled payment, and a bulk operation's progress all arrive on the next
       request, and `/v1/panel/bulk/{operationID}/items` is a list somebody
-      refreshes rather than a stream.
+      refreshes rather than a stream. Done for the operator panel through a
+      server-sent event stream; the customer panel still polls.
 - [ ] Multi-currency with rates — amounts are integer minor units in the order's
       own currency, which is the correct storage and is not the gap. What is
       missing is a rate source and a presentation currency, so an installation
@@ -2065,14 +2069,15 @@ API and a migration behind it rather than a fix:
 - [ ] Creating promotions, audience segments, and shop products — each is
       required by a screen that already exists, so personal offers, campaigns,
       and the digital-goods shop are all reachable and all unusable.
-- [ ] Applying a previewed customer import — a job reaches "ready" and there is
+- [x] Applying a previewed customer import — a job reaches "ready" and there is
       no control that commits it, and no upload control that starts one.
-- [ ] Customer-page actions — granting or extending a subscription, adjusting a
+- [x] Customer-page actions — granting or extending a subscription, adjusting a
       wallet, resetting devices, and messaging a customer are all absent from the
       page an operator opens to do them.
-- [ ] Order refunds from the panel, and operator-configurable transfer details
-      for the manual payment route, which currently tells a customer their
-      transfer is being checked without ever saying where to send it.
+- [x] Order refunds from the panel (`/v1/panel/finance/orders/{id}/refund`).
+- [ ] Operator-configurable transfer details for the manual payment route,
+      which currently tells a customer their transfer is being checked without
+      ever saying where to send it.
 
 ---
 
