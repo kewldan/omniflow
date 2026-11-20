@@ -137,6 +137,75 @@ func (q *Queries) CompleteBulkOperationItem(ctx context.Context, arg CompleteBul
 	return i, err
 }
 
+const countOrdersByState = `-- name: CountOrdersByState :many
+SELECT state, count(*)::bigint AS orders FROM orders
+WHERE true
+  AND ($1::text IS NULL OR operation = $1)
+  AND ($2::uuid IS NULL OR user_id = $2)
+  AND ($3::text IS NULL OR currency = $3)
+  AND ($4::timestamptz IS NULL OR created_at >= $4)
+  AND ($5::timestamptz IS NULL OR created_at < $5)
+  AND ($6::text IS NULL OR EXISTS (
+    SELECT 1 FROM payment_intents pi WHERE pi.order_id = orders.id AND pi.provider = $6
+  ))
+  -- Free text: an order or customer ID prefix, a provider's reference, or the
+  -- order's idempotency key, which is what an operator has in hand from a
+  -- receipt, a provider dashboard, or a support message.
+  AND ($7::text IS NULL
+    OR orders.id::text LIKE lower($7) || '%'
+    OR orders.user_id::text LIKE lower($7) || '%'
+    OR orders.idempotency_key = $7
+    OR EXISTS (
+      SELECT 1 FROM payment_intents pi
+      WHERE pi.order_id = orders.id AND pi.provider_reference = $7
+    ))
+GROUP BY state
+`
+
+type CountOrdersByStateParams struct {
+	Operation   pgtype.Text        `json:"operation"`
+	UserID      pgtype.UUID        `json:"user_id"`
+	Currency    pgtype.Text        `json:"currency"`
+	CreatedFrom pgtype.Timestamptz `json:"created_from"`
+	CreatedTo   pgtype.Timestamptz `json:"created_to"`
+	Provider    pgtype.Text        `json:"provider"`
+	Search      pgtype.Text        `json:"search"`
+}
+
+type CountOrdersByStateRow struct {
+	State  string `json:"state"`
+	Orders int64  `json:"orders"`
+}
+
+// The status counters beside the finance search: every filter but the state.
+func (q *Queries) CountOrdersByState(ctx context.Context, arg CountOrdersByStateParams) ([]CountOrdersByStateRow, error) {
+	rows, err := q.db.Query(ctx, countOrdersByState,
+		arg.Operation,
+		arg.UserID,
+		arg.Currency,
+		arg.CreatedFrom,
+		arg.CreatedTo,
+		arg.Provider,
+		arg.Search,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CountOrdersByStateRow{}
+	for rows.Next() {
+		var i CountOrdersByStateRow
+		if err := rows.Scan(&i.State, &i.Orders); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const createAddonPrice = `-- name: CreateAddonPrice :one
 INSERT INTO addon_prices (addon_version_id, currency, amount_minor)
 VALUES ($1, $2, $3)
@@ -2960,8 +3029,22 @@ WHERE (
   AND ($6::text IS NULL OR currency = $6)
   AND ($7::timestamptz IS NULL OR created_at >= $7)
   AND ($8::timestamptz IS NULL OR created_at < $8)
+  AND ($9::text IS NULL OR EXISTS (
+    SELECT 1 FROM payment_intents pi WHERE pi.order_id = orders.id AND pi.provider = $9
+  ))
+  -- Free text: an order or customer ID prefix, a provider's reference, or the
+  -- order's idempotency key, which is what an operator has in hand from a
+  -- receipt, a provider dashboard, or a support message.
+  AND ($10::text IS NULL
+    OR orders.id::text LIKE lower($10) || '%'
+    OR orders.user_id::text LIKE lower($10) || '%'
+    OR orders.idempotency_key = $10
+    OR EXISTS (
+      SELECT 1 FROM payment_intents pi
+      WHERE pi.order_id = orders.id AND pi.provider_reference = $10
+    ))
 ORDER BY created_at DESC, id DESC
-LIMIT $9
+LIMIT $11
 `
 
 type SearchOrdersParams struct {
@@ -2973,6 +3056,8 @@ type SearchOrdersParams struct {
 	Currency        pgtype.Text        `json:"currency"`
 	CreatedFrom     pgtype.Timestamptz `json:"created_from"`
 	CreatedTo       pgtype.Timestamptz `json:"created_to"`
+	Provider        pgtype.Text        `json:"provider"`
+	Search          pgtype.Text        `json:"search"`
 	PageSize        int32              `json:"page_size"`
 }
 
@@ -2989,6 +3074,8 @@ func (q *Queries) SearchOrders(ctx context.Context, arg SearchOrdersParams) ([]O
 		arg.Currency,
 		arg.CreatedFrom,
 		arg.CreatedTo,
+		arg.Provider,
+		arg.Search,
 		arg.PageSize,
 	)
 	if err != nil {

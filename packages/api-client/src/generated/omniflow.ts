@@ -1345,10 +1345,13 @@ export interface PanelOrderList {
   items: PanelOrderSummary[] | null;
 }
 
+export type PanelOrderPageStateCounts = {[key: string]: number};
+
 export interface PanelOrderPage {
   /** @nullable */
   items: PanelOrderSummary[] | null;
   nextCursor?: string;
+  stateCounts?: PanelOrderPageStateCounts;
 }
 
 export interface PanelPaymentEvent {
@@ -6298,6 +6301,9 @@ export type SearchPanelOrdersParams = {
    * @maximum 500
    */
   pageSize?: PageSizeParameter;
+  provider?: string;
+  /** @maxLength 128 */
+  q?: string;
   state?: string;
   operation?: string;
   customerId?: string;
@@ -17222,7 +17228,7 @@ export const getSearchPanelOrdersUrl = (params?: SearchPanelOrdersParams) => {
 };
 
 /**
- * Requires finance.read.
+ * Requires finance.read. `provider` keeps orders with a payment attempt through that adapter; `q` matches an order or customer ID prefix, a provider's payment reference, or an order idempotency key. The page carries `stateCounts`, the number of matching orders per state with every filter but `state` applied.
  */
 export const searchPanelOrders = async (
   params?: SearchPanelOrdersParams,

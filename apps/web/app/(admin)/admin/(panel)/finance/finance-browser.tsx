@@ -3,6 +3,7 @@
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { Card } from "@omniflow/ui/card";
+import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
 import { Skeleton } from "@omniflow/ui/skeleton";
@@ -26,6 +27,7 @@ import {
   type Page,
   useOperatorAction,
 } from "@/lib/operations";
+import { PAYMENT_PROVIDERS } from "@/lib/payment-providers";
 import { useSession } from "@/lib/session";
 import { usePreferences } from "@/lib/use-preferences";
 import { useUrlFilters } from "@/lib/use-url-filters";
@@ -115,9 +117,11 @@ function OrderSearch() {
   const locale = useLocale();
   const stateId = useId();
   const operationId = useId();
+  const providerId = useId();
+  const searchId = useId();
 
   const { filters, cursorStack, setFilter, reset, goNext, goPrevious, hasPrevious } = useUrlFilters(
-    ["state", "operation"],
+    ["state", "operation", "provider", "q"],
   );
   const { preferences } = usePreferences();
   const pageSize = preferences.pageSize || 25;
@@ -126,16 +130,20 @@ function OrderSearch() {
     cursor: filters.cursor,
     operation: filters.operation,
     pageSize,
+    provider: filters.provider,
+    q: filters.q,
     state: filters.state,
   });
 
-  const { data, error, isLoading, isValidating, mutate } = useSWR<Page<OrderSummary>, ApiError>(
-    `/v1/panel/finance/orders${query}`,
-    fetcher,
-    { keepPreviousData: true },
-  );
+  const { data, error, isLoading, isValidating, mutate } = useSWR<
+    Page<OrderSummary> & { stateCounts?: Record<string, number> },
+    ApiError
+  >(`/v1/panel/finance/orders${query}`, fetcher, { keepPreviousData: true });
 
-  const filtersActive = Boolean(filters.state || filters.operation);
+  const filtersActive = Boolean(
+    filters.state || filters.operation || filters.provider || filters.q,
+  );
+  const counts = data?.stateCounts ?? {};
 
   return (
     <div className="flex flex-col gap-4">
@@ -155,6 +163,7 @@ function OrderSearch() {
                 {STATES.map((state) => (
                   <SelectItem key={state} value={state}>
                     {state}
+                    {counts[state] !== undefined && ` (${counts[state]})`}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -179,6 +188,42 @@ function OrderSearch() {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="flex min-w-40 flex-col gap-1.5">
+            <Label htmlFor={providerId}>{translate("filters.provider")}</Label>
+            <Select
+              onValueChange={(value) => setFilter("provider", value === "all" ? "" : value)}
+              value={filters.provider || "all"}
+            >
+              <SelectTrigger id={providerId}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{translate("filters.any")}</SelectItem>
+                {PAYMENT_PROVIDERS.map((provider) => (
+                  <SelectItem key={provider} value={provider}>
+                    {provider}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex min-w-56 flex-col gap-1.5">
+            <Label htmlFor={searchId}>{translate("filters.search")}</Label>
+            <Input
+              defaultValue={filters.q}
+              id={searchId}
+              key={filters.q}
+              onBlur={(event) => setFilter("q", event.target.value.trim())}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  setFilter("q", event.currentTarget.value.trim());
+                }
+              }}
+              placeholder={translate("filters.searchPlaceholder")}
+            />
           </div>
 
           {filtersActive && (

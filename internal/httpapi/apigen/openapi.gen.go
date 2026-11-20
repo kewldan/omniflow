@@ -8466,8 +8466,9 @@ type PanelOrderList struct {
 
 // PanelOrderPage defines model for PanelOrderPage.
 type PanelOrderPage struct {
-	Items      *[]PanelOrderSummary `json:"items"`
-	NextCursor *string              `json:"nextCursor,omitempty"`
+	Items       *[]PanelOrderSummary `json:"items"`
+	NextCursor  *string              `json:"nextCursor,omitempty"`
+	StateCounts *map[string]int64    `json:"stateCounts,omitempty"`
 }
 
 // PanelOrderSummary defines model for PanelOrderSummary.
@@ -11382,6 +11383,8 @@ type ListPanelFailedChargesParams struct {
 type SearchPanelOrdersParams struct {
 	Cursor     *Cursor             `form:"cursor,omitempty" json:"cursor,omitempty"`
 	PageSize   *PageSize           `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+	Provider   *string             `form:"provider,omitempty" json:"provider,omitempty"`
+	Q          *string             `form:"q,omitempty" json:"q,omitempty"`
 	State      *string             `form:"state,omitempty" json:"state,omitempty"`
 	Operation  *string             `form:"operation,omitempty" json:"operation,omitempty"`
 	CustomerId *openapi_types.UUID `form:"customerId,omitempty" json:"customerId,omitempty"`
@@ -25081,6 +25084,32 @@ func (siw *ServerInterfaceWrapper) SearchPanelOrders(w http.ResponseWriter, r *h
 			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "pageSize"})
 		} else {
 			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pageSize", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "provider" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "provider", r.URL.Query(), &params.Provider, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "provider"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "provider", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
 		}
 		return
 	}

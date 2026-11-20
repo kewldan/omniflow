@@ -244,6 +244,8 @@ type Querier interface {
 	CountNotificationDeliveries(ctx context.Context, arg CountNotificationDeliveriesParams) (int64, error)
 	CountOpenAnomalySignals(ctx context.Context) (int64, error)
 	CountOpenBlocklistMatches(ctx context.Context) (int64, error)
+	// The status counters beside the finance search: every filter but the state.
+	CountOrdersByState(ctx context.Context, arg CountOrdersByStateParams) ([]CountOrdersByStateRow, error)
 	CountPlanVersionSquads(ctx context.Context, arg CountPlanVersionSquadsParams) (int32, error)
 	// A redemption is written when the order is created, before any money moves,
 	// so a redemption whose order closed unpaid — cancelled by the customer or

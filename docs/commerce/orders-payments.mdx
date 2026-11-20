@@ -727,8 +727,11 @@ therefore does nothing — the payment settles from the bot's own update stream 
 `/admin/finance` has three tabs, because they are the same question at three stages: money
 expected, money stuck, money that did not arrive.
 
-- **Orders.** Filter by state and operation, cursor-paginated, with a CSV export. Columns: created
-  at, customer, operation, state badge, paid, refunded. A row opens the order.
+- **Orders.** Filter by state, operation, and payment provider, and search by an order or customer
+  ID prefix, a provider's payment reference, or an order idempotency key (`provider` and `q`);
+  the state filter shows how many matching orders are in each state. Cursor-paginated, with a CSV
+  export of the same filter. Columns: created at, customer, operation, state badge, paid, refunded.
+  A row opens the order.
   `GET /v1/panel/finance/orders` — permission `finance.read`.
 - **Stuck.** The reconciliation queue described above.
 - **Charges.** Failed automatic renewal attempts with attempt number, funding source, outcome and

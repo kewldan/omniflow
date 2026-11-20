@@ -379,8 +379,47 @@ WHERE (
   AND (sqlc.narg(currency)::text IS NULL OR currency = sqlc.narg(currency))
   AND (sqlc.narg(created_from)::timestamptz IS NULL OR created_at >= sqlc.narg(created_from))
   AND (sqlc.narg(created_to)::timestamptz IS NULL OR created_at < sqlc.narg(created_to))
+  AND (sqlc.narg(provider)::text IS NULL OR EXISTS (
+    SELECT 1 FROM payment_intents pi WHERE pi.order_id = orders.id AND pi.provider = sqlc.narg(provider)
+  ))
+  -- Free text: an order or customer ID prefix, a provider's reference, or the
+  -- order's idempotency key, which is what an operator has in hand from a
+  -- receipt, a provider dashboard, or a support message.
+  AND (sqlc.narg(search)::text IS NULL
+    OR orders.id::text LIKE lower(sqlc.narg(search)) || '%'
+    OR orders.user_id::text LIKE lower(sqlc.narg(search)) || '%'
+    OR orders.idempotency_key = sqlc.narg(search)
+    OR EXISTS (
+      SELECT 1 FROM payment_intents pi
+      WHERE pi.order_id = orders.id AND pi.provider_reference = sqlc.narg(search)
+    ))
 ORDER BY created_at DESC, id DESC
 LIMIT sqlc.arg(page_size);
+
+-- name: CountOrdersByState :many
+-- The status counters beside the finance search: every filter but the state.
+SELECT state, count(*)::bigint AS orders FROM orders
+WHERE true
+  AND (sqlc.narg(operation)::text IS NULL OR operation = sqlc.narg(operation))
+  AND (sqlc.narg(user_id)::uuid IS NULL OR user_id = sqlc.narg(user_id))
+  AND (sqlc.narg(currency)::text IS NULL OR currency = sqlc.narg(currency))
+  AND (sqlc.narg(created_from)::timestamptz IS NULL OR created_at >= sqlc.narg(created_from))
+  AND (sqlc.narg(created_to)::timestamptz IS NULL OR created_at < sqlc.narg(created_to))
+  AND (sqlc.narg(provider)::text IS NULL OR EXISTS (
+    SELECT 1 FROM payment_intents pi WHERE pi.order_id = orders.id AND pi.provider = sqlc.narg(provider)
+  ))
+  -- Free text: an order or customer ID prefix, a provider's reference, or the
+  -- order's idempotency key, which is what an operator has in hand from a
+  -- receipt, a provider dashboard, or a support message.
+  AND (sqlc.narg(search)::text IS NULL
+    OR orders.id::text LIKE lower(sqlc.narg(search)) || '%'
+    OR orders.user_id::text LIKE lower(sqlc.narg(search)) || '%'
+    OR orders.idempotency_key = sqlc.narg(search)
+    OR EXISTS (
+      SELECT 1 FROM payment_intents pi
+      WHERE pi.order_id = orders.id AND pi.provider_reference = sqlc.narg(search)
+    ))
+GROUP BY state;
 
 -- name: ListOrderPaymentIntents :many
 SELECT * FROM payment_intents WHERE order_id = $1 ORDER BY created_at;

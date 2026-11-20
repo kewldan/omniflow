@@ -1419,10 +1419,17 @@ paths:
     get:
       operationId: searchPanelOrders
       tags: [panel]
-      description: Requires finance.read.
+      description: >-
+        Requires finance.read. `provider` keeps orders with a payment attempt
+        through that adapter; `q` matches an order or customer ID prefix, a
+        provider's payment reference, or an order idempotency key. The page
+        carries `stateCounts`, the number of matching orders per state with
+        every filter but `state` applied.
       parameters:
         - {$ref: "#/components/parameters/Cursor"}
         - {$ref: "#/components/parameters/PageSize"}
+        - {in: query, name: provider, schema: {type: string}}
+        - {in: query, name: q, schema: {type: string, maxLength: 128}}
         - {in: query, name: state, schema: {type: string}}
         - {in: query, name: operation, schema: {type: string}}
         - {in: query, name: customerId, schema: {type: string, format: uuid}}
@@ -6109,6 +6116,7 @@ components:
       properties:
         items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelOrderSummary"}}
         nextCursor: {type: string}
+        stateCounts: {type: object, additionalProperties: {type: integer, format: int64}}
     PanelPaymentEvent:
       type: object
       required: [type, occurredAt]

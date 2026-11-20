@@ -3493,10 +3493,12 @@ export const RevokePanelOfferHeader = zod.object({
 export const RevokePanelOfferResponse = zod.void();
 
 /**
- * Requires finance.read.
+ * Requires finance.read. `provider` keeps orders with a payment attempt through that adapter; `q` matches an order or customer ID prefix, a provider's payment reference, or an order idempotency key. The page carries `stateCounts`, the number of matching orders per state with every filter but `state` applied.
  */
 export const searchPanelOrdersQueryPageSizeDefault = 100;
 export const searchPanelOrdersQueryPageSizeMax = 500;
+
+export const searchPanelOrdersQueryQMax = 128;
 
 export const SearchPanelOrdersQueryParams = zod.object({
   cursor: zod.string().optional(),
@@ -3505,6 +3507,8 @@ export const SearchPanelOrdersQueryParams = zod.object({
     .min(1)
     .max(searchPanelOrdersQueryPageSizeMax)
     .default(searchPanelOrdersQueryPageSizeDefault),
+  provider: zod.string().optional(),
+  q: zod.string().max(searchPanelOrdersQueryQMax).optional(),
   state: zod.string().optional(),
   operation: zod.string().optional(),
   customerId: zod.uuid().optional(),
@@ -3535,6 +3539,7 @@ export const SearchPanelOrdersResponse = zod.object({
     )
     .nullable(),
   nextCursor: zod.string().optional(),
+  stateCounts: zod.record(zod.string(), zod.int()).optional(),
 });
 
 /**

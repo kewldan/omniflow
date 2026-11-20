@@ -805,6 +805,8 @@ func orderFilterFrom(request *http.Request) panelpg.OrderFilter {
 		To:         queryTime(request, "to"),
 		Cursor:     query(request, "cursor"),
 		PageSize:   queryInt(request, "pageSize"),
+		Provider:   query(request, "provider"),
+		Search:     query(request, "q"),
 	}
 }
 

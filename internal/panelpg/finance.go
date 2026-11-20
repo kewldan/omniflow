@@ -18,12 +18,20 @@ type OrderFilter struct {
 	To         *time.Time
 	Cursor     string
 	PageSize   int32
+	// Provider keeps orders with a payment attempt through this adapter.
+	Provider string
+	// Search matches an order or customer ID prefix, a provider reference,
+	// or an idempotency key.
+	Search string
 }
 
 // OrderPage is one page of finance search results.
 type OrderPage struct {
 	Items      []OrderSummary `json:"items"`
 	NextCursor string         `json:"nextCursor,omitempty"`
+	// StateCounts is how many orders match every filter but the state, per
+	// state, so the panel can show counters beside the state filter.
+	StateCounts map[string]int64 `json:"stateCounts"`
 }
 
 // SearchOrders finds orders across every customer.
@@ -40,13 +48,27 @@ func (service *Service) SearchOrders(ctx context.Context, filter OrderFilter) (O
 		Currency:        optionalText(filter.Currency),
 		CreatedFrom:     optionalTimestamp(filter.From),
 		CreatedTo:       optionalTimestamp(filter.To),
+		Provider:        optionalText(filter.Provider),
+		Search:          optionalText(strings.TrimSpace(filter.Search)),
 		PageSize:        size + 1,
 	})
 	if err != nil {
 		return OrderPage{}, err
 	}
+	counts, err := service.queries().CountOrdersByState(ctx, dbgen.CountOrdersByStateParams{
+		Operation: optionalText(filter.Operation), UserID: optionalUUID(filter.CustomerID),
+		Currency: optionalText(filter.Currency), CreatedFrom: optionalTimestamp(filter.From),
+		CreatedTo: optionalTimestamp(filter.To), Provider: optionalText(filter.Provider),
+		Search: optionalText(strings.TrimSpace(filter.Search)),
+	})
+	if err != nil {
+		return OrderPage{}, err
+	}
 
-	page := OrderPage{Items: make([]OrderSummary, 0, min(len(rows), int(size)))}
+	page := OrderPage{Items: make([]OrderSummary, 0, min(len(rows), int(size))), StateCounts: map[string]int64{}}
+	for _, count := range counts {
+		page.StateCounts[count.State] = count.Orders
+	}
 	for index, row := range rows {
 		if index == int(size) {
 			last := rows[index-1]

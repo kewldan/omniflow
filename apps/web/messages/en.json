@@ -1133,7 +1133,10 @@
         "state": "State",
         "operation": "Operation",
         "any": "Any",
-        "clear": "Clear filters"
+        "clear": "Clear filters",
+        "provider": "Provider",
+        "search": "Search",
+        "searchPlaceholder": "Order or customer ID, provider reference"
       },
       "columns": {
         "createdAt": "Placed",
