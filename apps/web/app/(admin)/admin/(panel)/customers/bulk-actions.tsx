@@ -44,6 +44,8 @@ const KINDS = [
   "subscription_enable",
   "subscription_disable",
   "wallet_credit",
+  "subscription_add_traffic",
+  "subscription_set_devices",
 ] as const;
 
 /**
@@ -227,6 +229,9 @@ function BulkComposer({ onPreviewed }: { onPreviewed: () => void }) {
   const [days, setDays] = useState("30");
   const [amountMinor, setAmountMinor] = useState("");
   const [currency, setCurrency] = useState("RUB");
+  const [trafficGb, setTrafficGb] = useState("10");
+  const [devices, setDevices] = useState("3");
+  const limitId = useId();
   const [reason, setReason] = useState("");
   const { run, pending, error } = useOperatorAction();
   const preview = useSubmission();
@@ -286,6 +291,26 @@ function BulkComposer({ onPreviewed }: { onPreviewed: () => void }) {
           </div>
         )}
 
+        {(kind === "subscription_add_traffic" || kind === "subscription_set_devices") && (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={limitId}>
+              {translate(
+                kind === "subscription_add_traffic" ? "composer.trafficGb" : "composer.devices",
+              )}
+            </Label>
+            <Input
+              id={limitId}
+              inputMode="numeric"
+              onChange={(event) =>
+                kind === "subscription_add_traffic"
+                  ? setTrafficGb(event.target.value)
+                  : setDevices(event.target.value)
+              }
+              value={kind === "subscription_add_traffic" ? trafficGb : devices}
+            />
+          </div>
+        )}
+
         {kind === "wallet_credit" && (
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
@@ -332,7 +357,11 @@ function BulkComposer({ onPreviewed }: { onPreviewed: () => void }) {
                     ? { days: Number(days) || 0 }
                     : kind === "wallet_credit"
                       ? { amountMinor: Number(amountMinor) || 0, currency }
-                      : {},
+                      : kind === "subscription_add_traffic"
+                        ? { trafficBytes: Math.round((Number(trafficGb) || 0) * 1024 ** 3) }
+                        : kind === "subscription_set_devices"
+                          ? { deviceLimit: Number(devices) || 0 }
+                          : {},
                 targets: identifiers.map((id) => ({ id, type: targetType })),
               },
               method: "POST",

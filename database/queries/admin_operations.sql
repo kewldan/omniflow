@@ -819,7 +819,7 @@ WHERE a.referred_user_id = $1;
 -- Addressing a subscription without naming its customer is safe here and only
 -- here: the targets were recorded by the preview, which validated them, so this
 -- is reading back a decision rather than accepting one.
-SELECT e.id AS entitlement_id, e.user_id, e.ends_at, e.status
+SELECT e.id AS entitlement_id, e.user_id, e.ends_at, e.status, e.traffic_allowance_bytes, e.device_limit
 FROM entitlements e
 WHERE e.subscription_id = sqlc.arg(subscription_id)
   AND e.status IN ('active', 'limited')

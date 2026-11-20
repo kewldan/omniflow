@@ -30,6 +30,7 @@ import {
 } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 import { MessageCustomerCard, WalletAdjustmentCard } from "./customer-actions";
+import { ActivityPanel, CustomerControlsPanel } from "./customer-controls";
 import { AuditTimeline, ReferralPanel, SupportPanel } from "./customer-history";
 import { LoyaltyPanel } from "./loyalty-panel";
 import { MergePanel } from "./merge-panel";
@@ -137,6 +138,8 @@ export function CustomerProfileView({ customerId }: { customerId: string }) {
             <TabsTrigger value="support">{translate("tabs.support")}</TabsTrigger>
           )}
           <TabsTrigger value="notifications">{translate("tabs.notifications")}</TabsTrigger>
+          <TabsTrigger value="controls">{translate("tabs.controls")}</TabsTrigger>
+          <TabsTrigger value="activity">{translate("tabs.activity")}</TabsTrigger>
           {can("risk.read") && <TabsTrigger value="risk">{translate("tabs.risk")}</TabsTrigger>}
           {can("audit.read") && (
             <TabsTrigger value="timeline">{translate("tabs.timeline")}</TabsTrigger>
@@ -185,6 +188,12 @@ export function CustomerProfileView({ customerId }: { customerId: string }) {
             base={base}
             customerId={customerId}
           />
+        </TabsContent>
+        <TabsContent value="controls">
+          <CustomerControlsPanel customerId={customerId} />
+        </TabsContent>
+        <TabsContent value="activity">
+          <ActivityPanel active={tab === "activity"} customerId={customerId} />
         </TabsContent>
         {can("risk.read") && (
           <TabsContent value="risk">

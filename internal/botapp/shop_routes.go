@@ -347,6 +347,8 @@ func (app *App) shopPurchase(
 		ctx, session.Customer.ID, product, 1, recipient, isSelf, quote, false, promoCode,
 	)
 	switch {
+	case errors.Is(err, commercepg.ErrRestricted):
+		return restrictedView(session.Locale)
 	case errors.Is(err, commercepg.ErrMaintenance):
 		return app.maintenanceScreen(ctx, session)
 	case errors.Is(err, commercepg.ErrQuoteExpired):

@@ -122,6 +122,9 @@ func (store *Store) CreateGoodsOrder(
 	} else if !errors.Is(existingErr, pgx.ErrNoRows) {
 		return dbgen.Order{}, existingErr
 	}
+	if err = store.assertNotRestricted(ctx, queries, userID, "purchase"); err != nil {
+		return dbgen.Order{}, err
+	}
 	if err = store.assertOperational(ctx, queries); err != nil {
 		return dbgen.Order{}, err
 	}

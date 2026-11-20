@@ -20,6 +20,7 @@ import (
 	"github.com/omniflow/omniflow/internal/bulkrunner"
 	"github.com/omniflow/omniflow/internal/campaigns"
 	"github.com/omniflow/omniflow/internal/config"
+	"github.com/omniflow/omniflow/internal/database/dbgen"
 	"github.com/omniflow/omniflow/internal/errorlog"
 	"github.com/omniflow/omniflow/internal/fulfillment"
 	"github.com/omniflow/omniflow/internal/goodsdelivery"
@@ -271,6 +272,11 @@ func periodicTasks(
 		{Name: "anomaly_evaluation", Interval: lifecycle.AnomalyInterval(), Run: pass(lifecycle.EvaluateAnomalies)},
 		{Name: "campaign_expansion", Interval: campaignInterval, Timeout: 5 * time.Minute, Run: pass(campaignRunner.RunOnce)},
 		{Name: "bulk_actions", Interval: bulkInterval, Timeout: 5 * time.Minute, Run: pass(bulk.RunOnce)},
+		// The customer action log keeps ninety days.
+		{Name: "customer_activity_prune", Interval: 6 * time.Hour, Run: func(ctx context.Context) error {
+			_, err := dbgen.New(pool).PruneCustomerActivity(ctx)
+			return err
+		}},
 		{Name: "retention", Interval: cfg.Retention.Interval, Run: func(ctx context.Context) error {
 			retentionWorker.Sweep(ctx)
 			return ctx.Err()

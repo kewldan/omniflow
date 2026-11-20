@@ -147,6 +147,8 @@ func (runner *Runner) applyItem(
 		return runner.lifecycle(ctx, operation, item, "disable")
 	case "wallet_credit":
 		return runner.credit(ctx, operation, item)
+	case "subscription_add_traffic", "subscription_set_devices":
+		return runner.limits(ctx, operation, item)
 	case "customer_export":
 		// The export is produced by the read path, not by mutating anything.
 		// Marking the item succeeded records that it was included.
@@ -249,6 +251,55 @@ func (runner *Runner) enqueue(
 		EndsAt:         endsAt,
 	})
 	return err
+}
+
+type limitParameters struct {
+	// TrafficBytes is added to the current allowance; an unlimited plan stays
+	// unlimited, because adding to "no limit" would create one.
+	TrafficBytes int64 `json:"trafficBytes"`
+	DeviceLimit  int32 `json:"deviceLimit"`
+}
+
+// limits adds traffic to, or sets the device limit of, each subscription
+// through the same fulfillment operation the card's "set limits" uses.
+func (runner *Runner) limits(
+	ctx context.Context, operation panelpg.BulkOperation, item panelpg.BulkItem,
+) (string, string) {
+	var parameters limitParameters
+	if err := json.Unmarshal(operation.Parameters, &parameters); err != nil {
+		return "failed", "invalid_parameters"
+	}
+	target, err := runner.operations.BulkSubscriptionTarget(ctx, item.TargetID)
+	if err != nil {
+		return "failed", "subscription_unavailable"
+	}
+	input := fulfillment.OperationInput{Operation: "set_limits"}
+	switch operation.Kind {
+	case "subscription_add_traffic":
+		if parameters.TrafficBytes <= 0 {
+			return "failed", "invalid_parameters"
+		}
+		if target.TrafficAllowanceBytes == nil {
+			return "skipped", "unlimited_traffic"
+		}
+		total := *target.TrafficAllowanceBytes + parameters.TrafficBytes
+		input.TrafficAllowanceBytes = &total
+	default:
+		if parameters.DeviceLimit <= 0 || parameters.DeviceLimit > 100 {
+			return "failed", "invalid_parameters"
+		}
+		limit := parameters.DeviceLimit
+		input.DeviceLimit = &limit
+	}
+	if runner.fulfillment == nil {
+		return "failed", "enqueue_failed"
+	}
+	key := "bulk:" + operation.ID + ":" + itemKey(item.Position)
+	input.IdempotencyKey, input.CorrelationID = key, key
+	if _, err := runner.fulfillment.Enqueue(ctx, target.EntitlementID, input); err != nil {
+		return "failed", failureCode(err)
+	}
+	return "succeeded", ""
 }
 
 func itemKey(position int32) string { return strconv.FormatInt(int64(position), 10) }

@@ -128,6 +128,37 @@ balance without reading every movement that produced it.
   would leave Omniflow and Remnawave disagreeing with no record of why.
 </Note>
 
+### Filtered and sorted views
+
+Below the search, **Filter and sort** (`GET /v1/panel/customers/advanced`, `customers.read`)
+narrows the list to customers whose access expires within N days, who hold a positive
+balance, renew automatically, carry a restriction, only ever took a trial, came from a
+campaign code, were active in the last N days, or used at least N% of their traffic — and
+sorts by newest, oldest, largest balance, soonest expiry, or most recent activity. A sorted
+view returns the first 200 rather than paging.
+
+### The Controls and Activity tabs
+
+**Controls** on the customer card (`GET /v1/panel/customers/{id}/controls`) shows when the
+customer was last active in the bot or the web panel and offers:
+
+| Action | Route | Permission |
+| --- | --- | --- |
+| Add days of a plan, give the trial, or change the plan for the time left — free, as a paid `code` order with an entitlement and a fulfillment job | `POST …/grants` with `mode` `days`, `trial`, or `change_plan` | `subscriptions.write` |
+| Buy a plan with the customer's own balance; refused with `insufficient_balance` before any order exists when the wallet does not cover it | `POST …/purchases` | `finance.write` |
+| Stop wallet top-ups or purchases with a reason, or lift it. The customer sees "this payment is not available" and a support button; the API answers `403 customer_restricted` | `PUT …/restrictions/{topup\|purchase}` | `customers.write` |
+| Turn auto-renew off, or back on only where the customer consented before (`consent_required` otherwise) | `PUT …/auto-renew` | `subscriptions.write` |
+| Reset the trial, so the customer may take one again | `POST …/trial-reset` | `subscriptions.write` |
+| Anonymise, or mark for deletion, after typing a confirmation word | `POST …/anonymize`, `POST …/deletion` | `customers.write` |
+
+Every action is audited. Squads of a subscription are set from the subscription's own
+actions with a picker over the panel's squads.
+
+**Activity** (`GET /v1/panel/customers/{id}/activity`) is the customer's own action log:
+which bot screen, button, or command, and when — route names only, never anything typed.
+It is kept for ninety days. The same log, aggregated with no customer in it, is the bot's
+button statistics at `GET /v1/panel/reports/bot-buttons?days=7` (`marketing.read`).
+
 ## Catalogue
 
 Plans, their versions, and promotions. The catalogue is versioned, so nothing
@@ -143,6 +174,8 @@ v0.7 widens promotion rewards beyond discounts:
 | `percent` | Percentage off the order |
 | `fixed` | Fixed amount off the order |
 | `wallet_credit` | Credit posted to the customer's wallet as an ordinary ledger entry |
+| `subscription_add_traffic` | `trafficBytes` added to each subscription's allowance through `set_limits`; an unlimited subscription is skipped as `unlimited_traffic` |
+| `subscription_set_devices` | Each subscription's device limit set to `deviceLimit` (1–100) through `set_limits` |
 | `days` | Extra subscription days |
 | `trial` | A granted trial period |
 

@@ -463,6 +463,11 @@ func (handlers *AccountHandlers) writeShopError(
 			writer, request, http.StatusUnprocessableEntity,
 			"promo_ineligible", "That code does not apply to this purchase",
 		)
+	case errors.Is(err, commercepg.ErrRestricted):
+		writeProblem(
+			writer, request, http.StatusForbidden,
+			"customer_restricted", "This account cannot make this payment. Contact support",
+		)
 	case errors.Is(err, commercepg.ErrMaintenance):
 		writeProblem(
 			writer, request, http.StatusServiceUnavailable,

@@ -190,6 +190,16 @@ func (store *Store) grantRewardDays(
 	ctx context.Context, tx pgx.Tx, queries *dbgen.Queries, userID, planVersionID pgtype.UUID,
 	currency string, duration time.Duration, trial bool, key string,
 ) (time.Time, pgtype.UUID, error) {
+	return store.grantDays(ctx, tx, queries, userID, planVersionID, currency, duration, trial, false, key)
+}
+
+// grantDays is grantRewardDays with one more mode: replace puts the plan
+// version in place of the current one for the time the current one has left,
+// which is how an operator changes a customer's plan without charging them.
+func (store *Store) grantDays(
+	ctx context.Context, tx pgx.Tx, queries *dbgen.Queries, userID, planVersionID pgtype.UUID,
+	currency string, duration time.Duration, trial, replace bool, key string,
+) (time.Time, pgtype.UUID, error) {
 	plan, err := queries.GetPlanVersionForOrder(ctx, dbgen.GetPlanVersionForOrderParams{
 		PlanVersionID: planVersionID, Currency: currency,
 	})
@@ -206,6 +216,13 @@ func (store *Store) grantRewardDays(
 		return time.Time{}, pgtype.UUID{}, err
 	}
 	operation := "purchase"
+	if replace {
+		if currentEndsAt == nil || !currentEndsAt.After(now) {
+			return time.Time{}, pgtype.UUID{}, ErrPromoNotApplicable
+		}
+		duration = currentEndsAt.Sub(now)
+		currentEndsAt = nil
+	}
 	if currentEndsAt != nil && currentEndsAt.After(now) {
 		if trial {
 			// A trial is for somebody without access.

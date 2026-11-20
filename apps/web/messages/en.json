@@ -852,7 +852,9 @@
         "referrals": "Referrals",
         "support": "Support",
         "timeline": "Timeline",
-        "notifications": "Notifications"
+        "notifications": "Notifications",
+        "controls": "Controls",
+        "activity": "Activity"
       },
       "actions": {
         "wallet": {
@@ -873,7 +875,9 @@
           "submit": "Send",
           "queued": "Message queued",
           "failed": "The message could not be sent."
-        }
+        },
+        "squads": "Squads",
+        "setSquads": "Set squads"
       },
       "empty": {
         "subscriptions": "No subscriptions",
@@ -990,6 +994,83 @@
           "program_change": "programme change",
           "promo_code": "promo code"
         }
+      },
+      "controls": {
+        "done": "Done",
+        "cancel": "Cancel",
+        "never": "never",
+        "lastActivity": "Last active in the bot or web panel:",
+        "resetTrial": "Reset trial",
+        "trialReset": "The customer can take a trial again",
+        "grant": {
+          "title": "Grant or buy",
+          "description": "Give days of a plan, the trial, or another plan for the time left — free, as an order the customer did not pay for. Or buy the plan with the customer's own balance.",
+          "mode": "What",
+          "modes": {
+            "days": "Add days",
+            "trial": "Give the trial",
+            "change_plan": "Change plan (keep end date)"
+          },
+          "plan": "Plan",
+          "pickPlan": "Pick a plan",
+          "trialPlan": "The trial plan",
+          "days": "Days",
+          "submit": "Grant",
+          "buyFromBalance": "Buy from balance"
+        },
+        "restrictions": {
+          "title": "Restrictions",
+          "description": "Stop one kind of spending without suspending the account. The customer is told the payment is unavailable and pointed at support; the reason stays here.",
+          "topup": "No wallet top-ups",
+          "purchase": "No purchases",
+          "reason": "Reason",
+          "active": "Active",
+          "set": "Restrict",
+          "lift": "Lift"
+        },
+        "autoRenew": {
+          "label": "Auto-renew",
+          "hint": "You can always turn it off. You can turn it back on only for a renewal the customer set up and consented to."
+        },
+        "danger": {
+          "title": "Anonymise or delete",
+          "description": "Anonymising erases contacts and identities now and keeps financial records. Deleting marks the account for deletion under the retention policy.",
+          "anonymize": "Anonymise",
+          "delete": "Delete account",
+          "prompt": "Type the word to confirm",
+          "anonymizeWarning": "This cannot be undone: the customer loses sign-in and contacts are erased.",
+          "deleteWarning": "The account is closed and removed when its retention period ends."
+        },
+        "activityEmpty": "No recorded activity.",
+        "activityWhen": "When",
+        "activitySurface": "Where",
+        "activityAction": "Screen or button"
+      },
+      "advanced": {
+        "title": "Filter and sort",
+        "description": "Expiring soon, with a balance, renewing automatically, restricted, trial only, from a campaign, active lately, or near their traffic limit. A sorted view shows the first 200.",
+        "sort": "Sort by",
+        "sorts": {
+          "newest": "Newest",
+          "oldest": "Oldest",
+          "balance": "Largest balance",
+          "expiry": "Expiring first",
+          "activity": "Recently active"
+        },
+        "expiringDays": "Expires within (days)",
+        "activeWithinDays": "Active within (days)",
+        "trafficPercent": "Traffic used at least (%)",
+        "campaign": "Campaign code",
+        "withBalance": "Has a balance",
+        "autoRenew": "Auto-renew on",
+        "restricted": "Restricted",
+        "trialOnly": "Trial only, never paid",
+        "search": "Show",
+        "empty": "Nobody matches.",
+        "customer": "Customer",
+        "balance": "Balance",
+        "endsAt": "Access until",
+        "lastActivity": "Last active"
       }
     },
     "merge": {
@@ -2228,7 +2309,9 @@
         "subscription_enable": "Enable subscriptions",
         "subscription_disable": "Disable subscriptions",
         "wallet_credit": "Credit wallets",
-        "customer_export": "Export customers"
+        "customer_export": "Export customers",
+        "subscription_add_traffic": "Add traffic",
+        "subscription_set_devices": "Set device limit"
       },
       "status": {
         "previewing": "Previewing",
@@ -2279,7 +2362,9 @@
         "reason": "Reason",
         "reasonHint": "Why this is being applied to all of them",
         "previewNotice": "Each target is applied and recorded one at a time, so a run that half succeeds says which half. Every change goes through the same fulfillment pipeline a single change uses.",
-        "preview": "Preview"
+        "preview": "Preview",
+        "trafficGb": "Traffic to add (GB)",
+        "devices": "Device limit"
       }
     },
     "imports": {

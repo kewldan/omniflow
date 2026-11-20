@@ -98,6 +98,9 @@ func (app *App) startTopUp(ctx context.Context, session commerceContext, provide
 	if reason := TopUpRejectionReason(err); reason != "" {
 		return View{Text: text(session.Locale, "topup.rejected", text(session.Locale, "topup."+reason)), Keyboard: keyboard(row(callbackButton(text(session.Locale, "action.back"), routeTopUp)))}
 	}
+	if errors.Is(err, commercepg.ErrRestricted) {
+		return restrictedView(session.Locale)
+	}
 	if errors.Is(err, commercepg.ErrMaintenance) {
 		return app.maintenanceScreen(ctx, session)
 	}
@@ -400,6 +403,8 @@ func (app *App) addonSelectionError(ctx context.Context, session commerceContext
 	switch {
 	case err == nil:
 		return View{}, false
+	case errors.Is(err, commercepg.ErrRestricted):
+		return restrictedView(session.Locale), true
 	case errors.Is(err, commercepg.ErrMaintenance):
 		return app.maintenanceScreen(ctx, session), true
 	case errors.Is(err, ErrSubscriptionNotFound):

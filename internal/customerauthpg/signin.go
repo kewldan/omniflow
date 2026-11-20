@@ -429,6 +429,8 @@ func (service *Service) Resolve(ctx context.Context, sessionToken string) (Princ
 	_, _ = queries.TouchCustomerSession(ctx, dbgen.TouchCustomerSessionParams{
 		SessionID: row.ID, IdleWindow: interval(service.sessions.IdleTimeout),
 	})
+	// Last activity on the customer card, written at most every five minutes.
+	_ = queries.TouchCustomerActivity(ctx, row.UserID)
 	return principal, nil
 }
 

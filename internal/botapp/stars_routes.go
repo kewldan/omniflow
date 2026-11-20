@@ -330,6 +330,8 @@ func (app *App) starsBuy(ctx context.Context, session commerceContext, review Sh
 	order, err := app.commerce.StartStarsPurchase(ctx, session.Customer.ID, product, stars,
 		review.Recipient, isSelf, quote, "goods:stars:"+review.ID+":"+strconv.Itoa(stars), true)
 	switch {
+	case errors.Is(err, commercepg.ErrRestricted):
+		return restrictedView(session.Locale)
 	case errors.Is(err, commercepg.ErrMaintenance):
 		return app.maintenanceScreen(ctx, session)
 	case errors.Is(err, commercepg.ErrPriceChanged):
@@ -417,6 +419,8 @@ func (app *App) starsPayRemainder(
 	order, err := app.commerce.StartStarsPurchase(ctx, session.Customer.ID, product, stars,
 		review.Recipient, isSelf, quote, "goods:stars:"+review.ID+":"+strconv.Itoa(stars), false)
 	switch {
+	case errors.Is(err, commercepg.ErrRestricted):
+		return restrictedView(session.Locale)
 	case errors.Is(err, commercepg.ErrMaintenance):
 		return app.maintenanceScreen(ctx, session)
 	case errors.Is(err, commercepg.ErrQuoteExpired), errors.Is(err, commercepg.ErrPriceChanged):

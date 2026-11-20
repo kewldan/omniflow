@@ -108,6 +108,9 @@ func (store *Store) CreateGiftOrder(
 	} else if !errors.Is(existingErr, pgx.ErrNoRows) {
 		return GiftPurchase{}, existingErr
 	}
+	if err = store.assertNotRestricted(ctx, queries, senderID, "purchase"); err != nil {
+		return GiftPurchase{}, err
+	}
 	if err = store.assertOperational(ctx, queries); err != nil {
 		return GiftPurchase{}, err
 	}

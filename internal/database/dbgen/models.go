@@ -835,6 +835,14 @@ type ContactChannel struct {
 	RevokedAt            pgtype.Timestamptz `json:"revoked_at"`
 }
 
+type CustomerActivity struct {
+	ID         int64              `json:"id"`
+	UserID     pgtype.UUID        `json:"user_id"`
+	Surface    string             `json:"surface"`
+	Action     string             `json:"action"`
+	OccurredAt pgtype.Timestamptz `json:"occurred_at"`
+}
+
 type CustomerCampaignAttribution struct {
 	UserID         pgtype.UUID        `json:"user_id"`
 	CampaignID     pgtype.UUID        `json:"campaign_id"`
@@ -929,6 +937,14 @@ type CustomerOidcProvider struct {
 	CreatedAt              pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
 	DisabledAt             pgtype.Timestamptz `json:"disabled_at"`
+}
+
+type CustomerRestriction struct {
+	UserID    pgtype.UUID        `json:"user_id"`
+	Kind      string             `json:"kind"`
+	Reason    string             `json:"reason"`
+	CreatedBy pgtype.UUID        `json:"created_by"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
 type CustomerSecurityEvent struct {
@@ -2230,8 +2246,9 @@ type User struct {
 	AnonymizedAt   pgtype.Timestamptz `json:"anonymized_at"`
 	RetentionUntil pgtype.Timestamptz `json:"retention_until"`
 	// Where this account went. A merged account keeps its rows and its history; everything transferable was moved to the target.
-	MergedInto pgtype.UUID        `json:"merged_into"`
-	MergedAt   pgtype.Timestamptz `json:"merged_at"`
+	MergedInto     pgtype.UUID        `json:"merged_into"`
+	MergedAt       pgtype.Timestamptz `json:"merged_at"`
+	LastActivityAt pgtype.Timestamptz `json:"last_activity_at"`
 }
 
 type WalletTopup struct {

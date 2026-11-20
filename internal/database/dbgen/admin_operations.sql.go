@@ -910,7 +910,7 @@ func (q *Queries) GetBulkOperationByIdempotency(ctx context.Context, idempotency
 }
 
 const getBulkSubscriptionTarget = `-- name: GetBulkSubscriptionTarget :one
-SELECT e.id AS entitlement_id, e.user_id, e.ends_at, e.status
+SELECT e.id AS entitlement_id, e.user_id, e.ends_at, e.status, e.traffic_allowance_bytes, e.device_limit
 FROM entitlements e
 WHERE e.subscription_id = $1
   AND e.status IN ('active', 'limited')
@@ -919,10 +919,12 @@ LIMIT 1
 `
 
 type GetBulkSubscriptionTargetRow struct {
-	EntitlementID pgtype.UUID        `json:"entitlement_id"`
-	UserID        pgtype.UUID        `json:"user_id"`
-	EndsAt        pgtype.Timestamptz `json:"ends_at"`
-	Status        string             `json:"status"`
+	EntitlementID         pgtype.UUID        `json:"entitlement_id"`
+	UserID                pgtype.UUID        `json:"user_id"`
+	EndsAt                pgtype.Timestamptz `json:"ends_at"`
+	Status                string             `json:"status"`
+	TrafficAllowanceBytes pgtype.Int8        `json:"traffic_allowance_bytes"`
+	DeviceLimit           pgtype.Int4        `json:"device_limit"`
 }
 
 // The live entitlement behind a subscription a bulk operation targets.
@@ -938,6 +940,8 @@ func (q *Queries) GetBulkSubscriptionTarget(ctx context.Context, subscriptionID 
 		&i.UserID,
 		&i.EndsAt,
 		&i.Status,
+		&i.TrafficAllowanceBytes,
+		&i.DeviceLimit,
 	)
 	return i, err
 }
@@ -982,7 +986,7 @@ func (q *Queries) GetCommerceSettings(ctx context.Context) (CommerceSetting, err
 
 const getCustomerOverview = `-- name: GetCustomerOverview :one
 SELECT
-  u.id, u.status, u.locale, u.created_at, u.updated_at, u.timezone, u.suspended_at, u.deleted_at, u.anonymized_at, u.retention_until, u.merged_into, u.merged_at,
+  u.id, u.status, u.locale, u.created_at, u.updated_at, u.timezone, u.suspended_at, u.deleted_at, u.anonymized_at, u.retention_until, u.merged_into, u.merged_at, u.last_activity_at,
   r.telegram_id,
   (SELECT count(*) FROM subscriptions s WHERE s.user_id = u.id AND s.status = 'active')::bigint AS active_subscriptions,
   (SELECT count(*) FROM orders o WHERE o.user_id = u.id)::bigint AS order_count,
@@ -1024,6 +1028,7 @@ func (q *Queries) GetCustomerOverview(ctx context.Context, id pgtype.UUID) (GetC
 		&i.User.RetentionUntil,
 		&i.User.MergedInto,
 		&i.User.MergedAt,
+		&i.User.LastActivityAt,
 		&i.TelegramID,
 		&i.ActiveSubscriptions,
 		&i.OrderCount,
@@ -2739,7 +2744,7 @@ func (q *Queries) RetirePlanVersion(ctx context.Context, planVersionID pgtype.UU
 
 const searchCustomers = `-- name: SearchCustomers :many
 
-SELECT u.id, u.status, u.locale, u.created_at, u.updated_at, u.timezone, u.suspended_at, u.deleted_at, u.anonymized_at, u.retention_until, u.merged_into, u.merged_at, r.telegram_id, r.remnawave_id
+SELECT u.id, u.status, u.locale, u.created_at, u.updated_at, u.timezone, u.suspended_at, u.deleted_at, u.anonymized_at, u.retention_until, u.merged_into, u.merged_at, u.last_activity_at, r.telegram_id, r.remnawave_id
 FROM users u
 LEFT JOIN remnawave_users r ON r.user_id = u.id
 WHERE (
@@ -2830,6 +2835,7 @@ func (q *Queries) SearchCustomers(ctx context.Context, arg SearchCustomersParams
 			&i.User.RetentionUntil,
 			&i.User.MergedInto,
 			&i.User.MergedAt,
+			&i.User.LastActivityAt,
 			&i.TelegramID,
 			&i.RemnawaveID,
 		); err != nil {

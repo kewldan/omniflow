@@ -55,7 +55,7 @@ func importViewFrom(run dbgen.CustomerImport) importView {
 func (handlers *AdminHandlers) auditImport(request *http.Request, action, importID string, metadata map[string]any) {
 	principal, _ := PrincipalFrom(request.Context())
 	_ = handlers.service.AppendAudit(request.Context(), adminauthpg.AuditEntry{
-		ActorType: "admin", ActorID: principal.Account.ID, Action: action, Category: "customers",
+		ActorType: "admin", ActorID: principal.Account.ID, Action: action, Category: "customer",
 		Outcome: "success", TargetType: "customer_import", TargetID: importID,
 		RequestID: middleware.GetReqID(request.Context()), Metadata: metadata,
 	})

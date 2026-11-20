@@ -1341,7 +1341,7 @@ CREATE TABLE public.bulk_operations (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     completed_at timestamp with time zone,
     CONSTRAINT bulk_operations_failed_count_check CHECK ((failed_count >= 0)),
-    CONSTRAINT bulk_operations_kind_check CHECK ((kind = ANY (ARRAY['customer_export'::text, 'subscription_extend'::text, 'subscription_disable'::text, 'subscription_enable'::text, 'wallet_credit'::text]))),
+    CONSTRAINT bulk_operations_kind_check CHECK ((kind = ANY (ARRAY['customer_export'::text, 'subscription_extend'::text, 'subscription_disable'::text, 'subscription_enable'::text, 'wallet_credit'::text, 'subscription_add_traffic'::text, 'subscription_set_devices'::text]))),
     CONSTRAINT bulk_operations_reason_check CHECK (((char_length(reason) >= 1) AND (char_length(reason) <= 400))),
     CONSTRAINT bulk_operations_skipped_count_check CHECK ((skipped_count >= 0)),
     CONSTRAINT bulk_operations_status_check CHECK ((status = ANY (ARRAY['previewing'::text, 'ready'::text, 'running'::text, 'completed'::text, 'failed'::text, 'cancelled'::text]))),
@@ -1695,6 +1695,35 @@ CREATE TABLE public.contact_channels (
 
 
 --
+-- Name: customer_activity; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.customer_activity (
+    id bigint NOT NULL,
+    user_id uuid NOT NULL,
+    surface text NOT NULL,
+    action text NOT NULL,
+    occurred_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT customer_activity_action_shape CHECK ((action ~ '^[a-z0-9_:./-]{1,64}$'::text)),
+    CONSTRAINT customer_activity_surface_known CHECK ((surface = ANY (ARRAY['bot'::text, 'web'::text])))
+);
+
+
+--
+-- Name: customer_activity_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.customer_activity ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.customer_activity_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
 -- Name: customer_campaign_attributions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1850,6 +1879,21 @@ CREATE TABLE public.customer_oidc_providers (
     CONSTRAINT customer_oidc_providers_icon_check CHECK (((icon IS NULL) OR (icon ~ '^[a-z0-9][a-z0-9-]{0,38}$'::text))),
     CONSTRAINT customer_oidc_providers_issuer_check CHECK ((issuer ~ '^https://'::text)),
     CONSTRAINT customer_oidc_providers_slug_check CHECK ((slug ~ '^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$'::text))
+);
+
+
+--
+-- Name: customer_restrictions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.customer_restrictions (
+    user_id uuid NOT NULL,
+    kind text NOT NULL,
+    reason text NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT customer_restrictions_kind_known CHECK ((kind = ANY (ARRAY['topup'::text, 'purchase'::text]))),
+    CONSTRAINT customer_restrictions_reason_present CHECK (((length(btrim(reason)) >= 1) AND (length(btrim(reason)) <= 500)))
 );
 
 
@@ -4238,6 +4282,7 @@ CREATE TABLE public.users (
     retention_until timestamp with time zone,
     merged_into uuid,
     merged_at timestamp with time zone,
+    last_activity_at timestamp with time zone,
     CONSTRAINT users_locale_check CHECK ((locale = ANY (ARRAY['ru'::text, 'en'::text]))),
     CONSTRAINT users_merge_complete CHECK ((((status = 'merged'::text) = (merged_into IS NOT NULL)) AND ((merged_into IS NULL) = (merged_at IS NULL)))),
     CONSTRAINT users_merge_not_self CHECK (((merged_into IS NULL) OR (merged_into <> id))),
@@ -4975,6 +5020,14 @@ ALTER TABLE ONLY public.contact_channels
 
 
 --
+-- Name: customer_activity customer_activity_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_activity
+    ADD CONSTRAINT customer_activity_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: customer_campaign_attributions customer_campaign_attributions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5060,6 +5113,14 @@ ALTER TABLE ONLY public.customer_oidc_providers
 
 ALTER TABLE ONLY public.customer_oidc_providers
     ADD CONSTRAINT customer_oidc_providers_slug_key UNIQUE (slug);
+
+
+--
+-- Name: customer_restrictions customer_restrictions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_restrictions
+    ADD CONSTRAINT customer_restrictions_pkey PRIMARY KEY (user_id, kind);
 
 
 --
@@ -6612,6 +6673,20 @@ CREATE INDEX contact_channels_user_idx ON public.contact_channels USING btree (u
 
 
 --
+-- Name: customer_activity_time_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX customer_activity_time_idx ON public.customer_activity USING btree (occurred_at);
+
+
+--
+-- Name: customer_activity_user_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX customer_activity_user_idx ON public.customer_activity USING btree (user_id, occurred_at DESC);
+
+
+--
 -- Name: customer_campaign_attributions_campaign; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8137,6 +8212,14 @@ ALTER TABLE ONLY public.contact_channels
 
 
 --
+-- Name: customer_activity customer_activity_user_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_activity
+    ADD CONSTRAINT customer_activity_user_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
 -- Name: customer_campaign_attributions customer_campaign_attributions_campaign_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8198,6 +8281,22 @@ ALTER TABLE ONLY public.customer_lifecycle_events
 
 ALTER TABLE ONLY public.customer_magic_links
     ADD CONSTRAINT customer_magic_links_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: customer_restrictions customer_restrictions_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_restrictions
+    ADD CONSTRAINT customer_restrictions_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.admin_users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: customer_restrictions customer_restrictions_user_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_restrictions
+    ADD CONSTRAINT customer_restrictions_user_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --

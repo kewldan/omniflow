@@ -14,6 +14,7 @@ import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import { type Listing, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
+import { SquadPicker } from "../../catalog/squad-picker";
 
 type PanelDevice = {
   ref: string;
@@ -51,6 +52,7 @@ export function SubscriptionActions({
   const [endsAt, setEndsAt] = useState("");
   const [traffic, setTraffic] = useState("");
   const [deviceLimit, setDeviceLimit] = useState("");
+  const [squads, setSquads] = useState<string[]>([]);
   const [queued, setQueued] = useState("");
   const { run, pending, error } = useOperatorAction();
 
@@ -92,6 +94,7 @@ export function SubscriptionActions({
   }
 
   const ready = reason.trim().length > 0 && hasEntitlement && !pending;
+  const squadsId = `${reasonId}-squads`;
 
   return (
     <Card className="mt-3 flex flex-col gap-3 p-3">
@@ -192,6 +195,27 @@ export function SubscriptionActions({
             {translate("actions.setLimits")}
           </Button>
         </div>
+      </div>
+
+      {/* Squads are picked by name from the panel's list; the change goes
+          through the same fulfillment pipeline as every other one. */}
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor={squadsId}>{translate("actions.squads")}</Label>
+        <SquadPicker
+          control={{ id: squadsId, "aria-invalid": false }}
+          multiple
+          onChange={setSquads}
+          value={squads}
+        />
+        <Button
+          className="self-start"
+          disabled={!ready || squads.length === 0}
+          onClick={() => enqueue("set_squads", { squadIds: squads })}
+          size="sm"
+          variant="outline"
+        >
+          {translate("actions.setSquads")}
+        </Button>
       </div>
 
       {error && <p className="text-danger-foreground text-sm">{error.message}</p>}

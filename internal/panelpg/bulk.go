@@ -323,6 +323,9 @@ type BulkSubscriptionTarget struct {
 	CustomerID    string
 	EndsAt        time.Time
 	Status        string
+	// TrafficAllowanceBytes is nil for an unlimited plan.
+	TrafficAllowanceBytes *int64
+	DeviceLimit           *int32
 }
 
 // BulkSubscriptionTarget resolves one subscription a bulk operation targets.
@@ -343,9 +346,11 @@ func (service *Service) BulkSubscriptionTarget(
 		return BulkSubscriptionTarget{}, notFound(err)
 	}
 	return BulkSubscriptionTarget{
-		EntitlementID: uuidString(row.EntitlementID),
-		CustomerID:    uuidString(row.UserID),
-		EndsAt:        timeValue(row.EndsAt),
-		Status:        row.Status,
+		EntitlementID:         uuidString(row.EntitlementID),
+		CustomerID:            uuidString(row.UserID),
+		EndsAt:                timeValue(row.EndsAt),
+		Status:                row.Status,
+		TrafficAllowanceBytes: int64Pointer(row.TrafficAllowanceBytes),
+		DeviceLimit:           int32Pointer(row.DeviceLimit),
 	}, nil
 }

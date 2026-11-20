@@ -391,6 +391,8 @@ func (app *App) confirmCheckout(ctx context.Context, session commerceContext) Vi
 	}
 	orderID, err := app.commerce.Confirm(ctx, checkout, plan, session.Customer)
 	switch {
+	case errors.Is(err, commercepg.ErrRestricted):
+		return restrictedView(session.Locale)
 	case errors.Is(err, commercepg.ErrMaintenance):
 		return app.maintenanceScreen(ctx, session)
 	case errors.Is(err, commerce.ErrSubscriptionRejected):

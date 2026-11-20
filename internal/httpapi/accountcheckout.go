@@ -912,6 +912,11 @@ func (handlers *AccountHandlers) writeCheckoutError(
 			"subscription_target_required", "Choose which subscription this applies to",
 		)
 
+	case errors.Is(err, commercepg.ErrRestricted):
+		writeProblem(
+			writer, request, http.StatusForbidden,
+			"customer_restricted", "This account cannot make this payment. Contact support",
+		)
 	case errors.Is(err, commercepg.ErrMaintenance):
 		writeProblem(
 			writer, request, http.StatusServiceUnavailable,

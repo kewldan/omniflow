@@ -17,6 +17,22 @@ import (
 // assertOperational refuses a new purchase while the installation is in
 // maintenance. It reads the state rather than upserting it, so the hot purchase
 // path never contends on the singleton row.
+// ErrRestricted refuses spending an operator stopped for this customer.
+var ErrRestricted = errors.New("an operator restricted this customer")
+
+// assertNotRestricted refuses an order of a kind ("topup" or "purchase") an
+// operator stopped on the customer card, before any money moves.
+func (store *Store) assertNotRestricted(ctx context.Context, queries *dbgen.Queries, userID pgtype.UUID, kind string) error {
+	restricted, err := queries.CustomerRestricted(ctx, dbgen.CustomerRestrictedParams{UserID: userID, Kind: kind})
+	if err != nil {
+		return err
+	}
+	if restricted {
+		return fmt.Errorf("%w: %s", ErrRestricted, kind)
+	}
+	return nil
+}
+
 func (store *Store) assertOperational(ctx context.Context, queries *dbgen.Queries) error {
 	state, err := queries.ReadMaintenanceState(ctx)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -245,6 +261,9 @@ func (store *Store) CreateTopUpOrder(ctx context.Context, input TopUpInput) (dbg
 	} else if !errors.Is(existingErr, pgx.ErrNoRows) {
 		return dbgen.Order{}, existingErr
 	}
+	if err = store.assertNotRestricted(ctx, queries, userID, "topup"); err != nil {
+		return dbgen.Order{}, err
+	}
 	if err = store.assertOperational(ctx, queries); err != nil {
 		return dbgen.Order{}, err
 	}
@@ -410,6 +429,9 @@ func (store *Store) CreateAddonOrder(ctx context.Context, input AddonOrderInput)
 		return existing, tx.Commit(ctx)
 	} else if !errors.Is(existingErr, pgx.ErrNoRows) {
 		return dbgen.Order{}, existingErr
+	}
+	if err = store.assertNotRestricted(ctx, queries, userID, "purchase"); err != nil {
+		return dbgen.Order{}, err
 	}
 	if err = store.assertOperational(ctx, queries); err != nil {
 		return dbgen.Order{}, err
