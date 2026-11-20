@@ -1176,6 +1176,8 @@ type EntitlementAddon struct {
 	AppliedAt         pgtype.Timestamptz `json:"applied_at"`
 	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
 	ExpiredAt         pgtype.Timestamptz `json:"expired_at"`
+	ReleasedAt        pgtype.Timestamptz `json:"released_at"`
+	ReleasedByOrderID pgtype.UUID        `json:"released_by_order_id"`
 }
 
 type EntitlementDrift struct {
@@ -1868,6 +1870,7 @@ type OrderCredit struct {
 	LedgerTransactionID pgtype.UUID        `json:"ledger_transaction_id"`
 	CreditedAt          pgtype.Timestamptz `json:"credited_at"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	ReleasedAddonIds    []pgtype.UUID      `json:"released_addon_ids"`
 }
 
 type OrderLine struct {

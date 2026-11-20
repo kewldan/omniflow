@@ -3938,6 +3938,30 @@ paths:
         charge and disables access through fulfillment; a resume gives back
         the part of the day the pause held. Asking for the state the
         subscription is already in succeeds without doing anything.
+  /v1/account/subscriptions/{subscriptionID}/traffic-package:
+    get:
+      operationId: getAccountTrafficPackages
+      tags: [account]
+      description: >-
+        The traffic packages a live subscription may switch to part-way through
+        its period, each priced against what is left of the packages it has. An
+        option without addonVersionId drops the current packages. `available`
+        is false, with a `reason`, when the subscription cannot change its
+        traffic package.
+      parameters:
+        - {$ref: "#/components/parameters/AccountSubscriptionID"}
+        - {in: query, name: locale, schema: {type: string, enum: [ru, en]}}
+      responses:
+        "200": {description: Packages, content: {application/json: {schema: {$ref: "#/components/schemas/AccountTrafficPackages"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+    post:
+      operationId: changeAccountTrafficPackage
+      tags: [account]
+      description: >-
+        Opens a traffic_change order. A bigger package is charged its prorated
+        price less the remainder of the packages it replaces; a smaller one
+        credits the difference to the wallet. The wallet settles it when it
+        covers it. A repeated key is the same order.
       parameters:
         - {$ref: "#/components/parameters/AccountSubscriptionID"}
         - {$ref: "#/components/parameters/CSRFToken"}
@@ -3955,6 +3979,12 @@ paths:
         "200": {description: Daily billing, content: {application/json: {schema: {$ref: "#/components/schemas/AccountDailyBilling"}}}}
         "404": {$ref: "#/components/responses/Problem"}
         "409": {$ref: "#/components/responses/Problem"}
+              properties:
+                addonVersionId: {type: string, format: uuid, description: The package to switch to; omitted to drop the current packages.}
+      responses:
+        "201": {description: Order created, content: {application/json: {schema: {$ref: "#/components/schemas/AccountOrder"}}}}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
   /v1/account/subscriptions/{subscriptionID}/addons:
     get:
       operationId: listAccountSubscriptionAddons
@@ -9067,6 +9097,42 @@ components:
         creditRemainingSeconds: {type: integer, format: int64, description: "How much time that remainder had left."}
         creditAppliedMinor: {type: integer, format: int64, description: "The part of creditMinor this order spends. walletAppliedMinor is then only the customer's own balance."}
         creditToWalletMinor: {type: integer, format: int64, description: "The part of creditMinor that stays in the wallet because the new price is lower."}
+    AccountCapacityQuote:
+      type: object
+      required: [currency, chargeMinor, creditMinor, creditAppliedMinor, creditToWalletMinor, walletMinor, externalMinor, walletBalanceMinor]
+      description: >-
+        What a mid-period capacity change costs or hands back now. chargeMinor
+        is the prorated price of what is added and creditMinor the prorated
+        value of what is released, at what the customer paid for it.
+      properties:
+        currency: {type: string}
+        chargeMinor: {type: integer, format: int64}
+        creditMinor: {type: integer, format: int64}
+        creditAppliedMinor: {type: integer, format: int64, description: The part of the credit the order spends.}
+        creditToWalletMinor: {type: integer, format: int64, description: The part of the credit that stays in the wallet.}
+        walletMinor: {type: integer, format: int64, description: The customer's own balance the order spends.}
+        externalMinor: {type: integer, format: int64, description: What a provider must settle.}
+        walletBalanceMinor: {type: integer, format: int64}
+        endsAt: {type: string, format: date-time}
+    AccountTrafficPackages:
+      type: object
+      required: [available, currency, currentTrafficBytes, options]
+      properties:
+        available: {type: boolean}
+        reason: {type: string}
+        currency: {type: string}
+        currentTrafficBytes: {type: integer, format: int64, description: The bytes the subscription's traffic packages add now.}
+        options:
+          type: array
+          items:
+            type: object
+            required: [name, trafficBytes, direction, quote]
+            properties:
+              addonVersionId: {type: string, format: uuid}
+              name: {type: string}
+              trafficBytes: {type: integer, format: int64}
+              direction: {type: string, enum: [up, down]}
+              quote: {$ref: "#/components/schemas/AccountCapacityQuote"}
     AccountPaymentChoice:
       type: object
       required: [provider, currency, recurring]

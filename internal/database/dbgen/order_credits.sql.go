@@ -11,8 +11,28 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countReleasablePacks = `-- name: CountReleasablePacks :one
+SELECT count(*)::int FROM entitlement_addons
+WHERE id = ANY($1::uuid[])
+  AND entitlement_id = $2
+  AND released_at IS NULL AND expired_at IS NULL
+`
+
+type CountReleasablePacksParams struct {
+	EntitlementAddonIds []pgtype.UUID `json:"entitlement_addon_ids"`
+	EntitlementID       pgtype.UUID   `json:"entitlement_id"`
+}
+
+// How many of the given packs are still on the entitlement and unreleased.
+func (q *Queries) CountReleasablePacks(ctx context.Context, arg CountReleasablePacksParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countReleasablePacks, arg.EntitlementAddonIds, arg.EntitlementID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const getOrderCredit = `-- name: GetOrderCredit :one
-SELECT order_id, user_id, kind, source_entitlement_id, source_order_id, currency, basis_minor, remaining_seconds, period_seconds, credit_minor, ledger_transaction_id, credited_at, created_at FROM order_credits WHERE order_id = $1
+SELECT order_id, user_id, kind, source_entitlement_id, source_order_id, currency, basis_minor, remaining_seconds, period_seconds, credit_minor, ledger_transaction_id, credited_at, created_at, released_addon_ids FROM order_credits WHERE order_id = $1
 `
 
 func (q *Queries) GetOrderCredit(ctx context.Context, orderID pgtype.UUID) (OrderCredit, error) {
@@ -32,6 +52,7 @@ func (q *Queries) GetOrderCredit(ctx context.Context, orderID pgtype.UUID) (Orde
 		&i.LedgerTransactionID,
 		&i.CreditedAt,
 		&i.CreatedAt,
+		&i.ReleasedAddonIds,
 	)
 	return i, err
 }
@@ -78,26 +99,28 @@ const insertOrderCredit = `-- name: InsertOrderCredit :one
 
 INSERT INTO order_credits (
   order_id, user_id, kind, source_entitlement_id, source_order_id, currency,
-  basis_minor, remaining_seconds, period_seconds, credit_minor
+  basis_minor, remaining_seconds, period_seconds, credit_minor, released_addon_ids
 ) VALUES (
   $1, $2, $3, $4,
   $5, $6, $7,
-  $8, $9, $10
+  $8, $9, $10,
+  $11::uuid[]
 )
-RETURNING order_id, user_id, kind, source_entitlement_id, source_order_id, currency, basis_minor, remaining_seconds, period_seconds, credit_minor, ledger_transaction_id, credited_at, created_at
+RETURNING order_id, user_id, kind, source_entitlement_id, source_order_id, currency, basis_minor, remaining_seconds, period_seconds, credit_minor, ledger_transaction_id, credited_at, created_at, released_addon_ids
 `
 
 type InsertOrderCreditParams struct {
-	OrderID             pgtype.UUID `json:"order_id"`
-	UserID              pgtype.UUID `json:"user_id"`
-	Kind                string      `json:"kind"`
-	SourceEntitlementID pgtype.UUID `json:"source_entitlement_id"`
-	SourceOrderID       pgtype.UUID `json:"source_order_id"`
-	Currency            string      `json:"currency"`
-	BasisMinor          int64       `json:"basis_minor"`
-	RemainingSeconds    int64       `json:"remaining_seconds"`
-	PeriodSeconds       int64       `json:"period_seconds"`
-	CreditMinor         int64       `json:"credit_minor"`
+	OrderID             pgtype.UUID   `json:"order_id"`
+	UserID              pgtype.UUID   `json:"user_id"`
+	Kind                string        `json:"kind"`
+	SourceEntitlementID pgtype.UUID   `json:"source_entitlement_id"`
+	SourceOrderID       pgtype.UUID   `json:"source_order_id"`
+	Currency            string        `json:"currency"`
+	BasisMinor          int64         `json:"basis_minor"`
+	RemainingSeconds    int64         `json:"remaining_seconds"`
+	PeriodSeconds       int64         `json:"period_seconds"`
+	CreditMinor         int64         `json:"credit_minor"`
+	ReleasedAddonIds    []pgtype.UUID `json:"released_addon_ids"`
 }
 
 // Credit lines: the unused value a change order hands back to the customer.
@@ -113,6 +136,7 @@ func (q *Queries) InsertOrderCredit(ctx context.Context, arg InsertOrderCreditPa
 		arg.RemainingSeconds,
 		arg.PeriodSeconds,
 		arg.CreditMinor,
+		arg.ReleasedAddonIds,
 	)
 	var i OrderCredit
 	err := row.Scan(
@@ -129,12 +153,91 @@ func (q *Queries) InsertOrderCredit(ctx context.Context, arg InsertOrderCreditPa
 		&i.LedgerTransactionID,
 		&i.CreditedAt,
 		&i.CreatedAt,
+		&i.ReleasedAddonIds,
 	)
 	return i, err
 }
 
+const listLivePacks = `-- name: ListLivePacks :many
+SELECT ea.id, ea.entitlement_id, ea.order_id, ea.addon_version_id, ea.quantity,
+       ea.traffic_bytes, ea.device_slots, ea.remnawave_squad_ids, ea.applied_at, ea.expires_at,
+       a.kind AS addon_kind, a.code AS addon_code,
+       COALESCE(ol.charged_minor, 0)::bigint AS charged_minor,
+       o.user_id AS order_user_id, o.currency AS order_currency,
+       o.subtotal_minor AS order_subtotal_minor,
+       (o.wallet_minor + o.external_minor - o.refunded_minor)::bigint AS order_paid_minor
+FROM entitlement_addons ea
+JOIN addon_versions av ON av.id = ea.addon_version_id
+JOIN addons a ON a.id = av.addon_id
+JOIN orders o ON o.id = ea.order_id
+LEFT JOIN order_addon_lines ol ON ol.order_id = ea.order_id AND ol.addon_version_id = ea.addon_version_id
+WHERE ea.entitlement_id = $1
+  AND ea.released_at IS NULL AND ea.expired_at IS NULL
+ORDER BY ea.applied_at DESC, ea.id DESC
+`
+
+type ListLivePacksRow struct {
+	ID                 pgtype.UUID        `json:"id"`
+	EntitlementID      pgtype.UUID        `json:"entitlement_id"`
+	OrderID            pgtype.UUID        `json:"order_id"`
+	AddonVersionID     pgtype.UUID        `json:"addon_version_id"`
+	Quantity           int32              `json:"quantity"`
+	TrafficBytes       pgtype.Int8        `json:"traffic_bytes"`
+	DeviceSlots        pgtype.Int4        `json:"device_slots"`
+	RemnawaveSquadIds  []pgtype.UUID      `json:"remnawave_squad_ids"`
+	AppliedAt          pgtype.Timestamptz `json:"applied_at"`
+	ExpiresAt          pgtype.Timestamptz `json:"expires_at"`
+	AddonKind          string             `json:"addon_kind"`
+	AddonCode          string             `json:"addon_code"`
+	ChargedMinor       int64              `json:"charged_minor"`
+	OrderUserID        pgtype.UUID        `json:"order_user_id"`
+	OrderCurrency      string             `json:"order_currency"`
+	OrderSubtotalMinor int64              `json:"order_subtotal_minor"`
+	OrderPaidMinor     int64              `json:"order_paid_minor"`
+}
+
+// The add-on packs still counting on an entitlement, newest first, with what
+// the order that bought each one took for it.
+func (q *Queries) ListLivePacks(ctx context.Context, entitlementID pgtype.UUID) ([]ListLivePacksRow, error) {
+	rows, err := q.db.Query(ctx, listLivePacks, entitlementID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLivePacksRow{}
+	for rows.Next() {
+		var i ListLivePacksRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.EntitlementID,
+			&i.OrderID,
+			&i.AddonVersionID,
+			&i.Quantity,
+			&i.TrafficBytes,
+			&i.DeviceSlots,
+			&i.RemnawaveSquadIds,
+			&i.AppliedAt,
+			&i.ExpiresAt,
+			&i.AddonKind,
+			&i.AddonCode,
+			&i.ChargedMinor,
+			&i.OrderUserID,
+			&i.OrderCurrency,
+			&i.OrderSubtotalMinor,
+			&i.OrderPaidMinor,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockOrderCredit = `-- name: LockOrderCredit :one
-SELECT order_id, user_id, kind, source_entitlement_id, source_order_id, currency, basis_minor, remaining_seconds, period_seconds, credit_minor, ledger_transaction_id, credited_at, created_at FROM order_credits WHERE order_id = $1 FOR UPDATE
+SELECT order_id, user_id, kind, source_entitlement_id, source_order_id, currency, basis_minor, remaining_seconds, period_seconds, credit_minor, ledger_transaction_id, credited_at, created_at, released_addon_ids FROM order_credits WHERE order_id = $1 FOR UPDATE
 `
 
 func (q *Queries) LockOrderCredit(ctx context.Context, orderID pgtype.UUID) (OrderCredit, error) {
@@ -154,6 +257,7 @@ func (q *Queries) LockOrderCredit(ctx context.Context, orderID pgtype.UUID) (Ord
 		&i.LedgerTransactionID,
 		&i.CreditedAt,
 		&i.CreatedAt,
+		&i.ReleasedAddonIds,
 	)
 	return i, err
 }
@@ -162,7 +266,7 @@ const markOrderCreditPosted = `-- name: MarkOrderCreditPosted :one
 UPDATE order_credits
 SET ledger_transaction_id = $1, credited_at = now()
 WHERE order_id = $2 AND credited_at IS NULL
-RETURNING order_id, user_id, kind, source_entitlement_id, source_order_id, currency, basis_minor, remaining_seconds, period_seconds, credit_minor, ledger_transaction_id, credited_at, created_at
+RETURNING order_id, user_id, kind, source_entitlement_id, source_order_id, currency, basis_minor, remaining_seconds, period_seconds, credit_minor, ledger_transaction_id, credited_at, created_at, released_addon_ids
 `
 
 type MarkOrderCreditPostedParams struct {
@@ -189,6 +293,7 @@ func (q *Queries) MarkOrderCreditPosted(ctx context.Context, arg MarkOrderCredit
 		&i.LedgerTransactionID,
 		&i.CreditedAt,
 		&i.CreatedAt,
+		&i.ReleasedAddonIds,
 	)
 	return i, err
 }
@@ -208,4 +313,40 @@ func (q *Queries) PlanRemainderPosted(ctx context.Context, sourceEntitlementID p
 	var column_1 bool
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const releaseEntitlementAddon = `-- name: ReleaseEntitlementAddon :one
+UPDATE entitlement_addons
+SET released_at = now(), released_by_order_id = $1
+WHERE id = $2 AND released_at IS NULL AND expired_at IS NULL
+RETURNING id, entitlement_id, order_id, addon_version_id, quantity, traffic_bytes, device_slots, remnawave_squad_ids, applied_at, expires_at, expired_at, released_at, released_by_order_id
+`
+
+type ReleaseEntitlementAddonParams struct {
+	OrderID            pgtype.UUID `json:"order_id"`
+	EntitlementAddonID pgtype.UUID `json:"entitlement_addon_id"`
+}
+
+// Takes one pack off its entitlement for a change order. The predicate makes a
+// replayed settlement, or a second change racing for the same pack, match
+// nothing, so its capacity is subtracted once.
+func (q *Queries) ReleaseEntitlementAddon(ctx context.Context, arg ReleaseEntitlementAddonParams) (EntitlementAddon, error) {
+	row := q.db.QueryRow(ctx, releaseEntitlementAddon, arg.OrderID, arg.EntitlementAddonID)
+	var i EntitlementAddon
+	err := row.Scan(
+		&i.ID,
+		&i.EntitlementID,
+		&i.OrderID,
+		&i.AddonVersionID,
+		&i.Quantity,
+		&i.TrafficBytes,
+		&i.DeviceSlots,
+		&i.RemnawaveSquadIds,
+		&i.AppliedAt,
+		&i.ExpiresAt,
+		&i.ExpiredAt,
+		&i.ReleasedAt,
+		&i.ReleasedByOrderID,
+	)
+	return i, err
 }

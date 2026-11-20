@@ -134,6 +134,7 @@ reads the existing operation back rather than creating a second one.
 | --- | --- |
 | `order:<orderID>:fulfill` | A settled purchase, renewal, upgrade, or downgrade |
 | `order:<orderID>:addon` | A mid-period add-on, folded into one `set_limits` |
+| `order:<orderID>:change` | A mid-period capacity change: a traffic package switched, folded into one `set_limits` |
 | `gift:<giftID>:fulfill` | A claimed gift |
 | `reconcile:<entitlementID>:<15-minute bucket>` | The reconciliation sweep |
 | `panel:<subscriptionID>:<operation>:<requestID>` | An operator action in the panel |

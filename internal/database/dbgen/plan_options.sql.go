@@ -92,8 +92,8 @@ func (q *Queries) CountOpenSubscriptionOrders(ctx context.Context, subscriptionI
 
 const expireTrafficPack = `-- name: ExpireTrafficPack :one
 UPDATE entitlement_addons SET expired_at = now()
-WHERE id = $1 AND expired_at IS NULL
-RETURNING id, entitlement_id, order_id, addon_version_id, quantity, traffic_bytes, device_slots, remnawave_squad_ids, applied_at, expires_at, expired_at
+WHERE id = $1 AND expired_at IS NULL AND released_at IS NULL
+RETURNING id, entitlement_id, order_id, addon_version_id, quantity, traffic_bytes, device_slots, remnawave_squad_ids, applied_at, expires_at, expired_at, released_at, released_by_order_id
 `
 
 // Marks one pack as taken back. The predicate makes a replayed pass match
@@ -113,6 +113,8 @@ func (q *Queries) ExpireTrafficPack(ctx context.Context, entitlementAddonID pgty
 		&i.AppliedAt,
 		&i.ExpiresAt,
 		&i.ExpiredAt,
+		&i.ReleasedAt,
+		&i.ReleasedByOrderID,
 	)
 	return i, err
 }
@@ -120,7 +122,7 @@ func (q *Queries) ExpireTrafficPack(ctx context.Context, entitlementAddonID pgty
 const getAddonLimits = `-- name: GetAddonLimits :one
 SELECT v.max_addon_traffic_bytes,
        COALESCE((SELECT sum(ea.traffic_bytes) FROM entitlement_addons ea
-                 WHERE ea.entitlement_id = e.id AND ea.expired_at IS NULL), 0)::bigint AS bought_traffic_bytes,
+                 WHERE ea.entitlement_id = e.id AND ea.expired_at IS NULL AND ea.released_at IS NULL), 0)::bigint AS bought_traffic_bytes,
        (SELECT sp.max_device_limit FROM subscription_policy sp WHERE sp.singleton) AS max_device_limit
 FROM entitlements e
 JOIN plan_versions v ON v.id = e.plan_version_id
@@ -318,7 +320,7 @@ func (q *Queries) LastOrderPeriod(ctx context.Context, subscriptionID pgtype.UUI
 const listDueTrafficPacks = `-- name: ListDueTrafficPacks :many
 SELECT ea.id FROM entitlement_addons ea
 JOIN entitlements e ON e.id = ea.entitlement_id
-WHERE ea.expires_at <= now() AND ea.expired_at IS NULL
+WHERE ea.expires_at <= now() AND ea.expired_at IS NULL AND ea.released_at IS NULL
   AND e.status NOT IN ('superseded', 'expired', 'failed')
 ORDER BY ea.expires_at
 LIMIT $1

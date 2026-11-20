@@ -2844,11 +2844,6 @@ export const getPanelPlanResponseVersionsItemPeriodsItemDaysMax = 3650;
 export const getPanelPlanResponseVersionsItemPeriodsItemCurrencyRegExp = /^[A-Z]{3}$/;
 export const getPanelPlanResponseVersionsItemPeriodsItemAmountMinorMin = 0;
 
-export const getPanelPlanResponseVersionsItemTrafficPackagesItemGbMax = 1000000;
-
-export const getPanelPlanResponseVersionsItemTrafficPackagesItemCurrencyRegExp = /^[A-Z]{3}$/;
-export const getPanelPlanResponseVersionsItemTrafficPackagesItemAmountMinorMin = 0;
-
 export const GetPanelPlanResponse = zod.object({
   plan: zod.object({
     id: zod.uuid(),
@@ -2930,25 +2925,6 @@ export const GetPanelPlanResponse = zod.object({
         customDaysMin: zod.int().optional(),
         customDaysMax: zod.int().optional(),
         dayPrices: zod.record(zod.string(), zod.int()).optional(),
-        customTrafficMinGb: zod.int().optional(),
-        customTrafficMaxGb: zod.int().optional(),
-        gbPrices: zod.record(zod.string(), zod.int()).optional(),
-        trafficMode: zod.enum(["fixed", "fixed_with_topup", "selectable"]).optional(),
-        trafficPackages: zod
-          .array(
-            zod.object({
-              gb: zod.int().min(1).max(getPanelPlanResponseVersionsItemTrafficPackagesItemGbMax),
-              currency: zod
-                .string()
-                .regex(getPanelPlanResponseVersionsItemTrafficPackagesItemCurrencyRegExp),
-              amountMinor: zod
-                .int()
-                .min(getPanelPlanResponseVersionsItemTrafficPackagesItemAmountMinorMin)
-                .describe("The package's price for the version's own duration."),
-            }),
-          )
-          .nullish(),
-        dailyBilling: zod.boolean().optional(),
       }),
     )
     .nullable(),
@@ -3055,13 +3031,6 @@ export const createPanelPlanVersionBodyPeriodsItemAmountMinorMin = 0;
 
 export const createPanelPlanVersionBodyCustomDaysMaxMax = 3650;
 
-export const createPanelPlanVersionBodyCustomTrafficMaxGbMax = 1000000;
-
-export const createPanelPlanVersionBodyTrafficPackagesItemGbMax = 1000000;
-
-export const createPanelPlanVersionBodyTrafficPackagesItemCurrencyRegExp = /^[A-Z]{3}$/;
-export const createPanelPlanVersionBodyTrafficPackagesItemAmountMinorMin = 0;
-
 export const CreatePanelPlanVersionBody = zod.object({
   billingPeriod: zod.enum([
     "none",
@@ -3143,41 +3112,6 @@ export const CreatePanelPlanVersionBody = zod.object({
     .record(zod.string(), zod.int().min(1))
     .optional()
     .describe("Price per custom day by currency."),
-  customTrafficMinGb: zod
-    .int()
-    .min(1)
-    .nullish()
-    .describe("The smallest traffic volume a customer may choose; null sells none."),
-  customTrafficMaxGb: zod.int().max(createPanelPlanVersionBodyCustomTrafficMaxGbMax).nullish(),
-  gbPrices: zod
-    .record(zod.string(), zod.int().min(1))
-    .optional()
-    .describe("Price per chosen gigabyte by currency, for the version's own duration."),
-  trafficMode: zod
-    .enum(["fixed", "fixed_with_topup", "selectable"])
-    .optional()
-    .describe(
-      "How the version sells traffic. Empty is selectable when packages or a custom range are sent, and fixed_with_topup otherwise.",
-    ),
-  trafficPackages: zod
-    .array(
-      zod.object({
-        gb: zod.int().min(1).max(createPanelPlanVersionBodyTrafficPackagesItemGbMax),
-        currency: zod.string().regex(createPanelPlanVersionBodyTrafficPackagesItemCurrencyRegExp),
-        amountMinor: zod
-          .int()
-          .min(createPanelPlanVersionBodyTrafficPackagesItemAmountMinorMin)
-          .describe("The package's price for the version's own duration."),
-      }),
-    )
-    .optional()
-    .describe("The traffic volumes a selectable version is sold with."),
-  dailyBilling: zod
-    .boolean()
-    .optional()
-    .describe(
-      "Bill the version one day at a time from the wallet, pausable by the customer. Needs billingPeriod day, durationSeconds 86400, and no other periods.",
-    ),
 });
 
 export const createPanelPlanVersionResponseOfferedSquadsItemLabelRuMax = 80;
@@ -3188,11 +3122,6 @@ export const createPanelPlanVersionResponsePeriodsItemDaysMax = 3650;
 
 export const createPanelPlanVersionResponsePeriodsItemCurrencyRegExp = /^[A-Z]{3}$/;
 export const createPanelPlanVersionResponsePeriodsItemAmountMinorMin = 0;
-
-export const createPanelPlanVersionResponseTrafficPackagesItemGbMax = 1000000;
-
-export const createPanelPlanVersionResponseTrafficPackagesItemCurrencyRegExp = /^[A-Z]{3}$/;
-export const createPanelPlanVersionResponseTrafficPackagesItemAmountMinorMin = 0;
 
 export const CreatePanelPlanVersionResponse = zod.object({
   id: zod.uuid(),
@@ -3242,25 +3171,6 @@ export const CreatePanelPlanVersionResponse = zod.object({
   customDaysMin: zod.int().optional(),
   customDaysMax: zod.int().optional(),
   dayPrices: zod.record(zod.string(), zod.int()).optional(),
-  customTrafficMinGb: zod.int().optional(),
-  customTrafficMaxGb: zod.int().optional(),
-  gbPrices: zod.record(zod.string(), zod.int()).optional(),
-  trafficMode: zod.enum(["fixed", "fixed_with_topup", "selectable"]).optional(),
-  trafficPackages: zod
-    .array(
-      zod.object({
-        gb: zod.int().min(1).max(createPanelPlanVersionResponseTrafficPackagesItemGbMax),
-        currency: zod
-          .string()
-          .regex(createPanelPlanVersionResponseTrafficPackagesItemCurrencyRegExp),
-        amountMinor: zod
-          .int()
-          .min(createPanelPlanVersionResponseTrafficPackagesItemAmountMinorMin)
-          .describe("The package's price for the version's own duration."),
-      }),
-    )
-    .nullish(),
-  dailyBilling: zod.boolean().optional(),
 });
 
 /**
@@ -3315,193 +3225,6 @@ export const SavePanelPlanOptionsResponse = zod.object({
     .describe(
       "Upper-case letters, digits, and underscores; empty falls back to the installation trial or paid tag.",
     ),
-});
-
-/**
- * Requires catalog.read. The server catalogue beside the Remnawave panel's internal squads: each row carries the catalogue entry when there is one, the panel's name and member count read live (never stored; `reported` is false when the panel could not be read), and whether its customer limit is reached. `entry.liveCustomers` is Omniflow's own count of customers with a live entitlement on it.
- */
-export const ListPanelServersResponse = zod.record(zod.string(), zod.unknown());
-
-/**
- * Requires catalog.write. Creates or replaces how Omniflow labels and limits the sale of one Remnawave internal squad. Nothing is changed in Remnawave.
- */
-export const SavePanelServerParams = zod.object({
-  squadID: zod.uuid(),
-});
-
-export const SavePanelServerHeader = zod.object({
-  "X-CSRF-Token": zod
-    .string()
-    .describe("Echoes the token from the current session. Required on every unsafe method."),
-});
-
-export const savePanelServerBodyNameRuMax = 80;
-
-export const savePanelServerBodyNameEnMax = 80;
-
-export const SavePanelServerBody = zod.object({
-  squadId: zod.uuid().optional(),
-  nameRu: zod.string().min(1).max(savePanelServerBodyNameRuMax),
-  nameEn: zod.string().min(1).max(savePanelServerBodyNameEnMax),
-  countryCode: zod
-    .string()
-    .optional()
-    .describe("ISO 3166-1 alpha-2, shown as a flag; empty for none."),
-  maxUsers: zod
-    .int()
-    .min(1)
-    .nullish()
-    .describe("The most customers a sale may put on the squad; null is no limit."),
-  trialEligible: zod.boolean(),
-  sortOrder: zod.int().optional(),
-  prices: zod
-    .record(zod.string(), zod.int().min(1))
-    .optional()
-    .describe(
-      "What choosing the squad adds to a plan's price, per currency, for the version's own duration.",
-    ),
-});
-
-export const savePanelServerResponseNameRuMax = 80;
-
-export const savePanelServerResponseNameEnMax = 80;
-
-export const SavePanelServerResponse = zod.object({
-  squadId: zod.uuid().optional(),
-  nameRu: zod.string().min(1).max(savePanelServerResponseNameRuMax),
-  nameEn: zod.string().min(1).max(savePanelServerResponseNameEnMax),
-  countryCode: zod
-    .string()
-    .optional()
-    .describe("ISO 3166-1 alpha-2, shown as a flag; empty for none."),
-  maxUsers: zod
-    .int()
-    .min(1)
-    .nullish()
-    .describe("The most customers a sale may put on the squad; null is no limit."),
-  trialEligible: zod.boolean(),
-  sortOrder: zod.int().optional(),
-  prices: zod
-    .record(zod.string(), zod.int().min(1))
-    .optional()
-    .describe(
-      "What choosing the squad adds to a plan's price, per currency, for the version's own duration.",
-    ),
-  liveCustomers: zod.int().optional(),
-});
-
-/**
- * Requires catalog.write. Removes the squad's catalogue entry; it is then sold with no label, limit, or price of its own.
- */
-export const DeletePanelServerParams = zod.object({
-  squadID: zod.uuid(),
-});
-
-export const DeletePanelServerHeader = zod.object({
-  "X-CSRF-Token": zod
-    .string()
-    .describe("Echoes the token from the current session. Required on every unsafe method."),
-});
-
-export const DeletePanelServerResponse = zod.void();
-
-/**
- * Requires catalog.read. The simple subscription setting.
- */
-export const getPanelSimpleSubscriptionResponsePeriodDaysMin = 0;
-export const getPanelSimpleSubscriptionResponsePeriodDaysMax = 3650;
-
-export const getPanelSimpleSubscriptionResponseTrafficGbMin = 0;
-export const getPanelSimpleSubscriptionResponseTrafficGbMax = 1000000;
-
-export const getPanelSimpleSubscriptionResponseDeviceQuantityMin = 0;
-export const getPanelSimpleSubscriptionResponseDeviceQuantityMax = 100;
-
-export const GetPanelSimpleSubscriptionResponse = zod.object({
-  enabled: zod.boolean(),
-  planId: zod.string().describe("The plan sold; empty for none."),
-  periodDays: zod
-    .int()
-    .min(getPanelSimpleSubscriptionResponsePeriodDaysMin)
-    .max(getPanelSimpleSubscriptionResponsePeriodDaysMax)
-    .describe("0 is the version's own period."),
-  trafficGb: zod
-    .int()
-    .min(getPanelSimpleSubscriptionResponseTrafficGbMin)
-    .max(getPanelSimpleSubscriptionResponseTrafficGbMax)
-    .describe("0 is the version's own traffic."),
-  deviceAddonId: zod.string().describe("A devices add-on bought with the plan; empty for none."),
-  deviceQuantity: zod
-    .int()
-    .min(getPanelSimpleSubscriptionResponseDeviceQuantityMin)
-    .max(getPanelSimpleSubscriptionResponseDeviceQuantityMax),
-});
-
-/**
- * Requires catalog.write. When enabled, the bot and the web store show the one plan named here with one Buy button, its period, traffic, and extra devices chosen in advance. An enabled setting needs a plan with a live version; extra devices need a devices add-on.
- */
-export const SavePanelSimpleSubscriptionHeader = zod.object({
-  "X-CSRF-Token": zod
-    .string()
-    .describe("Echoes the token from the current session. Required on every unsafe method."),
-});
-
-export const savePanelSimpleSubscriptionBodyPeriodDaysMin = 0;
-export const savePanelSimpleSubscriptionBodyPeriodDaysMax = 3650;
-
-export const savePanelSimpleSubscriptionBodyTrafficGbMin = 0;
-export const savePanelSimpleSubscriptionBodyTrafficGbMax = 1000000;
-
-export const savePanelSimpleSubscriptionBodyDeviceQuantityMin = 0;
-export const savePanelSimpleSubscriptionBodyDeviceQuantityMax = 100;
-
-export const SavePanelSimpleSubscriptionBody = zod.object({
-  enabled: zod.boolean(),
-  planId: zod.string().describe("The plan sold; empty for none."),
-  periodDays: zod
-    .int()
-    .min(savePanelSimpleSubscriptionBodyPeriodDaysMin)
-    .max(savePanelSimpleSubscriptionBodyPeriodDaysMax)
-    .describe("0 is the version's own period."),
-  trafficGb: zod
-    .int()
-    .min(savePanelSimpleSubscriptionBodyTrafficGbMin)
-    .max(savePanelSimpleSubscriptionBodyTrafficGbMax)
-    .describe("0 is the version's own traffic."),
-  deviceAddonId: zod.string().describe("A devices add-on bought with the plan; empty for none."),
-  deviceQuantity: zod
-    .int()
-    .min(savePanelSimpleSubscriptionBodyDeviceQuantityMin)
-    .max(savePanelSimpleSubscriptionBodyDeviceQuantityMax),
-});
-
-export const savePanelSimpleSubscriptionResponsePeriodDaysMin = 0;
-export const savePanelSimpleSubscriptionResponsePeriodDaysMax = 3650;
-
-export const savePanelSimpleSubscriptionResponseTrafficGbMin = 0;
-export const savePanelSimpleSubscriptionResponseTrafficGbMax = 1000000;
-
-export const savePanelSimpleSubscriptionResponseDeviceQuantityMin = 0;
-export const savePanelSimpleSubscriptionResponseDeviceQuantityMax = 100;
-
-export const SavePanelSimpleSubscriptionResponse = zod.object({
-  enabled: zod.boolean(),
-  planId: zod.string().describe("The plan sold; empty for none."),
-  periodDays: zod
-    .int()
-    .min(savePanelSimpleSubscriptionResponsePeriodDaysMin)
-    .max(savePanelSimpleSubscriptionResponsePeriodDaysMax)
-    .describe("0 is the version's own period."),
-  trafficGb: zod
-    .int()
-    .min(savePanelSimpleSubscriptionResponseTrafficGbMin)
-    .max(savePanelSimpleSubscriptionResponseTrafficGbMax)
-    .describe("0 is the version's own traffic."),
-  deviceAddonId: zod.string().describe("A devices add-on bought with the plan; empty for none."),
-  deviceQuantity: zod
-    .int()
-    .min(savePanelSimpleSubscriptionResponseDeviceQuantityMin)
-    .max(savePanelSimpleSubscriptionResponseDeviceQuantityMax),
 });
 
 /**
@@ -9310,314 +9033,195 @@ export const BuyAccountTrafficResetResponse = zod.object({
 });
 
 /**
- * The one plan the store shows when the operator turned the simple subscription on, priced for this customer; `enabled` is false otherwise and the store shows the catalogue.
+ * The traffic packages a live subscription may switch to part-way through its period, each priced against what is left of the packages it has. An option without addonVersionId drops the current packages. `available` is false, with a `reason`, when the subscription cannot change its traffic package.
  */
-export const GetAccountSimpleSubscriptionResponse = zod.object({
-  enabled: zod.boolean(),
-  planVersionId: zod.uuid().optional(),
-  plan: zod
-    .object({
-      planId: zod.uuid(),
-      planVersionId: zod.uuid(),
-      code: zod.string(),
-      kind: zod.enum(["trial", "one_time", "recurring", "manual"]),
-      name: zod.string(),
-      description: zod.string().optional(),
-      sortOrder: zod.int().optional(),
-      billingPeriod: zod.string(),
-      durationSeconds: zod.int(),
-      gracePeriodSeconds: zod.int().optional(),
-      price: zod.object({
-        amountMinor: zod.int(),
-        currency: zod.string(),
-      }),
-      recurringCapable: zod.boolean().optional(),
-      configurableSquads: zod.boolean().optional(),
-      highlighted: zod
-        .boolean()
-        .optional()
-        .describe("The operator marked this plan as the best deal."),
-      operations: zod
-        .array(zod.enum(["purchase", "extension", "upgrade", "downgrade"]))
-        .describe("The lifecycle actions the configured plan policy allows for this customer."),
-      eligible: zod.boolean(),
-      held: zod
-        .boolean()
-        .optional()
-        .describe(
-          "The customer already holds an entitlement for this plan, so the catalogue can mark it as the one they are on.",
-        ),
-      ineligibleReason: zod.string().optional(),
-      trafficAllowanceBytes: zod
-        .int()
-        .nullish()
-        .describe(
-          "Null means unlimited. Nullable rather than zero because unlimited and none are different offers.",
-        ),
-      deviceLimit: zod.int().nullish().describe("Null means unlimited."),
-    })
-    .optional(),
-  periodDays: zod.int().optional().describe("0 is the plan's own period."),
-  trafficGb: zod.int().optional().describe("0 is the plan's own traffic."),
-  extraDevices: zod.int().optional(),
-  total: zod
-    .object({
-      amountMinor: zod.int(),
-      currency: zod.string(),
-    })
-    .optional(),
+export const GetAccountTrafficPackagesParams = zod.object({
+  subscriptionID: zod.uuid(),
 });
 
-/**
- * The Buy button: opens the checkout for the simple subscription's plan with its period, traffic, and extra devices already chosen, replacing any open checkout. A customer with a live subscription extends it.
- */
-export const OpenAccountSimpleCheckoutHeader = zod.object({
-  "X-CSRF-Token": zod
-    .string()
-    .describe("Echoes the token from the current session. Required on every unsafe method."),
+export const GetAccountTrafficPackagesQueryParams = zod.object({
+  locale: zod.enum(["ru", "en"]).optional(),
 });
 
-export const OpenAccountSimpleCheckoutResponse = zod.object({
-  id: zod.uuid(),
-  planVersionId: zod.uuid(),
-  plan: zod.object({
-    planId: zod.uuid(),
-    planVersionId: zod.uuid(),
-    code: zod.string(),
-    kind: zod.enum(["trial", "one_time", "recurring", "manual"]),
-    name: zod.string(),
-    description: zod.string().optional(),
-    sortOrder: zod.int().optional(),
-    billingPeriod: zod.string(),
-    durationSeconds: zod.int(),
-    gracePeriodSeconds: zod.int().optional(),
-    price: zod.object({
-      amountMinor: zod.int(),
-      currency: zod.string(),
-    }),
-    recurringCapable: zod.boolean().optional(),
-    configurableSquads: zod.boolean().optional(),
-    highlighted: zod
-      .boolean()
-      .optional()
-      .describe("The operator marked this plan as the best deal."),
-    operations: zod
-      .array(zod.enum(["purchase", "extension", "upgrade", "downgrade"]))
-      .describe("The lifecycle actions the configured plan policy allows for this customer."),
-    eligible: zod.boolean(),
-    held: zod
-      .boolean()
-      .optional()
-      .describe(
-        "The customer already holds an entitlement for this plan, so the catalogue can mark it as the one they are on.",
-      ),
-    ineligibleReason: zod.string().optional(),
-    trafficAllowanceBytes: zod
-      .int()
-      .nullish()
-      .describe(
-        "Null means unlimited. Nullable rather than zero because unlimited and none are different offers.",
-      ),
-    deviceLimit: zod.int().nullish().describe("Null means unlimited."),
-  }),
-  operation: zod.enum(["purchase", "renew", "upgrade", "downgrade"]),
+export const GetAccountTrafficPackagesResponse = zod.object({
+  available: zod.boolean(),
+  reason: zod.string().optional(),
   currency: zod.string(),
-  provider: zod.string().optional(),
-  providers: zod.array(
+  currentTrafficBytes: zod.int().describe("The bytes the subscription's traffic packages add now."),
+  options: zod.array(
     zod.object({
-      provider: zod.string(),
-      currency: zod.string(),
-      amountMinor: zod.int().optional(),
-      recurring: zod.boolean(),
-      canSaveMethod: zod
-        .boolean()
-        .optional()
-        .describe(
-          "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
-        ),
-      method: zod
-        .string()
-        .optional()
-        .describe(
-          "The provider method this button opens (sbp, card, ...). Empty is the adapter's default.",
-        ),
-      key: zod.string().optional().describe("The button's identity, provider or provider.method."),
-      name: zod
-        .object({
-          ru: zod.string().optional(),
-          en: zod.string().optional(),
-        })
-        .optional(),
-      description: zod
-        .object({
-          ru: zod.string().optional(),
-          en: zod.string().optional(),
-        })
-        .optional(),
-      minMinor: zod.int().optional(),
-      maxMinor: zod.int().optional(),
-      quickAmountsMinor: zod.array(zod.int()).optional(),
-      openDirectly: zod
-        .boolean()
-        .optional()
-        .describe("Open the provider's page as soon as the payment starts."),
-    }),
-  ),
-  applyWallet: zod.boolean(),
-  quote: zod
-    .object({
-      currency: zod.string(),
-      subtotalMinor: zod.int(),
-      addonMinor: zod.int(),
-      discountMinor: zod.int(),
-      walletBalanceMinor: zod.int(),
-      walletAppliedMinor: zod.int(),
-      externalMinor: zod.int().describe("What still has to be settled through a provider."),
-      loyaltyDiscountMinor: zod
-        .int()
-        .optional()
-        .describe("The part of discountMinor the customer's loyalty tier gave."),
-      loyaltyTier: zod
-        .string()
-        .optional()
-        .describe("Code of the loyalty tier that gave loyaltyDiscountMinor; empty when none did."),
-    })
-    .describe(
-      "The exact application breakdown. Every figure is computed on the server, so the number a customer is asked to approve and the number they are charged cannot be arrived at two different ways.",
-    ),
-  promoCode: zod.string().optional(),
-  promoRejection: zod
-    .enum(["promo_unknown", "promo_ineligible", "promo_exhausted", "promo_invalid"])
-    .optional()
-    .describe("Why the entered code does not apply. Present on a 200, not an error."),
-  subscriptionId: zod.string().optional(),
-  newSubscription: zod.boolean().optional(),
-  subscriptions: zod
-    .array(
-      zod.object({
-        id: zod.uuid(),
-        slot: zod.int(),
-        label: zod.string().optional(),
-        plan: zod.string(),
-        status: zod.string(),
-        endsAt: zod.iso.datetime({ offset: true }).optional(),
-      }),
-    )
-    .describe("The subscriptions this checkout could target."),
-  targetRequired: zod
-    .boolean()
-    .describe("A target must be named before this checkout can be confirmed."),
-  multiSubscription: zod.boolean().describe("False means the panel renders no picker at all."),
-  squads: zod.object({
-    selection: zod
-      .string()
-      .describe("Whether squads are assigned automatically or chosen by the customer."),
-    minimum: zod.int(),
-    maximum: zod.int().nullish(),
-    configurable: zod.boolean(),
-    offered: zod.array(
-      zod.object({
-        squadId: zod.uuid(),
-        label: zod.string(),
-      }),
-    ),
-  }),
-  selectedSquadIds: zod.array(zod.uuid()),
-  squadSelection: zod
-    .object({
-      required: zod.boolean(),
-      reason: zod.enum(["squad_selection_required", "squad_selection_too_few"]).optional(),
-    })
-    .describe(
-      "Whether the server choice still stands between this checkout and a price. A plan that asks the customer to choose servers opens with `required: true` and no quote rather than failing; `reason` is the commerce vocabulary the panel already explains.",
-    ),
-  quoteAvailable: zod
-    .boolean()
-    .describe("False while the quote is withheld; `quote` then carries only the currency."),
-  addons: zod.array(
-    zod.object({
-      addonId: zod.uuid(),
-      addonVersionId: zod.uuid(),
-      code: zod.string(),
-      kind: zod.enum(["traffic", "devices", "squads"]),
+      addonVersionId: zod.uuid().optional(),
       name: zod.string(),
-      description: zod.string().optional(),
-      maxQuantity: zod.int(),
-      proration: zod.string().describe("The documented proration rule for this add-on."),
-      squadCount: zod.int().optional(),
-      price: zod.object({
-        amountMinor: zod.int(),
-        currency: zod.string(),
-      }),
-      trafficBytes: zod.int().nullish(),
-      deviceSlots: zod.int().nullish(),
+      trafficBytes: zod.int(),
+      direction: zod.enum(["up", "down"]),
+      quote: zod
+        .object({
+          currency: zod.string(),
+          chargeMinor: zod.int(),
+          creditMinor: zod.int(),
+          creditAppliedMinor: zod.int().describe("The part of the credit the order spends."),
+          creditToWalletMinor: zod
+            .int()
+            .describe("The part of the credit that stays in the wallet."),
+          walletMinor: zod.int().describe("The customer's own balance the order spends."),
+          externalMinor: zod.int().describe("What a provider must settle."),
+          walletBalanceMinor: zod.int(),
+          endsAt: zod.iso.datetime({ offset: true }).optional(),
+        })
+        .describe(
+          "What a mid-period capacity change costs or hands back now. chargeMinor is the prorated price of what is added and creditMinor the prorated value of what is released, at what the customer paid for it.",
+        ),
     }),
   ),
-  selectedAddons: zod.array(
-    zod.object({
-      addonVersionId: zod.uuid(),
-      quantity: zod.int(),
-    }),
-  ),
-  termsUrl: zod.string().optional(),
-  expiresAt: zod.iso.datetime({ offset: true }).optional(),
 });
 
 /**
- * How a subscription on a daily plan is billed. `daily` is false for any other plan; otherwise `paused` is the customer's pause, `suspended` a day the wallet did not cover (it resumes on its own after a top-up), `endsAt` when the paid day runs out, and `price` one day's price.
+ * Opens a traffic_change order. A bigger package is charged its prorated price less the remainder of the packages it replaces; a smaller one credits the difference to the wallet. The wallet settles it when it covers it. A repeated key is the same order.
  */
-export const GetAccountDailyBillingParams = zod.object({
+export const ChangeAccountTrafficPackageParams = zod.object({
   subscriptionID: zod.uuid(),
 });
 
-export const GetAccountDailyBillingResponse = zod.object({
-  daily: zod.boolean(),
-  paused: zod.boolean().optional(),
-  suspended: zod.boolean().optional(),
-  endsAt: zod.iso.datetime({ offset: true }).optional(),
-  price: zod
-    .object({
-      amountMinor: zod.int(),
-      currency: zod.string(),
-    })
-    .optional(),
-});
+export const changeAccountTrafficPackageHeaderIdempotencyKeyMin = 8;
+export const changeAccountTrafficPackageHeaderIdempotencyKeyMax = 128;
 
-/**
- * Pauses or resumes a daily subscription. A pause stops the daily charge and disables access through fulfillment; a resume gives back the part of the day the pause held. Asking for the state the subscription is already in succeeds without doing anything.
- */
-export const SetAccountDailyBillingParams = zod.object({
-  subscriptionID: zod.uuid(),
-});
-
-export const setAccountDailyBillingHeaderIdempotencyKeyMin = 8;
-export const setAccountDailyBillingHeaderIdempotencyKeyMax = 128;
-
-export const SetAccountDailyBillingHeader = zod.object({
+export const ChangeAccountTrafficPackageHeader = zod.object({
   "X-CSRF-Token": zod
     .string()
     .describe("Echoes the token from the current session. Required on every unsafe method."),
   "Idempotency-Key": zod
     .string()
-    .min(setAccountDailyBillingHeaderIdempotencyKeyMin)
-    .max(setAccountDailyBillingHeaderIdempotencyKeyMax),
+    .min(changeAccountTrafficPackageHeaderIdempotencyKeyMin)
+    .max(changeAccountTrafficPackageHeaderIdempotencyKeyMax),
 });
 
-export const SetAccountDailyBillingBody = zod.object({
-  paused: zod.boolean(),
+export const ChangeAccountTrafficPackageBody = zod.object({
+  addonVersionId: zod
+    .uuid()
+    .optional()
+    .describe("The package to switch to; omitted to drop the current packages."),
 });
 
-export const SetAccountDailyBillingResponse = zod.object({
-  daily: zod.boolean(),
-  paused: zod.boolean().optional(),
-  suspended: zod.boolean().optional(),
-  endsAt: zod.iso.datetime({ offset: true }).optional(),
-  price: zod
+export const ChangeAccountTrafficPackageResponse = zod.object({
+  id: zod.uuid(),
+  state: zod.enum([
+    "draft",
+    "pending",
+    "paid",
+    "fulfilled",
+    "cancelled",
+    "expired",
+    "partially_refunded",
+    "refunded",
+  ]),
+  operation: zod.string(),
+  phase: zod
+    .string()
+    .describe(
+      "The combined payment and provisioning state the panel renders: what the customer is waiting for, rather than which table changed.",
+    ),
+  currency: zod.string(),
+  subtotalMinor: zod.int(),
+  discountMinor: zod.int(),
+  walletMinor: zod.int(),
+  externalMinor: zod.int(),
+  paidMinor: zod.int(),
+  refundedMinor: zod.int(),
+  plan: zod.string(),
+  subscriptionId: zod.string().optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+  expiresAt: zod.iso.datetime({ offset: true }).optional(),
+  payment: zod
     .object({
-      amountMinor: zod.int(),
-      currency: zod.string(),
+      id: zod.uuid(),
+      provider: zod.string(),
+      status: zod.string(),
+      handoff: zod.enum(["hosted", "telegram_invoice", "manual", "none"]),
+      checkoutUrl: zod.string().optional(),
+      receiptUrl: zod.string().optional(),
     })
     .optional(),
+  fulfillment: zod
+    .object({
+      status: zod.string(),
+      attempts: zod.int(),
+      errorCode: zod.string().optional(),
+      updatedAt: zod.iso.datetime({ offset: true }).optional(),
+    })
+    .optional()
+    .describe(
+      "Provisioning progress, read from the fulfillment operation rather than carried by the client.",
+    ),
+  refunds: zod
+    .array(
+      zod.object({
+        status: zod.string(),
+        amountMinor: zod.int(),
+        currency: zod.string(),
+        createdAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .optional(),
+  paymentChoices: zod
+    .array(
+      zod.object({
+        provider: zod.string(),
+        currency: zod.string(),
+        amountMinor: zod.int().optional(),
+        recurring: zod.boolean(),
+        canSaveMethod: zod
+          .boolean()
+          .optional()
+          .describe(
+            "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
+          ),
+        method: zod
+          .string()
+          .optional()
+          .describe(
+            "The provider method this button opens (sbp, card, ...). Empty is the adapter's default.",
+          ),
+        key: zod
+          .string()
+          .optional()
+          .describe("The button's identity, provider or provider.method."),
+        name: zod
+          .object({
+            ru: zod.string().optional(),
+            en: zod.string().optional(),
+          })
+          .optional(),
+        description: zod
+          .object({
+            ru: zod.string().optional(),
+            en: zod.string().optional(),
+          })
+          .optional(),
+        minMinor: zod.int().optional(),
+        maxMinor: zod.int().optional(),
+        quickAmountsMinor: zod.array(zod.int()).optional(),
+        openDirectly: zod
+          .boolean()
+          .optional()
+          .describe("Open the provider's page as soon as the payment starts."),
+      }),
+    )
+    .optional()
+    .describe(
+      "The methods that can settle this order in its currency, each priced at what the order still owes. Present on the detail response while the order is pending and owes something, so the page can offer a method without depending on the URL the checkout redirected to. Telegram Stars appears only for a customer with a Telegram identity.",
+    ),
+  preferredProvider: zod
+    .string()
+    .optional()
+    .describe(
+      "The method the checkout recorded, while that checkout is still attached to the order.",
+    ),
+  manualInstructions: zod
+    .string()
+    .optional()
+    .describe(
+      "The operator's transfer instructions, in the customer's language, when the order is paid or payable by manual transfer.",
+    ),
 });
 
 /**
@@ -10739,9 +10343,6 @@ export const UpdateAccountCheckoutHeader = zod.object({
 export const updateAccountCheckoutBodyPeriodDaysMin = 0;
 export const updateAccountCheckoutBodyPeriodDaysMax = 3650;
 
-export const updateAccountCheckoutBodyTrafficGbMin = 0;
-export const updateAccountCheckoutBodyTrafficGbMax = 1000000;
-
 export const UpdateAccountCheckoutBody = zod.object({
   provider: zod.string().optional(),
   currency: zod.string().optional(),
@@ -10754,14 +10355,6 @@ export const UpdateAccountCheckoutBody = zod.object({
     .max(updateAccountCheckoutBodyPeriodDaysMax)
     .optional()
     .describe("A billing period other than the plan version's own; 0 returns to it."),
-  trafficGb: zod
-    .int()
-    .min(updateAccountCheckoutBodyTrafficGbMin)
-    .max(updateAccountCheckoutBodyTrafficGbMax)
-    .optional()
-    .describe(
-      "A traffic volume in gigabytes other than the plan version's own allowance, priced per gigabyte; 0 returns to it.",
-    ),
 });
 
 export const UpdateAccountCheckoutResponse = zod.object({

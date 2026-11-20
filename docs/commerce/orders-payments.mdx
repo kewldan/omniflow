@@ -29,6 +29,7 @@ cannot be written at all.
 | `addon` | mid-period capacity on a live subscription | add-on capacity folded into the entitlement |
 | `gift` | a subscription, add-on or credit for somebody else | a claimable gift |
 | `goods` | Telegram Premium or Stars | one delivery row |
+| `traffic_change` | a bigger or smaller traffic package mid-period | the old packs released, the new one applied, one `set_limits` |
 
 `renewal` was split out of `extension` on purpose. Support answers "why was I charged?" from this
 column, and the honest answer differs between a change a customer asked for and a charge that
@@ -249,7 +250,10 @@ Wallet mechanics in full are on [Wallet and ledger](/commerce/wallet-ledger).
 
 Some changes hand money back for something the customer paid for and has not used: a plan change
 that throws away the rest of the current period when the installation prorates plan changes (see
-[Crediting the unused remainder](/commerce/subscriptions#crediting-the-unused-remainder)). The order
+[Crediting the unused remainder](/commerce/subscriptions#crediting-the-unused-remainder)), and a
+capacity change that releases add-on packs (`addon_remainder`, see [Changing the traffic
+package](/commerce/addons-configurator#changing-the-traffic-package)). A capacity change's line also
+names the packs it releases, and is written even when they were not paid for and it credits zero. The order
 that makes the change carries one **credit line** in `order_credits`, keyed on the order.
 
 ```text
@@ -535,6 +539,7 @@ Settlement runs inside the transaction that recorded the payment, and branches o
 | `topup` | wallet credit only. No entitlement, no referral qualification |
 | `addon` | revenue movement, add-on capacity folded into the live entitlement, one `set_limits` fulfillment operation, order set `fulfilled` |
 | `goods` | revenue movement and one delivery row. Nothing is pushed to Remnawave |
+| `traffic_change` | the credit line posted, revenue movement, the replaced packs released and taken off the live entitlement, the new pack applied, one `set_limits` operation keyed `order:<id>:change`, order set `fulfilled` |
 | `gift` | revenue movement and the gift marked deliverable. Nothing for the buyer |
 | everything else | the full subscription path below |
 

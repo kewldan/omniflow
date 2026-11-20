@@ -1,6 +1,7 @@
 package commerce
 
 import (
+	"errors"
 	"math/bits"
 	"time"
 )
@@ -89,3 +90,34 @@ func ApplyCredit(creditMinor, dueMinor int64) (applied, toWallet int64) {
 	applied = min(creditMinor, max(dueMinor, 0))
 	return applied, creditMinor - applied
 }
+
+// PackBasis is what one add-on line of an order actually cost the customer:
+// the line's charge, scaled down by whatever share of the order was not paid
+// (a discount, a refund), and never more than the charge. A line on an order
+// that took nothing has nothing to hand back.
+func PackBasis(chargedMinor, orderPaidMinor, orderSubtotalMinor int64) int64 {
+	if chargedMinor <= 0 || orderPaidMinor <= 0 || orderSubtotalMinor <= 0 {
+		return 0
+	}
+	if orderPaidMinor >= orderSubtotalMinor {
+		return chargedMinor
+	}
+	return scaleRoundingDown(chargedMinor, orderPaidMinor, orderSubtotalMinor)
+}
+
+// CreditPack prices the unused remainder of an add-on pack that counted from
+// appliedAt and would have counted until endsAt: its basis scaled by the share
+// of that span still to run, rounded down.
+func CreditPack(basisMinor int64, now, appliedAt, endsAt time.Time) RemainderCredit {
+	return CreditRemainder(basisMinor, endsAt.Sub(appliedAt), now, appliedAt, endsAt)
+}
+
+var (
+	// ErrTrafficChangeUnavailable refuses a traffic package change on a
+	// subscription with unlimited traffic, a paused or lapsed one, or one
+	// whose plan offers no traffic packages.
+	ErrTrafficChangeUnavailable = errors.New("traffic_change_unavailable")
+	// ErrCapacityChangeSame refuses a change that would leave the capacity
+	// exactly where it is.
+	ErrCapacityChangeSame = errors.New("capacity_change_same")
+)

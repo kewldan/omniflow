@@ -181,6 +181,35 @@ Settling a top-up, and the periodic cart sweep, open the add-on's order under th
 
 A plan version may sell a reset of the traffic counter before the period ends, as Bedolaga's paid traffic reset does. **Paid traffic reset (% of the price)** in the version editor (`trafficResetPriceBps`, basis points of the version's own price in the order currency, rounded up) turns it on; empty sells none. A subscription on such a version with limited traffic shows **Reset traffic** on its page — `GET /v1/account/subscriptions/{subscriptionID}/traffic-reset` prices it and `POST` on the same route, with an `Idempotency-Key`, opens an order with operation `traffic_reset`. The wallet settles it when it covers the price; otherwise the order page takes the rest. Settlement queues one `reset_traffic` operation keyed `order:<id>:reset`, so a replayed settlement resets once. In the bot the same subscription shows **🔄 Reset traffic · price** on its screen; the button opens a confirmation with the price and whether the wallet covers it, and confirming opens the same order (keyed `bot-reset:` plus the tap) and, when the wallet falls short, the payment-method choice. The period's end does not move. A version that sells no resets, unlimited traffic, and a paused or lapsed subscription answer `traffic_reset_unavailable` or `no_active_subscription` before any money moves.
 
+### Changing the traffic package
+
+A subscription with limited traffic may switch its traffic package to a bigger or a smaller one part-way through the period, as Bedolaga's package change does. A *package* is a `traffic` add-on the plan version offers; the subscription's current package is every traffic pack still counting on its live entitlement.
+
+*Web.* `/account/subscriptions/{id}` shows **Traffic package** when there is something to switch to: what the current packages add, and each package the plan offers with **Increase** or **Decrease**, plus **No package** when one is attached. Choosing one shows the preview in place — the new package's price for the time left, the unused part of what it replaces, what the wallet covers, what is left to pay, and what goes back to the wallet — and **Confirm** commits it. `GET /v1/account/subscriptions/{subscriptionID}/traffic-package` returns the options, each with a quote; `POST` on the same route with `{"addonVersionId": …}` (omitted for none) and an `Idempotency-Key` opens the order.
+
+*Telegram.* The subscription screen shows **📶 Traffic package** with the same list; a package opens the same preview, and confirming opens the same order (keyed `bot-traffic:` plus the tap) and, when the wallet falls short, the payment-method choice.
+
+The arithmetic:
+
+```text
+charge = the new package's price under its own proration rule, for the time the period has left
+credit = Σ over the packages it replaces: what was paid for the pack × time it had left ÷ time it would have counted
+```
+
+A pack's *what was paid* is its line's charge, scaled down by whatever share of its order was not paid (a discount, a refund); a pack bought for the customer by somebody else — a gift — is released with nothing handed back. A pack with a lifetime counts until its lifetime ends, or the period's end if that is sooner. The credit is rounded down.
+
+The change is one `traffic_change` order whose subtotal is the charge. Its [credit line](/commerce/orders-payments#credit-lines) records the packs it releases and their remainder, which reaches the wallet when the order settles and is spent by it first: a bigger package costs the charge less the credit, and a smaller one costs less than the credit and leaves the difference in the wallet. Settlement then releases the old packs (`entitlement_addons.released_at`, by this order), takes exactly what they added off the entitlement, applies the new pack, and queues one `set_limits` keyed `order:<id>:change`, in the paying transaction. A released pack no longer counts towards the allowance, towards **Most traffic add-ons may add**, or towards the lifetime sweep. The credit is posted only while every pack it hands back is still counting on the subscription's current entitlement, so two changes racing for the same pack hand it back once.
+
+The period's end does not move, and the traffic counter is not reset: a smaller package can leave a customer who already used more than it allows `LIMITED` until the next period or a reset. Changes are priced at the catalogue's prorated price, without a loyalty discount or a promo code.
+
+| Refusal | Raised when |
+| --- | --- |
+| `traffic_change_unavailable` | The subscription has unlimited traffic, or nothing to switch to |
+| `capacity_change_same` | The new package adds exactly what the current ones do |
+| `no_active_subscription` | No live entitlement, a paused one, or one scheduled to start later |
+| `addon_unavailable` | The package is not offered, retired, unpriced in the currency, or not a traffic package |
+| `addon_limit_reached` | The new package would go past **Most traffic add-ons may add** |
+
 ### Proration rules
 
 The proration rule is a property of the add-on version, and it is always explicit. Omniflow never infers a partial price from remaining time unless the add-on says so. It applies only to a mid-period purchase; an add-on bought with the plan covers a full period and is charged at the catalog price whatever its rule says.
@@ -253,6 +282,8 @@ If the target subscription has no live entitlement by the time an add-on settles
 | `POST /v1/account/checkout/addons/{addonVersionID}` | Customer session | Toggle one add-on on the open checkout |
 | `GET /v1/account/subscriptions/{subscriptionID}/addons` | Customer session | The add-ons a live subscription may add, priced for the time left |
 | `POST /v1/account/subscriptions/{subscriptionID}/addons` | Customer session, `Idempotency-Key` | Buy one mid-period add-on |
+| `GET /v1/account/subscriptions/{subscriptionID}/traffic-package` | Customer session | The traffic packages a live subscription may switch to, each with a preview |
+| `POST /v1/account/subscriptions/{subscriptionID}/traffic-package` | Customer session, `Idempotency-Key` | Switch the traffic package |
 
 The add-on save and retire routes are implemented but missing from `api/openapi.yaml`, so they are absent from the generated client and the published API reference. [Integrating with the API](/integrations/api) explains how to call them anyway.
 

@@ -2378,8 +2378,11 @@ CREATE TABLE public.entitlement_addons (
     applied_at timestamp with time zone DEFAULT now() NOT NULL,
     expires_at timestamp with time zone,
     expired_at timestamp with time zone,
+    released_at timestamp with time zone,
+    released_by_order_id uuid,
     CONSTRAINT entitlement_addons_device_slots_check CHECK (((device_slots IS NULL) OR (device_slots >= 0))),
     CONSTRAINT entitlement_addons_quantity_check CHECK ((quantity > 0)),
+    CONSTRAINT entitlement_addons_released_together CHECK (((released_at IS NULL) = (released_by_order_id IS NULL))),
     CONSTRAINT entitlement_addons_traffic_bytes_check CHECK (((traffic_bytes IS NULL) OR (traffic_bytes >= 0)))
 );
 
@@ -3602,9 +3605,10 @@ CREATE TABLE public.order_credits (
     ledger_transaction_id uuid,
     credited_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
+    released_addon_ids uuid[] DEFAULT '{}'::uuid[] NOT NULL,
     CONSTRAINT order_credits_amounts CHECK (((basis_minor >= 0) AND (remaining_seconds >= 0) AND (period_seconds > 0) AND (credit_minor >= 0) AND (credit_minor <= basis_minor))),
     CONSTRAINT order_credits_currency_shape CHECK ((currency ~ '^[A-Z]{3}$'::text)),
-    CONSTRAINT order_credits_kind_known CHECK ((kind = 'plan_remainder'::text)),
+    CONSTRAINT order_credits_kind_known CHECK ((kind = ANY (ARRAY['plan_remainder'::text, 'addon_remainder'::text]))),
     CONSTRAINT order_credits_posted_together CHECK (((ledger_transaction_id IS NULL) = (credited_at IS NULL)))
 );
 
@@ -3676,7 +3680,7 @@ CREATE TABLE public.orders (
     CONSTRAINT orders_external_minor_check CHECK ((external_minor >= 0)),
     CONSTRAINT orders_loyalty_discount_bounded CHECK (((loyalty_discount_minor >= 0) AND (loyalty_discount_minor <= discount_minor))),
     CONSTRAINT orders_loyalty_tier_present CHECK (((loyalty_discount_minor = 0) OR (loyalty_tier_code IS NOT NULL))),
-    CONSTRAINT orders_operation_known CHECK ((operation = ANY (ARRAY['purchase'::text, 'upgrade'::text, 'downgrade'::text, 'extension'::text, 'topup'::text, 'addon'::text, 'gift'::text, 'goods'::text, 'renewal'::text, 'code'::text, 'traffic_reset'::text]))),
+    CONSTRAINT orders_operation_known CHECK ((operation = ANY (ARRAY['purchase'::text, 'upgrade'::text, 'downgrade'::text, 'extension'::text, 'topup'::text, 'addon'::text, 'gift'::text, 'goods'::text, 'renewal'::text, 'code'::text, 'traffic_reset'::text, 'traffic_change'::text]))),
     CONSTRAINT orders_paid_minor_check CHECK ((paid_minor >= 0)),
     CONSTRAINT orders_period_seconds_positive CHECK (((period_seconds IS NULL) OR (period_seconds > 0))),
     CONSTRAINT orders_refunded_minor_check CHECK ((refunded_minor >= 0)),
@@ -10410,6 +10414,14 @@ ALTER TABLE ONLY public.entitlement_addons
 
 ALTER TABLE ONLY public.entitlement_addons
     ADD CONSTRAINT entitlement_addons_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id);
+
+
+--
+-- Name: entitlement_addons entitlement_addons_released_by_order_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entitlement_addons
+    ADD CONSTRAINT entitlement_addons_released_by_order_id_fkey FOREIGN KEY (released_by_order_id) REFERENCES public.orders(id);
 
 
 --

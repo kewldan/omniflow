@@ -108,6 +108,7 @@ func recordOrderCredit(ctx context.Context, queries *dbgen.Queries, order dbgen.
 		RemainingSeconds: int64(pending.credit.Remaining / time.Second),
 		PeriodSeconds:    max(int64(pending.credit.Period/time.Second), 1),
 		CreditMinor:      pending.credit.CreditMinor,
+		ReleasedAddonIds: noSquads(),
 	})
 	return err
 }
@@ -140,6 +141,9 @@ func (store *Store) creditStillOwed(ctx context.Context, queries *dbgen.Queries,
 	if line.CreditMinor <= 0 || line.Currency != order.Currency {
 		return false, nil
 	}
+	if line.Kind == CreditAddonRemainder {
+		return store.capacityCreditOwed(ctx, queries, order, line)
+	}
 	if line.Kind != CreditPlanRemainder {
 		return false, nil
 	}
@@ -169,7 +173,9 @@ func (store *Store) postOrderCredit(ctx context.Context, queries *dbgen.Queries,
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
 	}
-	if err != nil || line.CreditedAt.Valid {
+	if err != nil || line.CreditedAt.Valid || line.CreditMinor == 0 {
+		// A line of zero releases capacity nobody paid for and hands
+		// nothing back.
 		return err
 	}
 	owed, err := store.creditStillOwed(ctx, queries, order, line)

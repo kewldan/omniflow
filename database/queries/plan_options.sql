@@ -93,7 +93,7 @@ WHERE id = sqlc.arg(addon_version_id);
 -- installation's device ceiling.
 SELECT v.max_addon_traffic_bytes,
        COALESCE((SELECT sum(ea.traffic_bytes) FROM entitlement_addons ea
-                 WHERE ea.entitlement_id = e.id AND ea.expired_at IS NULL), 0)::bigint AS bought_traffic_bytes,
+                 WHERE ea.entitlement_id = e.id AND ea.expired_at IS NULL AND ea.released_at IS NULL), 0)::bigint AS bought_traffic_bytes,
        (SELECT sp.max_device_limit FROM subscription_policy sp WHERE sp.singleton) AS max_device_limit
 FROM entitlements e
 JOIN plan_versions v ON v.id = e.plan_version_id
@@ -110,7 +110,7 @@ WHERE ea.id = sqlc.arg(entitlement_addon_id) AND av.id = ea.addon_version_id
 -- name: ListDueTrafficPacks :many
 SELECT ea.id FROM entitlement_addons ea
 JOIN entitlements e ON e.id = ea.entitlement_id
-WHERE ea.expires_at <= now() AND ea.expired_at IS NULL
+WHERE ea.expires_at <= now() AND ea.expired_at IS NULL AND ea.released_at IS NULL
   AND e.status NOT IN ('superseded', 'expired', 'failed')
 ORDER BY ea.expires_at
 LIMIT sqlc.arg(row_limit);
@@ -119,7 +119,7 @@ LIMIT sqlc.arg(row_limit);
 -- Marks one pack as taken back. The predicate makes a replayed pass match
 -- nothing, so the traffic is subtracted once.
 UPDATE entitlement_addons SET expired_at = now()
-WHERE id = sqlc.arg(entitlement_addon_id) AND expired_at IS NULL
+WHERE id = sqlc.arg(entitlement_addon_id) AND expired_at IS NULL AND released_at IS NULL
 RETURNING *;
 
 -- name: SubtractEntitlementTraffic :one

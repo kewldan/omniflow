@@ -282,6 +282,8 @@ type Querier interface {
 	// Per-address request limit, so the form cannot flood somebody's mailbox.
 	CountRecentEmailMagicLinks(ctx context.Context, arg CountRecentEmailMagicLinksParams) (int64, error)
 	CountRecentOperatorNotifications(ctx context.Context, arg CountRecentOperatorNotificationsParams) (int32, error)
+	// How many of the given packs are still on the entitlement and unreleased.
+	CountReleasablePacks(ctx context.Context, arg CountReleasablePacksParams) (int32, error)
 	CountReminderAudience(ctx context.Context, reminderID pgtype.UUID) (int64, error)
 	CountRunningBackups(ctx context.Context) (int32, error)
 	CountUnpublishedOutboxEvents(ctx context.Context) (CountUnpublishedOutboxEventsRow, error)
@@ -1273,6 +1275,9 @@ type Querier interface {
 	ListLedgerEntriesByTransaction(ctx context.Context, transactionID pgtype.UUID) ([]LedgerEntry, error)
 	// Every Remnawave user an Omniflow customer already owns.
 	ListLinkedRemnawaveUsers(ctx context.Context) ([]ListLinkedRemnawaveUsersRow, error)
+	// The add-on packs still counting on an entitlement, newest first, with what
+	// the order that bought each one took for it.
+	ListLivePacks(ctx context.Context, entitlementID pgtype.UUID) ([]ListLivePacksRow, error)
 	// Customers whose standing may have moved: a payment settled since they were
 	// last evaluated, a grace period that has run out, or — during a bulk
 	// recalculation — everybody. Keyset-paged on the customer identifier.
@@ -1898,6 +1903,10 @@ type Querier interface {
 	// Refunds by the date they were issued, which is the only date on which an
 	// operator can act.
 	RefundsInPeriod(ctx context.Context, arg RefundsInPeriodParams) ([]RefundsInPeriodRow, error)
+	// Takes one pack off its entitlement for a change order. The predicate makes a
+	// replayed settlement, or a second change racing for the same pack, match
+	// nothing, so its capacity is subtracted once.
+	ReleaseEntitlementAddon(ctx context.Context, arg ReleaseEntitlementAddonParams) (EntitlementAddon, error)
 	ReleasePaymentMutationLock(ctx context.Context, hashtextextended string) error
 	ReleaseRetentionHold(ctx context.Context, arg ReleaseRetentionHoldParams) (AiRetentionHold, error)
 	RemoveBlocklistAllowlistEntry(ctx context.Context, userID pgtype.UUID) error

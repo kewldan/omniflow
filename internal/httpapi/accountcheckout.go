@@ -1078,6 +1078,16 @@ func (handlers *AccountHandlers) writeCheckoutError(
 			writer, request, http.StatusConflict,
 			"no_active_subscription", "There is no active subscription to change",
 		)
+	case errors.Is(err, commerce.ErrTrafficChangeUnavailable):
+		writeProblem(
+			writer, request, http.StatusUnprocessableEntity,
+			"traffic_change_unavailable", "This subscription cannot change its traffic package",
+		)
+	case errors.Is(err, commerce.ErrCapacityChangeSame):
+		writeProblem(
+			writer, request, http.StatusUnprocessableEntity,
+			"capacity_change_same", "That change would leave the subscription as it is",
+		)
 	case errors.Is(err, commercepg.ErrTrialAlreadyClaimed):
 		writeProblem(
 			writer, request, http.StatusConflict,

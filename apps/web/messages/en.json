@@ -5805,7 +5805,9 @@
         "not_daily": "This subscription is not billed by the day.",
         "not_pausable": "This subscription cannot be paused or resumed right now.",
         "simple_subscription_unavailable": "This offer is no longer available. Refresh the store.",
-        "squad_full": "One of the chosen servers has no room left. Choose another one."
+        "squad_full": "One of the chosen servers has no room left. Choose another one.",
+        "traffic_change_unavailable": "This subscription cannot change its traffic package.",
+        "capacity_change_same": "That would leave the subscription exactly as it is."
       },
       "breakdown": {
         "subtotal": "Plan",
@@ -6354,6 +6356,23 @@
       "unlimited": "unlimited",
       "devices": "Devices: {count}",
       "buy": "Buy for {price}"
+    },
+    "capacity": {
+      "charge": "New package, for the time left",
+      "credit": "Unused part of what it replaces",
+      "wallet": "From your wallet",
+      "external": "To pay",
+      "toWallet": "Back to your wallet",
+      "confirm": "Confirm",
+      "cancel": "Cancel",
+      "done": "Done. The change reaches your connection within a minute.",
+      "up": "Increase",
+      "down": "Decrease",
+      "trafficTitle": "Traffic package",
+      "trafficCurrent": "Your packages add {amount} to this period.",
+      "trafficCurrentNone": "No traffic package is added to this period.",
+      "trafficNone": "No package",
+      "trafficConfirm": "Switch to {name} for the rest of this period. What is left of your current package is credited at what you paid for it."
     }
   },
   "pages": {

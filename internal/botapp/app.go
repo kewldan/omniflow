@@ -252,7 +252,7 @@ var consequentialActions = map[string]bool{
 	"revoke": true, "ticket-close": true, "ticket-open": true, "autorenew": true,
 	// v0.5 actions that move money, provisioning, or database state.
 	"topup-pm": true, "cart-buy": true, "cart-clear": true, "cart-save": true,
-	"cart-auto": true, "addon-confirm": true, "reset-buy": true, "sub-revoke": true, "sub-pause": true, "sub-resume": true, "sub-dev-del": true, "sub-devs-del": true,
+	"cart-auto": true, "addon-confirm": true, "reset-buy": true, "sub-revoke": true, "sub-pause": true, "sub-resume": true, "sub-dev-del": true, "sub-devs-del": true, "tpk-buy": true,
 	"renew-funding": true, "renew-lead": true, "method-default": true, "method-remove": true,
 	"ops-backup": true, "ops-restore": true, "opms": true, "opm": true,
 	"partner-apply": true, "game-play": true, "game-guess": true, "game-ans": true,

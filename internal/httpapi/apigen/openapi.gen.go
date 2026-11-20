@@ -1160,6 +1160,24 @@ func (e AccountTopUpStartedPaymentProblemCode) Valid() bool {
 	}
 }
 
+// Defines values for AccountTrafficPackagesOptionsDirection.
+const (
+	Down AccountTrafficPackagesOptionsDirection = "down"
+	Up   AccountTrafficPackagesOptionsDirection = "up"
+)
+
+// Valid indicates whether the value is a known member of the AccountTrafficPackagesOptionsDirection enum.
+func (e AccountTrafficPackagesOptionsDirection) Valid() bool {
+	switch e {
+	case Down:
+		return true
+	case Up:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AccountWithdrawalMethod.
 const (
 	AccountWithdrawalMethodCard   AccountWithdrawalMethod = "card"
@@ -3062,27 +3080,6 @@ func (e PanelPlanVersionInputSquadSelection) Valid() bool {
 	}
 }
 
-// Defines values for PanelPlanVersionInputTrafficMode.
-const (
-	PanelPlanVersionInputTrafficModeFixed          PanelPlanVersionInputTrafficMode = "fixed"
-	PanelPlanVersionInputTrafficModeFixedWithTopup PanelPlanVersionInputTrafficMode = "fixed_with_topup"
-	PanelPlanVersionInputTrafficModeSelectable     PanelPlanVersionInputTrafficMode = "selectable"
-)
-
-// Valid indicates whether the value is a known member of the PanelPlanVersionInputTrafficMode enum.
-func (e PanelPlanVersionInputTrafficMode) Valid() bool {
-	switch e {
-	case PanelPlanVersionInputTrafficModeFixed:
-		return true
-	case PanelPlanVersionInputTrafficModeFixedWithTopup:
-		return true
-	case PanelPlanVersionInputTrafficModeSelectable:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for PanelPlanVersionInputTrafficResetStrategy.
 const (
 	PanelPlanVersionInputTrafficResetStrategyDAY          PanelPlanVersionInputTrafficResetStrategy = "DAY"
@@ -3167,27 +3164,6 @@ func (e PanelPlanVersionSummarySquadSelection) Valid() bool {
 	case PanelPlanVersionSummarySquadSelectionOptional:
 		return true
 	case PanelPlanVersionSummarySquadSelectionRequired:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for PanelPlanVersionSummaryTrafficMode.
-const (
-	PanelPlanVersionSummaryTrafficModeFixed          PanelPlanVersionSummaryTrafficMode = "fixed"
-	PanelPlanVersionSummaryTrafficModeFixedWithTopup PanelPlanVersionSummaryTrafficMode = "fixed_with_topup"
-	PanelPlanVersionSummaryTrafficModeSelectable     PanelPlanVersionSummaryTrafficMode = "selectable"
-)
-
-// Valid indicates whether the value is a known member of the PanelPlanVersionSummaryTrafficMode enum.
-func (e PanelPlanVersionSummaryTrafficMode) Valid() bool {
-	switch e {
-	case PanelPlanVersionSummaryTrafficModeFixed:
-		return true
-	case PanelPlanVersionSummaryTrafficModeFixedWithTopup:
-		return true
-	case PanelPlanVersionSummaryTrafficModeSelectable:
 		return true
 	default:
 		return false
@@ -4931,6 +4907,24 @@ func (e RemoveAllAccountDevicesParamsConfirm) Valid() bool {
 	}
 }
 
+// Defines values for GetAccountTrafficPackagesParamsLocale.
+const (
+	GetAccountTrafficPackagesParamsLocaleEn GetAccountTrafficPackagesParamsLocale = "en"
+	GetAccountTrafficPackagesParamsLocaleRu GetAccountTrafficPackagesParamsLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the GetAccountTrafficPackagesParamsLocale enum.
+func (e GetAccountTrafficPackagesParamsLocale) Valid() bool {
+	switch e {
+	case GetAccountTrafficPackagesParamsLocaleEn:
+		return true
+	case GetAccountTrafficPackagesParamsLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListJobsParamsState.
 const (
 	ListJobsParamsStateAvailable  ListJobsParamsState = "available"
@@ -5704,6 +5698,27 @@ type AccountAttributionInput struct {
 // AccountAttributionInputClickSource defines model for AccountAttributionInput.ClickSource.
 type AccountAttributionInputClickSource string
 
+// AccountCapacityQuote What a mid-period capacity change costs or hands back now. chargeMinor is the prorated price of what is added and creditMinor the prorated value of what is released, at what the customer paid for it.
+type AccountCapacityQuote struct {
+	ChargeMinor int64 `json:"chargeMinor"`
+
+	// CreditAppliedMinor The part of the credit the order spends.
+	CreditAppliedMinor int64 `json:"creditAppliedMinor"`
+	CreditMinor        int64 `json:"creditMinor"`
+
+	// CreditToWalletMinor The part of the credit that stays in the wallet.
+	CreditToWalletMinor int64      `json:"creditToWalletMinor"`
+	Currency            string     `json:"currency"`
+	EndsAt              *time.Time `json:"endsAt,omitempty"`
+
+	// ExternalMinor What a provider must settle.
+	ExternalMinor      int64 `json:"externalMinor"`
+	WalletBalanceMinor int64 `json:"walletBalanceMinor"`
+
+	// WalletMinor The customer's own balance the order spends.
+	WalletMinor int64 `json:"walletMinor"`
+}
+
 // AccountCheckout defines model for AccountCheckout.
 type AccountCheckout struct {
 	Addons      []AccountAddonOffer `json:"addons"`
@@ -5876,18 +5891,6 @@ type AccountCustomerLocale string
 
 // AccountCustomerStatus defines model for AccountCustomer.Status.
 type AccountCustomerStatus string
-
-// AccountDailyBilling defines model for AccountDailyBilling.
-type AccountDailyBilling struct {
-	Daily  bool       `json:"daily"`
-	EndsAt *time.Time `json:"endsAt,omitempty"`
-	Paused *bool      `json:"paused,omitempty"`
-	Price  *struct {
-		AmountMinor int64  `json:"amountMinor"`
-		Currency    string `json:"currency"`
-	} `json:"price,omitempty"`
-	Suspended *bool `json:"suspended,omitempty"`
-}
 
 // AccountDeletion defines model for AccountDeletion.
 type AccountDeletion struct {
@@ -6788,24 +6791,6 @@ type AccountSignInMethods struct {
 	Telegram bool `json:"telegram"`
 }
 
-// AccountSimpleSubscription defines model for AccountSimpleSubscription.
-type AccountSimpleSubscription struct {
-	Enabled      bool `json:"enabled"`
-	ExtraDevices *int `json:"extraDevices,omitempty"`
-
-	// PeriodDays 0 is the plan's own period.
-	PeriodDays    *int                `json:"periodDays,omitempty"`
-	Plan          *AccountPlan        `json:"plan,omitempty"`
-	PlanVersionId *openapi_types.UUID `json:"planVersionId,omitempty"`
-	Total         *struct {
-		AmountMinor int64  `json:"amountMinor"`
-		Currency    string `json:"currency"`
-	} `json:"total,omitempty"`
-
-	// TrafficGb 0 is the plan's own traffic.
-	TrafficGb *int `json:"trafficGb,omitempty"`
-}
-
 // AccountSquadOffer defines model for AccountSquadOffer.
 type AccountSquadOffer struct {
 	Configurable bool `json:"configurable"`
@@ -6961,6 +6946,28 @@ type AccountTraffic struct {
 	Unlimited bool  `json:"unlimited"`
 	UsedBytes int64 `json:"usedBytes"`
 }
+
+// AccountTrafficPackages defines model for AccountTrafficPackages.
+type AccountTrafficPackages struct {
+	Available bool   `json:"available"`
+	Currency  string `json:"currency"`
+
+	// CurrentTrafficBytes The bytes the subscription's traffic packages add now.
+	CurrentTrafficBytes int64 `json:"currentTrafficBytes"`
+	Options             []struct {
+		AddonVersionId *openapi_types.UUID                    `json:"addonVersionId,omitempty"`
+		Direction      AccountTrafficPackagesOptionsDirection `json:"direction"`
+		Name           string                                 `json:"name"`
+
+		// Quote What a mid-period capacity change costs or hands back now. chargeMinor is the prorated price of what is added and creditMinor the prorated value of what is released, at what the customer paid for it.
+		Quote        AccountCapacityQuote `json:"quote"`
+		TrafficBytes int64                `json:"trafficBytes"`
+	} `json:"options"`
+	Reason *string `json:"reason,omitempty"`
+}
+
+// AccountTrafficPackagesOptionsDirection defines model for AccountTrafficPackages.Options.Direction.
+type AccountTrafficPackagesOptionsDirection string
 
 // AccountWallet defines model for AccountWallet.
 type AccountWallet struct {
@@ -9138,13 +9145,6 @@ type PanelPlanVersionInput struct {
 	CancellationPolicy PanelPlanVersionInputCancellationPolicy `json:"cancellationPolicy"`
 	CustomDaysMax      *int                                    `json:"customDaysMax,omitempty"`
 	CustomDaysMin      *int                                    `json:"customDaysMin,omitempty"`
-	CustomTrafficMaxGb *int                                    `json:"customTrafficMaxGb,omitempty"`
-
-	// CustomTrafficMinGb The smallest traffic volume a customer may choose; null sells none.
-	CustomTrafficMinGb *int `json:"customTrafficMinGb,omitempty"`
-
-	// DailyBilling Bill the version one day at a time from the wallet, pausable by the customer. Needs billingPeriod day, durationSeconds 86400, and no other periods.
-	DailyBilling *bool `json:"dailyBilling,omitempty"`
 
 	// DayPrices Price per custom day by currency.
 	DayPrices *map[string]int64 `json:"dayPrices,omitempty"`
@@ -9155,11 +9155,8 @@ type PanelPlanVersionInput struct {
 	DurationSeconds int64                                `json:"durationSeconds"`
 
 	// ExternalSquadId A Remnawave external squad UUID; empty for none.
-	ExternalSquadId *string `json:"externalSquadId,omitempty"`
-
-	// GbPrices Price per chosen gigabyte by currency, for the version's own duration.
-	GbPrices           *map[string]int64 `json:"gbPrices,omitempty"`
-	GracePeriodSeconds *int64            `json:"gracePeriodSeconds,omitempty"`
+	ExternalSquadId    *string `json:"externalSquadId,omitempty"`
+	GracePeriodSeconds *int64  `json:"gracePeriodSeconds,omitempty"`
 
 	// MaxAddonTrafficBytes Most traffic add-ons may add to one entitlement; null is no cap.
 	MaxAddonTrafficBytes *int64 `json:"maxAddonTrafficBytes,omitempty"`
@@ -9180,12 +9177,6 @@ type PanelPlanVersionInput struct {
 
 	// TrafficAllowanceBytes Null is unlimited.
 	TrafficAllowanceBytes *int64 `json:"trafficAllowanceBytes,omitempty"`
-
-	// TrafficMode How the version sells traffic. Empty is selectable when packages or a custom range are sent, and fixed_with_topup otherwise.
-	TrafficMode *PanelPlanVersionInputTrafficMode `json:"trafficMode,omitempty"`
-
-	// TrafficPackages The traffic volumes a selectable version is sold with.
-	TrafficPackages *[]PanelTrafficPackage `json:"trafficPackages,omitempty"`
 
 	// TrafficResetPriceBps A paid traffic reset at this share of the version price in basis points; null sells none.
 	TrafficResetPriceBps *int `json:"trafficResetPriceBps,omitempty"`
@@ -9208,9 +9199,6 @@ type PanelPlanVersionInputDowngradePolicy string
 // PanelPlanVersionInputSquadSelection defines model for PanelPlanVersionInput.SquadSelection.
 type PanelPlanVersionInputSquadSelection string
 
-// PanelPlanVersionInputTrafficMode How the version sells traffic. Empty is selectable when packages or a custom range are sent, and fixed_with_topup otherwise.
-type PanelPlanVersionInputTrafficMode string
-
 // PanelPlanVersionInputTrafficResetStrategy Remnawave trafficLimitStrategy; empty is NO_RESET.
 type PanelPlanVersionInputTrafficResetStrategy string
 
@@ -9228,15 +9216,11 @@ type PanelPlanVersionSummary struct {
 	CreatedAt             time.Time                                    `json:"createdAt"`
 	CustomDaysMax         *int                                         `json:"customDaysMax,omitempty"`
 	CustomDaysMin         *int                                         `json:"customDaysMin,omitempty"`
-	CustomTrafficMaxGb    *int                                         `json:"customTrafficMaxGb,omitempty"`
-	CustomTrafficMinGb    *int                                         `json:"customTrafficMinGb,omitempty"`
-	DailyBilling          *bool                                        `json:"dailyBilling,omitempty"`
 	DayPrices             *map[string]int64                            `json:"dayPrices,omitempty"`
 	DeviceLimit           *int                                         `json:"deviceLimit,omitempty"`
 	DowngradePolicy       string                                       `json:"downgradePolicy"`
 	DurationSeconds       int64                                        `json:"durationSeconds"`
 	ExternalSquadId       *openapi_types.UUID                          `json:"externalSquadId,omitempty"`
-	GbPrices              *map[string]int64                            `json:"gbPrices,omitempty"`
 	GracePeriodSeconds    *int64                                       `json:"gracePeriodSeconds,omitempty"`
 	Id                    openapi_types.UUID                           `json:"id"`
 	MaxAddonTrafficBytes  *int64                                       `json:"maxAddonTrafficBytes,omitempty"`
@@ -9250,8 +9234,6 @@ type PanelPlanVersionSummary struct {
 	SquadIds              *[]openapi_types.UUID                        `json:"squadIds,omitempty"`
 	SquadSelection        PanelPlanVersionSummarySquadSelection        `json:"squadSelection"`
 	TrafficAllowanceBytes *int64                                       `json:"trafficAllowanceBytes,omitempty"`
-	TrafficMode           *PanelPlanVersionSummaryTrafficMode          `json:"trafficMode,omitempty"`
-	TrafficPackages       *[]PanelTrafficPackage                       `json:"trafficPackages,omitempty"`
 	TrafficResetPriceBps  *int                                         `json:"trafficResetPriceBps,omitempty"`
 	TrafficResetStrategy  *PanelPlanVersionSummaryTrafficResetStrategy `json:"trafficResetStrategy,omitempty"`
 	TrialEligibility      *string                                      `json:"trialEligibility,omitempty"`
@@ -9261,9 +9243,6 @@ type PanelPlanVersionSummary struct {
 
 // PanelPlanVersionSummarySquadSelection defines model for PanelPlanVersionSummary.SquadSelection.
 type PanelPlanVersionSummarySquadSelection string
-
-// PanelPlanVersionSummaryTrafficMode defines model for PanelPlanVersionSummary.TrafficMode.
-type PanelPlanVersionSummaryTrafficMode string
 
 // PanelPlanVersionSummaryTrafficResetStrategy defines model for PanelPlanVersionSummary.TrafficResetStrategy.
 type PanelPlanVersionSummaryTrafficResetStrategy string
@@ -9622,24 +9601,6 @@ type PanelSearchResults struct {
 // PanelSearchResultsHints defines model for PanelSearchResults.Hints.
 type PanelSearchResultsHints string
 
-// PanelServer defines model for PanelServer.
-type PanelServer struct {
-	// CountryCode ISO 3166-1 alpha-2, shown as a flag; empty for none.
-	CountryCode   *string `json:"countryCode,omitempty"`
-	LiveCustomers *int    `json:"liveCustomers,omitempty"`
-
-	// MaxUsers The most customers a sale may put on the squad; null is no limit.
-	MaxUsers *int   `json:"maxUsers,omitempty"`
-	NameEn   string `json:"nameEn"`
-	NameRu   string `json:"nameRu"`
-
-	// Prices What choosing the squad adds to a plan's price, per currency, for the version's own duration.
-	Prices        *map[string]int64   `json:"prices,omitempty"`
-	SortOrder     *int                `json:"sortOrder,omitempty"`
-	SquadId       *openapi_types.UUID `json:"squadId,omitempty"`
-	TrialEligible bool                `json:"trialEligible"`
-}
-
 // PanelSession defines model for PanelSession.
 type PanelSession struct {
 	Account   AdminAccount `json:"account"`
@@ -9650,23 +9611,6 @@ type PanelSession struct {
 	Permissions            []string           `json:"permissions"`
 	RemainingRecoveryCodes *int               `json:"remainingRecoveryCodes,omitempty"`
 	SessionId              openapi_types.UUID `json:"sessionId"`
-}
-
-// PanelSimpleSubscription defines model for PanelSimpleSubscription.
-type PanelSimpleSubscription struct {
-	// DeviceAddonId A devices add-on bought with the plan; empty for none.
-	DeviceAddonId  string `json:"deviceAddonId"`
-	DeviceQuantity int    `json:"deviceQuantity"`
-	Enabled        bool   `json:"enabled"`
-
-	// PeriodDays 0 is the version's own period.
-	PeriodDays int `json:"periodDays"`
-
-	// PlanId The plan sold; empty for none.
-	PlanId string `json:"planId"`
-
-	// TrafficGb 0 is the version's own traffic.
-	TrafficGb int `json:"trafficGb"`
 }
 
 // PanelSquadListing defines model for PanelSquadListing.
@@ -10114,14 +10058,6 @@ type PanelTrafficNode struct {
 	// UsedShare used ÷ limit. Absent when the node has no limit: it cannot be filling up.
 	UsedShare   *float32 `json:"usedShare,omitempty"`
 	UsersOnline *int     `json:"usersOnline,omitempty"`
-}
-
-// PanelTrafficPackage defines model for PanelTrafficPackage.
-type PanelTrafficPackage struct {
-	// AmountMinor The package's price for the version's own duration.
-	AmountMinor int64  `json:"amountMinor"`
-	Currency    string `json:"currency"`
-	Gb          int    `json:"gb"`
 }
 
 // PanelTrafficReport defines model for PanelTrafficReport.
@@ -10762,9 +10698,6 @@ type UpdateAccountCheckoutJSONBody struct {
 	Provider       *string               `json:"provider,omitempty"`
 	SquadIds       *[]openapi_types.UUID `json:"squadIds,omitempty"`
 	SubscriptionId *string               `json:"subscriptionId,omitempty"`
-
-	// TrafficGb A traffic volume in gigabytes other than the plan version's own allowance, priced per gigabyte; 0 returns to it.
-	TrafficGb *int `json:"trafficGb,omitempty"`
 }
 
 // UpdateAccountCheckoutParams defines parameters for UpdateAccountCheckout.
@@ -11326,12 +11259,6 @@ type UnlinkAccountSignInMethodParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
-// OpenAccountSimpleCheckoutParams defines parameters for OpenAccountSimpleCheckout.
-type OpenAccountSimpleCheckoutParams struct {
-	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
-}
-
 // RotateAllAccountSubscriptionLinksJSONBody defines parameters for RotateAllAccountSubscriptionLinks.
 type RotateAllAccountSubscriptionLinksJSONBody struct {
 	Confirm bool `json:"confirm"`
@@ -11413,18 +11340,6 @@ type GetAccountConnectionParams struct {
 	Platform *string `form:"platform,omitempty" json:"platform,omitempty"`
 }
 
-// SetAccountDailyBillingJSONBody defines parameters for SetAccountDailyBilling.
-type SetAccountDailyBillingJSONBody struct {
-	Paused bool `json:"paused"`
-}
-
-// SetAccountDailyBillingParams defines parameters for SetAccountDailyBilling.
-type SetAccountDailyBillingParams struct {
-	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
-	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
-	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
-}
-
 // RemoveAllAccountDevicesParams defines parameters for RemoveAllAccountDevices.
 type RemoveAllAccountDevicesParams struct {
 	Confirm RemoveAllAccountDevicesParamsConfirm `form:"confirm" json:"confirm"`
@@ -11462,6 +11377,27 @@ type RotateAccountSubscriptionLinkJSONBody struct {
 type RotateAccountSubscriptionLinkParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// GetAccountTrafficPackagesParams defines parameters for GetAccountTrafficPackages.
+type GetAccountTrafficPackagesParams struct {
+	Locale *GetAccountTrafficPackagesParamsLocale `form:"locale,omitempty" json:"locale,omitempty"`
+}
+
+// GetAccountTrafficPackagesParamsLocale defines parameters for GetAccountTrafficPackages.
+type GetAccountTrafficPackagesParamsLocale string
+
+// ChangeAccountTrafficPackageJSONBody defines parameters for ChangeAccountTrafficPackage.
+type ChangeAccountTrafficPackageJSONBody struct {
+	// AddonVersionId The package to switch to; omitted to drop the current packages.
+	AddonVersionId *openapi_types.UUID `json:"addonVersionId,omitempty"`
+}
+
+// ChangeAccountTrafficPackageParams defines parameters for ChangeAccountTrafficPackage.
+type ChangeAccountTrafficPackageParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
 // BuyAccountTrafficResetParams defines parameters for BuyAccountTrafficReset.
@@ -11984,24 +11920,6 @@ type CreatePanelPromotionParams struct {
 
 // UpdatePanelPromotionParams defines parameters for UpdatePanelPromotion.
 type UpdatePanelPromotionParams struct {
-	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
-}
-
-// DeletePanelServerParams defines parameters for DeletePanelServer.
-type DeletePanelServerParams struct {
-	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
-}
-
-// SavePanelServerParams defines parameters for SavePanelServer.
-type SavePanelServerParams struct {
-	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
-	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
-}
-
-// SavePanelSimpleSubscriptionParams defines parameters for SavePanelSimpleSubscription.
-type SavePanelSimpleSubscriptionParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
@@ -13120,14 +13038,14 @@ type BuyAccountSubscriptionAddonJSONRequestBody BuyAccountSubscriptionAddonJSONB
 // SaveAccountSubscriptionAddonCartJSONRequestBody defines body for SaveAccountSubscriptionAddonCart for application/json ContentType.
 type SaveAccountSubscriptionAddonCartJSONRequestBody SaveAccountSubscriptionAddonCartJSONBody
 
-// SetAccountDailyBillingJSONRequestBody defines body for SetAccountDailyBilling for application/json ContentType.
-type SetAccountDailyBillingJSONRequestBody SetAccountDailyBillingJSONBody
-
 // RenameAccountDeviceJSONRequestBody defines body for RenameAccountDevice for application/json ContentType.
 type RenameAccountDeviceJSONRequestBody RenameAccountDeviceJSONBody
 
 // RotateAccountSubscriptionLinkJSONRequestBody defines body for RotateAccountSubscriptionLink for application/json ContentType.
 type RotateAccountSubscriptionLinkJSONRequestBody RotateAccountSubscriptionLinkJSONBody
+
+// ChangeAccountTrafficPackageJSONRequestBody defines body for ChangeAccountTrafficPackage for application/json ContentType.
+type ChangeAccountTrafficPackageJSONRequestBody ChangeAccountTrafficPackageJSONBody
 
 // CreateAccountSupportTicketJSONRequestBody defines body for CreateAccountSupportTicket for application/json ContentType.
 type CreateAccountSupportTicketJSONRequestBody CreateAccountSupportTicketJSONBody
@@ -13272,12 +13190,6 @@ type CreatePanelPromotionJSONRequestBody = PanelPromotionInput
 
 // UpdatePanelPromotionJSONRequestBody defines body for UpdatePanelPromotion for application/json ContentType.
 type UpdatePanelPromotionJSONRequestBody = PanelPromotionUpdate
-
-// SavePanelServerJSONRequestBody defines body for SavePanelServer for application/json ContentType.
-type SavePanelServerJSONRequestBody = PanelServer
-
-// SavePanelSimpleSubscriptionJSONRequestBody defines body for SavePanelSimpleSubscription for application/json ContentType.
-type SavePanelSimpleSubscriptionJSONRequestBody = PanelSimpleSubscription
 
 // CreatePanelCodeBatchJSONRequestBody defines body for CreatePanelCodeBatch for application/json ContentType.
 type CreatePanelCodeBatchJSONRequestBody = PanelCodeBatch
@@ -13896,12 +13808,6 @@ type ServerInterface interface {
 	// (DELETE /v1/account/sign-in-methods/{identityID})
 	UnlinkAccountSignInMethod(w http.ResponseWriter, r *http.Request, identityID openapi_types.UUID, params UnlinkAccountSignInMethodParams)
 
-	// (GET /v1/account/simple-subscription)
-	GetAccountSimpleSubscription(w http.ResponseWriter, r *http.Request)
-
-	// (POST /v1/account/simple-subscription/checkout)
-	OpenAccountSimpleCheckout(w http.ResponseWriter, r *http.Request, params OpenAccountSimpleCheckoutParams)
-
 	// (POST /v1/account/subscriptions/rotate-links)
 	RotateAllAccountSubscriptionLinks(w http.ResponseWriter, r *http.Request, params RotateAllAccountSubscriptionLinksParams)
 
@@ -13929,12 +13835,6 @@ type ServerInterface interface {
 	// (GET /v1/account/subscriptions/{subscriptionID}/connection)
 	GetAccountConnection(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params GetAccountConnectionParams)
 
-	// (GET /v1/account/subscriptions/{subscriptionID}/daily-billing)
-	GetAccountDailyBilling(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID)
-
-	// (PUT /v1/account/subscriptions/{subscriptionID}/daily-billing)
-	SetAccountDailyBilling(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params SetAccountDailyBillingParams)
-
 	// (DELETE /v1/account/subscriptions/{subscriptionID}/devices)
 	RemoveAllAccountDevices(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params RemoveAllAccountDevicesParams)
 
@@ -13949,6 +13849,12 @@ type ServerInterface interface {
 
 	// (POST /v1/account/subscriptions/{subscriptionID}/rotate-link)
 	RotateAccountSubscriptionLink(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params RotateAccountSubscriptionLinkParams)
+
+	// (GET /v1/account/subscriptions/{subscriptionID}/traffic-package)
+	GetAccountTrafficPackages(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params GetAccountTrafficPackagesParams)
+
+	// (POST /v1/account/subscriptions/{subscriptionID}/traffic-package)
+	ChangeAccountTrafficPackage(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params ChangeAccountTrafficPackageParams)
 
 	// (GET /v1/account/subscriptions/{subscriptionID}/traffic-reset)
 	GetAccountTrafficReset(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID)
@@ -14285,21 +14191,6 @@ type ServerInterface interface {
 
 	// (GET /v1/panel/catalog/promotions/{promotionID}/codes)
 	ListPanelPromoCodes(w http.ResponseWriter, r *http.Request, promotionID openapi_types.UUID)
-
-	// (GET /v1/panel/catalog/servers)
-	ListPanelServers(w http.ResponseWriter, r *http.Request)
-
-	// (DELETE /v1/panel/catalog/servers/{squadID})
-	DeletePanelServer(w http.ResponseWriter, r *http.Request, squadID openapi_types.UUID, params DeletePanelServerParams)
-
-	// (PUT /v1/panel/catalog/servers/{squadID})
-	SavePanelServer(w http.ResponseWriter, r *http.Request, squadID openapi_types.UUID, params SavePanelServerParams)
-
-	// (GET /v1/panel/catalog/simple-subscription)
-	GetPanelSimpleSubscription(w http.ResponseWriter, r *http.Request)
-
-	// (PUT /v1/panel/catalog/simple-subscription)
-	SavePanelSimpleSubscription(w http.ResponseWriter, r *http.Request, params SavePanelSimpleSubscriptionParams)
 
 	// (GET /v1/panel/codes/batches)
 	ListPanelCodeBatches(w http.ResponseWriter, r *http.Request, params ListPanelCodeBatchesParams)
@@ -15296,16 +15187,6 @@ func (_ Unimplemented) UnlinkAccountSignInMethod(w http.ResponseWriter, r *http.
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// (GET /v1/account/simple-subscription)
-func (_ Unimplemented) GetAccountSimpleSubscription(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// (POST /v1/account/simple-subscription/checkout)
-func (_ Unimplemented) OpenAccountSimpleCheckout(w http.ResponseWriter, r *http.Request, params OpenAccountSimpleCheckoutParams) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
 // (POST /v1/account/subscriptions/rotate-links)
 func (_ Unimplemented) RotateAllAccountSubscriptionLinks(w http.ResponseWriter, r *http.Request, params RotateAllAccountSubscriptionLinksParams) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -15351,16 +15232,6 @@ func (_ Unimplemented) GetAccountConnection(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// (GET /v1/account/subscriptions/{subscriptionID}/daily-billing)
-func (_ Unimplemented) GetAccountDailyBilling(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// (PUT /v1/account/subscriptions/{subscriptionID}/daily-billing)
-func (_ Unimplemented) SetAccountDailyBilling(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params SetAccountDailyBillingParams) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
 // (DELETE /v1/account/subscriptions/{subscriptionID}/devices)
 func (_ Unimplemented) RemoveAllAccountDevices(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params RemoveAllAccountDevicesParams) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -15383,6 +15254,16 @@ func (_ Unimplemented) RenameAccountDevice(w http.ResponseWriter, r *http.Reques
 
 // (POST /v1/account/subscriptions/{subscriptionID}/rotate-link)
 func (_ Unimplemented) RotateAccountSubscriptionLink(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params RotateAccountSubscriptionLinkParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/subscriptions/{subscriptionID}/traffic-package)
+func (_ Unimplemented) GetAccountTrafficPackages(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params GetAccountTrafficPackagesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/subscriptions/{subscriptionID}/traffic-package)
+func (_ Unimplemented) ChangeAccountTrafficPackage(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params ChangeAccountTrafficPackageParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -15943,31 +15824,6 @@ func (_ Unimplemented) UpdatePanelPromotion(w http.ResponseWriter, r *http.Reque
 
 // (GET /v1/panel/catalog/promotions/{promotionID}/codes)
 func (_ Unimplemented) ListPanelPromoCodes(w http.ResponseWriter, r *http.Request, promotionID openapi_types.UUID) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// (GET /v1/panel/catalog/servers)
-func (_ Unimplemented) ListPanelServers(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// (DELETE /v1/panel/catalog/servers/{squadID})
-func (_ Unimplemented) DeletePanelServer(w http.ResponseWriter, r *http.Request, squadID openapi_types.UUID, params DeletePanelServerParams) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// (PUT /v1/panel/catalog/servers/{squadID})
-func (_ Unimplemented) SavePanelServer(w http.ResponseWriter, r *http.Request, squadID openapi_types.UUID, params SavePanelServerParams) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// (GET /v1/panel/catalog/simple-subscription)
-func (_ Unimplemented) GetPanelSimpleSubscription(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-}
-
-// (PUT /v1/panel/catalog/simple-subscription)
-func (_ Unimplemented) SavePanelSimpleSubscription(w http.ResponseWriter, r *http.Request, params SavePanelSimpleSubscriptionParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -20407,65 +20263,6 @@ func (siw *ServerInterfaceWrapper) UnlinkAccountSignInMethod(w http.ResponseWrit
 	handler.ServeHTTP(w, r)
 }
 
-// GetAccountSimpleSubscription operation middleware
-func (siw *ServerInterfaceWrapper) GetAccountSimpleSubscription(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetAccountSimpleSubscription(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// OpenAccountSimpleCheckout operation middleware
-func (siw *ServerInterfaceWrapper) OpenAccountSimpleCheckout(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params OpenAccountSimpleCheckoutParams
-
-	headers := r.Header
-
-	// ------------- Required header parameter "X-CSRF-Token" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
-		var XCSRFToken CSRFToken
-		n := len(valueList)
-		if n != 1 {
-			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
-			return
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
-		if err != nil {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
-			return
-		}
-
-		params.XCSRFToken = XCSRFToken
-
-	} else {
-		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
-		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.OpenAccountSimpleCheckout(w, r, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 // RotateAllAccountSubscriptionLinks operation middleware
 func (siw *ServerInterfaceWrapper) RotateAllAccountSubscriptionLinks(w http.ResponseWriter, r *http.Request) {
 
@@ -20930,109 +20727,6 @@ func (siw *ServerInterfaceWrapper) GetAccountConnection(w http.ResponseWriter, r
 	handler.ServeHTTP(w, r)
 }
 
-// GetAccountDailyBilling operation middleware
-func (siw *ServerInterfaceWrapper) GetAccountDailyBilling(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "subscriptionID" -------------
-	var subscriptionID AccountSubscriptionID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetAccountDailyBilling(w, r, subscriptionID)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// SetAccountDailyBilling operation middleware
-func (siw *ServerInterfaceWrapper) SetAccountDailyBilling(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "subscriptionID" -------------
-	var subscriptionID AccountSubscriptionID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
-		return
-	}
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params SetAccountDailyBillingParams
-
-	headers := r.Header
-
-	// ------------- Required header parameter "X-CSRF-Token" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
-		var XCSRFToken CSRFToken
-		n := len(valueList)
-		if n != 1 {
-			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
-			return
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
-		if err != nil {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
-			return
-		}
-
-		params.XCSRFToken = XCSRFToken
-
-	} else {
-		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
-		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
-		return
-	}
-
-	// ------------- Required header parameter "Idempotency-Key" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
-		var IdempotencyKey IdempotencyKey
-		n := len(valueList)
-		if n != 1 {
-			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
-			return
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
-		if err != nil {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
-			return
-		}
-
-		params.IdempotencyKey = IdempotencyKey
-
-	} else {
-		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
-		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.SetAccountDailyBilling(w, r, subscriptionID, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 // RemoveAllAccountDevices operation middleware
 func (siw *ServerInterfaceWrapper) RemoveAllAccountDevices(w http.ResponseWriter, r *http.Request) {
 
@@ -21297,6 +20991,125 @@ func (siw *ServerInterfaceWrapper) RotateAccountSubscriptionLink(w http.Response
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RotateAccountSubscriptionLink(w, r, subscriptionID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountTrafficPackages operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountTrafficPackages(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID AccountSubscriptionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAccountTrafficPackagesParams
+
+	// ------------- Optional query parameter "locale" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "locale", r.URL.Query(), &params.Locale, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "locale"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locale", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountTrafficPackages(w, r, subscriptionID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ChangeAccountTrafficPackage operation middleware
+func (siw *ServerInterfaceWrapper) ChangeAccountTrafficPackage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID AccountSubscriptionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ChangeAccountTrafficPackageParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ChangeAccountTrafficPackage(w, r, subscriptionID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -25703,187 +25516,6 @@ func (siw *ServerInterfaceWrapper) ListPanelPromoCodes(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListPanelPromoCodes(w, r, promotionID)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// ListPanelServers operation middleware
-func (siw *ServerInterfaceWrapper) ListPanelServers(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListPanelServers(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// DeletePanelServer operation middleware
-func (siw *ServerInterfaceWrapper) DeletePanelServer(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "squadID" -------------
-	var squadID openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "squadID", chi.URLParam(r, "squadID"), &squadID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "squadID", Err: err})
-		return
-	}
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params DeletePanelServerParams
-
-	headers := r.Header
-
-	// ------------- Required header parameter "X-CSRF-Token" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
-		var XCSRFToken CSRFToken
-		n := len(valueList)
-		if n != 1 {
-			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
-			return
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
-		if err != nil {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
-			return
-		}
-
-		params.XCSRFToken = XCSRFToken
-
-	} else {
-		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
-		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.DeletePanelServer(w, r, squadID, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// SavePanelServer operation middleware
-func (siw *ServerInterfaceWrapper) SavePanelServer(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// ------------- Path parameter "squadID" -------------
-	var squadID openapi_types.UUID
-
-	err = runtime.BindStyledParameterWithOptions("simple", "squadID", chi.URLParam(r, "squadID"), &squadID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "squadID", Err: err})
-		return
-	}
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params SavePanelServerParams
-
-	headers := r.Header
-
-	// ------------- Required header parameter "X-CSRF-Token" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
-		var XCSRFToken CSRFToken
-		n := len(valueList)
-		if n != 1 {
-			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
-			return
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
-		if err != nil {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
-			return
-		}
-
-		params.XCSRFToken = XCSRFToken
-
-	} else {
-		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
-		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.SavePanelServer(w, r, squadID, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetPanelSimpleSubscription operation middleware
-func (siw *ServerInterfaceWrapper) GetPanelSimpleSubscription(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetPanelSimpleSubscription(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// SavePanelSimpleSubscription operation middleware
-func (siw *ServerInterfaceWrapper) SavePanelSimpleSubscription(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params SavePanelSimpleSubscriptionParams
-
-	headers := r.Header
-
-	// ------------- Required header parameter "X-CSRF-Token" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
-		var XCSRFToken CSRFToken
-		n := len(valueList)
-		if n != 1 {
-			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
-			return
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
-		if err != nil {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
-			return
-		}
-
-		params.XCSRFToken = XCSRFToken
-
-	} else {
-		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
-		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.SavePanelSimpleSubscription(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -33999,21 +33631,6 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Put(options.BaseURL+"/v1/panel/catalog/plans/{planID}/options", wrapper.SavePanelPlanOptions)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/v1/panel/catalog/servers", wrapper.ListPanelServers)
-	})
-	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/v1/panel/catalog/servers/{squadID}", wrapper.DeletePanelServer)
-	})
-	r.Group(func(r chi.Router) {
-		r.Put(options.BaseURL+"/v1/panel/catalog/servers/{squadID}", wrapper.SavePanelServer)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/v1/panel/catalog/simple-subscription", wrapper.GetPanelSimpleSubscription)
-	})
-	r.Group(func(r chi.Router) {
-		r.Put(options.BaseURL+"/v1/panel/catalog/simple-subscription", wrapper.SavePanelSimpleSubscription)
-	})
-	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/remnawave/squads", wrapper.ListPanelRemnawaveSquads)
 	})
 	r.Group(func(r chi.Router) {
@@ -34479,16 +34096,10 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/traffic-reset", wrapper.BuyAccountTrafficReset)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/v1/account/simple-subscription", wrapper.GetAccountSimpleSubscription)
+		r.Get(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/traffic-package", wrapper.GetAccountTrafficPackages)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/v1/account/simple-subscription/checkout", wrapper.OpenAccountSimpleCheckout)
-	})
-	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/daily-billing", wrapper.GetAccountDailyBilling)
-	})
-	r.Group(func(r chi.Router) {
-		r.Put(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/daily-billing", wrapper.SetAccountDailyBilling)
+		r.Post(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/traffic-package", wrapper.ChangeAccountTrafficPackage)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/addons", wrapper.ListAccountSubscriptionAddons)
@@ -38948,79 +38559,6 @@ func (response UnlinkAccountSignInMethod409ApplicationProblemPlusJSONResponse) V
 	return err
 }
 
-type GetAccountSimpleSubscriptionRequestObject struct {
-}
-
-type GetAccountSimpleSubscriptionResponseObject interface {
-	VisitGetAccountSimpleSubscriptionResponse(w http.ResponseWriter) error
-}
-
-type GetAccountSimpleSubscription200JSONResponse AccountSimpleSubscription
-
-func (response GetAccountSimpleSubscription200JSONResponse) VisitGetAccountSimpleSubscriptionResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type OpenAccountSimpleCheckoutRequestObject struct {
-	Params OpenAccountSimpleCheckoutParams
-}
-
-type OpenAccountSimpleCheckoutResponseObject interface {
-	VisitOpenAccountSimpleCheckoutResponse(w http.ResponseWriter) error
-}
-
-type OpenAccountSimpleCheckout201JSONResponse AccountCheckout
-
-func (response OpenAccountSimpleCheckout201JSONResponse) VisitOpenAccountSimpleCheckoutResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type OpenAccountSimpleCheckout409ApplicationProblemPlusJSONResponse struct {
-	ProblemApplicationProblemPlusJSONResponse
-}
-
-func (response OpenAccountSimpleCheckout409ApplicationProblemPlusJSONResponse) VisitOpenAccountSimpleCheckoutResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(409)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type OpenAccountSimpleCheckout422ApplicationProblemPlusJSONResponse Problem
-
-func (response OpenAccountSimpleCheckout422ApplicationProblemPlusJSONResponse) VisitOpenAccountSimpleCheckoutResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(422)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
 type RotateAllAccountSubscriptionLinksRequestObject struct {
 	Params RotateAllAccountSubscriptionLinksParams
 	Body   *RotateAllAccountSubscriptionLinksJSONRequestBody
@@ -39503,98 +39041,6 @@ func (response GetAccountConnection503ApplicationProblemPlusJSONResponse) VisitG
 	return err
 }
 
-type GetAccountDailyBillingRequestObject struct {
-	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
-}
-
-type GetAccountDailyBillingResponseObject interface {
-	VisitGetAccountDailyBillingResponse(w http.ResponseWriter) error
-}
-
-type GetAccountDailyBilling200JSONResponse AccountDailyBilling
-
-func (response GetAccountDailyBilling200JSONResponse) VisitGetAccountDailyBillingResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetAccountDailyBilling404ApplicationProblemPlusJSONResponse struct {
-	ProblemApplicationProblemPlusJSONResponse
-}
-
-func (response GetAccountDailyBilling404ApplicationProblemPlusJSONResponse) VisitGetAccountDailyBillingResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(404)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type SetAccountDailyBillingRequestObject struct {
-	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
-	Params         SetAccountDailyBillingParams
-	Body           *SetAccountDailyBillingJSONRequestBody
-}
-
-type SetAccountDailyBillingResponseObject interface {
-	VisitSetAccountDailyBillingResponse(w http.ResponseWriter) error
-}
-
-type SetAccountDailyBilling200JSONResponse AccountDailyBilling
-
-func (response SetAccountDailyBilling200JSONResponse) VisitSetAccountDailyBillingResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type SetAccountDailyBilling404ApplicationProblemPlusJSONResponse struct {
-	ProblemApplicationProblemPlusJSONResponse
-}
-
-func (response SetAccountDailyBilling404ApplicationProblemPlusJSONResponse) VisitSetAccountDailyBillingResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(404)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type SetAccountDailyBilling409ApplicationProblemPlusJSONResponse Problem
-
-func (response SetAccountDailyBilling409ApplicationProblemPlusJSONResponse) VisitSetAccountDailyBillingResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(409)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
 type RemoveAllAccountDevicesRequestObject struct {
 	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
 	Params         RemoveAllAccountDevicesParams
@@ -39935,6 +39381,99 @@ func (response RotateAccountSubscriptionLink503ApplicationProblemPlusJSONRespons
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountTrafficPackagesRequestObject struct {
+	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
+	Params         GetAccountTrafficPackagesParams
+}
+
+type GetAccountTrafficPackagesResponseObject interface {
+	VisitGetAccountTrafficPackagesResponse(w http.ResponseWriter) error
+}
+
+type GetAccountTrafficPackages200JSONResponse AccountTrafficPackages
+
+func (response GetAccountTrafficPackages200JSONResponse) VisitGetAccountTrafficPackagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountTrafficPackages404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetAccountTrafficPackages404ApplicationProblemPlusJSONResponse) VisitGetAccountTrafficPackagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ChangeAccountTrafficPackageRequestObject struct {
+	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
+	Params         ChangeAccountTrafficPackageParams
+	Body           *ChangeAccountTrafficPackageJSONRequestBody
+}
+
+type ChangeAccountTrafficPackageResponseObject interface {
+	VisitChangeAccountTrafficPackageResponse(w http.ResponseWriter) error
+}
+
+type ChangeAccountTrafficPackage201JSONResponse AccountOrder
+
+func (response ChangeAccountTrafficPackage201JSONResponse) VisitChangeAccountTrafficPackageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ChangeAccountTrafficPackage409ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ChangeAccountTrafficPackage409ApplicationProblemPlusJSONResponse) VisitChangeAccountTrafficPackageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ChangeAccountTrafficPackage422ApplicationProblemPlusJSONResponse Problem
+
+func (response ChangeAccountTrafficPackage422ApplicationProblemPlusJSONResponse) VisitChangeAccountTrafficPackageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -44697,234 +44236,6 @@ func (response ListPanelPromoCodes403ApplicationProblemPlusJSONResponse) VisitLi
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(403)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type ListPanelServersRequestObject struct {
-}
-
-type ListPanelServersResponseObject interface {
-	VisitListPanelServersResponse(w http.ResponseWriter) error
-}
-
-type ListPanelServers200JSONResponse map[string]interface{}
-
-func (response ListPanelServers200JSONResponse) VisitListPanelServersResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type ListPanelServers403ApplicationProblemPlusJSONResponse struct {
-	ProblemApplicationProblemPlusJSONResponse
-}
-
-func (response ListPanelServers403ApplicationProblemPlusJSONResponse) VisitListPanelServersResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(403)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type DeletePanelServerRequestObject struct {
-	SquadID openapi_types.UUID `json:"squadID"`
-	Params  DeletePanelServerParams
-}
-
-type DeletePanelServerResponseObject interface {
-	VisitDeletePanelServerResponse(w http.ResponseWriter) error
-}
-
-type DeletePanelServer204Response struct {
-}
-
-func (response DeletePanelServer204Response) VisitDeletePanelServerResponse(w http.ResponseWriter) error {
-	w.WriteHeader(204)
-	return nil
-}
-
-type DeletePanelServer403ApplicationProblemPlusJSONResponse struct {
-	ProblemApplicationProblemPlusJSONResponse
-}
-
-func (response DeletePanelServer403ApplicationProblemPlusJSONResponse) VisitDeletePanelServerResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(403)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type DeletePanelServer404ApplicationProblemPlusJSONResponse Problem
-
-func (response DeletePanelServer404ApplicationProblemPlusJSONResponse) VisitDeletePanelServerResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(404)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type SavePanelServerRequestObject struct {
-	SquadID openapi_types.UUID `json:"squadID"`
-	Params  SavePanelServerParams
-	Body    *SavePanelServerJSONRequestBody
-}
-
-type SavePanelServerResponseObject interface {
-	VisitSavePanelServerResponse(w http.ResponseWriter) error
-}
-
-type SavePanelServer200JSONResponse PanelServer
-
-func (response SavePanelServer200JSONResponse) VisitSavePanelServerResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type SavePanelServer403ApplicationProblemPlusJSONResponse struct {
-	ProblemApplicationProblemPlusJSONResponse
-}
-
-func (response SavePanelServer403ApplicationProblemPlusJSONResponse) VisitSavePanelServerResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(403)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type SavePanelServer422ApplicationProblemPlusJSONResponse Problem
-
-func (response SavePanelServer422ApplicationProblemPlusJSONResponse) VisitSavePanelServerResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(422)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetPanelSimpleSubscriptionRequestObject struct {
-}
-
-type GetPanelSimpleSubscriptionResponseObject interface {
-	VisitGetPanelSimpleSubscriptionResponse(w http.ResponseWriter) error
-}
-
-type GetPanelSimpleSubscription200JSONResponse PanelSimpleSubscription
-
-func (response GetPanelSimpleSubscription200JSONResponse) VisitGetPanelSimpleSubscriptionResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type GetPanelSimpleSubscription403ApplicationProblemPlusJSONResponse struct {
-	ProblemApplicationProblemPlusJSONResponse
-}
-
-func (response GetPanelSimpleSubscription403ApplicationProblemPlusJSONResponse) VisitGetPanelSimpleSubscriptionResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(403)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type SavePanelSimpleSubscriptionRequestObject struct {
-	Params SavePanelSimpleSubscriptionParams
-	Body   *SavePanelSimpleSubscriptionJSONRequestBody
-}
-
-type SavePanelSimpleSubscriptionResponseObject interface {
-	VisitSavePanelSimpleSubscriptionResponse(w http.ResponseWriter) error
-}
-
-type SavePanelSimpleSubscription200JSONResponse PanelSimpleSubscription
-
-func (response SavePanelSimpleSubscription200JSONResponse) VisitSavePanelSimpleSubscriptionResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type SavePanelSimpleSubscription403ApplicationProblemPlusJSONResponse struct {
-	ProblemApplicationProblemPlusJSONResponse
-}
-
-func (response SavePanelSimpleSubscription403ApplicationProblemPlusJSONResponse) VisitSavePanelSimpleSubscriptionResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(403)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
-type SavePanelSimpleSubscription422ApplicationProblemPlusJSONResponse Problem
-
-func (response SavePanelSimpleSubscription422ApplicationProblemPlusJSONResponse) VisitSavePanelSimpleSubscriptionResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/problem+json")
-	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -53483,12 +52794,6 @@ type StrictServerInterface interface {
 	// (DELETE /v1/account/sign-in-methods/{identityID})
 	UnlinkAccountSignInMethod(ctx context.Context, request UnlinkAccountSignInMethodRequestObject) (UnlinkAccountSignInMethodResponseObject, error)
 
-	// (GET /v1/account/simple-subscription)
-	GetAccountSimpleSubscription(ctx context.Context, request GetAccountSimpleSubscriptionRequestObject) (GetAccountSimpleSubscriptionResponseObject, error)
-
-	// (POST /v1/account/simple-subscription/checkout)
-	OpenAccountSimpleCheckout(ctx context.Context, request OpenAccountSimpleCheckoutRequestObject) (OpenAccountSimpleCheckoutResponseObject, error)
-
 	// (POST /v1/account/subscriptions/rotate-links)
 	RotateAllAccountSubscriptionLinks(ctx context.Context, request RotateAllAccountSubscriptionLinksRequestObject) (RotateAllAccountSubscriptionLinksResponseObject, error)
 
@@ -53516,12 +52821,6 @@ type StrictServerInterface interface {
 	// (GET /v1/account/subscriptions/{subscriptionID}/connection)
 	GetAccountConnection(ctx context.Context, request GetAccountConnectionRequestObject) (GetAccountConnectionResponseObject, error)
 
-	// (GET /v1/account/subscriptions/{subscriptionID}/daily-billing)
-	GetAccountDailyBilling(ctx context.Context, request GetAccountDailyBillingRequestObject) (GetAccountDailyBillingResponseObject, error)
-
-	// (PUT /v1/account/subscriptions/{subscriptionID}/daily-billing)
-	SetAccountDailyBilling(ctx context.Context, request SetAccountDailyBillingRequestObject) (SetAccountDailyBillingResponseObject, error)
-
 	// (DELETE /v1/account/subscriptions/{subscriptionID}/devices)
 	RemoveAllAccountDevices(ctx context.Context, request RemoveAllAccountDevicesRequestObject) (RemoveAllAccountDevicesResponseObject, error)
 
@@ -53536,6 +52835,12 @@ type StrictServerInterface interface {
 
 	// (POST /v1/account/subscriptions/{subscriptionID}/rotate-link)
 	RotateAccountSubscriptionLink(ctx context.Context, request RotateAccountSubscriptionLinkRequestObject) (RotateAccountSubscriptionLinkResponseObject, error)
+
+	// (GET /v1/account/subscriptions/{subscriptionID}/traffic-package)
+	GetAccountTrafficPackages(ctx context.Context, request GetAccountTrafficPackagesRequestObject) (GetAccountTrafficPackagesResponseObject, error)
+
+	// (POST /v1/account/subscriptions/{subscriptionID}/traffic-package)
+	ChangeAccountTrafficPackage(ctx context.Context, request ChangeAccountTrafficPackageRequestObject) (ChangeAccountTrafficPackageResponseObject, error)
 
 	// (GET /v1/account/subscriptions/{subscriptionID}/traffic-reset)
 	GetAccountTrafficReset(ctx context.Context, request GetAccountTrafficResetRequestObject) (GetAccountTrafficResetResponseObject, error)
@@ -53872,21 +53177,6 @@ type StrictServerInterface interface {
 
 	// (GET /v1/panel/catalog/promotions/{promotionID}/codes)
 	ListPanelPromoCodes(ctx context.Context, request ListPanelPromoCodesRequestObject) (ListPanelPromoCodesResponseObject, error)
-
-	// (GET /v1/panel/catalog/servers)
-	ListPanelServers(ctx context.Context, request ListPanelServersRequestObject) (ListPanelServersResponseObject, error)
-
-	// (DELETE /v1/panel/catalog/servers/{squadID})
-	DeletePanelServer(ctx context.Context, request DeletePanelServerRequestObject) (DeletePanelServerResponseObject, error)
-
-	// (PUT /v1/panel/catalog/servers/{squadID})
-	SavePanelServer(ctx context.Context, request SavePanelServerRequestObject) (SavePanelServerResponseObject, error)
-
-	// (GET /v1/panel/catalog/simple-subscription)
-	GetPanelSimpleSubscription(ctx context.Context, request GetPanelSimpleSubscriptionRequestObject) (GetPanelSimpleSubscriptionResponseObject, error)
-
-	// (PUT /v1/panel/catalog/simple-subscription)
-	SavePanelSimpleSubscription(ctx context.Context, request SavePanelSimpleSubscriptionRequestObject) (SavePanelSimpleSubscriptionResponseObject, error)
 
 	// (GET /v1/panel/codes/batches)
 	ListPanelCodeBatches(ctx context.Context, request ListPanelCodeBatchesRequestObject) (ListPanelCodeBatchesResponseObject, error)
@@ -57176,56 +56466,6 @@ func (sh *strictHandler) UnlinkAccountSignInMethod(w http.ResponseWriter, r *htt
 	}
 }
 
-// GetAccountSimpleSubscription operation middleware
-func (sh *strictHandler) GetAccountSimpleSubscription(w http.ResponseWriter, r *http.Request) {
-	var request GetAccountSimpleSubscriptionRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetAccountSimpleSubscription(ctx, request.(GetAccountSimpleSubscriptionRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetAccountSimpleSubscription")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetAccountSimpleSubscriptionResponseObject); ok {
-		if err := validResponse.VisitGetAccountSimpleSubscriptionResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// OpenAccountSimpleCheckout operation middleware
-func (sh *strictHandler) OpenAccountSimpleCheckout(w http.ResponseWriter, r *http.Request, params OpenAccountSimpleCheckoutParams) {
-	var request OpenAccountSimpleCheckoutRequestObject
-
-	request.Params = params
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.OpenAccountSimpleCheckout(ctx, request.(OpenAccountSimpleCheckoutRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "OpenAccountSimpleCheckout")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(OpenAccountSimpleCheckoutResponseObject); ok {
-		if err := validResponse.VisitOpenAccountSimpleCheckoutResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
 // RotateAllAccountSubscriptionLinks operation middleware
 func (sh *strictHandler) RotateAllAccountSubscriptionLinks(w http.ResponseWriter, r *http.Request, params RotateAllAccountSubscriptionLinksParams) {
 	var request RotateAllAccountSubscriptionLinksRequestObject
@@ -57496,66 +56736,6 @@ func (sh *strictHandler) GetAccountConnection(w http.ResponseWriter, r *http.Req
 	}
 }
 
-// GetAccountDailyBilling operation middleware
-func (sh *strictHandler) GetAccountDailyBilling(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID) {
-	var request GetAccountDailyBillingRequestObject
-
-	request.SubscriptionID = subscriptionID
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetAccountDailyBilling(ctx, request.(GetAccountDailyBillingRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetAccountDailyBilling")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetAccountDailyBillingResponseObject); ok {
-		if err := validResponse.VisitGetAccountDailyBillingResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// SetAccountDailyBilling operation middleware
-func (sh *strictHandler) SetAccountDailyBilling(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params SetAccountDailyBillingParams) {
-	var request SetAccountDailyBillingRequestObject
-
-	request.SubscriptionID = subscriptionID
-	request.Params = params
-
-	var body SetAccountDailyBillingJSONRequestBody
-	if err := runtime.BindJSONBody(r, &body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.SetAccountDailyBilling(ctx, request.(SetAccountDailyBillingRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "SetAccountDailyBilling")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(SetAccountDailyBillingResponseObject); ok {
-		if err := validResponse.VisitSetAccountDailyBillingResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
 // RemoveAllAccountDevices operation middleware
 func (sh *strictHandler) RemoveAllAccountDevices(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params RemoveAllAccountDevicesParams) {
 	var request RemoveAllAccountDevicesRequestObject
@@ -57699,6 +56879,67 @@ func (sh *strictHandler) RotateAccountSubscriptionLink(w http.ResponseWriter, r 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(RotateAccountSubscriptionLinkResponseObject); ok {
 		if err := validResponse.VisitRotateAccountSubscriptionLinkResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountTrafficPackages operation middleware
+func (sh *strictHandler) GetAccountTrafficPackages(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params GetAccountTrafficPackagesParams) {
+	var request GetAccountTrafficPackagesRequestObject
+
+	request.SubscriptionID = subscriptionID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountTrafficPackages(ctx, request.(GetAccountTrafficPackagesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountTrafficPackages")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountTrafficPackagesResponseObject); ok {
+		if err := validResponse.VisitGetAccountTrafficPackagesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ChangeAccountTrafficPackage operation middleware
+func (sh *strictHandler) ChangeAccountTrafficPackage(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params ChangeAccountTrafficPackageParams) {
+	var request ChangeAccountTrafficPackageRequestObject
+
+	request.SubscriptionID = subscriptionID
+	request.Params = params
+
+	var body ChangeAccountTrafficPackageJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ChangeAccountTrafficPackage(ctx, request.(ChangeAccountTrafficPackageRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ChangeAccountTrafficPackage")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ChangeAccountTrafficPackageResponseObject); ok {
+		if err := validResponse.VisitChangeAccountTrafficPackageResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -60930,148 +60171,6 @@ func (sh *strictHandler) ListPanelPromoCodes(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListPanelPromoCodesResponseObject); ok {
 		if err := validResponse.VisitListPanelPromoCodesResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// ListPanelServers operation middleware
-func (sh *strictHandler) ListPanelServers(w http.ResponseWriter, r *http.Request) {
-	var request ListPanelServersRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.ListPanelServers(ctx, request.(ListPanelServersRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "ListPanelServers")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(ListPanelServersResponseObject); ok {
-		if err := validResponse.VisitListPanelServersResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// DeletePanelServer operation middleware
-func (sh *strictHandler) DeletePanelServer(w http.ResponseWriter, r *http.Request, squadID openapi_types.UUID, params DeletePanelServerParams) {
-	var request DeletePanelServerRequestObject
-
-	request.SquadID = squadID
-	request.Params = params
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.DeletePanelServer(ctx, request.(DeletePanelServerRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "DeletePanelServer")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(DeletePanelServerResponseObject); ok {
-		if err := validResponse.VisitDeletePanelServerResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// SavePanelServer operation middleware
-func (sh *strictHandler) SavePanelServer(w http.ResponseWriter, r *http.Request, squadID openapi_types.UUID, params SavePanelServerParams) {
-	var request SavePanelServerRequestObject
-
-	request.SquadID = squadID
-	request.Params = params
-
-	var body SavePanelServerJSONRequestBody
-	if err := runtime.BindJSONBody(r, &body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.SavePanelServer(ctx, request.(SavePanelServerRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "SavePanelServer")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(SavePanelServerResponseObject); ok {
-		if err := validResponse.VisitSavePanelServerResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// GetPanelSimpleSubscription operation middleware
-func (sh *strictHandler) GetPanelSimpleSubscription(w http.ResponseWriter, r *http.Request) {
-	var request GetPanelSimpleSubscriptionRequestObject
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetPanelSimpleSubscription(ctx, request.(GetPanelSimpleSubscriptionRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetPanelSimpleSubscription")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetPanelSimpleSubscriptionResponseObject); ok {
-		if err := validResponse.VisitGetPanelSimpleSubscriptionResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
-}
-
-// SavePanelSimpleSubscription operation middleware
-func (sh *strictHandler) SavePanelSimpleSubscription(w http.ResponseWriter, r *http.Request, params SavePanelSimpleSubscriptionParams) {
-	var request SavePanelSimpleSubscriptionRequestObject
-
-	request.Params = params
-
-	var body SavePanelSimpleSubscriptionJSONRequestBody
-	if err := runtime.BindJSONBody(r, &body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
-		return
-	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.SavePanelSimpleSubscription(ctx, request.(SavePanelSimpleSubscriptionRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "SavePanelSimpleSubscription")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(SavePanelSimpleSubscriptionResponseObject); ok {
-		if err := validResponse.VisitSavePanelSimpleSubscriptionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
