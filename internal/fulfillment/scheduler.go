@@ -77,15 +77,19 @@ func NewScheduler(pool *pgxpool.Pool, client JobInserter) *Scheduler {
 	return &Scheduler{pool: pool, client: client, clock: time.Now}
 }
 
-// Run drives both periodic passes until the context is cancelled: the
-// reconciliation sweep every fifteen minutes and the revival scan every five.
+// Run drives the periodic passes until the context is cancelled: the
+// reconciliation sweep every fifteen minutes, the revival scan every five, and
+// the limited access pass every minute.
 func (scheduler *Scheduler) Run(ctx context.Context) {
 	reconcile := time.NewTicker(ReconcileInterval)
 	defer reconcile.Stop()
 	revive := time.NewTicker(ReviveInterval)
 	defer revive.Stop()
+	limited := time.NewTicker(LimitedAccessInterval)
+	defer limited.Stop()
 	_ = scheduler.Schedule(ctx)
 	_ = scheduler.Revive(ctx)
+	_ = scheduler.LimitedAccess(ctx)
 	for {
 		select {
 		case <-ctx.Done():
@@ -94,6 +98,8 @@ func (scheduler *Scheduler) Run(ctx context.Context) {
 			_ = scheduler.Schedule(ctx)
 		case <-revive.C:
 			_ = scheduler.Revive(ctx)
+		case <-limited.C:
+			_ = scheduler.LimitedAccess(ctx)
 		}
 	}
 }

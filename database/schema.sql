@@ -2495,7 +2495,7 @@ CREATE TABLE public.fulfillment_operations (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     completed_at timestamp with time zone,
     CONSTRAINT fulfillment_operations_attempt_count_check CHECK ((attempt_count >= 0)),
-    CONSTRAINT fulfillment_operations_operation_known CHECK ((operation = ANY (ARRAY['create'::text, 'extend'::text, 'enable'::text, 'disable'::text, 'reset_traffic'::text, 'set_limits'::text, 'set_squads'::text, 'reconcile'::text, 'pause'::text, 'resume'::text, 'close'::text]))),
+    CONSTRAINT fulfillment_operations_operation_known CHECK ((operation = ANY (ARRAY['create'::text, 'extend'::text, 'enable'::text, 'disable'::text, 'reset_traffic'::text, 'set_limits'::text, 'set_squads'::text, 'reconcile'::text, 'pause'::text, 'resume'::text, 'close'::text, 'limit_access'::text, 'restore_access'::text]))),
     CONSTRAINT fulfillment_operations_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'running'::text, 'succeeded'::text, 'retrying'::text, 'failed'::text, 'cancelled'::text])))
 );
 
@@ -2964,6 +2964,32 @@ CREATE TABLE public.ledger_transactions (
     actor_id text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT ledger_transactions_type_check CHECK ((type = ANY (ARRAY['credit'::text, 'debit'::text, 'payment'::text, 'refund'::text, 'referral_reward'::text, 'correction'::text, 'expiration'::text])))
+);
+
+
+--
+-- Name: limited_access_sessions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.limited_access_sessions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    subscription_id uuid NOT NULL,
+    entitlement_id uuid NOT NULL,
+    trigger text NOT NULL,
+    squad_id uuid NOT NULL,
+    traffic_bytes bigint NOT NULL,
+    base_used_bytes bigint,
+    starts_at timestamp with time zone DEFAULT now() NOT NULL,
+    ends_at timestamp with time zone NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    ended_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT limited_access_sessions_amounts CHECK (((traffic_bytes > 0) AND ((base_used_bytes IS NULL) OR (base_used_bytes >= 0)))),
+    CONSTRAINT limited_access_sessions_ended_consistent CHECK (((status = 'active'::text) = (ended_at IS NULL))),
+    CONSTRAINT limited_access_sessions_period CHECK ((ends_at > starts_at)),
+    CONSTRAINT limited_access_sessions_status_known CHECK ((status = ANY (ARRAY['active'::text, 'ended'::text, 'restored'::text]))),
+    CONSTRAINT limited_access_sessions_trigger_known CHECK ((trigger = ANY (ARRAY['expiry'::text, 'traffic'::text])))
 );
 
 
@@ -5002,6 +5028,12 @@ CREATE TABLE public.subscription_policy (
     max_device_limit integer,
     remnawave_close_mode text DEFAULT 'disable'::text NOT NULL,
     prorate_plan_changes boolean DEFAULT false NOT NULL,
+    limited_access_on_expiry boolean DEFAULT false NOT NULL,
+    limited_access_on_traffic boolean DEFAULT false NOT NULL,
+    limited_access_squad_id uuid,
+    limited_access_traffic_gb integer,
+    limited_access_days integer,
+    CONSTRAINT subscription_policy_limited_access_complete CHECK ((((NOT limited_access_on_expiry) AND (NOT limited_access_on_traffic)) OR ((limited_access_squad_id IS NOT NULL) AND ((limited_access_days >= 1) AND (limited_access_days <= 90)) AND ((limited_access_traffic_gb >= 1) AND (limited_access_traffic_gb <= 1000))))),
     CONSTRAINT subscription_policy_max_device_limit_positive CHECK (((max_device_limit IS NULL) OR (max_device_limit > 0))),
     CONSTRAINT subscription_policy_paid_tag_shape CHECK ((paid_tag ~ '^[A-Z0-9_]{1,16}$'::text)),
     CONSTRAINT subscription_policy_remnawave_close_mode_known CHECK ((remnawave_close_mode = ANY (ARRAY['disable'::text, 'delete'::text]))),
@@ -6741,6 +6773,22 @@ ALTER TABLE ONLY public.ledger_transactions
 
 ALTER TABLE ONLY public.ledger_transactions
     ADD CONSTRAINT ledger_transactions_reference_type_reference_id_type_key UNIQUE (reference_type, reference_id, type);
+
+
+--
+-- Name: limited_access_sessions limited_access_sessions_once; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.limited_access_sessions
+    ADD CONSTRAINT limited_access_sessions_once UNIQUE (entitlement_id, trigger);
+
+
+--
+-- Name: limited_access_sessions limited_access_sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.limited_access_sessions
+    ADD CONSTRAINT limited_access_sessions_pkey PRIMARY KEY (id);
 
 
 --
@@ -8646,6 +8694,13 @@ CREATE INDEX info_pages_published_idx ON public.info_pages USING btree (sort_ord
 --
 
 CREATE INDEX ledger_entries_balance_idx ON public.ledger_entries USING btree (user_id, currency, created_at) WHERE (account_type = 'customer_wallet'::text);
+
+
+--
+-- Name: limited_access_sessions_one_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX limited_access_sessions_one_active ON public.limited_access_sessions USING btree (subscription_id) WHERE (status = 'active'::text);
 
 
 --
@@ -10762,6 +10817,22 @@ ALTER TABLE ONLY public.ledger_entries
 
 ALTER TABLE ONLY public.ledger_entries
     ADD CONSTRAINT ledger_entries_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: limited_access_sessions limited_access_sessions_entitlement_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.limited_access_sessions
+    ADD CONSTRAINT limited_access_sessions_entitlement_id_fkey FOREIGN KEY (entitlement_id) REFERENCES public.entitlements(id);
+
+
+--
+-- Name: limited_access_sessions limited_access_sessions_subscription_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.limited_access_sessions
+    ADD CONSTRAINT limited_access_sessions_subscription_id_fkey FOREIGN KEY (subscription_id) REFERENCES public.subscriptions(id);
 
 
 --

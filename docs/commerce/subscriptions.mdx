@@ -249,6 +249,36 @@ Grace is carried to the customer as `gracePeriodSeconds` on the plan payloads, a
 
 It is also carried to Remnawave, which is what makes the promise real. The entitlement's `ends_at` stays the paid end — renewal arithmetic, reminders, and reporting read it — but the expiry the fulfillment worker pushes to Remnawave is `ends_at` plus the plan version's grace, for every operation: the first `create`, an extension, a resume after a pause, and the reconciliation sweep. Drift is measured against that same sum, so a remote expiry that carries the grace is agreement rather than a `expiry` drift. Because Remnawave then keeps the user alive through the window, a reported `EXPIRED` status means the window is truly over, and the phase ladder trusts it over the clock: an entitlement whose remote user is expired is `expired`, never `grace`.
 
+## Limited access after expiry or exhausted traffic
+
+A subscription that expires, or uses up its traffic, normally stops: Remnawave expires the user at the pushed expiry, or marks it `LIMITED`. An installation may instead keep it alive on a narrow footing for a few days — one squad, typically one that reaches Telegram only, with a small allowance — so the customer can still read the renewal reminder and pay, as Bedolaga's grace access does.
+
+`/admin/settings/commerce` → **Plan changes and resets** holds it:
+
+| Setting | Effect |
+| --- | --- |
+| Limited access after expiry | A subscription whose remote expiry (the paid end plus the plan's grace) has just passed moves to the limited squad instead of stopping |
+| Limited access when traffic runs out | A subscription Remnawave reports `LIMITED` before its end moves to the limited squad with a fresh allowance |
+| Limited access squad | The one Remnawave internal squad a limited period connects to, picked by name from the panel's list |
+| Limited access traffic (GB) | 1–1000. The allowance is counted from what the user had used when the period began, so the traffic counter is never reset |
+| Limited access days | 1–90. The period ends on its own after this |
+
+Either switch needs the squad, the traffic, and the days; the save refuses it otherwise. The settings live in `subscription_policy` and are saved with the other switches on `PUT /v1/panel/settings/subscription-policy`.
+
+### How a period runs
+
+The worker looks once a minute for subscriptions that qualify: the latest live entitlement of an active subscription, with an expiry that passed within the last day or a `LIMITED` status before its end, and no period open on the subscription. Each entitlement opens at most one period per trigger (`UNIQUE (entitlement_id, trigger)` on `limited_access_sessions`), so a period that runs out unpaid cannot open itself again, and turning the switch on does not revive subscriptions that lapsed long ago.
+
+Opening a period is one transaction: the `limited_access_sessions` row, a `limit_access` operation keyed `limited:<session>:start`, and a `restore_access` operation keyed `limited:<session>:end` scheduled for the period's end — the worker snoozes it until then. Everything reaches Remnawave through [fulfillment](/commerce/fulfillment), never by a direct call:
+
+- `limit_access` reads the user's used bytes, pushes the limited squad, an allowance of those bytes plus the period's, and, for an expired subscription, the period's end as the expiry; then it switches the user back on. The used bytes are recorded on the period.
+- While the period lasts, every operation that pushes the entitlement's state — a reconcile included — pushes the period instead, so the sweep keeps it rather than undoing it and does not report it as drift.
+- `restore_access` at the period's end closes it and pushes the entitlement's own state; Remnawave then expires or limits the user by the plan again.
+
+**Payment restores the full plan.** Settling any order on the subscription — a renewal, an extension, a plan change, an add-on, a traffic reset or a capacity change — marks the period `restored` in the paying transaction. A period opened on expiry and replaced by the new entitlement needs nothing more, because that entitlement's `create` pushes the plan; any other gets a `restore_access` keyed `limited:<session>:restore`. A period whose entitlement a gift or a code retired is closed by the next minute's pass.
+
+Nothing here touches money: the period is free, and it does not move the entitlement's paid end.
+
 ## Pausing
 
 Cancellation and refund both end a subscription. Neither covers the case people

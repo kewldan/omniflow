@@ -563,6 +563,10 @@ type Querier interface {
 	// Whatever the move above left behind, which is exactly the duplicates.
 	DropDuplicateNewsReads(ctx context.Context, source pgtype.UUID) error
 	DueWebhookDeliveries(ctx context.Context) ([]DueWebhookDeliveriesRow, error)
+	EndLimitedAccess(ctx context.Context, sessionID pgtype.UUID) error
+	// Periods that ran out, or whose entitlement a renewal, a gift or a code
+	// retired, and that no operation ended.
+	EndStaleLimitedAccess(ctx context.Context) ([]LimitedAccessSession, error)
 	// ---------------------------------------------------------------------------
 	// Test sends
 	//
@@ -648,6 +652,8 @@ type Querier interface {
 	// (provider, subject) pair and nothing else is what makes an upstream email
 	// change a non-event: the subject is the identifier, the address is a claim.
 	GetActiveIdentityBySubject(ctx context.Context, arg GetActiveIdentityBySubjectParams) (GetActiveIdentityBySubjectRow, error)
+	// The open period that shapes what an entitlement's operations push.
+	GetActiveLimitedAccess(ctx context.Context, entitlementID pgtype.UUID) (LimitedAccessSession, error)
 	GetActiveOfferForPromotion(ctx context.Context, arg GetActiveOfferForPromotionParams) (PersonalOffer, error)
 	// What bounds an add-on purchase against one entitlement: the version's cap
 	// on bought traffic, what is already bought and still counting, and the
@@ -792,6 +798,7 @@ type Querier interface {
 	// reading ends_at, which is frozen at the pause instant.
 	GetLatestEntitlementForChange(ctx context.Context, arg GetLatestEntitlementForChangeParams) (Entitlement, error)
 	GetLedgerTransactionByIdempotency(ctx context.Context, idempotencyKey string) (LedgerTransaction, error)
+	GetLimitedAccess(ctx context.Context, sessionID pgtype.UUID) (LimitedAccessSession, error)
 	// The period a traffic code adds to: the customer's entitlement that is in
 	// force right now, the latest one when several subscriptions run.
 	GetLiveEntitlementForReward(ctx context.Context, userID pgtype.UUID) (Entitlement, error)
@@ -1278,6 +1285,14 @@ type Querier interface {
 	// The operator's view: every page, including drafts.
 	ListInfoPages(ctx context.Context) ([]ListInfoPagesRow, error)
 	ListLedgerEntriesByTransaction(ctx context.Context, transactionID pgtype.UUID) ([]LedgerEntry, error)
+	// Entitlements that have just expired, or that Remnawave reports out of
+	// traffic, and may open a limited access period now. Each must be its
+	// subscription's latest live entitlement, on an active subscription, with no
+	// period already open for the subscription and none opened before for the
+	// same entitlement and trigger. Expiry counts from the remote expiry (the paid
+	// end plus the plan's grace) and only within the last day, so turning the
+	// switch on does not revive every subscription that ever lapsed.
+	ListLimitedAccessCandidates(ctx context.Context, rowLimit int32) ([]ListLimitedAccessCandidatesRow, error)
 	// Every Remnawave user an Omniflow customer already owns.
 	ListLinkedRemnawaveUsers(ctx context.Context) ([]ListLinkedRemnawaveUsersRow, error)
 	// The add-on packs still counting on an entitlement, newest first, with what
@@ -1709,6 +1724,10 @@ type Querier interface {
 	// Qualified, rejected, and pending are each counted from the rows rather than
 	// derived by subtraction, because a pair can be qualified and later rejected.
 	OpenAccountReferralSummary(ctx context.Context, arg OpenAccountReferralSummaryParams) (OpenAccountReferralSummaryRow, error)
+	// Opens a period with the installation's current squad, allowance and length.
+	// A second pass racing for the same entitlement matches the unique keys and
+	// inserts nothing.
+	OpenLimitedAccess(ctx context.Context, arg OpenLimitedAccessParams) (LimitedAccessSession, error)
 	// The numbers a scheduled report carries. Money is per currency, so revenue
 	// comes back as a JSON object keyed by currency.
 	OperatorReportFigures(ctx context.Context, arg OperatorReportFiguresParams) (OperatorReportFiguresRow, error)
@@ -1860,6 +1879,7 @@ type Querier interface {
 	// the converted cost are stored rather than recomputed, so a margin report
 	// does not move with the TON price afterwards.
 	RecordGoodsSettlement(ctx context.Context, arg RecordGoodsSettlementParams) (GoodsDelivery, error)
+	RecordLimitedAccessBase(ctx context.Context, arg RecordLimitedAccessBaseParams) error
 	RecordLoyaltyChange(ctx context.Context, arg RecordLoyaltyChangeParams) (LoyaltyStandingHistory, error)
 	RecordMCPDiscovery(ctx context.Context, arg RecordMCPDiscoveryParams) error
 	RecordMCPEvent(ctx context.Context, arg RecordMCPEventParams) error
@@ -1958,6 +1978,8 @@ type Querier interface {
 	// An operator's verdict on a parked delivery. 'delivered' records that the
 	// goods did arrive; 'failed' releases it to the refund path.
 	ResolveGoodsDeliveryReview(ctx context.Context, arg ResolveGoodsDeliveryReviewParams) (GoodsDelivery, error)
+	// A payment on the subscription restores the full plan.
+	RestoreLimitedAccess(ctx context.Context, subscriptionID pgtype.UUID) ([]LimitedAccessSession, error)
 	RestoreSubscriptionLinkRotation(ctx context.Context, arg RestoreSubscriptionLinkRotationParams) error
 	// Gives back exactly the time the pause took.
 	//
@@ -2201,6 +2223,9 @@ type Querier interface {
 	// Publishing and unpublishing are the same statement, because the difference is
 	// one nullable column and splitting them would let the two drift.
 	SetInfoPagePublication(ctx context.Context, arg SetInfoPagePublicationParams) (InfoPage, error)
+	// Limited grace access: a subscription that expired or ran out of traffic
+	// kept alive on one squad with a small allowance for a few days.
+	SetLimitedAccessPolicy(ctx context.Context, arg SetLimitedAccessPolicyParams) (SubscriptionPolicy, error)
 	SetMCPServerCredentials(ctx context.Context, arg SetMCPServerCredentialsParams) error
 	// The owner's decisions: enablement, the permission it maps to, and whether it
 	// writes. Separate from discovery for the reason above.

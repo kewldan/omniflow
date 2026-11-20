@@ -16,6 +16,8 @@ import { FormField } from "@/components/forms/field";
 import { type ApiError, fetcher } from "@/lib/api";
 import { useOperatorAction } from "@/lib/operations";
 
+import { SquadPicker } from "../catalog/squad-picker";
+
 /** The installation-wide rules for what a paid change does to a subscription. */
 export type SubscriptionPolicy = {
   upgradesEnabled: boolean;
@@ -31,6 +33,11 @@ export type SubscriptionPolicy = {
   maxDeviceLimit?: number | null;
   remnawaveCloseMode?: string;
   proratePlanChanges?: boolean;
+  limitedAccessOnExpiry?: boolean;
+  limitedAccessOnTraffic?: boolean;
+  limitedAccessSquadId?: string;
+  limitedAccessTrafficGb?: number | null;
+  limitedAccessDays?: number | null;
   updatedAt?: string;
 };
 
@@ -50,7 +57,9 @@ type Toggle =
   | "resetTrafficOnRenewal"
   | "resetTrafficOnPlanChange"
   | "resetDevicesOnRenewal"
-  | "proratePlanChanges";
+  | "proratePlanChanges"
+  | "limitedAccessOnExpiry"
+  | "limitedAccessOnTraffic";
 
 const TOGGLES: Toggle[] = [
   "upgradesEnabled",
@@ -59,6 +68,8 @@ const TOGGLES: Toggle[] = [
   "resetTrafficOnPlanChange",
   "resetDevicesOnRenewal",
   "proratePlanChanges",
+  "limitedAccessOnExpiry",
+  "limitedAccessOnTraffic",
 ];
 
 /**
@@ -95,6 +106,9 @@ function PolicyForm({
   const [draft, setDraft] = useState<SubscriptionPolicy>(policy);
   const [hours, setHours] = useState(String(policy.trialWarningHours ?? 0));
   const [maxDevices, setMaxDevices] = useState(String(policy.maxDeviceLimit ?? ""));
+  const [limitedGb, setLimitedGb] = useState(String(policy.limitedAccessTrafficGb ?? ""));
+  const [limitedDays, setLimitedDays] = useState(String(policy.limitedAccessDays ?? ""));
+  const limitedSquadId = useId();
   const { run, pending, error } = useOperatorAction();
   const remainderId = useId();
   const closeModeId = useId();
@@ -209,6 +223,50 @@ function PolicyForm({
             {translate("trialDisabledMethodsHint")}
           </span>
         </fieldset>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={limitedSquadId}>{translate("limitedAccessSquad")}</Label>
+          <SquadPicker
+            control={{ id: limitedSquadId, "aria-invalid": false }}
+            multiple={false}
+            onChange={(next) =>
+              setDraft((current) => ({ ...current, limitedAccessSquadId: next[0] ?? "" }))
+            }
+            value={draft.limitedAccessSquadId ? [draft.limitedAccessSquadId] : []}
+          />
+          <span className="text-muted-foreground text-xs">
+            {translate("limitedAccessSquadHint")}
+          </span>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <FormField
+            hint={translate("limitedAccessTrafficGbHint")}
+            label={translate("limitedAccessTrafficGb")}
+          >
+            {(props) => (
+              <Input
+                {...props}
+                inputMode="numeric"
+                onChange={(event) => setLimitedGb(event.target.value)}
+                readOnly={!editable}
+                value={limitedGb}
+              />
+            )}
+          </FormField>
+          <FormField
+            hint={translate("limitedAccessDaysHint")}
+            label={translate("limitedAccessDays")}
+          >
+            {(props) => (
+              <Input
+                {...props}
+                inputMode="numeric"
+                onChange={(event) => setLimitedDays(event.target.value)}
+                readOnly={!editable}
+                value={limitedDays}
+              />
+            )}
+          </FormField>
+        </div>
         <FormField hint={translate("maxDeviceLimitHint")} label={translate("maxDeviceLimit")}>
           {(props) => (
             <Input
@@ -243,6 +301,10 @@ function PolicyForm({
                   maxDeviceLimit:
                     Number.parseInt(maxDevices, 10) > 0 ? Number.parseInt(maxDevices, 10) : null,
                   trialWarningHours: Number.parseInt(hours || "0", 10) || 0,
+                  limitedAccessTrafficGb:
+                    Number.parseInt(limitedGb, 10) > 0 ? Number.parseInt(limitedGb, 10) : null,
+                  limitedAccessDays:
+                    Number.parseInt(limitedDays, 10) > 0 ? Number.parseInt(limitedDays, 10) : null,
                 },
                 method: "PUT",
               });

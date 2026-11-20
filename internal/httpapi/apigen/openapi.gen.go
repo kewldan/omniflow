@@ -9806,6 +9806,21 @@ type PanelSubscriptionPolicy struct {
 	// DowngradesEnabled Off refuses every downgrade whatever a version allows.
 	DowngradesEnabled bool `json:"downgradesEnabled"`
 
+	// LimitedAccessDays How long a limited access period lasts.
+	LimitedAccessDays *int `json:"limitedAccessDays,omitempty"`
+
+	// LimitedAccessOnExpiry An expired subscription is kept on the limited access squad instead of stopping.
+	LimitedAccessOnExpiry *bool `json:"limitedAccessOnExpiry,omitempty"`
+
+	// LimitedAccessOnTraffic A subscription out of traffic is kept on the limited access squad instead of stopping.
+	LimitedAccessOnTraffic *bool `json:"limitedAccessOnTraffic,omitempty"`
+
+	// LimitedAccessSquadId The Remnawave internal squad limited access keeps a subscription on; empty for none.
+	LimitedAccessSquadId *string `json:"limitedAccessSquadId,omitempty"`
+
+	// LimitedAccessTrafficGb Gigabytes a limited access period allows.
+	LimitedAccessTrafficGb *int `json:"limitedAccessTrafficGb,omitempty"`
+
 	// MaxDeviceLimit Most devices add-ons may take a subscription to; null is no ceiling.
 	MaxDeviceLimit *int `json:"maxDeviceLimit,omitempty"`
 

@@ -2542,7 +2542,17 @@
           "delete": "Delete the user"
         },
         "proratePlanChanges": "Credit the unused remainder on a plan change",
-        "proratePlanChangesHint": "An upgrade that replaces the period or a downgrade that takes effect now credits what is left of the current period, prorated by time at what the customer paid. What exceeds the new price goes to the wallet."
+        "proratePlanChangesHint": "An upgrade that replaces the period or a downgrade that takes effect now credits what is left of the current period, prorated by time at what the customer paid. What exceeds the new price goes to the wallet.",
+        "limitedAccessOnExpiry": "Limited access after expiry",
+        "limitedAccessOnExpiryHint": "Instead of stopping, an expired subscription stays on the squad below with the allowance below for the days below. Paying for anything on it restores the full plan.",
+        "limitedAccessOnTraffic": "Limited access when traffic runs out",
+        "limitedAccessOnTrafficHint": "Instead of stopping, a subscription that used up its traffic moves to the squad below with a fresh allowance. Buying traffic, a reset or a renewal restores the full plan.",
+        "limitedAccessSquad": "Limited access squad",
+        "limitedAccessSquadHint": "The one Remnawave squad a limited period connects to, such as a squad that reaches Telegram only.",
+        "limitedAccessTrafficGb": "Limited access traffic (GB)",
+        "limitedAccessTrafficGbHint": "From 1 to 1000. Counted from what was used when the period began.",
+        "limitedAccessDays": "Limited access days",
+        "limitedAccessDaysHint": "From 1 to 90. The period ends on its own after this."
       },
       "paymentMethods": {
         "title": "Payment buttons",

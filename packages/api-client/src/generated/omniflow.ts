@@ -2304,6 +2304,26 @@ export interface PanelSubscriptionPolicy {
   remnawaveCloseMode?: PanelSubscriptionPolicyRemnawaveCloseMode;
   /** A replace upgrade or an immediate downgrade credits the unused remainder of the current period, prorated by time at what the customer paid. */
   proratePlanChanges?: boolean;
+  /** An expired subscription is kept on the limited access squad instead of stopping. */
+  limitedAccessOnExpiry?: boolean;
+  /** A subscription out of traffic is kept on the limited access squad instead of stopping. */
+  limitedAccessOnTraffic?: boolean;
+  /** The Remnawave internal squad limited access keeps a subscription on; empty for none. */
+  limitedAccessSquadId?: string;
+  /**
+   * Gigabytes a limited access period allows.
+   * @minimum 1
+   * @maximum 1000
+   * @nullable
+   */
+  limitedAccessTrafficGb?: number | null;
+  /**
+   * How long a limited access period lasts.
+   * @minimum 1
+   * @maximum 90
+   * @nullable
+   */
+  limitedAccessDays?: number | null;
   readonly updatedAt?: string;
 }
 

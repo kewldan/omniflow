@@ -35,8 +35,16 @@ type SubscriptionPolicy struct {
 	RemnawaveCloseMode string `json:"remnawaveCloseMode"`
 	// ProratePlanChanges credits the unused remainder of the current period
 	// against a `replace` upgrade or an `immediate` downgrade.
-	ProratePlanChanges bool      `json:"proratePlanChanges"`
-	UpdatedAt          time.Time `json:"updatedAt"`
+	ProratePlanChanges bool `json:"proratePlanChanges"`
+	// LimitedAccessOnExpiry and LimitedAccessOnTraffic keep a subscription
+	// that expired, or ran out of traffic, alive on LimitedAccessSquadID with
+	// LimitedAccessTrafficGB for LimitedAccessDays instead of letting it stop.
+	LimitedAccessOnExpiry  bool      `json:"limitedAccessOnExpiry"`
+	LimitedAccessOnTraffic bool      `json:"limitedAccessOnTraffic"`
+	LimitedAccessSquadID   string    `json:"limitedAccessSquadId"`
+	LimitedAccessTrafficGB *int32    `json:"limitedAccessTrafficGb"`
+	LimitedAccessDays      *int32    `json:"limitedAccessDays"`
+	UpdatedAt              time.Time `json:"updatedAt"`
 }
 
 var validTrialRemainder = map[string]bool{"policy": true, "carry": true, "reset": true}
@@ -73,6 +81,14 @@ func (service *Service) SaveSubscriptionPolicy(
 	if policy.TrialWarningHours < 0 || policy.TrialWarningHours > 168 ||
 		policy.MaxDeviceLimit != nil && *policy.MaxDeviceLimit < 1 ||
 		policy.RemnawaveCloseMode != "disable" && policy.RemnawaveCloseMode != "delete" {
+		return SubscriptionPolicy{}, ErrValidaton
+	}
+	squad := optionalUUID(policy.LimitedAccessSquadID)
+	if policy.LimitedAccessSquadID != "" && !squad.Valid ||
+		policy.LimitedAccessTrafficGB != nil && (*policy.LimitedAccessTrafficGB < 1 || *policy.LimitedAccessTrafficGB > 1000) ||
+		policy.LimitedAccessDays != nil && (*policy.LimitedAccessDays < 1 || *policy.LimitedAccessDays > 90) ||
+		(policy.LimitedAccessOnExpiry || policy.LimitedAccessOnTraffic) &&
+			(!squad.Valid || policy.LimitedAccessTrafficGB == nil || policy.LimitedAccessDays == nil) {
 		return SubscriptionPolicy{}, ErrValidaton
 	}
 	methods := make([]string, 0, len(policy.TrialDisabledMethods))
@@ -113,7 +129,13 @@ func (service *Service) SaveSubscriptionPolicy(
 		if _, txErr := queries.SetRemnawaveCloseMode(ctx, policy.RemnawaveCloseMode); txErr != nil {
 			return txErr
 		}
-		row, txErr := queries.SetPlanChangeProration(ctx, policy.ProratePlanChanges)
+		if _, txErr := queries.SetPlanChangeProration(ctx, policy.ProratePlanChanges); txErr != nil {
+			return txErr
+		}
+		row, txErr := queries.SetLimitedAccessPolicy(ctx, dbgen.SetLimitedAccessPolicyParams{
+			OnExpiry: policy.LimitedAccessOnExpiry, OnTraffic: policy.LimitedAccessOnTraffic, SquadID: squad,
+			TrafficGb: optionalInt4(policy.LimitedAccessTrafficGB), Days: optionalInt4(policy.LimitedAccessDays),
+		})
 		if txErr != nil {
 			return txErr
 		}
@@ -141,6 +163,11 @@ func subscriptionPolicyFrom(row dbgen.SubscriptionPolicy) SubscriptionPolicy {
 		MaxDeviceLimit:           int4Pointer(row.MaxDeviceLimit),
 		RemnawaveCloseMode:       row.RemnawaveCloseMode,
 		ProratePlanChanges:       row.ProratePlanChanges,
+		LimitedAccessOnExpiry:    row.LimitedAccessOnExpiry,
+		LimitedAccessOnTraffic:   row.LimitedAccessOnTraffic,
+		LimitedAccessSquadID:     uuidString(row.LimitedAccessSquadID),
+		LimitedAccessTrafficGB:   int4Pointer(row.LimitedAccessTrafficGb),
+		LimitedAccessDays:        int4Pointer(row.LimitedAccessDays),
 		UpdatedAt:                timeValue(row.UpdatedAt),
 	}
 }

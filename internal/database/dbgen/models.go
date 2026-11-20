@@ -1487,6 +1487,22 @@ type LedgerTransaction struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
+type LimitedAccessSession struct {
+	ID             pgtype.UUID        `json:"id"`
+	UserID         pgtype.UUID        `json:"user_id"`
+	SubscriptionID pgtype.UUID        `json:"subscription_id"`
+	EntitlementID  pgtype.UUID        `json:"entitlement_id"`
+	Trigger        string             `json:"trigger"`
+	SquadID        pgtype.UUID        `json:"squad_id"`
+	TrafficBytes   int64              `json:"traffic_bytes"`
+	BaseUsedBytes  pgtype.Int8        `json:"base_used_bytes"`
+	StartsAt       pgtype.Timestamptz `json:"starts_at"`
+	EndsAt         pgtype.Timestamptz `json:"ends_at"`
+	Status         string             `json:"status"`
+	EndedAt        pgtype.Timestamptz `json:"ended_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
 type LoyaltyMembership struct {
 	UserID     pgtype.UUID        `json:"user_id"`
 	TierCode   string             `json:"tier_code"`
@@ -2639,6 +2655,11 @@ type SubscriptionPolicy struct {
 	MaxDeviceLimit           pgtype.Int4        `json:"max_device_limit"`
 	RemnawaveCloseMode       string             `json:"remnawave_close_mode"`
 	ProratePlanChanges       bool               `json:"prorate_plan_changes"`
+	LimitedAccessOnExpiry    bool               `json:"limited_access_on_expiry"`
+	LimitedAccessOnTraffic   bool               `json:"limited_access_on_traffic"`
+	LimitedAccessSquadID     pgtype.UUID        `json:"limited_access_squad_id"`
+	LimitedAccessTrafficGb   pgtype.Int4        `json:"limited_access_traffic_gb"`
+	LimitedAccessDays        pgtype.Int4        `json:"limited_access_days"`
 }
 
 type SupportAttachment struct {

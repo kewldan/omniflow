@@ -69,7 +69,7 @@ second subscription therefore never retires the first one's entitlement.
 
 ## The operation set
 
-Eight operations exist, enforced both by a database `CHECK` and by an allow-list in the service that
+The operations below are enforced by a database `CHECK`, and the ones a caller composes by an allow-list in the service that
 enqueues them.
 
 | Operation | What the worker calls |
@@ -81,6 +81,8 @@ enqueues them.
 | `disable` | `POST /api/users/{id}/actions/disable`, then re-read |
 | `reset_traffic` | `POST /api/users/{id}/actions/reset-traffic`, then re-read |
 | `reconcile` | Compare first, then the same `PATCH` as `create`, without the reset or the enable |
+| `limit_access` | `GET /api/users/{id}` for the used bytes, `PATCH /api/users/` with the limited squad and allowance, then `POST /api/users/{id}/actions/enable` when the user is not active. See [limited access](/commerce/subscriptions#limited-access-after-expiry-or-exhausted-traffic) |
+| `restore_access` | `PATCH /api/users/` with the entitlement's own state, ending its limited access period |
 
 Anything outside that set is cancelled permanently rather than retried, because an operation the
 worker cannot perform will not become performable by waiting.
@@ -138,6 +140,7 @@ reads the existing operation back rather than creating a second one.
 | `gift:<giftID>:fulfill` | A claimed gift |
 | `reconcile:<entitlementID>:<15-minute bucket>` | The reconciliation sweep |
 | `panel:<subscriptionID>:<operation>:<requestID>` | An operator action in the panel |
+| `limited:<sessionID>:start`, `:end`, `:restore` | A limited access period opened, its scheduled end, and its end by payment |
 | `bulk:<operationID>:<position>` | One item of a bulk operation |
 
 Reading the row back is not enough on its own, so the service then re-verifies the parameters. Reusing

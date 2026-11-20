@@ -4274,6 +4274,10 @@ export const SavePanelPaymentGuidanceResponse = zod.object({
 export const getPanelSubscriptionPolicyResponseTrialWarningHoursMin = 0;
 export const getPanelSubscriptionPolicyResponseTrialWarningHoursMax = 168;
 
+export const getPanelSubscriptionPolicyResponseLimitedAccessTrafficGbMax = 1000;
+
+export const getPanelSubscriptionPolicyResponseLimitedAccessDaysMax = 90;
+
 export const GetPanelSubscriptionPolicyResponse = zod.object({
   upgradesEnabled: zod.boolean().describe("Off refuses every upgrade whatever a version allows."),
   downgradesEnabled: zod
@@ -4322,6 +4326,34 @@ export const GetPanelSubscriptionPolicyResponse = zod.object({
     .describe(
       "A replace upgrade or an immediate downgrade credits the unused remainder of the current period, prorated by time at what the customer paid.",
     ),
+  limitedAccessOnExpiry: zod
+    .boolean()
+    .optional()
+    .describe("An expired subscription is kept on the limited access squad instead of stopping."),
+  limitedAccessOnTraffic: zod
+    .boolean()
+    .optional()
+    .describe(
+      "A subscription out of traffic is kept on the limited access squad instead of stopping.",
+    ),
+  limitedAccessSquadId: zod
+    .string()
+    .optional()
+    .describe(
+      "The Remnawave internal squad limited access keeps a subscription on; empty for none.",
+    ),
+  limitedAccessTrafficGb: zod
+    .int()
+    .min(1)
+    .max(getPanelSubscriptionPolicyResponseLimitedAccessTrafficGbMax)
+    .nullish()
+    .describe("Gigabytes a limited access period allows."),
+  limitedAccessDays: zod
+    .int()
+    .min(1)
+    .max(getPanelSubscriptionPolicyResponseLimitedAccessDaysMax)
+    .nullish()
+    .describe("How long a limited access period lasts."),
   updatedAt: zod.iso.datetime({ offset: true }).optional(),
 });
 
@@ -4336,6 +4368,10 @@ export const SavePanelSubscriptionPolicyHeader = zod.object({
 
 export const savePanelSubscriptionPolicyBodyTrialWarningHoursMin = 0;
 export const savePanelSubscriptionPolicyBodyTrialWarningHoursMax = 168;
+
+export const savePanelSubscriptionPolicyBodyLimitedAccessTrafficGbMax = 1000;
+
+export const savePanelSubscriptionPolicyBodyLimitedAccessDaysMax = 90;
 
 export const SavePanelSubscriptionPolicyBody = zod.object({
   upgradesEnabled: zod.boolean().describe("Off refuses every upgrade whatever a version allows."),
@@ -4385,10 +4421,42 @@ export const SavePanelSubscriptionPolicyBody = zod.object({
     .describe(
       "A replace upgrade or an immediate downgrade credits the unused remainder of the current period, prorated by time at what the customer paid.",
     ),
+  limitedAccessOnExpiry: zod
+    .boolean()
+    .optional()
+    .describe("An expired subscription is kept on the limited access squad instead of stopping."),
+  limitedAccessOnTraffic: zod
+    .boolean()
+    .optional()
+    .describe(
+      "A subscription out of traffic is kept on the limited access squad instead of stopping.",
+    ),
+  limitedAccessSquadId: zod
+    .string()
+    .optional()
+    .describe(
+      "The Remnawave internal squad limited access keeps a subscription on; empty for none.",
+    ),
+  limitedAccessTrafficGb: zod
+    .int()
+    .min(1)
+    .max(savePanelSubscriptionPolicyBodyLimitedAccessTrafficGbMax)
+    .nullish()
+    .describe("Gigabytes a limited access period allows."),
+  limitedAccessDays: zod
+    .int()
+    .min(1)
+    .max(savePanelSubscriptionPolicyBodyLimitedAccessDaysMax)
+    .nullish()
+    .describe("How long a limited access period lasts."),
 });
 
 export const savePanelSubscriptionPolicyResponseTrialWarningHoursMin = 0;
 export const savePanelSubscriptionPolicyResponseTrialWarningHoursMax = 168;
+
+export const savePanelSubscriptionPolicyResponseLimitedAccessTrafficGbMax = 1000;
+
+export const savePanelSubscriptionPolicyResponseLimitedAccessDaysMax = 90;
 
 export const SavePanelSubscriptionPolicyResponse = zod.object({
   upgradesEnabled: zod.boolean().describe("Off refuses every upgrade whatever a version allows."),
@@ -4438,6 +4506,34 @@ export const SavePanelSubscriptionPolicyResponse = zod.object({
     .describe(
       "A replace upgrade or an immediate downgrade credits the unused remainder of the current period, prorated by time at what the customer paid.",
     ),
+  limitedAccessOnExpiry: zod
+    .boolean()
+    .optional()
+    .describe("An expired subscription is kept on the limited access squad instead of stopping."),
+  limitedAccessOnTraffic: zod
+    .boolean()
+    .optional()
+    .describe(
+      "A subscription out of traffic is kept on the limited access squad instead of stopping.",
+    ),
+  limitedAccessSquadId: zod
+    .string()
+    .optional()
+    .describe(
+      "The Remnawave internal squad limited access keeps a subscription on; empty for none.",
+    ),
+  limitedAccessTrafficGb: zod
+    .int()
+    .min(1)
+    .max(savePanelSubscriptionPolicyResponseLimitedAccessTrafficGbMax)
+    .nullish()
+    .describe("Gigabytes a limited access period allows."),
+  limitedAccessDays: zod
+    .int()
+    .min(1)
+    .max(savePanelSubscriptionPolicyResponseLimitedAccessDaysMax)
+    .nullish()
+    .describe("How long a limited access period lasts."),
   updatedAt: zod.iso.datetime({ offset: true }).optional(),
 });
 

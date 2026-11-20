@@ -98,6 +98,11 @@ type desiredState struct {
 	// CloseMode is what a `close` does to the Remnawave user of a subscription
 	// the customer closed: `disable` or `delete`.
 	CloseMode string `json:"closeMode,omitempty"`
+	// SessionID names the limited access period a `limit_access` applies and
+	// a `restore_access` ends.
+	SessionID string `json:"sessionId,omitempty"`
+	// limited is the open limited access period the claim folded in, if any.
+	limited *limitedOverlay
 	// remoteExpireAt is EndsAt plus the grace period, resolved by the worker
 	// per operation rather than stored, so every creator agrees on it.
 	remoteExpireAt time.Time
@@ -324,6 +329,20 @@ func (worker *Worker) apply(ctx context.Context, claimed claim) (remnawave.User,
 	switch operation {
 	case "extend", "set_limits", "set_squads":
 		return worker.provisioner.UpdateUser(ctx, remoteID, provision)
+	case "limit_access", "restore_access":
+		// A limited access period keeps an expired or exhausted user
+		// working on one squad, so the user is switched back on after the
+		// smaller state is pushed. Ending it pushes the plan's own state and
+		// leaves Remnawave to expire or limit the user by it.
+		updated, err := worker.provisioner.UpdateUser(ctx, remoteID, provision)
+		if err != nil {
+			return remnawave.User{}, err
+		}
+		if operation == "limit_access" && desired.limited != nil && !strings.EqualFold(updated.Status, "ACTIVE") {
+			if err := worker.provisioner.EnableUser(ctx, remoteID); err != nil {
+				return remnawave.User{}, err
+			}
+		}
 	case "enable":
 		if err := worker.provisioner.EnableUser(ctx, remoteID); err != nil {
 			return remnawave.User{}, err

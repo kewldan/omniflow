@@ -1052,6 +1052,10 @@ func (store *Store) AdjustWallet(ctx context.Context, customerID, currency strin
 // entitlement, and the durable fulfillment job all commit together or not at
 // all.
 func (store *Store) settlePaidOrder(ctx context.Context, tx pgx.Tx, queries *dbgen.Queries, order dbgen.Order, idempotencyKey string) error {
+	// Paying for anything on a subscription ends its limited access period.
+	if err := store.restoreLimitedAccess(ctx, tx, queries, order, idempotencyKey); err != nil {
+		return err
+	}
 	switch order.Operation {
 	case "topup":
 		// A top-up buys nothing but credit, so it never creates an entitlement

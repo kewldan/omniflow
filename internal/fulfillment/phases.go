@@ -69,6 +69,9 @@ type outcome struct {
 	remote remnawave.User
 	drifts []drift
 	err    error
+	// limitedBase is the used bytes a limited access period was opened on,
+	// read by this run, to be recorded with the result.
+	limitedBase *int64
 }
 
 func (worker *Worker) work(ctx context.Context, job *river.Job[JobArgs]) error {
@@ -187,6 +190,18 @@ func (worker *Worker) claim(ctx context.Context, operationID pgtype.UUID) (claim
 		return claim{}, false, err
 	}
 	desired = desired.withProfile(profile)
+	// A limited access period shapes every state pushed while it lasts, and a
+	// `restore_access` whose time has come ends it first.
+	if operation.Operation == "restore_access" {
+		if err = endScheduledAccess(ctx, queries, desired, now); err != nil {
+			return claim{}, false, err
+		}
+	}
+	if overlaid(operation.Operation) {
+		if desired, err = withAccessOverlay(ctx, queries, entitlement.ID, desired); err != nil {
+			return claim{}, false, err
+		}
+	}
 	subscription, err := worker.subscriptionFor(ctx, queries, entitlement)
 	if errors.Is(err, errSubscriptionUnresolved) {
 		return claim{}, false, worker.failPermanent(ctx, tx, queries, operation, "subscription_unresolved")
@@ -257,6 +272,19 @@ func leaseHeld(status string, leaseUntil, now time.Time) (bool, time.Time) {
 // call is the Remnawave phase. It holds no transaction and no connection.
 func (worker *Worker) call(ctx context.Context, claimed claim) outcome {
 	var result outcome
+	// A limited access period's allowance counts from what the user had used
+	// when it began. The first run that applies it reads that from Remnawave.
+	if limited := claimed.desired.limited; limited != nil && limited.base == nil && claimed.remoteID != 0 {
+		remote, err := worker.provisioner.User(ctx, claimed.remoteID)
+		if err != nil {
+			result.err = err
+			return result
+		}
+		base := remote.Traffic.UsedBytes
+		limit := base + limited.trafficBytes
+		claimed.desired.TrafficAllowanceBytes = &limit
+		result.limitedBase = &base
+	}
 	if claimed.operation.Operation == "reconcile" {
 		drifts, err := worker.observeDrift(ctx, claimed)
 		result.drifts = drifts
@@ -392,6 +420,11 @@ func (worker *Worker) recordSuccess(ctx context.Context, claimed claim, result o
 	}
 	if err = insertDrifts(ctx, queries, entitlement.ID, result.drifts); err != nil {
 		return err
+	}
+	if result.limitedBase != nil && claimed.desired.limited != nil {
+		if err = queries.RecordLimitedAccessBase(ctx, dbgen.RecordLimitedAccessBaseParams{SessionID: claimed.desired.limited.sessionID, BaseUsedBytes: pgtype.Int8{Int64: *result.limitedBase, Valid: true}}); err != nil {
+			return err
+		}
 	}
 	remote := result.remote
 	subscription := claimed.subscription

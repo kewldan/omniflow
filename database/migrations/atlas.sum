@@ -1,4 +1,4 @@
-h1:Wtk1F4MODUo6TAPmn3DRxJ0bjhyiJ1QwdxZRHdBux3Y=
+h1:pRTWs04t408BhKIHwXj9KhtlUFePOBuP2L5UR8gd820=
 20261120000000_baseline.sql h1:xcYk9mdv44B3O0TRxq3RP+hXxJ2VeeOilGnwKO251mQ=
 20261120010000_river_schema_v8.sql h1:AfdQpxaviEf8asJ5gyLmMVZr+zMYaWEw+o/vE8CMj7A=
 20261120020000_customer_email_signin.sql h1:PrCKaTaDm5ggof8aqRooMbqOXEHML5fwq1TF877zQa8=
@@ -73,3 +73,4 @@ h1:Wtk1F4MODUo6TAPmn3DRxJ0bjhyiJ1QwdxZRHdBux3Y=
 20261122510000_traffic_package_change.sql h1:FYe8DTk9KESo03bKn2S/EbeQcwqhR42uQvUlbVVQ/ow=
 20261122520000_device_limit_reduction.sql h1:aQD+jomiY1Ibu2Ldxagtorfunn0sFDctH9U9t74/uOI=
 20261122530000_squad_addon_removal.sql h1:QDOAdBOtjp2Ns8FNc+VVsS3mCU0tubH9jHPS+XAWZFM=
+20261122540000_limited_access.sql h1:ZAu6KawCJ5Hl4E1ZJyp9KUJIr1VxWanmXWLEz/JmU1o=

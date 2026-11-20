@@ -7574,6 +7574,11 @@ components:
         maxDeviceLimit: {type: integer, minimum: 1, nullable: true, description: Most devices add-ons may take a subscription to; null is no ceiling.}
         remnawaveCloseMode: {type: string, enum: [disable, delete], description: What happens to the Remnawave user of a subscription the customer closes.}
         proratePlanChanges: {type: boolean, description: "A replace upgrade or an immediate downgrade credits the unused remainder of the current period, prorated by time at what the customer paid."}
+        limitedAccessOnExpiry: {type: boolean, description: "An expired subscription is kept on the limited access squad instead of stopping."}
+        limitedAccessOnTraffic: {type: boolean, description: "A subscription out of traffic is kept on the limited access squad instead of stopping."}
+        limitedAccessSquadId: {type: string, description: "The Remnawave internal squad limited access keeps a subscription on; empty for none."}
+        limitedAccessTrafficGb: {type: integer, minimum: 1, maximum: 1000, nullable: true, description: "Gigabytes a limited access period allows."}
+        limitedAccessDays: {type: integer, minimum: 1, maximum: 90, nullable: true, description: "How long a limited access period lasts."}
         updatedAt: {type: string, format: date-time, readOnly: true}
     ThemeDocument:
       type: object
