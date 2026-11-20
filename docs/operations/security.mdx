@@ -682,6 +682,33 @@ them.
 - Run supported patch versions of Omniflow, Remnawave, PostgreSQL, Valkey, and
   the reverse proxy, and review automated dependency updates.
 
+## Independent security review
+
+The v1.0 release requires an independent security review, and it is an
+**external process**: it cannot be produced by changes to this repository, by
+its own tests, or by an AI assistant working on it. What the project does, and
+what an operator should expect:
+
+- **Who.** A reviewer with no commit access and no stake in the code: a
+  security firm or an independent researcher engaged by the maintainers. Their
+  name, the commit they reviewed, and the dates are published with the report.
+- **Scope.** The three API prefixes and their trust boundaries (table above),
+  authentication and sessions for both panels, RBAC in `internal/rbac`, money
+  movement (ledger, payments, refunds, wallet, withdrawals, guest purchases),
+  webhook verification for every payment provider, secrets at rest
+  (`APP_DATA_ENCRYPTION_KEY` and everything sealed with it), the Remnawave
+  adapter, the e-mail queue and unsubscribe tokens, backups, and the
+  deployment defaults in `compose.yaml`.
+- **Method.** Source review plus testing against a deployment built from the
+  reviewed commit, with test payment credentials only.
+- **Output.** Findings with severity, fixed in the open with a reference to the
+  finding, and a summary published in `SECURITY.md` and the release notes. A
+  finding that is accepted rather than fixed is recorded with the reason.
+- **Until then.** No release claims to have been independently reviewed. The
+  automated checks the repository runs — `govulncheck`, `gitleaks`, the
+  permission and route-gate tests, the integration suite — are necessary and
+  not a substitute.
+
 ## Reporting a vulnerability
 
 Do not report security vulnerabilities through public issues, discussions, logs,

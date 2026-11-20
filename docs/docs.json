@@ -44,7 +44,8 @@
               "architecture/decision-0010-self-employed-receipts",
               "architecture/decision-0011-converted-stars-payments",
               "architecture/decision-0012-guest-purchases",
-              "architecture/decision-0013-account-sharing-signal"
+              "architecture/decision-0013-account-sharing-signal",
+              "architecture/decision-0014-apple-iap-native-only"
             ]
           },
           {
@@ -185,7 +186,8 @@
               "ru/architecture/decision-0010-self-employed-receipts",
               "ru/architecture/decision-0011-converted-stars-payments",
               "ru/architecture/decision-0012-guest-purchases",
-              "ru/architecture/decision-0013-account-sharing-signal"
+              "ru/architecture/decision-0013-account-sharing-signal",
+              "ru/architecture/decision-0014-apple-iap-native-only"
             ]
           },
           {
