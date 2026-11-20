@@ -6057,6 +6057,23 @@
       "emptySent": "You have not sent a gift yet.",
       "error": "Gifts could not be loaded",
       "redeemHint": "Got a gift? Enter the code on the <link>wallet page</link>.",
+      "recipient": "Recipient (optional)",
+      "recipientPlaceholder": "@username or name@example.com",
+      "recipientHint": "Once the gift is paid we hand it over ourselves: in the Telegram bot if they use it, otherwise by e-mail. Leave empty to pass the code on yourself.",
+      "recipientFor": "for {recipient}",
+      "recipientEmail": "an e-mail address",
+      "recipientDelivery": "Once it is paid, the gift goes to {recipient} and they are told. The code works too.",
+      "recipientProblem": {
+        "gift_recipient_invalid": "That is neither a Telegram @username nor an e-mail address.",
+        "gift_recipient_self": "You cannot address a gift to yourself.",
+        "gift_recipient_unknown": "Nobody with that @username uses our Telegram bot yet.",
+        "gift_email_unavailable": "Gifts cannot be sent to an e-mail address here."
+      },
+      "delivery": {
+        "waiting": "waiting to be delivered",
+        "delivered": "delivered",
+        "closed": "redeemed with the code"
+      },
       "status": {
         "pending": "Awaiting payment",
         "deliverable": "Ready to redeem",

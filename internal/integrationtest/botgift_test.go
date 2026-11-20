@@ -48,8 +48,12 @@ func TestBotGiftWithANoteBecomesAnOrder(t *testing.T) {
 		t.Fatalf("the plan list offers no gift button for the plan: %v", flow.telegram.lastScreen(t).callbacks(t))
 	}
 	flow.tap(ctx, sender, 10, "act:gift-message:plan:"+planVersionID)
+	if !slices.Contains(flow.telegram.lastScreen(t).callbacks(t), "act:gift-anyone") {
+		t.Fatalf("the recipient prompt offers no way to give just a code: %v", flow.telegram.lastScreen(t).callbacks(t))
+	}
+	flow.tap(ctx, sender, 10, "act:gift-anyone")
 	prompt := flow.telegram.lastScreen(t)
-	if !slices.Contains(prompt.callbacks(t), "act:gift-buy:plan:"+planVersionID) {
+	if !slices.Contains(prompt.callbacks(t), "act:gift-nonote") {
 		t.Fatalf("the note prompt offers no way to give without a note: %v", prompt.callbacks(t))
 	}
 	flow.say(ctx, sender, "Happy birthday!")
@@ -74,8 +78,10 @@ func TestBotGiftWithoutANoteBecomesAnOrder(t *testing.T) {
 	senderID := flow.customerOf(ctx, t, sender)
 
 	flow.tap(ctx, sender, 11, "act:gift-message:plan:"+planVersionID)
-	flow.tap(ctx, sender, 11, "act:gift-buy:plan:"+planVersionID)
+	flow.tap(ctx, sender, 11, "act:gift-anyone")
+	flow.tap(ctx, sender, 11, "act:gift-nonote")
 	flow.tap(ctx, sender, 12, "act:gift-message:credit:50000")
+	flow.tap(ctx, sender, 12, "act:gift-anyone")
 	flow.say(ctx, sender, "-")
 
 	if notes := giftNotes(ctx, t, harness, senderID); !slices.Equal(notes, []string{"", ""}) {
@@ -96,6 +102,7 @@ func TestBotGiftNoteOverTheLimitKeepsThePromptOpen(t *testing.T) {
 	senderID := flow.customerOf(ctx, t, sender)
 
 	flow.tap(ctx, sender, 13, "act:gift-message:plan:"+planVersionID)
+	flow.tap(ctx, sender, 13, "act:gift-anyone")
 	flow.say(ctx, sender, strings.Repeat("я", 201))
 	if notes := giftNotes(ctx, t, harness, senderID); len(notes) != 0 {
 		t.Fatalf("a note over the limit created gifts: %q", notes)

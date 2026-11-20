@@ -1182,13 +1182,19 @@ func (handlers *AccountHandlers) buyGift(writer http.ResponseWriter, request *ht
 		PlanVersionID string `json:"planVersionId"`
 		Currency      string `json:"currency"`
 		Message       string `json:"message"`
+		Recipient     string `json:"recipient"`
 	}
 	if !decodeJSON(writer, request, &body) {
 		return
 	}
 	gift, err := handlers.checkout.BuyGift(request.Context(), principal.Customer.ID, key, accountcheckout.GiftInput{
 		PlanVersionID: body.PlanVersionID, Currency: body.Currency, Message: strings.TrimSpace(body.Message),
+		Recipient: body.Recipient, Locale: accountLocale(request, principal.Customer.Locale),
 	})
+	if problem, ok := giftRecipientProblem(err); ok {
+		writeProblem(writer, request, http.StatusUnprocessableEntity, problem.code, problem.detail)
+		return
+	}
 	if errors.Is(err, accountcheckout.ErrGiftInvalid) {
 		writeProblem(writer, request, http.StatusUnprocessableEntity, "gift_invalid", "Choose a plan, and keep the message under 500 characters")
 		return
@@ -1198,4 +1204,22 @@ func (handlers *AccountHandlers) buyGift(writer http.ResponseWriter, request *ht
 		return
 	}
 	writeJSON(writer, http.StatusCreated, gift)
+}
+
+type giftProblem struct{ code, detail string }
+
+// giftRecipientProblem names a recipient the gift was refused for.
+func giftRecipientProblem(err error) (giftProblem, bool) {
+	switch {
+	case errors.Is(err, commercepg.ErrGiftRecipientInvalid):
+		return giftProblem{"gift_recipient_invalid", "The recipient is neither a Telegram @username nor an e-mail address"}, true
+	case errors.Is(err, commercepg.ErrGiftRecipientSelf):
+		return giftProblem{"gift_recipient_self", "A gift cannot be addressed to its sender"}, true
+	case errors.Is(err, commercepg.ErrGiftRecipientUnknown):
+		return giftProblem{"gift_recipient_unknown", "Nobody with that Telegram username uses this bot yet"}, true
+	case errors.Is(err, accountcheckout.ErrGiftEmailUnavailable):
+		return giftProblem{"gift_email_unavailable", "Gifts cannot be addressed to an e-mail address here"}, true
+	default:
+		return giftProblem{}, false
+	}
 }

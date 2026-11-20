@@ -81,6 +81,9 @@ type App struct {
 	// not configured.
 	customers *PostgresStore
 	commerce  *Commerce
+	// giftEmail seals an e-mail address a gift is addressed to; nil limits
+	// gift recipients to Telegram usernames.
+	giftEmail ContactSealer
 	limiter   *platform.RateLimiter
 	sender    *Sender
 	settings  CommerceSettings
@@ -692,7 +695,7 @@ func (app *App) handleFlowMessage(ctx context.Context, client *telegram.Bot, upd
 	}
 	switch state {
 	case "promo_code", "support_reply", "topup_amount", "subscription_label",
-		"goods_recipient", "goods_promo", "goods_stars_amount", "gift_message", "gift_claim", "referral_code":
+		"goods_recipient", "goods_promo", "goods_stars_amount", "gift_recipient", "gift_message", "gift_claim", "referral_code":
 	default:
 		return false
 	}
@@ -751,6 +754,11 @@ func (app *App) handleFlowMessage(ctx context.Context, client *telegram.Bot, upd
 		}
 		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID,
 			app.SubmitShopPromo(ctx, session, productID, recipient, message.Text)))
+	case "gift_recipient":
+		token, _ := flowContext["gift"].(string)
+		key, _ := flowContext["key"].(string)
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID,
+			app.SubmitGiftRecipient(ctx, session, token, key, message.Text)))
 	case "gift_message":
 		token, _ := flowContext["gift"].(string)
 		key, _ := flowContext["key"].(string)
@@ -758,7 +766,7 @@ func (app *App) handleFlowMessage(ctx context.Context, client *telegram.Bot, upd
 			app.logger.Warn("session cleanup failed", "error", err)
 		}
 		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID,
-			app.SubmitGiftMessage(ctx, session, token, key, message.Text)))
+			app.SubmitGiftMessage(ctx, session, token, key, message.Text, giftRecipientFrom(flowContext, session.Locale))))
 	case "referral_code":
 		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, app.completeReferralCode(ctx, session, message.Text)))
 	case "gift_claim":
@@ -964,6 +972,9 @@ func (app *App) HandleCallback(ctx context.Context, client *telegram.Bot, update
 	// handled, so the next ordinary message is not parsed as an amount, a
 	// promo code, a gift code, or a name for half an hour. A button that opens
 	// a prompt re-creates the state afterwards, so nothing is lost there.
+	// A step of a multi-button flow — the gift flow's "just a code" and
+	// "without a note" — reads the flow it continues from what was open.
+	ctx = app.rememberOpenFlow(ctx, query.From.ID, query.Data)
 	if err := app.store.CancelSession(ctx, query.From.ID); err != nil {
 		app.logger.Warn("flow state cleanup failed", "error", err)
 	}

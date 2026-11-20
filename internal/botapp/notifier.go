@@ -162,6 +162,7 @@ func (notifier *Notifier) Run(ctx context.Context) {
 func (notifier *Notifier) RunOnce(ctx context.Context) {
 	notifier.runLifecyclePass(ctx)
 	notifier.drainBroadcasts(ctx)
+	notifier.deliverGifts(ctx)
 	// Event notices are claimed through notification_deliveries, so this pass
 	// and the frequent one cannot both send the same notice.
 	notifier.deliverEventNotices(ctx)
@@ -451,6 +452,7 @@ func subscriptionLabelFor(subscription SubscriptionSummary, named bool) string {
 func (notifier *Notifier) runSupportReplies(ctx context.Context) {
 	notifier.deliverSupportReplies(ctx)
 	notifier.deliverGoodsNotices(ctx)
+	notifier.deliverGifts(ctx)
 	notifier.DeliverPanelEvents(ctx)
 	notifier.deliverEventNotices(ctx)
 	ticker := time.NewTicker(supportReplyInterval)
@@ -462,6 +464,7 @@ func (notifier *Notifier) runSupportReplies(ctx context.Context) {
 		case <-ticker.C:
 			notifier.deliverSupportReplies(ctx)
 			notifier.deliverGoodsNotices(ctx)
+			notifier.deliverGifts(ctx)
 			notifier.DeliverPanelEvents(ctx)
 			notifier.deliverEventNotices(ctx)
 		}

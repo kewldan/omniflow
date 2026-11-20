@@ -128,23 +128,6 @@ $$;
 
 
 --
--- Name: news_posts_category_kind(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.news_posts_category_kind() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-  IF NEW.category_code IS NULL THEN
-    NEW.category_code := NEW.category;
-  END IF;
-  SELECT kind INTO NEW.category FROM news_categories WHERE code = NEW.category_code;
-  RETURN NEW;
-END;
-$$;
-
-
---
 -- Name: promotion_goods_scope_matches(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -469,10 +452,8 @@ CREATE TABLE public.ad_campaigns (
     currency text DEFAULT 'RUB'::text NOT NULL,
     active boolean DEFAULT true NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    bonus_plan_id uuid,
-    CONSTRAINT ad_campaigns_bonus_known CHECK ((bonus_kind = ANY (ARRAY['none'::text, 'wallet'::text, 'days'::text, 'trial'::text, 'plan'::text]))),
-    CONSTRAINT ad_campaigns_bonus_plan_matches_kind CHECK (((bonus_kind = 'plan'::text) = (bonus_plan_id IS NOT NULL))),
-    CONSTRAINT ad_campaigns_bonus_value CHECK ((((bonus_kind = 'none'::text) AND (bonus_value = 0)) OR ((bonus_kind = 'wallet'::text) AND (bonus_value > 0)) OR ((bonus_kind = ANY (ARRAY['days'::text, 'trial'::text, 'plan'::text])) AND ((bonus_value >= 1) AND (bonus_value <= 365))))),
+    CONSTRAINT ad_campaigns_bonus_known CHECK ((bonus_kind = ANY (ARRAY['none'::text, 'wallet'::text, 'days'::text]))),
+    CONSTRAINT ad_campaigns_bonus_value CHECK ((((bonus_kind = 'none'::text) AND (bonus_value = 0)) OR ((bonus_kind = 'wallet'::text) AND (bonus_value > 0)) OR ((bonus_kind = 'days'::text) AND ((bonus_value >= 1) AND (bonus_value <= 365))))),
     CONSTRAINT ad_campaigns_code_shape CHECK ((code ~ '^[a-z0-9_]{2,40}$'::text)),
     CONSTRAINT ad_campaigns_currency_shape CHECK ((currency ~ '^[A-Z]{3}$'::text)),
     CONSTRAINT ad_campaigns_name_length CHECK (((char_length(name) >= 1) AND (char_length(name) <= 120)))
@@ -2231,40 +2212,6 @@ CREATE TABLE public.customer_start_attributions (
 
 
 --
--- Name: daily_games; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.daily_games (
-    code text NOT NULL,
-    enabled boolean DEFAULT false NOT NULL,
-    prize_kind text DEFAULT 'wallet'::text NOT NULL,
-    prize_value bigint DEFAULT 1000 NOT NULL,
-    prize_template_id uuid,
-    plays_per_day integer DEFAULT 1 NOT NULL,
-    parameter integer DEFAULT 0 NOT NULL,
-    cost_minor bigint DEFAULT 0 NOT NULL,
-    target_rtp_percent integer DEFAULT 80 NOT NULL,
-    daily_budget_minor bigint DEFAULT 0 NOT NULL,
-    daily_prize_limit integer DEFAULT 0 NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_by uuid,
-    CONSTRAINT daily_games_code_known CHECK ((code = ANY (ARRAY['dice'::text, 'slots'::text, 'guess_number'::text, 'lucky_ticket'::text, 'quiz'::text, 'daily_streak'::text, 'first_to_answer'::text]))),
-    CONSTRAINT daily_games_limits CHECK ((((plays_per_day >= 1) AND (plays_per_day <= 20)) AND (cost_minor >= 0) AND ((target_rtp_percent >= 1) AND (target_rtp_percent <= 100)) AND (daily_budget_minor >= 0) AND (daily_prize_limit >= 0))),
-    CONSTRAINT daily_games_once_a_day CHECK (((code <> ALL (ARRAY['quiz'::text, 'daily_streak'::text, 'first_to_answer'::text])) OR (plays_per_day = 1))),
-    CONSTRAINT daily_games_parameter_fits CHECK (
-CASE code
-    WHEN 'dice'::text THEN ((parameter >= 1) AND (parameter <= 6))
-    WHEN 'guess_number'::text THEN ((parameter >= 2) AND (parameter <= 10))
-    WHEN 'daily_streak'::text THEN ((parameter >= 2) AND (parameter <= 30))
-    WHEN 'first_to_answer'::text THEN ((parameter >= 1) AND (parameter <= 100))
-    ELSE (parameter = 0)
-END),
-    CONSTRAINT daily_games_prize_known CHECK ((prize_kind = ANY (ARRAY['wallet'::text, 'days'::text, 'promo'::text]))),
-    CONSTRAINT daily_games_prize_matches_kind CHECK ((((prize_kind = 'wallet'::text) AND (prize_value > 0) AND (prize_template_id IS NULL)) OR ((prize_kind = 'days'::text) AND ((prize_value >= 1) AND (prize_value <= 365)) AND (prize_template_id IS NULL)) OR ((prize_kind = 'promo'::text) AND (prize_value = 0) AND (prize_template_id IS NOT NULL))))
-);
-
-
---
 -- Name: device_aliases; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2494,52 +2441,30 @@ CREATE TABLE public.fulfillment_operations (
 
 
 --
--- Name: game_plays; Type: TABLE; Schema: public; Owner: -
+-- Name: gift_recipients; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.game_plays (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id uuid NOT NULL,
-    game_code text NOT NULL,
-    play_day date NOT NULL,
-    question_id uuid,
-    choice integer,
-    outcome jsonb DEFAULT '{}'::jsonb NOT NULL,
-    won boolean NOT NULL,
-    prize_kind text,
-    prize_value bigint DEFAULT 0 NOT NULL,
-    prize_value_minor bigint DEFAULT 0 NOT NULL,
-    personal_offer_id uuid,
-    cost_minor bigint DEFAULT 0 NOT NULL,
-    currency text NOT NULL,
-    idempotency_key text NOT NULL,
+CREATE TABLE public.gift_recipients (
+    gift_id uuid NOT NULL,
+    username text,
+    email_ciphertext bytea,
+    email_fingerprint bytea,
+    claim_code_hash bytea,
+    locale text DEFAULT 'ru'::text NOT NULL,
+    status text DEFAULT 'waiting'::text NOT NULL,
+    recipient_user_id uuid,
+    delivered_via text,
+    delivered_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT game_plays_amounts_nonnegative CHECK (((prize_value >= 0) AND (prize_value_minor >= 0) AND (cost_minor >= 0))),
-    CONSTRAINT game_plays_currency_iso CHECK ((currency ~ '^[A-Z]{3}$'::text)),
-    CONSTRAINT game_plays_prize_known CHECK (((prize_kind IS NULL) OR (prize_kind = ANY (ARRAY['wallet'::text, 'days'::text, 'promo'::text])))),
-    CONSTRAINT game_plays_prize_when_won CHECK ((won = (prize_kind IS NOT NULL)))
-);
-
-
---
--- Name: game_questions; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.game_questions (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    game_code text NOT NULL,
-    question_ru text NOT NULL,
-    question_en text NOT NULL,
-    options jsonb NOT NULL,
-    correct_index integer NOT NULL,
-    opens_at timestamp with time zone DEFAULT now() NOT NULL,
-    archived_at timestamp with time zone,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT game_questions_correct_in_range CHECK (((correct_index >= 0) AND (correct_index < jsonb_array_length(options)))),
-    CONSTRAINT game_questions_game_known CHECK ((game_code = ANY (ARRAY['quiz'::text, 'first_to_answer'::text]))),
-    CONSTRAINT game_questions_options_shape CHECK (((jsonb_typeof(options) = 'array'::text) AND ((jsonb_array_length(options) >= 2) AND (jsonb_array_length(options) <= 6)))),
-    CONSTRAINT game_questions_text_length CHECK ((((char_length(question_ru) >= 1) AND (char_length(question_ru) <= 300)) AND ((char_length(question_en) >= 1) AND (char_length(question_en) <= 300))))
+    CONSTRAINT gift_recipients_claim_code_shape CHECK (((claim_code_hash IS NULL) OR (octet_length(claim_code_hash) = 32))),
+    CONSTRAINT gift_recipients_delivered_via_known CHECK (((delivered_via IS NULL) OR (delivered_via = ANY (ARRAY['telegram'::text, 'email'::text])))),
+    CONSTRAINT gift_recipients_delivery_complete CHECK (((status = 'delivered'::text) = ((delivered_at IS NOT NULL) AND (delivered_via IS NOT NULL)))),
+    CONSTRAINT gift_recipients_email_fingerprint CHECK (((email_ciphertext IS NULL) = (email_fingerprint IS NULL))),
+    CONSTRAINT gift_recipients_locale_known CHECK ((locale = ANY (ARRAY['ru'::text, 'en'::text]))),
+    CONSTRAINT gift_recipients_one_address CHECK (((username IS NULL) OR (email_ciphertext IS NULL))),
+    CONSTRAINT gift_recipients_status_known CHECK ((status = ANY (ARRAY['waiting'::text, 'delivered'::text, 'closed'::text]))),
+    CONSTRAINT gift_recipients_username_shape CHECK (((username IS NULL) OR (username ~ '^[a-z0-9_]{5,32}$'::text))),
+    CONSTRAINT gift_recipients_waiting_address CHECK (((status <> 'waiting'::text) OR (username IS NOT NULL) OR (email_ciphertext IS NOT NULL)))
 );
 
 
@@ -3245,26 +3170,6 @@ CREATE TABLE public.message_templates (
 
 
 --
--- Name: news_categories; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.news_categories (
-    code text NOT NULL,
-    name_ru text NOT NULL,
-    name_en text NOT NULL,
-    color text NOT NULL,
-    kind text NOT NULL,
-    sort_order integer DEFAULT 0 NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT news_categories_code_shape CHECK ((code ~ '^[a-z][a-z0-9_-]{1,31}$'::text)),
-    CONSTRAINT news_categories_color_hex CHECK ((color ~ '^#[0-9a-f]{6}$'::text)),
-    CONSTRAINT news_categories_kind_known CHECK ((kind = ANY (ARRAY['news'::text, 'announcement'::text, 'incident'::text, 'maintenance'::text]))),
-    CONSTRAINT news_categories_names_length CHECK ((((char_length(name_ru) >= 1) AND (char_length(name_ru) <= 40)) AND ((char_length(name_en) >= 1) AND (char_length(name_en) <= 40))))
-);
-
-
---
 -- Name: news_post_localizations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -3297,20 +3202,12 @@ CREATE TABLE public.news_posts (
     archived_at timestamp with time zone,
     created_by uuid,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    category_code text NOT NULL,
-    tags text[] DEFAULT '{}'::text[] NOT NULL,
-    cover_url text,
-    featured boolean DEFAULT false NOT NULL,
-    view_count bigint DEFAULT 0 NOT NULL,
     CONSTRAINT news_posts_category_check CHECK ((category = ANY (ARRAY['news'::text, 'announcement'::text, 'incident'::text, 'maintenance'::text]))),
     CONSTRAINT news_posts_check CHECK (((expires_at IS NULL) OR (published_at IS NULL) OR (expires_at > published_at))),
     CONSTRAINT news_posts_class_check CHECK ((class = ANY (ARRAY['transactional'::text, 'marketing'::text]))),
-    CONSTRAINT news_posts_cover_https CHECK (((cover_url IS NULL) OR ((cover_url ~ '^https://[^\s<>"]+$'::text) AND (char_length(cover_url) <= 2000)))),
     CONSTRAINT news_posts_schedule_present CHECK (((status <> 'scheduled'::text) OR (scheduled_for IS NOT NULL))),
     CONSTRAINT news_posts_slug_check CHECK ((slug ~ '^[a-z0-9][a-z0-9_-]{2,63}$'::text)),
-    CONSTRAINT news_posts_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'scheduled'::text, 'published'::text, 'unpublished'::text, 'archived'::text]))),
-    CONSTRAINT news_posts_tags_bounded CHECK (((cardinality(tags) <= 10) AND (array_to_string(tags, ','::text) ~ '^([a-zа-яё0-9_]{1,32}(,|$))*$'::text))),
-    CONSTRAINT news_posts_view_count_nonnegative CHECK ((view_count >= 0))
+    CONSTRAINT news_posts_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'scheduled'::text, 'published'::text, 'unpublished'::text, 'archived'::text])))
 );
 
 
@@ -3628,31 +3525,6 @@ CREATE TABLE public.outbox_events (
     payload jsonb NOT NULL,
     occurred_at timestamp with time zone DEFAULT now() NOT NULL,
     published_at timestamp with time zone
-);
-
-
---
--- Name: partner_applications; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.partner_applications (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    user_id uuid NOT NULL,
-    status text DEFAULT 'pending'::text NOT NULL,
-    source text NOT NULL,
-    channel text DEFAULT ''::text NOT NULL,
-    message text DEFAULT ''::text NOT NULL,
-    commission_bps integer,
-    first_payment_commission_bps integer,
-    decision_note text DEFAULT ''::text NOT NULL,
-    decided_by uuid,
-    decided_at timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT partner_applications_decision_complete CHECK ((((status = 'pending'::text) = (decided_at IS NULL)) AND ((status <> 'approved'::text) OR (commission_bps IS NOT NULL)))),
-    CONSTRAINT partner_applications_rates_bounded CHECK ((((commission_bps IS NULL) OR ((commission_bps >= 0) AND (commission_bps <= 10000))) AND ((first_payment_commission_bps IS NULL) OR ((first_payment_commission_bps >= 0) AND (first_payment_commission_bps <= 10000))))),
-    CONSTRAINT partner_applications_source_known CHECK ((source = ANY (ARRAY['bot'::text, 'web'::text]))),
-    CONSTRAINT partner_applications_status_known CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text]))),
-    CONSTRAINT partner_applications_text_length CHECK (((char_length(channel) <= 200) AND (char_length(message) <= 1000) AND (char_length(decision_note) <= 400)))
 );
 
 
@@ -5096,6 +4968,18 @@ CREATE TABLE public.support_topic_choices (
 
 
 --
+-- Name: telegram_usernames; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.telegram_usernames (
+    user_id uuid NOT NULL,
+    username text NOT NULL,
+    seen_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT telegram_usernames_shape CHECK ((username ~ '^[a-z0-9_]{5,32}$'::text))
+);
+
+
+--
 -- Name: telemetry_events; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -6196,14 +6080,6 @@ ALTER TABLE ONLY public.customer_start_attributions
 
 
 --
--- Name: daily_games daily_games_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.daily_games
-    ADD CONSTRAINT daily_games_pkey PRIMARY KEY (code);
-
-
---
 -- Name: device_aliases device_aliases_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6324,27 +6200,11 @@ ALTER TABLE ONLY public.fulfillment_operations
 
 
 --
--- Name: game_plays game_plays_idempotency_unique; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: gift_recipients gift_recipients_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.game_plays
-    ADD CONSTRAINT game_plays_idempotency_unique UNIQUE (user_id, idempotency_key);
-
-
---
--- Name: game_plays game_plays_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.game_plays
-    ADD CONSTRAINT game_plays_pkey PRIMARY KEY (id);
-
-
---
--- Name: game_questions game_questions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.game_questions
-    ADD CONSTRAINT game_questions_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.gift_recipients
+    ADD CONSTRAINT gift_recipients_pkey PRIMARY KEY (gift_id);
 
 
 --
@@ -6684,14 +6544,6 @@ ALTER TABLE ONLY public.message_templates
 
 
 --
--- Name: news_categories news_categories_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.news_categories
-    ADD CONSTRAINT news_categories_pkey PRIMARY KEY (code);
-
-
---
 -- Name: news_post_localizations news_post_localizations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6873,14 +6725,6 @@ ALTER TABLE ONLY public.orders
 
 ALTER TABLE ONLY public.outbox_events
     ADD CONSTRAINT outbox_events_pkey PRIMARY KEY (id);
-
-
---
--- Name: partner_applications partner_applications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.partner_applications
-    ADD CONSTRAINT partner_applications_pkey PRIMARY KEY (id);
 
 
 --
@@ -7564,6 +7408,14 @@ ALTER TABLE ONLY public.support_topic_choices
 
 
 --
+-- Name: telegram_usernames telegram_usernames_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.telegram_usernames
+    ADD CONSTRAINT telegram_usernames_pkey PRIMARY KEY (user_id);
+
+
+--
 -- Name: telemetry_events telemetry_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8065,13 +7917,6 @@ CREATE INDEX customer_campaign_attributions_campaign ON public.customer_campaign
 
 
 --
--- Name: customer_campaign_attributions_campaign_day; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX customer_campaign_attributions_campaign_day ON public.customer_campaign_attributions USING btree (campaign_id, attributed_at);
-
-
---
 -- Name: customer_direct_messages_pending; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8219,31 +8064,24 @@ CREATE INDEX fulfillment_operations_pending_idx ON public.fulfillment_operations
 
 
 --
--- Name: game_plays_game_day_won; Type: INDEX; Schema: public; Owner: -
+-- Name: gift_recipients_claim_code_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX game_plays_game_day_won ON public.game_plays USING btree (game_code, play_day) WHERE won;
-
-
---
--- Name: game_plays_one_answer; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX game_plays_one_answer ON public.game_plays USING btree (user_id, question_id) WHERE (question_id IS NOT NULL);
+CREATE UNIQUE INDEX gift_recipients_claim_code_idx ON public.gift_recipients USING btree (claim_code_hash) WHERE (claim_code_hash IS NOT NULL);
 
 
 --
--- Name: game_plays_user_game_day; Type: INDEX; Schema: public; Owner: -
+-- Name: gift_recipients_username_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX game_plays_user_game_day ON public.game_plays USING btree (user_id, game_code, play_day);
+CREATE INDEX gift_recipients_username_idx ON public.gift_recipients USING btree (username) WHERE ((status = 'waiting'::text) AND (username IS NOT NULL));
 
 
 --
--- Name: game_questions_game_opens; Type: INDEX; Schema: public; Owner: -
+-- Name: gift_recipients_waiting_idx; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX game_questions_game_opens ON public.game_questions USING btree (game_code, opens_at DESC) WHERE (archived_at IS NULL);
+CREATE INDEX gift_recipients_waiting_idx ON public.gift_recipients USING btree (created_at) WHERE (status = 'waiting'::text);
 
 
 --
@@ -8387,13 +8225,6 @@ CREATE INDEX mcp_events_server_idx ON public.mcp_events USING btree (server_slug
 
 
 --
--- Name: news_posts_category_code; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX news_posts_category_code ON public.news_posts USING btree (category_code);
-
-
---
 -- Name: news_posts_published_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8405,13 +8236,6 @@ CREATE INDEX news_posts_published_idx ON public.news_posts USING btree (publishe
 --
 
 CREATE INDEX news_posts_scheduled_idx ON public.news_posts USING btree (scheduled_for) WHERE (status = 'scheduled'::text);
-
-
---
--- Name: news_posts_tags; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX news_posts_tags ON public.news_posts USING gin (tags);
 
 
 --
@@ -8496,27 +8320,6 @@ CREATE INDEX orders_subscription_idx ON public.orders USING btree (subscription_
 --
 
 CREATE INDEX outbox_events_unpublished_idx ON public.outbox_events USING btree (occurred_at) WHERE (published_at IS NULL);
-
-
---
--- Name: partner_applications_one_pending; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX partner_applications_one_pending ON public.partner_applications USING btree (user_id) WHERE (status = 'pending'::text);
-
-
---
--- Name: partner_applications_status_created; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX partner_applications_status_created ON public.partner_applications USING btree (status, created_at DESC);
-
-
---
--- Name: partner_applications_user; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX partner_applications_user ON public.partner_applications USING btree (user_id, created_at DESC);
 
 
 --
@@ -8863,6 +8666,13 @@ CREATE INDEX support_tickets_user_updated_idx ON public.support_tickets USING bt
 
 
 --
+-- Name: telegram_usernames_username_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX telegram_usernames_username_idx ON public.telegram_usernames USING btree (username);
+
+
+--
 -- Name: telemetry_events_installation_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8944,13 +8754,6 @@ CREATE TRIGGER cart_goods_kind_matches BEFORE INSERT OR UPDATE ON public.cart_go
 --
 
 CREATE TRIGGER loyalty_standing_history_notice AFTER INSERT ON public.loyalty_standing_history FOR EACH ROW EXECUTE FUNCTION public.queue_loyalty_change_notices();
-
-
---
--- Name: news_posts news_posts_category_kind; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER news_posts_category_kind BEFORE INSERT OR UPDATE OF category_code ON public.news_posts FOR EACH ROW EXECUTE FUNCTION public.news_posts_category_kind();
 
 
 --
@@ -9073,14 +8876,6 @@ ALTER TABLE ONLY public.access_codes
 
 ALTER TABLE ONLY public.access_codes
     ADD CONSTRAINT access_codes_redeemed_entitlement_id_fkey FOREIGN KEY (redeemed_entitlement_id) REFERENCES public.entitlements(id);
-
-
---
--- Name: ad_campaigns ad_campaigns_bonus_plan_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.ad_campaigns
-    ADD CONSTRAINT ad_campaigns_bonus_plan_id_fkey FOREIGN KEY (bonus_plan_id) REFERENCES public.plans(id);
 
 
 --
@@ -9956,22 +9751,6 @@ ALTER TABLE ONLY public.customer_start_attributions
 
 
 --
--- Name: daily_games daily_games_prize_template_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.daily_games
-    ADD CONSTRAINT daily_games_prize_template_id_fkey FOREIGN KEY (prize_template_id) REFERENCES public.offer_templates(id);
-
-
---
--- Name: daily_games daily_games_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.daily_games
-    ADD CONSTRAINT daily_games_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.admin_users(id) ON DELETE SET NULL;
-
-
---
 -- Name: device_aliases device_aliases_subscription_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10124,51 +9903,19 @@ ALTER TABLE ONLY public.fulfillment_operations
 
 
 --
--- Name: game_plays game_plays_game_code_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: gift_recipients gift_recipients_gift_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.game_plays
-    ADD CONSTRAINT game_plays_game_code_fkey FOREIGN KEY (game_code) REFERENCES public.daily_games(code);
-
-
---
--- Name: game_plays game_plays_personal_offer_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.game_plays
-    ADD CONSTRAINT game_plays_personal_offer_id_fkey FOREIGN KEY (personal_offer_id) REFERENCES public.personal_offers(id);
+ALTER TABLE ONLY public.gift_recipients
+    ADD CONSTRAINT gift_recipients_gift_id_fkey FOREIGN KEY (gift_id) REFERENCES public.gifts(id) ON DELETE CASCADE;
 
 
 --
--- Name: game_plays game_plays_question_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: gift_recipients gift_recipients_recipient_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.game_plays
-    ADD CONSTRAINT game_plays_question_id_fkey FOREIGN KEY (question_id) REFERENCES public.game_questions(id);
-
-
---
--- Name: game_plays game_plays_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.game_plays
-    ADD CONSTRAINT game_plays_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
-
-
---
--- Name: game_questions game_questions_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.game_questions
-    ADD CONSTRAINT game_questions_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.admin_users(id) ON DELETE SET NULL;
-
-
---
--- Name: game_questions game_questions_game_code_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.game_questions
-    ADD CONSTRAINT game_questions_game_code_fkey FOREIGN KEY (game_code) REFERENCES public.daily_games(code);
+ALTER TABLE ONLY public.gift_recipients
+    ADD CONSTRAINT gift_recipients_recipient_user_id_fkey FOREIGN KEY (recipient_user_id) REFERENCES public.users(id) ON DELETE SET NULL;
 
 
 --
@@ -10524,14 +10271,6 @@ ALTER TABLE ONLY public.news_post_localizations
 
 
 --
--- Name: news_posts news_posts_category_code_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.news_posts
-    ADD CONSTRAINT news_posts_category_code_fkey FOREIGN KEY (category_code) REFERENCES public.news_categories(code);
-
-
---
 -- Name: news_posts news_posts_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10713,22 +10452,6 @@ ALTER TABLE ONLY public.orders
 
 ALTER TABLE ONLY public.orders
     ADD CONSTRAINT orders_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
-
-
---
--- Name: partner_applications partner_applications_decided_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.partner_applications
-    ADD CONSTRAINT partner_applications_decided_by_fkey FOREIGN KEY (decided_by) REFERENCES public.admin_users(id) ON DELETE SET NULL;
-
-
---
--- Name: partner_applications partner_applications_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.partner_applications
-    ADD CONSTRAINT partner_applications_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --
@@ -11393,6 +11116,14 @@ ALTER TABLE ONLY public.support_topic_choices
 
 ALTER TABLE ONLY public.support_topic_choices
     ADD CONSTRAINT support_topic_choices_user_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: telegram_usernames telegram_usernames_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.telegram_usernames
+    ADD CONSTRAINT telegram_usernames_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --

@@ -46,6 +46,13 @@ WITH revoked_identities AS (
   WHERE contact_channels.user_id = $1
 ), cleared_mapping AS (
   UPDATE remnawave_users SET telegram_id = NULL, observed_state = '{}'::jsonb WHERE remnawave_users.user_id = $1
+), cleared_username AS (
+  DELETE FROM telegram_usernames WHERE telegram_usernames.user_id = $1
+), cleared_gift_addresses AS (
+  -- The addresses this customer gave their gifts are other people's data.
+  DELETE FROM gift_recipients
+  WHERE gift_recipients.status = 'waiting'
+    AND gift_recipients.gift_id IN (SELECT gifts.id FROM gifts WHERE gifts.sender_user_id = $1)
 ), redacted_support AS (
   UPDATE support_messages SET body = '[anonymized]', telegram_message_id = NULL
   WHERE support_messages.ticket_id IN (SELECT support_tickets.id FROM support_tickets WHERE support_tickets.user_id = $1)

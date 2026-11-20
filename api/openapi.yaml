@@ -4218,6 +4218,18 @@ paths:
                 planVersionId: {type: string, format: uuid}
                 currency: {type: string}
                 message: {type: string, maxLength: 500}
+                recipient:
+                  type: string
+                  maxLength: 254
+                  description: >-
+                    Who the gift is for: a Telegram @username or an e-mail
+                    address. Once paid it is claimed for the customer who uses
+                    that username or verified address in the bot and they are
+                    told there; an address nobody there holds is mailed a claim
+                    code. Empty leaves the code to the sender. `422
+                    gift_recipient_invalid`, `gift_recipient_self`,
+                    `gift_recipient_unknown` (a username nobody has used the bot
+                    with), or `gift_email_unavailable`.
       responses:
         "201": {description: Gift opened, content: {application/json: {schema: {$ref: "#/components/schemas/AccountGift"}}}}
         "400": {$ref: "#/components/responses/Problem"}
@@ -8220,6 +8232,8 @@ components:
         expiresAt: {type: string, format: date-time}
         claimedAt: {type: string, format: date-time}
         createdAt: {type: string, format: date-time}
+        recipient: {type: string, description: "For a gift the customer addressed: the @username, or `email` for an e-mail address, which is never shown back."}
+        delivery: {type: string, enum: [waiting, delivered, closed], description: "How far an addressed gift got: waiting for payment or for its recipient, delivered to them, or closed because the code was redeemed first."}
     AccountOffer:
       type: object
       required: [id, title, terms, expiresAt]

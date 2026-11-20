@@ -40,6 +40,10 @@ type GiftOrderInput struct {
 	SkipWallet          bool
 	// Provider, when known at order time, sets the payment window.
 	Provider string
+	// Recipient addresses the gift to a Telegram username or an e-mail
+	// address; once paid it is delivered there. The zero value addresses it
+	// to nobody: whoever holds the code claims it.
+	Recipient GiftRecipient
 }
 
 // GiftPurchase is the result of opening a gift order.
@@ -160,6 +164,9 @@ func (store *Store) CreateGiftOrder(
 	if err != nil {
 		return GiftPurchase{}, err
 	}
+	if err = store.recordGiftRecipient(ctx, tx, gift.ID, senderID, input.Recipient); err != nil {
+		return GiftPurchase{}, err
+	}
 	if state == string(commerce.OrderPaid) {
 		if err = store.settleGiftOrder(ctx, queries, order, "wallet:"+input.IdempotencyKey); err != nil {
 			return GiftPurchase{}, err
@@ -275,14 +282,24 @@ func (store *Store) claimGift(ctx context.Context, digest []byte, recipientID pg
 	defer func() { _ = tx.Rollback(ctx) }()
 	queries := dbgen.New(tx)
 
+	var giftID pgtype.UUID
 	found, err := queries.GetGiftByCodeHash(ctx, digest)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return dbgen.Gift{}, ErrGiftNotFound
-	}
-	if err != nil {
+	switch {
+	case err == nil:
+		giftID = found.ID
+	case errors.Is(err, pgx.ErrNoRows):
+		// A gift mailed to its recipient carries a code of its own beside the
+		// sender's; either claims it.
+		if err = tx.QueryRow(ctx, `SELECT gift_id FROM gift_recipients WHERE claim_code_hash = $1`, digest).Scan(&giftID); errors.Is(err, pgx.ErrNoRows) {
+			return dbgen.Gift{}, ErrGiftNotFound
+		}
+		if err != nil {
+			return dbgen.Gift{}, err
+		}
+	default:
 		return dbgen.Gift{}, err
 	}
-	gift, err := queries.LockGift(ctx, found.ID)
+	gift, err := queries.LockGift(ctx, giftID)
 	if err != nil {
 		return dbgen.Gift{}, err
 	}
@@ -301,10 +318,47 @@ func (store *Store) claimGift(ctx context.Context, digest []byte, recipientID pg
 		}
 		return dbgen.Gift{}, ErrGiftNotFound
 	}
+	return store.completeClaim(ctx, tx, queries, gift, recipientID, "")
+}
 
+// claimGiftByID claims a gift for the customer it was addressed to, without
+// a code: the delivery pass found who the address belongs to. A gift that is
+// no longer deliverable is refused without counting an attempt, because no
+// code was presented.
+func (store *Store) claimGiftByID(ctx context.Context, giftID, recipientID pgtype.UUID, via string) (dbgen.Gift, error) {
+	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.Serializable})
+	if err != nil {
+		return dbgen.Gift{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	queries := dbgen.New(tx)
+	gift, err := queries.LockGift(ctx, giftID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return dbgen.Gift{}, ErrGiftNotFound
+	}
+	if err != nil {
+		return dbgen.Gift{}, err
+	}
+	if gift.SenderUserID == recipientID {
+		return dbgen.Gift{}, ErrGiftOwnClaim
+	}
+	if gift.Status != "deliverable" || !gift.ExpiresAt.Time.After(store.clock().UTC()) {
+		return dbgen.Gift{}, ErrGiftNotFound
+	}
+	return store.completeClaim(ctx, tx, queries, gift, recipientID, via)
+}
+
+// completeClaim gives the recipient what the locked, deliverable gift bought
+// and marks it claimed, then commits. via names how an addressed gift reached
+// its recipient, and is empty for a code claim, which closes any delivery
+// still waiting: the gift is no longer there to deliver.
+func (store *Store) completeClaim(
+	ctx context.Context, tx pgx.Tx, queries *dbgen.Queries, gift dbgen.Gift, recipientID pgtype.UUID, via string,
+) (dbgen.Gift, error) {
 	var (
 		ledgerID      pgtype.UUID
 		entitlementID pgtype.UUID
+		err           error
 	)
 	switch gift.Kind {
 	case gifts.KindCredit:
@@ -333,6 +387,17 @@ func (store *Store) claimGift(ctx context.Context, digest []byte, recipientID pg
 		// Somebody else claimed it between the lock and here. Impossible with
 		// the lock held, but refusing is the correct answer if it ever is.
 		return dbgen.Gift{}, ErrGiftNotFound
+	}
+	if err != nil {
+		return dbgen.Gift{}, err
+	}
+	if via != "" {
+		_, err = tx.Exec(ctx, `UPDATE gift_recipients SET status = 'delivered', delivered_via = $2,
+			delivered_at = now(), recipient_user_id = $3, email_ciphertext = NULL, email_fingerprint = NULL WHERE gift_id = $1 AND status = 'waiting'`,
+			gift.ID, via, recipientID)
+	} else {
+		_, err = tx.Exec(ctx, `UPDATE gift_recipients SET status = 'closed', recipient_user_id = $2,
+			email_ciphertext = NULL, email_fingerprint = NULL WHERE gift_id = $1 AND status = 'waiting'`, gift.ID, recipientID)
 	}
 	if err != nil {
 		return dbgen.Gift{}, err

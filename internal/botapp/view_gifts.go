@@ -79,10 +79,16 @@ func giftCreditView(locale Locale, presets []int64, currency string) View {
 // one. That button is the only way to a gift with no note that does not depend
 // on the customer knowing to type a dash.
 func giftMessagePromptView(locale Locale, token string) View {
+	// An open flow carries its gift and recipient in the session, so its
+	// button names neither; a bare token is a button rendered before that.
+	withoutNote := "gift-nonote"
+	if token != "" {
+		withoutNote = "gift-buy:" + token
+	}
 	return View{
 		Text: text(locale, "gift.messagePrompt"),
 		Keyboard: keyboard(
-			row(actionButton(text(locale, "gift.withoutNote"), "gift-buy:"+token)),
+			row(actionButton(text(locale, "gift.withoutNote"), withoutNote)),
 			row(callbackButton(text(locale, "action.cancel"), routeGifts)),
 		),
 	}

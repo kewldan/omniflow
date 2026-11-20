@@ -453,8 +453,12 @@ func buildCustomerPanel(
 		return nil, nil, errors.New("APP_PUBLIC_URL is required when the customer magic-link fallback is enabled")
 	}
 
+	giftContacts, err := customerpg.New(pool, cfg.DataEncryptionKey, 30*24*time.Hour)
+	if err != nil {
+		return nil, nil, err
+	}
 	checkout, err := accountcheckout.New(pool, commerceStore, paymentService, accountcheckout.Options{
-		Logger: logger,
+		Logger: logger, Contacts: giftContacts,
 		Settings: accountcheckout.Settings{
 			Currency: cfg.DefaultCurrency, PublicURL: cfg.PublicURL, TermsURL: cfg.TermsURL,
 			RecoveryWindow: cfg.RecoveryWindow, MinimumTrialAccountAge: cfg.MinimumTrialAccountAge,

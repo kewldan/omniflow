@@ -11579,6 +11579,18 @@ export const AccountListGiftsResponse = zod.object({
       expiresAt: zod.iso.datetime({ offset: true }),
       claimedAt: zod.iso.datetime({ offset: true }).optional(),
       createdAt: zod.iso.datetime({ offset: true }),
+      recipient: zod
+        .string()
+        .optional()
+        .describe(
+          "For a gift the customer addressed: the @username, or `email` for an e-mail address, which is never shown back.",
+        ),
+      delivery: zod
+        .enum(["waiting", "delivered", "closed"])
+        .optional()
+        .describe(
+          "How far an addressed gift got: waiting for payment or for its recipient, delivered to them, or closed because the code was redeemed first.",
+        ),
     }),
   ),
   received: zod.array(
@@ -11598,6 +11610,18 @@ export const AccountListGiftsResponse = zod.object({
       expiresAt: zod.iso.datetime({ offset: true }),
       claimedAt: zod.iso.datetime({ offset: true }).optional(),
       createdAt: zod.iso.datetime({ offset: true }),
+      recipient: zod
+        .string()
+        .optional()
+        .describe(
+          "For a gift the customer addressed: the @username, or `email` for an e-mail address, which is never shown back.",
+        ),
+      delivery: zod
+        .enum(["waiting", "delivered", "closed"])
+        .optional()
+        .describe(
+          "How far an addressed gift got: waiting for payment or for its recipient, delivered to them, or closed because the code was redeemed first.",
+        ),
     }),
   ),
 });
@@ -11611,10 +11635,19 @@ export const AccountBuyGiftHeader = zod.object({
 
 export const accountBuyGiftBodyMessageMax = 500;
 
+export const accountBuyGiftBodyRecipientMax = 254;
+
 export const AccountBuyGiftBody = zod.object({
   planVersionId: zod.uuid(),
   currency: zod.string().optional(),
   message: zod.string().max(accountBuyGiftBodyMessageMax).optional(),
+  recipient: zod
+    .string()
+    .max(accountBuyGiftBodyRecipientMax)
+    .optional()
+    .describe(
+      "Who the gift is for: a Telegram @username or an e-mail address. Once paid it is claimed for the customer who uses that username or verified address in the bot and they are told there; an address nobody there holds is mailed a claim code. Empty leaves the code to the sender. `422 gift_recipient_invalid`, `gift_recipient_self`, `gift_recipient_unknown` (a username nobody has used the bot with), or `gift_email_unavailable`.",
+    ),
 });
 
 export const AccountBuyGiftResponse = zod.object({
@@ -11633,6 +11666,18 @@ export const AccountBuyGiftResponse = zod.object({
   expiresAt: zod.iso.datetime({ offset: true }),
   claimedAt: zod.iso.datetime({ offset: true }).optional(),
   createdAt: zod.iso.datetime({ offset: true }),
+  recipient: zod
+    .string()
+    .optional()
+    .describe(
+      "For a gift the customer addressed: the @username, or `email` for an e-mail address, which is never shown back.",
+    ),
+  delivery: zod
+    .enum(["waiting", "delivered", "closed"])
+    .optional()
+    .describe(
+      "How far an addressed gift got: waiting for payment or for its recipient, delivered to them, or closed because the code was redeemed first.",
+    ),
 });
 
 /**

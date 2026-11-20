@@ -61,6 +61,41 @@ The refusal reasons are checked in a deliberate order:
 5. **Named recipient.** A gift addressed to a Telegram identifier is claimable
    only by that identifier.
 
+### Addressing a gift
+
+A sender may say who a gift is for: a Telegram `@username` or an e-mail address. Naming nobody keeps
+the old behaviour — the code is the sender's to hand over. Either way the sender's code is shown once
+and keeps working.
+
+- **In the bot**, after choosing the subscription or the amount, the sender is asked *Who is it
+  for?* and sends a `@username` or an e-mail address, or taps **🎟 Just a code**. The note prompt
+  follows.
+- **On the web**, `/account/gifts` has an optional **Recipient** field, sent as `recipient` with
+  `POST /v1/account/gifts`. The list of sent gifts shows whom each was addressed to and whether it was
+  delivered.
+
+The bot remembers the Telegram username each customer last wrote to it with (`telegram_usernames`),
+taking it from whoever held it before, since Telegram gives a username to one account at a time. A
+gift to a `@username` nobody has used the bot with is refused (`gift_recipient_unknown`), as is one
+addressed to its own sender (`gift_recipient_self`) or to something that is neither
+(`gift_recipient_invalid`). An e-mail address is sealed with the installation's data key as a contact
+is, before it is stored; a bot without `APP_DATA_ENCRYPTION_KEY` takes `@usernames` only, and the web
+answers `gift_email_unavailable` in the same situation.
+
+Once the gift is paid it is delivered (`gift_recipients`):
+
+| Addressed to | Delivered by | What happens |
+| --- | --- | --- |
+| A `@username` a customer uses | The bot, within a minute | The gift is claimed for that customer and they are told in the bot what they were given, with the sender's note |
+| An e-mail address a Telegram customer holds, verified | The bot, within a minute | The same |
+| Any other e-mail address | The worker's mail pass | The address is mailed a claim code of its own with an activation link to the wallet page; the address is erased once the mail is queued |
+
+Claiming and recording the delivery are one transaction, and the bot's notice is keyed on the gift,
+so a gift is delivered and announced once however often the passes run. A gift redeemed with its code
+before it is delivered is closed instead of delivered again. The mailed code is a second code for the
+same gift; whichever is used first claims it. Anonymising a sender drops the addresses of gifts still
+waiting, and anonymising a customer forgets their username.
+
 ### Revocation and refunds
 
 An operator may revoke a gift that is pending, deliverable, or expired. A
@@ -443,8 +478,8 @@ charging for something the customer believed they had replaced.
 
 ## Gifts on the web
 
-`/account/gifts` buys a subscription gift the way the bot does: the customer picks a plan and an
-optional note, the wallet pays what it can, and anything left is paid on the order page through any
+`/account/gifts` buys a subscription gift the way the bot does: the customer picks a plan, an optional
+recipient (see [Addressing a gift](#addressing-a-gift)), and an optional note, the wallet pays what it can, and anything left is paid on the order page through any
 configured provider. The code appears once on that screen (`POST /v1/account/gifts` with an
 `Idempotency-Key`; a retry returns the same gift without the code). The page lists gifts sent, by the
 last four characters of the code, and gifts received. A recipient redeems a code on the wallet page,

@@ -83,6 +83,13 @@ func (app *App) commerceContext(ctx context.Context, telegramID int64, telegramL
 	handle := ""
 	if len(username) > 0 {
 		handle = username[0]
+		// The username is remembered so a gift addressed to @username finds
+		// this customer; a customer who has none forgets an old one.
+		if app.commerce != nil {
+			if recordErr := app.commerce.orders.RecordTelegramUsername(ctx, customer.ID, handle); recordErr != nil {
+				app.logger.Warn("telegram username could not be recorded", "error", recordErr)
+			}
+		}
 	}
 	return commerceContext{
 		Customer: customer, Locale: locale, TelegramID: telegramID, Username: handle,

@@ -23,7 +23,16 @@ type GiftInput struct {
 	Message       string
 	// SkipWallet pays the whole gift through a provider.
 	SkipWallet bool
+	// Recipient is a Telegram @username or an e-mail address the gift is
+	// delivered to once it is paid; empty leaves the code to the sender.
+	Recipient string
+	// Locale is the language a mailed recipient is written to in.
+	Locale string
 }
+
+// ErrGiftEmailUnavailable refuses an e-mail recipient on an installation that
+// cannot seal one.
+var ErrGiftEmailUnavailable = errors.New("gift_email_unavailable")
 
 // BoughtGift is a gift as its sender sees it. Code is set only on the
 // response that created it: only the hash is stored.
@@ -41,6 +50,11 @@ type BoughtGift struct {
 	ExpiresAt   time.Time  `json:"expiresAt"`
 	ClaimedAt   *time.Time `json:"claimedAt,omitempty"`
 	CreatedAt   time.Time  `json:"createdAt"`
+	// Recipient is "@username" or "email" for an addressed gift; the
+	// address itself is never shown back.
+	Recipient string `json:"recipient,omitempty"`
+	// Delivery is how far an addressed gift got: waiting, delivered, closed.
+	Delivery string `json:"delivery,omitempty"`
 }
 
 // BuyGift opens a subscription gift order for the sender, exactly as the bot
@@ -54,16 +68,25 @@ func (service *Service) BuyGift(ctx context.Context, customerID, idempotencyKey 
 	if currency == "" {
 		currency = service.settings.Currency
 	}
+	recipient, err := service.giftRecipient(input)
+	if err != nil {
+		return BoughtGift{}, err
+	}
 	purchase, err := service.orders.CreateGiftOrder(ctx, commercepg.GiftOrderInput{
 		SenderID: customerID, Kind: gifts.KindSubscription, PlanVersionID: input.PlanVersionID,
 		Currency: currency, SenderMessage: input.Message, IdempotencyKey: idempotencyKey,
-		SkipWallet: input.SkipWallet,
+		SkipWallet: input.SkipWallet, Recipient: recipient,
 	})
 	if err != nil {
 		return BoughtGift{}, err
 	}
 	gift := boughtGift(purchase.Gift)
 	gift.Code = purchase.Code
+	if recipient.Username != "" {
+		gift.Recipient, gift.Delivery = "@"+recipient.Username, "waiting"
+	} else if len(recipient.EmailCiphertext) > 0 {
+		gift.Recipient, gift.Delivery = "email", "waiting"
+	}
 	gift.OrderState = purchase.Order.State
 	gift.ExternalDue = purchase.Order.ExternalMinor
 	return gift, nil
@@ -96,8 +119,36 @@ func (service *Service) listGifts(ctx context.Context, customerID string, receiv
 		return nil, err
 	}
 	result := make([]BoughtGift, 0, len(rows))
+	ids := make([]pgtype.UUID, 0, len(rows))
 	for _, row := range rows {
 		result = append(result, boughtGift(row))
+		ids = append(ids, row.ID)
+	}
+	if received || len(ids) == 0 {
+		return result, nil
+	}
+	addressed, err := service.store.pool.Query(ctx, `SELECT gift_id::text,
+			CASE WHEN username IS NOT NULL THEN '@' || username ELSE 'email' END, status
+		FROM gift_recipients WHERE gift_id = ANY($1)`, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer addressed.Close()
+	recipients := map[string][2]string{}
+	for addressed.Next() {
+		var id, recipient, status string
+		if err = addressed.Scan(&id, &recipient, &status); err != nil {
+			return nil, err
+		}
+		recipients[id] = [2]string{recipient, status}
+	}
+	if err = addressed.Err(); err != nil {
+		return nil, err
+	}
+	for index := range result {
+		if found, ok := recipients[result[index].ID]; ok {
+			result[index].Recipient, result[index].Delivery = found[0], found[1]
+		}
 	}
 	return result, nil
 }
@@ -125,4 +176,27 @@ func uuidOf(value pgtype.UUID) string {
 	encoded, _ := value.Value()
 	text, _ := encoded.(string)
 	return text
+}
+
+// giftRecipient reads the recipient a sender typed: a username as it is, an
+// e-mail address sealed as a contact is.
+func (service *Service) giftRecipient(input GiftInput) (commercepg.GiftRecipient, error) {
+	username, email, err := commercepg.ParseGiftRecipient(input.Recipient)
+	if err != nil {
+		return commercepg.GiftRecipient{}, err
+	}
+	recipient := commercepg.GiftRecipient{Username: username, Locale: input.Locale}
+	if email == "" {
+		if username == "" {
+			return commercepg.GiftRecipient{}, nil
+		}
+		return recipient, nil
+	}
+	if service.contacts == nil {
+		return commercepg.GiftRecipient{}, ErrGiftEmailUnavailable
+	}
+	if recipient.EmailCiphertext, recipient.EmailFingerprint, err = service.contacts.SealContact("email", email); err != nil {
+		return commercepg.GiftRecipient{}, err
+	}
+	return recipient, nil
 }

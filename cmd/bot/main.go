@@ -19,6 +19,7 @@ import (
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/config"
 	"github.com/omniflow/omniflow/internal/customerauthpg"
+	"github.com/omniflow/omniflow/internal/customerpg"
 	"github.com/omniflow/omniflow/internal/errorlog"
 	"github.com/omniflow/omniflow/internal/fulfillment"
 	"github.com/omniflow/omniflow/internal/goodsdelivery"
@@ -114,6 +115,16 @@ func main() {
 		os.Exit(1)
 	}
 	application.EnableCommerce(identities, commerceService, limiter, sender, settings)
+	// A gift addressed to an e-mail address is sealed with the data key, as a
+	// contact is; without it gifts are addressed to @usernames only.
+	if len(cfg.DataEncryptionKey) == 32 {
+		contacts, contactsErr := customerpg.New(pool, cfg.DataEncryptionKey, 30*24*time.Hour)
+		if contactsErr != nil {
+			logger.Error("contact sealing initialization failed", "error", contactsErr)
+			os.Exit(1)
+		}
+		application.EnableGiftEmail(contacts)
+	}
 	logger.Info("telegram commerce enabled", "currency", settings.Currency, "multi_subscription", cfg.Subscriptions.MultiEnabled)
 
 	// Backups and restores are the only administrative actions Telegram

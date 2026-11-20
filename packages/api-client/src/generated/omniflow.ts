@@ -3993,6 +3993,17 @@ export interface PanelBulkDetail {
   items: PanelBulkItem[] | null;
 }
 
+/**
+ * How far an addressed gift got: waiting for payment or for its recipient, delivered to them, or closed because the code was redeemed first.
+ */
+export type AccountGiftDelivery = (typeof AccountGiftDelivery)[keyof typeof AccountGiftDelivery];
+
+export const AccountGiftDelivery = {
+  waiting: "waiting",
+  delivered: "delivered",
+  closed: "closed",
+} as const;
+
 export interface AccountGift {
   id: string;
   orderId: string;
@@ -4009,6 +4020,10 @@ export interface AccountGift {
   expiresAt: string;
   claimedAt?: string;
   createdAt: string;
+  /** For a gift the customer addressed: the @username, or `email` for an e-mail address, which is never shown back. */
+  recipient?: string;
+  /** How far an addressed gift got: waiting for payment or for its recipient, delivered to them, or closed because the code was redeemed first. */
+  delivery?: AccountGiftDelivery;
 }
 
 export interface AccountOffer {
@@ -7291,6 +7306,11 @@ export type AccountBuyGiftBody = {
   currency?: string;
   /** @maxLength 500 */
   message?: string;
+  /**
+   * Who the gift is for: a Telegram @username or an e-mail address. Once paid it is claimed for the customer who uses that username or verified address in the bot and they are told there; an address nobody there holds is mailed a claim code. Empty leaves the code to the sender. `422 gift_recipient_invalid`, `gift_recipient_self`, `gift_recipient_unknown` (a username nobody has used the bot with), or `gift_email_unavailable`.
+   * @maxLength 254
+   */
+  recipient?: string;
 };
 
 export type AcceptAccountTermsBody = {

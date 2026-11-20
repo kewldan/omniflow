@@ -63,6 +63,7 @@ type Service struct {
 	// botUsername resolves the bot's @name for the Telegram Stars handoff.
 	// Nil leaves a Stars payment with no link; see stars.go.
 	botUsername func(context.Context) string
+	contacts    ContactSealer
 }
 
 // Options configures a Service.
@@ -70,6 +71,15 @@ type Options struct {
 	Settings Settings
 	Logger   *slog.Logger
 	Clock    func() time.Time
+	// Contacts seals an e-mail address a gift is addressed to. Without it a
+	// gift may be addressed to a Telegram username only.
+	Contacts ContactSealer
+}
+
+// ContactSealer seals a contact value as contact_channels stores it:
+// customerpg.Service, narrowed.
+type ContactSealer interface {
+	SealContact(kind, value string) (ciphertext, fingerprint []byte, err error)
 }
 
 // New builds the adapter.
@@ -92,7 +102,7 @@ func New(
 		return nil, errors.New("a payment service is required; pass one with no adapters to take no payments")
 	}
 	service := &Service{
-		store: NewStore(pool), orders: orders, payments: payments,
+		store: NewStore(pool), orders: orders, payments: payments, contacts: options.Contacts,
 		settings: options.Settings, logger: options.Logger, clock: options.Clock,
 	}
 	if service.logger == nil {

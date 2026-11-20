@@ -1233,6 +1233,20 @@ type Gift struct {
 	UpdatedAt                pgtype.Timestamptz `json:"updated_at"`
 }
 
+type GiftRecipient struct {
+	GiftID           pgtype.UUID        `json:"gift_id"`
+	Username         pgtype.Text        `json:"username"`
+	EmailCiphertext  []byte             `json:"email_ciphertext"`
+	EmailFingerprint []byte             `json:"email_fingerprint"`
+	ClaimCodeHash    []byte             `json:"claim_code_hash"`
+	Locale           string             `json:"locale"`
+	Status           string             `json:"status"`
+	RecipientUserID  pgtype.UUID        `json:"recipient_user_id"`
+	DeliveredVia     pgtype.Text        `json:"delivered_via"`
+	DeliveredAt      pgtype.Timestamptz `json:"delivered_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
 type GoodsDelivery struct {
 	OrderID                   pgtype.UUID        `json:"order_id"`
 	ProviderSlug              string             `json:"provider_slug"`
@@ -2607,6 +2621,12 @@ type SupportTopicChoice struct {
 	QueueID  pgtype.UUID        `json:"queue_id"`
 	Priority string             `json:"priority"`
 	ChosenAt pgtype.Timestamptz `json:"chosen_at"`
+}
+
+type TelegramUsername struct {
+	UserID   pgtype.UUID        `json:"user_id"`
+	Username string             `json:"username"`
+	SeenAt   pgtype.Timestamptz `json:"seen_at"`
 }
 
 type TelemetryEvent struct {

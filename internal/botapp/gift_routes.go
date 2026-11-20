@@ -2,7 +2,9 @@ package botapp
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
+	"html"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -20,6 +22,7 @@ const giftHistoryLimit = 10
 // below at all.
 var giftActions = map[string]bool{
 	"gift-plan": true, "gift-credit": true, "gift-buy": true, "gift-message": true, "gift-claim": true,
+	"gift-anyone": true, "gift-nonote": true,
 }
 
 // handleGiftAction serves the gift callback actions.
@@ -44,7 +47,12 @@ func (app *App) handleGiftAction(ctx context.Context, session commerceContext, p
 		if len(parts) != 3 {
 			return app.giftsScreen(ctx, session), true
 		}
-		return app.giftAskMessage(ctx, session, parts[1]+":"+parts[2]), true
+		// The flow's first question is who the gift is for; the note follows.
+		return app.giftAskRecipient(ctx, session, parts[1]+":"+parts[2]), true
+	case "gift-anyone":
+		return app.giftWithoutRecipient(ctx, session), true
+	case "gift-nonote":
+		return app.giftWithoutNote(ctx, session), true
 	case "gift-claim":
 		return app.giftAskCode(ctx, session), true
 	default:
@@ -83,40 +91,10 @@ func (app *App) giftCreditScreen(ctx context.Context, session commerceContext) V
 	return giftCreditView(session.Locale, limits.Presets, app.settings.Currency)
 }
 
-// giftAskMessage collects the note that travels with the gift.
-//
-// The flow is minted an idempotency key of its own here, before the note is
-// asked for, and the key travels in the flow context. One flow is one gift: a
-// redelivered note lands on the same order, and a second gift of the same plan
-// to somebody else — a different flow — is a different order. Keying on the
-// sender, the plan, and the note, as this used to, made the first gift of a
-// plan the only gift of that plan the sender could ever buy.
-func (app *App) giftAskMessage(ctx context.Context, session commerceContext, token string) View {
-	// The membership gate is applied before the note is asked for, so a
-	// customer is not made to write a message and then told to join a channel.
-	// It is applied again when the order is created, because the note can sit
-	// unsent for a while.
-	if gate := app.checkPurchaseChannels(ctx, session.Customer.ID, session.TelegramID); !gate.Allowed() {
-		return channelGateView(session.Locale, gate, "gift-message:"+token)
-	}
-	key, err := newIdempotencyKey()
-	if err != nil {
-		app.logger.Error("gift key could not be minted", "error", err)
-		return app.errorView(session.Locale, routeGifts)
-	}
-	if err := app.customers.BeginSessionState(
-		ctx, session.TelegramID, "gift_message", map[string]any{"gift": token, "key": key},
-	); err != nil {
-		app.logger.Error("gift message prompt failed", "error", err)
-		return app.errorView(session.Locale, routeGifts)
-	}
-	return giftMessagePromptView(session.Locale, token)
-}
-
 // SubmitGiftMessage completes the gift purchase with the sender's note, under
-// the key the flow was opened with.
+// the key the flow was opened with, addressed to the recipient the flow named.
 func (app *App) SubmitGiftMessage(
-	ctx context.Context, session commerceContext, token, key, message string,
+	ctx context.Context, session commerceContext, token, key, message string, recipient commercepg.GiftRecipient,
 ) View {
 	kind, payload, ok := strings.Cut(token, ":")
 	if !ok {
@@ -133,17 +111,18 @@ func (app *App) SubmitGiftMessage(
 		// its length turned a long note into "the order could not be created".
 		// The prompt stays open under the same key, so the customer shortens
 		// it and sends again rather than starting the gift over.
-		if err := app.customers.BeginSessionState(
-			ctx, session.TelegramID, "gift_message", map[string]any{"gift": token, "key": key},
-		); err != nil {
-			app.logger.Error("gift message prompt failed", "error", err)
-			return app.errorView(session.Locale, routeGifts)
+		flow := map[string]any{"gift": token, "key": key}
+		if recipient.Username != "" {
+			flow["recipientUsername"] = recipient.Username
+		} else if len(recipient.EmailCiphertext) > 0 {
+			flow["recipientEmail"] = base64.StdEncoding.EncodeToString(recipient.EmailCiphertext)
+			flow["recipientEmailFingerprint"] = base64.StdEncoding.EncodeToString(recipient.EmailFingerprint)
 		}
-		view := giftMessagePromptView(session.Locale, token)
+		view := app.giftAskNote(ctx, session, flow)
 		view.Text = text(session.Locale, "gift.messageTooLong", giftNoteLimit) + "\n\n" + view.Text
 		return view
 	}
-	return app.buyGift(ctx, session, kind, payload, note, key)
+	return app.buyGift(ctx, session, kind, payload, note, key, recipient)
 }
 
 // giftNoteLimit is the longest note a gift carries, in characters. The gift
@@ -172,7 +151,7 @@ func (app *App) giftPurchase(
 		app.logger.Error("gift key could not be minted", "error", err)
 		return app.errorView(session.Locale, routeGifts)
 	}
-	return app.buyGift(ctx, session, kind, payload, "", key)
+	return app.buyGift(ctx, session, kind, payload, "", key, commercepg.GiftRecipient{})
 }
 
 // buyGift opens the gift order and shows the claim code exactly once.
@@ -181,11 +160,11 @@ func (app *App) giftPurchase(
 // so a database read never yields a redeemable code — and a sender who loses it
 // cannot have it recovered, which is the deliberate trade.
 func (app *App) buyGift(
-	ctx context.Context, session commerceContext, kind, payload, message, key string,
+	ctx context.Context, session commerceContext, kind, payload, message, key string, recipient commercepg.GiftRecipient,
 ) View {
 	input := commercepg.GiftOrderInput{
 		SenderID: session.Customer.ID, Currency: app.settings.Currency,
-		SenderMessage: message, Lifetime: gifts.DefaultLifetime,
+		SenderMessage: message, Lifetime: gifts.DefaultLifetime, Recipient: recipient,
 	}
 	switch kind {
 	case "plan":
@@ -207,6 +186,9 @@ func (app *App) buyGift(
 	}
 
 	purchase, err := app.commerce.BuyGift(ctx, input)
+	if view, refused := giftRecipientRefusal(session.Locale, err); refused {
+		return view
+	}
 	switch {
 	case errors.Is(err, commercepg.ErrMaintenance):
 		return app.maintenanceScreen(ctx, session)
@@ -228,7 +210,14 @@ func (app *App) buyGift(
 	// offers to pay it, and the payment method is the customer's to pick on the
 	// order's own method screen — not the first adapter in alphabetical order,
 	// which is what used to be chosen for them.
-	return giftCodeView(session.Locale, purchase, order)
+	view := giftCodeView(session.Locale, purchase, order)
+	switch {
+	case recipient.Username != "":
+		view.Text += "\n\n" + text(session.Locale, "gift.recipientDelivery", html.EscapeString("@"+recipient.Username))
+	case len(recipient.EmailCiphertext) > 0:
+		view.Text += "\n\n" + text(session.Locale, "gift.recipientDeliveryEmail")
+	}
+	return view
 }
 
 // giftAskCode opens the redemption prompt.
