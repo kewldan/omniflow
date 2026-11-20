@@ -1887,6 +1887,39 @@ type ReferralSignal struct {
 	DetectedAt     pgtype.Timestamptz `json:"detected_at"`
 }
 
+type ReferralWithdrawal struct {
+	ID                         pgtype.UUID        `json:"id"`
+	UserID                     pgtype.UUID        `json:"user_id"`
+	AmountMinor                int64              `json:"amount_minor"`
+	Currency                   string             `json:"currency"`
+	Status                     string             `json:"status"`
+	PayoutMethod               string             `json:"payout_method"`
+	PayoutDetailsCiphertext    []byte             `json:"payout_details_ciphertext"`
+	RiskScore                  int32              `json:"risk_score"`
+	RiskFlags                  []string           `json:"risk_flags"`
+	RiskEvidence               []byte             `json:"risk_evidence"`
+	HoldLedgerTransactionID    pgtype.UUID        `json:"hold_ledger_transaction_id"`
+	ReleaseLedgerTransactionID pgtype.UUID        `json:"release_ledger_transaction_id"`
+	IdempotencyKey             string             `json:"idempotency_key"`
+	CreatedAt                  pgtype.Timestamptz `json:"created_at"`
+	DecidedAt                  pgtype.Timestamptz `json:"decided_at"`
+	DecidedBy                  pgtype.UUID        `json:"decided_by"`
+	DecisionNote               pgtype.Text        `json:"decision_note"`
+	PaidAt                     pgtype.Timestamptz `json:"paid_at"`
+	PaidBy                     pgtype.UUID        `json:"paid_by"`
+}
+
+type ReferralWithdrawalSetting struct {
+	Singleton           bool               `json:"singleton"`
+	Enabled             bool               `json:"enabled"`
+	Currency            string             `json:"currency"`
+	MinimumMinor        int64              `json:"minimum_minor"`
+	CooldownDays        int32              `json:"cooldown_days"`
+	OnlyReferralBalance bool               `json:"only_referral_balance"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy           pgtype.UUID        `json:"updated_by"`
+}
+
 type Refund struct {
 	ID                pgtype.UUID        `json:"id"`
 	PaymentIntentID   pgtype.UUID        `json:"payment_intent_id"`

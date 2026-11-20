@@ -22,8 +22,8 @@ import { localized } from "@/lib/localized";
 import { formatMoney, type Listing, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 import { AdCampaignsCard } from "./ad-campaigns";
-import { LoyaltyCard } from "./loyalty-card";
 import { EmailDeliveryCard } from "./email-delivery";
+import { LoyaltyCard } from "./loyalty-card";
 import { TemplateEditorCard } from "./template-editor";
 
 import type {

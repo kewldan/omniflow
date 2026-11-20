@@ -3277,7 +3277,9 @@
       },
       "locale": {
         "ru": "Russian",
-        "en": "English",
+        "en": "English"
+      }
+    },
     "payouts": {
       "title": "Payouts",
       "description": "Referral withdrawals waiting for a decision, and the rules customers withdraw under.",
