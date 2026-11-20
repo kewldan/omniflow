@@ -18,6 +18,7 @@ import (
 	"github.com/omniflow/omniflow/internal/accountsupport"
 	"github.com/omniflow/omniflow/internal/app"
 	"github.com/omniflow/omniflow/internal/backup"
+	"github.com/omniflow/omniflow/internal/blockedbot"
 	"github.com/omniflow/omniflow/internal/bulkrunner"
 	"github.com/omniflow/omniflow/internal/campaigns"
 	"github.com/omniflow/omniflow/internal/config"
@@ -296,6 +297,12 @@ func periodicTasks(
 			retentionWorker.Sweep(ctx)
 			return ctx.Err()
 		}},
+	}
+	// Customers who blocked the bot lose their subscription while they stay
+	// blocked, when the operator switched that on in the Marketing settings.
+	if core.Fulfillment != nil {
+		blocked := blockedbot.New(pool, blockedbot.FulfillmentEnqueuer{Service: core.Fulfillment}, logger)
+		tasks = append(tasks, jobs.Task{Name: "blocked_bot_subscriptions", Interval: 15 * time.Minute, Run: blocked.Run})
 	}
 	if operations != nil {
 		// Automatic loyalty placement by spend, and the bulk recalculation an

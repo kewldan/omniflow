@@ -1246,6 +1246,18 @@ CREATE TABLE public.bedolaga_import_runs (
 
 
 --
+-- Name: blocked_bot_disables; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.blocked_bot_disables (
+    entitlement_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    disabled_at timestamp with time zone DEFAULT now() NOT NULL,
+    restored_at timestamp with time zone
+);
+
+
+--
 -- Name: blocker_scans; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -5452,6 +5464,14 @@ ALTER TABLE ONLY public.bedolaga_import_runs
 
 
 --
+-- Name: blocked_bot_disables blocked_bot_disables_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.blocked_bot_disables
+    ADD CONSTRAINT blocked_bot_disables_pkey PRIMARY KEY (entitlement_id);
+
+
+--
 -- Name: blocker_scans blocker_scans_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7499,6 +7519,13 @@ CREATE INDEX bedolaga_import_items_user_idx ON public.bedolaga_import_items USIN
 
 
 --
+-- Name: blocked_bot_disables_open_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX blocked_bot_disables_open_idx ON public.blocked_bot_disables USING btree (user_id) WHERE (restored_at IS NULL);
+
+
+--
 -- Name: blocker_scans_one_active; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8905,6 +8932,22 @@ ALTER TABLE ONLY public.bedolaga_import_items
 
 ALTER TABLE ONLY public.bedolaga_import_items
     ADD CONSTRAINT bedolaga_import_items_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: blocked_bot_disables blocked_bot_disables_entitlement_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.blocked_bot_disables
+    ADD CONSTRAINT blocked_bot_disables_entitlement_id_fkey FOREIGN KEY (entitlement_id) REFERENCES public.entitlements(id) ON DELETE CASCADE;
+
+
+--
+-- Name: blocked_bot_disables blocked_bot_disables_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.blocked_bot_disables
+    ADD CONSTRAINT blocked_bot_disables_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --

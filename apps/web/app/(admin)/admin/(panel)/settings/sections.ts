@@ -273,6 +273,13 @@ export const SECTIONS: SectionSchema[] = [
         messageKey: "referralCodePrompt",
         defaultValue: false,
       },
+      {
+        name: "disableBlockedSubscriptions",
+        kind: "boolean",
+        messageKey: "disableBlockedSubscriptions",
+        defaultValue: false,
+      },
+      { name: "blockedGraceHours", kind: "number", messageKey: "blockedGraceHours" },
     ],
   },
   {

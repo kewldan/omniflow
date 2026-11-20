@@ -149,6 +149,7 @@ A pass gets one attempt. A failure is logged as `periodic task failed` with the 
 | `anomaly_evaluation` | 15 min | interval | Evaluates anomaly rules |
 | `campaign_expansion` | 1 min | 5 min | Expands campaign audiences, batch 5 000 |
 | `bulk_actions` | 15 s | 5 min | Applies previewed bulk operations one item at a time, batch 50 |
+| `blocked_bot_subscriptions` | 15 min | 15 min | Disables live subscriptions of customers who blocked the bot past the grace period, and re-enables them when they return, when Settings → Marketing switches it on; batch 200 |
 | `loyalty_evaluation` | 5 min | 10 min | Re-evaluates loyalty tiers of customers with a newly settled payment or an elapsed grace period, and everybody once after a recalculation request; batch 200. Needs `APP_DATA_ENCRYPTION_KEY` |
 | `retention` | `APP_RETENTION_INTERVAL_HOURS` (1 h) | interval | Seven cleanup steps, below |
 | `goods_delivery_schedule` | 30 s | interval | Enqueues up to 200 due deliveries |

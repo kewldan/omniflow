@@ -534,6 +534,13 @@ type BedolagaImportRun struct {
 	FinishedAt pgtype.Timestamptz `json:"finished_at"`
 }
 
+type BlockedBotDisable struct {
+	EntitlementID pgtype.UUID        `json:"entitlement_id"`
+	UserID        pgtype.UUID        `json:"user_id"`
+	DisabledAt    pgtype.Timestamptz `json:"disabled_at"`
+	RestoredAt    pgtype.Timestamptz `json:"restored_at"`
+}
+
 type BlockerScan struct {
 	ID          pgtype.UUID        `json:"id"`
 	Status      string             `json:"status"`

@@ -3485,7 +3485,9 @@
         "startVideoUrl": "Video sent on /start instead of the picture (https link)",
         "tipsRu": "Tips shown at random in the main menu (RU), one per line",
         "tipsEn": "Tips shown at random in the main menu (EN), one per line",
-        "referralCodePrompt": "Offer newcomers to type a friend's invite code"
+        "referralCodePrompt": "Offer newcomers to type a friend's invite code",
+        "disableBlockedSubscriptions": "Disable the subscriptions of customers who blocked the bot, and enable them again when they return",
+        "blockedGraceHours": "Hours a customer must stay blocked before that (default 24)"
       },
       "telemetryPreview": {
         "title": "What telemetry would send",
