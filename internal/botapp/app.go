@@ -315,6 +315,10 @@ func (app *App) HandleStart(ctx context.Context, client *telegram.Bot, update *m
 			app.handleStartPayment(ctx, client, update, locale, payload.Value)
 			return
 		}
+	case startPayloadTags:
+		if app.commerceEnabled() {
+			app.recordStartTags(ctx, message.From.ID, message.From.LanguageCode, payload.Value)
+		}
 	case startPayloadCoupon:
 		if app.commerceEnabled() {
 			app.handleStartCoupon(ctx, client, update, locale, payload.Value)
@@ -344,6 +348,8 @@ const (
 	// startPayloadCoupon redeems a code from a link: `coupon_<code>`, the
 	// form Bedolaga's coupon links use.
 	startPayloadCoupon = "coupon"
+	// startPayloadTags carries advertising tags: utm_, yclid_, or gclid_.
+	startPayloadTags = "tags"
 )
 
 // couponArgument is a code a deep link may carry: the characters of a promo,
@@ -394,6 +400,11 @@ func parseStartPayload(messageText string) startPayload {
 		if parsed, err := databaseutil.ParseUUIDs([]string{strings.TrimPrefix(argument, "pay_")}); err == nil {
 			return startPayload{Kind: startPayloadPay, Value: databaseutil.UUIDStrings(parsed)[0]}
 		}
+	case strings.HasPrefix(argument, "utm_"), strings.HasPrefix(argument, "yclid_"), strings.HasPrefix(argument, "gclid_"):
+		if _, ok := parseStartTags(argument); ok {
+			return startPayload{Kind: startPayloadTags, Value: argument}
+		}
+		return startPayload{}
 	case strings.HasPrefix(argument, "coupon_"):
 		if code := strings.TrimPrefix(argument, "coupon_"); couponArgument.MatchString(code) {
 			return startPayload{Kind: startPayloadCoupon, Value: code}

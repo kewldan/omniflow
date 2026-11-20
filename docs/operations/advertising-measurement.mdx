@@ -154,6 +154,22 @@ are written.
 Pausing a campaign stops new attributions and bonuses; its history stays. Saving requires
 `marketing.write`, reading `marketing.read`. Nothing is sent to any advertising network.
 
+### UTM tags and click IDs through /start
+
+A Telegram link cannot carry a query string, so the tags travel in the start parameter, which
+Telegram limits to 64 letters, digits, `_`, and `-`:
+
+| Link | Records |
+| --- | --- |
+| `t.me/<bot>?start=utm_<source>__<medium>__<campaign>` | `utm_source`, `utm_medium`, `utm_campaign`; medium and campaign may be left out |
+| `t.me/<bot>?start=yclid_<id>` | A Yandex click ID |
+| `t.me/<bot>?start=gclid_<id>` | A Google click ID |
+
+The bot keeps the first tags a customer arrived with in `customer_start_attributions`; a later link
+does not overwrite them. Every order that customer creates afterwards is written to
+`order_attributions` by a database trigger, so the channel report and the conversion export count it
+like a web order. A web checkout that records its own tags overrides them for that order.
+
 ## What is deliberately absent
 
 - **No server-side conversion API calls.** Nothing here reaches an advertising

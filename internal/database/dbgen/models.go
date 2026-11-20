@@ -1048,6 +1048,16 @@ type CustomerSession struct {
 	RevokedReason     pgtype.Text        `json:"revoked_reason"`
 }
 
+type CustomerStartAttribution struct {
+	UserID      pgtype.UUID        `json:"user_id"`
+	ClickID     pgtype.Text        `json:"click_id"`
+	ClickSource pgtype.Text        `json:"click_source"`
+	UtmSource   pgtype.Text        `json:"utm_source"`
+	UtmMedium   pgtype.Text        `json:"utm_medium"`
+	UtmCampaign pgtype.Text        `json:"utm_campaign"`
+	RecordedAt  pgtype.Timestamptz `json:"recorded_at"`
+}
+
 type DeviceAlias struct {
 	SubscriptionID pgtype.UUID        `json:"subscription_id"`
 	UserID         pgtype.UUID        `json:"user_id"`

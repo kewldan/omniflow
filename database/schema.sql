@@ -92,6 +92,23 @@ $$;
 
 
 --
+-- Name: attribute_order_from_start(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.attribute_order_from_start() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  INSERT INTO order_attributions (order_id, click_id, click_source, utm_source, utm_medium, utm_campaign)
+  SELECT NEW.id, a.click_id, a.click_source, a.utm_source, a.utm_medium, a.utm_campaign
+  FROM customer_start_attributions a WHERE a.user_id = NEW.user_id
+  ON CONFLICT (order_id) DO NOTHING;
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: cart_goods_kind_matches(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -2135,6 +2152,26 @@ CREATE TABLE public.customer_sessions (
     CONSTRAINT customer_sessions_revoked_reason_known CHECK (((revoked_reason IS NULL) OR (revoked_reason = ANY (ARRAY['logout'::text, 'logout_all'::text, 'session_revoked'::text, 'identity_unlinked'::text, 'provider_disabled'::text, 'account_suspended'::text, 'account_deleted'::text, 'expired'::text, 'reauthenticated'::text])))),
     CONSTRAINT customer_sessions_token_hash_check CHECK ((octet_length(token_hash) = 32)),
     CONSTRAINT customer_sessions_user_agent_check CHECK (((user_agent IS NULL) OR (char_length(user_agent) <= 400)))
+);
+
+
+--
+-- Name: customer_start_attributions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.customer_start_attributions (
+    user_id uuid NOT NULL,
+    click_id text,
+    click_source text,
+    utm_source text,
+    utm_medium text,
+    utm_campaign text,
+    recorded_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT customer_start_attributions_click_pair CHECK (((click_id IS NULL) = (click_source IS NULL))),
+    CONSTRAINT customer_start_attributions_click_shape CHECK (((click_id IS NULL) OR (click_id ~ '^[A-Za-z0-9_.-]{6,200}$'::text))),
+    CONSTRAINT customer_start_attributions_lengths CHECK (((COALESCE(char_length(utm_source), 0) <= 120) AND (COALESCE(char_length(utm_medium), 0) <= 120) AND (COALESCE(char_length(utm_campaign), 0) <= 120))),
+    CONSTRAINT customer_start_attributions_not_empty CHECK (((click_id IS NOT NULL) OR (utm_source IS NOT NULL))),
+    CONSTRAINT customer_start_attributions_source_known CHECK (((click_source IS NULL) OR (click_source = ANY (ARRAY['google'::text, 'yandex'::text]))))
 );
 
 
@@ -5819,6 +5856,14 @@ ALTER TABLE ONLY public.customer_sessions
 
 
 --
+-- Name: customer_start_attributions customer_start_attributions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_start_attributions
+    ADD CONSTRAINT customer_start_attributions_pkey PRIMARY KEY (user_id);
+
+
+--
 -- Name: device_aliases device_aliases_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8362,6 +8407,13 @@ CREATE TRIGGER loyalty_standing_history_notice AFTER INSERT ON public.loyalty_st
 
 
 --
+-- Name: orders orders_start_attribution; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER orders_start_attribution AFTER INSERT ON public.orders FOR EACH ROW EXECUTE FUNCTION public.attribute_order_from_start();
+
+
+--
 -- Name: outbox_events outbox_events_operator_notice; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -9315,6 +9367,14 @@ ALTER TABLE ONLY public.customer_security_events
 
 ALTER TABLE ONLY public.customer_sessions
     ADD CONSTRAINT customer_sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: customer_start_attributions customer_start_attributions_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.customer_start_attributions
+    ADD CONSTRAINT customer_start_attributions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --

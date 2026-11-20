@@ -28,6 +28,9 @@ func TestParseStartPayloadRecognisesEveryDeepLink(t *testing.T) {
 		{"bare campaign code", "/start stars_elite", startPayload{Kind: startPayloadCampaign, Value: "stars_elite"}},
 		{"prefixed campaign code", "/start c_Stars_Elite", startPayload{Kind: startPayloadCampaign, Value: "stars_elite"}},
 		{"not a campaign code", "/start c_!!", startPayload{}},
+		{"utm", "/start utm_vk__cpc__black_friday", startPayload{Kind: startPayloadTags, Value: "utm_vk__cpc__black_friday"}},
+		{"yclid", "/start yclid_1234567890", startPayload{Kind: startPayloadTags, Value: "yclid_1234567890"}},
+		{"utm too many parts", "/start utm_a__b__c__d", startPayload{}},
 		{"unknown shape", "/start some-thing.else", startPayload{}},
 		{"two arguments", "/start ref_A ref_B", startPayload{}},
 		{"coupon", "/start coupon_SPRING-2026", startPayload{Kind: startPayloadCoupon, Value: "SPRING-2026"}},
@@ -68,5 +71,19 @@ func TestStarsInvoiceDueOnlyForOpenUnsettledStarsOrders(t *testing.T) {
 		if starsInvoiceDue(order, nil) {
 			t.Fatalf("%s: no invoice may be sent", name)
 		}
+	}
+}
+
+func TestParseStartTagsReadsUTMAndClickIDs(t *testing.T) {
+	t.Parallel()
+	tags, ok := parseStartTags("utm_VK__cpc__black_friday")
+	if !ok || tags.Source != "vk" || tags.Medium != "cpc" || tags.Campaign != "black_friday" {
+		t.Fatalf("utm = %+v %v", tags, ok)
+	}
+	if tags, ok := parseStartTags("yclid_abc123def"); !ok || tags.ClickSource != "yandex" || tags.ClickID != "abc123def" {
+		t.Fatalf("yclid = %+v %v", tags, ok)
+	}
+	if _, ok := parseStartTags("gclid_abc"); ok {
+		t.Fatal("a click ID shorter than six characters was accepted")
 	}
 }
