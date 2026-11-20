@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -21,6 +22,44 @@ type CryptoBot struct {
 	token   string
 	baseURL string
 	http    *http.Client
+	// assets narrows the coins a payer may pick (accepted_assets); empty
+	// leaves CryptoBot's own list. lifetime is the invoice's expires_in.
+	assets   []string
+	lifetime time.Duration
+}
+
+// cryptoBotMaxLifetime is the longest expires_in CryptoBot accepts.
+const cryptoBotMaxLifetime = 31 * 24 * time.Hour
+
+var cryptoBotAssetPattern = regexp.MustCompile(`^[A-Z0-9]{2,10}$`)
+
+// CryptoBotOptionsFromEnv reads APP_CRYPTOBOT_ASSETS (a comma-separated list
+// of coin codes such as USDT,TON,BTC) and APP_CRYPTOBOT_INVOICE_EXPIRES_HOURS
+// (default 1, at most 744).
+func CryptoBotOptionsFromEnv(settings Settings) ([]string, time.Duration, error) {
+	var assets []string
+	for _, code := range strings.Split(settings.String("APP_CRYPTOBOT_ASSETS"), ",") {
+		code = strings.ToUpper(strings.TrimSpace(code))
+		if code == "" {
+			continue
+		}
+		if !cryptoBotAssetPattern.MatchString(code) {
+			return nil, 0, fmt.Errorf("APP_CRYPTOBOT_ASSETS: %q is not a coin code", code)
+		}
+		assets = append(assets, code)
+	}
+	hours := settings.Int("APP_CRYPTOBOT_INVOICE_EXPIRES_HOURS", 1)
+	lifetime := time.Duration(hours) * time.Hour
+	if hours < 1 || lifetime > cryptoBotMaxLifetime {
+		return nil, 0, fmt.Errorf("APP_CRYPTOBOT_INVOICE_EXPIRES_HOURS must be 1 to 744")
+	}
+	return assets, lifetime, nil
+}
+
+// WithInvoiceOptions sets the accepted coins and the invoice lifetime.
+func (provider *CryptoBot) WithInvoiceOptions(assets []string, lifetime time.Duration) *CryptoBot {
+	provider.assets, provider.lifetime = assets, lifetime
+	return provider
 }
 
 func NewCryptoBot(token string, testnet bool) (*CryptoBot, error) {
@@ -32,6 +71,14 @@ func NewCryptoBot(token string, testnet bool) (*CryptoBot, error) {
 		host = "https://testnet-pay.crypt.bot/api"
 	}
 	return &CryptoBot{token: token, baseURL: host, http: tracedClient(15 * time.Second)}, nil
+}
+
+// invoiceLifetime is the configured lifetime, an hour when none was set.
+func (provider *CryptoBot) invoiceLifetime() time.Duration {
+	if provider.lifetime <= 0 {
+		return time.Hour
+	}
+	return provider.lifetime
 }
 
 func (provider *CryptoBot) Name() string { return "cryptobot" }
@@ -60,7 +107,10 @@ func (provider *CryptoBot) Create(ctx context.Context, request CreateRequest) (I
 	form := url.Values{
 		"currency_type": {"fiat"}, "fiat": {request.Amount.Currency},
 		"amount": {formatMinor(request.Amount.Amount, exponent)}, "description": {request.Description},
-		"payload": {request.OrderID}, "expires_in": {"3600"},
+		"payload": {request.OrderID}, "expires_in": {strconv.FormatInt(int64(provider.invoiceLifetime()/time.Second), 10)},
+	}
+	if len(provider.assets) > 0 {
+		form.Set("accepted_assets", strings.Join(provider.assets, ","))
 	}
 	var envelope struct {
 		OK     bool `json:"ok"`

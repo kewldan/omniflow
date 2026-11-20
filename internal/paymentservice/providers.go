@@ -54,7 +54,11 @@ func ConfigureProviders(
 		if err != nil {
 			return nil, err
 		}
-		providers = append(providers, provider)
+		assets, lifetime, err := payments.CryptoBotOptionsFromEnv(payments.Settings{Env: options.Env})
+		if err != nil {
+			return nil, fmt.Errorf("configure cryptobot: %w", err)
+		}
+		providers = append(providers, provider.WithInvoiceOptions(assets, lifetime))
 	}
 	if options.YooKassaShopID != "" || options.YooKassaSecret != "" {
 		provider, err := payments.NewYooKassa(options.YooKassaShopID, options.YooKassaSecret)
@@ -65,7 +69,10 @@ func ConfigureProviders(
 		if err != nil {
 			return nil, fmt.Errorf("configure yookassa: %w", err)
 		}
-		providers = append(providers, provider.WithReceipt(receipt))
+		env := payments.Settings{Env: options.Env}
+		providers = append(providers, provider.WithReceipt(receipt).WithModes(
+			env.Bool("APP_YOOKASSA_SBP_ENABLED", false), env.Bool("APP_YOOKASSA_TEST_MODE", false),
+		))
 	}
 	settings := payments.Settings{Env: options.Env, PublicURL: options.PublicURL}
 	for _, builder := range payments.Builders {

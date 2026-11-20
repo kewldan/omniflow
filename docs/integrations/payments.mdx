@@ -160,6 +160,11 @@ CryptoBot.
     `APP_CRYPTOBOT_TESTNET` defaults to **`true`**, which points the adapter at
     `https://testnet-pay.crypt.bot/api`. Set it to `false` for production; leaving it at the default
     means real invoices are never created.
+
+    `APP_CRYPTOBOT_ASSETS` limits the coins a payer may choose (comma-separated codes such as
+    `USDT,TON,BTC`, sent as `accepted_assets`; empty allows all), and
+    `APP_CRYPTOBOT_INVOICE_EXPIRES_HOURS` sets how long an invoice stays payable (default `1`,
+    at most `744`).
   </Step>
   <Step title="Point the webhook at Omniflow">
     In the app's settings, enable webhooks and set the URL to
@@ -266,6 +271,13 @@ subject, and payment mode below.
 | `APP_YOOKASSA_VAT_CODE` | `1` | YooKassa `vat_code`, 1–12 (`1` is "without VAT") |
 | `APP_YOOKASSA_PAYMENT_SUBJECT` | `service` | `payment_subject` |
 | `APP_YOOKASSA_PAYMENT_MODE` | `full_payment` | `payment_mode` |
+
+Two more YooKassa switches:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `APP_YOOKASSA_SBP_ENABLED` | `false` | Adds an SBP button (`yookassa.sbp`) beside the default checkout; it opens the payment with `payment_method_data.type = sbp` |
+| `APP_YOOKASSA_TEST_MODE` | `false` | Accepts payments YooKassa marks `test: true`. Off, such a payment is recorded as failed and never settles, so a test shop's money cannot buy real access |
 
 The defaults are Bedolaga's, so a shop moving over keeps issuing the same receipts. Turning receipts
 on without an e-mail is a startup error rather than a checkout that fails for every customer.

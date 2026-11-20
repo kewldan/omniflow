@@ -21,6 +21,26 @@ type YooKassa struct {
 	http    *http.Client
 	clock   func() time.Time
 	receipt YooKassaReceipt
+	// sbp offers SBP as its own button beside the default checkout page.
+	sbp bool
+	// testMode accepts payments YooKassa marks `test: true`. Off, such a
+	// payment never settles: test-shop money must not buy real access.
+	testMode bool
+}
+
+// WithModes sets the SBP button (APP_YOOKASSA_SBP_ENABLED) and test mode
+// (APP_YOOKASSA_TEST_MODE).
+func (provider *YooKassa) WithModes(sbp, testMode bool) *YooKassa {
+	provider.sbp, provider.testMode = sbp, testMode
+	return provider
+}
+
+// Methods offers the default checkout and, when enabled, SBP.
+func (provider *YooKassa) Methods() []string {
+	if provider.sbp {
+		return []string{"", "sbp"}
+	}
+	return nil
 }
 
 func NewYooKassa(shopID, secret string) (*YooKassa, error) {
@@ -55,6 +75,7 @@ type yooPayment struct {
 	Status       string    `json:"status"`
 	Amount       yooMoney  `json:"amount"`
 	CreatedAt    time.Time `json:"created_at"`
+	Test         bool      `json:"test"`
 	Confirmation struct {
 		URL string `json:"confirmation_url"`
 	} `json:"confirmation"`
@@ -113,6 +134,9 @@ func (provider *YooKassa) Create(ctx context.Context, request CreateRequest) (In
 		"confirmation": map[string]string{"type": "redirect", "return_url": request.ReturnURL},
 		"description":  request.Description,
 		"metadata":     map[string]string{"order_id": request.OrderID},
+	}
+	if request.Method == "sbp" && provider.sbp {
+		body["payment_method_data"] = map[string]string{"type": "sbp"}
 	}
 	if request.SavePaymentMethod {
 		// Only on the customer's explicit consent. YooKassa then returns
@@ -215,6 +239,11 @@ func (provider *YooKassa) intent(payment yooPayment) (Intent, error) {
 		return Intent{}, err
 	}
 	intent := Intent{ProviderReference: payment.ID, Status: normalizeYooStatus(payment.Status), CheckoutURL: payment.Confirmation.URL, Amount: commerce.Money{Amount: amount, Currency: payment.Amount.Currency}}
+	if payment.Test && !provider.testMode && intent.Status == "succeeded" {
+		// A payment made against a test shop moved no money. Outside test
+		// mode it is reported failed so it can never buy anything.
+		intent.Status = "failed"
+	}
 	if method := payment.PaymentMethod; method != nil && method.Saved && method.ID != "" && intent.Status == "succeeded" {
 		intent.BoundMethod = &BoundMethod{Token: method.ID, Label: method.label()}
 	}
