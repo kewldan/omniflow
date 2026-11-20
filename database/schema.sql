@@ -64,34 +64,6 @@ CREATE TYPE public.river_job_state AS ENUM (
 
 
 --
--- Name: apply_support_topic_choice(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.apply_support_topic_choice() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-  choice support_topic_choices;
-BEGIN
-  DELETE FROM support_topic_choices
-  WHERE user_id = NEW.user_id AND chosen_at > now() - interval '1 hour'
-  RETURNING * INTO choice;
-  IF choice.user_id IS NOT NULL THEN
-    IF choice.queue_id IS NOT NULL AND EXISTS (
-      SELECT 1 FROM support_queues q WHERE q.id = choice.queue_id AND q.archived_at IS NULL AND q.customer_selectable
-    ) THEN
-      NEW.queue_id := choice.queue_id;
-    END IF;
-    IF choice.priority = 'high' AND NEW.priority = 'normal' THEN
-      NEW.priority := 'high';
-    END IF;
-  END IF;
-  RETURN NEW;
-END;
-$$;
-
-
---
 -- Name: cart_goods_kind_matches(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -290,66 +262,6 @@ $$;
 
 
 --
--- Name: refuse_blocked_support(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.refuse_blocked_support() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-DECLARE
-  customer uuid;
-BEGIN
-  IF TG_TABLE_NAME = 'support_tickets' THEN
-    customer := NEW.user_id;
-  ELSIF NEW.sender = 'customer' THEN
-    SELECT user_id INTO customer FROM support_tickets WHERE id = NEW.ticket_id;
-  ELSE
-    RETURN NEW;
-  END IF;
-  IF EXISTS (SELECT 1 FROM customer_restrictions WHERE user_id = customer AND kind = 'support') THEN
-    RAISE EXCEPTION 'support_blocked' USING ERRCODE = 'OFSB1';
-  END IF;
-  RETURN NEW;
-END;
-$$;
-
-
---
--- Name: reminder_segment_holds(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.reminder_segment_holds(target_reminder uuid, target_user uuid) RETURNS boolean
-    LANGUAGE sql STABLE
-    AS $$
-  WITH reminder AS (SELECT * FROM reminders WHERE id = target_reminder),
-  live AS (
-    SELECT max(ends_at) AS ends_at, count(*) AS entitlements FROM entitlements
-    WHERE user_id = target_user AND status IN ('active', 'limited', 'paused')
-  ),
-  lapsed AS (
-    SELECT max(ends_at) AS ends_at, count(*) AS entitlements FROM entitlements
-    WHERE user_id = target_user AND status IN ('active', 'limited', 'disabled', 'expired')
-  ),
-  balance AS (
-    SELECT COALESCE(sum(l.amount_minor), 0)::bigint AS minor
-    FROM ledger_entries l, reminder
-    WHERE l.account_type = 'customer_wallet' AND l.user_id = target_user AND l.currency = reminder.currency
-  )
-  SELECT COALESCE((
-    SELECT CASE reminder.segment
-      WHEN 'no_subscription' THEN live.entitlements = 0 AND lapsed.entitlements = 0
-      WHEN 'expiring' THEN live.ends_at > now() AND live.ends_at <= now() + make_interval(days => reminder.segment_days)
-      WHEN 'expired' THEN (live.entitlements = 0 OR live.ends_at <= now())
-        AND lapsed.ends_at <= now() - make_interval(days => reminder.segment_days)
-      WHEN 'low_balance' THEN balance.minor < reminder.balance_below_minor
-      ELSE false
-    END
-    FROM reminder, live, lapsed, balance
-  ), false)
-$$;
-
-
---
 -- Name: river_job_state_in_bitmask(bit, public.river_job_state); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -466,10 +378,8 @@ CREATE TABLE public.addon_versions (
     proration text DEFAULT 'full_price'::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     retired_at timestamp with time zone,
-    lifetime_days integer,
     CONSTRAINT addon_versions_check CHECK (((traffic_bytes IS NOT NULL) OR (device_slots IS NOT NULL) OR (cardinality(remnawave_squad_ids) > 0))),
     CONSTRAINT addon_versions_device_slots_check CHECK (((device_slots IS NULL) OR (device_slots > 0))),
-    CONSTRAINT addon_versions_lifetime_days_positive CHECK (((lifetime_days IS NULL) OR (lifetime_days > 0))),
     CONSTRAINT addon_versions_max_quantity_check CHECK ((max_quantity > 0)),
     CONSTRAINT addon_versions_proration_check CHECK ((proration = ANY (ARRAY['full_price'::text, 'remaining_period'::text, 'daily_rate'::text]))),
     CONSTRAINT addon_versions_traffic_bytes_check CHECK (((traffic_bytes IS NULL) OR (traffic_bytes > 0))),
@@ -495,23 +405,6 @@ CREATE TABLE public.addons (
 
 
 --
--- Name: admin_custom_roles; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.admin_custom_roles (
-    role text NOT NULL,
-    name text NOT NULL,
-    permissions text[] NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_by uuid,
-    CONSTRAINT admin_custom_roles_key_shape CHECK ((role ~ '^custom-[a-z0-9-]{2,32}$'::text)),
-    CONSTRAINT admin_custom_roles_name_length CHECK (((char_length(name) >= 1) AND (char_length(name) <= 80))),
-    CONSTRAINT admin_custom_roles_permissions_present CHECK ((cardinality(permissions) >= 1))
-);
-
-
---
 -- Name: admin_invitations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -533,7 +426,7 @@ CREATE TABLE public.admin_invitations (
     CONSTRAINT admin_invitations_email_normalized_check CHECK (((char_length(email_normalized) >= 3) AND (char_length(email_normalized) <= 254))),
     CONSTRAINT admin_invitations_expiry_after_creation CHECK ((expires_at > created_at)),
     CONSTRAINT admin_invitations_revocation_complete CHECK (((revoked_at IS NULL) = (revoked_by IS NULL))),
-    CONSTRAINT admin_invitations_roles_known CHECK ((((cardinality(roles) >= 1) AND (cardinality(roles) <= 6)) AND (array_to_string(roles, ','::text) ~ '^((owner|administrator|support|finance|marketing|auditor|custom-[a-z0-9-]{2,32})(,|$))+$'::text))),
+    CONSTRAINT admin_invitations_roles_known CHECK ((((cardinality(roles) >= 1) AND (cardinality(roles) <= 6)) AND (roles <@ ARRAY['owner'::text, 'administrator'::text, 'support'::text, 'finance'::text, 'marketing'::text, 'auditor'::text]))),
     CONSTRAINT admin_invitations_settled_once CHECK (((accepted_at IS NULL) OR (revoked_at IS NULL))),
     CONSTRAINT admin_invitations_token_hash_check CHECK ((octet_length(token_hash) = 32))
 );
@@ -711,7 +604,7 @@ CREATE TABLE public.admin_user_roles (
     role text NOT NULL,
     granted_at timestamp with time zone DEFAULT now() NOT NULL,
     granted_by uuid,
-    CONSTRAINT admin_user_roles_role_check CHECK (((role = ANY (ARRAY['owner'::text, 'administrator'::text, 'support'::text, 'finance'::text, 'marketing'::text, 'auditor'::text])) OR (role ~ '^custom-[a-z0-9-]{2,32}$'::text)))
+    CONSTRAINT admin_user_roles_role_check CHECK ((role = ANY (ARRAY['owner'::text, 'administrator'::text, 'support'::text, 'finance'::text, 'marketing'::text, 'auditor'::text])))
 );
 
 
@@ -986,51 +879,6 @@ CREATE TABLE public.anomaly_signals (
 
 
 --
--- Name: api_token_requests; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.api_token_requests (
-    id bigint NOT NULL,
-    token_id uuid NOT NULL,
-    method text NOT NULL,
-    route text NOT NULL,
-    status integer NOT NULL,
-    occurred_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: api_token_requests_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-ALTER TABLE public.api_token_requests ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
-    SEQUENCE NAME public.api_token_requests_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1
-);
-
-
---
--- Name: api_tokens; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.api_tokens (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    name text NOT NULL,
-    token_hash bytea NOT NULL,
-    prefix text NOT NULL,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    last_used_at timestamp with time zone,
-    revoked_at timestamp with time zone,
-    CONSTRAINT api_tokens_name_length CHECK (((char_length(name) >= 1) AND (char_length(name) <= 80)))
-);
-
-
---
 -- Name: app_errors; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1125,27 +973,6 @@ CREATE TABLE public.auto_renew_settings (
 
 
 --
--- Name: backup_requests; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.backup_requests (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    action text NOT NULL,
-    backup_id uuid,
-    reason text DEFAULT ''::text NOT NULL,
-    requested_by uuid,
-    status text DEFAULT 'pending'::text NOT NULL,
-    error_code text,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    finished_at timestamp with time zone,
-    CONSTRAINT backup_requests_action_known CHECK ((action = ANY (ARRAY['create'::text, 'restore'::text, 'delete'::text]))),
-    CONSTRAINT backup_requests_restore_reason CHECK (((action <> 'restore'::text) OR (length(btrim(reason)) > 0))),
-    CONSTRAINT backup_requests_status_known CHECK ((status = ANY (ARRAY['pending'::text, 'running'::text, 'completed'::text, 'failed'::text]))),
-    CONSTRAINT backup_requests_target CHECK (((action = 'create'::text) = (backup_id IS NULL)))
-);
-
-
---
 -- Name: backup_restores; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1181,7 +1008,7 @@ CREATE TABLE public.backups (
     completed_at timestamp with time zone,
     retain_until timestamp with time zone NOT NULL,
     CONSTRAINT backups_file_name_check CHECK ((file_name ~ '^[A-Za-z0-9._-]{1,128}$'::text)),
-    CONSTRAINT backups_kind_check CHECK ((kind = ANY (ARRAY['scheduled'::text, 'manual'::text, 'uploaded'::text]))),
+    CONSTRAINT backups_kind_check CHECK ((kind = ANY (ARRAY['scheduled'::text, 'manual'::text]))),
     CONSTRAINT backups_size_bytes_check CHECK ((size_bytes >= 0)),
     CONSTRAINT backups_status_check CHECK ((status = ANY (ARRAY['running'::text, 'completed'::text, 'failed'::text, 'pruned'::text])))
 );
@@ -1225,24 +1052,6 @@ CREATE TABLE public.bedolaga_import_runs (
     CONSTRAINT bedolaga_import_runs_actor_length CHECK (((char_length(actor) >= 1) AND (char_length(actor) <= 120))),
     CONSTRAINT bedolaga_import_runs_finish_consistent CHECK (((status = 'running'::text) = (finished_at IS NULL))),
     CONSTRAINT bedolaga_import_runs_status_known CHECK ((status = ANY (ARRAY['running'::text, 'completed'::text, 'failed'::text])))
-);
-
-
---
--- Name: blocker_scans; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.blocker_scans (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    status text DEFAULT 'pending'::text NOT NULL,
-    checked integer DEFAULT 0 NOT NULL,
-    blocked integer DEFAULT 0 NOT NULL,
-    requested_by uuid,
-    requested_at timestamp with time zone DEFAULT now() NOT NULL,
-    started_at timestamp with time zone,
-    finished_at timestamp with time zone,
-    CONSTRAINT blocker_scans_counts_valid CHECK (((checked >= 0) AND (blocked >= 0) AND (blocked <= checked))),
-    CONSTRAINT blocker_scans_status_known CHECK ((status = ANY (ARRAY['pending'::text, 'running'::text, 'completed'::text, 'failed'::text])))
 );
 
 
@@ -1360,11 +1169,8 @@ CREATE TABLE public.bot_checkout_sessions (
     expires_at timestamp with time zone DEFAULT (now() + '01:00:00'::interval) NOT NULL,
     subscription_id uuid,
     selected_squad_ids uuid[] DEFAULT '{}'::uuid[] NOT NULL,
-    period_days integer,
-    payment_method text DEFAULT ''::text NOT NULL,
     CONSTRAINT bot_checkout_sessions_currency_check CHECK ((currency ~ '^[A-Z]{3}$'::text)),
     CONSTRAINT bot_checkout_sessions_operation_check CHECK ((operation = ANY (ARRAY['purchase'::text, 'upgrade'::text, 'downgrade'::text, 'extension'::text]))),
-    CONSTRAINT bot_checkout_sessions_period_days_range CHECK (((period_days IS NULL) OR ((period_days >= 1) AND (period_days <= 3650)))),
     CONSTRAINT bot_checkout_sessions_promo_code_check CHECK (((promo_code IS NULL) OR (promo_code ~ '^[A-Z0-9_-]{3,64}$'::text))),
     CONSTRAINT bot_checkout_sessions_provider_check CHECK ((provider = ANY (ARRAY['manual'::text, 'telegram_stars'::text, 'cryptobot'::text, 'yookassa'::text, 'heleket'::text, 'mulenpay'::text, 'pal24'::text, 'platega'::text, 'cashera'::text, 'tribute'::text, 'freekassa'::text, 'kassa_ai'::text, 'riopay'::text, 'severpay'::text, 'rollypay'::text, 'aurapay'::text, 'wata'::text, 'cloudpayments'::text, 'lava'::text, 'overpay'::text, 'paritypay'::text, 'payhot'::text, 'cispay'::text, 'antilopay'::text, 'anore'::text, 'donut'::text, 'etoplatezhi'::text, 'jupiter'::text, 'tabpay'::text])))
 );
@@ -1500,7 +1306,7 @@ CREATE TABLE public.bulk_operations (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     completed_at timestamp with time zone,
     CONSTRAINT bulk_operations_failed_count_check CHECK ((failed_count >= 0)),
-    CONSTRAINT bulk_operations_kind_check CHECK ((kind = ANY (ARRAY['customer_export'::text, 'subscription_extend'::text, 'subscription_disable'::text, 'subscription_enable'::text, 'wallet_credit'::text, 'subscription_add_traffic'::text, 'subscription_set_devices'::text]))),
+    CONSTRAINT bulk_operations_kind_check CHECK ((kind = ANY (ARRAY['customer_export'::text, 'subscription_extend'::text, 'subscription_disable'::text, 'subscription_enable'::text, 'wallet_credit'::text]))),
     CONSTRAINT bulk_operations_reason_check CHECK (((char_length(reason) >= 1) AND (char_length(reason) <= 400))),
     CONSTRAINT bulk_operations_skipped_count_check CHECK ((skipped_count >= 0)),
     CONSTRAINT bulk_operations_status_check CHECK ((status = ANY (ARRAY['previewing'::text, 'ready'::text, 'running'::text, 'completed'::text, 'failed'::text, 'cancelled'::text]))),
@@ -1710,9 +1516,7 @@ CREATE TABLE public.code_batches (
     revoke_reason text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     created_by uuid,
-    max_per_customer integer,
     CONSTRAINT code_batches_currency_check CHECK ((currency ~ '^[A-Z]{3}$'::text)),
-    CONSTRAINT code_batches_max_per_customer_positive CHECK (((max_per_customer IS NULL) OR (max_per_customer > 0))),
     CONSTRAINT code_batches_note_check CHECK (((note IS NULL) OR (char_length(note) <= 500))),
     CONSTRAINT code_batches_quantity_check CHECK (((quantity >= 1) AND (quantity <= 10000))),
     CONSTRAINT code_batches_reference_check CHECK ((reference ~ '^[a-zA-Z0-9][a-zA-Z0-9 ._-]{2,79}$'::text)),
@@ -1741,12 +1545,8 @@ CREATE TABLE public.commerce_settings (
     updated_by uuid,
     channel_grace_seconds bigint DEFAULT 259200 NOT NULL,
     channel_recheck_seconds bigint DEFAULT 21600 NOT NULL,
-    manual_instructions_ru text DEFAULT ''::text NOT NULL,
-    manual_instructions_en text DEFAULT ''::text NOT NULL,
-    support_topup_enabled boolean DEFAULT false NOT NULL,
     CONSTRAINT commerce_settings_channel_grace_seconds_check CHECK ((channel_grace_seconds >= 0)),
     CONSTRAINT commerce_settings_channel_recheck_seconds_check CHECK ((channel_recheck_seconds >= 300)),
-    CONSTRAINT commerce_settings_manual_instructions_length CHECK (((char_length(manual_instructions_ru) <= 2000) AND (char_length(manual_instructions_en) <= 2000))),
     CONSTRAINT commerce_settings_max_subscriptions_per_customer_check CHECK ((max_subscriptions_per_customer > 0)),
     CONSTRAINT commerce_settings_singleton_check CHECK (singleton),
     CONSTRAINT commerce_settings_topup_currency_check CHECK ((topup_currency ~ '^[A-Z]{3}$'::text)),
@@ -1860,31 +1660,27 @@ CREATE TABLE public.contact_channels (
 
 
 --
--- Name: customer_activity; Type: TABLE; Schema: public; Owner: -
+-- Name: currency_settings; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.customer_activity (
-    id bigint NOT NULL,
-    user_id uuid NOT NULL,
-    surface text NOT NULL,
-    action text NOT NULL,
-    occurred_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT customer_activity_action_shape CHECK ((action ~ '^[a-z0-9_:./-]{1,64}$'::text)),
-    CONSTRAINT customer_activity_surface_known CHECK ((surface = ANY (ARRAY['bot'::text, 'web'::text])))
-);
-
-
---
--- Name: customer_activity_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-ALTER TABLE public.customer_activity ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
-    SEQUENCE NAME public.customer_activity_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1
+CREATE TABLE public.currency_settings (
+    singleton boolean DEFAULT true NOT NULL,
+    stars_enabled boolean DEFAULT false NOT NULL,
+    stars_currency text DEFAULT 'RUB'::text NOT NULL,
+    stars_rate_mode text DEFAULT 'manual'::text NOT NULL,
+    stars_rate_minor bigint DEFAULT 180 NOT NULL,
+    stars_usd_micros bigint DEFAULT 13000 NOT NULL,
+    usd_rub_mode text DEFAULT 'auto'::text NOT NULL,
+    usd_rub_manual_minor bigint,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by uuid,
+    CONSTRAINT currency_settings_singleton CHECK (singleton),
+    CONSTRAINT currency_settings_stars_currency_iso CHECK (((stars_currency ~ '^[A-Z]{3}$'::text) AND (stars_currency <> 'XTR'::text))),
+    CONSTRAINT currency_settings_stars_mode_known CHECK ((stars_rate_mode = ANY (ARRAY['manual'::text, 'auto'::text]))),
+    CONSTRAINT currency_settings_stars_rate_positive CHECK (((stars_rate_minor > 0) AND (stars_usd_micros > 0))),
+    CONSTRAINT currency_settings_usd_manual_positive CHECK (((usd_rub_manual_minor IS NULL) OR (usd_rub_manual_minor > 0))),
+    CONSTRAINT currency_settings_usd_manual_required CHECK (((usd_rub_mode = 'auto'::text) OR (usd_rub_manual_minor IS NOT NULL))),
+    CONSTRAINT currency_settings_usd_mode_known CHECK ((usd_rub_mode = ANY (ARRAY['auto'::text, 'manual'::text])))
 );
 
 
@@ -1929,7 +1725,7 @@ CREATE TABLE public.customer_event_notices (
     params jsonb DEFAULT '{}'::jsonb NOT NULL,
     dedupe_key text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT customer_event_notices_kind_known CHECK ((kind = ANY (ARRAY['referral_joined'::text, 'referral_welcome'::text, 'referral_reward'::text, 'loyalty_tier'::text, 'renewal_low_balance'::text]))),
+    CONSTRAINT customer_event_notices_kind_known CHECK ((kind = ANY (ARRAY['referral_joined'::text, 'referral_welcome'::text, 'referral_reward'::text, 'loyalty_tier'::text]))),
     CONSTRAINT customer_event_notices_params_object CHECK ((jsonb_typeof(params) = 'object'::text))
 );
 
@@ -2048,21 +1844,6 @@ CREATE TABLE public.customer_oidc_providers (
 
 
 --
--- Name: customer_restrictions; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.customer_restrictions (
-    user_id uuid NOT NULL,
-    kind text NOT NULL,
-    reason text NOT NULL,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT customer_restrictions_kind_known CHECK ((kind = ANY (ARRAY['topup'::text, 'purchase'::text, 'support'::text]))),
-    CONSTRAINT customer_restrictions_reason_present CHECK (((length(btrim(reason)) >= 1) AND (length(btrim(reason)) <= 500)))
-);
-
-
---
 -- Name: customer_security_events; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2110,21 +1891,6 @@ CREATE TABLE public.customer_sessions (
     CONSTRAINT customer_sessions_revoked_reason_known CHECK (((revoked_reason IS NULL) OR (revoked_reason = ANY (ARRAY['logout'::text, 'logout_all'::text, 'session_revoked'::text, 'identity_unlinked'::text, 'provider_disabled'::text, 'account_suspended'::text, 'account_deleted'::text, 'expired'::text, 'reauthenticated'::text])))),
     CONSTRAINT customer_sessions_token_hash_check CHECK ((octet_length(token_hash) = 32)),
     CONSTRAINT customer_sessions_user_agent_check CHECK (((user_agent IS NULL) OR (char_length(user_agent) <= 400)))
-);
-
-
---
--- Name: device_aliases; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.device_aliases (
-    subscription_id uuid NOT NULL,
-    user_id uuid NOT NULL,
-    device_handle text NOT NULL,
-    alias text NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT device_aliases_alias_length CHECK (((char_length(alias) >= 1) AND (char_length(alias) <= 40))),
-    CONSTRAINT device_aliases_handle_shape CHECK ((device_handle ~ '^[A-Za-z0-9_-]{16,64}$'::text))
 );
 
 
@@ -2196,8 +1962,6 @@ CREATE TABLE public.entitlement_addons (
     device_slots integer,
     remnawave_squad_ids uuid[] DEFAULT '{}'::uuid[] NOT NULL,
     applied_at timestamp with time zone DEFAULT now() NOT NULL,
-    expires_at timestamp with time zone,
-    expired_at timestamp with time zone,
     CONSTRAINT entitlement_addons_device_slots_check CHECK (((device_slots IS NULL) OR (device_slots >= 0))),
     CONSTRAINT entitlement_addons_quantity_check CHECK ((quantity > 0)),
     CONSTRAINT entitlement_addons_traffic_bytes_check CHECK (((traffic_bytes IS NULL) OR (traffic_bytes >= 0)))
@@ -2262,6 +2026,20 @@ COMMENT ON COLUMN public.entitlements.paused_at IS 'When the current pause began
 
 
 --
+-- Name: exchange_rate_observations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.exchange_rate_observations (
+    pair text NOT NULL,
+    minor bigint NOT NULL,
+    source text NOT NULL,
+    observed_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT exchange_rate_observations_minor_positive CHECK ((minor > 0)),
+    CONSTRAINT exchange_rate_observations_pair_format CHECK ((pair ~ '^[A-Z]{3}/[A-Z]{3}$'::text))
+);
+
+
+--
 -- Name: fulfillment_history; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2296,7 +2074,7 @@ CREATE TABLE public.fulfillment_operations (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     completed_at timestamp with time zone,
     CONSTRAINT fulfillment_operations_attempt_count_check CHECK ((attempt_count >= 0)),
-    CONSTRAINT fulfillment_operations_operation_known CHECK ((operation = ANY (ARRAY['create'::text, 'extend'::text, 'enable'::text, 'disable'::text, 'reset_traffic'::text, 'set_limits'::text, 'set_squads'::text, 'reconcile'::text, 'pause'::text, 'resume'::text, 'close'::text]))),
+    CONSTRAINT fulfillment_operations_operation_known CHECK ((operation = ANY (ARRAY['create'::text, 'extend'::text, 'enable'::text, 'disable'::text, 'reset_traffic'::text, 'set_limits'::text, 'set_squads'::text, 'reconcile'::text, 'pause'::text, 'resume'::text]))),
     CONSTRAINT fulfillment_operations_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'running'::text, 'succeeded'::text, 'retrying'::text, 'failed'::text, 'cancelled'::text])))
 );
 
@@ -3255,7 +3033,6 @@ CREATE TABLE public.orders (
     paid_at timestamp with time zone,
     loyalty_discount_minor bigint DEFAULT 0 NOT NULL,
     loyalty_tier_code text,
-    period_seconds bigint,
     CONSTRAINT orders_check CHECK ((discount_minor <= subtotal_minor)),
     CONSTRAINT orders_check1 CHECK (((wallet_minor + external_minor) = (subtotal_minor - discount_minor))),
     CONSTRAINT orders_check2 CHECK ((refunded_minor <= paid_minor)),
@@ -3264,9 +3041,8 @@ CREATE TABLE public.orders (
     CONSTRAINT orders_external_minor_check CHECK ((external_minor >= 0)),
     CONSTRAINT orders_loyalty_discount_bounded CHECK (((loyalty_discount_minor >= 0) AND (loyalty_discount_minor <= discount_minor))),
     CONSTRAINT orders_loyalty_tier_present CHECK (((loyalty_discount_minor = 0) OR (loyalty_tier_code IS NOT NULL))),
-    CONSTRAINT orders_operation_known CHECK ((operation = ANY (ARRAY['purchase'::text, 'upgrade'::text, 'downgrade'::text, 'extension'::text, 'topup'::text, 'addon'::text, 'gift'::text, 'goods'::text, 'renewal'::text, 'code'::text, 'traffic_reset'::text]))),
+    CONSTRAINT orders_operation_known CHECK ((operation = ANY (ARRAY['purchase'::text, 'upgrade'::text, 'downgrade'::text, 'extension'::text, 'topup'::text, 'addon'::text, 'gift'::text, 'goods'::text, 'renewal'::text, 'code'::text]))),
     CONSTRAINT orders_paid_minor_check CHECK ((paid_minor >= 0)),
-    CONSTRAINT orders_period_seconds_positive CHECK (((period_seconds IS NULL) OR (period_seconds > 0))),
     CONSTRAINT orders_refunded_minor_check CHECK ((refunded_minor >= 0)),
     CONSTRAINT orders_state_check CHECK ((state = ANY (ARRAY['draft'::text, 'pending'::text, 'paid'::text, 'fulfilled'::text, 'cancelled'::text, 'expired'::text, 'partially_refunded'::text, 'refunded'::text]))),
     CONSTRAINT orders_subtotal_minor_check CHECK ((subtotal_minor >= 0)),
@@ -3332,43 +3108,10 @@ CREATE TABLE public.payment_intents (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     save_method_consent_at timestamp with time zone,
-    method text DEFAULT ''::text NOT NULL,
     CONSTRAINT payment_intents_amount_minor_check CHECK ((amount_minor >= 0)),
     CONSTRAINT payment_intents_currency_check CHECK ((currency ~ '^[A-Z]{3}$'::text)),
     CONSTRAINT payment_intents_provider_check CHECK ((provider = ANY (ARRAY['manual'::text, 'telegram_stars'::text, 'cryptobot'::text, 'yookassa'::text, 'heleket'::text, 'mulenpay'::text, 'pal24'::text, 'platega'::text, 'cashera'::text, 'tribute'::text, 'freekassa'::text, 'kassa_ai'::text, 'riopay'::text, 'severpay'::text, 'rollypay'::text, 'aurapay'::text, 'wata'::text, 'cloudpayments'::text, 'lava'::text, 'overpay'::text, 'paritypay'::text, 'payhot'::text, 'cispay'::text, 'antilopay'::text, 'anore'::text, 'donut'::text, 'etoplatezhi'::text, 'jupiter'::text, 'tabpay'::text]))),
     CONSTRAINT payment_intents_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'requires_action'::text, 'processing'::text, 'succeeded'::text, 'failed'::text, 'cancelled'::text, 'expired'::text])))
-);
-
-
---
--- Name: payment_method_settings; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.payment_method_settings (
-    provider text NOT NULL,
-    method text DEFAULT ''::text NOT NULL,
-    enabled boolean DEFAULT true NOT NULL,
-    display_order integer DEFAULT 0 NOT NULL,
-    name_ru text DEFAULT ''::text NOT NULL,
-    name_en text DEFAULT ''::text NOT NULL,
-    description_ru text DEFAULT ''::text NOT NULL,
-    description_en text DEFAULT ''::text NOT NULL,
-    min_minor bigint,
-    max_minor bigint,
-    quick_amounts_minor bigint[] DEFAULT '{}'::bigint[] NOT NULL,
-    login_kinds text[] DEFAULT '{}'::text[] NOT NULL,
-    topup_audience text DEFAULT 'all'::text NOT NULL,
-    loyalty_tier_codes text[] DEFAULT '{}'::text[] NOT NULL,
-    open_directly boolean DEFAULT false NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_by uuid,
-    CONSTRAINT payment_method_settings_bounds CHECK ((((min_minor IS NULL) OR (min_minor > 0)) AND ((max_minor IS NULL) OR (max_minor > 0)) AND ((min_minor IS NULL) OR (max_minor IS NULL) OR (min_minor <= max_minor)))),
-    CONSTRAINT payment_method_settings_description_length CHECK (((char_length(description_ru) <= 240) AND (char_length(description_en) <= 240))),
-    CONSTRAINT payment_method_settings_login_kinds CHECK ((login_kinds <@ ARRAY['telegram'::text, 'email'::text, 'vk'::text, 'oidc'::text])),
-    CONSTRAINT payment_method_settings_method_format CHECK ((method ~ '^[a-z0-9_]{0,10}$'::text)),
-    CONSTRAINT payment_method_settings_name_length CHECK (((char_length(name_ru) <= 64) AND (char_length(name_en) <= 64))),
-    CONSTRAINT payment_method_settings_quick_amounts CHECK (((cardinality(quick_amounts_minor) <= 8) AND (0 < ALL (quick_amounts_minor)))),
-    CONSTRAINT payment_method_settings_topup_audience CHECK ((topup_audience = ANY (ARRAY['all'::text, 'first_topup'::text, 'repeat_topup'::text])))
 );
 
 
@@ -3513,37 +3256,6 @@ CREATE TABLE public.plan_version_addons (
 
 
 --
--- Name: plan_version_day_prices; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.plan_version_day_prices (
-    plan_version_id uuid NOT NULL,
-    currency text NOT NULL,
-    amount_minor bigint NOT NULL,
-    CONSTRAINT plan_version_day_prices_amount_positive CHECK ((amount_minor > 0)),
-    CONSTRAINT plan_version_day_prices_currency_shape CHECK ((currency ~ '^[A-Z]{3}$'::text))
-);
-
-
---
--- Name: plan_version_periods; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.plan_version_periods (
-    plan_version_id uuid NOT NULL,
-    days integer NOT NULL,
-    currency text NOT NULL,
-    amount_minor bigint NOT NULL,
-    for_purchase boolean DEFAULT true NOT NULL,
-    for_renewal boolean DEFAULT true NOT NULL,
-    CONSTRAINT plan_version_periods_amount_nonnegative CHECK ((amount_minor >= 0)),
-    CONSTRAINT plan_version_periods_currency_shape CHECK ((currency ~ '^[A-Z]{3}$'::text)),
-    CONSTRAINT plan_version_periods_days_range CHECK (((days >= 1) AND (days <= 3650))),
-    CONSTRAINT plan_version_periods_offered CHECK ((for_purchase OR for_renewal))
-);
-
-
---
 -- Name: plan_version_squads; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -3584,24 +3296,17 @@ CREATE TABLE public.plan_versions (
     max_selectable_squads integer,
     traffic_reset_strategy text DEFAULT 'NO_RESET'::text NOT NULL,
     external_squad_id uuid,
-    max_addon_traffic_bytes bigint,
-    traffic_reset_price_bps integer,
-    custom_days_min integer,
-    custom_days_max integer,
     CONSTRAINT plan_versions_billing_period_check CHECK ((billing_period = ANY (ARRAY['none'::text, 'day'::text, 'week'::text, 'month'::text, 'quarter'::text, 'half_year'::text, 'year'::text, 'custom'::text]))),
     CONSTRAINT plan_versions_cancellation_policy_check CHECK ((cancellation_policy = ANY (ARRAY['forbid'::text, 'immediate'::text, 'at_expiry'::text]))),
-    CONSTRAINT plan_versions_custom_days_range CHECK ((((custom_days_min IS NULL) = (custom_days_max IS NULL)) AND ((custom_days_min IS NULL) OR ((custom_days_min >= 1) AND (custom_days_max >= custom_days_min) AND (custom_days_max <= 3650))))),
     CONSTRAINT plan_versions_device_limit_check CHECK (((device_limit IS NULL) OR (device_limit >= 0))),
     CONSTRAINT plan_versions_downgrade_policy_check CHECK ((downgrade_policy = ANY (ARRAY['forbid'::text, 'immediate'::text, 'at_expiry'::text]))),
     CONSTRAINT plan_versions_duration_seconds_check CHECK ((duration_seconds > 0)),
     CONSTRAINT plan_versions_grace_period_seconds_check CHECK ((grace_period_seconds >= 0)),
-    CONSTRAINT plan_versions_max_addon_traffic_positive CHECK (((max_addon_traffic_bytes IS NULL) OR (max_addon_traffic_bytes > 0))),
     CONSTRAINT plan_versions_max_selectable_squads_check CHECK (((max_selectable_squads IS NULL) OR (max_selectable_squads > 0))),
     CONSTRAINT plan_versions_min_selectable_squads_check CHECK ((min_selectable_squads >= 0)),
     CONSTRAINT plan_versions_selectable_squad_range_check CHECK (((max_selectable_squads IS NULL) OR (max_selectable_squads >= min_selectable_squads))),
     CONSTRAINT plan_versions_squad_selection_check CHECK ((squad_selection = ANY (ARRAY['automatic'::text, 'optional'::text, 'required'::text]))),
     CONSTRAINT plan_versions_traffic_allowance_bytes_check CHECK (((traffic_allowance_bytes IS NULL) OR (traffic_allowance_bytes >= 0))),
-    CONSTRAINT plan_versions_traffic_reset_price_bps_range CHECK (((traffic_reset_price_bps IS NULL) OR ((traffic_reset_price_bps >= 1) AND (traffic_reset_price_bps <= 100000)))),
     CONSTRAINT plan_versions_traffic_reset_strategy_known CHECK ((traffic_reset_strategy = ANY (ARRAY['NO_RESET'::text, 'DAY'::text, 'WEEK'::text, 'MONTH'::text, 'MONTH_ROLLING'::text]))),
     CONSTRAINT plan_versions_trial_eligibility_check CHECK ((trial_eligibility = ANY (ARRAY['new_customer'::text, 'never_trialled'::text, 'any'::text]))),
     CONSTRAINT plan_versions_upgrade_policy_check CHECK ((upgrade_policy = ANY (ARRAY['forbid'::text, 'replace'::text, 'extend'::text]))),
@@ -3703,10 +3408,7 @@ CREATE TABLE public.promotions (
     stackable boolean DEFAULT false NOT NULL,
     precedence integer DEFAULT 0 NOT NULL,
     applies_to text DEFAULT 'plans'::text NOT NULL,
-    credit_minor bigint,
-    tier_code text,
     CONSTRAINT promotions_applies_to_check CHECK ((applies_to = ANY (ARRAY['plans'::text, 'goods'::text]))),
-    CONSTRAINT promotions_balance_days_complete CHECK (((kind <> 'balance_days'::text) OR ((currency IS NOT NULL) AND (credit_minor IS NOT NULL) AND (credit_minor > 0) AND (value <= 3650)))),
     CONSTRAINT promotions_check CHECK (((ends_at IS NULL) OR (starts_at IS NULL) OR (ends_at > starts_at))),
     CONSTRAINT promotions_check1 CHECK ((((kind = 'fixed'::text) AND (currency IS NOT NULL)) OR (kind <> 'fixed'::text))),
     CONSTRAINT promotions_check2 CHECK ((((kind = 'percent'::text) AND (value <= 10000)) OR (kind <> 'percent'::text))),
@@ -3714,11 +3416,9 @@ CREATE TABLE public.promotions (
     CONSTRAINT promotions_credit_currency_present CHECK (((kind <> 'wallet_credit'::text) OR (currency IS NOT NULL))),
     CONSTRAINT promotions_currency_check CHECK (((currency IS NULL) OR (currency ~ '^[A-Z]{3}$'::text))),
     CONSTRAINT promotions_day_reward_bounded CHECK (((kind <> ALL (ARRAY['days'::text, 'trial'::text])) OR (value <= 3650))),
-    CONSTRAINT promotions_kind_known CHECK ((kind = ANY (ARRAY['percent'::text, 'fixed'::text, 'wallet_credit'::text, 'days'::text, 'trial'::text, 'balance_days'::text, 'traffic'::text, 'loyalty_tier'::text]))),
+    CONSTRAINT promotions_kind_known CHECK ((kind = ANY (ARRAY['percent'::text, 'fixed'::text, 'wallet_credit'::text, 'days'::text, 'trial'::text]))),
     CONSTRAINT promotions_per_customer_limit_check CHECK ((per_customer_limit > 0)),
     CONSTRAINT promotions_redemption_limit_check CHECK (((redemption_limit IS NULL) OR (redemption_limit > 0))),
-    CONSTRAINT promotions_tier_complete CHECK (((kind <> 'loyalty_tier'::text) OR ((tier_code ~ '^[a-z][a-z0-9_-]{1,31}$'::text) AND (value <= 3650)))),
-    CONSTRAINT promotions_traffic_bounded CHECK (((kind <> 'traffic'::text) OR (value <= 100000))),
     CONSTRAINT promotions_value_check CHECK ((value > 0))
 );
 
@@ -3932,58 +3632,6 @@ CREATE TABLE public.refunds (
     CONSTRAINT refunds_amount_minor_check CHECK ((amount_minor > 0)),
     CONSTRAINT refunds_currency_check CHECK ((currency ~ '^[A-Z]{3}$'::text)),
     CONSTRAINT refunds_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'processing'::text, 'succeeded'::text, 'failed'::text, 'cancelled'::text])))
-);
-
-
---
--- Name: reminder_states; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.reminder_states (
-    reminder_id uuid NOT NULL,
-    user_id uuid NOT NULL,
-    sends integer DEFAULT 0 NOT NULL,
-    last_sent_at timestamp with time zone,
-    dismissed_at timestamp with time zone,
-    CONSTRAINT reminder_states_sends_nonnegative CHECK ((sends >= 0))
-);
-
-
---
--- Name: reminders; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.reminders (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    name text NOT NULL,
-    active boolean DEFAULT false NOT NULL,
-    category text DEFAULT 'service'::text NOT NULL,
-    segment text NOT NULL,
-    segment_days integer DEFAULT 3 NOT NULL,
-    balance_below_minor bigint DEFAULT 0 NOT NULL,
-    currency text DEFAULT 'RUB'::text NOT NULL,
-    repeat_every_days integer DEFAULT 7 NOT NULL,
-    max_sends integer DEFAULT 1 NOT NULL,
-    title_ru text NOT NULL,
-    body_ru text NOT NULL,
-    title_en text NOT NULL,
-    body_en text NOT NULL,
-    button_route text,
-    show_in_cabinet boolean DEFAULT false NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_by uuid,
-    CONSTRAINT reminders_balance_nonnegative CHECK ((balance_below_minor >= 0)),
-    CONSTRAINT reminders_bodies_length CHECK ((((char_length(body_ru) >= 1) AND (char_length(body_ru) <= 2000)) AND ((char_length(body_en) >= 1) AND (char_length(body_en) <= 2000)))),
-    CONSTRAINT reminders_button_known CHECK (((button_route IS NULL) OR (button_route = ANY (ARRAY['plans'::text, 'connect'::text, 'wallet'::text, 'support'::text, 'home'::text])))),
-    CONSTRAINT reminders_category_known CHECK ((category = ANY (ARRAY['service'::text, 'marketing'::text]))),
-    CONSTRAINT reminders_currency_shape CHECK ((currency ~ '^[A-Z]{3}$'::text)),
-    CONSTRAINT reminders_name_length CHECK (((char_length(name) >= 1) AND (char_length(name) <= 80))),
-    CONSTRAINT reminders_repeat_range CHECK (((repeat_every_days >= 1) AND (repeat_every_days <= 365))),
-    CONSTRAINT reminders_segment_days_range CHECK (((segment_days >= 0) AND (segment_days <= 365))),
-    CONSTRAINT reminders_segment_known CHECK ((segment = ANY (ARRAY['no_subscription'::text, 'expiring'::text, 'expired'::text, 'low_balance'::text]))),
-    CONSTRAINT reminders_sends_range CHECK (((max_sends >= 1) AND (max_sends <= 20))),
-    CONSTRAINT reminders_titles_length CHECK ((((char_length(title_ru) >= 1) AND (char_length(title_ru) <= 120)) AND ((char_length(title_en) >= 1) AND (char_length(title_en) <= 120))))
 );
 
 
@@ -4238,6 +3886,23 @@ CREATE TABLE public.self_employed_settings (
 
 
 --
+-- Name: stars_quotes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.stars_quotes (
+    order_id uuid NOT NULL,
+    amount_minor bigint NOT NULL,
+    currency text NOT NULL,
+    stars bigint NOT NULL,
+    rate_minor bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT stars_quotes_amount_positive CHECK ((amount_minor > 0)),
+    CONSTRAINT stars_quotes_rate_positive CHECK ((rate_minor > 0)),
+    CONSTRAINT stars_quotes_stars_positive CHECK ((stars > 0))
+);
+
+
+--
 -- Name: subscription_policy; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -4253,18 +3918,10 @@ CREATE TABLE public.subscription_policy (
     updated_by uuid,
     trial_tag text,
     paid_tag text,
-    trial_disabled_methods text[] DEFAULT '{}'::text[] NOT NULL,
-    trial_warning_hours integer DEFAULT 0 NOT NULL,
-    max_device_limit integer,
-    remnawave_close_mode text DEFAULT 'disable'::text NOT NULL,
-    CONSTRAINT subscription_policy_max_device_limit_positive CHECK (((max_device_limit IS NULL) OR (max_device_limit > 0))),
     CONSTRAINT subscription_policy_paid_tag_shape CHECK ((paid_tag ~ '^[A-Z0-9_]{1,16}$'::text)),
-    CONSTRAINT subscription_policy_remnawave_close_mode_known CHECK ((remnawave_close_mode = ANY (ARRAY['disable'::text, 'delete'::text]))),
     CONSTRAINT subscription_policy_singleton CHECK (singleton),
-    CONSTRAINT subscription_policy_trial_methods_known CHECK ((trial_disabled_methods <@ ARRAY['telegram'::text, 'email'::text, 'oidc'::text])),
     CONSTRAINT subscription_policy_trial_remainder_known CHECK ((trial_remainder = ANY (ARRAY['policy'::text, 'carry'::text, 'reset'::text]))),
-    CONSTRAINT subscription_policy_trial_tag_shape CHECK ((trial_tag ~ '^[A-Z0-9_]{1,16}$'::text)),
-    CONSTRAINT subscription_policy_trial_warning_hours_range CHECK (((trial_warning_hours >= 0) AND (trial_warning_hours <= 168)))
+    CONSTRAINT subscription_policy_trial_tag_shape CHECK ((trial_tag ~ '^[A-Z0-9_]{1,16}$'::text))
 );
 
 
@@ -4292,20 +3949,12 @@ CREATE TABLE public.subscriptions (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     closed_at timestamp with time zone,
-    link_rotated_at timestamp with time zone,
     CONSTRAINT subscriptions_label_check CHECK (((char_length(label) >= 1) AND (char_length(label) <= 40))),
     CONSTRAINT subscriptions_remnawave_user_id_check CHECK (((remnawave_user_id IS NULL) OR (remnawave_user_id > 0))),
     CONSTRAINT subscriptions_remnawave_username_check CHECK (((remnawave_username IS NULL) OR ((char_length(remnawave_username) >= 1) AND (char_length(remnawave_username) <= 64)))),
     CONSTRAINT subscriptions_slot_check CHECK ((slot > 0)),
     CONSTRAINT subscriptions_status_check CHECK ((status = ANY (ARRAY['active'::text, 'closed'::text])))
 );
-
-
---
--- Name: COLUMN subscriptions.link_rotated_at; Type: COMMENT; Schema: public; Owner: -
---
-
-COMMENT ON COLUMN public.subscriptions.link_rotated_at IS 'When the customer last re-issued this subscription''s access link. Restored to its previous value when the re-issue fails.';
 
 
 --
@@ -4377,8 +4026,6 @@ CREATE TABLE public.support_messages (
     read_at timestamp with time zone,
     author_id uuid,
     canned_response_id uuid,
-    deleted_at timestamp with time zone,
-    deleted_by uuid,
     CONSTRAINT support_messages_body_check CHECK (((char_length(body) >= 1) AND (char_length(body) <= 4000))),
     CONSTRAINT support_messages_sender_check CHECK ((sender = ANY (ARRAY['customer'::text, 'operator'::text, 'system'::text])))
 );
@@ -4442,7 +4089,6 @@ CREATE TABLE public.support_queues (
     archived_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    customer_selectable boolean DEFAULT false NOT NULL,
     CONSTRAINT support_queues_code_check CHECK ((code ~ '^[a-z][a-z0-9_-]{1,63}$'::text)),
     CONSTRAINT support_queues_first_response_target_seconds_check CHECK ((first_response_target_seconds >= 0)),
     CONSTRAINT support_queues_name_en_check CHECK (((char_length(name_en) >= 1) AND (char_length(name_en) <= 80))),
@@ -4510,19 +4156,6 @@ CREATE TABLE public.support_tickets (
     CONSTRAINT support_tickets_reopened_count_check CHECK ((reopened_count >= 0)),
     CONSTRAINT support_tickets_status_check CHECK ((status = ANY (ARRAY['open'::text, 'pending'::text, 'resolved'::text, 'closed'::text, 'merged'::text]))),
     CONSTRAINT support_tickets_subject_check CHECK ((char_length(subject) <= 120))
-);
-
-
---
--- Name: support_topic_choices; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.support_topic_choices (
-    user_id uuid NOT NULL,
-    queue_id uuid,
-    priority text DEFAULT 'normal'::text NOT NULL,
-    chosen_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT support_topic_choices_priority_known CHECK ((priority = ANY (ARRAY['normal'::text, 'high'::text])))
 );
 
 
@@ -4601,7 +4234,6 @@ CREATE TABLE public.users (
     retention_until timestamp with time zone,
     merged_into uuid,
     merged_at timestamp with time zone,
-    last_activity_at timestamp with time zone,
     CONSTRAINT users_locale_check CHECK ((locale = ANY (ARRAY['ru'::text, 'en'::text]))),
     CONSTRAINT users_merge_complete CHECK ((((status = 'merged'::text) = (merged_into IS NOT NULL)) AND ((merged_into IS NULL) = (merged_at IS NULL)))),
     CONSTRAINT users_merge_not_self CHECK (((merged_into IS NULL) OR (merged_into <> id))),
@@ -4633,46 +4265,6 @@ CREATE TABLE public.wallet_topups (
     CONSTRAINT wallet_topups_credited_minor_check CHECK ((credited_minor >= 0)),
     CONSTRAINT wallet_topups_currency_check CHECK ((currency ~ '^[A-Z]{3}$'::text)),
     CONSTRAINT wallet_topups_requested_minor_check CHECK ((requested_minor > 0))
-);
-
-
---
--- Name: webhook_deliveries; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.webhook_deliveries (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    endpoint_id uuid NOT NULL,
-    event_id uuid NOT NULL,
-    topic text NOT NULL,
-    payload jsonb NOT NULL,
-    status text DEFAULT 'pending'::text NOT NULL,
-    attempts integer DEFAULT 0 NOT NULL,
-    response_status integer,
-    next_attempt_at timestamp with time zone DEFAULT now() NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    delivered_at timestamp with time zone,
-    CONSTRAINT webhook_deliveries_status_known CHECK ((status = ANY (ARRAY['pending'::text, 'delivered'::text, 'failed'::text])))
-);
-
-
---
--- Name: webhook_endpoints; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.webhook_endpoints (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    name text NOT NULL,
-    url text NOT NULL,
-    events text[] NOT NULL,
-    secret_ciphertext bytea NOT NULL,
-    enabled boolean DEFAULT true NOT NULL,
-    created_by uuid,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT webhook_endpoints_events_present CHECK ((cardinality(events) >= 1)),
-    CONSTRAINT webhook_endpoints_name_length CHECK (((char_length(name) >= 1) AND (char_length(name) <= 80))),
-    CONSTRAINT webhook_endpoints_url_https CHECK ((url ~ '^https://'::text))
 );
 
 
@@ -4768,14 +4360,6 @@ ALTER TABLE ONLY public.addons
 
 ALTER TABLE ONLY public.addons
     ADD CONSTRAINT addons_pkey PRIMARY KEY (id);
-
-
---
--- Name: admin_custom_roles admin_custom_roles_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.admin_custom_roles
-    ADD CONSTRAINT admin_custom_roles_pkey PRIMARY KEY (role);
 
 
 --
@@ -5011,30 +4595,6 @@ ALTER TABLE ONLY public.anomaly_signals
 
 
 --
--- Name: api_token_requests api_token_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.api_token_requests
-    ADD CONSTRAINT api_token_requests_pkey PRIMARY KEY (id);
-
-
---
--- Name: api_tokens api_tokens_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.api_tokens
-    ADD CONSTRAINT api_tokens_hash_key UNIQUE (token_hash);
-
-
---
--- Name: api_tokens api_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.api_tokens
-    ADD CONSTRAINT api_tokens_pkey PRIMARY KEY (id);
-
-
---
 -- Name: app_errors app_errors_fingerprint_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5075,14 +4635,6 @@ ALTER TABLE ONLY public.audit_events
 
 
 --
--- Name: backup_requests backup_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.backup_requests
-    ADD CONSTRAINT backup_requests_pkey PRIMARY KEY (id);
-
-
---
 -- Name: backup_restores backup_restores_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5120,14 +4672,6 @@ ALTER TABLE ONLY public.bedolaga_import_items
 
 ALTER TABLE ONLY public.bedolaga_import_runs
     ADD CONSTRAINT bedolaga_import_runs_pkey PRIMARY KEY (id);
-
-
---
--- Name: blocker_scans blocker_scans_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.blocker_scans
-    ADD CONSTRAINT blocker_scans_pkey PRIMARY KEY (id);
 
 
 --
@@ -5427,11 +4971,11 @@ ALTER TABLE ONLY public.contact_channels
 
 
 --
--- Name: customer_activity customer_activity_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: currency_settings currency_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.customer_activity
-    ADD CONSTRAINT customer_activity_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.currency_settings
+    ADD CONSTRAINT currency_settings_pkey PRIMARY KEY (singleton);
 
 
 --
@@ -5523,14 +5067,6 @@ ALTER TABLE ONLY public.customer_oidc_providers
 
 
 --
--- Name: customer_restrictions customer_restrictions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.customer_restrictions
-    ADD CONSTRAINT customer_restrictions_pkey PRIMARY KEY (user_id, kind);
-
-
---
 -- Name: customer_security_events customer_security_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5552,14 +5088,6 @@ ALTER TABLE ONLY public.customer_sessions
 
 ALTER TABLE ONLY public.customer_sessions
     ADD CONSTRAINT customer_sessions_token_hash_key UNIQUE (token_hash);
-
-
---
--- Name: device_aliases device_aliases_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.device_aliases
-    ADD CONSTRAINT device_aliases_pkey PRIMARY KEY (subscription_id, device_handle);
 
 
 --
@@ -5632,6 +5160,14 @@ ALTER TABLE ONLY public.entitlements
 
 ALTER TABLE ONLY public.entitlements
     ADD CONSTRAINT entitlements_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: exchange_rate_observations exchange_rate_observations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.exchange_rate_observations
+    ADD CONSTRAINT exchange_rate_observations_pkey PRIMARY KEY (pair);
 
 
 --
@@ -6171,14 +5707,6 @@ ALTER TABLE ONLY public.payment_intents
 
 
 --
--- Name: payment_method_settings payment_method_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.payment_method_settings
-    ADD CONSTRAINT payment_method_settings_pkey PRIMARY KEY (provider, method);
-
-
---
 -- Name: payment_methods payment_methods_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6240,22 +5768,6 @@ ALTER TABLE ONLY public.plan_prices
 
 ALTER TABLE ONLY public.plan_version_addons
     ADD CONSTRAINT plan_version_addons_pkey PRIMARY KEY (plan_version_id, addon_id);
-
-
---
--- Name: plan_version_day_prices plan_version_day_prices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.plan_version_day_prices
-    ADD CONSTRAINT plan_version_day_prices_pkey PRIMARY KEY (plan_version_id, currency);
-
-
---
--- Name: plan_version_periods plan_version_periods_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.plan_version_periods
-    ADD CONSTRAINT plan_version_periods_pkey PRIMARY KEY (plan_version_id, days, currency);
 
 
 --
@@ -6483,22 +5995,6 @@ ALTER TABLE ONLY public.refunds
 
 
 --
--- Name: reminder_states reminder_states_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.reminder_states
-    ADD CONSTRAINT reminder_states_pkey PRIMARY KEY (reminder_id, user_id);
-
-
---
--- Name: reminders reminders_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.reminders
-    ADD CONSTRAINT reminders_pkey PRIMARY KEY (id);
-
-
---
 -- Name: remnawave_users remnawave_users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6608,6 +6104,14 @@ ALTER TABLE ONLY public.self_employed_receipts
 
 ALTER TABLE ONLY public.self_employed_settings
     ADD CONSTRAINT self_employed_settings_pkey PRIMARY KEY (singleton);
+
+
+--
+-- Name: stars_quotes stars_quotes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stars_quotes
+    ADD CONSTRAINT stars_quotes_pkey PRIMARY KEY (order_id);
 
 
 --
@@ -6731,14 +6235,6 @@ ALTER TABLE ONLY public.support_tickets
 
 
 --
--- Name: support_topic_choices support_topic_choices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.support_topic_choices
-    ADD CONSTRAINT support_topic_choices_pkey PRIMARY KEY (user_id);
-
-
---
 -- Name: telemetry_events telemetry_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6776,30 +6272,6 @@ ALTER TABLE ONLY public.users
 
 ALTER TABLE ONLY public.wallet_topups
     ADD CONSTRAINT wallet_topups_pkey PRIMARY KEY (order_id);
-
-
---
--- Name: webhook_deliveries webhook_deliveries_once; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.webhook_deliveries
-    ADD CONSTRAINT webhook_deliveries_once UNIQUE (endpoint_id, event_id);
-
-
---
--- Name: webhook_deliveries webhook_deliveries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.webhook_deliveries
-    ADD CONSTRAINT webhook_deliveries_pkey PRIMARY KEY (id);
-
-
---
--- Name: webhook_endpoints webhook_endpoints_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.webhook_endpoints
-    ADD CONSTRAINT webhook_endpoints_pkey PRIMARY KEY (id);
 
 
 --
@@ -6929,20 +6401,6 @@ CREATE INDEX anomaly_signals_subject_idx ON public.anomaly_signals USING btree (
 
 
 --
--- Name: api_token_requests_time_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX api_token_requests_time_idx ON public.api_token_requests USING btree (occurred_at);
-
-
---
--- Name: api_token_requests_token_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX api_token_requests_token_idx ON public.api_token_requests USING btree (token_id, occurred_at DESC);
-
-
---
 -- Name: app_errors_last_seen_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -6992,13 +6450,6 @@ CREATE UNIQUE INDEX auto_renew_settings_target_idx ON public.auto_renew_settings
 
 
 --
--- Name: backup_requests_pending_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX backup_requests_pending_idx ON public.backup_requests USING btree (created_at) WHERE (status = 'pending'::text);
-
-
---
 -- Name: backup_restores_backup_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7031,13 +6482,6 @@ CREATE INDEX bedolaga_import_items_status_idx ON public.bedolaga_import_items US
 --
 
 CREATE INDEX bedolaga_import_items_user_idx ON public.bedolaga_import_items USING btree (user_id) WHERE (user_id IS NOT NULL);
-
-
---
--- Name: blocker_scans_one_active; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX blocker_scans_one_active ON public.blocker_scans USING btree ((true)) WHERE (status = ANY (ARRAY['pending'::text, 'running'::text]));
 
 
 --
@@ -7188,20 +6632,6 @@ CREATE INDEX contact_channels_user_idx ON public.contact_channels USING btree (u
 
 
 --
--- Name: customer_activity_time_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX customer_activity_time_idx ON public.customer_activity USING btree (occurred_at);
-
-
---
--- Name: customer_activity_user_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX customer_activity_user_idx ON public.customer_activity USING btree (user_id, occurred_at DESC);
-
-
---
 -- Name: customer_campaign_attributions_campaign; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7311,13 +6741,6 @@ CREATE INDEX email_outbox_due_idx ON public.email_outbox USING btree (next_attem
 --
 
 CREATE INDEX email_outbox_marketing_sent_idx ON public.email_outbox USING btree (user_id, sent_at) WHERE ((class = 'marketing'::text) AND (status = 'sent'::text));
-
-
---
--- Name: entitlement_addons_due_expiry_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX entitlement_addons_due_expiry_idx ON public.entitlement_addons USING btree (expires_at) WHERE ((expires_at IS NOT NULL) AND (expired_at IS NULL));
 
 
 --
@@ -7699,13 +7122,6 @@ CREATE INDEX refunds_intent_idx ON public.refunds USING btree (payment_intent_id
 
 
 --
--- Name: reminder_states_recent_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX reminder_states_recent_idx ON public.reminder_states USING btree (user_id, last_sent_at DESC);
-
-
---
 -- Name: remnawave_webhook_events_body_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7944,20 +7360,6 @@ CREATE INDEX wallet_topups_window_idx ON public.wallet_topups USING btree (user_
 
 
 --
--- Name: webhook_deliveries_due_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX webhook_deliveries_due_idx ON public.webhook_deliveries USING btree (next_attempt_at) WHERE (status = 'pending'::text);
-
-
---
--- Name: webhook_deliveries_endpoint_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX webhook_deliveries_endpoint_idx ON public.webhook_deliveries USING btree (endpoint_id, created_at DESC);
-
-
---
 -- Name: cart_goods cart_goods_kind_matches; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -8014,13 +7416,6 @@ CREATE TRIGGER referral_rewards_operator_notice AFTER INSERT ON public.referral_
 
 
 --
--- Name: support_messages support_messages_refuse_blocked; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER support_messages_refuse_blocked BEFORE INSERT ON public.support_messages FOR EACH ROW EXECUTE FUNCTION public.refuse_blocked_support();
-
-
---
 -- Name: support_messages support_messages_reply_notice; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -8032,20 +7427,6 @@ CREATE TRIGGER support_messages_reply_notice AFTER INSERT ON public.support_mess
 --
 
 CREATE TRIGGER support_tickets_queue_notice AFTER INSERT ON public.support_tickets FOR EACH ROW EXECUTE FUNCTION public.queue_support_ticket_notice();
-
-
---
--- Name: support_tickets support_tickets_refuse_blocked; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER support_tickets_refuse_blocked BEFORE INSERT ON public.support_tickets FOR EACH ROW EXECUTE FUNCTION public.refuse_blocked_support();
-
-
---
--- Name: support_tickets support_tickets_topic_choice; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER support_tickets_topic_choice BEFORE INSERT ON public.support_tickets FOR EACH ROW EXECUTE FUNCTION public.apply_support_topic_choice();
 
 
 --
@@ -8101,14 +7482,6 @@ ALTER TABLE ONLY public.addon_prices
 
 ALTER TABLE ONLY public.addon_versions
     ADD CONSTRAINT addon_versions_addon_id_fkey FOREIGN KEY (addon_id) REFERENCES public.addons(id);
-
-
---
--- Name: admin_custom_roles admin_custom_roles_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.admin_custom_roles
-    ADD CONSTRAINT admin_custom_roles_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.admin_users(id) ON DELETE SET NULL;
 
 
 --
@@ -8296,22 +7669,6 @@ ALTER TABLE ONLY public.anomaly_signals
 
 
 --
--- Name: api_token_requests api_token_requests_token_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.api_token_requests
-    ADD CONSTRAINT api_token_requests_token_fkey FOREIGN KEY (token_id) REFERENCES public.api_tokens(id) ON DELETE CASCADE;
-
-
---
--- Name: api_tokens api_tokens_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.api_tokens
-    ADD CONSTRAINT api_tokens_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.admin_users(id) ON DELETE SET NULL;
-
-
---
 -- Name: audience_segments audience_segments_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8352,22 +7709,6 @@ ALTER TABLE ONLY public.auto_renew_settings
 
 
 --
--- Name: backup_requests backup_requests_backup_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.backup_requests
-    ADD CONSTRAINT backup_requests_backup_fkey FOREIGN KEY (backup_id) REFERENCES public.backups(id) ON DELETE SET NULL;
-
-
---
--- Name: backup_requests backup_requests_requested_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.backup_requests
-    ADD CONSTRAINT backup_requests_requested_by_fkey FOREIGN KEY (requested_by) REFERENCES public.admin_users(id) ON DELETE SET NULL;
-
-
---
 -- Name: backup_restores backup_restores_backup_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8405,14 +7746,6 @@ ALTER TABLE ONLY public.bedolaga_import_items
 
 ALTER TABLE ONLY public.bedolaga_import_items
     ADD CONSTRAINT bedolaga_import_items_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
-
-
---
--- Name: blocker_scans blocker_scans_requested_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.blocker_scans
-    ADD CONSTRAINT blocker_scans_requested_by_fkey FOREIGN KEY (requested_by) REFERENCES public.admin_users(id) ON DELETE SET NULL;
 
 
 --
@@ -8824,14 +8157,6 @@ ALTER TABLE ONLY public.contact_channels
 
 
 --
--- Name: customer_activity customer_activity_user_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.customer_activity
-    ADD CONSTRAINT customer_activity_user_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
 -- Name: customer_campaign_attributions customer_campaign_attributions_campaign_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8896,22 +8221,6 @@ ALTER TABLE ONLY public.customer_magic_links
 
 
 --
--- Name: customer_restrictions customer_restrictions_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.customer_restrictions
-    ADD CONSTRAINT customer_restrictions_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.admin_users(id) ON DELETE SET NULL;
-
-
---
--- Name: customer_restrictions customer_restrictions_user_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.customer_restrictions
-    ADD CONSTRAINT customer_restrictions_user_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
 -- Name: customer_security_events customer_security_events_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8925,22 +8234,6 @@ ALTER TABLE ONLY public.customer_security_events
 
 ALTER TABLE ONLY public.customer_sessions
     ADD CONSTRAINT customer_sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
--- Name: device_aliases device_aliases_subscription_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.device_aliases
-    ADD CONSTRAINT device_aliases_subscription_id_fkey FOREIGN KEY (subscription_id) REFERENCES public.subscriptions(id) ON DELETE CASCADE;
-
-
---
--- Name: device_aliases device_aliases_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.device_aliases
-    ADD CONSTRAINT device_aliases_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --
@@ -9656,22 +8949,6 @@ ALTER TABLE ONLY public.plan_version_addons
 
 
 --
--- Name: plan_version_day_prices plan_version_day_prices_plan_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.plan_version_day_prices
-    ADD CONSTRAINT plan_version_day_prices_plan_version_id_fkey FOREIGN KEY (plan_version_id) REFERENCES public.plan_versions(id) ON DELETE CASCADE;
-
-
---
--- Name: plan_version_periods plan_version_periods_plan_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.plan_version_periods
-    ADD CONSTRAINT plan_version_periods_plan_version_id_fkey FOREIGN KEY (plan_version_id) REFERENCES public.plan_versions(id) ON DELETE CASCADE;
-
-
---
 -- Name: plan_version_squads plan_version_squads_plan_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9888,22 +9165,6 @@ ALTER TABLE ONLY public.refunds
 
 
 --
--- Name: reminder_states reminder_states_reminder_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.reminder_states
-    ADD CONSTRAINT reminder_states_reminder_id_fkey FOREIGN KEY (reminder_id) REFERENCES public.reminders(id) ON DELETE CASCADE;
-
-
---
--- Name: reminder_states reminder_states_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.reminder_states
-    ADD CONSTRAINT reminder_states_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
 -- Name: remnawave_users remnawave_users_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9925,6 +9186,14 @@ ALTER TABLE ONLY public.required_channels
 
 ALTER TABLE ONLY public.self_employed_receipts
     ADD CONSTRAINT self_employed_receipts_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id);
+
+
+--
+-- Name: stars_quotes stars_quotes_order_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.stars_quotes
+    ADD CONSTRAINT stars_quotes_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id) ON DELETE CASCADE;
 
 
 --
@@ -10056,22 +9325,6 @@ ALTER TABLE ONLY public.support_tickets
 
 
 --
--- Name: support_topic_choices support_topic_choices_queue_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.support_topic_choices
-    ADD CONSTRAINT support_topic_choices_queue_fkey FOREIGN KEY (queue_id) REFERENCES public.support_queues(id) ON DELETE SET NULL;
-
-
---
--- Name: support_topic_choices support_topic_choices_user_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.support_topic_choices
-    ADD CONSTRAINT support_topic_choices_user_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
-
-
---
 -- Name: trial_claims trial_claims_order_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10125,22 +9378,6 @@ ALTER TABLE ONLY public.wallet_topups
 
 ALTER TABLE ONLY public.wallet_topups
     ADD CONSTRAINT wallet_topups_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
-
-
---
--- Name: webhook_deliveries webhook_deliveries_endpoint_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.webhook_deliveries
-    ADD CONSTRAINT webhook_deliveries_endpoint_fkey FOREIGN KEY (endpoint_id) REFERENCES public.webhook_endpoints(id) ON DELETE CASCADE;
-
-
---
--- Name: webhook_endpoints webhook_endpoints_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.webhook_endpoints
-    ADD CONSTRAINT webhook_endpoints_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.admin_users(id) ON DELETE SET NULL;
 
 
 --

@@ -7,6 +7,7 @@ import (
 	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/config"
 	"github.com/omniflow/omniflow/internal/emailpg"
+	"github.com/omniflow/omniflow/internal/fxrate"
 	apihttp "github.com/omniflow/omniflow/internal/httpapi"
 	"github.com/omniflow/omniflow/internal/mailer"
 	"github.com/omniflow/omniflow/internal/paymentservice"
@@ -45,5 +46,6 @@ func buildGrowth(
 	if services.SelfEmployed, err = selfemployed.New(pool, selfemployed.Options{DataKey: cfg.DataEncryptionKey, Logger: logger}); err != nil {
 		return apihttp.GrowthServices{}, err
 	}
+	services.Rates = fxrate.New(pool, fxrate.Options{})
 	return services, nil
 }

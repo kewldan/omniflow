@@ -3636,6 +3636,25 @@
         "attempts": "{count, plural, one {# attempt} other {# attempts}}",
         "open": "Open receipt",
         "retry": "Retry"
+      },
+      "currency": {
+        "title": "Exchange rates",
+        "description": "Let Telegram Stars pay ruble-priced plans and top-ups at a rate, and choose where USD/RUB comes from. A Stars price is fixed per order when the invoice is sent.",
+        "usdNow": "USD/RUB now: {rate} ({source})",
+        "usdUnavailable": "USD/RUB is unavailable: no source answered and no manual value is set.",
+        "starNow": "one Star: {rate}",
+        "starsEnabled": "Stars can pay ruble prices",
+        "starsMode": "Price of a Star",
+        "starsRate": "One Star in rubles (manual)",
+        "usdMode": "USD/RUB source",
+        "usdManual": "USD/RUB manual value (also the last-resort fallback)",
+        "modes": {
+          "manual": "Manual",
+          "autoStars": "From USD/RUB at 0.013 USD per Star",
+          "autoUsd": "Central Bank of Russia, then open.er-api.com"
+        },
+        "save": "Save rates",
+        "reason": "Exchange rate settings"
       }
     },
     "reminders": {

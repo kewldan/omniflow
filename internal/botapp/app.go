@@ -442,7 +442,7 @@ func (app *App) handleStartPayment(ctx context.Context, client *telegram.Bot, up
 		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, app.errorView(session.Locale, routeOrders)))
 		return
 	}
-	if starsInvoiceDue(order) {
+	if starsInvoiceDue(order, app.commerce.StarsPayable) {
 		// The invoice settles against a payment intent, so one is created or
 		// resumed first. Both steps are idempotent: a second tap on the link
 		// finds the same intent and sends a second copy of the same invoice,
@@ -465,9 +465,10 @@ func (app *App) handleStartPayment(ctx context.Context, client *telegram.Bot, up
 // starsInvoiceDue reports whether an order can still be paid with a Telegram
 // Stars invoice: open, priced in Stars, with an external amount left, and no
 // payment already settled against it.
-func starsInvoiceDue(order OrderSummary) bool {
+func starsInvoiceDue(order OrderSummary, payable func(currency string) bool) bool {
 	open := order.State == commerce.OrderPending || order.State == commerce.OrderDraft
-	return open && order.Currency == "XTR" && order.ExternalMinor > 0 && order.PaymentStatus != "succeeded"
+	starsOrder := order.Currency == "XTR" || (order.Provider == "telegram_stars" && payable != nil && payable(order.Currency))
+	return open && starsOrder && order.ExternalMinor > 0 && order.PaymentStatus != "succeeded"
 }
 
 // attributeReferral records the immutable inviter/invitee pair. With commerce

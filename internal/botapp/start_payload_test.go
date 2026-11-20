@@ -47,12 +47,12 @@ func TestParseStartPayloadRecognisesEveryDeepLink(t *testing.T) {
 func TestStarsInvoiceDueOnlyForOpenUnsettledStarsOrders(t *testing.T) {
 	t.Parallel()
 	due := OrderSummary{State: commerce.OrderPending, Currency: "XTR", ExternalMinor: 250}
-	if !starsInvoiceDue(due) {
+	if !starsInvoiceDue(due, nil) {
 		t.Fatal("an open Stars order with an amount left must get an invoice")
 	}
 	draft := due
 	draft.State = commerce.OrderDraft
-	if !starsInvoiceDue(draft) {
+	if !starsInvoiceDue(draft, nil) {
 		t.Fatal("a draft order is still open")
 	}
 	for name, mutate := range map[string]func(*OrderSummary){
@@ -65,7 +65,7 @@ func TestStarsInvoiceDueOnlyForOpenUnsettledStarsOrders(t *testing.T) {
 	} {
 		order := due
 		mutate(&order)
-		if starsInvoiceDue(order) {
+		if starsInvoiceDue(order, nil) {
 			t.Fatalf("%s: no invoice may be sent", name)
 		}
 	}

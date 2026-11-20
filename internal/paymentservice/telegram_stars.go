@@ -94,7 +94,24 @@ func (service *Service) SettleTelegramStars(ctx context.Context, settlement Star
 		return "", err
 	}
 	late := order.ExpiresAt.Valid && service.clock().After(order.ExpiresAt.Time)
-	_, classification, err := service.commerce.RecordProviderPayment(ctx, uuidString(intent.ID), "stars:"+settlement.ChargeID, commerce.Money{Amount: settlement.AmountMinor, Currency: intent.Currency}, late)
+	received := commerce.Money{Amount: settlement.AmountMinor, Currency: intent.Currency}
+	if intent.Currency != "XTR" {
+		// A ruble order paid in Stars: the Stars charged are mapped back onto
+		// the order's currency through the quote the invoice was sent at. The
+		// exact quote settles the exact amount; any other count is converted
+		// at the quote's rate, so an underpayment is classified as one.
+		var quotedAmount, quotedStars, rate int64
+		if quoteErr := service.pool.QueryRow(ctx, `SELECT amount_minor, stars, rate_minor FROM stars_quotes WHERE order_id = $1`,
+			intent.OrderID).Scan(&quotedAmount, &quotedStars, &rate); quoteErr != nil {
+			_, _ = queries.CompleteWebhookEvent(ctx, dbgen.CompleteWebhookEventParams{WebhookEventID: stored.ID, Status: "failed", ErrorCode: optionalText("stars_quote_missing")})
+			return "", fmt.Errorf("Telegram Stars charge for a converted order has no quote: %w", quoteErr)
+		}
+		received.Amount = settlement.AmountMinor * rate
+		if settlement.AmountMinor == quotedStars {
+			received.Amount = quotedAmount
+		}
+	}
+	_, classification, err := service.commerce.RecordProviderPayment(ctx, uuidString(intent.ID), "stars:"+settlement.ChargeID, received, late)
 	status, errorCode := "processed", pgtype.Text{}
 	if err != nil {
 		status, errorCode = "failed", optionalText(classification)

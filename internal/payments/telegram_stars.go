@@ -27,6 +27,18 @@ type TelegramStars struct {
 	resolve  StarsCustomerResolver
 	http     *http.Client
 	endpoint string
+	// convertible, when set, reports whether Stars may pay an order priced
+	// in another currency at the operator's Stars rate. The Star count is
+	// fixed per order outside the adapter (fxrate.QuoteOrder), so the intent
+	// keeps the order's own currency and amount.
+	convertible func(currency string) bool
+}
+
+// WithConversion lets the adapter be offered for orders in a currency the
+// check accepts.
+func (provider *TelegramStars) WithConversion(convertible func(currency string) bool) *TelegramStars {
+	provider.convertible = convertible
+	return provider
 }
 
 // NewTelegramStars builds an adapter that can also refund. A zero-value
@@ -48,14 +60,25 @@ func (provider *TelegramStars) Capabilities() Capabilities {
 	return Capabilities{Refunds: provider != nil && provider.token != "" && provider.resolve != nil}
 }
 
-// SupportsCurrency reports that Stars settle only in XTR.
+// SupportsCurrency reports that Stars settle in XTR, and in a currency the
+// operator converts at a Stars rate.
 func (provider *TelegramStars) SupportsCurrency(currency string) bool {
-	return strings.ToUpper(strings.TrimSpace(currency)) == "XTR"
+	currency = strings.ToUpper(strings.TrimSpace(currency))
+	if currency == "XTR" {
+		return true
+	}
+	return provider != nil && provider.convertible != nil && provider.convertible(currency)
 }
 
 func (provider *TelegramStars) Create(_ context.Context, request CreateRequest) (Intent, error) {
-	if request.Amount.Currency != "XTR" || request.Amount.Amount <= 0 {
+	if request.Amount.Amount <= 0 || !provider.SupportsCurrency(request.Amount.Currency) {
 		return Intent{}, commerce.ErrCurrencyMismatch
+	}
+	if request.Amount.Currency != "XTR" {
+		// The invoice is sent by the bot at the order's fixed Stars quote.
+		return Intent{Status: "requires_action", Amount: request.Amount, Metadata: map[string]string{
+			"currency": request.Amount.Currency, "payload": request.OrderID, "converted": "true",
+		}}, nil
 	}
 	return Intent{
 		ProviderReference: "",
@@ -76,7 +99,9 @@ func (provider *TelegramStars) Refund(ctx context.Context, request RefundRequest
 	if provider == nil || provider.token == "" || provider.resolve == nil {
 		return Refund{}, ErrUnsupported
 	}
-	if request.Amount.Currency != "XTR" {
+	// refundStarPayment returns the whole charge whatever currency the order
+	// was priced in, so a converted payment refunds the same way.
+	if request.Amount.Currency != "XTR" && !provider.SupportsCurrency(request.Amount.Currency) {
 		return Refund{}, commerce.ErrCurrencyMismatch
 	}
 	telegramUserID, err := provider.resolve(ctx, request.PaymentReference)

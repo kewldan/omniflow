@@ -777,3 +777,34 @@ Two counters cover money, and both label only bounded values — an identifier n
 `outcome` is either `signature_invalid` or the settlement classification, which makes a run of
 rejected signatures and a run of duplicate deliveries two different lines on the same graph. See
 [Observability](/operations/observability).
+
+## Paying ruble prices with Telegram Stars
+
+Telegram Stars settle only in Stars (`XTR`). A plan priced in Stars is paid in
+Stars as before. To let Stars pay ruble-priced plans and top-ups too, as
+Bedolaga's `TELEGRAM_STARS_RATE_RUB` does, switch on **Payouts → Exchange rates →
+Stars can pay ruble prices** (`finance.write`) and choose the price of a Star:
+
+- **Manual** — a fixed number of rubles per Star.
+- **From USD/RUB** — the USD/RUB rate times 0.013 USD per Star, Telegram's own
+  price, rounded up to the kopeck.
+
+When the customer chooses Stars for a ruble order, the order's Star price is
+**fixed once** (`stars_quotes`): the amount divided by the rate, rounded up so a
+payment never covers less than the order. The invoice, Telegram's pre-checkout
+check, and settlement all read the same quote, so a rate change in between moves
+nothing. Settling exactly the quoted Stars credits the ruble amount; any other
+count is converted at the quote's rate and classified as an under- or
+overpayment like any other provider's. A refund through `refundStarPayment`
+returns the whole charge, as for a Stars-priced order.
+
+### USD/RUB
+
+USD/RUB is read from the Central Bank of Russia's daily rate, with
+open.er-api.com as the fallback, cached for an hour, and stored so a restart
+during an outage still has the last good reading. A reading older than two days
+is not used; the manual value is then the last resort, and with none the rate is
+reported unavailable and the automatic Star price stops — Stars are then not
+offered for ruble orders rather than offered at a guessed price. Set the source
+to **Manual** to use only your own value. The panel shows the current reading
+and its source.

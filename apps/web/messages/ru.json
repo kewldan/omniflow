@@ -3636,6 +3636,25 @@
         "attempts": "{count, plural, one {# попытка} few {# попытки} many {# попыток} other {# попытки}}",
         "open": "Открыть чек",
         "retry": "Повторить"
+      },
+      "currency": {
+        "title": "Курсы валют",
+        "description": "Разрешите оплату Telegram Stars рублёвых тарифов и пополнений по курсу и выберите источник курса USD/RUB. Цена в звёздах фиксируется для заказа при отправке счёта.",
+        "usdNow": "USD/RUB сейчас: {rate} ({source})",
+        "usdUnavailable": "Курс USD/RUB недоступен: источники не ответили, ручное значение не задано.",
+        "starNow": "одна звезда: {rate}",
+        "starsEnabled": "Оплата звёздами рублёвых цен",
+        "starsMode": "Цена звезды",
+        "starsRate": "Одна звезда в рублях (вручную)",
+        "usdMode": "Источник USD/RUB",
+        "usdManual": "USD/RUB вручную (и запасное значение)",
+        "modes": {
+          "manual": "Вручную",
+          "autoStars": "Из USD/RUB по 0,013 USD за звезду",
+          "autoUsd": "ЦБ РФ, затем open.er-api.com"
+        },
+        "save": "Сохранить курсы",
+        "reason": "Настройки курсов валют"
       }
     },
     "reminders": {

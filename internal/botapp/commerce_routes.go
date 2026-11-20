@@ -1183,8 +1183,12 @@ func (app *App) StarsInvoice(ctx context.Context, client *telegram.Bot, session 
 	if err != nil {
 		return err
 	}
-	if order.Currency != "XTR" || order.ExternalMinor <= 0 {
+	if order.ExternalMinor <= 0 || !app.commerce.StarsPayable(order.Currency) {
 		return errors.New("order is not payable in Telegram Stars")
+	}
+	stars, err := app.commerce.StarsQuote(ctx, order)
+	if err != nil {
+		return err
 	}
 	_, err = client.SendInvoice(ctx, &telegram.SendInvoiceParams{
 		ChatID:      chatID,
@@ -1194,7 +1198,7 @@ func (app *App) StarsInvoice(ctx context.Context, client *telegram.Bot, session 
 		Currency:    "XTR",
 		Prices: []models.LabeledPrice{{
 			Label:  truncateRunes(order.PlanName, 32),
-			Amount: int(order.ExternalMinor),
+			Amount: int(stars),
 		}},
 		ProtectContent: true,
 	})
@@ -1213,9 +1217,12 @@ func (app *App) HandlePreCheckout(ctx context.Context, client *telegram.Bot, que
 	if err == nil {
 		locale = session.Locale
 		order, orderErr := app.customers.Order(ctx, session.Customer.ID, query.InvoicePayload, locale)
-		approve = orderErr == nil && order.Currency == query.Currency &&
-			order.ExternalMinor == int64(query.TotalAmount) &&
-			(order.State == commerce.OrderPending || order.State == commerce.OrderDraft)
+		if orderErr == nil && query.Currency == "XTR" && app.commerce.StarsPayable(order.Currency) {
+			// A ruble order is approved against its fixed Stars quote.
+			stars, quoteErr := app.commerce.StarsQuote(ctx, order)
+			approve = quoteErr == nil && stars == int64(query.TotalAmount) &&
+				(order.State == commerce.OrderPending || order.State == commerce.OrderDraft)
+		}
 	}
 	message := ""
 	if !approve {

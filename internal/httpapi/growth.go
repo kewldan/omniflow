@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/omniflow/omniflow/internal/emailpg"
+	"github.com/omniflow/omniflow/internal/fxrate"
 	"github.com/omniflow/omniflow/internal/mailer"
 	"github.com/omniflow/omniflow/internal/rbac"
 	"github.com/omniflow/omniflow/internal/referralpayout"
@@ -27,6 +28,8 @@ type GrowthServices struct {
 	Withdrawals *referralpayout.Service
 	// SelfEmployed issues «Мой налог» receipts.
 	SelfEmployed *selfemployed.Service
+	// Rates holds the Stars and USD/RUB exchange rates.
+	Rates *fxrate.Service
 }
 
 // WithGrowth attaches the growth services to the panel.
@@ -50,6 +53,7 @@ func (handlers *AdminHandlers) mountGrowth(secure chi.Router) {
 	}
 	handlers.mountWithdrawals(secure)
 	handlers.mountSelfEmployed(secure)
+	handlers.mountCurrency(secure)
 }
 
 // mountGrowthPublic registers the routes reachable without a session.

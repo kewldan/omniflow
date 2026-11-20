@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/omniflow/omniflow/internal/fxrate"
 	"github.com/omniflow/omniflow/internal/payments"
 )
 
@@ -40,15 +41,18 @@ func ConfigureProviders(
 ) ([]payments.Provider, error) {
 	// A zero-value Stars adapter still creates invoices and parses settlements;
 	// it only loses the ability to refund. That is why it is always registered.
-	stars := payments.Provider(&payments.TelegramStars{})
+	// Stars may also pay an order in the currency the operator converts at a
+	// Stars rate; see internal/fxrate.
+	rates := fxrate.New(pool, fxrate.Options{})
+	starsAdapter := (&payments.TelegramStars{}).WithConversion(rates.Convertible)
 	if options.TelegramToken != "" {
 		configured, err := payments.NewTelegramStars(options.TelegramToken, NewStarsPayerResolver(pool))
 		if err != nil {
 			return nil, err
 		}
-		stars = configured
+		starsAdapter = configured.WithConversion(rates.Convertible)
 	}
-	providers := []payments.Provider{payments.Manual{}, stars}
+	providers := []payments.Provider{payments.Manual{}, starsAdapter}
 	if options.CryptoBotToken != "" {
 		provider, err := payments.NewCryptoBot(options.CryptoBotToken, options.CryptoBotTestnet)
 		if err != nil {

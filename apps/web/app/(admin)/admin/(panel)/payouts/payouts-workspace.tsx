@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { PageHeader } from "@/components/admin/resource-table";
 import { useSession } from "@/lib/session";
 
+import { CurrencyCard } from "./currency";
 import { SelfEmployedCard } from "./self-employed";
 import { WithdrawalsCard } from "./withdrawals";
 
@@ -20,6 +21,7 @@ export function PayoutsWorkspace() {
       <PageHeader description={translate("description")} title={translate("title")} />
       <WithdrawalsCard editable={can("finance.write")} />
       <SelfEmployedCard editable={can("finance.write")} />
+      <CurrencyCard editable={can("finance.write")} />
     </div>
   );
 }
