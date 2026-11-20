@@ -267,6 +267,8 @@ type Querier interface {
 	CountRunningBackups(ctx context.Context) (int32, error)
 	CountUnpublishedOutboxEvents(ctx context.Context) (CountUnpublishedOutboxEventsRow, error)
 	CountUnusedAdminRecoveryCodes(ctx context.Context, adminUserID pgtype.UUID) (int64, error)
+	// Named API tokens and outgoing webhooks.
+	CreateAPIToken(ctx context.Context, arg CreateAPITokenParams) (ApiToken, error)
 	CreateAddonPrice(ctx context.Context, arg CreateAddonPriceParams) (AddonPrice, error)
 	CreateAddonVersion(ctx context.Context, arg CreateAddonVersionParams) (AddonVersion, error)
 	CreateAdminInvitation(ctx context.Context, arg CreateAdminInvitationParams) (AdminInvitation, error)
@@ -393,6 +395,7 @@ type Querier interface {
 	// Wallet top-up
 	// ---------------------------------------------------------------------------
 	CreateWalletTopup(ctx context.Context, arg CreateWalletTopupParams) (WalletTopup, error)
+	CreateWebhookEndpoint(ctx context.Context, arg CreateWebhookEndpointParams) (WebhookEndpoint, error)
 	CreditWalletTopup(ctx context.Context, arg CreditWalletTopupParams) (WalletTopup, error)
 	CustomerLastActivity(ctx context.Context, userID pgtype.UUID) (pgtype.Timestamptz, error)
 	// The metric a standing is evaluated on, computed from facts Omniflow already
@@ -522,6 +525,7 @@ type Querier interface {
 	DeleteRequiredChannel(ctx context.Context, id pgtype.UUID) error
 	DeleteResolvedDrifts(ctx context.Context, retentionSeconds float64) (int64, error)
 	DeleteSupportMessage(ctx context.Context, arg DeleteSupportMessageParams) (int64, error)
+	DeleteWebhookEndpoint(ctx context.Context, endpointID pgtype.UUID) (int64, error)
 	// Row counts for the tables an operator's question usually concerns. Counts
 	// rather than samples, for the obvious reason.
 	DiagnosticCounts(ctx context.Context) (DiagnosticCountsRow, error)
@@ -529,6 +533,7 @@ type Querier interface {
 	DismissPersonalOffer(ctx context.Context, arg DismissPersonalOfferParams) (PersonalOffer, error)
 	// Whatever the move above left behind, which is exactly the duplicates.
 	DropDuplicateNewsReads(ctx context.Context, source pgtype.UUID) error
+	DueWebhookDeliveries(ctx context.Context) ([]DueWebhookDeliveriesRow, error)
 	// ---------------------------------------------------------------------------
 	// Test sends
 	//
@@ -582,6 +587,9 @@ type Querier interface {
 	// the payer's bank disputed it, and charging it again without them would be
 	// charging a card its owner has contested.
 	FailPaymentMethodsFromIntent(ctx context.Context, paymentIntentID pgtype.UUID) error
+	// Each unpublished outbox event becomes one delivery per enabled endpoint
+	// subscribed to its topic, and is marked published in the same statement.
+	FanOutOutboxEvents(ctx context.Context) (int64, error)
 	FinishBackupRequest(ctx context.Context, arg FinishBackupRequestParams) error
 	FinishBedolagaImportRun(ctx context.Context, arg FinishBedolagaImportRunParams) (BedolagaImportRun, error)
 	FinishBlockerScan(ctx context.Context, arg FinishBlockerScanParams) error
@@ -929,6 +937,8 @@ type Querier interface {
 	ListAIFeatures(ctx context.Context) ([]AiFeature, error)
 	ListAIProviders(ctx context.Context) ([]ListAIProvidersRow, error)
 	ListAIUsageLimits(ctx context.Context) ([]AiUsageLimit, error)
+	ListAPITokenRequests(ctx context.Context, tokenID pgtype.UUID) ([]ApiTokenRequest, error)
+	ListAPITokens(ctx context.Context) ([]ApiToken, error)
 	// The dated consent trail, newest first, so the first decision seen for a
 	// purpose is the current one.
 	ListAccountConsentHistory(ctx context.Context, arg ListAccountConsentHistoryParams) ([]ListAccountConsentHistoryRow, error)
@@ -1404,6 +1414,8 @@ type Querier interface {
 	ListVisibleGoodsProducts(ctx context.Context, locale string) ([]ListVisibleGoodsProductsRow, error)
 	ListVisiblePlans(ctx context.Context, locale string) ([]ListVisiblePlansRow, error)
 	ListWalletTopups(ctx context.Context, arg ListWalletTopupsParams) ([]ListWalletTopupsRow, error)
+	ListWebhookDeliveries(ctx context.Context, endpointID pgtype.UUID) ([]WebhookDelivery, error)
+	ListWebhookEndpoints(ctx context.Context) ([]ListWebhookEndpointsRow, error)
 	// Where a provider's key is currently sent, read under a row lock by the save
 	// path so it can refuse a new address that would inherit the stored key.
 	LockAIProviderTarget(ctx context.Context, slug string) (LockAIProviderTargetRow, error)
@@ -1460,6 +1472,7 @@ type Querier interface {
 	// reads the same two facts.
 	LockTrialClaim(ctx context.Context, userID pgtype.UUID) ([]LockTrialClaimRow, error)
 	LockWalletTopup(ctx context.Context, orderID pgtype.UUID) (WalletTopup, error)
+	LogAPITokenRequest(ctx context.Context, arg LogAPITokenRequestParams) error
 	MarkBackupPruned(ctx context.Context, id pgtype.UUID) (Backup, error)
 	MarkCartPurchased(ctx context.Context, arg MarkCartPurchasedParams) (Cart, error)
 	// Records who withdrew the batch and why.
@@ -1657,6 +1670,7 @@ type Querier interface {
 	PaymentHealthByProvider(ctx context.Context, arg PaymentHealthByProviderParams) ([]PaymentHealthByProviderRow, error)
 	PlaceRetentionHold(ctx context.Context, arg PlaceRetentionHoldParams) (AiRetentionHold, error)
 	ProgressBlockerScan(ctx context.Context, arg ProgressBlockerScanParams) error
+	PruneAPITokenRequests(ctx context.Context) (int64, error)
 	PruneCustomerActivity(ctx context.Context) (int64, error)
 	// Enabling one programme disables the rest, because the partial unique index
 	// allows exactly one and a customer can only stand in one definition at a time.
@@ -1756,6 +1770,7 @@ type Querier interface {
 	// conversation that goes back and forth for a week.
 	RecordSupportFirstResponse(ctx context.Context, ticketID pgtype.UUID) (SupportTicket, error)
 	RecordUploadedBackup(ctx context.Context, arg RecordUploadedBackupParams) (Backup, error)
+	RecordWebhookAttempt(ctx context.Context, arg RecordWebhookAttemptParams) error
 	// Counters are recomputed from the items rather than incremented, so a retried
 	// worker cannot double-count an outcome it already recorded.
 	RecountBulkOperation(ctx context.Context, operationID pgtype.UUID) (BulkOperation, error)
@@ -1804,6 +1819,7 @@ type Querier interface {
 	// Forgetting the trial claim lets the customer take a trial again. The order
 	// and entitlement the trial produced stay: they are history.
 	ResetCustomerTrial(ctx context.Context, userID pgtype.UUID) (int64, error)
+	ResolveAPIToken(ctx context.Context, tokenHash []byte) (ResolveAPITokenRow, error)
 	ResolveAllAppErrors(ctx context.Context) (int64, error)
 	ResolveAppError(ctx context.Context, errorID pgtype.UUID) (AppError, error)
 	ResolveCampaignRecipient(ctx context.Context, arg ResolveCampaignRecipientParams) error
@@ -1844,6 +1860,7 @@ type Querier interface {
 	// reversed without the money having moved back.
 	ReverseReferralReward(ctx context.Context, arg ReverseReferralRewardParams) (ReferralReward, error)
 	ReviewAnomalySignal(ctx context.Context, arg ReviewAnomalySignalParams) (AnomalySignal, error)
+	RevokeAPIToken(ctx context.Context, tokenID pgtype.UUID) (int64, error)
 	// Marks a channel revoked rather than deleting it, so the fingerprint stays
 	// unique and the consent history keeps pointing at something.
 	RevokeAccountContact(ctx context.Context, arg RevokeAccountContactParams) (RevokeAccountContactRow, error)
@@ -2083,6 +2100,7 @@ type Querier interface {
 	// cleared when it comes back, and `reopened_count` counts the round trips —
 	// which is the signal that an answer did not actually answer the question.
 	SetSupportTicketStatus(ctx context.Context, arg SetSupportTicketStatusParams) (SupportTicket, error)
+	SetWebhookEndpointEnabled(ctx context.Context, arg SetWebhookEndpointEnabledParams) (int64, error)
 	// Whether a secret exists, without returning it. It is what the panel shows in
 	// place of the value: "configured" is the only safe rendering of a secret.
 	SettingSecretsPresent(ctx context.Context) ([]SettingSecretsPresentRow, error)

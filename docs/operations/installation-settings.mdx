@@ -277,11 +277,11 @@ Two numbers in the bundle need interpreting:
 - **Version is the release.** Released images are built with the release version stamped
   into the binaries, so the bundle, `/livez`, the telemetry heartbeat, and the bot's start
   notice report it. A binary built locally reports `dev`.
-- **Pending outbox events only grow.** Events are written into `outbox_events` on
-  `order.paid`, `wallet.credited`, and `addon.purchased`, and nothing marks them
-  published, so the count rises for the life of the installation and the retention sweep
-  never removes any. It is not a backlog signal, and it is not a sign that something has
-  stalled. See [Jobs and queues](/operations/jobs-and-queues).
+- **Pending outbox events drain.** Events are written into `outbox_events` on
+  `order.paid`, `wallet.credited`, and `addon.purchased`; the worker's `webhooks` pass marks
+  each one published as it fans it out to subscribed webhooks — to none when there are
+  none — every fifteen seconds while `APP_DATA_ENCRYPTION_KEY` is set. A count that keeps
+  rising means that pass is not running. See [API](/integrations/api#outgoing-webhooks).
 
 A migration status that reads as zeros means Atlas's revision table does not exist, which
 is the true answer for an installation whose migrator has not run.

@@ -393,6 +393,26 @@ type AnomalySignal struct {
 	DedupeKey       string             `json:"dedupe_key"`
 }
 
+type ApiToken struct {
+	ID         pgtype.UUID        `json:"id"`
+	Name       string             `json:"name"`
+	TokenHash  []byte             `json:"token_hash"`
+	Prefix     string             `json:"prefix"`
+	CreatedBy  pgtype.UUID        `json:"created_by"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	LastUsedAt pgtype.Timestamptz `json:"last_used_at"`
+	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
+}
+
+type ApiTokenRequest struct {
+	ID         int64              `json:"id"`
+	TokenID    pgtype.UUID        `json:"token_id"`
+	Method     string             `json:"method"`
+	Route      string             `json:"route"`
+	Status     int32              `json:"status"`
+	OccurredAt pgtype.Timestamptz `json:"occurred_at"`
+}
+
 type AppError struct {
 	ID          pgtype.UUID        `json:"id"`
 	Fingerprint string             `json:"fingerprint"`
@@ -2302,4 +2322,30 @@ type WalletTopup struct {
 	LedgerTransactionID pgtype.UUID        `json:"ledger_transaction_id"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 	CreditedAt          pgtype.Timestamptz `json:"credited_at"`
+}
+
+type WebhookDelivery struct {
+	ID             pgtype.UUID        `json:"id"`
+	EndpointID     pgtype.UUID        `json:"endpoint_id"`
+	EventID        pgtype.UUID        `json:"event_id"`
+	Topic          string             `json:"topic"`
+	Payload        []byte             `json:"payload"`
+	Status         string             `json:"status"`
+	Attempts       int32              `json:"attempts"`
+	ResponseStatus pgtype.Int4        `json:"response_status"`
+	NextAttemptAt  pgtype.Timestamptz `json:"next_attempt_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	DeliveredAt    pgtype.Timestamptz `json:"delivered_at"`
+}
+
+type WebhookEndpoint struct {
+	ID               pgtype.UUID        `json:"id"`
+	Name             string             `json:"name"`
+	Url              string             `json:"url"`
+	Events           []string           `json:"events"`
+	SecretCiphertext []byte             `json:"secret_ciphertext"`
+	Enabled          bool               `json:"enabled"`
+	CreatedBy        pgtype.UUID        `json:"created_by"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }

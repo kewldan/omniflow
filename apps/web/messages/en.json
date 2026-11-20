@@ -3636,6 +3636,28 @@
       "name": "Name",
       "save": "Save role",
       "saved": "Role saved"
+    },
+    "integrations": {
+      "title": "API tokens and webhooks",
+      "description": "Named tokens for the /v1/admin API, each with its own request log, and webhooks that post signed events (order.paid, wallet.credited, addon.purchased) to your systems. A token or signing secret is shown once.",
+      "failed": "Not created — check the name and that the address is public https",
+      "showOnce": "Copy it now; it will not be shown again:",
+      "dismiss": "Done",
+      "tokens": "API tokens",
+      "revoked": "Revoked",
+      "lastUsed": "last used",
+      "log": "Requests",
+      "revoke": "Revoke",
+      "tokenName": "Token name",
+      "createToken": "Create token",
+      "webhooks": "Webhooks",
+      "enabled": "Enabled",
+      "failedCount": "{count} failed",
+      "deliveries": "Deliveries",
+      "delete": "Delete",
+      "hookName": "Name",
+      "hookUrl": "https:// address",
+      "createWebhook": "Create webhook"
     }
   },
   "account": {

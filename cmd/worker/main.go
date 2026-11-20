@@ -21,6 +21,7 @@ import (
 	"github.com/omniflow/omniflow/internal/campaigns"
 	"github.com/omniflow/omniflow/internal/config"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
+	"github.com/omniflow/omniflow/internal/egress"
 	"github.com/omniflow/omniflow/internal/errorlog"
 	"github.com/omniflow/omniflow/internal/fulfillment"
 	"github.com/omniflow/omniflow/internal/goodsdelivery"
@@ -272,6 +273,11 @@ func periodicTasks(
 		{Name: "anomaly_evaluation", Interval: lifecycle.AnomalyInterval(), Run: pass(lifecycle.EvaluateAnomalies)},
 		{Name: "campaign_expansion", Interval: campaignInterval, Timeout: 5 * time.Minute, Run: pass(campaignRunner.RunOnce)},
 		{Name: "bulk_actions", Interval: bulkInterval, Timeout: 5 * time.Minute, Run: pass(bulk.RunOnce)},
+		// The named API tokens' request logs keep ninety days too.
+		{Name: "api_token_log_prune", Interval: 6 * time.Hour, Run: func(ctx context.Context) error {
+			_, err := dbgen.New(pool).PruneAPITokenRequests(ctx)
+			return err
+		}},
 		// The customer action log keeps ninety days.
 		{Name: "customer_activity_prune", Interval: 6 * time.Hour, Run: func(ctx context.Context) error {
 			_, err := dbgen.New(pool).PruneCustomerActivity(ctx)
@@ -298,6 +304,14 @@ func periodicTasks(
 		tasks = append(tasks, jobs.Task{
 			Name: "goods_delivery_schedule", Interval: goodsdelivery.ScanInterval, Run: goods.Schedule,
 		})
+	}
+	if operations != nil {
+		// Outgoing webhooks: outbox events fanned out to subscribed endpoints
+		// and sent signed, through the egress policy every outbound call uses.
+		webhookClient := egress.Policy{}.Client(10 * time.Second)
+		tasks = append(tasks, jobs.Task{Name: "webhooks", Interval: 15 * time.Second, Run: func(ctx context.Context) error {
+			return operations.DispatchWebhooks(ctx, webhookClient)
+		}})
 	}
 	reports := operator.NewReports(pool, settings, logger)
 	tasks = append(tasks,

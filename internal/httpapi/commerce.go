@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
@@ -22,6 +23,7 @@ import (
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 	"github.com/omniflow/omniflow/internal/fulfillment"
 	"github.com/omniflow/omniflow/internal/importservice"
+	"github.com/omniflow/omniflow/internal/panelpg"
 	"github.com/omniflow/omniflow/internal/paymentservice"
 	"github.com/omniflow/omniflow/internal/platform"
 )
@@ -204,12 +206,48 @@ func (handlers *CommerceHandlers) createPromotion(writer http.ResponseWriter, re
 func (handlers *CommerceHandlers) operatorAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		provided := strings.TrimPrefix(request.Header.Get("Authorization"), "Bearer ")
-		if handlers.operatorToken == "" || len(provided) != len(handlers.operatorToken) || subtle.ConstantTimeCompare([]byte(provided), []byte(handlers.operatorToken)) != 1 {
-			writeProblem(writer, request, http.StatusUnauthorized, "unauthorized", "Operator authorization is required")
+		if handlers.operatorToken != "" && len(provided) == len(handlers.operatorToken) && subtle.ConstantTimeCompare([]byte(provided), []byte(handlers.operatorToken)) == 1 {
+			next.ServeHTTP(writer, request)
 			return
 		}
-		next.ServeHTTP(writer, request)
+		// A named token from the panel: looked up by its hash, never stored in
+		// clear, and every request it makes is written to its own log.
+		if handlers.queries != nil && strings.HasPrefix(provided, "oft_") {
+			token, err := handlers.queries.ResolveAPIToken(request.Context(), panelpg.HashAPIToken(provided))
+			if err == nil {
+				recorder := &statusRecorder{ResponseWriter: writer, status: http.StatusOK}
+				ctx := context.WithValue(request.Context(), apiTokenContextKey{}, apiTokenIdentity{id: token.ID, name: token.Name})
+				next.ServeHTTP(recorder, request.WithContext(ctx))
+				route := request.URL.Path
+				if pattern := chi.RouteContext(request.Context()).RoutePattern(); pattern != "" {
+					route = pattern
+				}
+				if logErr := handlers.queries.LogAPITokenRequest(context.WithoutCancel(request.Context()), dbgen.LogAPITokenRequestParams{
+					TokenID: token.ID, Method: request.Method, Route: route, Status: int32(recorder.status),
+				}); logErr != nil {
+					slog.Default().Warn("api token request could not be logged", "error", logErr)
+				}
+				return
+			}
+		}
+		writeProblem(writer, request, http.StatusUnauthorized, "unauthorized", "Operator authorization is required")
 	})
+}
+
+type apiTokenContextKey struct{}
+
+type apiTokenIdentity struct {
+	id   pgtype.UUID
+	name string
+}
+
+// operatorActorFor names who did a /v1/admin request in the audit trail: the
+// shared token, or the named token by its name.
+func operatorActorFor(request *http.Request) string {
+	if identity, ok := request.Context().Value(apiTokenContextKey{}).(apiTokenIdentity); ok {
+		return "api-token:" + identity.name
+	}
+	return operatorTokenActor
 }
 
 // operatorTokenActor is the audit actor for anything done with
@@ -249,7 +287,7 @@ func (handlers *CommerceHandlers) auditOperatorToken(next http.Handler) http.Han
 			"method": request.Method, "route": route, "status": recorder.status,
 		})
 		if _, err := handlers.queries.InsertAuditEvent(request.Context(), dbgen.InsertAuditEventParams{
-			ActorType: "operator", ActorID: pgtype.Text{String: operatorTokenActor, Valid: true},
+			ActorType: "operator", ActorID: pgtype.Text{String: operatorActorFor(request), Valid: true},
 			Action: "admin_api." + strings.ToLower(request.Method), Category: "system", Outcome: outcome,
 			TargetType: "endpoint", TargetID: request.Method + " " + request.URL.Path,
 			RequestID: pgtype.Text{String: middlewareRequestID(request), Valid: middlewareRequestID(request) != ""},

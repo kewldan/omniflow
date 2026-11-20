@@ -949,6 +949,51 @@ CREATE TABLE public.anomaly_signals (
 
 
 --
+-- Name: api_token_requests; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.api_token_requests (
+    id bigint NOT NULL,
+    token_id uuid NOT NULL,
+    method text NOT NULL,
+    route text NOT NULL,
+    status integer NOT NULL,
+    occurred_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: api_token_requests_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+ALTER TABLE public.api_token_requests ALTER COLUMN id ADD GENERATED ALWAYS AS IDENTITY (
+    SEQUENCE NAME public.api_token_requests_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1
+);
+
+
+--
+-- Name: api_tokens; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.api_tokens (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    name text NOT NULL,
+    token_hash bytea NOT NULL,
+    prefix text NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    last_used_at timestamp with time zone,
+    revoked_at timestamp with time zone,
+    CONSTRAINT api_tokens_name_length CHECK (((char_length(name) >= 1) AND (char_length(name) <= 80)))
+);
+
+
+--
 -- Name: app_errors; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -4333,6 +4378,46 @@ CREATE TABLE public.wallet_topups (
 
 
 --
+-- Name: webhook_deliveries; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.webhook_deliveries (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    endpoint_id uuid NOT NULL,
+    event_id uuid NOT NULL,
+    topic text NOT NULL,
+    payload jsonb NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    attempts integer DEFAULT 0 NOT NULL,
+    response_status integer,
+    next_attempt_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    delivered_at timestamp with time zone,
+    CONSTRAINT webhook_deliveries_status_known CHECK ((status = ANY (ARRAY['pending'::text, 'delivered'::text, 'failed'::text])))
+);
+
+
+--
+-- Name: webhook_endpoints; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.webhook_endpoints (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    name text NOT NULL,
+    url text NOT NULL,
+    events text[] NOT NULL,
+    secret_ciphertext bytea NOT NULL,
+    enabled boolean DEFAULT true NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT webhook_endpoints_events_present CHECK ((cardinality(events) >= 1)),
+    CONSTRAINT webhook_endpoints_name_length CHECK (((char_length(name) >= 1) AND (char_length(name) <= 80))),
+    CONSTRAINT webhook_endpoints_url_https CHECK ((url ~ '^https://'::text))
+);
+
+
+--
 -- Name: river_job id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -4664,6 +4749,30 @@ ALTER TABLE ONLY public.anomaly_signals
 
 ALTER TABLE ONLY public.anomaly_signals
     ADD CONSTRAINT anomaly_signals_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: api_token_requests api_token_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.api_token_requests
+    ADD CONSTRAINT api_token_requests_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: api_tokens api_tokens_hash_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.api_tokens
+    ADD CONSTRAINT api_tokens_hash_key UNIQUE (token_hash);
+
+
+--
+-- Name: api_tokens api_tokens_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.api_tokens
+    ADD CONSTRAINT api_tokens_pkey PRIMARY KEY (id);
 
 
 --
@@ -6339,6 +6448,30 @@ ALTER TABLE ONLY public.wallet_topups
 
 
 --
+-- Name: webhook_deliveries webhook_deliveries_once; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.webhook_deliveries
+    ADD CONSTRAINT webhook_deliveries_once UNIQUE (endpoint_id, event_id);
+
+
+--
+-- Name: webhook_deliveries webhook_deliveries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.webhook_deliveries
+    ADD CONSTRAINT webhook_deliveries_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: webhook_endpoints webhook_endpoints_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.webhook_endpoints
+    ADD CONSTRAINT webhook_endpoints_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: access_codes_batch_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -6462,6 +6595,20 @@ CREATE INDEX anomaly_signals_open_idx ON public.anomaly_signals USING btree (det
 --
 
 CREATE INDEX anomaly_signals_subject_idx ON public.anomaly_signals USING btree (subject_type, subject_id, detected_at DESC);
+
+
+--
+-- Name: api_token_requests_time_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX api_token_requests_time_idx ON public.api_token_requests USING btree (occurred_at);
+
+
+--
+-- Name: api_token_requests_token_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX api_token_requests_token_idx ON public.api_token_requests USING btree (token_id, occurred_at DESC);
 
 
 --
@@ -7445,6 +7592,20 @@ CREATE INDEX wallet_topups_window_idx ON public.wallet_topups USING btree (user_
 
 
 --
+-- Name: webhook_deliveries_due_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX webhook_deliveries_due_idx ON public.webhook_deliveries USING btree (next_attempt_at) WHERE (status = 'pending'::text);
+
+
+--
+-- Name: webhook_deliveries_endpoint_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX webhook_deliveries_endpoint_idx ON public.webhook_deliveries USING btree (endpoint_id, created_at DESC);
+
+
+--
 -- Name: cart_goods cart_goods_kind_matches; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -7780,6 +7941,22 @@ ALTER TABLE ONLY public.anomaly_rules
 
 ALTER TABLE ONLY public.anomaly_signals
     ADD CONSTRAINT anomaly_signals_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES public.admin_users(id);
+
+
+--
+-- Name: api_token_requests api_token_requests_token_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.api_token_requests
+    ADD CONSTRAINT api_token_requests_token_fkey FOREIGN KEY (token_id) REFERENCES public.api_tokens(id) ON DELETE CASCADE;
+
+
+--
+-- Name: api_tokens api_tokens_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.api_tokens
+    ADD CONSTRAINT api_tokens_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.admin_users(id) ON DELETE SET NULL;
 
 
 --
@@ -9540,6 +9717,22 @@ ALTER TABLE ONLY public.wallet_topups
 
 ALTER TABLE ONLY public.wallet_topups
     ADD CONSTRAINT wallet_topups_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: webhook_deliveries webhook_deliveries_endpoint_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.webhook_deliveries
+    ADD CONSTRAINT webhook_deliveries_endpoint_fkey FOREIGN KEY (endpoint_id) REFERENCES public.webhook_endpoints(id) ON DELETE CASCADE;
+
+
+--
+-- Name: webhook_endpoints webhook_endpoints_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.webhook_endpoints
+    ADD CONSTRAINT webhook_endpoints_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.admin_users(id) ON DELETE SET NULL;
 
 
 --

@@ -83,6 +83,38 @@ Because there is no session, several handlers take the acting operator as
 end up in the record. Supply something meaningful, and do not treat them as
 authentication.
 
+## Named API tokens
+
+Beside `APP_OPERATOR_TOKEN`, operators holding `system.write` create **named tokens** on
+`/admin/system` (`POST /v1/panel/integrations/tokens`). A token starts with `oft_`, is shown
+once, and is stored only as its SHA-256; it authenticates `/v1/admin` exactly like the shared
+token. Each named token has its own request log — method, route pattern, status, time —
+read at `GET /v1/panel/integrations/tokens/{id}/requests` (`system.read`) and kept ninety
+days, and the audit trail names it as `api-token:<name>` rather than the shared token.
+Revoking one (`POST …/tokens/{id}/revoke`) ends it at once.
+
+## Outgoing webhooks
+
+A webhook posts installation events to another system. Create one on `/admin/system`
+(`POST /v1/panel/integrations/webhooks`, `system.write`) with a name, a public `https://`
+address — checked against the same egress policy as every outbound call, so private and
+loopback addresses are refused — and the events: `order.paid`, `wallet.credited`,
+`addon.purchased`. The signing secret is shown once and sealed at rest.
+
+Every fifteen seconds the worker turns new outbox events into deliveries, at most one per
+endpoint and event, and posts each as JSON:
+
+```json
+{"id": "<event id>", "topic": "order.paid", "occurredAt": "…", "data": {"orderId": "…"}}
+```
+
+with `X-Omniflow-Delivery`, `X-Omniflow-Timestamp`, and
+`X-Omniflow-Signature: sha256=<hex HMAC-SHA256 of "<timestamp>.<body>" with the secret>`.
+Verify the signature and reject a timestamp more than a few minutes old. A 2xx answer
+completes the delivery; anything else is retried with exponential backoff, ten attempts in
+all, then marked `failed`. The delivery log is at
+`GET /v1/panel/integrations/webhooks/{id}/deliveries`; an endpoint can be paused or deleted.
+
 ## Request rules
 
 - `Content-Type: application/json` on any request with a body.
