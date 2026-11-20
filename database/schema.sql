@@ -452,8 +452,10 @@ CREATE TABLE public.ad_campaigns (
     currency text DEFAULT 'RUB'::text NOT NULL,
     active boolean DEFAULT true NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT ad_campaigns_bonus_known CHECK ((bonus_kind = ANY (ARRAY['none'::text, 'wallet'::text, 'days'::text]))),
-    CONSTRAINT ad_campaigns_bonus_value CHECK ((((bonus_kind = 'none'::text) AND (bonus_value = 0)) OR ((bonus_kind = 'wallet'::text) AND (bonus_value > 0)) OR ((bonus_kind = 'days'::text) AND ((bonus_value >= 1) AND (bonus_value <= 365))))),
+    bonus_plan_id uuid,
+    CONSTRAINT ad_campaigns_bonus_known CHECK ((bonus_kind = ANY (ARRAY['none'::text, 'wallet'::text, 'days'::text, 'trial'::text, 'plan'::text]))),
+    CONSTRAINT ad_campaigns_bonus_plan_matches_kind CHECK (((bonus_kind = 'plan'::text) = (bonus_plan_id IS NOT NULL))),
+    CONSTRAINT ad_campaigns_bonus_value CHECK ((((bonus_kind = 'none'::text) AND (bonus_value = 0)) OR ((bonus_kind = 'wallet'::text) AND (bonus_value > 0)) OR ((bonus_kind = ANY (ARRAY['days'::text, 'trial'::text, 'plan'::text])) AND ((bonus_value >= 1) AND (bonus_value <= 365))))),
     CONSTRAINT ad_campaigns_code_shape CHECK ((code ~ '^[a-z0-9_]{2,40}$'::text)),
     CONSTRAINT ad_campaigns_currency_shape CHECK ((currency ~ '^[A-Z]{3}$'::text)),
     CONSTRAINT ad_campaigns_name_length CHECK (((char_length(name) >= 1) AND (char_length(name) <= 120)))
@@ -8788,6 +8790,14 @@ ALTER TABLE ONLY public.access_codes
 
 ALTER TABLE ONLY public.access_codes
     ADD CONSTRAINT access_codes_redeemed_entitlement_id_fkey FOREIGN KEY (redeemed_entitlement_id) REFERENCES public.entitlements(id);
+
+
+--
+-- Name: ad_campaigns ad_campaigns_bonus_plan_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ad_campaigns
+    ADD CONSTRAINT ad_campaigns_bonus_plan_id_fkey FOREIGN KEY (bonus_plan_id) REFERENCES public.plans(id);
 
 
 --

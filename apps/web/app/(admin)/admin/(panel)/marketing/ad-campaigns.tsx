@@ -12,14 +12,19 @@ import { useLocale, useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
 import { type ApiError, fetcher } from "@/lib/api";
-import { formatMoney, useOperatorAction } from "@/lib/operations";
+import { formatMoney, type Listing, type PlanSummary, useOperatorAction } from "@/lib/operations";
+import { useSession } from "@/lib/session";
+
+const BONUS_KINDS = ["none", "wallet", "days", "trial", "plan"] as const;
 
 type AdCampaign = {
   id: string;
   code: string;
   name: string;
-  bonusKind: "none" | "wallet" | "days";
+  bonusKind: "none" | "wallet" | "days" | "trial" | "plan";
   bonusValue: number;
+  bonusPlanId?: string;
+  bonusPlanCode?: string;
   currency: string;
   active: boolean;
   registrations: number;
@@ -40,12 +45,25 @@ export function AdCampaignsCard({ editable }: { editable: boolean }) {
     "/v1/panel/marketing/ad-campaigns",
     fetcher,
   );
+  const { can } = useSession();
+  const { data: plans } = useSWR<Listing<PlanSummary>, ApiError>(
+    editable && can("catalog.read") ? "/v1/panel/catalog/plans" : null,
+    fetcher,
+  );
+  const livePlans = (plans?.items ?? []).filter((plan) => !plan.archivedAt);
   const { run, pending } = useOperatorAction();
-  const ids = { code: useId(), name: useId(), kind: useId(), value: useId() };
+  const ids = {
+    code: useId(),
+    name: useId(),
+    kind: useId(),
+    value: useId(),
+    plan: useId(),
+  };
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [bonusKind, setBonusKind] = useState<AdCampaign["bonusKind"]>("none");
   const [bonusValue, setBonusValue] = useState("");
+  const [bonusPlanId, setBonusPlanId] = useState("");
 
   async function save(campaign: Partial<AdCampaign>) {
     const ok = await run("/v1/panel/marketing/ad-campaigns", {
@@ -67,12 +85,48 @@ export function AdCampaignsCard({ editable }: { editable: boolean }) {
       name: name.trim(),
       bonusKind,
       bonusValue: bonusKind === "wallet" ? Math.round(value * 100) : value,
+      bonusPlanId: bonusKind === "plan" ? bonusPlanId : undefined,
     });
     if (ok) {
       setCode("");
       setName("");
       setBonusValue("");
       setBonusKind("none");
+      setBonusPlanId("");
+    }
+  }
+
+  // Saving under an existing code updates that campaign, so editing is
+  // filling the form from the row; the code itself never changes.
+  function edit(campaign: AdCampaign) {
+    setCode(campaign.code);
+    setName(campaign.name);
+    setBonusKind(campaign.bonusKind);
+    setBonusPlanId(campaign.bonusPlanId ?? "");
+    setBonusValue(
+      campaign.bonusKind === "none"
+        ? ""
+        : String(campaign.bonusKind === "wallet" ? campaign.bonusValue / 100 : campaign.bonusValue),
+    );
+  }
+
+  function bonusText(campaign: AdCampaign) {
+    switch (campaign.bonusKind) {
+      case "wallet":
+        return translate("bonus.wallet", {
+          amount: formatMoney(campaign.bonusValue, campaign.currency, locale),
+        });
+      case "days":
+        return translate("bonus.days", { days: campaign.bonusValue });
+      case "trial":
+        return translate("bonus.trial", { days: campaign.bonusValue });
+      case "plan":
+        return translate("bonus.plan", {
+          days: campaign.bonusValue,
+          plan: campaign.bonusPlanCode ?? "",
+        });
+      default:
+        return translate("bonus.none");
     }
   }
 
@@ -106,15 +160,7 @@ export function AdCampaignsCard({ editable }: { editable: boolean }) {
                   <TableRow key={campaign.id}>
                     <TableCell>
                       <div className="font-medium">{campaign.name}</div>
-                      <div className="text-muted-foreground text-xs">
-                        {campaign.bonusKind === "none"
-                          ? translate("bonus.none")
-                          : campaign.bonusKind === "wallet"
-                            ? translate("bonus.wallet", {
-                                amount: formatMoney(campaign.bonusValue, campaign.currency, locale),
-                              })
-                            : translate("bonus.days", { days: campaign.bonusValue })}
-                      </div>
+                      <div className="text-muted-foreground text-xs">{bonusText(campaign)}</div>
                     </TableCell>
                     <TableCell className="font-mono text-xs">?start=c_{campaign.code}</TableCell>
                     <TableCell className="text-right">{campaign.registrations}</TableCell>
@@ -125,14 +171,19 @@ export function AdCampaignsCard({ editable }: { editable: boolean }) {
                     </TableCell>
                     <TableCell className="text-right">
                       {editable ? (
-                        <Button
-                          disabled={pending}
-                          onClick={() => void save({ ...campaign, active: !campaign.active })}
-                          size="sm"
-                          variant="outline"
-                        >
-                          {campaign.active ? translate("pause") : translate("resume")}
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <Button onClick={() => edit(campaign)} size="sm" variant="ghost">
+                            {translate("edit")}
+                          </Button>
+                          <Button
+                            disabled={pending}
+                            onClick={() => void save({ ...campaign, active: !campaign.active })}
+                            size="sm"
+                            variant="outline"
+                          >
+                            {campaign.active ? translate("pause") : translate("resume")}
+                          </Button>
+                        </div>
                       ) : (
                         <Badge variant="outline">
                           {campaign.active ? translate("active") : translate("paused")}
@@ -171,12 +222,31 @@ export function AdCampaignsCard({ editable }: { editable: boolean }) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">{translate("bonusKinds.none")}</SelectItem>
-                  <SelectItem value="wallet">{translate("bonusKinds.wallet")}</SelectItem>
-                  <SelectItem value="days">{translate("bonusKinds.days")}</SelectItem>
+                  {BONUS_KINDS.map((kind) => (
+                    <SelectItem key={kind} value={kind}>
+                      {translate(`bonusKinds.${kind}`)}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
+            {bonusKind === "plan" && (
+              <div className="flex flex-col gap-1">
+                <Label htmlFor={ids.plan}>{translate("bonusPlan")}</Label>
+                <Select onValueChange={setBonusPlanId} value={bonusPlanId}>
+                  <SelectTrigger id={ids.plan}>
+                    <SelectValue placeholder={translate("pickPlan")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {livePlans.map((plan) => (
+                      <SelectItem key={plan.id} value={plan.id}>
+                        {plan.code}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="flex flex-col gap-1">
               <Label htmlFor={ids.value}>{translate("bonusValue")}</Label>
               <Input
@@ -189,10 +259,12 @@ export function AdCampaignsCard({ editable }: { editable: boolean }) {
             </div>
             <Button
               className="self-start"
-              disabled={pending || !code.trim() || !name.trim()}
+              disabled={
+                pending || !code.trim() || !name.trim() || (bonusKind === "plan" && !bonusPlanId)
+              }
               type="submit"
             >
-              {translate("create")}
+              {translate("save")}
             </Button>
           </form>
         )}

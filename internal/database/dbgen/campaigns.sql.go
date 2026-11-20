@@ -821,21 +821,23 @@ func (q *Queries) ResolveCampaignRecipient(ctx context.Context, arg ResolveCampa
 }
 
 const saveAdCampaign = `-- name: SaveAdCampaign :one
-INSERT INTO ad_campaigns (code, name, bonus_kind, bonus_value, currency, active)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO ad_campaigns (code, name, bonus_kind, bonus_value, bonus_plan_id, currency, active)
+VALUES ($1, $2, $3, $4, $5,
+  $6, $7)
 ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name, bonus_kind = EXCLUDED.bonus_kind, bonus_value = EXCLUDED.bonus_value,
-  currency = EXCLUDED.currency, active = EXCLUDED.active
-RETURNING id, code, name, bonus_kind, bonus_value, currency, active, created_at
+  bonus_plan_id = EXCLUDED.bonus_plan_id, currency = EXCLUDED.currency, active = EXCLUDED.active
+RETURNING id, code, name, bonus_kind, bonus_value, currency, active, created_at, bonus_plan_id
 `
 
 type SaveAdCampaignParams struct {
-	Code       string `json:"code"`
-	Name       string `json:"name"`
-	BonusKind  string `json:"bonus_kind"`
-	BonusValue int64  `json:"bonus_value"`
-	Currency   string `json:"currency"`
-	Active     bool   `json:"active"`
+	Code        string      `json:"code"`
+	Name        string      `json:"name"`
+	BonusKind   string      `json:"bonus_kind"`
+	BonusValue  int64       `json:"bonus_value"`
+	BonusPlanID pgtype.UUID `json:"bonus_plan_id"`
+	Currency    string      `json:"currency"`
+	Active      bool        `json:"active"`
 }
 
 func (q *Queries) SaveAdCampaign(ctx context.Context, arg SaveAdCampaignParams) (AdCampaign, error) {
@@ -844,6 +846,7 @@ func (q *Queries) SaveAdCampaign(ctx context.Context, arg SaveAdCampaignParams) 
 		arg.Name,
 		arg.BonusKind,
 		arg.BonusValue,
+		arg.BonusPlanID,
 		arg.Currency,
 		arg.Active,
 	)
@@ -857,6 +860,7 @@ func (q *Queries) SaveAdCampaign(ctx context.Context, arg SaveAdCampaignParams) 
 		&i.Currency,
 		&i.Active,
 		&i.CreatedAt,
+		&i.BonusPlanID,
 	)
 	return i, err
 }

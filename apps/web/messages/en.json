@@ -3046,22 +3046,30 @@
         "bonus": {
           "none": "No bonus",
           "wallet": "{amount} bonus to the wallet",
-          "days": "{days} days of VPN"
+          "days": "{days} days of VPN",
+          "trial": "A {days}-day trial",
+          "plan": "{days} days of {plan}"
         },
         "code": "Code",
         "name": "Name",
         "bonusLabel": "Bonus",
-        "bonusValue": "Amount (major units or days)",
+        "bonusValue": "Amount (major units) or days",
         "bonusKinds": {
           "none": "No bonus",
           "wallet": "Wallet credit",
-          "days": "VPN days"
+          "days": "VPN days on the trial plan",
+          "trial": "The trial",
+          "plan": "Days of a plan"
         },
         "create": "Create",
         "pause": "Pause",
         "resume": "Resume",
         "active": "Active",
-        "paused": "Paused"
+        "paused": "Paused",
+        "bonusPlan": "Plan",
+        "pickPlan": "Choose a plan",
+        "edit": "Edit",
+        "save": "Save"
       },
       "templateEditor": {
         "title": "Broadcast template",

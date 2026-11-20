@@ -74,14 +74,15 @@ type AccessCode struct {
 }
 
 type AdCampaign struct {
-	ID         pgtype.UUID        `json:"id"`
-	Code       string             `json:"code"`
-	Name       string             `json:"name"`
-	BonusKind  string             `json:"bonus_kind"`
-	BonusValue int64              `json:"bonus_value"`
-	Currency   string             `json:"currency"`
-	Active     bool               `json:"active"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	ID          pgtype.UUID        `json:"id"`
+	Code        string             `json:"code"`
+	Name        string             `json:"name"`
+	BonusKind   string             `json:"bonus_kind"`
+	BonusValue  int64              `json:"bonus_value"`
+	Currency    string             `json:"currency"`
+	Active      bool               `json:"active"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	BonusPlanID pgtype.UUID        `json:"bonus_plan_id"`
 }
 
 type Addon struct {

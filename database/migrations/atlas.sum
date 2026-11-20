@@ -1,4 +1,4 @@
-h1:en4REHI5CuI5k09WwFlsweQ/Lu0ibcNVA3cs9Al42hM=
+h1:wrVFQTFuoXREVvvKrHs9fQKy3aVR5R3njNPP359Oi8o=
 20261120000000_baseline.sql h1:xcYk9mdv44B3O0TRxq3RP+hXxJ2VeeOilGnwKO251mQ=
 20261120010000_river_schema_v8.sql h1:AfdQpxaviEf8asJ5gyLmMVZr+zMYaWEw+o/vE8CMj7A=
 20261120020000_customer_email_signin.sql h1:PrCKaTaDm5ggof8aqRooMbqOXEHML5fwq1TF877zQa8=
@@ -54,3 +54,4 @@ h1:en4REHI5CuI5k09WwFlsweQ/Lu0ibcNVA3cs9Al42hM=
 20261121990000_offer_templates.sql h1:ZTFL0mQIaekKbvXFHmRxwI5t63oh9bWZy5WrhdAmmF8=
 20261121995000_pinned_messages.sql h1:6IafPke5Yqzyjdi4OnVZ9YOWbop5tNPAncgkBwEWoh0=
 20261122000000_dormant_customers.sql h1:DiG4k+qVsfD+mI068P27wZ59uCzY8C9SdOYzj8fq/3I=
+20261122200000_campaign_plan_bonus.sql h1:mLHelat29wx3hlnvByl5f+2y9BEJqoGxGhYUg466oTM=

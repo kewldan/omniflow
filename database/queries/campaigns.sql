@@ -304,11 +304,12 @@ ORDER BY u.created_at DESC
 LIMIT sqlc.arg(sample_size);
 
 -- name: SaveAdCampaign :one
-INSERT INTO ad_campaigns (code, name, bonus_kind, bonus_value, currency, active)
-VALUES (sqlc.arg(code), sqlc.arg(name), sqlc.arg(bonus_kind), sqlc.arg(bonus_value), sqlc.arg(currency), sqlc.arg(active))
+INSERT INTO ad_campaigns (code, name, bonus_kind, bonus_value, bonus_plan_id, currency, active)
+VALUES (sqlc.arg(code), sqlc.arg(name), sqlc.arg(bonus_kind), sqlc.arg(bonus_value), sqlc.narg(bonus_plan_id),
+  sqlc.arg(currency), sqlc.arg(active))
 ON CONFLICT (code) DO UPDATE SET
   name = EXCLUDED.name, bonus_kind = EXCLUDED.bonus_kind, bonus_value = EXCLUDED.bonus_value,
-  currency = EXCLUDED.currency, active = EXCLUDED.active
+  bonus_plan_id = EXCLUDED.bonus_plan_id, currency = EXCLUDED.currency, active = EXCLUDED.active
 RETURNING *;
 
 -- name: SaveReferralCommission :exec

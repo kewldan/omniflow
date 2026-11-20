@@ -3046,22 +3046,30 @@
         "bonus": {
           "none": "Без бонуса",
           "wallet": "Бонус {amount} на баланс",
-          "days": "Бонус {days} дн. VPN"
+          "days": "Бонус {days} дн. VPN",
+          "trial": "Пробный период на {days} дн.",
+          "plan": "{days} дн. тарифа {plan}"
         },
         "code": "Код",
         "name": "Название",
         "bonusLabel": "Бонус",
-        "bonusValue": "Размер (₽ или дни)",
+        "bonusValue": "Размер (₽) или дни",
         "bonusKinds": {
           "none": "Без бонуса",
           "wallet": "Деньги на баланс",
-          "days": "Дни VPN"
+          "days": "Дни VPN на пробном тарифе",
+          "trial": "Пробный период",
+          "plan": "Дни тарифа"
         },
         "create": "Создать",
         "pause": "Остановить",
         "resume": "Включить",
         "active": "Активна",
-        "paused": "Остановлена"
+        "paused": "Остановлена",
+        "bonusPlan": "Тариф",
+        "pickPlan": "Выберите тариф",
+        "edit": "Изменить",
+        "save": "Сохранить"
       },
       "templateEditor": {
         "title": "Шаблон рассылки",

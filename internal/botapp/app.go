@@ -1448,5 +1448,9 @@ func (app *App) attributeCampaign(
 		_, _ = client.SendMessage(ctx, sendParams(chatID, View{Text: text(locale, "campaign.bonusWallet", formatMoney(result.BonusValue, result.Currency))}))
 	case "days":
 		_, _ = client.SendMessage(ctx, sendParams(chatID, View{Text: text(locale, "campaign.bonusDays", result.BonusValue)}))
+	case "trial":
+		_, _ = client.SendMessage(ctx, sendParams(chatID, View{Text: text(locale, "campaign.bonusTrial", result.BonusValue)}))
+	case "plan":
+		_, _ = client.SendMessage(ctx, sendParams(chatID, View{Text: text(locale, "campaign.bonusPlan", result.BonusValue)}))
 	}
 }

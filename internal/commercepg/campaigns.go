@@ -29,6 +29,17 @@ type CampaignAttribution struct {
 	BonusEndsAt time.Time
 }
 
+// Campaign bonus kinds. Wallet credit and days on the trial plan were the
+// first two; trial claims the customer's one trial and plan grants days of a
+// plan the operator picked.
+const (
+	CampaignBonusNone   = "none"
+	CampaignBonusWallet = "wallet"
+	CampaignBonusDays   = "days"
+	CampaignBonusTrial  = "trial"
+	CampaignBonusPlan   = "plan"
+)
+
 // ErrCampaignUnknown reports a code that names no active campaign.
 var ErrCampaignUnknown = errors.New("no active campaign has that code")
 
@@ -36,7 +47,15 @@ var ErrCampaignUnknown = errors.New("no active campaign has that code")
 // and grants the campaign's sign-up bonus, once. Only a customer created within
 // the last hour with no earlier attribution and no paid order is attributed:
 // the campaign gets credit for registrations it produced, not for customers it
-// merely reached. The bonus is wallet credit or days on the trial plan.
+// merely reached. The bonus is wallet credit, days on the trial plan, the
+// trial itself, or days of a plan the operator chose.
+//
+// The attribution and the bonus commit together, and the bonus is keyed on
+// the campaign and the customer, so neither a retried /start nor a second
+// campaign can pay a customer twice: customer_campaign_attributions holds one
+// row per customer. A subscription bonus that does not apply — a trial the
+// customer already had, a plan with no live version — is rolled back to a
+// savepoint, and the attribution stands without it.
 func (store *Store) AttributeCampaign(ctx context.Context, customerID, code string) (CampaignAttribution, error) {
 	code = strings.ToLower(strings.TrimSpace(code))
 	if !campaignCodePattern.MatchString(code) {
@@ -62,11 +81,13 @@ func (store *Store) attributeCampaign(ctx context.Context, userID pgtype.UUID, c
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	var (
-		campaignID pgtype.UUID
-		result     CampaignAttribution
+		campaignID  pgtype.UUID
+		bonusPlanID pgtype.UUID
+		result      CampaignAttribution
 	)
-	err = tx.QueryRow(ctx, `SELECT id, bonus_kind, bonus_value, currency FROM ad_campaigns WHERE code = $1 AND active`, code).
-		Scan(&campaignID, &result.BonusKind, &result.BonusValue, &result.Currency)
+	err = tx.QueryRow(ctx, `SELECT id, bonus_kind, bonus_value, currency, bonus_plan_id
+		FROM ad_campaigns WHERE code = $1 AND active`, code).
+		Scan(&campaignID, &result.BonusKind, &result.BonusValue, &result.Currency, &bonusPlanID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return CampaignAttribution{}, ErrCampaignUnknown
 	}
@@ -87,31 +108,74 @@ func (store *Store) attributeCampaign(ctx context.Context, userID pgtype.UUID, c
 	queries := dbgen.New(tx)
 	key := "campaign:" + uuidString(campaignID) + ":" + uuidString(userID)
 	switch result.BonusKind {
-	case "wallet":
+	case CampaignBonusWallet:
 		if err = store.creditRewardWallet(ctx, queries, userID, result.Currency, result.BonusValue, key); err != nil {
 			return CampaignAttribution{}, err
 		}
-	case "days":
-		planVersionID, currency, planErr := store.rewardPlan(ctx, queries, userID, RewardTrial)
-		if errors.Is(planErr, ErrPromoNotApplicable) {
-			// No trial plan to grant days on: the attribution stands without a bonus.
-			result.BonusKind = "none"
-			break
-		}
-		if planErr != nil {
-			return CampaignAttribution{}, planErr
-		}
-		endsAt, _, grantErr := store.grantRewardDays(ctx, tx, queries, userID, planVersionID, currency,
-			time.Duration(result.BonusValue)*24*time.Hour, false, key)
+	case CampaignBonusDays, CampaignBonusTrial, CampaignBonusPlan:
+		endsAt, granted, grantErr := store.grantCampaignDays(ctx, tx, userID, result.BonusKind, bonusPlanID,
+			result.BonusValue, key)
 		if grantErr != nil {
 			return CampaignAttribution{}, grantErr
 		}
+		if !granted {
+			result.BonusKind = CampaignBonusNone
+			break
+		}
 		result.BonusEndsAt = endsAt
 	}
-	if result.BonusKind != "none" {
+	if result.BonusKind != CampaignBonusNone {
 		if _, err = tx.Exec(ctx, `UPDATE customer_campaign_attributions SET bonus_granted_at = now() WHERE user_id = $1`, userID); err != nil {
 			return CampaignAttribution{}, err
 		}
 	}
 	return result, tx.Commit(ctx)
+}
+
+// grantCampaignDays grants a campaign's subscription bonus inside a savepoint.
+// It reports false, with nothing written, when the bonus does not apply to
+// this customer: no live trial plan, a trial already claimed, or a plan with
+// no live version.
+func (store *Store) grantCampaignDays(
+	ctx context.Context, tx pgx.Tx, userID pgtype.UUID, kind string, planID pgtype.UUID, days int64, key string,
+) (time.Time, bool, error) {
+	savepoint, err := tx.Begin(ctx)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	defer func() { _ = savepoint.Rollback(ctx) }()
+	queries := dbgen.New(savepoint)
+	var (
+		planVersionID pgtype.UUID
+		currency      string
+	)
+	switch kind {
+	case CampaignBonusPlan:
+		version, versionErr := queries.LatestLivePlanVersion(ctx, planID)
+		if errors.Is(versionErr, pgx.ErrNoRows) {
+			return time.Time{}, false, nil
+		}
+		if versionErr != nil {
+			return time.Time{}, false, versionErr
+		}
+		planVersionID, currency = version.ID, version.Currency
+	default:
+		// Days and the trial are both granted on the live trial plan.
+		planVersionID, currency, err = store.rewardPlan(ctx, queries, userID, RewardTrial)
+		if errors.Is(err, ErrPromoNotApplicable) {
+			return time.Time{}, false, nil
+		}
+		if err != nil {
+			return time.Time{}, false, err
+		}
+	}
+	endsAt, _, err := store.grantRewardDays(ctx, savepoint, queries, userID, planVersionID, currency,
+		time.Duration(days)*24*time.Hour, kind == CampaignBonusTrial, key)
+	if errors.Is(err, ErrPromoNotApplicable) {
+		return time.Time{}, false, nil
+	}
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	return endsAt, true, savepoint.Commit(ctx)
 }
