@@ -3557,6 +3557,33 @@ func (e PanelSubscriptionPolicyTrialRemainder) Valid() bool {
 	}
 }
 
+// Defines values for PanelSubscriptionSyncFieldsField.
+const (
+	PanelSubscriptionSyncFieldsFieldDeviceLimit PanelSubscriptionSyncFieldsField = "device_limit"
+	PanelSubscriptionSyncFieldsFieldExpiry      PanelSubscriptionSyncFieldsField = "expiry"
+	PanelSubscriptionSyncFieldsFieldSquads      PanelSubscriptionSyncFieldsField = "squads"
+	PanelSubscriptionSyncFieldsFieldStatus      PanelSubscriptionSyncFieldsField = "status"
+	PanelSubscriptionSyncFieldsFieldTraffic     PanelSubscriptionSyncFieldsField = "traffic"
+)
+
+// Valid indicates whether the value is a known member of the PanelSubscriptionSyncFieldsField enum.
+func (e PanelSubscriptionSyncFieldsField) Valid() bool {
+	switch e {
+	case PanelSubscriptionSyncFieldsFieldDeviceLimit:
+		return true
+	case PanelSubscriptionSyncFieldsFieldExpiry:
+		return true
+	case PanelSubscriptionSyncFieldsFieldSquads:
+		return true
+	case PanelSubscriptionSyncFieldsFieldStatus:
+		return true
+	case PanelSubscriptionSyncFieldsFieldTraffic:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PanelSupportAttachmentKind.
 const (
 	PanelSupportAttachmentKindDocument PanelSupportAttachmentKind = "document"
@@ -9638,6 +9665,31 @@ type PanelSubscriptionSettings struct {
 	MultiEnabled   bool `json:"multiEnabled"`
 }
 
+// PanelSubscriptionSync defines model for PanelSubscriptionSync.
+type PanelSubscriptionSync struct {
+	CheckedAt         time.Time          `json:"checkedAt"`
+	EntitlementId     openapi_types.UUID `json:"entitlementId"`
+	EntitlementStatus string             `json:"entitlementStatus"`
+	Fields            []struct {
+		Field   PanelSubscriptionSyncFieldsField `json:"field"`
+		Matches bool                             `json:"matches"`
+
+		// Omniflow Omniflow's value: a timestamp, a byte count or null for unlimited, a device count or null, a list of squad UUIDs, or a status.
+		Omniflow interface{} `json:"omniflow,omitempty"`
+
+		// Remnawave The Remnawave user's value, in the same shape; null when there is no user.
+		Remnawave interface{} `json:"remnawave,omitempty"`
+	} `json:"fields"`
+	InSync          bool   `json:"inSync"`
+	RemnawaveUserId *int64 `json:"remnawaveUserId,omitempty"`
+
+	// RemoteExists False when there is no Remnawave user to compare with; applying creates or recovers it.
+	RemoteExists bool `json:"remoteExists"`
+}
+
+// PanelSubscriptionSyncFieldsField defines model for PanelSubscriptionSync.Fields.Field.
+type PanelSubscriptionSyncFieldsField string
+
 // PanelSupportAttachment defines model for PanelSupportAttachment.
 type PanelSupportAttachment struct {
 	CreatedAt    time.Time                  `json:"createdAt"`
@@ -11870,6 +11922,15 @@ type ResumePanelSubscriptionParams struct {
 	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
 }
 
+// ApplyPanelSubscriptionSyncParams defines parameters for ApplyPanelSubscriptionSync.
+type ApplyPanelSubscriptionSyncParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+
+	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
+	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
+}
+
 // ListPanelCustomerTicketsParams defines parameters for ListPanelCustomerTickets.
 type ListPanelCustomerTicketsParams struct {
 	PageSize *PageSize `form:"pageSize,omitempty" json:"pageSize,omitempty"`
@@ -14009,6 +14070,12 @@ type ServerInterface interface {
 	// (POST /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/resume)
 	ResumePanelSubscription(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, subscriptionID openapi_types.UUID, params ResumePanelSubscriptionParams)
 
+	// (GET /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/sync)
+	PreviewPanelSubscriptionSync(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, subscriptionID openapi_types.UUID)
+
+	// (POST /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/sync)
+	ApplyPanelSubscriptionSync(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, subscriptionID openapi_types.UUID, params ApplyPanelSubscriptionSyncParams)
+
 	// (GET /v1/panel/customers/{customerID}/tickets)
 	ListPanelCustomerTickets(w http.ResponseWriter, r *http.Request, customerID CustomerID, params ListPanelCustomerTicketsParams)
 
@@ -15667,6 +15734,16 @@ func (_ Unimplemented) PausePanelSubscription(w http.ResponseWriter, r *http.Req
 
 // (POST /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/resume)
 func (_ Unimplemented) ResumePanelSubscription(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, subscriptionID openapi_types.UUID, params ResumePanelSubscriptionParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/sync)
+func (_ Unimplemented) PreviewPanelSubscriptionSync(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, subscriptionID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/sync)
+func (_ Unimplemented) ApplyPanelSubscriptionSync(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, subscriptionID openapi_types.UUID, params ApplyPanelSubscriptionSyncParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -26446,6 +26523,127 @@ func (siw *ServerInterfaceWrapper) ResumePanelSubscription(w http.ResponseWriter
 	handler.ServeHTTP(w, r)
 }
 
+// PreviewPanelSubscriptionSync operation middleware
+func (siw *ServerInterfaceWrapper) PreviewPanelSubscriptionSync(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerID" -------------
+	var customerID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerID", chi.URLParam(r, "customerID"), &customerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PreviewPanelSubscriptionSync(w, r, customerID, subscriptionID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApplyPanelSubscriptionSync operation middleware
+func (siw *ServerInterfaceWrapper) ApplyPanelSubscriptionSync(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerID" -------------
+	var customerID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerID", chi.URLParam(r, "customerID"), &customerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ApplyPanelSubscriptionSyncParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Operator-Reason" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Operator-Reason")]; found {
+		var XOperatorReason OperatorReason
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Operator-Reason", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Operator-Reason", valueList[0], &XOperatorReason, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Operator-Reason", Err: err})
+			return
+		}
+
+		params.XOperatorReason = XOperatorReason
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Operator-Reason is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Operator-Reason", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApplyPanelSubscriptionSync(w, r, customerID, subscriptionID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPanelCustomerTickets operation middleware
 func (siw *ServerInterfaceWrapper) ListPanelCustomerTickets(w http.ResponseWriter, r *http.Request) {
 
@@ -33042,6 +33240,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/resume", wrapper.ResumePanelSubscription)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/sync", wrapper.PreviewPanelSubscriptionSync)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/sync", wrapper.ApplyPanelSubscriptionSync)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/codes/batches", wrapper.ListPanelCodeBatches)
@@ -44769,6 +44973,186 @@ func (response ResumePanelSubscription422ApplicationProblemPlusJSONResponse) Vis
 	return err
 }
 
+type PreviewPanelSubscriptionSyncRequestObject struct {
+	CustomerID     openapi_types.UUID `json:"customerID"`
+	SubscriptionID openapi_types.UUID `json:"subscriptionID"`
+}
+
+type PreviewPanelSubscriptionSyncResponseObject interface {
+	VisitPreviewPanelSubscriptionSyncResponse(w http.ResponseWriter) error
+}
+
+type PreviewPanelSubscriptionSync200JSONResponse PanelSubscriptionSync
+
+func (response PreviewPanelSubscriptionSync200JSONResponse) VisitPreviewPanelSubscriptionSyncResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewPanelSubscriptionSync403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response PreviewPanelSubscriptionSync403ApplicationProblemPlusJSONResponse) VisitPreviewPanelSubscriptionSyncResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewPanelSubscriptionSync404ApplicationProblemPlusJSONResponse Problem
+
+func (response PreviewPanelSubscriptionSync404ApplicationProblemPlusJSONResponse) VisitPreviewPanelSubscriptionSyncResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewPanelSubscriptionSync409ApplicationProblemPlusJSONResponse Problem
+
+func (response PreviewPanelSubscriptionSync409ApplicationProblemPlusJSONResponse) VisitPreviewPanelSubscriptionSyncResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewPanelSubscriptionSync502ApplicationProblemPlusJSONResponse Problem
+
+func (response PreviewPanelSubscriptionSync502ApplicationProblemPlusJSONResponse) VisitPreviewPanelSubscriptionSyncResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplyPanelSubscriptionSyncRequestObject struct {
+	CustomerID     openapi_types.UUID `json:"customerID"`
+	SubscriptionID openapi_types.UUID `json:"subscriptionID"`
+	Params         ApplyPanelSubscriptionSyncParams
+}
+
+type ApplyPanelSubscriptionSyncResponseObject interface {
+	VisitApplyPanelSubscriptionSyncResponse(w http.ResponseWriter) error
+}
+
+type ApplyPanelSubscriptionSync202JSONResponse struct {
+	Operations []PanelSubscriptionOperationAccepted `json:"operations"`
+	Preview    PanelSubscriptionSync                `json:"preview"`
+}
+
+func (response ApplyPanelSubscriptionSync202JSONResponse) VisitApplyPanelSubscriptionSyncResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplyPanelSubscriptionSync403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ApplyPanelSubscriptionSync403ApplicationProblemPlusJSONResponse) VisitApplyPanelSubscriptionSyncResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplyPanelSubscriptionSync404ApplicationProblemPlusJSONResponse Problem
+
+func (response ApplyPanelSubscriptionSync404ApplicationProblemPlusJSONResponse) VisitApplyPanelSubscriptionSyncResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplyPanelSubscriptionSync409ApplicationProblemPlusJSONResponse Problem
+
+func (response ApplyPanelSubscriptionSync409ApplicationProblemPlusJSONResponse) VisitApplyPanelSubscriptionSyncResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplyPanelSubscriptionSync422ApplicationProblemPlusJSONResponse Problem
+
+func (response ApplyPanelSubscriptionSync422ApplicationProblemPlusJSONResponse) VisitApplyPanelSubscriptionSyncResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplyPanelSubscriptionSync502ApplicationProblemPlusJSONResponse Problem
+
+func (response ApplyPanelSubscriptionSync502ApplicationProblemPlusJSONResponse) VisitApplyPanelSubscriptionSyncResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListPanelCustomerTicketsRequestObject struct {
 	CustomerID CustomerID `json:"customerID"`
 	Params     ListPanelCustomerTicketsParams
@@ -52049,6 +52433,12 @@ type StrictServerInterface interface {
 
 	// (POST /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/resume)
 	ResumePanelSubscription(ctx context.Context, request ResumePanelSubscriptionRequestObject) (ResumePanelSubscriptionResponseObject, error)
+
+	// (GET /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/sync)
+	PreviewPanelSubscriptionSync(ctx context.Context, request PreviewPanelSubscriptionSyncRequestObject) (PreviewPanelSubscriptionSyncResponseObject, error)
+
+	// (POST /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/sync)
+	ApplyPanelSubscriptionSync(ctx context.Context, request ApplyPanelSubscriptionSyncRequestObject) (ApplyPanelSubscriptionSyncResponseObject, error)
 
 	// (GET /v1/panel/customers/{customerID}/tickets)
 	ListPanelCustomerTickets(ctx context.Context, request ListPanelCustomerTicketsRequestObject) (ListPanelCustomerTicketsResponseObject, error)
@@ -59647,6 +60037,61 @@ func (sh *strictHandler) ResumePanelSubscription(w http.ResponseWriter, r *http.
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ResumePanelSubscriptionResponseObject); ok {
 		if err := validResponse.VisitResumePanelSubscriptionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PreviewPanelSubscriptionSync operation middleware
+func (sh *strictHandler) PreviewPanelSubscriptionSync(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, subscriptionID openapi_types.UUID) {
+	var request PreviewPanelSubscriptionSyncRequestObject
+
+	request.CustomerID = customerID
+	request.SubscriptionID = subscriptionID
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PreviewPanelSubscriptionSync(ctx, request.(PreviewPanelSubscriptionSyncRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PreviewPanelSubscriptionSync")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PreviewPanelSubscriptionSyncResponseObject); ok {
+		if err := validResponse.VisitPreviewPanelSubscriptionSyncResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ApplyPanelSubscriptionSync operation middleware
+func (sh *strictHandler) ApplyPanelSubscriptionSync(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, subscriptionID openapi_types.UUID, params ApplyPanelSubscriptionSyncParams) {
+	var request ApplyPanelSubscriptionSyncRequestObject
+
+	request.CustomerID = customerID
+	request.SubscriptionID = subscriptionID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ApplyPanelSubscriptionSync(ctx, request.(ApplyPanelSubscriptionSyncRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApplyPanelSubscriptionSync")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ApplyPanelSubscriptionSyncResponseObject); ok {
+		if err := validResponse.VisitApplyPanelSubscriptionSyncResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -1841,6 +1841,62 @@ paths:
         "403": {$ref: "#/components/responses/Problem"}
         "409": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/sync:
+    get:
+      operationId: previewPanelSubscriptionSync
+      tags: [panel]
+      description: >-
+        Requires subscriptions.read. Compares the subscription's entitlement with
+        its Remnawave user field by field — expiry (with the plan's grace),
+        traffic limit, device limit, squads, and status — without changing
+        either side. The desired state is built the way the scheduled reconcile
+        builds it, so the diff is what a reconcile would push.
+
+        409 when the subscription was never provisioned; 502 when Remnawave did
+        not answer.
+      parameters:
+        - {in: path, name: customerID, required: true, schema: {type: string, format: uuid}}
+        - {in: path, name: subscriptionID, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200": {description: Comparison, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSubscriptionSync"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "502": {$ref: "#/components/responses/Problem"}
+    post:
+      operationId: applyPanelSubscriptionSync
+      tags: [panel]
+      description: >-
+        Requires subscriptions.write and an operator reason. Pushes Omniflow's
+        state to the subscription's Remnawave user through the fulfillment
+        pipeline: a `reconcile` (expiry, limits, squads; recreates a missing
+        user) and, when the two sides disagree on whether the user is switched
+        on, an `enable` or `disable` carrying Omniflow's status. Nothing is
+        written to Remnawave by this request itself. Operations are keyed by the
+        request ID, so a repeated confirmation reuses them.
+      parameters:
+        - {in: path, name: customerID, required: true, schema: {type: string, format: uuid}}
+        - {in: path, name: subscriptionID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/OperatorReason"}
+      responses:
+        "202":
+          description: Queued
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [operations, preview]
+                properties:
+                  operations:
+                    type: array
+                    items: {$ref: "#/components/schemas/PanelSubscriptionOperationAccepted"}
+                  preview: {$ref: "#/components/schemas/PanelSubscriptionSync"}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+        "502": {$ref: "#/components/responses/Problem"}
   /v1/panel/codes/batches:
     get:
       operationId: listPanelCodeBatches
@@ -5803,6 +5859,26 @@ components:
     Plan: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PlanInput"}}}}
     PlanVersion: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PlanVersionInput"}}}}
   schemas:
+    PanelSubscriptionSync:
+      type: object
+      required: [entitlementId, entitlementStatus, remoteExists, inSync, fields, checkedAt]
+      properties:
+        entitlementId: {type: string, format: uuid}
+        entitlementStatus: {type: string}
+        remnawaveUserId: {type: integer, format: int64}
+        remoteExists: {type: boolean, description: "False when there is no Remnawave user to compare with; applying creates or recovers it."}
+        inSync: {type: boolean}
+        checkedAt: {type: string, format: date-time}
+        fields:
+          type: array
+          items:
+            type: object
+            required: [field, matches]
+            properties:
+              field: {type: string, enum: [expiry, traffic, device_limit, squads, status]}
+              omniflow: {description: "Omniflow's value: a timestamp, a byte count or null for unlimited, a device count or null, a list of squad UUIDs, or a status."}
+              remnawave: {description: "The Remnawave user's value, in the same shape; null when there is no user."}
+              matches: {type: boolean}
     Health:
       type: object
       required: [status, version]

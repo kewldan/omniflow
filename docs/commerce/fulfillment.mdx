@@ -395,6 +395,28 @@ Its refusals are worth knowing:
 `set_squads` is accepted by the API but has no control in the panel form; the panel offers enable,
 disable, reset traffic, extend, and set limits.
 
+### Sync one subscription with Remnawave
+
+When a customer reports that their access does not match what they paid for, or someone edited the
+user in the Remnawave panel by hand, **Compare with Remnawave** on the subscription card shows the
+two sides next to each other without changing anything: expiry (with the plan's grace period folded
+in, as it is pushed), traffic limit, device limit, squads, and status. Rows that differ are
+highlighted. The comparison is built exactly as the scheduled reconcile builds its desired state, so
+what you see is what a reconcile would push. It needs `subscriptions.read`; when Remnawave does not
+answer the panel says so (`502 remnawave_unavailable`).
+
+**Apply Omniflow's state** needs `subscriptions.write`, a reason, and a confirmation. It queues a
+`reconcile` for the subscription's entitlement — which pushes the expiry, limits, and squads, and
+recreates or recovers a missing user — and, when the two sides disagree on whether the user is
+switched on, an `enable` or `disable` carrying Omniflow's status (a paused subscription stays
+disabled). Both go through this pipeline with `panel-sync:<subscription>:<operation>:<request>` keys,
+so a repeated confirmation reuses them; each writes the audit event
+`panel.subscription.sync_<operation>`. The routes are
+`GET` and `POST /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/sync`. Press **Check
+again** after the worker has run to see the result. Remnawave stays authoritative for usage and
+devices; the sync only pushes what Omniflow owns (see
+[decision 0004](/architecture/decision-0004-remnawave-boundary)).
+
 For many subscriptions at once, use the bulk operations described in
 [Admin operations](/operations/admin-operations); they enqueue the same operations with a
 `bulk:<operationID>:<position>` key so a runner restarted mid-batch cannot extend a subscription

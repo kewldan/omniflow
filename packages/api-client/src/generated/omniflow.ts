@@ -31,6 +31,37 @@ type NonReadonly<T> = [T] extends [UnionToIntersection<T>]
     }
   : DistributeReadOnlyOverUnions<T>;
 
+export type PanelSubscriptionSyncFieldsItemField =
+  (typeof PanelSubscriptionSyncFieldsItemField)[keyof typeof PanelSubscriptionSyncFieldsItemField];
+
+export const PanelSubscriptionSyncFieldsItemField = {
+  expiry: "expiry",
+  traffic: "traffic",
+  device_limit: "device_limit",
+  squads: "squads",
+  status: "status",
+} as const;
+
+export type PanelSubscriptionSyncFieldsItem = {
+  field: PanelSubscriptionSyncFieldsItemField;
+  /** Omniflow's value: a timestamp, a byte count or null for unlimited, a device count or null, a list of squad UUIDs, or a status. */
+  omniflow?: unknown;
+  /** The Remnawave user's value, in the same shape; null when there is no user. */
+  remnawave?: unknown;
+  matches: boolean;
+};
+
+export interface PanelSubscriptionSync {
+  entitlementId: string;
+  entitlementStatus: string;
+  remnawaveUserId?: number;
+  /** False when there is no Remnawave user to compare with; applying creates or recovers it. */
+  remoteExists: boolean;
+  inSync: boolean;
+  checkedAt: string;
+  fields: PanelSubscriptionSyncFieldsItem[];
+}
+
 export interface Health {
   status: string;
   version: string;
@@ -6557,6 +6588,11 @@ export type DeletePanelInfoPage200 = {
 
 export type SetPanelInfoPagePublicationBody = {
   published: boolean;
+};
+
+export type ApplyPanelSubscriptionSync202 = {
+  operations: PanelSubscriptionOperationAccepted[];
+  preview: PanelSubscriptionSync;
 };
 
 export type ListPanelCodeBatchesParams = {
@@ -20126,6 +20162,231 @@ export const useResumePanelSubscription = <TError = Promise<ProblemResponse>>(
   const swrKey =
     swrOptions?.swrKey ?? getResumePanelSubscriptionMutationKey(customerID, subscriptionID);
   const swrFn = getResumePanelSubscriptionMutationFetcher(customerID, subscriptionID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type previewPanelSubscriptionSyncResponse200 = {
+  data: PanelSubscriptionSync;
+  status: 200;
+};
+
+export type previewPanelSubscriptionSyncResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type previewPanelSubscriptionSyncResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type previewPanelSubscriptionSyncResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type previewPanelSubscriptionSyncResponse502 = {
+  data: ProblemResponse;
+  status: 502;
+};
+
+export type previewPanelSubscriptionSyncResponseSuccess =
+  previewPanelSubscriptionSyncResponse200 & {
+    headers: Headers;
+  };
+export type previewPanelSubscriptionSyncResponseError = (
+  | previewPanelSubscriptionSyncResponse403
+  | previewPanelSubscriptionSyncResponse404
+  | previewPanelSubscriptionSyncResponse409
+  | previewPanelSubscriptionSyncResponse502
+) & {
+  headers: Headers;
+};
+
+export type previewPanelSubscriptionSyncResponse =
+  | previewPanelSubscriptionSyncResponseSuccess
+  | previewPanelSubscriptionSyncResponseError;
+
+export const getPreviewPanelSubscriptionSyncUrl = (customerID: string, subscriptionID: string) => {
+  return `/v1/panel/customers/${customerID}/subscriptions/${subscriptionID}/sync`;
+};
+
+/**
+ * Requires subscriptions.read. Compares the subscription's entitlement with its Remnawave user field by field — expiry (with the plan's grace), traffic limit, device limit, squads, and status — without changing either side. The desired state is built the way the scheduled reconcile builds it, so the diff is what a reconcile would push.
+ * 409 when the subscription was never provisioned; 502 when Remnawave did not answer.
+ */
+export const previewPanelSubscriptionSync = async (
+  customerID: string,
+  subscriptionID: string,
+  options?: RequestInit,
+): Promise<previewPanelSubscriptionSyncResponse> => {
+  const res = await fetch(getPreviewPanelSubscriptionSyncUrl(customerID, subscriptionID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: previewPanelSubscriptionSyncResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as previewPanelSubscriptionSyncResponse;
+};
+
+export const getPreviewPanelSubscriptionSyncKey = (customerID: string, subscriptionID: string) =>
+  [`/v1/panel/customers/${customerID}/subscriptions/${subscriptionID}/sync`] as const;
+
+export type PreviewPanelSubscriptionSyncQueryResult = NonNullable<
+  Awaited<ReturnType<typeof previewPanelSubscriptionSync>>
+>;
+
+export const usePreviewPanelSubscriptionSync = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  subscriptionID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof previewPanelSubscriptionSync>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false &&
+    customerID !== null &&
+    customerID !== undefined &&
+    subscriptionID !== null &&
+    subscriptionID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ??
+    (() => (isEnabled ? getPreviewPanelSubscriptionSyncKey(customerID, subscriptionID) : null));
+  const swrFn = () => previewPanelSubscriptionSync(customerID, subscriptionID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type applyPanelSubscriptionSyncResponse202 = {
+  data: ApplyPanelSubscriptionSync202;
+  status: 202;
+};
+
+export type applyPanelSubscriptionSyncResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type applyPanelSubscriptionSyncResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type applyPanelSubscriptionSyncResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type applyPanelSubscriptionSyncResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type applyPanelSubscriptionSyncResponse502 = {
+  data: ProblemResponse;
+  status: 502;
+};
+
+export type applyPanelSubscriptionSyncResponseSuccess = applyPanelSubscriptionSyncResponse202 & {
+  headers: Headers;
+};
+export type applyPanelSubscriptionSyncResponseError = (
+  | applyPanelSubscriptionSyncResponse403
+  | applyPanelSubscriptionSyncResponse404
+  | applyPanelSubscriptionSyncResponse409
+  | applyPanelSubscriptionSyncResponse422
+  | applyPanelSubscriptionSyncResponse502
+) & {
+  headers: Headers;
+};
+
+export type applyPanelSubscriptionSyncResponse =
+  | applyPanelSubscriptionSyncResponseSuccess
+  | applyPanelSubscriptionSyncResponseError;
+
+export const getApplyPanelSubscriptionSyncUrl = (customerID: string, subscriptionID: string) => {
+  return `/v1/panel/customers/${customerID}/subscriptions/${subscriptionID}/sync`;
+};
+
+/**
+ * Requires subscriptions.write and an operator reason. Pushes Omniflow's state to the subscription's Remnawave user through the fulfillment pipeline: a `reconcile` (expiry, limits, squads; recreates a missing user) and, when the two sides disagree on whether the user is switched on, an `enable` or `disable` carrying Omniflow's status. Nothing is written to Remnawave by this request itself. Operations are keyed by the request ID, so a repeated confirmation reuses them.
+ */
+export const applyPanelSubscriptionSync = async (
+  customerID: string,
+  subscriptionID: string,
+  options?: RequestInit,
+): Promise<applyPanelSubscriptionSyncResponse> => {
+  const res = await fetch(getApplyPanelSubscriptionSyncUrl(customerID, subscriptionID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: applyPanelSubscriptionSyncResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as applyPanelSubscriptionSyncResponse;
+};
+
+export const getApplyPanelSubscriptionSyncMutationFetcher = (
+  customerID: string,
+  subscriptionID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return applyPanelSubscriptionSync(customerID, subscriptionID, options);
+  };
+};
+export const getApplyPanelSubscriptionSyncMutationKey = (
+  customerID: string,
+  subscriptionID: string,
+) => [`/v1/panel/customers/${customerID}/subscriptions/${subscriptionID}/sync`] as const;
+
+export type ApplyPanelSubscriptionSyncMutationResult = NonNullable<
+  Awaited<ReturnType<typeof applyPanelSubscriptionSync>>
+>;
+
+export const useApplyPanelSubscriptionSync = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  subscriptionID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof applyPanelSubscriptionSync>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof applyPanelSubscriptionSync>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey =
+    swrOptions?.swrKey ?? getApplyPanelSubscriptionSyncMutationKey(customerID, subscriptionID);
+  const swrFn = getApplyPanelSubscriptionSyncMutationFetcher(
+    customerID,
+    subscriptionID,
+    fetchOptions,
+  );
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

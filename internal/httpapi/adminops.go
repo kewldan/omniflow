@@ -223,6 +223,7 @@ func (handlers *AdminHandlers) mountOperations(secure chi.Router) {
 	})
 
 	handlers.mountSubscriptionOperations(secure)
+	handlers.mountSubscriptionSync(secure)
 
 	// -- Bulk actions --------------------------------------------------------
 	secure.With(handlers.requirePermission(rbac.PermissionCustomersRead)).Group(func(read chi.Router) {

@@ -289,40 +289,17 @@ func (worker *Worker) observeDrift(ctx context.Context, claimed claim) ([]drift,
 }
 
 // driftsBetween lists every way the remote user disagrees with the desired
-// state.
+// state: the mismatching part of compareFields.
 func driftsBetween(desired desiredState, entitlementStatus string, remote remnawave.User) []drift {
-	type mismatch struct {
-		kind               string
-		expected, observed any
-	}
-	mismatches := make([]mismatch, 0, 4)
-	if !remote.ExpireAt.Equal(desired.remoteExpireAt) {
-		mismatches = append(mismatches, mismatch{"expiry", desired.remoteExpireAt, remote.ExpireAt})
-	}
-	// A nil desired limit means unlimited, and unlimited is a value Remnawave
-	// can disagree with: a user still carrying the previous plan's cap is
-	// drift, not "nothing configured".
-	if !trafficLimitAgrees(desired.TrafficAllowanceBytes, remote.TrafficLimitBytes) {
-		mismatches = append(mismatches, mismatch{"traffic", desired.TrafficAllowanceBytes, remote.TrafficLimitBytes})
-	}
-	if !deviceLimitAgrees(desired.DeviceLimit, remote.HWIDDeviceLimit) {
-		mismatches = append(mismatches, mismatch{"device_limit", desired.DeviceLimit, remote.HWIDDeviceLimit})
-	}
-	remoteSquads := make([]string, 0, len(remote.ActiveInternalSquads))
-	for _, squad := range remote.ActiveInternalSquads {
-		remoteSquads = append(remoteSquads, squad.UUID)
-	}
-	if !sameStringSet(desired.SquadIDs, remoteSquads) {
-		mismatches = append(mismatches, mismatch{"squads", desired.SquadIDs, remoteSquads})
-	}
-	if reconciled := reconciledStatus(entitlementStatus, remote); reconciled != entitlementStatus {
-		mismatches = append(mismatches, mismatch{"status", entitlementStatus, reconciled})
-	}
-	drifts := make([]drift, 0, len(mismatches))
-	for _, item := range mismatches {
-		expected, _ := json.Marshal(map[string]any{"value": item.expected})
-		observed, _ := json.Marshal(map[string]any{"value": item.observed})
-		drifts = append(drifts, drift{kind: item.kind, expected: expected, observed: observed})
+	fields := compareFields(desired, entitlementStatus, remote)
+	drifts := make([]drift, 0, len(fields))
+	for _, item := range fields {
+		if item.Matches {
+			continue
+		}
+		expected, _ := json.Marshal(map[string]any{"value": item.Omniflow})
+		observed, _ := json.Marshal(map[string]any{"value": item.Remnawave})
+		drifts = append(drifts, drift{kind: item.Field, expected: expected, observed: observed})
 	}
 	return drifts
 }

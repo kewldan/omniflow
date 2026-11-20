@@ -1146,6 +1146,36 @@
         },
         "days": "{count} d",
         "truncated": "Showing the newest {shown} of {count}."
+      },
+      "sync": {
+        "compare": "Compare with Remnawave",
+        "title": "Sync with Remnawave",
+        "refresh": "Check again",
+        "field": "Field",
+        "differs": "(differs)",
+        "checkedAt": "Checked at",
+        "inSync": "In sync",
+        "outOfSync": "Differs from Remnawave",
+        "missingRemote": "No Remnawave user",
+        "unavailable": "Remnawave did not answer, so the subscription could not be compared.",
+        "notProvisioned": "This subscription has never been provisioned.",
+        "unlimited": "Unlimited",
+        "panelDefault": "Panel default",
+        "noSquads": "None",
+        "fields": {
+          "expiry": "Expiry",
+          "traffic": "Traffic limit",
+          "device_limit": "Device limit",
+          "squads": "Squads",
+          "status": "Status"
+        },
+        "reason": "Reason for the sync (required)",
+        "apply": "Apply Omniflow's state",
+        "confirmTitle": "Push Omniflow's state to Remnawave?",
+        "confirmDescription": "The expiry, limits, squads and status in the Omniflow column are queued for this subscription's Remnawave user through the fulfillment pipeline. Values changed directly in the Remnawave panel are overwritten.",
+        "confirm": "Sync",
+        "cancel": "Cancel",
+        "queued": "Sync queued. The worker applies it shortly; check again to see the result."
       }
     },
     "merge": {

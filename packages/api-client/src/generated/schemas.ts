@@ -4689,6 +4689,105 @@ export const ResumePanelSubscriptionResponse = zod.object({
 });
 
 /**
+ * Requires subscriptions.read. Compares the subscription's entitlement with its Remnawave user field by field — expiry (with the plan's grace), traffic limit, device limit, squads, and status — without changing either side. The desired state is built the way the scheduled reconcile builds it, so the diff is what a reconcile would push.
+ * 409 when the subscription was never provisioned; 502 when Remnawave did not answer.
+ */
+export const PreviewPanelSubscriptionSyncParams = zod.object({
+  customerID: zod.uuid(),
+  subscriptionID: zod.uuid(),
+});
+
+export const PreviewPanelSubscriptionSyncResponse = zod.object({
+  entitlementId: zod.uuid(),
+  entitlementStatus: zod.string(),
+  remnawaveUserId: zod.int().optional(),
+  remoteExists: zod
+    .boolean()
+    .describe(
+      "False when there is no Remnawave user to compare with; applying creates or recovers it.",
+    ),
+  inSync: zod.boolean(),
+  checkedAt: zod.iso.datetime({ offset: true }),
+  fields: zod.array(
+    zod.object({
+      field: zod.enum(["expiry", "traffic", "device_limit", "squads", "status"]),
+      omniflow: zod
+        .unknown()
+        .optional()
+        .describe(
+          "Omniflow's value: a timestamp, a byte count or null for unlimited, a device count or null, a list of squad UUIDs, or a status.",
+        ),
+      remnawave: zod
+        .unknown()
+        .optional()
+        .describe("The Remnawave user's value, in the same shape; null when there is no user."),
+      matches: zod.boolean(),
+    }),
+  ),
+});
+
+/**
+ * Requires subscriptions.write and an operator reason. Pushes Omniflow's state to the subscription's Remnawave user through the fulfillment pipeline: a `reconcile` (expiry, limits, squads; recreates a missing user) and, when the two sides disagree on whether the user is switched on, an `enable` or `disable` carrying Omniflow's status. Nothing is written to Remnawave by this request itself. Operations are keyed by the request ID, so a repeated confirmation reuses them.
+ */
+export const ApplyPanelSubscriptionSyncParams = zod.object({
+  customerID: zod.uuid(),
+  subscriptionID: zod.uuid(),
+});
+
+export const applyPanelSubscriptionSyncHeaderXOperatorReasonMax = 400;
+
+export const ApplyPanelSubscriptionSyncHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "X-Operator-Reason": zod
+    .string()
+    .min(1)
+    .max(applyPanelSubscriptionSyncHeaderXOperatorReasonMax)
+    .describe(
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+    ),
+});
+
+export const ApplyPanelSubscriptionSyncResponse = zod.object({
+  operations: zod.array(
+    zod.object({
+      operationId: zod.uuid(),
+      operation: zod.string(),
+      status: zod.string(),
+    }),
+  ),
+  preview: zod.object({
+    entitlementId: zod.uuid(),
+    entitlementStatus: zod.string(),
+    remnawaveUserId: zod.int().optional(),
+    remoteExists: zod
+      .boolean()
+      .describe(
+        "False when there is no Remnawave user to compare with; applying creates or recovers it.",
+      ),
+    inSync: zod.boolean(),
+    checkedAt: zod.iso.datetime({ offset: true }),
+    fields: zod.array(
+      zod.object({
+        field: zod.enum(["expiry", "traffic", "device_limit", "squads", "status"]),
+        omniflow: zod
+          .unknown()
+          .optional()
+          .describe(
+            "Omniflow's value: a timestamp, a byte count or null for unlimited, a device count or null, a list of squad UUIDs, or a status.",
+          ),
+        remnawave: zod
+          .unknown()
+          .optional()
+          .describe("The Remnawave user's value, in the same shape; null when there is no user."),
+        matches: zod.boolean(),
+      }),
+    ),
+  }),
+});
+
+/**
  * Requires catalog.read. Wholesale batches with their counts. It carries no codes: only their SHA-256 is stored, so there is nothing here that could produce one.
  */
 export const listPanelCodeBatchesQueryPageSizeDefault = 100;
