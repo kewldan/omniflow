@@ -28,6 +28,7 @@ export function ReferralCommissionFields({
   update: (patch: Partial<ReferralProgram>) => void;
 }) {
   const translate = useTranslations("admin.marketing.referrals.commission");
+  const translateReferrals = useTranslations("admin.marketing.referrals");
   const ids = { rate: useId(), first: useId(), cap: useId(), minimum: useId() };
   const triggers = program.commissionTriggers ?? ["subscription"];
   const tiers = program.commissionTiers ?? [];
@@ -99,6 +100,12 @@ export function ReferralCommissionFields({
           />
         </div>
       </div>
+      <TriggerBox
+        checked={Boolean(program.allowRewardChoice)}
+        disabled={!editable}
+        label={translateReferrals("allowRewardChoice")}
+        onChange={(allowRewardChoice) => update({ allowRewardChoice })}
+      />
       <div className="flex flex-wrap gap-4">
         {["subscription", "topup"].map((trigger) => (
           <TriggerBox

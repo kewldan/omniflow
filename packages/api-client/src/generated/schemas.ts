@@ -11841,6 +11841,45 @@ export const GetAccountReferralsResponse = zod.object({
 });
 
 /**
+ * The customer's referral reward choice, what invites and commissions earned them over 7 days, 30 days, and all time, and their invitees — joined, paid, earned — with nothing that identifies them.
+ */
+export const GetAccountReferralInsightsResponse = zod.object({
+  rewardChoice: zod.object({
+    allowed: zod.boolean(),
+    kind: zod.enum(["", "wallet", "days"]),
+  }),
+  earnings: zod.object({
+    last7Minor: zod.int(),
+    last30Minor: zod.int(),
+    allMinor: zod.int(),
+  }),
+  invitees: zod.array(
+    zod.object({
+      joinedAt: zod.iso.datetime({ offset: true }),
+      paid: zod.boolean(),
+      earnedMinor: zod.int(),
+    }),
+  ),
+});
+
+/**
+ * Days or balance for the customer's referral rewards, when the programme offers the choice; 422 reward_choice_unavailable otherwise.
+ */
+export const ChooseAccountReferralRewardKindHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const ChooseAccountReferralRewardKindBody = zod.object({
+  kind: zod.enum(["wallet", "days"]),
+});
+
+export const ChooseAccountReferralRewardKindResponse = zod.object({
+  kind: zod.string().optional(),
+});
+
+/**
  * Records the inviter behind a web sign-up from the `?ref=` code the sign-in screen carried, under the same rule the bot applies to `/start ref_<code>`: first write wins, self-referral is impossible, and the row is written only while the programme is enabled and only for a customer who has not yet paid for anything. Always 200 with an outcome, because a link that did not count is not a failure of the request.
  */
 export const attributeAccountReferralBodyCodeMax = 32;

@@ -72,6 +72,7 @@ export type ReferralProgram = {
   commissionMinPaymentMinor?: number;
   commissionTriggers?: string[];
   commissionTiers?: { referrals: number; bps: number }[];
+  allowRewardChoice?: boolean;
   /** What the current configuration has actually produced. */
   record: {
     attributed: number;

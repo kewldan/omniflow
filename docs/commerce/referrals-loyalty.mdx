@@ -72,6 +72,19 @@ never had a subscription has nothing to extend and receives nothing; the friend'
 blocked. Rejecting a referral in review does not take granted days back — only money rewards are
 reversed through the ledger.
 
+### Letting customers choose days or balance
+
+With **Let customers choose days or balance when both are set** (`allowRewardChoice`) on, a customer
+whose side of the programme rewards in both days and money picks one on `/account/referrals`
+(`PUT /v1/account/referrals/reward-kind`, `wallet` or `days`); the choice is kept in
+`referral_reward_preferences` and applied when their reward is granted. Days still win for a customer
+who did not choose, and a choice the programme does not offer is refused with 422.
+
+The same screen shows the invite link as a QR code, what invites and commissions earned over seven
+days, thirty days, and all time, and the friends invited — when each joined, whether they paid, and
+what they earned the customer — from `GET /v1/account/referrals/insights`, which carries nothing
+that identifies a friend.
+
 ### Commission on every payment
 
 Beside or instead of the one-off rewards, the inviter can earn a share of what their friend pays, as

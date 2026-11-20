@@ -2127,6 +2127,7 @@ type ReferralProgram struct {
 	CommissionMinPaymentMinor int64              `json:"commission_min_payment_minor"`
 	CommissionTriggers        []string           `json:"commission_triggers"`
 	CommissionTiers           []byte             `json:"commission_tiers"`
+	AllowRewardChoice         bool               `json:"allow_reward_choice"`
 }
 
 type ReferralReward struct {
@@ -2144,6 +2145,12 @@ type ReferralReward struct {
 	ReversalReason              pgtype.Text        `json:"reversal_reason"`
 	ReversalLedgerTransactionID pgtype.UUID        `json:"reversal_ledger_transaction_id"`
 	Days                        pgtype.Int4        `json:"days"`
+}
+
+type ReferralRewardPreference struct {
+	UserID    pgtype.UUID        `json:"user_id"`
+	Kind      string             `json:"kind"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
 type ReferralSignal struct {

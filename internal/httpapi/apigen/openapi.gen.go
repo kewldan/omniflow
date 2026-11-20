@@ -4544,6 +4544,45 @@ func (e RequestAccountDeletionJSONBodyConfirm) Valid() bool {
 	}
 }
 
+// Defines values for GetAccountReferralInsights200JSONResponseBodyRewardChoiceKind.
+const (
+	GetAccountReferralInsights200JSONResponseBodyRewardChoiceKindDays   GetAccountReferralInsights200JSONResponseBodyRewardChoiceKind = "days"
+	GetAccountReferralInsights200JSONResponseBodyRewardChoiceKindEmpty  GetAccountReferralInsights200JSONResponseBodyRewardChoiceKind = ""
+	GetAccountReferralInsights200JSONResponseBodyRewardChoiceKindWallet GetAccountReferralInsights200JSONResponseBodyRewardChoiceKind = "wallet"
+)
+
+// Valid indicates whether the value is a known member of the GetAccountReferralInsights200JSONResponseBodyRewardChoiceKind enum.
+func (e GetAccountReferralInsights200JSONResponseBodyRewardChoiceKind) Valid() bool {
+	switch e {
+	case GetAccountReferralInsights200JSONResponseBodyRewardChoiceKindDays:
+		return true
+	case GetAccountReferralInsights200JSONResponseBodyRewardChoiceKindEmpty:
+		return true
+	case GetAccountReferralInsights200JSONResponseBodyRewardChoiceKindWallet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ChooseAccountReferralRewardKindJSONBodyKind.
+const (
+	ChooseAccountReferralRewardKindJSONBodyKindDays   ChooseAccountReferralRewardKindJSONBodyKind = "days"
+	ChooseAccountReferralRewardKindJSONBodyKindWallet ChooseAccountReferralRewardKindJSONBodyKind = "wallet"
+)
+
+// Valid indicates whether the value is a known member of the ChooseAccountReferralRewardKindJSONBodyKind enum.
+func (e ChooseAccountReferralRewardKindJSONBodyKind) Valid() bool {
+	switch e {
+	case ChooseAccountReferralRewardKindJSONBodyKindDays:
+		return true
+	case ChooseAccountReferralRewardKindJSONBodyKindWallet:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RequestAccountReferralWithdrawalJSONBodyMethod.
 const (
 	RequestAccountReferralWithdrawalJSONBodyMethodCard   RequestAccountReferralWithdrawalJSONBodyMethod = "card"
@@ -10621,6 +10660,23 @@ type AttributeAccountReferralJSONBody struct {
 	Code string `json:"code"`
 }
 
+// GetAccountReferralInsights200JSONResponseBodyRewardChoiceKind defines parameters for GetAccountReferralInsights.
+type GetAccountReferralInsights200JSONResponseBodyRewardChoiceKind string
+
+// ChooseAccountReferralRewardKindJSONBody defines parameters for ChooseAccountReferralRewardKind.
+type ChooseAccountReferralRewardKindJSONBody struct {
+	Kind ChooseAccountReferralRewardKindJSONBodyKind `json:"kind"`
+}
+
+// ChooseAccountReferralRewardKindParams defines parameters for ChooseAccountReferralRewardKind.
+type ChooseAccountReferralRewardKindParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// ChooseAccountReferralRewardKindJSONBodyKind defines parameters for ChooseAccountReferralRewardKind.
+type ChooseAccountReferralRewardKindJSONBodyKind string
+
 // RequestAccountReferralWithdrawalJSONBody defines parameters for RequestAccountReferralWithdrawal.
 type RequestAccountReferralWithdrawalJSONBody struct {
 	AmountMinor int64                                          `json:"amountMinor"`
@@ -12446,6 +12502,9 @@ type RequestAccountDeletionJSONRequestBody RequestAccountDeletionJSONBody
 // AttributeAccountReferralJSONRequestBody defines body for AttributeAccountReferral for application/json ContentType.
 type AttributeAccountReferralJSONRequestBody AttributeAccountReferralJSONBody
 
+// ChooseAccountReferralRewardKindJSONRequestBody defines body for ChooseAccountReferralRewardKind for application/json ContentType.
+type ChooseAccountReferralRewardKindJSONRequestBody ChooseAccountReferralRewardKindJSONBody
+
 // RequestAccountReferralWithdrawalJSONRequestBody defines body for RequestAccountReferralWithdrawal for application/json ContentType.
 type RequestAccountReferralWithdrawalJSONRequestBody RequestAccountReferralWithdrawalJSONBody
 
@@ -13131,6 +13190,12 @@ type ServerInterface interface {
 
 	// (GET /v1/account/referrals/contests)
 	ListAccountReferralContests(w http.ResponseWriter, r *http.Request)
+
+	// (GET /v1/account/referrals/insights)
+	GetAccountReferralInsights(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /v1/account/referrals/reward-kind)
+	ChooseAccountReferralRewardKind(w http.ResponseWriter, r *http.Request, params ChooseAccountReferralRewardKindParams)
 
 	// (GET /v1/account/referrals/withdrawals)
 	GetAccountReferralWithdrawals(w http.ResponseWriter, r *http.Request)
@@ -14379,6 +14444,16 @@ func (_ Unimplemented) AttributeAccountReferral(w http.ResponseWriter, r *http.R
 
 // (GET /v1/account/referrals/contests)
 func (_ Unimplemented) ListAccountReferralContests(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/referrals/insights)
+func (_ Unimplemented) GetAccountReferralInsights(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /v1/account/referrals/reward-kind)
+func (_ Unimplemented) ChooseAccountReferralRewardKind(w http.ResponseWriter, r *http.Request, params ChooseAccountReferralRewardKindParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -18272,6 +18347,65 @@ func (siw *ServerInterfaceWrapper) ListAccountReferralContests(w http.ResponseWr
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListAccountReferralContests(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountReferralInsights operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountReferralInsights(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountReferralInsights(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ChooseAccountReferralRewardKind operation middleware
+func (siw *ServerInterfaceWrapper) ChooseAccountReferralRewardKind(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ChooseAccountReferralRewardKindParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ChooseAccountReferralRewardKind(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -32606,6 +32740,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/v1/account/referrals", wrapper.GetAccountReferrals)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/referrals/insights", wrapper.GetAccountReferralInsights)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/v1/account/referrals/reward-kind", wrapper.ChooseAccountReferralRewardKind)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/account/referrals/attribution", wrapper.AttributeAccountReferral)
 	})
 	r.Group(func(r chi.Router) {
@@ -35444,6 +35584,83 @@ func (response ListAccountReferralContests200JSONResponse) VisitListAccountRefer
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountReferralInsightsRequestObject struct {
+}
+
+type GetAccountReferralInsightsResponseObject interface {
+	VisitGetAccountReferralInsightsResponse(w http.ResponseWriter) error
+}
+
+type GetAccountReferralInsights200JSONResponse struct {
+	Earnings struct {
+		AllMinor    int64 `json:"allMinor"`
+		Last30Minor int64 `json:"last30Minor"`
+		Last7Minor  int64 `json:"last7Minor"`
+	} `json:"earnings"`
+	Invitees []struct {
+		EarnedMinor int64     `json:"earnedMinor"`
+		JoinedAt    time.Time `json:"joinedAt"`
+		Paid        bool      `json:"paid"`
+	} `json:"invitees"`
+	RewardChoice struct {
+		Allowed bool                                                          `json:"allowed"`
+		Kind    GetAccountReferralInsights200JSONResponseBodyRewardChoiceKind `json:"kind"`
+	} `json:"rewardChoice"`
+}
+
+func (response GetAccountReferralInsights200JSONResponse) VisitGetAccountReferralInsightsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ChooseAccountReferralRewardKindRequestObject struct {
+	Params ChooseAccountReferralRewardKindParams
+	Body   *ChooseAccountReferralRewardKindJSONRequestBody
+}
+
+type ChooseAccountReferralRewardKindResponseObject interface {
+	VisitChooseAccountReferralRewardKindResponse(w http.ResponseWriter) error
+}
+
+type ChooseAccountReferralRewardKind200JSONResponse struct {
+	Kind *string `json:"kind,omitempty"`
+}
+
+func (response ChooseAccountReferralRewardKind200JSONResponse) VisitChooseAccountReferralRewardKindResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ChooseAccountReferralRewardKind422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ChooseAccountReferralRewardKind422ApplicationProblemPlusJSONResponse) VisitChooseAccountReferralRewardKindResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -49990,6 +50207,12 @@ type StrictServerInterface interface {
 	// (GET /v1/account/referrals/contests)
 	ListAccountReferralContests(ctx context.Context, request ListAccountReferralContestsRequestObject) (ListAccountReferralContestsResponseObject, error)
 
+	// (GET /v1/account/referrals/insights)
+	GetAccountReferralInsights(ctx context.Context, request GetAccountReferralInsightsRequestObject) (GetAccountReferralInsightsResponseObject, error)
+
+	// (PUT /v1/account/referrals/reward-kind)
+	ChooseAccountReferralRewardKind(ctx context.Context, request ChooseAccountReferralRewardKindRequestObject) (ChooseAccountReferralRewardKindResponseObject, error)
+
 	// (GET /v1/account/referrals/withdrawals)
 	GetAccountReferralWithdrawals(ctx context.Context, request GetAccountReferralWithdrawalsRequestObject) (GetAccountReferralWithdrawalsResponseObject, error)
 
@@ -52783,6 +53006,63 @@ func (sh *strictHandler) ListAccountReferralContests(w http.ResponseWriter, r *h
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListAccountReferralContestsResponseObject); ok {
 		if err := validResponse.VisitListAccountReferralContestsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountReferralInsights operation middleware
+func (sh *strictHandler) GetAccountReferralInsights(w http.ResponseWriter, r *http.Request) {
+	var request GetAccountReferralInsightsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountReferralInsights(ctx, request.(GetAccountReferralInsightsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountReferralInsights")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountReferralInsightsResponseObject); ok {
+		if err := validResponse.VisitGetAccountReferralInsightsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ChooseAccountReferralRewardKind operation middleware
+func (sh *strictHandler) ChooseAccountReferralRewardKind(w http.ResponseWriter, r *http.Request, params ChooseAccountReferralRewardKindParams) {
+	var request ChooseAccountReferralRewardKindRequestObject
+
+	request.Params = params
+
+	var body ChooseAccountReferralRewardKindJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ChooseAccountReferralRewardKind(ctx, request.(ChooseAccountReferralRewardKindRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ChooseAccountReferralRewardKind")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ChooseAccountReferralRewardKindResponseObject); ok {
+		if err := validResponse.VisitChooseAccountReferralRewardKindResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

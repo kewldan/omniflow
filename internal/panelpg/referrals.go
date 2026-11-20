@@ -54,6 +54,9 @@ type ReferralProgram struct {
 	CommissionMinPaymentMinor int64                     `json:"commissionMinPaymentMinor"`
 	CommissionTriggers        []string                  `json:"commissionTriggers"`
 	CommissionTiers           []commerce.CommissionTier `json:"commissionTiers"`
+	// AllowRewardChoice lets each customer pick days or balance when both
+	// are configured for their side.
+	AllowRewardChoice bool `json:"allowRewardChoice"`
 
 	// Record is what the current configuration has actually produced, so an
 	// operator changing a reward can see what the last one did. It is named
@@ -106,6 +109,7 @@ func (service *Service) ReferralProgram(ctx context.Context) (ReferralProgram, e
 		program.CommissionMinPaymentMinor = row.CommissionMinPaymentMinor
 		program.CommissionTriggers = row.CommissionTriggers
 		_ = json.Unmarshal(row.CommissionTiers, &program.CommissionTiers)
+		program.AllowRewardChoice = row.AllowRewardChoice
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return ReferralProgram{}, err
 	}
@@ -189,6 +193,7 @@ func (service *Service) SaveReferralProgram(
 			CommissionPaymentCap:      optionalInt4(program.CommissionPaymentCap),
 			CommissionMinPaymentMinor: program.CommissionMinPaymentMinor,
 			CommissionTriggers:        triggers, CommissionTiers: tiers,
+			AllowRewardChoice: program.AllowRewardChoice,
 		}); err != nil {
 			return err
 		}

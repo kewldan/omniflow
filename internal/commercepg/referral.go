@@ -161,6 +161,24 @@ func (store *Store) grantReferralRewards(ctx context.Context, tx pgx.Tx, queries
 	// part qualifies a referral: the wallet may hold this very referral's
 	// invitee credit, and crediting an inviter for it would mint value.
 	providerSettled := max(order.PaidMinor-order.WalletMinor, 0)
+	// A programme that rewards in both days and money may let each side pick;
+	// days win for whoever has not picked.
+	var allowChoice bool
+	var inviterKind, inviteeKind string
+	if err = tx.QueryRow(ctx, `SELECT COALESCE((SELECT allow_reward_choice FROM referral_programs WHERE singleton), false),
+		COALESCE((SELECT kind FROM referral_reward_preferences WHERE user_id = $1), ''),
+		COALESCE((SELECT kind FROM referral_reward_preferences WHERE user_id = $2), '')`,
+		inviterID, order.UserID).Scan(&allowChoice, &inviterKind, &inviteeKind); err != nil {
+		return err
+	}
+	if allowChoice {
+		if inviterKind == "wallet" && program.InviterRewardMinor > 0 {
+			program.InviterRewardDays = 0
+		}
+		if inviteeKind == "wallet" && program.InviteeRewardMinor > 0 {
+			program.InviteeRewardDays = 0
+		}
+	}
 	rewards, err := commerce.QualifyReferral(store.clock().UTC(), program, commerce.ReferralAttribution{
 		AttributedAt: attributedAt, OrderState: commerce.OrderState(order.State),
 		OrderPaidMinor: providerSettled, OrderCurrency: order.Currency,

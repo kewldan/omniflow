@@ -7265,6 +7265,54 @@ export type GetAccountReferralsParams = {
   limit?: number;
 };
 
+export type GetAccountReferralInsights200RewardChoiceKind =
+  (typeof GetAccountReferralInsights200RewardChoiceKind)[keyof typeof GetAccountReferralInsights200RewardChoiceKind];
+
+export const GetAccountReferralInsights200RewardChoiceKind = {
+  "": "",
+  wallet: "wallet",
+  days: "days",
+} as const;
+
+export type GetAccountReferralInsights200RewardChoice = {
+  allowed: boolean;
+  kind: GetAccountReferralInsights200RewardChoiceKind;
+};
+
+export type GetAccountReferralInsights200Earnings = {
+  last7Minor: number;
+  last30Minor: number;
+  allMinor: number;
+};
+
+export type GetAccountReferralInsights200InviteesItem = {
+  joinedAt: string;
+  paid: boolean;
+  earnedMinor: number;
+};
+
+export type GetAccountReferralInsights200 = {
+  rewardChoice: GetAccountReferralInsights200RewardChoice;
+  earnings: GetAccountReferralInsights200Earnings;
+  invitees: GetAccountReferralInsights200InviteesItem[];
+};
+
+export type ChooseAccountReferralRewardKindBodyKind =
+  (typeof ChooseAccountReferralRewardKindBodyKind)[keyof typeof ChooseAccountReferralRewardKindBodyKind];
+
+export const ChooseAccountReferralRewardKindBodyKind = {
+  wallet: "wallet",
+  days: "days",
+} as const;
+
+export type ChooseAccountReferralRewardKindBody = {
+  kind: ChooseAccountReferralRewardKindBodyKind;
+};
+
+export type ChooseAccountReferralRewardKind200 = {
+  kind?: string;
+};
+
 export type AttributeAccountReferralBody = {
   /** @maxLength 32 */
   code: string;
@@ -32682,6 +32730,152 @@ export const useGetAccountReferrals = <TError = Promise<unknown>>(
   const swrFn = () => getAccountReferrals(params, fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountReferralInsightsResponse200 = {
+  data: GetAccountReferralInsights200;
+  status: 200;
+};
+
+export type getAccountReferralInsightsResponseSuccess = getAccountReferralInsightsResponse200 & {
+  headers: Headers;
+};
+
+export type getAccountReferralInsightsResponse = getAccountReferralInsightsResponseSuccess;
+
+export const getGetAccountReferralInsightsUrl = () => {
+  return `/v1/account/referrals/insights`;
+};
+
+/**
+ * The customer's referral reward choice, what invites and commissions earned them over 7 days, 30 days, and all time, and their invitees — joined, paid, earned — with nothing that identifies them.
+ */
+export const getAccountReferralInsights = async (
+  options?: RequestInit,
+): Promise<getAccountReferralInsightsResponse> => {
+  const res = await fetch(getGetAccountReferralInsightsUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountReferralInsightsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getAccountReferralInsightsResponse;
+};
+
+export const getGetAccountReferralInsightsKey = () => [`/v1/account/referrals/insights`] as const;
+
+export type GetAccountReferralInsightsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountReferralInsights>>
+>;
+
+export const useGetAccountReferralInsights = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountReferralInsights>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetAccountReferralInsightsKey() : null));
+  const swrFn = () => getAccountReferralInsights(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type chooseAccountReferralRewardKindResponse200 = {
+  data: ChooseAccountReferralRewardKind200;
+  status: 200;
+};
+
+export type chooseAccountReferralRewardKindResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type chooseAccountReferralRewardKindResponseSuccess =
+  chooseAccountReferralRewardKindResponse200 & {
+    headers: Headers;
+  };
+export type chooseAccountReferralRewardKindResponseError =
+  chooseAccountReferralRewardKindResponse422 & {
+    headers: Headers;
+  };
+
+export type chooseAccountReferralRewardKindResponse =
+  | chooseAccountReferralRewardKindResponseSuccess
+  | chooseAccountReferralRewardKindResponseError;
+
+export const getChooseAccountReferralRewardKindUrl = () => {
+  return `/v1/account/referrals/reward-kind`;
+};
+
+/**
+ * Days or balance for the customer's referral rewards, when the programme offers the choice; 422 reward_choice_unavailable otherwise.
+ */
+export const chooseAccountReferralRewardKind = async (
+  chooseAccountReferralRewardKindBody: ChooseAccountReferralRewardKindBody,
+  options?: RequestInit,
+): Promise<chooseAccountReferralRewardKindResponse> => {
+  const res = await fetch(getChooseAccountReferralRewardKindUrl(), {
+    ...options,
+    method: "PUT",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(chooseAccountReferralRewardKindBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: chooseAccountReferralRewardKindResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as chooseAccountReferralRewardKindResponse;
+};
+
+export const getChooseAccountReferralRewardKindMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: ChooseAccountReferralRewardKindBody }) => {
+    return chooseAccountReferralRewardKind(arg, options);
+  };
+};
+export const getChooseAccountReferralRewardKindMutationKey = () =>
+  [`/v1/account/referrals/reward-kind`] as const;
+
+export type ChooseAccountReferralRewardKindMutationResult = NonNullable<
+  Awaited<ReturnType<typeof chooseAccountReferralRewardKind>>
+>;
+
+export const useChooseAccountReferralRewardKind = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof chooseAccountReferralRewardKind>>,
+    TError,
+    Key,
+    ChooseAccountReferralRewardKindBody,
+    Awaited<ReturnType<typeof chooseAccountReferralRewardKind>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getChooseAccountReferralRewardKindMutationKey();
+  const swrFn = getChooseAccountReferralRewardKindMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,

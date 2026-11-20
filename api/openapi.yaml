@@ -4287,6 +4287,59 @@ paths:
         - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 100}}
       responses:
         "200": {description: Referrals, content: {application/json: {schema: {$ref: "#/components/schemas/AccountReferrals"}}}}
+  /v1/account/referrals/insights:
+    get:
+      operationId: getAccountReferralInsights
+      tags: [account]
+      description: >-
+        The customer's referral reward choice, what invites and commissions
+        earned them over 7 days, 30 days, and all time, and their invitees —
+        joined, paid, earned — with nothing that identifies them.
+      responses:
+        "200":
+          description: Insights
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rewardChoice, earnings, invitees]
+                properties:
+                  rewardChoice:
+                    type: object
+                    required: [allowed, kind]
+                    properties:
+                      allowed: {type: boolean}
+                      kind: {type: string, enum: ["", wallet, days]}
+                  earnings:
+                    type: object
+                    required: [last7Minor, last30Minor, allMinor]
+                    properties:
+                      last7Minor: {type: integer, format: int64}
+                      last30Minor: {type: integer, format: int64}
+                      allMinor: {type: integer, format: int64}
+                  invitees:
+                    type: array
+                    items:
+                      type: object
+                      required: [joinedAt, paid, earnedMinor]
+                      properties:
+                        joinedAt: {type: string, format: date-time}
+                        paid: {type: boolean}
+                        earnedMinor: {type: integer, format: int64}
+  /v1/account/referrals/reward-kind:
+    put:
+      operationId: chooseAccountReferralRewardKind
+      tags: [account]
+      description: Days or balance for the customer's referral rewards, when the programme offers the choice; 422 reward_choice_unavailable otherwise.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [kind], properties: {kind: {type: string, enum: [wallet, days]}}}
+      responses:
+        "200": {description: Saved, content: {application/json: {schema: {type: object, properties: {kind: {type: string}}}}}}
+        "422": {$ref: "#/components/responses/Problem"}
   /v1/account/referrals/attribution:
     post:
       operationId: attributeAccountReferral

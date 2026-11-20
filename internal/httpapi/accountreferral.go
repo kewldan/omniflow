@@ -24,6 +24,8 @@ func (handlers *AccountHandlers) mountReferral(router chi.Router) {
 	}
 	router.Get("/referrals", handlers.referrals)
 	router.Post("/referrals/attribution", handlers.attributeReferral)
+	router.Get("/referrals/insights", handlers.referralInsights)
+	router.Put("/referrals/reward-kind", handlers.chooseReferralRewardKind)
 	router.Get("/loyalty", handlers.loyalty)
 
 	router.Get("/contacts", handlers.listContacts)
@@ -672,4 +674,49 @@ func (handlers *AccountHandlers) writeReferralError(
 		writeProblem(writer, request, http.StatusInternalServerError, "request_failed", "Something went wrong")
 	}
 	return true
+}
+
+// referralInsights reports the customer's reward choice, earnings by period,
+// and their invitees — when each joined, whether they paid, and what they
+// earned the customer, with nothing that identifies them.
+func (handlers *AccountHandlers) referralInsights(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := CustomerFrom(request.Context())
+	insights, err := handlers.referral.Insights(request.Context(), principal.Customer.ID)
+	if handlers.writeReferralError(writer, request, err) {
+		return
+	}
+	invitees := make([]map[string]any, 0, len(insights.Invitees))
+	for _, invitee := range insights.Invitees {
+		invitees = append(invitees, map[string]any{
+			"joinedAt": invitee.JoinedAt.UTC().Format(time.RFC3339), "paid": invitee.Paid,
+			"earnedMinor": invitee.EarnedMinor,
+		})
+	}
+	writeJSON(writer, http.StatusOK, map[string]any{
+		"rewardChoice": map[string]any{"allowed": insights.ChoiceAllowed, "kind": insights.Kind},
+		"earnings": map[string]any{
+			"last7Minor": insights.Last7Minor, "last30Minor": insights.Last30Minor, "allMinor": insights.AllMinor,
+		},
+		"invitees": invitees,
+	})
+}
+
+// chooseReferralRewardKind records days or balance as the customer's reward.
+func (handlers *AccountHandlers) chooseReferralRewardKind(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := CustomerFrom(request.Context())
+	var body struct {
+		Kind string `json:"kind"`
+	}
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	err := handlers.referral.ChooseRewardKind(request.Context(), principal.Customer.ID, body.Kind)
+	if errors.Is(err, accountreferral.ErrRewardChoiceUnavailable) {
+		writeProblem(writer, request, http.StatusUnprocessableEntity, "reward_choice_unavailable", err.Error())
+		return
+	}
+	if handlers.writeReferralError(writer, request, err) {
+		return
+	}
+	writeJSON(writer, http.StatusOK, map[string]any{"kind": body.Kind})
 }

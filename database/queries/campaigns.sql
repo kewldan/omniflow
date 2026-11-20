@@ -319,5 +319,6 @@ UPDATE referral_programs SET
   commission_payment_cap = sqlc.narg(commission_payment_cap),
   commission_min_payment_minor = sqlc.arg(commission_min_payment_minor),
   commission_triggers = sqlc.arg(commission_triggers)::text[],
-  commission_tiers = sqlc.arg(commission_tiers)
+  commission_tiers = sqlc.arg(commission_tiers),
+  allow_reward_choice = sqlc.arg(allow_reward_choice)
 WHERE singleton;

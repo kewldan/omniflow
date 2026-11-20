@@ -4062,6 +4062,7 @@ CREATE TABLE public.referral_programs (
     commission_min_payment_minor bigint DEFAULT 0 NOT NULL,
     commission_triggers text[] DEFAULT '{subscription}'::text[] NOT NULL,
     commission_tiers jsonb DEFAULT '[]'::jsonb NOT NULL,
+    allow_reward_choice boolean DEFAULT false NOT NULL,
     CONSTRAINT referral_programs_attribution_validity_days_check CHECK ((attribution_validity_days > 0)),
     CONSTRAINT referral_programs_commission_bounded CHECK ((((commission_bps >= 0) AND (commission_bps <= 10000)) AND ((first_payment_commission_bps IS NULL) OR ((first_payment_commission_bps >= 0) AND (first_payment_commission_bps <= 10000))) AND ((commission_payment_cap IS NULL) OR (commission_payment_cap > 0)) AND (commission_min_payment_minor >= 0) AND (commission_triggers <@ ARRAY['subscription'::text, 'topup'::text]) AND (jsonb_typeof(commission_tiers) = 'array'::text))),
     CONSTRAINT referral_programs_currency_check CHECK ((currency ~ '^[A-Z]{3}$'::text)),
@@ -4072,6 +4073,18 @@ CREATE TABLE public.referral_programs (
     CONSTRAINT referral_programs_reward_days_bounded CHECK ((((inviter_reward_days >= 0) AND (inviter_reward_days <= 3650)) AND ((invitee_reward_days >= 0) AND (invitee_reward_days <= 3650)))),
     CONSTRAINT referral_programs_reward_expiry_days_check CHECK (((reward_expiry_days IS NULL) OR (reward_expiry_days > 0))),
     CONSTRAINT referral_programs_singleton_check CHECK (singleton)
+);
+
+
+--
+-- Name: referral_reward_preferences; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.referral_reward_preferences (
+    user_id uuid NOT NULL,
+    kind text NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT referral_reward_preferences_kind_known CHECK ((kind = ANY (ARRAY['wallet'::text, 'days'::text])))
 );
 
 
@@ -6828,6 +6841,14 @@ ALTER TABLE ONLY public.referral_level_settings
 
 ALTER TABLE ONLY public.referral_programs
     ADD CONSTRAINT referral_programs_pkey PRIMARY KEY (singleton);
+
+
+--
+-- Name: referral_reward_preferences referral_reward_preferences_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.referral_reward_preferences
+    ADD CONSTRAINT referral_reward_preferences_pkey PRIMARY KEY (user_id);
 
 
 --
@@ -10396,6 +10417,14 @@ ALTER TABLE ONLY public.referral_level2_rewards
 
 ALTER TABLE ONLY public.referral_level2_rewards
     ADD CONSTRAINT referral_level2_rewards_source_reward_id_fkey FOREIGN KEY (source_reward_id) REFERENCES public.referral_rewards(id);
+
+
+--
+-- Name: referral_reward_preferences referral_reward_preferences_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.referral_reward_preferences
+    ADD CONSTRAINT referral_reward_preferences_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --
