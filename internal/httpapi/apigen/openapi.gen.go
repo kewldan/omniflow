@@ -380,6 +380,24 @@ func (e AccountOrderState) Valid() bool {
 	}
 }
 
+// Defines values for AccountOverviewRecoveryOfferKind.
+const (
+	AccountOverviewRecoveryOfferKindFixed   AccountOverviewRecoveryOfferKind = "fixed"
+	AccountOverviewRecoveryOfferKindPercent AccountOverviewRecoveryOfferKind = "percent"
+)
+
+// Valid indicates whether the value is a known member of the AccountOverviewRecoveryOfferKind enum.
+func (e AccountOverviewRecoveryOfferKind) Valid() bool {
+	switch e {
+	case AccountOverviewRecoveryOfferKindFixed:
+		return true
+	case AccountOverviewRecoveryOfferKindPercent:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AccountPaymentHandleHandoff.
 const (
 	AccountPaymentHandleHandoffHosted          AccountPaymentHandleHandoff = "hosted"
@@ -3167,6 +3185,75 @@ func (e PanelProviderSettingsWebhookStatus) Valid() bool {
 	}
 }
 
+// Defines values for PanelReminderButtonRoute.
+const (
+	PanelReminderButtonRouteConnect PanelReminderButtonRoute = "connect"
+	PanelReminderButtonRouteHome    PanelReminderButtonRoute = "home"
+	PanelReminderButtonRoutePlans   PanelReminderButtonRoute = "plans"
+	PanelReminderButtonRouteSupport PanelReminderButtonRoute = "support"
+	PanelReminderButtonRouteWallet  PanelReminderButtonRoute = "wallet"
+)
+
+// Valid indicates whether the value is a known member of the PanelReminderButtonRoute enum.
+func (e PanelReminderButtonRoute) Valid() bool {
+	switch e {
+	case PanelReminderButtonRouteConnect:
+		return true
+	case PanelReminderButtonRouteHome:
+		return true
+	case PanelReminderButtonRoutePlans:
+		return true
+	case PanelReminderButtonRouteSupport:
+		return true
+	case PanelReminderButtonRouteWallet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelReminderCategory.
+const (
+	PanelReminderCategoryMarketing PanelReminderCategory = "marketing"
+	PanelReminderCategoryService   PanelReminderCategory = "service"
+)
+
+// Valid indicates whether the value is a known member of the PanelReminderCategory enum.
+func (e PanelReminderCategory) Valid() bool {
+	switch e {
+	case PanelReminderCategoryMarketing:
+		return true
+	case PanelReminderCategoryService:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelReminderSegment.
+const (
+	PanelReminderSegmentExpired        PanelReminderSegment = "expired"
+	PanelReminderSegmentExpiring       PanelReminderSegment = "expiring"
+	PanelReminderSegmentLowBalance     PanelReminderSegment = "low_balance"
+	PanelReminderSegmentNoSubscription PanelReminderSegment = "no_subscription"
+)
+
+// Valid indicates whether the value is a known member of the PanelReminderSegment enum.
+func (e PanelReminderSegment) Valid() bool {
+	switch e {
+	case PanelReminderSegmentExpired:
+		return true
+	case PanelReminderSegmentExpiring:
+		return true
+	case PanelReminderSegmentLowBalance:
+		return true
+	case PanelReminderSegmentNoSubscription:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PanelSavedMethodStatus.
 const (
 	PanelSavedMethodStatusActive  PanelSavedMethodStatus = "active"
@@ -4334,6 +4421,33 @@ func (e RequestAccountReferralWithdrawalJSONBodyMethod) Valid() bool {
 	}
 }
 
+// Defines values for ListAccountReminders200JSONResponseBodyItemsRoute.
+const (
+	ListAccountReminders200JSONResponseBodyItemsRouteConnect ListAccountReminders200JSONResponseBodyItemsRoute = "connect"
+	ListAccountReminders200JSONResponseBodyItemsRouteHome    ListAccountReminders200JSONResponseBodyItemsRoute = "home"
+	ListAccountReminders200JSONResponseBodyItemsRoutePlans   ListAccountReminders200JSONResponseBodyItemsRoute = "plans"
+	ListAccountReminders200JSONResponseBodyItemsRouteSupport ListAccountReminders200JSONResponseBodyItemsRoute = "support"
+	ListAccountReminders200JSONResponseBodyItemsRouteWallet  ListAccountReminders200JSONResponseBodyItemsRoute = "wallet"
+)
+
+// Valid indicates whether the value is a known member of the ListAccountReminders200JSONResponseBodyItemsRoute enum.
+func (e ListAccountReminders200JSONResponseBodyItemsRoute) Valid() bool {
+	switch e {
+	case ListAccountReminders200JSONResponseBodyItemsRouteConnect:
+		return true
+	case ListAccountReminders200JSONResponseBodyItemsRouteHome:
+		return true
+	case ListAccountReminders200JSONResponseBodyItemsRoutePlans:
+		return true
+	case ListAccountReminders200JSONResponseBodyItemsRouteSupport:
+		return true
+	case ListAccountReminders200JSONResponseBodyItemsRouteWallet:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UpdateAccountRenewalJSONBodyFunding.
 const (
 	UpdateAccountRenewalJSONBodyFundingSavedMethod UpdateAccountRenewalJSONBodyFunding = "saved_method"
@@ -5399,6 +5513,9 @@ type AccountDeliveryStatus string
 // AccountDeviceList defines model for AccountDeviceList.
 type AccountDeviceList struct {
 	Items []struct {
+		// Alias The customer's own name for the device; empty when unnamed.
+		Alias *string `json:"alias,omitempty"`
+
 		// Handle Opaque reference. Never the hardware identifier.
 		Handle   string    `json:"handle"`
 		LastSeen time.Time `json:"lastSeen"`
@@ -5621,10 +5738,25 @@ type AccountOverview struct {
 	// Notice Present only while maintenance or an incident is active.
 	Notice *AccountNotice `json:"notice,omitempty"`
 
+	// Recovery A subscription that ended inside the recovery window, with the customer's best live plan discount.
+	Recovery *struct {
+		EndedAt time.Time `json:"endedAt"`
+		Label   string    `json:"label"`
+		Offer   *struct {
+			ExpiresAt time.Time                        `json:"expiresAt"`
+			Kind      AccountOverviewRecoveryOfferKind `json:"kind"`
+			Value     int64                            `json:"value"`
+		} `json:"offer,omitempty"`
+		SubscriptionId openapi_types.UUID `json:"subscriptionId"`
+	} `json:"recovery,omitempty"`
+
 	// ShowSwitcher Concurrent subscriptions are enabled. A single-subscription installation gets one screen with no selection step.
 	ShowSwitcher  bool                  `json:"showSwitcher"`
 	Subscriptions []AccountSubscription `json:"subscriptions"`
 }
+
+// AccountOverviewRecoveryOfferKind defines model for AccountOverview.Recovery.Offer.Kind.
+type AccountOverviewRecoveryOfferKind string
 
 // AccountPaymentChoice defines model for AccountPaymentChoice.
 type AccountPaymentChoice struct {
@@ -6207,8 +6339,14 @@ type AccountSubscription struct {
 	Id       openapi_types.UUID `json:"id"`
 	Label    string             `json:"label"`
 
+	// LastOnlineAt When Remnawave last saw a connection on this subscription.
+	LastOnlineAt *time.Time `json:"lastOnlineAt,omitempty"`
+
 	// Live The traffic and device figures were read from Remnawave. When false they are the last observed values and the panel says so.
 	Live bool `json:"live"`
+
+	// Online True while that connection is under a minute old, as the panel's own indicator.
+	Online *bool `json:"online,omitempty"`
 
 	// PendingOrderId The unpaid order that opened this subscription, present only while no entitlement has been provisioned. The panel renders the card as "payment pending" with a way to the order rather than as a subscription that is not active.
 	PendingOrderId *openapi_types.UUID      `json:"pendingOrderId,omitempty"`
@@ -8714,6 +8852,36 @@ type PanelRefundRecord struct {
 	RefundId    *string `json:"refundId,omitempty"`
 }
 
+// PanelReminder defines model for PanelReminder.
+type PanelReminder struct {
+	Active            bool                      `json:"active"`
+	BalanceBelowMinor int64                     `json:"balanceBelowMinor"`
+	BodyEn            string                    `json:"bodyEn"`
+	BodyRu            string                    `json:"bodyRu"`
+	ButtonRoute       *PanelReminderButtonRoute `json:"buttonRoute,omitempty"`
+	Category          PanelReminderCategory     `json:"category"`
+	Currency          string                    `json:"currency"`
+	Id                *openapi_types.UUID       `json:"id,omitempty"`
+	MaxSends          int                       `json:"maxSends"`
+	Name              string                    `json:"name"`
+	RepeatEveryDays   int                       `json:"repeatEveryDays"`
+	Segment           PanelReminderSegment      `json:"segment"`
+	SegmentDays       int                       `json:"segmentDays"`
+	ShowInCabinet     bool                      `json:"showInCabinet"`
+	TitleEn           string                    `json:"titleEn"`
+	TitleRu           string                    `json:"titleRu"`
+	UpdatedAt         *time.Time                `json:"updatedAt,omitempty"`
+}
+
+// PanelReminderButtonRoute defines model for PanelReminder.ButtonRoute.
+type PanelReminderButtonRoute string
+
+// PanelReminderCategory defines model for PanelReminder.Category.
+type PanelReminderCategory string
+
+// PanelReminderSegment defines model for PanelReminder.Segment.
+type PanelReminderSegment string
+
 // PanelRemnawaveSquad defines model for PanelRemnawaveSquad.
 type PanelRemnawaveSquad struct {
 	Members int                `json:"members"`
@@ -10159,6 +10327,15 @@ type RequestAccountReferralWithdrawalParams struct {
 // RequestAccountReferralWithdrawalJSONBodyMethod defines parameters for RequestAccountReferralWithdrawal.
 type RequestAccountReferralWithdrawalJSONBodyMethod string
 
+// ListAccountReminders200JSONResponseBodyItemsRoute defines parameters for ListAccountReminders.
+type ListAccountReminders200JSONResponseBodyItemsRoute string
+
+// DismissAccountReminderParams defines parameters for DismissAccountReminder.
+type DismissAccountReminderParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // UpdateAccountRenewalJSONBody defines parameters for UpdateAccountRenewal.
 type UpdateAccountRenewalJSONBody struct {
 	Enabled       *bool                                `json:"enabled,omitempty"`
@@ -10297,6 +10474,17 @@ type UnlinkAccountSignInMethodParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// RotateAllAccountSubscriptionLinksJSONBody defines parameters for RotateAllAccountSubscriptionLinks.
+type RotateAllAccountSubscriptionLinksJSONBody struct {
+	Confirm bool `json:"confirm"`
+}
+
+// RotateAllAccountSubscriptionLinksParams defines parameters for RotateAllAccountSubscriptionLinks.
+type RotateAllAccountSubscriptionLinksParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // CloseAccountSubscriptionParams defines parameters for CloseAccountSubscription.
 type CloseAccountSubscriptionParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
@@ -10366,6 +10554,17 @@ type RemoveAccountDeviceParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// RenameAccountDeviceJSONBody defines parameters for RenameAccountDevice.
+type RenameAccountDeviceJSONBody struct {
+	Alias string `json:"alias"`
+}
+
+// RenameAccountDeviceParams defines parameters for RenameAccountDevice.
+type RenameAccountDeviceParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // RotateAccountSubscriptionLinkJSONBody defines parameters for RotateAccountSubscriptionLink.
 type RotateAccountSubscriptionLinkJSONBody struct {
 	Confirm bool `json:"confirm"`
@@ -10394,6 +10593,12 @@ type ListAccountSupportTicketsParams struct {
 type CreateAccountSupportTicketJSONBody struct {
 	Message string `json:"message"`
 	Subject string `json:"subject"`
+
+	// Topic A customer-selectable queue code, such as `payment`. Empty is the default queue.
+	Topic *string `json:"topic,omitempty"`
+
+	// Urgent Ask for high priority.
+	Urgent *bool `json:"urgent,omitempty"`
 }
 
 // CreateAccountSupportTicketParams defines parameters for CreateAccountSupportTicket.
@@ -11239,6 +11444,18 @@ type GetPanelStarsStatsParams struct {
 	Days *int `form:"days,omitempty" json:"days,omitempty"`
 }
 
+// SavePanelReminderParams defines parameters for SavePanelReminder.
+type SavePanelReminderParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// DeletePanelReminderParams defines parameters for DeletePanelReminder.
+type DeletePanelReminderParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // RevertPanelNoticeParams defines parameters for RevertPanelNotice.
 type RevertPanelNoticeParams struct {
 	Locale RevertPanelNoticeParamsLocale `form:"locale" json:"locale"`
@@ -11897,11 +12114,17 @@ type PurchaseAccountShopProductJSONRequestBody PurchaseAccountShopProductJSONBod
 // ReviewAccountShopRecipientJSONRequestBody defines body for ReviewAccountShopRecipient for application/json ContentType.
 type ReviewAccountShopRecipientJSONRequestBody ReviewAccountShopRecipientJSONBody
 
+// RotateAllAccountSubscriptionLinksJSONRequestBody defines body for RotateAllAccountSubscriptionLinks for application/json ContentType.
+type RotateAllAccountSubscriptionLinksJSONRequestBody RotateAllAccountSubscriptionLinksJSONBody
+
 // RenameAccountSubscriptionJSONRequestBody defines body for RenameAccountSubscription for application/json ContentType.
 type RenameAccountSubscriptionJSONRequestBody RenameAccountSubscriptionJSONBody
 
 // BuyAccountSubscriptionAddonJSONRequestBody defines body for BuyAccountSubscriptionAddon for application/json ContentType.
 type BuyAccountSubscriptionAddonJSONRequestBody BuyAccountSubscriptionAddonJSONBody
+
+// RenameAccountDeviceJSONRequestBody defines body for RenameAccountDevice for application/json ContentType.
+type RenameAccountDeviceJSONRequestBody RenameAccountDeviceJSONBody
 
 // RotateAccountSubscriptionLinkJSONRequestBody defines body for RotateAccountSubscriptionLink for application/json ContentType.
 type RotateAccountSubscriptionLinkJSONRequestBody RotateAccountSubscriptionLinkJSONBody
@@ -12094,6 +12317,9 @@ type AcceptPanelInvitationJSONRequestBody = AdminInvitationAcceptInput
 
 // PreviewPanelInvitationJSONRequestBody defines body for PreviewPanelInvitation for application/json ContentType.
 type PreviewPanelInvitationJSONRequestBody = AdminInvitationTokenInput
+
+// SavePanelReminderJSONRequestBody defines body for SavePanelReminder for application/json ContentType.
+type SavePanelReminderJSONRequestBody = PanelReminder
 
 // SavePanelNoticeJSONRequestBody defines body for SavePanelNotice for application/json ContentType.
 type SavePanelNoticeJSONRequestBody SavePanelNoticeJSONBody
@@ -12526,6 +12752,12 @@ type ServerInterface interface {
 	// (DELETE /v1/account/referrals/withdrawals/{withdrawalID})
 	CancelAccountReferralWithdrawal(w http.ResponseWriter, r *http.Request, withdrawalID openapi_types.UUID)
 
+	// (GET /v1/account/reminders)
+	ListAccountReminders(w http.ResponseWriter, r *http.Request)
+
+	// (POST /v1/account/reminders/{reminderID}/dismiss)
+	DismissAccountReminder(w http.ResponseWriter, r *http.Request, reminderID openapi_types.UUID, params DismissAccountReminderParams)
+
 	// (GET /v1/account/renewal)
 	GetAccountRenewal(w http.ResponseWriter, r *http.Request)
 
@@ -12574,6 +12806,9 @@ type ServerInterface interface {
 	// (DELETE /v1/account/sign-in-methods/{identityID})
 	UnlinkAccountSignInMethod(w http.ResponseWriter, r *http.Request, identityID openapi_types.UUID, params UnlinkAccountSignInMethodParams)
 
+	// (POST /v1/account/subscriptions/rotate-links)
+	RotateAllAccountSubscriptionLinks(w http.ResponseWriter, r *http.Request, params RotateAllAccountSubscriptionLinksParams)
+
 	// (DELETE /v1/account/subscriptions/{subscriptionID})
 	CloseAccountSubscription(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params CloseAccountSubscriptionParams)
 
@@ -12600,6 +12835,9 @@ type ServerInterface interface {
 
 	// (DELETE /v1/account/subscriptions/{subscriptionID}/devices/{handle})
 	RemoveAccountDevice(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, handle string, params RemoveAccountDeviceParams)
+
+	// (PATCH /v1/account/subscriptions/{subscriptionID}/devices/{handle})
+	RenameAccountDevice(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, handle string, params RenameAccountDeviceParams)
 
 	// (POST /v1/account/subscriptions/{subscriptionID}/rotate-link)
 	RotateAccountSubscriptionLink(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params RotateAccountSubscriptionLinkParams)
@@ -13111,6 +13349,18 @@ type ServerInterface interface {
 	// (POST /v1/panel/invitations/preview)
 	PreviewPanelInvitation(w http.ResponseWriter, r *http.Request)
 
+	// (GET /v1/panel/marketing/reminders)
+	ListPanelReminders(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /v1/panel/marketing/reminders)
+	SavePanelReminder(w http.ResponseWriter, r *http.Request, params SavePanelReminderParams)
+
+	// (DELETE /v1/panel/marketing/reminders/{reminderID})
+	DeletePanelReminder(w http.ResponseWriter, r *http.Request, reminderID openapi_types.UUID, params DeletePanelReminderParams)
+
+	// (GET /v1/panel/marketing/reminders/{reminderID}/audience)
+	GetPanelReminderAudience(w http.ResponseWriter, r *http.Request, reminderID openapi_types.UUID)
+
 	// (GET /v1/panel/notices)
 	ListPanelNotices(w http.ResponseWriter, r *http.Request)
 
@@ -13156,8 +13406,14 @@ type ServerInterface interface {
 	// (GET /v1/panel/reports/conversions)
 	GetPanelConversions(w http.ResponseWriter, r *http.Request, params GetPanelConversionsParams)
 
+	// (GET /v1/panel/reports/devices)
+	GetPanelDeviceReport(w http.ResponseWriter, r *http.Request)
+
 	// (GET /v1/panel/reports/payments)
 	GetPanelPaymentHealth(w http.ResponseWriter, r *http.Request, params GetPanelPaymentHealthParams)
+
+	// (GET /v1/panel/reports/remnawave-users/{remnawaveID}/subscription-requests)
+	ListPanelSubscriptionRequests(w http.ResponseWriter, r *http.Request, remnawaveID int64)
 
 	// (GET /v1/panel/reports/sales)
 	GetPanelSalesReport(w http.ResponseWriter, r *http.Request, params GetPanelSalesReportParams)
@@ -13377,6 +13633,9 @@ type ServerInterface interface {
 
 	// (POST /v1/remnawave/webhook)
 	ReceiveRemnawaveWebhook(w http.ResponseWriter, r *http.Request, params ReceiveRemnawaveWebhookParams)
+
+	// (GET /v1/status/servers)
+	GetServerStatus(w http.ResponseWriter, r *http.Request)
 
 	// (POST /v1/telemetry/events)
 	CollectTelemetryEvent(w http.ResponseWriter, r *http.Request)
@@ -13681,6 +13940,16 @@ func (_ Unimplemented) CancelAccountReferralWithdrawal(w http.ResponseWriter, r 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /v1/account/reminders)
+func (_ Unimplemented) ListAccountReminders(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/reminders/{reminderID}/dismiss)
+func (_ Unimplemented) DismissAccountReminder(w http.ResponseWriter, r *http.Request, reminderID openapi_types.UUID, params DismissAccountReminderParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /v1/account/renewal)
 func (_ Unimplemented) GetAccountRenewal(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -13761,6 +14030,11 @@ func (_ Unimplemented) UnlinkAccountSignInMethod(w http.ResponseWriter, r *http.
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (POST /v1/account/subscriptions/rotate-links)
+func (_ Unimplemented) RotateAllAccountSubscriptionLinks(w http.ResponseWriter, r *http.Request, params RotateAllAccountSubscriptionLinksParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (DELETE /v1/account/subscriptions/{subscriptionID})
 func (_ Unimplemented) CloseAccountSubscription(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params CloseAccountSubscriptionParams) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -13803,6 +14077,11 @@ func (_ Unimplemented) ListAccountDevices(w http.ResponseWriter, r *http.Request
 
 // (DELETE /v1/account/subscriptions/{subscriptionID}/devices/{handle})
 func (_ Unimplemented) RemoveAccountDevice(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, handle string, params RemoveAccountDeviceParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PATCH /v1/account/subscriptions/{subscriptionID}/devices/{handle})
+func (_ Unimplemented) RenameAccountDevice(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, handle string, params RenameAccountDeviceParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -14656,6 +14935,26 @@ func (_ Unimplemented) PreviewPanelInvitation(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /v1/panel/marketing/reminders)
+func (_ Unimplemented) ListPanelReminders(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /v1/panel/marketing/reminders)
+func (_ Unimplemented) SavePanelReminder(w http.ResponseWriter, r *http.Request, params SavePanelReminderParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /v1/panel/marketing/reminders/{reminderID})
+func (_ Unimplemented) DeletePanelReminder(w http.ResponseWriter, r *http.Request, reminderID openapi_types.UUID, params DeletePanelReminderParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/marketing/reminders/{reminderID}/audience)
+func (_ Unimplemented) GetPanelReminderAudience(w http.ResponseWriter, r *http.Request, reminderID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /v1/panel/notices)
 func (_ Unimplemented) ListPanelNotices(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -14731,8 +15030,18 @@ func (_ Unimplemented) GetPanelConversions(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /v1/panel/reports/devices)
+func (_ Unimplemented) GetPanelDeviceReport(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /v1/panel/reports/payments)
 func (_ Unimplemented) GetPanelPaymentHealth(w http.ResponseWriter, r *http.Request, params GetPanelPaymentHealthParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/reports/remnawave-users/{remnawaveID}/subscription-requests)
+func (_ Unimplemented) ListPanelSubscriptionRequests(w http.ResponseWriter, r *http.Request, remnawaveID int64) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -15098,6 +15407,11 @@ func (_ Unimplemented) ReceivePaymentWebhook(w http.ResponseWriter, r *http.Requ
 
 // (POST /v1/remnawave/webhook)
 func (_ Unimplemented) ReceiveRemnawaveWebhook(w http.ResponseWriter, r *http.Request, params ReceiveRemnawaveWebhookParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/status/servers)
+func (_ Unimplemented) GetServerStatus(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -17292,6 +17606,74 @@ func (siw *ServerInterfaceWrapper) CancelAccountReferralWithdrawal(w http.Respon
 	handler.ServeHTTP(w, r)
 }
 
+// ListAccountReminders operation middleware
+func (siw *ServerInterfaceWrapper) ListAccountReminders(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAccountReminders(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DismissAccountReminder operation middleware
+func (siw *ServerInterfaceWrapper) DismissAccountReminder(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "reminderID" -------------
+	var reminderID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "reminderID", chi.URLParam(r, "reminderID"), &reminderID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "reminderID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DismissAccountReminderParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DismissAccountReminder(w, r, reminderID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetAccountRenewal operation middleware
 func (siw *ServerInterfaceWrapper) GetAccountRenewal(w http.ResponseWriter, r *http.Request) {
 
@@ -17999,6 +18381,51 @@ func (siw *ServerInterfaceWrapper) UnlinkAccountSignInMethod(w http.ResponseWrit
 	handler.ServeHTTP(w, r)
 }
 
+// RotateAllAccountSubscriptionLinks operation middleware
+func (siw *ServerInterfaceWrapper) RotateAllAccountSubscriptionLinks(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RotateAllAccountSubscriptionLinksParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RotateAllAccountSubscriptionLinks(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CloseAccountSubscription operation middleware
 func (siw *ServerInterfaceWrapper) CloseAccountSubscription(w http.ResponseWriter, r *http.Request) {
 
@@ -18457,6 +18884,69 @@ func (siw *ServerInterfaceWrapper) RemoveAccountDevice(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RemoveAccountDevice(w, r, subscriptionID, handle, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RenameAccountDevice operation middleware
+func (siw *ServerInterfaceWrapper) RenameAccountDevice(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID AccountSubscriptionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "handle" -------------
+	var handle string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "handle", chi.URLParam(r, "handle"), &handle, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "handle", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RenameAccountDeviceParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RenameAccountDevice(w, r, subscriptionID, handle, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -25880,6 +26370,145 @@ func (siw *ServerInterfaceWrapper) PreviewPanelInvitation(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// ListPanelReminders operation middleware
+func (siw *ServerInterfaceWrapper) ListPanelReminders(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPanelReminders(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SavePanelReminder operation middleware
+func (siw *ServerInterfaceWrapper) SavePanelReminder(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SavePanelReminderParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SavePanelReminder(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeletePanelReminder operation middleware
+func (siw *ServerInterfaceWrapper) DeletePanelReminder(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "reminderID" -------------
+	var reminderID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "reminderID", chi.URLParam(r, "reminderID"), &reminderID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "reminderID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeletePanelReminderParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeletePanelReminder(w, r, reminderID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPanelReminderAudience operation middleware
+func (siw *ServerInterfaceWrapper) GetPanelReminderAudience(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "reminderID" -------------
+	var reminderID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "reminderID", chi.URLParam(r, "reminderID"), &reminderID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "reminderID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPanelReminderAudience(w, r, reminderID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPanelNotices operation middleware
 func (siw *ServerInterfaceWrapper) ListPanelNotices(w http.ResponseWriter, r *http.Request) {
 
@@ -26529,6 +27158,20 @@ func (siw *ServerInterfaceWrapper) GetPanelConversions(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// GetPanelDeviceReport operation middleware
+func (siw *ServerInterfaceWrapper) GetPanelDeviceReport(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPanelDeviceReport(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetPanelPaymentHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetPanelPaymentHealth(w http.ResponseWriter, r *http.Request) {
 
@@ -26579,6 +27222,32 @@ func (siw *ServerInterfaceWrapper) GetPanelPaymentHealth(w http.ResponseWriter, 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetPanelPaymentHealth(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPanelSubscriptionRequests operation middleware
+func (siw *ServerInterfaceWrapper) ListPanelSubscriptionRequests(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "remnawaveID" -------------
+	var remnawaveID int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "remnawaveID", chi.URLParam(r, "remnawaveID"), &remnawaveID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "remnawaveID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPanelSubscriptionRequests(w, r, remnawaveID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -29904,6 +30573,20 @@ func (siw *ServerInterfaceWrapper) ReceiveRemnawaveWebhook(w http.ResponseWriter
 	handler.ServeHTTP(w, r)
 }
 
+// GetServerStatus operation middleware
+func (siw *ServerInterfaceWrapper) GetServerStatus(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetServerStatus(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CollectTelemetryEvent operation middleware
 func (siw *ServerInterfaceWrapper) CollectTelemetryEvent(w http.ResponseWriter, r *http.Request) {
 
@@ -30111,6 +30794,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/payments/webhooks/{provider}", wrapper.ReceivePaymentWebhook)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/status/servers", wrapper.GetServerStatus)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/remnawave/webhook", wrapper.ReceiveRemnawaveWebhook)
@@ -30539,6 +31225,24 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/v1/panel/reports/traffic/export", wrapper.ExportPanelTrafficReport)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/reports/devices", wrapper.GetPanelDeviceReport)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/reports/remnawave-users/{remnawaveID}/subscription-requests", wrapper.ListPanelSubscriptionRequests)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/marketing/reminders", wrapper.ListPanelReminders)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/v1/panel/marketing/reminders", wrapper.SavePanelReminder)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/panel/marketing/reminders/{reminderID}", wrapper.DeletePanelReminder)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/marketing/reminders/{reminderID}/audience", wrapper.GetPanelReminderAudience)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/settings/theme", wrapper.GetPanelTheme)
 	})
 	r.Group(func(r chi.Router) {
@@ -30785,6 +31489,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/rotate-link", wrapper.RotateAccountSubscriptionLink)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/subscriptions/rotate-links", wrapper.RotateAllAccountSubscriptionLinks)
+	})
+	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/devices", wrapper.RemoveAllAccountDevices)
 	})
 	r.Group(func(r chi.Router) {
@@ -30792,6 +31499,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/devices/{handle}", wrapper.RemoveAccountDevice)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/devices/{handle}", wrapper.RenameAccountDevice)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/reminders", wrapper.ListAccountReminders)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/reminders/{reminderID}/dismiss", wrapper.DismissAccountReminder)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/account/plans", wrapper.ListAccountPlans)
@@ -33463,6 +34179,51 @@ func (response CancelAccountReferralWithdrawal404ApplicationProblemPlusJSONRespo
 	return err
 }
 
+type ListAccountRemindersRequestObject struct {
+}
+
+type ListAccountRemindersResponseObject interface {
+	VisitListAccountRemindersResponse(w http.ResponseWriter) error
+}
+
+type ListAccountReminders200JSONResponse struct {
+	Items []struct {
+		Body  string                                             `json:"body"`
+		Id    openapi_types.UUID                                 `json:"id"`
+		Route *ListAccountReminders200JSONResponseBodyItemsRoute `json:"route,omitempty"`
+		Title string                                             `json:"title"`
+	} `json:"items"`
+}
+
+func (response ListAccountReminders200JSONResponse) VisitListAccountRemindersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DismissAccountReminderRequestObject struct {
+	ReminderID openapi_types.UUID `json:"reminderID"`
+	Params     DismissAccountReminderParams
+}
+
+type DismissAccountReminderResponseObject interface {
+	VisitDismissAccountReminderResponse(w http.ResponseWriter) error
+}
+
+type DismissAccountReminder204Response struct {
+}
+
+func (response DismissAccountReminder204Response) VisitDismissAccountReminderResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
 type GetAccountRenewalRequestObject struct {
 }
 
@@ -34234,6 +34995,91 @@ func (response UnlinkAccountSignInMethod409ApplicationProblemPlusJSONResponse) V
 	return err
 }
 
+type RotateAllAccountSubscriptionLinksRequestObject struct {
+	Params RotateAllAccountSubscriptionLinksParams
+	Body   *RotateAllAccountSubscriptionLinksJSONRequestBody
+}
+
+type RotateAllAccountSubscriptionLinksResponseObject interface {
+	VisitRotateAllAccountSubscriptionLinksResponse(w http.ResponseWriter) error
+}
+
+type RotateAllAccountSubscriptionLinks200JSONResponse struct {
+	CoolingDown    int `json:"coolingDown"`
+	NotProvisioned int `json:"notProvisioned"`
+	Rotated        int `json:"rotated"`
+}
+
+func (response RotateAllAccountSubscriptionLinks200JSONResponse) VisitRotateAllAccountSubscriptionLinksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RotateAllAccountSubscriptionLinks401ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RotateAllAccountSubscriptionLinks401ApplicationProblemPlusJSONResponse) VisitRotateAllAccountSubscriptionLinksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RotateAllAccountSubscriptionLinks403ApplicationProblemPlusJSONResponse Problem
+
+func (response RotateAllAccountSubscriptionLinks403ApplicationProblemPlusJSONResponse) VisitRotateAllAccountSubscriptionLinksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RotateAllAccountSubscriptionLinks422ApplicationProblemPlusJSONResponse Problem
+
+func (response RotateAllAccountSubscriptionLinks422ApplicationProblemPlusJSONResponse) VisitRotateAllAccountSubscriptionLinksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RotateAllAccountSubscriptionLinks503ApplicationProblemPlusJSONResponse Problem
+
+func (response RotateAllAccountSubscriptionLinks503ApplicationProblemPlusJSONResponse) VisitRotateAllAccountSubscriptionLinksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type CloseAccountSubscriptionRequestObject struct {
 	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
 	Params         CloseAccountSubscriptionParams
@@ -34709,6 +35555,69 @@ func (response RemoveAccountDevice503ApplicationProblemPlusJSONResponse) VisitRe
 	return err
 }
 
+type RenameAccountDeviceRequestObject struct {
+	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
+	Handle         string                `json:"handle"`
+	Params         RenameAccountDeviceParams
+	Body           *RenameAccountDeviceJSONRequestBody
+}
+
+type RenameAccountDeviceResponseObject interface {
+	VisitRenameAccountDeviceResponse(w http.ResponseWriter) error
+}
+
+type RenameAccountDevice204Response struct {
+}
+
+func (response RenameAccountDevice204Response) VisitRenameAccountDeviceResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type RenameAccountDevice404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RenameAccountDevice404ApplicationProblemPlusJSONResponse) VisitRenameAccountDeviceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RenameAccountDevice422ApplicationProblemPlusJSONResponse Problem
+
+func (response RenameAccountDevice422ApplicationProblemPlusJSONResponse) VisitRenameAccountDeviceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RenameAccountDevice503ApplicationProblemPlusJSONResponse Problem
+
+func (response RenameAccountDevice503ApplicationProblemPlusJSONResponse) VisitRenameAccountDeviceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type RotateAccountSubscriptionLinkRequestObject struct {
 	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
 	Params         RotateAccountSubscriptionLinkParams
@@ -34751,6 +35660,20 @@ func (response RotateAccountSubscriptionLink401ApplicationProblemPlusJSONRespons
 	return err
 }
 
+type RotateAccountSubscriptionLink403ApplicationProblemPlusJSONResponse Problem
+
+func (response RotateAccountSubscriptionLink403ApplicationProblemPlusJSONResponse) VisitRotateAccountSubscriptionLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type RotateAccountSubscriptionLink404ApplicationProblemPlusJSONResponse Problem
 
 func (response RotateAccountSubscriptionLink404ApplicationProblemPlusJSONResponse) VisitRotateAccountSubscriptionLinkResponse(w http.ResponseWriter) error {
@@ -34775,6 +35698,20 @@ func (response RotateAccountSubscriptionLink422ApplicationProblemPlusJSONRespons
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RotateAccountSubscriptionLink429ApplicationProblemPlusJSONResponse Problem
+
+func (response RotateAccountSubscriptionLink429ApplicationProblemPlusJSONResponse) VisitRotateAccountSubscriptionLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(429)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -35022,9 +35959,23 @@ func (response CreateAccountSupportTicket201JSONResponse) VisitCreateAccountSupp
 	return err
 }
 
-type CreateAccountSupportTicket409ApplicationProblemPlusJSONResponse struct {
+type CreateAccountSupportTicket403ApplicationProblemPlusJSONResponse struct {
 	ProblemApplicationProblemPlusJSONResponse
 }
+
+func (response CreateAccountSupportTicket403ApplicationProblemPlusJSONResponse) VisitCreateAccountSupportTicketResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateAccountSupportTicket409ApplicationProblemPlusJSONResponse Problem
 
 func (response CreateAccountSupportTicket409ApplicationProblemPlusJSONResponse) VisitCreateAccountSupportTicketResponse(w http.ResponseWriter) error {
 
@@ -42370,6 +43321,179 @@ func (response PreviewPanelInvitation429ApplicationProblemPlusJSONResponse) Visi
 	return err
 }
 
+type ListPanelRemindersRequestObject struct {
+}
+
+type ListPanelRemindersResponseObject interface {
+	VisitListPanelRemindersResponse(w http.ResponseWriter) error
+}
+
+type ListPanelReminders200JSONResponse struct {
+	Items []PanelReminder `json:"items"`
+}
+
+func (response ListPanelReminders200JSONResponse) VisitListPanelRemindersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelReminders403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListPanelReminders403ApplicationProblemPlusJSONResponse) VisitListPanelRemindersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelReminderRequestObject struct {
+	Params SavePanelReminderParams
+	Body   *SavePanelReminderJSONRequestBody
+}
+
+type SavePanelReminderResponseObject interface {
+	VisitSavePanelReminderResponse(w http.ResponseWriter) error
+}
+
+type SavePanelReminder200JSONResponse PanelReminder
+
+func (response SavePanelReminder200JSONResponse) VisitSavePanelReminderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelReminder403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SavePanelReminder403ApplicationProblemPlusJSONResponse) VisitSavePanelReminderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelReminder422ApplicationProblemPlusJSONResponse Problem
+
+func (response SavePanelReminder422ApplicationProblemPlusJSONResponse) VisitSavePanelReminderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePanelReminderRequestObject struct {
+	ReminderID openapi_types.UUID `json:"reminderID"`
+	Params     DeletePanelReminderParams
+}
+
+type DeletePanelReminderResponseObject interface {
+	VisitDeletePanelReminderResponse(w http.ResponseWriter) error
+}
+
+type DeletePanelReminder200JSONResponse struct {
+	Removed *bool `json:"removed,omitempty"`
+}
+
+func (response DeletePanelReminder200JSONResponse) VisitDeletePanelReminderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePanelReminder404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DeletePanelReminder404ApplicationProblemPlusJSONResponse) VisitDeletePanelReminderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelReminderAudienceRequestObject struct {
+	ReminderID openapi_types.UUID `json:"reminderID"`
+}
+
+type GetPanelReminderAudienceResponseObject interface {
+	VisitGetPanelReminderAudienceResponse(w http.ResponseWriter) error
+}
+
+type GetPanelReminderAudience200JSONResponse struct {
+	Customers int64 `json:"customers"`
+}
+
+func (response GetPanelReminderAudience200JSONResponse) VisitGetPanelReminderAudienceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelReminderAudience404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetPanelReminderAudience404ApplicationProblemPlusJSONResponse) VisitGetPanelReminderAudienceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListPanelNoticesRequestObject struct {
 }
 
@@ -43044,6 +44168,70 @@ func (response GetPanelConversions403ApplicationProblemPlusJSONResponse) VisitGe
 	return err
 }
 
+type GetPanelDeviceReportRequestObject struct {
+}
+
+type GetPanelDeviceReportResponseObject interface {
+	VisitGetPanelDeviceReportResponse(w http.ResponseWriter) error
+}
+
+type GetPanelDeviceReport200JSONResponse struct {
+	AveragePerUser *float32 `json:"averagePerUser,omitempty"`
+	ByPlatform     []struct {
+		ByApp *[]struct {
+			App   string `json:"app"`
+			Count int    `json:"count"`
+		} `json:"byApp,omitempty"`
+		Count    int    `json:"count"`
+		Platform string `json:"platform"`
+	} `json:"byPlatform"`
+	Reported      bool `json:"reported"`
+	TotalDevices  *int `json:"totalDevices,omitempty"`
+	UniqueDevices *int `json:"uniqueDevices,omitempty"`
+}
+
+func (response GetPanelDeviceReport200JSONResponse) VisitGetPanelDeviceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelDeviceReport403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetPanelDeviceReport403ApplicationProblemPlusJSONResponse) VisitGetPanelDeviceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelDeviceReport502ApplicationProblemPlusJSONResponse Problem
+
+func (response GetPanelDeviceReport502ApplicationProblemPlusJSONResponse) VisitGetPanelDeviceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetPanelPaymentHealthRequestObject struct {
 	Params GetPanelPaymentHealthParams
 }
@@ -43092,6 +44280,92 @@ func (response GetPanelPaymentHealth422ApplicationProblemPlusJSONResponse) Visit
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelSubscriptionRequestsRequestObject struct {
+	RemnawaveID int64 `json:"remnawaveID"`
+}
+
+type ListPanelSubscriptionRequestsResponseObject interface {
+	VisitListPanelSubscriptionRequestsResponse(w http.ResponseWriter) error
+}
+
+type ListPanelSubscriptionRequests200JSONResponse struct {
+	Items []struct {
+		Ip        string    `json:"ip"`
+		RequestAt time.Time `json:"requestAt"`
+		UserAgent string    `json:"userAgent"`
+	} `json:"items"`
+}
+
+func (response ListPanelSubscriptionRequests200JSONResponse) VisitListPanelSubscriptionRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelSubscriptionRequests403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListPanelSubscriptionRequests403ApplicationProblemPlusJSONResponse) VisitListPanelSubscriptionRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelSubscriptionRequests404ApplicationProblemPlusJSONResponse Problem
+
+func (response ListPanelSubscriptionRequests404ApplicationProblemPlusJSONResponse) VisitListPanelSubscriptionRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelSubscriptionRequests422ApplicationProblemPlusJSONResponse Problem
+
+func (response ListPanelSubscriptionRequests422ApplicationProblemPlusJSONResponse) VisitListPanelSubscriptionRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelSubscriptionRequests502ApplicationProblemPlusJSONResponse Problem
+
+func (response ListPanelSubscriptionRequests502ApplicationProblemPlusJSONResponse) VisitListPanelSubscriptionRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -46779,6 +48053,50 @@ func (response ReceiveRemnawaveWebhook503ApplicationProblemPlusJSONResponse) Vis
 	return err
 }
 
+type GetServerStatusRequestObject struct {
+}
+
+type GetServerStatusResponseObject interface {
+	VisitGetServerStatusResponse(w http.ResponseWriter) error
+}
+
+type GetServerStatus200JSONResponse struct {
+	CheckedAt time.Time `json:"checkedAt"`
+	Servers   []struct {
+		CountryCode *string `json:"countryCode,omitempty"`
+		Name        string  `json:"name"`
+		Online      bool    `json:"online"`
+	} `json:"servers"`
+}
+
+func (response GetServerStatus200JSONResponse) VisitGetServerStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetServerStatus503ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetServerStatus503ApplicationProblemPlusJSONResponse) VisitGetServerStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type CollectTelemetryEventRequestObject struct {
 	Body *CollectTelemetryEventJSONRequestBody
 }
@@ -46991,6 +48309,12 @@ type StrictServerInterface interface {
 	// (DELETE /v1/account/referrals/withdrawals/{withdrawalID})
 	CancelAccountReferralWithdrawal(ctx context.Context, request CancelAccountReferralWithdrawalRequestObject) (CancelAccountReferralWithdrawalResponseObject, error)
 
+	// (GET /v1/account/reminders)
+	ListAccountReminders(ctx context.Context, request ListAccountRemindersRequestObject) (ListAccountRemindersResponseObject, error)
+
+	// (POST /v1/account/reminders/{reminderID}/dismiss)
+	DismissAccountReminder(ctx context.Context, request DismissAccountReminderRequestObject) (DismissAccountReminderResponseObject, error)
+
 	// (GET /v1/account/renewal)
 	GetAccountRenewal(ctx context.Context, request GetAccountRenewalRequestObject) (GetAccountRenewalResponseObject, error)
 
@@ -47039,6 +48363,9 @@ type StrictServerInterface interface {
 	// (DELETE /v1/account/sign-in-methods/{identityID})
 	UnlinkAccountSignInMethod(ctx context.Context, request UnlinkAccountSignInMethodRequestObject) (UnlinkAccountSignInMethodResponseObject, error)
 
+	// (POST /v1/account/subscriptions/rotate-links)
+	RotateAllAccountSubscriptionLinks(ctx context.Context, request RotateAllAccountSubscriptionLinksRequestObject) (RotateAllAccountSubscriptionLinksResponseObject, error)
+
 	// (DELETE /v1/account/subscriptions/{subscriptionID})
 	CloseAccountSubscription(ctx context.Context, request CloseAccountSubscriptionRequestObject) (CloseAccountSubscriptionResponseObject, error)
 
@@ -47065,6 +48392,9 @@ type StrictServerInterface interface {
 
 	// (DELETE /v1/account/subscriptions/{subscriptionID}/devices/{handle})
 	RemoveAccountDevice(ctx context.Context, request RemoveAccountDeviceRequestObject) (RemoveAccountDeviceResponseObject, error)
+
+	// (PATCH /v1/account/subscriptions/{subscriptionID}/devices/{handle})
+	RenameAccountDevice(ctx context.Context, request RenameAccountDeviceRequestObject) (RenameAccountDeviceResponseObject, error)
 
 	// (POST /v1/account/subscriptions/{subscriptionID}/rotate-link)
 	RotateAccountSubscriptionLink(ctx context.Context, request RotateAccountSubscriptionLinkRequestObject) (RotateAccountSubscriptionLinkResponseObject, error)
@@ -47576,6 +48906,18 @@ type StrictServerInterface interface {
 	// (POST /v1/panel/invitations/preview)
 	PreviewPanelInvitation(ctx context.Context, request PreviewPanelInvitationRequestObject) (PreviewPanelInvitationResponseObject, error)
 
+	// (GET /v1/panel/marketing/reminders)
+	ListPanelReminders(ctx context.Context, request ListPanelRemindersRequestObject) (ListPanelRemindersResponseObject, error)
+
+	// (PUT /v1/panel/marketing/reminders)
+	SavePanelReminder(ctx context.Context, request SavePanelReminderRequestObject) (SavePanelReminderResponseObject, error)
+
+	// (DELETE /v1/panel/marketing/reminders/{reminderID})
+	DeletePanelReminder(ctx context.Context, request DeletePanelReminderRequestObject) (DeletePanelReminderResponseObject, error)
+
+	// (GET /v1/panel/marketing/reminders/{reminderID}/audience)
+	GetPanelReminderAudience(ctx context.Context, request GetPanelReminderAudienceRequestObject) (GetPanelReminderAudienceResponseObject, error)
+
 	// (GET /v1/panel/notices)
 	ListPanelNotices(ctx context.Context, request ListPanelNoticesRequestObject) (ListPanelNoticesResponseObject, error)
 
@@ -47621,8 +48963,14 @@ type StrictServerInterface interface {
 	// (GET /v1/panel/reports/conversions)
 	GetPanelConversions(ctx context.Context, request GetPanelConversionsRequestObject) (GetPanelConversionsResponseObject, error)
 
+	// (GET /v1/panel/reports/devices)
+	GetPanelDeviceReport(ctx context.Context, request GetPanelDeviceReportRequestObject) (GetPanelDeviceReportResponseObject, error)
+
 	// (GET /v1/panel/reports/payments)
 	GetPanelPaymentHealth(ctx context.Context, request GetPanelPaymentHealthRequestObject) (GetPanelPaymentHealthResponseObject, error)
+
+	// (GET /v1/panel/reports/remnawave-users/{remnawaveID}/subscription-requests)
+	ListPanelSubscriptionRequests(ctx context.Context, request ListPanelSubscriptionRequestsRequestObject) (ListPanelSubscriptionRequestsResponseObject, error)
 
 	// (GET /v1/panel/reports/sales)
 	GetPanelSalesReport(ctx context.Context, request GetPanelSalesReportRequestObject) (GetPanelSalesReportResponseObject, error)
@@ -47842,6 +49190,9 @@ type StrictServerInterface interface {
 
 	// (POST /v1/remnawave/webhook)
 	ReceiveRemnawaveWebhook(ctx context.Context, request ReceiveRemnawaveWebhookRequestObject) (ReceiveRemnawaveWebhookResponseObject, error)
+
+	// (GET /v1/status/servers)
+	GetServerStatus(ctx context.Context, request GetServerStatusRequestObject) (GetServerStatusResponseObject, error)
 
 	// (POST /v1/telemetry/events)
 	CollectTelemetryEvent(ctx context.Context, request CollectTelemetryEventRequestObject) (CollectTelemetryEventResponseObject, error)
@@ -49547,6 +50898,57 @@ func (sh *strictHandler) CancelAccountReferralWithdrawal(w http.ResponseWriter, 
 	}
 }
 
+// ListAccountReminders operation middleware
+func (sh *strictHandler) ListAccountReminders(w http.ResponseWriter, r *http.Request) {
+	var request ListAccountRemindersRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAccountReminders(ctx, request.(ListAccountRemindersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAccountReminders")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAccountRemindersResponseObject); ok {
+		if err := validResponse.VisitListAccountRemindersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DismissAccountReminder operation middleware
+func (sh *strictHandler) DismissAccountReminder(w http.ResponseWriter, r *http.Request, reminderID openapi_types.UUID, params DismissAccountReminderParams) {
+	var request DismissAccountReminderRequestObject
+
+	request.ReminderID = reminderID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DismissAccountReminder(ctx, request.(DismissAccountReminderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DismissAccountReminder")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DismissAccountReminderResponseObject); ok {
+		if err := validResponse.VisitDismissAccountReminderResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetAccountRenewal operation middleware
 func (sh *strictHandler) GetAccountRenewal(w http.ResponseWriter, r *http.Request) {
 	var request GetAccountRenewalRequestObject
@@ -49990,6 +51392,39 @@ func (sh *strictHandler) UnlinkAccountSignInMethod(w http.ResponseWriter, r *htt
 	}
 }
 
+// RotateAllAccountSubscriptionLinks operation middleware
+func (sh *strictHandler) RotateAllAccountSubscriptionLinks(w http.ResponseWriter, r *http.Request, params RotateAllAccountSubscriptionLinksParams) {
+	var request RotateAllAccountSubscriptionLinksRequestObject
+
+	request.Params = params
+
+	var body RotateAllAccountSubscriptionLinksJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RotateAllAccountSubscriptionLinks(ctx, request.(RotateAllAccountSubscriptionLinksRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RotateAllAccountSubscriptionLinks")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RotateAllAccountSubscriptionLinksResponseObject); ok {
+		if err := validResponse.VisitRotateAllAccountSubscriptionLinksResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // CloseAccountSubscription operation middleware
 func (sh *strictHandler) CloseAccountSubscription(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params CloseAccountSubscriptionParams) {
 	var request CloseAccountSubscriptionRequestObject
@@ -50240,6 +51675,41 @@ func (sh *strictHandler) RemoveAccountDevice(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(RemoveAccountDeviceResponseObject); ok {
 		if err := validResponse.VisitRemoveAccountDeviceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RenameAccountDevice operation middleware
+func (sh *strictHandler) RenameAccountDevice(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, handle string, params RenameAccountDeviceParams) {
+	var request RenameAccountDeviceRequestObject
+
+	request.SubscriptionID = subscriptionID
+	request.Handle = handle
+	request.Params = params
+
+	var body RenameAccountDeviceJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RenameAccountDevice(ctx, request.(RenameAccountDeviceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RenameAccountDevice")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RenameAccountDeviceResponseObject); ok {
+		if err := validResponse.VisitRenameAccountDeviceResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -55125,6 +56595,116 @@ func (sh *strictHandler) PreviewPanelInvitation(w http.ResponseWriter, r *http.R
 	}
 }
 
+// ListPanelReminders operation middleware
+func (sh *strictHandler) ListPanelReminders(w http.ResponseWriter, r *http.Request) {
+	var request ListPanelRemindersRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPanelReminders(ctx, request.(ListPanelRemindersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPanelReminders")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPanelRemindersResponseObject); ok {
+		if err := validResponse.VisitListPanelRemindersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SavePanelReminder operation middleware
+func (sh *strictHandler) SavePanelReminder(w http.ResponseWriter, r *http.Request, params SavePanelReminderParams) {
+	var request SavePanelReminderRequestObject
+
+	request.Params = params
+
+	var body SavePanelReminderJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SavePanelReminder(ctx, request.(SavePanelReminderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SavePanelReminder")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SavePanelReminderResponseObject); ok {
+		if err := validResponse.VisitSavePanelReminderResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeletePanelReminder operation middleware
+func (sh *strictHandler) DeletePanelReminder(w http.ResponseWriter, r *http.Request, reminderID openapi_types.UUID, params DeletePanelReminderParams) {
+	var request DeletePanelReminderRequestObject
+
+	request.ReminderID = reminderID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeletePanelReminder(ctx, request.(DeletePanelReminderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeletePanelReminder")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeletePanelReminderResponseObject); ok {
+		if err := validResponse.VisitDeletePanelReminderResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPanelReminderAudience operation middleware
+func (sh *strictHandler) GetPanelReminderAudience(w http.ResponseWriter, r *http.Request, reminderID openapi_types.UUID) {
+	var request GetPanelReminderAudienceRequestObject
+
+	request.ReminderID = reminderID
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPanelReminderAudience(ctx, request.(GetPanelReminderAudienceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPanelReminderAudience")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPanelReminderAudienceResponseObject); ok {
+		if err := validResponse.VisitGetPanelReminderAudienceResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListPanelNotices operation middleware
 func (sh *strictHandler) ListPanelNotices(w http.ResponseWriter, r *http.Request) {
 	var request ListPanelNoticesRequestObject
@@ -55541,6 +57121,30 @@ func (sh *strictHandler) GetPanelConversions(w http.ResponseWriter, r *http.Requ
 	}
 }
 
+// GetPanelDeviceReport operation middleware
+func (sh *strictHandler) GetPanelDeviceReport(w http.ResponseWriter, r *http.Request) {
+	var request GetPanelDeviceReportRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPanelDeviceReport(ctx, request.(GetPanelDeviceReportRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPanelDeviceReport")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPanelDeviceReportResponseObject); ok {
+		if err := validResponse.VisitGetPanelDeviceReportResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetPanelPaymentHealth operation middleware
 func (sh *strictHandler) GetPanelPaymentHealth(w http.ResponseWriter, r *http.Request, params GetPanelPaymentHealthParams) {
 	var request GetPanelPaymentHealthRequestObject
@@ -55560,6 +57164,32 @@ func (sh *strictHandler) GetPanelPaymentHealth(w http.ResponseWriter, r *http.Re
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetPanelPaymentHealthResponseObject); ok {
 		if err := validResponse.VisitGetPanelPaymentHealthResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPanelSubscriptionRequests operation middleware
+func (sh *strictHandler) ListPanelSubscriptionRequests(w http.ResponseWriter, r *http.Request, remnawaveID int64) {
+	var request ListPanelSubscriptionRequestsRequestObject
+
+	request.RemnawaveID = remnawaveID
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPanelSubscriptionRequests(ctx, request.(ListPanelSubscriptionRequestsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPanelSubscriptionRequests")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPanelSubscriptionRequestsResponseObject); ok {
+		if err := validResponse.VisitListPanelSubscriptionRequestsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -57659,6 +59289,30 @@ func (sh *strictHandler) ReceiveRemnawaveWebhook(w http.ResponseWriter, r *http.
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ReceiveRemnawaveWebhookResponseObject); ok {
 		if err := validResponse.VisitReceiveRemnawaveWebhookResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetServerStatus operation middleware
+func (sh *strictHandler) GetServerStatus(w http.ResponseWriter, r *http.Request) {
+	var request GetServerStatusRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetServerStatus(ctx, request.(GetServerStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetServerStatus")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetServerStatusResponseObject); ok {
+		if err := validResponse.VisitGetServerStatusResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

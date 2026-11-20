@@ -36,7 +36,7 @@ type Reminder struct {
 var (
 	reminderSegments = map[string]bool{"no_subscription": true, "expiring": true, "expired": true, "low_balance": true}
 	reminderRoutes   = map[string]bool{"": true, "plans": true, "connect": true, "wallet": true, "support": true, "home": true}
-	currencyShape    = regexp.MustCompile(`^[A-Z]{3}$`)
+	reminderCurrency = regexp.MustCompile(`^[A-Z]{3}$`)
 )
 
 func reminderFrom(row dbgen.Reminder) Reminder {
@@ -81,7 +81,7 @@ func (reminder *Reminder) validate() error {
 		return fmt.Errorf("the segment is one of no_subscription, expiring, expired, low_balance")
 	case reminder.SegmentDays < 0 || reminder.SegmentDays > 365:
 		return fmt.Errorf("segment days are 0 to 365")
-	case reminder.BalanceBelowMinor < 0 || !currencyShape.MatchString(reminder.Currency):
+	case reminder.BalanceBelowMinor < 0 || !reminderCurrency.MatchString(reminder.Currency):
 		return fmt.Errorf("the balance threshold needs a three-letter currency and cannot be negative")
 	case reminder.RepeatEveryDays < 1 || reminder.RepeatEveryDays > 365:
 		return fmt.Errorf("repeat every 1 to 365 days")
