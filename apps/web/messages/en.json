@@ -4204,7 +4204,8 @@
       "signOut": "Sign out",
       "signOutFailed": "Could not sign out. Try again.",
       "gifts": "Gifts",
-      "renewal": "Auto-renew"
+      "renewal": "Auto-renew",
+      "offers": "Offers"
     },
     "actions": {
       "cancel": "Cancel",
@@ -5863,6 +5864,25 @@
       "read": "Read the terms",
       "accept": "I accept",
       "failed": "Your acceptance was not saved. Try again."
+    },
+    "offers": {
+      "intro": "Personal offers from the service. Checkout applies the best active one by itself.",
+      "new": "New",
+      "active": "Taken",
+      "until": "Valid until",
+      "take": "Take the offer",
+      "use": "Go to the store",
+      "dismiss": "Not interested",
+      "keep": "Keep it",
+      "dismissTitle": "Drop this offer?",
+      "dismissDescription": "The discount stops applying at checkout and the offer will not come back.",
+      "taken": "Offer taken. It applies at checkout.",
+      "bonusCredited": "Offer taken: {amount} added to your wallet.",
+      "dismissed": "Offer dropped",
+      "empty": "No offers right now",
+      "emptyDescription": "Personal offers from the service appear here.",
+      "failed": "Offers could not be loaded",
+      "failedDescription": "Try again in a moment."
     }
   },
   "pages": {

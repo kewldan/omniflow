@@ -521,7 +521,9 @@ A redeemed offer shows no revoke control. The customer already bought at that pr
 
 ### What the customer sees
 
-Personal offers exist **in Telegram only**. There is no offers route, screen, or endpoint in the customer web panel, so a customer who only ever signs in to the browser cannot see or take one.
+Personal offers are shown in both the bot and the customer web panel, from the same records.
+
+In the web panel, **More → Offers** (`/account/offers`) lists the active offers from `GET /v1/account/offers`, soonest to end first. **Take the offer** (`POST /v1/account/offers/{id}/take`) starts a timed offer's clock and credits its balance bonus once, exactly as taking it in the bot does; a taken offer shows **Go to the store**, because checkout applies the best active offer by itself. **Not interested** (`POST /v1/account/offers/{id}/dismiss`) drops the offer after a confirmation, which also resets its discount: checkout stops applying it at once. Both routes are scoped to the signed-in customer and answer `404 offer_not_found` for anybody else's offer.
 
 The bot's main menu grows a "Your offer" entry when at least one offer is waiting. Opening it lists each offer's title and a day countdown with **View offer** and **Not interested**. Opening one shows the title, the terms, the countdown, the promo code to use, and a single-use notice.
 

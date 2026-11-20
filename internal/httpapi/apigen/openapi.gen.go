@@ -5852,6 +5852,29 @@ type AccountNotice struct {
 	Message string `json:"message"`
 }
 
+// AccountOffer defines model for AccountOffer.
+type AccountOffer struct {
+	ActivatedAt *time.Time         `json:"activatedAt,omitempty"`
+	ExpiresAt   time.Time          `json:"expiresAt"`
+	Id          openapi_types.UUID `json:"id"`
+	PromoCode   *string            `json:"promoCode,omitempty"`
+	Terms       string             `json:"terms"`
+	Title       string             `json:"title"`
+}
+
+// AccountOfferList defines model for AccountOfferList.
+type AccountOfferList struct {
+	Items []AccountOffer `json:"items"`
+}
+
+// AccountOfferTaken defines model for AccountOfferTaken.
+type AccountOfferTaken struct {
+	Activated  bool      `json:"activated"`
+	BonusMinor int64     `json:"bonusMinor"`
+	Currency   *string   `json:"currency,omitempty"`
+	ExpiresAt  time.Time `json:"expiresAt"`
+}
+
 // AccountOrder defines model for AccountOrder.
 type AccountOrder struct {
 	CreatedAt     time.Time  `json:"createdAt"`
@@ -10523,6 +10546,18 @@ type ListAccountNotificationsParams struct {
 	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// DismissAccountOfferParams defines parameters for DismissAccountOffer.
+type DismissAccountOfferParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// TakeAccountOfferParams defines parameters for TakeAccountOffer.
+type TakeAccountOfferParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // ListAccountOrdersParams defines parameters for ListAccountOrders.
 type ListAccountOrdersParams struct {
 	Cursor   *Cursor                        `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -13137,6 +13172,15 @@ type ServerInterface interface {
 	// (GET /v1/account/notifications)
 	ListAccountNotifications(w http.ResponseWriter, r *http.Request, params ListAccountNotificationsParams)
 
+	// (GET /v1/account/offers)
+	ListAccountOffers(w http.ResponseWriter, r *http.Request)
+
+	// (POST /v1/account/offers/{offerID}/dismiss)
+	DismissAccountOffer(w http.ResponseWriter, r *http.Request, offerID openapi_types.UUID, params DismissAccountOfferParams)
+
+	// (POST /v1/account/offers/{offerID}/take)
+	TakeAccountOffer(w http.ResponseWriter, r *http.Request, offerID openapi_types.UUID, params TakeAccountOfferParams)
+
 	// (GET /v1/account/orders)
 	ListAccountOrders(w http.ResponseWriter, r *http.Request, params ListAccountOrdersParams)
 
@@ -14352,6 +14396,21 @@ func (_ Unimplemented) MarkAccountNewsRead(w http.ResponseWriter, r *http.Reques
 
 // (GET /v1/account/notifications)
 func (_ Unimplemented) ListAccountNotifications(w http.ResponseWriter, r *http.Request, params ListAccountNotificationsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/offers)
+func (_ Unimplemented) ListAccountOffers(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/offers/{offerID}/dismiss)
+func (_ Unimplemented) DismissAccountOffer(w http.ResponseWriter, r *http.Request, offerID openapi_types.UUID, params DismissAccountOfferParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/offers/{offerID}/take)
+func (_ Unimplemented) TakeAccountOffer(w http.ResponseWriter, r *http.Request, offerID openapi_types.UUID, params TakeAccountOfferParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -17453,6 +17512,128 @@ func (siw *ServerInterfaceWrapper) ListAccountNotifications(w http.ResponseWrite
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListAccountNotifications(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAccountOffers operation middleware
+func (siw *ServerInterfaceWrapper) ListAccountOffers(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAccountOffers(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DismissAccountOffer operation middleware
+func (siw *ServerInterfaceWrapper) DismissAccountOffer(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "offerID" -------------
+	var offerID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "offerID", chi.URLParam(r, "offerID"), &offerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offerID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DismissAccountOfferParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DismissAccountOffer(w, r, offerID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TakeAccountOffer operation middleware
+func (siw *ServerInterfaceWrapper) TakeAccountOffer(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "offerID" -------------
+	var offerID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "offerID", chi.URLParam(r, "offerID"), &offerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offerID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params TakeAccountOfferParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TakeAccountOffer(w, r, offerID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -32713,6 +32894,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/v1/account/sign-in-methods/oidc/{slug}/start", wrapper.StartAccountOidcLink)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/offers", wrapper.ListAccountOffers)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/offers/{offerID}/take", wrapper.TakeAccountOffer)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/offers/{offerID}/dismiss", wrapper.DismissAccountOffer)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/account/overview", wrapper.GetAccountOverview)
 	})
 	r.Group(func(r chi.Router) {
@@ -34868,6 +35058,99 @@ func (response ListAccountNotifications401ApplicationProblemPlusJSONResponse) Vi
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAccountOffersRequestObject struct {
+}
+
+type ListAccountOffersResponseObject interface {
+	VisitListAccountOffersResponse(w http.ResponseWriter) error
+}
+
+type ListAccountOffers200JSONResponse AccountOfferList
+
+func (response ListAccountOffers200JSONResponse) VisitListAccountOffersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DismissAccountOfferRequestObject struct {
+	OfferID openapi_types.UUID `json:"offerID"`
+	Params  DismissAccountOfferParams
+}
+
+type DismissAccountOfferResponseObject interface {
+	VisitDismissAccountOfferResponse(w http.ResponseWriter) error
+}
+
+type DismissAccountOffer204Response struct {
+}
+
+func (response DismissAccountOffer204Response) VisitDismissAccountOfferResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DismissAccountOffer404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DismissAccountOffer404ApplicationProblemPlusJSONResponse) VisitDismissAccountOfferResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TakeAccountOfferRequestObject struct {
+	OfferID openapi_types.UUID `json:"offerID"`
+	Params  TakeAccountOfferParams
+}
+
+type TakeAccountOfferResponseObject interface {
+	VisitTakeAccountOfferResponse(w http.ResponseWriter) error
+}
+
+type TakeAccountOffer200JSONResponse AccountOfferTaken
+
+func (response TakeAccountOffer200JSONResponse) VisitTakeAccountOfferResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TakeAccountOffer404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response TakeAccountOffer404ApplicationProblemPlusJSONResponse) VisitTakeAccountOfferResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -50379,6 +50662,15 @@ type StrictServerInterface interface {
 	// (GET /v1/account/notifications)
 	ListAccountNotifications(ctx context.Context, request ListAccountNotificationsRequestObject) (ListAccountNotificationsResponseObject, error)
 
+	// (GET /v1/account/offers)
+	ListAccountOffers(ctx context.Context, request ListAccountOffersRequestObject) (ListAccountOffersResponseObject, error)
+
+	// (POST /v1/account/offers/{offerID}/dismiss)
+	DismissAccountOffer(ctx context.Context, request DismissAccountOfferRequestObject) (DismissAccountOfferResponseObject, error)
+
+	// (POST /v1/account/offers/{offerID}/take)
+	TakeAccountOffer(ctx context.Context, request TakeAccountOfferRequestObject) (TakeAccountOfferResponseObject, error)
+
 	// (GET /v1/account/orders)
 	ListAccountOrders(ctx context.Context, request ListAccountOrdersRequestObject) (ListAccountOrdersResponseObject, error)
 
@@ -52643,6 +52935,84 @@ func (sh *strictHandler) ListAccountNotifications(w http.ResponseWriter, r *http
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListAccountNotificationsResponseObject); ok {
 		if err := validResponse.VisitListAccountNotificationsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAccountOffers operation middleware
+func (sh *strictHandler) ListAccountOffers(w http.ResponseWriter, r *http.Request) {
+	var request ListAccountOffersRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAccountOffers(ctx, request.(ListAccountOffersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAccountOffers")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAccountOffersResponseObject); ok {
+		if err := validResponse.VisitListAccountOffersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DismissAccountOffer operation middleware
+func (sh *strictHandler) DismissAccountOffer(w http.ResponseWriter, r *http.Request, offerID openapi_types.UUID, params DismissAccountOfferParams) {
+	var request DismissAccountOfferRequestObject
+
+	request.OfferID = offerID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DismissAccountOffer(ctx, request.(DismissAccountOfferRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DismissAccountOffer")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DismissAccountOfferResponseObject); ok {
+		if err := validResponse.VisitDismissAccountOfferResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// TakeAccountOffer operation middleware
+func (sh *strictHandler) TakeAccountOffer(w http.ResponseWriter, r *http.Request, offerID openapi_types.UUID, params TakeAccountOfferParams) {
+	var request TakeAccountOfferRequestObject
+
+	request.OfferID = offerID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.TakeAccountOffer(ctx, request.(TakeAccountOfferRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "TakeAccountOffer")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(TakeAccountOfferResponseObject); ok {
+		if err := validResponse.VisitTakeAccountOfferResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

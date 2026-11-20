@@ -60,6 +60,7 @@ const SECONDARY: { href: string; key: string }[] = [
   { href: "/account/devices", key: "devices" },
   { href: "/account/referrals", key: "referrals" },
   { href: "/account/gifts", key: "gifts" },
+  { href: "/account/offers", key: "offers" },
   { href: "/account/renewal", key: "renewal" },
   { href: "/account/news", key: "news" },
   { href: "/account/security", key: "security" },
@@ -83,6 +84,7 @@ const UNTITLED_SECTIONS: Record<string, string> = {
   "/account/security": "nav.security",
   "/account/wallet": "nav.wallet",
   "/account/renewal": "nav.renewal",
+  "/account/offers": "nav.offers",
 };
 
 /** Routes that are reached from a tab rather than being one, so they show a back control. */

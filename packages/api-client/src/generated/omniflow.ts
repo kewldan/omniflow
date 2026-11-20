@@ -4011,6 +4011,26 @@ export interface AccountGift {
   createdAt: string;
 }
 
+export interface AccountOffer {
+  id: string;
+  title: string;
+  terms: string;
+  promoCode?: string;
+  expiresAt: string;
+  activatedAt?: string;
+}
+
+export interface AccountOfferList {
+  items: AccountOffer[];
+}
+
+export interface AccountOfferTaken {
+  activated: boolean;
+  expiresAt: string;
+  bonusMinor: number;
+  currency?: string;
+}
+
 export type AccountSignInMethodsOidcItem = {
   slug: string;
   displayName: string;
@@ -29148,6 +29168,227 @@ export const useStartAccountOidcLink = <TError = Promise<void | ProblemResponse>
   const swrFn = () => startAccountOidcLink(slug, fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listAccountOffersResponse200 = {
+  data: AccountOfferList;
+  status: 200;
+};
+
+export type listAccountOffersResponseSuccess = listAccountOffersResponse200 & {
+  headers: Headers;
+};
+
+export type listAccountOffersResponse = listAccountOffersResponseSuccess;
+
+export const getListAccountOffersUrl = () => {
+  return `/v1/account/offers`;
+};
+
+/**
+ * The customer's personal offers that are still active, soonest to end first. The checkout applies the best one by itself.
+ */
+export const listAccountOffers = async (
+  options?: RequestInit,
+): Promise<listAccountOffersResponse> => {
+  const res = await fetch(getListAccountOffersUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listAccountOffersResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listAccountOffersResponse;
+};
+
+export const getListAccountOffersKey = () => [`/v1/account/offers`] as const;
+
+export type ListAccountOffersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAccountOffers>>
+>;
+
+export const useListAccountOffers = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listAccountOffers>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListAccountOffersKey() : null));
+  const swrFn = () => listAccountOffers(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type takeAccountOfferResponse200 = {
+  data: AccountOfferTaken;
+  status: 200;
+};
+
+export type takeAccountOfferResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type takeAccountOfferResponseSuccess = takeAccountOfferResponse200 & {
+  headers: Headers;
+};
+export type takeAccountOfferResponseError = takeAccountOfferResponse404 & {
+  headers: Headers;
+};
+
+export type takeAccountOfferResponse =
+  | takeAccountOfferResponseSuccess
+  | takeAccountOfferResponseError;
+
+export const getTakeAccountOfferUrl = (offerID: string) => {
+  return `/v1/account/offers/${offerID}/take`;
+};
+
+/**
+ * Takes an offer: a timed offer's discount clock starts now and a balance bonus is credited, once. Taking it again changes nothing. The offer is redeemed only when an order uses it.
+ */
+export const takeAccountOffer = async (
+  offerID: string,
+  options?: RequestInit,
+): Promise<takeAccountOfferResponse> => {
+  const res = await fetch(getTakeAccountOfferUrl(offerID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: takeAccountOfferResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as takeAccountOfferResponse;
+};
+
+export const getTakeAccountOfferMutationFetcher = (offerID: string, options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return takeAccountOffer(offerID, options);
+  };
+};
+export const getTakeAccountOfferMutationKey = (offerID: string) =>
+  [`/v1/account/offers/${offerID}/take`] as const;
+
+export type TakeAccountOfferMutationResult = NonNullable<
+  Awaited<ReturnType<typeof takeAccountOffer>>
+>;
+
+export const useTakeAccountOffer = <TError = Promise<ProblemResponse>>(
+  offerID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof takeAccountOffer>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof takeAccountOffer>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getTakeAccountOfferMutationKey(offerID);
+  const swrFn = getTakeAccountOfferMutationFetcher(offerID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type dismissAccountOfferResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type dismissAccountOfferResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type dismissAccountOfferResponseSuccess = dismissAccountOfferResponse204 & {
+  headers: Headers;
+};
+export type dismissAccountOfferResponseError = dismissAccountOfferResponse404 & {
+  headers: Headers;
+};
+
+export type dismissAccountOfferResponse =
+  | dismissAccountOfferResponseSuccess
+  | dismissAccountOfferResponseError;
+
+export const getDismissAccountOfferUrl = (offerID: string) => {
+  return `/v1/account/offers/${offerID}/dismiss`;
+};
+
+/**
+ * Drops an offer the customer does not want, which also resets its discount: checkout stops applying it at once. Final.
+ */
+export const dismissAccountOffer = async (
+  offerID: string,
+  options?: RequestInit,
+): Promise<dismissAccountOfferResponse> => {
+  const res = await fetch(getDismissAccountOfferUrl(offerID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: dismissAccountOfferResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as dismissAccountOfferResponse;
+};
+
+export const getDismissAccountOfferMutationFetcher = (offerID: string, options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return dismissAccountOffer(offerID, options);
+  };
+};
+export const getDismissAccountOfferMutationKey = (offerID: string) =>
+  [`/v1/account/offers/${offerID}/dismiss`] as const;
+
+export type DismissAccountOfferMutationResult = NonNullable<
+  Awaited<ReturnType<typeof dismissAccountOffer>>
+>;
+
+export const useDismissAccountOffer = <TError = Promise<ProblemResponse>>(
+  offerID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof dismissAccountOffer>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof dismissAccountOffer>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getDismissAccountOfferMutationKey(offerID);
+  const swrFn = getDismissAccountOfferMutationFetcher(offerID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,

@@ -8553,6 +8553,57 @@ export const StartAccountOidcLinkParams = zod.object({
 
 export const StartAccountOidcLinkResponse = zod.void();
 
+/**
+ * The customer's personal offers that are still active, soonest to end first. The checkout applies the best one by itself.
+ */
+export const ListAccountOffersResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      title: zod.string(),
+      terms: zod.string(),
+      promoCode: zod.string().optional(),
+      expiresAt: zod.iso.datetime({ offset: true }),
+      activatedAt: zod.iso.datetime({ offset: true }).optional(),
+    }),
+  ),
+});
+
+/**
+ * Takes an offer: a timed offer's discount clock starts now and a balance bonus is credited, once. Taking it again changes nothing. The offer is redeemed only when an order uses it.
+ */
+export const TakeAccountOfferParams = zod.object({
+  offerID: zod.uuid(),
+});
+
+export const TakeAccountOfferHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const TakeAccountOfferResponse = zod.object({
+  activated: zod.boolean(),
+  expiresAt: zod.iso.datetime({ offset: true }),
+  bonusMinor: zod.int(),
+  currency: zod.string().optional(),
+});
+
+/**
+ * Drops an offer the customer does not want, which also resets its discount: checkout stops applying it at once. Final.
+ */
+export const DismissAccountOfferParams = zod.object({
+  offerID: zod.uuid(),
+});
+
+export const DismissAccountOfferHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const DismissAccountOfferResponse = zod.void();
+
 export const GetAccountOverviewQueryParams = zod.object({
   locale: zod.enum(["ru", "en"]).optional(),
 });

@@ -3630,6 +3630,42 @@ paths:
       responses:
         "302": {description: Redirect to the provider}
         "404": {$ref: "#/components/responses/Problem"}
+  /v1/account/offers:
+    get:
+      operationId: listAccountOffers
+      tags: [account]
+      description: >-
+        The customer's personal offers that are still active, soonest to end
+        first. The checkout applies the best one by itself.
+      responses:
+        "200": {description: Offers, content: {application/json: {schema: {$ref: "#/components/schemas/AccountOfferList"}}}}
+  /v1/account/offers/{offerID}/take:
+    post:
+      operationId: takeAccountOffer
+      tags: [account]
+      description: >-
+        Takes an offer: a timed offer's discount clock starts now and a balance
+        bonus is credited, once. Taking it again changes nothing. The offer is
+        redeemed only when an order uses it.
+      parameters:
+        - {in: path, name: offerID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "200": {description: Taken, content: {application/json: {schema: {$ref: "#/components/schemas/AccountOfferTaken"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/account/offers/{offerID}/dismiss:
+    post:
+      operationId: dismissAccountOffer
+      tags: [account]
+      description: >-
+        Drops an offer the customer does not want, which also resets its
+        discount: checkout stops applying it at once. Final.
+      parameters:
+        - {in: path, name: offerID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "204": {description: Dismissed}
+        "404": {$ref: "#/components/responses/Problem"}
   /v1/account/overview:
     get:
       operationId: getAccountOverview
@@ -8069,6 +8105,29 @@ components:
         expiresAt: {type: string, format: date-time}
         claimedAt: {type: string, format: date-time}
         createdAt: {type: string, format: date-time}
+    AccountOffer:
+      type: object
+      required: [id, title, terms, expiresAt]
+      properties:
+        id: {type: string, format: uuid}
+        title: {type: string}
+        terms: {type: string}
+        promoCode: {type: string}
+        expiresAt: {type: string, format: date-time}
+        activatedAt: {type: string, format: date-time}
+    AccountOfferList:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/AccountOffer"}}
+    AccountOfferTaken:
+      type: object
+      required: [activated, expiresAt, bonusMinor]
+      properties:
+        activated: {type: boolean}
+        expiresAt: {type: string, format: date-time}
+        bonusMinor: {type: integer, format: int64}
+        currency: {type: string}
     AccountSignInMethods:
       type: object
       required: [telegram, magicLink, email, oidc]
