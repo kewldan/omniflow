@@ -3970,6 +3970,30 @@ paths:
         "403": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
         "503": {$ref: "#/components/responses/Problem"}
+  /v1/account/live:
+    get:
+      operationId: streamAccountLiveUpdates
+      tags: [account]
+      description: >-
+        A server-sent event stream for the signed-in customer. Every three
+        seconds it re-reads version numbers for the customer's own `support`,
+        `orders`, `subscriptions`, and `wallet` areas. The first read is sent as
+        an `event: ready`; afterwards an `event: change` names the areas whose
+        version moved, as a JSON object of area to version. Each event's `id` is
+        the full set of versions, so a reconnecting EventSource sends it back as
+        `Last-Event-ID` and changes made in between are announced. It carries no
+        records; the client re-reads what it shows through the usual routes.
+        The stream ends within a minute and the browser reconnects through the
+        session check. See decision 0015.
+      parameters:
+        - {in: header, name: Last-Event-ID, required: false, schema: {type: string, maxLength: 512}}
+      responses:
+        "200":
+          description: Event stream
+          content:
+            text/event-stream:
+              schema: {type: string}
+        "401": {$ref: "#/components/responses/Problem"}
   /v1/account/subscriptions/{subscriptionID}/devices:
     get:
       operationId: listAccountDevices

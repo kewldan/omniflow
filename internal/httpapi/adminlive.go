@@ -11,7 +11,7 @@ import (
 )
 
 // liveInterval is how often the stream re-reads the counters.
-const liveInterval = 5 * time.Second
+const liveInterval = 3 * time.Second
 
 // liveMaxDuration ends a stream so a browser reconnects through the session
 // check now and then; EventSource reconnects on its own.

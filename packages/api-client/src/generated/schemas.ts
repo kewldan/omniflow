@@ -9384,6 +9384,17 @@ export const RotateAllAccountSubscriptionLinksResponse = zod.object({
 });
 
 /**
+ * A server-sent event stream for the signed-in customer. Every three seconds it re-reads version numbers for the customer's own `support`, `orders`, `subscriptions`, and `wallet` areas. The first read is sent as an `event: ready`; afterwards an `event: change` names the areas whose version moved, as a JSON object of area to version. Each event's `id` is the full set of versions, so a reconnecting EventSource sends it back as `Last-Event-ID` and changes made in between are announced. It carries no records; the client re-reads what it shows through the usual routes. The stream ends within a minute and the browser reconnects through the session check. See decision 0015.
+ */
+export const streamAccountLiveUpdatesHeaderLastEventIDMax = 512;
+
+export const StreamAccountLiveUpdatesHeader = zod.object({
+  "Last-Event-ID": zod.string().max(streamAccountLiveUpdatesHeaderLastEventIDMax).optional(),
+});
+
+export const StreamAccountLiveUpdatesResponse = zod.unknown();
+
+/**
  * Connected devices. No hardware identifier and no IP address is returned; a device is named by an opaque handle the server resolves back.
  */
 export const ListAccountDevicesParams = zod.object({

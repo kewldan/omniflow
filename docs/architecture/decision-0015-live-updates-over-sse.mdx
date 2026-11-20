@@ -1,0 +1,92 @@
+---
+title: "0015 — Live updates are server-sent events that carry versions, not WebSocket"
+description: Why the operator and customer panels, and the support conversation between them, update live over one-way SSE streams that name what changed instead of a WebSocket connection
+---
+
+**Status:** Accepted.
+
+## Context
+
+Bedolaga offered a WebSocket channel for live updates and a live support chat.
+Omniflow's panels used to poll: an operator saw a new ticket message when the
+list next refreshed, and a customer saw an operator's answer up to fifteen
+seconds late. Both panels need to learn quickly that something they show has
+changed — a reply in a conversation, an order being paid, a subscription being
+provisioned — and the support conversation needs to feel live on both sides.
+
+Every message in a conversation is already *sent* by an ordinary authenticated
+request: a `POST` that checks the session, CSRF, permissions, rate limits, the
+customer's support block, and writes the message, its audit trail, and its
+notifications in one transaction. What is missing is only the other direction:
+telling an open screen that there is something new to read.
+
+## Decision
+
+**Live updates are server-sent event streams, one per panel:**
+`GET /v1/panel/live` for operators and `GET /v1/account/live` for customers.
+Each stream re-reads a handful of version numbers on a short interval — three
+seconds — and sends an event naming the areas whose version moved
+(`support`, `orders`, `subscriptions`, `wallet` for a customer; `support`,
+`finance`, `errors`, `customers` for an operator, each only with the read
+permission for it). The browser then re-reads what it shows through the same
+routes it already uses.
+
+**A stream carries no records.** It never sends a message body, an amount, or
+an identifier; a customer's versions are computed from that customer's rows
+only. Authorization therefore stays where it already is — on the routes the
+screen re-reads — and the stream cannot become a second, weaker path to data.
+
+**Sending stays an ordinary request.** The live support conversation is the
+existing send route plus the stream: a message written by either side moves
+the other side's `support` version, and the open conversation re-reads within
+seconds.
+
+**Streams are short-lived.** The router's request timeout ends a stream after a
+minute (the customer stream also caps itself at five), and `EventSource`
+reconnects through the session middleware, so a revoked session stops receiving
+updates promptly. The customer stream sends its versions as the event ID; a
+reconnecting browser hands them back as `Last-Event-ID`, so a change made while
+it was reconnecting is still announced.
+
+## Why not WebSocket
+
+- **The traffic is one-way.** Everything a client says already has a route with
+  the checks it needs. A socket would either duplicate those checks for messages
+  arriving over it, or carry nothing upstream and be an SSE stream with a more
+  complicated handshake.
+- **It fits the existing request path.** SSE is a plain `GET` with a cookie: the
+  same session, CSRF, RBAC, and request-ID middleware, the same reverse-proxy
+  configuration, and the same three-prefix separation between `/v1/panel`,
+  `/v1/admin`, and `/v1/account`. A WebSocket upgrade needs its own
+  authentication on the handshake, its own origin checks, and proxy settings for
+  upgrades and idle timeouts.
+- **Reconnection is built in.** `EventSource` reconnects on its own and resends
+  the last event ID; with WebSocket the client would have to implement backoff,
+  resubscription, and gap recovery.
+- **No new moving part.** The versions are read from PostgreSQL, which is the
+  only durable store ([decision 0002](/architecture/decision-0002-postgresql-only-durability)).
+  Fan-out over WebSocket across several api replicas would want a pub/sub
+  channel, which is a message broker this project has decided not to add
+  without a record of its own.
+
+## Consequences
+
+- An update arrives within the polling interval, not instantly: up to about
+  three seconds. For support conversations and order status that is live
+  enough; nothing in either panel needs sub-second delivery.
+- Each open panel costs one small indexed query per interval. The customer
+  stream reads only the signed-in customer's rows, through indexes added for it
+  (`orders`, `subscriptions`, and `entitlements` by customer and last change).
+- There is no typing indicator or presence: they would need upstream messages
+  this design does not carry.
+- Browsers limit concurrent HTTP/1.1 connections per origin; a customer with
+  many tabs open over HTTP/1.1 may exhaust them. Serving the panels over HTTP/2,
+  as the reference deployment does, removes the limit.
+
+## Revisit when
+
+A feature needs low-latency messages from the client over the same channel —
+presence, typing, collaborative editing — or the polling cost of open panels
+becomes measurable next to the rest of the database load; then a
+`LISTEN`/`NOTIFY`-driven stream, or WebSocket with a broker, gets its own
+record.

@@ -8296,6 +8296,13 @@ CREATE INDEX entitlement_drifts_open_idx ON public.entitlement_drifts USING btre
 
 
 --
+-- Name: entitlements_customer_updated_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX entitlements_customer_updated_idx ON public.entitlements USING btree (user_id, updated_at DESC);
+
+
+--
 -- Name: entitlements_subscription_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8597,6 +8604,13 @@ CREATE INDEX orders_customer_recent_idx ON public.orders USING btree (user_id, c
 
 
 --
+-- Name: orders_customer_updated_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX orders_customer_updated_idx ON public.orders USING btree (user_id, updated_at DESC);
+
+
+--
 -- Name: orders_paid_at_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8874,6 +8888,13 @@ CREATE INDEX self_employed_receipts_due_idx ON public.self_employed_receipts USI
 --
 
 CREATE INDEX subscriptions_active_idx ON public.subscriptions USING btree (user_id, slot) WHERE (status = 'active'::text);
+
+
+--
+-- Name: subscriptions_customer_updated_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX subscriptions_customer_updated_idx ON public.subscriptions USING btree (user_id, updated_at DESC);
 
 
 --

@@ -1184,6 +1184,25 @@ generated SWR hooks emit bare `fetch` calls that honour no mutator: a generated
 hook would send no session cookie and no CSRF token, so every mutation through
 one would be rejected and every read would be anonymous.
 
+## Live updates
+
+The panel keeps the customer's open screens current without reloading. While a customer is
+signed in it holds one server-sent event stream open (`GET /v1/account/live`) that says,
+every three seconds, which areas of their own panel changed: `support` (a new or withdrawn
+message, a ticket's status), `orders` (an order or one of its payments), `subscriptions` (a
+subscription or its entitlement — provisioning finished, a renewal, a pause), and `wallet` (a
+new wallet entry). The open screens in those areas re-read their data through their usual
+routes. The stream carries version numbers, never records, and every version is computed
+from the signed-in customer's rows only.
+
+This is what makes support a live conversation: an operator's reply appears in an open
+conversation, and in the conversation list, within seconds, and the operator sees the
+customer's messages the same way through the operator panel's stream. The stream closes
+itself within a minute and the browser reconnects through the session check, handing back
+the versions it last saw, so a change made while it reconnected is still picked up. Why it
+is SSE rather than WebSocket is recorded in
+[decision 0015](/architecture/decision-0015-live-updates-over-sse).
+
 ## Installing the panel as an app
 
 The site publishes a web app manifest at `/manifest.webmanifest`, so a phone's browser

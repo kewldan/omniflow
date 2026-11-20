@@ -182,6 +182,7 @@ func (handlers *AccountHandlers) Mount(router chi.Router) {
 			handlers.mountSubscriptionAddons(secure)
 			handlers.mountOffers(secure)
 			handlers.mountTerms(secure)
+			handlers.mountLive(secure)
 		})
 	})
 }

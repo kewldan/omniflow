@@ -264,12 +264,16 @@ checks apply.
 ## Live updates
 
 Open panel screens stay current on their own. The panel keeps one server-sent event stream
-open (`GET /v1/panel/live`) that says, every five seconds, which areas changed — support,
+open (`GET /v1/panel/live`) that says, every three seconds, which areas changed — support,
 finance, the error log, customers — limited to the areas the operator's permissions cover.
 It carries counters, never records: the screen re-reads its lists through the same
 permission-checked routes it always uses, so a new ticket message, a paid order, or a new
-error appears without reloading. The stream closes itself every ten minutes and the browser
-reconnects through the session check.
+error appears without reloading. The stream closes itself within a minute and the browser
+reconnects through the session check. A customer's message in an open support conversation
+therefore appears within seconds, and the customer sees an operator's reply the same way
+through the customer panel's own stream — see
+[Customer web panel](/customer/web-panel#live-updates). Why this is SSE rather than
+WebSocket is recorded in [decision 0015](/architecture/decision-0015-live-updates-over-sse).
 
 ## Interface language
 

@@ -31114,6 +31114,81 @@ export const useRotateAllAccountSubscriptionLinks = <TError = Promise<ProblemRes
   };
 };
 
+export type streamAccountLiveUpdatesResponse200 = {
+  data: string;
+  status: 200;
+};
+
+export type streamAccountLiveUpdatesResponse401 = {
+  data: ProblemResponse;
+  status: 401;
+};
+
+export type streamAccountLiveUpdatesResponseSuccess = streamAccountLiveUpdatesResponse200 & {
+  headers: Headers;
+};
+export type streamAccountLiveUpdatesResponseError = streamAccountLiveUpdatesResponse401 & {
+  headers: Headers;
+};
+
+export type streamAccountLiveUpdatesResponse =
+  | streamAccountLiveUpdatesResponseSuccess
+  | streamAccountLiveUpdatesResponseError;
+
+export const getStreamAccountLiveUpdatesUrl = () => {
+  return `/v1/account/live`;
+};
+
+/**
+ * A server-sent event stream for the signed-in customer. Every three seconds it re-reads version numbers for the customer's own `support`, `orders`, `subscriptions`, and `wallet` areas. The first read is sent as an `event: ready`; afterwards an `event: change` names the areas whose version moved, as a JSON object of area to version. Each event's `id` is the full set of versions, so a reconnecting EventSource sends it back as `Last-Event-ID` and changes made in between are announced. It carries no records; the client re-reads what it shows through the usual routes. The stream ends within a minute and the browser reconnects through the session check. See decision 0015.
+ */
+export const streamAccountLiveUpdates = async (
+  options?: RequestInit,
+): Promise<streamAccountLiveUpdatesResponse> => {
+  const res = await fetch(getStreamAccountLiveUpdatesUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const contentType = (res.headers.get("content-type") ?? "").toLowerCase();
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: streamAccountLiveUpdatesResponse["data"] = body
+    ? contentType.includes("json")
+      ? JSON.parse(body)
+      : body
+    : {};
+  return { data, status: res.status, headers: res.headers } as streamAccountLiveUpdatesResponse;
+};
+
+export const getStreamAccountLiveUpdatesKey = () => [`/v1/account/live`] as const;
+
+export type StreamAccountLiveUpdatesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof streamAccountLiveUpdates>>
+>;
+
+export const useStreamAccountLiveUpdates = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof streamAccountLiveUpdates>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getStreamAccountLiveUpdatesKey() : null));
+  const swrFn = () => streamAccountLiveUpdates(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
 export type listAccountDevicesResponse200 = {
   data: AccountDeviceList;
   status: 200;

@@ -4,10 +4,11 @@ import { Button } from "@omniflow/ui/button";
 import { Bell, ChevronRight, Megaphone, Plus } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import type { ReactNode } from "react";
+import { type ReactNode, useCallback } from "react";
 import useSWR from "swr";
 import useSWRInfinite from "swr/infinite";
 
+import { useAccountLive } from "@/components/account/live-updates";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
 import { SupportAlerts } from "@/components/account/support/browser-notifications";
 import { TicketRow } from "@/components/account/support/ticket-row";
@@ -52,6 +53,11 @@ export default function SupportTicketsPage() {
     SupportTicketPage,
     ApiError
   >(ticketPageKey, fetcher);
+  // A reply or a status change reported by the live stream refreshes the list.
+  useAccountLive(
+    "support",
+    useCallback(() => void mutate(), [mutate]),
+  );
   // The limits are fetched here as well as on the pages that enforce them: the
   // open-ticket quota is a fact about the list, and the create control has to
   // know it before it is pressed rather than after the request is refused.

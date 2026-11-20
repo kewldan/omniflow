@@ -17,6 +17,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { type ReactNode, useEffect, useState } from "react";
 
+import { AccountLiveUpdates } from "@/components/account/live-updates";
 import { AccountNotice } from "@/components/account/state";
 import { useBrandName } from "@/components/brand-name";
 import { LocaleSync } from "@/components/intl/locale-switch";
@@ -166,6 +167,9 @@ export function AccountShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-dvh bg-background md:flex">
       <LocaleSync preferred={session.customer.locale} />
+      {/* Mounted only with a session: the stream answers 401 without one, and
+          EventSource would retry it forever. */}
+      <AccountLiveUpdates />
       <DesktopSidebar customerId={session.customer.id} pathname={pathname} />
 
       <div className="flex min-h-dvh flex-1 flex-col md:min-h-0">

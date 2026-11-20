@@ -10748,6 +10748,11 @@ type GetGuestPurchaseParams struct {
 // ListAccountLanguages200JSONResponseBodyLanguages defines parameters for ListAccountLanguages.
 type ListAccountLanguages200JSONResponseBodyLanguages string
 
+// StreamAccountLiveUpdatesParams defines parameters for StreamAccountLiveUpdates.
+type StreamAccountLiveUpdatesParams struct {
+	LastEventID *string `json:"Last-Event-ID,omitempty"`
+}
+
 // UpdateAccountProfileParams defines parameters for UpdateAccountProfile.
 type UpdateAccountProfileParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
@@ -13448,6 +13453,9 @@ type ServerInterface interface {
 	// (GET /v1/account/languages)
 	ListAccountLanguages(w http.ResponseWriter, r *http.Request)
 
+	// (GET /v1/account/live)
+	StreamAccountLiveUpdates(w http.ResponseWriter, r *http.Request, params StreamAccountLiveUpdatesParams)
+
 	// (GET /v1/account/loyalty)
 	GetAccountLoyalty(w http.ResponseWriter, r *http.Request)
 
@@ -14691,6 +14699,11 @@ func (_ Unimplemented) GetGuestPurchase(w http.ResponseWriter, r *http.Request, 
 
 // (GET /v1/account/languages)
 func (_ Unimplemented) ListAccountLanguages(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/live)
+func (_ Unimplemented) StreamAccountLiveUpdates(w http.ResponseWriter, r *http.Request, params StreamAccountLiveUpdatesParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -17721,6 +17734,47 @@ func (siw *ServerInterfaceWrapper) ListAccountLanguages(w http.ResponseWriter, r
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListAccountLanguages(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StreamAccountLiveUpdates operation middleware
+func (siw *ServerInterfaceWrapper) StreamAccountLiveUpdates(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params StreamAccountLiveUpdatesParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Last-Event-ID" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Last-Event-ID")]; found {
+		var LastEventID string
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Last-Event-ID", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Last-Event-ID", valueList[0], &LastEventID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Last-Event-ID", Err: err})
+			return
+		}
+
+		params.LastEventID = &LastEventID
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StreamAccountLiveUpdates(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -33681,6 +33735,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/v1/account/subscriptions/rotate-links", wrapper.RotateAllAccountSubscriptionLinks)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/live", wrapper.StreamAccountLiveUpdates)
+	})
+	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/devices", wrapper.RemoveAllAccountDevices)
 	})
 	r.Group(func(r chi.Router) {
@@ -35710,6 +35767,73 @@ func (response ListAccountLanguages200JSONResponse) VisitListAccountLanguagesRes
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StreamAccountLiveUpdatesRequestObject struct {
+	Params StreamAccountLiveUpdatesParams
+}
+
+type StreamAccountLiveUpdatesResponseObject interface {
+	VisitStreamAccountLiveUpdatesResponse(w http.ResponseWriter) error
+}
+
+type StreamAccountLiveUpdates200TexteventStreamResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response StreamAccountLiveUpdates200TexteventStreamResponse) VisitStreamAccountLiveUpdatesResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		// If w doesn't support flushing, fall back to io.Copy.
+		_, err := io.Copy(w, response.Body)
+		return err
+	}
+	// text/event-stream messages are typically small; use a
+	// modest buffer and flush after each chunk so clients see
+	// events immediately instead of waiting on OS buffering.
+	buf := make([]byte, 4096)
+	for {
+		n, err := response.Body.Read(buf)
+		if n > 0 {
+			if _, writeErr := w.Write(buf[:n]); writeErr != nil {
+				return writeErr
+			}
+			flusher.Flush()
+		}
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return err
+		}
+	}
+}
+
+type StreamAccountLiveUpdates401ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response StreamAccountLiveUpdates401ApplicationProblemPlusJSONResponse) VisitStreamAccountLiveUpdatesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -51930,6 +52054,9 @@ type StrictServerInterface interface {
 	// (GET /v1/account/languages)
 	ListAccountLanguages(ctx context.Context, request ListAccountLanguagesRequestObject) (ListAccountLanguagesResponseObject, error)
 
+	// (GET /v1/account/live)
+	StreamAccountLiveUpdates(ctx context.Context, request StreamAccountLiveUpdatesRequestObject) (StreamAccountLiveUpdatesResponseObject, error)
+
 	// (GET /v1/account/loyalty)
 	GetAccountLoyalty(ctx context.Context, request GetAccountLoyaltyRequestObject) (GetAccountLoyaltyResponseObject, error)
 
@@ -54140,6 +54267,32 @@ func (sh *strictHandler) ListAccountLanguages(w http.ResponseWriter, r *http.Req
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListAccountLanguagesResponseObject); ok {
 		if err := validResponse.VisitListAccountLanguagesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StreamAccountLiveUpdates operation middleware
+func (sh *strictHandler) StreamAccountLiveUpdates(w http.ResponseWriter, r *http.Request, params StreamAccountLiveUpdatesParams) {
+	var request StreamAccountLiveUpdatesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StreamAccountLiveUpdates(ctx, request.(StreamAccountLiveUpdatesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StreamAccountLiveUpdates")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StreamAccountLiveUpdatesResponseObject); ok {
+		if err := validResponse.VisitStreamAccountLiveUpdatesResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
