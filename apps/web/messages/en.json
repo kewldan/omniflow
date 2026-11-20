@@ -2980,6 +2980,10 @@
         "bot": {
           "title": "Telegram bot",
           "description": "Which languages the bot offers. With one language every message is in it and the language switch is hidden."
+        },
+        "moderation": {
+          "title": "Display-name filter",
+          "description": "Refuse the bot to accounts whose Telegram name pretends to be staff or carries a link. Operators are exempt."
         }
       },
       "fields": {
@@ -3056,7 +3060,9 @@
           "ru": "Russian",
           "en": "English"
         },
-        "botLanguages": "Languages offered (none selected means both)"
+        "botLanguages": "Languages offered (none selected means both)",
+        "filterDisplayNames": "Filter dangerous display names",
+        "blockedNamePatterns": "Forbidden fragments, comma-separated (empty uses admin, support, links)"
       },
       "telemetryPreview": {
         "title": "What telemetry would send",
@@ -3500,6 +3506,41 @@
       "active": "On",
       "save": "Save",
       "cancel": "Cancel"
+    },
+    "moderation": {
+      "title": "Moderation",
+      "description": "Ban a list of customers at once, and find customers who blocked the bot.",
+      "cancel": "Cancel",
+      "failed": "The ban could not be applied",
+      "banned": "Ban applied",
+      "blockers": {
+        "title": "Customers who blocked the bot",
+        "count": "{count} active customers blocked the bot",
+        "lastScan": "last scan {status}: {checked} checked, {blocked} blocked",
+        "scan": "Scan now",
+        "requested": "The bot will scan within a minute",
+        "clean": "Suspend blockers without access",
+        "cleaned": "Customers who blocked the bot and hold no access were suspended"
+      },
+      "ban": {
+        "title": "Ban by list",
+        "list": "Customer IDs or Telegram IDs, one per line or separated by commas",
+        "count": "{count} identifiers",
+        "reason": "Reason (recorded on each customer)",
+        "template": "Message to send",
+        "noMessage": "Do not notify",
+        "message": "Own message (replaces the template)",
+        "submit": "Suspend",
+        "confirm": "Suspend {count} customers? Their access ends through the fulfillment pipeline.",
+        "summary": "{suspended} suspended, {missing} not found",
+        "templates": {
+          "torrent": "Torrents",
+          "sharing": "Account sharing",
+          "spam": "Spam",
+          "fraud": "Payment fraud",
+          "rules": "Rules violation"
+        }
+      }
     }
   },
   "account": {

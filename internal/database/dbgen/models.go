@@ -492,6 +492,17 @@ type BedolagaImportRun struct {
 	FinishedAt pgtype.Timestamptz `json:"finished_at"`
 }
 
+type BlockerScan struct {
+	ID          pgtype.UUID        `json:"id"`
+	Status      string             `json:"status"`
+	Checked     int32              `json:"checked"`
+	Blocked     int32              `json:"blocked"`
+	RequestedBy pgtype.UUID        `json:"requested_by"`
+	RequestedAt pgtype.Timestamptz `json:"requested_at"`
+	StartedAt   pgtype.Timestamptz `json:"started_at"`
+	FinishedAt  pgtype.Timestamptz `json:"finished_at"`
+}
+
 type BlocklistAllowlist struct {
 	UserID    pgtype.UUID        `json:"user_id"`
 	Reason    string             `json:"reason"`

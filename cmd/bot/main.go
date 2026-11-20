@@ -73,7 +73,7 @@ func main() {
 	metrics := platform.NewMetrics("bot")
 	options := []telegram.Option{
 		telegram.WithDefaultHandler(application.HandleDefault),
-		telegram.WithMiddlewares(botapp.ObservabilityMiddleware(metrics), application.SettingsMiddleware(), application.ActivityMiddleware()),
+		telegram.WithMiddlewares(botapp.ObservabilityMiddleware(metrics), application.SettingsMiddleware(), application.NameFilterMiddleware(), application.ActivityMiddleware()),
 	}
 	if cfg.Webhook.Enabled {
 		options = append(options, telegram.WithWebhookSecretToken(cfg.Webhook.SecretToken))
@@ -158,6 +158,7 @@ func main() {
 		PanelURL: cfg.PublicURL,
 	}).WithSettings(installation)
 	go notifier.Run(ctx)
+	go botapp.NewBlockerScanner(pool, identities, client, logger).Run(ctx)
 	if err := operator.AnnounceStart(ctx, pool, "bot", version, time.Now()); err != nil {
 		logger.Warn("bot start notice could not be queued", "error", err)
 	}

@@ -159,6 +159,27 @@ which bot screen, button, or command, and when — route names only, never anyth
 It is kept for ninety days. The same log, aggregated with no customer in it, is the bot's
 button statistics at `GET /v1/panel/reports/bot-buttons?days=7` (`marketing.read`).
 
+### Moderation
+
+The **Moderation** card on `/admin/customers` (`customers.write`) bans a pasted list of
+customer IDs and Telegram IDs at once (`POST /v1/panel/moderation/bans`, at most 1,000):
+each found customer is suspended with the reason on its lifecycle event and audit entry, and
+is optionally sent a ban message — one of the templates (torrents, account sharing, spam,
+payment fraud, rules; `GET /v1/panel/moderation/ban-templates`) or the operator's own text.
+The answer lists every identifier as `suspended`, `suspended_not_notified`, `failed`, or
+`not_found`.
+
+The same card counts active customers who blocked the bot. **Scan now** asks the bot to
+check every Telegram customer with a chat action (about twenty a second; one scan waits or
+runs at a time) and records each blocked or reachable chat; **Suspend blockers without
+access** suspends the blocked customers who hold no live subscription. A customer with a
+running subscription is never touched: they pay for the VPN, not for the bot.
+
+With the moderation section's **Filter dangerous display names** on, the bot refuses
+service to an account whose Telegram name or username contains a forbidden fragment — by
+default `admin`, `support`, their Russian forms, `@`, and links — and tells it to change
+the name. Operators named in `APP_OPERATOR_TELEGRAM_IDS` are exempt.
+
 ## Catalogue
 
 Plans, their versions, and promotions. The catalogue is versioned, so nothing

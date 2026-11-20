@@ -170,6 +170,15 @@ export const SECTIONS: SectionSchema[] = [
     ],
   },
   {
+    section: "moderation",
+    group: "integrations",
+    messageKey: "moderation",
+    fields: [
+      { name: "filterDisplayNames", kind: "boolean", messageKey: "filterDisplayNames" },
+      { name: "blockedNamePatterns", kind: "text", messageKey: "blockedNamePatterns" },
+    ],
+  },
+  {
     section: "reports",
     group: "operations",
     messageKey: "reports",

@@ -62,6 +62,7 @@ diagnostics bundle needs `system.read` and lives on the system screen. See
 | Operator group | `createTopics` | bot | Off sends every notice to the group itself, for a group without topics | on |
 | Operator group | `notificationCap`, `windowMinutes` | bot | The per-kind volume cap and its window; `0` removes the cap | `APP_OPERATOR_NOTIFICATION_CAP`, `APP_OPERATOR_NOTIFICATION_WINDOW_MINUTES` |
 | Operator group | `disabledKinds` | bot | Streams switched off. Their notices are completed as `suppressed` with `error_code = disabled` | none |
+| Moderation | `filterDisplayNames`, `blockedNamePatterns` | bot | Refuse the bot to accounts whose name pretends to be staff or carries a link; see [Admin operations](/operations/admin-operations) | off |
 | Scheduled reports | `periods`, `time` | worker | Daily, weekly (Mondays), and monthly (the 1st) summaries in the Reports topic, at the local time given | none sent |
 | Maintenance | `autoEnable`, `failureThreshold` | api | Whether dependency failures switch maintenance on, and after how many consecutive failed probes | `APP_MAINTENANCE_AUTO_DETECT`, `APP_MAINTENANCE_FAILURE_STREAK` |
 | Maintenance | `noticeRu`, `noticeEn` | api | The customer notice an automatic activation sets when the stored state has none | the built-in wording |

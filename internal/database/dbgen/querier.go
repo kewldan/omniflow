@@ -152,6 +152,7 @@ type Querier interface {
 	// replayed within its validity window. A successful claim also clears the
 	// second-factor failure count, which only a proven second factor may do.
 	ClaimAdminTOTPStep(ctx context.Context, arg ClaimAdminTOTPStepParams) (pgtype.UUID, error)
+	ClaimBlockerScan(ctx context.Context) (BlockerScan, error)
 	// Single redemption by construction: the predicate only matches a deliverable,
 	// unexpired gift, so a second claim of the same code updates no row.
 	ClaimGift(ctx context.Context, arg ClaimGiftParams) (Gift, error)
@@ -239,6 +240,7 @@ type Querier interface {
 	// Administrator accounts
 	// ---------------------------------------------------------------------------
 	CountAdminUsers(ctx context.Context) (int64, error)
+	CountBlockedCustomers(ctx context.Context) (int64, error)
 	CountCannedResponseUse(ctx context.Context, responseID pgtype.UUID) error
 	CountDunningAttemptsForCycle(ctx context.Context, cycleKey string) (int64, error)
 	CountGiftsByStatus(ctx context.Context) ([]CountGiftsByStatusRow, error)
@@ -574,6 +576,7 @@ type Querier interface {
 	// charging a card its owner has contested.
 	FailPaymentMethodsFromIntent(ctx context.Context, paymentIntentID pgtype.UUID) error
 	FinishBedolagaImportRun(ctx context.Context, arg FinishBedolagaImportRunParams) (BedolagaImportRun, error)
+	FinishBlockerScan(ctx context.Context, arg FinishBlockerScanParams) error
 	GetAIFeature(ctx context.Context, feature string) (AiFeature, error)
 	GetAIProviderCredentials(ctx context.Context, slug string) (GetAIProviderCredentialsRow, error)
 	// ---------------------------------------------------------------------------
@@ -903,6 +906,7 @@ type Querier interface {
 	// written for the shop would pass the wildcard branch and discount every plan.
 	IsPromotionPlanEligible(ctx context.Context, arg IsPromotionPlanEligibleParams) (bool, error)
 	IsSuppressed(ctx context.Context, userID pgtype.UUID) (bool, error)
+	LatestBlockerScan(ctx context.Context) (BlockerScan, error)
 	// The plan version an operator means when they pick a plan by name.
 	LatestLivePlanVersion(ctx context.Context, planID pgtype.UUID) (LatestLivePlanVersionRow, error)
 	// The issuer is stored with the subject because a subject is only unique within
@@ -1050,6 +1054,10 @@ type Querier interface {
 	// Warned customers whose grace has run out.
 	ListChannelEnforcementDue(ctx context.Context, pageSize int32) ([]ListChannelEnforcementDueRow, error)
 	ListChannelExemptions(ctx context.Context, pageSize int32) ([]ListChannelExemptionsRow, error)
+	// Customers who blocked the bot and hold no live access: the ones a clean-up
+	// suspends. Anybody with a running subscription is left alone — they pay for
+	// a VPN, not for the bot.
+	ListCleanableBlockers(ctx context.Context, pageSize int32) ([]pgtype.UUID, error)
 	// One row per batch with its counts, so the list answers "how many are still
 	// out there" without a second query per row.
 	ListCodeBatches(ctx context.Context, pageSize int32) ([]ListCodeBatchesRow, error)
@@ -1637,6 +1645,7 @@ type Querier interface {
 	// would make today's rate look terrible exactly when somebody is watching.
 	PaymentHealthByProvider(ctx context.Context, arg PaymentHealthByProviderParams) ([]PaymentHealthByProviderRow, error)
 	PlaceRetentionHold(ctx context.Context, arg PlaceRetentionHoldParams) (AiRetentionHold, error)
+	ProgressBlockerScan(ctx context.Context, arg ProgressBlockerScanParams) error
 	PruneCustomerActivity(ctx context.Context) (int64, error)
 	// Enabling one programme disables the rest, because the partial unique index
 	// allows exactly one and a customer can only stand in one definition at a time.
@@ -1767,6 +1776,7 @@ type Querier interface {
 	RenameAccountSubscription(ctx context.Context, arg RenameAccountSubscriptionParams) (Subscription, error)
 	RenameAdminPasskey(ctx context.Context, arg RenameAdminPasskeyParams) (AdminPasskey, error)
 	RenameSubscription(ctx context.Context, arg RenameSubscriptionParams) (Subscription, error)
+	RequestBlockerScan(ctx context.Context, requestedBy pgtype.UUID) (BlockerScan, error)
 	RequestLoyaltyRecalculation(ctx context.Context) (LoyaltyProgram, error)
 	// An operator retry only ever moves a terminal-looking row back into the queue.
 	// It cannot skip the idempotency key, so the retried attempt is the same
@@ -1785,6 +1795,8 @@ type Querier interface {
 	ResolveAllAppErrors(ctx context.Context) (int64, error)
 	ResolveAppError(ctx context.Context, errorID pgtype.UUID) (AppError, error)
 	ResolveCampaignRecipient(ctx context.Context, arg ResolveCampaignRecipientParams) error
+	// Moderation: bans by list, the bot-blocker scan, and cleaning blockers up.
+	ResolveCustomerByTelegramID(ctx context.Context, telegramID int64) (pgtype.UUID, error)
 	// Only a scheduled attempt resolves, so a retried worker cannot rewrite an
 	// outcome that has already been recorded.
 	//

@@ -1091,6 +1091,24 @@ CREATE TABLE public.bedolaga_import_runs (
 
 
 --
+-- Name: blocker_scans; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.blocker_scans (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    checked integer DEFAULT 0 NOT NULL,
+    blocked integer DEFAULT 0 NOT NULL,
+    requested_by uuid,
+    requested_at timestamp with time zone DEFAULT now() NOT NULL,
+    started_at timestamp with time zone,
+    finished_at timestamp with time zone,
+    CONSTRAINT blocker_scans_counts_valid CHECK (((checked >= 0) AND (blocked >= 0) AND (blocked <= checked))),
+    CONSTRAINT blocker_scans_status_known CHECK ((status = ANY (ARRAY['pending'::text, 'running'::text, 'completed'::text, 'failed'::text])))
+);
+
+
+--
 -- Name: blocklist_allowlist; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -4724,6 +4742,14 @@ ALTER TABLE ONLY public.bedolaga_import_runs
 
 
 --
+-- Name: blocker_scans blocker_scans_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.blocker_scans
+    ADD CONSTRAINT blocker_scans_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: blocklist_allowlist blocklist_allowlist_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6526,6 +6552,13 @@ CREATE INDEX bedolaga_import_items_user_idx ON public.bedolaga_import_items USIN
 
 
 --
+-- Name: blocker_scans_one_active; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX blocker_scans_one_active ON public.blocker_scans USING btree ((true)) WHERE (status = ANY (ARRAY['pending'::text, 'running'::text]));
+
+
+--
 -- Name: blocklist_matches_open_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7801,6 +7834,14 @@ ALTER TABLE ONLY public.bedolaga_import_items
 
 ALTER TABLE ONLY public.bedolaga_import_items
     ADD CONSTRAINT bedolaga_import_items_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: blocker_scans blocker_scans_requested_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.blocker_scans
+    ADD CONSTRAINT blocker_scans_requested_by_fkey FOREIGN KEY (requested_by) REFERENCES public.admin_users(id) ON DELETE SET NULL;
 
 
 --
