@@ -24,6 +24,7 @@ import {
 } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 import { PricingEditor } from "./pricing-editor";
+import { ProductCreator } from "./product-creator";
 import { ReviewQueue } from "./review-queue";
 import { StarsPanel } from "./stars-panel";
 
@@ -181,113 +182,120 @@ function Products({ active }: { active: boolean }) {
     return <Skeleton className="h-32 w-full" />;
   }
   const items = data?.items ?? [];
+  const creator = can("goods.write") ? <ProductCreator onCreated={() => void mutate()} /> : null;
   if (items.length === 0) {
     return (
-      <StateNotice
-        description={translate("empty.productsDescription")}
-        title={translate("empty.products")}
-        variant="empty"
-      />
+      <div className="flex flex-col gap-4">
+        {creator}
+        <StateNotice
+          description={translate("empty.productsDescription")}
+          title={translate("empty.products")}
+          variant="empty"
+        />
+      </div>
     );
   }
 
   return (
-    <Card className="overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{translate("columns.code")}</TableHead>
-            <TableHead>{translate("columns.kind")}</TableHead>
-            <TableHead>{translate("columns.quantity")}</TableHead>
-            <TableHead>{translate("columns.pricing")}</TableHead>
-            <TableHead>{translate("columns.visible")}</TableHead>
-            {can("goods.write") && <TableHead>{translate("columns.actions")}</TableHead>}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {items.map((product) => (
-            <TableRow key={product.id}>
-              <TableCell className="font-mono text-[12px]">{product.code}</TableCell>
-              <TableCell>{translate(`kind.${product.kind}`)}</TableCell>
-              <TableCell data-numeric>
-                {product.durationMonths
-                  ? translate("months", { count: product.durationMonths })
-                  : product.maxStarQuantity !== undefined
-                    ? translate("customAmount", {
-                        max: product.maxStarQuantity.toLocaleString(locale),
-                        min: (product.minStarQuantity ?? 0).toLocaleString(locale),
-                      })
-                    : (product.starQuantity?.toLocaleString(locale) ?? "—")}
-              </TableCell>
-              <TableCell className="text-muted-foreground text-sm">
-                {product.pricing
-                  ? product.pricing.unitPriceMinor
-                    ? translate("pricing.perStar", {
-                        amount: formatMoney(
-                          product.pricing.unitPriceMinor,
-                          product.pricing.currency,
-                          locale,
-                        ),
-                      })
-                    : product.pricing.fixedAmountMinor
-                      ? translate("pricing.fixed", {
+    <div className="flex flex-col gap-4">
+      {creator}
+      <Card className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{translate("columns.code")}</TableHead>
+              <TableHead>{translate("columns.kind")}</TableHead>
+              <TableHead>{translate("columns.quantity")}</TableHead>
+              <TableHead>{translate("columns.pricing")}</TableHead>
+              <TableHead>{translate("columns.visible")}</TableHead>
+              {can("goods.write") && <TableHead>{translate("columns.actions")}</TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {items.map((product) => (
+              <TableRow key={product.id}>
+                <TableCell className="font-mono text-[12px]">{product.code}</TableCell>
+                <TableCell>{translate(`kind.${product.kind}`)}</TableCell>
+                <TableCell data-numeric>
+                  {product.durationMonths
+                    ? translate("months", { count: product.durationMonths })
+                    : product.maxStarQuantity !== undefined
+                      ? translate("customAmount", {
+                          max: product.maxStarQuantity.toLocaleString(locale),
+                          min: (product.minStarQuantity ?? 0).toLocaleString(locale),
+                        })
+                      : (product.starQuantity?.toLocaleString(locale) ?? "—")}
+                </TableCell>
+                <TableCell className="text-muted-foreground text-sm">
+                  {product.pricing
+                    ? product.pricing.unitPriceMinor
+                      ? translate("pricing.perStar", {
                           amount: formatMoney(
-                            product.pricing.fixedAmountMinor,
+                            product.pricing.unitPriceMinor,
                             product.pricing.currency,
                             locale,
                           ),
                         })
-                      : translate("pricing.markup", {
-                          percent: (product.pricing.markupBps / 100).toFixed(2),
-                          rounding: translate(`rounding.${product.pricing.rounding}`),
-                        })
-                  : translate("pricing.missing")}
-              </TableCell>
-              <TableCell>
-                <Badge variant={product.visible && !product.archivedAt ? "success" : "neutral"}>
-                  {translate(
-                    product.archivedAt ? "archived" : product.visible ? "visible" : "hidden",
-                  )}
-                </Badge>
-              </TableCell>
-              {can("goods.write") && (
-                <TableCell>
-                  <Button
-                    onClick={() => setEditing(editing === product.id ? null : product.id)}
-                    size="sm"
-                    variant="outline"
-                  >
-                    {translate("pricing.edit")}
-                  </Button>
+                      : product.pricing.fixedAmountMinor
+                        ? translate("pricing.fixed", {
+                            amount: formatMoney(
+                              product.pricing.fixedAmountMinor,
+                              product.pricing.currency,
+                              locale,
+                            ),
+                          })
+                        : translate("pricing.markup", {
+                            percent: (product.pricing.markupBps / 100).toFixed(2),
+                            rounding: translate(`rounding.${product.pricing.rounding}`),
+                          })
+                    : translate("pricing.missing")}
                 </TableCell>
-              )}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+                <TableCell>
+                  <Badge variant={product.visible && !product.archivedAt ? "success" : "neutral"}>
+                    {translate(
+                      product.archivedAt ? "archived" : product.visible ? "visible" : "hidden",
+                    )}
+                  </Badge>
+                </TableCell>
+                {can("goods.write") && (
+                  <TableCell>
+                    <Button
+                      onClick={() => setEditing(editing === product.id ? null : product.id)}
+                      size="sm"
+                      variant="outline"
+                    >
+                      {translate("pricing.edit")}
+                    </Button>
+                  </TableCell>
+                )}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
 
-      {/*
+        {/*
         The editor sits under the table rather than in a dialog: a pricing rule
         is read against the row above it, and a modal would hide the comparison
         the operator is making.
       */}
-      {editing && (
-        <div className="border-border border-t p-4">
-          {items
-            .filter((product) => product.id === editing)
-            .map((product) => (
-              <PricingEditor
-                key={product.id}
-                onSaved={async () => {
-                  setEditing(null);
-                  await mutate();
-                }}
-                product={product}
-              />
-            ))}
-        </div>
-      )}
-    </Card>
+        {editing && (
+          <div className="border-border border-t p-4">
+            {items
+              .filter((product) => product.id === editing)
+              .map((product) => (
+                <PricingEditor
+                  key={product.id}
+                  onSaved={async () => {
+                    setEditing(null);
+                    await mutate();
+                  }}
+                  product={product}
+                />
+              ))}
+          </div>
+        )}
+      </Card>
+    </div>
   );
 }
 

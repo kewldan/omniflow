@@ -2219,6 +2219,26 @@
           "badPresets": "Every preset must lie between the minimum and the maximum.",
           "badPrice": "Enter a price per Star, such as 1.50."
         }
+      },
+      "productCreator": {
+        "title": "New product",
+        "description": "Telegram Premium for 3, 6, or 12 months, or a fixed pack of Stars, delivered by a configured provider. It is created hidden; set its price in the pricing editor, then show it.",
+        "code": "Code",
+        "provider": "Provider",
+        "pickProvider": "Pick a provider",
+        "kind": "Kind",
+        "kinds": {
+          "telegram_premium": "Telegram Premium",
+          "telegram_stars": "Telegram Stars pack"
+        },
+        "months": "Duration",
+        "monthCount": "{months} months",
+        "stars": "Stars in the pack",
+        "nameRu": "Name (RU)",
+        "nameEn": "Name (EN)",
+        "invalid": "Not created: check the code, the provider, and the amount.",
+        "create": "Create product",
+        "created": "Product created hidden; set its price next."
       }
     },
     "gifts": {

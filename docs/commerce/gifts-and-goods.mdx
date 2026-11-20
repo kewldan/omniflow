@@ -236,6 +236,13 @@ the wallet.
   test. Try a dry run first, then one real purchase of the minimum amount.
 </Warning>
 
+### Creating a product
+
+`/admin/shop` → **Products** → **New product** (`goods.write`) creates Telegram Premium for 3, 6, or
+12 months, or a fixed pack of Stars, on a configured provider, with its name in both languages, through
+`POST /v1/panel/goods/products` and the localisation routes. It is created hidden: set its price in
+the product's pricing editor, then show it. A custom-amount Stars product is created on the Stars tab.
+
 ### Pricing
 
 What the customer pays is derived from what the provider charges: a markup in
