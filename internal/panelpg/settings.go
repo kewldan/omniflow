@@ -3,6 +3,7 @@ package panelpg
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -39,6 +40,7 @@ type SubscriptionSettings struct {
 type CommerceSettings struct {
 	TopUp         TopUpSettings        `json:"topUp"`
 	Subscriptions SubscriptionSettings `json:"subscriptions"`
+	Guidance      PaymentGuidance      `json:"paymentGuidance"`
 	UpdatedAt     time.Time            `json:"updatedAt"`
 	UpdatedBy     string               `json:"updatedBy,omitempty"`
 }
@@ -200,9 +202,50 @@ func commerceSettingsFrom(row dbgen.CommerceSetting) CommerceSettings {
 			MultiEnabled:   row.MultiSubscriptionEnabled,
 			MaxPerCustomer: row.MaxSubscriptionsPerCustomer,
 		},
+		Guidance: PaymentGuidance{
+			ManualInstructionsRU: row.ManualInstructionsRu, ManualInstructionsEN: row.ManualInstructionsEn,
+			SupportTopUp: row.SupportTopupEnabled,
+		},
 		UpdatedAt: timeValue(row.UpdatedAt),
 		UpdatedBy: uuidString(row.UpdatedBy),
 	}
+}
+
+// PaymentGuidance is what customers are told about paying outside a
+// provider's checkout: transfer instructions for a manual payment, and
+// whether the wallet offers to top up through support.
+type PaymentGuidance struct {
+	ManualInstructionsRU string `json:"manualInstructionsRu"`
+	ManualInstructionsEN string `json:"manualInstructionsEn"`
+	SupportTopUp         bool   `json:"supportTopUp"`
+}
+
+// SavePaymentGuidance stores the manual-payment instructions and the
+// top-up-through-support switch, audited.
+func (service *Service) SavePaymentGuidance(
+	ctx context.Context, guidance PaymentGuidance, actor Actor,
+) (CommerceSettings, error) {
+	guidance.ManualInstructionsRU = strings.TrimSpace(guidance.ManualInstructionsRU)
+	guidance.ManualInstructionsEN = strings.TrimSpace(guidance.ManualInstructionsEN)
+	if len([]rune(guidance.ManualInstructionsRU)) > 2000 || len([]rune(guidance.ManualInstructionsEN)) > 2000 {
+		return CommerceSettings{}, ErrValidaton
+	}
+	var saved CommerceSettings
+	err := service.inTx(ctx, func(queries *dbgen.Queries) error {
+		row, err := queries.UpdatePaymentGuidance(ctx, dbgen.UpdatePaymentGuidanceParams{
+			ManualInstructionsRu: guidance.ManualInstructionsRU, ManualInstructionsEn: guidance.ManualInstructionsEN,
+			SupportTopupEnabled: guidance.SupportTopUp, UpdatedBy: optionalUUID(actor.AdminID),
+		})
+		if err != nil {
+			return notFound(err)
+		}
+		saved = commerceSettingsFrom(row)
+		return appendAudit(ctx, queries, actor.audit(
+			"panel.payment_guidance.updated", "configuration", "commerce_settings", "singleton",
+			map[string]any{"supportTopUp": guidance.SupportTopUp},
+		))
+	})
+	return saved, err
 }
 
 // ---------------------------------------------------------------------------

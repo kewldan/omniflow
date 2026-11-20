@@ -43,6 +43,16 @@ SET topup_enabled = sqlc.arg(topup_enabled),
 WHERE singleton
 RETURNING *;
 
+-- name: UpdatePaymentGuidance :one
+UPDATE commerce_settings
+SET manual_instructions_ru = sqlc.arg(manual_instructions_ru),
+    manual_instructions_en = sqlc.arg(manual_instructions_en),
+    support_topup_enabled = sqlc.arg(support_topup_enabled),
+    updated_at = now(),
+    updated_by = sqlc.narg(updated_by)
+WHERE singleton
+RETURNING *;
+
 -- name: UpdateSubscriptionSettings :one
 UPDATE commerce_settings
 SET multi_subscription_enabled = sqlc.arg(multi_subscription_enabled),

@@ -491,6 +491,14 @@ function TopUpForm({
           <FieldMessage id="top-up-provider-error" message={formState.errors.provider?.message} />
         </fieldset>
 
+        {policy.supportTopUp && (
+          <p className="text-[12.5px] text-muted-foreground">
+            <Link className="underline underline-offset-2" href="/account/support">
+              {translate("wallet.topUp.viaSupport")}
+            </Link>
+          </p>
+        )}
+
         {/* Disabled only when there is truly nothing to pay with, and that is
             said just above; every other problem is reported on its field when
             the customer presses the button, rather than by a button that

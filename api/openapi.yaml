@@ -1649,6 +1649,20 @@ paths:
         "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelCommerceSettings"}}}}
         "403": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/commerce/payment-guidance:
+    put:
+      operationId: savePanelPaymentGuidance
+      tags: [panel]
+      description: >-
+        Requires settings.write. The transfer instructions customers see for a
+        manual payment, in Russian and English (up to 2000 characters each), and
+        whether the wallet offers to top up through support.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelPaymentGuidance"}}}}
+      responses:
+        "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelCommerceSettings"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
   /v1/panel/settings/subscription-policy:
     get:
       operationId: getPanelSubscriptionPolicy
@@ -7253,8 +7267,16 @@ components:
       properties:
         topUp: {$ref: "#/components/schemas/PanelTopUpSettings"}
         subscriptions: {$ref: "#/components/schemas/PanelSubscriptionSettings"}
+        paymentGuidance: {$ref: "#/components/schemas/PanelPaymentGuidance"}
         updatedAt: {type: string, format: date-time}
         updatedBy: {type: string, format: uuid}
+    PanelPaymentGuidance:
+      type: object
+      required: [manualInstructionsRu, manualInstructionsEn, supportTopUp]
+      properties:
+        manualInstructionsRu: {type: string, maxLength: 2000}
+        manualInstructionsEn: {type: string, maxLength: 2000}
+        supportTopUp: {type: boolean}
     PanelProviderSettings:
       type: object
       required: [provider, merchantId, enabled, displayOrder, credentialsSet, webhookSecretSet, adapterRecurring, recurringEnabled, recurringTestStatus, connectionStatus, webhookStatus, updatedAt]
@@ -8378,6 +8400,9 @@ components:
         preferredProvider:
           type: string
           description: "The method the checkout recorded, while that checkout is still attached to the order."
+        manualInstructions:
+          type: string
+          description: "The operator's transfer instructions, in the customer's language, when the order is paid or payable by manual transfer."
     AccountOrderPage:
       type: object
       required: [items]
@@ -8411,6 +8436,7 @@ components:
             presets: {type: array, items: {type: integer, format: int64}}
             remainingWindowMinor: {type: integer, format: int64, description: "What the rolling-window limit still allows."}
             providers: {type: array, items: {$ref: "#/components/schemas/AccountPaymentChoice"}}
+            supportTopUp: {type: boolean, description: "The operator offers to top up through support."}
         entries:
           type: array
           items:

@@ -483,6 +483,13 @@ func (app *App) orderScreen(ctx context.Context, session commerceContext, orderI
 // the screen.
 func (app *App) orderExtras(ctx context.Context, session commerceContext, order OrderSummary) orderExtras {
 	extras := orderExtras{}
+	if order.Provider == "manual" {
+		guidance, err := app.commerce.checkout.Store().PaymentGuidance(ctx, string(session.Locale))
+		if err != nil {
+			app.logger.Warn("payment guidance lookup failed", "error", err)
+		}
+		extras.ManualInstructions = guidance.ManualInstructions
+	}
 	switch order.Operation {
 	case "gift":
 		gift, found, err := app.customers.GiftByOrder(ctx, session.Customer.ID, order.ID)
@@ -655,7 +662,19 @@ func (app *App) walletScreen(ctx context.Context, session commerceContext) View 
 		app.logger.Error("wallet history lookup failed", "error", err)
 		return app.errorView(session.Locale, routeWallet)
 	}
-	return walletView(session.Locale, balance, reserved, app.settings.Currency, entries, app.commerce.TopUpLimits().Enabled)
+	guidance, err := app.commerce.checkout.Store().PaymentGuidance(ctx, string(session.Locale))
+	if err != nil {
+		app.logger.Warn("payment guidance lookup failed", "error", err)
+	}
+	view := walletView(session.Locale, balance, reserved, app.settings.Currency, entries, app.commerce.TopUpLimits().Enabled)
+	if guidance.SupportTopUp {
+		// Bedolaga's "top up through support": a person takes the money and
+		// credits it, for customers no configured provider serves.
+		view.Keyboard.InlineKeyboard = append([][]models.InlineKeyboardButton{
+			row(callbackButton(text(session.Locale, "wallet.supportTopUp"), routeSupport)),
+		}, view.Keyboard.InlineKeyboard...)
+	}
+	return view
 }
 
 func (app *App) newsScreen(ctx context.Context, session commerceContext) View {

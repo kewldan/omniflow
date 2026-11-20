@@ -24,6 +24,17 @@ func (handlers *AdminHandlers) listPaymentMethodSettings(writer http.ResponseWri
 	writeJSON(writer, http.StatusOK, map[string]any{"items": items})
 }
 
+// savePaymentGuidance stores the manual-payment instructions and whether the
+// wallet offers to top up through support.
+func (handlers *AdminHandlers) savePaymentGuidance(writer http.ResponseWriter, request *http.Request) {
+	var body panelpg.PaymentGuidance
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	saved, err := handlers.operations.SavePaymentGuidance(request.Context(), body, actorFrom(request))
+	handlers.respond(writer, request, saved, err)
+}
+
 // savePaymentMethodSettings stores one button's configuration. The customer
 // lists read it within half a minute; nothing here changes what an adapter is
 // able to do, only how and to whom it is offered.

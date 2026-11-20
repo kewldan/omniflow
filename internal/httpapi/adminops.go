@@ -153,6 +153,7 @@ func (handlers *AdminHandlers) mountOperations(secure chi.Router) {
 	secure.With(handlers.requirePermission(rbac.PermissionSettingsWrite)).Group(func(write chi.Router) {
 		write.Put("/settings/commerce/topup", handlers.saveTopUpSettings)
 		write.Put("/settings/commerce/subscriptions", handlers.saveSubscriptionSettings)
+		write.Put("/settings/commerce/payment-guidance", handlers.savePaymentGuidance)
 		write.Put("/settings/providers/{provider}", handlers.saveProviderSettings)
 		write.Post("/settings/providers/{provider}/recurring", handlers.configureRecurring)
 		write.Post("/settings/providers/{provider}/test", handlers.testProviderConnection)

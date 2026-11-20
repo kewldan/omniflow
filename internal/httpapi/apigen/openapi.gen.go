@@ -5726,10 +5726,13 @@ type AccountOrder struct {
 		Status    string     `json:"status"`
 		UpdatedAt *time.Time `json:"updatedAt,omitempty"`
 	} `json:"fulfillment,omitempty"`
-	Id        openapi_types.UUID `json:"id"`
-	Operation string             `json:"operation"`
-	PaidMinor int64              `json:"paidMinor"`
-	Payment   *struct {
+	Id openapi_types.UUID `json:"id"`
+
+	// ManualInstructions The operator's transfer instructions, in the customer's language, when the order is paid or payable by manual transfer.
+	ManualInstructions *string `json:"manualInstructions,omitempty"`
+	Operation          string  `json:"operation"`
+	PaidMinor          int64   `json:"paidMinor"`
+	Payment            *struct {
 		CheckoutUrl *string                    `json:"checkoutUrl,omitempty"`
 		Handoff     AccountOrderPaymentHandoff `json:"handoff"`
 		Id          openapi_types.UUID         `json:"id"`
@@ -6544,6 +6547,9 @@ type AccountWallet struct {
 
 		// RemainingWindowMinor What the rolling-window limit still allows.
 		RemainingWindowMinor *int64 `json:"remainingWindowMinor,omitempty"`
+
+		// SupportTopUp The operator offers to top up through support.
+		SupportTopUp *bool `json:"supportTopUp,omitempty"`
 	} `json:"topUp"`
 }
 
@@ -7628,10 +7634,11 @@ type PanelCodeBatchList struct {
 
 // PanelCommerceSettings defines model for PanelCommerceSettings.
 type PanelCommerceSettings struct {
-	Subscriptions PanelSubscriptionSettings `json:"subscriptions"`
-	TopUp         PanelTopUpSettings        `json:"topUp"`
-	UpdatedAt     time.Time                 `json:"updatedAt"`
-	UpdatedBy     *openapi_types.UUID       `json:"updatedBy,omitempty"`
+	PaymentGuidance *PanelPaymentGuidance     `json:"paymentGuidance,omitempty"`
+	Subscriptions   PanelSubscriptionSettings `json:"subscriptions"`
+	TopUp           PanelTopUpSettings        `json:"topUp"`
+	UpdatedAt       time.Time                 `json:"updatedAt"`
+	UpdatedBy       *openapi_types.UUID       `json:"updatedBy,omitempty"`
 }
 
 // PanelConnectCatalogue defines model for PanelConnectCatalogue.
@@ -8520,6 +8527,13 @@ type PanelPaymentEvent struct {
 	PreviousStatus *string   `json:"previousStatus,omitempty"`
 	Status         *string   `json:"status,omitempty"`
 	Type           string    `json:"type"`
+}
+
+// PanelPaymentGuidance defines model for PanelPaymentGuidance.
+type PanelPaymentGuidance struct {
+	ManualInstructionsEn string `json:"manualInstructionsEn"`
+	ManualInstructionsRu string `json:"manualInstructionsRu"`
+	SupportTopUp         bool   `json:"supportTopUp"`
 }
 
 // PanelPaymentHealth defines model for PanelPaymentHealth.
@@ -11820,6 +11834,12 @@ type TestPanelAIProviderParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// SavePanelPaymentGuidanceParams defines parameters for SavePanelPaymentGuidance.
+type SavePanelPaymentGuidanceParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // SavePanelSubscriptionSettingsParams defines parameters for SavePanelSubscriptionSettings.
 type SavePanelSubscriptionSettingsParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
@@ -12458,6 +12478,9 @@ type SavePanelAIProviderJSONRequestBody = PanelAIProviderInput
 
 // TestPanelAIProviderJSONRequestBody defines body for TestPanelAIProvider for application/json ContentType.
 type TestPanelAIProviderJSONRequestBody = PanelAIProviderTestInput
+
+// SavePanelPaymentGuidanceJSONRequestBody defines body for SavePanelPaymentGuidance for application/json ContentType.
+type SavePanelPaymentGuidanceJSONRequestBody = PanelPaymentGuidance
 
 // SavePanelSubscriptionSettingsJSONRequestBody defines body for SavePanelSubscriptionSettings for application/json ContentType.
 type SavePanelSubscriptionSettingsJSONRequestBody = PanelSubscriptionSettings
@@ -13585,6 +13608,9 @@ type ServerInterface interface {
 
 	// (GET /v1/panel/settings/commerce)
 	GetPanelCommerceSettings(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /v1/panel/settings/commerce/payment-guidance)
+	SavePanelPaymentGuidance(w http.ResponseWriter, r *http.Request, params SavePanelPaymentGuidanceParams)
 
 	// (PUT /v1/panel/settings/commerce/subscriptions)
 	SavePanelSubscriptionSettings(w http.ResponseWriter, r *http.Request, params SavePanelSubscriptionSettingsParams)
@@ -15259,6 +15285,11 @@ func (_ Unimplemented) TestPanelAIProvider(w http.ResponseWriter, r *http.Reques
 
 // (GET /v1/panel/settings/commerce)
 func (_ Unimplemented) GetPanelCommerceSettings(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /v1/panel/settings/commerce/payment-guidance)
+func (_ Unimplemented) SavePanelPaymentGuidance(w http.ResponseWriter, r *http.Request, params SavePanelPaymentGuidanceParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -28339,6 +28370,51 @@ func (siw *ServerInterfaceWrapper) GetPanelCommerceSettings(w http.ResponseWrite
 	handler.ServeHTTP(w, r)
 }
 
+// SavePanelPaymentGuidance operation middleware
+func (siw *ServerInterfaceWrapper) SavePanelPaymentGuidance(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SavePanelPaymentGuidanceParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SavePanelPaymentGuidance(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // SavePanelSubscriptionSettings operation middleware
 func (siw *ServerInterfaceWrapper) SavePanelSubscriptionSettings(w http.ResponseWriter, r *http.Request) {
 
@@ -31319,6 +31395,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/v1/panel/settings/commerce/subscriptions", wrapper.SavePanelSubscriptionSettings)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/v1/panel/settings/commerce/payment-guidance", wrapper.SavePanelPaymentGuidance)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/settings/subscription-policy", wrapper.GetPanelSubscriptionPolicy)
@@ -45520,6 +45599,59 @@ func (response GetPanelCommerceSettings403ApplicationProblemPlusJSONResponse) Vi
 	return err
 }
 
+type SavePanelPaymentGuidanceRequestObject struct {
+	Params SavePanelPaymentGuidanceParams
+	Body   *SavePanelPaymentGuidanceJSONRequestBody
+}
+
+type SavePanelPaymentGuidanceResponseObject interface {
+	VisitSavePanelPaymentGuidanceResponse(w http.ResponseWriter) error
+}
+
+type SavePanelPaymentGuidance200JSONResponse PanelCommerceSettings
+
+func (response SavePanelPaymentGuidance200JSONResponse) VisitSavePanelPaymentGuidanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelPaymentGuidance403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SavePanelPaymentGuidance403ApplicationProblemPlusJSONResponse) VisitSavePanelPaymentGuidanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelPaymentGuidance422ApplicationProblemPlusJSONResponse Problem
+
+func (response SavePanelPaymentGuidance422ApplicationProblemPlusJSONResponse) VisitSavePanelPaymentGuidanceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type SavePanelSubscriptionSettingsRequestObject struct {
 	Params SavePanelSubscriptionSettingsParams
 	Body   *SavePanelSubscriptionSettingsJSONRequestBody
@@ -49323,6 +49455,9 @@ type StrictServerInterface interface {
 
 	// (GET /v1/panel/settings/commerce)
 	GetPanelCommerceSettings(ctx context.Context, request GetPanelCommerceSettingsRequestObject) (GetPanelCommerceSettingsResponseObject, error)
+
+	// (PUT /v1/panel/settings/commerce/payment-guidance)
+	SavePanelPaymentGuidance(ctx context.Context, request SavePanelPaymentGuidanceRequestObject) (SavePanelPaymentGuidanceResponseObject, error)
 
 	// (PUT /v1/panel/settings/commerce/subscriptions)
 	SavePanelSubscriptionSettings(ctx context.Context, request SavePanelSubscriptionSettingsRequestObject) (SavePanelSubscriptionSettingsResponseObject, error)
@@ -58048,6 +58183,39 @@ func (sh *strictHandler) GetPanelCommerceSettings(w http.ResponseWriter, r *http
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetPanelCommerceSettingsResponseObject); ok {
 		if err := validResponse.VisitGetPanelCommerceSettingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SavePanelPaymentGuidance operation middleware
+func (sh *strictHandler) SavePanelPaymentGuidance(w http.ResponseWriter, r *http.Request, params SavePanelPaymentGuidanceParams) {
+	var request SavePanelPaymentGuidanceRequestObject
+
+	request.Params = params
+
+	var body SavePanelPaymentGuidanceJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SavePanelPaymentGuidance(ctx, request.(SavePanelPaymentGuidanceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SavePanelPaymentGuidance")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SavePanelPaymentGuidanceResponseObject); ok {
+		if err := validResponse.VisitSavePanelPaymentGuidanceResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

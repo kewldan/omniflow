@@ -777,6 +777,9 @@ type CommerceSetting struct {
 	UpdatedBy                   pgtype.UUID        `json:"updated_by"`
 	ChannelGraceSeconds         int64              `json:"channel_grace_seconds"`
 	ChannelRecheckSeconds       int64              `json:"channel_recheck_seconds"`
+	ManualInstructionsRu        string             `json:"manual_instructions_ru"`
+	ManualInstructionsEn        string             `json:"manual_instructions_en"`
+	SupportTopupEnabled         bool               `json:"support_topup_enabled"`
 }
 
 type CommunicationSuppression struct {

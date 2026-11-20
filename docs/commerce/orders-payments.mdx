@@ -535,6 +535,14 @@ provider reference is the order ID, and settlement happens when an operator appr
 for bank transfers, cash, and any rail Omniflow does not integrate, and the approval is audited so
 the money is attributable to a named operator with a reason.
 
+**What the customer is told.** Under **Settings → Commerce → Manual payments** an operator writes
+the transfer instructions (where to send the money and what reference to add, up to 2000 characters
+in Russian and in English; `PUT /v1/panel/settings/commerce/payment-guidance`, `settings.write`).
+The web order page and the bot's order screen show them beside a manual payment, in the customer's
+language and falling back to the other one. The same card has **Offer top-up through support**,
+which adds a "top up through support" link to the web wallet and a button to the bot's wallet that
+opens support — for customers no configured provider serves.
+
 ```bash
 curl -X POST https://example.com/v1/admin/payments/{paymentID}/manual-decision \
   -H "Authorization: Bearer $APP_OPERATOR_TOKEN" \

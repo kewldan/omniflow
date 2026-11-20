@@ -314,6 +314,8 @@ export type OrderSummary = {
   paymentChoices?: PaymentChoice[];
   /** The method the checkout recorded, when that checkout is still attached. */
   preferredProvider?: string;
+  /** The operator's instructions for a manual transfer, in the panel's language. */
+  manualInstructions?: string;
 };
 
 /** `GET /v1/account/orders` */
@@ -371,6 +373,8 @@ export type TopUpPolicy = {
   /** What may still be credited inside the rolling window. */
   remainingWindowMinor: number;
   providers: PaymentChoice[];
+  /** The operator offers to top up through support. */
+  supportTopUp?: boolean;
 };
 
 /** `GET /v1/account/wallet` — balances, policy, pending top-ups, and one page of the ledger. */

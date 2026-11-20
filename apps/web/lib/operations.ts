@@ -441,6 +441,11 @@ export type CommerceSettings = {
     windowLimitMinor: number;
   };
   subscriptions: { multiEnabled: boolean; maxPerCustomer: number };
+  paymentGuidance?: {
+    manualInstructionsRu: string;
+    manualInstructionsEn: string;
+    supportTopUp: boolean;
+  };
   updatedAt: string;
 };
 

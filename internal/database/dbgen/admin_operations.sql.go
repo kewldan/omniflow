@@ -954,7 +954,7 @@ func (q *Queries) GetBulkSubscriptionTarget(ctx context.Context, subscriptionID 
 const getCommerceSettings = `-- name: GetCommerceSettings :one
 
 
-SELECT singleton, topup_enabled, topup_currency, topup_presets_minor, topup_minimum_minor, topup_maximum_minor, topup_window_seconds, topup_window_limit_minor, multi_subscription_enabled, max_subscriptions_per_customer, updated_at, updated_by, channel_grace_seconds, channel_recheck_seconds FROM commerce_settings WHERE singleton
+SELECT singleton, topup_enabled, topup_currency, topup_presets_minor, topup_minimum_minor, topup_maximum_minor, topup_window_seconds, topup_window_limit_minor, multi_subscription_enabled, max_subscriptions_per_customer, updated_at, updated_by, channel_grace_seconds, channel_recheck_seconds, manual_instructions_ru, manual_instructions_en, support_topup_enabled FROM commerce_settings WHERE singleton
 `
 
 // Operator panel queries for v0.7: settings, dashboard, customer and finance
@@ -985,6 +985,9 @@ func (q *Queries) GetCommerceSettings(ctx context.Context) (CommerceSetting, err
 		&i.UpdatedBy,
 		&i.ChannelGraceSeconds,
 		&i.ChannelRecheckSeconds,
+		&i.ManualInstructionsRu,
+		&i.ManualInstructionsEn,
+		&i.SupportTopupEnabled,
 	)
 	return i, err
 }
@@ -3174,7 +3177,7 @@ INSERT INTO commerce_settings (
   $8, $9
 )
 ON CONFLICT (singleton) DO NOTHING
-RETURNING singleton, topup_enabled, topup_currency, topup_presets_minor, topup_minimum_minor, topup_maximum_minor, topup_window_seconds, topup_window_limit_minor, multi_subscription_enabled, max_subscriptions_per_customer, updated_at, updated_by, channel_grace_seconds, channel_recheck_seconds
+RETURNING singleton, topup_enabled, topup_currency, topup_presets_minor, topup_minimum_minor, topup_maximum_minor, topup_window_seconds, topup_window_limit_minor, multi_subscription_enabled, max_subscriptions_per_customer, updated_at, updated_by, channel_grace_seconds, channel_recheck_seconds, manual_instructions_ru, manual_instructions_en, support_topup_enabled
 `
 
 type SeedCommerceSettingsParams struct {
@@ -3219,6 +3222,9 @@ func (q *Queries) SeedCommerceSettings(ctx context.Context, arg SeedCommerceSett
 		&i.UpdatedBy,
 		&i.ChannelGraceSeconds,
 		&i.ChannelRecheckSeconds,
+		&i.ManualInstructionsRu,
+		&i.ManualInstructionsEn,
+		&i.SupportTopupEnabled,
 	)
 	return i, err
 }
@@ -3376,6 +3382,54 @@ func (q *Queries) StartBulkOperation(ctx context.Context, operationID pgtype.UUI
 	return i, err
 }
 
+const updatePaymentGuidance = `-- name: UpdatePaymentGuidance :one
+UPDATE commerce_settings
+SET manual_instructions_ru = $1,
+    manual_instructions_en = $2,
+    support_topup_enabled = $3,
+    updated_at = now(),
+    updated_by = $4
+WHERE singleton
+RETURNING singleton, topup_enabled, topup_currency, topup_presets_minor, topup_minimum_minor, topup_maximum_minor, topup_window_seconds, topup_window_limit_minor, multi_subscription_enabled, max_subscriptions_per_customer, updated_at, updated_by, channel_grace_seconds, channel_recheck_seconds, manual_instructions_ru, manual_instructions_en, support_topup_enabled
+`
+
+type UpdatePaymentGuidanceParams struct {
+	ManualInstructionsRu string      `json:"manual_instructions_ru"`
+	ManualInstructionsEn string      `json:"manual_instructions_en"`
+	SupportTopupEnabled  bool        `json:"support_topup_enabled"`
+	UpdatedBy            pgtype.UUID `json:"updated_by"`
+}
+
+func (q *Queries) UpdatePaymentGuidance(ctx context.Context, arg UpdatePaymentGuidanceParams) (CommerceSetting, error) {
+	row := q.db.QueryRow(ctx, updatePaymentGuidance,
+		arg.ManualInstructionsRu,
+		arg.ManualInstructionsEn,
+		arg.SupportTopupEnabled,
+		arg.UpdatedBy,
+	)
+	var i CommerceSetting
+	err := row.Scan(
+		&i.Singleton,
+		&i.TopupEnabled,
+		&i.TopupCurrency,
+		&i.TopupPresetsMinor,
+		&i.TopupMinimumMinor,
+		&i.TopupMaximumMinor,
+		&i.TopupWindowSeconds,
+		&i.TopupWindowLimitMinor,
+		&i.MultiSubscriptionEnabled,
+		&i.MaxSubscriptionsPerCustomer,
+		&i.UpdatedAt,
+		&i.UpdatedBy,
+		&i.ChannelGraceSeconds,
+		&i.ChannelRecheckSeconds,
+		&i.ManualInstructionsRu,
+		&i.ManualInstructionsEn,
+		&i.SupportTopupEnabled,
+	)
+	return i, err
+}
+
 const updatePlanOrdering = `-- name: UpdatePlanOrdering :one
 UPDATE plans
 SET sort_order = $1,
@@ -3480,7 +3534,7 @@ SET multi_subscription_enabled = $1,
     updated_at = now(),
     updated_by = $3
 WHERE singleton
-RETURNING singleton, topup_enabled, topup_currency, topup_presets_minor, topup_minimum_minor, topup_maximum_minor, topup_window_seconds, topup_window_limit_minor, multi_subscription_enabled, max_subscriptions_per_customer, updated_at, updated_by, channel_grace_seconds, channel_recheck_seconds
+RETURNING singleton, topup_enabled, topup_currency, topup_presets_minor, topup_minimum_minor, topup_maximum_minor, topup_window_seconds, topup_window_limit_minor, multi_subscription_enabled, max_subscriptions_per_customer, updated_at, updated_by, channel_grace_seconds, channel_recheck_seconds, manual_instructions_ru, manual_instructions_en, support_topup_enabled
 `
 
 type UpdateSubscriptionSettingsParams struct {
@@ -3507,6 +3561,9 @@ func (q *Queries) UpdateSubscriptionSettings(ctx context.Context, arg UpdateSubs
 		&i.UpdatedBy,
 		&i.ChannelGraceSeconds,
 		&i.ChannelRecheckSeconds,
+		&i.ManualInstructionsRu,
+		&i.ManualInstructionsEn,
+		&i.SupportTopupEnabled,
 	)
 	return i, err
 }
@@ -3523,7 +3580,7 @@ SET topup_enabled = $1,
     updated_at = now(),
     updated_by = $8
 WHERE singleton
-RETURNING singleton, topup_enabled, topup_currency, topup_presets_minor, topup_minimum_minor, topup_maximum_minor, topup_window_seconds, topup_window_limit_minor, multi_subscription_enabled, max_subscriptions_per_customer, updated_at, updated_by, channel_grace_seconds, channel_recheck_seconds
+RETURNING singleton, topup_enabled, topup_currency, topup_presets_minor, topup_minimum_minor, topup_maximum_minor, topup_window_seconds, topup_window_limit_minor, multi_subscription_enabled, max_subscriptions_per_customer, updated_at, updated_by, channel_grace_seconds, channel_recheck_seconds, manual_instructions_ru, manual_instructions_en, support_topup_enabled
 `
 
 type UpdateTopUpSettingsParams struct {
@@ -3564,6 +3621,9 @@ func (q *Queries) UpdateTopUpSettings(ctx context.Context, arg UpdateTopUpSettin
 		&i.UpdatedBy,
 		&i.ChannelGraceSeconds,
 		&i.ChannelRecheckSeconds,
+		&i.ManualInstructionsRu,
+		&i.ManualInstructionsEn,
+		&i.SupportTopupEnabled,
 	)
 	return i, err
 }

@@ -2323,6 +2323,15 @@
         },
         "reason": "Reason",
         "save": "Save"
+      },
+      "paymentGuidance": {
+        "title": "Manual payments",
+        "description": "Instructions shown to customers who pay by manual transfer, and whether the wallet offers to top up through support. An operator confirms such payments by hand.",
+        "instructionsRu": "Transfer instructions (Russian)",
+        "instructionsEn": "Transfer instructions (English)",
+        "supportTopUp": "Offer top-up through support",
+        "reason": "Reason",
+        "save": "Save"
       }
     },
     "nav": {
@@ -5187,7 +5196,8 @@
           "retry": "Try the payment again",
           "nothingDue": "Nothing more was owed on this order.",
           "saveMethod": "Save this card for automatic renewal",
-          "saveMethodHint": "Only a reference from the payment provider is kept — never the card number. You can remove it at any time under Auto-renew."
+          "saveMethodHint": "Only a reference from the payment provider is kept — never the card number. You can remove it at any time under Auto-renew.",
+          "manualTitle": "How to pay by transfer"
         },
         "amounts": {
           "title": "Amounts",
@@ -5232,7 +5242,8 @@
           "submit": "Add to wallet",
           "startedDescription": "{amount} lands in your wallet as soon as the payment is confirmed. This page does not need to stay open.",
           "submitting": "Starting the payment…",
-          "forShop": "Your shop purchase is saved. Top up {amount} and it is bought automatically as soon as the payment lands."
+          "forShop": "Your shop purchase is saved. Top up {amount} and it is bought automatically as soon as the payment lands.",
+          "viaSupport": "Top up through support instead"
         },
         "pending": {
           "title": "Waiting to be paid",

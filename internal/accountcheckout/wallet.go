@@ -2,6 +2,9 @@ package accountcheckout
 
 import (
 	"context"
+	"errors"
+	"github.com/jackc/pgx/v5"
+	"strings"
 	"time"
 
 	"github.com/omniflow/omniflow/internal/commerce"
@@ -206,6 +209,37 @@ func (service *Service) StartTopUpWith(
 	handle.Handoff, handle.CheckoutURL = service.Handoff(ctx, handle.Provider, handle.CheckoutURL, result.OrderID)
 	result.Payment = handle
 	return result, nil
+}
+
+// PaymentGuidance is the operator's text and switches for paying outside a
+// provider's checkout, in the customer's language.
+type PaymentGuidance struct {
+	ManualInstructions string
+	SupportTopUp       bool
+}
+
+// PaymentGuidance reads what the operator tells customers about manual
+// transfers and top-ups through support. A missing settings row is no
+// guidance, not an error.
+func (store *Store) PaymentGuidance(ctx context.Context, locale string) (PaymentGuidance, error) {
+	var ru, en string
+	var guidance PaymentGuidance
+	err := store.pool.QueryRow(ctx, `SELECT manual_instructions_ru, manual_instructions_en, support_topup_enabled
+		FROM commerce_settings WHERE singleton`).Scan(&ru, &en, &guidance.SupportTopUp)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return PaymentGuidance{}, nil
+	}
+	if err != nil {
+		return PaymentGuidance{}, err
+	}
+	guidance.ManualInstructions = en
+	if strings.HasPrefix(locale, "ru") || en == "" {
+		guidance.ManualInstructions = ru
+		if guidance.ManualInstructions == "" {
+			guidance.ManualInstructions = en
+		}
+	}
+	return guidance, nil
 }
 
 // PendingTopUps lists the customer's top-up orders that are still waiting to

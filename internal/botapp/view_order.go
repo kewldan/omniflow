@@ -15,6 +15,9 @@ import (
 type orderExtras struct {
 	Gift *SentGift
 	Shop *ShopOrder
+	// ManualInstructions is the operator's text on where to send a manual
+	// transfer.
+	ManualInstructions string
 }
 
 // orderStatusView renders an order with nothing but the order row to go on.
@@ -42,6 +45,9 @@ func orderView(locale Locale, order OrderSummary, refunds []RefundStatus, extras
 		}
 		if order.Provider == "manual" {
 			body += text(locale, "payment.manual")
+			if extras.ManualInstructions != "" {
+				body += "\n\n" + html.EscapeString(extras.ManualInstructions)
+			}
 		}
 		if order.Operation == "gift" {
 			body += "\n\n" + text(locale, "gift.awaitingPayment")

@@ -2144,6 +2144,7 @@ type Querier interface {
 	// was refunded a month later.
 	UpdateOrderPayment(ctx context.Context, arg UpdateOrderPaymentParams) (Order, error)
 	UpdateOrderRefund(ctx context.Context, arg UpdateOrderRefundParams) (Order, error)
+	UpdatePaymentGuidance(ctx context.Context, arg UpdatePaymentGuidanceParams) (CommerceSetting, error)
 	UpdatePaymentIntentStatus(ctx context.Context, arg UpdatePaymentIntentStatusParams) (PaymentIntent, error)
 	UpdatePlanOrdering(ctx context.Context, arg UpdatePlanOrderingParams) (Plan, error)
 	UpdatePromotion(ctx context.Context, arg UpdatePromotionParams) (Promotion, error)

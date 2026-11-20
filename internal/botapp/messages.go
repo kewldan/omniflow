@@ -843,11 +843,12 @@ var catalog = map[string]phrase{
 	"access.inviteOnly":           {ru: "🔒 Регистрация только по приглашению. Откройте бота по ссылке-приглашению.", en: "🔒 Registration is by invitation only. Open the bot from an invitation link."},
 	"access.closed":               {ru: "🔒 Регистрация новых пользователей сейчас закрыта.", en: "🔒 Registration of new users is closed at the moment."},
 	// Provider methods shown as separate buttons, after the provider's name.
-	"pay.method.sbp":     {ru: "СБП", en: "SBP"},
-	"pay.method.card":    {ru: "карта", en: "card"},
-	"pay.method.sberpay": {ru: "SberPay", en: "SberPay"},
-	"pay.method.crypto":  {ru: "криптовалюта", en: "crypto"},
-	"pay.method.intl":    {ru: "зарубежная карта", en: "foreign card"},
+	"pay.method.sbp":      {ru: "СБП", en: "SBP"},
+	"pay.method.card":     {ru: "карта", en: "card"},
+	"pay.method.sberpay":  {ru: "SberPay", en: "SberPay"},
+	"pay.method.crypto":   {ru: "криптовалюта", en: "crypto"},
+	"pay.method.intl":     {ru: "зарубежная карта", en: "foreign card"},
+	"wallet.supportTopUp": {ru: "💬 Пополнить через поддержку", en: "💬 Top up through support"},
 }
 
 // formatMoney renders an integer minor-unit amount for display. Telegram Stars

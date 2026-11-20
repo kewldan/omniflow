@@ -3,7 +3,7 @@
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
-import { Input } from "@omniflow/ui/input";
+import { Input, Textarea } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
 import { Skeleton } from "@omniflow/ui/skeleton";
@@ -13,7 +13,7 @@ import { useId, useState } from "react";
 import useSWR from "swr";
 
 import { type ApiError, fetcher } from "@/lib/api";
-import { useOperatorAction } from "@/lib/operations";
+import { type CommerceSettings, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 
 /** One customer-facing payment button as the panel configures it. */
@@ -242,5 +242,106 @@ function MethodEditor({ item, onSaved }: { item: PaymentMethodSettings; onSaved:
         </Button>
       </div>
     </div>
+  );
+}
+
+/**
+ * What customers are told about paying outside a provider's checkout: where
+ * to send a manual transfer, and whether the wallet offers to top up through
+ * support.
+ */
+export function PaymentGuidanceCard({
+  editable,
+  onSaved,
+  settings,
+}: {
+  editable: boolean;
+  onSaved: () => void;
+  settings: CommerceSettings;
+}) {
+  const translate = useTranslations("admin.settings.paymentGuidance");
+  const id = useId();
+  const stored = settings.paymentGuidance;
+  const [ru, setRu] = useState(stored?.manualInstructionsRu ?? "");
+  const [en, setEn] = useState(stored?.manualInstructionsEn ?? "");
+  const [supportTopUp, setSupportTopUp] = useState(stored?.supportTopUp ?? false);
+  const [reason, setReason] = useState("");
+  const { run, pending, error } = useOperatorAction();
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{translate("title")}</CardTitle>
+        <CardDescription>{translate("description")}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={`${id}-ru`}>{translate("instructionsRu")}</Label>
+          <Textarea
+            className="min-h-24"
+            disabled={!editable}
+            id={`${id}-ru`}
+            maxLength={2000}
+            onChange={(event) => setRu(event.target.value)}
+            value={ru}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={`${id}-en`}>{translate("instructionsEn")}</Label>
+          <Textarea
+            className="min-h-24"
+            disabled={!editable}
+            id={`${id}-en`}
+            maxLength={2000}
+            onChange={(event) => setEn(event.target.value)}
+            value={en}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <Switch
+            checked={supportTopUp}
+            disabled={!editable}
+            id={`${id}-support`}
+            onCheckedChange={setSupportTopUp}
+          />
+          <Label htmlFor={`${id}-support`}>{translate("supportTopUp")}</Label>
+        </div>
+        {editable && (
+          <>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={`${id}-reason`}>{translate("reason")}</Label>
+              <Input
+                id={`${id}-reason`}
+                onChange={(event) => setReason(event.target.value)}
+                value={reason}
+              />
+            </div>
+            {error && <p className="text-danger-foreground text-sm">{error.message}</p>}
+            <div>
+              <Button
+                disabled={pending || reason.trim() === ""}
+                onClick={async () => {
+                  const ok = await run("/v1/panel/settings/commerce/payment-guidance", {
+                    body: {
+                      manualInstructionsEn: en,
+                      manualInstructionsRu: ru,
+                      supportTopUp,
+                    },
+                    method: "PUT",
+                    reason: reason.trim(),
+                  });
+                  if (ok) {
+                    setReason("");
+                    onSaved();
+                  }
+                }}
+                size="sm"
+              >
+                {translate("save")}
+              </Button>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }

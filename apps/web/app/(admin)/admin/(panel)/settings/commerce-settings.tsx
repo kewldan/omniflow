@@ -23,7 +23,7 @@ import {
 import { useSession } from "@/lib/session";
 import { useUnsavedChanges } from "@/lib/use-unsaved-changes";
 
-import { PaymentMethodsCard } from "./payment-methods";
+import { PaymentGuidanceCard, PaymentMethodsCard } from "./payment-methods";
 import { ProviderEditor } from "./provider-editor";
 import { SubscriptionPolicyCard } from "./subscription-policy";
 
@@ -58,6 +58,11 @@ export function CommerceSettingsForm() {
             settings={data}
           />
           <SubscriptionPolicyCard editable={can("settings.write")} />
+          <PaymentGuidanceCard
+            editable={can("settings.write")}
+            onSaved={() => mutate()}
+            settings={data}
+          />
         </>
       )}
       <ProviderCard />

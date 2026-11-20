@@ -241,6 +241,14 @@ export default function OrderPage() {
         <SlowWaitNotice onCheckAgain={refresh} reference={data.id} stopped={polling.stopped} />
       )}
 
+      {data.manualInstructions && (data.payment?.provider ?? provider) === "manual" && owes && (
+        <section className="space-y-1 rounded-lg border border-border bg-card p-4">
+          <p className="font-semibold text-[13.5px]">{translate("order.payment.manualTitle")}</p>
+          <p className="whitespace-pre-line text-[12.5px] leading-relaxed">
+            {data.manualInstructions}
+          </p>
+        </section>
+      )}
       {data.payment ? (
         <PaymentHandoff owes={owes} payment={data.payment} />
       ) : (

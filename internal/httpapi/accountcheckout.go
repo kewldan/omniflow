@@ -524,7 +524,27 @@ func (handlers *AccountHandlers) readOrder(writer http.ResponseWriter, request *
 			payload["preferredProvider"] = recorded
 		}
 	}
+	// A manual transfer is only payable with the operator's instructions on
+	// where to send the money.
+	if order.Provider == "manual" || hasManualChoice(payload) {
+		guidance, guidanceErr := handlers.checkout.Store().PaymentGuidance(
+			request.Context(), accountLocale(request, principal.Customer.Locale),
+		)
+		if guidanceErr == nil && guidance.ManualInstructions != "" {
+			payload["manualInstructions"] = guidance.ManualInstructions
+		}
+	}
 	writeJSON(writer, http.StatusOK, payload)
+}
+
+func hasManualChoice(payload map[string]any) bool {
+	items, _ := payload["paymentChoices"].([]map[string]any)
+	for _, item := range items {
+		if item["provider"] == "manual" {
+			return true
+		}
+	}
+	return false
 }
 
 func (handlers *AccountHandlers) startOrderPayment(writer http.ResponseWriter, request *http.Request) {
@@ -744,12 +764,19 @@ func (handlers *AccountHandlers) readWallet(writer http.ResponseWriter, request 
 		}
 		items = append(items, item)
 	}
+	guidance, guidanceErr := handlers.checkout.Store().PaymentGuidance(
+		request.Context(), accountLocale(request, principal.Customer.Locale),
+	)
+	if guidanceErr != nil {
+		handlers.logger.Warn("payment guidance could not be read", "error", guidanceErr)
+	}
 	payload := map[string]any{
 		"balances": balances, "currency": view.Currency,
 		"topUp": map[string]any{
 			"enabled": view.TopUpEnabled, "minimumMinor": view.MinimumMinor,
 			"maximumMinor": view.MaximumMinor, "presets": view.Presets,
 			"remainingWindowMinor": view.RemainingWindowMinor, "providers": providers,
+			"supportTopUp": guidance.SupportTopUp,
 		},
 		"pendingTopUps": pendingTopUps,
 		"entries":       items,

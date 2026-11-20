@@ -3047,9 +3047,18 @@ export interface PanelChannelResult {
   refundedMinor: number;
 }
 
+export interface PanelPaymentGuidance {
+  /** @maxLength 2000 */
+  manualInstructionsRu: string;
+  /** @maxLength 2000 */
+  manualInstructionsEn: string;
+  supportTopUp: boolean;
+}
+
 export interface PanelCommerceSettings {
   topUp: PanelTopUpSettings;
   subscriptions: PanelSubscriptionSettings;
+  paymentGuidance?: PanelPaymentGuidance;
   updatedAt: string;
   updatedBy?: string;
 }
@@ -4744,6 +4753,8 @@ export interface AccountOrder {
   paymentChoices?: AccountPaymentChoice[];
   /** The method the checkout recorded, while that checkout is still attached to the order. */
   preferredProvider?: string;
+  /** The operator's transfer instructions, in the customer's language, when the order is paid or payable by manual transfer. */
+  manualInstructions?: string;
 }
 
 export interface AccountOrderPage {
@@ -4767,6 +4778,8 @@ export type AccountWalletTopUp = {
   /** What the rolling-window limit still allows. */
   remainingWindowMinor?: number;
   providers: AccountPaymentChoice[];
+  /** The operator offers to top up through support. */
+  supportTopUp?: boolean;
 };
 
 export type AccountWalletEntriesItem = {
@@ -18723,6 +18736,88 @@ export const useSavePanelSubscriptionSettings = <TError = Promise<ProblemRespons
     ...query,
   };
 };
+
+export type savePanelPaymentGuidanceResponse200 = {
+  data: PanelCommerceSettings
+  status: 200
+}
+
+export type savePanelPaymentGuidanceResponse403 = {
+  data: ProblemResponse
+  status: 403
+}
+
+export type savePanelPaymentGuidanceResponse422 = {
+  data: ProblemResponse
+  status: 422
+}
+
+export type savePanelPaymentGuidanceResponseSuccess = (savePanelPaymentGuidanceResponse200) & {
+  headers: Headers;
+};
+export type savePanelPaymentGuidanceResponseError = (savePanelPaymentGuidanceResponse403 | savePanelPaymentGuidanceResponse422) & {
+  headers: Headers;
+};
+
+export type savePanelPaymentGuidanceResponse = (savePanelPaymentGuidanceResponseSuccess | savePanelPaymentGuidanceResponseError)
+
+export const getSavePanelPaymentGuidanceUrl = () => {
+
+
+
+
+  return `/v1/panel/settings/commerce/payment-guidance`
+}
+
+/**
+ * Requires settings.write. The transfer instructions customers see for a manual payment, in Russian and English (up to 2000 characters each), and whether the wallet offers to top up through support.
+ */
+export const savePanelPaymentGuidance = async (panelPaymentGuidance: PanelPaymentGuidance, options?: RequestInit): Promise<savePanelPaymentGuidanceResponse> => {
+
+  const res = await fetch(getSavePanelPaymentGuidanceUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(panelPaymentGuidance)
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelPaymentGuidanceResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as savePanelPaymentGuidanceResponse
+}
+
+
+
+
+export const getSavePanelPaymentGuidanceMutationFetcher = ( options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PanelPaymentGuidance }) => {
+    return savePanelPaymentGuidance(arg, options);
+  }
+}
+export const getSavePanelPaymentGuidanceMutationKey = () => [`/v1/panel/settings/commerce/payment-guidance`] as const;
+
+export type SavePanelPaymentGuidanceMutationResult = NonNullable<Awaited<ReturnType<typeof savePanelPaymentGuidance>>>
+
+export const useSavePanelPaymentGuidance = <TError = Promise<ProblemResponse>>(
+   options?: { swr?:SWRMutationConfiguration<Awaited<ReturnType<typeof savePanelPaymentGuidance>>, TError, Key, PanelPaymentGuidance, Awaited<ReturnType<typeof savePanelPaymentGuidance>>> & { swrKey?: string }, fetch?: RequestInit}
+) => {
+
+  const {swr: swrOptions, fetch: fetchOptions} = options ?? {}
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelPaymentGuidanceMutationKey();
+  const swrFn = getSavePanelPaymentGuidanceMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions)
+
+  return {
+    swrKey,
+    ...query
+  }
+}
 
 export type getPanelSubscriptionPolicyResponse200 = {
   data: PanelSubscriptionPolicy;
