@@ -732,6 +732,7 @@ var catalog = map[string]phrase{
 	// The confirmation shown before an add-on is charged. The wallet settles an
 	// add-on it can cover the moment the order is created, so the amount and
 	// where it comes from are stated before the tap that spends it.
+	"referral.qrCaption": {ru: "📷 <b>Ваше приглашение</b>\n\nДайте другу отсканировать код — он откроет бота по вашей ссылке.\n%s", en: "📷 <b>Your invitation</b>\n\nLet a friend scan the code: it opens the bot through your link.\n%s"},
 	"reset.button":       {ru: "🔄 Сбросить трафик · %s", en: "🔄 Reset traffic · %s"},
 	"reset.confirmTitle": {ru: "🔄 <b>Сброс трафика</b>", en: "🔄 <b>Traffic reset</b>"},
 	"reset.explain":      {ru: "Счётчик трафика подписки обнулится, и лимит снова будет доступен полностью. Срок подписки не меняется.", en: "The subscription's traffic counter goes back to zero and the full allowance is available again. The end date does not change."},

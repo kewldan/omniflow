@@ -237,6 +237,11 @@ func referralView(locale Locale, username, code string, count int64) View {
 		share := "https://t.me/share/url?url=" + url.QueryEscape(link)
 		rows = append(rows, row(models.InlineKeyboardButton{Text: "📨 " + shareText, URL: share}))
 		rows = append(rows, row(models.InlineKeyboardButton{Text: "📋 " + code, CopyText: &models.CopyTextButton{Text: link}}))
+		qrText := "QR code"
+		if locale == LocaleRussian {
+			qrText = "QR-код"
+		}
+		rows = append(rows, row(actionButton("📷 "+qrText, "ref-qr")))
 	}
 	back := "‹ Back"
 	if locale == LocaleRussian {

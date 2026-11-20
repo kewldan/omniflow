@@ -1296,6 +1296,15 @@ func (app *App) dispatchCommerceAction(ctx context.Context, client *telegram.Bot
 		}
 		return true
 	}
+	if parts[0] == "ref-qr" {
+		// The QR code arrives as its own photo message; the invitation screen
+		// stays as it was, so the customer keeps the share buttons.
+		if err := app.sendReferralQR(ctx, client, session, chatID); err != nil {
+			logger.Error("referral QR code failed", "error", err)
+			_, _ = client.SendMessage(ctx, sendParams(chatID, View{Text: text(session.Locale, "error.load")}))
+		}
+		return true
+	}
 	session.TelegramLanguage = query.From.LanguageCode
 	if parts[0] == "quiet-menu" {
 		app.replaceScreen(ctx, client, chatID, messageID, app.quietHoursScreen(ctx, session), logger)
@@ -1351,6 +1360,7 @@ var commerceActions = func() map[string]bool {
 		"autorenew": true, "renew-settings": true, "renew-funding": true, "renew-lead": true,
 		"method-default": true, "method-remove": true,
 		"quiet": true, "quiet-menu": true, "tz-menu": true, "tz": true, "invoice": true,
+		"ref-qr": true,
 	}
 	for _, owned := range []map[string]bool{expansionActions, giftActions, shopActions, starsActions, offerActions, termsActions, welcomeActions} {
 		for action := range owned {
