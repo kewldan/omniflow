@@ -308,6 +308,7 @@ func buildAdminPanel(
 		return nil, err
 	}
 	operations.WithPaymentCredit(paymentCredit)
+	operations.SetOperatorTelegramIDs(cfg.OperatorTelegramIDs)
 	seedCommerceSettings(ctx, logger, operations, cfg)
 	search, err := panelsearchpg.New(pool, cfg.DataEncryptionKey)
 	if err != nil {

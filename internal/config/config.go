@@ -148,6 +148,10 @@ type TelegramWebhookConfig struct {
 }
 
 type Config struct {
+	// OperatorTelegramIDs (APP_OPERATOR_TELEGRAM_IDS) are the operators'
+	// Telegram accounts. The api and the worker read them so blocklist and
+	// anomaly checks never flag an operator's own customer account.
+	OperatorTelegramIDs []int64
 	// Backup is the backup directory and key the panel's upload uses.
 	Backup      BackupConfig
 	HTTPAddr    string
@@ -341,7 +345,11 @@ func loadTelegramTransport() (TelegramTransportConfig, error) {
 }
 
 type WorkerConfig struct {
-	DatabaseURL string
+	// OperatorTelegramIDs (APP_OPERATOR_TELEGRAM_IDS) are the operators'
+	// Telegram accounts. The api and the worker read them so blocklist and
+	// anomaly checks never flag an operator's own customer account.
+	OperatorTelegramIDs []int64
+	DatabaseURL         string
 	// DatabaseMaxConns bounds this process's PostgreSQL pool
 	// (APP_DATABASE_MAX_CONNS, default DefaultWorkerDatabaseMaxConns). It must
 	// exceed jobs.MaxWorkers; the worker refuses to start with a smaller one.
@@ -440,6 +448,9 @@ func Load() (Config, error) {
 	}
 	cfg.TopUp = topUp
 	if cfg.DatabaseMaxConns, err = loadDatabaseMaxConns(DefaultAPIDatabaseMaxConns); err != nil {
+		return Config{}, err
+	}
+	if cfg.OperatorTelegramIDs, err = int64ListEnv("APP_OPERATOR_TELEGRAM_IDS", nil); err != nil {
 		return Config{}, err
 	}
 	// The api reads the backup directory and key so the panel can accept an
@@ -590,6 +601,11 @@ func LoadWorker() (WorkerConfig, error) {
 		}
 		cfg.DataEncryptionKey = key
 	}
+	operators, err := int64ListEnv("APP_OPERATOR_TELEGRAM_IDS", nil)
+	if err != nil {
+		return WorkerConfig{}, err
+	}
+	cfg.OperatorTelegramIDs = operators
 	backup, err := loadBackup()
 	if err != nil {
 		return WorkerConfig{}, err

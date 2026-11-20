@@ -301,3 +301,18 @@ WHERE s.status = 'active'
   AND COALESCE((s.observed_state->>'usedTrafficBytes')::bigint, 0) >= sqlc.arg(threshold_bytes)::bigint
 ORDER BY used_bytes DESC
 LIMIT sqlc.arg(page_size);
+
+-- name: ListBlocklistScreeningSubjects :many
+-- The Telegram identifiers a blocklist screen checks, one page of customers at a
+-- time in identifier order. Deleted and merged customers are skipped: neither
+-- can sign in, so a match against them is noise. A named customer narrows the
+-- screen to that one.
+SELECT i.user_id, i.provider_subject
+FROM identities i
+JOIN users u ON u.id = i.user_id
+WHERE i.provider = 'telegram' AND i.status = 'active'
+  AND u.status IN ('active', 'suspended')
+  AND (sqlc.narg(only_user_id)::uuid IS NULL OR i.user_id = sqlc.narg(only_user_id)::uuid)
+  AND (i.user_id, i.provider_subject) > (sqlc.arg(after_user_id)::uuid, sqlc.arg(after_subject)::text)
+ORDER BY i.user_id, i.provider_subject
+LIMIT sqlc.arg(page_size);

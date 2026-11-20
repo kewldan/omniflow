@@ -2997,6 +2997,43 @@ paths:
         "204": {description: Reopened}
         "403": {$ref: "#/components/responses/Problem"}
         "409": {$ref: "#/components/responses/Problem"}
+  /v1/panel/risk/check:
+    post:
+      operationId: screenPanelBlocklist
+      tags: [panel]
+      description: >-
+        Requires risk.write. "Check now": looks customers' active Telegram
+        identifiers up against every enabled blocklist and records what it finds
+        in the review queue, exactly as the worker does after each source
+        refresh. With `customerId` only that customer is checked; without it,
+        every active or suspended customer is. Customers signed in with an
+        operator's Telegram account (APP_OPERATOR_TELEGRAM_IDS) and allowlisted
+        customers are skipped, and a match already on record — decided or not —
+        is left unchanged. Writes the audit event `panel.blocklist.screened`.
+      parameters:
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                customerId: {type: string, format: uuid}
+      responses:
+        "200":
+          description: Screened
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [checked, newMatches, skippedOperators]
+                properties:
+                  checked: {type: integer, description: "Identifiers looked up."}
+                  newMatches: {type: integer, description: "Matches recorded by this run."}
+                  skippedOperators: {type: integer, description: "Identifiers skipped because they are an operator's."}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
   /v1/panel/risk/rules:
     get:
       operationId: listPanelAnomalyRules

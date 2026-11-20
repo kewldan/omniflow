@@ -1089,6 +1089,11 @@ type Querier interface {
 	ListBedolagaImportItems(ctx context.Context) ([]BedolagaImportItem, error)
 	ListBedolagaImportRuns(ctx context.Context, pageSize int32) ([]BedolagaImportRun, error)
 	ListBlocklistMatchesForCustomer(ctx context.Context, userID pgtype.UUID) ([]ListBlocklistMatchesForCustomerRow, error)
+	// The Telegram identifiers a blocklist screen checks, one page of customers at a
+	// time in identifier order. Deleted and merged customers are skipped: neither
+	// can sign in, so a match against them is noise. A named customer narrows the
+	// screen to that one.
+	ListBlocklistScreeningSubjects(ctx context.Context, arg ListBlocklistScreeningSubjectsParams) ([]ListBlocklistScreeningSubjectsRow, error)
 	// External blocklists and anomaly detection.
 	//
 	// Both surfaces produce evidence for an operator, never an automatic sanction.

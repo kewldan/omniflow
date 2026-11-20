@@ -6900,6 +6900,19 @@ export type DecidePanelBlocklistMatchBody = {
   decision: DecidePanelBlocklistMatchBodyDecision;
 };
 
+export type ScreenPanelBlocklistBody = {
+  customerId?: string;
+};
+
+export type ScreenPanelBlocklist200 = {
+  /** Identifiers looked up. */
+  checked: number;
+  /** Matches recorded by this run. */
+  newMatches: number;
+  /** Identifiers skipped because they are an operator's. */
+  skippedOperators: number;
+};
+
 export type SearchPanelAnomaliesParams = {
   /** Opaque keyset cursor from the previous page. */
   cursor?: CursorParameter;
@@ -25344,6 +25357,93 @@ export const useAppealPanelBlocklistMatch = <TError = Promise<ProblemResponse>>(
 
   const swrKey = swrOptions?.swrKey ?? getAppealPanelBlocklistMatchMutationKey(matchID);
   const swrFn = getAppealPanelBlocklistMatchMutationFetcher(matchID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type screenPanelBlocklistResponse200 = {
+  data: ScreenPanelBlocklist200;
+  status: 200;
+};
+
+export type screenPanelBlocklistResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type screenPanelBlocklistResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type screenPanelBlocklistResponseSuccess = screenPanelBlocklistResponse200 & {
+  headers: Headers;
+};
+export type screenPanelBlocklistResponseError = (
+  | screenPanelBlocklistResponse403
+  | screenPanelBlocklistResponse422
+) & {
+  headers: Headers;
+};
+
+export type screenPanelBlocklistResponse =
+  | screenPanelBlocklistResponseSuccess
+  | screenPanelBlocklistResponseError;
+
+export const getScreenPanelBlocklistUrl = () => {
+  return `/v1/panel/risk/check`;
+};
+
+/**
+ * Requires risk.write. "Check now": looks customers' active Telegram identifiers up against every enabled blocklist and records what it finds in the review queue, exactly as the worker does after each source refresh. With `customerId` only that customer is checked; without it, every active or suspended customer is. Customers signed in with an operator's Telegram account (APP_OPERATOR_TELEGRAM_IDS) and allowlisted customers are skipped, and a match already on record — decided or not — is left unchanged. Writes the audit event `panel.blocklist.screened`.
+ */
+export const screenPanelBlocklist = async (
+  screenPanelBlocklistBody?: ScreenPanelBlocklistBody,
+  options?: RequestInit,
+): Promise<screenPanelBlocklistResponse> => {
+  const res = await fetch(getScreenPanelBlocklistUrl(), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(screenPanelBlocklistBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: screenPanelBlocklistResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as screenPanelBlocklistResponse;
+};
+
+export const getScreenPanelBlocklistMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: ScreenPanelBlocklistBody | undefined }) => {
+    return screenPanelBlocklist(arg, options);
+  };
+};
+export const getScreenPanelBlocklistMutationKey = () => [`/v1/panel/risk/check`] as const;
+
+export type ScreenPanelBlocklistMutationResult = NonNullable<
+  Awaited<ReturnType<typeof screenPanelBlocklist>>
+>;
+
+export const useScreenPanelBlocklist = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof screenPanelBlocklist>>,
+    TError,
+    Key,
+    ScreenPanelBlocklistBody | undefined,
+    Awaited<ReturnType<typeof screenPanelBlocklist>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getScreenPanelBlocklistMutationKey();
+  const swrFn = getScreenPanelBlocklistMutationFetcher(fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

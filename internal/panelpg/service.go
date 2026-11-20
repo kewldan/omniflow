@@ -74,6 +74,9 @@ type Service struct {
 	// address when they type it, and again by the adapter, so a row stored
 	// before the policy existed cannot carry a key anywhere it now refuses.
 	aiEgress egress.Policy
+	// operatorTelegramIDs are never screened against a blocklist; see
+	// SetOperatorTelegramIDs.
+	operatorTelegramIDs map[int64]struct{}
 }
 
 // Options configures the Service. A zero clock uses the wall clock.

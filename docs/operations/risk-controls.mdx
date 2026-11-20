@@ -68,6 +68,33 @@ refresh of the source.
 
 A blocked match can be appealed, which returns it to the review queue.
 
+### Screening, and "check now"
+
+Customers are screened by their active Telegram identifiers — the only
+identifier Omniflow holds in a form a list can be matched against. After each
+`lifecycle_sweep` that refreshed at least one source, the worker screens every
+active or suspended customer against all enabled sources, a thousand
+identifiers per lookup, so an identifier a publisher just added reaches the
+review queue with the refresh that brought it.
+
+Under **Risk → Blocklist matches**, an operator with `risk.write` can also run the screen
+on demand: **Check this customer** for one customer ID, or **Check all
+customers**. The panel reports how many identifiers were checked, how many new
+matches were recorded, and how many operator accounts were skipped. The route
+is `POST /v1/panel/risk/check` (an optional `customerId` in the body), and each
+run writes the audit event `panel.blocklist.screened` with its counts.
+
+### Operators are never flagged
+
+A customer signed in with a Telegram account listed in
+`APP_OPERATOR_TELEGRAM_IDS` is never screened: the scheduled screen, "check
+now", and a direct check all skip it, and the anomaly rules skip it as a
+customer subject too, so an operator testing purchases and refunds does not
+raise a signal. The api and the worker read the same variable as the bot for
+this. Operator panel accounts carry no Telegram link of their own, so an
+operator whose customer account uses a different Telegram ID is exempted by
+adding that ID to the variable, or by allowlisting the customer.
+
 ## Anomaly detection
 
 Four metrics can be watched, each with its own rule:
@@ -131,6 +158,7 @@ same state as one that ran once. See
 | --- | --- |
 | Gift and personal-offer expiry | Every `lifecycle_sweep`, five minutes |
 | Blocklist refresh | Every `lifecycle_sweep`, but only for sources whose own interval has elapsed |
+| Blocklist screen of all customers | After a `lifecycle_sweep` that refreshed a source, and on demand |
 | Anomaly evaluation | Its own `anomaly_evaluation` pass, fifteen minutes |
 
 Anomaly evaluation runs on its own cadence because it aggregates over the orders

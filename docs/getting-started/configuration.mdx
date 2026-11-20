@@ -294,7 +294,7 @@ bridge behind a reverse proxy, `172.16.0.0/12` is the usual value. See
 | Variable | Default | Read by | Required | Secret | What it changes |
 | --- | --- | --- | --- | --- | --- |
 | `APP_OPERATOR_CHAT_ID` | `0` (disabled) | bot | no | no | Telegram group, with topics enabled, that receives operator notices. The bot creates and binds every topic itself |
-| `APP_OPERATOR_TELEGRAM_IDS` | — (empty disables `/ops`) | bot | for backup and restore from Telegram | no | Comma-separated Telegram user IDs allowed to run `/ops`. A bad entry fails startup |
+| `APP_OPERATOR_TELEGRAM_IDS` | — (empty disables `/ops`) | bot, api, worker | for backup and restore from Telegram | no | Comma-separated Telegram user IDs allowed to run `/ops`. The api and the worker read it to keep these accounts out of blocklist screening and anomaly signals. A bad entry fails startup |
 | `APP_OPERATOR_NOTIFICATION_CAP` | `30` | bot | no | no | Messages per kind per window before the rest are recorded as `suppressed` with `error_code = volume_cap` |
 | `APP_OPERATOR_NOTIFICATION_WINDOW_MINUTES` | `5` | bot | no | no | Length of the volume window |
 

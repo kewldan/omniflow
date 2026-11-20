@@ -168,12 +168,28 @@ func (sweeper *Sweeper) refreshBlocklists(ctx context.Context) {
 		sweeper.logger.Warn("blocklist sweep failed", "error", err)
 		return
 	}
+	refreshed := 0
 	for _, source := range sources {
 		if err := sweeper.refreshSource(ctx, source); err != nil {
 			sweeper.logger.Warn("blocklist source refresh failed",
 				"source", source.Slug, "error", err)
+			continue
 		}
+		refreshed++
 	}
+	if refreshed == 0 {
+		return
+	}
+	// A refreshed list may name customers who are already here. They are
+	// screened now rather than when they next act, so a newly listed
+	// identifier reaches the review queue with the refresh that brought it.
+	result, err := sweeper.operations.ScreenCustomers(ctx, "")
+	if err != nil {
+		sweeper.logger.Warn("blocklist screen failed", "error", err)
+		return
+	}
+	sweeper.logger.Info("blocklist screen finished",
+		"checked", result.Checked, "matches", result.NewMatches)
 }
 
 func (sweeper *Sweeper) refreshSource(ctx context.Context, source panelpg.BlocklistSource) error {

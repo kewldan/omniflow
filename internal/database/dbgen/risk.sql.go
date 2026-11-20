@@ -397,6 +397,59 @@ func (q *Queries) ListBlocklistMatchesForCustomer(ctx context.Context, userID pg
 	return items, nil
 }
 
+const listBlocklistScreeningSubjects = `-- name: ListBlocklistScreeningSubjects :many
+SELECT i.user_id, i.provider_subject
+FROM identities i
+JOIN users u ON u.id = i.user_id
+WHERE i.provider = 'telegram' AND i.status = 'active'
+  AND u.status IN ('active', 'suspended')
+  AND ($1::uuid IS NULL OR i.user_id = $1::uuid)
+  AND (i.user_id, i.provider_subject) > ($2::uuid, $3::text)
+ORDER BY i.user_id, i.provider_subject
+LIMIT $4
+`
+
+type ListBlocklistScreeningSubjectsParams struct {
+	OnlyUserID   pgtype.UUID `json:"only_user_id"`
+	AfterUserID  pgtype.UUID `json:"after_user_id"`
+	AfterSubject string      `json:"after_subject"`
+	PageSize     int32       `json:"page_size"`
+}
+
+type ListBlocklistScreeningSubjectsRow struct {
+	UserID          pgtype.UUID `json:"user_id"`
+	ProviderSubject string      `json:"provider_subject"`
+}
+
+// The Telegram identifiers a blocklist screen checks, one page of customers at a
+// time in identifier order. Deleted and merged customers are skipped: neither
+// can sign in, so a match against them is noise. A named customer narrows the
+// screen to that one.
+func (q *Queries) ListBlocklistScreeningSubjects(ctx context.Context, arg ListBlocklistScreeningSubjectsParams) ([]ListBlocklistScreeningSubjectsRow, error) {
+	rows, err := q.db.Query(ctx, listBlocklistScreeningSubjects,
+		arg.OnlyUserID,
+		arg.AfterUserID,
+		arg.AfterSubject,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListBlocklistScreeningSubjectsRow{}
+	for rows.Next() {
+		var i ListBlocklistScreeningSubjectsRow
+		if err := rows.Scan(&i.UserID, &i.ProviderSubject); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listBlocklistSources = `-- name: ListBlocklistSources :many
 
 

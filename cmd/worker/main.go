@@ -214,6 +214,7 @@ func periodicTasks(
 		if operations, err = panelpg.New(pool, cfg.DataEncryptionKey, panelpg.Options{}); err != nil {
 			return nil, nil, err
 		}
+		operations.SetOperatorTelegramIDs(cfg.OperatorTelegramIDs)
 	}
 	dunningSchedule, err := recurring.ParseSchedule(
 		os.Getenv("APP_RENEWAL_RETRY_HOURS"), os.Getenv("APP_RENEWAL_NOTIFY_FROM_ATTEMPT"),

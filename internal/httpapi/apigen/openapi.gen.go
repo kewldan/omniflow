@@ -12334,6 +12334,17 @@ type ReviewPanelAnomalyParams struct {
 // ReviewPanelAnomalyJSONBodyStatus defines parameters for ReviewPanelAnomaly.
 type ReviewPanelAnomalyJSONBodyStatus string
 
+// ScreenPanelBlocklistJSONBody defines parameters for ScreenPanelBlocklist.
+type ScreenPanelBlocklistJSONBody struct {
+	CustomerId *openapi_types.UUID `json:"customerId,omitempty"`
+}
+
+// ScreenPanelBlocklistParams defines parameters for ScreenPanelBlocklist.
+type ScreenPanelBlocklistParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // SearchPanelBlocklistMatchesParams defines parameters for SearchPanelBlocklistMatches.
 type SearchPanelBlocklistMatchesParams struct {
 	Cursor     *Cursor                                  `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -13068,6 +13079,9 @@ type CreatePanelOfferJSONRequestBody = PanelOfferInput
 
 // ReviewPanelAnomalyJSONRequestBody defines body for ReviewPanelAnomaly for application/json ContentType.
 type ReviewPanelAnomalyJSONRequestBody ReviewPanelAnomalyJSONBody
+
+// ScreenPanelBlocklistJSONRequestBody defines body for ScreenPanelBlocklist for application/json ContentType.
+type ScreenPanelBlocklistJSONRequestBody ScreenPanelBlocklistJSONBody
 
 // DecidePanelBlocklistMatchJSONRequestBody defines body for DecidePanelBlocklistMatch for application/json ContentType.
 type DecidePanelBlocklistMatchJSONRequestBody DecidePanelBlocklistMatchJSONBody
@@ -14255,6 +14269,9 @@ type ServerInterface interface {
 
 	// (POST /v1/panel/risk/anomalies/{signalID}/review)
 	ReviewPanelAnomaly(w http.ResponseWriter, r *http.Request, signalID openapi_types.UUID, params ReviewPanelAnomalyParams)
+
+	// (POST /v1/panel/risk/check)
+	ScreenPanelBlocklist(w http.ResponseWriter, r *http.Request, params ScreenPanelBlocklistParams)
 
 	// (GET /v1/panel/risk/matches)
 	SearchPanelBlocklistMatches(w http.ResponseWriter, r *http.Request, params SearchPanelBlocklistMatchesParams)
@@ -16044,6 +16061,11 @@ func (_ Unimplemented) SearchPanelAnomalies(w http.ResponseWriter, r *http.Reque
 
 // (POST /v1/panel/risk/anomalies/{signalID}/review)
 func (_ Unimplemented) ReviewPanelAnomaly(w http.ResponseWriter, r *http.Request, signalID openapi_types.UUID, params ReviewPanelAnomalyParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/risk/check)
+func (_ Unimplemented) ScreenPanelBlocklist(w http.ResponseWriter, r *http.Request, params ScreenPanelBlocklistParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -29558,6 +29580,51 @@ func (siw *ServerInterfaceWrapper) ReviewPanelAnomaly(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// ScreenPanelBlocklist operation middleware
+func (siw *ServerInterfaceWrapper) ScreenPanelBlocklist(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ScreenPanelBlocklistParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ScreenPanelBlocklist(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // SearchPanelBlocklistMatches operation middleware
 func (siw *ServerInterfaceWrapper) SearchPanelBlocklistMatches(w http.ResponseWriter, r *http.Request) {
 
@@ -33414,6 +33481,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/panel/risk/matches/{matchID}/appeal", wrapper.AppealPanelBlocklistMatch)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/risk/check", wrapper.ScreenPanelBlocklist)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/risk/rules", wrapper.ListPanelAnomalyRules)
@@ -48054,6 +48124,68 @@ func (response ReviewPanelAnomaly409ApplicationProblemPlusJSONResponse) VisitRev
 	return err
 }
 
+type ScreenPanelBlocklistRequestObject struct {
+	Params ScreenPanelBlocklistParams
+	Body   *ScreenPanelBlocklistJSONRequestBody
+}
+
+type ScreenPanelBlocklistResponseObject interface {
+	VisitScreenPanelBlocklistResponse(w http.ResponseWriter) error
+}
+
+type ScreenPanelBlocklist200JSONResponse struct {
+	// Checked Identifiers looked up.
+	Checked int `json:"checked"`
+
+	// NewMatches Matches recorded by this run.
+	NewMatches int `json:"newMatches"`
+
+	// SkippedOperators Identifiers skipped because they are an operator's.
+	SkippedOperators int `json:"skippedOperators"`
+}
+
+func (response ScreenPanelBlocklist200JSONResponse) VisitScreenPanelBlocklistResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ScreenPanelBlocklist403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ScreenPanelBlocklist403ApplicationProblemPlusJSONResponse) VisitScreenPanelBlocklistResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ScreenPanelBlocklist422ApplicationProblemPlusJSONResponse Problem
+
+func (response ScreenPanelBlocklist422ApplicationProblemPlusJSONResponse) VisitScreenPanelBlocklistResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type SearchPanelBlocklistMatchesRequestObject struct {
 	Params SearchPanelBlocklistMatchesParams
 }
@@ -52619,6 +52751,9 @@ type StrictServerInterface interface {
 
 	// (POST /v1/panel/risk/anomalies/{signalID}/review)
 	ReviewPanelAnomaly(ctx context.Context, request ReviewPanelAnomalyRequestObject) (ReviewPanelAnomalyResponseObject, error)
+
+	// (POST /v1/panel/risk/check)
+	ScreenPanelBlocklist(ctx context.Context, request ScreenPanelBlocklistRequestObject) (ScreenPanelBlocklistResponseObject, error)
 
 	// (GET /v1/panel/risk/matches)
 	SearchPanelBlocklistMatches(ctx context.Context, request SearchPanelBlocklistMatchesRequestObject) (SearchPanelBlocklistMatchesResponseObject, error)
@@ -61769,6 +61904,42 @@ func (sh *strictHandler) ReviewPanelAnomaly(w http.ResponseWriter, r *http.Reque
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ReviewPanelAnomalyResponseObject); ok {
 		if err := validResponse.VisitReviewPanelAnomalyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ScreenPanelBlocklist operation middleware
+func (sh *strictHandler) ScreenPanelBlocklist(w http.ResponseWriter, r *http.Request, params ScreenPanelBlocklistParams) {
+	var request ScreenPanelBlocklistRequestObject
+
+	request.Params = params
+
+	var body ScreenPanelBlocklistJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ScreenPanelBlocklist(ctx, request.(ScreenPanelBlocklistRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ScreenPanelBlocklist")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ScreenPanelBlocklistResponseObject); ok {
+		if err := validResponse.VisitScreenPanelBlocklistResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

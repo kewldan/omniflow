@@ -177,6 +177,7 @@ func (handlers *AdminHandlers) mountOperations(secure chi.Router) {
 		write.Delete("/risk/sources/{sourceID}", handlers.deleteBlocklistSource)
 		write.Post("/risk/matches/{matchID}/decision", handlers.decideMatch)
 		write.Post("/risk/matches/{matchID}/appeal", handlers.appealMatch)
+		write.Post("/risk/check", handlers.screenBlocklist)
 		write.Put("/risk/rules/{metric}", handlers.saveAnomalyRule)
 		write.Post("/risk/anomalies/{signalID}/review", handlers.reviewAnomaly)
 		write.Put("/customers/{customerID}/allowlist", handlers.setAllowlisted)
@@ -1841,4 +1842,21 @@ func (handlers *AdminHandlers) messageCustomer(writer http.ResponseWriter, reque
 		return
 	}
 	writeJSON(writer, http.StatusAccepted, message)
+}
+
+// screenBlocklist is the risk screen's "check now": one customer when the body
+// names one, every customer otherwise. It records what it finds in the review
+// queue exactly as the scheduled screen after a refresh does, and leaves
+// operators, allowlisted customers, and decided matches alone.
+func (handlers *AdminHandlers) screenBlocklist(writer http.ResponseWriter, request *http.Request) {
+	var body struct {
+		CustomerID string `json:"customerId"`
+	}
+	if request.ContentLength != 0 && !decodeJSON(writer, request, &body) {
+		return
+	}
+	result, err := handlers.operations.ScreenCustomersFor(
+		request.Context(), strings.TrimSpace(body.CustomerID), actorFrom(request),
+	)
+	handlers.respond(writer, request, result, err)
 }

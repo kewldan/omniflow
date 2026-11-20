@@ -7128,6 +7128,25 @@ export const AppealPanelBlocklistMatchHeader = zod.object({
 export const AppealPanelBlocklistMatchResponse = zod.void();
 
 /**
+ * Requires risk.write. "Check now": looks customers' active Telegram identifiers up against every enabled blocklist and records what it finds in the review queue, exactly as the worker does after each source refresh. With `customerId` only that customer is checked; without it, every active or suspended customer is. Customers signed in with an operator's Telegram account (APP_OPERATOR_TELEGRAM_IDS) and allowlisted customers are skipped, and a match already on record — decided or not — is left unchanged. Writes the audit event `panel.blocklist.screened`.
+ */
+export const ScreenPanelBlocklistHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const ScreenPanelBlocklistBody = zod.object({
+  customerId: zod.uuid().optional(),
+});
+
+export const ScreenPanelBlocklistResponse = zod.object({
+  checked: zod.int().describe("Identifiers looked up."),
+  newMatches: zod.int().describe("Matches recorded by this run."),
+  skippedOperators: zod.int().describe("Identifiers skipped because they are an operator's."),
+});
+
+/**
  * Requires risk.read. Thresholds are in each metric's own unit.
  */
 export const listPanelAnomalyRulesResponseItemsItemWindowSecondsMin = 300;

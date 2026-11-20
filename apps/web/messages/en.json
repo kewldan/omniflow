@@ -1676,6 +1676,15 @@
         "authHeader": "Authorization header",
         "intervalHours": "Refresh every (hours)",
         "save": "Save source"
+      },
+      "checkNow": {
+        "description": "Check customers' Telegram IDs against the enabled blocklists now. The worker also does this after every list refresh. Operators (APP_OPERATOR_TELEGRAM_IDS) and allowlisted customers are skipped, and matches already on record are left as they are.",
+        "customerId": "Customer ID",
+        "one": "Check this customer",
+        "all": "Check all customers",
+        "running": "Checking…",
+        "result": "Checked {checked} identifiers: {matches} new matches, {operators} operator accounts skipped.",
+        "failed": "The check could not be run."
       }
     },
     "system": {

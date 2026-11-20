@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@omniflow/ui/tabs";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
@@ -25,6 +25,7 @@ import {
 } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 
+import { CheckNow } from "./check-now";
 import { NoSources, RuleEditor, SourceEditor } from "./rule-editor";
 
 type BlocklistSource = {
@@ -52,6 +53,7 @@ type BlocklistSource = {
 export function RiskReview() {
   const translate = useTranslations("admin.risk");
   const [tab, setTab] = useState("matches");
+  const { mutate } = useSWRConfig();
 
   return (
     <div className="flex flex-col gap-5">
@@ -67,7 +69,14 @@ export function RiskReview() {
           <TabsTrigger value="sources">{translate("tabs.sources")}</TabsTrigger>
           <TabsTrigger value="rules">{translate("tabs.rules")}</TabsTrigger>
         </TabsList>
-        <TabsContent value="matches">
+        <TabsContent className="flex flex-col gap-3" value="matches">
+          <CheckNow
+            onChecked={() =>
+              void mutate(
+                (key) => typeof key === "string" && key.startsWith("/v1/panel/risk/matches"),
+              )
+            }
+          />
           <Matches active={tab === "matches"} />
         </TabsContent>
         <TabsContent value="anomalies">

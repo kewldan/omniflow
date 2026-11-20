@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/omniflow/omniflow/internal/anomaly"
 	"github.com/omniflow/omniflow/internal/blocklist"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
@@ -278,19 +279,15 @@ func (service *Service) CheckCustomer(
 	}
 	queries := service.queries()
 
-	allowlisted, err := queries.IsBlocklistAllowlisted(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	if allowlisted {
-		return nil, nil
-	}
-
 	// Fingerprints are computed per kind, and the kind is part of the digest, so
 	// a username that reads like a number cannot match a Telegram-ID list.
 	fingerprints := make([][]byte, 0, len(identifiers))
-	byFingerprint := make(map[string]string, len(identifiers))
 	for _, identifier := range identifiers {
+		if service.operatorIdentifier(identifier.Kind, identifier.Value) {
+			// An operator's account is never screened; see
+			// SetOperatorTelegramIDs.
+			return nil, nil
+		}
 		fingerprint, fingerprintErr := blocklist.Fingerprint(identifier.Kind, identifier.Value)
 		if fingerprintErr != nil {
 			// An identifier that cannot be normalised cannot appear on a list
@@ -298,7 +295,6 @@ func (service *Service) CheckCustomer(
 			continue
 		}
 		fingerprints = append(fingerprints, fingerprint)
-		byFingerprint[string(fingerprint)] = identifier.Kind
 	}
 	if len(fingerprints) == 0 {
 		return nil, nil
@@ -308,10 +304,27 @@ func (service *Service) CheckCustomer(
 	if err != nil {
 		return nil, err
 	}
+	return service.recordBlocklistHits(ctx, id, hits)
+}
+
+// recordBlocklistHits records one customer's hits as matches, each with its
+// audit event. An allowlisted customer is skipped entirely, which is what
+// makes an operator's "this one is fine" decision survive the next refresh of
+// the source; a match already on record is never reopened.
+func (service *Service) recordBlocklistHits(
+	ctx context.Context, id pgtype.UUID, hits []dbgen.MatchBlocklistFingerprintsRow,
+) ([]BlocklistMatch, error) {
 	if len(hits) == 0 {
 		return nil, nil
 	}
-
+	allowlisted, err := service.queries().IsBlocklistAllowlisted(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if allowlisted {
+		return nil, nil
+	}
+	customerID := uuidString(id)
 	matches := make([]BlocklistMatch, 0, len(hits))
 	err = service.inTx(ctx, func(tx *dbgen.Queries) error {
 		for _, hit := range hits {
@@ -795,6 +808,10 @@ func (service *Service) EvaluateAnomalies(ctx context.Context) ([]AnomalySignal,
 			return nil, observeErr
 		}
 		for _, signal := range anomaly.Evaluate(rule, now, observations) {
+			if signal.SubjectType == anomaly.SubjectCustomer && service.operatorCustomer(ctx, signal.SubjectID) {
+				// An operator testing purchases or refunds is not an anomaly.
+				continue
+			}
 			persisted, persistErr := service.raise(ctx, signal)
 			if persistErr != nil {
 				return nil, persistErr
