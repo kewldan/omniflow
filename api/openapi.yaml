@@ -3585,6 +3585,24 @@ paths:
         "401": {$ref: "#/components/responses/Problem"}
         "404": {$ref: "#/components/responses/Problem"}
         "409": {$ref: "#/components/responses/Problem"}
+  /v1/account/sign-in-methods/telegram:
+    post:
+      operationId: linkAccountTelegram
+      tags: [account]
+      description: >-
+        Attaches the Telegram account a Login Widget payload proves to the
+        customer signed in. The body is the widget's object posted as is. A
+        Telegram account that belongs to another customer is refused, never
+        moved; joining two accounts is what the account merge does. Needs a
+        recent sign-in, like removing a method.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/TelegramLoginWidgetPayload"}}}}
+      responses:
+        "204": {description: Linked}
+        "400": {$ref: "#/components/responses/Problem"}
+        "401": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
   /v1/account/sign-in-methods/oidc/{slug}/start:
     get:
       operationId: startAccountOidcLink

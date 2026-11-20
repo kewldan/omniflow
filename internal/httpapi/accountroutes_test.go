@@ -70,6 +70,7 @@ func TestAccountRoutesRequireASession(t *testing.T) {
 		{http.MethodGet, "/v1/account/sign-in-methods"},
 		{http.MethodDelete, "/v1/account/sign-in-methods/2f1c0c2e-0000-4000-8000-000000000000"},
 		{http.MethodGet, "/v1/account/sign-in-methods/oidc/acme/start"},
+		{http.MethodPost, "/v1/account/sign-in-methods/telegram"},
 		{http.MethodGet, "/v1/account/overview"},
 		{http.MethodGet, subscription},
 		{http.MethodPatch, subscription},

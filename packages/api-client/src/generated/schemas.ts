@@ -8499,6 +8499,33 @@ export const UnlinkAccountSignInMethodHeader = zod.object({
 export const UnlinkAccountSignInMethodResponse = zod.void();
 
 /**
+ * Attaches the Telegram account a Login Widget payload proves to the customer signed in. The body is the widget's object posted as is. A Telegram account that belongs to another customer is refused, never moved; joining two accounts is what the account merge does. Needs a recent sign-in, like removing a method.
+ */
+export const LinkAccountTelegramHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const LinkAccountTelegramBody = zod
+  .looseObject({
+    id: zod.int().describe("The Telegram user ID."),
+    auth_date: zod.int().describe("Unix seconds at which Telegram signed the payload."),
+    hash: zod
+      .string()
+      .describe("HMAC-SHA256 over the other fields under SHA-256 of the bot token."),
+    first_name: zod.string().optional(),
+    last_name: zod.string().optional(),
+    username: zod.string().optional(),
+    photo_url: zod.string().optional(),
+  })
+  .describe(
+    "The document Telegram's Login Widget produces. Every field except `hash` participates in the signature in its textual form, so the server keeps the digits of the numeric fields verbatim rather than parsing them as floating point.",
+  );
+
+export const LinkAccountTelegramResponse = zod.void();
+
+/**
  * Attaches a provider to the account already signed in. This is the only route by which an existing customer gains an OIDC method: signing in with an unlinked subject never adopts an existing account by email.
  */
 export const startAccountOidcLinkPathSlugRegExp = /^[a-z0-9][a-z0-9-]{0,38}[a-z0-9]$/;

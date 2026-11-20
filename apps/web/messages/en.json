@@ -4416,7 +4416,21 @@
       "linksDescription": "If you think your subscription links leaked, re-issue them all. Every device will need the new link from the Connect screen.",
       "linksReissue": "Re-issue all links",
       "linksConfirm": "Every subscription gets a new link and the old ones stop working at once. You will need to add the new link on each device.",
-      "linksReissued": "Re-issued {rotated, plural, one {# link} other {# links}}{coolingDown, plural, =0 {} other {; # re-issued too recently were skipped}}."
+      "linksReissued": "Re-issued {rotated, plural, one {# link} other {# links}}{coolingDown, plural, =0 {} other {; # re-issued too recently were skipped}}.",
+      "addMethod": "Add a way to sign in",
+      "addMethodHint": "A second method keeps you in your account if you lose access to the first one.",
+      "addMethodReauth": "Sign in again to add a method",
+      "linkProvider": "Link {provider}",
+      "methodLinked": "Sign-in method added",
+      "telegramWidgetUnavailable": "Telegram sign-in is not available on this address.",
+      "linkErrors": {
+        "identity_taken": "That account is already linked to another customer. Write to support if both accounts are yours: they can merge them.",
+        "telegram_already_linked": "A Telegram account is already linked. Remove it first to link a different one.",
+        "telegram_rejected": "Telegram did not confirm the account. Try again.",
+        "unverified_email": "The provider has not verified your e-mail address, so it cannot be linked.",
+        "method_unavailable": "This sign-in method is not available right now.",
+        "link_failed": "The method could not be linked. Try again."
+      }
     },
     "account": {
       "actions": {

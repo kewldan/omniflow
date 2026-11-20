@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"errors"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -217,6 +218,43 @@ func (handlers *AccountHandlers) unlinkSignInMethod(writer http.ResponseWriter, 
 		return
 	}
 	writer.WriteHeader(http.StatusNoContent)
+}
+
+// linkTelegram attaches the Telegram account a Login Widget payload proves to
+// the customer signed in. The payload is passed through exactly as the widget
+// produced it, because the signature covers the fields as Telegram serialised
+// them.
+func (handlers *AccountHandlers) linkTelegram(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := CustomerFrom(request.Context())
+	raw, err := io.ReadAll(http.MaxBytesReader(writer, request.Body, maxJSONBody))
+	if err != nil {
+		writeProblem(writer, request, http.StatusBadRequest, "invalid_request", "Invalid JSON request")
+		return
+	}
+	values, err := customerauth.WidgetValuesFromJSON(raw)
+	if err != nil {
+		writeProblem(writer, request, http.StatusBadRequest, "invalid_request", "Invalid JSON request")
+		return
+	}
+	err = handlers.auth.LinkTelegramIdentity(
+		request.Context(), principal.Customer.ID, values, handlers.requestContext(request),
+	)
+	switch {
+	case errors.Is(err, customerauthpg.ErrTelegramUnset):
+		writeProblem(writer, request, http.StatusNotFound, "method_unavailable", "Telegram sign-in is not available")
+	case errors.Is(err, customerauthpg.ErrSignInRejected):
+		writeProblem(writer, request, http.StatusUnauthorized, "telegram_rejected", "Telegram did not confirm the account")
+	case errors.Is(err, customerauth.ErrIdentityTaken):
+		// Says the account is in use, never whose account it is on.
+		writeProblem(writer, request, http.StatusConflict, "identity_taken", "That Telegram account is linked to another customer")
+	case errors.Is(err, customerauthpg.ErrTelegramAlreadyLinked):
+		writeProblem(writer, request, http.StatusConflict, "telegram_already_linked", "A Telegram account is already linked")
+	case err != nil:
+		handlers.logger.Error("telegram link failed", "error", err)
+		writeProblem(writer, request, http.StatusInternalServerError, "link_failed", "It could not be linked")
+	default:
+		writer.WriteHeader(http.StatusNoContent)
+	}
 }
 
 // ---------------------------------------------------------------------------

@@ -147,6 +147,11 @@ func (handlers *AccountHandlers) Mount(router chi.Router) {
 			secure.With(handlers.requireRecentAuthentication).
 				Delete("/sign-in-methods/{identityID}", handlers.unlinkSignInMethod)
 			secure.Get("/sign-in-methods/oidc/{slug}/start", handlers.startOIDCLink)
+			// Adding a way in needs a recent sign-in for the same reason removing
+			// one does: an open session alone must not be enough to give someone
+			// else lasting access to the account.
+			secure.With(handlers.requireRecentAuthentication).
+				Post("/sign-in-methods/telegram", handlers.linkTelegram)
 
 			secure.Get("/overview", handlers.overview)
 			secure.Get("/subscriptions/{subscriptionID}", handlers.subscription)

@@ -4,11 +4,12 @@ import { Button } from "@omniflow/ui/button";
 import { ConfirmDialog } from "@omniflow/ui/confirm-dialog";
 import { toast } from "@omniflow/ui/toast";
 import { Globe, Monitor, Smartphone } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import useSWR from "swr";
 
+import { AddSignInMethod } from "@/components/account/add-sign-in-method";
 import { ReauthNotice, useReauthentication } from "@/components/account/reauth";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
 import { Timestamp } from "@/components/intl/timestamp";
@@ -263,6 +264,28 @@ function SignInMethods() {
   const [pending, setPending] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const { redirectIfRequired } = useReauthentication();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  // Coming back from an OpenID Connect provider, the API redirects here with
+  // the outcome in the query string. It is reported once and then removed, so
+  // a reload does not repeat it.
+  const linkedSlug = searchParams.get("linked");
+  const linkError = searchParams.get("error");
+  useEffect(() => {
+    if (!linkedSlug && !linkError) {
+      return;
+    }
+    if (linkedSlug) {
+      toast.success(translate("security.methodLinked"));
+    } else if (linkError) {
+      const key = `security.linkErrors.${linkError}`;
+      toast.error(
+        translate.has(key) ? translate(key) : translate("security.linkErrors.link_failed"),
+      );
+    }
+    router.replace("/account/security");
+  }, [linkedSlug, linkError, router, translate]);
 
   async function unlink(id: string) {
     setBusy(true);
@@ -311,6 +334,11 @@ function SignInMethods() {
       <p className="px-1 font-mono text-[11px] text-subtle-foreground">
         {translate("security.lastMethodHint")}
       </p>
+      <AddSignInMethod
+        linkedProviders={(data?.items ?? []).map((method) => method.provider)}
+        needsReauth={needsReauth}
+        onLinked={() => mutate()}
+      />
 
       <ConfirmDialog
         cancelLabel={translate("actions.cancel")}

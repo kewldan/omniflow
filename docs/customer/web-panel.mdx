@@ -353,9 +353,14 @@ Two rules govern how an external identity maps to a customer:
   account it is on.
 
 <Note>
-  As shipped, no screen in the web panel starts that link flow. `/account/security`
-  lists the linked methods and offers unlinking only, so adding a second provider
-  to an existing account is an API-level capability rather than a button.
+  `/account/security` offers **Add a way to sign in** under the linked methods:
+  the Telegram Login Widget, and a **Link** button for every enabled provider the
+  customer has not linked. Telegram is attached with
+  `POST /v1/account/sign-in-methods/telegram`, which takes the widget payload as
+  is. A Telegram account that already belongs to another customer is refused with
+  `409 identity_taken`, a second Telegram account on one customer with
+  `409 telegram_already_linked`. Adding a method needs a recent sign-in, like
+  removing one, so a session left open cannot give somebody else lasting access.
 </Note>
 
 Because the subject is the key and the address is only a claim, a customer
@@ -418,6 +423,7 @@ irreversible happen:
 
 | Action | Route |
 | --- | --- |
+| Add Telegram as a sign-in method | `POST /v1/account/sign-in-methods/telegram` |
 | Remove a sign-in method | `DELETE /v1/account/sign-in-methods/{identityID}` |
 | Rotate the subscription link | `POST /v1/account/subscriptions/{id}/rotate-link` |
 | Disconnect every device | `DELETE /v1/account/subscriptions/{id}/devices` |

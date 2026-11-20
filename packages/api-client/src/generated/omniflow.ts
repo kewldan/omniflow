@@ -28897,6 +28897,106 @@ export const useUnlinkAccountSignInMethod = <TError = Promise<ProblemResponse>>(
   };
 };
 
+export type linkAccountTelegramResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type linkAccountTelegramResponse400 = {
+  data: ProblemResponse;
+  status: 400;
+};
+
+export type linkAccountTelegramResponse401 = {
+  data: ProblemResponse;
+  status: 401;
+};
+
+export type linkAccountTelegramResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type linkAccountTelegramResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type linkAccountTelegramResponseSuccess = linkAccountTelegramResponse204 & {
+  headers: Headers;
+};
+export type linkAccountTelegramResponseError = (
+  | linkAccountTelegramResponse400
+  | linkAccountTelegramResponse401
+  | linkAccountTelegramResponse404
+  | linkAccountTelegramResponse409
+) & {
+  headers: Headers;
+};
+
+export type linkAccountTelegramResponse =
+  | linkAccountTelegramResponseSuccess
+  | linkAccountTelegramResponseError;
+
+export const getLinkAccountTelegramUrl = () => {
+  return `/v1/account/sign-in-methods/telegram`;
+};
+
+/**
+ * Attaches the Telegram account a Login Widget payload proves to the customer signed in. The body is the widget's object posted as is. A Telegram account that belongs to another customer is refused, never moved; joining two accounts is what the account merge does. Needs a recent sign-in, like removing a method.
+ */
+export const linkAccountTelegram = async (
+  telegramLoginWidgetPayload: TelegramLoginWidgetPayload,
+  options?: RequestInit,
+): Promise<linkAccountTelegramResponse> => {
+  const res = await fetch(getLinkAccountTelegramUrl(), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(telegramLoginWidgetPayload),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: linkAccountTelegramResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as linkAccountTelegramResponse;
+};
+
+export const getLinkAccountTelegramMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: TelegramLoginWidgetPayload }) => {
+    return linkAccountTelegram(arg, options);
+  };
+};
+export const getLinkAccountTelegramMutationKey = () =>
+  [`/v1/account/sign-in-methods/telegram`] as const;
+
+export type LinkAccountTelegramMutationResult = NonNullable<
+  Awaited<ReturnType<typeof linkAccountTelegram>>
+>;
+
+export const useLinkAccountTelegram = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof linkAccountTelegram>>,
+    TError,
+    Key,
+    TelegramLoginWidgetPayload,
+    Awaited<ReturnType<typeof linkAccountTelegram>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getLinkAccountTelegramMutationKey();
+  const swrFn = getLinkAccountTelegramMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
 export type startAccountOidcLinkResponse302 = {
   data: void;
   status: 302;

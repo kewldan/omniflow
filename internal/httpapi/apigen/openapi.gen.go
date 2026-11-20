@@ -10833,6 +10833,12 @@ type ReviewAccountShopRecipientParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// LinkAccountTelegramParams defines parameters for LinkAccountTelegram.
+type LinkAccountTelegramParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // UnlinkAccountSignInMethodParams defines parameters for UnlinkAccountSignInMethod.
 type UnlinkAccountSignInMethodParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
@@ -12520,6 +12526,9 @@ type PurchaseAccountShopProductJSONRequestBody PurchaseAccountShopProductJSONBod
 // ReviewAccountShopRecipientJSONRequestBody defines body for ReviewAccountShopRecipient for application/json ContentType.
 type ReviewAccountShopRecipientJSONRequestBody ReviewAccountShopRecipientJSONBody
 
+// LinkAccountTelegramJSONRequestBody defines body for LinkAccountTelegram for application/json ContentType.
+type LinkAccountTelegramJSONRequestBody = TelegramLoginWidgetPayload
+
 // RotateAllAccountSubscriptionLinksJSONRequestBody defines body for RotateAllAccountSubscriptionLinks for application/json ContentType.
 type RotateAllAccountSubscriptionLinksJSONRequestBody RotateAllAccountSubscriptionLinksJSONBody
 
@@ -13256,6 +13265,9 @@ type ServerInterface interface {
 
 	// (GET /v1/account/sign-in-methods/oidc/{slug}/start)
 	StartAccountOidcLink(w http.ResponseWriter, r *http.Request, slug OidcSlug)
+
+	// (POST /v1/account/sign-in-methods/telegram)
+	LinkAccountTelegram(w http.ResponseWriter, r *http.Request, params LinkAccountTelegramParams)
 
 	// (DELETE /v1/account/sign-in-methods/{identityID})
 	UnlinkAccountSignInMethod(w http.ResponseWriter, r *http.Request, identityID openapi_types.UUID, params UnlinkAccountSignInMethodParams)
@@ -14554,6 +14566,11 @@ func (_ Unimplemented) ListAccountLinkedMethods(w http.ResponseWriter, r *http.R
 
 // (GET /v1/account/sign-in-methods/oidc/{slug}/start)
 func (_ Unimplemented) StartAccountOidcLink(w http.ResponseWriter, r *http.Request, slug OidcSlug) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/sign-in-methods/telegram)
+func (_ Unimplemented) LinkAccountTelegram(w http.ResponseWriter, r *http.Request, params LinkAccountTelegramParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -19212,6 +19229,51 @@ func (siw *ServerInterfaceWrapper) StartAccountOidcLink(w http.ResponseWriter, r
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.StartAccountOidcLink(w, r, slug)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// LinkAccountTelegram operation middleware
+func (siw *ServerInterfaceWrapper) LinkAccountTelegram(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params LinkAccountTelegramParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.LinkAccountTelegram(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -32605,6 +32667,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Delete(options.BaseURL+"/v1/account/sign-in-methods/{identityID}", wrapper.UnlinkAccountSignInMethod)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/sign-in-methods/telegram", wrapper.LinkAccountTelegram)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/account/sign-in-methods/oidc/{slug}/start", wrapper.StartAccountOidcLink)
 	})
 	r.Group(func(r chi.Router) {
@@ -36536,6 +36601,81 @@ func (response StartAccountOidcLink404ApplicationProblemPlusJSONResponse) VisitS
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LinkAccountTelegramRequestObject struct {
+	Params LinkAccountTelegramParams
+	Body   *LinkAccountTelegramJSONRequestBody
+}
+
+type LinkAccountTelegramResponseObject interface {
+	VisitLinkAccountTelegramResponse(w http.ResponseWriter) error
+}
+
+type LinkAccountTelegram204Response struct {
+}
+
+func (response LinkAccountTelegram204Response) VisitLinkAccountTelegramResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type LinkAccountTelegram400ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response LinkAccountTelegram400ApplicationProblemPlusJSONResponse) VisitLinkAccountTelegramResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LinkAccountTelegram401ApplicationProblemPlusJSONResponse Problem
+
+func (response LinkAccountTelegram401ApplicationProblemPlusJSONResponse) VisitLinkAccountTelegramResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LinkAccountTelegram404ApplicationProblemPlusJSONResponse Problem
+
+func (response LinkAccountTelegram404ApplicationProblemPlusJSONResponse) VisitLinkAccountTelegramResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LinkAccountTelegram409ApplicationProblemPlusJSONResponse Problem
+
+func (response LinkAccountTelegram409ApplicationProblemPlusJSONResponse) VisitLinkAccountTelegramResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -50273,6 +50413,9 @@ type StrictServerInterface interface {
 	// (GET /v1/account/sign-in-methods/oidc/{slug}/start)
 	StartAccountOidcLink(ctx context.Context, request StartAccountOidcLinkRequestObject) (StartAccountOidcLinkResponseObject, error)
 
+	// (POST /v1/account/sign-in-methods/telegram)
+	LinkAccountTelegram(ctx context.Context, request LinkAccountTelegramRequestObject) (LinkAccountTelegramResponseObject, error)
+
 	// (DELETE /v1/account/sign-in-methods/{identityID})
 	UnlinkAccountSignInMethod(ctx context.Context, request UnlinkAccountSignInMethodRequestObject) (UnlinkAccountSignInMethodResponseObject, error)
 
@@ -53613,6 +53756,39 @@ func (sh *strictHandler) StartAccountOidcLink(w http.ResponseWriter, r *http.Req
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(StartAccountOidcLinkResponseObject); ok {
 		if err := validResponse.VisitStartAccountOidcLinkResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// LinkAccountTelegram operation middleware
+func (sh *strictHandler) LinkAccountTelegram(w http.ResponseWriter, r *http.Request, params LinkAccountTelegramParams) {
+	var request LinkAccountTelegramRequestObject
+
+	request.Params = params
+
+	var body LinkAccountTelegramJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.LinkAccountTelegram(ctx, request.(LinkAccountTelegramRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LinkAccountTelegram")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LinkAccountTelegramResponseObject); ok {
+		if err := validResponse.VisitLinkAccountTelegramResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
