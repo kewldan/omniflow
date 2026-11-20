@@ -1068,6 +1068,22 @@ type CustomerStartAttribution struct {
 	RecordedAt  pgtype.Timestamptz `json:"recorded_at"`
 }
 
+type DailyGame struct {
+	Code             string             `json:"code"`
+	Enabled          bool               `json:"enabled"`
+	PrizeKind        string             `json:"prize_kind"`
+	PrizeValue       int64              `json:"prize_value"`
+	PrizeTemplateID  pgtype.UUID        `json:"prize_template_id"`
+	PlaysPerDay      int32              `json:"plays_per_day"`
+	Parameter        int32              `json:"parameter"`
+	CostMinor        int64              `json:"cost_minor"`
+	TargetRtpPercent int32              `json:"target_rtp_percent"`
+	DailyBudgetMinor int64              `json:"daily_budget_minor"`
+	DailyPrizeLimit  int32              `json:"daily_prize_limit"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy        pgtype.UUID        `json:"updated_by"`
+}
+
 type DeviceAlias struct {
 	SubscriptionID pgtype.UUID        `json:"subscription_id"`
 	UserID         pgtype.UUID        `json:"user_id"`
@@ -1204,6 +1220,38 @@ type FulfillmentOperation struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 	CompletedAt    pgtype.Timestamptz `json:"completed_at"`
+}
+
+type GamePlay struct {
+	ID              pgtype.UUID        `json:"id"`
+	UserID          pgtype.UUID        `json:"user_id"`
+	GameCode        string             `json:"game_code"`
+	PlayDay         pgtype.Date        `json:"play_day"`
+	QuestionID      pgtype.UUID        `json:"question_id"`
+	Choice          pgtype.Int4        `json:"choice"`
+	Outcome         []byte             `json:"outcome"`
+	Won             bool               `json:"won"`
+	PrizeKind       pgtype.Text        `json:"prize_kind"`
+	PrizeValue      int64              `json:"prize_value"`
+	PrizeValueMinor int64              `json:"prize_value_minor"`
+	PersonalOfferID pgtype.UUID        `json:"personal_offer_id"`
+	CostMinor       int64              `json:"cost_minor"`
+	Currency        string             `json:"currency"`
+	IdempotencyKey  string             `json:"idempotency_key"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
+type GameQuestion struct {
+	ID           pgtype.UUID        `json:"id"`
+	GameCode     string             `json:"game_code"`
+	QuestionRu   string             `json:"question_ru"`
+	QuestionEn   string             `json:"question_en"`
+	Options      []byte             `json:"options"`
+	CorrectIndex int32              `json:"correct_index"`
+	OpensAt      pgtype.Timestamptz `json:"opens_at"`
+	ArchivedAt   pgtype.Timestamptz `json:"archived_at"`
+	CreatedBy    pgtype.UUID        `json:"created_by"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
 type Gift struct {
