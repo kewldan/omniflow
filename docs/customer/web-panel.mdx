@@ -1178,6 +1178,13 @@ generated SWR hooks emit bare `fetch` calls that honour no mutator: a generated
 hook would send no session cookie and no CSRF token, so every mutation through
 one would be rejected and every read would be anonymous.
 
+## Installing the panel as an app
+
+The site publishes a web app manifest at `/manifest.webmanifest`, so a phone's browser
+offers **Add to Home Screen** / **Install app**. The installed app opens the customer panel
+at `/account` in its own window, under the installation's service name and favicon from
+[branding](/operations/branding); a rename applies the next time the manifest is read.
+
 ## Related
 
 <CardGroup cols={2}>
