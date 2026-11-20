@@ -180,17 +180,17 @@ type Config struct {
 	// TelegramTransport is how the api reaches the Bot API, for reading
 	// customers' profile photos into the operator panel.
 	TelegramTransport TelegramTransportConfig
-	CryptoBotToken        string
-	CryptoBotTestnet      bool
-	YooKassaShopID        string
-	YooKassaSecret        string
-	DefaultCurrency       string
-	TopUp                 TopUpConfig
-	Subscriptions         SubscriptionConfig
-	Maintenance           MaintenanceConfig
-	AdminPanel            AdminPanelConfig
-	CustomerPanel         CustomerPanelConfig
-	PublicURL             string
+	CryptoBotToken    string
+	CryptoBotTestnet  bool
+	YooKassaShopID    string
+	YooKassaSecret    string
+	DefaultCurrency   string
+	TopUp             TopUpConfig
+	Subscriptions     SubscriptionConfig
+	Maintenance       MaintenanceConfig
+	AdminPanel        AdminPanelConfig
+	CustomerPanel     CustomerPanelConfig
+	PublicURL         string
 	// UpdateFeedURL turns on the "is there a newer release?" line in the
 	// diagnostics bundle. It is empty by default and has no built-in address,
 	// because reading a feed tells whoever serves it that this installation
