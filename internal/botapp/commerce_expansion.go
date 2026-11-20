@@ -136,6 +136,16 @@ func (service *Commerce) PurchaseCart(ctx context.Context, customerID string) (c
 	return service.orders.PurchaseCartNow(ctx, customerID)
 }
 
+// SaveAddonCart saves one mid-period add-on the wallet cannot cover yet as
+// the customer's cart, bought automatically once a top-up covers it and never
+// for more than priceMinor, the price the customer was shown.
+func (service *Commerce) SaveAddonCart(ctx context.Context, customerID, subscriptionID, currency, addonVersionID string, priceMinor int64) (commercepg.Cart, error) {
+	return service.orders.SaveAddonCart(ctx, commercepg.AddonCartInput{
+		CustomerID: customerID, SubscriptionID: subscriptionID, Currency: currency,
+		AddonVersionID: addonVersionID, Quantity: 1, SavedPriceMinor: priceMinor, TTL: service.settings.CartTTL,
+	})
+}
+
 // BuyAddon opens the order for one mid-period add-on on a subscription.
 // Pricing, the proration rule, and the entitlement change all come from the
 // add-on version that is current at the moment of purchase. The wallet is

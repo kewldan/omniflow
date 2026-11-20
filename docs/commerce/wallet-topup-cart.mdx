@@ -232,6 +232,14 @@ goods](/commerce/gifts-and-goods).
 
 A customer has one open cart, so saving a shop item replaces a saved plan and vice versa.
 
+### Add-on carts
+
+A mid-period add-on the wallet cannot cover can be saved as a cart of kind `addon` and is then
+bought automatically after the top-up, never for more than the price the customer saw. Unlike a shop
+cart it does buy itself: a mid-period add-on price is the operator's own and only falls as the
+period runs on. [Buying after a top-up](/commerce/addons-configurator#buying-after-a-top-up)
+describes it.
+
 <Warning>
   A settled top-up asks the customer's open cart to buy itself without checking what kind of cart it
   is. When that cart is a shop cart, the attempt fails with `cart_plan_unavailable` and increments

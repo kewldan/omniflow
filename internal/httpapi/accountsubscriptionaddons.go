@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/omniflow/omniflow/internal/accountcheckout"
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/commercepg"
 )
@@ -19,6 +20,8 @@ func (handlers *AccountHandlers) mountSubscriptionAddons(router chi.Router) {
 	}
 	router.Get("/subscriptions/{subscriptionID}/addons", handlers.subscriptionAddons)
 	router.Post("/subscriptions/{subscriptionID}/addons", handlers.buySubscriptionAddon)
+	router.Put("/subscriptions/{subscriptionID}/addons/cart", handlers.saveSubscriptionAddonCart)
+	router.Delete("/subscriptions/{subscriptionID}/addons/cart", handlers.discardSubscriptionAddonCart)
 	router.Get("/subscriptions/{subscriptionID}/traffic-reset", handlers.trafficResetQuote)
 	router.Post("/subscriptions/{subscriptionID}/traffic-reset", handlers.buyTrafficReset)
 	router.With(handlers.requireRecentAuthentication).
@@ -34,6 +37,41 @@ func (handlers *AccountHandlers) subscriptionAddons(writer http.ResponseWriter, 
 	if handlers.writeCheckoutError(writer, request, err) {
 		return
 	}
+	writeJSON(writer, http.StatusOK, subscriptionAddonsPayload(view))
+}
+
+func (handlers *AccountHandlers) saveSubscriptionAddonCart(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := CustomerFrom(request.Context())
+	var body struct {
+		AddonVersionID string `json:"addonVersionId"`
+		Quantity       int    `json:"quantity"`
+	}
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	view, err := handlers.checkout.SaveSubscriptionAddonCart(
+		request.Context(), principal.Customer.ID, chi.URLParam(request, "subscriptionID"),
+		body.AddonVersionID, body.Quantity, accountLocale(request, principal.Customer.Locale),
+	)
+	if handlers.writeCheckoutError(writer, request, err) {
+		return
+	}
+	writeJSON(writer, http.StatusOK, subscriptionAddonsPayload(view))
+}
+
+func (handlers *AccountHandlers) discardSubscriptionAddonCart(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := CustomerFrom(request.Context())
+	view, err := handlers.checkout.DiscardSubscriptionAddonCart(
+		request.Context(), principal.Customer.ID, chi.URLParam(request, "subscriptionID"),
+		accountLocale(request, principal.Customer.Locale),
+	)
+	if handlers.writeCheckoutError(writer, request, err) {
+		return
+	}
+	writeJSON(writer, http.StatusOK, subscriptionAddonsPayload(view))
+}
+
+func subscriptionAddonsPayload(view accountcheckout.SubscriptionAddons) map[string]any {
 	addons := make([]map[string]any, 0, len(view.Addons))
 	for _, addon := range view.Addons {
 		entry := addonPayload(addon.AddonOffer)
@@ -50,7 +88,20 @@ func (handlers *AccountHandlers) subscriptionAddons(writer http.ResponseWriter, 
 	if !view.EndsAt.IsZero() {
 		payload["endsAt"] = view.EndsAt
 	}
-	writeJSON(writer, http.StatusOK, payload)
+	if cart := view.Cart; cart != nil {
+		saved := map[string]any{
+			"addonVersionId": cart.AddonVersionID, "quantity": cart.Quantity,
+			"saved": map[string]any{"amountMinor": cart.SavedMinor, "currency": view.Currency},
+			"total": map[string]any{"amountMinor": cart.TotalMinor, "currency": view.Currency},
+			"stale": cart.Stale, "autoPurchase": cart.AutoPurchase, "expiresAt": cart.ExpiresAt,
+			"missingMinor": max(cart.TotalMinor-view.WalletMinor, 0),
+		}
+		if cart.LastFailure != "" {
+			saved["lastFailure"] = cart.LastFailure
+		}
+		payload["cart"] = saved
+	}
+	return payload
 }
 
 func (handlers *AccountHandlers) buySubscriptionAddon(writer http.ResponseWriter, request *http.Request) {

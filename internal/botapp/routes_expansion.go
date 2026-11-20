@@ -184,7 +184,9 @@ func (app *App) cartScreen(ctx context.Context, session commerceContext) View {
 		return cartEmptyView(session.Locale)
 	}
 	planName := ""
-	if plan, planErr := app.customers.Plan(ctx, uuidText(cart.PlanVersionID), session.Locale, cart.Currency); planErr == nil {
+	if cart.Kind == "addon" {
+		planName = app.addonCartName(ctx, session, cart)
+	} else if plan, planErr := app.customers.Plan(ctx, uuidText(cart.PlanVersionID), session.Locale, cart.Currency); planErr == nil {
 		planName = plan.Name
 	}
 	return cartView(session.Locale, cart, quote, planName, time.Now().UTC())
@@ -479,6 +481,49 @@ func (app *App) buyAddon(ctx context.Context, session commerceContext, addonVers
 	return orderPaymentMethodView(session.Locale, summary, app.saveableChoices(ctx, app.orderPaymentChoices(ctx, session.Customer.ID, summary)))
 }
 
+// saveAddonCart saves an add-on the wallet cannot cover, priced as the
+// confirmation screen showed it, and opens the cart: a top-up then buys it
+// by itself.
+func (app *App) saveAddonCart(ctx context.Context, session commerceContext, addonVersionID, slot string) View {
+	subscription, addon, entitlement, err := app.addonSelection(ctx, session, addonVersionID, slot)
+	if view, handled := app.addonSelectionError(ctx, session, subscription, err); handled {
+		return view
+	}
+	charge, err := commerce.PriceAddon(addon.AmountMinor, 1, addon.MaxQuantity, addon.Proration, time.Now().UTC(), entitlement.StartsAt, entitlement.EndsAt)
+	if err != nil {
+		app.logger.Error("add-on pricing failed", "error", err)
+		return app.errorView(session.Locale, routeSubscriptions)
+	}
+	if _, err = app.commerce.SaveAddonCart(ctx, session.Customer.ID, subscription.ID, app.settings.Currency, addon.AddonVersionID, charge.ChargedMinor); err != nil {
+		if view, handled := app.addonSelectionError(ctx, session, subscription, err); handled {
+			return view
+		}
+	}
+	return app.cartScreen(ctx, session)
+}
+
+// addonCartName names the add-on a saved add-on cart holds, from the offer of
+// the subscription's current plan.
+func (app *App) addonCartName(ctx context.Context, session commerceContext, cart commercepg.Cart) string {
+	if len(cart.Addons) == 0 {
+		return ""
+	}
+	entitlement, err := app.customers.EntitlementForSubscription(ctx, session.Customer.ID, uuidText(cart.SubscriptionID), session.Locale, app.settings.Currency)
+	if err != nil || !entitlement.Found {
+		return ""
+	}
+	addons, err := app.customers.PlanAddons(ctx, entitlement.PlanVersionID, session.Locale, app.settings.Currency)
+	if err != nil {
+		return ""
+	}
+	for _, addon := range addons {
+		if addon.AddonVersionID == cart.Addons[0].AddonVersionID {
+			return addon.Name
+		}
+	}
+	return ""
+}
+
 // addonSelectionError renders the refusals an add-on purchase can meet. It
 // reports whether the error was one of them.
 func (app *App) addonSelectionError(ctx context.Context, session commerceContext, subscription SubscriptionSummary, err error) (View, bool) {
@@ -654,7 +699,7 @@ var expansionActions = map[string]bool{
 	"cart-save": true, "cart-auto": true, "cart-clear": true, "cart-buy": true,
 	"sub": true, "sub-new": true, "sub-rename": true, "sub-connect": true,
 	"sub-devices": true, "sub-renew": true, "sub-revoke-confirm": true, "sub-revoke": true,
-	"squad": true, "addons": true, "addon-buy": true, "addon-confirm": true,
+	"squad": true, "addons": true, "addon-buy": true, "addon-confirm": true, "addon-cart": true,
 	"reset-ask": true, "reset-buy": true,
 	"methods": true, "pm-change": true, "checkout-addons": true, "addon-toggle": true,
 	"sub-dev-ask": true, "sub-devs-ask": true, "sub-dev-del": true, "sub-devs-del": true,
@@ -753,6 +798,11 @@ func (app *App) handleExpansionAction(ctx context.Context, session commerceConte
 			return app.errorView(session.Locale, routeSubscriptions), true
 		}
 		return app.buyAddon(ctx, session, parts[1], parts[2]), true
+	case "addon-cart":
+		if len(parts) != 3 {
+			return app.errorView(session.Locale, routeSubscriptions), true
+		}
+		return app.saveAddonCart(ctx, session, parts[1], parts[2]), true
 	case "reset-ask":
 		return app.trafficResetConfirmScreen(ctx, session, argument), true
 	case "reset-buy":

@@ -815,6 +815,10 @@ var catalog = map[string]phrase{
 	"addon.walletNone": {ru: "Способ оплаты вы выберете на следующем шаге.",
 		en: "You choose the payment method on the next step."},
 	"addon.confirm": {ru: "✅ Подтвердить", en: "✅ Confirm"},
+	// An add-on the wallet cannot cover is saved and bought automatically once
+	// a top-up settles, instead of opening an order for the shortfall.
+	"addon.saveCart": {ru: "🛍 Купить после пополнения", en: "🛍 Buy after a top-up"},
+	"cart.addonItem": {ru: "Дополнение: <b>%s</b>", en: "Add-on: <b>%s</b>"},
 	"addon.proration.full_price": {ru: "Оплачивается полностью, срок совпадает с текущим периодом.",
 		en: "Charged in full and lasts to the end of the current period."},
 	"addon.proration.remaining_period": {ru: "Оплачивается пропорционально оставшемуся времени периода.",

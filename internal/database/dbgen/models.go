@@ -763,6 +763,7 @@ type Cart struct {
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
 	Kind             string             `json:"kind"`
+	SavedPriceMinor  pgtype.Int8        `json:"saved_price_minor"`
 }
 
 type CartAddon struct {

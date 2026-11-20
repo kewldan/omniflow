@@ -101,7 +101,11 @@ func cartView(locale Locale, cart commercepg.Cart, quote commerce.CartQuote, pla
 	body := &strings.Builder{}
 	body.WriteString(text(locale, "cart.title"))
 	body.WriteString("\n\n")
-	body.WriteString(text(locale, "cart.plan", html.EscapeString(planName)))
+	if cart.Kind == "addon" {
+		body.WriteString(text(locale, "cart.addonItem", html.EscapeString(planName)))
+	} else {
+		body.WriteString(text(locale, "cart.plan", html.EscapeString(planName)))
+	}
 	body.WriteString("\n")
 	body.WriteString(text(locale, "cart.total", formatMoney(quote.TotalMinor, quote.Currency)))
 	body.WriteString("\n")
@@ -338,10 +342,16 @@ func addonConfirmView(locale Locale, subscription SubscriptionSummary, addon Add
 	default:
 		body.WriteString(text(locale, "addon.walletNone"))
 	}
-	return View{Text: body.String(), Keyboard: keyboard(
+	rows := [][]models.InlineKeyboardButton{
 		row(actionButton(text(locale, "addon.confirm"), addonCallback("addon-confirm", addon.AddonVersionID, subscription.Slot))),
-		row(actionButton(text(locale, "action.cancel"), "addons:"+subscription.ID)),
-	)}
+	}
+	if walletBalanceMinor < charge.ChargedMinor {
+		// The shortfall can be paid now through a provider, or the add-on
+		// saved and bought by itself once a top-up covers it.
+		rows = append(rows, row(actionButton(text(locale, "addon.saveCart"), addonCallback("addon-cart", addon.AddonVersionID, subscription.Slot))))
+	}
+	rows = append(rows, row(actionButton(text(locale, "action.cancel"), "addons:"+subscription.ID)))
+	return View{Text: body.String(), Keyboard: keyboard(rows...)}
 }
 
 // maintenanceView is what a customer sees while purchases are paused. The

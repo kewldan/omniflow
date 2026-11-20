@@ -6085,7 +6085,17 @@
       "prorated": "priced for the time left",
       "buy": "Add for {price}",
       "buying": "Adding…",
-      "bought": "{name} added. It reaches your connection within a minute."
+      "bought": "{name} added. It reaches your connection within a minute.",
+      "saveForLater": "Buy after a top-up",
+      "saved": "{name} is saved. Top up your wallet and it is added by itself.",
+      "savedTitle": "Saved for after a top-up: {name}",
+      "savedUnnamed": "an add-on",
+      "savedWaiting": "Your wallet is {missing} short of {price}. It is bought automatically as soon as a top-up covers it.",
+      "savedReady": "Your wallet covers it now; it is being added automatically.",
+      "savedStale": "This add-on can no longer be bought for this subscription. Discard it and choose again.",
+      "savedPriceChanged": "The price went up since you saved it, so it was not bought. Discard it and add it again at the new price.",
+      "topUp": "Top up wallet",
+      "discard": "Discard"
     },
     "closeSubscription": {
       "title": "Close this subscription",

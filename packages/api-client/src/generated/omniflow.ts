@@ -7063,6 +7063,16 @@ export type BuyAccountSubscriptionAddonBody = {
   quantity?: number;
 };
 
+export type SaveAccountSubscriptionAddonCartBody = {
+  addonVersionId: string;
+  /** @minimum 1 */
+  quantity?: number;
+};
+
+export type SaveAccountSubscriptionAddonCart200 = { [key: string]: unknown };
+
+export type DiscardAccountSubscriptionAddonCart200 = { [key: string]: unknown };
+
 export type GetAccountSubscriptionParams = {
   locale?: GetAccountSubscriptionLocale;
 };
@@ -29749,7 +29759,7 @@ export const getListAccountSubscriptionAddonsUrl = (
 };
 
 /**
- * The add-ons a live subscription's plan offers, each priced for the time its period has left. `available` is false, with a `reason`, when nothing can be added now.
+ * The add-ons a live subscription's plan offers, each priced for the time its period has left. `available` is false, with a `reason`, when nothing can be added now. `cart`, when present, is the add-on saved for this subscription until a top-up covers it: `saved` is the most it will be bought for, `total` what it costs now, `missingMinor` what the wallet still lacks, and `stale` marks one that can no longer be bought.
  */
 export const listAccountSubscriptionAddons = async (
   subscriptionID: string,
@@ -29900,6 +29910,194 @@ export const useBuyAccountSubscriptionAddon = <TError = Promise<ProblemResponse>
 
   const swrKey = swrOptions?.swrKey ?? getBuyAccountSubscriptionAddonMutationKey(subscriptionID);
   const swrFn = getBuyAccountSubscriptionAddonMutationFetcher(subscriptionID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type saveAccountSubscriptionAddonCartResponse200 = {
+  data: SaveAccountSubscriptionAddonCart200;
+  status: 200;
+};
+
+export type saveAccountSubscriptionAddonCartResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type saveAccountSubscriptionAddonCartResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type saveAccountSubscriptionAddonCartResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type saveAccountSubscriptionAddonCartResponseSuccess =
+  saveAccountSubscriptionAddonCartResponse200 & {
+    headers: Headers;
+  };
+export type saveAccountSubscriptionAddonCartResponseError = (
+  | saveAccountSubscriptionAddonCartResponse404
+  | saveAccountSubscriptionAddonCartResponse409
+  | saveAccountSubscriptionAddonCartResponse422
+) & {
+  headers: Headers;
+};
+
+export type saveAccountSubscriptionAddonCartResponse =
+  | saveAccountSubscriptionAddonCartResponseSuccess
+  | saveAccountSubscriptionAddonCartResponseError;
+
+export const getSaveAccountSubscriptionAddonCartUrl = (subscriptionID: string) => {
+  return `/v1/account/subscriptions/${subscriptionID}/addons/cart`;
+};
+
+/**
+ * Saves one add-on the wallet cannot cover yet as the customer's one open cart, replacing a saved plan or shop item, at the price the add-on list shows now. It is bought automatically from the wallet once a top-up covers it, under the cart's own idempotency key and never for more than that price; a higher price or an add-on no longer offered stops it instead. Answers the add-on list with its `cart`.
+ */
+export const saveAccountSubscriptionAddonCart = async (
+  subscriptionID: string,
+  saveAccountSubscriptionAddonCartBody: SaveAccountSubscriptionAddonCartBody,
+  options?: RequestInit,
+): Promise<saveAccountSubscriptionAddonCartResponse> => {
+  const res = await fetch(getSaveAccountSubscriptionAddonCartUrl(subscriptionID), {
+    ...options,
+    method: "PUT",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(saveAccountSubscriptionAddonCartBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: saveAccountSubscriptionAddonCartResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as saveAccountSubscriptionAddonCartResponse;
+};
+
+export const getSaveAccountSubscriptionAddonCartMutationFetcher = (
+  subscriptionID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: SaveAccountSubscriptionAddonCartBody }) => {
+    return saveAccountSubscriptionAddonCart(subscriptionID, arg, options);
+  };
+};
+export const getSaveAccountSubscriptionAddonCartMutationKey = (subscriptionID: string) =>
+  [`/v1/account/subscriptions/${subscriptionID}/addons/cart`] as const;
+
+export type SaveAccountSubscriptionAddonCartMutationResult = NonNullable<
+  Awaited<ReturnType<typeof saveAccountSubscriptionAddonCart>>
+>;
+
+export const useSaveAccountSubscriptionAddonCart = <TError = Promise<ProblemResponse>>(
+  subscriptionID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof saveAccountSubscriptionAddonCart>>,
+      TError,
+      Key,
+      SaveAccountSubscriptionAddonCartBody,
+      Awaited<ReturnType<typeof saveAccountSubscriptionAddonCart>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey =
+    swrOptions?.swrKey ?? getSaveAccountSubscriptionAddonCartMutationKey(subscriptionID);
+  const swrFn = getSaveAccountSubscriptionAddonCartMutationFetcher(subscriptionID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type discardAccountSubscriptionAddonCartResponse200 = {
+  data: DiscardAccountSubscriptionAddonCart200;
+  status: 200;
+};
+
+export type discardAccountSubscriptionAddonCartResponseSuccess =
+  discardAccountSubscriptionAddonCartResponse200 & {
+    headers: Headers;
+  };
+
+export type discardAccountSubscriptionAddonCartResponse =
+  discardAccountSubscriptionAddonCartResponseSuccess;
+
+export const getDiscardAccountSubscriptionAddonCartUrl = (subscriptionID: string) => {
+  return `/v1/account/subscriptions/${subscriptionID}/addons/cart`;
+};
+
+/**
+ * Drops the add-on saved for this subscription; a cart holding anything else is left alone.
+ */
+export const discardAccountSubscriptionAddonCart = async (
+  subscriptionID: string,
+  options?: RequestInit,
+): Promise<discardAccountSubscriptionAddonCartResponse> => {
+  const res = await fetch(getDiscardAccountSubscriptionAddonCartUrl(subscriptionID), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: discardAccountSubscriptionAddonCartResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as discardAccountSubscriptionAddonCartResponse;
+};
+
+export const getDiscardAccountSubscriptionAddonCartMutationFetcher = (
+  subscriptionID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return discardAccountSubscriptionAddonCart(subscriptionID, options);
+  };
+};
+export const getDiscardAccountSubscriptionAddonCartMutationKey = (subscriptionID: string) =>
+  [`/v1/account/subscriptions/${subscriptionID}/addons/cart`] as const;
+
+export type DiscardAccountSubscriptionAddonCartMutationResult = NonNullable<
+  Awaited<ReturnType<typeof discardAccountSubscriptionAddonCart>>
+>;
+
+export const useDiscardAccountSubscriptionAddonCart = <TError = Promise<unknown>>(
+  subscriptionID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof discardAccountSubscriptionAddonCart>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof discardAccountSubscriptionAddonCart>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey =
+    swrOptions?.swrKey ?? getDiscardAccountSubscriptionAddonCartMutationKey(subscriptionID);
+  const swrFn = getDiscardAccountSubscriptionAddonCartMutationFetcher(subscriptionID, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

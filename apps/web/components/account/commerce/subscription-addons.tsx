@@ -28,12 +28,25 @@ type SubscriptionAddon = {
   charge: Money;
 };
 
+type SavedAddon = {
+  addonVersionId: string;
+  quantity: number;
+  saved: Money;
+  total: Money;
+  missingMinor: number;
+  stale: boolean;
+  autoPurchase: boolean;
+  expiresAt: string;
+  lastFailure?: string;
+};
+
 type SubscriptionAddons = {
   available: boolean;
   reason?: string;
   currency: string;
   walletMinor: number;
   addons: SubscriptionAddon[];
+  cart?: SavedAddon;
 };
 
 /**
@@ -41,7 +54,8 @@ type SubscriptionAddons = {
  *
  * The bot offered these alone; this is the same offer, priced by the same
  * proration, bought as the same order. The wallet settles an add-on it covers
- * at once; otherwise the order page takes the rest through a provider.
+ * at once; otherwise the order page takes the rest through a provider, or the
+ * add-on is saved and bought by itself once a top-up covers it.
  */
 export function SubscriptionAddons({
   onBought,
@@ -89,12 +103,75 @@ export function SubscriptionAddons({
     }
   }
 
+  async function saveForLater(addon: SubscriptionAddon) {
+    setBusy(addon.addonVersionId);
+    try {
+      const next = await apiFetch<SubscriptionAddons>(`${key}/cart`, {
+        body: JSON.stringify({ addonVersionId: addon.addonVersionId, quantity: 1 }),
+        method: "PUT",
+      });
+      await mutate(next, { revalidate: false });
+      toast.success(translate("saved", { name: addon.name }));
+      router.push("/account/wallet");
+    } catch (failure) {
+      toast.error(problem(failure));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function discard() {
+    setBusy("cart");
+    try {
+      const next = await apiFetch<SubscriptionAddons>(`${key}/cart`, { method: "DELETE" });
+      await mutate(next, { revalidate: false });
+    } catch (failure) {
+      toast.error(problem(failure));
+    } finally {
+      setBusy("");
+    }
+  }
+
+  const saved = data.cart;
+  const savedName = saved
+    ? (data.addons.find((addon) => addon.addonVersionId === saved.addonVersionId)?.name ?? "")
+    : "";
+
   return (
     <section className="space-y-3 rounded-lg border border-border bg-card p-4">
       <SectionLabel>{translate("title")}</SectionLabel>
       <p className="text-[12px] text-muted-foreground">
         {translate("wallet", { amount: money(data.walletMinor, data.currency) })}
       </p>
+      {saved && (
+        <div className="space-y-2 rounded-md border border-dashed border-border p-3">
+          <p className="font-medium text-[13.5px]">
+            {translate("savedTitle", { name: savedName || translate("savedUnnamed") })}
+          </p>
+          <p className="text-[12.5px] text-muted-foreground">
+            {saved.stale
+              ? translate("savedStale")
+              : saved.lastFailure === "cart_price_changed"
+                ? translate("savedPriceChanged")
+                : saved.missingMinor > 0
+                  ? translate("savedWaiting", {
+                      missing: money(saved.missingMinor, saved.total.currency),
+                      price: money(saved.total.amountMinor, saved.total.currency),
+                    })
+                  : translate("savedReady")}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {!saved.stale && saved.missingMinor > 0 && (
+              <Button onClick={() => router.push("/account/wallet")} size="sm" variant="outline">
+                {translate("topUp")}
+              </Button>
+            )}
+            <Button disabled={busy !== ""} onClick={discard} size="sm" variant="ghost">
+              {translate("discard")}
+            </Button>
+          </div>
+        </div>
+      )}
       <ul className="space-y-2">
         {data.addons.map((addon) => (
           <li
@@ -113,13 +190,25 @@ export function SubscriptionAddons({
                   ` · ${translate("prorated")}`}
               </p>
             </div>
-            <Button disabled={busy !== ""} onClick={() => buy(addon)} size="sm" variant="outline">
-              {busy === addon.addonVersionId
-                ? translate("buying")
-                : translate("buy", {
-                    price: money(addon.charge.amountMinor, addon.charge.currency),
-                  })}
-            </Button>
+            <div className="flex shrink-0 flex-col items-end gap-1">
+              <Button disabled={busy !== ""} onClick={() => buy(addon)} size="sm" variant="outline">
+                {busy === addon.addonVersionId
+                  ? translate("buying")
+                  : translate("buy", {
+                      price: money(addon.charge.amountMinor, addon.charge.currency),
+                    })}
+              </Button>
+              {addon.charge.amountMinor > data.walletMinor && (
+                <Button
+                  disabled={busy !== ""}
+                  onClick={() => saveForLater(addon)}
+                  size="sm"
+                  variant="ghost"
+                >
+                  {translate("saveForLater")}
+                </Button>
+              )}
+            </div>
           </li>
         ))}
       </ul>

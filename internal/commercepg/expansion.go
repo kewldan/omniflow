@@ -403,6 +403,13 @@ type AddonOrderInput struct {
 	// Provider, when known at order time, sets the payment window.
 	Provider   string
 	SkipWallet bool
+	// RequireWalletCover refuses with ErrWalletShort, creating nothing, when
+	// the wallet does not settle the whole order. A saved add-on cart bought
+	// unattended sets it, so it never opens a payment nobody is there to make.
+	RequireWalletCover bool
+	// MaxChargeMinor, when set, refuses with ErrPriceChanged an order that
+	// would cost more than the customer was shown when they saved it.
+	MaxChargeMinor *int64
 }
 
 // CreateAddonOrder prices and records a mid-period add-on purchase. Prices come
@@ -462,19 +469,12 @@ func (store *Store) CreateAddonOrder(ctx context.Context, input AddonOrderInput)
 	if !subscriptionID.Valid {
 		subscriptionID = entitlement.SubscriptionID
 	}
-	charges, subtotal, err := store.priceAddons(ctx, queries, entitlement, input)
+	charges, subtotal, discount, tierCode, err := store.priceAddonOrder(ctx, queries, userID, entitlement, input)
 	if err != nil {
 		return dbgen.Order{}, err
 	}
-	// The customer's loyalty tier discounts add-ons by kind mid-period too.
-	tier, held, err := store.customerLoyaltyTier(ctx, queries, userID)
-	if err != nil {
-		return dbgen.Order{}, err
-	}
-	discount := addonLoyaltyDiscount(tier, held, charges)
-	tierCode := ""
-	if discount > 0 {
-		tierCode = tier.Code
+	if input.MaxChargeMinor != nil && subtotal-discount > *input.MaxChargeMinor {
+		return dbgen.Order{}, ErrPriceChanged
 	}
 	walletBalance := int64(0)
 	if !input.SkipWallet {
@@ -485,6 +485,9 @@ func (store *Store) CreateAddonOrder(ctx context.Context, input AddonOrderInput)
 	domainOrder, err := commerce.NewOrder("", input.CustomerID, commerce.Money{Amount: subtotal, Currency: input.Currency}, discount, walletBalance)
 	if err != nil {
 		return dbgen.Order{}, err
+	}
+	if input.RequireWalletCover && domainOrder.ExternalMinor > 0 {
+		return dbgen.Order{}, ErrWalletShort
 	}
 	state := string(commerce.OrderPending)
 	if domainOrder.ExternalMinor == 0 {
@@ -516,6 +519,29 @@ func (store *Store) CreateAddonOrder(ctx context.Context, input AddonOrderInput)
 		return dbgen.Order{}, err
 	}
 	return order, nil
+}
+
+// priceAddonOrder prices a mid-period add-on order against the entitlement
+// it attaches to: each line at the current version's price and proration,
+// less the customer's loyalty discount for add-ons of that kind.
+func (store *Store) priceAddonOrder(
+	ctx context.Context, queries *dbgen.Queries, userID pgtype.UUID, entitlement dbgen.Entitlement, input AddonOrderInput,
+) ([]pricedAddon, int64, int64, string, error) {
+	charges, subtotal, err := store.priceAddons(ctx, queries, entitlement, input)
+	if err != nil {
+		return nil, 0, 0, "", err
+	}
+	// The customer's loyalty tier discounts add-ons by kind mid-period too.
+	tier, held, err := store.customerLoyaltyTier(ctx, queries, userID)
+	if err != nil {
+		return nil, 0, 0, "", err
+	}
+	discount := addonLoyaltyDiscount(tier, held, charges)
+	tierCode := ""
+	if discount > 0 {
+		tierCode = tier.Code
+	}
+	return charges, subtotal, discount, tierCode, nil
 }
 
 type pricedAddon struct {

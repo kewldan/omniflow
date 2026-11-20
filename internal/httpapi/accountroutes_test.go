@@ -178,6 +178,8 @@ func TestAccountCommerceRoutesRequireASession(t *testing.T) {
 		{http.MethodPut, "/v1/account/renewal/" + uuid},
 		{http.MethodPost, "/v1/account/payment-methods/" + uuid + "/default"},
 		{http.MethodDelete, "/v1/account/payment-methods/" + uuid},
+		{http.MethodPut, "/v1/account/subscriptions/" + uuid + "/addons/cart"},
+		{http.MethodDelete, "/v1/account/subscriptions/" + uuid + "/addons/cart"},
 
 		{http.MethodGet, "/v1/account/shop/products"},
 		{http.MethodGet, "/v1/account/shop/products/" + uuid},

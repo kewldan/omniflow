@@ -33,6 +33,24 @@ type SubscriptionAddons struct {
 	WalletMinor   int64
 	Addons        []SubscriptionAddon
 	PlanVersionID string
+	// Cart is the add-on saved for this subscription until a top-up covers
+	// it, when there is one.
+	Cart *SavedAddon
+}
+
+// SavedAddon is an add-on saved for after a top-up: bought automatically the
+// moment the wallet covers it, never for more than SavedMinor.
+type SavedAddon struct {
+	AddonVersionID string
+	Quantity       int
+	SavedMinor     int64
+	// TotalMinor is what it costs now, which may be less than SavedMinor as
+	// the period runs on; zero with Stale set when it can no longer be bought.
+	TotalMinor   int64
+	Stale        bool
+	AutoPurchase bool
+	ExpiresAt    time.Time
+	LastFailure  string
 }
 
 // SubscriptionAddons lists what may be added to one of the customer's
@@ -81,7 +99,81 @@ func (service *Service) SubscriptionAddons(ctx context.Context, customerID, subs
 	if result.WalletMinor, err = service.orders.AvailableWalletBalance(ctx, customerID, service.settings.Currency); err != nil {
 		return SubscriptionAddons{}, err
 	}
+	if result.Cart, err = service.savedAddon(ctx, customerID, subscriptionID); err != nil {
+		return SubscriptionAddons{}, err
+	}
 	return result, nil
+}
+
+// savedAddon reads the add-on cart saved for one subscription, re-quoted.
+func (service *Service) savedAddon(ctx context.Context, customerID, subscriptionID string) (*SavedAddon, error) {
+	cart, found, err := service.orders.OpenAddonCart(ctx, customerID)
+	if err != nil || !found || UUIDText(cart.SubscriptionID) != subscriptionID || len(cart.Addons) == 0 {
+		return nil, err
+	}
+	saved := &SavedAddon{
+		AddonVersionID: cart.Addons[0].AddonVersionID, Quantity: cart.Addons[0].Quantity,
+		SavedMinor: cart.SavedPriceMinor.Int64, AutoPurchase: cart.AutoPurchase,
+		ExpiresAt: cart.ExpiresAt.Time.UTC(), LastFailure: cart.LastFailure.String,
+	}
+	quote, err := service.orders.QuoteCart(ctx, cart)
+	switch {
+	case errors.Is(err, commercepg.ErrAddonUnavailable), errors.Is(err, commercepg.ErrNoActiveSubscription), errors.Is(err, commerce.ErrAddonLimit):
+		saved.Stale = true
+	case err != nil:
+		return nil, err
+	default:
+		saved.TotalMinor = quote.TotalMinor
+	}
+	return saved, nil
+}
+
+// SaveSubscriptionAddonCart saves one add-on the wallet cannot cover yet,
+// at the price the add-on screen shows now, as the customer's one cart: it is
+// bought automatically once a top-up covers it.
+func (service *Service) SaveSubscriptionAddonCart(ctx context.Context, customerID, subscriptionID, addonVersionID string, quantity int, locale string) (SubscriptionAddons, error) {
+	if err := service.ChannelGate(ctx, customerID); err != nil {
+		return SubscriptionAddons{}, err
+	}
+	if quantity <= 0 {
+		quantity = 1
+	}
+	listing, err := service.SubscriptionAddons(ctx, customerID, subscriptionID, locale)
+	if err != nil {
+		return SubscriptionAddons{}, err
+	}
+	if !listing.Available {
+		return SubscriptionAddons{}, commercepg.ErrNoActiveSubscription
+	}
+	addonVersionID = strings.TrimSpace(addonVersionID)
+	for _, addon := range listing.Addons {
+		if addon.AddonVersionID != addonVersionID {
+			continue
+		}
+		if _, err = service.orders.SaveAddonCart(ctx, commercepg.AddonCartInput{
+			CustomerID: customerID, SubscriptionID: subscriptionID, Currency: listing.Currency,
+			AddonVersionID: addonVersionID, Quantity: quantity, SavedPriceMinor: addon.ChargedMinor * int64(quantity),
+		}); err != nil {
+			return SubscriptionAddons{}, err
+		}
+		return service.SubscriptionAddons(ctx, customerID, subscriptionID, locale)
+	}
+	return SubscriptionAddons{}, commercepg.ErrAddonUnavailable
+}
+
+// DiscardSubscriptionAddonCart drops the add-on saved for this subscription.
+// A cart holding anything else is left alone.
+func (service *Service) DiscardSubscriptionAddonCart(ctx context.Context, customerID, subscriptionID, locale string) (SubscriptionAddons, error) {
+	cart, found, err := service.orders.OpenAddonCart(ctx, customerID)
+	if err != nil {
+		return SubscriptionAddons{}, err
+	}
+	if found && UUIDText(cart.SubscriptionID) == subscriptionID {
+		if err = service.orders.DiscardCart(ctx, customerID); err != nil {
+			return SubscriptionAddons{}, err
+		}
+	}
+	return service.SubscriptionAddons(ctx, customerID, subscriptionID, locale)
 }
 
 // BuySubscriptionAddon opens the order for one mid-period add-on. The wallet

@@ -201,6 +201,7 @@ INSERT INTO carts (
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'plan')
 ON CONFLICT (user_id) WHERE status = 'open'
 DO UPDATE SET subscription_id = EXCLUDED.subscription_id,
+              saved_price_minor = NULL,
               kind = EXCLUDED.kind,
               plan_version_id = EXCLUDED.plan_version_id,
               operation = EXCLUDED.operation,
@@ -568,6 +569,7 @@ VALUES (
 )
 ON CONFLICT (user_id) WHERE status = 'open'
 DO UPDATE SET kind = 'goods',
+              saved_price_minor = NULL,
               plan_version_id = NULL,
               subscription_id = NULL,
               operation = 'purchase',

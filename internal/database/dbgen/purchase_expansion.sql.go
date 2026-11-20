@@ -144,7 +144,7 @@ func (q *Queries) BindOperatorTopic(ctx context.Context, arg BindOperatorTopicPa
 const cancelCart = `-- name: CancelCart :one
 UPDATE carts SET status = 'cancelled', updated_at = now()
 WHERE user_id = $1 AND status = 'open'
-RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind
+RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind, saved_price_minor
 `
 
 func (q *Queries) CancelCart(ctx context.Context, userID pgtype.UUID) (Cart, error) {
@@ -169,6 +169,7 @@ func (q *Queries) CancelCart(ctx context.Context, userID pgtype.UUID) (Cart, err
 		&i.UpdatedAt,
 		&i.ExpiresAt,
 		&i.Kind,
+		&i.SavedPriceMinor,
 	)
 	return i, err
 }
@@ -812,7 +813,7 @@ func (q *Queries) EnqueueOperatorNotification(ctx context.Context, arg EnqueueOp
 const expireCarts = `-- name: ExpireCarts :many
 UPDATE carts SET status = 'expired', updated_at = now()
 WHERE status = 'open' AND expires_at <= now()
-RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind
+RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind, saved_price_minor
 `
 
 func (q *Queries) ExpireCarts(ctx context.Context) ([]Cart, error) {
@@ -843,6 +844,7 @@ func (q *Queries) ExpireCarts(ctx context.Context) ([]Cart, error) {
 			&i.UpdatedAt,
 			&i.ExpiresAt,
 			&i.Kind,
+			&i.SavedPriceMinor,
 		); err != nil {
 			return nil, err
 		}
@@ -1121,7 +1123,7 @@ func (q *Queries) GetMaintenanceState(ctx context.Context) (MaintenanceState, er
 }
 
 const getOpenCart = `-- name: GetOpenCart :one
-SELECT id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind FROM carts WHERE user_id = $1 AND status = 'open'
+SELECT id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind, saved_price_minor FROM carts WHERE user_id = $1 AND status = 'open'
 `
 
 func (q *Queries) GetOpenCart(ctx context.Context, userID pgtype.UUID) (Cart, error) {
@@ -1146,6 +1148,7 @@ func (q *Queries) GetOpenCart(ctx context.Context, userID pgtype.UUID) (Cart, er
 		&i.UpdatedAt,
 		&i.ExpiresAt,
 		&i.Kind,
+		&i.SavedPriceMinor,
 	)
 	return i, err
 }
@@ -1983,7 +1986,7 @@ func (q *Queries) LockCustomerSubscriptions(ctx context.Context, dollar_1 string
 }
 
 const lockOpenCart = `-- name: LockOpenCart :one
-SELECT id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind FROM carts WHERE user_id = $1 AND status = 'open' FOR UPDATE
+SELECT id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind, saved_price_minor FROM carts WHERE user_id = $1 AND status = 'open' FOR UPDATE
 `
 
 func (q *Queries) LockOpenCart(ctx context.Context, userID pgtype.UUID) (Cart, error) {
@@ -2008,6 +2011,7 @@ func (q *Queries) LockOpenCart(ctx context.Context, userID pgtype.UUID) (Cart, e
 		&i.UpdatedAt,
 		&i.ExpiresAt,
 		&i.Kind,
+		&i.SavedPriceMinor,
 	)
 	return i, err
 }
@@ -2061,7 +2065,7 @@ const markCartPurchased = `-- name: MarkCartPurchased :one
 UPDATE carts
 SET status = 'purchased', order_id = $1, last_failure = NULL, updated_at = now()
 WHERE id = $2 AND status = 'open'
-RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind
+RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind, saved_price_minor
 `
 
 type MarkCartPurchasedParams struct {
@@ -2091,6 +2095,7 @@ func (q *Queries) MarkCartPurchased(ctx context.Context, arg MarkCartPurchasedPa
 		&i.UpdatedAt,
 		&i.ExpiresAt,
 		&i.Kind,
+		&i.SavedPriceMinor,
 	)
 	return i, err
 }
@@ -2127,7 +2132,7 @@ const recordCartFailure = `-- name: RecordCartFailure :one
 UPDATE carts
 SET last_failure = $1, attempt_count = attempt_count + 1, updated_at = now()
 WHERE id = $2
-RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind
+RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind, saved_price_minor
 `
 
 type RecordCartFailureParams struct {
@@ -2157,6 +2162,7 @@ func (q *Queries) RecordCartFailure(ctx context.Context, arg RecordCartFailurePa
 		&i.UpdatedAt,
 		&i.ExpiresAt,
 		&i.Kind,
+		&i.SavedPriceMinor,
 	)
 	return i, err
 }
@@ -2214,7 +2220,7 @@ func (q *Queries) SetCartAddon(ctx context.Context, arg SetCartAddonParams) erro
 const setCartAutoPurchase = `-- name: SetCartAutoPurchase :one
 UPDATE carts SET auto_purchase = $1, updated_at = now()
 WHERE user_id = $2 AND status = 'open'
-RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind
+RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind, saved_price_minor
 `
 
 type SetCartAutoPurchaseParams struct {
@@ -2244,6 +2250,7 @@ func (q *Queries) SetCartAutoPurchase(ctx context.Context, arg SetCartAutoPurcha
 		&i.UpdatedAt,
 		&i.ExpiresAt,
 		&i.Kind,
+		&i.SavedPriceMinor,
 	)
 	return i, err
 }
@@ -2302,7 +2309,7 @@ const setGoodsCartPromo = `-- name: SetGoodsCartPromo :one
 UPDATE carts
 SET promo_code = $1, updated_at = now()
 WHERE user_id = $2 AND status = 'open' AND kind = 'goods'
-RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind
+RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind, saved_price_minor
 `
 
 type SetGoodsCartPromoParams struct {
@@ -2337,6 +2344,7 @@ func (q *Queries) SetGoodsCartPromo(ctx context.Context, arg SetGoodsCartPromoPa
 		&i.UpdatedAt,
 		&i.ExpiresAt,
 		&i.Kind,
+		&i.SavedPriceMinor,
 	)
 	return i, err
 }
@@ -2429,6 +2437,7 @@ INSERT INTO carts (
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'plan')
 ON CONFLICT (user_id) WHERE status = 'open'
 DO UPDATE SET subscription_id = EXCLUDED.subscription_id,
+              saved_price_minor = NULL,
               kind = EXCLUDED.kind,
               plan_version_id = EXCLUDED.plan_version_id,
               operation = EXCLUDED.operation,
@@ -2441,7 +2450,7 @@ DO UPDATE SET subscription_id = EXCLUDED.subscription_id,
               last_failure = NULL,
               attempt_count = 0,
               updated_at = now()
-RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind
+RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind, saved_price_minor
 `
 
 type UpsertCartParams struct {
@@ -2493,6 +2502,7 @@ func (q *Queries) UpsertCart(ctx context.Context, arg UpsertCartParams) (Cart, e
 		&i.UpdatedAt,
 		&i.ExpiresAt,
 		&i.Kind,
+		&i.SavedPriceMinor,
 	)
 	return i, err
 }
@@ -2508,6 +2518,7 @@ VALUES (
 )
 ON CONFLICT (user_id) WHERE status = 'open'
 DO UPDATE SET kind = 'goods',
+              saved_price_minor = NULL,
               plan_version_id = NULL,
               subscription_id = NULL,
               operation = 'purchase',
@@ -2520,7 +2531,7 @@ DO UPDATE SET kind = 'goods',
               last_failure = NULL,
               attempt_count = 0,
               updated_at = now()
-RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind
+RETURNING id, user_id, subscription_id, plan_version_id, operation, currency, promo_code, selected_squad_ids, auto_purchase, status, idempotency_key, order_id, last_failure, attempt_count, created_at, updated_at, expires_at, kind, saved_price_minor
 `
 
 type UpsertGoodsCartParams struct {
@@ -2571,6 +2582,7 @@ func (q *Queries) UpsertGoodsCart(ctx context.Context, arg UpsertGoodsCartParams
 		&i.UpdatedAt,
 		&i.ExpiresAt,
 		&i.Kind,
+		&i.SavedPriceMinor,
 	)
 	return i, err
 }

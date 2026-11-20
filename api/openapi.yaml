@@ -3701,7 +3701,10 @@ paths:
       description: >-
         The add-ons a live subscription's plan offers, each priced for the
         time its period has left. `available` is false, with a `reason`, when
-        nothing can be added now.
+        nothing can be added now. `cart`, when present, is the add-on saved for this
+        subscription until a top-up covers it: `saved` is the most it will be
+        bought for, `total` what it costs now, `missingMinor` what the wallet
+        still lacks, and `stale` marks one that can no longer be bought.
       parameters:
         - {$ref: "#/components/parameters/AccountSubscriptionID"}
         - {in: query, name: locale, schema: {type: string, enum: [ru, en]}}
@@ -3733,6 +3736,44 @@ paths:
         "404": {$ref: "#/components/responses/Problem"}
         "409": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/account/subscriptions/{subscriptionID}/addons/cart:
+    put:
+      operationId: saveAccountSubscriptionAddonCart
+      tags: [account]
+      description: >-
+        Saves one add-on the wallet cannot cover yet as the customer's one open
+        cart, replacing a saved plan or shop item, at the price the add-on list
+        shows now. It is bought automatically from the wallet once a top-up
+        covers it, under the cart's own idempotency key and never for more than
+        that price; a higher price or an add-on no longer offered stops it
+        instead. Answers the add-on list with its `cart`.
+      parameters:
+        - {$ref: "#/components/parameters/AccountSubscriptionID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [addonVersionId]
+              properties:
+                addonVersionId: {type: string, format: uuid}
+                quantity: {type: integer, minimum: 1, default: 1}
+      responses:
+        "200": {description: Add-ons with the saved cart, content: {application/json: {schema: {type: object, additionalProperties: true}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+    delete:
+      operationId: discardAccountSubscriptionAddonCart
+      tags: [account]
+      description: Drops the add-on saved for this subscription; a cart holding anything else is left alone.
+      parameters:
+        - {$ref: "#/components/parameters/AccountSubscriptionID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "200": {description: Add-ons, content: {application/json: {schema: {type: object, additionalProperties: true}}}}
   /v1/account/subscriptions/{subscriptionID}:
     delete:
       operationId: closeAccountSubscription

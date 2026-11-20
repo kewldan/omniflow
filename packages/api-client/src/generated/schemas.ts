@@ -8870,7 +8870,7 @@ export const BuyAccountTrafficResetResponse = zod.object({
 });
 
 /**
- * The add-ons a live subscription's plan offers, each priced for the time its period has left. `available` is false, with a `reason`, when nothing can be added now.
+ * The add-ons a live subscription's plan offers, each priced for the time its period has left. `available` is false, with a `reason`, when nothing can be added now. `cart`, when present, is the add-on saved for this subscription until a top-up covers it: `saved` is the most it will be bought for, `total` what it costs now, `missingMinor` what the wallet still lacks, and `stale` marks one that can no longer be bought.
  */
 export const ListAccountSubscriptionAddonsParams = zod.object({
   subscriptionID: zod.uuid(),
@@ -9030,6 +9030,43 @@ export const BuyAccountSubscriptionAddonResponse = zod.object({
       "The operator's transfer instructions, in the customer's language, when the order is paid or payable by manual transfer.",
     ),
 });
+
+/**
+ * Saves one add-on the wallet cannot cover yet as the customer's one open cart, replacing a saved plan or shop item, at the price the add-on list shows now. It is bought automatically from the wallet once a top-up covers it, under the cart's own idempotency key and never for more than that price; a higher price or an add-on no longer offered stops it instead. Answers the add-on list with its `cart`.
+ */
+export const SaveAccountSubscriptionAddonCartParams = zod.object({
+  subscriptionID: zod.uuid(),
+});
+
+export const SaveAccountSubscriptionAddonCartHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const saveAccountSubscriptionAddonCartBodyQuantityDefault = 1;
+
+export const SaveAccountSubscriptionAddonCartBody = zod.object({
+  addonVersionId: zod.uuid(),
+  quantity: zod.int().min(1).default(saveAccountSubscriptionAddonCartBodyQuantityDefault),
+});
+
+export const SaveAccountSubscriptionAddonCartResponse = zod.record(zod.string(), zod.unknown());
+
+/**
+ * Drops the add-on saved for this subscription; a cart holding anything else is left alone.
+ */
+export const DiscardAccountSubscriptionAddonCartParams = zod.object({
+  subscriptionID: zod.uuid(),
+});
+
+export const DiscardAccountSubscriptionAddonCartHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const DiscardAccountSubscriptionAddonCartResponse = zod.record(zod.string(), zod.unknown());
 
 /**
  * Closes one of the customer's additional subscriptions. Its remaining time is given up and nothing is refunded; its Remnawave user is disabled or deleted as the installation says. Needs a recent sign-in. The first subscription answers 409 subscription_primary, and one with an unpaid order 409 subscription_busy.

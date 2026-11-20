@@ -183,6 +183,9 @@ func (store *Store) SetCartAutoPurchase(ctx context.Context, customerID string, 
 // is the only price a cart is ever charged at: the price captured when the cart
 // was saved is never reused.
 func (store *Store) QuoteCart(ctx context.Context, cart Cart) (commerce.CartQuote, error) {
+	if cart.Kind == cartKindAddon {
+		return store.quoteAddonCart(ctx, cart)
+	}
 	preview, err := store.PreviewOrder(ctx, CreateOrderInput{
 		CustomerID: uuidString(cart.UserID), PlanVersionID: uuidString(cart.PlanVersionID),
 		Currency: cart.Currency, Operation: cart.Operation, PromoCode: cart.PromoCode.String,
@@ -283,6 +286,9 @@ func (store *Store) purchaseCart(ctx context.Context, customerID string, evaluat
 		// A saved shop purchase has no plan to re-quote; it is priced from
 		// the product's own operator price.
 		return store.purchaseGoodsCart(ctx, customerID, cart.Cart, unattended)
+	}
+	if cart.Kind == cartKindAddon {
+		return store.purchaseAddonCart(ctx, customerID, cart, unattended)
 	}
 	quote, err := store.QuoteCart(ctx, cart)
 	if errors.Is(err, ErrPlanUnavailable) || errors.Is(err, ErrAddonUnavailable) {
