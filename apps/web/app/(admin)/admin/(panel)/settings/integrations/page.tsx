@@ -2,6 +2,7 @@ import { requirePermissions } from "@/lib/server-session";
 
 import { BotCustomization } from "../bot-customization";
 import { InstallationSettings } from "../installation-settings";
+import { MenuLayoutEditor } from "../menu-layout";
 import { SettingsGroupHeader } from "../settings-group-header";
 
 export default async function IntegrationsSettingsPage() {
@@ -11,6 +12,7 @@ export default async function IntegrationsSettingsPage() {
       <SettingsGroupHeader group="integrations" />
       <InstallationSettings group="integrations" />
       <BotCustomization />
+      <MenuLayoutEditor />
     </div>
   );
 }

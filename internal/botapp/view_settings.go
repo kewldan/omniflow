@@ -94,6 +94,12 @@ func commerceMainKeyboard(locale Locale, menu MenuState) *models.InlineKeyboardM
 	if !menu.CommerceEnabled {
 		return mainKeyboard(locale)
 	}
+	return keyboard(customizeMenu(locale, commerceMenuRows(locale, menu))...)
+}
+
+// commerceMenuRows is the shipped main menu before the operator's
+// customization: hidden entries, custom buttons, and the layout.
+func commerceMenuRows(locale Locale, menu MenuState) [][]models.InlineKeyboardButton {
 	supportLabel := text(locale, "menu.support")
 	if menu.UnreadSupport > 0 {
 		supportLabel += text(locale, "menu.badge", menu.UnreadSupport)
@@ -158,5 +164,5 @@ func commerceMainKeyboard(locale Locale, menu MenuState) *models.InlineKeyboardM
 		row(callbackButton(referral, routeReferral), callbackButton(settings, routeSettings)),
 		row(callbackButton(text(locale, "action.refresh"), routeHome)),
 	)
-	return keyboard(customizeMenu(locale, rows)...)
+	return rows
 }

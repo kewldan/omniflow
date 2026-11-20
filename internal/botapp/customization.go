@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"sync/atomic"
 
@@ -31,6 +32,9 @@ type customization struct {
 	buttons     []CustomButton
 	miniApp     string
 	cabinetOnly bool
+	// layout is the operator's main-menu arrangement: rows of entry keys.
+	// Empty keeps the shipped arrangement.
+	layout [][]string
 }
 
 var currentCustomization atomic.Pointer[customization]
@@ -50,6 +54,13 @@ var MenuRoutes = []string{
 
 // applyCustomization reads the bot section into the process-wide state.
 func applyCustomization(section installsettings.Document) {
+	next := parseCustomization(section)
+	currentCustomization.Store(&next)
+}
+
+// parseCustomization reads a bot section document without applying it, which
+// the panel's menu preview does with an unsaved draft.
+func parseCustomization(section installsettings.Document) customization {
 	next := customization{texts: map[string]phrase{}}
 	var overrides map[string]struct {
 		RU string `json:"ru"`
@@ -86,7 +97,8 @@ func applyCustomization(section installsettings.Document) {
 		next.miniApp = link
 	}
 	next.cabinetOnly = section.Bool("cabinetOnly", false) && next.miniApp != ""
-	currentCustomization.Store(&next)
+	next.layout = parseMenuLayout(section["menuLayout"])
+	return next
 }
 
 // validButtonURL accepts only https links, which is also what Telegram
@@ -105,7 +117,11 @@ func overrideText(key string) (phrase, bool) {
 // customizeMenu applies hidden entries, custom buttons, the Mini App button,
 // and cabinet-only mode to the main menu.
 func customizeMenu(locale Locale, rows [][]models.InlineKeyboardButton) [][]models.InlineKeyboardButton {
-	custom := activeCustomization()
+	return customizeMenuWith(activeCustomization(), locale, rows)
+}
+
+// customizeMenuWith is customizeMenu for a given customization.
+func customizeMenuWith(custom customization, locale Locale, rows [][]models.InlineKeyboardButton) [][]models.InlineKeyboardButton {
 	if custom.cabinetOnly {
 		return [][]models.InlineKeyboardButton{
 			row(miniAppButton(locale, custom.miniApp)),
@@ -129,10 +145,13 @@ func customizeMenu(locale Locale, rows [][]models.InlineKeyboardButton) [][]mode
 		rows = filtered
 	}
 	extra := make([][]models.InlineKeyboardButton, 0, len(custom.buttons)+1)
+	extraKeys := make([]string, 0, len(custom.buttons)+1)
 	if custom.miniApp != "" {
 		extra = append(extra, row(miniAppButton(locale, custom.miniApp)))
+		extraKeys = append(extraKeys, MenuEntryCabinet)
 	}
-	for _, button := range custom.buttons {
+	for index, button := range custom.buttons {
+		extraKeys = append(extraKeys, MenuEntryCustomPrefix+strconv.Itoa(index))
 		label := button.LabelEN
 		if locale == LocaleRussian && button.LabelRU != "" || label == "" {
 			label = button.LabelRU
@@ -142,6 +161,9 @@ func customizeMenu(locale Locale, rows [][]models.InlineKeyboardButton) [][]mode
 		} else {
 			extra = append(extra, row(models.InlineKeyboardButton{Text: label, URL: button.URL}))
 		}
+	}
+	if len(custom.layout) > 0 {
+		return arrangeMenu(custom.layout, rows, extra, extraKeys)
 	}
 	if len(extra) == 0 {
 		return rows

@@ -59,6 +59,7 @@ diagnostics bundle needs `system.read` and lives on the system screen. See
 | Remnawave | `reconcileIntervalMinutes` | worker | How often every subscription is re-read from Remnawave | 15 minutes |
 | Telegram bot | `languages` | bot, web | The languages offered to customers: `ru`, `en`, `uk` (Ukrainian), `zh` (Chinese), `fa` (Persian). With one, every bot message is in it and the language switch disappears from the bot's settings; the web panel's language picker lists only these. See [Languages](#languages) | `ru` and `en` |
 | Telegram bot | `miniAppUrl`, `cabinetOnly` | bot | An https Mini App address adds a «My account» button that opens it inside Telegram; cabinet-only shrinks the menu to that button and support | none |
+| Telegram bot | `menuLayout` | bot | The order of the main menu, row by row — edited on the **Main menu layout** card with a live preview. See [Main menu layout](#main-menu-layout) | the shipped order |
 | Telegram bot | `hiddenMenu` | bot | Built-in main-menu entries to hide (plans, subscription, connect, devices, orders, wallet, gifts, support, news, invite, settings) | none hidden |
 | Telegram bot | `buttons`, `texts` | bot | Custom main-menu buttons opening an https link or a Mini App, and overrides of any bot message per language — edited on the **Bot menu and wording** card below the sections. An override must keep the message's `%s`/`%d` placeholders in order | none |
 | Operator group | `chatId` | bot | The group notices go to; changing it rebinds every topic in the new group | `APP_OPERATOR_CHAT_ID` |
@@ -161,7 +162,7 @@ somewhere it does not belong.
 | --- | --- | --- |
 | `branding` | `serviceName`, `supportContact`, `termsUrl`, `defaultLocale`, `timezone` | — |
 | `remnawave` | `reconcileIntervalMinutes` | — |
-| `bot` | `languages`, `miniAppUrl`, `cabinetOnly`, `hiddenMenu`, `buttons`, `texts` | — |
+| `bot` | `languages`, `miniAppUrl`, `cabinetOnly`, `hiddenMenu`, `buttons`, `texts`, `menuLayout` | — |
 | `operator_group` | `chatId`, `createTopics`, `notificationCap`, `windowMinutes`, `disabledKinds` | — |
 | `reports` | `periods`, `time` | — |
 | `maintenance` | `autoEnable`, `failureThreshold`, `noticeEn`, `noticeRu`, `broadcastCustomers`, `broadcastEmail` | — |
@@ -352,6 +353,27 @@ is the true answer for an installation whose migrator has not run.
     Taking, verifying, retaining, and replaying an encrypted dump.
   </Card>
 </CardGroup>
+
+## Main menu layout
+
+The **Main menu layout** card under the bot settings (`/admin/settings/integrations`)
+reorders the bot's main menu. Each built-in entry — plans, subscription, connect, devices,
+orders, wallet, top-up, cart, Stars, shop, gifts, offers, support, news, info pages, invite,
+settings — and each of your own buttons, including the Mini App's «My account», can be moved
+left and right within its row and up or down to another row, with up to three buttons per row.
+The preview beside it is drawn by the bot's own menu code from the unsaved layout (`POST
+/v1/panel/bot/menu-preview`, `settings.read`) for a customer who can see every optional entry,
+in Russian or English, with your text overrides applied.
+
+Saving writes `menuLayout` to the bot section — rows of entry keys such as
+`[["plans", "subscription"], ["custom:0"]]`, where `custom:<n>` is the n-th custom button and
+`cabinet` the Mini App button — and the bot applies it within a minute. **Restore the shipped
+layout** removes it. The layout only arranges: an entry you hid stays hidden, an entry shown
+only when usable (top-up, cart, shop, Stars, offers) takes its place when it is, an entry the
+layout does not mention keeps its shipped place after the arranged rows, and the restore
+button for a lapsed subscription stays first and Refresh last. Cabinet-only mode replaces the
+whole menu and ignores the layout. Unknown keys and duplicates are dropped when the bot reads
+it.
 
 ## Languages
 

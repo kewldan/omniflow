@@ -4418,6 +4418,34 @@
       "action": "Screen, button, or command",
       "clicks": "Uses",
       "customers": "Customers"
+    },
+    "menuLayout": {
+      "title": "Main menu layout",
+      "description": "Reorder the bot's main-menu entries and your own buttons, row by row. Saved to the bot section; the bot applies it within a minute.",
+      "rows": "Rows",
+      "row": "Row {number}",
+      "unavailable": "{key} (not on the menu now)",
+      "moveLeft": "Move {entry} left",
+      "moveRight": "Move {entry} right",
+      "moveUp": "Move {entry} up a row",
+      "moveDown": "Move {entry} down a row",
+      "hint": "Up to three buttons per row. Entries you hide stay hidden; entries that appear only when usable (top-up, cart, shop, offers) take their place when they do. The restore button stays first and Refresh stays last.",
+      "save": "Save layout",
+      "reset": "Restore the shipped layout",
+      "saved": "Layout saved",
+      "saveFailed": "Not saved — reload if somebody else changed the bot section",
+      "preview": "Preview",
+      "previewHint": "Drawn by the bot's own menu code from this layout, for a customer who can see every optional entry.",
+      "previewFailed": "The preview could not be drawn.",
+      "language": "Preview language",
+      "languages": {
+        "ru": "Russian",
+        "en": "English"
+      },
+      "kinds": {
+        "url": "Opens a link",
+        "webapp": "Opens a Mini App"
+      }
     }
   },
   "account": {

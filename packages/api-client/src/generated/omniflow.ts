@@ -6595,6 +6595,41 @@ export type ApplyPanelSubscriptionSync202 = {
   preview: PanelSubscriptionSync;
 };
 
+export type PreviewPanelBotMenuBodyDocument = { [key: string]: unknown };
+
+export type PreviewPanelBotMenuBodyLocale =
+  (typeof PreviewPanelBotMenuBodyLocale)[keyof typeof PreviewPanelBotMenuBodyLocale];
+
+export const PreviewPanelBotMenuBodyLocale = {
+  ru: "ru",
+  en: "en",
+} as const;
+
+export type PreviewPanelBotMenuBody = {
+  document?: PreviewPanelBotMenuBodyDocument;
+  locale?: PreviewPanelBotMenuBodyLocale;
+};
+
+export type PreviewPanelBotMenu200RowsItemItemKind =
+  (typeof PreviewPanelBotMenu200RowsItemItemKind)[keyof typeof PreviewPanelBotMenu200RowsItemItemKind];
+
+export const PreviewPanelBotMenu200RowsItemItemKind = {
+  screen: "screen",
+  url: "url",
+  webapp: "webapp",
+} as const;
+
+export type PreviewPanelBotMenu200RowsItemItem = {
+  key: string;
+  label: string;
+  kind: PreviewPanelBotMenu200RowsItemItemKind;
+};
+
+export type PreviewPanelBotMenu200 = {
+  rows: PreviewPanelBotMenu200RowsItemItem[][];
+  entries: string[];
+};
+
 export type ListPanelCodeBatchesParams = {
   /**
    * @minimum 1
@@ -20400,6 +20435,85 @@ export const useApplyPanelSubscriptionSync = <TError = Promise<ProblemResponse>>
     subscriptionID,
     fetchOptions,
   );
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type previewPanelBotMenuResponse200 = {
+  data: PreviewPanelBotMenu200;
+  status: 200;
+};
+
+export type previewPanelBotMenuResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type previewPanelBotMenuResponseSuccess = previewPanelBotMenuResponse200 & {
+  headers: Headers;
+};
+export type previewPanelBotMenuResponseError = previewPanelBotMenuResponse403 & {
+  headers: Headers;
+};
+
+export type previewPanelBotMenuResponse =
+  | previewPanelBotMenuResponseSuccess
+  | previewPanelBotMenuResponseError;
+
+export const getPreviewPanelBotMenuUrl = () => {
+  return `/v1/panel/bot/menu-preview`;
+};
+
+/**
+ * Requires settings.read. Renders the bot's main menu from an unsaved bot section document — its `menuLayout`, `hiddenMenu`, custom `buttons`, `miniAppUrl`, `cabinetOnly`, and `texts` — with the bot's own menu code, for a customer who can see every optional entry. Nothing is saved; saving goes through `PUT /v1/panel/settings/bot`. `entries` lists the built-in keys a layout may place, besides `custom:<n>` for the n-th custom button.
+ */
+export const previewPanelBotMenu = async (
+  previewPanelBotMenuBody: PreviewPanelBotMenuBody,
+  options?: RequestInit,
+): Promise<previewPanelBotMenuResponse> => {
+  const res = await fetch(getPreviewPanelBotMenuUrl(), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(previewPanelBotMenuBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: previewPanelBotMenuResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as previewPanelBotMenuResponse;
+};
+
+export const getPreviewPanelBotMenuMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PreviewPanelBotMenuBody }) => {
+    return previewPanelBotMenu(arg, options);
+  };
+};
+export const getPreviewPanelBotMenuMutationKey = () => [`/v1/panel/bot/menu-preview`] as const;
+
+export type PreviewPanelBotMenuMutationResult = NonNullable<
+  Awaited<ReturnType<typeof previewPanelBotMenu>>
+>;
+
+export const usePreviewPanelBotMenu = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof previewPanelBotMenu>>,
+    TError,
+    Key,
+    PreviewPanelBotMenuBody,
+    Awaited<ReturnType<typeof previewPanelBotMenu>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getPreviewPanelBotMenuMutationKey();
+  const swrFn = getPreviewPanelBotMenuMutationFetcher(fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

@@ -5,6 +5,7 @@ import (
 	"slices"
 
 	"github.com/omniflow/omniflow/internal/botapp"
+	"github.com/omniflow/omniflow/internal/installsettings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/omniflow/omniflow/internal/rbac"
@@ -27,6 +28,27 @@ func (handlers *AdminHandlers) mountPlatform(secure chi.Router) {
 	// section like any other setting.
 	secure.With(handlers.requirePermission(rbac.PermissionSettingsRead)).
 		Get("/bot/texts", handlers.botTexts)
+	// The menu layout editor's preview renders an unsaved bot section the way
+	// the bot would. It changes nothing, so reading settings is enough.
+	secure.With(handlers.requirePermission(rbac.PermissionSettingsRead)).
+		Post("/bot/menu-preview", handlers.botMenuPreview)
+}
+
+func (handlers *AdminHandlers) botMenuPreview(writer http.ResponseWriter, request *http.Request) {
+	var body struct {
+		Document installsettings.Document `json:"document"`
+		Locale   string                   `json:"locale"`
+	}
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	if body.Document == nil {
+		body.Document = installsettings.Document{}
+	}
+	writeJSON(writer, http.StatusOK, map[string]any{
+		"rows":    botapp.PreviewMainMenu(body.Document, body.Locale),
+		"entries": botapp.MenuLayoutEntries,
+	})
 }
 
 func (handlers *AdminHandlers) botTexts(writer http.ResponseWriter, _ *http.Request) {

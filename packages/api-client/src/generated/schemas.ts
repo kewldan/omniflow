@@ -4788,6 +4788,33 @@ export const ApplyPanelSubscriptionSyncResponse = zod.object({
 });
 
 /**
+ * Requires settings.read. Renders the bot's main menu from an unsaved bot section document — its `menuLayout`, `hiddenMenu`, custom `buttons`, `miniAppUrl`, `cabinetOnly`, and `texts` — with the bot's own menu code, for a customer who can see every optional entry. Nothing is saved; saving goes through `PUT /v1/panel/settings/bot`. `entries` lists the built-in keys a layout may place, besides `custom:<n>` for the n-th custom button.
+ */
+export const PreviewPanelBotMenuHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const PreviewPanelBotMenuBody = zod.object({
+  document: zod.record(zod.string(), zod.unknown()).optional(),
+  locale: zod.enum(["ru", "en"]).optional(),
+});
+
+export const PreviewPanelBotMenuResponse = zod.object({
+  rows: zod.array(
+    zod.array(
+      zod.object({
+        key: zod.string(),
+        label: zod.string(),
+        kind: zod.enum(["screen", "url", "webapp"]),
+      }),
+    ),
+  ),
+  entries: zod.array(zod.string()),
+});
+
+/**
  * Requires catalog.read. Wholesale batches with their counts. It carries no codes: only their SHA-256 is stored, so there is nothing here that could produce one.
  */
 export const listPanelCodeBatchesQueryPageSizeDefault = 100;

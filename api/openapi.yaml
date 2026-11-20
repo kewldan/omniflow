@@ -1897,6 +1897,51 @@ paths:
         "409": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
         "502": {$ref: "#/components/responses/Problem"}
+  /v1/panel/bot/menu-preview:
+    post:
+      operationId: previewPanelBotMenu
+      tags: [panel]
+      description: >-
+        Requires settings.read. Renders the bot's main menu from an unsaved bot
+        section document — its `menuLayout`, `hiddenMenu`, custom `buttons`,
+        `miniAppUrl`, `cabinetOnly`, and `texts` — with the bot's own menu code,
+        for a customer who can see every optional entry. Nothing is saved;
+        saving goes through `PUT /v1/panel/settings/bot`. `entries` lists the
+        built-in keys a layout may place, besides `custom:<n>` for the n-th
+        custom button.
+      parameters:
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                document: {type: object, additionalProperties: true}
+                locale: {type: string, enum: [ru, en]}
+      responses:
+        "200":
+          description: The menu as the bot would draw it
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rows, entries]
+                properties:
+                  rows:
+                    type: array
+                    items:
+                      type: array
+                      items:
+                        type: object
+                        required: [key, label, kind]
+                        properties:
+                          key: {type: string}
+                          label: {type: string}
+                          kind: {type: string, enum: [screen, url, webapp]}
+                  entries: {type: array, items: {type: string}}
+        "403": {$ref: "#/components/responses/Problem"}
   /v1/panel/codes/batches:
     get:
       operationId: listPanelCodeBatches
