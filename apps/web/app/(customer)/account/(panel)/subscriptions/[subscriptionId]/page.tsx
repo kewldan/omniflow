@@ -13,6 +13,7 @@ import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import useSWR from "swr";
 import * as z from "zod/mini";
+import { SubscriptionAddons } from "@/components/account/commerce/subscription-addons";
 import { ReauthNotice, useReauthentication } from "@/components/account/reauth";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
 import {
@@ -65,6 +66,8 @@ export default function SubscriptionPage() {
           subscription that can be connected, the order for one waiting to be
           paid, the store for one that has lapsed or was never provisioned. */}
       <PrimaryAction page={page} subscription={data} />
+
+      <SubscriptionAddons onBought={() => void mutate()} subscriptionId={data.id} />
 
       <RenameForm current={data.label} onRenamed={mutate} subscriptionId={data.id} />
       {/* Rotating a link is only meaningful for a provisioned subscription. */}

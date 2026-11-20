@@ -3529,6 +3529,45 @@ paths:
         - {in: query, name: locale, schema: {type: string, enum: [ru, en]}}
       responses:
         "200": {description: Dashboard, content: {application/json: {schema: {$ref: "#/components/schemas/AccountOverview"}}}}
+  /v1/account/subscriptions/{subscriptionID}/addons:
+    get:
+      operationId: listAccountSubscriptionAddons
+      tags: [account]
+      description: >-
+        The add-ons a live subscription's plan offers, each priced for the
+        time its period has left. `available` is false, with a `reason`, when
+        nothing can be added now.
+      parameters:
+        - {$ref: "#/components/parameters/AccountSubscriptionID"}
+        - {in: query, name: locale, schema: {type: string, enum: [ru, en]}}
+      responses:
+        "200": {description: Add-ons, content: {application/json: {schema: {type: object, additionalProperties: true}}}}
+    post:
+      operationId: buyAccountSubscriptionAddon
+      tags: [account]
+      description: >-
+        Opens a mid-period add-on order. The wallet settles it when it covers
+        the price; otherwise the order waits for a payment. A repeated request
+        with the same key resolves to the same order.
+      parameters:
+        - {$ref: "#/components/parameters/AccountSubscriptionID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [addonVersionId]
+              properties:
+                addonVersionId: {type: string, format: uuid}
+                quantity: {type: integer, minimum: 1, default: 1}
+      responses:
+        "201": {description: Order created, content: {application/json: {schema: {$ref: "#/components/schemas/AccountOrder"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
   /v1/account/subscriptions/{subscriptionID}:
     get:
       operationId: getAccountSubscription

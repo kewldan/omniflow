@@ -8189,6 +8189,133 @@ export const GetAccountOverviewResponse = zod.object({
   degraded: zod.boolean().describe("Remnawave could not be reached for at least one subscription."),
 });
 
+/**
+ * The add-ons a live subscription's plan offers, each priced for the time its period has left. `available` is false, with a `reason`, when nothing can be added now.
+ */
+export const ListAccountSubscriptionAddonsParams = zod.object({
+  subscriptionID: zod.uuid(),
+});
+
+export const ListAccountSubscriptionAddonsQueryParams = zod.object({
+  locale: zod.enum(["ru", "en"]).optional(),
+});
+
+export const ListAccountSubscriptionAddonsResponse = zod.record(zod.string(), zod.unknown());
+
+/**
+ * Opens a mid-period add-on order. The wallet settles it when it covers the price; otherwise the order waits for a payment. A repeated request with the same key resolves to the same order.
+ */
+export const BuyAccountSubscriptionAddonParams = zod.object({
+  subscriptionID: zod.uuid(),
+});
+
+export const buyAccountSubscriptionAddonHeaderIdempotencyKeyMin = 8;
+export const buyAccountSubscriptionAddonHeaderIdempotencyKeyMax = 128;
+
+export const BuyAccountSubscriptionAddonHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "Idempotency-Key": zod
+    .string()
+    .min(buyAccountSubscriptionAddonHeaderIdempotencyKeyMin)
+    .max(buyAccountSubscriptionAddonHeaderIdempotencyKeyMax),
+});
+
+export const buyAccountSubscriptionAddonBodyQuantityDefault = 1;
+
+export const BuyAccountSubscriptionAddonBody = zod.object({
+  addonVersionId: zod.uuid(),
+  quantity: zod.int().min(1).default(buyAccountSubscriptionAddonBodyQuantityDefault),
+});
+
+export const BuyAccountSubscriptionAddonResponse = zod.object({
+  id: zod.uuid(),
+  state: zod.enum([
+    "draft",
+    "pending",
+    "paid",
+    "fulfilled",
+    "cancelled",
+    "expired",
+    "partially_refunded",
+    "refunded",
+  ]),
+  operation: zod.string(),
+  phase: zod
+    .string()
+    .describe(
+      "The combined payment and provisioning state the panel renders: what the customer is waiting for, rather than which table changed.",
+    ),
+  currency: zod.string(),
+  subtotalMinor: zod.int(),
+  discountMinor: zod.int(),
+  walletMinor: zod.int(),
+  externalMinor: zod.int(),
+  paidMinor: zod.int(),
+  refundedMinor: zod.int(),
+  plan: zod.string(),
+  subscriptionId: zod.string().optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+  expiresAt: zod.iso.datetime({ offset: true }).optional(),
+  payment: zod
+    .object({
+      id: zod.uuid(),
+      provider: zod.string(),
+      status: zod.string(),
+      handoff: zod.enum(["hosted", "telegram_invoice", "manual", "none"]),
+      checkoutUrl: zod.string().optional(),
+      receiptUrl: zod.string().optional(),
+    })
+    .optional(),
+  fulfillment: zod
+    .object({
+      status: zod.string(),
+      attempts: zod.int(),
+      errorCode: zod.string().optional(),
+      updatedAt: zod.iso.datetime({ offset: true }).optional(),
+    })
+    .optional()
+    .describe(
+      "Provisioning progress, read from the fulfillment operation rather than carried by the client.",
+    ),
+  refunds: zod
+    .array(
+      zod.object({
+        status: zod.string(),
+        amountMinor: zod.int(),
+        currency: zod.string(),
+        createdAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .optional(),
+  paymentChoices: zod
+    .array(
+      zod.object({
+        provider: zod.string(),
+        currency: zod.string(),
+        amountMinor: zod.int().optional(),
+        recurring: zod.boolean(),
+        canSaveMethod: zod
+          .boolean()
+          .optional()
+          .describe(
+            "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
+          ),
+      }),
+    )
+    .optional()
+    .describe(
+      "The methods that can settle this order in its currency, each priced at what the order still owes. Present on the detail response while the order is pending and owes something, so the page can offer a method without depending on the URL the checkout redirected to. Telegram Stars appears only for a customer with a Telegram identity.",
+    ),
+  preferredProvider: zod
+    .string()
+    .optional()
+    .describe(
+      "The method the checkout recorded, while that checkout is still attached to the order.",
+    ),
+});
+
 export const GetAccountSubscriptionParams = zod.object({
   subscriptionID: zod.uuid(),
 });

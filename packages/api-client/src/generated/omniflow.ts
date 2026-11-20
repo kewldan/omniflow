@@ -6730,6 +6730,26 @@ export const GetAccountOverviewLocale = {
   en: "en",
 } as const;
 
+export type ListAccountSubscriptionAddonsParams = {
+  locale?: ListAccountSubscriptionAddonsLocale;
+};
+
+export type ListAccountSubscriptionAddonsLocale = typeof ListAccountSubscriptionAddonsLocale[keyof typeof ListAccountSubscriptionAddonsLocale];
+
+
+export const ListAccountSubscriptionAddonsLocale = {
+  ru: 'ru',
+  en: 'en',
+} as const;
+
+export type ListAccountSubscriptionAddons200 = { [key: string]: unknown };
+
+export type BuyAccountSubscriptionAddonBody = {
+  addonVersionId: string;
+  /** @minimum 1 */
+  quantity?: number;
+};
+
 export type GetAccountSubscriptionParams = {
   locale?: GetAccountSubscriptionLocale;
 };
@@ -28209,6 +28229,170 @@ export const useGetAccountOverview = <TError = Promise<unknown>>(
     ...query,
   };
 };
+
+export type listAccountSubscriptionAddonsResponse200 = {
+  data: ListAccountSubscriptionAddons200
+  status: 200
+}
+
+export type listAccountSubscriptionAddonsResponseSuccess = (listAccountSubscriptionAddonsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type listAccountSubscriptionAddonsResponse = (listAccountSubscriptionAddonsResponseSuccess)
+
+export const getListAccountSubscriptionAddonsUrl = (subscriptionID: string,
+    params?: ListAccountSubscriptionAddonsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/v1/account/subscriptions/${subscriptionID}/addons?${stringifiedParams}` : `/v1/account/subscriptions/${subscriptionID}/addons`
+}
+
+/**
+ * The add-ons a live subscription's plan offers, each priced for the time its period has left. `available` is false, with a `reason`, when nothing can be added now.
+ */
+export const listAccountSubscriptionAddons = async (subscriptionID: string,
+    params?: ListAccountSubscriptionAddonsParams, options?: RequestInit): Promise<listAccountSubscriptionAddonsResponse> => {
+
+  const res = await fetch(getListAccountSubscriptionAddonsUrl(subscriptionID,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listAccountSubscriptionAddonsResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as listAccountSubscriptionAddonsResponse
+}
+
+
+
+
+export const getListAccountSubscriptionAddonsKey = (subscriptionID: string,
+    params?: ListAccountSubscriptionAddonsParams,) => [`/v1/account/subscriptions/${subscriptionID}/addons`, ...(params ? [params]: [])] as const;
+
+export type ListAccountSubscriptionAddonsQueryResult = NonNullable<Awaited<ReturnType<typeof listAccountSubscriptionAddons>>>
+
+export const useListAccountSubscriptionAddons = <TError = Promise<unknown>>(
+  subscriptionID: string,
+    params?: ListAccountSubscriptionAddonsParams, options?: { swr?:SWRConfiguration<Awaited<ReturnType<typeof listAccountSubscriptionAddons>>, TError> & { swrKey?: Key, enabled?: boolean }, fetch?: RequestInit }
+) => {
+  const {swr: swrOptions, fetch: fetchOptions} = options ?? {}
+
+  const isEnabled = swrOptions?.enabled !== false && subscriptionID !== null && subscriptionID !== undefined
+  const swrKey = swrOptions?.swrKey ?? (() => isEnabled ? getListAccountSubscriptionAddonsKey(subscriptionID,params) : null);
+  const swrFn = () => listAccountSubscriptionAddons(subscriptionID,params, fetchOptions)
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions)
+
+  return {
+    swrKey,
+    ...query
+  }
+}
+
+export type buyAccountSubscriptionAddonResponse201 = {
+  data: AccountOrder
+  status: 201
+}
+
+export type buyAccountSubscriptionAddonResponse404 = {
+  data: ProblemResponse
+  status: 404
+}
+
+export type buyAccountSubscriptionAddonResponse409 = {
+  data: ProblemResponse
+  status: 409
+}
+
+export type buyAccountSubscriptionAddonResponse422 = {
+  data: ProblemResponse
+  status: 422
+}
+
+export type buyAccountSubscriptionAddonResponseSuccess = (buyAccountSubscriptionAddonResponse201) & {
+  headers: Headers;
+};
+export type buyAccountSubscriptionAddonResponseError = (buyAccountSubscriptionAddonResponse404 | buyAccountSubscriptionAddonResponse409 | buyAccountSubscriptionAddonResponse422) & {
+  headers: Headers;
+};
+
+export type buyAccountSubscriptionAddonResponse = (buyAccountSubscriptionAddonResponseSuccess | buyAccountSubscriptionAddonResponseError)
+
+export const getBuyAccountSubscriptionAddonUrl = (subscriptionID: string,) => {
+
+
+
+
+  return `/v1/account/subscriptions/${subscriptionID}/addons`
+}
+
+/**
+ * Opens a mid-period add-on order. The wallet settles it when it covers the price; otherwise the order waits for a payment. A repeated request with the same key resolves to the same order.
+ */
+export const buyAccountSubscriptionAddon = async (subscriptionID: string,
+    buyAccountSubscriptionAddonBody: BuyAccountSubscriptionAddonBody, options?: RequestInit): Promise<buyAccountSubscriptionAddonResponse> => {
+
+  const res = await fetch(getBuyAccountSubscriptionAddonUrl(subscriptionID),
+  {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(buyAccountSubscriptionAddonBody)
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: buyAccountSubscriptionAddonResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as buyAccountSubscriptionAddonResponse
+}
+
+
+
+
+export const getBuyAccountSubscriptionAddonMutationFetcher = (subscriptionID: string, options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: BuyAccountSubscriptionAddonBody }) => {
+    return buyAccountSubscriptionAddon(subscriptionID, arg, options);
+  }
+}
+export const getBuyAccountSubscriptionAddonMutationKey = (subscriptionID: string,) => [`/v1/account/subscriptions/${subscriptionID}/addons`] as const;
+
+export type BuyAccountSubscriptionAddonMutationResult = NonNullable<Awaited<ReturnType<typeof buyAccountSubscriptionAddon>>>
+
+export const useBuyAccountSubscriptionAddon = <TError = Promise<ProblemResponse>>(
+  subscriptionID: string, options?: { swr?:SWRMutationConfiguration<Awaited<ReturnType<typeof buyAccountSubscriptionAddon>>, TError, Key, BuyAccountSubscriptionAddonBody, Awaited<ReturnType<typeof buyAccountSubscriptionAddon>>> & { swrKey?: string }, fetch?: RequestInit}
+) => {
+
+  const {swr: swrOptions, fetch: fetchOptions} = options ?? {}
+
+  const swrKey = swrOptions?.swrKey ?? getBuyAccountSubscriptionAddonMutationKey(subscriptionID);
+  const swrFn = getBuyAccountSubscriptionAddonMutationFetcher(subscriptionID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions)
+
+  return {
+    swrKey,
+    ...query
+  }
+}
 
 export type getAccountSubscriptionResponse200 = {
   data: AccountSubscription;

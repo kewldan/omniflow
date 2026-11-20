@@ -5256,6 +5256,17 @@
     "reminders": {
       "dismiss": "Dismiss",
       "open": "Open"
+    },
+    "subscriptionAddons": {
+      "title": "Add to this subscription",
+      "wallet": "Wallet: {amount}. Anything it does not cover is paid on the order page.",
+      "traffic": "+{amount} of traffic",
+      "devices": "{count, plural, one {+# device} other {+# devices}}",
+      "squads": "{count, plural, one {+# server} other {+# servers}}",
+      "prorated": "priced for the time left",
+      "buy": "Add for {price}",
+      "buying": "Adding…",
+      "bought": "{name} added. It reaches your connection within a minute."
     }
   },
   "pages": {

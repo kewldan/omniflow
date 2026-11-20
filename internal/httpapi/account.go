@@ -171,6 +171,7 @@ func (handlers *AccountHandlers) Mount(router chi.Router) {
 			handlers.mountSupport(secure)
 			handlers.mountReferral(secure)
 			handlers.mountGrowth(secure)
+			handlers.mountSubscriptionAddons(secure)
 		})
 	})
 }

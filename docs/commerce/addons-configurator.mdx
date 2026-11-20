@@ -140,7 +140,7 @@ Toggling an add-on the plan does not offer answers 404 `plan_unavailable` on the
 
 *Telegram.* Subscriptions → pick one → **Add-ons** → tap an add-on. The purchase becomes its own order at quantity one; the wallet settles it when the balance covers it, and otherwise the ordinary payment screen appears.
 
-*Web.* **Not available.** There is no route under `/v1/account` for buying an add-on against a live subscription. The customer web panel can select add-ons inside a checkout and nowhere else.
+*Web.* `/account/subscriptions/{id}` lists the add-ons the subscription's plan offers under **Add to this subscription**, each with what it costs now under its proration rule — `GET /v1/account/subscriptions/{subscriptionID}/addons`. **Add** calls `POST` on the same route with `addonVersionId`, `quantity`, and an `Idempotency-Key` header, which opens the same order the bot does. The wallet settles it when it covers the price; otherwise the customer is taken to the order page and pays the rest through a provider. A repeated request with the same key resolves to the same order.
 
 A mid-period purchase refuses with:
 
@@ -223,6 +223,8 @@ If the target subscription has no live entitlement by the time an add-on settles
 | `GET /v1/account/plans/{planVersionID}` | Customer session | The squad offer and the add-on offer for one version |
 | `PATCH /v1/account/checkout` | Customer session | Submit a squad selection |
 | `POST /v1/account/checkout/addons/{addonVersionID}` | Customer session | Toggle one add-on on the open checkout |
+| `GET /v1/account/subscriptions/{subscriptionID}/addons` | Customer session | The add-ons a live subscription may add, priced for the time left |
+| `POST /v1/account/subscriptions/{subscriptionID}/addons` | Customer session, `Idempotency-Key` | Buy one mid-period add-on |
 
 The add-on save and retire routes are implemented but missing from `api/openapi.yaml`, so they are absent from the generated client and the published API reference. [Integrating with the API](/integrations/api) explains how to call them anyway.
 
