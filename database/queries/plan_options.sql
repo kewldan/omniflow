@@ -210,3 +210,29 @@ WHERE o.subscription_id = sqlc.arg(subscription_id)
   AND o.state IN ('paid', 'fulfilled', 'partially_refunded')
 ORDER BY o.created_at DESC
 LIMIT 1;
+
+-- name: ListPlanVersionGBPrices :many
+SELECT * FROM plan_version_gb_prices WHERE plan_version_id = $1 ORDER BY currency;
+
+-- name: InsertPlanVersionGBPrice :exec
+INSERT INTO plan_version_gb_prices (plan_version_id, currency, amount_minor)
+VALUES (sqlc.arg(plan_version_id), sqlc.arg(currency), sqlc.arg(amount_minor));
+
+-- name: SetPlanVersionCustomTraffic :exec
+UPDATE plan_versions
+SET custom_traffic_min_gb = sqlc.narg(custom_traffic_min_gb), custom_traffic_max_gb = sqlc.narg(custom_traffic_max_gb)
+WHERE id = sqlc.arg(plan_version_id);
+
+-- name: SetOrderTraffic :exec
+-- Written once, in the transaction that creates the order.
+UPDATE orders SET traffic_gb = sqlc.arg(traffic_gb) WHERE id = sqlc.arg(order_id);
+
+-- name: LastOrderTraffic :one
+-- The traffic the subscription's latest settled subscription order bought,
+-- which an automatic renewal repeats when the version still sells it.
+SELECT o.traffic_gb FROM orders o
+WHERE o.subscription_id = sqlc.arg(subscription_id)
+  AND o.operation IN ('purchase', 'extension', 'renewal', 'upgrade', 'downgrade')
+  AND o.state IN ('paid', 'fulfilled', 'partially_refunded')
+ORDER BY o.created_at DESC
+LIMIT 1;

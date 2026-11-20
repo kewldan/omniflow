@@ -1652,6 +1652,8 @@ export const PanelPlanVersionSummaryTrafficResetStrategy = {
 
 export type PanelPlanVersionSummaryDayPrices = { [key: string]: number };
 
+export type PanelPlanVersionSummaryGbPrices = { [key: string]: number };
+
 export interface PanelOfferedSquad {
   squadId: string;
   /**
@@ -1714,6 +1716,9 @@ export interface PanelPlanVersionSummary {
   customDaysMin?: number;
   customDaysMax?: number;
   dayPrices?: PanelPlanVersionSummaryDayPrices;
+  customTrafficMinGb?: number;
+  customTrafficMaxGb?: number;
+  gbPrices?: PanelPlanVersionSummaryGbPrices;
 }
 
 export type PanelPlanVersionInputBillingPeriod =
@@ -1796,6 +1801,11 @@ export const PanelPlanVersionInputTrafficResetStrategy = {
  */
 export type PanelPlanVersionInputDayPrices = { [key: string]: number };
 
+/**
+ * Price per chosen gigabyte by currency, for the version's own duration.
+ */
+export type PanelPlanVersionInputGbPrices = { [key: string]: number };
+
 export interface PanelPlanVersionInput {
   billingPeriod: PanelPlanVersionInputBillingPeriod;
   /** @minimum 1 */
@@ -1865,6 +1875,19 @@ export interface PanelPlanVersionInput {
   customDaysMax?: number | null;
   /** Price per custom day by currency. */
   dayPrices?: PanelPlanVersionInputDayPrices;
+  /**
+   * The smallest traffic volume a customer may choose; null sells none.
+   * @minimum 1
+   * @nullable
+   */
+  customTrafficMinGb?: number | null;
+  /**
+   * @maximum 1000000
+   * @nullable
+   */
+  customTrafficMaxGb?: number | null;
+  /** Price per chosen gigabyte by currency, for the version's own duration. */
+  gbPrices?: PanelPlanVersionInputGbPrices;
 }
 
 export interface PanelPlanOptions {
@@ -7322,6 +7345,12 @@ export type UpdateAccountCheckoutBody = {
    * @maximum 3650
    */
   periodDays?: number;
+  /**
+   * A traffic volume in gigabytes other than the plan version's own allowance, priced per gigabyte; 0 returns to it.
+   * @minimum 0
+   * @maximum 1000000
+   */
+  trafficGb?: number;
 };
 
 export type ApplyAccountPromoCodeBody = {

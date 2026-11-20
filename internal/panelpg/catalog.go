@@ -93,6 +93,9 @@ type PlanVersion struct {
 	CustomDaysMin        *int32           `json:"customDaysMin,omitempty"`
 	CustomDaysMax        *int32           `json:"customDaysMax,omitempty"`
 	DayPrices            map[string]int64 `json:"dayPrices,omitempty"`
+	CustomTrafficMinGB   *int32           `json:"customTrafficMinGb,omitempty"`
+	CustomTrafficMaxGB   *int32           `json:"customTrafficMaxGb,omitempty"`
+	GBPrices             map[string]int64 `json:"gbPrices,omitempty"`
 }
 
 // PlanDetail is one plan with its versions and localisations.
@@ -188,6 +191,10 @@ func (service *Service) PlanDetail(ctx context.Context, planID string) (PlanDeta
 			return PlanDetail{}, err
 		}
 		converted.CustomDaysMin, converted.CustomDaysMax = int4Pointer(version.CustomDaysMin), int4Pointer(version.CustomDaysMax)
+		if converted.GBPrices, err = versionGBPrices(ctx, queries, version); err != nil {
+			return PlanDetail{}, err
+		}
+		converted.CustomTrafficMinGB, converted.CustomTrafficMaxGB = int4Pointer(version.CustomTrafficMinGb), int4Pointer(version.CustomTrafficMaxGb)
 		if converted.OfferedSquads, converted.AddonIDs, err = versionOffers(ctx, queries, version.ID); err != nil {
 			return PlanDetail{}, err
 		}

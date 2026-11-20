@@ -69,6 +69,12 @@ type PlanVersionOptions struct {
 	CustomDaysMin *int32           `json:"customDaysMin"`
 	CustomDaysMax *int32           `json:"customDaysMax"`
 	DayPrices     map[string]int64 `json:"dayPrices"`
+	// CustomTrafficMinGB and CustomTrafficMaxGB bound a traffic volume the
+	// customer chooses, priced per gigabyte by GBPrices for the version's own
+	// duration.
+	CustomTrafficMinGB *int32           `json:"customTrafficMinGb"`
+	CustomTrafficMaxGB *int32           `json:"customTrafficMaxGb"`
+	GBPrices           map[string]int64 `json:"gbPrices"`
 }
 
 var validTrafficResetStrategy = map[string]bool{
@@ -211,6 +217,9 @@ func (service *Service) CreatePlanVersion(
 		if txErr = writePeriods(ctx, queries, row.ID, input); txErr != nil {
 			return txErr
 		}
+		if txErr = writeTraffic(ctx, queries, row.ID, input); txErr != nil {
+			return txErr
+		}
 		if txErr = queries.SetPlanVersionTrafficResetPrice(ctx, dbgen.SetPlanVersionTrafficResetPriceParams{
 			PlanVersionID: row.ID, TrafficResetPriceBps: optionalInt4(input.TrafficResetPriceBps),
 		}); txErr != nil {
@@ -267,6 +276,9 @@ func validatePlanVersion(input PlanVersionInput) error {
 		}
 	}
 	if err := validatePeriods(input); err != nil {
+		return err
+	}
+	if err := validateTraffic(input); err != nil {
 		return err
 	}
 	if input.TrafficResetPriceBps != nil && (*input.TrafficResetPriceBps < 1 || *input.TrafficResetPriceBps > 100_000) {

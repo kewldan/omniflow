@@ -702,7 +702,7 @@ func (app *App) handleFlowMessage(ctx context.Context, client *telegram.Bot, upd
 		return false
 	}
 	switch state {
-	case "promo_code", "support_reply", "topup_amount", "subscription_label",
+	case "promo_code", "support_reply", "topup_amount", "subscription_label", trafficStateGB,
 		"goods_recipient", "goods_promo", "goods_stars_amount", "gift_recipient", "gift_message", "gift_claim", "referral_code":
 	default:
 		return false
@@ -731,6 +731,8 @@ func (app *App) handleFlowMessage(ctx context.Context, client *telegram.Bot, upd
 			return true
 		}
 		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, app.completeTopUpAmount(ctx, session, message.Text)))
+	case trafficStateGB:
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, app.completeTrafficEntry(ctx, session, message.Text)))
 	case "subscription_label":
 		subscriptionID, _ := flowContext["subscriptionId"].(string)
 		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, app.completeSubscriptionRename(ctx, session, subscriptionID, message.Text)))

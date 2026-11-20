@@ -137,6 +137,7 @@ func (service *Service) OrderInput(ctx context.Context, session Session) (commer
 		NewSubscription: session.NewSubscription, SelectedSquadIDs: session.SelectedSquadIDs,
 		Addons:     selections,
 		PeriodDays: session.PeriodDays,
+		TrafficGB:  session.TrafficGB,
 		// The provider the customer chose decides the payment window from the
 		// start: a manual transfer is given days, not the hour a hosted page
 		// gets. Empty when no method is chosen yet; the intent extends it later.

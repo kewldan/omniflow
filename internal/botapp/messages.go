@@ -253,8 +253,21 @@ var catalog = map[string]phrase{
 	"checkout.addons":       {ru: "Дополнения: <b>%s</b>", en: "Add-ons: <b>%s</b>"},
 	"checkout.pay":          {ru: "💳 Оплатить", en: "💳 Pay"},
 	"checkout.changeMethod": {ru: "💱 Другой способ", en: "💱 Change method"},
-	"checkout.expired":      {ru: "⌛ <b>Оформление истекло</b>\n\nЦены могли измениться. Начните оформление заново.", en: "⌛ <b>Checkout expired</b>\n\nPrices may have changed. Please start again."},
-	"checkout.none":         {ru: "Нет активного оформления. Выберите тариф ещё раз.", en: "No checkout is in progress. Choose a plan again."},
+	"checkout.traffic":      {ru: "Трафик: <b>%s</b>", en: "Traffic: <b>%s</b>"},
+
+	// The traffic choice in the checkout.
+	"traffic.title":     {ru: "📶 <b>Объём трафика</b>", en: "📶 <b>Traffic volume</b>"},
+	"traffic.current":   {ru: "Сейчас: <b>%s</b>", en: "Selected: <b>%s</b>"},
+	"traffic.perGb":     {ru: "Свой объём: %s за ГБ, от %d до %d ГБ.", en: "Your own volume: %s per GB, from %d to %d GB."},
+	"traffic.own":       {ru: "Как в тарифе: %s", en: "As in the plan: %s"},
+	"traffic.gb":        {ru: "%d ГБ", en: "%d GB"},
+	"traffic.unlimited": {ru: "без ограничений", en: "unlimited"},
+	"traffic.change":    {ru: "📶 Изменить трафик", en: "📶 Change traffic"},
+	"traffic.enter":     {ru: "✏️ Ввести объём", en: "✏️ Enter a volume"},
+	"traffic.prompt":    {ru: "Напишите нужный объём трафика в гигабайтах, например <code>150</code>.", en: "Type the traffic volume you need in gigabytes, for example <code>150</code>."},
+	"traffic.refused":   {ru: "⚠️ Такой объём в этом тарифе не продаётся. Выберите другой.", en: "⚠️ This plan is not sold with that volume. Choose another."},
+	"checkout.expired":  {ru: "⌛ <b>Оформление истекло</b>\n\nЦены могли измениться. Начните оформление заново.", en: "⌛ <b>Checkout expired</b>\n\nPrices may have changed. Please start again."},
+	"checkout.none":     {ru: "Нет активного оформления. Выберите тариф ещё раз.", en: "No checkout is in progress. Choose a plan again."},
 
 	// Required channels, at the moment a purchase is attempted. The wording
 	// names the channels rather than saying "requirements not met", because a

@@ -2056,6 +2056,16 @@
         "invalid": "Not created: check the code format, the value, and the currency.",
         "create": "Create promotion",
         "created": "Promotion created"
+      },
+      "customTraffic": {
+        "title": "Custom traffic",
+        "hint": "Let the customer choose a traffic volume in this range, priced per gigabyte. The price is for this version's own duration and scales with a longer or shorter period. Leave both bounds empty to sell none.",
+        "min": "From, GB",
+        "max": "Up to, GB",
+        "currency": "Currency",
+        "price": "Price per GB",
+        "remove": "Remove",
+        "addPrice": "Add a price per GB"
       }
     },
     "codes": {
@@ -5727,7 +5737,8 @@
         "provider_amount_out_of_range": "This payment method does not accept this amount. Choose another amount or method.",
         "promo_daily_limit": "You have used as many different promo codes today as allowed.",
         "rate_limited": "Too many attempts. Try again later.",
-        "terms_required": "Accept the terms before buying."
+        "terms_required": "Accept the terms before buying.",
+        "traffic_unavailable": "This plan is not sold with that traffic volume."
       },
       "breakdown": {
         "subtotal": "Plan",
@@ -6241,6 +6252,16 @@
       "emptyDescription": "Personal offers from the service appear here.",
       "failed": "Offers could not be loaded",
       "failedDescription": "Try again in a moment."
+    },
+    "trafficPicker": {
+      "title": "Traffic",
+      "label": "How much traffic to buy",
+      "own": "As in the plan: {traffic}",
+      "unlimited": "unlimited",
+      "custom": "Choose the number of gigabytes",
+      "volume": "Gigabytes ({min}–{max})",
+      "perGb": "{price} per GB",
+      "apply": "Apply"
     }
   },
   "pages": {

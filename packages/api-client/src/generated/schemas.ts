@@ -2925,6 +2925,9 @@ export const GetPanelPlanResponse = zod.object({
         customDaysMin: zod.int().optional(),
         customDaysMax: zod.int().optional(),
         dayPrices: zod.record(zod.string(), zod.int()).optional(),
+        customTrafficMinGb: zod.int().optional(),
+        customTrafficMaxGb: zod.int().optional(),
+        gbPrices: zod.record(zod.string(), zod.int()).optional(),
       }),
     )
     .nullable(),
@@ -3031,6 +3034,8 @@ export const createPanelPlanVersionBodyPeriodsItemAmountMinorMin = 0;
 
 export const createPanelPlanVersionBodyCustomDaysMaxMax = 3650;
 
+export const createPanelPlanVersionBodyCustomTrafficMaxGbMax = 1000000;
+
 export const CreatePanelPlanVersionBody = zod.object({
   billingPeriod: zod.enum([
     "none",
@@ -3112,6 +3117,16 @@ export const CreatePanelPlanVersionBody = zod.object({
     .record(zod.string(), zod.int().min(1))
     .optional()
     .describe("Price per custom day by currency."),
+  customTrafficMinGb: zod
+    .int()
+    .min(1)
+    .nullish()
+    .describe("The smallest traffic volume a customer may choose; null sells none."),
+  customTrafficMaxGb: zod.int().max(createPanelPlanVersionBodyCustomTrafficMaxGbMax).nullish(),
+  gbPrices: zod
+    .record(zod.string(), zod.int().min(1))
+    .optional()
+    .describe("Price per chosen gigabyte by currency, for the version's own duration."),
 });
 
 export const createPanelPlanVersionResponseOfferedSquadsItemLabelRuMax = 80;
@@ -3171,6 +3186,9 @@ export const CreatePanelPlanVersionResponse = zod.object({
   customDaysMin: zod.int().optional(),
   customDaysMax: zod.int().optional(),
   dayPrices: zod.record(zod.string(), zod.int()).optional(),
+  customTrafficMinGb: zod.int().optional(),
+  customTrafficMaxGb: zod.int().optional(),
+  gbPrices: zod.record(zod.string(), zod.int()).optional(),
 });
 
 /**
@@ -10089,6 +10107,9 @@ export const UpdateAccountCheckoutHeader = zod.object({
 export const updateAccountCheckoutBodyPeriodDaysMin = 0;
 export const updateAccountCheckoutBodyPeriodDaysMax = 3650;
 
+export const updateAccountCheckoutBodyTrafficGbMin = 0;
+export const updateAccountCheckoutBodyTrafficGbMax = 1000000;
+
 export const UpdateAccountCheckoutBody = zod.object({
   provider: zod.string().optional(),
   currency: zod.string().optional(),
@@ -10101,6 +10122,14 @@ export const UpdateAccountCheckoutBody = zod.object({
     .max(updateAccountCheckoutBodyPeriodDaysMax)
     .optional()
     .describe("A billing period other than the plan version's own; 0 returns to it."),
+  trafficGb: zod
+    .int()
+    .min(updateAccountCheckoutBodyTrafficGbMin)
+    .max(updateAccountCheckoutBodyTrafficGbMax)
+    .optional()
+    .describe(
+      "A traffic volume in gigabytes other than the plan version's own allowance, priced per gigabyte; 0 returns to it.",
+    ),
 });
 
 export const UpdateAccountCheckoutResponse = zod.object({

@@ -9054,6 +9054,10 @@ type PanelPlanVersionInput struct {
 	CancellationPolicy PanelPlanVersionInputCancellationPolicy `json:"cancellationPolicy"`
 	CustomDaysMax      *int                                    `json:"customDaysMax,omitempty"`
 	CustomDaysMin      *int                                    `json:"customDaysMin,omitempty"`
+	CustomTrafficMaxGb *int                                    `json:"customTrafficMaxGb,omitempty"`
+
+	// CustomTrafficMinGb The smallest traffic volume a customer may choose; null sells none.
+	CustomTrafficMinGb *int `json:"customTrafficMinGb,omitempty"`
 
 	// DayPrices Price per custom day by currency.
 	DayPrices *map[string]int64 `json:"dayPrices,omitempty"`
@@ -9064,8 +9068,11 @@ type PanelPlanVersionInput struct {
 	DurationSeconds int64                                `json:"durationSeconds"`
 
 	// ExternalSquadId A Remnawave external squad UUID; empty for none.
-	ExternalSquadId    *string `json:"externalSquadId,omitempty"`
-	GracePeriodSeconds *int64  `json:"gracePeriodSeconds,omitempty"`
+	ExternalSquadId *string `json:"externalSquadId,omitempty"`
+
+	// GbPrices Price per chosen gigabyte by currency, for the version's own duration.
+	GbPrices           *map[string]int64 `json:"gbPrices,omitempty"`
+	GracePeriodSeconds *int64            `json:"gracePeriodSeconds,omitempty"`
 
 	// MaxAddonTrafficBytes Most traffic add-ons may add to one entitlement; null is no cap.
 	MaxAddonTrafficBytes *int64 `json:"maxAddonTrafficBytes,omitempty"`
@@ -9125,11 +9132,14 @@ type PanelPlanVersionSummary struct {
 	CreatedAt             time.Time                                    `json:"createdAt"`
 	CustomDaysMax         *int                                         `json:"customDaysMax,omitempty"`
 	CustomDaysMin         *int                                         `json:"customDaysMin,omitempty"`
+	CustomTrafficMaxGb    *int                                         `json:"customTrafficMaxGb,omitempty"`
+	CustomTrafficMinGb    *int                                         `json:"customTrafficMinGb,omitempty"`
 	DayPrices             *map[string]int64                            `json:"dayPrices,omitempty"`
 	DeviceLimit           *int                                         `json:"deviceLimit,omitempty"`
 	DowngradePolicy       string                                       `json:"downgradePolicy"`
 	DurationSeconds       int64                                        `json:"durationSeconds"`
 	ExternalSquadId       *openapi_types.UUID                          `json:"externalSquadId,omitempty"`
+	GbPrices              *map[string]int64                            `json:"gbPrices,omitempty"`
 	GracePeriodSeconds    *int64                                       `json:"gracePeriodSeconds,omitempty"`
 	Id                    openapi_types.UUID                           `json:"id"`
 	MaxAddonTrafficBytes  *int64                                       `json:"maxAddonTrafficBytes,omitempty"`
@@ -10604,6 +10614,9 @@ type UpdateAccountCheckoutJSONBody struct {
 	Provider       *string               `json:"provider,omitempty"`
 	SquadIds       *[]openapi_types.UUID `json:"squadIds,omitempty"`
 	SubscriptionId *string               `json:"subscriptionId,omitempty"`
+
+	// TrafficGb A traffic volume in gigabytes other than the plan version's own allowance, priced per gigabyte; 0 returns to it.
+	TrafficGb *int `json:"trafficGb,omitempty"`
 }
 
 // UpdateAccountCheckoutParams defines parameters for UpdateAccountCheckout.

@@ -52,6 +52,9 @@ type Session struct {
 	// PeriodDays is the billing period chosen other than the version's own;
 	// zero is the version's own.
 	PeriodDays int
+	// TrafficGB is the traffic volume chosen in gigabytes other than the
+	// version's own allowance; zero is the version's own.
+	TrafficGB int
 }
 
 // CheckoutAddon is one add-on attached to an open checkout.
@@ -78,7 +81,8 @@ func NewStore(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
 // between both surfaces regardless of what the table is called.
 const checkoutColumns = `id::text, user_id::text, plan_version_id::text, operation, currency, provider,
 	promo_code, promo_rejection, apply_wallet, order_id::text, idempotency_key, expires_at,
-	subscription_id::text, selected_squad_ids, COALESCE(period_days, 0), payment_method`
+	subscription_id::text, selected_squad_ids, COALESCE(period_days, 0), payment_method,
+	COALESCE(traffic_gb, 0)`
 
 // OpenCheckout replaces any unfinished checkout for the customer with a new one.
 // Only one checkout may be open at a time, which keeps the confirmation screen
@@ -292,7 +296,8 @@ func scanCheckout(row pgx.Row) (Session, error) {
 	)
 	err := row.Scan(&session.ID, &session.CustomerID, &session.PlanVersionID, &session.Operation,
 		&session.Currency, &provider, &promo, &rejection, &session.ApplyWallet, &orderID,
-		&session.IdempotencyKey, &session.ExpiresAt, &subscription, &squadIDs, &session.PeriodDays, &session.Method)
+		&session.IdempotencyKey, &session.ExpiresAt, &subscription, &squadIDs, &session.PeriodDays, &session.Method,
+		&session.TrafficGB)
 	if err != nil {
 		return Session{}, err
 	}
@@ -325,4 +330,13 @@ func (store *Store) SetCheckoutPeriod(ctx context.Context, sessionID string, day
 		SET period_days = NULLIF($2::integer, 0), updated_at = now()
 		WHERE id = $1::uuid AND order_id IS NULL
 		RETURNING `+checkoutColumns, sessionID, days)
+}
+
+// SetCheckoutTraffic records the traffic volume chosen in the checkout; zero
+// returns it to the version's own allowance.
+func (store *Store) SetCheckoutTraffic(ctx context.Context, sessionID string, gigabytes int) (Session, error) {
+	return store.update(ctx, `UPDATE bot_checkout_sessions
+		SET traffic_gb = NULLIF($2::integer, 0), updated_at = now()
+		WHERE id = $1::uuid AND order_id IS NULL
+		RETURNING `+checkoutColumns, sessionID, gigabytes)
 }

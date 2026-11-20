@@ -257,6 +257,10 @@ export type PlanVersion = {
   customDaysMin?: number;
   customDaysMax?: number;
   dayPrices?: Record<string, number>;
+  /** A traffic volume the customer chooses, priced per gigabyte by currency. */
+  customTrafficMinGb?: number;
+  customTrafficMaxGb?: number;
+  gbPrices?: Record<string, number>;
 };
 
 export type PersonalOffer = {

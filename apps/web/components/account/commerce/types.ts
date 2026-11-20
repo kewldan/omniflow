@@ -242,6 +242,9 @@ export type CheckoutView = {
   /** Further billing periods the plan is sold for here, and the one chosen (0 is its own). */
   periods?: PeriodOffer;
   periodDays?: number;
+  /** The traffic the plan is sold with here, and the volume chosen (0 is its own). */
+  traffic?: TrafficOffer;
+  trafficGb?: number;
   termsUrl: string;
   expiresAt?: string;
 };
@@ -410,4 +413,13 @@ export type TopUpResult = {
 export type PeriodOffer = {
   choices: { days: number; price: Money }[];
   custom?: { minDays: number; maxDays: number; pricePerDay: Money };
+};
+
+/**
+ * A plan version's traffic choice in one currency: its own allowance (`null`
+ * is unlimited) and a volume the customer chooses, priced per gigabyte.
+ */
+export type TrafficOffer = {
+  ownBytes: number | null;
+  custom?: { minGb: number; maxGb: number; pricePerGb: Money };
 };

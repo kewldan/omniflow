@@ -4203,6 +4203,7 @@ paths:
                 subscriptionId: {type: string}
                 squadIds: {type: array, items: {type: string, format: uuid}}
                 periodDays: {type: integer, minimum: 0, maximum: 3650, description: A billing period other than the plan version's own; 0 returns to it.}
+                trafficGb: {type: integer, minimum: 0, maximum: 1000000, description: "A traffic volume in gigabytes other than the plan version's own allowance, priced per gigabyte; 0 returns to it."}
       responses:
         "200": {description: Updated, content: {application/json: {schema: {$ref: "#/components/schemas/AccountCheckout"}}}}
         "404": {$ref: "#/components/responses/Problem"}
@@ -6972,6 +6973,9 @@ components:
         customDaysMin: {type: integer}
         customDaysMax: {type: integer}
         dayPrices: {type: object, additionalProperties: {type: integer, format: int64}}
+        customTrafficMinGb: {type: integer}
+        customTrafficMaxGb: {type: integer}
+        gbPrices: {type: object, additionalProperties: {type: integer, format: int64}}
     PanelPlanPeriod:
       type: object
       required: [days, currency, amountMinor, forPurchase, forRenewal]
@@ -7017,6 +7021,9 @@ components:
         customDaysMin: {type: integer, minimum: 1, nullable: true}
         customDaysMax: {type: integer, maximum: 3650, nullable: true}
         dayPrices: {type: object, additionalProperties: {type: integer, format: int64, minimum: 1}, description: Price per custom day by currency.}
+        customTrafficMinGb: {type: integer, minimum: 1, nullable: true, description: The smallest traffic volume a customer may choose; null sells none.}
+        customTrafficMaxGb: {type: integer, maximum: 1000000, nullable: true}
+        gbPrices: {type: object, additionalProperties: {type: integer, format: int64, minimum: 1}, description: "Price per chosen gigabyte by currency, for the version's own duration."}
     PanelPlanOptions:
       type: object
       properties:

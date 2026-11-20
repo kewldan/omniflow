@@ -372,7 +372,7 @@ func (app *App) checkoutScreen(ctx context.Context, session commerceContext) Vie
 	if err != nil {
 		app.logger.Warn("add-on lookup failed", "error", err)
 	}
-	return checkoutView(session.Locale, plan, checkout, quote, len(addons) > 0)
+	return withTrafficChoice(checkoutView(session.Locale, plan, checkout, quote, len(addons) > 0), session.Locale, app.checkoutTraffic(ctx, checkout), checkout)
 }
 
 // confirmCheckout creates the order and immediately starts the payment. Both
@@ -407,6 +407,11 @@ func (app *App) confirmCheckout(ctx context.Context, session commerceContext) Vi
 		return View{
 			Text:     text(session.Locale, "subs.rejected", text(session.Locale, "subs."+commerce.SubscriptionRejectionReason(err))),
 			Keyboard: keyboard(row(callbackButton(text(session.Locale, "subs.back"), routeSubscriptions))),
+		}
+	case errors.Is(err, commercepg.ErrTrafficUnavailable):
+		return View{
+			Text:     text(session.Locale, "traffic.refused"),
+			Keyboard: keyboard(row(actionButton(text(session.Locale, "traffic.change"), "traffic"))),
 		}
 	case errors.Is(err, commercepg.ErrSquadUnavailable):
 		return View{
@@ -951,6 +956,12 @@ func (app *App) handleCommerceAction(ctx context.Context, session commerceContex
 		return app.checkoutScreen(ctx, session), true
 	case "confirm":
 		return app.confirmCheckout(ctx, session), true
+	case "traffic":
+		return app.trafficScreen(ctx, session), true
+	case "traffic-set":
+		return app.setTraffic(ctx, session, argument), true
+	case "traffic-enter":
+		return app.beginTrafficEntry(ctx, session), true
 	case "promo":
 		return app.beginPromo(ctx, session), true
 	case "promo-clear":
@@ -1404,7 +1415,7 @@ var commerceActions = func() map[string]bool {
 		"renew-days":     true,
 		"method-default": true, "method-remove": true,
 		"quiet": true, "quiet-menu": true, "tz-menu": true, "tz": true, "invoice": true,
-		"ref-qr": true,
+		"ref-qr": true, "traffic": true, "traffic-set": true, "traffic-enter": true,
 	}
 	for _, owned := range []map[string]bool{expansionActions, giftActions, shopActions, starsActions, offerActions, termsActions, welcomeActions, partnerActions, gameActions} {
 		for action := range owned {

@@ -248,6 +248,9 @@ type CreateOrderInput struct {
 	// its listed periods, or a custom number of days. Zero is the version's
 	// own duration and price.
 	PeriodDays int
+	// TrafficGB chooses a traffic volume in gigabytes other than the version's
+	// own allowance, priced per gigabyte. Zero is the version's own.
+	TrafficGB int
 }
 
 // Promotion and policy rejections carry a stable machine reason so a customer
@@ -372,10 +375,16 @@ func (store *Store) quoteWith(ctx context.Context, queries *dbgen.Queries, userI
 	}
 	// A chosen period other than the version's own replaces its price and its
 	// duration for this order; the order records the period it bought.
+	ownSeconds := plan.DurationSeconds
 	if input.PeriodDays > 0 {
 		if plan.AmountMinor, plan.DurationSeconds, err = store.periodPrice(ctx, queries, plan, input); err != nil {
 			return OrderQuote{}, err
 		}
+	}
+	// A chosen traffic volume adds its price to the period's and replaces the
+	// version's allowance; the order records the volume it bought.
+	if err = applyTrafficChoice(ctx, queries, &plan, input.TrafficGB, ownSeconds); err != nil {
+		return OrderQuote{}, err
 	}
 	// The installation's switches sit above the version's own policies: an
 	// upgrade or downgrade turned off everywhere reads as forbidden here, so
@@ -609,6 +618,9 @@ func (store *Store) CreateOrder(ctx context.Context, input CreateOrderInput) (db
 	// Add-ons bought with the plan are charged on this order, so one
 	// confirmation is one payment rather than two.
 	if order, err = recordOrderPeriod(ctx, queries, order, input, plan.DurationSeconds); err != nil {
+		return dbgen.Order{}, err
+	}
+	if order, err = recordOrderTraffic(ctx, queries, order, input.TrafficGB); err != nil {
 		return dbgen.Order{}, err
 	}
 	if err = store.insertAddonLines(ctx, queries, order.ID, quote.addons, expiresAt); err != nil {
@@ -1045,7 +1057,7 @@ func (store *Store) settlePaidOrder(ctx context.Context, tx pgx.Tx, queries *dbg
 	if len(squadIDs) == 0 {
 		squadIDs = spec.RemnawaveSquadIds
 	}
-	entitlement, err := queries.CreateEntitlement(ctx, dbgen.CreateEntitlementParams{UserID: order.UserID, OrderID: order.ID, PlanVersionID: spec.PlanVersionID, StartsAt: pgtype.Timestamptz{Time: schedule.StartsAt, Valid: true}, EndsAt: pgtype.Timestamptz{Time: schedule.EndsAt, Valid: true}, TrafficAllowanceBytes: spec.TrafficAllowanceBytes, DeviceLimit: spec.DeviceLimit, RemnawaveSquadIds: squadIDs, SubscriptionID: order.SubscriptionID})
+	entitlement, err := queries.CreateEntitlement(ctx, dbgen.CreateEntitlementParams{UserID: order.UserID, OrderID: order.ID, PlanVersionID: spec.PlanVersionID, StartsAt: pgtype.Timestamptz{Time: schedule.StartsAt, Valid: true}, EndsAt: pgtype.Timestamptz{Time: schedule.EndsAt, Valid: true}, TrafficAllowanceBytes: orderTrafficAllowance(order, spec.TrafficAllowanceBytes), DeviceLimit: spec.DeviceLimit, RemnawaveSquadIds: squadIDs, SubscriptionID: order.SubscriptionID})
 	if err != nil {
 		return err
 	}

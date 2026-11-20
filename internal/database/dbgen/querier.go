@@ -940,6 +940,7 @@ type Querier interface {
 	InsertOutboxEvent(ctx context.Context, arg InsertOutboxEventParams) (OutboxEvent, error)
 	InsertPaymentEvent(ctx context.Context, arg InsertPaymentEventParams) (PaymentEvent, error)
 	InsertPlanVersionDayPrice(ctx context.Context, arg InsertPlanVersionDayPriceParams) error
+	InsertPlanVersionGBPrice(ctx context.Context, arg InsertPlanVersionGBPriceParams) error
 	InsertPlanVersionPeriod(ctx context.Context, arg InsertPlanVersionPeriodParams) error
 	// Plan authoring and the subscription options built on it: the squads a
 	// customer may choose, and what a plan version offers beside its price.
@@ -968,6 +969,9 @@ type Querier interface {
 	// The period the subscription's latest settled subscription order bought,
 	// which an automatic renewal repeats when the version still offers it.
 	LastOrderPeriod(ctx context.Context, subscriptionID pgtype.UUID) (pgtype.Int8, error)
+	// The traffic the subscription's latest settled subscription order bought,
+	// which an automatic renewal repeats when the version still sells it.
+	LastOrderTraffic(ctx context.Context, subscriptionID pgtype.UUID) (pgtype.Int4, error)
 	LatestBlockerScan(ctx context.Context) (BlockerScan, error)
 	// The plan version an operator means when they pick a plan by name.
 	LatestLivePlanVersion(ctx context.Context, planID pgtype.UUID) (LatestLivePlanVersionRow, error)
@@ -1372,6 +1376,7 @@ type Querier interface {
 	ListPlanPrices(ctx context.Context, planVersionID pgtype.UUID) ([]PlanPrice, error)
 	ListPlanVersionAddonIDs(ctx context.Context, planVersionID pgtype.UUID) ([]pgtype.UUID, error)
 	ListPlanVersionDayPrices(ctx context.Context, planVersionID pgtype.UUID) ([]PlanVersionDayPrice, error)
+	ListPlanVersionGBPrices(ctx context.Context, planVersionID pgtype.UUID) ([]PlanVersionGbPrice, error)
 	ListPlanVersionPeriods(ctx context.Context, planVersionID pgtype.UUID) ([]PlanVersionPeriod, error)
 	ListPlanVersionSquads(ctx context.Context, planVersionID pgtype.UUID) ([]PlanVersionSquad, error)
 	ListPlanVersions(ctx context.Context, planID pgtype.UUID) ([]PlanVersion, error)
@@ -2178,12 +2183,15 @@ type Querier interface {
 	SetNewsPostState(ctx context.Context, arg SetNewsPostStateParams) (NewsPost, error)
 	// Written once, in the transaction that creates the order.
 	SetOrderPeriod(ctx context.Context, arg SetOrderPeriodParams) error
+	// Written once, in the transaction that creates the order.
+	SetOrderTraffic(ctx context.Context, arg SetOrderTrafficParams) error
 	SetPlanRemnawaveTag(ctx context.Context, arg SetPlanRemnawaveTagParams) (Plan, error)
 	SetPlanVersionAddonTrafficCap(ctx context.Context, arg SetPlanVersionAddonTrafficCapParams) error
 	// Replaces the add-ons offered with a plan version. Deleting first keeps the
 	// set exactly what the operator chose rather than the union of every edit.
 	SetPlanVersionAddons(ctx context.Context, planVersionID pgtype.UUID) error
 	SetPlanVersionCustomDays(ctx context.Context, arg SetPlanVersionCustomDaysParams) error
+	SetPlanVersionCustomTraffic(ctx context.Context, arg SetPlanVersionCustomTrafficParams) error
 	// Written once, in the transaction that publishes the version.
 	SetPlanVersionRemnawaveProfile(ctx context.Context, arg SetPlanVersionRemnawaveProfileParams) error
 	SetPlanVersionTrafficResetPrice(ctx context.Context, arg SetPlanVersionTrafficResetPriceParams) error

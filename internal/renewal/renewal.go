@@ -321,13 +321,12 @@ func (worker *Worker) cycleOrder(
 		// it payable.
 		ExpiresAt: worker.clock().UTC().Add(worker.config.Schedule.CycleOrderLifetime()),
 	}
-	// A subscription bought for one of the version's other periods renews for
-	// that period, as long as the version still offers it for renewal.
-	periodDays, err := worker.orders.RenewalPeriodDays(ctx, input.SubscriptionID, input.PlanVersionID, input.Currency)
-	if err != nil {
+	// A subscription bought for one of the version's other periods, or with a
+	// traffic volume of its own, renews for that period and that volume, as
+	// long as the version still sells them.
+	if input.PeriodDays, input.TrafficGB, err = worker.orders.RenewalSelection(ctx, input.SubscriptionID, input.PlanVersionID, input.Currency); err != nil {
 		return dbgen.Order{}, err
 	}
-	input.PeriodDays = periodDays
 	if attempt.Funding == recurring.FundingWallet {
 		// A wallet renewal is only opened once the balance covers it. Opening
 		// it short would reserve what the customer has for the whole dunning

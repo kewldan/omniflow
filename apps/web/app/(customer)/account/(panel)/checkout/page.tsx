@@ -24,6 +24,7 @@ import {
   useProblemMessage,
   usePromoRejection,
 } from "@/components/account/commerce/reasons";
+import { TrafficPicker } from "@/components/account/commerce/traffic-picker";
 import {
   type CheckoutView,
   type OrderSummary,
@@ -274,6 +275,8 @@ function Checkout({
       )}
 
       <PeriodPicker checkout={checkout} disabled={busy} onChange={patch} />
+
+      <TrafficPicker checkout={checkout} disabled={busy} onChange={patch} />
 
       {checkout.addons.length > 0 && (
         <AddonPicker checkout={checkout} disabled={busy} onToggle={apply} />

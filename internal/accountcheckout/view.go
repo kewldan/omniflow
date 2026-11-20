@@ -58,6 +58,10 @@ type CheckoutView struct {
 	// order beside its own; PeriodDays is the one chosen, zero for its own.
 	Periods    PeriodOffer
 	PeriodDays int
+	// Traffic is the volume the version sells beside its own allowance;
+	// TrafficGB is the one chosen, zero for the version's own.
+	Traffic   TrafficOffer
+	TrafficGB int
 }
 
 // OpenRequest is what the panel submits to start a checkout.
@@ -91,6 +95,9 @@ type UpdateRequest struct {
 	// PeriodDays chooses a billing period other than the version's own; zero
 	// returns to it.
 	PeriodDays *int
+	// TrafficGB chooses a traffic volume in gigabytes other than the
+	// version's own allowance; zero returns to it.
+	TrafficGB *int
 }
 
 // Open starts a checkout, replacing whatever the customer had open.
@@ -245,6 +252,11 @@ func (service *Service) Update(
 			return CheckoutView{}, quoteErr
 		}
 		if session, err = service.store.SetCheckoutPeriod(ctx, session.ID, *request.PeriodDays); err != nil {
+			return CheckoutView{}, err
+		}
+	}
+	if request.TrafficGB != nil {
+		if session, err = service.ChooseTraffic(ctx, session, *request.TrafficGB); err != nil {
 			return CheckoutView{}, err
 		}
 	}
@@ -439,6 +451,10 @@ func (service *Service) view(ctx context.Context, session Session, locale string
 	if err != nil {
 		return CheckoutView{}, err
 	}
+	traffic, err := service.store.PlanTraffic(ctx, session.PlanVersionID, session.Currency)
+	if err != nil {
+		return CheckoutView{}, err
+	}
 	squads, err := service.store.PlanSquads(ctx, session.PlanVersionID, locale)
 	if err != nil {
 		return CheckoutView{}, err
@@ -471,6 +487,7 @@ func (service *Service) view(ctx context.Context, session Session, locale string
 		Addons:         addons, SelectedAddons: selected,
 		ExpiresAt: session.ExpiresAt, TermsURL: service.settings.TermsURL,
 		Periods: periods, PeriodDays: session.PeriodDays,
+		Traffic: traffic, TrafficGB: session.TrafficGB,
 	}, nil
 }
 

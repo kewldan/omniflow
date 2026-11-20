@@ -69,10 +69,16 @@ func (worker *Worker) warnLowBalance(ctx context.Context) {
 	}
 	rows.Close()
 	for _, item := range candidates {
+		// Priced as the renewal will be: the same period and traffic.
+		periodDays, trafficGB, err := worker.orders.RenewalSelection(ctx, item.subscriptionID, item.planVersionID, item.currency)
+		if err != nil {
+			continue
+		}
 		quote, err := worker.orders.PreviewOrder(ctx, commercepg.CreateOrderInput{
 			CustomerID: item.userID, PlanVersionID: item.planVersionID, Currency: item.currency,
 			Operation: "renewal", SubscriptionID: item.subscriptionID,
 			IdempotencyKey: "low-balance-preview:" + item.cycleKey,
+			PeriodDays:     periodDays, TrafficGB: trafficGB,
 		})
 		if err != nil || quote.ExternalMinor <= 0 {
 			// Covered, or not priceable now — the charge itself will say so.

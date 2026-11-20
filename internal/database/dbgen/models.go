@@ -625,6 +625,7 @@ type BotCheckoutSession struct {
 	SelectedSquadIds []pgtype.UUID      `json:"selected_squad_ids"`
 	PeriodDays       pgtype.Int4        `json:"period_days"`
 	PaymentMethod    string             `json:"payment_method"`
+	TrafficGb        pgtype.Int4        `json:"traffic_gb"`
 }
 
 type BotDeliveryState struct {
@@ -1825,6 +1826,7 @@ type Order struct {
 	LoyaltyDiscountMinor int64              `json:"loyalty_discount_minor"`
 	LoyaltyTierCode      pgtype.Text        `json:"loyalty_tier_code"`
 	PeriodSeconds        pgtype.Int8        `json:"period_seconds"`
+	TrafficGb            pgtype.Int4        `json:"traffic_gb"`
 }
 
 type OrderAddonLine struct {
@@ -2089,6 +2091,8 @@ type PlanVersion struct {
 	TrafficResetPriceBps  pgtype.Int4        `json:"traffic_reset_price_bps"`
 	CustomDaysMin         pgtype.Int4        `json:"custom_days_min"`
 	CustomDaysMax         pgtype.Int4        `json:"custom_days_max"`
+	CustomTrafficMinGb    pgtype.Int4        `json:"custom_traffic_min_gb"`
+	CustomTrafficMaxGb    pgtype.Int4        `json:"custom_traffic_max_gb"`
 }
 
 type PlanVersionAddon struct {
@@ -2097,6 +2101,12 @@ type PlanVersionAddon struct {
 }
 
 type PlanVersionDayPrice struct {
+	PlanVersionID pgtype.UUID `json:"plan_version_id"`
+	Currency      string      `json:"currency"`
+	AmountMinor   int64       `json:"amount_minor"`
+}
+
+type PlanVersionGbPrice struct {
 	PlanVersionID pgtype.UUID `json:"plan_version_id"`
 	Currency      string      `json:"currency"`
 	AmountMinor   int64       `json:"amount_minor"`

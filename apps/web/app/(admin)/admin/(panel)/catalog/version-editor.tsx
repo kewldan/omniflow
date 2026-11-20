@@ -40,6 +40,7 @@ import { useOperatorAction } from "@/lib/operations";
 
 import { PeriodsEditor, periodDefaults, readPeriods } from "./periods-editor";
 import { SquadPicker, squadName, useSquads } from "./squad-picker";
+import { readTraffic, TrafficEditor, trafficDefaults } from "./traffic-editor";
 
 // Each list is exactly what the `plan_versions` CHECK constraints accept and
 // internal/commerce implements. The squad selection once offered
@@ -103,6 +104,10 @@ const schema = z.object({
       forRenewal: z.boolean(),
     }),
   ),
+  // A traffic volume the customer chooses; see traffic-editor.tsx.
+  gbPrices: z.array(z.object({ amount: z.string(), currency: z.string() })),
+  trafficMax: z.string(),
+  trafficMin: z.string(),
   // Remnawave's own trafficLimitStrategy for users on this version, and the
   // external squad that shapes their subscription page.
   externalSquadId: z.array(z.string()),
@@ -170,6 +175,7 @@ function defaults(current?: PlanVersion): Values {
   return {
     addonIds: current?.addonIds ?? [],
     ...periodDefaults(current),
+    ...trafficDefaults(current),
     externalSquadId: current?.externalSquadId ? [current.externalSquadId] : [],
     trafficResetStrategy: current?.trafficResetStrategy ?? "NO_RESET",
     billingPeriod: current?.billingPeriod ?? "month",
@@ -239,6 +245,7 @@ function VersionForm({
       body: {
         addonIds: values.addonIds,
         ...readPeriods(values),
+        ...readTraffic(values),
         externalSquadId: values.externalSquadId[0] ?? "",
         trafficResetStrategy: values.trafficResetStrategy,
         billingPeriod: values.billingPeriod,
@@ -545,6 +552,8 @@ function VersionForm({
             <PriceListField hint={translate("pricesHint")} label={translate("prices")} />
 
             <PeriodsEditor />
+
+            <TrafficEditor />
 
             <FormField
               error={errors.reason?.message}
