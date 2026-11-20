@@ -249,7 +249,12 @@ export function SubscriptionDevices({
   const { run, pending } = useOperatorAction();
 
   const base = `/v1/panel/customers/${customerId}/subscriptions/${subscriptionId}/devices`;
-  const { data, error, isLoading, mutate } = useSWR<Listing<PanelDevice>, ApiError>(base, fetcher);
+  const { data, error, isLoading, mutate } = useSWR<
+    Listing<PanelDevice> & {
+      sharing?: { level: "none" | "possible" | "likely"; reasons: string[]; activeDevices: number };
+    },
+    ApiError
+  >(base, fetcher);
 
   if (isLoading) {
     return <Skeleton className="mt-3 h-20 w-full" />;
@@ -270,6 +275,18 @@ export function SubscriptionDevices({
       <p className="font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.12em]">
         {translate("devices.title")}
       </p>
+      {data?.sharing && data.sharing.level !== "none" && (
+        // Read-only: Remnawave owns devices, and nothing here acts on the
+        // signal. It tells the operator what to look at.
+        <p className="text-warning-tint-foreground text-xs">
+          {translate(`devices.sharing.${data.sharing.level}`, {
+            count: data.sharing.activeDevices,
+          })}{" "}
+          {data.sharing.reasons
+            .map((reason) => translate(`devices.sharing.reasons.${reason}`))
+            .join(", ")}
+        </p>
+      )}
       {can("subscriptions.write") && (
         <Input
           onChange={(event) => setReason(event.target.value)}

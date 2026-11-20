@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/omniflow/omniflow/internal/sharing"
 	"net/http"
 	"time"
 
@@ -184,6 +185,7 @@ func (handlers *AdminHandlers) listSubscriptionDevices(
 	}
 
 	items := make([]PanelDevice, 0, len(devices.Devices))
+	observed := make([]sharing.Device, 0, len(devices.Devices))
 	for _, device := range devices.Devices {
 		items = append(items, PanelDevice{
 			Ref:        deviceRef(device.HWID),
@@ -192,8 +194,13 @@ func (handlers *AdminHandlers) listSubscriptionDevices(
 			OSVersion:  optionalString(device.OSVersion),
 			LastSeenAt: device.UpdatedAt.UTC(),
 		})
+		observed = append(observed, sharing.Device{
+			Platform: optionalString(device.Platform), Model: optionalString(device.DeviceModel), LastSeen: device.UpdatedAt,
+		})
 	}
-	writeJSON(writer, http.StatusOK, map[string]any{"items": items})
+	// A read-only account-sharing signal, computed from this listing and not
+	// stored (decision 0013).
+	writeJSON(writer, http.StatusOK, map[string]any{"items": items, "sharing": sharing.Assess(observed, time.Now())})
 }
 
 // removeSubscriptionDevice removes one device by the reference the listing

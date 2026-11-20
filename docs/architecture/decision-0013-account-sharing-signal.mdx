@@ -1,0 +1,43 @@
+---
+title: "0013 — Account-sharing detection reads Remnawave and never acts"
+description: Where the line runs between Remnawave and Omniflow for detecting a subscription used by several people, and why Omniflow only shows a signal
+---
+
+**Status:** Accepted.
+
+## Context
+
+Bedolaga operators look for subscriptions shared between several people. The
+evidence — devices, their platforms, connections, IP addresses — lives in
+Remnawave, which [decision 0004](/architecture/decision-0004-remnawave-boundary)
+makes authoritative for devices, traffic, and access. Remnawave already enforces
+a hardware-device limit per user. Collecting connection logs or IP history in
+Omniflow would duplicate Remnawave's state and hold personal data Omniflow has
+no other use for.
+
+## Decision
+
+**Omniflow computes a read-only signal from Remnawave's device list when an
+operator opens a subscription's devices**, and stores nothing. The signal is
+"possible" or "likely" with its reasons: five or more devices active in a day,
+four or more platforms, three or more models of one platform.
+
+**Omniflow never acts on it.** It does not remove devices, lower limits, block,
+or message the customer. Enforcement stays with Remnawave's device limit, which
+an operator sets on the plan; removing a device remains the existing manual,
+audited action.
+
+**No IP or connection history is collected.** Nothing is added to Omniflow's
+storage, and telemetry is unchanged.
+
+## Consequences
+
+- The signal is as good as Remnawave's device reports; a client that does not
+  send a hardware ID is invisible to it.
+- There is no list of "all shared subscriptions": computing one would need a
+  Remnawave call per subscription on a schedule, which this record declines.
+
+## Revisit when
+
+Remnawave exposes an aggregated sharing or concurrent-connection signal through
+its API, which Omniflow could read the same way without storing anything.

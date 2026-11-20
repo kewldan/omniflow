@@ -926,7 +926,16 @@
         "unknown": "Unknown",
         "unavailable": "Devices are unavailable — Remnawave did not answer.",
         "remove": "Remove",
-        "reasonPlaceholder": "Reason for removing a device (required)"
+        "reasonPlaceholder": "Reason for removing a device (required)",
+        "sharing": {
+          "possible": "Possibly shared ({count} devices active in a day):",
+          "likely": "Likely shared ({count} devices active in a day):",
+          "reasons": {
+            "many_active_devices": "five or more devices in use",
+            "many_platforms": "four or more platforms",
+            "many_models_of_one_platform": "three or more phone models of one platform"
+          }
+        }
       },
       "referrals": {
         "code": "Referral code",
