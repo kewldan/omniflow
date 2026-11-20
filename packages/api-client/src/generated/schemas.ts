@@ -5428,6 +5428,179 @@ export const ListPanelSubscriptionRequestsResponse = zod.object({
 });
 
 /**
+ * Requires marketing.read. Every reminder of the reminder constructor.
+ */
+export const listPanelRemindersResponseItemsItemNameMax = 80;
+
+export const listPanelRemindersResponseItemsItemSegmentDaysMin = 0;
+export const listPanelRemindersResponseItemsItemSegmentDaysMax = 365;
+
+export const listPanelRemindersResponseItemsItemBalanceBelowMinorMin = 0;
+
+export const listPanelRemindersResponseItemsItemCurrencyRegExp = /^[A-Z]{3}$/;
+export const listPanelRemindersResponseItemsItemRepeatEveryDaysMax = 365;
+
+export const listPanelRemindersResponseItemsItemMaxSendsMax = 20;
+
+export const listPanelRemindersResponseItemsItemTitleRuMax = 120;
+
+export const listPanelRemindersResponseItemsItemBodyRuMax = 2000;
+
+export const listPanelRemindersResponseItemsItemTitleEnMax = 120;
+
+export const listPanelRemindersResponseItemsItemBodyEnMax = 2000;
+
+export const ListPanelRemindersResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid().optional(),
+      name: zod.string().max(listPanelRemindersResponseItemsItemNameMax),
+      active: zod.boolean(),
+      category: zod.enum(["service", "marketing"]),
+      segment: zod.enum(["no_subscription", "expiring", "expired", "low_balance"]),
+      segmentDays: zod
+        .int()
+        .min(listPanelRemindersResponseItemsItemSegmentDaysMin)
+        .max(listPanelRemindersResponseItemsItemSegmentDaysMax),
+      balanceBelowMinor: zod.int().min(listPanelRemindersResponseItemsItemBalanceBelowMinorMin),
+      currency: zod.string().regex(listPanelRemindersResponseItemsItemCurrencyRegExp),
+      repeatEveryDays: zod.int().min(1).max(listPanelRemindersResponseItemsItemRepeatEveryDaysMax),
+      maxSends: zod.int().min(1).max(listPanelRemindersResponseItemsItemMaxSendsMax),
+      titleRu: zod.string().max(listPanelRemindersResponseItemsItemTitleRuMax),
+      bodyRu: zod.string().max(listPanelRemindersResponseItemsItemBodyRuMax),
+      titleEn: zod.string().max(listPanelRemindersResponseItemsItemTitleEnMax),
+      bodyEn: zod.string().max(listPanelRemindersResponseItemsItemBodyEnMax),
+      buttonRoute: zod.enum(["plans", "connect", "wallet", "support", "home"]).optional(),
+      showInCabinet: zod.boolean(),
+      updatedAt: zod.iso.datetime({ offset: true }).optional(),
+    }),
+  ),
+});
+
+/**
+ * Requires marketing.write. Creates a reminder, or updates the one `id` names. Audited.
+ */
+export const SavePanelReminderHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const savePanelReminderBodyNameMax = 80;
+
+export const savePanelReminderBodySegmentDaysMin = 0;
+export const savePanelReminderBodySegmentDaysMax = 365;
+
+export const savePanelReminderBodyBalanceBelowMinorMin = 0;
+
+export const savePanelReminderBodyCurrencyRegExp = /^[A-Z]{3}$/;
+export const savePanelReminderBodyRepeatEveryDaysMax = 365;
+
+export const savePanelReminderBodyMaxSendsMax = 20;
+
+export const savePanelReminderBodyTitleRuMax = 120;
+
+export const savePanelReminderBodyBodyRuMax = 2000;
+
+export const savePanelReminderBodyTitleEnMax = 120;
+
+export const savePanelReminderBodyBodyEnMax = 2000;
+
+export const SavePanelReminderBody = zod.object({
+  id: zod.uuid().optional(),
+  name: zod.string().max(savePanelReminderBodyNameMax),
+  active: zod.boolean(),
+  category: zod.enum(["service", "marketing"]),
+  segment: zod.enum(["no_subscription", "expiring", "expired", "low_balance"]),
+  segmentDays: zod
+    .int()
+    .min(savePanelReminderBodySegmentDaysMin)
+    .max(savePanelReminderBodySegmentDaysMax),
+  balanceBelowMinor: zod.int().min(savePanelReminderBodyBalanceBelowMinorMin),
+  currency: zod.string().regex(savePanelReminderBodyCurrencyRegExp),
+  repeatEveryDays: zod.int().min(1).max(savePanelReminderBodyRepeatEveryDaysMax),
+  maxSends: zod.int().min(1).max(savePanelReminderBodyMaxSendsMax),
+  titleRu: zod.string().max(savePanelReminderBodyTitleRuMax),
+  bodyRu: zod.string().max(savePanelReminderBodyBodyRuMax),
+  titleEn: zod.string().max(savePanelReminderBodyTitleEnMax),
+  bodyEn: zod.string().max(savePanelReminderBodyBodyEnMax),
+  buttonRoute: zod.enum(["plans", "connect", "wallet", "support", "home"]).optional(),
+  showInCabinet: zod.boolean(),
+  updatedAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+export const savePanelReminderResponseNameMax = 80;
+
+export const savePanelReminderResponseSegmentDaysMin = 0;
+export const savePanelReminderResponseSegmentDaysMax = 365;
+
+export const savePanelReminderResponseBalanceBelowMinorMin = 0;
+
+export const savePanelReminderResponseCurrencyRegExp = /^[A-Z]{3}$/;
+export const savePanelReminderResponseRepeatEveryDaysMax = 365;
+
+export const savePanelReminderResponseMaxSendsMax = 20;
+
+export const savePanelReminderResponseTitleRuMax = 120;
+
+export const savePanelReminderResponseBodyRuMax = 2000;
+
+export const savePanelReminderResponseTitleEnMax = 120;
+
+export const savePanelReminderResponseBodyEnMax = 2000;
+
+export const SavePanelReminderResponse = zod.object({
+  id: zod.uuid().optional(),
+  name: zod.string().max(savePanelReminderResponseNameMax),
+  active: zod.boolean(),
+  category: zod.enum(["service", "marketing"]),
+  segment: zod.enum(["no_subscription", "expiring", "expired", "low_balance"]),
+  segmentDays: zod
+    .int()
+    .min(savePanelReminderResponseSegmentDaysMin)
+    .max(savePanelReminderResponseSegmentDaysMax),
+  balanceBelowMinor: zod.int().min(savePanelReminderResponseBalanceBelowMinorMin),
+  currency: zod.string().regex(savePanelReminderResponseCurrencyRegExp),
+  repeatEveryDays: zod.int().min(1).max(savePanelReminderResponseRepeatEveryDaysMax),
+  maxSends: zod.int().min(1).max(savePanelReminderResponseMaxSendsMax),
+  titleRu: zod.string().max(savePanelReminderResponseTitleRuMax),
+  bodyRu: zod.string().max(savePanelReminderResponseBodyRuMax),
+  titleEn: zod.string().max(savePanelReminderResponseTitleEnMax),
+  bodyEn: zod.string().max(savePanelReminderResponseBodyEnMax),
+  buttonRoute: zod.enum(["plans", "connect", "wallet", "support", "home"]).optional(),
+  showInCabinet: zod.boolean(),
+  updatedAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+/**
+ * Requires marketing.write. Removes the reminder and every customer's progress through it.
+ */
+export const DeletePanelReminderParams = zod.object({
+  reminderID: zod.uuid(),
+});
+
+export const DeletePanelReminderHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const DeletePanelReminderResponse = zod.object({
+  removed: zod.boolean().optional(),
+});
+
+/**
+ * Requires marketing.read. How many customers the reminder's segment holds now.
+ */
+export const GetPanelReminderAudienceParams = zod.object({
+  reminderID: zod.uuid(),
+});
+
+export const GetPanelReminderAudienceResponse = zod.object({
+  customers: zod.int(),
+});
+
+/**
  * Requires settings.read. The stored palette, the stylesheet it renders as, the tokens this build honours, and every contrast problem the palette has. The warnings are recomputed on each read rather than stored, so they cannot go stale against a palette edited elsewhere.
  */
 export const GetPanelThemeResponse = zod.object({
@@ -8214,6 +8387,35 @@ export const RenameAccountDeviceBody = zod.object({
 });
 
 export const RenameAccountDeviceResponse = zod.void();
+
+/**
+ * The reminder cards the customer's segment holds now and that they have not dismissed, in their language.
+ */
+export const ListAccountRemindersResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      title: zod.string(),
+      body: zod.string(),
+      route: zod.enum(["plans", "connect", "wallet", "support", "home"]).optional(),
+    }),
+  ),
+});
+
+/**
+ * Hides a reminder card for good and stops its messages to this customer.
+ */
+export const DismissAccountReminderParams = zod.object({
+  reminderID: zod.uuid(),
+});
+
+export const DismissAccountReminderHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const DismissAccountReminderResponse = zod.void();
 
 /**
  * The comparable catalogue, with this customer's eligibility already decided. `operations` names the lifecycle actions the configured plan policy allows against their current subscriptions, so the panel offers renew, upgrade, or downgrade because the server said so rather than because React worked it out a second time.

@@ -15,7 +15,7 @@ import {
   StaleDataNotice,
 } from "@/components/account/state";
 import { type AccountSubscription, SubscriptionCard } from "@/components/account/subscription-card";
-import { type ApiError, fetcher } from "@/lib/api";
+import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 
 type Overview = {
   customer: { id: string; locale: "en" | "ru"; timezone: string; status: string };
@@ -106,6 +106,7 @@ export default function AccountDashboard() {
       )}
       {data.degraded && <StaleDataNotice />}
       {data.recovery && <RecoveryCard recovery={data.recovery} />}
+      <ReminderCards />
 
       {data.showSwitcher && data.subscriptions.length > 1 && (
         <SubscriptionSwitcher
@@ -208,5 +209,57 @@ function RecoveryCard({ recovery }: { recovery: NonNullable<Overview["recovery"]
         <Link href="/account/store">{translate("action")}</Link>
       </Button>
     </div>
+  );
+}
+
+const REMINDER_LINKS: Record<string, string> = {
+  plans: "/account/store",
+  connect: "/account/devices",
+  wallet: "/account/wallet",
+  support: "/account/support",
+  home: "/account",
+};
+
+/**
+ * The operator's reminders that hold for this customer now, as cards they can
+ * act on or dismiss. Dismissing one also stops its messages in the bot.
+ */
+function ReminderCards() {
+  const translate = useTranslations("account.reminders");
+  const { data, mutate } = useSWR<
+    { items: { id: string; title: string; body: string; route?: string }[] },
+    ApiError
+  >("/v1/account/reminders", fetcher);
+
+  async function dismiss(id: string) {
+    try {
+      await apiFetch(`/v1/account/reminders/${id}/dismiss`, { method: "POST" });
+      await mutate();
+    } catch {
+      // A card that stays is harmless; it is dismissed on the next try.
+    }
+  }
+
+  return (
+    <>
+      {(data?.items ?? []).map((card) => (
+        <div className="space-y-2 rounded-xl border border-border bg-card p-4" key={card.id}>
+          <p className="font-semibold text-[15px]">{card.title}</p>
+          <p className="whitespace-pre-line text-[13px] text-muted-foreground leading-relaxed">
+            {card.body}
+          </p>
+          <div className="flex gap-2">
+            {card.route && REMINDER_LINKS[card.route] ? (
+              <Button asChild size="sm">
+                <Link href={REMINDER_LINKS[card.route]}>{translate("open")}</Link>
+              </Button>
+            ) : null}
+            <Button onClick={() => dismiss(card.id)} size="sm" variant="ghost">
+              {translate("dismiss")}
+            </Button>
+          </div>
+        </div>
+      ))}
+    </>
   );
 }

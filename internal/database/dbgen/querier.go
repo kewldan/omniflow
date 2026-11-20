@@ -261,6 +261,7 @@ type Querier interface {
 	// Per-address request limit, so the form cannot flood somebody's mailbox.
 	CountRecentEmailMagicLinks(ctx context.Context, arg CountRecentEmailMagicLinksParams) (int64, error)
 	CountRecentOperatorNotifications(ctx context.Context, arg CountRecentOperatorNotificationsParams) (int32, error)
+	CountReminderAudience(ctx context.Context, reminderID pgtype.UUID) (int64, error)
 	CountRunningBackups(ctx context.Context) (int32, error)
 	CountUnpublishedOutboxEvents(ctx context.Context) (CountUnpublishedOutboxEventsRow, error)
 	CountUnusedAdminRecoveryCodes(ctx context.Context, adminUserID pgtype.UUID) (int64, error)
@@ -511,6 +512,7 @@ type Querier interface {
 	DeleteNoticeOverride(ctx context.Context, arg DeleteNoticeOverrideParams) (int64, error)
 	DeleteOldTelemetryEvents(ctx context.Context, retentionSeconds float64) (int64, error)
 	DeletePublishedOutboxEvents(ctx context.Context, retentionSeconds float64) (int64, error)
+	DeleteReminder(ctx context.Context, id pgtype.UUID) (int64, error)
 	DeleteRequiredChannel(ctx context.Context, id pgtype.UUID) error
 	DeleteResolvedDrifts(ctx context.Context, retentionSeconds float64) (int64, error)
 	// Row counts for the tables an operator's question usually concerns. Counts
@@ -518,6 +520,7 @@ type Querier interface {
 	DiagnosticCounts(ctx context.Context) (DiagnosticCountsRow, error)
 	DisableAdminTOTP(ctx context.Context, adminUserID pgtype.UUID) (AdminUser, error)
 	DismissPersonalOffer(ctx context.Context, arg DismissPersonalOfferParams) (PersonalOffer, error)
+	DismissReminder(ctx context.Context, arg DismissReminderParams) error
 	// Whatever the move above left behind, which is exactly the duplicates.
 	DropDuplicateNewsReads(ctx context.Context, source pgtype.UUID) error
 	// ---------------------------------------------------------------------------
@@ -971,6 +974,7 @@ type Querier interface {
 	// than relying on the sweeper having run, so an offer never outlives its window
 	// on screen.
 	ListActiveOffersForCustomer(ctx context.Context, arg ListActiveOffersForCustomerParams) ([]ListActiveOffersForCustomerRow, error)
+	ListActiveReminders(ctx context.Context) ([]Reminder, error)
 	ListActiveRetentionHolds(ctx context.Context) ([]AiRetentionHold, error)
 	ListAddonPrices(ctx context.Context, addonVersionID pgtype.UUID) ([]AddonPrice, error)
 	ListAddonVersions(ctx context.Context, addonID pgtype.UUID) ([]AddonVersion, error)
@@ -1039,6 +1043,9 @@ type Querier interface {
 	ListBrandingAssets(ctx context.Context) ([]ListBrandingAssetsRow, error)
 	ListBulkOperationItems(ctx context.Context, arg ListBulkOperationItemsParams) ([]BulkOperationItem, error)
 	ListBulkOperations(ctx context.Context, pageSize int32) ([]BulkOperation, error)
+	// The cabinet cards one customer sees: active reminders shown in the cabinet
+	// whose segment holds the customer now and which they have not dismissed.
+	ListCabinetReminders(ctx context.Context, userID pgtype.UUID) ([]ListCabinetRemindersRow, error)
 	ListCampaignTestSends(ctx context.Context, arg ListCampaignTestSendsParams) ([]CampaignTestSend, error)
 	// ---------------------------------------------------------------------------
 	// Campaigns
@@ -1306,6 +1313,13 @@ type Querier interface {
 	ListReferralAttributionPairs(ctx context.Context) ([]ListReferralAttributionPairsRow, error)
 	ListReferralRewardsForPair(ctx context.Context, referredUserID pgtype.UUID) ([]ReferralReward, error)
 	ListRefundsForOrder(ctx context.Context, orderID pgtype.UUID) ([]Refund, error)
+	// Customers inside a reminder's segment who are due for it: not dismissed,
+	// under its send count, past its repeat interval, and not sent any reminder
+	// in the last day — one reminder a day per person, whatever the operator has
+	// configured.
+	ListReminderAudience(ctx context.Context, arg ListReminderAudienceParams) ([]pgtype.UUID, error)
+	// The reminder constructor: operator-built repeating reminders by segment.
+	ListReminders(ctx context.Context) ([]Reminder, error)
 	ListRemnawaveMappings(ctx context.Context) ([]ListRemnawaveMappingsRow, error)
 	// Mandatory channel subscription.
 	ListRequiredChannels(ctx context.Context) ([]RequiredChannel, error)
@@ -1728,6 +1742,7 @@ type Querier interface {
 	// asked. Only a refund still waiting on that answer moves, so a revival that
 	// races the original request cannot overwrite an outcome already recorded.
 	RecordRefundOutcome(ctx context.Context, arg RecordRefundOutcomeParams) (Refund, error)
+	RecordReminderSend(ctx context.Context, arg RecordReminderSendParams) error
 	// Only the first operator reply sets it, so the measure survives a
 	// conversation that goes back and forth for a week.
 	RecordSupportFirstResponse(ctx context.Context, ticketID pgtype.UUID) (SupportTicket, error)
@@ -2234,6 +2249,7 @@ type Querier interface {
 	// never quietly enable it without a passing test.
 	UpsertPaymentProviderSettings(ctx context.Context, arg UpsertPaymentProviderSettingsParams) (PaymentProviderSetting, error)
 	UpsertPlanLocalization(ctx context.Context, arg UpsertPlanLocalizationParams) (PlanLocalization, error)
+	UpsertReminder(ctx context.Context, arg UpsertReminderParams) (Reminder, error)
 	UpsertRemnawaveMapping(ctx context.Context, arg UpsertRemnawaveMappingParams) (RemnawaveUser, error)
 	UpsertRequiredChannel(ctx context.Context, arg UpsertRequiredChannelParams) (RequiredChannel, error)
 	UpsertSubscriptionRemnawaveUser(ctx context.Context, arg UpsertSubscriptionRemnawaveUserParams) (Subscription, error)

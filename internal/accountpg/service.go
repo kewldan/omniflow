@@ -180,6 +180,10 @@ func New(pool *pgxpool.Pool, panel Panel, options Options) (*Service, error) {
 
 func (service *Service) now() time.Time { return service.clock().UTC() }
 
+// Pool is the database the account reads, for the small customer surfaces
+// that are a single query and need no read model of their own.
+func (service *Service) Pool() *pgxpool.Pool { return service.pool }
+
 // recordSecurity appends to the customer's security log when a recorder is
 // attached. A failure is logged and swallowed: the action the customer asked
 // for has already happened, and failing the response afterwards would tell them

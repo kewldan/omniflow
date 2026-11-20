@@ -73,7 +73,7 @@ func kindEnabled(kind string, candidate notificationCandidate) bool {
 		return candidate.ExpiryNotifications
 	case "traffic":
 		return candidate.TrafficNotifications
-	case "renewal", "grace", "recovery", "trial":
+	case "renewal", "grace", "recovery", "trial", "reminder":
 		return candidate.RenewalNotifications
 	case "news", "announcement", "incident", "maintenance":
 		return candidate.NewsNotifications
@@ -178,6 +178,7 @@ func (notifier *Notifier) runLifecyclePass(ctx context.Context) {
 	notifier.deliverTests(ctx)
 	notifier.deliverDirectMessages(ctx)
 	notifier.deliverDunning(ctx)
+	notifier.DeliverReminders(ctx)
 	// Every reachable customer is visited, one page at a time. The page is what
 	// bounds memory; the walk is what makes the pass reach the customer whose
 	// identifier sorts last, which a single bounded read never did.

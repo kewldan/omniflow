@@ -2434,6 +2434,45 @@ paths:
         "404": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
         "502": {$ref: "#/components/responses/Problem"}
+  /v1/panel/marketing/reminders:
+    get:
+      operationId: listPanelReminders
+      tags: [panel]
+      description: Requires marketing.read. Every reminder of the reminder constructor.
+      responses:
+        "200": {description: Reminders, content: {application/json: {schema: {type: object, required: [items], properties: {items: {type: array, items: {$ref: "#/components/schemas/PanelReminder"}}}}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+    put:
+      operationId: savePanelReminder
+      tags: [panel]
+      description: Requires marketing.write. Creates a reminder, or updates the one `id` names. Audited.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelReminder"}}}}
+      responses:
+        "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelReminder"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/marketing/reminders/{reminderID}:
+    delete:
+      operationId: deletePanelReminder
+      tags: [panel]
+      description: Requires marketing.write. Removes the reminder and every customer's progress through it.
+      parameters:
+        - {in: path, name: reminderID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "200": {description: Removed, content: {application/json: {schema: {type: object, properties: {removed: {type: boolean}}}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/panel/marketing/reminders/{reminderID}/audience:
+    get:
+      operationId: getPanelReminderAudience
+      tags: [panel]
+      description: Requires marketing.read. How many customers the reminder's segment holds now.
+      parameters:
+        - {in: path, name: reminderID, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200": {description: Count, content: {application/json: {schema: {type: object, required: [customers], properties: {customers: {type: integer, format: int64}}}}}}
+        "404": {$ref: "#/components/responses/Problem"}
   /v1/panel/settings/theme:
     get:
       operationId: getPanelTheme
@@ -3629,6 +3668,40 @@ paths:
         "404": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
         "503": {$ref: "#/components/responses/Problem"}
+  /v1/account/reminders:
+    get:
+      operationId: listAccountReminders
+      tags: [account]
+      description: The reminder cards the customer's segment holds now and that they have not dismissed, in their language.
+      responses:
+        "200":
+          description: Cards
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, title, body]
+                      properties:
+                        id: {type: string, format: uuid}
+                        title: {type: string}
+                        body: {type: string}
+                        route: {type: string, enum: [plans, connect, wallet, support, home]}
+  /v1/account/reminders/{reminderID}/dismiss:
+    post:
+      operationId: dismissAccountReminder
+      tags: [account]
+      description: Hides a reminder card for good and stops its messages to this customer.
+      parameters:
+        - {in: path, name: reminderID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "204": {description: Dismissed}
   /v1/account/plans:
     get:
       operationId: listAccountPlans
@@ -7713,6 +7786,27 @@ components:
           type: string
           format: date-time
           description: Absent when the operator gave no estimate.
+    PanelReminder:
+      type: object
+      required: [name, active, category, segment, segmentDays, balanceBelowMinor, currency, repeatEveryDays, maxSends, titleRu, bodyRu, titleEn, bodyEn, showInCabinet]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string, maxLength: 80}
+        active: {type: boolean}
+        category: {type: string, enum: [service, marketing]}
+        segment: {type: string, enum: [no_subscription, expiring, expired, low_balance]}
+        segmentDays: {type: integer, minimum: 0, maximum: 365}
+        balanceBelowMinor: {type: integer, format: int64, minimum: 0}
+        currency: {type: string, pattern: "^[A-Z]{3}$"}
+        repeatEveryDays: {type: integer, minimum: 1, maximum: 365}
+        maxSends: {type: integer, minimum: 1, maximum: 20}
+        titleRu: {type: string, maxLength: 120}
+        bodyRu: {type: string, maxLength: 2000}
+        titleEn: {type: string, maxLength: 120}
+        bodyEn: {type: string, maxLength: 2000}
+        buttonRoute: {type: string, enum: [plans, connect, wallet, support, home]}
+        showInCabinet: {type: boolean}
+        updatedAt: {type: string, format: date-time}
     AccountOverview:
       type: object
       required: [customer, subscriptions, showSwitcher, degraded]

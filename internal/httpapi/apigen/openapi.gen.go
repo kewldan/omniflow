@@ -3185,6 +3185,75 @@ func (e PanelProviderSettingsWebhookStatus) Valid() bool {
 	}
 }
 
+// Defines values for PanelReminderButtonRoute.
+const (
+	PanelReminderButtonRouteConnect PanelReminderButtonRoute = "connect"
+	PanelReminderButtonRouteHome    PanelReminderButtonRoute = "home"
+	PanelReminderButtonRoutePlans   PanelReminderButtonRoute = "plans"
+	PanelReminderButtonRouteSupport PanelReminderButtonRoute = "support"
+	PanelReminderButtonRouteWallet  PanelReminderButtonRoute = "wallet"
+)
+
+// Valid indicates whether the value is a known member of the PanelReminderButtonRoute enum.
+func (e PanelReminderButtonRoute) Valid() bool {
+	switch e {
+	case PanelReminderButtonRouteConnect:
+		return true
+	case PanelReminderButtonRouteHome:
+		return true
+	case PanelReminderButtonRoutePlans:
+		return true
+	case PanelReminderButtonRouteSupport:
+		return true
+	case PanelReminderButtonRouteWallet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelReminderCategory.
+const (
+	PanelReminderCategoryMarketing PanelReminderCategory = "marketing"
+	PanelReminderCategoryService   PanelReminderCategory = "service"
+)
+
+// Valid indicates whether the value is a known member of the PanelReminderCategory enum.
+func (e PanelReminderCategory) Valid() bool {
+	switch e {
+	case PanelReminderCategoryMarketing:
+		return true
+	case PanelReminderCategoryService:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelReminderSegment.
+const (
+	PanelReminderSegmentExpired        PanelReminderSegment = "expired"
+	PanelReminderSegmentExpiring       PanelReminderSegment = "expiring"
+	PanelReminderSegmentLowBalance     PanelReminderSegment = "low_balance"
+	PanelReminderSegmentNoSubscription PanelReminderSegment = "no_subscription"
+)
+
+// Valid indicates whether the value is a known member of the PanelReminderSegment enum.
+func (e PanelReminderSegment) Valid() bool {
+	switch e {
+	case PanelReminderSegmentExpired:
+		return true
+	case PanelReminderSegmentExpiring:
+		return true
+	case PanelReminderSegmentLowBalance:
+		return true
+	case PanelReminderSegmentNoSubscription:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PanelSavedMethodStatus.
 const (
 	PanelSavedMethodStatusActive  PanelSavedMethodStatus = "active"
@@ -4307,6 +4376,33 @@ func (e RequestAccountReferralWithdrawalJSONBodyMethod) Valid() bool {
 	case RequestAccountReferralWithdrawalJSONBodyMethodOther:
 		return true
 	case RequestAccountReferralWithdrawalJSONBodyMethodSbp:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListAccountReminders200JSONResponseBodyItemsRoute.
+const (
+	ListAccountReminders200JSONResponseBodyItemsRouteConnect ListAccountReminders200JSONResponseBodyItemsRoute = "connect"
+	ListAccountReminders200JSONResponseBodyItemsRouteHome    ListAccountReminders200JSONResponseBodyItemsRoute = "home"
+	ListAccountReminders200JSONResponseBodyItemsRoutePlans   ListAccountReminders200JSONResponseBodyItemsRoute = "plans"
+	ListAccountReminders200JSONResponseBodyItemsRouteSupport ListAccountReminders200JSONResponseBodyItemsRoute = "support"
+	ListAccountReminders200JSONResponseBodyItemsRouteWallet  ListAccountReminders200JSONResponseBodyItemsRoute = "wallet"
+)
+
+// Valid indicates whether the value is a known member of the ListAccountReminders200JSONResponseBodyItemsRoute enum.
+func (e ListAccountReminders200JSONResponseBodyItemsRoute) Valid() bool {
+	switch e {
+	case ListAccountReminders200JSONResponseBodyItemsRouteConnect:
+		return true
+	case ListAccountReminders200JSONResponseBodyItemsRouteHome:
+		return true
+	case ListAccountReminders200JSONResponseBodyItemsRoutePlans:
+		return true
+	case ListAccountReminders200JSONResponseBodyItemsRouteSupport:
+		return true
+	case ListAccountReminders200JSONResponseBodyItemsRouteWallet:
 		return true
 	default:
 		return false
@@ -8670,6 +8766,36 @@ type PanelRefundRecord struct {
 	RefundId    *string `json:"refundId,omitempty"`
 }
 
+// PanelReminder defines model for PanelReminder.
+type PanelReminder struct {
+	Active            bool                      `json:"active"`
+	BalanceBelowMinor int64                     `json:"balanceBelowMinor"`
+	BodyEn            string                    `json:"bodyEn"`
+	BodyRu            string                    `json:"bodyRu"`
+	ButtonRoute       *PanelReminderButtonRoute `json:"buttonRoute,omitempty"`
+	Category          PanelReminderCategory     `json:"category"`
+	Currency          string                    `json:"currency"`
+	Id                *openapi_types.UUID       `json:"id,omitempty"`
+	MaxSends          int                       `json:"maxSends"`
+	Name              string                    `json:"name"`
+	RepeatEveryDays   int                       `json:"repeatEveryDays"`
+	Segment           PanelReminderSegment      `json:"segment"`
+	SegmentDays       int                       `json:"segmentDays"`
+	ShowInCabinet     bool                      `json:"showInCabinet"`
+	TitleEn           string                    `json:"titleEn"`
+	TitleRu           string                    `json:"titleRu"`
+	UpdatedAt         *time.Time                `json:"updatedAt,omitempty"`
+}
+
+// PanelReminderButtonRoute defines model for PanelReminder.ButtonRoute.
+type PanelReminderButtonRoute string
+
+// PanelReminderCategory defines model for PanelReminder.Category.
+type PanelReminderCategory string
+
+// PanelReminderSegment defines model for PanelReminder.Segment.
+type PanelReminderSegment string
+
 // PanelRemnawaveSquad defines model for PanelRemnawaveSquad.
 type PanelRemnawaveSquad struct {
 	Members int                `json:"members"`
@@ -10094,6 +10220,15 @@ type RequestAccountReferralWithdrawalParams struct {
 // RequestAccountReferralWithdrawalJSONBodyMethod defines parameters for RequestAccountReferralWithdrawal.
 type RequestAccountReferralWithdrawalJSONBodyMethod string
 
+// ListAccountReminders200JSONResponseBodyItemsRoute defines parameters for ListAccountReminders.
+type ListAccountReminders200JSONResponseBodyItemsRoute string
+
+// DismissAccountReminderParams defines parameters for DismissAccountReminder.
+type DismissAccountReminderParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // UpdateAccountRenewalJSONBody defines parameters for UpdateAccountRenewal.
 type UpdateAccountRenewalJSONBody struct {
 	Enabled       *bool                                `json:"enabled,omitempty"`
@@ -11156,6 +11291,18 @@ type GetPanelStarsStatsParams struct {
 	Days *int `form:"days,omitempty" json:"days,omitempty"`
 }
 
+// SavePanelReminderParams defines parameters for SavePanelReminder.
+type SavePanelReminderParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// DeletePanelReminderParams defines parameters for DeletePanelReminder.
+type DeletePanelReminderParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // RevertPanelNoticeParams defines parameters for RevertPanelNotice.
 type RevertPanelNoticeParams struct {
 	Locale RevertPanelNoticeParamsLocale `form:"locale" json:"locale"`
@@ -12015,6 +12162,9 @@ type AcceptPanelInvitationJSONRequestBody = AdminInvitationAcceptInput
 // PreviewPanelInvitationJSONRequestBody defines body for PreviewPanelInvitation for application/json ContentType.
 type PreviewPanelInvitationJSONRequestBody = AdminInvitationTokenInput
 
+// SavePanelReminderJSONRequestBody defines body for SavePanelReminder for application/json ContentType.
+type SavePanelReminderJSONRequestBody = PanelReminder
+
 // SavePanelNoticeJSONRequestBody defines body for SavePanelNotice for application/json ContentType.
 type SavePanelNoticeJSONRequestBody SavePanelNoticeJSONBody
 
@@ -12445,6 +12595,12 @@ type ServerInterface interface {
 
 	// (DELETE /v1/account/referrals/withdrawals/{withdrawalID})
 	CancelAccountReferralWithdrawal(w http.ResponseWriter, r *http.Request, withdrawalID openapi_types.UUID)
+
+	// (GET /v1/account/reminders)
+	ListAccountReminders(w http.ResponseWriter, r *http.Request)
+
+	// (POST /v1/account/reminders/{reminderID}/dismiss)
+	DismissAccountReminder(w http.ResponseWriter, r *http.Request, reminderID openapi_types.UUID, params DismissAccountReminderParams)
 
 	// (GET /v1/account/renewal)
 	GetAccountRenewal(w http.ResponseWriter, r *http.Request)
@@ -13018,6 +13174,18 @@ type ServerInterface interface {
 
 	// (POST /v1/panel/invitations/preview)
 	PreviewPanelInvitation(w http.ResponseWriter, r *http.Request)
+
+	// (GET /v1/panel/marketing/reminders)
+	ListPanelReminders(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /v1/panel/marketing/reminders)
+	SavePanelReminder(w http.ResponseWriter, r *http.Request, params SavePanelReminderParams)
+
+	// (DELETE /v1/panel/marketing/reminders/{reminderID})
+	DeletePanelReminder(w http.ResponseWriter, r *http.Request, reminderID openapi_types.UUID, params DeletePanelReminderParams)
+
+	// (GET /v1/panel/marketing/reminders/{reminderID}/audience)
+	GetPanelReminderAudience(w http.ResponseWriter, r *http.Request, reminderID openapi_types.UUID)
 
 	// (GET /v1/panel/notices)
 	ListPanelNotices(w http.ResponseWriter, r *http.Request)
@@ -13595,6 +13763,16 @@ func (_ Unimplemented) RequestAccountReferralWithdrawal(w http.ResponseWriter, r
 
 // (DELETE /v1/account/referrals/withdrawals/{withdrawalID})
 func (_ Unimplemented) CancelAccountReferralWithdrawal(w http.ResponseWriter, r *http.Request, withdrawalID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/reminders)
+func (_ Unimplemented) ListAccountReminders(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/reminders/{reminderID}/dismiss)
+func (_ Unimplemented) DismissAccountReminder(w http.ResponseWriter, r *http.Request, reminderID openapi_types.UUID, params DismissAccountReminderParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -14550,6 +14728,26 @@ func (_ Unimplemented) AcceptPanelInvitation(w http.ResponseWriter, r *http.Requ
 
 // (POST /v1/panel/invitations/preview)
 func (_ Unimplemented) PreviewPanelInvitation(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/marketing/reminders)
+func (_ Unimplemented) ListPanelReminders(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /v1/panel/marketing/reminders)
+func (_ Unimplemented) SavePanelReminder(w http.ResponseWriter, r *http.Request, params SavePanelReminderParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /v1/panel/marketing/reminders/{reminderID})
+func (_ Unimplemented) DeletePanelReminder(w http.ResponseWriter, r *http.Request, reminderID openapi_types.UUID, params DeletePanelReminderParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/marketing/reminders/{reminderID}/audience)
+func (_ Unimplemented) GetPanelReminderAudience(w http.ResponseWriter, r *http.Request, reminderID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -17195,6 +17393,74 @@ func (siw *ServerInterfaceWrapper) CancelAccountReferralWithdrawal(w http.Respon
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CancelAccountReferralWithdrawal(w, r, withdrawalID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAccountReminders operation middleware
+func (siw *ServerInterfaceWrapper) ListAccountReminders(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAccountReminders(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DismissAccountReminder operation middleware
+func (siw *ServerInterfaceWrapper) DismissAccountReminder(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "reminderID" -------------
+	var reminderID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "reminderID", chi.URLParam(r, "reminderID"), &reminderID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "reminderID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DismissAccountReminderParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DismissAccountReminder(w, r, reminderID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -25570,6 +25836,145 @@ func (siw *ServerInterfaceWrapper) PreviewPanelInvitation(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// ListPanelReminders operation middleware
+func (siw *ServerInterfaceWrapper) ListPanelReminders(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPanelReminders(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SavePanelReminder operation middleware
+func (siw *ServerInterfaceWrapper) SavePanelReminder(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SavePanelReminderParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SavePanelReminder(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeletePanelReminder operation middleware
+func (siw *ServerInterfaceWrapper) DeletePanelReminder(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "reminderID" -------------
+	var reminderID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "reminderID", chi.URLParam(r, "reminderID"), &reminderID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "reminderID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeletePanelReminderParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeletePanelReminder(w, r, reminderID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPanelReminderAudience operation middleware
+func (siw *ServerInterfaceWrapper) GetPanelReminderAudience(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "reminderID" -------------
+	var reminderID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "reminderID", chi.URLParam(r, "reminderID"), &reminderID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "reminderID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPanelReminderAudience(w, r, reminderID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPanelNotices operation middleware
 func (siw *ServerInterfaceWrapper) ListPanelNotices(w http.ResponseWriter, r *http.Request) {
 
@@ -30289,6 +30694,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/v1/panel/reports/remnawave-users/{remnawaveID}/subscription-requests", wrapper.ListPanelSubscriptionRequests)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/marketing/reminders", wrapper.ListPanelReminders)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/v1/panel/marketing/reminders", wrapper.SavePanelReminder)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/panel/marketing/reminders/{reminderID}", wrapper.DeletePanelReminder)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/marketing/reminders/{reminderID}/audience", wrapper.GetPanelReminderAudience)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/settings/theme", wrapper.GetPanelTheme)
 	})
 	r.Group(func(r chi.Router) {
@@ -30533,6 +30950,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/devices/{handle}", wrapper.RenameAccountDevice)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/reminders", wrapper.ListAccountReminders)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/reminders/{reminderID}/dismiss", wrapper.DismissAccountReminder)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/account/plans", wrapper.ListAccountPlans)
@@ -33202,6 +33625,51 @@ func (response CancelAccountReferralWithdrawal404ApplicationProblemPlusJSONRespo
 	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
+}
+
+type ListAccountRemindersRequestObject struct {
+}
+
+type ListAccountRemindersResponseObject interface {
+	VisitListAccountRemindersResponse(w http.ResponseWriter) error
+}
+
+type ListAccountReminders200JSONResponse struct {
+	Items []struct {
+		Body  string                                             `json:"body"`
+		Id    openapi_types.UUID                                 `json:"id"`
+		Route *ListAccountReminders200JSONResponseBodyItemsRoute `json:"route,omitempty"`
+		Title string                                             `json:"title"`
+	} `json:"items"`
+}
+
+func (response ListAccountReminders200JSONResponse) VisitListAccountRemindersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DismissAccountReminderRequestObject struct {
+	ReminderID openapi_types.UUID `json:"reminderID"`
+	Params     DismissAccountReminderParams
+}
+
+type DismissAccountReminderResponseObject interface {
+	VisitDismissAccountReminderResponse(w http.ResponseWriter) error
+}
+
+type DismissAccountReminder204Response struct {
+}
+
+func (response DismissAccountReminder204Response) VisitDismissAccountReminderResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
 }
 
 type GetAccountRenewalRequestObject struct {
@@ -42005,6 +42473,179 @@ func (response PreviewPanelInvitation429ApplicationProblemPlusJSONResponse) Visi
 	return err
 }
 
+type ListPanelRemindersRequestObject struct {
+}
+
+type ListPanelRemindersResponseObject interface {
+	VisitListPanelRemindersResponse(w http.ResponseWriter) error
+}
+
+type ListPanelReminders200JSONResponse struct {
+	Items []PanelReminder `json:"items"`
+}
+
+func (response ListPanelReminders200JSONResponse) VisitListPanelRemindersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelReminders403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListPanelReminders403ApplicationProblemPlusJSONResponse) VisitListPanelRemindersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelReminderRequestObject struct {
+	Params SavePanelReminderParams
+	Body   *SavePanelReminderJSONRequestBody
+}
+
+type SavePanelReminderResponseObject interface {
+	VisitSavePanelReminderResponse(w http.ResponseWriter) error
+}
+
+type SavePanelReminder200JSONResponse PanelReminder
+
+func (response SavePanelReminder200JSONResponse) VisitSavePanelReminderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelReminder403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SavePanelReminder403ApplicationProblemPlusJSONResponse) VisitSavePanelReminderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelReminder422ApplicationProblemPlusJSONResponse Problem
+
+func (response SavePanelReminder422ApplicationProblemPlusJSONResponse) VisitSavePanelReminderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePanelReminderRequestObject struct {
+	ReminderID openapi_types.UUID `json:"reminderID"`
+	Params     DeletePanelReminderParams
+}
+
+type DeletePanelReminderResponseObject interface {
+	VisitDeletePanelReminderResponse(w http.ResponseWriter) error
+}
+
+type DeletePanelReminder200JSONResponse struct {
+	Removed *bool `json:"removed,omitempty"`
+}
+
+func (response DeletePanelReminder200JSONResponse) VisitDeletePanelReminderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePanelReminder404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DeletePanelReminder404ApplicationProblemPlusJSONResponse) VisitDeletePanelReminderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelReminderAudienceRequestObject struct {
+	ReminderID openapi_types.UUID `json:"reminderID"`
+}
+
+type GetPanelReminderAudienceResponseObject interface {
+	VisitGetPanelReminderAudienceResponse(w http.ResponseWriter) error
+}
+
+type GetPanelReminderAudience200JSONResponse struct {
+	Customers int64 `json:"customers"`
+}
+
+func (response GetPanelReminderAudience200JSONResponse) VisitGetPanelReminderAudienceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelReminderAudience404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetPanelReminderAudience404ApplicationProblemPlusJSONResponse) VisitGetPanelReminderAudienceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListPanelNoticesRequestObject struct {
 }
 
@@ -46820,6 +47461,12 @@ type StrictServerInterface interface {
 	// (DELETE /v1/account/referrals/withdrawals/{withdrawalID})
 	CancelAccountReferralWithdrawal(ctx context.Context, request CancelAccountReferralWithdrawalRequestObject) (CancelAccountReferralWithdrawalResponseObject, error)
 
+	// (GET /v1/account/reminders)
+	ListAccountReminders(ctx context.Context, request ListAccountRemindersRequestObject) (ListAccountRemindersResponseObject, error)
+
+	// (POST /v1/account/reminders/{reminderID}/dismiss)
+	DismissAccountReminder(ctx context.Context, request DismissAccountReminderRequestObject) (DismissAccountReminderResponseObject, error)
+
 	// (GET /v1/account/renewal)
 	GetAccountRenewal(ctx context.Context, request GetAccountRenewalRequestObject) (GetAccountRenewalResponseObject, error)
 
@@ -47392,6 +48039,18 @@ type StrictServerInterface interface {
 
 	// (POST /v1/panel/invitations/preview)
 	PreviewPanelInvitation(ctx context.Context, request PreviewPanelInvitationRequestObject) (PreviewPanelInvitationResponseObject, error)
+
+	// (GET /v1/panel/marketing/reminders)
+	ListPanelReminders(ctx context.Context, request ListPanelRemindersRequestObject) (ListPanelRemindersResponseObject, error)
+
+	// (PUT /v1/panel/marketing/reminders)
+	SavePanelReminder(ctx context.Context, request SavePanelReminderRequestObject) (SavePanelReminderResponseObject, error)
+
+	// (DELETE /v1/panel/marketing/reminders/{reminderID})
+	DeletePanelReminder(ctx context.Context, request DeletePanelReminderRequestObject) (DeletePanelReminderResponseObject, error)
+
+	// (GET /v1/panel/marketing/reminders/{reminderID}/audience)
+	GetPanelReminderAudience(ctx context.Context, request GetPanelReminderAudienceRequestObject) (GetPanelReminderAudienceResponseObject, error)
 
 	// (GET /v1/panel/notices)
 	ListPanelNotices(ctx context.Context, request ListPanelNoticesRequestObject) (ListPanelNoticesResponseObject, error)
@@ -49366,6 +50025,57 @@ func (sh *strictHandler) CancelAccountReferralWithdrawal(w http.ResponseWriter, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(CancelAccountReferralWithdrawalResponseObject); ok {
 		if err := validResponse.VisitCancelAccountReferralWithdrawalResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAccountReminders operation middleware
+func (sh *strictHandler) ListAccountReminders(w http.ResponseWriter, r *http.Request) {
+	var request ListAccountRemindersRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAccountReminders(ctx, request.(ListAccountRemindersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAccountReminders")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAccountRemindersResponseObject); ok {
+		if err := validResponse.VisitListAccountRemindersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DismissAccountReminder operation middleware
+func (sh *strictHandler) DismissAccountReminder(w http.ResponseWriter, r *http.Request, reminderID openapi_types.UUID, params DismissAccountReminderParams) {
+	var request DismissAccountReminderRequestObject
+
+	request.ReminderID = reminderID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DismissAccountReminder(ctx, request.(DismissAccountReminderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DismissAccountReminder")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DismissAccountReminderResponseObject); ok {
+		if err := validResponse.VisitDismissAccountReminderResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -54844,6 +55554,116 @@ func (sh *strictHandler) PreviewPanelInvitation(w http.ResponseWriter, r *http.R
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PreviewPanelInvitationResponseObject); ok {
 		if err := validResponse.VisitPreviewPanelInvitationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPanelReminders operation middleware
+func (sh *strictHandler) ListPanelReminders(w http.ResponseWriter, r *http.Request) {
+	var request ListPanelRemindersRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPanelReminders(ctx, request.(ListPanelRemindersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPanelReminders")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPanelRemindersResponseObject); ok {
+		if err := validResponse.VisitListPanelRemindersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SavePanelReminder operation middleware
+func (sh *strictHandler) SavePanelReminder(w http.ResponseWriter, r *http.Request, params SavePanelReminderParams) {
+	var request SavePanelReminderRequestObject
+
+	request.Params = params
+
+	var body SavePanelReminderJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SavePanelReminder(ctx, request.(SavePanelReminderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SavePanelReminder")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SavePanelReminderResponseObject); ok {
+		if err := validResponse.VisitSavePanelReminderResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeletePanelReminder operation middleware
+func (sh *strictHandler) DeletePanelReminder(w http.ResponseWriter, r *http.Request, reminderID openapi_types.UUID, params DeletePanelReminderParams) {
+	var request DeletePanelReminderRequestObject
+
+	request.ReminderID = reminderID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeletePanelReminder(ctx, request.(DeletePanelReminderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeletePanelReminder")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeletePanelReminderResponseObject); ok {
+		if err := validResponse.VisitDeletePanelReminderResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPanelReminderAudience operation middleware
+func (sh *strictHandler) GetPanelReminderAudience(w http.ResponseWriter, r *http.Request, reminderID openapi_types.UUID) {
+	var request GetPanelReminderAudienceRequestObject
+
+	request.ReminderID = reminderID
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPanelReminderAudience(ctx, request.(GetPanelReminderAudienceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPanelReminderAudience")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPanelReminderAudienceResponseObject); ok {
+		if err := validResponse.VisitGetPanelReminderAudienceResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -262,6 +262,41 @@ $$;
 
 
 --
+-- Name: reminder_segment_holds(uuid, uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.reminder_segment_holds(target_reminder uuid, target_user uuid) RETURNS boolean
+    LANGUAGE sql STABLE
+    AS $$
+  WITH reminder AS (SELECT * FROM reminders WHERE id = target_reminder),
+  live AS (
+    SELECT max(ends_at) AS ends_at, count(*) AS entitlements FROM entitlements
+    WHERE user_id = target_user AND status IN ('active', 'limited', 'paused')
+  ),
+  lapsed AS (
+    SELECT max(ends_at) AS ends_at, count(*) AS entitlements FROM entitlements
+    WHERE user_id = target_user AND status IN ('active', 'limited', 'disabled', 'expired')
+  ),
+  balance AS (
+    SELECT COALESCE(sum(l.amount_minor), 0)::bigint AS minor
+    FROM ledger_entries l, reminder
+    WHERE l.account_type = 'customer_wallet' AND l.user_id = target_user AND l.currency = reminder.currency
+  )
+  SELECT COALESCE((
+    SELECT CASE reminder.segment
+      WHEN 'no_subscription' THEN live.entitlements = 0 AND lapsed.entitlements = 0
+      WHEN 'expiring' THEN live.ends_at > now() AND live.ends_at <= now() + make_interval(days => reminder.segment_days)
+      WHEN 'expired' THEN (live.entitlements = 0 OR live.ends_at <= now())
+        AND lapsed.ends_at <= now() - make_interval(days => reminder.segment_days)
+      WHEN 'low_balance' THEN balance.minor < reminder.balance_below_minor
+      ELSE false
+    END
+    FROM reminder, live, lapsed, balance
+  ), false)
+$$;
+
+
+--
 -- Name: river_job_state_in_bitmask(bit, public.river_job_state); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3612,6 +3647,58 @@ CREATE TABLE public.refunds (
 
 
 --
+-- Name: reminder_states; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.reminder_states (
+    reminder_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    sends integer DEFAULT 0 NOT NULL,
+    last_sent_at timestamp with time zone,
+    dismissed_at timestamp with time zone,
+    CONSTRAINT reminder_states_sends_nonnegative CHECK ((sends >= 0))
+);
+
+
+--
+-- Name: reminders; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.reminders (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    name text NOT NULL,
+    active boolean DEFAULT false NOT NULL,
+    category text DEFAULT 'service'::text NOT NULL,
+    segment text NOT NULL,
+    segment_days integer DEFAULT 3 NOT NULL,
+    balance_below_minor bigint DEFAULT 0 NOT NULL,
+    currency text DEFAULT 'RUB'::text NOT NULL,
+    repeat_every_days integer DEFAULT 7 NOT NULL,
+    max_sends integer DEFAULT 1 NOT NULL,
+    title_ru text NOT NULL,
+    body_ru text NOT NULL,
+    title_en text NOT NULL,
+    body_en text NOT NULL,
+    button_route text,
+    show_in_cabinet boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by uuid,
+    CONSTRAINT reminders_balance_nonnegative CHECK ((balance_below_minor >= 0)),
+    CONSTRAINT reminders_bodies_length CHECK ((((char_length(body_ru) >= 1) AND (char_length(body_ru) <= 2000)) AND ((char_length(body_en) >= 1) AND (char_length(body_en) <= 2000)))),
+    CONSTRAINT reminders_button_known CHECK (((button_route IS NULL) OR (button_route = ANY (ARRAY['plans'::text, 'connect'::text, 'wallet'::text, 'support'::text, 'home'::text])))),
+    CONSTRAINT reminders_category_known CHECK ((category = ANY (ARRAY['service'::text, 'marketing'::text]))),
+    CONSTRAINT reminders_currency_shape CHECK ((currency ~ '^[A-Z]{3}$'::text)),
+    CONSTRAINT reminders_name_length CHECK (((char_length(name) >= 1) AND (char_length(name) <= 80))),
+    CONSTRAINT reminders_repeat_range CHECK (((repeat_every_days >= 1) AND (repeat_every_days <= 365))),
+    CONSTRAINT reminders_segment_days_range CHECK (((segment_days >= 0) AND (segment_days <= 365))),
+    CONSTRAINT reminders_segment_known CHECK ((segment = ANY (ARRAY['no_subscription'::text, 'expiring'::text, 'expired'::text, 'low_balance'::text]))),
+    CONSTRAINT reminders_sends_range CHECK (((max_sends >= 1) AND (max_sends <= 20))),
+    CONSTRAINT reminders_titles_length CHECK ((((char_length(title_ru) >= 1) AND (char_length(title_ru) <= 120)) AND ((char_length(title_en) >= 1) AND (char_length(title_en) <= 120))))
+);
+
+
+--
 -- Name: remnawave_users; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -5904,6 +5991,22 @@ ALTER TABLE ONLY public.refunds
 
 
 --
+-- Name: reminder_states reminder_states_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.reminder_states
+    ADD CONSTRAINT reminder_states_pkey PRIMARY KEY (reminder_id, user_id);
+
+
+--
+-- Name: reminders reminders_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.reminders
+    ADD CONSTRAINT reminders_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: remnawave_users remnawave_users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6996,6 +7099,13 @@ CREATE INDEX referral_withdrawals_queue_idx ON public.referral_withdrawals USING
 --
 
 CREATE INDEX refunds_intent_idx ON public.refunds USING btree (payment_intent_id, created_at DESC);
+
+
+--
+-- Name: reminder_states_recent_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX reminder_states_recent_idx ON public.reminder_states USING btree (user_id, last_sent_at DESC);
 
 
 --
@@ -9048,6 +9158,22 @@ ALTER TABLE ONLY public.referral_withdrawals
 
 ALTER TABLE ONLY public.refunds
     ADD CONSTRAINT refunds_payment_intent_id_fkey FOREIGN KEY (payment_intent_id) REFERENCES public.payment_intents(id);
+
+
+--
+-- Name: reminder_states reminder_states_reminder_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.reminder_states
+    ADD CONSTRAINT reminder_states_reminder_id_fkey FOREIGN KEY (reminder_id) REFERENCES public.reminders(id) ON DELETE CASCADE;
+
+
+--
+-- Name: reminder_states reminder_states_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.reminder_states
+    ADD CONSTRAINT reminder_states_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --

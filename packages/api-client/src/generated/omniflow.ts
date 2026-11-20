@@ -4043,12 +4043,79 @@ export interface AccountNotice {
   expectedReturnAt?: string;
 }
 
-export type AccountOverviewRecoveryOfferKind = typeof AccountOverviewRecoveryOfferKind[keyof typeof AccountOverviewRecoveryOfferKind];
+export type PanelReminderCategory =
+  (typeof PanelReminderCategory)[keyof typeof PanelReminderCategory];
 
+export const PanelReminderCategory = {
+  service: "service",
+  marketing: "marketing",
+} as const;
+
+export type PanelReminderSegment = (typeof PanelReminderSegment)[keyof typeof PanelReminderSegment];
+
+export const PanelReminderSegment = {
+  no_subscription: "no_subscription",
+  expiring: "expiring",
+  expired: "expired",
+  low_balance: "low_balance",
+} as const;
+
+export type PanelReminderButtonRoute =
+  (typeof PanelReminderButtonRoute)[keyof typeof PanelReminderButtonRoute];
+
+export const PanelReminderButtonRoute = {
+  plans: "plans",
+  connect: "connect",
+  wallet: "wallet",
+  support: "support",
+  home: "home",
+} as const;
+
+export interface PanelReminder {
+  id?: string;
+  /** @maxLength 80 */
+  name: string;
+  active: boolean;
+  category: PanelReminderCategory;
+  segment: PanelReminderSegment;
+  /**
+   * @minimum 0
+   * @maximum 365
+   */
+  segmentDays: number;
+  /** @minimum 0 */
+  balanceBelowMinor: number;
+  /** @pattern ^[A-Z]{3}$ */
+  currency: string;
+  /**
+   * @minimum 1
+   * @maximum 365
+   */
+  repeatEveryDays: number;
+  /**
+   * @minimum 1
+   * @maximum 20
+   */
+  maxSends: number;
+  /** @maxLength 120 */
+  titleRu: string;
+  /** @maxLength 2000 */
+  bodyRu: string;
+  /** @maxLength 120 */
+  titleEn: string;
+  /** @maxLength 2000 */
+  bodyEn: string;
+  buttonRoute?: PanelReminderButtonRoute;
+  showInCabinet: boolean;
+  updatedAt?: string;
+}
+
+export type AccountOverviewRecoveryOfferKind =
+  (typeof AccountOverviewRecoveryOfferKind)[keyof typeof AccountOverviewRecoveryOfferKind];
 
 export const AccountOverviewRecoveryOfferKind = {
-  percent: 'percent',
-  fixed: 'fixed',
+  percent: "percent",
+  fixed: "fixed",
 } as const;
 
 export type AccountOverviewRecoveryOffer = {
@@ -6367,6 +6434,18 @@ export type ListPanelSubscriptionRequests200 = {
   items: ListPanelSubscriptionRequests200ItemsItem[];
 };
 
+export type ListPanelReminders200 = {
+  items: PanelReminder[];
+};
+
+export type DeletePanelReminder200 = {
+  removed?: boolean;
+};
+
+export type GetPanelReminderAudience200 = {
+  customers: number;
+};
+
 export type SavePanelThemeBody = {
   theme: ThemeDocument;
   /** The version the screen was showing. A mismatch is a conflict rather than an overwrite. */
@@ -6682,6 +6761,28 @@ export type RemoveAllAccountDevices200 = {
 export type RenameAccountDeviceBody = {
   /** @maxLength 40 */
   alias: string;
+};
+
+export type ListAccountReminders200ItemsItemRoute =
+  (typeof ListAccountReminders200ItemsItemRoute)[keyof typeof ListAccountReminders200ItemsItemRoute];
+
+export const ListAccountReminders200ItemsItemRoute = {
+  plans: "plans",
+  connect: "connect",
+  wallet: "wallet",
+  support: "support",
+  home: "home",
+} as const;
+
+export type ListAccountReminders200ItemsItem = {
+  id: string;
+  title: string;
+  body: string;
+  route?: ListAccountReminders200ItemsItemRoute;
+};
+
+export type ListAccountReminders200 = {
+  items: ListAccountReminders200ItemsItem[];
 };
 
 export type ListAccountPlansParams = {
@@ -9386,76 +9487,67 @@ export const useReceivePaymentWebhook = <TError = Promise<ProblemResponse>>(
 };
 
 export type getServerStatusResponse200 = {
-  data: GetServerStatus200
-  status: 200
-}
+  data: GetServerStatus200;
+  status: 200;
+};
 
 export type getServerStatusResponse503 = {
-  data: ProblemResponse
-  status: 503
-}
-
-export type getServerStatusResponseSuccess = (getServerStatusResponse200) & {
-  headers: Headers;
-};
-export type getServerStatusResponseError = (getServerStatusResponse503) & {
-  headers: Headers;
+  data: ProblemResponse;
+  status: 503;
 };
 
-export type getServerStatusResponse = (getServerStatusResponseSuccess | getServerStatusResponseError)
+export type getServerStatusResponseSuccess = getServerStatusResponse200 & {
+  headers: Headers;
+};
+export type getServerStatusResponseError = getServerStatusResponse503 & {
+  headers: Headers;
+};
+
+export type getServerStatusResponse = getServerStatusResponseSuccess | getServerStatusResponseError;
 
 export const getGetServerStatusUrl = () => {
-
-
-
-
-  return `/v1/status/servers`
-}
+  return `/v1/status/servers`;
+};
 
 /**
  * Public and opt-in (APP_SERVER_STATUS_ENABLED). Each Remnawave node the operator has not disabled, with its name, country label, and whether the panel reports it connected. No address, traffic, or user count. Cached for a minute; 404 when the page is off.
  */
-export const getServerStatus = async ( options?: RequestInit): Promise<getServerStatusResponse> => {
-
-  const res = await fetch(getGetServerStatusUrl(),
-  {
+export const getServerStatus = async (options?: RequestInit): Promise<getServerStatusResponse> => {
+  const res = await fetch(getGetServerStatusUrl(), {
     ...options,
-    method: 'GET'
-
-
-  }
-)
-
+    method: "GET",
+  });
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
 
-  const data: getServerStatusResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getServerStatusResponse
-}
-
-
-
+  const data: getServerStatusResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getServerStatusResponse;
+};
 
 export const getGetServerStatusKey = () => [`/v1/status/servers`] as const;
 
-export type GetServerStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getServerStatus>>>
+export type GetServerStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getServerStatus>>>;
 
-export const useGetServerStatus = <TError = Promise<ProblemResponse>>(
-   options?: { swr?:SWRConfiguration<Awaited<ReturnType<typeof getServerStatus>>, TError> & { swrKey?: Key, enabled?: boolean }, fetch?: RequestInit }
-) => {
-  const {swr: swrOptions, fetch: fetchOptions} = options ?? {}
+export const useGetServerStatus = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getServerStatus>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
 
-  const isEnabled = swrOptions?.enabled !== false
-  const swrKey = swrOptions?.swrKey ?? (() => isEnabled ? getGetServerStatusKey() : null);
-  const swrFn = () => getServerStatus(fetchOptions)
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetServerStatusKey() : null));
+  const swrFn = () => getServerStatus(fetchOptions);
 
-  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions)
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,
-    ...query
-  }
-}
+    ...query,
+  };
+};
 
 export type receiveRemnawaveWebhookResponse200 = {
   data: void;
@@ -21331,168 +21423,499 @@ export const useExportPanelTrafficReport = <TError = Promise<ProblemResponse>>(o
 };
 
 export type getPanelDeviceReportResponse200 = {
-  data: GetPanelDeviceReport200
-  status: 200
-}
+  data: GetPanelDeviceReport200;
+  status: 200;
+};
 
 export type getPanelDeviceReportResponse403 = {
-  data: ProblemResponse
-  status: 403
-}
+  data: ProblemResponse;
+  status: 403;
+};
 
 export type getPanelDeviceReportResponse502 = {
-  data: ProblemResponse
-  status: 502
-}
-
-export type getPanelDeviceReportResponseSuccess = (getPanelDeviceReportResponse200) & {
-  headers: Headers;
-};
-export type getPanelDeviceReportResponseError = (getPanelDeviceReportResponse403 | getPanelDeviceReportResponse502) & {
-  headers: Headers;
+  data: ProblemResponse;
+  status: 502;
 };
 
-export type getPanelDeviceReportResponse = (getPanelDeviceReportResponseSuccess | getPanelDeviceReportResponseError)
+export type getPanelDeviceReportResponseSuccess = getPanelDeviceReportResponse200 & {
+  headers: Headers;
+};
+export type getPanelDeviceReportResponseError = (
+  | getPanelDeviceReportResponse403
+  | getPanelDeviceReportResponse502
+) & {
+  headers: Headers;
+};
+
+export type getPanelDeviceReportResponse =
+  | getPanelDeviceReportResponseSuccess
+  | getPanelDeviceReportResponseError;
 
 export const getGetPanelDeviceReportUrl = () => {
-
-
-
-
-  return `/v1/panel/reports/devices`
-}
+  return `/v1/panel/reports/devices`;
+};
 
 /**
  * Requires customers.read. Remnawave's device census by platform and application, read live (GET /api/hwid/devices/stats) and stored nowhere. `reported` is false when the panel does not expose it.
  */
-export const getPanelDeviceReport = async ( options?: RequestInit): Promise<getPanelDeviceReportResponse> => {
-
-  const res = await fetch(getGetPanelDeviceReportUrl(),
-  {
+export const getPanelDeviceReport = async (
+  options?: RequestInit,
+): Promise<getPanelDeviceReportResponse> => {
+  const res = await fetch(getGetPanelDeviceReportUrl(), {
     ...options,
-    method: 'GET'
-
-
-  }
-)
-
+    method: "GET",
+  });
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
 
-  const data: getPanelDeviceReportResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as getPanelDeviceReportResponse
-}
-
-
-
+  const data: getPanelDeviceReportResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelDeviceReportResponse;
+};
 
 export const getGetPanelDeviceReportKey = () => [`/v1/panel/reports/devices`] as const;
 
-export type GetPanelDeviceReportQueryResult = NonNullable<Awaited<ReturnType<typeof getPanelDeviceReport>>>
+export type GetPanelDeviceReportQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelDeviceReport>>
+>;
 
-export const useGetPanelDeviceReport = <TError = Promise<ProblemResponse>>(
-   options?: { swr?:SWRConfiguration<Awaited<ReturnType<typeof getPanelDeviceReport>>, TError> & { swrKey?: Key, enabled?: boolean }, fetch?: RequestInit }
-) => {
-  const {swr: swrOptions, fetch: fetchOptions} = options ?? {}
+export const useGetPanelDeviceReport = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelDeviceReport>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
 
-  const isEnabled = swrOptions?.enabled !== false
-  const swrKey = swrOptions?.swrKey ?? (() => isEnabled ? getGetPanelDeviceReportKey() : null);
-  const swrFn = () => getPanelDeviceReport(fetchOptions)
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelDeviceReportKey() : null));
+  const swrFn = () => getPanelDeviceReport(fetchOptions);
 
-  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions)
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,
-    ...query
-  }
-}
+    ...query,
+  };
+};
 
 export type listPanelSubscriptionRequestsResponse200 = {
-  data: ListPanelSubscriptionRequests200
-  status: 200
-}
+  data: ListPanelSubscriptionRequests200;
+  status: 200;
+};
 
 export type listPanelSubscriptionRequestsResponse403 = {
-  data: ProblemResponse
-  status: 403
-}
+  data: ProblemResponse;
+  status: 403;
+};
 
 export type listPanelSubscriptionRequestsResponse404 = {
-  data: ProblemResponse
-  status: 404
-}
+  data: ProblemResponse;
+  status: 404;
+};
 
 export type listPanelSubscriptionRequestsResponse422 = {
-  data: ProblemResponse
-  status: 422
-}
+  data: ProblemResponse;
+  status: 422;
+};
 
 export type listPanelSubscriptionRequestsResponse502 = {
-  data: ProblemResponse
-  status: 502
-}
-
-export type listPanelSubscriptionRequestsResponseSuccess = (listPanelSubscriptionRequestsResponse200) & {
-  headers: Headers;
-};
-export type listPanelSubscriptionRequestsResponseError = (listPanelSubscriptionRequestsResponse403 | listPanelSubscriptionRequestsResponse404 | listPanelSubscriptionRequestsResponse422 | listPanelSubscriptionRequestsResponse502) & {
-  headers: Headers;
+  data: ProblemResponse;
+  status: 502;
 };
 
-export type listPanelSubscriptionRequestsResponse = (listPanelSubscriptionRequestsResponseSuccess | listPanelSubscriptionRequestsResponseError)
+export type listPanelSubscriptionRequestsResponseSuccess =
+  listPanelSubscriptionRequestsResponse200 & {
+    headers: Headers;
+  };
+export type listPanelSubscriptionRequestsResponseError = (
+  | listPanelSubscriptionRequestsResponse403
+  | listPanelSubscriptionRequestsResponse404
+  | listPanelSubscriptionRequestsResponse422
+  | listPanelSubscriptionRequestsResponse502
+) & {
+  headers: Headers;
+};
 
-export const getListPanelSubscriptionRequestsUrl = (remnawaveID: number,) => {
+export type listPanelSubscriptionRequestsResponse =
+  | listPanelSubscriptionRequestsResponseSuccess
+  | listPanelSubscriptionRequestsResponseError;
 
-
-
-
-  return `/v1/panel/reports/remnawave-users/${remnawaveID}/subscription-requests`
-}
+export const getListPanelSubscriptionRequestsUrl = (remnawaveID: number) => {
+  return `/v1/panel/reports/remnawave-users/${remnawaveID}/subscription-requests`;
+};
 
 /**
  * Requires customers.read. Remnawave's history of one panel user's subscription fetches — time, address, application — read live and stored nowhere.
  */
-export const listPanelSubscriptionRequests = async (remnawaveID: number, options?: RequestInit): Promise<listPanelSubscriptionRequestsResponse> => {
-
-  const res = await fetch(getListPanelSubscriptionRequestsUrl(remnawaveID),
-  {
+export const listPanelSubscriptionRequests = async (
+  remnawaveID: number,
+  options?: RequestInit,
+): Promise<listPanelSubscriptionRequestsResponse> => {
+  const res = await fetch(getListPanelSubscriptionRequestsUrl(remnawaveID), {
     ...options,
-    method: 'GET'
-
-
-  }
-)
-
+    method: "GET",
+  });
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
 
-  const data: listPanelSubscriptionRequestsResponse['data'] = body ? JSON.parse(body) : {}
-  return { data, status: res.status, headers: res.headers } as listPanelSubscriptionRequestsResponse
-}
+  const data: listPanelSubscriptionRequestsResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as listPanelSubscriptionRequestsResponse;
+};
 
+export const getListPanelSubscriptionRequestsKey = (remnawaveID: number) =>
+  [`/v1/panel/reports/remnawave-users/${remnawaveID}/subscription-requests`] as const;
 
-
-
-export const getListPanelSubscriptionRequestsKey = (remnawaveID: number,) => [`/v1/panel/reports/remnawave-users/${remnawaveID}/subscription-requests`] as const;
-
-export type ListPanelSubscriptionRequestsQueryResult = NonNullable<Awaited<ReturnType<typeof listPanelSubscriptionRequests>>>
+export type ListPanelSubscriptionRequestsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelSubscriptionRequests>>
+>;
 
 export const useListPanelSubscriptionRequests = <TError = Promise<ProblemResponse>>(
-  remnawaveID: number, options?: { swr?:SWRConfiguration<Awaited<ReturnType<typeof listPanelSubscriptionRequests>>, TError> & { swrKey?: Key, enabled?: boolean }, fetch?: RequestInit }
+  remnawaveID: number,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelSubscriptionRequests>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
 ) => {
-  const {swr: swrOptions, fetch: fetchOptions} = options ?? {}
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
 
-  const isEnabled = swrOptions?.enabled !== false && remnawaveID !== null && remnawaveID !== undefined
-  const swrKey = swrOptions?.swrKey ?? (() => isEnabled ? getListPanelSubscriptionRequestsKey(remnawaveID) : null);
-  const swrFn = () => listPanelSubscriptionRequests(remnawaveID, fetchOptions)
+  const isEnabled =
+    swrOptions?.enabled !== false && remnawaveID !== null && remnawaveID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ??
+    (() => (isEnabled ? getListPanelSubscriptionRequestsKey(remnawaveID) : null));
+  const swrFn = () => listPanelSubscriptionRequests(remnawaveID, fetchOptions);
 
-  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions)
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,
-    ...query
-  }
-}
+    ...query,
+  };
+};
+
+export type listPanelRemindersResponse200 = {
+  data: ListPanelReminders200;
+  status: 200;
+};
+
+export type listPanelRemindersResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelRemindersResponseSuccess = listPanelRemindersResponse200 & {
+  headers: Headers;
+};
+export type listPanelRemindersResponseError = listPanelRemindersResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelRemindersResponse =
+  | listPanelRemindersResponseSuccess
+  | listPanelRemindersResponseError;
+
+export const getListPanelRemindersUrl = () => {
+  return `/v1/panel/marketing/reminders`;
+};
+
+/**
+ * Requires marketing.read. Every reminder of the reminder constructor.
+ */
+export const listPanelReminders = async (
+  options?: RequestInit,
+): Promise<listPanelRemindersResponse> => {
+  const res = await fetch(getListPanelRemindersUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelRemindersResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelRemindersResponse;
+};
+
+export const getListPanelRemindersKey = () => [`/v1/panel/marketing/reminders`] as const;
+
+export type ListPanelRemindersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelReminders>>
+>;
+
+export const useListPanelReminders = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelReminders>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelRemindersKey() : null));
+  const swrFn = () => listPanelReminders(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelReminderResponse200 = {
+  data: PanelReminder;
+  status: 200;
+};
+
+export type savePanelReminderResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelReminderResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type savePanelReminderResponseSuccess = savePanelReminderResponse200 & {
+  headers: Headers;
+};
+export type savePanelReminderResponseError = (
+  | savePanelReminderResponse403
+  | savePanelReminderResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelReminderResponse =
+  | savePanelReminderResponseSuccess
+  | savePanelReminderResponseError;
+
+export const getSavePanelReminderUrl = () => {
+  return `/v1/panel/marketing/reminders`;
+};
+
+/**
+ * Requires marketing.write. Creates a reminder, or updates the one `id` names. Audited.
+ */
+export const savePanelReminder = async (
+  panelReminder: PanelReminder,
+  options?: RequestInit,
+): Promise<savePanelReminderResponse> => {
+  const res = await fetch(getSavePanelReminderUrl(), {
+    ...options,
+    method: "PUT",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(panelReminder),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelReminderResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as savePanelReminderResponse;
+};
+
+export const getSavePanelReminderMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PanelReminder }) => {
+    return savePanelReminder(arg, options);
+  };
+};
+export const getSavePanelReminderMutationKey = () => [`/v1/panel/marketing/reminders`] as const;
+
+export type SavePanelReminderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelReminder>>
+>;
+
+export const useSavePanelReminder = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof savePanelReminder>>,
+    TError,
+    Key,
+    PanelReminder,
+    Awaited<ReturnType<typeof savePanelReminder>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelReminderMutationKey();
+  const swrFn = getSavePanelReminderMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type deletePanelReminderResponse200 = {
+  data: DeletePanelReminder200;
+  status: 200;
+};
+
+export type deletePanelReminderResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type deletePanelReminderResponseSuccess = deletePanelReminderResponse200 & {
+  headers: Headers;
+};
+export type deletePanelReminderResponseError = deletePanelReminderResponse404 & {
+  headers: Headers;
+};
+
+export type deletePanelReminderResponse =
+  | deletePanelReminderResponseSuccess
+  | deletePanelReminderResponseError;
+
+export const getDeletePanelReminderUrl = (reminderID: string) => {
+  return `/v1/panel/marketing/reminders/${reminderID}`;
+};
+
+/**
+ * Requires marketing.write. Removes the reminder and every customer's progress through it.
+ */
+export const deletePanelReminder = async (
+  reminderID: string,
+  options?: RequestInit,
+): Promise<deletePanelReminderResponse> => {
+  const res = await fetch(getDeletePanelReminderUrl(reminderID), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: deletePanelReminderResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as deletePanelReminderResponse;
+};
+
+export const getDeletePanelReminderMutationFetcher = (
+  reminderID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return deletePanelReminder(reminderID, options);
+  };
+};
+export const getDeletePanelReminderMutationKey = (reminderID: string) =>
+  [`/v1/panel/marketing/reminders/${reminderID}`] as const;
+
+export type DeletePanelReminderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deletePanelReminder>>
+>;
+
+export const useDeletePanelReminder = <TError = Promise<ProblemResponse>>(
+  reminderID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof deletePanelReminder>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof deletePanelReminder>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getDeletePanelReminderMutationKey(reminderID);
+  const swrFn = getDeletePanelReminderMutationFetcher(reminderID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelReminderAudienceResponse200 = {
+  data: GetPanelReminderAudience200;
+  status: 200;
+};
+
+export type getPanelReminderAudienceResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type getPanelReminderAudienceResponseSuccess = getPanelReminderAudienceResponse200 & {
+  headers: Headers;
+};
+export type getPanelReminderAudienceResponseError = getPanelReminderAudienceResponse404 & {
+  headers: Headers;
+};
+
+export type getPanelReminderAudienceResponse =
+  | getPanelReminderAudienceResponseSuccess
+  | getPanelReminderAudienceResponseError;
+
+export const getGetPanelReminderAudienceUrl = (reminderID: string) => {
+  return `/v1/panel/marketing/reminders/${reminderID}/audience`;
+};
+
+/**
+ * Requires marketing.read. How many customers the reminder's segment holds now.
+ */
+export const getPanelReminderAudience = async (
+  reminderID: string,
+  options?: RequestInit,
+): Promise<getPanelReminderAudienceResponse> => {
+  const res = await fetch(getGetPanelReminderAudienceUrl(reminderID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelReminderAudienceResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelReminderAudienceResponse;
+};
+
+export const getGetPanelReminderAudienceKey = (reminderID: string) =>
+  [`/v1/panel/marketing/reminders/${reminderID}/audience`] as const;
+
+export type GetPanelReminderAudienceQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelReminderAudience>>
+>;
+
+export const useGetPanelReminderAudience = <TError = Promise<ProblemResponse>>(
+  reminderID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelReminderAudience>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && reminderID !== null && reminderID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelReminderAudienceKey(reminderID) : null));
+  const swrFn = () => getPanelReminderAudience(reminderID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
 
 export type getPanelThemeResponse200 = {
   data: PanelTheme;
@@ -28577,97 +29000,241 @@ export const useRemoveAccountDevice = <TError = Promise<ProblemResponse>>(
 };
 
 export type renameAccountDeviceResponse204 = {
-  data: void
-  status: 204
-}
+  data: void;
+  status: 204;
+};
 
 export type renameAccountDeviceResponse404 = {
-  data: ProblemResponse
-  status: 404
-}
+  data: ProblemResponse;
+  status: 404;
+};
 
 export type renameAccountDeviceResponse422 = {
-  data: ProblemResponse
-  status: 422
-}
+  data: ProblemResponse;
+  status: 422;
+};
 
 export type renameAccountDeviceResponse503 = {
-  data: ProblemResponse
-  status: 503
-}
-
-export type renameAccountDeviceResponseSuccess = (renameAccountDeviceResponse204) & {
-  headers: Headers;
-};
-export type renameAccountDeviceResponseError = (renameAccountDeviceResponse404 | renameAccountDeviceResponse422 | renameAccountDeviceResponse503) & {
-  headers: Headers;
+  data: ProblemResponse;
+  status: 503;
 };
 
-export type renameAccountDeviceResponse = (renameAccountDeviceResponseSuccess | renameAccountDeviceResponseError)
+export type renameAccountDeviceResponseSuccess = renameAccountDeviceResponse204 & {
+  headers: Headers;
+};
+export type renameAccountDeviceResponseError = (
+  | renameAccountDeviceResponse404
+  | renameAccountDeviceResponse422
+  | renameAccountDeviceResponse503
+) & {
+  headers: Headers;
+};
 
-export const getRenameAccountDeviceUrl = (subscriptionID: string,
-    handle: string,) => {
+export type renameAccountDeviceResponse =
+  | renameAccountDeviceResponseSuccess
+  | renameAccountDeviceResponseError;
 
-
-
-
-  return `/v1/account/subscriptions/${subscriptionID}/devices/${handle}`
-}
+export const getRenameAccountDeviceUrl = (subscriptionID: string, handle: string) => {
+  return `/v1/account/subscriptions/${subscriptionID}/devices/${handle}`;
+};
 
 /**
  * Stores the customer's own name for one device, kept by Omniflow beside Remnawave's list. An empty alias clears it. The handle must name a device the subscription has now.
  */
-export const renameAccountDevice = async (subscriptionID: string,
-    handle: string,
-    renameAccountDeviceBody: RenameAccountDeviceBody, options?: RequestInit): Promise<renameAccountDeviceResponse> => {
-
-  const res = await fetch(getRenameAccountDeviceUrl(subscriptionID,handle),
-  {
+export const renameAccountDevice = async (
+  subscriptionID: string,
+  handle: string,
+  renameAccountDeviceBody: RenameAccountDeviceBody,
+  options?: RequestInit,
+): Promise<renameAccountDeviceResponse> => {
+  const res = await fetch(getRenameAccountDeviceUrl(subscriptionID, handle), {
     ...options,
-    method: 'PATCH',
-    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
-    body: JSON.stringify(renameAccountDeviceBody)
-  }
-)
-
+    method: "PATCH",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(renameAccountDeviceBody),
+  });
 
   const body = [204, 205, 304].includes(res.status) ? null : await res.text();
 
-  const data: renameAccountDeviceResponse['data'] = body ? JSON.parse(body) : undefined
-  return { data, status: res.status, headers: res.headers } as renameAccountDeviceResponse
-}
+  const data: renameAccountDeviceResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as renameAccountDeviceResponse;
+};
 
-
-
-
-export const getRenameAccountDeviceMutationFetcher = (subscriptionID: string,
-    handle: string, options?: RequestInit) => {
+export const getRenameAccountDeviceMutationFetcher = (
+  subscriptionID: string,
+  handle: string,
+  options?: RequestInit,
+) => {
   return (_: Key, { arg }: { arg: RenameAccountDeviceBody }) => {
     return renameAccountDevice(subscriptionID, handle, arg, options);
-  }
-}
-export const getRenameAccountDeviceMutationKey = (subscriptionID: string,
-    handle: string,) => [`/v1/account/subscriptions/${subscriptionID}/devices/${handle}`] as const;
+  };
+};
+export const getRenameAccountDeviceMutationKey = (subscriptionID: string, handle: string) =>
+  [`/v1/account/subscriptions/${subscriptionID}/devices/${handle}`] as const;
 
-export type RenameAccountDeviceMutationResult = NonNullable<Awaited<ReturnType<typeof renameAccountDevice>>>
+export type RenameAccountDeviceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof renameAccountDevice>>
+>;
 
 export const useRenameAccountDevice = <TError = Promise<ProblemResponse>>(
   subscriptionID: string,
-    handle: string, options?: { swr?:SWRMutationConfiguration<Awaited<ReturnType<typeof renameAccountDevice>>, TError, Key, RenameAccountDeviceBody, Awaited<ReturnType<typeof renameAccountDevice>>> & { swrKey?: string }, fetch?: RequestInit}
+  handle: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof renameAccountDevice>>,
+      TError,
+      Key,
+      RenameAccountDeviceBody,
+      Awaited<ReturnType<typeof renameAccountDevice>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
 ) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
 
-  const {swr: swrOptions, fetch: fetchOptions} = options ?? {}
+  const swrKey = swrOptions?.swrKey ?? getRenameAccountDeviceMutationKey(subscriptionID, handle);
+  const swrFn = getRenameAccountDeviceMutationFetcher(subscriptionID, handle, fetchOptions);
 
-  const swrKey = swrOptions?.swrKey ?? getRenameAccountDeviceMutationKey(subscriptionID,handle);
-  const swrFn = getRenameAccountDeviceMutationFetcher(subscriptionID,handle, fetchOptions);
-
-  const query = useSWRMutation(swrKey, swrFn, swrOptions)
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,
-    ...query
-  }
-}
+    ...query,
+  };
+};
+
+export type listAccountRemindersResponse200 = {
+  data: ListAccountReminders200;
+  status: 200;
+};
+
+export type listAccountRemindersResponseSuccess = listAccountRemindersResponse200 & {
+  headers: Headers;
+};
+
+export type listAccountRemindersResponse = listAccountRemindersResponseSuccess;
+
+export const getListAccountRemindersUrl = () => {
+  return `/v1/account/reminders`;
+};
+
+/**
+ * The reminder cards the customer's segment holds now and that they have not dismissed, in their language.
+ */
+export const listAccountReminders = async (
+  options?: RequestInit,
+): Promise<listAccountRemindersResponse> => {
+  const res = await fetch(getListAccountRemindersUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listAccountRemindersResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listAccountRemindersResponse;
+};
+
+export const getListAccountRemindersKey = () => [`/v1/account/reminders`] as const;
+
+export type ListAccountRemindersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAccountReminders>>
+>;
+
+export const useListAccountReminders = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listAccountReminders>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListAccountRemindersKey() : null));
+  const swrFn = () => listAccountReminders(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type dismissAccountReminderResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type dismissAccountReminderResponseSuccess = dismissAccountReminderResponse204 & {
+  headers: Headers;
+};
+
+export type dismissAccountReminderResponse = dismissAccountReminderResponseSuccess;
+
+export const getDismissAccountReminderUrl = (reminderID: string) => {
+  return `/v1/account/reminders/${reminderID}/dismiss`;
+};
+
+/**
+ * Hides a reminder card for good and stops its messages to this customer.
+ */
+export const dismissAccountReminder = async (
+  reminderID: string,
+  options?: RequestInit,
+): Promise<dismissAccountReminderResponse> => {
+  const res = await fetch(getDismissAccountReminderUrl(reminderID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: dismissAccountReminderResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as dismissAccountReminderResponse;
+};
+
+export const getDismissAccountReminderMutationFetcher = (
+  reminderID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return dismissAccountReminder(reminderID, options);
+  };
+};
+export const getDismissAccountReminderMutationKey = (reminderID: string) =>
+  [`/v1/account/reminders/${reminderID}/dismiss`] as const;
+
+export type DismissAccountReminderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof dismissAccountReminder>>
+>;
+
+export const useDismissAccountReminder = <TError = Promise<unknown>>(
+  reminderID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof dismissAccountReminder>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof dismissAccountReminder>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getDismissAccountReminderMutationKey(reminderID);
+  const swrFn = getDismissAccountReminderMutationFetcher(reminderID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
 
 export type listAccountPlansResponse200 = {
   data: AccountPlanList;

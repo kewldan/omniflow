@@ -811,6 +811,7 @@ var catalog = map[string]phrase{
 	"menu.miniApp":        {ru: "Кабинет", en: "Account"},
 	"subs.rotateDisabled": {ru: "🔐 Перевыпуск ссылки в этом сервисе отключён. Если ссылка утекла, напишите в поддержку.", en: "🔐 Re-issuing the link is turned off on this service. If your link leaked, contact support."},
 	"subs.rotateCooldown": {ru: "⏳ Ссылку недавно перевыпускали. Повторить можно через %s.", en: "⏳ The link was re-issued recently. You can do it again in %s."},
+	"reminder.open":       {ru: "Открыть", en: "Open"},
 	// Pay and keep the card for automatic renewal: the button is the consent.
 	"pay.optionSave": {ru: "%s + сохранить карту для автопродления", en: "%s + save the card for auto-renew"},
 	// Marketing, loyalty, and referrals.

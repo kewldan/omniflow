@@ -1942,6 +1942,36 @@ type Refund struct {
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
+type Reminder struct {
+	ID                pgtype.UUID        `json:"id"`
+	Name              string             `json:"name"`
+	Active            bool               `json:"active"`
+	Category          string             `json:"category"`
+	Segment           string             `json:"segment"`
+	SegmentDays       int32              `json:"segment_days"`
+	BalanceBelowMinor int64              `json:"balance_below_minor"`
+	Currency          string             `json:"currency"`
+	RepeatEveryDays   int32              `json:"repeat_every_days"`
+	MaxSends          int32              `json:"max_sends"`
+	TitleRu           string             `json:"title_ru"`
+	BodyRu            string             `json:"body_ru"`
+	TitleEn           string             `json:"title_en"`
+	BodyEn            string             `json:"body_en"`
+	ButtonRoute       pgtype.Text        `json:"button_route"`
+	ShowInCabinet     bool               `json:"show_in_cabinet"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy         pgtype.UUID        `json:"updated_by"`
+}
+
+type ReminderState struct {
+	ReminderID  pgtype.UUID        `json:"reminder_id"`
+	UserID      pgtype.UUID        `json:"user_id"`
+	Sends       int32              `json:"sends"`
+	LastSentAt  pgtype.Timestamptz `json:"last_sent_at"`
+	DismissedAt pgtype.Timestamptz `json:"dismissed_at"`
+}
+
 type RemnawaveUser struct {
 	UserID        pgtype.UUID        `json:"user_id"`
 	RemnawaveID   int64              `json:"remnawave_id"`

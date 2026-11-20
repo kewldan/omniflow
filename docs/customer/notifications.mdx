@@ -142,6 +142,25 @@ these: a kind left on here reaches only customers who have not turned it off.
 A switched-off kind is not recorded as sent, so switching it back on sends what is still due. Payment,
 support, and operator messages cannot be switched off. An invalid value stops the bot at startup.
 
+### Reminders
+
+**Reminders** on `/admin/marketing` (`marketing.read` to see, `marketing.write` to change) are messages
+sent again to whoever a segment holds, until they leave it, dismiss the card, or have had the reminder
+its number of times — Bedolaga's reminder constructor.
+
+| Field | Meaning |
+| --- | --- |
+| Who | `no_subscription` (never had one), `expiring` (an active subscription ends within N days), `expired` (the last one ended at least N days ago), `low_balance` (wallet below an amount in a currency) |
+| Repeat every / send at most | Days between two sends to one customer (1–365) and how many in all (1–20) |
+| Kind | `service` travels as a `reminder` notice, which the customer's renewal-reminder switch and quiet hours govern; `marketing` travels as `marketing` and needs marketing consent |
+| Button | Opens plans, connect, wallet, or support in the bot, or the matching screen on the web |
+| Card | Also shows the reminder on the customer's dashboard (`GET /v1/account/reminders`); dismissing it (`POST /v1/account/reminders/{id}/dismiss`) stops the messages too |
+
+The bot's lifecycle pass sends them. A customer gets at most one reminder a day, whatever is configured;
+a send that the delivery policy suppresses still counts, and one deferred by quiet hours counts when it
+goes out. **Audience** shows how many customers the segment holds now. Texts are shown as written, never
+as markup. Every save and deletion is audited.
+
 ## Setting preferences
 
 The same `bot_preferences` row backs both surfaces, so a choice made in one

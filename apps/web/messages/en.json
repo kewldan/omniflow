@@ -3365,6 +3365,56 @@
           "reveal": "Paying out a withdrawal"
         }
       }
+    },
+    "reminders": {
+      "title": "Reminders",
+      "description": "Messages sent again to whoever a segment holds — by the bot, and as a card in the customer panel — until they leave the segment, dismiss the card, or have had it the set number of times. At most one reminder a day reaches a customer, and quiet hours and consent apply.",
+      "add": "Add a reminder",
+      "edit": "Edit",
+      "delete": "Delete",
+      "preview": "Audience",
+      "audience": "{count, plural, one {# customer is} other {# customers are}} in this segment now.",
+      "saved": "Reminder saved",
+      "removed": "Reminder deleted",
+      "on": "On",
+      "off": "Off",
+      "cadence": "every {days, plural, one {day} other {# days}}, up to {times, plural, one {once} other {# times}}",
+      "name": "Name",
+      "segment": "Who",
+      "segments": {
+        "no_subscription": "Never had a subscription",
+        "expiring": "Subscription ending soon",
+        "expired": "Subscription ended",
+        "low_balance": "Low wallet balance"
+      },
+      "segmentDays": {
+        "expiring": "Days before the end",
+        "expired": "Days after the end"
+      },
+      "balanceBelow": "Balance below ({currency})",
+      "repeatEveryDays": "Repeat every (days)",
+      "maxSends": "Send at most (times)",
+      "category": "Kind",
+      "categories": {
+        "service": "Service — sent unless the customer turned reminders off",
+        "marketing": "Marketing — only with marketing consent"
+      },
+      "button": "Button",
+      "routes": {
+        "none": "No button",
+        "plans": "Plans",
+        "connect": "Connect",
+        "wallet": "Wallet",
+        "support": "Support"
+      },
+      "titleRu": "Title (Russian)",
+      "bodyRu": "Text (Russian)",
+      "titleEn": "Title (English)",
+      "bodyEn": "Text (English)",
+      "showInCabinet": "Also show as a card in the customer panel",
+      "active": "On",
+      "save": "Save",
+      "cancel": "Cancel"
     }
   },
   "account": {
@@ -4908,6 +4958,10 @@
       "description": "Your subscription ended {ended}. Renew it and your devices connect again with the same link.",
       "offer": "{percent}% off is waiting for you until {until} — it applies at checkout by itself.",
       "action": "Renew"
+    },
+    "reminders": {
+      "dismiss": "Dismiss",
+      "open": "Open"
     }
   },
   "pages": {

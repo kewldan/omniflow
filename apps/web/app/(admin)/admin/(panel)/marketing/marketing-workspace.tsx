@@ -24,6 +24,7 @@ import { useSession } from "@/lib/session";
 import { AdCampaignsCard } from "./ad-campaigns";
 import { EmailDeliveryCard } from "./email-delivery";
 import { LoyaltyCard } from "./loyalty-card";
+import { RemindersCard } from "./reminders-card";
 import { TemplateEditorCard } from "./template-editor";
 
 import type {
@@ -55,6 +56,7 @@ export function MarketingWorkspace() {
         <TemplateEditorCard onSaved={() => void revalidate("/v1/panel/marketing/templates")} />
       )}
       <AdCampaignsCard editable={can("marketing.write")} />
+      <RemindersCard editable={can("marketing.write")} />
       <SegmentCard />
       <SuppressionCard editable={can("marketing.write")} />
       <ReferralCard editable={can("settings.write")} />
