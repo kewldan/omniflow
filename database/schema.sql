@@ -1705,7 +1705,7 @@ CREATE TABLE public.customer_event_notices (
     params jsonb DEFAULT '{}'::jsonb NOT NULL,
     dedupe_key text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT customer_event_notices_kind_known CHECK ((kind = ANY (ARRAY['referral_joined'::text, 'referral_welcome'::text, 'referral_reward'::text, 'loyalty_tier'::text]))),
+    CONSTRAINT customer_event_notices_kind_known CHECK ((kind = ANY (ARRAY['referral_joined'::text, 'referral_welcome'::text, 'referral_reward'::text, 'loyalty_tier'::text, 'renewal_low_balance'::text]))),
     CONSTRAINT customer_event_notices_params_object CHECK ((jsonb_typeof(params) = 'object'::text))
 );
 

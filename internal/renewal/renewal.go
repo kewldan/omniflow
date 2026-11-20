@@ -49,6 +49,10 @@ type Config struct {
 	// with second precision and the retry delays are measured in hours, so a
 	// minute of scheduling granularity costs nothing.
 	Interval time.Duration
+	// LowBalanceWarning is how long before a wallet-funded renewal's charge
+	// the customer is told the balance will not cover it. Zero is the
+	// default (48 hours); negative turns the warning off.
+	LowBalanceWarning time.Duration
 }
 
 // Charger settles one payment. It is the paymentservice, narrowed to what this
@@ -108,6 +112,7 @@ func (worker *Worker) Run(ctx context.Context) {
 func (worker *Worker) RunOnce(ctx context.Context) {
 	worker.schedule(ctx)
 	worker.charge(ctx)
+	worker.warnLowBalance(ctx)
 }
 
 // ---------------------------------------------------------------------------

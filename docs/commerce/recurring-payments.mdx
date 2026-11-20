@@ -138,6 +138,19 @@ The bot offers one, three, or seven days rather than a free-text duration,
 because the only question a customer is really answering is how much warning
 they want if the card fails.
 
+## Low-balance warning
+
+A wallet-funded renewal that the balance will not cover is announced before its first charge
+rather than discovered by it. The renewal worker prices the coming renewal exactly as the charge
+will — the same order input, previewed against the current balance, discounts included — and when
+something would still be owed it queues one notice per renewal cycle: how many days until the charge
+and how much is missing, with a **Top up** button. It goes through the customer event notices and is
+delivered as a `payment` notification, so the customer's preferences and quiet hours apply.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `APP_RENEWAL_LOW_BALANCE_WARNING_HOURS` | `48` | How long before the charge the warning is sent; `0` turns it off. Read by the worker |
+
 ## Dunning
 
 A failed charge retries a bounded number of times and then stops.

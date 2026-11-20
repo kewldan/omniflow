@@ -213,7 +213,9 @@ func periodicTasks(
 		}
 	}
 	renewals := renewal.New(
-		pool, core.Store, core.Payments, paymentservice.Index(core.Providers), logger, renewal.Config{},
+		pool, core.Store, core.Payments, paymentservice.Index(core.Providers), logger, renewal.Config{
+			LowBalanceWarning: lowBalanceWarning(),
+		},
 	)
 	scheduler := fulfillment.NewScheduler(pool, inserter)
 	lifecycle := sweeper.New(pool, operations, logger, sweeper.Config{})
@@ -495,4 +497,22 @@ func monitoringTasks(
 			}})
 	}
 	return tasks, nil
+}
+
+// lowBalanceWarning reads APP_RENEWAL_LOW_BALANCE_WARNING_HOURS: how long
+// before a wallet-funded renewal the customer is told the balance falls short.
+// Unset is the default of 48 hours; 0 turns the warning off.
+func lowBalanceWarning() time.Duration {
+	raw := strings.TrimSpace(os.Getenv("APP_RENEWAL_LOW_BALANCE_WARNING_HOURS"))
+	if raw == "" {
+		return 0
+	}
+	hours, err := strconv.Atoi(raw)
+	if err != nil || hours < 0 {
+		return 0
+	}
+	if hours == 0 {
+		return -1
+	}
+	return time.Duration(hours) * time.Hour
 }

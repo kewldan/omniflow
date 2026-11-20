@@ -843,12 +843,13 @@ var catalog = map[string]phrase{
 	"access.inviteOnly":           {ru: "🔒 Регистрация только по приглашению. Откройте бота по ссылке-приглашению.", en: "🔒 Registration is by invitation only. Open the bot from an invitation link."},
 	"access.closed":               {ru: "🔒 Регистрация новых пользователей сейчас закрыта.", en: "🔒 Registration of new users is closed at the moment."},
 	// Provider methods shown as separate buttons, after the provider's name.
-	"pay.method.sbp":      {ru: "СБП", en: "SBP"},
-	"pay.method.card":     {ru: "карта", en: "card"},
-	"pay.method.sberpay":  {ru: "SberPay", en: "SberPay"},
-	"pay.method.crypto":   {ru: "криптовалюта", en: "crypto"},
-	"pay.method.intl":     {ru: "зарубежная карта", en: "foreign card"},
-	"wallet.supportTopUp": {ru: "💬 Пополнить через поддержку", en: "💬 Top up through support"},
+	"pay.method.sbp":          {ru: "СБП", en: "SBP"},
+	"pay.method.card":         {ru: "карта", en: "card"},
+	"pay.method.sberpay":      {ru: "SberPay", en: "SberPay"},
+	"pay.method.crypto":       {ru: "криптовалюта", en: "crypto"},
+	"pay.method.intl":         {ru: "зарубежная карта", en: "foreign card"},
+	"wallet.supportTopUp":     {ru: "💬 Пополнить через поддержку", en: "💬 Top up through support"},
+	"event.renewalLowBalance": {ru: "💳 <b>Не хватает баланса для автопродления</b>\n\nЧерез %s подписка продлится с баланса, но на нём не хватает %s. Пополните кошелёк, чтобы продление прошло.", en: "💳 <b>Your balance will not cover auto-renew</b>\n\nIn %s your subscription renews from your wallet, which is %s short. Top up so the renewal goes through."},
 }
 
 // formatMoney renders an integer minor-unit amount for display. Telegram Stars
