@@ -284,6 +284,8 @@ type Querier interface {
 	CountRecentOperatorNotifications(ctx context.Context, arg CountRecentOperatorNotificationsParams) (int32, error)
 	// How many of the given packs are still on the entitlement and unreleased.
 	CountReleasablePacks(ctx context.Context, arg CountReleasablePacksParams) (int32, error)
+	// How many device slots the given packs can still give back.
+	CountReleasableSlots(ctx context.Context, arg CountReleasableSlotsParams) (int32, error)
 	CountReminderAudience(ctx context.Context, reminderID pgtype.UUID) (int64, error)
 	CountRunningBackups(ctx context.Context) (int32, error)
 	CountUnpublishedOutboxEvents(ctx context.Context) (CountUnpublishedOutboxEventsRow, error)
@@ -1907,6 +1909,10 @@ type Querier interface {
 	// replayed settlement, or a second change racing for the same pack, match
 	// nothing, so its capacity is subtracted once.
 	ReleaseEntitlementAddon(ctx context.Context, arg ReleaseEntitlementAddonParams) (EntitlementAddon, error)
+	// Gives back up to `slots` device slots of one pack and reports how many it
+	// took. A pack with nothing left matches nothing; one emptied by this release
+	// is released outright, by the order.
+	ReleaseEntitlementAddonSlots(ctx context.Context, arg ReleaseEntitlementAddonSlotsParams) (ReleaseEntitlementAddonSlotsRow, error)
 	ReleasePaymentMutationLock(ctx context.Context, hashtextextended string) error
 	ReleaseRetentionHold(ctx context.Context, arg ReleaseRetentionHoldParams) (AiRetentionHold, error)
 	RemoveBlocklistAllowlistEntry(ctx context.Context, userID pgtype.UUID) error
@@ -2241,6 +2247,7 @@ type Querier interface {
 	// Only a previewed operation may run. That is what enforces "impact preview
 	// before bulk change" in the database rather than only in the panel.
 	StartBulkOperation(ctx context.Context, operationID pgtype.UUID) (BulkOperation, error)
+	SubtractEntitlementDevices(ctx context.Context, arg SubtractEntitlementDevicesParams) (Entitlement, error)
 	SubtractEntitlementTraffic(ctx context.Context, arg SubtractEntitlementTrafficParams) (Entitlement, error)
 	// What the importer has moved into each wallet so far, keyed by Bedolaga user.
 	// The ledger is the record rather than a counter beside it: a run that dies

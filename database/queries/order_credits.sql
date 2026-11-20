@@ -3,12 +3,12 @@
 -- name: InsertOrderCredit :one
 INSERT INTO order_credits (
   order_id, user_id, kind, source_entitlement_id, source_order_id, currency,
-  basis_minor, remaining_seconds, period_seconds, credit_minor, released_addon_ids
+  basis_minor, remaining_seconds, period_seconds, credit_minor, released_addon_ids, released_slots
 ) VALUES (
   sqlc.arg(order_id), sqlc.arg(user_id), sqlc.arg(kind), sqlc.arg(source_entitlement_id),
   sqlc.narg(source_order_id), sqlc.arg(currency), sqlc.arg(basis_minor),
   sqlc.arg(remaining_seconds), sqlc.arg(period_seconds), sqlc.arg(credit_minor),
-  sqlc.arg(released_addon_ids)::uuid[]
+  sqlc.arg(released_addon_ids)::uuid[], sqlc.arg(released_slots)
 )
 RETURNING *;
 
@@ -54,7 +54,7 @@ LIMIT 1;
 -- the order that bought each one took for it.
 SELECT ea.id, ea.entitlement_id, ea.order_id, ea.addon_version_id, ea.quantity,
        ea.traffic_bytes, ea.device_slots, ea.remnawave_squad_ids, ea.applied_at, ea.expires_at,
-       a.kind AS addon_kind, a.code AS addon_code,
+       ea.released_slots, a.kind AS addon_kind, a.code AS addon_code,
        COALESCE(ol.charged_minor, 0)::bigint AS charged_minor,
        o.user_id AS order_user_id, o.currency AS order_currency,
        o.subtotal_minor AS order_subtotal_minor,
@@ -83,3 +83,37 @@ SELECT count(*)::int FROM entitlement_addons
 WHERE id = ANY(sqlc.arg(entitlement_addon_ids)::uuid[])
   AND entitlement_id = sqlc.arg(entitlement_id)
   AND released_at IS NULL AND expired_at IS NULL;
+
+-- name: CountReleasableSlots :one
+-- How many device slots the given packs can still give back.
+SELECT COALESCE(sum(device_slots - released_slots), 0)::int FROM entitlement_addons
+WHERE id = ANY(sqlc.arg(entitlement_addon_ids)::uuid[])
+  AND entitlement_id = sqlc.arg(entitlement_id)
+  AND released_at IS NULL AND expired_at IS NULL AND device_slots IS NOT NULL;
+
+-- name: ReleaseEntitlementAddonSlots :one
+-- Gives back up to `slots` device slots of one pack and reports how many it
+-- took. A pack with nothing left matches nothing; one emptied by this release
+-- is released outright, by the order.
+WITH target AS (
+  SELECT pack.id AS pack_id, LEAST(sqlc.arg(slots)::int, pack.device_slots - pack.released_slots) AS take
+  FROM entitlement_addons pack
+  WHERE pack.id = sqlc.arg(entitlement_addon_id) AND pack.released_at IS NULL AND pack.expired_at IS NULL
+    AND pack.device_slots IS NOT NULL AND pack.device_slots > pack.released_slots
+  FOR UPDATE
+)
+UPDATE entitlement_addons ea
+SET released_slots = ea.released_slots + target.take,
+    released_at = CASE WHEN ea.released_slots + target.take >= ea.device_slots THEN now() END,
+    released_by_order_id = CASE WHEN ea.released_slots + target.take >= ea.device_slots THEN sqlc.arg(order_id)::uuid END
+FROM target
+WHERE ea.id = target.pack_id
+RETURNING target.take::int AS taken, ea.entitlement_id;
+
+-- name: SubtractEntitlementDevices :one
+UPDATE entitlements
+SET device_limit = CASE WHEN device_limit IS NULL THEN NULL
+      ELSE greatest(device_limit - sqlc.arg(device_slots)::int, 0) END,
+    updated_at = now()
+WHERE id = sqlc.arg(entitlement_id)
+RETURNING *;

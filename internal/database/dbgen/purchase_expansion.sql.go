@@ -1299,7 +1299,7 @@ INSERT INTO entitlement_addons (
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7)
 ON CONFLICT (order_id, addon_version_id) DO NOTHING
-RETURNING id, entitlement_id, order_id, addon_version_id, quantity, traffic_bytes, device_slots, remnawave_squad_ids, applied_at, expires_at, expired_at, released_at, released_by_order_id
+RETURNING id, entitlement_id, order_id, addon_version_id, quantity, traffic_bytes, device_slots, remnawave_squad_ids, applied_at, expires_at, expired_at, released_at, released_by_order_id, released_slots
 `
 
 type InsertEntitlementAddonParams struct {
@@ -1337,6 +1337,7 @@ func (q *Queries) InsertEntitlementAddon(ctx context.Context, arg InsertEntitlem
 		&i.ExpiredAt,
 		&i.ReleasedAt,
 		&i.ReleasedByOrderID,
+		&i.ReleasedSlots,
 	)
 	return i, err
 }

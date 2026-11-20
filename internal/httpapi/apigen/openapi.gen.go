@@ -5932,6 +5932,36 @@ type AccountDeviceList struct {
 	} `json:"items"`
 }
 
+// AccountDeviceReduction defines model for AccountDeviceReduction.
+type AccountDeviceReduction struct {
+	Available bool `json:"available"`
+
+	// Connected Devices Remnawave reports connected now.
+	Connected    int    `json:"connected"`
+	Currency     string `json:"currency"`
+	CurrentLimit int    `json:"currentLimit"`
+	Devices      []struct {
+		Alias    *string   `json:"alias,omitempty"`
+		Handle   string    `json:"handle"`
+		LastSeen time.Time `json:"lastSeen"`
+		Name     string    `json:"name"`
+		Platform string    `json:"platform"`
+	} `json:"devices"`
+
+	// MinimumLimit The lowest the limit may go, what the plan includes.
+	MinimumLimit int `json:"minimumLimit"`
+	Options      []struct {
+		DeviceLimit int `json:"deviceLimit"`
+
+		// ExcessDevices Connected devices to disconnect before this limit is accepted.
+		ExcessDevices int `json:"excessDevices"`
+
+		// Quote What a mid-period capacity change costs or hands back now. chargeMinor is the prorated price of what is added and creditMinor the prorated value of what is released, at what the customer paid for it.
+		Quote AccountCapacityQuote `json:"quote"`
+	} `json:"options"`
+	Reason *string `json:"reason,omitempty"`
+}
+
 // AccountDeviceUsage defines model for AccountDeviceUsage.
 type AccountDeviceUsage struct {
 	Limit     *int `json:"limit,omitempty"`
@@ -11340,6 +11370,18 @@ type GetAccountConnectionParams struct {
 	Platform *string `form:"platform,omitempty" json:"platform,omitempty"`
 }
 
+// ReduceAccountDeviceLimitJSONBody defines parameters for ReduceAccountDeviceLimit.
+type ReduceAccountDeviceLimitJSONBody struct {
+	DeviceLimit int `json:"deviceLimit"`
+}
+
+// ReduceAccountDeviceLimitParams defines parameters for ReduceAccountDeviceLimit.
+type ReduceAccountDeviceLimitParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
 // RemoveAllAccountDevicesParams defines parameters for RemoveAllAccountDevices.
 type RemoveAllAccountDevicesParams struct {
 	Confirm RemoveAllAccountDevicesParamsConfirm `form:"confirm" json:"confirm"`
@@ -13038,6 +13080,9 @@ type BuyAccountSubscriptionAddonJSONRequestBody BuyAccountSubscriptionAddonJSONB
 // SaveAccountSubscriptionAddonCartJSONRequestBody defines body for SaveAccountSubscriptionAddonCart for application/json ContentType.
 type SaveAccountSubscriptionAddonCartJSONRequestBody SaveAccountSubscriptionAddonCartJSONBody
 
+// ReduceAccountDeviceLimitJSONRequestBody defines body for ReduceAccountDeviceLimit for application/json ContentType.
+type ReduceAccountDeviceLimitJSONRequestBody ReduceAccountDeviceLimitJSONBody
+
 // RenameAccountDeviceJSONRequestBody defines body for RenameAccountDevice for application/json ContentType.
 type RenameAccountDeviceJSONRequestBody RenameAccountDeviceJSONBody
 
@@ -13834,6 +13879,12 @@ type ServerInterface interface {
 
 	// (GET /v1/account/subscriptions/{subscriptionID}/connection)
 	GetAccountConnection(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params GetAccountConnectionParams)
+
+	// (GET /v1/account/subscriptions/{subscriptionID}/device-limit)
+	GetAccountDeviceReduction(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID)
+
+	// (POST /v1/account/subscriptions/{subscriptionID}/device-limit)
+	ReduceAccountDeviceLimit(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params ReduceAccountDeviceLimitParams)
 
 	// (DELETE /v1/account/subscriptions/{subscriptionID}/devices)
 	RemoveAllAccountDevices(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params RemoveAllAccountDevicesParams)
@@ -15229,6 +15280,16 @@ func (_ Unimplemented) SaveAccountSubscriptionAddonCart(w http.ResponseWriter, r
 
 // (GET /v1/account/subscriptions/{subscriptionID}/connection)
 func (_ Unimplemented) GetAccountConnection(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params GetAccountConnectionParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/subscriptions/{subscriptionID}/device-limit)
+func (_ Unimplemented) GetAccountDeviceReduction(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/subscriptions/{subscriptionID}/device-limit)
+func (_ Unimplemented) ReduceAccountDeviceLimit(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params ReduceAccountDeviceLimitParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -20718,6 +20779,109 @@ func (siw *ServerInterfaceWrapper) GetAccountConnection(w http.ResponseWriter, r
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAccountConnection(w, r, subscriptionID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountDeviceReduction operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountDeviceReduction(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID AccountSubscriptionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountDeviceReduction(w, r, subscriptionID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReduceAccountDeviceLimit operation middleware
+func (siw *ServerInterfaceWrapper) ReduceAccountDeviceLimit(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID AccountSubscriptionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ReduceAccountDeviceLimitParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReduceAccountDeviceLimit(w, r, subscriptionID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -34102,6 +34266,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/traffic-package", wrapper.ChangeAccountTrafficPackage)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/device-limit", wrapper.GetAccountDeviceReduction)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/device-limit", wrapper.ReduceAccountDeviceLimit)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/addons", wrapper.ListAccountSubscriptionAddons)
 	})
 	r.Group(func(r chi.Router) {
@@ -39037,6 +39207,112 @@ func (response GetAccountConnection503ApplicationProblemPlusJSONResponse) VisitG
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountDeviceReductionRequestObject struct {
+	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
+}
+
+type GetAccountDeviceReductionResponseObject interface {
+	VisitGetAccountDeviceReductionResponse(w http.ResponseWriter) error
+}
+
+type GetAccountDeviceReduction200JSONResponse AccountDeviceReduction
+
+func (response GetAccountDeviceReduction200JSONResponse) VisitGetAccountDeviceReductionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountDeviceReduction502ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetAccountDeviceReduction502ApplicationProblemPlusJSONResponse) VisitGetAccountDeviceReductionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReduceAccountDeviceLimitRequestObject struct {
+	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
+	Params         ReduceAccountDeviceLimitParams
+	Body           *ReduceAccountDeviceLimitJSONRequestBody
+}
+
+type ReduceAccountDeviceLimitResponseObject interface {
+	VisitReduceAccountDeviceLimitResponse(w http.ResponseWriter) error
+}
+
+type ReduceAccountDeviceLimit201JSONResponse AccountOrder
+
+func (response ReduceAccountDeviceLimit201JSONResponse) VisitReduceAccountDeviceLimitResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReduceAccountDeviceLimit409ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ReduceAccountDeviceLimit409ApplicationProblemPlusJSONResponse) VisitReduceAccountDeviceLimitResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReduceAccountDeviceLimit422ApplicationProblemPlusJSONResponse Problem
+
+func (response ReduceAccountDeviceLimit422ApplicationProblemPlusJSONResponse) VisitReduceAccountDeviceLimitResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReduceAccountDeviceLimit502ApplicationProblemPlusJSONResponse Problem
+
+func (response ReduceAccountDeviceLimit502ApplicationProblemPlusJSONResponse) VisitReduceAccountDeviceLimitResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -52821,6 +53097,12 @@ type StrictServerInterface interface {
 	// (GET /v1/account/subscriptions/{subscriptionID}/connection)
 	GetAccountConnection(ctx context.Context, request GetAccountConnectionRequestObject) (GetAccountConnectionResponseObject, error)
 
+	// (GET /v1/account/subscriptions/{subscriptionID}/device-limit)
+	GetAccountDeviceReduction(ctx context.Context, request GetAccountDeviceReductionRequestObject) (GetAccountDeviceReductionResponseObject, error)
+
+	// (POST /v1/account/subscriptions/{subscriptionID}/device-limit)
+	ReduceAccountDeviceLimit(ctx context.Context, request ReduceAccountDeviceLimitRequestObject) (ReduceAccountDeviceLimitResponseObject, error)
+
 	// (DELETE /v1/account/subscriptions/{subscriptionID}/devices)
 	RemoveAllAccountDevices(ctx context.Context, request RemoveAllAccountDevicesRequestObject) (RemoveAllAccountDevicesResponseObject, error)
 
@@ -56729,6 +57011,66 @@ func (sh *strictHandler) GetAccountConnection(w http.ResponseWriter, r *http.Req
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetAccountConnectionResponseObject); ok {
 		if err := validResponse.VisitGetAccountConnectionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountDeviceReduction operation middleware
+func (sh *strictHandler) GetAccountDeviceReduction(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID) {
+	var request GetAccountDeviceReductionRequestObject
+
+	request.SubscriptionID = subscriptionID
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountDeviceReduction(ctx, request.(GetAccountDeviceReductionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountDeviceReduction")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountDeviceReductionResponseObject); ok {
+		if err := validResponse.VisitGetAccountDeviceReductionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ReduceAccountDeviceLimit operation middleware
+func (sh *strictHandler) ReduceAccountDeviceLimit(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params ReduceAccountDeviceLimitParams) {
+	var request ReduceAccountDeviceLimitRequestObject
+
+	request.SubscriptionID = subscriptionID
+	request.Params = params
+
+	var body ReduceAccountDeviceLimitJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ReduceAccountDeviceLimit(ctx, request.(ReduceAccountDeviceLimitRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReduceAccountDeviceLimit")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ReduceAccountDeviceLimitResponseObject); ok {
+		if err := validResponse.VisitReduceAccountDeviceLimitResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

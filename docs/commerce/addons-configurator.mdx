@@ -210,6 +210,23 @@ The period's end does not move, and the traffic counter is not reset: a smaller 
 | `addon_unavailable` | The package is not offered, retired, unpriced in the currency, or not a traffic package |
 | `addon_limit_reached` | The new package would go past **Most traffic add-ons may add** |
 
+### Giving back device slots
+
+A subscription that bought device slots as add-ons may lower its device limit part-way through the period and have what is left of those slots credited. The limit never goes below what the plan itself includes: only bought slots are given back, and only while they still count.
+
+*Web.* `/account/subscriptions/{id}` shows **Device limit** with the limit, how many devices Remnawave reports connected, and a **Lower to N** button for each limit down to the plan's own. Choosing one shows the credit and **Confirm**. When more devices are connected than the new limit allows, it lists the ones it would leave over — the least recently seen — with a link to **Manage devices** instead: the change is refused until the customer disconnects enough of them, because Remnawave holds the devices and Omniflow does not choose which go. `GET /v1/account/subscriptions/{subscriptionID}/device-limit` returns the limits with a quote and `excessDevices` each, and the devices most recently seen first; `POST` with `{"deviceLimit": N}` and an `Idempotency-Key` opens the order. Both read the devices from Remnawave on every call and answer `502 remnawave_unavailable` when it does not respond.
+
+*Telegram.* The subscription screen shows **📱 Fewer devices** with the same limits; a limit shows the left-over devices with a button to the device list, or the preview and a confirmation.
+
+A reduction gives back slots newest pack first, each credited at its share of what its order took for the pack, for the time it has left — the same rule as [a traffic package change](#changing-the-traffic-package). A pack can be given back in part: `entitlement_addons.released_slots` counts what has gone, and a pack is released outright once all of it has. The change is one `device_reduction` order that charges nothing; its [credit line](/commerce/orders-payments#credit-lines) records the slots and the packs they come from, and posts the credit to the wallet at once. Settlement lowers the entitlement's device limit by exactly the slots given back and queues one `set_limits` keyed `order:<id>:change`. The credit is posted only while the named packs can still give that many slots back.
+
+| Refusal | Raised when |
+| --- | --- |
+| `device_reduction_unavailable` | Unlimited devices, no bought slots left to give back, or a limit below the plan's own |
+| `devices_over_limit` (409) | More devices are connected than the new limit allows |
+| `capacity_change_same` | The limit asked for is the current one |
+| `no_active_subscription` | No live entitlement, a paused one, or one scheduled to start later |
+
 ### Proration rules
 
 The proration rule is a property of the add-on version, and it is always explicit. Omniflow never infers a partial price from remaining time unless the add-on says so. It applies only to a mid-period purchase; an add-on bought with the plan covers a full period and is charged at the catalog price whatever its rule says.
@@ -284,6 +301,8 @@ If the target subscription has no live entitlement by the time an add-on settles
 | `POST /v1/account/subscriptions/{subscriptionID}/addons` | Customer session, `Idempotency-Key` | Buy one mid-period add-on |
 | `GET /v1/account/subscriptions/{subscriptionID}/traffic-package` | Customer session | The traffic packages a live subscription may switch to, each with a preview |
 | `POST /v1/account/subscriptions/{subscriptionID}/traffic-package` | Customer session, `Idempotency-Key` | Switch the traffic package |
+| `GET /v1/account/subscriptions/{subscriptionID}/device-limit` | Customer session | Lower device limits with their credit, and the connected devices |
+| `POST /v1/account/subscriptions/{subscriptionID}/device-limit` | Customer session, `Idempotency-Key` | Give back device slots |
 
 The add-on save and retire routes are implemented but missing from `api/openapi.yaml`, so they are absent from the generated client and the published API reference. [Integrating with the API](/integrations/api) explains how to call them anyway.
 

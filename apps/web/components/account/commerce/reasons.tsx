@@ -118,6 +118,8 @@ const PROBLEMS = [
   "traffic_reset_unavailable",
   "traffic_change_unavailable",
   "capacity_change_same",
+  "device_reduction_unavailable",
+  "devices_over_limit",
   "period_unavailable",
   "traffic_unavailable",
   "not_daily",

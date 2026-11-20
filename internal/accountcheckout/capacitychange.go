@@ -105,3 +105,61 @@ func unwrapReason(err error) string {
 	}
 	return err.Error()
 }
+
+// DeviceReductionOption is one lower device limit, priced.
+type DeviceReductionOption struct {
+	DeviceLimit int
+	Quote       commercepg.CapacityChangeQuote
+}
+
+// DeviceReduction is the device limit screen of one subscription.
+type DeviceReduction struct {
+	Available    bool
+	Reason       string
+	Currency     string
+	CurrentLimit int
+	MinimumLimit int
+	Connected    int
+	Options      []DeviceReductionOption
+}
+
+// DeviceReduction lists the lower device limits a subscription may move to by
+// giving back slots bought as add-ons, each with the credit it would hand
+// back and how many of the connected devices it would leave over.
+func (service *Service) DeviceReduction(ctx context.Context, customerID, subscriptionID string, connected int) (DeviceReduction, error) {
+	result := DeviceReduction{Currency: service.settings.Currency, Connected: connected, Options: []DeviceReductionOption{}}
+	current, minimum, ok, err := service.orders.DeviceLimitRange(ctx, customerID, subscriptionID)
+	if err != nil {
+		return DeviceReduction{}, err
+	}
+	if !ok {
+		result.Reason = commerce.ErrDeviceReductionUnavailable.Error()
+		return result, nil
+	}
+	result.CurrentLimit, result.MinimumLimit = current, minimum
+	for limit := current - 1; limit >= minimum; limit-- {
+		quote, quoteErr := service.orders.DeviceReductionQuote(ctx, commercepg.CapacityChangeInput{
+			CustomerID: customerID, SubscriptionID: subscriptionID, Currency: service.settings.Currency,
+			DeviceLimit: limit, ConnectedDevices: connected,
+		})
+		if quoteErr != nil {
+			return DeviceReduction{}, quoteErr
+		}
+		result.Options = append(result.Options, DeviceReductionOption{DeviceLimit: limit, Quote: quote})
+	}
+	result.Available = len(result.Options) > 0
+	return result, nil
+}
+
+// ReduceDevices opens the order that lowers a subscription's device limit. It
+// is refused while more devices are connected than the new limit allows.
+func (service *Service) ReduceDevices(ctx context.Context, customerID, subscriptionID string, limit, connected int, idempotencyKey, locale string) (OrderSummary, error) {
+	order, err := service.orders.CreateDeviceReductionOrder(ctx, commercepg.CapacityChangeInput{
+		CustomerID: customerID, SubscriptionID: subscriptionID, Currency: service.settings.Currency,
+		DeviceLimit: limit, ConnectedDevices: connected, IdempotencyKey: "web-devices:" + idempotencyKey,
+	})
+	if err != nil {
+		return OrderSummary{}, err
+	}
+	return service.store.Order(ctx, customerID, UUIDText(order.ID), locale)
+}

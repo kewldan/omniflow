@@ -3985,6 +3985,45 @@ paths:
         "201": {description: Order created, content: {application/json: {schema: {$ref: "#/components/schemas/AccountOrder"}}}}
         "409": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/account/subscriptions/{subscriptionID}/device-limit:
+    get:
+      operationId: getAccountDeviceReduction
+      tags: [account]
+      description: >-
+        The lower device limits a live subscription may move to by giving back
+        device slots bought as add-ons, each with the credit it hands back and
+        `excessDevices`, how many connected devices it would leave over. The
+        connected devices are read from Remnawave and listed most recently seen
+        first; 502 when the panel does not answer.
+      parameters: [{$ref: "#/components/parameters/AccountSubscriptionID"}]
+      responses:
+        "200": {description: Device limits, content: {application/json: {schema: {$ref: "#/components/schemas/AccountDeviceReduction"}}}}
+        "502": {$ref: "#/components/responses/Problem"}
+    post:
+      operationId: reduceAccountDeviceLimit
+      tags: [account]
+      description: >-
+        Opens a device_reduction order, which charges nothing and credits what
+        is left of the slots it gives back. Refused with 409 devices_over_limit
+        while more devices are connected than the new limit allows.
+      parameters:
+        - {$ref: "#/components/parameters/AccountSubscriptionID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [deviceLimit]
+              properties:
+                deviceLimit: {type: integer, minimum: 0}
+      responses:
+        "201": {description: Order created, content: {application/json: {schema: {$ref: "#/components/schemas/AccountOrder"}}}}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+        "502": {$ref: "#/components/responses/Problem"}
   /v1/account/subscriptions/{subscriptionID}/addons:
     get:
       operationId: listAccountSubscriptionAddons
@@ -9114,6 +9153,36 @@ components:
         externalMinor: {type: integer, format: int64, description: What a provider must settle.}
         walletBalanceMinor: {type: integer, format: int64}
         endsAt: {type: string, format: date-time}
+    AccountDeviceReduction:
+      type: object
+      required: [available, currency, currentLimit, minimumLimit, connected, devices, options]
+      properties:
+        available: {type: boolean}
+        reason: {type: string}
+        currency: {type: string}
+        currentLimit: {type: integer}
+        minimumLimit: {type: integer, description: "The lowest the limit may go, what the plan includes."}
+        connected: {type: integer, description: Devices Remnawave reports connected now.}
+        devices:
+          type: array
+          items:
+            type: object
+            required: [handle, name, platform, lastSeen]
+            properties:
+              handle: {type: string}
+              name: {type: string}
+              platform: {type: string}
+              alias: {type: string}
+              lastSeen: {type: string, format: date-time}
+        options:
+          type: array
+          items:
+            type: object
+            required: [deviceLimit, excessDevices, quote]
+            properties:
+              deviceLimit: {type: integer}
+              excessDevices: {type: integer, description: Connected devices to disconnect before this limit is accepted.}
+              quote: {$ref: "#/components/schemas/AccountCapacityQuote"}
     AccountTrafficPackages:
       type: object
       required: [available, currency, currentTrafficBytes, options]

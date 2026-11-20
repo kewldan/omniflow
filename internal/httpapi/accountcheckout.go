@@ -1083,6 +1083,16 @@ func (handlers *AccountHandlers) writeCheckoutError(
 			writer, request, http.StatusUnprocessableEntity,
 			"traffic_change_unavailable", "This subscription cannot change its traffic package",
 		)
+	case errors.Is(err, commerce.ErrDeviceReductionUnavailable):
+		writeProblem(
+			writer, request, http.StatusUnprocessableEntity,
+			"device_reduction_unavailable", "This subscription cannot lower its device limit that far",
+		)
+	case errors.Is(err, commerce.ErrDevicesOverLimit):
+		writeProblem(
+			writer, request, http.StatusConflict,
+			"devices_over_limit", "More devices are connected than the new limit allows; disconnect some first",
+		)
 	case errors.Is(err, commerce.ErrCapacityChangeSame):
 		writeProblem(
 			writer, request, http.StatusUnprocessableEntity,

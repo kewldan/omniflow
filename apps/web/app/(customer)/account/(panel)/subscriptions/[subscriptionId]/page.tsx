@@ -15,6 +15,7 @@ import useSWR from "swr";
 import * as z from "zod/mini";
 import { CloseSubscription } from "@/components/account/commerce/close-subscription";
 import { DailyBillingCard } from "@/components/account/commerce/daily-billing";
+import { DeviceLimit } from "@/components/account/commerce/device-limit";
 import { SubscriptionAddons } from "@/components/account/commerce/subscription-addons";
 import { TrafficPackage } from "@/components/account/commerce/traffic-package";
 import { TrafficReset } from "@/components/account/commerce/traffic-reset";
@@ -75,6 +76,7 @@ export default function SubscriptionPage() {
       <TrafficReset onReset={() => void mutate()} subscriptionId={data.id} />
       <DailyBillingCard onChanged={() => void mutate()} subscriptionId={data.id} />
       <TrafficPackage onChanged={() => void mutate()} subscriptionId={data.id} />
+      <DeviceLimit onChanged={() => void mutate()} subscriptionId={data.id} />
 
       <RenameForm current={data.label} onRenamed={mutate} subscriptionId={data.id} />
       {/* Rotating a link is only meaningful for a provisioned subscription. */}

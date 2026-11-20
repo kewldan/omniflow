@@ -21,7 +21,8 @@ const CreditAddonRemainder = "addon_remainder"
 // Order operations that change a live subscription's capacity part-way
 // through its period.
 const (
-	OperationTrafficChange = "traffic_change"
+	OperationTrafficChange   = "traffic_change"
+	OperationDeviceReduction = "device_reduction"
 )
 
 // capacityChange is a priced mid-period change of one subscription's
@@ -38,6 +39,11 @@ type capacityChange struct {
 	// currentTraffic and targetTraffic are the traffic packs' bytes before
 	// and after the change.
 	currentTraffic, targetTraffic int64
+	// releasedSlots is how many device slots a reduction gives back, taken
+	// from the released packs in order; zero releases them whole.
+	releasedSlots                                 int
+	currentDevices, targetDevices, minimumDevices int
+	excessDevices                                 int
 }
 
 type releasedPack struct {
@@ -65,8 +71,16 @@ type CapacityChangeQuote struct {
 	// change's packs before and after.
 	CurrentTrafficBytes int64
 	TargetTrafficBytes  int64
-	ReleasedPacks       int
-	EndsAt              time.Time
+	// CurrentDeviceLimit and TargetDeviceLimit are a device reduction's limit
+	// before and after; MinimumDeviceLimit is the lowest it may go, what the
+	// plan includes. ExcessDevices is how many connected devices the new limit
+	// would leave over: the reduction is refused until they are gone.
+	CurrentDeviceLimit int
+	TargetDeviceLimit  int
+	MinimumDeviceLimit int
+	ExcessDevices      int
+	ReleasedPacks      int
+	EndsAt             time.Time
 }
 
 // CapacityChangeInput is a customer's mid-period capacity change.
@@ -78,9 +92,13 @@ type CapacityChangeInput struct {
 	// AddonVersionID is the traffic package to switch to; empty releases
 	// the current packages and adds none.
 	AddonVersionID string
-	SkipWallet     bool
-	ExpiresAt      time.Time
-	Provider       string
+	// DeviceLimit is the limit a device reduction asks for, and
+	// ConnectedDevices how many devices Remnawave reports connected now.
+	DeviceLimit      int
+	ConnectedDevices int
+	SkipWallet       bool
+	ExpiresAt        time.Time
+	Provider         string
 }
 
 // liveForChange resolves the customer's subscription and its live, running
@@ -207,6 +225,8 @@ func quoteChange(change capacityChange, currency string, walletBalance int64, sk
 		WalletMinor: domainOrder.WalletMinor - applied, ExternalMinor: domainOrder.ExternalMinor,
 		WalletBalanceMinor:  walletBalance,
 		CurrentTrafficBytes: change.currentTraffic, TargetTrafficBytes: change.targetTraffic,
+		CurrentDeviceLimit: change.currentDevices, TargetDeviceLimit: change.targetDevices,
+		MinimumDeviceLimit: change.minimumDevices, ExcessDevices: change.excessDevices,
 		ReleasedPacks: len(change.released), EndsAt: change.entitlement.EndsAt.Time,
 	}, domainOrder, nil
 }
@@ -317,7 +337,7 @@ func (store *Store) createCapacityChangeOrder(
 		BasisMinor: change.basisMinor, CreditMinor: change.creditMinor,
 		RemainingSeconds: max(int64(change.entitlement.EndsAt.Time.Sub(now)/time.Second), 0),
 		PeriodSeconds:    max(int64(change.entitlement.EndsAt.Time.Sub(change.entitlement.StartsAt.Time)/time.Second), 1),
-		ReleasedAddonIds: released,
+		ReleasedAddonIds: released, ReleasedSlots: int32(change.releasedSlots),
 	}); err != nil {
 		return dbgen.Order{}, err
 	}
@@ -340,6 +360,10 @@ func (store *Store) capacityCreditOwed(ctx context.Context, queries *dbgen.Queri
 	}
 	if err != nil || current.ID != line.SourceEntitlementID {
 		return false, err
+	}
+	if line.ReleasedSlots > 0 {
+		slots, slotErr := queries.CountReleasableSlots(ctx, dbgen.CountReleasableSlotsParams{EntitlementAddonIds: line.ReleasedAddonIds, EntitlementID: current.ID})
+		return slots >= line.ReleasedSlots, slotErr
 	}
 	count, err := queries.CountReleasablePacks(ctx, dbgen.CountReleasablePacksParams{EntitlementAddonIds: line.ReleasedAddonIds, EntitlementID: current.ID})
 	if err != nil {
@@ -370,6 +394,12 @@ func (store *Store) settleCapacityChange(ctx context.Context, tx pgx.Tx, queries
 	line, err := queries.GetOrderCredit(ctx, order.ID)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
+	}
+	if line.ReleasedSlots > 0 {
+		if entitlement, err = store.releaseSlots(ctx, queries, order, entitlement, line); err != nil {
+			return err
+		}
+		line.ReleasedAddonIds = nil
 	}
 	for _, packID := range line.ReleasedAddonIds {
 		pack, releaseErr := queries.ReleaseEntitlementAddon(ctx, dbgen.ReleaseEntitlementAddonParams{EntitlementAddonID: packID, OrderID: order.ID})
@@ -424,4 +454,159 @@ func (store *Store) takeBackPack(ctx context.Context, queries *dbgen.Queries, en
 		return queries.SubtractEntitlementTraffic(ctx, dbgen.SubtractEntitlementTrafficParams{EntitlementID: entitlement.ID, TrafficBytes: pack.TrafficBytes.Int64})
 	}
 	return entitlement, nil
+}
+
+// releaseSlots gives back a device reduction's slots, from the packs its
+// credit line names in order, and lowers the entitlement's device limit by
+// exactly what was given back.
+func (store *Store) releaseSlots(ctx context.Context, queries *dbgen.Queries, order dbgen.Order, entitlement dbgen.Entitlement, line dbgen.OrderCredit) (dbgen.Entitlement, error) {
+	remaining := int(line.ReleasedSlots)
+	given := 0
+	for _, packID := range line.ReleasedAddonIds {
+		if remaining <= 0 {
+			break
+		}
+		released, err := queries.ReleaseEntitlementAddonSlots(ctx, dbgen.ReleaseEntitlementAddonSlotsParams{EntitlementAddonID: packID, Slots: int32(remaining), OrderID: order.ID})
+		if errors.Is(err, pgx.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return entitlement, err
+		}
+		if released.EntitlementID != entitlement.ID {
+			continue
+		}
+		remaining -= int(released.Taken)
+		given += int(released.Taken)
+	}
+	if given == 0 {
+		return entitlement, nil
+	}
+	return queries.SubtractEntitlementDevices(ctx, dbgen.SubtractEntitlementDevicesParams{EntitlementID: entitlement.ID, DeviceSlots: int32(given)})
+}
+
+// planDeviceReduction prices lowering a subscription's device limit by giving
+// back slots bought as add-ons, newest first, each credited at what its order
+// took for it. The limit cannot go below what the plan itself includes. A
+// reduction is priced even while too many devices are connected, so the
+// preview can say how many must go first.
+func (store *Store) planDeviceReduction(ctx context.Context, queries *dbgen.Queries, userID pgtype.UUID, input CapacityChangeInput) (capacityChange, error) {
+	entitlement, err := store.liveForChange(ctx, queries, userID, input.SubscriptionID)
+	if err != nil {
+		return capacityChange{}, err
+	}
+	if !entitlement.DeviceLimit.Valid {
+		return capacityChange{}, commerce.ErrDeviceReductionUnavailable
+	}
+	packs, err := queries.ListLivePacks(ctx, entitlement.ID)
+	if err != nil {
+		return capacityChange{}, err
+	}
+	devicePacks := make([]dbgen.ListLivePacksRow, 0, len(packs))
+	releasable := 0
+	for _, pack := range packs {
+		if pack.AddonKind != "devices" || !pack.DeviceSlots.Valid || pack.DeviceSlots.Int32 <= pack.ReleasedSlots {
+			continue
+		}
+		devicePacks = append(devicePacks, pack)
+		releasable += int(pack.DeviceSlots.Int32 - pack.ReleasedSlots)
+	}
+	if releasable == 0 {
+		return capacityChange{}, commerce.ErrDeviceReductionUnavailable
+	}
+	current := int(entitlement.DeviceLimit.Int32)
+	change := capacityChange{
+		operation: OperationDeviceReduction, entitlement: entitlement,
+		currentDevices: current, minimumDevices: max(current-releasable, 0), targetDevices: input.DeviceLimit,
+	}
+	if input.DeviceLimit == current {
+		return change, commerce.ErrCapacityChangeSame
+	}
+	if input.DeviceLimit < change.minimumDevices || input.DeviceLimit > current {
+		return change, commerce.ErrDeviceReductionUnavailable
+	}
+	change.excessDevices = max(input.ConnectedDevices-input.DeviceLimit, 0)
+	now := store.clock().UTC()
+	needed := current - input.DeviceLimit
+	change.releasedSlots = needed
+	for _, pack := range devicePacks {
+		if needed <= 0 {
+			break
+		}
+		take := min(needed, int(pack.DeviceSlots.Int32-pack.ReleasedSlots))
+		whole := packCredit(pack, entitlement, input.Currency, now)
+		change.release(pack, commerce.RemainderCredit{
+			CreditMinor: commerce.ShareOf(whole.CreditMinor, take, int(pack.DeviceSlots.Int32)),
+			BasisMinor:  commerce.ShareOf(whole.BasisMinor, take, int(pack.DeviceSlots.Int32)),
+			Remaining:   whole.Remaining, Period: whole.Period,
+		})
+		needed -= take
+	}
+	return change, nil
+}
+
+// DeviceReductionQuote prices lowering a subscription's device limit to
+// input.DeviceLimit without opening an order. ExcessDevices says how many of
+// the connected devices must be disconnected first.
+func (store *Store) DeviceReductionQuote(ctx context.Context, input CapacityChangeInput) (CapacityChangeQuote, error) {
+	userID, err := parseUUID(input.CustomerID)
+	if err != nil {
+		return CapacityChangeQuote{}, err
+	}
+	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return CapacityChangeQuote{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	queries := dbgen.New(tx)
+	change, err := store.planDeviceReduction(ctx, queries, userID, input)
+	if err != nil {
+		return CapacityChangeQuote{}, err
+	}
+	wallet, err := availableWallet(ctx, queries, userID, input.Currency)
+	if err != nil {
+		return CapacityChangeQuote{}, err
+	}
+	quote, _, err := quoteChange(change, input.Currency, wallet, input.SkipWallet)
+	return quote, err
+}
+
+// DeviceLimitRange reports a subscription's device limit now and the lowest a
+// reduction may take it to; ok is false when it has no bought slots to give
+// back.
+func (store *Store) DeviceLimitRange(ctx context.Context, customerID, subscriptionID string) (current, minimum int, ok bool, err error) {
+	userID, err := parseUUID(customerID)
+	if err != nil {
+		return 0, 0, false, err
+	}
+	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return 0, 0, false, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	change, err := store.planDeviceReduction(ctx, dbgen.New(tx), userID, CapacityChangeInput{SubscriptionID: subscriptionID, DeviceLimit: -1})
+	switch {
+	case change.currentDevices > 0 && change.minimumDevices < change.currentDevices:
+		return change.currentDevices, change.minimumDevices, true, nil
+	case err == nil, errors.Is(err, commerce.ErrDeviceReductionUnavailable), errors.Is(err, commerce.ErrCapacityChangeSame),
+		errors.Is(err, ErrNoActiveSubscription), errors.Is(err, ErrSubscriptionUnknown):
+		return 0, 0, false, nil
+	default:
+		return 0, 0, false, err
+	}
+}
+
+// CreateDeviceReductionOrder opens the order that lowers a subscription's
+// device limit. It charges nothing; what is left of the slots it gives back
+// is credited to the wallet. It is refused while more devices are connected
+// than the new limit allows.
+func (store *Store) CreateDeviceReductionOrder(ctx context.Context, input CapacityChangeInput) (dbgen.Order, error) {
+	return store.createCapacityChangeOrder(ctx, input, OperationDeviceReduction,
+		func(ctx context.Context, queries *dbgen.Queries, userID pgtype.UUID, input CapacityChangeInput) (capacityChange, error) {
+			change, err := store.planDeviceReduction(ctx, queries, userID, input)
+			if err == nil && change.excessDevices > 0 {
+				return capacityChange{}, fmt.Errorf("%w: %d", commerce.ErrDevicesOverLimit, change.excessDevices)
+			}
+			return change, err
+		})
 }

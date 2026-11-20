@@ -93,7 +93,7 @@ func (q *Queries) CountOpenSubscriptionOrders(ctx context.Context, subscriptionI
 const expireTrafficPack = `-- name: ExpireTrafficPack :one
 UPDATE entitlement_addons SET expired_at = now()
 WHERE id = $1 AND expired_at IS NULL AND released_at IS NULL
-RETURNING id, entitlement_id, order_id, addon_version_id, quantity, traffic_bytes, device_slots, remnawave_squad_ids, applied_at, expires_at, expired_at, released_at, released_by_order_id
+RETURNING id, entitlement_id, order_id, addon_version_id, quantity, traffic_bytes, device_slots, remnawave_squad_ids, applied_at, expires_at, expired_at, released_at, released_by_order_id, released_slots
 `
 
 // Marks one pack as taken back. The predicate makes a replayed pass match
@@ -115,6 +115,7 @@ func (q *Queries) ExpireTrafficPack(ctx context.Context, entitlementAddonID pgty
 		&i.ExpiredAt,
 		&i.ReleasedAt,
 		&i.ReleasedByOrderID,
+		&i.ReleasedSlots,
 	)
 	return i, err
 }

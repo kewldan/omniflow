@@ -121,3 +121,23 @@ var (
 	// exactly where it is.
 	ErrCapacityChangeSame = errors.New("capacity_change_same")
 )
+
+var (
+	// ErrDeviceReductionUnavailable refuses a device reduction on a
+	// subscription with unlimited devices, one with no bought slots to give
+	// back, or a target below what the plan itself includes.
+	ErrDeviceReductionUnavailable = errors.New("device_reduction_unavailable")
+	// ErrDevicesOverLimit refuses a device reduction while more devices are
+	// connected than the new limit allows. The customer disconnects some
+	// first; Remnawave holds the devices and Omniflow does not pick which go.
+	ErrDevicesOverLimit = errors.New("devices_over_limit")
+)
+
+// ShareOf is part of a whole amount, rounded down: what `part` units of
+// `total` are worth when all of them are worth `amountMinor`.
+func ShareOf(amountMinor int64, part, total int) int64 {
+	if part <= 0 || total <= 0 {
+		return 0
+	}
+	return scaleRoundingDown(amountMinor, int64(part), int64(total))
+}

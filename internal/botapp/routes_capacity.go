@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"html"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/omniflow/omniflow/internal/accountcheckout"
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/commercepg"
+	"github.com/omniflow/omniflow/internal/remnawave"
 )
 
 // noPackage stands for "no traffic package" in a callback, where an add-on
@@ -39,12 +41,15 @@ func withRowBeforeLast(view View, button []models.InlineKeyboardButton) View {
 
 // withCapacityButtons offers the mid-period changes a subscription can make.
 func (app *App) withCapacityButtons(ctx context.Context, session commerceContext, subscription SubscriptionSummary, view View) View {
-	if !subscription.Found || app.commerce == nil || app.commerce.checkout == nil {
+	if !subscription.Found || app.commerce == nil || app.commerce.checkout == nil || app.commerce.orders == nil {
 		return view
 	}
 	slot := strconv.Itoa(subscription.Slot)
 	if packages, err := app.commerce.TrafficPackages(ctx, session.Customer.ID, subscription.ID, session.Locale); err == nil && packages.Available {
 		view = withRowBeforeLast(view, row(actionButton(text(session.Locale, "capacity.trafficButton"), "tpk:"+slot)))
+	}
+	if _, _, ok, err := app.commerce.orders.DeviceLimitRange(ctx, session.Customer.ID, subscription.ID); err == nil && ok {
+		view = withRowBeforeLast(view, row(actionButton(text(session.Locale, "capacity.devicesButton"), "devl:"+slot)))
 	}
 	return view
 }
@@ -69,6 +74,20 @@ func (app *App) handleCapacityAction(ctx context.Context, session commerceContex
 			return app.trafficPackageConfirmScreen(ctx, session, parts[1], target)
 		}
 		return app.changeTrafficPackage(ctx, session, parts[1], target)
+	case "devl":
+		if len(parts) != 2 {
+			return app.errorView(session.Locale, routeSubscriptions)
+		}
+		return app.deviceLimitsScreen(ctx, session, parts[1])
+	case "devl-ask", "devl-buy":
+		limit, err := strconv.Atoi(parts[len(parts)-1])
+		if len(parts) != 3 || err != nil {
+			return app.errorView(session.Locale, routeSubscriptions)
+		}
+		if parts[0] == "devl-ask" {
+			return app.deviceLimitConfirmScreen(ctx, session, parts[1], limit)
+		}
+		return app.reduceDeviceLimit(ctx, session, parts[1], limit)
 	}
 	return app.errorView(session.Locale, routeSubscriptions)
 }
@@ -244,4 +263,130 @@ func capacityConfirmView(locale Locale, subscription SubscriptionSummary, summar
 		row(actionButton(text(locale, "capacity.confirm"), confirm)),
 		row(actionButton(text(locale, "action.cancel"), "sub:"+subscription.ID)),
 	)}
+}
+
+// connectedCount reads how many devices the subscription's Remnawave user has
+// registered, least recently seen last. A subscription never provisioned has
+// none; ok is false when the panel did not answer.
+func (app *App) connectedDevices(ctx context.Context, subscription SubscriptionSummary) ([]remnawave.Device, bool) {
+	if !subscription.Provisioned() {
+		return nil, true
+	}
+	devices, err := app.remnawave.Devices(ctx, subscription.RemnawaveID)
+	if err != nil {
+		app.logger.Error("Remnawave device lookup failed", "error", err)
+		return nil, false
+	}
+	listed := append([]remnawave.Device(nil), devices.Devices...)
+	sort.SliceStable(listed, func(left, right int) bool { return listed[left].UpdatedAt.After(listed[right].UpdatedAt) })
+	return listed, true
+}
+
+func (app *App) deviceLimitsScreen(ctx context.Context, session commerceContext, slot string) View {
+	subscription, ok := app.capacitySubscription(ctx, session, slot)
+	if !ok {
+		return capacityUnavailableView(session.Locale, "", "capacity.devicesUnavailable")
+	}
+	current, minimum, available, err := app.commerce.orders.DeviceLimitRange(ctx, session.Customer.ID, subscription.ID)
+	if err != nil {
+		app.logger.Error("device limit lookup failed", "error", err)
+		return app.errorView(session.Locale, routeSubscriptions)
+	}
+	if !available {
+		return capacityUnavailableView(session.Locale, subscription.ID, "capacity.devicesUnavailable")
+	}
+	return deviceLimitsView(session.Locale, subscription, current, minimum, slot)
+}
+
+func (app *App) deviceLimitConfirmScreen(ctx context.Context, session commerceContext, slot string, limit int) View {
+	subscription, ok := app.capacitySubscription(ctx, session, slot)
+	if !ok {
+		return capacityUnavailableView(session.Locale, "", "capacity.devicesUnavailable")
+	}
+	devices, ok := app.connectedDevices(ctx, subscription)
+	if !ok {
+		return app.errorView(session.Locale, routeSubscriptions)
+	}
+	quote, err := app.commerce.orders.DeviceReductionQuote(ctx, commercepg.CapacityChangeInput{
+		CustomerID: session.Customer.ID, SubscriptionID: subscription.ID, Currency: app.settings.Currency,
+		DeviceLimit: limit, ConnectedDevices: len(devices),
+	})
+	if err != nil {
+		return capacityUnavailableView(session.Locale, subscription.ID, "capacity.devicesUnavailable")
+	}
+	if quote.ExcessDevices > 0 {
+		return devicesOverLimitView(session.Locale, subscription, limit, quote.ExcessDevices, devices[min(limit, len(devices)):])
+	}
+	return capacityConfirmView(session.Locale, subscription, text(session.Locale, "capacity.devicesConfirm", limit),
+		quote, "devl-buy:"+slot+":"+strconv.Itoa(limit))
+}
+
+// reduceDeviceLimit opens the device_reduction order. It charges nothing, so
+// it always settles at once and its credit lands in the wallet.
+func (app *App) reduceDeviceLimit(ctx context.Context, session commerceContext, slot string, limit int) View {
+	subscription, ok := app.capacitySubscription(ctx, session, slot)
+	if !ok {
+		return capacityUnavailableView(session.Locale, "", "capacity.devicesUnavailable")
+	}
+	devices, ok := app.connectedDevices(ctx, subscription)
+	if !ok {
+		return app.errorView(session.Locale, routeSubscriptions)
+	}
+	key, err := keyOrNew(session.TapKey)
+	if err != nil {
+		return app.errorView(session.Locale, routeSubscriptions)
+	}
+	order, err := app.commerce.orders.CreateDeviceReductionOrder(ctx, commercepg.CapacityChangeInput{
+		CustomerID: session.Customer.ID, SubscriptionID: subscription.ID, Currency: app.settings.Currency,
+		DeviceLimit: limit, ConnectedDevices: len(devices), IdempotencyKey: "bot-devices:" + key,
+	})
+	if errors.Is(err, commerce.ErrDevicesOverLimit) {
+		return devicesOverLimitView(session.Locale, subscription, limit, max(len(devices)-limit, 1), devices[min(limit, len(devices)):])
+	}
+	if errors.Is(err, commerce.ErrDeviceReductionUnavailable) || errors.Is(err, commerce.ErrCapacityChangeSame) || errors.Is(err, commercepg.ErrNoActiveSubscription) {
+		return capacityUnavailableView(session.Locale, subscription.ID, "capacity.devicesUnavailable")
+	}
+	if err != nil {
+		app.logger.Error("device reduction order failed", "error", err)
+		return app.errorView(session.Locale, routeSubscriptions)
+	}
+	return app.capacityOrderView(ctx, session, uuidText(order.ID))
+}
+
+func deviceLimitsView(locale Locale, subscription SubscriptionSummary, current, minimum int, slot string) View {
+	body := text(locale, "capacity.devicesTitle") + "\n\n" +
+		text(locale, "subs.detail", html.EscapeString(subscription.Label)) + "\n\n" +
+		text(locale, "capacity.devicesCurrent", current, minimum)
+	rows := make([][]models.InlineKeyboardButton, 0, current-minimum+1)
+	for limit := current - 1; limit >= minimum; limit-- {
+		rows = append(rows, row(actionButton(text(locale, "capacity.devicesOption", limit), "devl-ask:"+slot+":"+strconv.Itoa(limit))))
+	}
+	rows = append(rows, row(actionButton(text(locale, "action.back"), "sub:"+subscription.ID)))
+	return View{Text: body, Keyboard: keyboard(rows...)}
+}
+
+// devicesOverLimitView says which devices a lower limit would leave over and
+// sends the customer to disconnect them; Omniflow does not pick for them.
+func devicesOverLimitView(locale Locale, subscription SubscriptionSummary, limit, excess int, leftOver []remnawave.Device) View {
+	lines := []string{text(locale, "capacity.devicesExcess", excess, limit), ""}
+	for _, device := range leftOver {
+		lines = append(lines, "• "+html.EscapeString(remoteDeviceLabel(device)))
+	}
+	return View{Text: strings.Join(lines, "\n"), Keyboard: keyboard(
+		row(actionButton(text(locale, "subs.devices"), "sub-devices:"+subscription.ID)),
+		row(actionButton(text(locale, "action.back"), "sub:"+subscription.ID)),
+	)}
+}
+
+func remoteDeviceLabel(device remnawave.Device) string {
+	parts := make([]string, 0, 2)
+	for _, value := range []*string{device.DeviceModel, device.Platform} {
+		if value != nil && strings.TrimSpace(*value) != "" {
+			parts = append(parts, strings.TrimSpace(*value))
+		}
+	}
+	if len(parts) == 0 {
+		return "—"
+	}
+	return strings.Join(parts, " · ")
 }

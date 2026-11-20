@@ -4632,6 +4632,34 @@ export interface AccountCapacityQuote {
   endsAt?: string;
 }
 
+export type AccountDeviceReductionDevicesItem = {
+  handle: string;
+  name: string;
+  platform: string;
+  alias?: string;
+  lastSeen: string;
+};
+
+export type AccountDeviceReductionOptionsItem = {
+  deviceLimit: number;
+  /** Connected devices to disconnect before this limit is accepted. */
+  excessDevices: number;
+  quote: AccountCapacityQuote;
+};
+
+export interface AccountDeviceReduction {
+  available: boolean;
+  reason?: string;
+  currency: string;
+  currentLimit: number;
+  /** The lowest the limit may go, what the plan includes. */
+  minimumLimit: number;
+  /** Devices Remnawave reports connected now. */
+  connected: number;
+  devices: AccountDeviceReductionDevicesItem[];
+  options: AccountDeviceReductionOptionsItem[];
+}
+
 export type AccountTrafficPackagesOptionsItemDirection =
   (typeof AccountTrafficPackagesOptionsItemDirection)[keyof typeof AccountTrafficPackagesOptionsItemDirection];
 
@@ -7211,6 +7239,11 @@ export const GetAccountTrafficPackagesLocale = {
 export type ChangeAccountTrafficPackageBody = {
   /** The package to switch to; omitted to drop the current packages. */
   addonVersionId?: string;
+};
+
+export type ReduceAccountDeviceLimitBody = {
+  /** @minimum 0 */
+  deviceLimit: number;
 };
 
 export type ListAccountSubscriptionAddonsParams = {
@@ -30484,6 +30517,184 @@ export const useChangeAccountTrafficPackage = <TError = Promise<ProblemResponse>
 
   const swrKey = swrOptions?.swrKey ?? getChangeAccountTrafficPackageMutationKey(subscriptionID);
   const swrFn = getChangeAccountTrafficPackageMutationFetcher(subscriptionID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountDeviceReductionResponse200 = {
+  data: AccountDeviceReduction;
+  status: 200;
+};
+
+export type getAccountDeviceReductionResponse502 = {
+  data: ProblemResponse;
+  status: 502;
+};
+
+export type getAccountDeviceReductionResponseSuccess = getAccountDeviceReductionResponse200 & {
+  headers: Headers;
+};
+export type getAccountDeviceReductionResponseError = getAccountDeviceReductionResponse502 & {
+  headers: Headers;
+};
+
+export type getAccountDeviceReductionResponse =
+  | getAccountDeviceReductionResponseSuccess
+  | getAccountDeviceReductionResponseError;
+
+export const getGetAccountDeviceReductionUrl = (subscriptionID: string) => {
+  return `/v1/account/subscriptions/${subscriptionID}/device-limit`;
+};
+
+/**
+ * The lower device limits a live subscription may move to by giving back device slots bought as add-ons, each with the credit it hands back and `excessDevices`, how many connected devices it would leave over. The connected devices are read from Remnawave and listed most recently seen first; 502 when the panel does not answer.
+ */
+export const getAccountDeviceReduction = async (
+  subscriptionID: string,
+  options?: RequestInit,
+): Promise<getAccountDeviceReductionResponse> => {
+  const res = await fetch(getGetAccountDeviceReductionUrl(subscriptionID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountDeviceReductionResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getAccountDeviceReductionResponse;
+};
+
+export const getGetAccountDeviceReductionKey = (subscriptionID: string) =>
+  [`/v1/account/subscriptions/${subscriptionID}/device-limit`] as const;
+
+export type GetAccountDeviceReductionQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountDeviceReduction>>
+>;
+
+export const useGetAccountDeviceReduction = <TError = Promise<ProblemResponse>>(
+  subscriptionID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountDeviceReduction>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && subscriptionID !== null && subscriptionID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ??
+    (() => (isEnabled ? getGetAccountDeviceReductionKey(subscriptionID) : null));
+  const swrFn = () => getAccountDeviceReduction(subscriptionID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type reduceAccountDeviceLimitResponse201 = {
+  data: AccountOrder;
+  status: 201;
+};
+
+export type reduceAccountDeviceLimitResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type reduceAccountDeviceLimitResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type reduceAccountDeviceLimitResponse502 = {
+  data: ProblemResponse;
+  status: 502;
+};
+
+export type reduceAccountDeviceLimitResponseSuccess = reduceAccountDeviceLimitResponse201 & {
+  headers: Headers;
+};
+export type reduceAccountDeviceLimitResponseError = (
+  | reduceAccountDeviceLimitResponse409
+  | reduceAccountDeviceLimitResponse422
+  | reduceAccountDeviceLimitResponse502
+) & {
+  headers: Headers;
+};
+
+export type reduceAccountDeviceLimitResponse =
+  | reduceAccountDeviceLimitResponseSuccess
+  | reduceAccountDeviceLimitResponseError;
+
+export const getReduceAccountDeviceLimitUrl = (subscriptionID: string) => {
+  return `/v1/account/subscriptions/${subscriptionID}/device-limit`;
+};
+
+/**
+ * Opens a device_reduction order, which charges nothing and credits what is left of the slots it gives back. Refused with 409 devices_over_limit while more devices are connected than the new limit allows.
+ */
+export const reduceAccountDeviceLimit = async (
+  subscriptionID: string,
+  reduceAccountDeviceLimitBody: ReduceAccountDeviceLimitBody,
+  options?: RequestInit,
+): Promise<reduceAccountDeviceLimitResponse> => {
+  const res = await fetch(getReduceAccountDeviceLimitUrl(subscriptionID), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(reduceAccountDeviceLimitBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: reduceAccountDeviceLimitResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as reduceAccountDeviceLimitResponse;
+};
+
+export const getReduceAccountDeviceLimitMutationFetcher = (
+  subscriptionID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: ReduceAccountDeviceLimitBody }) => {
+    return reduceAccountDeviceLimit(subscriptionID, arg, options);
+  };
+};
+export const getReduceAccountDeviceLimitMutationKey = (subscriptionID: string) =>
+  [`/v1/account/subscriptions/${subscriptionID}/device-limit`] as const;
+
+export type ReduceAccountDeviceLimitMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reduceAccountDeviceLimit>>
+>;
+
+export const useReduceAccountDeviceLimit = <TError = Promise<ProblemResponse>>(
+  subscriptionID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof reduceAccountDeviceLimit>>,
+      TError,
+      Key,
+      ReduceAccountDeviceLimitBody,
+      Awaited<ReturnType<typeof reduceAccountDeviceLimit>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getReduceAccountDeviceLimitMutationKey(subscriptionID);
+  const swrFn = getReduceAccountDeviceLimitMutationFetcher(subscriptionID, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 
