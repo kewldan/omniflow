@@ -256,6 +256,11 @@ migration enables (it is a trusted extension, so the database owner can create
 it without superuser). Search is limited to 60 requests a minute per operator
 and, like every other read in the panel, is not written to the audit trail.
 
+A customer found in the palette also offers its actions — grant, restrict, or change the
+plan; message or open support; the activity log — each opening the customer card on the
+tab that does it (`/admin/customers/{id}?tab=controls`), where the card's own permission
+checks apply.
+
 ## Live updates
 
 Open panel screens stay current on their own. The panel keeps one server-sent event stream

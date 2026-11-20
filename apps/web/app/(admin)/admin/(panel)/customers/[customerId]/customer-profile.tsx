@@ -8,6 +8,7 @@ import { Label } from "@omniflow/ui/label";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@omniflow/ui/tabs";
+import { useSearchParams } from "next/navigation";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { type ReactNode, useId, useState } from "react";
 import useSWR, { mutate as revalidate } from "swr";
@@ -49,7 +50,9 @@ export function CustomerProfileView({ customerId }: { customerId: string }) {
   const locale = useLocale();
   const format = useFormatter();
   const { can } = useSession();
-  const [tab, setTab] = useState("subscriptions");
+  // The command palette opens a card straight on a tab (?tab=controls).
+  const requestedTab = useSearchParams().get("tab");
+  const [tab, setTab] = useState(requestedTab ?? "subscriptions");
 
   const base = `/v1/panel/customers/${customerId}`;
   const {

@@ -230,7 +230,12 @@
           "redeemed": "redeemed"
         },
         "created": "created {date, date, medium}",
-        "lastMessage": "last message {date, date, medium}"
+        "lastMessage": "last message {date, date, medium}",
+        "actions": {
+          "controls": "Grant, restrict, or change the plan — {title}",
+          "support": "Message or open support — {title}",
+          "activity": "Activity log — {title}"
+        }
       }
     },
     "userMenu": {

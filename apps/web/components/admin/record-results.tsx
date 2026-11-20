@@ -201,9 +201,27 @@ export function RecordResults({
         const Icon = GROUP_ICONS[group.group];
         return (
           <CommandGroup heading={translate(`groups.${group.group}`)} key={group.group}>
-            {group.items.map((hit) => {
+            {group.items.flatMap((hit) => {
               const { detail, title } = describe(group.group, hit);
-              return (
+              // Actions on a found customer open the card on the tab that does
+              // them; the card's own permission checks still apply there.
+              const actions =
+                group.group === "customers"
+                  ? (["controls", "support", "activity"] as const).map((tab) => (
+                      <CommandItem
+                        keywords={[search]}
+                        key={`${group.group}-${hit.id}-${tab}`}
+                        onSelect={() => onSelect(`/admin/customers/${hit.id}?tab=${tab}`)}
+                        value={`record ${group.group} ${hit.id} ${tab}`}
+                      >
+                        <span className="w-4" />
+                        <span className="truncate text-muted-foreground text-xs">
+                          {translate(`actions.${tab}`, { title })}
+                        </span>
+                      </CommandItem>
+                    ))
+                  : [];
+              return [
                 <CommandItem
                   // The API already decided these match. Carrying the live
                   // input as a keyword keeps the palette's own filter from
@@ -223,8 +241,9 @@ export function RecordResults({
                         .join(" · ")}
                     </span>
                   </div>
-                </CommandItem>
-              );
+                </CommandItem>,
+                ...actions,
+              ];
             })}
           </CommandGroup>
         );

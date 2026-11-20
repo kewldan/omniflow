@@ -230,7 +230,12 @@
           "redeemed": "использован"
         },
         "created": "создан {date, date, medium}",
-        "lastMessage": "последнее сообщение {date, date, medium}"
+        "lastMessage": "последнее сообщение {date, date, medium}",
+        "actions": {
+          "controls": "Выдать, ограничить или сменить тариф — {title}",
+          "support": "Написать или открыть поддержку — {title}",
+          "activity": "Журнал активности — {title}"
+        }
       }
     },
     "userMenu": {
