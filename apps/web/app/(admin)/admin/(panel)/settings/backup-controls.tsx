@@ -37,6 +37,8 @@ export function BackupControls() {
   const { data: history, mutate: refreshHistory } = useSWR<{ backups: Backup[] | null }, ApiError>(
     can("settings.read") ? "/v1/panel/settings/backups" : null,
     fetcher,
+    // A deletion is carried out by the worker, so the list catches up on its own.
+    { refreshInterval: 10000 },
   );
   const { data: requests, mutate: refreshRequests } = useSWR<{ items: BackupRequest[] }, ApiError>(
     can("system.read") ? "/v1/panel/system/backups/requests" : null,
@@ -45,6 +47,7 @@ export function BackupControls() {
   );
   const { run, pending } = useOperatorAction();
   const [restoring, setRestoring] = useState<Backup | null>(null);
+  const [deleting, setDeleting] = useState<Backup | null>(null);
   const [reason, setReason] = useState("");
   const reasonId = useId();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -135,7 +138,7 @@ export function BackupControls() {
                     </Button>
                     <Button
                       disabled={pending}
-                      onClick={() => request("delete", item.id)}
+                      onClick={() => setDeleting(item)}
                       size="sm"
                       variant="ghost"
                     >
@@ -193,6 +196,22 @@ export function BackupControls() {
           onOpenChange={(open) => !open && setRestoring(null)}
           open={restoring !== null}
           title={translate("restoreTitle")}
+        />
+        <ConfirmDialog
+          cancelLabel={translate("cancel")}
+          confirmLabel={translate("delete")}
+          description={translate("deleteWarning")}
+          destructive
+          onConfirm={() => {
+            const target = deleting;
+            setDeleting(null);
+            if (target) {
+              request("delete", target.id);
+            }
+          }}
+          onOpenChange={(open) => !open && setDeleting(null)}
+          open={deleting !== null}
+          title={translate("deleteTitle")}
         />
       </CardContent>
     </Card>

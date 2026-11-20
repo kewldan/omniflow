@@ -17,8 +17,9 @@ import (
 
 // scheduledBackup is the backup pass. River runs it every five minutes; it
 // asks the backup section of the installation settings whether a backup is
-// due — on an interval, or at a time of day — and claims the run through the
-// gate, so a schedule changed in the panel applies on the next tick.
+// due — at a time of day, on an interval, or both — and claims each schedule
+// through the gate, so a schedule changed in the panel applies on the next
+// tick.
 type scheduledBackup struct {
 	service   *backup.Service
 	settings  *installsettings.Reader
@@ -35,16 +36,7 @@ func (scheduled scheduledBackup) Run(ctx context.Context) error {
 		return nil
 	}
 	scheduled.service.SetRetention(section.Duration("retentionDays", 24*time.Hour, scheduled.fallback.Retention))
-	var (
-		due bool
-		err error
-	)
-	if slot, ok := installsettings.ClockMinutes(section.String("timeOfDay", "")); ok {
-		due, err = scheduled.gate.ClaimAt(ctx, "backup", time.Now().In(scheduled.settings.Location(ctx)), slot)
-	} else {
-		due, err = scheduled.gate.Claim(ctx, "backup",
-			section.Duration("intervalHours", time.Hour, scheduled.fallback.Interval))
-	}
+	due, err := scheduled.due(ctx, section)
 	if err != nil || !due {
 		return err
 	}
@@ -56,6 +48,43 @@ func (scheduled scheduledBackup) Run(ctx context.Context) error {
 		scheduled.deliver(ctx, section, record.FileName, scheduled.service.Path(record))
 	}
 	return scheduled.service.Prune(ctx)
+}
+
+// due claims whichever schedules are due. The time of day is local to the
+// installation's timezone. The interval runs beside it when the operator set
+// one; with only a time of day saved, the environment's interval
+// (APP_BACKUP_INTERVAL_HOURS) does not also apply, so choosing "every day at
+// 03:00" does not quietly add a second daily backup at some other hour. Each
+// schedule has its own gate row, and both are claimed on every tick, so a
+// tick on which both are due takes one backup and moves both on.
+func (scheduled scheduledBackup) due(ctx context.Context, section installsettings.Document) (bool, error) {
+	slot, daily, interval := backupSchedules(section)
+	var due bool
+	if daily {
+		claimed, err := scheduled.gate.ClaimAt(ctx, "backup_daily",
+			time.Now().In(scheduled.settings.Location(ctx)), slot)
+		if err != nil {
+			return false, err
+		}
+		due = claimed
+	}
+	if interval {
+		claimed, err := scheduled.gate.Claim(ctx, "backup",
+			section.Duration("intervalHours", time.Hour, scheduled.fallback.Interval))
+		if err != nil {
+			return false, err
+		}
+		due = due || claimed
+	}
+	return due, nil
+}
+
+// backupSchedules reads which schedules the backup section asks for: the
+// minutes past local midnight of a daily backup, whether there is one, and
+// whether the interval applies too.
+func backupSchedules(section installsettings.Document) (slot int, daily, interval bool) {
+	slot, daily = installsettings.ClockMinutes(section.String("timeOfDay", ""))
+	return slot, daily, !daily || section.Int("intervalHours", 0) > 0
 }
 
 // deliver sends the encrypted file to the chat the backup section names. The

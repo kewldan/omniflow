@@ -139,6 +139,18 @@ backup, and the reason: `backup.created` for a manual backup, then
 `backup.restore_requested` and `backup.restored` around a restore. The restore's reason is
 recorded as *"restore requested from Telegram by operator &lt;id&gt;"*.
 
+### Scheduling by time of day
+
+The backup section of the installation settings (`/admin/settings/operations`) can take a
+scheduled backup at a time of day as well as on an interval. `timeOfDay` (`HH:MM`) is read in
+the installation's timezone (`timezone` in the branding section), so `03:00` means three in
+the morning where you are, through daylight-saving changes. `intervalHours` runs beside it when
+both are saved. With only a time of day saved, `APP_BACKUP_INTERVAL_HOURS` does not also apply,
+so choosing a daily slot does not add a second daily backup at another hour; with neither saved,
+the environment interval is the schedule. Each schedule is claimed separately, so a tick on
+which both are due takes one backup. A slot that passed while the worker was down is caught up
+when it starts.
+
 ## From the web panel
 
 `/admin/settings/operations` carries **Back up and restore** for operators holding
@@ -151,7 +163,8 @@ ended):
 - **Restore** replays any completed backup — not only the latest — over the live database,
   after typing `RESTORE` and giving a reason. It is the same `pg_restore --clean` the bot's
   `/ops` runs, and it is recorded in the restore history.
-- **Delete** removes the file and marks the backup pruned; the row stays.
+- **Delete** asks for confirmation, then removes the file and marks the backup pruned; the row
+  stays. Other backups are not touched.
 - **Upload a backup file** stores an encrypted backup taken elsewhere — another server, an
   older installation — as an `uploaded` backup, after checking that every frame opens with
   this installation's `APP_BACKUP_ENCRYPTION_KEY`; a file that does not is refused with

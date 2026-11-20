@@ -3684,7 +3684,7 @@
         "allowedOrigins": "Allowed origins",
         "disabledKinds": "Streams switched off",
         "fulfillmentAlertAttempts": "Failed provisioning attempts before alerting",
-        "backupTimeOfDay": "Back up at (local time, overrides the interval)",
+        "backupTimeOfDay": "Also back up daily at (installation time zone)",
         "backupTelegramChat": "Send each backup file to chat ID",
         "backupTelegramThread": "Topic ID in that chat (optional)",
         "reportPeriods": "Reports to send",
@@ -4372,7 +4372,9 @@
         "create": "Backup",
         "restore": "Restore",
         "delete": "Deletion"
-      }
+      },
+      "deleteTitle": "Delete this backup?",
+      "deleteWarning": "The encrypted file is removed from the backup directory and cannot be restored from afterwards. Other backups are not affected."
     },
     "customRoles": {
       "title": "Custom roles",
