@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"github.com/omniflow/omniflow/internal/recurring"
 	"log/slog"
 	"net/http"
 	"os"
@@ -212,9 +213,15 @@ func periodicTasks(
 			return nil, nil, err
 		}
 	}
+	dunningSchedule, err := recurring.ParseSchedule(
+		os.Getenv("APP_RENEWAL_RETRY_HOURS"), os.Getenv("APP_RENEWAL_NOTIFY_FROM_ATTEMPT"),
+	)
+	if err != nil {
+		return nil, nil, err
+	}
 	renewals := renewal.New(
 		pool, core.Store, core.Payments, paymentservice.Index(core.Providers), logger, renewal.Config{
-			LowBalanceWarning: lowBalanceWarning(),
+			LowBalanceWarning: lowBalanceWarning(), Schedule: dunningSchedule,
 		},
 	)
 	scheduler := fulfillment.NewScheduler(pool, inserter)

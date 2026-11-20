@@ -53,6 +53,9 @@ type Config struct {
 	// the customer is told the balance will not cover it. Zero is the
 	// default (48 hours); negative turns the warning off.
 	LowBalanceWarning time.Duration
+	// Schedule is the dunning cadence; the zero value is
+	// recurring.DefaultSchedule.
+	Schedule recurring.Schedule
 }
 
 // Charger settles one payment. It is the paymentservice, narrowed to what this
@@ -316,7 +319,7 @@ func (worker *Worker) cycleOrder(
 		// The order outlives the whole dunning schedule. Every attempt on the
 		// cycle settles this one order, so the fourth attempt must still find
 		// it payable.
-		ExpiresAt: worker.clock().UTC().Add(recurring.CycleOrderLifetime()),
+		ExpiresAt: worker.clock().UTC().Add(worker.config.Schedule.CycleOrderLifetime()),
 	}
 	// A subscription bought for one of the version's other periods renews for
 	// that period, as long as the version still offers it for renewal.
@@ -476,7 +479,7 @@ func (worker *Worker) succeed(
 func (worker *Worker) fail(
 	ctx context.Context, queries *dbgen.Queries, attempt dbgen.DunningAttempt, code string,
 ) error {
-	next := recurring.ScheduleNext(int(attempt.Attempt), worker.clock().UTC())
+	next := worker.config.Schedule.ScheduleNext(int(attempt.Attempt), worker.clock().UTC())
 	outcome := recurring.OutcomeFailed
 	if next.Abandon {
 		outcome = recurring.OutcomeAbandoned
@@ -544,7 +547,7 @@ func (worker *Worker) resolve(
 func (worker *Worker) defer_(
 	ctx context.Context, queries *dbgen.Queries, attempt dbgen.DunningAttempt,
 ) error {
-	next := worker.clock().UTC().Add(recurring.RetryDelay(int(attempt.Attempt) + 1))
+	next := worker.clock().UTC().Add(worker.config.Schedule.RetryDelay(int(attempt.Attempt) + 1))
 	_, err := queries.DeferDunningAttempt(ctx, dbgen.DeferDunningAttemptParams{
 		AttemptID: attempt.ID, ScheduledFor: pgtype.Timestamptz{Time: next, Valid: true},
 	})

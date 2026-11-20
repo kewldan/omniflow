@@ -172,16 +172,7 @@ const MaxAttempts = 4
 // daily limit, a bank hold — are resolved by a person in hours, not by a
 // retry a minute later.
 func RetryDelay(attempt int) time.Duration {
-	switch {
-	case attempt <= 1:
-		return 0
-	case attempt == 2:
-		return 4 * time.Hour
-	case attempt == 3:
-		return 12 * time.Hour
-	default:
-		return 24 * time.Hour
-	}
+	return DefaultSchedule.RetryDelay(attempt)
 }
 
 // DunningWindow is how long a cycle can take from its first attempt to its
@@ -235,18 +226,7 @@ type NextAttempt struct {
 
 // ScheduleNext decides what follows a failed charge.
 func ScheduleNext(attempt int, now time.Time) NextAttempt {
-	if attempt < 1 {
-		attempt = 1
-	}
-	if attempt >= MaxAttempts {
-		return NextAttempt{Abandon: true, Notify: true}
-	}
-	next := attempt + 1
-	return NextAttempt{
-		Attempt: next,
-		At:      now.Add(RetryDelay(next)),
-		Notify:  next >= 3,
-	}
+	return DefaultSchedule.ScheduleNext(attempt, now)
 }
 
 // StateAfter reports the auto-renew state a cycle outcome leaves behind.

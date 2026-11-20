@@ -178,6 +178,16 @@ After the fourth failure the cycle is abandoned, the settings move to
 `suspended`, and the customer is handed back to manual renewal. Consent is not
 discarded — the worker simply stops picking the row up.
 
+The cadence above is the default. The worker reads two settings to change it:
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `APP_RENEWAL_RETRY_HOURS` | `4,12,24` | Hours to wait before each retry; one attempt more than there are entries. At most nine retries, together within fourteen days |
+| `APP_RENEWAL_NOTIFY_FROM_ATTEMPT` | `2` | The first failed attempt the customer is told about; the final abandonment is always announced |
+
+The cycle's order stays payable for the sum of the retry waits plus a day and a half, whatever the
+cadence. Keep the total inside the lead time, or a retry lands after access has lapsed.
+
 ### Cycle keys
 
 Attempts are unique per `(cycle_key, attempt)`, where the cycle key identifies
