@@ -78,6 +78,8 @@ export type SupportMessage = {
   deliveryReason?: string;
   createdAt: string;
   attachments: SupportAttachment[];
+  /** Set when an operator took the message out of the customer's view. */
+  deletedAt?: string;
 };
 
 export type SupportNote = {

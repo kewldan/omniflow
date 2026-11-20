@@ -2157,6 +2157,8 @@ type SupportMessage struct {
 	ReadAt            pgtype.Timestamptz `json:"read_at"`
 	AuthorID          pgtype.UUID        `json:"author_id"`
 	CannedResponseID  pgtype.UUID        `json:"canned_response_id"`
+	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
+	DeletedBy         pgtype.UUID        `json:"deleted_by"`
 }
 
 type SupportNote struct {
@@ -2179,6 +2181,7 @@ type SupportQueue struct {
 	ArchivedAt                 pgtype.Timestamptz `json:"archived_at"`
 	CreatedAt                  pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt                  pgtype.Timestamptz `json:"updated_at"`
+	CustomerSelectable         bool               `json:"customer_selectable"`
 }
 
 type SupportTag struct {
@@ -2216,6 +2219,13 @@ type SupportTicketTag struct {
 	TagID    pgtype.UUID        `json:"tag_id"`
 	TaggedBy pgtype.UUID        `json:"tagged_by"`
 	TaggedAt pgtype.Timestamptz `json:"tagged_at"`
+}
+
+type SupportTopicChoice struct {
+	UserID   pgtype.UUID        `json:"user_id"`
+	QueueID  pgtype.UUID        `json:"queue_id"`
+	Priority string             `json:"priority"`
+	ChosenAt pgtype.Timestamptz `json:"chosen_at"`
 }
 
 type TelemetryEvent struct {

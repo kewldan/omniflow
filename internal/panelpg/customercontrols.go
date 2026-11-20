@@ -14,7 +14,7 @@ import (
 )
 
 // RestrictionKinds are the spending a restriction can stop.
-var RestrictionKinds = []string{"topup", "purchase"}
+var RestrictionKinds = []string{"topup", "purchase", "support"}
 
 // Restriction stops one kind of spending for a customer, with the reason.
 type Restriction struct {

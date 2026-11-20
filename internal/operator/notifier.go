@@ -97,6 +97,9 @@ type Config struct {
 	Disabled []string
 	// Held names the kinds kept pending right now by quiet hours.
 	Held []string
+	// MutedSupport names support notice events switched off in the support
+	// section: "new" (a new ticket) and "customer_reply".
+	MutedSupport []string
 }
 
 // Notifier owns topic binding and delivery.
@@ -138,7 +141,27 @@ func (notifier *Notifier) effective(ctx context.Context) Config {
 	config.Disabled = group.Strings("disabledKinds", config.Disabled)
 	config.Held = HeldKinds(notifier.clock().In(notifier.settings.Location(ctx)),
 		notifier.settings.Section(ctx, "notifications"))
+	support := notifier.settings.Section(ctx, "support")
+	config.MutedSupport = nil
+	if !support.Bool("notifyNewTicket", true) {
+		config.MutedSupport = append(config.MutedSupport, "new")
+	}
+	if !support.Bool("notifyCustomerReply", true) {
+		config.MutedSupport = append(config.MutedSupport, "customer_reply")
+	}
 	return config
+}
+
+// supportEvent names a support notice's event; a new ticket carries none.
+func supportEvent(notification dbgen.OperatorNotification) string {
+	payload := struct {
+		Event string `json:"event"`
+	}{}
+	_ = json.Unmarshal(notification.Payload, &payload)
+	if payload.Event == "" {
+		return "new"
+	}
+	return payload.Event
 }
 
 // HeldKinds lists the kinds quiet hours keep pending at a local time.
@@ -410,7 +433,8 @@ func (notifier *Notifier) Dispatch(ctx context.Context) {
 	}
 	suppressed := map[string]int{}
 	for _, notification := range pending {
-		if slices.Contains(config.Disabled, notification.Kind) {
+		if slices.Contains(config.Disabled, notification.Kind) ||
+			notification.Kind == "support" && slices.Contains(config.MutedSupport, supportEvent(notification)) {
 			if _, err = queries.CompleteOperatorNotification(ctx, dbgen.CompleteOperatorNotificationParams{NotificationID: notification.ID, Status: "suppressed", ErrorCode: pgtype.Text{String: "disabled", Valid: true}}); err != nil {
 				return
 			}

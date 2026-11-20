@@ -33,6 +33,22 @@ func (q *Queries) ClaimBlockerScan(ctx context.Context) (BlockerScan, error) {
 	return i, err
 }
 
+const closeAllSupportTickets = `-- name: CloseAllSupportTickets :execrows
+UPDATE support_tickets
+SET status = 'closed', closed_at = now(), updated_at = now()
+WHERE status IN ('open', 'pending')
+  AND ($1::uuid IS NULL OR queue_id = $1::uuid)
+`
+
+// Closes every open or pending ticket, of one queue or of all.
+func (q *Queries) CloseAllSupportTickets(ctx context.Context, queueID pgtype.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, closeAllSupportTickets, queueID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const countBlockedCustomers = `-- name: CountBlockedCustomers :one
 SELECT count(*)::bigint FROM bot_delivery_state d
 JOIN users u ON u.id = d.user_id
@@ -44,6 +60,26 @@ func (q *Queries) CountBlockedCustomers(ctx context.Context) (int64, error) {
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const deleteSupportMessage = `-- name: DeleteSupportMessage :execrows
+UPDATE support_messages
+SET deleted_at = now(), deleted_by = $1
+WHERE id = $2 AND ticket_id = $3 AND deleted_at IS NULL
+`
+
+type DeleteSupportMessageParams struct {
+	DeletedBy pgtype.UUID `json:"deleted_by"`
+	MessageID int64       `json:"message_id"`
+	TicketID  pgtype.UUID `json:"ticket_id"`
+}
+
+func (q *Queries) DeleteSupportMessage(ctx context.Context, arg DeleteSupportMessageParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteSupportMessage, arg.DeletedBy, arg.MessageID, arg.TicketID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const finishBlockerScan = `-- name: FinishBlockerScan :exec

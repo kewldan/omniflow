@@ -11452,6 +11452,11 @@ export const CreateAccountSupportTicketHeader = zod.object({
 export const CreateAccountSupportTicketBody = zod.object({
   subject: zod.string().min(1),
   message: zod.string().min(1),
+  topic: zod
+    .string()
+    .optional()
+    .describe("A customer-selectable queue code, such as `payment`. Empty is the default queue."),
+  urgent: zod.boolean().optional().describe("Ask for high priority."),
 });
 
 export const CreateAccountSupportTicketResponse = zod.object({

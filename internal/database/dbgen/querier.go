@@ -165,6 +165,8 @@ type Querier interface {
 	ClaimTrial(ctx context.Context, arg ClaimTrialParams) (int64, error)
 	ClearCartGoods(ctx context.Context, cartID pgtype.UUID) error
 	ClearDefaultPaymentMethod(ctx context.Context, userID pgtype.UUID) error
+	// Closes every open or pending ticket, of one queue or of all.
+	CloseAllSupportTickets(ctx context.Context, queueID pgtype.UUID) (int64, error)
 	// Marks the source and points it at the target.
 	//
 	// The predicate is what makes the whole operation idempotent: only an account
@@ -515,6 +517,7 @@ type Querier interface {
 	DeletePublishedOutboxEvents(ctx context.Context, retentionSeconds float64) (int64, error)
 	DeleteRequiredChannel(ctx context.Context, id pgtype.UUID) error
 	DeleteResolvedDrifts(ctx context.Context, retentionSeconds float64) (int64, error)
+	DeleteSupportMessage(ctx context.Context, arg DeleteSupportMessageParams) (int64, error)
 	// Row counts for the tables an operator's question usually concerns. Counts
 	// rather than samples, for the obvious reason.
 	DiagnosticCounts(ctx context.Context) (DiagnosticCountsRow, error)

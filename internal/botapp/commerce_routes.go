@@ -679,7 +679,7 @@ func (app *App) supportScreen(ctx context.Context, session commerceContext) View
 		app.logger.Error("support ticket lookup failed", "error", err)
 		return app.errorView(session.Locale, routeSupport)
 	}
-	return supportListView(session.Locale, tickets, app.supportLink())
+	return app.supportModeView(session.Locale, tickets)
 }
 
 func (app *App) ticketScreen(ctx context.Context, session commerceContext, ticketID string) View {
@@ -915,6 +915,11 @@ func (app *App) handleCommerceAction(ctx context.Context, session commerceContex
 	case "ticket-open":
 		return app.setTicketStatus(ctx, session, argument, "open"), true
 	case "support-new":
+		if argument == "payment" || argument == "urgent" {
+			if err := app.customers.ChooseSupportTopic(ctx, session.Customer.ID, argument); err != nil {
+				app.logger.Warn("support topic could not be recorded", "error", err)
+			}
+		}
 		return app.beginTicketReply(ctx, session, ""), true
 	case "connect":
 		return app.connectPlatform(ctx, session, argument), true

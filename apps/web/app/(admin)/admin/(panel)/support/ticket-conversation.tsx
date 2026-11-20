@@ -14,7 +14,7 @@ import useSWR from "swr";
 
 import { StateNotice } from "@/components/admin/state-notice";
 import { Timestamp } from "@/components/intl/timestamp";
-import { ApiError, fetcher } from "@/lib/api";
+import { ApiError, apiFetch, fetcher } from "@/lib/api";
 import { downloadThroughApi } from "@/lib/download";
 import { useBytes } from "@/lib/format";
 import { useSubmission } from "@/lib/idempotency";
@@ -145,7 +145,39 @@ export function TicketConversation({
                   <Timestamp value={entry.value.createdAt} />
                 </span>
               </div>
-              <p className="whitespace-pre-wrap text-sm">{entry.value.body}</p>
+              <p
+                className={`whitespace-pre-wrap text-sm ${
+                  "deletedAt" in entry.value && entry.value.deletedAt
+                    ? "text-muted-foreground line-through"
+                    : ""
+                }`}
+              >
+                {entry.value.body}
+              </p>
+              {"deletedAt" in entry.value && entry.value.deletedAt ? (
+                <span className="text-muted-foreground text-xs">
+                  {translate("deletedForCustomer")}
+                </span>
+              ) : writable && "sender" in entry.value ? (
+                <Button
+                  className="h-6 px-2 text-xs"
+                  onClick={async () => {
+                    try {
+                      await apiFetch(
+                        `/v1/panel/support/tickets/${ticket.id}/messages/${entry.value.id}`,
+                        { method: "DELETE" },
+                      );
+                      void mutate();
+                    } catch {
+                      toast.error(translate("deleteFailed"));
+                    }
+                  }}
+                  size="sm"
+                  variant="ghost"
+                >
+                  {translate("deleteForCustomer")}
+                </Button>
+              ) : null}
               <span className="text-muted-foreground text-xs">
                 {"authorName" in entry.value ? entry.value.authorName : ""}
               </span>

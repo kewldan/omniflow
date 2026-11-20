@@ -487,6 +487,34 @@ raise it, because the increment only runs when a row was actually inserted.
   panel does.
 </Note>
 
+## Topics, blocks, hiding, and closing in bulk
+
+**Topic and urgency.** A customer opening a ticket may pick **Payment problem**, which
+routes it to the seeded `payment` queue, and **Urgent**, which raises its priority to
+`high` — from the bot's support screen or the web panel's new-ticket form. Only queues
+marked customer-selectable (the default queue and `payment`) can be chosen; an archived
+choice falls back to the default queue.
+
+**Blocking a customer from support.** The **No support** restriction on the customer card
+(`customers.write`) records a reason; from then on the database refuses a new ticket or a
+customer message from that customer, whichever surface writes it. The bot tells them
+support is unavailable; the web API answers `403 support_blocked`.
+
+**Hiding a message.** **Hide from customer** on a message in the conversation
+(`DELETE /v1/panel/support/tickets/{ticketID}/messages/{messageID}`, `support.write`) takes
+it out of the customer's view in the bot and the web panel — a wrong reply, a pasted
+secret — and an operator reply not yet pushed to Telegram is never pushed. The desk keeps
+the message, struck through, and the audit trail records `support.message.deleted`.
+
+**Closing everything.** **Close all open tickets** (`POST /v1/panel/support/tickets/close-all`,
+`support.write`, optionally `{"queueId": "…"}`) closes every open and pending ticket after a
+typed confirmation, audited with the count.
+
+**Support in the bot and its notices.** The support section of the installation settings
+chooses what the bot offers — tickets and a contact link, tickets only, or the contact link
+only — an introduction in Russian and English above the list, and whether the operator
+group hears about new tickets, customer replies, and overdue first responses.
+
 ## Permissions
 
 | Action | Permission |

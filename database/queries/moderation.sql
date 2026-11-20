@@ -43,3 +43,15 @@ WHERE d.status = 'blocked' AND u.status = 'active'
     SELECT 1 FROM entitlements e WHERE e.user_id = d.user_id
       AND e.status IN ('active', 'limited', 'paused', 'pending') AND e.ends_at > now())
 LIMIT sqlc.arg(page_size);
+
+-- name: CloseAllSupportTickets :execrows
+-- Closes every open or pending ticket, of one queue or of all.
+UPDATE support_tickets
+SET status = 'closed', closed_at = now(), updated_at = now()
+WHERE status IN ('open', 'pending')
+  AND (sqlc.narg(queue_id)::uuid IS NULL OR queue_id = sqlc.narg(queue_id)::uuid);
+
+-- name: DeleteSupportMessage :execrows
+UPDATE support_messages
+SET deleted_at = now(), deleted_by = sqlc.narg(deleted_by)
+WHERE id = sqlc.arg(message_id) AND ticket_id = sqlc.arg(ticket_id) AND deleted_at IS NULL;

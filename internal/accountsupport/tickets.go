@@ -106,6 +106,11 @@ type NewTicket struct {
 	// a second ticket is worse than a duplicate row: it is a second place an
 	// operator has to answer the same question.
 	IdempotencyKey string
+	// Topic is a customer-selectable queue code, such as "payment". Empty is
+	// the default queue.
+	Topic string
+	// Urgent asks for high priority.
+	Urgent bool
 }
 
 // NewMessage continues one.
@@ -275,7 +280,7 @@ func (service *Service) Conversation(
 // first, which is how a conversation reads.
 func (service *Service) messages(ctx context.Context, ticketID string) ([]Message, error) {
 	rows, err := service.pool.Query(ctx, `SELECT m.id, m.sender, m.body, m.created_at, m.read_at
-		FROM support_messages m WHERE m.ticket_id = $1::uuid
+		FROM support_messages m WHERE m.ticket_id = $1::uuid AND m.deleted_at IS NULL
 		ORDER BY m.created_at DESC, m.id DESC LIMIT $2`, ticketID, maxConversationMessages)
 	if err != nil {
 		return nil, err
@@ -366,6 +371,20 @@ func (service *Service) CreateTicket(ctx context.Context, input NewTicket) (Conv
 		return Conversation{}, ErrTooManyOpenTickets
 	}
 
+	// The topic and urgency the customer picked ride on the choice row the
+	// ticket insert consumes, the same way the bot's buttons do.
+	if input.Topic != "" || input.Urgent {
+		priority := "normal"
+		if input.Urgent {
+			priority = "high"
+		}
+		if _, err = tx.Exec(ctx, `INSERT INTO support_topic_choices (user_id, queue_id, priority)
+			VALUES ($1::uuid, (SELECT id FROM support_queues WHERE code = $2 AND customer_selectable AND archived_at IS NULL), $3)
+			ON CONFLICT (user_id) DO UPDATE SET queue_id = EXCLUDED.queue_id, priority = EXCLUDED.priority, chosen_at = now()`,
+			input.CustomerID, input.Topic, priority); err != nil {
+			return Conversation{}, err
+		}
+	}
 	var ticketID string
 	err = tx.QueryRow(ctx, `INSERT INTO support_tickets (user_id, subject, queue_id)
 		SELECT $1::uuid, $2, q.id

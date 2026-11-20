@@ -19,7 +19,8 @@ export type FieldKind =
   | "textarea"
   | "secret"
   | "time"
-  | "multiselect";
+  | "multiselect"
+  | "select";
 
 export type SectionField = {
   /** Key inside the section's document, or inside its secrets when `secret`. */
@@ -167,6 +168,39 @@ export const SECTIONS: SectionSchema[] = [
     messageKey: "bot",
     fields: [
       { name: "languages", kind: "multiselect", messageKey: "botLanguages", options: ["ru", "en"] },
+    ],
+  },
+  {
+    section: "support",
+    group: "integrations",
+    messageKey: "support",
+    fields: [
+      {
+        name: "mode",
+        kind: "select",
+        messageKey: "supportMode",
+        options: ["both", "tickets", "contact"],
+      },
+      { name: "introRu", kind: "textarea", messageKey: "supportIntroRu" },
+      { name: "introEn", kind: "textarea", messageKey: "supportIntroEn" },
+      {
+        name: "notifyNewTicket",
+        kind: "boolean",
+        messageKey: "notifyNewTicket",
+        defaultValue: true,
+      },
+      {
+        name: "notifyCustomerReply",
+        kind: "boolean",
+        messageKey: "notifyCustomerReply",
+        defaultValue: true,
+      },
+      {
+        name: "notifySlaBreach",
+        kind: "boolean",
+        messageKey: "notifySlaBreach",
+        defaultValue: true,
+      },
     ],
   },
   {

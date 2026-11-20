@@ -6,6 +6,7 @@ import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
 import { Input, Textarea } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Switch } from "@omniflow/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
@@ -307,6 +308,31 @@ function FieldControl({
           })}
         </div>
       </fieldset>
+    );
+  }
+
+  if (field.kind === "select") {
+    const options = field.options ?? [];
+    return (
+      <div className="flex flex-col gap-1">
+        <Label htmlFor={id}>{label}</Label>
+        <Select
+          disabled={!editable}
+          onValueChange={(value) => onDocument({ ...document, [field.name]: value })}
+          value={String(document[field.name] ?? options[0] ?? "")}
+        >
+          <SelectTrigger id={id}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {options.map((option) => (
+              <SelectItem key={option} value={option}>
+                {translate(`fields.options.${option}`)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
     );
   }
 

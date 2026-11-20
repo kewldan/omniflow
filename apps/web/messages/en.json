@@ -1026,7 +1026,8 @@
           "reason": "Reason",
           "active": "Active",
           "set": "Restrict",
-          "lift": "Lift"
+          "lift": "Lift",
+          "support": "No support"
         },
         "autoRenew": {
           "label": "Auto-renew",
@@ -2550,7 +2551,15 @@
         "priority": "Priority",
         "status": "Status",
         "tags": "Tags"
-      }
+      },
+      "deleteForCustomer": "Hide from customer",
+      "deletedForCustomer": "Hidden from the customer",
+      "deleteFailed": "The message could not be hidden",
+      "closeAll": "Close all open tickets",
+      "closeAllCancel": "Cancel",
+      "closeAllPrompt": "Type CLOSE to confirm",
+      "closeAllDescription": "Every open and pending ticket is closed. Customers can reopen theirs by replying.",
+      "closeAllDone": "All open tickets were closed"
     },
     "aiSettings": {
       "title": "AI and MCP",
@@ -2984,6 +2993,10 @@
         "moderation": {
           "title": "Display-name filter",
           "description": "Refuse the bot to accounts whose Telegram name pretends to be staff or carries a link. Operators are exempt."
+        },
+        "support": {
+          "title": "Support in the bot",
+          "description": "Whether the bot offers tickets, a contact link, or both, what it says above the list, and which ticket events reach the operator group."
         }
       },
       "fields": {
@@ -3058,11 +3071,20 @@
           "week": "Weekly",
           "month": "Monthly",
           "ru": "Russian",
-          "en": "English"
+          "en": "English",
+          "both": "Tickets and contact link",
+          "tickets": "Tickets only",
+          "contact": "Contact link only"
         },
         "botLanguages": "Languages offered (none selected means both)",
         "filterDisplayNames": "Filter dangerous display names",
-        "blockedNamePatterns": "Forbidden fragments, comma-separated (empty uses admin, support, links)"
+        "blockedNamePatterns": "Forbidden fragments, comma-separated (empty uses admin, support, links)",
+        "supportMode": "Support mode",
+        "supportIntroRu": "Introduction (Russian)",
+        "supportIntroEn": "Introduction (English)",
+        "notifyNewTicket": "Tell operators about new tickets",
+        "notifyCustomerReply": "Tell operators about customer replies",
+        "notifySlaBreach": "Tell operators about overdue first responses"
       },
       "telemetryPreview": {
         "title": "What telemetry would send",
@@ -4343,7 +4365,13 @@
         "submitting": "Sending",
         "created": "Conversation started",
         "subjectRequired": "A subject is needed so we can tell your conversations apart.",
-        "messageRequired": "Tell us what is happening — even one sentence is enough."
+        "messageRequired": "Tell us what is happening — even one sentence is enough.",
+        "topic": "Topic",
+        "topics": {
+          "general": "General question",
+          "payment": "Payment problem"
+        },
+        "urgent": "Urgent"
       },
       "ticket": {
         "conversation": "Conversation",

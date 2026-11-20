@@ -9,9 +9,47 @@ import (
 )
 
 // supportListView shows every conversation with its unread state.
+// supportModeView applies the support section of the installation settings:
+// tickets only, a contact link only, or both (the default), with the
+// operator's own introduction in the customer's language above the list.
+func (app *App) supportModeView(locale Locale, tickets []Ticket) View {
+	support := app.section("support")
+	link := app.supportLink()
+	intro := support.String("introEn", "")
+	if locale == LocaleRussian {
+		intro = support.String("introRu", "")
+	}
+	switch support.String("mode", "both") {
+	case "tickets":
+		link = ""
+	case "contact":
+		if safeURL(link) {
+			body := text(locale, "support.contactOnly")
+			if intro != "" {
+				body = html.EscapeString(intro)
+			}
+			return View{Text: body, Keyboard: keyboard(
+				row(models.InlineKeyboardButton{Text: text(locale, "menu.support"), URL: link}),
+				row(callbackButton(text(locale, "action.back"), routeHome)),
+			), RetryRoute: routeSupport}
+		}
+	}
+	view := supportListView(locale, tickets, link)
+	if intro != "" {
+		view.Text = html.EscapeString(intro) + "\n\n" + view.Text
+	}
+	return view
+}
+
 func supportListView(locale Locale, tickets []Ticket, supportURL string) View {
 	rows := make([][]models.InlineKeyboardButton, 0, len(tickets)+3)
 	rows = append(rows, row(actionButton(text(locale, "support.new"), "support-new")))
+	// The customer may say what the ticket is about before writing it: a
+	// payment problem goes to its own queue, and urgent raises the priority.
+	rows = append(rows, row(
+		actionButton(text(locale, "support.newPayment"), "support-new:payment"),
+		actionButton(text(locale, "support.newUrgent"), "support-new:urgent"),
+	))
 	if len(tickets) == 0 {
 		if safeURL(supportURL) {
 			rows = append(rows, row(models.InlineKeyboardButton{Text: text(locale, "menu.support"), URL: supportURL}))

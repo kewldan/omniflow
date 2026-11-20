@@ -10452,6 +10452,12 @@ type ListAccountSupportTicketsParams struct {
 type CreateAccountSupportTicketJSONBody struct {
 	Message string `json:"message"`
 	Subject string `json:"subject"`
+
+	// Topic A customer-selectable queue code, such as `payment`. Empty is the default queue.
+	Topic *string `json:"topic,omitempty"`
+
+	// Urgent Ask for high priority.
+	Urgent *bool `json:"urgent,omitempty"`
 }
 
 // CreateAccountSupportTicketParams defines parameters for CreateAccountSupportTicket.
@@ -35180,9 +35186,23 @@ func (response CreateAccountSupportTicket201JSONResponse) VisitCreateAccountSupp
 	return err
 }
 
-type CreateAccountSupportTicket409ApplicationProblemPlusJSONResponse struct {
+type CreateAccountSupportTicket403ApplicationProblemPlusJSONResponse struct {
 	ProblemApplicationProblemPlusJSONResponse
 }
+
+func (response CreateAccountSupportTicket403ApplicationProblemPlusJSONResponse) VisitCreateAccountSupportTicketResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateAccountSupportTicket409ApplicationProblemPlusJSONResponse Problem
 
 func (response CreateAccountSupportTicket409ApplicationProblemPlusJSONResponse) VisitCreateAccountSupportTicketResponse(w http.ResponseWriter) error {
 

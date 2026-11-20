@@ -828,6 +828,10 @@ var catalog = map[string]phrase{
 	"template.friend":             {ru: "друг", en: "friend"},
 	"restricted.payment":          {ru: "🚫 <b>Эта оплата для вашего аккаунта недоступна.</b>\nНапишите в поддержку, если считаете это ошибкой.", en: "🚫 <b>This payment is not available for your account.</b>\nWrite to support if you think this is a mistake."},
 	"moderation.nameRefused":      {ru: "Ваше имя в Telegram похоже на имя сотрудника сервиса или содержит ссылку. Измените имя и напишите снова.", en: "Your Telegram name looks like a member of our staff or contains a link. Change your name and write again."},
+	"support.blocked":             {ru: "🚫 Поддержка для вашего аккаунта недоступна.", en: "🚫 Support is not available for your account."},
+	"support.newPayment":          {ru: "💳 Проблема с оплатой", en: "💳 Payment problem"},
+	"support.newUrgent":           {ru: "🔥 Срочно", en: "🔥 Urgent"},
+	"support.contactOnly":         {ru: "💬 Напишите нам — мы ответим.", en: "💬 Write to us and we will answer."},
 }
 
 // formatMoney renders an integer minor-unit amount for display. Telegram Stars

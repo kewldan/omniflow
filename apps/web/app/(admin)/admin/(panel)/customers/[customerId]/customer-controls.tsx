@@ -25,7 +25,7 @@ type Controls = {
   lastActivityAt?: string;
 };
 
-const RESTRICTION_KINDS = ["topup", "purchase"] as const;
+const RESTRICTION_KINDS = ["topup", "purchase", "support"] as const;
 
 /**
  * The operator controls on the customer card: give days, a trial, or another

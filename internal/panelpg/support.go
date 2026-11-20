@@ -70,6 +70,9 @@ type SupportMessage struct {
 	DeliveryReason string              `json:"deliveryReason,omitempty"`
 	CreatedAt      time.Time           `json:"createdAt"`
 	Attachments    []SupportAttachment `json:"attachments"`
+	// DeletedAt is set when an operator took the message out of the
+	// customer's view. The desk still shows it, marked.
+	DeletedAt *time.Time `json:"deletedAt,omitempty"`
 }
 
 // SupportAttachment is the metadata of one file on a conversation, as the desk
@@ -328,6 +331,7 @@ func (service *Service) Ticket(ctx context.Context, ticketID string) (TicketDeta
 			Delivery:       state,
 			DeliveryReason: reason,
 			CreatedAt:      timeValue(message.SupportMessage.CreatedAt),
+			DeletedAt:      timePointer(message.SupportMessage.DeletedAt),
 			Attachments:    []SupportAttachment{},
 		})
 	}

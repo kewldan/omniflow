@@ -1,10 +1,13 @@
 "use client";
 
 import { Button } from "@omniflow/ui/button";
+import { Label } from "@omniflow/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
+import { Switch } from "@omniflow/ui/switch";
 import { toast } from "@omniflow/ui/toast";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useId, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { useSupportProblem } from "@/components/account/problems";
 import { AccountNotice, ListSkeleton } from "@/components/account/state";
@@ -45,6 +48,12 @@ export default function NewSupportTicketPage() {
   const [message, setMessage] = useState("");
   const [touched, setTouched] = useState(false);
   const [busy, setBusy] = useState(false);
+  // What the ticket is about, and whether it is urgent: a payment problem goes
+  // to its own queue, and urgent raises the priority the desk sorts by.
+  const [topic, setTopic] = useState("general");
+  const [urgent, setUrgent] = useState(false);
+  const topicId = useId();
+  const urgentId = useId();
 
   const subjectInvalid = touched && !subject.trim();
   const messageInvalid = touched && !message.trim();
@@ -58,7 +67,12 @@ export default function NewSupportTicketPage() {
     setBusy(true);
     try {
       const conversation = await apiFetch<SupportConversation>("/v1/account/support/tickets", {
-        body: JSON.stringify({ message: message.trim(), subject: subject.trim() }),
+        body: JSON.stringify({
+          message: message.trim(),
+          subject: subject.trim(),
+          topic: topic === "general" ? "" : topic,
+          urgent,
+        }),
         headers: {
           // A separator no subject can contain, so "a b"+"c" and "a"+"b c" differ.
           "Idempotency-Key": idempotencyKey(`${subject.trim()}\u0000${message.trim()}`),
@@ -100,6 +114,23 @@ export default function NewSupportTicketPage() {
           {translate("new.description")}
         </p>
       </header>
+
+      <div className="space-y-1.5">
+        <Label htmlFor={topicId}>{translate("new.topic")}</Label>
+        <Select disabled={busy} onValueChange={setTopic} value={topic}>
+          <SelectTrigger id={topicId}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="general">{translate("new.topics.general")}</SelectItem>
+            <SelectItem value="payment">{translate("new.topics.payment")}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex items-center gap-2">
+        <Switch checked={urgent} disabled={busy} id={urgentId} onCheckedChange={setUrgent} />
+        <Label htmlFor={urgentId}>{translate("new.urgent")}</Label>
+      </div>
 
       <CountedField
         disabled={busy}

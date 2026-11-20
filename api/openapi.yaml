@@ -4463,8 +4463,13 @@ paths:
               properties:
                 subject: {type: string, minLength: 1}
                 message: {type: string, minLength: 1}
+                topic:
+                  type: string
+                  description: A customer-selectable queue code, such as `payment`. Empty is the default queue.
+                urgent: {type: boolean, description: Ask for high priority.}
       responses:
         "201": {description: Opened, content: {application/json: {schema: {$ref: "#/components/schemas/AccountConversation"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
         "409": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
         "429": {$ref: "#/components/responses/Problem"}

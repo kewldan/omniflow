@@ -83,7 +83,7 @@ SELECT t.id, 'operator', $1, $2,
 FROM support_tickets t
 WHERE t.id = $5 AND t.status <> 'merged'
 ON CONFLICT (ticket_id, dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
-RETURNING id, ticket_id, sender, body, telegram_message_id, created_at, dedupe_key, delivered_at, read_at, author_id, canned_response_id
+RETURNING id, ticket_id, sender, body, telegram_message_id, created_at, dedupe_key, delivered_at, read_at, author_id, canned_response_id, deleted_at, deleted_by
 `
 
 type AppendOperatorMessageParams struct {
@@ -120,6 +120,8 @@ func (q *Queries) AppendOperatorMessage(ctx context.Context, arg AppendOperatorM
 		&i.ReadAt,
 		&i.AuthorID,
 		&i.CannedResponseID,
+		&i.DeletedAt,
+		&i.DeletedBy,
 	)
 	return i, err
 }
@@ -154,7 +156,7 @@ INSERT INTO support_messages (ticket_id, sender, body)
 SELECT t.id, 'system', $1
 FROM support_tickets t
 WHERE t.id = $2 AND t.status <> 'merged'
-RETURNING id, ticket_id, sender, body, telegram_message_id, created_at, dedupe_key, delivered_at, read_at, author_id, canned_response_id
+RETURNING id, ticket_id, sender, body, telegram_message_id, created_at, dedupe_key, delivered_at, read_at, author_id, canned_response_id, deleted_at, deleted_by
 `
 
 type AppendSupportSystemMessageParams struct {
@@ -180,6 +182,8 @@ func (q *Queries) AppendSupportSystemMessage(ctx context.Context, arg AppendSupp
 		&i.ReadAt,
 		&i.AuthorID,
 		&i.CannedResponseID,
+		&i.DeletedAt,
+		&i.DeletedBy,
 	)
 	return i, err
 }
@@ -220,7 +224,7 @@ WHERE q.id = $1
     SELECT 1 FROM support_tickets t
     WHERE t.queue_id = q.id AND t.status IN ('open', 'pending')
   )
-RETURNING id, code, name_en, name_ru, first_response_target_seconds, resolution_target_seconds, is_default, sort_order, archived_at, created_at, updated_at
+RETURNING id, code, name_en, name_ru, first_response_target_seconds, resolution_target_seconds, is_default, sort_order, archived_at, created_at, updated_at, customer_selectable
 `
 
 // A queue with open tickets in it cannot be archived. Archiving one would hide
@@ -240,6 +244,7 @@ func (q *Queries) ArchiveSupportQueue(ctx context.Context, queueID pgtype.UUID) 
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CustomerSelectable,
 	)
 	return i, err
 }
@@ -577,7 +582,7 @@ func (q *Queries) GetCustomerLoyaltyTiers(ctx context.Context, userID pgtype.UUI
 }
 
 const getDefaultSupportQueue = `-- name: GetDefaultSupportQueue :one
-SELECT id, code, name_en, name_ru, first_response_target_seconds, resolution_target_seconds, is_default, sort_order, archived_at, created_at, updated_at FROM support_queues WHERE is_default AND archived_at IS NULL
+SELECT id, code, name_en, name_ru, first_response_target_seconds, resolution_target_seconds, is_default, sort_order, archived_at, created_at, updated_at, customer_selectable FROM support_queues WHERE is_default AND archived_at IS NULL
 `
 
 func (q *Queries) GetDefaultSupportQueue(ctx context.Context) (SupportQueue, error) {
@@ -595,6 +600,7 @@ func (q *Queries) GetDefaultSupportQueue(ctx context.Context) (SupportQueue, err
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CustomerSelectable,
 	)
 	return i, err
 }
@@ -689,7 +695,7 @@ func (q *Queries) GetLoyaltyStanding(ctx context.Context, userID pgtype.UUID) (G
 }
 
 const getSupportQueue = `-- name: GetSupportQueue :one
-SELECT id, code, name_en, name_ru, first_response_target_seconds, resolution_target_seconds, is_default, sort_order, archived_at, created_at, updated_at FROM support_queues WHERE id = $1
+SELECT id, code, name_en, name_ru, first_response_target_seconds, resolution_target_seconds, is_default, sort_order, archived_at, created_at, updated_at, customer_selectable FROM support_queues WHERE id = $1
 `
 
 func (q *Queries) GetSupportQueue(ctx context.Context, id pgtype.UUID) (SupportQueue, error) {
@@ -707,6 +713,7 @@ func (q *Queries) GetSupportQueue(ctx context.Context, id pgtype.UUID) (SupportQ
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CustomerSelectable,
 	)
 	return i, err
 }
@@ -1192,7 +1199,7 @@ func (q *Queries) ListReferralRewardsForPair(ctx context.Context, referredUserID
 
 const listSupportMessages = `-- name: ListSupportMessages :many
 
-SELECT m.id, m.ticket_id, m.sender, m.body, m.telegram_message_id, m.created_at, m.dedupe_key, m.delivered_at, m.read_at, m.author_id, m.canned_response_id, COALESCE(a.display_name, '') AS author_name,
+SELECT m.id, m.ticket_id, m.sender, m.body, m.telegram_message_id, m.created_at, m.dedupe_key, m.delivered_at, m.read_at, m.author_id, m.canned_response_id, m.deleted_at, m.deleted_by, COALESCE(a.display_name, '') AS author_name,
   COALESCE(d.status, '')::text AS delivery_status,
   COALESCE(d.error_code, '')::text AS delivery_error,
   COALESCE(d.failure_count, 0)::integer AS delivery_failures
@@ -1249,6 +1256,8 @@ func (q *Queries) ListSupportMessages(ctx context.Context, arg ListSupportMessag
 			&i.SupportMessage.ReadAt,
 			&i.SupportMessage.AuthorID,
 			&i.SupportMessage.CannedResponseID,
+			&i.SupportMessage.DeletedAt,
+			&i.SupportMessage.DeletedBy,
 			&i.AuthorName,
 			&i.DeliveryStatus,
 			&i.DeliveryError,
@@ -1314,7 +1323,7 @@ const listSupportQueues = `-- name: ListSupportQueues :many
 
 
 SELECT
-  q.id, q.code, q.name_en, q.name_ru, q.first_response_target_seconds, q.resolution_target_seconds, q.is_default, q.sort_order, q.archived_at, q.created_at, q.updated_at,
+  q.id, q.code, q.name_en, q.name_ru, q.first_response_target_seconds, q.resolution_target_seconds, q.is_default, q.sort_order, q.archived_at, q.created_at, q.updated_at, q.customer_selectable,
   (SELECT count(*)::bigint FROM support_tickets t
     WHERE t.queue_id = q.id AND t.status IN ('open', 'pending')) AS open_count,
   (SELECT count(*)::bigint FROM support_tickets t
@@ -1367,6 +1376,7 @@ func (q *Queries) ListSupportQueues(ctx context.Context) ([]ListSupportQueuesRow
 			&i.SupportQueue.ArchivedAt,
 			&i.SupportQueue.CreatedAt,
 			&i.SupportQueue.UpdatedAt,
+			&i.SupportQueue.CustomerSelectable,
 			&i.OpenCount,
 			&i.UnassignedCount,
 			&i.BreachedCount,
@@ -2571,7 +2581,7 @@ ON CONFLICT (code) DO UPDATE SET
   first_response_target_seconds = EXCLUDED.first_response_target_seconds,
   resolution_target_seconds = EXCLUDED.resolution_target_seconds,
   sort_order = EXCLUDED.sort_order, archived_at = NULL, updated_at = now()
-RETURNING id, code, name_en, name_ru, first_response_target_seconds, resolution_target_seconds, is_default, sort_order, archived_at, created_at, updated_at
+RETURNING id, code, name_en, name_ru, first_response_target_seconds, resolution_target_seconds, is_default, sort_order, archived_at, created_at, updated_at, customer_selectable
 `
 
 type UpsertSupportQueueParams struct {
@@ -2605,6 +2615,7 @@ func (q *Queries) UpsertSupportQueue(ctx context.Context, arg UpsertSupportQueue
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.CustomerSelectable,
 	)
 	return i, err
 }

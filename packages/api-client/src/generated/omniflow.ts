@@ -7141,6 +7141,10 @@ export type CreateAccountSupportTicketBody = {
   subject: string;
   /** @minLength 1 */
   message: string;
+  /** A customer-selectable queue code, such as `payment`. Empty is the default queue. */
+  topic?: string;
+  /** Ask for high priority. */
+  urgent?: boolean;
 };
 
 export type ReplyToAccountSupportTicketBody = {
@@ -32888,6 +32892,11 @@ export type createAccountSupportTicketResponse201 = {
   status: 201;
 };
 
+export type createAccountSupportTicketResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
 export type createAccountSupportTicketResponse409 = {
   data: ProblemResponse;
   status: 409;
@@ -32912,6 +32921,7 @@ export type createAccountSupportTicketResponseSuccess = createAccountSupportTick
   headers: Headers;
 };
 export type createAccountSupportTicketResponseError = (
+  | createAccountSupportTicketResponse403
   | createAccountSupportTicketResponse409
   | createAccountSupportTicketResponse422
   | createAccountSupportTicketResponse429

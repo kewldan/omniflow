@@ -16,6 +16,7 @@ import (
 
 	telegram "github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/commercepg"
 	databaseutil "github.com/omniflow/omniflow/internal/database"
@@ -763,9 +764,18 @@ func supportSubmitOutcome(locale Locale, err error) (View, bool) {
 		return View{Text: text(locale, "support.closedHint"), Keyboard: back}, true
 	case errors.Is(err, ErrTicketNotFound):
 		return View{Text: text(locale, "support.notFound"), Keyboard: back}, true
+	case supportBlocked(err):
+		return View{Text: text(locale, "support.blocked"), Keyboard: keyboard(row(callbackButton(text(locale, "action.menu"), routeHome)))}, true
 	default:
 		return View{}, false
 	}
+}
+
+// supportBlocked reports the database refusing a message from a customer an
+// operator blocked from support (SQLSTATE OFSB1, raised by a trigger).
+func supportBlocked(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "OFSB1"
 }
 
 func attachmentErrorText(locale Locale, err error) string {

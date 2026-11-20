@@ -182,6 +182,8 @@ func (handlers *AccountHandlers) createSupportTicket(
 	var body struct {
 		Subject string `json:"subject"`
 		Message string `json:"message"`
+		Topic   string `json:"topic"`
+		Urgent  bool   `json:"urgent"`
 	}
 	if !decodeJSON(writer, request, &body) {
 		return
@@ -195,7 +197,7 @@ func (handlers *AccountHandlers) createSupportTicket(
 	// omitting one costs only that.
 	conversation, err := handlers.support.CreateTicket(request.Context(), accountsupport.NewTicket{
 		CustomerID: principal.Customer.ID, Subject: body.Subject, Body: body.Message,
-		IdempotencyKey: idempotencyKey(request),
+		IdempotencyKey: idempotencyKey(request), Topic: body.Topic, Urgent: body.Urgent,
 	})
 	if handlers.writeSupportError(writer, request, err) {
 		return
@@ -643,6 +645,9 @@ func (handlers *AccountHandlers) writeSupportError(
 	switch {
 	case err == nil:
 		return false
+	case accountsupport.SupportBlocked(err):
+		writeProblem(writer, request, http.StatusForbidden, "support_blocked",
+			"Support is not available for this account")
 	case errors.Is(err, accountsupport.ErrNotFound):
 		// "Not yours" and "does not exist" answer identically, so an identifier
 		// cannot be probed for existence by watching the status code.

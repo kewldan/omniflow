@@ -138,7 +138,7 @@ func (store *PostgresStore) Ticket(ctx context.Context, customerID, ticketID str
 	}
 	ticket.MessageCount = int(messageCount)
 	rows, err := store.pool.Query(ctx, `SELECT m.id, m.sender, m.body, m.created_at, m.read_at
-		FROM support_messages m WHERE m.ticket_id = $1::uuid
+		FROM support_messages m WHERE m.ticket_id = $1::uuid AND m.deleted_at IS NULL
 		ORDER BY m.created_at DESC LIMIT 20`, ticketID)
 	if err != nil {
 		return Ticket{}, nil, err
@@ -317,6 +317,23 @@ func (store *PostgresStore) AppendCustomerMessage(ctx context.Context, customerI
 }
 
 // MarkTicketRead clears the unread counter and stamps operator messages as read.
+// ChooseSupportTopic records what the customer's next ticket is about:
+// "payment" sends it to the payment queue, "urgent" raises its priority. The
+// ticket insert consumes the choice within the hour.
+func (store *PostgresStore) ChooseSupportTopic(ctx context.Context, customerID, topic string) error {
+	queue, priority := "", "normal"
+	if topic == "payment" {
+		queue = "payment"
+	} else {
+		priority = "high"
+	}
+	_, err := store.pool.Exec(ctx, `INSERT INTO support_topic_choices (user_id, queue_id, priority)
+		VALUES ($1::uuid, (SELECT id FROM support_queues WHERE code = $2 AND customer_selectable AND archived_at IS NULL), $3)
+		ON CONFLICT (user_id) DO UPDATE SET queue_id = EXCLUDED.queue_id, priority = EXCLUDED.priority, chosen_at = now()`,
+		customerID, queue, priority)
+	return err
+}
+
 func (store *PostgresStore) MarkTicketRead(ctx context.Context, customerID, ticketID string) error {
 	tx, err := store.pool.Begin(ctx)
 	if err != nil {
@@ -429,7 +446,7 @@ func (store *PostgresStore) PendingOperatorReplies(ctx context.Context, limit in
 		JOIN users u ON u.id = t.user_id
 		LEFT JOIN recipient ON recipient.user_id = t.user_id
 		LEFT JOIN bot_preferences p ON p.user_id = t.user_id
-		WHERE m.sender IN ('operator', 'system') AND m.delivered_at IS NULL AND u.status = 'active'
+		WHERE m.sender IN ('operator', 'system') AND m.delivered_at IS NULL AND m.deleted_at IS NULL AND u.status = 'active'
 		  AND NOT EXISTS (
 			SELECT 1 FROM notification_deliveries n
 			WHERE n.user_id = t.user_id AND n.kind = 'support' AND n.subscription_id IS NULL
