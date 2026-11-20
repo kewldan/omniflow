@@ -24,11 +24,18 @@ export function WalletAdjustmentCard({
   onAdjusted: () => void;
 }) {
   const translate = useTranslations("admin.customers.actions.wallet");
-  const ids = { amount: useId(), currency: useId(), reason: useId(), notify: useId() };
+  const ids = {
+    amount: useId(),
+    asPayment: useId(),
+    currency: useId(),
+    notify: useId(),
+    reason: useId(),
+  };
   const [amount, setAmount] = useState("");
   const [currency, setCurrency] = useState("RUB");
   const [reason, setReason] = useState("");
   const [notify, setNotify] = useState(true);
+  const [asPayment, setAsPayment] = useState(false);
   const { run, pending, error } = useOperatorAction();
 
   const parsed = parseMajorToMinor(amount.replace("−", "-"), currency, { allowNegative: true });
@@ -47,6 +54,7 @@ export function WalletAdjustmentCard({
         currency: currency.trim().toUpperCase(),
         reason: reason.trim(),
         notify,
+        asPayment: asPayment && minor > 0,
         idempotencyKey: crypto.randomUUID(),
       },
       method: "POST",
@@ -97,6 +105,18 @@ export function WalletAdjustmentCard({
         <div className="flex items-center gap-2">
           <Switch checked={notify} id={ids.notify} onCheckedChange={setNotify} />
           <Label htmlFor={ids.notify}>{translate("notify")}</Label>
+        </div>
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={asPayment}
+              disabled={minor !== null && minor < 0}
+              id={ids.asPayment}
+              onCheckedChange={setAsPayment}
+            />
+            <Label htmlFor={ids.asPayment}>{translate("asPayment")}</Label>
+          </div>
+          <p className="text-muted-foreground text-xs">{translate("asPaymentHint")}</p>
         </div>
         {error && (
           <p className="text-destructive text-sm" role="alert">

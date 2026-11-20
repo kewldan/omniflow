@@ -67,7 +67,27 @@ type WalletAdjustment struct {
 	Notify bool `json:"notify"`
 	// IdempotencyKey makes a retried click the same adjustment.
 	IdempotencyKey string `json:"idempotencyKey"`
+	// AsPayment records a credit as a paid top-up through the manual
+	// adapter instead of a ledger correction: the top-up limits apply, a
+	// saved cart is bought from it, and it counts as a payment.
+	AsPayment bool `json:"asPayment"`
 }
+
+// PaymentCredit settles an operator's credit as a payment. It is the payment
+// service, narrowed to the one call the panel needs.
+type PaymentCredit interface {
+	CreditAsPayment(ctx context.Context, customerID, currency string, amountMinor int64, key, operatorID, reason string) (string, error)
+}
+
+// WithPaymentCredit lets wallet adjustments be recorded as payments.
+func (service *Service) WithPaymentCredit(credit PaymentCredit) *Service {
+	service.paymentCredit = credit
+	return service
+}
+
+// ErrPaymentCreditUnavailable is returned for a credit as payment on a
+// deployment that wired no payment service into the panel.
+var ErrPaymentCreditUnavailable = fmt.Errorf("%w: crediting as a payment is not available", ErrValidaton)
 
 // ErrNegativeBalance refuses a debit larger than the balance.
 var ErrNegativeBalance = errors.New("the adjustment would make the balance negative")
@@ -90,6 +110,9 @@ func (service *Service) AdjustCustomerWallet(
 	kind := "credit"
 	if adjustment.AmountMinor < 0 {
 		kind = "debit"
+	}
+	if adjustment.AsPayment {
+		return service.creditAsPayment(ctx, customerID, userID, currency, reason, key, adjustment, actor)
 	}
 	return service.inTx(ctx, func(queries *dbgen.Queries) error {
 		if _, existing := queries.GetLedgerTransactionByIdempotency(ctx, "panel-wallet:"+key); existing == nil {
@@ -142,4 +165,43 @@ func walletNotice(amount int64, currency, reason string) string {
 	}
 	value := fmt.Sprintf("%s%d.%02d %s", sign, amount/100, amount%100, currency)
 	return fmt.Sprintf("💰 Баланс изменён: %s\nПричина: %s\n\n💰 Balance changed: %s\nReason: %s", value, reason, value, reason)
+}
+
+// creditAsPayment settles a positive adjustment as a paid top-up, then tells
+// the customer and writes the audit event. The settlement is its own
+// transaction in the payment service; a retried click finds the same order
+// and the same approval.
+func (service *Service) creditAsPayment(
+	ctx context.Context, customerID string, userID pgtype.UUID, currency, reason, key string,
+	adjustment WalletAdjustment, actor Actor,
+) error {
+	if adjustment.AmountMinor <= 0 {
+		return ErrValidaton
+	}
+	if service.paymentCredit == nil {
+		return ErrPaymentCreditUnavailable
+	}
+	operator := actor.AdminID
+	if operator == "" {
+		operator = "system"
+	}
+	orderID, err := service.paymentCredit.CreditAsPayment(ctx, customerID, currency, adjustment.AmountMinor, key, operator, reason)
+	if err != nil {
+		if orderID == "" {
+			return fmt.Errorf("%w: %s", ErrValidaton, err.Error())
+		}
+		return err
+	}
+	return service.inTx(ctx, func(queries *dbgen.Queries) error {
+		if adjustment.Notify {
+			var message DirectMessage
+			if err := service.queueDirectMessage(ctx, queries, userID, walletNotice(adjustment.AmountMinor, currency, reason), actor, &message); err != nil {
+				return err
+			}
+		}
+		return appendAudit(ctx, queries, actor.audit(
+			"wallet.credited_as_payment", "financial", "customer", customerID,
+			map[string]any{"amountMinor": adjustment.AmountMinor, "currency": currency, "orderId": orderID, "notified": adjustment.Notify},
+		))
+	})
 }

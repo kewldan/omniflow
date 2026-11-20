@@ -157,6 +157,14 @@ writes a balanced `credit` or `debit` transaction and a `wallet.adjusted` audit 
 debit larger than the balance with `422 insufficient_balance`, and, when asked, queues a Telegram
 message stating the change and the reason.
 
+**Record as a payment** turns a positive adjustment into what a customer's own top-up would have
+been: a top-up order paid through the `manual` adapter and approved in the operator's name
+(`asPayment: true`). It settles through the normal payment path, so the top-up minimum, maximum,
+and rolling-window limits apply, a saved cart is bought from it, it counts as the customer's
+top-up for the payment buttons that look at that, and it appears in **Finance** as a paid order
+rather than a ledger correction. The audit event is `wallet.credited_as_payment`. A debit cannot be
+recorded this way, and a retried click with the same key settles once.
+
 ## Operator adjustments
 
 Goodwill credit after a support case, a correction, a manual referral payout — from the panel as

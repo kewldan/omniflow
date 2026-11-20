@@ -63,9 +63,12 @@ const MaxPageSize int32 = 200
 
 // Service is the operations adapter.
 type Service struct {
-	pool    *pgxpool.Pool
-	secrets cipher.AEAD
-	clock   func() time.Time
+	pool *pgxpool.Pool
+	// paymentCredit settles wallet credits recorded as payments; nil leaves
+	// that option refused.
+	paymentCredit PaymentCredit
+	secrets       cipher.AEAD
+	clock         func() time.Time
 	// aiEgress is the destination policy for AI provider base URLs. It is
 	// applied when a provider is saved, so an operator hears about a bad
 	// address when they type it, and again by the adapter, so a row stored

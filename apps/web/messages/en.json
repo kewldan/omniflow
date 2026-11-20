@@ -872,7 +872,9 @@
           "submit": "Apply",
           "done": "Balance adjusted",
           "insufficient": "The balance is lower than that.",
-          "failed": "The balance could not be adjusted."
+          "failed": "The balance could not be adjusted.",
+          "asPayment": "Record as a payment",
+          "asPaymentHint": "A paid top-up through the manual method: the top-up limits apply, a saved cart is bought from it, and it counts as the customer's top-up. Credits only."
         },
         "message": {
           "title": "Message the customer",

@@ -236,7 +236,7 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 	if cfg.AdminPanel.Enabled {
 		adminHandlers, adminErr := buildAdminPanel(
 			ctx, logger, cfg, pool, platform.NewRateLimiter(valkeyClient), providers, health,
-			core.Fulfillment, remnawaveClient, installation, commerceStore,
+			core.Fulfillment, remnawaveClient, installation, commerceStore, core.Payments,
 		)
 		if adminErr != nil {
 			closeAll()
@@ -282,7 +282,7 @@ func buildAdminPanel(
 	ctx context.Context, logger *slog.Logger, cfg config.Config, pool *pgxpool.Pool,
 	limiter *platform.RateLimiter, providers []payments.Provider, health *platform.Health,
 	fulfillmentService *fulfillment.Service, remnawaveClient *remnawave.Client,
-	installation *installsettings.Reader, commerceStore *commercepg.Store,
+	installation *installsettings.Reader, commerceStore *commercepg.Store, paymentCredit panelpg.PaymentCredit,
 ) (*apihttp.AdminHandlers, error) {
 	// The public URL is what a passkey is bound to. Without one the service
 	// leaves passkeys off rather than minting credentials the browser will
@@ -304,6 +304,7 @@ func buildAdminPanel(
 	if err != nil {
 		return nil, err
 	}
+	operations.WithPaymentCredit(paymentCredit)
 	seedCommerceSettings(ctx, logger, operations, cfg)
 	search, err := panelsearchpg.New(pool, cfg.DataEncryptionKey)
 	if err != nil {
