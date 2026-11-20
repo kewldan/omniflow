@@ -256,6 +256,16 @@ migration enables (it is a trusted extension, so the database owner can create
 it without superuser). Search is limited to 60 requests a minute per operator
 and, like every other read in the panel, is not written to the audit trail.
 
+## Live updates
+
+Open panel screens stay current on their own. The panel keeps one server-sent event stream
+open (`GET /v1/panel/live`) that says, every five seconds, which areas changed — support,
+finance, the error log, customers — limited to the areas the operator's permissions cover.
+It carries counters, never records: the screen re-reads its lists through the same
+permission-checked routes it always uses, so a new ticket message, a paid order, or a new
+error appears without reloading. The stream closes itself every ten minutes and the browser
+reconnects through the session check.
+
 ## Interface language
 
 Both panels are translated into Russian and English. The language a page is

@@ -327,6 +327,7 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 			handlers.mountBackups(secure)
 			handlers.mountCustomRoles(secure)
 			handlers.mountIntegrations(secure)
+			handlers.mountLive(secure)
 			handlers.mountGrowth(secure)
 		})
 	})

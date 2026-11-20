@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 import { AdminShell } from "@/components/admin/admin-shell";
+import { LiveUpdates } from "@/components/admin/live-updates";
 import { OperatorTimeZone } from "@/components/intl/panel-time-zones";
 import { areaTitle } from "@/lib/metadata";
 import { SessionProvider } from "@/lib/session";
@@ -26,6 +27,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <SessionProvider>
       <OperatorTimeZone>
+        <LiveUpdates />
         <AdminShell>{children}</AdminShell>
       </OperatorTimeZone>
     </SessionProvider>
