@@ -155,7 +155,26 @@ An order's operation plus the plan version's policies decide three instants — 
 | `downgrade` | `at_expiry` | base | base + duration | base |
 | `downgrade` | `forbid` | refused | | |
 
-**There is no proration anywhere in this table.** An upgrade charges the new plan's full catalogue price; `replace` discards the remaining time and `extend` keeps it. Omniflow never guesses what a mid-period plan change is worth, which is why the choice is a per-version policy an operator sets rather than a formula.
+The table itself has no proration. An upgrade charges the new plan's full catalogue price; `replace` discards the remaining time and `extend` keeps it. What the discarded time is worth is decided by one installation switch, described next.
+
+### Crediting the unused remainder
+
+With **Credit the unused remainder on a plan change** on (see [the installation-wide switches](#installation-wide-switches)), the two rows that throw time away — an upgrade under `replace` and a downgrade under `immediate` — hand that time back as money instead. `extend` and `at_expiry` keep the time, so they credit nothing.
+
+The credit is the remainder of the current entitlement, prorated by time at what the customer actually paid for it:
+
+```text
+credit = paid × min(time left, period bought) ÷ period bought      (rounded down)
+```
+
+- *paid* is what the entitlement's own order took — wallet plus provider, less anything refunded — in the order's currency. An entitlement from a gift, an access code, a reward, a trial, or an operator's grant paid nothing the holder could be given back, and credits nothing.
+- *period bought* is the period that order paid for. An entitlement that carried earlier time forward runs longer than its order paid for; the carried time is used first, so only the bought period can be credited.
+- A paused entitlement's time left is the time its pause preserved. A change scheduled to start later has no remainder yet and credits nothing.
+- Rounding is down and the arithmetic is 128-bit, so a credit never exceeds what was paid.
+
+The preview shows all of it before anything is charged. On the web checkout the breakdown carries a line **Unused time on your current plan** with the days it covered and the amount this order spends, and, when the new plan costs less than the credit, how much goes back to the wallet; the bot's confirmation screen shows the same two lines. `GET` and `PATCH /v1/account/checkout` return the figures as `creditMinor`, `creditRemainingSeconds`, `creditAppliedMinor`, and `creditToWalletMinor` in the quote, and `walletAppliedMinor` is then only the customer's own balance.
+
+The credit is a ledger movement, not a number on the order. [Credit lines](/commerce/orders-payments#credit-lines) has how it is recorded, posted once, and refused when the days it would pay for were already handed back.
 
 An `at_expiry` downgrade is what the deferred provisioning instant exists for: the fulfillment job snoozes until that moment rather than occupying a worker, and the previous entitlement is superseded only after the replacement has actually been provisioned. Until then both surfaces keep showing the plan in force: every customer-facing read prefers the entitlement whose start has passed over one scheduled for later, so a deferred downgrade does not appear as "being set up" for the rest of the period it has not yet begun.
 
@@ -185,6 +204,7 @@ A `renewal` is the renewal worker's own operation, opened from the customer's st
 | Trial user tag, Paid user tag | empty | The Remnawave user tag a subscription carries on a trial and once paid, when its plan names none. With both empty and no plan tag, Omniflow leaves the panel's tags alone |
 | No trial for accounts that sign in only with | none | Telegram, an e-mail link, or OpenID Connect. A customer whose every way of signing in is listed is refused a trial with the reason `sign_in_method` on the web and in the bot; one who also signs in another way still qualifies |
 | Warn before a trial ends | 0 | Hours (at most 168) before a trial ends that the bot sends one extra `trial` notice with a button to the plans, on top of the day-based reminders |
+| Credit the unused remainder on a plan change | off | A `replace` upgrade or an `immediate` downgrade credits what is left of the current period, prorated by time at what the customer paid; see [Crediting the unused remainder](#crediting-the-unused-remainder) |
 | When a customer closes a subscription | disable | What happens to the Remnawave user of a subscription the customer closed: disabled, which keeps it for an operator to look at, or deleted |
 
 The defaults are what Omniflow did before the switches existed, so an installation that never opens the card behaves as it always has. A gift or an access code that extends a subscription follows the traffic reset switch as well.

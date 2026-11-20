@@ -7474,6 +7474,7 @@ components:
         trialWarningHours: {type: integer, minimum: 0, maximum: 168, description: Hours before a trial ends that the bot warns; zero for never.}
         maxDeviceLimit: {type: integer, minimum: 1, nullable: true, description: Most devices add-ons may take a subscription to; null is no ceiling.}
         remnawaveCloseMode: {type: string, enum: [disable, delete], description: What happens to the Remnawave user of a subscription the customer closes.}
+        proratePlanChanges: {type: boolean, description: "A replace upgrade or an immediate downgrade credits the unused remainder of the current period, prorated by time at what the customer paid."}
         updatedAt: {type: string, format: date-time, readOnly: true}
     ThemeDocument:
       type: object
@@ -9062,6 +9063,10 @@ components:
         externalMinor: {type: integer, format: int64, description: "What still has to be settled through a provider."}
         loyaltyDiscountMinor: {type: integer, format: int64, description: "The part of discountMinor the customer's loyalty tier gave."}
         loyaltyTier: {type: string, description: "Code of the loyalty tier that gave loyaltyDiscountMinor; empty when none did."}
+        creditMinor: {type: integer, format: int64, description: "The unused remainder of the current period a prorated plan change hands back; zero when none."}
+        creditRemainingSeconds: {type: integer, format: int64, description: "How much time that remainder had left."}
+        creditAppliedMinor: {type: integer, format: int64, description: "The part of creditMinor this order spends. walletAppliedMinor is then only the customer's own balance."}
+        creditToWalletMinor: {type: integer, format: int64, description: "The part of creditMinor that stays in the wallet because the new price is lower."}
     AccountPaymentChoice:
       type: object
       required: [provider, currency, recurring]

@@ -249,3 +249,8 @@ UPDATE plan_versions SET traffic_mode = sqlc.arg(traffic_mode) WHERE id = sqlc.a
 
 -- name: SetPlanVersionDailyBilling :exec
 UPDATE plan_versions SET daily_billing = sqlc.arg(daily_billing) WHERE id = sqlc.arg(plan_version_id);
+
+-- name: SetPlanChangeProration :one
+UPDATE subscription_policy SET prorate_plan_changes = sqlc.arg(prorate_plan_changes), updated_at = now()
+WHERE singleton
+RETURNING *;

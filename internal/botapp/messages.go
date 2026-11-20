@@ -960,6 +960,8 @@ var catalog = map[string]phrase{
 	"pay.optionSave": {ru: "%s + сохранить карту для автопродления", en: "%s + save the card for auto-renew"},
 	// Marketing, loyalty, and referrals.
 	"checkout.loyaltyDiscount":    {ru: "  в т. ч. уровень лояльности: −%s", en: "  of which your loyalty tier: −%s"},
+	"checkout.credit":             {ru: "Остаток текущего тарифа (%s): <b>−%s</b>", en: "Unused time on your current plan (%s): <b>−%s</b>"},
+	"checkout.creditToWallet":     {ru: "Вернётся на кошелёк: <b>%s</b>", en: "Back to your wallet: <b>%s</b>"},
 	"event.referralJoined":        {ru: "🎉 <b>По вашей ссылке пришёл новый пользователь</b>\n\nНаграда придёт, когда он оплатит подписку.", en: "🎉 <b>Somebody joined through your link</b>\n\nYour reward arrives when they pay for a subscription."},
 	"event.referralWelcomeDays":   {ru: "👋 <b>Вас пригласил друг</b>\n\nПосле первой оплаты подписки вы получите ещё %d дн. в подарок.", en: "👋 <b>A friend invited you</b>\n\nAfter your first subscription payment you get %d extra days."},
 	"event.referralWelcomeMoney":  {ru: "👋 <b>Вас пригласил друг</b>\n\nПосле первой оплаты подписки на баланс придёт %s.", en: "👋 <b>A friend invited you</b>\n\nAfter your first subscription payment, %s lands on your balance."},

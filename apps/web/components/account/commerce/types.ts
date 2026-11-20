@@ -167,6 +167,15 @@ export type CheckoutQuote = {
   /** The part of discountMinor the customer's loyalty tier gave. */
   loyaltyDiscountMinor?: number;
   loyaltyTier?: string;
+  /**
+   * A prorated plan change: the unused remainder of the current period handed
+   * back, the time it had left, the part this order spends, and the part that
+   * stays in the wallet because the new price is lower.
+   */
+  creditMinor?: number;
+  creditRemainingSeconds?: number;
+  creditAppliedMinor?: number;
+  creditToWalletMinor?: number;
 };
 
 /** One subscription a lifecycle flow can act on. */

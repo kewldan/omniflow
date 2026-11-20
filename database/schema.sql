@@ -3585,6 +3585,31 @@ COMMENT ON TABLE public.order_attributions IS 'Where one order came from, for th
 
 
 --
+-- Name: order_credits; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.order_credits (
+    order_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    kind text NOT NULL,
+    source_entitlement_id uuid NOT NULL,
+    source_order_id uuid,
+    currency text NOT NULL,
+    basis_minor bigint NOT NULL,
+    remaining_seconds bigint NOT NULL,
+    period_seconds bigint NOT NULL,
+    credit_minor bigint NOT NULL,
+    ledger_transaction_id uuid,
+    credited_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT order_credits_amounts CHECK (((basis_minor >= 0) AND (remaining_seconds >= 0) AND (period_seconds > 0) AND (credit_minor >= 0) AND (credit_minor <= basis_minor))),
+    CONSTRAINT order_credits_currency_shape CHECK ((currency ~ '^[A-Z]{3}$'::text)),
+    CONSTRAINT order_credits_kind_known CHECK ((kind = 'plan_remainder'::text)),
+    CONSTRAINT order_credits_posted_together CHECK (((ledger_transaction_id IS NULL) = (credited_at IS NULL)))
+);
+
+
+--
 -- Name: order_lines; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -4968,6 +4993,7 @@ CREATE TABLE public.subscription_policy (
     trial_warning_hours integer DEFAULT 0 NOT NULL,
     max_device_limit integer,
     remnawave_close_mode text DEFAULT 'disable'::text NOT NULL,
+    prorate_plan_changes boolean DEFAULT false NOT NULL,
     CONSTRAINT subscription_policy_max_device_limit_positive CHECK (((max_device_limit IS NULL) OR (max_device_limit > 0))),
     CONSTRAINT subscription_policy_paid_tag_shape CHECK ((paid_tag ~ '^[A-Z0-9_]{1,16}$'::text)),
     CONSTRAINT subscription_policy_remnawave_close_mode_known CHECK ((remnawave_close_mode = ANY (ARRAY['disable'::text, 'delete'::text]))),
@@ -6998,6 +7024,22 @@ ALTER TABLE ONLY public.order_attributions
 
 
 --
+-- Name: order_credits order_credits_ledger_transaction_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.order_credits
+    ADD CONSTRAINT order_credits_ledger_transaction_id_key UNIQUE (ledger_transaction_id);
+
+
+--
+-- Name: order_credits order_credits_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.order_credits
+    ADD CONSTRAINT order_credits_pkey PRIMARY KEY (order_id);
+
+
+--
 -- Name: order_lines order_lines_order_id_plan_version_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8736,6 +8778,20 @@ CREATE INDEX operator_notifications_volume_idx ON public.operator_notifications 
 --
 
 CREATE INDEX order_attributions_source_idx ON public.order_attributions USING btree (click_source) WHERE (click_id IS NOT NULL);
+
+
+--
+-- Name: order_credits_remainder_once; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX order_credits_remainder_once ON public.order_credits USING btree (source_entitlement_id) WHERE ((kind = 'plan_remainder'::text) AND (credited_at IS NOT NULL));
+
+
+--
+-- Name: order_credits_user_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX order_credits_user_idx ON public.order_credits USING btree (user_id, created_at DESC);
 
 
 --
@@ -10978,6 +11034,38 @@ ALTER TABLE ONLY public.order_addon_lines
 
 ALTER TABLE ONLY public.order_attributions
     ADD CONSTRAINT order_attributions_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id) ON DELETE CASCADE;
+
+
+--
+-- Name: order_credits order_credits_ledger_transaction_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.order_credits
+    ADD CONSTRAINT order_credits_ledger_transaction_id_fkey FOREIGN KEY (ledger_transaction_id) REFERENCES public.ledger_transactions(id);
+
+
+--
+-- Name: order_credits order_credits_order_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.order_credits
+    ADD CONSTRAINT order_credits_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id);
+
+
+--
+-- Name: order_credits order_credits_source_entitlement_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.order_credits
+    ADD CONSTRAINT order_credits_source_entitlement_id_fkey FOREIGN KEY (source_entitlement_id) REFERENCES public.entitlements(id);
+
+
+--
+-- Name: order_credits order_credits_source_order_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.order_credits
+    ADD CONSTRAINT order_credits_source_order_id_fkey FOREIGN KEY (source_order_id) REFERENCES public.orders(id);
 
 
 --

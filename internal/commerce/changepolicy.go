@@ -23,6 +23,10 @@ type ChangePolicy struct {
 	// version's upgrade policy, TrialRemainderCarry adds the paid period on
 	// top of it, and TrialRemainderReset starts the paid period now.
 	TrialRemainder string
+	// ProratePlanChanges credits the unused remainder of the current period,
+	// prorated by time at what the customer paid, against a plan change that
+	// throws it away: a `replace` upgrade or an `immediate` downgrade.
+	ProratePlanChanges bool
 }
 
 // What a trial's remaining time does on a move to a paid plan.

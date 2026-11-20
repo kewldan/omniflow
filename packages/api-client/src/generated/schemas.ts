@@ -4593,6 +4593,12 @@ export const GetPanelSubscriptionPolicyResponse = zod.object({
     .enum(["disable", "delete"])
     .optional()
     .describe("What happens to the Remnawave user of a subscription the customer closes."),
+  proratePlanChanges: zod
+    .boolean()
+    .optional()
+    .describe(
+      "A replace upgrade or an immediate downgrade credits the unused remainder of the current period, prorated by time at what the customer paid.",
+    ),
   updatedAt: zod.iso.datetime({ offset: true }).optional(),
 });
 
@@ -4650,6 +4656,12 @@ export const SavePanelSubscriptionPolicyBody = zod.object({
     .enum(["disable", "delete"])
     .optional()
     .describe("What happens to the Remnawave user of a subscription the customer closes."),
+  proratePlanChanges: zod
+    .boolean()
+    .optional()
+    .describe(
+      "A replace upgrade or an immediate downgrade credits the unused remainder of the current period, prorated by time at what the customer paid.",
+    ),
 });
 
 export const savePanelSubscriptionPolicyResponseTrialWarningHoursMin = 0;
@@ -4697,6 +4709,12 @@ export const SavePanelSubscriptionPolicyResponse = zod.object({
     .enum(["disable", "delete"])
     .optional()
     .describe("What happens to the Remnawave user of a subscription the customer closes."),
+  proratePlanChanges: zod
+    .boolean()
+    .optional()
+    .describe(
+      "A replace upgrade or an immediate downgrade credits the unused remainder of the current period, prorated by time at what the customer paid.",
+    ),
   updatedAt: zod.iso.datetime({ offset: true }).optional(),
 });
 
@@ -10379,6 +10397,28 @@ export const GetAccountCheckoutResponse = zod.object({
         .string()
         .optional()
         .describe("Code of the loyalty tier that gave loyaltyDiscountMinor; empty when none did."),
+      creditMinor: zod
+        .int()
+        .optional()
+        .describe(
+          "The unused remainder of the current period a prorated plan change hands back; zero when none.",
+        ),
+      creditRemainingSeconds: zod
+        .int()
+        .optional()
+        .describe("How much time that remainder had left."),
+      creditAppliedMinor: zod
+        .int()
+        .optional()
+        .describe(
+          "The part of creditMinor this order spends. walletAppliedMinor is then only the customer's own balance.",
+        ),
+      creditToWalletMinor: zod
+        .int()
+        .optional()
+        .describe(
+          "The part of creditMinor that stays in the wallet because the new price is lower.",
+        ),
     })
     .describe(
       "The exact application breakdown. Every figure is computed on the server, so the number a customer is asked to approve and the number they are charged cannot be arrived at two different ways.",
@@ -10583,6 +10623,28 @@ export const OpenAccountCheckoutResponse = zod.object({
         .string()
         .optional()
         .describe("Code of the loyalty tier that gave loyaltyDiscountMinor; empty when none did."),
+      creditMinor: zod
+        .int()
+        .optional()
+        .describe(
+          "The unused remainder of the current period a prorated plan change hands back; zero when none.",
+        ),
+      creditRemainingSeconds: zod
+        .int()
+        .optional()
+        .describe("How much time that remainder had left."),
+      creditAppliedMinor: zod
+        .int()
+        .optional()
+        .describe(
+          "The part of creditMinor this order spends. walletAppliedMinor is then only the customer's own balance.",
+        ),
+      creditToWalletMinor: zod
+        .int()
+        .optional()
+        .describe(
+          "The part of creditMinor that stays in the wallet because the new price is lower.",
+        ),
     })
     .describe(
       "The exact application breakdown. Every figure is computed on the server, so the number a customer is asked to approve and the number they are charged cannot be arrived at two different ways.",
@@ -10806,6 +10868,28 @@ export const UpdateAccountCheckoutResponse = zod.object({
         .string()
         .optional()
         .describe("Code of the loyalty tier that gave loyaltyDiscountMinor; empty when none did."),
+      creditMinor: zod
+        .int()
+        .optional()
+        .describe(
+          "The unused remainder of the current period a prorated plan change hands back; zero when none.",
+        ),
+      creditRemainingSeconds: zod
+        .int()
+        .optional()
+        .describe("How much time that remainder had left."),
+      creditAppliedMinor: zod
+        .int()
+        .optional()
+        .describe(
+          "The part of creditMinor this order spends. walletAppliedMinor is then only the customer's own balance.",
+        ),
+      creditToWalletMinor: zod
+        .int()
+        .optional()
+        .describe(
+          "The part of creditMinor that stays in the wallet because the new price is lower.",
+        ),
     })
     .describe(
       "The exact application breakdown. Every figure is computed on the server, so the number a customer is asked to approve and the number they are charged cannot be arrived at two different ways.",
@@ -11013,6 +11097,28 @@ export const ApplyAccountPromoCodeResponse = zod.object({
         .string()
         .optional()
         .describe("Code of the loyalty tier that gave loyaltyDiscountMinor; empty when none did."),
+      creditMinor: zod
+        .int()
+        .optional()
+        .describe(
+          "The unused remainder of the current period a prorated plan change hands back; zero when none.",
+        ),
+      creditRemainingSeconds: zod
+        .int()
+        .optional()
+        .describe("How much time that remainder had left."),
+      creditAppliedMinor: zod
+        .int()
+        .optional()
+        .describe(
+          "The part of creditMinor this order spends. walletAppliedMinor is then only the customer's own balance.",
+        ),
+      creditToWalletMinor: zod
+        .int()
+        .optional()
+        .describe(
+          "The part of creditMinor that stays in the wallet because the new price is lower.",
+        ),
     })
     .describe(
       "The exact application breakdown. Every figure is computed on the server, so the number a customer is asked to approve and the number they are charged cannot be arrived at two different ways.",
@@ -11205,6 +11311,28 @@ export const RemoveAccountPromoCodeResponse = zod.object({
         .string()
         .optional()
         .describe("Code of the loyalty tier that gave loyaltyDiscountMinor; empty when none did."),
+      creditMinor: zod
+        .int()
+        .optional()
+        .describe(
+          "The unused remainder of the current period a prorated plan change hands back; zero when none.",
+        ),
+      creditRemainingSeconds: zod
+        .int()
+        .optional()
+        .describe("How much time that remainder had left."),
+      creditAppliedMinor: zod
+        .int()
+        .optional()
+        .describe(
+          "The part of creditMinor this order spends. walletAppliedMinor is then only the customer's own balance.",
+        ),
+      creditToWalletMinor: zod
+        .int()
+        .optional()
+        .describe(
+          "The part of creditMinor that stays in the wallet because the new price is lower.",
+        ),
     })
     .describe(
       "The exact application breakdown. Every figure is computed on the server, so the number a customer is asked to approve and the number they are charged cannot be arrived at two different ways.",
@@ -11401,6 +11529,28 @@ export const ToggleAccountCheckoutAddonResponse = zod.object({
         .string()
         .optional()
         .describe("Code of the loyalty tier that gave loyaltyDiscountMinor; empty when none did."),
+      creditMinor: zod
+        .int()
+        .optional()
+        .describe(
+          "The unused remainder of the current period a prorated plan change hands back; zero when none.",
+        ),
+      creditRemainingSeconds: zod
+        .int()
+        .optional()
+        .describe("How much time that remainder had left."),
+      creditAppliedMinor: zod
+        .int()
+        .optional()
+        .describe(
+          "The part of creditMinor this order spends. walletAppliedMinor is then only the customer's own balance.",
+        ),
+      creditToWalletMinor: zod
+        .int()
+        .optional()
+        .describe(
+          "The part of creditMinor that stays in the wallet because the new price is lower.",
+        ),
     })
     .describe(
       "The exact application breakdown. Every figure is computed on the server, so the number a customer is asked to approve and the number they are charged cannot be arrived at two different ways.",

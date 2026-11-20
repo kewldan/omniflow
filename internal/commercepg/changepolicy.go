@@ -72,5 +72,6 @@ func ChangePolicyFrom(row dbgen.SubscriptionPolicy) commerce.ChangePolicy {
 		ResetTrafficOnPlanChange: row.ResetTrafficOnPlanChange,
 		ResetDevicesOnRenewal:    row.ResetDevicesOnRenewal,
 		TrialRemainder:           row.TrialRemainder,
+		ProratePlanChanges:       row.ProratePlanChanges,
 	}
 }

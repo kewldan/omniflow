@@ -51,6 +51,8 @@ and each one is written where the state changes, not in a caller that could be b
 | Wallet credit claimed by `draft` and `pending` orders is not available to a new one | Available balance subtracts the reservation in SQL | Two checkouts opened side by side each believing the same money is theirs |
 | The wallet is re-checked at settlement | The balance is re-read under the order lock; a shortfall becomes `wallet_unavailable` and the order does not settle | Granting an entitlement partly paid from credit that has since been spent |
 | A wallet balance never goes negative | Operator adjustments re-read the balance and refuse; credit expiry clamps the amount to what is still there | A debit or an expiry driving a customer below zero |
+| A credit line is posted once, and a period's remainder is handed back once | The ledger key `order-credit:<orderID>`, the line's `credited_at IS NULL` predicate, and a partial unique index on posted `plan_remainder` lines per source entitlement; settlement re-checks that the source entitlement is still the subscription's current one | Paying the same unused days back twice, through a replayed settlement or two change orders opened side by side |
+| A credit never exceeds what was paid for what it credits | `CHECK (credit_minor <= basis_minor)` on `order_credits`, and domain arithmetic that rounds down in 128 bits | A proration handing back more than the customer spent |
 | Refund mutations serialise per intent, and pending plus succeeded refunds cannot exceed the intent | An advisory lock on the intent, and a reserve check **before** the provider is called | Two concurrent refunds each passing a check the other invalidated |
 | A promotion's remaining uses are decided under a row lock | `FOR UPDATE` on the promotion during quoting | Two customers both redeeming the last use of a limited code |
 | Two changes to one subscription never build on the same end | Settlement, gift claims and code redemption all run `Serializable` and read the current entitlement `FOR UPDATE`; a redemption that loses the race is retried | A code redeemed during a renewal settlement silently losing one of the two periods |
@@ -143,6 +145,9 @@ A change that breaks any of these should not ship:
     expires, or otherwise mutates money already taken.
 19. Retention deletes disposable operational data only. Financial, audit, consent, identity, and
     entitlement history is never removed by a sweep.
+20. A credit line reaches the wallet only as a balanced `credit` ledger transaction, posted once per
+    order, never more than what was paid for what it credits, and a period's remainder is handed
+    back at most once.
 
 ## Where they are tested
 

@@ -284,8 +284,6 @@ type Querier interface {
 	CountRecentOperatorNotifications(ctx context.Context, arg CountRecentOperatorNotificationsParams) (int32, error)
 	CountReminderAudience(ctx context.Context, reminderID pgtype.UUID) (int64, error)
 	CountRunningBackups(ctx context.Context) (int32, error)
-	// Customers other than this one with a live entitlement on the squad.
-	CountSquadCustomers(ctx context.Context, arg CountSquadCustomersParams) (int32, error)
 	CountUnpublishedOutboxEvents(ctx context.Context) (CountUnpublishedOutboxEventsRow, error)
 	CountUnusedAdminRecoveryCodes(ctx context.Context, adminUserID pgtype.UUID) (int64, error)
 	// Named API tokens and outgoing webhooks.
@@ -418,7 +416,6 @@ type Querier interface {
 	CreateWalletTopup(ctx context.Context, arg CreateWalletTopupParams) (WalletTopup, error)
 	CreateWebhookEndpoint(ctx context.Context, arg CreateWebhookEndpointParams) (WebhookEndpoint, error)
 	CreditWalletTopup(ctx context.Context, arg CreditWalletTopupParams) (WalletTopup, error)
-	CustomerHoldsSquad(ctx context.Context, arg CustomerHoldsSquadParams) (bool, error)
 	CustomerLastActivity(ctx context.Context, userID pgtype.UUID) (pgtype.Timestamptz, error)
 	// The metric a standing is evaluated on, computed from facts Omniflow already
 	// records. Nothing new is tracked to support loyalty.
@@ -808,6 +805,7 @@ type Querier interface {
 	GetOperatorTopic(ctx context.Context, kind string) (OperatorTopic, error)
 	GetOrder(ctx context.Context, id pgtype.UUID) (Order, error)
 	GetOrderByIdempotency(ctx context.Context, arg GetOrderByIdempotencyParams) (Order, error)
+	GetOrderCredit(ctx context.Context, orderID pgtype.UUID) (OrderCredit, error)
 	GetOrderEntitlementSpec(ctx context.Context, orderID pgtype.UUID) (GetOrderEntitlementSpecRow, error)
 	GetPaymentIntent(ctx context.Context, id pgtype.UUID) (PaymentIntent, error)
 	GetPaymentIntentByIdempotency(ctx context.Context, arg GetPaymentIntentByIdempotencyParams) (PaymentIntent, error)
@@ -845,6 +843,11 @@ type Querier interface {
 	GetReferralProgram(ctx context.Context) (ReferralProgram, error)
 	GetRefund(ctx context.Context, id pgtype.UUID) (Refund, error)
 	GetRefundByIdempotency(ctx context.Context, arg GetRefundByIdempotencyParams) (Refund, error)
+	// What the order behind an entitlement paid, and the period that payment
+	// bought. Only the entitlement's own customer's paid plan orders count: a
+	// gift, a code, a trial and an operator's grant paid nothing the holder could
+	// be handed back.
+	GetRemainderBasis(ctx context.Context, orderID pgtype.UUID) (GetRemainderBasisRow, error)
 	GetRemnawaveMappingByCustomer(ctx context.Context, userID pgtype.UUID) (RemnawaveUser, error)
 	GetRemnawaveUserIDByTelegramID(ctx context.Context, telegramID pgtype.Int8) (int64, error)
 	GetReservedRefundAmount(ctx context.Context, paymentIntentID pgtype.UUID) (int64, error)
@@ -939,25 +942,23 @@ type Querier interface {
 	InsertLedgerEntry(ctx context.Context, arg InsertLedgerEntryParams) (LedgerEntry, error)
 	InsertMaintenanceEvent(ctx context.Context, arg InsertMaintenanceEventParams) (MaintenanceEvent, error)
 	InsertOrderAddonLine(ctx context.Context, arg InsertOrderAddonLineParams) (OrderAddonLine, error)
+	// Credit lines: the unused value a change order hands back to the customer.
+	InsertOrderCredit(ctx context.Context, arg InsertOrderCreditParams) (OrderCredit, error)
 	InsertOrderLine(ctx context.Context, arg InsertOrderLineParams) (OrderLine, error)
 	InsertOutboxEvent(ctx context.Context, arg InsertOutboxEventParams) (OutboxEvent, error)
 	InsertPaymentEvent(ctx context.Context, arg InsertPaymentEventParams) (PaymentEvent, error)
 	InsertPlanVersionDayPrice(ctx context.Context, arg InsertPlanVersionDayPriceParams) error
-	InsertPlanVersionGBPrice(ctx context.Context, arg InsertPlanVersionGBPriceParams) error
 	InsertPlanVersionPeriod(ctx context.Context, arg InsertPlanVersionPeriodParams) error
 	// Plan authoring and the subscription options built on it: the squads a
 	// customer may choose, and what a plan version offers beside its price.
 	// One squad a customer may choose on a plan version. The version is immutable
 	// once published, so the offered set is written with it and never edited.
 	InsertPlanVersionSquad(ctx context.Context, arg InsertPlanVersionSquadParams) error
-	InsertPlanVersionTrafficPackage(ctx context.Context, arg InsertPlanVersionTrafficPackageParams) error
 	InsertPromoRedemption(ctx context.Context, arg InsertPromoRedemptionParams) (PromoRedemption, error)
 	// A retried delivery carries the same bytes and is a no-op: no row comes back.
 	InsertRemnawaveWebhookEvent(ctx context.Context, arg InsertRemnawaveWebhookEventParams) (int64, error)
 	InsertWebhookEvent(ctx context.Context, arg InsertWebhookEventParams) (ProviderWebhookEvent, error)
 	InvalidateAdminPasswordResets(ctx context.Context, adminUserID pgtype.UUID) (int64, error)
-	// A traffic add-on is not offered on a version whose traffic is fixed, which
-	// is the one check every path that sells an add-on passes through.
 	IsAddonOfferedForPlan(ctx context.Context, arg IsAddonOfferedForPlanParams) (bool, error)
 	IsBlocklistAllowlisted(ctx context.Context, userID pgtype.UUID) (bool, error)
 	IsChannelExempt(ctx context.Context, userID pgtype.UUID) (bool, error)
@@ -975,12 +976,6 @@ type Querier interface {
 	// The period the subscription's latest settled subscription order bought,
 	// which an automatic renewal repeats when the version still offers it.
 	LastOrderPeriod(ctx context.Context, subscriptionID pgtype.UUID) (pgtype.Int8, error)
-	// The squads the subscription's latest settled subscription order granted,
-	// which an automatic renewal keeps choosing.
-	LastOrderSquads(ctx context.Context, subscriptionID pgtype.UUID) ([]pgtype.UUID, error)
-	// The traffic the subscription's latest settled subscription order bought,
-	// which an automatic renewal repeats when the version still sells it.
-	LastOrderTraffic(ctx context.Context, subscriptionID pgtype.UUID) (pgtype.Int4, error)
 	LatestBlockerScan(ctx context.Context) (BlockerScan, error)
 	// The plan version an operator means when they pick a plan by name.
 	LatestLivePlanVersion(ctx context.Context, planID pgtype.UUID) (LatestLivePlanVersionRow, error)
@@ -1092,7 +1087,6 @@ type Querier interface {
 	// here, from the entitlement identity and its end instant, so the worker and
 	// the dunning table agree on what "this renewal" means without a second round
 	// trip.
-	// A daily plan is renewed by the daily charge, never by auto-renew as well.
 	ListAutoRenewDue(ctx context.Context, pageSize int32) ([]ListAutoRenewDueRow, error)
 	ListBackupRequests(ctx context.Context) ([]BackupRequest, error)
 	ListBackupRestores(ctx context.Context, limit int32) ([]BackupRestore, error)
@@ -1386,10 +1380,8 @@ type Querier interface {
 	ListPlanPrices(ctx context.Context, planVersionID pgtype.UUID) ([]PlanPrice, error)
 	ListPlanVersionAddonIDs(ctx context.Context, planVersionID pgtype.UUID) ([]pgtype.UUID, error)
 	ListPlanVersionDayPrices(ctx context.Context, planVersionID pgtype.UUID) ([]PlanVersionDayPrice, error)
-	ListPlanVersionGBPrices(ctx context.Context, planVersionID pgtype.UUID) ([]PlanVersionGbPrice, error)
 	ListPlanVersionPeriods(ctx context.Context, planVersionID pgtype.UUID) ([]PlanVersionPeriod, error)
 	ListPlanVersionSquads(ctx context.Context, planVersionID pgtype.UUID) ([]PlanVersionSquad, error)
-	ListPlanVersionTrafficPackages(ctx context.Context, planVersionID pgtype.UUID) ([]PlanVersionTrafficPackage, error)
 	ListPlanVersions(ctx context.Context, planID pgtype.UUID) ([]PlanVersion, error)
 	ListPlanVersionsForImport(ctx context.Context) ([]ListPlanVersionsForImportRow, error)
 	// ---------------------------------------------------------------------------
@@ -1427,11 +1419,6 @@ type Querier interface {
 	ListRemnawaveMappings(ctx context.Context) ([]ListRemnawaveMappingsRow, error)
 	// Mandatory channel subscription.
 	ListRequiredChannels(ctx context.Context) ([]RequiredChannel, error)
-	// The server catalogue: Omniflow's labels and sale limits over Remnawave
-	// internal squads.
-	// What the catalogue says about the squads an order would grant, with the
-	// price of choosing each in the order's currency.
-	ListServerRules(ctx context.Context, arg ListServerRulesParams) ([]ListServerRulesRow, error)
 	// AI governance, MCP connections, and installation settings.
 	// Every section without its secrets. This is the query the settings screens
 	// read, and it cannot return a credential because the column is not selected.
@@ -1544,6 +1531,7 @@ type Querier interface {
 	LockGoodsDelivery(ctx context.Context, orderID pgtype.UUID) (GoodsDelivery, error)
 	LockOpenCart(ctx context.Context, userID pgtype.UUID) (Cart, error)
 	LockOrder(ctx context.Context, id pgtype.UUID) (Order, error)
+	LockOrderCredit(ctx context.Context, orderID pgtype.UUID) (OrderCredit, error)
 	// The limits of the promotion an order redeemed, with the promotion and code
 	// rows locked the way a checkout locks them, so a late settlement re-checking
 	// the limits and a new checkout claiming them cannot both pass a limit of one.
@@ -1592,6 +1580,9 @@ type Querier interface {
 	// adapter, told the marker did not commit, sends nothing.
 	MarkGoodsDeliveryBroadcasting(ctx context.Context, arg MarkGoodsDeliveryBroadcastingParams) (GoodsDelivery, error)
 	MarkLoyaltyRecalculated(ctx context.Context, arg MarkLoyaltyRecalculatedParams) error
+	// The predicate makes a replayed settlement match nothing, so a credit line is
+	// posted once.
+	MarkOrderCreditPosted(ctx context.Context, arg MarkOrderCreditPostedParams) (OrderCredit, error)
 	// Moves a paid order to fulfilled, and nothing else.
 	//
 	// The state guard is the point. Provisioning is asynchronous, and a refund
@@ -1767,6 +1758,9 @@ type Querier interface {
 	// would make today's rate look terrible exactly when somebody is watching.
 	PaymentHealthByProvider(ctx context.Context, arg PaymentHealthByProviderParams) ([]PaymentHealthByProviderRow, error)
 	PlaceRetentionHold(ctx context.Context, arg PlaceRetentionHoldParams) (AiRetentionHold, error)
+	// Whether the remainder of an entitlement was already handed back by another
+	// order.
+	PlanRemainderPosted(ctx context.Context, sourceEntitlementID pgtype.UUID) (bool, error)
 	ProgressBlockerScan(ctx context.Context, arg ProgressBlockerScanParams) error
 	// Bedolaga's limit of distinct promo codes a customer may use in a day: the
 	// operator's limit from the marketing settings (zero is no limit), and how
@@ -2199,19 +2193,15 @@ type Querier interface {
 	SetNewsPostState(ctx context.Context, arg SetNewsPostStateParams) (NewsPost, error)
 	// Written once, in the transaction that creates the order.
 	SetOrderPeriod(ctx context.Context, arg SetOrderPeriodParams) error
-	// Written once, in the transaction that creates the order.
-	SetOrderTraffic(ctx context.Context, arg SetOrderTrafficParams) error
+	SetPlanChangeProration(ctx context.Context, proratePlanChanges bool) (SubscriptionPolicy, error)
 	SetPlanRemnawaveTag(ctx context.Context, arg SetPlanRemnawaveTagParams) (Plan, error)
 	SetPlanVersionAddonTrafficCap(ctx context.Context, arg SetPlanVersionAddonTrafficCapParams) error
 	// Replaces the add-ons offered with a plan version. Deleting first keeps the
 	// set exactly what the operator chose rather than the union of every edit.
 	SetPlanVersionAddons(ctx context.Context, planVersionID pgtype.UUID) error
 	SetPlanVersionCustomDays(ctx context.Context, arg SetPlanVersionCustomDaysParams) error
-	SetPlanVersionCustomTraffic(ctx context.Context, arg SetPlanVersionCustomTrafficParams) error
-	SetPlanVersionDailyBilling(ctx context.Context, arg SetPlanVersionDailyBillingParams) error
 	// Written once, in the transaction that publishes the version.
 	SetPlanVersionRemnawaveProfile(ctx context.Context, arg SetPlanVersionRemnawaveProfileParams) error
-	SetPlanVersionTrafficMode(ctx context.Context, arg SetPlanVersionTrafficModeParams) error
 	SetPlanVersionTrafficResetPrice(ctx context.Context, arg SetPlanVersionTrafficResetPriceParams) error
 	SetPlanVisibility(ctx context.Context, arg SetPlanVisibilityParams) (Plan, error)
 	SetPolicyTags(ctx context.Context, arg SetPolicyTagsParams) (SubscriptionPolicy, error)

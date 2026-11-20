@@ -96,6 +96,21 @@ func TestCheckoutViewShowsTheFullBreakdown(t *testing.T) {
 	}
 }
 
+func TestCheckoutViewShowsAProratedPlanChangeCredit(t *testing.T) {
+	t.Parallel()
+	session := CheckoutSession{PlanVersionID: "a", Operation: "downgrade", Provider: "yookassa", ApplyWallet: true}
+	quote := commerce.CheckoutQuote{
+		Subtotal:    commerce.Money{Amount: 10000, Currency: "RUB"},
+		CreditMinor: 15000, CreditRemainingSeconds: 15 * 24 * 3600, CreditAppliedMinor: 10000, CreditToWalletMinor: 5000,
+	}
+	view := checkoutView(LocaleEnglish, Plan{Name: "Lite", Duration: 30 * 24 * time.Hour}, session, quote, false)
+	for _, fragment := range []string{"Unused time on your current plan (15 days): <b>−100 RUB</b>", "Back to your wallet: <b>50 RUB</b>"} {
+		if !strings.Contains(view.Text, fragment) {
+			t.Fatalf("checkout summary is missing %q: %s", fragment, view.Text)
+		}
+	}
+}
+
 func TestCheckoutViewExplainsARejectedPromoCode(t *testing.T) {
 	t.Parallel()
 	quote := commerce.CheckoutQuote{Subtotal: commerce.Money{Amount: 1000, Currency: "RUB"}, ExternalMinor: 1000, PromoRejection: "promo_exhausted"}

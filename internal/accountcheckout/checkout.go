@@ -179,7 +179,7 @@ func quoteFrom(preview commercepg.OrderQuote, session Session) commerce.Checkout
 		Subtotal:           commerce.Money{Amount: preview.Plan.AmountMinor, Currency: preview.Plan.Currency},
 		DiscountMinor:      preview.DiscountMinor,
 		WalletBalanceMinor: preview.WalletBalance,
-		WalletAppliedMinor: preview.WalletMinor,
+		WalletAppliedMinor: preview.WalletFundsMinor,
 		ExternalMinor:      preview.ExternalMinor,
 		PromoCode:          session.PromoCode,
 		PromoRejection:     session.PromoRejection,
@@ -187,6 +187,11 @@ func quoteFrom(preview commercepg.OrderQuote, session Session) commerce.Checkout
 
 		LoyaltyDiscountMinor: preview.LoyaltyDiscountMinor,
 		LoyaltyTier:          preview.LoyaltyTier,
+
+		CreditMinor:            preview.CreditMinor,
+		CreditRemainingSeconds: preview.CreditRemainingSeconds,
+		CreditAppliedMinor:     preview.CreditAppliedMinor,
+		CreditToWalletMinor:    preview.CreditToWalletMinor,
 	}
 }
 

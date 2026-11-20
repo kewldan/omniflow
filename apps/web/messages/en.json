@@ -2540,7 +2540,9 @@
         "remnawaveCloseModeValue": {
           "disable": "Disable the user",
           "delete": "Delete the user"
-        }
+        },
+        "proratePlanChanges": "Credit the unused remainder on a plan change",
+        "proratePlanChangesHint": "An upgrade that replaces the period or a downgrade that takes effect now credits what is left of the current period, prorated by time at what the customer paid. What exceeds the new price goes to the wallet."
       },
       "paymentMethods": {
         "title": "Payment buttons",
@@ -5812,7 +5814,9 @@
         "wallet": "From your wallet",
         "external": "To pay",
         "nothingDue": "Your wallet covers this in full, so there is nothing left to pay.",
-        "loyalty": "Of which your loyalty tier"
+        "loyalty": "Of which your loyalty tier",
+        "credit": "Unused time on your current plan ({days, plural, one {# day} other {# days}})",
+        "creditToWallet": "{amount} of the unused time goes back to your wallet."
       },
       "store": {
         "plans": "Plans",

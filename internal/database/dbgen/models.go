@@ -1854,6 +1854,22 @@ type OrderAttribution struct {
 	RecordedAt  pgtype.Timestamptz `json:"recorded_at"`
 }
 
+type OrderCredit struct {
+	OrderID             pgtype.UUID        `json:"order_id"`
+	UserID              pgtype.UUID        `json:"user_id"`
+	Kind                string             `json:"kind"`
+	SourceEntitlementID pgtype.UUID        `json:"source_entitlement_id"`
+	SourceOrderID       pgtype.UUID        `json:"source_order_id"`
+	Currency            string             `json:"currency"`
+	BasisMinor          int64              `json:"basis_minor"`
+	RemainingSeconds    int64              `json:"remaining_seconds"`
+	PeriodSeconds       int64              `json:"period_seconds"`
+	CreditMinor         int64              `json:"credit_minor"`
+	LedgerTransactionID pgtype.UUID        `json:"ledger_transaction_id"`
+	CreditedAt          pgtype.Timestamptz `json:"credited_at"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+}
+
 type OrderLine struct {
 	ID              pgtype.UUID `json:"id"`
 	OrderID         pgtype.UUID `json:"order_id"`
@@ -2617,6 +2633,7 @@ type SubscriptionPolicy struct {
 	TrialWarningHours        int32              `json:"trial_warning_hours"`
 	MaxDeviceLimit           pgtype.Int4        `json:"max_device_limit"`
 	RemnawaveCloseMode       string             `json:"remnawave_close_mode"`
+	ProratePlanChanges       bool               `json:"prorate_plan_changes"`
 }
 
 type SupportAttachment struct {

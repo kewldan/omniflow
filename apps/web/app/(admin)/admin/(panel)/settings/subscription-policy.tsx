@@ -30,6 +30,7 @@ export type SubscriptionPolicy = {
   trialWarningHours?: number;
   maxDeviceLimit?: number | null;
   remnawaveCloseMode?: string;
+  proratePlanChanges?: boolean;
   updatedAt?: string;
 };
 
@@ -48,7 +49,8 @@ type Toggle =
   | "downgradesEnabled"
   | "resetTrafficOnRenewal"
   | "resetTrafficOnPlanChange"
-  | "resetDevicesOnRenewal";
+  | "resetDevicesOnRenewal"
+  | "proratePlanChanges";
 
 const TOGGLES: Toggle[] = [
   "upgradesEnabled",
@@ -56,6 +58,7 @@ const TOGGLES: Toggle[] = [
   "resetTrafficOnRenewal",
   "resetTrafficOnPlanChange",
   "resetDevicesOnRenewal",
+  "proratePlanChanges",
 ];
 
 /**
@@ -105,7 +108,7 @@ function PolicyForm({
       <CardContent className="flex flex-col gap-4">
         {TOGGLES.map((toggle) => (
           <PolicySwitch
-            checked={draft[toggle]}
+            checked={draft[toggle] ?? false}
             disabled={!editable}
             hint={translate(`${toggle}Hint`)}
             key={toggle}

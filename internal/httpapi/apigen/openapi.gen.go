@@ -5770,9 +5770,21 @@ type AccountCheckoutSquadSelectionReason string
 
 // AccountCheckoutQuote The exact application breakdown. Every figure is computed on the server, so the number a customer is asked to approve and the number they are charged cannot be arrived at two different ways.
 type AccountCheckoutQuote struct {
-	AddonMinor    int64  `json:"addonMinor"`
-	Currency      string `json:"currency"`
-	DiscountMinor int64  `json:"discountMinor"`
+	AddonMinor int64 `json:"addonMinor"`
+
+	// CreditAppliedMinor The part of creditMinor this order spends. walletAppliedMinor is then only the customer's own balance.
+	CreditAppliedMinor *int64 `json:"creditAppliedMinor,omitempty"`
+
+	// CreditMinor The unused remainder of the current period a prorated plan change hands back; zero when none.
+	CreditMinor *int64 `json:"creditMinor,omitempty"`
+
+	// CreditRemainingSeconds How much time that remainder had left.
+	CreditRemainingSeconds *int64 `json:"creditRemainingSeconds,omitempty"`
+
+	// CreditToWalletMinor The part of creditMinor that stays in the wallet because the new price is lower.
+	CreditToWalletMinor *int64 `json:"creditToWalletMinor,omitempty"`
+	Currency            string `json:"currency"`
+	DiscountMinor       int64  `json:"discountMinor"`
 
 	// ExternalMinor What still has to be settled through a provider.
 	ExternalMinor int64 `json:"externalMinor"`
@@ -9794,6 +9806,9 @@ type PanelSubscriptionPolicy struct {
 
 	// PaidTag Remnawave user tag once paid when the plan names none; empty for none.
 	PaidTag *string `json:"paidTag,omitempty"`
+
+	// ProratePlanChanges A replace upgrade or an immediate downgrade credits the unused remainder of the current period, prorated by time at what the customer paid.
+	ProratePlanChanges *bool `json:"proratePlanChanges,omitempty"`
 
 	// RemnawaveCloseMode What happens to the Remnawave user of a subscription the customer closes.
 	RemnawaveCloseMode *PanelSubscriptionPolicyRemnawaveCloseMode `json:"remnawaveCloseMode,omitempty"`

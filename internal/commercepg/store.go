@@ -319,8 +319,21 @@ type OrderQuote struct {
 	LoyaltyTier          string
 	// PromoDiscountMinor is the part of DiscountMinor the promo code gave.
 	PromoDiscountMinor int64
-	addons             []pricedAddon
-	promo              *dbgen.GetPromoForRedemptionRow
+	// CreditMinor is the unused remainder of the current period a prorated
+	// plan change hands back, CreditRemainingSeconds the time it had left.
+	// CreditAppliedMinor is the part of it this order spends, and
+	// CreditToWalletMinor what stays in the wallet because the new price is
+	// lower. WalletMinor includes the applied credit, since the credit lands
+	// in the wallet when the order settles; WalletFundsMinor is the part of
+	// WalletMinor that is the customer's own balance.
+	CreditMinor            int64
+	CreditRemainingSeconds int64
+	CreditAppliedMinor     int64
+	CreditToWalletMinor    int64
+	WalletFundsMinor       int64
+	addons                 []pricedAddon
+	promo                  *dbgen.GetPromoForRedemptionRow
+	credit                 *pendingCredit
 }
 
 // TotalMinor is what the customer owes before the wallet is applied.
@@ -510,21 +523,42 @@ func (store *Store) quoteWith(ctx context.Context, queries *dbgen.Queries, userI
 	if input.SkipWallet {
 		applicableWallet = 0
 	}
+	// A plan change that throws the current period away hands its unused
+	// remainder back when the installation prorates changes. The credit lands
+	// in the wallet at settlement and this order spends it first, so it counts
+	// as wallet money whether or not the customer chose to spend their own.
+	var credit *pendingCredit
+	if changePolicy.ProratePlanChanges && commerce.ProratesRemainder(input.Operation, plan.UpgradePolicy, plan.DowngradePolicy) {
+		if credit, err = store.planRemainder(ctx, queries, userID, input.SubscriptionID, plan.Currency); err != nil {
+			return OrderQuote{}, err
+		}
+	}
+	creditMinor := int64(0)
+	if credit != nil {
+		creditMinor = credit.credit.CreditMinor
+	}
 	// The discount applies to the plan, not to the add-ons, so the add-on total
 	// is added after the promotion has been taken off the plan price.
 	subtotal := plan.AmountMinor + addonMinor
 	promoMinor := discount
 	discount += loyaltyMinor
-	domainOrder, err := commerce.NewOrder("", input.CustomerID, commerce.Money{Amount: subtotal, Currency: plan.Currency}, discount, applicableWallet)
+	domainOrder, err := commerce.NewOrder("", input.CustomerID, commerce.Money{Amount: subtotal, Currency: plan.Currency}, discount, applicableWallet+creditMinor)
 	if err != nil {
 		return OrderQuote{}, err
 	}
-	return OrderQuote{
+	applied, toWallet := commerce.ApplyCredit(creditMinor, subtotal-discount)
+	quote := OrderQuote{
 		Plan: plan, DiscountMinor: discount, WalletBalance: wallet,
 		WalletMinor: domainOrder.WalletMinor, ExternalMinor: domainOrder.ExternalMinor,
 		SquadIDs: squads, AddonMinor: addonMinor, addons: addons, promo: promo,
 		LoyaltyDiscountMinor: loyaltyMinor, LoyaltyTier: loyaltyCode, PromoDiscountMinor: promoMinor,
-	}, nil
+		CreditMinor: creditMinor, CreditAppliedMinor: applied, CreditToWalletMinor: toWallet,
+		WalletFundsMinor: domainOrder.WalletMinor - applied, credit: credit,
+	}
+	if credit != nil {
+		quote.CreditRemainingSeconds = int64(credit.credit.Remaining / time.Second)
+	}
+	return quote, nil
 }
 
 // resolveSquads validates the customer's squad choice against the plan version's
@@ -637,6 +671,16 @@ func (store *Store) CreateOrder(ctx context.Context, input CreateOrderInput) (db
 	}
 	if err = store.insertAddonLines(ctx, queries, order.ID, quote.addons, expiresAt); err != nil {
 		return dbgen.Order{}, err
+	}
+	if quote.credit != nil {
+		// The remainder was priced against the subscription the order names;
+		// one resolved differently would credit somebody else's days.
+		if source, sourceErr := queries.GetEntitlement(ctx, quote.credit.entitlementID); sourceErr != nil || source.SubscriptionID != subscriptionID {
+			return dbgen.Order{}, ErrSubscriptionUnknown
+		}
+		if err = recordOrderCredit(ctx, queries, order, quote.credit); err != nil {
+			return dbgen.Order{}, err
+		}
 	}
 	snapshot, _ := json.Marshal(map[string]any{
 		"planCode": plan.Code, "planKind": plan.Kind, "version": plan.Version,
@@ -763,7 +807,13 @@ func (store *Store) RecordProviderPayment(ctx context.Context, paymentIntentID, 
 		if balanceErr != nil {
 			return dbgen.Order{}, "", balanceErr
 		}
-		if walletBalance < order.WalletMinor {
+		// A credit line still owed lands in the wallet in this transaction,
+		// before the order spends it.
+		credit, creditErr := store.creditablePending(ctx, queries, order)
+		if creditErr != nil {
+			return dbgen.Order{}, "", creditErr
+		}
+		if walletBalance+credit < order.WalletMinor {
 			classification = "wallet_unavailable"
 		}
 	}
@@ -1032,6 +1082,11 @@ func (store *Store) settlePaidOrder(ctx context.Context, tx pgx.Tx, queries *dbg
 		// first. Reaching here without one means a caller skipped that, and
 		// the entitlement would land on whatever the customer holds.
 		return errNoSubscription
+	}
+	// A prorated change's credit reaches the wallet before the order's own
+	// payment spends it.
+	if err := store.postOrderCredit(ctx, queries, order); err != nil {
+		return err
 	}
 	if err := store.recordOrderRevenue(ctx, queries, order, idempotencyKey); err != nil {
 		return err

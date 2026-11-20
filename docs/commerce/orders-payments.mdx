@@ -245,6 +245,53 @@ confirmation, the payment is classified `wallet_unavailable` and the order does 
 [When a payment does not settle](#when-a-payment-does-not-settle) for what that leaves behind.
 Wallet mechanics in full are on [Wallet and ledger](/commerce/wallet-ledger).
 
+## Credit lines
+
+Some changes hand money back for something the customer paid for and has not used: a plan change
+that throws away the rest of the current period when the installation prorates plan changes (see
+[Crediting the unused remainder](/commerce/subscriptions#crediting-the-unused-remainder)). The order
+that makes the change carries one **credit line** in `order_credits`, keyed on the order.
+
+```text
+due      = subtotal - discount
+wallet   = min(available balance + credit, due)
+external = due - wallet
+```
+
+The order's own invariant does not change: `wallet_minor + external_minor = subtotal_minor -
+discount_minor`. The credit is not a discount and not a number the order nets off. It is a ledger
+movement:
+
+1. The line is priced when the order is opened: the source entitlement, the order that paid for it,
+   what that order took (`basis_minor`), the time left and the time bought, and `credit_minor`.
+2. When the order settles, before its payment is recorded, the line is posted as a `credit` ledger
+   transaction — `customer_wallet +credit`, `platform_clearing −credit` — with reference type
+   `order_credit`, keyed `order-credit:<orderID>`. The line records the transaction and the instant.
+3. The order's ordinary payment movement then takes `wallet_minor` from the wallet, spending the
+   credit first. Whatever of the credit the order does not need stays in the wallet.
+
+Everything that guards wallet money guards a credit too:
+
+- **It is reserved without being double-counted.** A pending order's wallet reservation is its
+  `wallet_minor` less its unposted credit, so a change order does not block the customer's own
+  balance with money that is not in the wallet yet.
+- **It is posted once.** The ledger transaction's idempotency key and the line's
+  `credited_at IS NULL` predicate both make a replayed settlement post nothing.
+- **The same days are handed back once.** A partial unique index allows one posted
+  `plan_remainder` per source entitlement. At settlement the line is re-checked: the entitlement it
+  was priced on must still be the subscription's current one, and no other order may have handed it
+  back already. Two change orders opened side by side can both be priced; only the first to settle
+  posts.
+- **A line that is no longer owed is not posted.** The settlement writes an `order.credit_withdrawn`
+  audit event instead. On the provider path the wallet re-check counts only a credit that is still
+  owed, so an order whose wallet part relied on a withdrawn credit is classified
+  `wallet_unavailable` and does not settle — see [When a payment does not
+  settle](#when-a-payment-does-not-settle). An order the wallet settles at creation is priced and
+  settled in one transaction, so its credit cannot go stale.
+
+A refund of a change order returns what the provider took. The credit was spent on the new period
+the refund's revocation ends, and it comes back only through an operator's wallet adjustment.
+
 ## The checkout session
 
 A customer has at most one open checkout, shared by the browser and the chat — a partial unique

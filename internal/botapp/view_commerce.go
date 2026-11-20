@@ -207,6 +207,14 @@ func checkoutView(locale Locale, plan Plan, session CheckoutSession, quote comme
 	if quote.AddonMinor > 0 {
 		lines = append(lines, text(locale, "checkout.addons", formatMoney(quote.AddonMinor, quote.Subtotal.Currency)))
 	}
+	if quote.CreditMinor > 0 {
+		// A prorated plan change hands back what is left of the current
+		// period; the line says how much time that was.
+		lines = append(lines, text(locale, "checkout.credit", formatDuration(locale, time.Duration(quote.CreditRemainingSeconds)*time.Second), formatMoney(quote.CreditAppliedMinor, quote.Subtotal.Currency)))
+		if quote.CreditToWalletMinor > 0 {
+			lines = append(lines, text(locale, "checkout.creditToWallet", formatMoney(quote.CreditToWalletMinor, quote.Subtotal.Currency)))
+		}
+	}
 	if quote.WalletAppliedMinor > 0 || quote.WalletBalanceMinor > 0 {
 		lines = append(lines, text(locale, "checkout.wallet", formatMoney(quote.WalletAppliedMinor, quote.Subtotal.Currency), formatMoney(quote.WalletBalanceMinor, quote.Subtotal.Currency)))
 	}

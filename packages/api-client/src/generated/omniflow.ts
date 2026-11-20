@@ -2428,6 +2428,8 @@ export interface PanelSubscriptionPolicy {
   maxDeviceLimit?: number | null;
   /** What happens to the Remnawave user of a subscription the customer closes. */
   remnawaveCloseMode?: PanelSubscriptionPolicyRemnawaveCloseMode;
+  /** A replace upgrade or an immediate downgrade credits the unused remainder of the current period, prorated by time at what the customer paid. */
+  proratePlanChanges?: boolean;
   readonly updatedAt?: string;
 }
 
@@ -4727,6 +4729,14 @@ export interface AccountCheckoutQuote {
   loyaltyDiscountMinor?: number;
   /** Code of the loyalty tier that gave loyaltyDiscountMinor; empty when none did. */
   loyaltyTier?: string;
+  /** The unused remainder of the current period a prorated plan change hands back; zero when none. */
+  creditMinor?: number;
+  /** How much time that remainder had left. */
+  creditRemainingSeconds?: number;
+  /** The part of creditMinor this order spends. walletAppliedMinor is then only the customer's own balance. */
+  creditAppliedMinor?: number;
+  /** The part of creditMinor that stays in the wallet because the new price is lower. */
+  creditToWalletMinor?: number;
 }
 
 export interface LocalizedText {

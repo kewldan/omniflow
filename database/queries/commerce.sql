@@ -696,8 +696,13 @@ WITH ledger AS (
     AND (sqlc.narg(currency)::text IS NULL OR wallet_entry.currency = sqlc.narg(currency)::text)
   GROUP BY wallet_entry.currency
 ), reserved AS (
-  SELECT reserved_order.currency, sum(reserved_order.wallet_minor)::bigint AS reserved_minor
+  -- A change order's credit line arrives in the wallet when it settles and is
+  -- spent by the same order, so only the wallet part beyond it is reserved.
+  SELECT reserved_order.currency,
+         sum(GREATEST(reserved_order.wallet_minor - COALESCE(reserved_credit.credit_minor, 0), 0))::bigint AS reserved_minor
   FROM orders reserved_order
+  LEFT JOIN order_credits reserved_credit
+    ON reserved_credit.order_id = reserved_order.id AND reserved_credit.credited_at IS NULL
   WHERE reserved_order.user_id = sqlc.arg(user_id) AND reserved_order.state IN ('draft', 'pending')
     AND (sqlc.narg(currency)::text IS NULL OR reserved_order.currency = sqlc.narg(currency)::text)
   GROUP BY reserved_order.currency

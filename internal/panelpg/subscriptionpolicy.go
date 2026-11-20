@@ -32,7 +32,10 @@ type SubscriptionPolicy struct {
 	MaxDeviceLimit *int32 `json:"maxDeviceLimit"`
 	// RemnawaveCloseMode is what happens to the Remnawave user of a
 	// subscription the customer closes: `disable` or `delete`.
-	RemnawaveCloseMode string    `json:"remnawaveCloseMode"`
+	RemnawaveCloseMode string `json:"remnawaveCloseMode"`
+	// ProratePlanChanges credits the unused remainder of the current period
+	// against a `replace` upgrade or an `immediate` downgrade.
+	ProratePlanChanges bool      `json:"proratePlanChanges"`
 	UpdatedAt          time.Time `json:"updatedAt"`
 }
 
@@ -107,7 +110,10 @@ func (service *Service) SaveSubscriptionPolicy(
 		if _, txErr := queries.SetMaxDeviceLimit(ctx, optionalInt4(policy.MaxDeviceLimit)); txErr != nil {
 			return txErr
 		}
-		row, txErr := queries.SetRemnawaveCloseMode(ctx, policy.RemnawaveCloseMode)
+		if _, txErr := queries.SetRemnawaveCloseMode(ctx, policy.RemnawaveCloseMode); txErr != nil {
+			return txErr
+		}
+		row, txErr := queries.SetPlanChangeProration(ctx, policy.ProratePlanChanges)
 		if txErr != nil {
 			return txErr
 		}
@@ -134,6 +140,7 @@ func subscriptionPolicyFrom(row dbgen.SubscriptionPolicy) SubscriptionPolicy {
 		TrialWarningHours:        row.TrialWarningHours,
 		MaxDeviceLimit:           int4Pointer(row.MaxDeviceLimit),
 		RemnawaveCloseMode:       row.RemnawaveCloseMode,
+		ProratePlanChanges:       row.ProratePlanChanges,
 		UpdatedAt:                timeValue(row.UpdatedAt),
 	}
 }

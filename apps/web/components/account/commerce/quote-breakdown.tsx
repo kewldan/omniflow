@@ -47,6 +47,15 @@ export function QuoteBreakdown({ className, quote }: { className?: string; quote
           value={`−${amount(quote.loyaltyDiscountMinor ?? 0)}`}
         />
       )}
+      {(quote.creditAppliedMinor ?? 0) !== 0 && (
+        <Row
+          label={translate("breakdown.credit", {
+            days: Math.max(1, Math.ceil((quote.creditRemainingSeconds ?? 0) / 86400)),
+          })}
+          tone="success"
+          value={`−${amount(quote.creditAppliedMinor ?? 0)}`}
+        />
+      )}
       {quote.walletAppliedMinor !== 0 && (
         <Row
           label={translate("breakdown.wallet")}
@@ -61,6 +70,14 @@ export function QuoteBreakdown({ className, quote }: { className?: string; quote
           {amount(quote.externalMinor)}
         </dd>
       </div>
+
+      {(quote.creditToWalletMinor ?? 0) !== 0 && (
+        <p className="text-[12px] text-success leading-relaxed">
+          {translate("breakdown.creditToWallet", {
+            amount: amount(quote.creditToWalletMinor ?? 0),
+          })}
+        </p>
+      )}
 
       {/* A wallet-funded order still creates an order; it simply owes a provider
           nothing. Saying so here stops the confirm step from looking broken when

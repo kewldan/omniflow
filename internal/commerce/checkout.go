@@ -23,6 +23,15 @@ type CheckoutQuote struct {
 	// tier gave, and LoyaltyTier that tier's code.
 	LoyaltyDiscountMinor int64
 	LoyaltyTier          string
+	// CreditMinor is the unused remainder of the current period a prorated
+	// plan change hands back, and CreditRemainingSeconds the time it had left.
+	// CreditAppliedMinor is the part this order spends; CreditToWalletMinor
+	// stays in the wallet because the new price is lower. WalletAppliedMinor
+	// is then only the customer's own balance.
+	CreditMinor            int64
+	CreditRemainingSeconds int64
+	CreditAppliedMinor     int64
+	CreditToWalletMinor    int64
 }
 
 // Quote computes the payable breakdown for a plan price, an already-validated
