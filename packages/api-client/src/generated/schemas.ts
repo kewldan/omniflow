@@ -2371,6 +2371,10 @@ export const GetPanelCustomerResponse = zod
     zod.object({
       anonymizedAt: zod.iso.datetime({ offset: true }).optional(),
       retentionUntil: zod.iso.datetime({ offset: true }).optional(),
+      dormantAt: zod.iso
+        .datetime({ offset: true })
+        .optional()
+        .describe("When the inactivity pass marked the customer dormant; cleared by any activity."),
       activeSubscriptions: zod.int(),
       orderCount: zod.int(),
       openTickets: zod.int(),
@@ -2713,6 +2717,10 @@ export const SetPanelCustomerStatusResponse = zod
     zod.object({
       anonymizedAt: zod.iso.datetime({ offset: true }).optional(),
       retentionUntil: zod.iso.datetime({ offset: true }).optional(),
+      dormantAt: zod.iso
+        .datetime({ offset: true })
+        .optional()
+        .describe("When the inactivity pass marked the customer dormant; cleared by any activity."),
       activeSubscriptions: zod.int(),
       orderCount: zod.int(),
       openTickets: zod.int(),

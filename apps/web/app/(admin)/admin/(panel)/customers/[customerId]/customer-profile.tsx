@@ -139,6 +139,13 @@ export function CustomerProfileView({ customerId }: { customerId: string }) {
             </span>
           )}
           {profile.allowlisted && <Badge variant="neutral">{translate("facts.allowlisted")}</Badge>}
+          {profile.dormantAt && (
+            <Badge title={translate("facts.dormantHint")} variant="neutral">
+              {translate("facts.dormant", {
+                at: format.dateTime(new Date(profile.dormantAt), "date"),
+              })}
+            </Badge>
+          )}
         </CardContent>
       </Card>
 

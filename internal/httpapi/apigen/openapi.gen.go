@@ -7885,13 +7885,16 @@ type PanelCustomerPage struct {
 
 // PanelCustomerProfile defines model for PanelCustomerProfile.
 type PanelCustomerProfile struct {
-	ActiveSubscriptions int64              `json:"activeSubscriptions"`
-	Allowlisted         bool               `json:"allowlisted"`
-	AnonymizedAt        *time.Time         `json:"anonymizedAt,omitempty"`
-	CreatedAt           time.Time          `json:"createdAt"`
-	DeletedAt           *time.Time         `json:"deletedAt,omitempty"`
-	Id                  openapi_types.UUID `json:"id"`
-	Locale              string             `json:"locale"`
+	ActiveSubscriptions int64      `json:"activeSubscriptions"`
+	Allowlisted         bool       `json:"allowlisted"`
+	AnonymizedAt        *time.Time `json:"anonymizedAt,omitempty"`
+	CreatedAt           time.Time  `json:"createdAt"`
+	DeletedAt           *time.Time `json:"deletedAt,omitempty"`
+
+	// DormantAt When the inactivity pass marked the customer dormant; cleared by any activity.
+	DormantAt *time.Time         `json:"dormantAt,omitempty"`
+	Id        openapi_types.UUID `json:"id"`
+	Locale    string             `json:"locale"`
 
 	// OpenFlags Blocklist matches awaiting a decision. A count of things to review, never a verdict.
 	OpenFlags      int64                      `json:"openFlags"`

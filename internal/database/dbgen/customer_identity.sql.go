@@ -54,7 +54,7 @@ func (q *Queries) EnsureBotPreferences(ctx context.Context, arg EnsureBotPrefere
 }
 
 const getCustomerByTelegramMapping = `-- name: GetCustomerByTelegramMapping :one
-SELECT u.id, u.status, u.locale, u.created_at, u.updated_at, u.timezone, u.suspended_at, u.deleted_at, u.anonymized_at, u.retention_until, u.merged_into, u.merged_at, u.last_activity_at
+SELECT u.id, u.status, u.locale, u.created_at, u.updated_at, u.timezone, u.suspended_at, u.deleted_at, u.anonymized_at, u.retention_until, u.merged_into, u.merged_at, u.last_activity_at, u.dormant_at
 FROM remnawave_users r
 JOIN users u ON u.id = r.user_id
 WHERE r.telegram_id = $1
@@ -81,6 +81,7 @@ func (q *Queries) GetCustomerByTelegramMapping(ctx context.Context, telegramID p
 		&i.MergedInto,
 		&i.MergedAt,
 		&i.LastActivityAt,
+		&i.DormantAt,
 	)
 	return i, err
 }

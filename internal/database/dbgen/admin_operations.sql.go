@@ -1063,7 +1063,7 @@ func (q *Queries) GetCommerceSettings(ctx context.Context) (CommerceSetting, err
 
 const getCustomerOverview = `-- name: GetCustomerOverview :one
 SELECT
-  u.id, u.status, u.locale, u.created_at, u.updated_at, u.timezone, u.suspended_at, u.deleted_at, u.anonymized_at, u.retention_until, u.merged_into, u.merged_at, u.last_activity_at,
+  u.id, u.status, u.locale, u.created_at, u.updated_at, u.timezone, u.suspended_at, u.deleted_at, u.anonymized_at, u.retention_until, u.merged_into, u.merged_at, u.last_activity_at, u.dormant_at,
   r.telegram_id,
   (SELECT count(*) FROM subscriptions s WHERE s.user_id = u.id AND s.status = 'active')::bigint AS active_subscriptions,
   (SELECT count(*) FROM orders o WHERE o.user_id = u.id)::bigint AS order_count,
@@ -1106,6 +1106,7 @@ func (q *Queries) GetCustomerOverview(ctx context.Context, id pgtype.UUID) (GetC
 		&i.User.MergedInto,
 		&i.User.MergedAt,
 		&i.User.LastActivityAt,
+		&i.User.DormantAt,
 		&i.TelegramID,
 		&i.ActiveSubscriptions,
 		&i.OrderCount,
@@ -2836,7 +2837,7 @@ func (q *Queries) RetirePlanVersion(ctx context.Context, planVersionID pgtype.UU
 
 const searchCustomers = `-- name: SearchCustomers :many
 
-SELECT u.id, u.status, u.locale, u.created_at, u.updated_at, u.timezone, u.suspended_at, u.deleted_at, u.anonymized_at, u.retention_until, u.merged_into, u.merged_at, u.last_activity_at, r.telegram_id, r.remnawave_id
+SELECT u.id, u.status, u.locale, u.created_at, u.updated_at, u.timezone, u.suspended_at, u.deleted_at, u.anonymized_at, u.retention_until, u.merged_into, u.merged_at, u.last_activity_at, u.dormant_at, r.telegram_id, r.remnawave_id
 FROM users u
 LEFT JOIN remnawave_users r ON r.user_id = u.id
 WHERE (
@@ -2928,6 +2929,7 @@ func (q *Queries) SearchCustomers(ctx context.Context, arg SearchCustomersParams
 			&i.User.MergedInto,
 			&i.User.MergedAt,
 			&i.User.LastActivityAt,
+			&i.User.DormantAt,
 			&i.TelegramID,
 			&i.RemnawaveID,
 		); err != nil {

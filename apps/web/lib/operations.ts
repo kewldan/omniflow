@@ -120,6 +120,7 @@ export type CustomerProfile = CustomerSummary & {
   referralCount: number;
   openFlags: number;
   allowlisted: boolean;
+  dormantAt?: string;
 };
 
 export type SubscriptionDetail = {

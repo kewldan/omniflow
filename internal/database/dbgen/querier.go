@@ -257,6 +257,7 @@ type Querier interface {
 	CountBatchRedemptionsByCustomer(ctx context.Context, arg CountBatchRedemptionsByCustomerParams) (int64, error)
 	CountBlockedCustomers(ctx context.Context) (int64, error)
 	CountCannedResponseUse(ctx context.Context, responseID pgtype.UUID) error
+	CountDormantCustomers(ctx context.Context) (int64, error)
 	CountDunningAttemptsForCycle(ctx context.Context, cycleKey string) (int64, error)
 	CountGiftsByStatus(ctx context.Context) ([]CountGiftsByStatusRow, error)
 	CountNewsReads(ctx context.Context, postID pgtype.UUID) (int64, error)
@@ -1184,6 +1185,9 @@ type Querier interface {
 	// "checked long ago" need the same thing done about them.
 	ListCustomersForChannelRecheck(ctx context.Context, arg ListCustomersForChannelRecheckParams) ([]ListCustomersForChannelRecheckRow, error)
 	ListDeviceAliases(ctx context.Context, arg ListDeviceAliasesParams) ([]ListDeviceAliasesRow, error)
+	// Dormant customers whose dormancy has lasted the configured number of days
+	// and who are still untouched: no activity since they were marked.
+	ListDormantForDeletion(ctx context.Context, arg ListDormantForDeletionParams) ([]pgtype.UUID, error)
 	ListDueBlocklistSources(ctx context.Context, pageSize int32) ([]BlocklistSource, error)
 	ListDueCampaigns(ctx context.Context, pageSize int32) ([]Campaign, error)
 	ListDueDunningAttempts(ctx context.Context, pageSize int32) ([]DunningAttempt, error)
@@ -1544,6 +1548,11 @@ type Querier interface {
 	// the first one's reason, which is the record somebody reads six months later
 	// when they ask why three hundred codes were killed.
 	MarkCodeBatchRevoked(ctx context.Context, arg MarkCodeBatchRevokedParams) (CodeBatch, error)
+	// Marks a batch of customers dormant: active accounts with no activity for
+	// the configured number of days, no live or limited subscription, no money on
+	// the wallet, no open support ticket, and no order still waiting for payment.
+	// Anything a customer would lose or be surprised by keeps them awake.
+	MarkDormantCustomers(ctx context.Context, arg MarkDormantCustomersParams) ([]pgtype.UUID, error)
 	MarkDunningNotified(ctx context.Context, attemptID pgtype.UUID) (DunningAttempt, error)
 	MarkEmailContactVerified(ctx context.Context, arg MarkEmailContactVerifiedParams) error
 	// Settlement of the sender's order is what makes a gift claimable. Restricting

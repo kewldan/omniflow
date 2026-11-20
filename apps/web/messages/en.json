@@ -847,7 +847,9 @@
         "tickets": "Open tickets",
         "referrals": "Referrals",
         "flags": "{count} flagged for review",
-        "allowlisted": "Allowlisted"
+        "allowlisted": "Allowlisted",
+        "dormant": "Dormant since {at}",
+        "dormantHint": "No activity for longer than the inactivity setting allows. Any sign-in or message to the bot clears this."
       },
       "tabs": {
         "subscriptions": "Subscriptions",
@@ -3430,6 +3432,10 @@
         "marketing": {
           "title": "Marketing",
           "description": "Promo-code limits, the bot's start screen, the terms gate, and customers who blocked the bot."
+        },
+        "lifecycle": {
+          "title": "Inactive customers",
+          "description": "Mark customers who stopped using the service as dormant, and optionally delete them. Any sign-in or message to the bot brings a dormant customer back."
         }
       },
       "fields": {
@@ -3549,7 +3555,10 @@
         "tipsEn": "Tips shown at random in the main menu (EN), one per line",
         "referralCodePrompt": "Offer newcomers to type a friend's invite code",
         "disableBlockedSubscriptions": "Disable the subscriptions of customers who blocked the bot, and enable them again when they return",
-        "blockedGraceHours": "Hours a customer must stay blocked before that (default 24)"
+        "blockedGraceHours": "Hours a customer must stay blocked before that (default 24)",
+        "dormancyEnabled": "Mark inactive customers as dormant",
+        "inactiveDays": "Days without activity before a customer is dormant (default 180)",
+        "deleteAfterDays": "Delete dormant customers after this many days (0 = never)"
       },
       "telemetryPreview": {
         "title": "What telemetry would send",

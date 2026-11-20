@@ -1,4 +1,4 @@
-h1:BxzprYGpZVXspYTUjGjihXxtDmXHwRMSLg1JnwZsgxU=
+h1:en4REHI5CuI5k09WwFlsweQ/Lu0ibcNVA3cs9Al42hM=
 20261120000000_baseline.sql h1:xcYk9mdv44B3O0TRxq3RP+hXxJ2VeeOilGnwKO251mQ=
 20261120010000_river_schema_v8.sql h1:AfdQpxaviEf8asJ5gyLmMVZr+zMYaWEw+o/vE8CMj7A=
 20261120020000_customer_email_signin.sql h1:PrCKaTaDm5ggof8aqRooMbqOXEHML5fwq1TF877zQa8=
@@ -53,3 +53,4 @@ h1:BxzprYGpZVXspYTUjGjihXxtDmXHwRMSLg1JnwZsgxU=
 20261121980000_blocked_bot_disables.sql h1:4E4vuviLquxe0XL3d5XqiEaYCYCN37DY5VLvzkQVNhg=
 20261121990000_offer_templates.sql h1:ZTFL0mQIaekKbvXFHmRxwI5t63oh9bWZy5WrhdAmmF8=
 20261121995000_pinned_messages.sql h1:6IafPke5Yqzyjdi4OnVZ9YOWbop5tNPAncgkBwEWoh0=
+20261122000000_dormant_customers.sql h1:DiG4k+qVsfD+mI068P27wZ59uCzY8C9SdOYzj8fq/3I=

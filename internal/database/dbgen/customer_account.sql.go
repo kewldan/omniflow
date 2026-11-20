@@ -267,7 +267,7 @@ const updateAccountProfile = `-- name: UpdateAccountProfile :one
 UPDATE users
 SET locale = $1, timezone = $2, updated_at = now()
 WHERE id = $3 AND status = 'active'
-RETURNING id, status, locale, created_at, updated_at, timezone, suspended_at, deleted_at, anonymized_at, retention_until, merged_into, merged_at, last_activity_at
+RETURNING id, status, locale, created_at, updated_at, timezone, suspended_at, deleted_at, anonymized_at, retention_until, merged_into, merged_at, last_activity_at, dormant_at
 `
 
 type UpdateAccountProfileParams struct {
@@ -295,6 +295,7 @@ func (q *Queries) UpdateAccountProfile(ctx context.Context, arg UpdateAccountPro
 		&i.MergedInto,
 		&i.MergedAt,
 		&i.LastActivityAt,
+		&i.DormantAt,
 	)
 	return i, err
 }

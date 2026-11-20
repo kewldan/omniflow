@@ -2617,6 +2617,8 @@ type User struct {
 	MergedInto     pgtype.UUID        `json:"merged_into"`
 	MergedAt       pgtype.Timestamptz `json:"merged_at"`
 	LastActivityAt pgtype.Timestamptz `json:"last_activity_at"`
+	// When the inactivity pass marked the customer dormant. Cleared by any activity.
+	DormantAt pgtype.Timestamptz `json:"dormant_at"`
 }
 
 type WalletTopup struct {

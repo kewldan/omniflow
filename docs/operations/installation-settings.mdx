@@ -170,6 +170,7 @@ somewhere it does not belong.
 | `security` | `sessionIdleMinutes`, `sessionAbsoluteHours`, `requireTotp` | — |
 | `theme` | The palette, corner and spacing scales, offered modes, default mode — see [White-label appearance](/operations/branding) | — |
 | `analytics` | `enabled`, counter identifiers per provider, webmaster verification tags — see [Advertising measurement](/operations/advertising-measurement) | — |
+| `lifecycle` | `dormancyEnabled`, `inactiveDays`, `deleteAfterDays` — see [Inactive customers](#inactive-customers) | dormancy off |
 | `marketing` | `promoDailyCodeLimit`, `requireTerms`, `termsVersion`, `welcomeTextRu`, `welcomeTextEn`, `startPhotoUrl`, `startVideoUrl`, `tipsRu`, `tipsEn`, `referralCodePrompt`, `disableBlockedSubscriptions`, `blockedGraceHours` — see [Marketing settings](#marketing-settings) | — |
 | `telegram`, `required_channels` | Kept for history; nothing reads them (see above) | — |
 
@@ -243,6 +244,26 @@ the ceiling through its own limit; neither can widen the other. See
 
 Both writes append `panel.settings.topup.updated` / `panel.settings.subscriptions.updated`
 against `settings:commerce`.
+
+## Inactive customers
+
+The `lifecycle` section is Omniflow's version of Bedolaga's `INACTIVE_USER_DELETE_MONTHS`, in two
+steps instead of one.
+
+1. **Dormant.** With `dormancyEnabled` on, the worker marks a customer dormant once they have done
+   nothing for `inactiveDays` (default 180) — no sign-in, no message or button in the bot — and have
+   nothing to lose: no live or limited subscription, nothing on the wallet, no open or pending
+   support ticket, no order waiting for payment. Dormancy is a flag beside the account status
+   (`users.dormant_at`); the customer sees nothing, and the card shows **Dormant since …**.
+2. **Revived.** Any activity clears the flag at once. A database trigger on the activity timestamp
+   does it, so the bot, the customer panel, and the Mini App all revive without any of them having
+   to remember to. Each revival is recorded in the customer's lifecycle history.
+3. **Deleted, only if asked.** With `deleteAfterDays` above zero, a customer who stayed dormant that
+   long is deleted through the same deletion flow an operator starts from the customer card,
+   recorded as the system's. The retention and anonymisation rules apply unchanged. Zero, the
+   default, never deletes anybody.
+
+The pass is checked hourly and runs at most once a day, in batches of 500.
 
 ## Telemetry preview
 

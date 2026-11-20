@@ -1295,6 +1295,8 @@ export interface PanelCustomerPage {
 export type PanelCustomerProfile = PanelCustomerSummary & {
   anonymizedAt?: string;
   retentionUntil?: string;
+  /** When the inactivity pass marked the customer dormant; cleared by any activity. */
+  dormantAt?: string;
   activeSubscriptions: number;
   orderCount: number;
   openTickets: number;

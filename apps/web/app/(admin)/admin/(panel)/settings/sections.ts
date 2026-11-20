@@ -254,6 +254,21 @@ export const SECTIONS: SectionSchema[] = [
     ],
   },
   {
+    section: "lifecycle",
+    group: "integrations",
+    messageKey: "lifecycle",
+    fields: [
+      {
+        name: "dormancyEnabled",
+        kind: "boolean",
+        messageKey: "dormancyEnabled",
+        defaultValue: false,
+      },
+      { name: "inactiveDays", kind: "number", messageKey: "inactiveDays" },
+      { name: "deleteAfterDays", kind: "number", messageKey: "deleteAfterDays" },
+    ],
+  },
+  {
     section: "marketing",
     group: "integrations",
     messageKey: "marketing",

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"github.com/omniflow/omniflow/internal/dormancy"
 	"github.com/omniflow/omniflow/internal/recurring"
 	"log/slog"
 	"net/http"
@@ -329,6 +330,22 @@ func periodicTasks(
 			return operations.DispatchWebhooks(ctx, webhookClient)
 		}})
 	}
+	// Customers quiet for longer than the owner allows are marked dormant,
+	// and deleted only if the owner asked for that too. The check is cheap
+	// and runs hourly; a real pass is claimed at most once a day.
+	dormantPass := dormancy.New(pool, settings, logger)
+	dormantClaims := gate
+	tasks = append(tasks, jobs.Task{Name: "dormant_customers", Interval: time.Hour, Timeout: 30 * time.Minute,
+		Run: func(ctx context.Context) error {
+			if !dormancy.SettingsFrom(settings.Section(ctx, dormancy.Section)).Enabled {
+				return nil
+			}
+			due, claimErr := dormantClaims.Claim(ctx, "dormant_customers", 24*time.Hour)
+			if claimErr != nil || !due {
+				return claimErr
+			}
+			return dormantPass.Run(ctx)
+		}})
 	reports := operator.NewReports(pool, settings, logger)
 	tasks = append(tasks,
 		jobs.Task{Name: "operator_reports", Interval: 5 * time.Minute, Run: reports.RunReports},

@@ -367,6 +367,26 @@ $$;
 
 
 --
+-- Name: revive_dormant_customer(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.revive_dormant_customer() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF OLD.dormant_at IS NOT NULL
+     AND NEW.last_activity_at IS DISTINCT FROM OLD.last_activity_at
+     AND NEW.dormant_at IS NOT DISTINCT FROM OLD.dormant_at THEN
+    NEW.dormant_at := NULL;
+    INSERT INTO customer_lifecycle_events (user_id, action, reason, actor_type)
+    VALUES (NEW.id, 'revived', 'came back after being dormant', 'customer');
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: river_job_state_in_bitmask(bit, public.river_job_state); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -2044,7 +2064,7 @@ CREATE TABLE public.customer_lifecycle_events (
     actor_id text,
     request_id text,
     occurred_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT customer_lifecycle_events_action_known CHECK ((action = ANY (ARRAY['suspended'::text, 'restored'::text, 'deletion_requested'::text, 'deleted'::text, 'anonymized'::text, 'merged_away'::text, 'merged_in'::text]))),
+    CONSTRAINT customer_lifecycle_events_action_known CHECK ((action = ANY (ARRAY['suspended'::text, 'restored'::text, 'deletion_requested'::text, 'deleted'::text, 'anonymized'::text, 'merged_away'::text, 'merged_in'::text, 'dormant'::text, 'revived'::text]))),
     CONSTRAINT customer_lifecycle_events_actor_type_check CHECK ((actor_type = ANY (ARRAY['customer'::text, 'operator'::text, 'system'::text])))
 );
 
@@ -2756,7 +2776,7 @@ CREATE TABLE public.installation_settings (
     version integer DEFAULT 1 NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_by uuid,
-    CONSTRAINT installation_settings_section_known CHECK ((section = ANY (ARRAY['branding'::text, 'remnawave'::text, 'telegram'::text, 'operator_group'::text, 'required_channels'::text, 'maintenance'::text, 'notifications'::text, 'telemetry'::text, 'backup'::text, 'security'::text, 'ai'::text, 'mcp'::text, 'customer_auth'::text, 'theme'::text, 'analytics'::text, 'bot'::text, 'support'::text, 'reports'::text, 'access'::text, 'moderation'::text, 'marketing'::text]))),
+    CONSTRAINT installation_settings_section_known CHECK ((section = ANY (ARRAY['branding'::text, 'remnawave'::text, 'telegram'::text, 'operator_group'::text, 'required_channels'::text, 'maintenance'::text, 'notifications'::text, 'telemetry'::text, 'backup'::text, 'security'::text, 'ai'::text, 'mcp'::text, 'customer_auth'::text, 'theme'::text, 'analytics'::text, 'bot'::text, 'support'::text, 'reports'::text, 'access'::text, 'moderation'::text, 'marketing'::text, 'lifecycle'::text]))),
     CONSTRAINT installation_settings_version_check CHECK ((version > 0))
 );
 
@@ -4991,6 +5011,7 @@ CREATE TABLE public.users (
     merged_into uuid,
     merged_at timestamp with time zone,
     last_activity_at timestamp with time zone,
+    dormant_at timestamp with time zone,
     CONSTRAINT users_locale_check CHECK ((locale = ANY (ARRAY['ru'::text, 'en'::text, 'uk'::text, 'zh'::text, 'fa'::text]))),
     CONSTRAINT users_merge_complete CHECK ((((status = 'merged'::text) = (merged_into IS NOT NULL)) AND ((merged_into IS NULL) = (merged_at IS NULL)))),
     CONSTRAINT users_merge_not_self CHECK (((merged_into IS NULL) OR (merged_into <> id))),
@@ -5003,6 +5024,13 @@ CREATE TABLE public.users (
 --
 
 COMMENT ON COLUMN public.users.merged_into IS 'Where this account went. A merged account keeps its rows and its history; everything transferable was moved to the target.';
+
+
+--
+-- Name: COLUMN users.dormant_at; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.users.dormant_at IS 'When the inactivity pass marked the customer dormant. Cleared by any activity.';
 
 
 --
@@ -8571,6 +8599,13 @@ CREATE INDEX telemetry_events_received_at_idx ON public.telemetry_events USING b
 
 
 --
+-- Name: users_dormant_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX users_dormant_idx ON public.users USING btree (dormant_at) WHERE (dormant_at IS NOT NULL);
+
+
+--
 -- Name: users_merged_into_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -8722,6 +8757,13 @@ CREATE TRIGGER support_tickets_topic_choice BEFORE INSERT ON public.support_tick
 --
 
 CREATE TRIGGER trial_claims_operator_notice AFTER INSERT ON public.trial_claims FOR EACH ROW EXECUTE FUNCTION public.queue_operator_stream_notice();
+
+
+--
+-- Name: users users_revive_dormant; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER users_revive_dormant BEFORE UPDATE OF last_activity_at ON public.users FOR EACH ROW EXECUTE FUNCTION public.revive_dormant_customer();
 
 
 --

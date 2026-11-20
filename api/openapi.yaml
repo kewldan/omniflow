@@ -6327,6 +6327,7 @@ components:
           properties:
             anonymizedAt: {type: string, format: date-time}
             retentionUntil: {type: string, format: date-time}
+            dormantAt: {type: string, format: date-time, description: "When the inactivity pass marked the customer dormant; cleared by any activity."}
             activeSubscriptions: {type: integer, format: int64}
             orderCount: {type: integer, format: int64}
             openTickets: {type: integer, format: int64}

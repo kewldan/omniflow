@@ -34,7 +34,7 @@ SET status = 'merged', merged_into = $1, merged_at = now(), updated_at = now()
 WHERE id = $2
   AND status <> 'merged'
   AND merged_into IS NULL
-RETURNING id, status, locale, created_at, updated_at, timezone, suspended_at, deleted_at, anonymized_at, retention_until, merged_into, merged_at, last_activity_at
+RETURNING id, status, locale, created_at, updated_at, timezone, suspended_at, deleted_at, anonymized_at, retention_until, merged_into, merged_at, last_activity_at, dormant_at
 `
 
 type CloseMergedAccountParams struct {
@@ -64,6 +64,7 @@ func (q *Queries) CloseMergedAccount(ctx context.Context, arg CloseMergedAccount
 		&i.MergedInto,
 		&i.MergedAt,
 		&i.LastActivityAt,
+		&i.DormantAt,
 	)
 	return i, err
 }

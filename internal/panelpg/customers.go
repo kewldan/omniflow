@@ -118,8 +118,11 @@ func applyCustomerQuery(params *dbgen.SearchCustomersParams, query string) {
 // the page shows before any tab is opened.
 type CustomerProfile struct {
 	CustomerSummary
-	AnonymizedAt        *time.Time `json:"anonymizedAt,omitempty"`
-	RetentionUntil      *time.Time `json:"retentionUntil,omitempty"`
+	AnonymizedAt   *time.Time `json:"anonymizedAt,omitempty"`
+	RetentionUntil *time.Time `json:"retentionUntil,omitempty"`
+	// DormantAt is when the inactivity pass marked the customer dormant. It
+	// clears itself the next time the customer does anything.
+	DormantAt           *time.Time `json:"dormantAt,omitempty"`
 	ActiveSubscriptions int64      `json:"activeSubscriptions"`
 	OrderCount          int64      `json:"orderCount"`
 	OpenTickets         int64      `json:"openTickets"`
@@ -155,6 +158,7 @@ func (service *Service) CustomerProfile(ctx context.Context, customerID string) 
 		},
 		AnonymizedAt:        timePointer(row.User.AnonymizedAt),
 		RetentionUntil:      timePointer(row.User.RetentionUntil),
+		DormantAt:           timePointer(row.User.DormantAt),
 		ActiveSubscriptions: row.ActiveSubscriptions,
 		OrderCount:          row.OrderCount,
 		OpenTickets:         row.OpenTickets,

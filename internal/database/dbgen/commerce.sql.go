@@ -121,7 +121,7 @@ SET status = $1,
     retention_until = $5,
     updated_at = now()
 WHERE id = $6
-RETURNING id, status, locale, created_at, updated_at, timezone, suspended_at, deleted_at, anonymized_at, retention_until, merged_into, merged_at, last_activity_at
+RETURNING id, status, locale, created_at, updated_at, timezone, suspended_at, deleted_at, anonymized_at, retention_until, merged_into, merged_at, last_activity_at, dormant_at
 `
 
 type ApplyCustomerLifecycleParams struct {
@@ -157,6 +157,7 @@ func (q *Queries) ApplyCustomerLifecycle(ctx context.Context, arg ApplyCustomerL
 		&i.MergedInto,
 		&i.MergedAt,
 		&i.LastActivityAt,
+		&i.DormantAt,
 	)
 	return i, err
 }
@@ -1126,7 +1127,7 @@ func (q *Queries) GetBestPersonalOfferCode(ctx context.Context, userID pgtype.UU
 }
 
 const getCustomer = `-- name: GetCustomer :one
-SELECT id, status, locale, created_at, updated_at, timezone, suspended_at, deleted_at, anonymized_at, retention_until, merged_into, merged_at, last_activity_at FROM users WHERE id = $1
+SELECT id, status, locale, created_at, updated_at, timezone, suspended_at, deleted_at, anonymized_at, retention_until, merged_into, merged_at, last_activity_at, dormant_at FROM users WHERE id = $1
 `
 
 func (q *Queries) GetCustomer(ctx context.Context, id pgtype.UUID) (User, error) {
@@ -1146,6 +1147,7 @@ func (q *Queries) GetCustomer(ctx context.Context, id pgtype.UUID) (User, error)
 		&i.MergedInto,
 		&i.MergedAt,
 		&i.LastActivityAt,
+		&i.DormantAt,
 	)
 	return i, err
 }
@@ -3785,7 +3787,7 @@ const updateCustomerPreferences = `-- name: UpdateCustomerPreferences :one
 UPDATE users
 SET locale = $1, timezone = $2, updated_at = now()
 WHERE id = $3 AND status <> 'deleted'
-RETURNING id, status, locale, created_at, updated_at, timezone, suspended_at, deleted_at, anonymized_at, retention_until, merged_into, merged_at, last_activity_at
+RETURNING id, status, locale, created_at, updated_at, timezone, suspended_at, deleted_at, anonymized_at, retention_until, merged_into, merged_at, last_activity_at, dormant_at
 `
 
 type UpdateCustomerPreferencesParams struct {
@@ -3811,6 +3813,7 @@ func (q *Queries) UpdateCustomerPreferences(ctx context.Context, arg UpdateCusto
 		&i.MergedInto,
 		&i.MergedAt,
 		&i.LastActivityAt,
+		&i.DormantAt,
 	)
 	return i, err
 }
