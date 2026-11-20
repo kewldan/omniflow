@@ -12,6 +12,7 @@ import (
 	"github.com/omniflow/omniflow/internal/guestpurchase"
 	"github.com/omniflow/omniflow/internal/jobs"
 	"github.com/omniflow/omniflow/internal/mailer"
+	"github.com/omniflow/omniflow/internal/referralplus"
 	"github.com/omniflow/omniflow/internal/selfemployed"
 )
 
@@ -73,5 +74,9 @@ func growthTasks(logger *slog.Logger, cfg config.WorkerConfig, pool *pgxpool.Poo
 		}
 		tasks = append(tasks, jobs.Task{Name: "self_employed_receipts", Interval: time.Minute, Timeout: 5 * time.Minute, Run: receipts.Pass})
 	}
+	// Second-level referral rewards: granted and reversed by one pass, a
+	// no-op while the level is switched off and nothing needs reversing.
+	levels := referralplus.New(pool)
+	tasks = append(tasks, jobs.Task{Name: "referral_level2", Interval: time.Minute, Run: levels.Pass})
 	return tasks, nil
 }

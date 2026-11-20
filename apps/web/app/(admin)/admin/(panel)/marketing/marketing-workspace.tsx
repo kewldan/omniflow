@@ -25,6 +25,7 @@ import { AdCampaignsCard } from "./ad-campaigns";
 import { EmailDeliveryCard } from "./email-delivery";
 import { EngagementCard } from "./engagement";
 import { LoyaltyCard } from "./loyalty-card";
+import { ReferralLevelsCard } from "./referral-levels";
 import { RemindersCard } from "./reminders-card";
 import { TemplateEditorCard } from "./template-editor";
 
@@ -64,6 +65,7 @@ export function MarketingWorkspace() {
       <LoyaltyCard editable={can("marketing.write")} />
       {can("settings.read") && <EmailDeliveryCard editable={can("settings.write")} />}
       <EngagementCard editable={can("marketing.write")} />
+      <ReferralLevelsCard canPay={can("finance.write")} editable={can("marketing.write")} />
     </div>
   );
 }

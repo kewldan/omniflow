@@ -14282,3 +14282,8 @@ export const AnswerAccountPollResponse = zod.object({
 export const ListAccountLanguagesResponse = zod.object({
   languages: zod.array(zod.enum(["ru", "en", "uk", "zh", "fa"])),
 });
+
+/**
+ * Running referral contests with their prizes, the top ten places, and the customer's own place. Other customers are never identified.
+ */
+export const ListAccountReferralContestsResponse = zod.record(zod.string(), zod.unknown());

@@ -3081,6 +3081,28 @@
         "minute": "Minute",
         "createPoll": "Create poll",
         "pollReason": "Poll"
+      },
+      "referralLevels": {
+        "title": "Second level and referral contests",
+        "description": "The second level pays an inviter's own inviter a share of every money reward the inviter earns, and takes it back if that reward is reversed. A contest ranks inviters by referrals that qualified in its window; prizes are paid when it is finished after it ends.",
+        "level2": "Second level on",
+        "percent": "Share, %",
+        "save": "Save",
+        "reason": "Referral programme",
+        "finishReason": "Paying referral contest prizes",
+        "contests": "Contests",
+        "finished": "finished, prizes paid",
+        "leaderboard": "Leaderboard",
+        "finish": "Finish and pay",
+        "empty": "Nobody has qualified yet.",
+        "titleRu": "Title (RU)",
+        "titleEn": "Title (EN)",
+        "startsAt": "Starts",
+        "endsAt": "Ends",
+        "hour": "Hour",
+        "minute": "Minute",
+        "prizes": "Prizes per place, in rubles (first place first)",
+        "create": "Create contest"
       }
     },
     "installationSettings": {
@@ -4439,6 +4461,14 @@
         "rewardDays": "{count, plural, one {Answer and get # day} other {Answer and get # days}}",
         "thanks": "Thank you for answering.",
         "thanksRewarded": "Thank you! The reward has been added."
+      },
+      "contests": {
+        "title": "Referral contest",
+        "prizes": "Prizes: {prizes}",
+        "until": "until",
+        "you": "You",
+        "participant": "Participant",
+        "referrals": "{count, plural, one {# referral} other {# referrals}}"
       }
     },
     "shop": {

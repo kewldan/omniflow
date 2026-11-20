@@ -7673,6 +7673,8 @@ export type ListAccountLanguages200 = {
   languages: ListAccountLanguages200LanguagesItem[];
 };
 
+export type ListAccountReferralContests200 = { [key: string]: unknown };
+
 const getHeaders = (
   ...sources: (RequestInit["headers"] | Record<string, string | undefined>)[]
 ) => {
@@ -38769,6 +38771,66 @@ export const useListAccountLanguages = <TError = Promise<unknown>>(options?: {
   const isEnabled = swrOptions?.enabled !== false;
   const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListAccountLanguagesKey() : null));
   const swrFn = () => listAccountLanguages(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listAccountReferralContestsResponse200 = {
+  data: ListAccountReferralContests200;
+  status: 200;
+};
+
+export type listAccountReferralContestsResponseSuccess = listAccountReferralContestsResponse200 & {
+  headers: Headers;
+};
+
+export type listAccountReferralContestsResponse = listAccountReferralContestsResponseSuccess;
+
+export const getListAccountReferralContestsUrl = () => {
+  return `/v1/account/referrals/contests`;
+};
+
+/**
+ * Running referral contests with their prizes, the top ten places, and the customer's own place. Other customers are never identified.
+ */
+export const listAccountReferralContests = async (
+  options?: RequestInit,
+): Promise<listAccountReferralContestsResponse> => {
+  const res = await fetch(getListAccountReferralContestsUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listAccountReferralContestsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listAccountReferralContestsResponse;
+};
+
+export const getListAccountReferralContestsKey = () => [`/v1/account/referrals/contests`] as const;
+
+export type ListAccountReferralContestsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAccountReferralContests>>
+>;
+
+export const useListAccountReferralContests = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listAccountReferralContests>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListAccountReferralContestsKey() : null));
+  const swrFn = () => listAccountReferralContests(fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 

@@ -5417,6 +5417,15 @@ paths:
         none are chosen. Reachable before sign-in.
       responses:
         "200": {description: Languages, content: {application/json: {schema: {type: object, required: [languages], properties: {languages: {type: array, items: {type: string, enum: [ru, en, uk, zh, fa]}}}}}}}
+  /v1/account/referrals/contests:
+    get:
+      operationId: listAccountReferralContests
+      tags: [account]
+      description: >-
+        Running referral contests with their prizes, the top ten places, and the
+        customer's own place. Other customers are never identified.
+      responses:
+        "200": {description: Contests, content: {application/json: {schema: {type: object, additionalProperties: true}}}}
 components:
   securitySchemes:
     operatorToken: {type: http, scheme: bearer}

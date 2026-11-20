@@ -15,6 +15,7 @@ import (
 	"github.com/omniflow/omniflow/internal/mailer"
 	"github.com/omniflow/omniflow/internal/paymentservice"
 	"github.com/omniflow/omniflow/internal/referralpayout"
+	"github.com/omniflow/omniflow/internal/referralplus"
 	"github.com/omniflow/omniflow/internal/selfemployed"
 )
 
@@ -50,6 +51,7 @@ func buildGrowth(
 	}
 	services.Rates = fxrate.New(pool, fxrate.Options{})
 	services.Engagement = engagement.New(pool, commerceStore)
+	services.ReferralPlus = referralplus.New(pool)
 	services.Languages = func(ctx context.Context) []string { return offeredLanguages(ctx, pool) }
 	// Guest purchases deliver their activation code by e-mail, so they are
 	// offered only when a transport is configured and a public address exists

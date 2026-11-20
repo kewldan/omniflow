@@ -1918,6 +1918,48 @@ type ReferralCode struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type ReferralContest struct {
+	ID         pgtype.UUID        `json:"id"`
+	TitleRu    string             `json:"title_ru"`
+	TitleEn    string             `json:"title_en"`
+	StartsAt   pgtype.Timestamptz `json:"starts_at"`
+	EndsAt     pgtype.Timestamptz `json:"ends_at"`
+	Currency   string             `json:"currency"`
+	Prizes     []int64            `json:"prizes"`
+	FinishedAt pgtype.Timestamptz `json:"finished_at"`
+	FinishedBy pgtype.UUID        `json:"finished_by"`
+	CreatedBy  pgtype.UUID        `json:"created_by"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type ReferralContestWinner struct {
+	ContestID           pgtype.UUID `json:"contest_id"`
+	Place               int32       `json:"place"`
+	UserID              pgtype.UUID `json:"user_id"`
+	Referrals           int32       `json:"referrals"`
+	AmountMinor         int64       `json:"amount_minor"`
+	LedgerTransactionID pgtype.UUID `json:"ledger_transaction_id"`
+}
+
+type ReferralLevel2Reward struct {
+	SourceRewardID              pgtype.UUID        `json:"source_reward_id"`
+	BeneficiaryUserID           pgtype.UUID        `json:"beneficiary_user_id"`
+	AmountMinor                 int64              `json:"amount_minor"`
+	Currency                    string             `json:"currency"`
+	LedgerTransactionID         pgtype.UUID        `json:"ledger_transaction_id"`
+	GrantedAt                   pgtype.Timestamptz `json:"granted_at"`
+	ReversedAt                  pgtype.Timestamptz `json:"reversed_at"`
+	ReversalLedgerTransactionID pgtype.UUID        `json:"reversal_ledger_transaction_id"`
+}
+
+type ReferralLevelSetting struct {
+	Singleton     bool               `json:"singleton"`
+	Level2Enabled bool               `json:"level2_enabled"`
+	Level2Percent int32              `json:"level2_percent"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy     pgtype.UUID        `json:"updated_by"`
+}
+
 type ReferralProgram struct {
 	Singleton               bool               `json:"singleton"`
 	Enabled                 bool               `json:"enabled"`

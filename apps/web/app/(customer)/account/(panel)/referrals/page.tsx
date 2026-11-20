@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import useSWR from "swr";
 import { Engagement } from "@/components/account/account/engagement";
 import { LoyaltyStanding } from "@/components/account/account/loyalty-standing";
+import { ReferralContests } from "@/components/account/account/referral-contests";
 import { RewardHistory } from "@/components/account/account/reward-history";
 import { ShareLink } from "@/components/account/account/share-link";
 import type { ReferralSummary } from "@/components/account/account/types";
@@ -157,6 +158,8 @@ export default function ReferralsPage() {
           <RewardHistory firstPage={data.rewards} />
         </>
       )}
+
+      <ReferralContests />
 
       <Engagement />
 

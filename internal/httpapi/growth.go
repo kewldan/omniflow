@@ -16,6 +16,7 @@ import (
 	"github.com/omniflow/omniflow/internal/paymentservice"
 	"github.com/omniflow/omniflow/internal/rbac"
 	"github.com/omniflow/omniflow/internal/referralpayout"
+	"github.com/omniflow/omniflow/internal/referralplus"
 	"github.com/omniflow/omniflow/internal/selfemployed"
 )
 
@@ -41,6 +42,8 @@ type GrowthServices struct {
 	GuestCurrency string
 	// Engagement runs the fortune wheel and polls.
 	Engagement *engagement.Service
+	// ReferralPlus is the second referral level and referral contests.
+	ReferralPlus *referralplus.Service
 	// Languages lists the languages the operator offers customers.
 	Languages func(ctx context.Context) []string
 }
@@ -68,6 +71,7 @@ func (handlers *AdminHandlers) mountGrowth(secure chi.Router) {
 	handlers.mountSelfEmployed(secure)
 	handlers.mountCurrency(secure)
 	handlers.mountEngagement(secure)
+	handlers.mountReferralPlus(secure)
 }
 
 // mountGrowthPublic registers the routes reachable without a session.
@@ -95,6 +99,7 @@ func (handlers *AccountHandlers) mountGrowth(secure chi.Router) {
 	handlers.mountAccountWithdrawals(secure)
 	handlers.mountAccountSelfEmployed(secure)
 	handlers.mountAccountEngagement(secure)
+	handlers.mountAccountReferralPlus(secure)
 }
 
 func (handlers *AdminHandlers) emailStatus(writer http.ResponseWriter, request *http.Request) {

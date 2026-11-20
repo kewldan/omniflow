@@ -257,6 +257,33 @@ Approving, rejecting (which requires a note to the customer), and marking paid
 need `finance.write` and are audited as `panel.referral_withdrawal.*`. When the
 customer has a verified e-mail address, each decision is mailed to them.
 
+## Second level and referral contests
+
+Both are configured in **Marketing → Second level and referral contests** and
+follow [decision 0009](/architecture/decision-0009-referral-withdrawals): every
+payout is a ledger posting, so it is withdrawable and reversible like any
+referral reward.
+
+**Second level.** When an inviter is credited a money reward, their own inviter
+receives the configured share of it (1–50 %), as a `referral_reward` ledger
+credit keyed by the first-level reward, so it is paid once. The worker's
+`referral_level2` pass grants it within a minute; switching the level on pays
+rewards from the day before onwards, never the whole history. When an operator
+reverses the first-level reward during referral review, the pass posts the
+matching correction to the second level. Day rewards have no second level, and
+there is no third.
+
+**Contests.** A contest has titles, a window, and a prize per place (up to ten).
+The leaderboard counts each inviter's referrals that qualified inside the window
+and were not rejected by the review; ties go to whoever got there first.
+Customers see running contests on the **Invites** screen: the top ten places and
+their own, never who the others are. Once the window has closed, an operator
+with `finance.write` presses **Finish and pay**: the prizes are credited to the
+wallets, the winners are recorded, and the contest cannot be finished again.
+
+A partner programme with individual commission rates per partner (Bedolaga's
+partner applications) is not part of this.
+
 ## Loyalty
 
 ### Definitions are versioned and immutable

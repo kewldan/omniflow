@@ -3576,6 +3576,77 @@ CREATE TABLE public.referral_codes (
 
 
 --
+-- Name: referral_contest_winners; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.referral_contest_winners (
+    contest_id uuid NOT NULL,
+    place integer NOT NULL,
+    user_id uuid NOT NULL,
+    referrals integer NOT NULL,
+    amount_minor bigint NOT NULL,
+    ledger_transaction_id uuid NOT NULL,
+    CONSTRAINT referral_contest_winners_place_positive CHECK ((place >= 1))
+);
+
+
+--
+-- Name: referral_contests; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.referral_contests (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    title_ru text NOT NULL,
+    title_en text NOT NULL,
+    starts_at timestamp with time zone NOT NULL,
+    ends_at timestamp with time zone NOT NULL,
+    currency text DEFAULT 'RUB'::text NOT NULL,
+    prizes bigint[] NOT NULL,
+    finished_at timestamp with time zone,
+    finished_by uuid,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT referral_contests_currency_iso CHECK ((currency ~ '^[A-Z]{3}$'::text)),
+    CONSTRAINT referral_contests_prizes_shape CHECK ((((cardinality(prizes) >= 1) AND (cardinality(prizes) <= 10)) AND (0 < ALL (prizes)))),
+    CONSTRAINT referral_contests_titles_length CHECK ((((char_length(title_ru) >= 1) AND (char_length(title_ru) <= 120)) AND ((char_length(title_en) >= 1) AND (char_length(title_en) <= 120)))),
+    CONSTRAINT referral_contests_window CHECK ((ends_at > starts_at))
+);
+
+
+--
+-- Name: referral_level2_rewards; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.referral_level2_rewards (
+    source_reward_id uuid NOT NULL,
+    beneficiary_user_id uuid NOT NULL,
+    amount_minor bigint NOT NULL,
+    currency text NOT NULL,
+    ledger_transaction_id uuid NOT NULL,
+    granted_at timestamp with time zone DEFAULT now() NOT NULL,
+    reversed_at timestamp with time zone,
+    reversal_ledger_transaction_id uuid,
+    CONSTRAINT referral_level2_rewards_amount_positive CHECK ((amount_minor > 0)),
+    CONSTRAINT referral_level2_rewards_reversal_complete CHECK (((reversed_at IS NULL) = (reversal_ledger_transaction_id IS NULL)))
+);
+
+
+--
+-- Name: referral_level_settings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.referral_level_settings (
+    singleton boolean DEFAULT true NOT NULL,
+    level2_enabled boolean DEFAULT false NOT NULL,
+    level2_percent integer DEFAULT 10 NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by uuid,
+    CONSTRAINT referral_level_settings_percent_bounded CHECK (((level2_percent >= 1) AND (level2_percent <= 50))),
+    CONSTRAINT referral_level_settings_singleton CHECK (singleton)
+);
+
+
+--
 -- Name: referral_programs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -6081,6 +6152,38 @@ ALTER TABLE ONLY public.referral_codes
 
 ALTER TABLE ONLY public.referral_codes
     ADD CONSTRAINT referral_codes_pkey PRIMARY KEY (user_id);
+
+
+--
+-- Name: referral_contest_winners referral_contest_winners_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.referral_contest_winners
+    ADD CONSTRAINT referral_contest_winners_pkey PRIMARY KEY (contest_id, place);
+
+
+--
+-- Name: referral_contests referral_contests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.referral_contests
+    ADD CONSTRAINT referral_contests_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: referral_level2_rewards referral_level2_rewards_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.referral_level2_rewards
+    ADD CONSTRAINT referral_level2_rewards_pkey PRIMARY KEY (source_reward_id);
+
+
+--
+-- Name: referral_level_settings referral_level_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.referral_level_settings
+    ADD CONSTRAINT referral_level_settings_pkey PRIMARY KEY (singleton);
 
 
 --
@@ -9321,6 +9424,62 @@ ALTER TABLE ONLY public.referral_attributions
 
 ALTER TABLE ONLY public.referral_codes
     ADD CONSTRAINT referral_codes_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: referral_contest_winners referral_contest_winners_contest_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.referral_contest_winners
+    ADD CONSTRAINT referral_contest_winners_contest_id_fkey FOREIGN KEY (contest_id) REFERENCES public.referral_contests(id);
+
+
+--
+-- Name: referral_contest_winners referral_contest_winners_ledger_transaction_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.referral_contest_winners
+    ADD CONSTRAINT referral_contest_winners_ledger_transaction_id_fkey FOREIGN KEY (ledger_transaction_id) REFERENCES public.ledger_transactions(id);
+
+
+--
+-- Name: referral_contest_winners referral_contest_winners_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.referral_contest_winners
+    ADD CONSTRAINT referral_contest_winners_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: referral_level2_rewards referral_level2_rewards_beneficiary_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.referral_level2_rewards
+    ADD CONSTRAINT referral_level2_rewards_beneficiary_user_id_fkey FOREIGN KEY (beneficiary_user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: referral_level2_rewards referral_level2_rewards_ledger_transaction_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.referral_level2_rewards
+    ADD CONSTRAINT referral_level2_rewards_ledger_transaction_id_fkey FOREIGN KEY (ledger_transaction_id) REFERENCES public.ledger_transactions(id);
+
+
+--
+-- Name: referral_level2_rewards referral_level2_rewards_reversal_ledger_transaction_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.referral_level2_rewards
+    ADD CONSTRAINT referral_level2_rewards_reversal_ledger_transaction_id_fkey FOREIGN KEY (reversal_ledger_transaction_id) REFERENCES public.ledger_transactions(id);
+
+
+--
+-- Name: referral_level2_rewards referral_level2_rewards_source_reward_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.referral_level2_rewards
+    ADD CONSTRAINT referral_level2_rewards_source_reward_id_fkey FOREIGN KEY (source_reward_id) REFERENCES public.referral_rewards(id);
 
 
 --
