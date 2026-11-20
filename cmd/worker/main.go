@@ -376,6 +376,11 @@ func periodicTasks(
 			service: backupService, settings: settings, gate: gate, logger: logger,
 			fallback: cfg.Backup, telegram: cfg.TelegramToken, transport: cfg.TelegramTransport,
 		}
+		// Every verified backup, scheduled or requested from the panel, goes
+		// to the chat the backup section names, read when the file is ready.
+		backupService.OnCreated(func(ctx context.Context, record dbgen.Backup, path string) {
+			scheduled.deliver(ctx, settings.Section(ctx, "backup"), record.FileName, path)
+		})
 		tasks = append(tasks, jobs.Task{Name: "backup", Interval: 5 * time.Minute, Timeout: -1, Run: scheduled.Run})
 		// Backups, restores, and deletions an operator asked for in the panel.
 		tasks = append(tasks, jobs.Task{Name: "backup_requests", Interval: 15 * time.Second, Timeout: -1,

@@ -40,12 +40,10 @@ func (scheduled scheduledBackup) Run(ctx context.Context) error {
 	if err != nil || !due {
 		return err
 	}
-	record, err := scheduled.service.Create(ctx, "scheduled", "scheduler")
-	if err != nil && !errors.Is(err, backup.ErrBusy) {
+	// The file goes to Telegram from the service's OnCreated hook, which
+	// covers backups requested from the panel as well as scheduled ones.
+	if _, err = scheduled.service.Create(ctx, "scheduled", "scheduler"); err != nil && !errors.Is(err, backup.ErrBusy) {
 		return err
-	}
-	if err == nil {
-		scheduled.deliver(ctx, section, record.FileName, scheduled.service.Path(record))
 	}
 	return scheduled.service.Prune(ctx)
 }
@@ -102,8 +100,9 @@ func (scheduled scheduledBackup) deliver(ctx context.Context, section installset
 		return
 	}
 	thread := section.Int("telegramThreadId", 0)
+	limit := operator.BackupFileLimit(scheduled.transport.APIURL != "")
 	if err = operator.SendBackupFile(ctx, scheduled.telegram, app.TelegramOptions(scheduled.transport),
-		chat, thread, name, path); err != nil {
+		limit, chat, thread, name, path); err != nil {
 		scheduled.logger.Warn("backup file could not be sent to Telegram", "error", err)
 	}
 }

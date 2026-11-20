@@ -171,8 +171,17 @@ ended):
   `backup_unreadable`. Then restore it like any other. The api needs the backup directory
   mounted (the compose file mounts `backup-data` into it) and the key in its environment.
 
-The backup section can also send each scheduled backup file to a Telegram chat — see
-[Installation settings](/operations/installation-settings).
+### Off-site copy in Telegram
+
+With `telegramChatId` (and optionally `telegramThreadId` for a forum topic) set in the
+backup section, the worker sends **every** verified backup — scheduled or requested from the
+panel — to that chat as a document, right after it is verified. The file is the encrypted
+`.dump.enc`; it cannot be opened without `APP_BACKUP_ENCRYPTION_KEY`, which never leaves the
+installation, so the copy is an off-site backup rather than a disclosure. The public Bot API
+accepts files up to 50 MB; with a self-hosted Bot API server (`APP_TELEGRAM_API_URL`) the limit
+is 2 GB. A larger file, an unreachable chat, or a bot that is not a member is logged and never
+fails the backup. To restore from such a copy, download it and upload it on the panel's backup
+screen. See [Installation settings](/operations/installation-settings).
 
 ## Restoring
 

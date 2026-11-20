@@ -56,6 +56,17 @@ type Service struct {
 	// from the backup section of the installation settings before each
 	// scheduled run, so a changed retention applies to the next backup.
 	retention atomic.Int64
+	// onCreated runs after every verified backup, scheduled or requested from
+	// the panel. The worker uses it to send the encrypted file off-site.
+	onCreated func(ctx context.Context, record dbgen.Backup, path string)
+}
+
+// OnCreated registers what to do with each verified backup file. A failure
+// inside it must be the callee's to log: the backup already succeeded.
+func (service *Service) OnCreated(hook func(ctx context.Context, record dbgen.Backup, path string)) {
+	if service != nil {
+		service.onCreated = hook
+	}
 }
 
 // SetRetention changes how long backups taken from now on are kept.
@@ -173,6 +184,9 @@ func (service *Service) Create(ctx context.Context, kind, requestedBy string) (d
 	}
 	service.logger.Info("backup completed", "kind", kind, "size_bytes", size, "file", fileName)
 	service.announce(ctx, record, "completed", "", size)
+	if service.onCreated != nil {
+		service.onCreated(ctx, completed, path)
+	}
 	return completed, nil
 }
 

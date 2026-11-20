@@ -79,7 +79,7 @@ diagnostics bundle needs `system.read` and lives on the system screen. See
 | Backups | `enabled` | worker | Whether scheduled backups run. Needs `APP_BACKUP_ENCRYPTION_KEY` | `APP_BACKUP_ENABLED` |
 | Backups | `intervalHours` and/or `timeOfDay` | worker | Every N hours, once a day at a local time (`HH:MM`), or both side by side. With only a time of day saved the environment interval does not also apply. See [Backup and restore](/operations/backup-restore#scheduling-by-time-of-day) | `APP_BACKUP_INTERVAL_HOURS` |
 | Backups | `retentionDays` | worker | How long a backup taken from now on is kept | `APP_BACKUP_RETENTION_DAYS` |
-| Backups | `telegramChatId`, `telegramThreadId` | worker | A chat (and topic) that receives each scheduled backup file. The file is encrypted and useless without the key, which never leaves the installation. Files over 50 MB are not sent through the public Bot API | not sent |
+| Backups | `telegramChatId`, `telegramThreadId` | worker | A chat (and topic) that receives every verified backup file, scheduled or requested from the panel. The file is encrypted and useless without the key, which never leaves the installation. Up to 50 MB through the public Bot API, 2 GB through a self-hosted one | not sent |
 | Security | `sessionIdleMinutes`, `sessionAbsoluteHours` | api | Operator session lifetimes, bounded to 5 minutes – 24 hours idle and 1 hour – 30 days absolute | 30 minutes, 12 hours |
 | Security | `requireTotp` | api | Every operator must have an authenticator app or a passkey. Until they add one, every panel route except their own sign-in and security answers `403 second_factor_required` | off |
 
