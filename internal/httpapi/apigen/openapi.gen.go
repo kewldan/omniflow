@@ -13680,6 +13680,9 @@ type ServerInterface interface {
 	// (PUT /v1/panel/customers/{customerID}/allowlist)
 	AllowlistPanelCustomer(w http.ResponseWriter, r *http.Request, customerID CustomerID, params AllowlistPanelCustomerParams)
 
+	// (GET /v1/panel/customers/{customerID}/avatar)
+	GetPanelCustomerAvatar(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID)
+
 	// (GET /v1/panel/customers/{customerID}/charges)
 	ListPanelCustomerCharges(w http.ResponseWriter, r *http.Request, customerID CustomerID, params ListPanelCustomerChargesParams)
 
@@ -15256,6 +15259,11 @@ func (_ Unimplemented) RemovePanelAllowlist(w http.ResponseWriter, r *http.Reque
 
 // (PUT /v1/panel/customers/{customerID}/allowlist)
 func (_ Unimplemented) AllowlistPanelCustomer(w http.ResponseWriter, r *http.Request, customerID CustomerID, params AllowlistPanelCustomerParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/customers/{customerID}/avatar)
+func (_ Unimplemented) GetPanelCustomerAvatar(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -24920,6 +24928,32 @@ func (siw *ServerInterfaceWrapper) AllowlistPanelCustomer(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// GetPanelCustomerAvatar operation middleware
+func (siw *ServerInterfaceWrapper) GetPanelCustomerAvatar(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerID" -------------
+	var customerID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerID", chi.URLParam(r, "customerID"), &customerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPanelCustomerAvatar(w, r, customerID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPanelCustomerCharges operation middleware
 func (siw *ServerInterfaceWrapper) ListPanelCustomerCharges(w http.ResponseWriter, r *http.Request) {
 
@@ -32173,6 +32207,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/customers/{customerID}", wrapper.GetPanelCustomer)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/customers/{customerID}/avatar", wrapper.GetPanelCustomerAvatar)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/customers/{customerID}/subscriptions", wrapper.ListPanelCustomerSubscriptions)
@@ -42826,6 +42863,64 @@ func (response AllowlistPanelCustomer422ApplicationProblemPlusJSONResponse) Visi
 	return err
 }
 
+type GetPanelCustomerAvatarRequestObject struct {
+	CustomerID openapi_types.UUID `json:"customerID"`
+}
+
+type GetPanelCustomerAvatarResponseObject interface {
+	VisitGetPanelCustomerAvatarResponse(w http.ResponseWriter) error
+}
+
+type GetPanelCustomerAvatar200ImagejpegResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response GetPanelCustomerAvatar200ImagejpegResponse) VisitGetPanelCustomerAvatarResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "image/jpeg")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type GetPanelCustomerAvatar404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetPanelCustomerAvatar404ApplicationProblemPlusJSONResponse) VisitGetPanelCustomerAvatarResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelCustomerAvatar502ApplicationProblemPlusJSONResponse Problem
+
+func (response GetPanelCustomerAvatar502ApplicationProblemPlusJSONResponse) VisitGetPanelCustomerAvatarResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListPanelCustomerChargesRequestObject struct {
 	CustomerID CustomerID `json:"customerID"`
 	Params     ListPanelCustomerChargesParams
@@ -50827,6 +50922,9 @@ type StrictServerInterface interface {
 	// (PUT /v1/panel/customers/{customerID}/allowlist)
 	AllowlistPanelCustomer(ctx context.Context, request AllowlistPanelCustomerRequestObject) (AllowlistPanelCustomerResponseObject, error)
 
+	// (GET /v1/panel/customers/{customerID}/avatar)
+	GetPanelCustomerAvatar(ctx context.Context, request GetPanelCustomerAvatarRequestObject) (GetPanelCustomerAvatarResponseObject, error)
+
 	// (GET /v1/panel/customers/{customerID}/charges)
 	ListPanelCustomerCharges(ctx context.Context, request ListPanelCustomerChargesRequestObject) (ListPanelCustomerChargesResponseObject, error)
 
@@ -57742,6 +57840,32 @@ func (sh *strictHandler) AllowlistPanelCustomer(w http.ResponseWriter, r *http.R
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(AllowlistPanelCustomerResponseObject); ok {
 		if err := validResponse.VisitAllowlistPanelCustomerResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPanelCustomerAvatar operation middleware
+func (sh *strictHandler) GetPanelCustomerAvatar(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID) {
+	var request GetPanelCustomerAvatarRequestObject
+
+	request.CustomerID = customerID
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPanelCustomerAvatar(ctx, request.(GetPanelCustomerAvatarRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPanelCustomerAvatar")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPanelCustomerAvatarResponseObject); ok {
+		if err := validResponse.VisitGetPanelCustomerAvatarResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

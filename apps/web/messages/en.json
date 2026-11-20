@@ -1119,7 +1119,8 @@
         "locked": "This referral has paid out; reject it in review to reverse the rewards.",
         "conflict": "This customer already has an inviter.",
         "invalid": "Not saved: check the code and the rates (0–100%)."
-      }
+      },
+      "avatarAlt": "Telegram profile photo"
     },
     "merge": {
       "title": "Merge into another account",

@@ -14615,6 +14615,90 @@ export const useGetPanelCustomer = <TError = Promise<ProblemResponse>>(
   };
 };
 
+export type getPanelCustomerAvatarResponse200 = {
+  data: Blob;
+  status: 200;
+};
+
+export type getPanelCustomerAvatarResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type getPanelCustomerAvatarResponse502 = {
+  data: ProblemResponse;
+  status: 502;
+};
+
+export type getPanelCustomerAvatarResponseSuccess = getPanelCustomerAvatarResponse200 & {
+  headers: Headers;
+};
+export type getPanelCustomerAvatarResponseError = (
+  | getPanelCustomerAvatarResponse404
+  | getPanelCustomerAvatarResponse502
+) & {
+  headers: Headers;
+};
+
+export type getPanelCustomerAvatarResponse =
+  | getPanelCustomerAvatarResponseSuccess
+  | getPanelCustomerAvatarResponseError;
+
+export const getGetPanelCustomerAvatarUrl = (customerID: string) => {
+  return `/v1/panel/customers/${customerID}/avatar`;
+};
+
+/**
+ * The customer's Telegram profile photo, read from the Bot API on demand and never stored. Private and cacheable for an hour. 404 when the customer has no Telegram account or the photo is hidden from the bot. Mounted only when a bot token is configured. Requires customers.read.
+ */
+export const getPanelCustomerAvatar = async (
+  customerID: string,
+  options?: RequestInit,
+): Promise<getPanelCustomerAvatarResponse> => {
+  const res = await fetch(getGetPanelCustomerAvatarUrl(customerID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.blob();
+  const data: getPanelCustomerAvatarResponse["data"] =
+    body as getPanelCustomerAvatarResponse["data"];
+  return { data, status: res.status, headers: res.headers } as getPanelCustomerAvatarResponse;
+};
+
+export const getGetPanelCustomerAvatarKey = (customerID: string) =>
+  [`/v1/panel/customers/${customerID}/avatar`] as const;
+
+export type GetPanelCustomerAvatarQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelCustomerAvatar>>
+>;
+
+export const useGetPanelCustomerAvatar = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelCustomerAvatar>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && customerID !== null && customerID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelCustomerAvatarKey(customerID) : null));
+  const swrFn = () => getPanelCustomerAvatar(customerID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
 export type listPanelCustomerSubscriptionsResponse200 = {
   data: PanelSubscriptionList;
   status: 200;

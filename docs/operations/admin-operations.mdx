@@ -137,6 +137,16 @@ campaign code, were active in the last N days, or used at least N% of their traf
 sorts by newest, oldest, largest balance, soonest expiry, or most recent activity. A sorted
 view returns the first 200 rather than paging.
 
+### Telegram photo
+
+The customer card shows the customer's Telegram profile photo beside their identifier
+(`GET /v1/panel/customers/{id}/avatar`, `customers.read`). It is read from the Bot API
+when the card opens and never stored: the api keeps it in memory for an hour (ten
+minutes for "no photo") and sends it as a private response the browser forgets within the
+hour. A customer without Telegram, or whose privacy settings hide the photo from the bot,
+shows two letters of their identifier instead. An installation without a bot token has no
+avatar route at all.
+
 ### The Controls and Activity tabs
 
 **Controls** on the customer card (`GET /v1/panel/customers/{id}/controls`) shows when the

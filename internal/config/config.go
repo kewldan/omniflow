@@ -177,6 +177,9 @@ type Config struct {
 	RemnawaveURL          string
 	RemnawaveToken        string
 	TelegramToken         string
+	// TelegramTransport is how the api reaches the Bot API, for reading
+	// customers' profile photos into the operator panel.
+	TelegramTransport TelegramTransportConfig
 	CryptoBotToken        string
 	CryptoBotTestnet      bool
 	YooKassaShopID        string
@@ -443,6 +446,9 @@ func Load() (Config, error) {
 	// uploaded backup file and delete one; taking and restoring stay with the
 	// worker, which has pg_dump.
 	if cfg.Backup, err = loadBackup(); err != nil {
+		return Config{}, err
+	}
+	if cfg.TelegramTransport, err = loadTelegramTransport(); err != nil {
 		return Config{}, err
 	}
 	if !currencyPattern.MatchString(cfg.DefaultCurrency) {

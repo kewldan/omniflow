@@ -71,6 +71,7 @@ type AdminHandlers struct {
 	// remnawave answers the device questions Omniflow does not store. A nil
 	// value leaves the device routes unmounted.
 	remnawave *remnawave.Client
+	avatars   AvatarSource
 	// customerAuth manages the customer panel's sign-in providers. A nil value
 	// leaves those settings routes unmounted, which is what an installation
 	// running no customer panel gets.
@@ -124,6 +125,9 @@ type AdminOptions struct {
 	// Remnawave answers device queries. A nil value leaves those routes
 	// unmounted.
 	Remnawave *remnawave.Client
+	// Avatars reads customers' Telegram profile photos. Nil, as on an
+	// installation without a bot, leaves the route unmounted.
+	Avatars AvatarSource
 	// CookieSecure must be true in production. It is separately configurable
 	// only so a plain-HTTP local development stack can sign in at all.
 	CookieSecure bool
@@ -206,6 +210,7 @@ func NewAdminHandlers(options AdminOptions) *AdminHandlers {
 		health:           options.Health,
 		fulfillment:      options.Fulfillment,
 		remnawave:        options.Remnawave,
+		avatars:          options.Avatars,
 		version:          versionOrUnknown(options.Version),
 		updates:          updates,
 		supportFiles:     options.SupportAttachments,

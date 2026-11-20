@@ -56,6 +56,9 @@ func (handlers *AdminHandlers) mountOperations(secure chi.Router) {
 		read.Get("/customers/{customerID}/tickets", handlers.customerTickets)
 		read.Get("/customers/{customerID}/consents", handlers.customerConsents)
 		read.Get("/customers/{customerID}/referrals", handlers.customerReferrals)
+		if handlers.avatars != nil {
+			read.Get("/customers/{customerID}/avatar", handlers.customerAvatar)
+		}
 		read.Get("/imports", handlers.listCustomerImports)
 	})
 	// The bulk export is its own capability and is audited: every customer and

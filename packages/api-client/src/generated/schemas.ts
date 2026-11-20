@@ -2385,6 +2385,15 @@ export const GetPanelCustomerResponse = zod
   );
 
 /**
+ * The customer's Telegram profile photo, read from the Bot API on demand and never stored. Private and cacheable for an hour. 404 when the customer has no Telegram account or the photo is hidden from the bot. Mounted only when a bot token is configured. Requires customers.read.
+ */
+export const GetPanelCustomerAvatarParams = zod.object({
+  customerID: zod.uuid(),
+});
+
+export const GetPanelCustomerAvatarResponse = zod.unknown();
+
+/**
  * Requires customers.read. Every concurrent subscription with its own Remnawave mapping.
  */
 export const ListPanelCustomerSubscriptionsParams = zod.object({

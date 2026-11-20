@@ -1031,6 +1031,21 @@ paths:
         "200": {description: Customer profile, content: {application/json: {schema: {$ref: "#/components/schemas/PanelCustomerProfile"}}}}
         "403": {$ref: "#/components/responses/Problem"}
         "404": {$ref: "#/components/responses/Problem"}
+  /v1/panel/customers/{customerID}/avatar:
+    get:
+      operationId: getPanelCustomerAvatar
+      tags: [panel]
+      description: >-
+        The customer's Telegram profile photo, read from the Bot API on demand
+        and never stored. Private and cacheable for an hour. 404 when the
+        customer has no Telegram account or the photo is hidden from the bot.
+        Mounted only when a bot token is configured. Requires customers.read.
+      parameters:
+        - {in: path, name: customerID, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "200": {description: The photo, content: {image/jpeg: {schema: {type: string, format: binary}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+        "502": {$ref: "#/components/responses/Problem"}
   /v1/panel/customers/{customerID}/subscriptions:
     get:
       operationId: listPanelCustomerSubscriptions

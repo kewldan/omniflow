@@ -1,5 +1,6 @@
 "use client";
 
+import { Avatar, AvatarFallback, AvatarImage } from "@omniflow/ui/avatar";
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
@@ -92,7 +93,18 @@ export function CustomerProfileView({ customerId }: { customerId: string }) {
         }
         eyebrow={translate("title")}
         title={
-          <span className="inline-flex items-center gap-1">
+          <span className="inline-flex items-center gap-3">
+            <Avatar className="size-10">
+              {profile.telegramId != null && (
+                <AvatarImage
+                  alt={translate("avatarAlt")}
+                  src={`/v1/panel/customers/${encodeURIComponent(profile.id)}/avatar`}
+                />
+              )}
+              <AvatarFallback className="font-mono text-xs">
+                {profile.id.slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
             <span className="font-mono text-xl">{profile.id}</span>
             <CopyButton label={translate("copyId")} value={profile.id} />
           </span>

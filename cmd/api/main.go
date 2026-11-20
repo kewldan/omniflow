@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"github.com/omniflow/omniflow/internal/telegramavatar"
 	"log/slog"
 	"net/http"
 	"net/netip"
@@ -322,10 +323,16 @@ func buildAdminPanel(
 		logger.Warn("admin session cookie is not marked Secure; use this only for local development")
 	}
 	issueSetupTokenIfNeeded(logger, service)
+	var avatars apihttp.AvatarSource
+	if source, avatarErr := telegramavatar.New(cfg.TelegramToken, cfg.TelegramTransport); avatarErr != nil {
+		logger.Warn("telegram avatars are unavailable", "error", avatarErr)
+	} else if source != nil {
+		avatars = avatarAdapter{source}
+	}
 	return apihttp.NewAdminHandlers(apihttp.AdminOptions{
 		Service: service, Limiter: limiter, Logger: logger, Proxies: proxies,
 		Operations: operations, Providers: paymentservice.Index(providers), Health: health,
-		Fulfillment: fulfillmentService, Remnawave: remnawaveClient,
+		Fulfillment: fulfillmentService, Remnawave: remnawaveClient, Avatars: avatars,
 		CookieSecure: cfg.AdminPanel.CookieSecure, Issuer: cfg.AdminPanel.Issuer,
 		Version: version, UpdateFeedURL: cfg.UpdateFeedURL,
 		// The desk reads customer uploads from the same directory the customer
@@ -582,4 +589,16 @@ func issueSetupTokenIfNeeded(logger *slog.Logger, service *adminauthpg.Service) 
 		"token", token,
 		"expires_in", adminauthpg.SetupTokenTTL.String(),
 	)
+}
+
+// avatarAdapter maps the Telegram source's "no photo" onto the one the panel
+// handler recognises, so neither package imports the other.
+type avatarAdapter struct{ source *telegramavatar.Source }
+
+func (adapter avatarAdapter) Avatar(ctx context.Context, telegramID int64) ([]byte, error) {
+	data, err := adapter.source.Avatar(ctx, telegramID)
+	if errors.Is(err, telegramavatar.ErrNoAvatar) {
+		return nil, apihttp.ErrNoAvatar
+	}
+	return data, err
 }
