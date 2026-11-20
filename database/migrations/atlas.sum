@@ -1,4 +1,4 @@
-h1:n8GsMH7vkVsyTDtMz60zjx5JK8LKPAZYOWKxwncKbhU=
+h1:fF52QVTy8eohAmUp46jNOcQCIf5ADHTN+cAQK012nBw=
 20261120000000_baseline.sql h1:xcYk9mdv44B3O0TRxq3RP+hXxJ2VeeOilGnwKO251mQ=
 20261120010000_river_schema_v8.sql h1:AfdQpxaviEf8asJ5gyLmMVZr+zMYaWEw+o/vE8CMj7A=
 20261120020000_customer_email_signin.sql h1:PrCKaTaDm5ggof8aqRooMbqOXEHML5fwq1TF877zQa8=
@@ -47,3 +47,4 @@ h1:n8GsMH7vkVsyTDtMz60zjx5JK8LKPAZYOWKxwncKbhU=
 20261121920000_referral_levels_contests.sql h1:8sVqnXfegXI9lVBk1ACEyr0c5EudKksFmlfC0EeIR2o=
 20261121930000_marketing_settings.sql h1:4UDo1LyRGqyxjUVyLDEC5fXSR1051I/xwFbAz1Y+qI4=
 20261121940000_start_attribution.sql h1:FoIUlMlrjhN68Woz51zSVTEg343SsZRFIEAtcW/hQgw=
+20261121950000_referral_code_prompt.sql h1:3s+S939aFyPYVrXgX9N5jkz6Rm8a0GKajCApxhMOnjM=

@@ -170,7 +170,7 @@ somewhere it does not belong.
 | `security` | `sessionIdleMinutes`, `sessionAbsoluteHours`, `requireTotp` | — |
 | `theme` | The palette, corner and spacing scales, offered modes, default mode — see [White-label appearance](/operations/branding) | — |
 | `analytics` | `enabled`, counter identifiers per provider, webmaster verification tags — see [Advertising measurement](/operations/advertising-measurement) | — |
-| `marketing` | `promoDailyCodeLimit`, `requireTerms`, `termsVersion` — see [Marketing settings](#marketing-settings) | — |
+| `marketing` | `promoDailyCodeLimit`, `requireTerms`, `termsVersion`, `welcomeTextRu`, `welcomeTextEn`, `startPhotoUrl`, `startVideoUrl`, `tipsRu`, `tipsEn`, `referralCodePrompt` — see [Marketing settings](#marketing-settings) | — |
 | `telegram`, `required_channels` | Kept for history; nothing reads them (see above) | — |
 
 Four of these are not fields on the generic renderer. `ai` and `mcp` have their own
@@ -197,6 +197,10 @@ later upgrade improve a default nobody has touched.
 | `promoDailyCodeLimit` | How many different promo codes one customer may use in 24 hours; `0` or empty is no limit. See [Catalog and promotions](/commerce/catalog-promotions#daily-limit-of-distinct-codes) |
 | `requireTerms` | Hold the bot's menu and the web panel until the customer accepts the terms |
 | `termsVersion` | The version a customer accepts; `1` when empty. Changing it asks every customer again |
+| `welcomeTextRu`, `welcomeTextEn` | Bedolaga's editable welcome: sent once, on a customer's first `/start`, before the menu. HTML as in other wording; `{name}` is their Telegram first name (escaped) and `{service}` the branding service name |
+| `startPhotoUrl`, `startVideoUrl` | A logo or a video (an `https` link) sent on every `/start` before the menu, carrying the welcome as its caption on the first one. The video wins when both are set |
+| `tipsRu`, `tipsEn` | One tip per line; the main menu shows one at random under its text |
+| `referralCodePrompt` | Adds **🎟 I have an invite code** to a newcomer's welcome: the code they type attributes them to its owner under the referral programme's usual rules — once, and only before a paid order |
 
 With `requireTerms` on, `/start` and every menu, command, and button in the bot answer with the
 terms — the page named by `branding.termsUrl`, else `APP_TERMS_URL` — and an **I accept** button,

@@ -261,6 +261,18 @@ export const SECTIONS: SectionSchema[] = [
       { name: "promoDailyCodeLimit", kind: "number", messageKey: "promoDailyCodeLimit" },
       { name: "requireTerms", kind: "boolean", messageKey: "requireTerms", defaultValue: false },
       { name: "termsVersion", kind: "text", messageKey: "termsVersion" },
+      { name: "welcomeTextRu", kind: "textarea", messageKey: "welcomeTextRu" },
+      { name: "welcomeTextEn", kind: "textarea", messageKey: "welcomeTextEn" },
+      { name: "startPhotoUrl", kind: "url", messageKey: "startPhotoUrl" },
+      { name: "startVideoUrl", kind: "url", messageKey: "startVideoUrl" },
+      { name: "tipsRu", kind: "textarea", messageKey: "tipsRu" },
+      { name: "tipsEn", kind: "textarea", messageKey: "tipsEn" },
+      {
+        name: "referralCodePrompt",
+        kind: "boolean",
+        messageKey: "referralCodePrompt",
+        defaultValue: false,
+      },
     ],
   },
   {

@@ -1435,7 +1435,7 @@ CREATE TABLE public.bot_sessions (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     expires_at timestamp with time zone DEFAULT (now() + '00:30:00'::interval) NOT NULL,
     context jsonb DEFAULT '{}'::jsonb NOT NULL,
-    CONSTRAINT bot_sessions_state_check CHECK ((state = ANY (ARRAY['support_message'::text, 'support_reply'::text, 'promo_code'::text, 'topup_amount'::text, 'subscription_label'::text, 'gift_recipient'::text, 'gift_message'::text, 'gift_claim'::text, 'goods_recipient'::text, 'goods_promo'::text, 'goods_stars_amount'::text])))
+    CONSTRAINT bot_sessions_state_check CHECK ((state = ANY (ARRAY['support_message'::text, 'support_reply'::text, 'promo_code'::text, 'topup_amount'::text, 'subscription_label'::text, 'gift_recipient'::text, 'gift_message'::text, 'gift_claim'::text, 'goods_recipient'::text, 'goods_promo'::text, 'goods_stars_amount'::text, 'referral_code'::text])))
 );
 
 

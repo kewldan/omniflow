@@ -337,6 +337,10 @@ func (app *App) HandleStart(ctx context.Context, client *telegram.Bot, update *m
 	view := app.loadView(ctx, message.From.ID, locale, routeHome)
 	if app.termsBlocked(ctx, message.From) {
 		view = termsGateView(locale, app.configuredTerms())
+	} else {
+		// The operator's welcome, logo or video, and invite-code prompt come
+		// before the menu.
+		app.sendWelcome(ctx, client, message.Chat.ID, message.From, locale)
 	}
 	if _, err := client.SendMessage(ctx, sendParams(message.Chat.ID, view)); err != nil {
 		app.withCorrelation(update).Error("telegram view send failed", "view", routeHome, "error", err)
@@ -670,7 +674,7 @@ func (app *App) handleFlowMessage(ctx context.Context, client *telegram.Bot, upd
 	}
 	switch state {
 	case "promo_code", "support_reply", "topup_amount", "subscription_label",
-		"goods_recipient", "goods_promo", "goods_stars_amount", "gift_message", "gift_claim":
+		"goods_recipient", "goods_promo", "goods_stars_amount", "gift_message", "gift_claim", "referral_code":
 	default:
 		return false
 	}
@@ -737,6 +741,8 @@ func (app *App) handleFlowMessage(ctx context.Context, client *telegram.Bot, upd
 		}
 		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID,
 			app.SubmitGiftMessage(ctx, session, token, key, message.Text)))
+	case "referral_code":
+		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, app.completeReferralCode(ctx, session, message.Text)))
 	case "gift_claim":
 		if err := app.customers.CancelSession(ctx, session.TelegramID); err != nil {
 			app.logger.Warn("session cleanup failed", "error", err)
@@ -1114,7 +1120,11 @@ func actionIndexAt(parts []string, position int) int {
 
 func (app *App) loadView(ctx context.Context, telegramID int64, locale Locale, route string) View {
 	if app.commerceEnabled() {
-		return app.loadCustomerView(ctx, telegramID, locale, route)
+		view := app.loadCustomerView(ctx, telegramID, locale, route)
+		if route == routeHome {
+			view = app.withTip(view, locale)
+		}
+		return view
 	}
 	if commerceOnlyRoute(route) {
 		return View{Text: text(locale, "menu.unavail"), Keyboard: keyboard(row(callbackButton(text(locale, "action.back"), routeHome)))}

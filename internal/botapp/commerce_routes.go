@@ -890,6 +890,9 @@ func (app *App) handleCommerceAction(ctx context.Context, session commerceContex
 	if view, handled := app.handleOfferAction(ctx, session, parts); handled {
 		return view, true
 	}
+	if view, handled := app.handleWelcomeAction(ctx, session, parts); handled {
+		return view, true
+	}
 	switch parts[0] {
 	case "plan":
 		return app.planScreen(ctx, session, argument, argumentAt(parts, 2) == newSubscriptionFlag), true
@@ -1349,7 +1352,7 @@ var commerceActions = func() map[string]bool {
 		"method-default": true, "method-remove": true,
 		"quiet": true, "quiet-menu": true, "tz-menu": true, "tz": true, "invoice": true,
 	}
-	for _, owned := range []map[string]bool{expansionActions, giftActions, shopActions, starsActions, offerActions, termsActions} {
+	for _, owned := range []map[string]bool{expansionActions, giftActions, shopActions, starsActions, offerActions, termsActions, welcomeActions} {
 		for action := range owned {
 			actions[action] = true
 		}

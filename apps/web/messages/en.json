@@ -3341,7 +3341,14 @@
         "inviteCodes": "Invite codes for t.me/BOT?start=inv_CODE (comma-separated)",
         "promoDailyCodeLimit": "Different promo codes a customer may use per day (0 = no limit)",
         "requireTerms": "Require accepting the terms before using the bot and the web panel",
-        "termsVersion": "Terms version (change it to ask everybody again)"
+        "termsVersion": "Terms version (change it to ask everybody again)",
+        "welcomeTextRu": "Welcome text for newcomers (RU); {name} and {service} are filled in",
+        "welcomeTextEn": "Welcome text for newcomers (EN); {name} and {service} are filled in",
+        "startPhotoUrl": "Logo or picture sent on /start (https link)",
+        "startVideoUrl": "Video sent on /start instead of the picture (https link)",
+        "tipsRu": "Tips shown at random in the main menu (RU), one per line",
+        "tipsEn": "Tips shown at random in the main menu (EN), one per line",
+        "referralCodePrompt": "Offer newcomers to type a friend's invite code"
       },
       "telemetryPreview": {
         "title": "What telemetry would send",
