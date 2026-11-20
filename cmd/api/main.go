@@ -19,6 +19,7 @@ import (
 	"github.com/omniflow/omniflow/internal/accountsupport"
 	"github.com/omniflow/omniflow/internal/adminauthpg"
 	"github.com/omniflow/omniflow/internal/app"
+	"github.com/omniflow/omniflow/internal/backup"
 	"github.com/omniflow/omniflow/internal/catalogpg"
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/commercepg"
@@ -330,6 +331,10 @@ func buildAdminPanel(
 		Installation:       installation,
 		Imports:            importservice.New(pool, remnawaveClient),
 		Commerce:           commerceStore,
+		Backups: backup.New(pool, logger, backup.Config{
+			Enabled: len(cfg.Backup.EncryptionKey) == 32, Directory: cfg.Backup.Directory,
+			Retention: cfg.Backup.Retention, EncryptionKey: cfg.Backup.EncryptionKey, DatabaseURL: cfg.DatabaseURL,
+		}),
 	}), nil
 }
 

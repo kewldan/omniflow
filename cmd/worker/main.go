@@ -329,6 +329,20 @@ func periodicTasks(
 			fallback: cfg.Backup, telegram: cfg.TelegramToken, transport: cfg.TelegramTransport,
 		}
 		tasks = append(tasks, jobs.Task{Name: "backup", Interval: 5 * time.Minute, Timeout: -1, Run: scheduled.Run})
+		// Backups, restores, and deletions an operator asked for in the panel.
+		tasks = append(tasks, jobs.Task{Name: "backup_requests", Interval: 15 * time.Second, Timeout: -1,
+			Run: func(ctx context.Context) error {
+				for range 5 {
+					done, err := backupService.ProcessRequest(ctx)
+					if err != nil {
+						logger.Warn("backup request failed", "error", err)
+					}
+					if !done {
+						return nil
+					}
+				}
+				return nil
+			}})
 	} else {
 		logger.Info("backups are unavailable", "reason", "APP_BACKUP_ENCRYPTION_KEY is not set")
 	}

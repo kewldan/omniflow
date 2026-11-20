@@ -148,6 +148,8 @@ type TelegramWebhookConfig struct {
 }
 
 type Config struct {
+	// Backup is the backup directory and key the panel's upload uses.
+	Backup      BackupConfig
 	HTTPAddr    string
 	DatabaseURL string
 	// DatabaseMaxConns bounds this process's PostgreSQL pool
@@ -435,6 +437,12 @@ func Load() (Config, error) {
 	}
 	cfg.TopUp = topUp
 	if cfg.DatabaseMaxConns, err = loadDatabaseMaxConns(DefaultAPIDatabaseMaxConns); err != nil {
+		return Config{}, err
+	}
+	// The api reads the backup directory and key so the panel can accept an
+	// uploaded backup file and delete one; taking and restoring stay with the
+	// worker, which has pg_dump.
+	if cfg.Backup, err = loadBackup(); err != nil {
 		return Config{}, err
 	}
 	if !currencyPattern.MatchString(cfg.DefaultCurrency) {

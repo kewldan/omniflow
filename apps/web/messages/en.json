@@ -3600,6 +3600,31 @@
       "save": "Save",
       "saved": "Saved",
       "saveFailed": "Not saved — reload if somebody else changed the bot section"
+    },
+    "backupControls": {
+      "title": "Back up and restore",
+      "description": "Take a backup now, restore any completed backup, delete one, or upload an encrypted backup file to restore from. The worker carries out each request within seconds.",
+      "backupNow": "Back up now",
+      "upload": "Upload a backup file",
+      "uploaded": "File verified and stored",
+      "uploadFailed": "The file could not be stored",
+      "requested": "Requested — the worker will carry it out",
+      "when": "Taken",
+      "kind": "Kind",
+      "size": "Size",
+      "restore": "Restore",
+      "delete": "Delete",
+      "cancel": "Cancel",
+      "restoreTitle": "Restore this backup?",
+      "restoreWarning": "The live database is replaced by this backup. Everything written since it was taken is lost.",
+      "restorePrompt": "Type RESTORE to confirm",
+      "reason": "Reason",
+      "reasonRequired": "A restore needs a reason",
+      "actions": {
+        "create": "Backup",
+        "restore": "Restore",
+        "delete": "Deletion"
+      }
     }
   },
   "account": {

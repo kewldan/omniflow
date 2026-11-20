@@ -244,9 +244,9 @@ A read-only table of recent backups — when, kind, status, size, verified — w
 restore history directly beneath it. A backup nobody has ever restored is a backup nobody
 knows works, which is why the two sit on one card rather than on separate screens.
 
-The panel cannot take or restore a backup. There is no write route for it on `/v1/panel`
-or on `/v1/admin`; the only two ways to make one happen are the worker's schedule and the
-bot's `/ops` surface. See [Backup and restore](/operations/backup-restore).
+Below it, **Back up and restore** (`system.write`) takes a backup now, restores any
+completed backup after a typed confirmation and a reason, deletes one, or uploads an
+encrypted backup file. See [Backup and restore](/operations/backup-restore#from-the-web-panel).
 
 ## The diagnostics bundle
 

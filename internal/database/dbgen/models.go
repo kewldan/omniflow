@@ -457,6 +457,18 @@ type Backup struct {
 	RetainUntil pgtype.Timestamptz `json:"retain_until"`
 }
 
+type BackupRequest struct {
+	ID          pgtype.UUID        `json:"id"`
+	Action      string             `json:"action"`
+	BackupID    pgtype.UUID        `json:"backup_id"`
+	Reason      string             `json:"reason"`
+	RequestedBy pgtype.UUID        `json:"requested_by"`
+	Status      string             `json:"status"`
+	ErrorCode   pgtype.Text        `json:"error_code"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	FinishedAt  pgtype.Timestamptz `json:"finished_at"`
+}
+
 type BackupRestore struct {
 	ID          pgtype.UUID        `json:"id"`
 	BackupID    pgtype.UUID        `json:"backup_id"`

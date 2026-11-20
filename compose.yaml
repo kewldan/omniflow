@@ -57,6 +57,10 @@ services:
         condition: service_completed_successfully
       valkey:
         condition: service_healthy
+    # The panel accepts uploaded backup files into the same directory the
+    # worker restores from.
+    volumes:
+      - backup-data:/var/lib/omniflow/backups
     ports:
       - "8080:8080"
     networks: [internal]

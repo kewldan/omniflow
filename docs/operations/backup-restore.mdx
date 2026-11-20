@@ -139,6 +139,28 @@ backup, and the reason: `backup.created` for a manual backup, then
 `backup.restore_requested` and `backup.restored` around a restore. The restore's reason is
 recorded as *"restore requested from Telegram by operator &lt;id&gt;"*.
 
+## From the web panel
+
+`/admin/settings/operations` carries **Back up and restore** for operators holding
+`system.write`. The api has no `pg_dump`, so each action is a request the worker carries out
+within fifteen seconds (`POST /v1/panel/system/backups/requests` with `action` `create`,
+`restore`, or `delete`; the list at `GET /v1/panel/system/backups/requests` shows how each
+ended):
+
+- **Back up now** takes a `manual` backup, verified like a scheduled one.
+- **Restore** replays any completed backup — not only the latest — over the live database,
+  after typing `RESTORE` and giving a reason. It is the same `pg_restore --clean` the bot's
+  `/ops` runs, and it is recorded in the restore history.
+- **Delete** removes the file and marks the backup pruned; the row stays.
+- **Upload a backup file** stores an encrypted backup taken elsewhere — another server, an
+  older installation — as an `uploaded` backup, after checking that every frame opens with
+  this installation's `APP_BACKUP_ENCRYPTION_KEY`; a file that does not is refused with
+  `backup_unreadable`. Then restore it like any other. The api needs the backup directory
+  mounted (the compose file mounts `backup-data` into it) and the key in its environment.
+
+The backup section can also send each scheduled backup file to a Telegram chat — see
+[Installation settings](/operations/installation-settings).
+
 ## Restoring
 
 A restore verifies the backup first, then runs

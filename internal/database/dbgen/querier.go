@@ -152,6 +152,7 @@ type Querier interface {
 	// replayed within its validity window. A successful claim also clears the
 	// second-factor failure count, which only a proven second factor may do.
 	ClaimAdminTOTPStep(ctx context.Context, arg ClaimAdminTOTPStepParams) (pgtype.UUID, error)
+	ClaimBackupRequest(ctx context.Context) (BackupRequest, error)
 	ClaimBlockerScan(ctx context.Context) (BlockerScan, error)
 	// Single redemption by construction: the predicate only matches a deliverable,
 	// unexpired gift, so a second claim of the same code updates no row.
@@ -292,6 +293,8 @@ type Querier interface {
 	// Backups
 	// ---------------------------------------------------------------------------
 	CreateBackup(ctx context.Context, arg CreateBackupParams) (Backup, error)
+	// Backups asked for in the web panel and carried out by the worker.
+	CreateBackupRequest(ctx context.Context, arg CreateBackupRequestParams) (BackupRequest, error)
 	CreateBackupRestore(ctx context.Context, arg CreateBackupRestoreParams) (BackupRestore, error)
 	// The Bedolaga importer (cmd/migrate-bedolaga).
 	//
@@ -578,6 +581,7 @@ type Querier interface {
 	// the payer's bank disputed it, and charging it again without them would be
 	// charging a card its owner has contested.
 	FailPaymentMethodsFromIntent(ctx context.Context, paymentIntentID pgtype.UUID) error
+	FinishBackupRequest(ctx context.Context, arg FinishBackupRequestParams) error
 	FinishBedolagaImportRun(ctx context.Context, arg FinishBedolagaImportRunParams) (BedolagaImportRun, error)
 	FinishBlockerScan(ctx context.Context, arg FinishBlockerScanParams) error
 	GetAIFeature(ctx context.Context, feature string) (AiFeature, error)
@@ -1018,6 +1022,7 @@ type Querier interface {
 	// the dunning table agree on what "this renewal" means without a second round
 	// trip.
 	ListAutoRenewDue(ctx context.Context, pageSize int32) ([]ListAutoRenewDueRow, error)
+	ListBackupRequests(ctx context.Context) ([]BackupRequest, error)
 	ListBackupRestores(ctx context.Context, limit int32) ([]BackupRestore, error)
 	ListBackups(ctx context.Context, limit int32) ([]Backup, error)
 	// The hints and statuses of one batch's codes. Never the codes themselves:
@@ -1747,6 +1752,7 @@ type Querier interface {
 	// Only the first operator reply sets it, so the measure survives a
 	// conversation that goes back and forth for a week.
 	RecordSupportFirstResponse(ctx context.Context, ticketID pgtype.UUID) (SupportTicket, error)
+	RecordUploadedBackup(ctx context.Context, arg RecordUploadedBackupParams) (Backup, error)
 	// Counters are recomputed from the items rather than incremented, so a retried
 	// worker cannot double-count an outcome it already recorded.
 	RecountBulkOperation(ctx context.Context, operationID pgtype.UUID) (BulkOperation, error)

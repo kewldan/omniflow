@@ -1026,6 +1026,27 @@ CREATE TABLE public.auto_renew_settings (
 
 
 --
+-- Name: backup_requests; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.backup_requests (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    action text NOT NULL,
+    backup_id uuid,
+    reason text DEFAULT ''::text NOT NULL,
+    requested_by uuid,
+    status text DEFAULT 'pending'::text NOT NULL,
+    error_code text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    finished_at timestamp with time zone,
+    CONSTRAINT backup_requests_action_known CHECK ((action = ANY (ARRAY['create'::text, 'restore'::text, 'delete'::text]))),
+    CONSTRAINT backup_requests_restore_reason CHECK (((action <> 'restore'::text) OR (length(btrim(reason)) > 0))),
+    CONSTRAINT backup_requests_status_known CHECK ((status = ANY (ARRAY['pending'::text, 'running'::text, 'completed'::text, 'failed'::text]))),
+    CONSTRAINT backup_requests_target CHECK (((action = 'create'::text) = (backup_id IS NULL)))
+);
+
+
+--
 -- Name: backup_restores; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1061,7 +1082,7 @@ CREATE TABLE public.backups (
     completed_at timestamp with time zone,
     retain_until timestamp with time zone NOT NULL,
     CONSTRAINT backups_file_name_check CHECK ((file_name ~ '^[A-Za-z0-9._-]{1,128}$'::text)),
-    CONSTRAINT backups_kind_check CHECK ((kind = ANY (ARRAY['scheduled'::text, 'manual'::text]))),
+    CONSTRAINT backups_kind_check CHECK ((kind = ANY (ARRAY['scheduled'::text, 'manual'::text, 'uploaded'::text]))),
     CONSTRAINT backups_size_bytes_check CHECK ((size_bytes >= 0)),
     CONSTRAINT backups_status_check CHECK ((status = ANY (ARRAY['running'::text, 'completed'::text, 'failed'::text, 'pruned'::text])))
 );
@@ -4661,6 +4682,14 @@ ALTER TABLE ONLY public.audit_events
 
 
 --
+-- Name: backup_requests backup_requests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.backup_requests
+    ADD CONSTRAINT backup_requests_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: backup_restores backup_restores_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6460,6 +6489,13 @@ CREATE UNIQUE INDEX auto_renew_settings_target_idx ON public.auto_renew_settings
 
 
 --
+-- Name: backup_requests_pending_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX backup_requests_pending_idx ON public.backup_requests USING btree (created_at) WHERE (status = 'pending'::text);
+
+
+--
 -- Name: backup_restores_backup_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -7751,6 +7787,22 @@ ALTER TABLE ONLY public.auto_renew_settings
 
 ALTER TABLE ONLY public.auto_renew_settings
     ADD CONSTRAINT auto_renew_settings_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: backup_requests backup_requests_backup_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.backup_requests
+    ADD CONSTRAINT backup_requests_backup_fkey FOREIGN KEY (backup_id) REFERENCES public.backups(id) ON DELETE SET NULL;
+
+
+--
+-- Name: backup_requests backup_requests_requested_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.backup_requests
+    ADD CONSTRAINT backup_requests_requested_by_fkey FOREIGN KEY (requested_by) REFERENCES public.admin_users(id) ON DELETE SET NULL;
 
 
 --

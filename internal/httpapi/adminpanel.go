@@ -13,6 +13,7 @@ import (
 	"github.com/omniflow/omniflow/internal/adminauth"
 	"github.com/omniflow/omniflow/internal/adminauthpg"
 	"github.com/omniflow/omniflow/internal/airuntime"
+	"github.com/omniflow/omniflow/internal/backup"
 	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/customerauthpg"
 	"github.com/omniflow/omniflow/internal/fulfillment"
@@ -38,6 +39,7 @@ type AdminHandlers struct {
 	installation *installsettings.Reader
 	imports      *importservice.Service
 	commerce     *commercepg.Store
+	backups      *backup.Service
 	service      *adminauthpg.Service
 	limiter      *platform.RateLimiter
 	logger       *slog.Logger
@@ -155,6 +157,8 @@ type AdminOptions struct {
 	// Commerce grants plans and buys on a customer's behalf from the card. A
 	// nil value leaves those two routes unmounted.
 	Commerce *commercepg.Store
+	// Backups accepts uploaded backup files; the worker does the rest.
+	Backups *backup.Service
 }
 
 // versionOrUnknown renders an unset build version as something an operator will
@@ -210,6 +214,7 @@ func NewAdminHandlers(options AdminOptions) *AdminHandlers {
 		installation:     options.Installation,
 		imports:          options.Imports,
 		commerce:         options.Commerce,
+		backups:          options.Backups,
 		// The __Host- prefix binds the cookie to this exact origin, so a sibling
 		// subdomain cannot set or overwrite the operator's session. It applies
 		// only when the cookie is Secure, because a browser rejects a __Host-
@@ -319,6 +324,7 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 			handlers.mountCustomerControls(secure)
 			handlers.mountModeration(secure)
 			handlers.mountSupportControls(secure)
+			handlers.mountBackups(secure)
 			handlers.mountGrowth(secure)
 		})
 	})
