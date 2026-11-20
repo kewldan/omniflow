@@ -59,6 +59,23 @@ The same rules are applied in the bot and the web panel, and again on the server
 starts, so a hidden button cannot be pressed through a stale screen. Saved changes reach every
 process within thirty seconds.
 
+## Payment purpose
+
+What a provider shows as the purpose of a payment — on its page, a receipt, or a bank statement —
+is the plan name for an order, `Wallet top-up` for a top-up, and `Subscription renewal` for an
+automatic renewal. An operator can word it instead:
+
+| Variable | Used for |
+| --- | --- |
+| `APP_PAYMENT_SERVICE_NAME` | `{service}` in the templates below |
+| `APP_PAYMENT_ORDER_TEMPLATE` | Plan purchases, upgrades, add-ons, gifts, and shop orders |
+| `APP_PAYMENT_TOPUP_TEMPLATE` | Wallet top-ups |
+| `APP_PAYMENT_RENEWAL_TEMPLATE` | Automatic renewals |
+
+A template may use `{service}`, `{description}` (the default purpose above), and `{order}` (the
+first eight characters of the order ID), for example `{service}: {description} #{order}`. The
+result is cut to 128 characters; an unset template keeps the default.
+
 ## What every adapter shares
 
 - **Payer identity.** Omniflow passes the customer's own ID and, when the customer signed in with

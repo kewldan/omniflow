@@ -28,6 +28,13 @@ type Service struct {
 	clock     func() time.Time
 	contacts  ContactResolver
 	options   optionCache
+	purposes  payments.PurposeTemplates
+}
+
+// WithPurposeTemplates sets the operator's wording of payment purposes.
+func (service *Service) WithPurposeTemplates(templates payments.PurposeTemplates) *Service {
+	service.purposes = templates
+	return service
 }
 
 // ContactResolver opens a customer's verified contact. It is customerpg's
@@ -219,6 +226,7 @@ func (service *Service) CreateIntent(ctx context.Context, input CreateIntentInpu
 	}
 	input.SaveMethod = intent.SaveMethodConsentAt.Valid
 	input.Method = intent.Method
+	input.Description = service.purposes.Render(order.Operation, input.Description, input.OrderID)
 	payer := payerMetadata(ctx, queries, order.UserID)
 	service.payerContact(ctx, provider, payer)
 	created, err := service.submit(ctx, provider, input, amount, payer)

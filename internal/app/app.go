@@ -132,7 +132,8 @@ func NewCommerceCore(
 	if err != nil {
 		return nil, fmt.Errorf("configure payment providers: %w", err)
 	}
-	paymentService := paymentservice.New(pool, store, providers...).WithMetrics(options.Metrics)
+	paymentService := paymentservice.New(pool, store, providers...).WithMetrics(options.Metrics).
+		WithPurposeTemplates(payments.PurposeTemplatesFromEnv(payments.Settings{}))
 	if len(cfg.Payments.ContactKey) == 32 {
 		contacts, contactErr := customerpg.New(pool, cfg.Payments.ContactKey, 0)
 		if contactErr != nil {
