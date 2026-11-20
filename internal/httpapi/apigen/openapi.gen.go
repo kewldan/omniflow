@@ -3719,6 +3719,45 @@ func (e PanelTrafficReportNodesDetail) Valid() bool {
 	}
 }
 
+// Defines values for PartnerApplicationSource.
+const (
+	PartnerApplicationSourceBot PartnerApplicationSource = "bot"
+	PartnerApplicationSourceWeb PartnerApplicationSource = "web"
+)
+
+// Valid indicates whether the value is a known member of the PartnerApplicationSource enum.
+func (e PartnerApplicationSource) Valid() bool {
+	switch e {
+	case PartnerApplicationSourceBot:
+		return true
+	case PartnerApplicationSourceWeb:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PartnerApplicationStatus.
+const (
+	PartnerApplicationStatusApproved PartnerApplicationStatus = "approved"
+	PartnerApplicationStatusPending  PartnerApplicationStatus = "pending"
+	PartnerApplicationStatusRejected PartnerApplicationStatus = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the PartnerApplicationStatus enum.
+func (e PartnerApplicationStatus) Valid() bool {
+	switch e {
+	case PartnerApplicationStatusApproved:
+		return true
+	case PartnerApplicationStatusPending:
+		return true
+	case PartnerApplicationStatusRejected:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PaymentProvider.
 const (
 	PaymentProviderAnore         PaymentProvider = "anore"
@@ -9811,6 +9850,38 @@ type PanelWebhookPage struct {
 	NextCursor *string              `json:"nextCursor,omitempty"`
 }
 
+// PartnerApplication defines model for PartnerApplication.
+type PartnerApplication struct {
+	Channel                   string                   `json:"channel"`
+	CommissionBps             *int32                   `json:"commissionBps,omitempty"`
+	CreatedAt                 time.Time                `json:"createdAt"`
+	CustomerId                openapi_types.UUID       `json:"customerId"`
+	DecidedAt                 *time.Time               `json:"decidedAt,omitempty"`
+	DecisionNote              *string                  `json:"decisionNote,omitempty"`
+	FirstPaymentCommissionBps *int32                   `json:"firstPaymentCommissionBps,omitempty"`
+	Id                        openapi_types.UUID       `json:"id"`
+	Invited                   int64                    `json:"invited"`
+	Message                   string                   `json:"message"`
+	Qualified                 int64                    `json:"qualified"`
+	Source                    PartnerApplicationSource `json:"source"`
+	Status                    PartnerApplicationStatus `json:"status"`
+}
+
+// PartnerApplicationSource defines model for PartnerApplication.Source.
+type PartnerApplicationSource string
+
+// PartnerApplicationStatus defines model for PartnerApplication.Status.
+type PartnerApplicationStatus string
+
+// PartnerState defines model for PartnerState.
+type PartnerState struct {
+	CanApply                  bool                `json:"canApply"`
+	CommissionBps             *int32              `json:"commissionBps,omitempty"`
+	FirstPaymentCommissionBps *int32              `json:"firstPaymentCommissionBps,omitempty"`
+	Latest                    *PartnerApplication `json:"latest,omitempty"`
+	Partner                   bool                `json:"partner"`
+}
+
 // Passkey One registered credential. It carries neither the public key nor the credential identifier: neither is secret, and neither is any use to an operator reading a list.
 type Passkey struct {
 	CreatedAt time.Time `json:"createdAt"`
@@ -10700,6 +10771,12 @@ type AttributeAccountReferralJSONBody struct {
 
 // GetAccountReferralInsights200JSONResponseBodyRewardChoiceKind defines parameters for GetAccountReferralInsights.
 type GetAccountReferralInsights200JSONResponseBodyRewardChoiceKind string
+
+// ApplyAccountPartnerJSONBody defines parameters for ApplyAccountPartner.
+type ApplyAccountPartnerJSONBody struct {
+	Channel *string `json:"channel,omitempty"`
+	Message *string `json:"message,omitempty"`
+}
 
 // ChooseAccountReferralRewardKindJSONBody defines parameters for ChooseAccountReferralRewardKind.
 type ChooseAccountReferralRewardKindJSONBody struct {
@@ -12546,6 +12623,9 @@ type RequestAccountDeletionJSONRequestBody RequestAccountDeletionJSONBody
 // AttributeAccountReferralJSONRequestBody defines body for AttributeAccountReferral for application/json ContentType.
 type AttributeAccountReferralJSONRequestBody AttributeAccountReferralJSONBody
 
+// ApplyAccountPartnerJSONRequestBody defines body for ApplyAccountPartner for application/json ContentType.
+type ApplyAccountPartnerJSONRequestBody ApplyAccountPartnerJSONBody
+
 // ChooseAccountReferralRewardKindJSONRequestBody defines body for ChooseAccountReferralRewardKind for application/json ContentType.
 type ChooseAccountReferralRewardKindJSONRequestBody ChooseAccountReferralRewardKindJSONBody
 
@@ -13249,6 +13329,12 @@ type ServerInterface interface {
 
 	// (GET /v1/account/referrals/insights)
 	GetAccountReferralInsights(w http.ResponseWriter, r *http.Request)
+
+	// (GET /v1/account/referrals/partner)
+	GetAccountPartner(w http.ResponseWriter, r *http.Request)
+
+	// (POST /v1/account/referrals/partner)
+	ApplyAccountPartner(w http.ResponseWriter, r *http.Request)
 
 	// (PUT /v1/account/referrals/reward-kind)
 	ChooseAccountReferralRewardKind(w http.ResponseWriter, r *http.Request, params ChooseAccountReferralRewardKindParams)
@@ -14526,6 +14612,16 @@ func (_ Unimplemented) ListAccountReferralContests(w http.ResponseWriter, r *htt
 
 // (GET /v1/account/referrals/insights)
 func (_ Unimplemented) GetAccountReferralInsights(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/referrals/partner)
+func (_ Unimplemented) GetAccountPartner(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/referrals/partner)
+func (_ Unimplemented) ApplyAccountPartner(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -18570,6 +18666,34 @@ func (siw *ServerInterfaceWrapper) GetAccountReferralInsights(w http.ResponseWri
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAccountReferralInsights(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountPartner operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountPartner(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountPartner(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApplyAccountPartner operation middleware
+func (siw *ServerInterfaceWrapper) ApplyAccountPartner(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApplyAccountPartner(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -33265,6 +33389,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/account/referrals/contests", wrapper.ListAccountReferralContests)
 	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/referrals/partner", wrapper.GetAccountPartner)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/referrals/partner", wrapper.ApplyAccountPartner)
+	})
 
 	return r
 }
@@ -36008,6 +36138,93 @@ func (response GetAccountReferralInsights200JSONResponse) VisitGetAccountReferra
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountPartnerRequestObject struct {
+}
+
+type GetAccountPartnerResponseObject interface {
+	VisitGetAccountPartnerResponse(w http.ResponseWriter) error
+}
+
+type GetAccountPartner200JSONResponse PartnerState
+
+func (response GetAccountPartner200JSONResponse) VisitGetAccountPartnerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplyAccountPartnerRequestObject struct {
+	Body *ApplyAccountPartnerJSONRequestBody
+}
+
+type ApplyAccountPartnerResponseObject interface {
+	VisitApplyAccountPartnerResponse(w http.ResponseWriter) error
+}
+
+type ApplyAccountPartner201JSONResponse PartnerApplication
+
+func (response ApplyAccountPartner201JSONResponse) VisitApplyAccountPartnerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplyAccountPartner409ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ApplyAccountPartner409ApplicationProblemPlusJSONResponse) VisitApplyAccountPartnerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplyAccountPartner422ApplicationProblemPlusJSONResponse Problem
+
+func (response ApplyAccountPartner422ApplicationProblemPlusJSONResponse) VisitApplyAccountPartnerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApplyAccountPartner429ApplicationProblemPlusJSONResponse Problem
+
+func (response ApplyAccountPartner429ApplicationProblemPlusJSONResponse) VisitApplyAccountPartnerResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(429)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -50740,6 +50957,12 @@ type StrictServerInterface interface {
 	// (GET /v1/account/referrals/insights)
 	GetAccountReferralInsights(ctx context.Context, request GetAccountReferralInsightsRequestObject) (GetAccountReferralInsightsResponseObject, error)
 
+	// (GET /v1/account/referrals/partner)
+	GetAccountPartner(ctx context.Context, request GetAccountPartnerRequestObject) (GetAccountPartnerResponseObject, error)
+
+	// (POST /v1/account/referrals/partner)
+	ApplyAccountPartner(ctx context.Context, request ApplyAccountPartnerRequestObject) (ApplyAccountPartnerResponseObject, error)
+
 	// (PUT /v1/account/referrals/reward-kind)
 	ChooseAccountReferralRewardKind(ctx context.Context, request ChooseAccountReferralRewardKindRequestObject) (ChooseAccountReferralRewardKindResponseObject, error)
 
@@ -53644,6 +53867,61 @@ func (sh *strictHandler) GetAccountReferralInsights(w http.ResponseWriter, r *ht
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetAccountReferralInsightsResponseObject); ok {
 		if err := validResponse.VisitGetAccountReferralInsightsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountPartner operation middleware
+func (sh *strictHandler) GetAccountPartner(w http.ResponseWriter, r *http.Request) {
+	var request GetAccountPartnerRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountPartner(ctx, request.(GetAccountPartnerRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountPartner")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountPartnerResponseObject); ok {
+		if err := validResponse.VisitGetAccountPartnerResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ApplyAccountPartner operation middleware
+func (sh *strictHandler) ApplyAccountPartner(w http.ResponseWriter, r *http.Request) {
+	var request ApplyAccountPartnerRequestObject
+
+	var body ApplyAccountPartnerJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ApplyAccountPartner(ctx, request.(ApplyAccountPartnerRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApplyAccountPartner")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ApplyAccountPartnerResponseObject); ok {
+		if err := validResponse.VisitApplyAccountPartnerResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

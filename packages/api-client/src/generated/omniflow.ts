@@ -5997,6 +5997,47 @@ export interface GuestPurchase {
   currency: string;
 }
 
+export type PartnerApplicationStatus =
+  (typeof PartnerApplicationStatus)[keyof typeof PartnerApplicationStatus];
+
+export const PartnerApplicationStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+} as const;
+
+export type PartnerApplicationSource =
+  (typeof PartnerApplicationSource)[keyof typeof PartnerApplicationSource];
+
+export const PartnerApplicationSource = {
+  bot: "bot",
+  web: "web",
+} as const;
+
+export interface PartnerApplication {
+  id: string;
+  customerId: string;
+  status: PartnerApplicationStatus;
+  source: PartnerApplicationSource;
+  channel: string;
+  message: string;
+  commissionBps?: number;
+  firstPaymentCommissionBps?: number;
+  decisionNote?: string;
+  decidedAt?: string;
+  createdAt: string;
+  invited: number;
+  qualified: number;
+}
+
+export interface PartnerState {
+  partner: boolean;
+  commissionBps?: number;
+  firstPaymentCommissionBps?: number;
+  latest?: PartnerApplication;
+  canApply: boolean;
+}
+
 /**
  * Request failed
  */
@@ -7787,6 +7828,13 @@ export type ListAccountLanguages200 = {
 };
 
 export type ListAccountReferralContests200 = { [key: string]: unknown };
+
+export type ApplyAccountPartnerBody = {
+  /** @maxLength 200 */
+  channel?: string;
+  /** @maxLength 1000 */
+  message?: string;
+};
 
 const getHeaders = (
   ...sources: (RequestInit["headers"] | Record<string, string | undefined>)[]
@@ -39724,6 +39772,158 @@ export const useListAccountReferralContests = <TError = Promise<unknown>>(option
   const swrFn = () => listAccountReferralContests(fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountPartnerResponse200 = {
+  data: PartnerState;
+  status: 200;
+};
+
+export type getAccountPartnerResponseSuccess = getAccountPartnerResponse200 & {
+  headers: Headers;
+};
+
+export type getAccountPartnerResponse = getAccountPartnerResponseSuccess;
+
+export const getGetAccountPartnerUrl = () => {
+  return `/v1/account/referrals/partner`;
+};
+
+/**
+ * The customer's partner standing: whether an approved application's personal commission rate is in force, the latest application, and whether a new one may be sent.
+ */
+export const getAccountPartner = async (
+  options?: RequestInit,
+): Promise<getAccountPartnerResponse> => {
+  const res = await fetch(getGetAccountPartnerUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountPartnerResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getAccountPartnerResponse;
+};
+
+export const getGetAccountPartnerKey = () => [`/v1/account/referrals/partner`] as const;
+
+export type GetAccountPartnerQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountPartner>>
+>;
+
+export const useGetAccountPartner = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountPartner>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetAccountPartnerKey() : null));
+  const swrFn = () => getAccountPartner(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type applyAccountPartnerResponse201 = {
+  data: PartnerApplication;
+  status: 201;
+};
+
+export type applyAccountPartnerResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type applyAccountPartnerResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type applyAccountPartnerResponse429 = {
+  data: ProblemResponse;
+  status: 429;
+};
+
+export type applyAccountPartnerResponseSuccess = applyAccountPartnerResponse201 & {
+  headers: Headers;
+};
+export type applyAccountPartnerResponseError = (
+  | applyAccountPartnerResponse409
+  | applyAccountPartnerResponse422
+  | applyAccountPartnerResponse429
+) & {
+  headers: Headers;
+};
+
+export type applyAccountPartnerResponse =
+  | applyAccountPartnerResponseSuccess
+  | applyAccountPartnerResponseError;
+
+export const getApplyAccountPartnerUrl = () => {
+  return `/v1/account/referrals/partner`;
+};
+
+/**
+ * Applies to become a partner. One application may wait for a decision at a time, and a current partner cannot apply; an operator approves with a personal commission rate or rejects.
+ */
+export const applyAccountPartner = async (
+  applyAccountPartnerBody: ApplyAccountPartnerBody,
+  options?: RequestInit,
+): Promise<applyAccountPartnerResponse> => {
+  const res = await fetch(getApplyAccountPartnerUrl(), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(applyAccountPartnerBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: applyAccountPartnerResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as applyAccountPartnerResponse;
+};
+
+export const getApplyAccountPartnerMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: ApplyAccountPartnerBody }) => {
+    return applyAccountPartner(arg, options);
+  };
+};
+export const getApplyAccountPartnerMutationKey = () => [`/v1/account/referrals/partner`] as const;
+
+export type ApplyAccountPartnerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof applyAccountPartner>>
+>;
+
+export const useApplyAccountPartner = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof applyAccountPartner>>,
+    TError,
+    Key,
+    ApplyAccountPartnerBody,
+    Awaited<ReturnType<typeof applyAccountPartner>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getApplyAccountPartnerMutationKey();
+  const swrFn = getApplyAccountPartnerMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,

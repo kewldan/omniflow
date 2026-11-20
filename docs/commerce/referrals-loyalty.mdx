@@ -206,6 +206,7 @@ goes to whoever invited them.
 | `POST /v1/panel/customers/{customerID}/referrer` | `marketing.write` | `{"code": "…"}` attaches the customer to the owner of that code; never to themselves, never a second inviter (409) |
 | `DELETE /v1/panel/customers/{customerID}/referrer` | `marketing.write` | Detaches a pair that has paid nothing out; one with live rewards answers 409 `referral_locked` — reject it in review instead, which reverses them |
 | `GET`/`PUT /v1/panel/customers/{customerID}/referral-terms` | `marketing.read`/`write` | Personal commission rates for this customer as an inviter: `commissionBps`, `firstPaymentCommissionBps`, `note`; both empty removes them |
+| `GET /v1/panel/customers/{customerID}/referral-network` | `marketing.read` | The customer's referral network — see [the network](#the-referral-network) |
 
 The marketing screen shows the leaderboard and the lost referrals with a **Credit** button; the
 customer card's **Referrals** tab has **Referral administration** for attaching, detaching, and
@@ -341,8 +342,51 @@ their own, never who the others are. Once the window has closed, an operator
 with `finance.write` presses **Finish and pay**: the prizes are credited to the
 wallets, the winners are recorded, and the contest cannot be finished again.
 
-A partner programme with individual commission rates per partner (Bedolaga's
-partner applications) is not part of this.
+## Partner applications
+
+Bedolaga's partner programme: a customer who promotes the service — a channel, a blog, a
+community — applies, and an operator answers with a personal commission rate. It is built on the
+[personal rates](#commission-on-every-payment) the commission path already reads, not beside them:
+approval writes `referral_inviter_terms` and nothing else pays a partner.
+
+- **Applying.** On the web panel's **Invites** screen, **Partner programme** takes where the
+  customer will promote the service (up to 200 characters) and anything else for the operator (up to
+  1000); in the bot, **🤝 Partner programme** on the invitation screen applies in one tap. One
+  application may wait at a time (a unique index keeps it so when two taps race), and a current
+  partner cannot apply. A customer can send at most five an hour from the web panel.
+- **Deciding.** **Marketing → Partner applications** lists the waiting applications first, with each
+  applicant's qualified and invited referrals so far and a link to their card. **Decide** takes a rate
+  and an optional first-payment rate (0–100 %, stored in basis points) and a note. **Approve** marks
+  the application approved and, in the same transaction, sets the customer's personal rate — the one
+  on the customer card's **Referral administration** — with the note `partner application`;
+  **Decline** records the decision and touches no rate. A decided application cannot be decided
+  again. Both need `marketing.write`, the same permission that sets a personal rate directly, and are
+  audited as `panel.referral.partner_approved` or `panel.referral.partner_rejected`.
+- **Being a partner.** A customer is a partner while their latest application is approved and a
+  personal rate is in force; the bot and the web panel show their rates. Removing the rate on the
+  customer card ends the partnership, and the customer may apply again. A declined customer may apply
+  again at once.
+
+The decision itself pays nothing. Commissions on the partner's invitees' payments are credited
+exactly as any other commission, so the ledger, withdrawals, review, and reversal apply unchanged.
+
+| Route | Permission | What it does |
+| --- | --- | --- |
+| `GET /v1/account/referrals/partner` | customer | `partner`, the rates in force, the latest application, and `canApply` |
+| `POST /v1/account/referrals/partner` | customer | `{"channel", "message"}` applies; 409 `application_pending` or `already_partner`, 429 over the hourly limit |
+| `GET /v1/panel/marketing/partner-applications?status=pending` | `marketing.read` | Applications, waiting ones first; `status` is `pending`, `approved`, `rejected`, or empty for all |
+| `POST /v1/panel/marketing/partner-applications/{applicationID}/decision` | `marketing.write` | `{"approve", "commissionBps", "firstPaymentCommissionBps", "note"}`; an approval needs `commissionBps`; 409 `already_decided` |
+
+## The referral network
+
+The customer card's **Referrals** tab shows **Referral network** (`marketing.read`): who invited the
+customer and that inviter's own inviter above, and two levels below — the customers they invited,
+and the customers those invited. Each level shows how many were invited, how many qualified, and
+what they earned the customer; each member shows when they joined, whether they qualified (or were
+rejected in review), and what their payments earned the customer and was not reversed — first-level
+rewards and commissions, or second-level shares — in the referral programme's currency. Each level
+lists its newest hundred members; the totals count all of them. There is no third level, matching
+the programme.
 
 ## Loyalty
 

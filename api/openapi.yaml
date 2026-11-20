@@ -5595,6 +5595,37 @@ paths:
         customer's own place. Other customers are never identified.
       responses:
         "200": {description: Contests, content: {application/json: {schema: {type: object, additionalProperties: true}}}}
+  /v1/account/referrals/partner:
+    get:
+      operationId: getAccountPartner
+      tags: [account]
+      description: >-
+        The customer's partner standing: whether an approved application's
+        personal commission rate is in force, the latest application, and
+        whether a new one may be sent.
+      responses:
+        "200": {description: Partner standing, content: {application/json: {schema: {$ref: "#/components/schemas/PartnerState"}}}}
+    post:
+      operationId: applyAccountPartner
+      tags: [account]
+      description: >-
+        Applies to become a partner. One application may wait for a decision
+        at a time, and a current partner cannot apply; an operator approves
+        with a personal commission rate or rejects.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                channel: {type: string, maxLength: 200}
+                message: {type: string, maxLength: 1000}
+      responses:
+        "201": {description: Application, content: {application/json: {schema: {$ref: "#/components/schemas/PartnerApplication"}}}}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+        "429": {$ref: "#/components/responses/Problem"}
 components:
   securitySchemes:
     operatorToken: {type: http, scheme: bearer}
@@ -9652,5 +9683,31 @@ components:
         checkoutUrl: {type: string}
         amountMinor: {type: integer, format: int64}
         currency: {type: string}
+    PartnerApplication:
+      type: object
+      required: [id, customerId, status, source, channel, message, createdAt, invited, qualified]
+      properties:
+        id: {type: string, format: uuid}
+        customerId: {type: string, format: uuid}
+        status: {type: string, enum: [pending, approved, rejected]}
+        source: {type: string, enum: [bot, web]}
+        channel: {type: string}
+        message: {type: string}
+        commissionBps: {type: integer, format: int32}
+        firstPaymentCommissionBps: {type: integer, format: int32}
+        decisionNote: {type: string}
+        decidedAt: {type: string, format: date-time}
+        createdAt: {type: string, format: date-time}
+        invited: {type: integer, format: int64}
+        qualified: {type: integer, format: int64}
+    PartnerState:
+      type: object
+      required: [partner, canApply]
+      properties:
+        partner: {type: boolean}
+        commissionBps: {type: integer, format: int32}
+        firstPaymentCommissionBps: {type: integer, format: int32}
+        latest: {$ref: "#/components/schemas/PartnerApplication"}
+        canApply: {type: boolean}
   responses:
     Problem: {description: Request failed, content: {application/problem+json: {schema: {$ref: "#/components/schemas/Problem"}}}}

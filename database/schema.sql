@@ -3499,6 +3499,31 @@ CREATE TABLE public.outbox_events (
 
 
 --
+-- Name: partner_applications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.partner_applications (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    source text NOT NULL,
+    channel text DEFAULT ''::text NOT NULL,
+    message text DEFAULT ''::text NOT NULL,
+    commission_bps integer,
+    first_payment_commission_bps integer,
+    decision_note text DEFAULT ''::text NOT NULL,
+    decided_by uuid,
+    decided_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT partner_applications_decision_complete CHECK ((((status = 'pending'::text) = (decided_at IS NULL)) AND ((status <> 'approved'::text) OR (commission_bps IS NOT NULL)))),
+    CONSTRAINT partner_applications_rates_bounded CHECK ((((commission_bps IS NULL) OR ((commission_bps >= 0) AND (commission_bps <= 10000))) AND ((first_payment_commission_bps IS NULL) OR ((first_payment_commission_bps >= 0) AND (first_payment_commission_bps <= 10000))))),
+    CONSTRAINT partner_applications_source_known CHECK ((source = ANY (ARRAY['bot'::text, 'web'::text]))),
+    CONSTRAINT partner_applications_status_known CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text]))),
+    CONSTRAINT partner_applications_text_length CHECK (((char_length(channel) <= 200) AND (char_length(message) <= 1000) AND (char_length(decision_note) <= 400)))
+);
+
+
+--
 -- Name: payment_events; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -6678,6 +6703,14 @@ ALTER TABLE ONLY public.outbox_events
 
 
 --
+-- Name: partner_applications partner_applications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.partner_applications
+    ADD CONSTRAINT partner_applications_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: payment_events payment_events_payment_intent_id_provider_event_id_type_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8248,6 +8281,27 @@ CREATE INDEX orders_subscription_idx ON public.orders USING btree (subscription_
 --
 
 CREATE INDEX outbox_events_unpublished_idx ON public.outbox_events USING btree (occurred_at) WHERE (published_at IS NULL);
+
+
+--
+-- Name: partner_applications_one_pending; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX partner_applications_one_pending ON public.partner_applications USING btree (user_id) WHERE (status = 'pending'::text);
+
+
+--
+-- Name: partner_applications_status_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX partner_applications_status_created ON public.partner_applications USING btree (status, created_at DESC);
+
+
+--
+-- Name: partner_applications_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX partner_applications_user ON public.partner_applications USING btree (user_id, created_at DESC);
 
 
 --
@@ -10365,6 +10419,22 @@ ALTER TABLE ONLY public.orders
 
 ALTER TABLE ONLY public.orders
     ADD CONSTRAINT orders_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: partner_applications partner_applications_decided_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.partner_applications
+    ADD CONSTRAINT partner_applications_decided_by_fkey FOREIGN KEY (decided_by) REFERENCES public.admin_users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: partner_applications partner_applications_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.partner_applications
+    ADD CONSTRAINT partner_applications_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --

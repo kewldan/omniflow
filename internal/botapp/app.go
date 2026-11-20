@@ -22,6 +22,7 @@ import (
 	databaseutil "github.com/omniflow/omniflow/internal/database"
 	"github.com/omniflow/omniflow/internal/installsettings"
 	"github.com/omniflow/omniflow/internal/platform"
+	"github.com/omniflow/omniflow/internal/referralplus"
 	"github.com/omniflow/omniflow/internal/remnawave"
 	"github.com/omniflow/omniflow/internal/remnawavesync"
 	"github.com/omniflow/omniflow/internal/termsgate"
@@ -102,6 +103,10 @@ type App struct {
 
 	// terms is the gate that holds the menu until the terms are accepted.
 	terms *termsgate.Gate
+
+	// partners is the partner programme: applications and the partner's
+	// standing. It is built with the commerce surface.
+	partners *referralplus.Service
 }
 
 // UseInstallationSettings lets panel-saved settings override the environment
@@ -149,6 +154,7 @@ func (app *App) EnableCommerce(customers *PostgresStore, commerceService *Commer
 	app.customers, app.commerce, app.limiter, app.sender, app.settings = customers, commerceService, limiter, sender, settings
 	app.termsURL = strings.TrimSpace(settings.TermsURL)
 	app.useTermsGate(termsgate.New(customers.pool))
+	app.partners = referralplus.New(customers.pool)
 }
 
 func (app *App) SetBotUsername(username string) {
@@ -238,6 +244,7 @@ var consequentialActions = map[string]bool{
 	"cart-auto": true, "addon-confirm": true, "reset-buy": true, "sub-revoke": true, "sub-dev-del": true, "sub-devs-del": true,
 	"renew-funding": true, "renew-lead": true, "method-default": true, "method-remove": true,
 	"ops-backup": true, "ops-restore": true, "opms": true, "opm": true,
+	"partner-apply": true,
 }
 
 // legacyActions is the closed set of actions handleAction serves itself, after
@@ -1219,7 +1226,7 @@ func (app *App) referralScreen(ctx context.Context, session commerceContext) Vie
 		app.logger.Error("referral lookup failed", "error", err)
 		return app.errorView(session.Locale, routeReferral)
 	}
-	return referralView(session.Locale, app.identity.get(ctx), summary.Code, summary.Invited)
+	return app.withReferralExtras(referralView(session.Locale, app.identity.get(ctx), summary.Code, summary.Invited), session.Locale)
 }
 
 // noSubscriptionView is what a customer sees before their first purchase: the

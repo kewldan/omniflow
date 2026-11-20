@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import useSWR from "swr";
 import { Engagement } from "@/components/account/account/engagement";
 import { LoyaltyStanding } from "@/components/account/account/loyalty-standing";
+import { PartnerProgramme } from "@/components/account/account/partner-programme";
 import { ReferralContests } from "@/components/account/account/referral-contests";
 import { ReferralInsights } from "@/components/account/account/referral-insights";
 import { RewardHistory } from "@/components/account/account/reward-history";
@@ -109,6 +110,8 @@ export default function ReferralsPage() {
           <ReferralInsights currency={data.currency} link={data.link ?? ""} />
 
           <Withdrawals />
+
+          <PartnerProgramme />
 
           <div className="grid grid-cols-2 gap-3">
             <Stat label={translate("referrals.invited")} value={data.invited} />

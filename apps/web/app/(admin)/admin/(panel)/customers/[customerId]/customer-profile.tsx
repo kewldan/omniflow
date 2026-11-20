@@ -38,6 +38,7 @@ import { LoyaltyPanel } from "./loyalty-panel";
 import { MergePanel } from "./merge-panel";
 import { NotificationsPanel } from "./notifications-panel";
 import { ReferralAdminPanel } from "./referral-admin";
+import { ReferralNetworkPanel } from "./referral-network";
 import { SubscriptionActions, SubscriptionDevices } from "./subscription-actions";
 
 /**
@@ -188,6 +189,9 @@ export function CustomerProfileView({ customerId }: { customerId: string }) {
         )}
         <TabsContent className="flex flex-col gap-4" value="referrals">
           <ReferralPanel active={tab === "referrals"} base={base} />
+          {can("marketing.read") && (
+            <ReferralNetworkPanel active={tab === "referrals"} customerId={customerId} />
+          )}
           {can("marketing.write") && (
             <ReferralAdminPanel active={tab === "referrals"} customerId={customerId} />
           )}

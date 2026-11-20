@@ -14516,3 +14516,58 @@ export const ListAccountLanguagesResponse = zod.object({
  * Running referral contests with their prizes, the top ten places, and the customer's own place. Other customers are never identified.
  */
 export const ListAccountReferralContestsResponse = zod.record(zod.string(), zod.unknown());
+
+/**
+ * The customer's partner standing: whether an approved application's personal commission rate is in force, the latest application, and whether a new one may be sent.
+ */
+export const GetAccountPartnerResponse = zod.object({
+  partner: zod.boolean(),
+  commissionBps: zod.int().optional(),
+  firstPaymentCommissionBps: zod.int().optional(),
+  latest: zod
+    .object({
+      id: zod.uuid(),
+      customerId: zod.uuid(),
+      status: zod.enum(["pending", "approved", "rejected"]),
+      source: zod.enum(["bot", "web"]),
+      channel: zod.string(),
+      message: zod.string(),
+      commissionBps: zod.int().optional(),
+      firstPaymentCommissionBps: zod.int().optional(),
+      decisionNote: zod.string().optional(),
+      decidedAt: zod.iso.datetime({ offset: true }).optional(),
+      createdAt: zod.iso.datetime({ offset: true }),
+      invited: zod.int(),
+      qualified: zod.int(),
+    })
+    .optional(),
+  canApply: zod.boolean(),
+});
+
+/**
+ * Applies to become a partner. One application may wait for a decision at a time, and a current partner cannot apply; an operator approves with a personal commission rate or rejects.
+ */
+export const applyAccountPartnerBodyChannelMax = 200;
+
+export const applyAccountPartnerBodyMessageMax = 1000;
+
+export const ApplyAccountPartnerBody = zod.object({
+  channel: zod.string().max(applyAccountPartnerBodyChannelMax).optional(),
+  message: zod.string().max(applyAccountPartnerBodyMessageMax).optional(),
+});
+
+export const ApplyAccountPartnerResponse = zod.object({
+  id: zod.uuid(),
+  customerId: zod.uuid(),
+  status: zod.enum(["pending", "approved", "rejected"]),
+  source: zod.enum(["bot", "web"]),
+  channel: zod.string(),
+  message: zod.string(),
+  commissionBps: zod.int().optional(),
+  firstPaymentCommissionBps: zod.int().optional(),
+  decisionNote: zod.string().optional(),
+  decidedAt: zod.iso.datetime({ offset: true }).optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+  invited: zod.int(),
+  qualified: zod.int(),
+});

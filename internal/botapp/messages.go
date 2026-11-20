@@ -141,6 +141,16 @@ var catalog = map[string]phrase{
 	"campaign.bonusDays":   {ru: "🎁 Бонус за регистрацию: <b>%d дн.</b> VPN уже ваши — подключение в разделе «Подписка».", en: "🎁 Sign-up bonus: <b>%d days</b> of VPN are yours — connect from your subscription."},
 	"campaign.bonusTrial":  {ru: "🎁 Бонус за регистрацию: пробный период на <b>%d дн.</b> уже включён — подключение в разделе «Подписка».", en: "🎁 Sign-up bonus: a <b>%d-day</b> trial is already on — connect from your subscription."},
 	"campaign.bonusPlan":   {ru: "🎁 Бонус за регистрацию: тариф на <b>%d дн.</b> уже ваш — подключение в разделе «Подписка».", en: "🎁 Sign-up bonus: <b>%d days</b> of a plan are yours — connect from your subscription."},
+
+	// Partner programme.
+	"partner.open":     {ru: "🤝 Партнёрская программа", en: "🤝 Partner programme"},
+	"partner.title":    {ru: "🤝 <b>Партнёрская программа</b>", en: "🤝 <b>Partner programme</b>"},
+	"partner.intro":    {ru: "Ведёте канал или блог? Станьте партнёром: администратор назначит вам персональный процент с каждого платежа приглашённых. Рассказать, где вы будете продвигать сервис, можно в веб-кабинете — или просто отправьте заявку отсюда.", en: "Run a channel or a blog? Become a partner: the administrator sets you a personal share of every payment your invitees make. You can tell us where you will promote the service in the web panel — or just apply from here."},
+	"partner.apply":    {ru: "📝 Подать заявку", en: "📝 Apply"},
+	"partner.sent":     {ru: "✅ Заявка отправлена.", en: "✅ Application sent."},
+	"partner.pending":  {ru: "Ваша заявка от %s ждёт решения администратора.", en: "Your application of %s is waiting for the administrator's decision."},
+	"partner.rejected": {ru: "Прошлую заявку отклонили. Можно подать новую.", en: "Your last application was declined. You may apply again."},
+	"partner.active":   {ru: "Вы партнёр. Ваш процент с платежей приглашённых: <b>%s</b>, с первого платежа: <b>%s</b>.", en: "You are a partner. Your share of your invitees' payments: <b>%s</b>; of a first payment: <b>%s</b>."},
 	"winback.body": {ru: "🔥 <b>Скидка %d%% на продление</b>\n\nВозвращайтесь — скидка действует %d ч и применится сама при оплате.\nКод на всякий случай: <code>%s</code>",
 		en: "🔥 <b>%d%% off your renewal</b>\n\nCome back — the discount lasts %d h and applies by itself at checkout.\nYour code, just in case: <code>%s</code>"},
 	"winback.renew": {ru: "Продлить со скидкой %d%%", en: "Renew with %d%% off"},

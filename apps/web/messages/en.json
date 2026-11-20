@@ -1122,7 +1122,31 @@
         "conflict": "This customer already has an inviter.",
         "invalid": "Not saved: check the code and the rates (0–100%)."
       },
-      "avatarAlt": "Telegram profile photo"
+      "avatarAlt": "Telegram profile photo",
+      "referralNetwork": {
+        "title": "Referral network",
+        "error": "The network could not be loaded.",
+        "invitedBy": "Invited by",
+        "noInviter": "Nobody invited this customer.",
+        "level": "Level {level}",
+        "counts": "{count} invited, {qualified} qualified",
+        "earned": "earned the customer {amount}",
+        "empty": "Nobody yet.",
+        "columns": {
+          "customer": "Customer",
+          "via": "Through",
+          "joined": "Joined",
+          "state": "State",
+          "earned": "Earned the customer"
+        },
+        "states": {
+          "qualified": "Qualified",
+          "pending": "Not yet",
+          "rejected": "Rejected"
+        },
+        "days": "{count} d",
+        "truncated": "Showing the newest {shown} of {count}."
+      }
     },
     "merge": {
       "title": "Merge into another account",
@@ -3387,6 +3411,38 @@
         "invalid": "Not published: check the markup and the picture link.",
         "publish": "Publish",
         "published": "Pinned message published"
+      },
+      "partners": {
+        "title": "Partner applications",
+        "description": "Customers who asked to promote the service. Approving sets their personal commission rate — the one on the customer card — so they earn it on every later commission. Nothing is paid by the decision itself.",
+        "filter": "Show",
+        "statuses": {
+          "pending": "Waiting",
+          "approved": "Approved",
+          "rejected": "Declined",
+          "all": "All"
+        },
+        "sources": {
+          "bot": "bot",
+          "web": "web panel"
+        },
+        "empty": "No applications.",
+        "noText": "Applied without a message",
+        "columns": {
+          "customer": "Customer",
+          "application": "Application",
+          "referrals": "Qualified / invited",
+          "status": "Decision"
+        },
+        "decide": "Decide",
+        "rate": "Rate, %",
+        "first": "First payment, %",
+        "note": "Note",
+        "hint": "The rate applies to every payment of the customer's invitees; leave the first-payment rate empty to use the same one.",
+        "approve": "Approve",
+        "reject": "Decline",
+        "decided": "This application was already decided.",
+        "invalid": "Check the rates: each is between 0 and 100%."
       }
     },
     "installationSettings": {
@@ -4811,6 +4867,19 @@
         "noInvitees": "Nobody has joined through your invite yet.",
         "paid": "Paid",
         "notPaid": "Not paid yet"
+      },
+      "partner": {
+        "title": "Partner programme",
+        "intro": "Run a channel, a blog, or a community? Apply to become a partner: the administrator answers with a personal share of every payment your invitees make.",
+        "rejected": "Your last application was declined; you may apply again.",
+        "pending": "Your application is waiting for a decision. Sent",
+        "active": "You are a partner. Your share of your invitees' payments is {rate}, and of a first payment {first}.",
+        "channel": "Where you will promote the service",
+        "channelPlaceholder": "A channel, a site, a community",
+        "message": "Anything else for the administrator",
+        "apply": "Apply",
+        "sent": "Application sent",
+        "failed": "The application could not be sent"
       }
     },
     "shop": {
