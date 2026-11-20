@@ -732,6 +732,14 @@ var catalog = map[string]phrase{
 	// The confirmation shown before an add-on is charged. The wallet settles an
 	// add-on it can cover the moment the order is created, so the amount and
 	// where it comes from are stated before the tap that spends it.
+	"reset.button":       {ru: "🔄 Сбросить трафик · %s", en: "🔄 Reset traffic · %s"},
+	"reset.confirmTitle": {ru: "🔄 <b>Сброс трафика</b>", en: "🔄 <b>Traffic reset</b>"},
+	"reset.explain":      {ru: "Счётчик трафика подписки обнулится, и лимит снова будет доступен полностью. Срок подписки не меняется.", en: "The subscription's traffic counter goes back to zero and the full allowance is available again. The end date does not change."},
+	"reset.price":        {ru: "Стоимость: <b>%s</b>", en: "Price: <b>%s</b>"},
+	"reset.fromWallet":   {ru: "Спишем с баланса (на балансе %s).", en: "Paid from your wallet (balance %s)."},
+	"reset.byProvider":   {ru: "На балансе не хватает — после подтверждения выберете способ оплаты.", en: "Your wallet does not cover it, so you will pick a payment method next."},
+	"reset.confirm":      {ru: "Сбросить трафик", en: "Reset traffic"},
+	"reset.unavailable":  {ru: "Для этой подписки платный сброс трафика недоступен.", en: "A paid traffic reset is not available for this subscription."},
 	"addon.confirmTitle": {ru: "🧩 <b>Подтвердите дополнение</b>", en: "🧩 <b>Confirm the add-on</b>"},
 	"addon.charge":       {ru: "К оплате сейчас: <b>%s</b>", en: "Charged now: <b>%s</b>"},
 	"addon.walletCovers": {ru: "👛 Спишем с баланса кошелька (доступно %s) — дополнение подключится сразу.",

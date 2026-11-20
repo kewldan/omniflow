@@ -382,3 +382,41 @@ func formatHours(locale Locale, window time.Duration) string {
 	}
 	return plural(locale, max(hours, 1), phrase{ru: "%d час", en: "%d hour"}, phrase{ru: "%d часа", en: "%d hours"}, phrase{ru: "%d часов", en: "%d hours"})
 }
+
+// withTrafficResetButton adds the paid traffic reset to a subscription
+// screen, just above its last row (the way back).
+func withTrafficResetButton(locale Locale, view View, slot int, amountMinor int64, currency string) View {
+	if view.Keyboard == nil || len(view.Keyboard.InlineKeyboard) == 0 {
+		return view
+	}
+	rows := view.Keyboard.InlineKeyboard
+	button := row(actionButton(text(locale, "reset.button", formatMoney(amountMinor, currency)), "reset-ask:"+strconv.Itoa(slot)))
+	updated := make([][]models.InlineKeyboardButton, 0, len(rows)+1)
+	updated = append(updated, rows[:len(rows)-1]...)
+	updated = append(updated, button, rows[len(rows)-1])
+	view.Keyboard = keyboard(updated...)
+	return view
+}
+
+// trafficResetConfirmView states what a paid traffic reset costs and where
+// the money comes from before anything is charged.
+func trafficResetConfirmView(locale Locale, subscription SubscriptionSummary, amountMinor int64, currency string, walletBalanceMinor int64, slot string) View {
+	body := &strings.Builder{}
+	body.WriteString(text(locale, "reset.confirmTitle"))
+	body.WriteString("\n\n")
+	body.WriteString(text(locale, "subs.detail", html.EscapeString(subscription.Label)))
+	body.WriteString("\n\n")
+	body.WriteString(text(locale, "reset.explain"))
+	body.WriteString("\n\n")
+	body.WriteString(text(locale, "reset.price", formatMoney(amountMinor, currency)))
+	body.WriteString("\n")
+	if walletBalanceMinor >= amountMinor {
+		body.WriteString(text(locale, "reset.fromWallet", formatMoney(walletBalanceMinor, currency)))
+	} else {
+		body.WriteString(text(locale, "reset.byProvider"))
+	}
+	return View{Text: body.String(), Keyboard: keyboard(
+		row(actionButton(text(locale, "reset.confirm"), "reset-buy:"+slot)),
+		row(actionButton(text(locale, "action.cancel"), "sub:"+subscription.ID)),
+	)}
+}

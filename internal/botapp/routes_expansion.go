@@ -288,7 +288,93 @@ func (app *App) subscriptionDetailScreen(ctx context.Context, session commerceCo
 			hasAddons = len(addons) > 0
 		}
 	}
-	return subscriptionDetailView(session.Locale, subscription, time.Now().UTC(), hasAddons)
+	view := subscriptionDetailView(session.Locale, subscription, time.Now().UTC(), hasAddons)
+	// A paid traffic reset is offered only when the plan sells one and the
+	// subscription has a traffic limit to reset.
+	if subscription.Found && app.commerce != nil && app.commerce.orders != nil {
+		quote, quoteErr := app.commerce.orders.TrafficResetQuote(ctx, session.Customer.ID, subscription.ID, app.settings.Currency)
+		if quoteErr == nil && quote.Available {
+			view = withTrafficResetButton(session.Locale, view, subscription.Slot, quote.AmountMinor, quote.Currency)
+		}
+	}
+	return view
+}
+
+// trafficResetConfirmScreen states the price of a paid traffic reset and
+// where the money comes from before the one tap that spends it.
+func (app *App) trafficResetConfirmScreen(ctx context.Context, session commerceContext, slot string) View {
+	subscription, quote, view, ok := app.trafficResetSelection(ctx, session, slot)
+	if !ok {
+		return view
+	}
+	balance, err := app.customers.WalletBalance(ctx, session.Customer.ID, app.settings.Currency)
+	if err != nil {
+		app.logger.Error("wallet balance lookup failed", "error", err)
+		return app.errorView(session.Locale, routeSubscriptions)
+	}
+	return trafficResetConfirmView(session.Locale, subscription, quote.AmountMinor, quote.Currency, balance, slot)
+}
+
+// buyTrafficReset opens the order for a paid traffic reset. Like an add-on,
+// the wallet settles it when it can; otherwise the customer picks a payment
+// method. Settlement queues the reset in Remnawave keyed on the order, so a
+// replayed payment resets once.
+func (app *App) buyTrafficReset(ctx context.Context, session commerceContext, slot string) View {
+	subscription, _, view, ok := app.trafficResetSelection(ctx, session, slot)
+	if !ok {
+		return view
+	}
+	if gate := app.checkPurchaseChannels(ctx, session.Customer.ID, session.TelegramID); !gate.Allowed() {
+		return channelGateView(session.Locale, gate, "reset-ask:"+slot)
+	}
+	key, err := keyOrNew(session.TapKey)
+	if err != nil {
+		return app.errorView(session.Locale, routeSubscriptions)
+	}
+	order, err := app.commerce.orders.CreateTrafficResetOrder(ctx, commercepg.TrafficResetOrderInput{
+		CustomerID: session.Customer.ID, SubscriptionID: subscription.ID, Currency: app.settings.Currency,
+		IdempotencyKey: "bot-reset:" + key,
+	})
+	if errors.Is(err, commerce.ErrTrafficResetUnavailable) {
+		return View{Text: text(session.Locale, "reset.unavailable"), Keyboard: keyboard(row(actionButton(text(session.Locale, "action.back"), "sub:"+subscription.ID)))}
+	}
+	if err != nil {
+		app.logger.Error("traffic reset order failed", "error", err)
+		return app.errorView(session.Locale, routeSubscriptions)
+	}
+	summary, err := app.customers.Order(ctx, session.Customer.ID, uuidText(order.ID), session.Locale)
+	if err != nil {
+		app.logger.Error("traffic reset order lookup failed", "error", err)
+		return app.errorView(session.Locale, routeOrders)
+	}
+	if summary.ExternalMinor == 0 {
+		return orderStatusView(session.Locale, summary, nil)
+	}
+	return orderPaymentMethodView(session.Locale, summary, app.saveableChoices(ctx, app.orderPaymentChoices(ctx, session.Customer.ID, summary)))
+}
+
+// trafficResetSelection resolves the subscription a reset callback names by
+// its slot, for this customer only, and re-quotes the reset.
+func (app *App) trafficResetSelection(ctx context.Context, session commerceContext, slot string) (SubscriptionSummary, commercepg.TrafficResetQuote, View, bool) {
+	back := View{Text: text(session.Locale, "reset.unavailable"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "subs.back"), routeSubscriptions)))}
+	number, err := strconv.Atoi(slot)
+	if err != nil || app.commerce == nil || app.commerce.orders == nil {
+		return SubscriptionSummary{}, commercepg.TrafficResetQuote{}, back, false
+	}
+	subscription, err := app.customers.SubscriptionBySlot(ctx, session.Customer.ID, number, session.Locale)
+	if err != nil {
+		return SubscriptionSummary{}, commercepg.TrafficResetQuote{}, back, false
+	}
+	quote, err := app.commerce.orders.TrafficResetQuote(ctx, session.Customer.ID, subscription.ID, app.settings.Currency)
+	if err != nil {
+		app.logger.Error("traffic reset quote failed", "error", err)
+		return subscription, quote, app.errorView(session.Locale, routeSubscriptions), false
+	}
+	if !quote.Available {
+		back.Keyboard = keyboard(row(actionButton(text(session.Locale, "action.back"), "sub:"+subscription.ID)))
+		return subscription, quote, back, false
+	}
+	return subscription, quote, View{}, true
 }
 
 // addonsFor lists the add-ons offered for a subscription's current plan — that
@@ -569,6 +655,7 @@ var expansionActions = map[string]bool{
 	"sub": true, "sub-new": true, "sub-rename": true, "sub-connect": true,
 	"sub-devices": true, "sub-renew": true, "sub-revoke-confirm": true, "sub-revoke": true,
 	"squad": true, "addons": true, "addon-buy": true, "addon-confirm": true,
+	"reset-ask": true, "reset-buy": true,
 	"methods": true, "pm-change": true, "checkout-addons": true, "addon-toggle": true,
 	"sub-dev-ask": true, "sub-devs-ask": true, "sub-dev-del": true, "sub-devs-del": true,
 	"ops": true, "ops-backup": true, "ops-restore-confirm": true, "ops-restore": true,
@@ -666,6 +753,10 @@ func (app *App) handleExpansionAction(ctx context.Context, session commerceConte
 			return app.errorView(session.Locale, routeSubscriptions), true
 		}
 		return app.buyAddon(ctx, session, parts[1], parts[2]), true
+	case "reset-ask":
+		return app.trafficResetConfirmScreen(ctx, session, argument), true
+	case "reset-buy":
+		return app.buyTrafficReset(ctx, session, argument), true
 	case "ops", "ops-backup", "ops-restore-confirm", "ops-restore":
 		return app.handleOperatorAction(ctx, session.TelegramID, parts)
 	default:
