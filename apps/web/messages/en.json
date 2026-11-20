@@ -862,6 +862,23 @@
         "activity": "Activity"
       },
       "actions": {
+        "reason": "Reason",
+        "reasonPlaceholder": "Why this change is being made",
+        "suspend": "Suspend",
+        "reactivate": "Reactivate",
+        "enable": "Enable",
+        "disable": "Disable",
+        "resetTraffic": "Reset traffic",
+        "extend": "Extend to",
+        "setLimits": "Apply limits",
+        "endsAt": "New expiry",
+        "pickMoment": "Pick a date and time",
+        "hour": "Hour",
+        "minute": "Minute",
+        "trafficBytes": "Traffic allowance (bytes)",
+        "deviceLimit": "Device limit",
+        "notProvisioned": "This subscription has no entitlement yet, so there is nothing to change. It is provisioned when a paid order is fulfilled.",
+        "queued": "Queued {operation}. The fulfillment worker applies it and records the result under System.",
         "wallet": {
           "title": "Adjust balance",
           "description": "A positive amount credits, a negative one debits. A debit cannot exceed the balance.",
