@@ -358,3 +358,32 @@ whole sweep.
     Every environment variable named on this page.
   </Card>
 </CardGroup>
+
+## Fortune wheel and polls
+
+As Bedolaga's wheel and polls, configured in **Marketing → Fortune wheel and
+polls** (`marketing.write`) and shown to customers on the web panel's **Invites**
+screen.
+
+**The wheel.** Each prize pays wallet credit, subscription days on the plan
+version you name, or nothing, and has a weight. A spin is drawn with
+`crypto/rand` in proportion to the weights. The first spins of a UTC day are
+free (as many as you allow); later ones cost the spin price, charged to the
+wallet. Saving refuses a table whose expected payout — with a prize day valued
+at the day value you set — is above the target return-to-player percentage of a
+paid spin, and the panel shows the current return. Abuse limits: a maximum
+number of spins per customer per day, and no spins for accounts younger than
+the minimum age. The charge, the draw, the payout, and the `wheel_spins` row
+commit in one serializable transaction, so a retried request with the same
+`Idempotency-Key` returns the same spin and never pays twice. Every spin is
+kept with its prize and cost; settings changes are audited as
+`panel.engagement.wheel_saved`.
+
+**Polls.** A poll has a question and two to ten answers in both languages, an
+end time, and an optional reward in wallet credit or days. Each customer
+answers once; the reward is paid once, and only to an account older than the
+minimum age (a younger one may still answer). Customers never see how others
+answered; the panel shows the counts and can close a poll early.
+
+Daily games beyond the free daily spin (Bedolaga's seven contest types) are not
+reproduced.

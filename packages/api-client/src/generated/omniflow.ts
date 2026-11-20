@@ -7643,6 +7643,21 @@ export type GetGuestPurchaseParams = {
   token: string;
 };
 
+export type GetAccountWheel200 = { [key: string]: unknown };
+
+export type SpinAccountWheel201 = { [key: string]: unknown };
+
+export type ListAccountPolls200 = { [key: string]: unknown };
+
+export type AnswerAccountPollBody = {
+  /** @minimum 0 */
+  option: number;
+};
+
+export type AnswerAccountPoll200 = {
+  rewarded: boolean;
+};
+
 const getHeaders = (
   ...sources: (RequestInit["headers"] | Record<string, string | undefined>)[]
 ) => {
@@ -38402,6 +38417,286 @@ export const useGetGuestPurchase = <TError = Promise<ProblemResponse>>(
   const swrFn = () => getGuestPurchase(purchaseID, params, fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountWheelResponse200 = {
+  data: GetAccountWheel200;
+  status: 200;
+};
+
+export type getAccountWheelResponseSuccess = getAccountWheelResponse200 & {
+  headers: Headers;
+};
+
+export type getAccountWheelResponse = getAccountWheelResponseSuccess;
+
+export const getGetAccountWheelUrl = () => {
+  return `/v1/account/engagement/wheel`;
+};
+
+/**
+ * The fortune wheel's active prizes, its cost, and the spins left today.
+ */
+export const getAccountWheel = async (options?: RequestInit): Promise<getAccountWheelResponse> => {
+  const res = await fetch(getGetAccountWheelUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountWheelResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getAccountWheelResponse;
+};
+
+export const getGetAccountWheelKey = () => [`/v1/account/engagement/wheel`] as const;
+
+export type GetAccountWheelQueryResult = NonNullable<Awaited<ReturnType<typeof getAccountWheel>>>;
+
+export const useGetAccountWheel = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountWheel>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetAccountWheelKey() : null));
+  const swrFn = () => getAccountWheel(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type spinAccountWheelResponse201 = {
+  data: SpinAccountWheel201;
+  status: 201;
+};
+
+export type spinAccountWheelResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type spinAccountWheelResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type spinAccountWheelResponseSuccess = spinAccountWheelResponse201 & {
+  headers: Headers;
+};
+export type spinAccountWheelResponseError = (
+  | spinAccountWheelResponse409
+  | spinAccountWheelResponse422
+) & {
+  headers: Headers;
+};
+
+export type spinAccountWheelResponse =
+  | spinAccountWheelResponseSuccess
+  | spinAccountWheelResponseError;
+
+export const getSpinAccountWheelUrl = () => {
+  return `/v1/account/engagement/wheel/spin`;
+};
+
+/**
+ * Spins once: a free spin first, then a paid one charged to the wallet. The charge, the draw, and the payout commit together; a replay with the same Idempotency-Key returns the spin already made. Refused over the daily limit and for accounts younger than the operator's minimum.
+ */
+export const spinAccountWheel = async (
+  options?: RequestInit,
+): Promise<spinAccountWheelResponse> => {
+  const res = await fetch(getSpinAccountWheelUrl(), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: spinAccountWheelResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as spinAccountWheelResponse;
+};
+
+export const getSpinAccountWheelMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return spinAccountWheel(options);
+  };
+};
+export const getSpinAccountWheelMutationKey = () => [`/v1/account/engagement/wheel/spin`] as const;
+
+export type SpinAccountWheelMutationResult = NonNullable<
+  Awaited<ReturnType<typeof spinAccountWheel>>
+>;
+
+export const useSpinAccountWheel = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof spinAccountWheel>>,
+    TError,
+    Key,
+    Arguments,
+    Awaited<ReturnType<typeof spinAccountWheel>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSpinAccountWheelMutationKey();
+  const swrFn = getSpinAccountWheelMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listAccountPollsResponse200 = {
+  data: ListAccountPolls200;
+  status: 200;
+};
+
+export type listAccountPollsResponseSuccess = listAccountPollsResponse200 & {
+  headers: Headers;
+};
+
+export type listAccountPollsResponse = listAccountPollsResponseSuccess;
+
+export const getListAccountPollsUrl = () => {
+  return `/v1/account/engagement/polls`;
+};
+
+/**
+ * The open polls and the customer's own answer to each; never other customers' answers.
+ */
+export const listAccountPolls = async (
+  options?: RequestInit,
+): Promise<listAccountPollsResponse> => {
+  const res = await fetch(getListAccountPollsUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listAccountPollsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listAccountPollsResponse;
+};
+
+export const getListAccountPollsKey = () => [`/v1/account/engagement/polls`] as const;
+
+export type ListAccountPollsQueryResult = NonNullable<Awaited<ReturnType<typeof listAccountPolls>>>;
+
+export const useListAccountPolls = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listAccountPolls>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListAccountPollsKey() : null));
+  const swrFn = () => listAccountPolls(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type answerAccountPollResponse200 = {
+  data: AnswerAccountPoll200;
+  status: 200;
+};
+
+export type answerAccountPollResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type answerAccountPollResponseSuccess = answerAccountPollResponse200 & {
+  headers: Headers;
+};
+export type answerAccountPollResponseError = answerAccountPollResponse409 & {
+  headers: Headers;
+};
+
+export type answerAccountPollResponse =
+  | answerAccountPollResponseSuccess
+  | answerAccountPollResponseError;
+
+export const getAnswerAccountPollUrl = (pollID: string) => {
+  return `/v1/account/engagement/polls/${pollID}/answer`;
+};
+
+/**
+ * Records one answer per customer and pays the poll's reward once, to an account old enough.
+ */
+export const answerAccountPoll = async (
+  pollID: string,
+  answerAccountPollBody: AnswerAccountPollBody,
+  options?: RequestInit,
+): Promise<answerAccountPollResponse> => {
+  const res = await fetch(getAnswerAccountPollUrl(pollID), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(answerAccountPollBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: answerAccountPollResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as answerAccountPollResponse;
+};
+
+export const getAnswerAccountPollMutationFetcher = (pollID: string, options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: AnswerAccountPollBody }) => {
+    return answerAccountPoll(pollID, arg, options);
+  };
+};
+export const getAnswerAccountPollMutationKey = (pollID: string) =>
+  [`/v1/account/engagement/polls/${pollID}/answer`] as const;
+
+export type AnswerAccountPollMutationResult = NonNullable<
+  Awaited<ReturnType<typeof answerAccountPoll>>
+>;
+
+export const useAnswerAccountPoll = <TError = Promise<ProblemResponse>>(
+  pollID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof answerAccountPoll>>,
+      TError,
+      Key,
+      AnswerAccountPollBody,
+      Awaited<ReturnType<typeof answerAccountPoll>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getAnswerAccountPollMutationKey(pollID);
+  const swrFn = getAnswerAccountPollMutationFetcher(pollID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,

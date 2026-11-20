@@ -1949,6 +1949,33 @@ CREATE TABLE public.email_outbox (
 
 
 --
+-- Name: engagement_settings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.engagement_settings (
+    singleton boolean DEFAULT true NOT NULL,
+    currency text DEFAULT 'RUB'::text NOT NULL,
+    days_plan_version_id uuid,
+    day_value_minor bigint DEFAULT 1000 NOT NULL,
+    wheel_enabled boolean DEFAULT false NOT NULL,
+    wheel_spin_cost_minor bigint DEFAULT 0 NOT NULL,
+    wheel_free_spins_per_day integer DEFAULT 1 NOT NULL,
+    wheel_max_spins_per_day integer DEFAULT 5 NOT NULL,
+    wheel_target_rtp_percent integer DEFAULT 80 NOT NULL,
+    minimum_account_age_hours integer DEFAULT 24 NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by uuid,
+    CONSTRAINT engagement_settings_account_age_bounded CHECK (((minimum_account_age_hours >= 0) AND (minimum_account_age_hours <= 8760))),
+    CONSTRAINT engagement_settings_currency_iso CHECK ((currency ~ '^[A-Z]{3}$'::text)),
+    CONSTRAINT engagement_settings_day_value_positive CHECK ((day_value_minor > 0)),
+    CONSTRAINT engagement_settings_rtp_bounded CHECK (((wheel_target_rtp_percent >= 1) AND (wheel_target_rtp_percent <= 100))),
+    CONSTRAINT engagement_settings_singleton CHECK (singleton),
+    CONSTRAINT engagement_settings_spin_cost_nonnegative CHECK ((wheel_spin_cost_minor >= 0)),
+    CONSTRAINT engagement_settings_spin_limits CHECK ((((wheel_free_spins_per_day >= 0) AND (wheel_free_spins_per_day <= 10)) AND ((wheel_max_spins_per_day >= 1) AND (wheel_max_spins_per_day <= 100)) AND (wheel_free_spins_per_day <= wheel_max_spins_per_day)))
+);
+
+
+--
 -- Name: entitlement_addons; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -3362,6 +3389,43 @@ CREATE TABLE public.plans (
 
 
 --
+-- Name: poll_answers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.poll_answers (
+    poll_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    option_index integer NOT NULL,
+    rewarded boolean DEFAULT false NOT NULL,
+    answered_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT poll_answers_option_nonnegative CHECK ((option_index >= 0))
+);
+
+
+--
+-- Name: polls; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.polls (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    question_ru text NOT NULL,
+    question_en text NOT NULL,
+    options jsonb NOT NULL,
+    reward_kind text DEFAULT 'none'::text NOT NULL,
+    reward_value bigint DEFAULT 0 NOT NULL,
+    starts_at timestamp with time zone DEFAULT now() NOT NULL,
+    ends_at timestamp with time zone NOT NULL,
+    closed_at timestamp with time zone,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT polls_options_shape CHECK (((jsonb_typeof(options) = 'array'::text) AND ((jsonb_array_length(options) >= 2) AND (jsonb_array_length(options) <= 10)))),
+    CONSTRAINT polls_question_length CHECK ((((char_length(question_ru) >= 1) AND (char_length(question_ru) <= 300)) AND ((char_length(question_en) >= 1) AND (char_length(question_en) <= 300)))),
+    CONSTRAINT polls_reward_matches_kind CHECK ((((reward_kind = 'none'::text) AND (reward_value = 0)) OR ((reward_kind = 'wallet'::text) AND (reward_value > 0)) OR ((reward_kind = 'days'::text) AND ((reward_value >= 1) AND (reward_value <= 30))))),
+    CONSTRAINT polls_window CHECK ((ends_at > starts_at))
+);
+
+
+--
 -- Name: promo_codes; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -4294,6 +4358,46 @@ CREATE TABLE public.wallet_topups (
 
 
 --
+-- Name: wheel_prizes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.wheel_prizes (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    label_ru text NOT NULL,
+    label_en text NOT NULL,
+    kind text NOT NULL,
+    value bigint DEFAULT 0 NOT NULL,
+    weight integer NOT NULL,
+    active boolean DEFAULT true NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT wheel_prizes_kind_known CHECK ((kind = ANY (ARRAY['wallet'::text, 'days'::text, 'nothing'::text]))),
+    CONSTRAINT wheel_prizes_labels_length CHECK ((((char_length(label_ru) >= 1) AND (char_length(label_ru) <= 60)) AND ((char_length(label_en) >= 1) AND (char_length(label_en) <= 60)))),
+    CONSTRAINT wheel_prizes_value_matches_kind CHECK ((((kind = 'nothing'::text) AND (value = 0)) OR ((kind = 'wallet'::text) AND (value > 0)) OR ((kind = 'days'::text) AND ((value >= 1) AND (value <= 365))))),
+    CONSTRAINT wheel_prizes_weight_positive CHECK (((weight >= 1) AND (weight <= 1000000)))
+);
+
+
+--
+-- Name: wheel_spins; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.wheel_spins (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    prize_id uuid,
+    prize_kind text NOT NULL,
+    prize_value bigint NOT NULL,
+    cost_minor bigint NOT NULL,
+    currency text NOT NULL,
+    free boolean NOT NULL,
+    idempotency_key text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT wheel_spins_cost_nonnegative CHECK ((cost_minor >= 0)),
+    CONSTRAINT wheel_spins_kind_known CHECK ((prize_kind = ANY (ARRAY['wallet'::text, 'days'::text, 'nothing'::text])))
+);
+
+
+--
 -- Name: river_job id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -5148,6 +5252,14 @@ ALTER TABLE ONLY public.email_outbox
 
 
 --
+-- Name: engagement_settings engagement_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.engagement_settings
+    ADD CONSTRAINT engagement_settings_pkey PRIMARY KEY (singleton);
+
+
+--
 -- Name: entitlement_addons entitlement_addons_order_id_addon_version_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5852,6 +5964,22 @@ ALTER TABLE ONLY public.plans
 
 
 --
+-- Name: poll_answers poll_answers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.poll_answers
+    ADD CONSTRAINT poll_answers_pkey PRIMARY KEY (poll_id, user_id);
+
+
+--
+-- Name: polls polls_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.polls
+    ADD CONSTRAINT polls_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: promo_codes promo_codes_normalized_code_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6313,6 +6441,30 @@ ALTER TABLE ONLY public.users
 
 ALTER TABLE ONLY public.wallet_topups
     ADD CONSTRAINT wallet_topups_pkey PRIMARY KEY (order_id);
+
+
+--
+-- Name: wheel_prizes wheel_prizes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.wheel_prizes
+    ADD CONSTRAINT wheel_prizes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: wheel_spins wheel_spins_idempotency_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.wheel_spins
+    ADD CONSTRAINT wheel_spins_idempotency_unique UNIQUE (user_id, idempotency_key);
+
+
+--
+-- Name: wheel_spins wheel_spins_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.wheel_spins
+    ADD CONSTRAINT wheel_spins_pkey PRIMARY KEY (id);
 
 
 --
@@ -7408,6 +7560,13 @@ CREATE INDEX wallet_topups_window_idx ON public.wallet_topups USING btree (user_
 
 
 --
+-- Name: wheel_spins_user_day_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX wheel_spins_user_day_idx ON public.wheel_spins USING btree (user_id, created_at);
+
+
+--
 -- Name: cart_goods cart_goods_kind_matches; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -8333,6 +8492,14 @@ ALTER TABLE ONLY public.email_outbox
 
 
 --
+-- Name: engagement_settings engagement_settings_days_plan_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.engagement_settings
+    ADD CONSTRAINT engagement_settings_days_plan_version_id_fkey FOREIGN KEY (days_plan_version_id) REFERENCES public.plan_versions(id);
+
+
+--
 -- Name: entitlement_addons entitlement_addons_addon_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9029,6 +9196,22 @@ ALTER TABLE ONLY public.plan_versions
 
 
 --
+-- Name: poll_answers poll_answers_poll_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.poll_answers
+    ADD CONSTRAINT poll_answers_poll_id_fkey FOREIGN KEY (poll_id) REFERENCES public.polls(id) ON DELETE CASCADE;
+
+
+--
+-- Name: poll_answers poll_answers_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.poll_answers
+    ADD CONSTRAINT poll_answers_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
 -- Name: promo_codes promo_codes_promotion_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9442,6 +9625,22 @@ ALTER TABLE ONLY public.wallet_topups
 
 ALTER TABLE ONLY public.wallet_topups
     ADD CONSTRAINT wallet_topups_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: wheel_spins wheel_spins_prize_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.wheel_spins
+    ADD CONSTRAINT wheel_spins_prize_id_fkey FOREIGN KEY (prize_id) REFERENCES public.wheel_prizes(id);
+
+
+--
+-- Name: wheel_spins wheel_spins_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.wheel_spins
+    ADD CONSTRAINT wheel_spins_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
 
 
 --

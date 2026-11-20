@@ -3039,6 +3039,48 @@
         "sendTest": "Send test",
         "testQueued": "Queued. It arrives within a minute if the transport works.",
         "testReason": "E-mail transport test"
+      },
+      "engagement": {
+        "title": "Fortune wheel and polls",
+        "description": "A daily wheel with wallet or subscription-day prizes, and polls that reward an answer. The prize table cannot pay out more than the target return; spins are limited per day and refused for new accounts.",
+        "wheelEnabled": "Wheel on",
+        "rtp": "Return to player: {rtp}%",
+        "fields": {
+          "spinCostMinor": "Spin cost (kopecks, 0 = free)",
+          "freeSpinsPerDay": "Free spins a day",
+          "maxSpinsPerDay": "Spins a day at most",
+          "targetRtpPercent": "Target return, %",
+          "dayValueMinor": "Value of a prize day (kopecks)",
+          "minimumAccountAgeHours": "Minimum account age, hours",
+          "daysPlanVersionId": "Plan version a days prize extends (ID)"
+        },
+        "prizes": "Prizes",
+        "labelRu": "Label (RU)",
+        "labelEn": "Label (EN)",
+        "kind": "Prize",
+        "kinds": {
+          "wallet": "Balance (kopecks)",
+          "days": "Subscription days",
+          "nothing": "Nothing"
+        },
+        "value": "Value",
+        "weight": "Weight",
+        "remove": "Remove",
+        "addPrize": "Add prize",
+        "saveWheel": "Save wheel",
+        "wheelReason": "Fortune wheel settings",
+        "polls": "Polls",
+        "close": "Close",
+        "question": "Question (RU)",
+        "questionEn": "Question (EN)",
+        "options": "Answers",
+        "optionsHint": "One answer a line: Russian | English",
+        "reward": "Reward for answering (rubles, 0 = none)",
+        "endsAt": "Open until",
+        "hour": "Hour",
+        "minute": "Minute",
+        "createPoll": "Create poll",
+        "pollReason": "Poll"
       }
     },
     "installationSettings": {
@@ -4382,6 +4424,21 @@
           "rejected": "Declined",
           "cancelled": "Cancelled"
         }
+      },
+      "engagement": {
+        "wheelTitle": "Fortune wheel",
+        "free": "{count, plural, one {# free spin} other {# free spins}} today",
+        "cost": "A spin costs {amount}; {count} left today",
+        "spin": "Spin",
+        "noneLeft": "Come back tomorrow",
+        "won": "You won: {prize}",
+        "nothing": "Not this time.",
+        "failed": "Something went wrong.",
+        "pollsTitle": "Polls",
+        "rewardWallet": "Answer and get {amount}",
+        "rewardDays": "{count, plural, one {Answer and get # day} other {Answer and get # days}}",
+        "thanks": "Thank you for answering.",
+        "thanksRewarded": "Thank you! The reward has been added."
       }
     },
     "shop": {

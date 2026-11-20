@@ -14233,3 +14233,45 @@ export const GetGuestPurchaseResponse = zod.object({
   amountMinor: zod.int(),
   currency: zod.string(),
 });
+
+/**
+ * The fortune wheel's active prizes, its cost, and the spins left today.
+ */
+export const GetAccountWheelResponse = zod.record(zod.string(), zod.unknown());
+
+/**
+ * Spins once: a free spin first, then a paid one charged to the wallet. The charge, the draw, and the payout commit together; a replay with the same Idempotency-Key returns the spin already made. Refused over the daily limit and for accounts younger than the operator's minimum.
+ */
+export const spinAccountWheelHeaderIdempotencyKeyMin = 8;
+export const spinAccountWheelHeaderIdempotencyKeyMax = 128;
+
+export const SpinAccountWheelHeader = zod.object({
+  "Idempotency-Key": zod
+    .string()
+    .min(spinAccountWheelHeaderIdempotencyKeyMin)
+    .max(spinAccountWheelHeaderIdempotencyKeyMax),
+});
+
+export const SpinAccountWheelResponse = zod.record(zod.string(), zod.unknown());
+
+/**
+ * The open polls and the customer's own answer to each; never other customers' answers.
+ */
+export const ListAccountPollsResponse = zod.record(zod.string(), zod.unknown());
+
+/**
+ * Records one answer per customer and pays the poll's reward once, to an account old enough.
+ */
+export const AnswerAccountPollParams = zod.object({
+  pollID: zod.uuid(),
+});
+
+export const answerAccountPollBodyOptionMin = 0;
+
+export const AnswerAccountPollBody = zod.object({
+  option: zod.int().min(answerAccountPollBodyOptionMin),
+});
+
+export const AnswerAccountPollResponse = zod.object({
+  rewarded: zod.boolean(),
+});

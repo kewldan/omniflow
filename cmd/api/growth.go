@@ -7,6 +7,7 @@ import (
 	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/config"
 	"github.com/omniflow/omniflow/internal/emailpg"
+	"github.com/omniflow/omniflow/internal/engagement"
 	"github.com/omniflow/omniflow/internal/fxrate"
 	"github.com/omniflow/omniflow/internal/guestpurchase"
 	apihttp "github.com/omniflow/omniflow/internal/httpapi"
@@ -47,6 +48,7 @@ func buildGrowth(
 		return apihttp.GrowthServices{}, err
 	}
 	services.Rates = fxrate.New(pool, fxrate.Options{})
+	services.Engagement = engagement.New(pool, commerceStore)
 	// Guest purchases deliver their activation code by e-mail, so they are
 	// offered only when a transport is configured and a public address exists
 	// for the activation link.

@@ -10332,6 +10332,16 @@ type UnsubscribeAccountEmailParams struct {
 	Token *string `form:"token,omitempty" json:"token,omitempty"`
 }
 
+// AnswerAccountPollJSONBody defines parameters for AnswerAccountPoll.
+type AnswerAccountPollJSONBody struct {
+	Option int `json:"option"`
+}
+
+// SpinAccountWheelParams defines parameters for SpinAccountWheel.
+type SpinAccountWheelParams struct {
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
 // AccountBuyGiftJSONBody defines parameters for AccountBuyGift.
 type AccountBuyGiftJSONBody struct {
 	Currency      *string            `json:"currency,omitempty"`
@@ -12322,6 +12332,9 @@ type UnsubscribeAccountEmailJSONRequestBody UnsubscribeAccountEmailJSONBody
 // UnsubscribeAccountEmailFormdataRequestBody defines body for UnsubscribeAccountEmail for application/x-www-form-urlencoded ContentType.
 type UnsubscribeAccountEmailFormdataRequestBody UnsubscribeAccountEmailFormdataBody
 
+// AnswerAccountPollJSONRequestBody defines body for AnswerAccountPoll for application/json ContentType.
+type AnswerAccountPollJSONRequestBody AnswerAccountPollJSONBody
+
 // AccountBuyGiftJSONRequestBody defines body for AccountBuyGift for application/json ContentType.
 type AccountBuyGiftJSONRequestBody AccountBuyGiftJSONBody
 
@@ -12911,6 +12924,18 @@ type ServerInterface interface {
 
 	// (POST /v1/account/email/unsubscribe)
 	UnsubscribeAccountEmail(w http.ResponseWriter, r *http.Request, params UnsubscribeAccountEmailParams)
+
+	// (GET /v1/account/engagement/polls)
+	ListAccountPolls(w http.ResponseWriter, r *http.Request)
+
+	// (POST /v1/account/engagement/polls/{pollID}/answer)
+	AnswerAccountPoll(w http.ResponseWriter, r *http.Request, pollID openapi_types.UUID)
+
+	// (GET /v1/account/engagement/wheel)
+	GetAccountWheel(w http.ResponseWriter, r *http.Request)
+
+	// (POST /v1/account/engagement/wheel/spin)
+	SpinAccountWheel(w http.ResponseWriter, r *http.Request, params SpinAccountWheelParams)
 
 	// (GET /v1/account/gifts)
 	AccountListGifts(w http.ResponseWriter, r *http.Request)
@@ -14056,6 +14081,26 @@ func (_ Unimplemented) OpenAccountEmailUnsubscribe(w http.ResponseWriter, r *htt
 
 // (POST /v1/account/email/unsubscribe)
 func (_ Unimplemented) UnsubscribeAccountEmail(w http.ResponseWriter, r *http.Request, params UnsubscribeAccountEmailParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/engagement/polls)
+func (_ Unimplemented) ListAccountPolls(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/engagement/polls/{pollID}/answer)
+func (_ Unimplemented) AnswerAccountPoll(w http.ResponseWriter, r *http.Request, pollID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/engagement/wheel)
+func (_ Unimplemented) GetAccountWheel(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/engagement/wheel/spin)
+func (_ Unimplemented) SpinAccountWheel(w http.ResponseWriter, r *http.Request, params SpinAccountWheelParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -16661,6 +16706,105 @@ func (siw *ServerInterfaceWrapper) UnsubscribeAccountEmail(w http.ResponseWriter
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UnsubscribeAccountEmail(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAccountPolls operation middleware
+func (siw *ServerInterfaceWrapper) ListAccountPolls(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAccountPolls(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AnswerAccountPoll operation middleware
+func (siw *ServerInterfaceWrapper) AnswerAccountPoll(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "pollID" -------------
+	var pollID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "pollID", chi.URLParam(r, "pollID"), &pollID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pollID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AnswerAccountPoll(w, r, pollID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountWheel operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountWheel(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountWheel(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SpinAccountWheel operation middleware
+func (siw *ServerInterfaceWrapper) SpinAccountWheel(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SpinAccountWheelParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SpinAccountWheel(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -32394,6 +32538,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/account/guest/purchases/{purchaseID}", wrapper.GetGuestPurchase)
 	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/engagement/wheel", wrapper.GetAccountWheel)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/engagement/wheel/spin", wrapper.SpinAccountWheel)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/engagement/polls", wrapper.ListAccountPolls)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/engagement/polls/{pollID}/answer", wrapper.AnswerAccountPoll)
+	})
 
 	return r
 }
@@ -33613,6 +33769,141 @@ func (response UnsubscribeAccountEmail404ApplicationProblemPlusJSONResponse) Vis
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAccountPollsRequestObject struct {
+}
+
+type ListAccountPollsResponseObject interface {
+	VisitListAccountPollsResponse(w http.ResponseWriter) error
+}
+
+type ListAccountPolls200JSONResponse map[string]interface{}
+
+func (response ListAccountPolls200JSONResponse) VisitListAccountPollsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AnswerAccountPollRequestObject struct {
+	PollID openapi_types.UUID `json:"pollID"`
+	Body   *AnswerAccountPollJSONRequestBody
+}
+
+type AnswerAccountPollResponseObject interface {
+	VisitAnswerAccountPollResponse(w http.ResponseWriter) error
+}
+
+type AnswerAccountPoll200JSONResponse struct {
+	Rewarded bool `json:"rewarded"`
+}
+
+func (response AnswerAccountPoll200JSONResponse) VisitAnswerAccountPollResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AnswerAccountPoll409ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response AnswerAccountPoll409ApplicationProblemPlusJSONResponse) VisitAnswerAccountPollResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountWheelRequestObject struct {
+}
+
+type GetAccountWheelResponseObject interface {
+	VisitGetAccountWheelResponse(w http.ResponseWriter) error
+}
+
+type GetAccountWheel200JSONResponse map[string]interface{}
+
+func (response GetAccountWheel200JSONResponse) VisitGetAccountWheelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SpinAccountWheelRequestObject struct {
+	Params SpinAccountWheelParams
+}
+
+type SpinAccountWheelResponseObject interface {
+	VisitSpinAccountWheelResponse(w http.ResponseWriter) error
+}
+
+type SpinAccountWheel201JSONResponse map[string]interface{}
+
+func (response SpinAccountWheel201JSONResponse) VisitSpinAccountWheelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SpinAccountWheel409ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SpinAccountWheel409ApplicationProblemPlusJSONResponse) VisitSpinAccountWheelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SpinAccountWheel422ApplicationProblemPlusJSONResponse Problem
+
+func (response SpinAccountWheel422ApplicationProblemPlusJSONResponse) VisitSpinAccountWheelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -49134,6 +49425,18 @@ type StrictServerInterface interface {
 	// (POST /v1/account/email/unsubscribe)
 	UnsubscribeAccountEmail(ctx context.Context, request UnsubscribeAccountEmailRequestObject) (UnsubscribeAccountEmailResponseObject, error)
 
+	// (GET /v1/account/engagement/polls)
+	ListAccountPolls(ctx context.Context, request ListAccountPollsRequestObject) (ListAccountPollsResponseObject, error)
+
+	// (POST /v1/account/engagement/polls/{pollID}/answer)
+	AnswerAccountPoll(ctx context.Context, request AnswerAccountPollRequestObject) (AnswerAccountPollResponseObject, error)
+
+	// (GET /v1/account/engagement/wheel)
+	GetAccountWheel(ctx context.Context, request GetAccountWheelRequestObject) (GetAccountWheelResponseObject, error)
+
+	// (POST /v1/account/engagement/wheel/spin)
+	SpinAccountWheel(ctx context.Context, request SpinAccountWheelRequestObject) (SpinAccountWheelResponseObject, error)
+
 	// (GET /v1/account/gifts)
 	AccountListGifts(ctx context.Context, request AccountListGiftsRequestObject) (AccountListGiftsResponseObject, error)
 
@@ -50973,6 +51276,113 @@ func (sh *strictHandler) UnsubscribeAccountEmail(w http.ResponseWriter, r *http.
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(UnsubscribeAccountEmailResponseObject); ok {
 		if err := validResponse.VisitUnsubscribeAccountEmailResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAccountPolls operation middleware
+func (sh *strictHandler) ListAccountPolls(w http.ResponseWriter, r *http.Request) {
+	var request ListAccountPollsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAccountPolls(ctx, request.(ListAccountPollsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAccountPolls")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAccountPollsResponseObject); ok {
+		if err := validResponse.VisitListAccountPollsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AnswerAccountPoll operation middleware
+func (sh *strictHandler) AnswerAccountPoll(w http.ResponseWriter, r *http.Request, pollID openapi_types.UUID) {
+	var request AnswerAccountPollRequestObject
+
+	request.PollID = pollID
+
+	var body AnswerAccountPollJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AnswerAccountPoll(ctx, request.(AnswerAccountPollRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AnswerAccountPoll")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AnswerAccountPollResponseObject); ok {
+		if err := validResponse.VisitAnswerAccountPollResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountWheel operation middleware
+func (sh *strictHandler) GetAccountWheel(w http.ResponseWriter, r *http.Request) {
+	var request GetAccountWheelRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountWheel(ctx, request.(GetAccountWheelRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountWheel")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountWheelResponseObject); ok {
+		if err := validResponse.VisitGetAccountWheelResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SpinAccountWheel operation middleware
+func (sh *strictHandler) SpinAccountWheel(w http.ResponseWriter, r *http.Request, params SpinAccountWheelParams) {
+	var request SpinAccountWheelRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SpinAccountWheel(ctx, request.(SpinAccountWheelRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SpinAccountWheel")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SpinAccountWheelResponseObject); ok {
+		if err := validResponse.VisitSpinAccountWheelResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

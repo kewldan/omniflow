@@ -5,7 +5,7 @@ import { ExternalLink } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import useSWR from "swr";
-
+import { Engagement } from "@/components/account/account/engagement";
 import { LoyaltyStanding } from "@/components/account/account/loyalty-standing";
 import { RewardHistory } from "@/components/account/account/reward-history";
 import { ShareLink } from "@/components/account/account/share-link";
@@ -157,6 +157,8 @@ export default function ReferralsPage() {
           <RewardHistory firstPage={data.rewards} />
         </>
       )}
+
+      <Engagement />
 
       <SectionLabel>{translate("loyalty.title")}</SectionLabel>
       <LoyaltyStanding />

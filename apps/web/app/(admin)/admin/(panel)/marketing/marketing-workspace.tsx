@@ -23,6 +23,7 @@ import { formatMoney, type Listing, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 import { AdCampaignsCard } from "./ad-campaigns";
 import { EmailDeliveryCard } from "./email-delivery";
+import { EngagementCard } from "./engagement";
 import { LoyaltyCard } from "./loyalty-card";
 import { RemindersCard } from "./reminders-card";
 import { TemplateEditorCard } from "./template-editor";
@@ -62,6 +63,7 @@ export function MarketingWorkspace() {
       <ReferralCard editable={can("settings.write")} />
       <LoyaltyCard editable={can("marketing.write")} />
       {can("settings.read") && <EmailDeliveryCard editable={can("settings.write")} />}
+      <EngagementCard editable={can("marketing.write")} />
     </div>
   );
 }

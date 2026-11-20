@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/omniflow/omniflow/internal/emailpg"
+	"github.com/omniflow/omniflow/internal/engagement"
 	"github.com/omniflow/omniflow/internal/fxrate"
 	"github.com/omniflow/omniflow/internal/guestpurchase"
 	"github.com/omniflow/omniflow/internal/mailer"
@@ -37,6 +38,8 @@ type GrowthServices struct {
 	Guest         *guestpurchase.Service
 	GuestPayments *paymentservice.Service
 	GuestCurrency string
+	// Engagement runs the fortune wheel and polls.
+	Engagement *engagement.Service
 }
 
 // WithGrowth attaches the growth services to the panel.
@@ -61,6 +64,7 @@ func (handlers *AdminHandlers) mountGrowth(secure chi.Router) {
 	handlers.mountWithdrawals(secure)
 	handlers.mountSelfEmployed(secure)
 	handlers.mountCurrency(secure)
+	handlers.mountEngagement(secure)
 }
 
 // mountGrowthPublic registers the routes reachable without a session.
@@ -81,6 +85,7 @@ func (handlers *AccountHandlers) mountGrowthPublic(account chi.Router) {
 func (handlers *AccountHandlers) mountGrowth(secure chi.Router) {
 	handlers.mountAccountWithdrawals(secure)
 	handlers.mountAccountSelfEmployed(secure)
+	handlers.mountAccountEngagement(secure)
 }
 
 func (handlers *AdminHandlers) emailStatus(writer http.ResponseWriter, request *http.Request) {
