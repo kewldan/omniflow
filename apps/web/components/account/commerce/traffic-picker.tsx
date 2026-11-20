@@ -15,10 +15,11 @@ const OWN = "own";
 const CUSTOM = "custom";
 
 /**
- * The traffic volume for this checkout: the plan's own allowance, or a number
- * of gigabytes priced by the gigabyte.
+ * The traffic volume for this checkout: the plan's own allowance, one of its
+ * traffic packages, or a number of gigabytes priced by the gigabyte.
  *
- * The server prices whatever is chosen and refuses a volume the plan does not
+ * Only a plan whose traffic is selectable sends packages or a range. The
+ * server prices whatever is chosen and refuses a volume the plan does not
  * sell, so the bounds shown are guidance rather than the check.
  */
 export function TrafficPicker({
@@ -35,13 +36,15 @@ export function TrafficPicker({
   const bytes = useBytes();
   const selectId = useId();
   const volumeId = useId();
-  const chosen = checkout.trafficGb ?? 0;
-  const [mode, setMode] = useState(chosen > 0 ? CUSTOM : OWN);
-  const [volume, setVolume] = useState(chosen > 0 ? String(chosen) : "");
-
   const traffic = checkout.traffic;
+  const packages = traffic?.packages ?? [];
+  const chosen = checkout.trafficGb ?? 0;
+  const listed = packages.some((pack) => pack.gb === chosen);
+  const [mode, setMode] = useState(chosen === 0 ? OWN : listed ? String(chosen) : CUSTOM);
+  const [volume, setVolume] = useState(chosen > 0 && !listed ? String(chosen) : "");
+
   const custom = traffic?.custom;
-  if (!traffic || !custom) {
+  if (!traffic || (packages.length === 0 && !custom)) {
     return null;
   }
   const own = traffic.ownBytes === null ? translate("unlimited") : bytes(traffic.ownBytes);
@@ -56,6 +59,8 @@ export function TrafficPicker({
           setMode(value);
           if (value === OWN) {
             onChange({ trafficGb: 0 });
+          } else if (value !== CUSTOM) {
+            onChange({ trafficGb: Number(value) });
           }
         }}
         value={mode}
@@ -65,10 +70,18 @@ export function TrafficPicker({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={OWN}>{translate("own", { traffic: own })}</SelectItem>
-          <SelectItem value={CUSTOM}>{translate("custom")}</SelectItem>
+          {packages.map((pack) => (
+            <SelectItem key={pack.gb} value={String(pack.gb)}>
+              {translate("package", {
+                gb: pack.gb,
+                price: money(pack.price.amountMinor, pack.price.currency),
+              })}
+            </SelectItem>
+          ))}
+          {custom && <SelectItem value={CUSTOM}>{translate("custom")}</SelectItem>}
         </SelectContent>
       </Select>
-      {mode === CUSTOM && (
+      {mode === CUSTOM && custom && (
         <div className="flex items-end gap-2">
           <div className="flex flex-1 flex-col gap-1.5">
             <Label htmlFor={volumeId}>

@@ -947,11 +947,14 @@ type Querier interface {
 	// One squad a customer may choose on a plan version. The version is immutable
 	// once published, so the offered set is written with it and never edited.
 	InsertPlanVersionSquad(ctx context.Context, arg InsertPlanVersionSquadParams) error
+	InsertPlanVersionTrafficPackage(ctx context.Context, arg InsertPlanVersionTrafficPackageParams) error
 	InsertPromoRedemption(ctx context.Context, arg InsertPromoRedemptionParams) (PromoRedemption, error)
 	// A retried delivery carries the same bytes and is a no-op: no row comes back.
 	InsertRemnawaveWebhookEvent(ctx context.Context, arg InsertRemnawaveWebhookEventParams) (int64, error)
 	InsertWebhookEvent(ctx context.Context, arg InsertWebhookEventParams) (ProviderWebhookEvent, error)
 	InvalidateAdminPasswordResets(ctx context.Context, adminUserID pgtype.UUID) (int64, error)
+	// A traffic add-on is not offered on a version whose traffic is fixed, which
+	// is the one check every path that sells an add-on passes through.
 	IsAddonOfferedForPlan(ctx context.Context, arg IsAddonOfferedForPlanParams) (bool, error)
 	IsBlocklistAllowlisted(ctx context.Context, userID pgtype.UUID) (bool, error)
 	IsChannelExempt(ctx context.Context, userID pgtype.UUID) (bool, error)
@@ -1379,6 +1382,7 @@ type Querier interface {
 	ListPlanVersionGBPrices(ctx context.Context, planVersionID pgtype.UUID) ([]PlanVersionGbPrice, error)
 	ListPlanVersionPeriods(ctx context.Context, planVersionID pgtype.UUID) ([]PlanVersionPeriod, error)
 	ListPlanVersionSquads(ctx context.Context, planVersionID pgtype.UUID) ([]PlanVersionSquad, error)
+	ListPlanVersionTrafficPackages(ctx context.Context, planVersionID pgtype.UUID) ([]PlanVersionTrafficPackage, error)
 	ListPlanVersions(ctx context.Context, planID pgtype.UUID) ([]PlanVersion, error)
 	ListPlanVersionsForImport(ctx context.Context) ([]ListPlanVersionsForImportRow, error)
 	// ---------------------------------------------------------------------------
@@ -2194,6 +2198,7 @@ type Querier interface {
 	SetPlanVersionCustomTraffic(ctx context.Context, arg SetPlanVersionCustomTrafficParams) error
 	// Written once, in the transaction that publishes the version.
 	SetPlanVersionRemnawaveProfile(ctx context.Context, arg SetPlanVersionRemnawaveProfileParams) error
+	SetPlanVersionTrafficMode(ctx context.Context, arg SetPlanVersionTrafficModeParams) error
 	SetPlanVersionTrafficResetPrice(ctx context.Context, arg SetPlanVersionTrafficResetPriceParams) error
 	SetPlanVisibility(ctx context.Context, arg SetPlanVisibilityParams) (Plan, error)
 	SetPolicyTags(ctx context.Context, arg SetPolicyTagsParams) (SubscriptionPolicy, error)

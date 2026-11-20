@@ -468,8 +468,11 @@ func (store *Store) PlanSquads(ctx context.Context, planVersionID, locale string
 // count. commerce.AddonApplies is the same rule, enforced at order creation;
 // this is the courtesy of not listing what would be refused. It expects the
 // add-on version as `v` and the plan version as `pv`.
+//
+// A traffic add-on is also not offered on a version whose traffic mode is
+// `fixed`: that mode sells the version's allowance and no top-ups.
 const applicableAddon = `(cardinality(v.remnawave_squad_ids) > 0
-		OR v.traffic_bytes IS NOT NULL AND pv.traffic_allowance_bytes IS NOT NULL
+		OR v.traffic_bytes IS NOT NULL AND pv.traffic_allowance_bytes IS NOT NULL AND pv.traffic_mode <> 'fixed'
 		OR v.device_slots IS NOT NULL AND pv.device_limit IS NOT NULL)`
 
 // ApplicableAddonFilter is applicableAddon for the bot's own listing.

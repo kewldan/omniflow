@@ -1425,7 +1425,9 @@ const isAddonOfferedForPlan = `-- name: IsAddonOfferedForPlan :one
 SELECT EXISTS (
   SELECT 1 FROM plan_version_addons pa
   JOIN addon_versions av ON av.addon_id = pa.addon_id
+  JOIN plan_versions pv ON pv.id = pa.plan_version_id
   WHERE pa.plan_version_id = $1 AND av.id = $2
+    AND NOT (av.traffic_bytes IS NOT NULL AND pv.traffic_mode = 'fixed')
 ) AS offered
 `
 
@@ -1434,6 +1436,8 @@ type IsAddonOfferedForPlanParams struct {
 	AddonVersionID pgtype.UUID `json:"addon_version_id"`
 }
 
+// A traffic add-on is not offered on a version whose traffic is fixed, which
+// is the one check every path that sells an add-on passes through.
 func (q *Queries) IsAddonOfferedForPlan(ctx context.Context, arg IsAddonOfferedForPlanParams) (bool, error) {
 	row := q.db.QueryRow(ctx, isAddonOfferedForPlan, arg.PlanVersionID, arg.AddonVersionID)
 	var offered bool
@@ -1698,8 +1702,11 @@ JOIN LATERAL (
   ORDER BY av.version DESC LIMIT 1
 ) v ON true
 JOIN addon_prices pr ON pr.addon_version_id = v.id AND pr.currency = $2
+JOIN plan_versions pv ON pv.id = pa.plan_version_id
 WHERE pa.plan_version_id = $3
   AND a.visible AND a.archived_at IS NULL
+  -- A version whose traffic is fixed sells no traffic top-ups.
+  AND NOT (v.traffic_bytes IS NOT NULL AND pv.traffic_mode = 'fixed')
 ORDER BY a.sort_order, a.code
 `
 

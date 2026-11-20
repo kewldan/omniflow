@@ -291,8 +291,11 @@ JOIN LATERAL (
   ORDER BY av.version DESC LIMIT 1
 ) v ON true
 JOIN addon_prices pr ON pr.addon_version_id = v.id AND pr.currency = sqlc.arg(currency)
+JOIN plan_versions pv ON pv.id = pa.plan_version_id
 WHERE pa.plan_version_id = sqlc.arg(plan_version_id)
   AND a.visible AND a.archived_at IS NULL
+  -- A version whose traffic is fixed sells no traffic top-ups.
+  AND NOT (v.traffic_bytes IS NOT NULL AND pv.traffic_mode = 'fixed')
 ORDER BY a.sort_order, a.code;
 
 -- name: GetAddonVersionForOrder :one
@@ -303,10 +306,14 @@ JOIN addon_prices pr ON pr.addon_version_id = v.id
 WHERE v.id = sqlc.arg(addon_version_id) AND pr.currency = sqlc.arg(currency);
 
 -- name: IsAddonOfferedForPlan :one
+-- A traffic add-on is not offered on a version whose traffic is fixed, which
+-- is the one check every path that sells an add-on passes through.
 SELECT EXISTS (
   SELECT 1 FROM plan_version_addons pa
   JOIN addon_versions av ON av.addon_id = pa.addon_id
+  JOIN plan_versions pv ON pv.id = pa.plan_version_id
   WHERE pa.plan_version_id = sqlc.arg(plan_version_id) AND av.id = sqlc.arg(addon_version_id)
+    AND NOT (av.traffic_bytes IS NOT NULL AND pv.traffic_mode = 'fixed')
 ) AS offered;
 
 -- name: InsertOrderAddonLine :one

@@ -197,6 +197,8 @@ entitlement.remnawave_squad_ids      = existing ∪ add-on squads
 
 An entitlement with an unlimited allowance stays unlimited: the update leaves a null traffic allowance or device limit null, because adding capacity to "no limit" is meaningless. An add-on that would grant nothing is therefore never sold. A traffic add-on on a subscription with unlimited traffic, or a device add-on on one with unlimited devices, is left out of the offer on the web and in the bot, and an order for it — bought with the plan or mid-period — is refused with `addon_not_applicable` before any money moves. An add-on applies when at least one thing it carries lands: traffic on a limited allowance, slots on a limited device count, or any squad. The check reads the plan version for a purchase and the live entitlement for a mid-period add-on.
 
+A version whose [traffic mode](/commerce/catalog-promotions#traffic-modes-and-packages) is `fixed` sells no traffic add-on at all, even one it lists: the offer on the web and in the bot leaves them out, and an order for one — with the plan, mid-period, or from a saved add-on purchase — is refused with `addon_unavailable`.
+
 Squads are a set and are never multiplied by quantity. Buying two of the same squad add-on charges twice and grants the same squads once, which is why `max_quantity` on a squad add-on should be 1.
 
 ### Caps and pack lifetime

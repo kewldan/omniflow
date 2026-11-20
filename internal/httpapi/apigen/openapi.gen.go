@@ -3062,6 +3062,27 @@ func (e PanelPlanVersionInputSquadSelection) Valid() bool {
 	}
 }
 
+// Defines values for PanelPlanVersionInputTrafficMode.
+const (
+	PanelPlanVersionInputTrafficModeFixed          PanelPlanVersionInputTrafficMode = "fixed"
+	PanelPlanVersionInputTrafficModeFixedWithTopup PanelPlanVersionInputTrafficMode = "fixed_with_topup"
+	PanelPlanVersionInputTrafficModeSelectable     PanelPlanVersionInputTrafficMode = "selectable"
+)
+
+// Valid indicates whether the value is a known member of the PanelPlanVersionInputTrafficMode enum.
+func (e PanelPlanVersionInputTrafficMode) Valid() bool {
+	switch e {
+	case PanelPlanVersionInputTrafficModeFixed:
+		return true
+	case PanelPlanVersionInputTrafficModeFixedWithTopup:
+		return true
+	case PanelPlanVersionInputTrafficModeSelectable:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PanelPlanVersionInputTrafficResetStrategy.
 const (
 	PanelPlanVersionInputTrafficResetStrategyDAY          PanelPlanVersionInputTrafficResetStrategy = "DAY"
@@ -3146,6 +3167,27 @@ func (e PanelPlanVersionSummarySquadSelection) Valid() bool {
 	case PanelPlanVersionSummarySquadSelectionOptional:
 		return true
 	case PanelPlanVersionSummarySquadSelectionRequired:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelPlanVersionSummaryTrafficMode.
+const (
+	PanelPlanVersionSummaryTrafficModeFixed          PanelPlanVersionSummaryTrafficMode = "fixed"
+	PanelPlanVersionSummaryTrafficModeFixedWithTopup PanelPlanVersionSummaryTrafficMode = "fixed_with_topup"
+	PanelPlanVersionSummaryTrafficModeSelectable     PanelPlanVersionSummaryTrafficMode = "selectable"
+)
+
+// Valid indicates whether the value is a known member of the PanelPlanVersionSummaryTrafficMode enum.
+func (e PanelPlanVersionSummaryTrafficMode) Valid() bool {
+	switch e {
+	case PanelPlanVersionSummaryTrafficModeFixed:
+		return true
+	case PanelPlanVersionSummaryTrafficModeFixedWithTopup:
+		return true
+	case PanelPlanVersionSummaryTrafficModeSelectable:
 		return true
 	default:
 		return false
@@ -9094,6 +9136,12 @@ type PanelPlanVersionInput struct {
 	// TrafficAllowanceBytes Null is unlimited.
 	TrafficAllowanceBytes *int64 `json:"trafficAllowanceBytes,omitempty"`
 
+	// TrafficMode How the version sells traffic. Empty is selectable when packages or a custom range are sent, and fixed_with_topup otherwise.
+	TrafficMode *PanelPlanVersionInputTrafficMode `json:"trafficMode,omitempty"`
+
+	// TrafficPackages The traffic volumes a selectable version is sold with.
+	TrafficPackages *[]PanelTrafficPackage `json:"trafficPackages,omitempty"`
+
 	// TrafficResetPriceBps A paid traffic reset at this share of the version price in basis points; null sells none.
 	TrafficResetPriceBps *int `json:"trafficResetPriceBps,omitempty"`
 
@@ -9114,6 +9162,9 @@ type PanelPlanVersionInputDowngradePolicy string
 
 // PanelPlanVersionInputSquadSelection defines model for PanelPlanVersionInput.SquadSelection.
 type PanelPlanVersionInputSquadSelection string
+
+// PanelPlanVersionInputTrafficMode How the version sells traffic. Empty is selectable when packages or a custom range are sent, and fixed_with_topup otherwise.
+type PanelPlanVersionInputTrafficMode string
 
 // PanelPlanVersionInputTrafficResetStrategy Remnawave trafficLimitStrategy; empty is NO_RESET.
 type PanelPlanVersionInputTrafficResetStrategy string
@@ -9153,6 +9204,8 @@ type PanelPlanVersionSummary struct {
 	SquadIds              *[]openapi_types.UUID                        `json:"squadIds,omitempty"`
 	SquadSelection        PanelPlanVersionSummarySquadSelection        `json:"squadSelection"`
 	TrafficAllowanceBytes *int64                                       `json:"trafficAllowanceBytes,omitempty"`
+	TrafficMode           *PanelPlanVersionSummaryTrafficMode          `json:"trafficMode,omitempty"`
+	TrafficPackages       *[]PanelTrafficPackage                       `json:"trafficPackages,omitempty"`
 	TrafficResetPriceBps  *int                                         `json:"trafficResetPriceBps,omitempty"`
 	TrafficResetStrategy  *PanelPlanVersionSummaryTrafficResetStrategy `json:"trafficResetStrategy,omitempty"`
 	TrialEligibility      *string                                      `json:"trialEligibility,omitempty"`
@@ -9162,6 +9215,9 @@ type PanelPlanVersionSummary struct {
 
 // PanelPlanVersionSummarySquadSelection defines model for PanelPlanVersionSummary.SquadSelection.
 type PanelPlanVersionSummarySquadSelection string
+
+// PanelPlanVersionSummaryTrafficMode defines model for PanelPlanVersionSummary.TrafficMode.
+type PanelPlanVersionSummaryTrafficMode string
 
 // PanelPlanVersionSummaryTrafficResetStrategy defines model for PanelPlanVersionSummary.TrafficResetStrategy.
 type PanelPlanVersionSummaryTrafficResetStrategy string
@@ -9974,6 +10030,14 @@ type PanelTrafficNode struct {
 	// UsedShare used ÷ limit. Absent when the node has no limit: it cannot be filling up.
 	UsedShare   *float32 `json:"usedShare,omitempty"`
 	UsersOnline *int     `json:"usersOnline,omitempty"`
+}
+
+// PanelTrafficPackage defines model for PanelTrafficPackage.
+type PanelTrafficPackage struct {
+	// AmountMinor The package's price for the version's own duration.
+	AmountMinor int64  `json:"amountMinor"`
+	Currency    string `json:"currency"`
+	Gb          int    `json:"gb"`
 }
 
 // PanelTrafficReport defines model for PanelTrafficReport.

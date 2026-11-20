@@ -236,3 +236,13 @@ WHERE o.subscription_id = sqlc.arg(subscription_id)
   AND o.state IN ('paid', 'fulfilled', 'partially_refunded')
 ORDER BY o.created_at DESC
 LIMIT 1;
+
+-- name: ListPlanVersionTrafficPackages :many
+SELECT * FROM plan_version_traffic_packages WHERE plan_version_id = $1 ORDER BY traffic_gb, currency;
+
+-- name: InsertPlanVersionTrafficPackage :exec
+INSERT INTO plan_version_traffic_packages (plan_version_id, traffic_gb, currency, amount_minor)
+VALUES (sqlc.arg(plan_version_id), sqlc.arg(traffic_gb), sqlc.arg(currency), sqlc.arg(amount_minor));
+
+-- name: SetPlanVersionTrafficMode :exec
+UPDATE plan_versions SET traffic_mode = sqlc.arg(traffic_mode) WHERE id = sqlc.arg(plan_version_id);

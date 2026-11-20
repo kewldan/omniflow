@@ -16,9 +16,22 @@ import (
 var ErrTrafficUnavailable = commerce.ErrTrafficUnavailable
 
 // trafficOffer reads the traffic a version sells beside its own allowance,
-// in the order's currency.
+// in the order's currency: its packages and its custom range. Only a
+// selectable version sells either; a fixed one sells its own allowance.
 func trafficOffer(ctx context.Context, queries *dbgen.Queries, plan dbgen.GetPlanVersionForOrderRow) (commerce.TrafficOffer, error) {
 	offer := commerce.TrafficOffer{}
+	if plan.TrafficMode != commerce.TrafficSelectable {
+		return offer, nil
+	}
+	packages, err := queries.ListPlanVersionTrafficPackages(ctx, plan.ID)
+	if err != nil {
+		return offer, err
+	}
+	for _, pack := range packages {
+		if pack.Currency == plan.Currency {
+			offer.Packages = append(offer.Packages, commerce.TrafficPackage{GB: int(pack.TrafficGb), PriceMinor: pack.AmountMinor})
+		}
+	}
 	if !plan.CustomTrafficMinGb.Valid {
 		return offer, nil
 	}
@@ -28,10 +41,8 @@ func trafficOffer(ctx context.Context, queries *dbgen.Queries, plan dbgen.GetPla
 	}
 	for _, price := range prices {
 		if price.Currency == plan.Currency {
-			offer = commerce.TrafficOffer{
-				MinGB: int(plan.CustomTrafficMinGb.Int32), MaxGB: int(plan.CustomTrafficMaxGb.Int32),
-				PricePerGBMinor: price.AmountMinor,
-			}
+			offer.MinGB, offer.MaxGB = int(plan.CustomTrafficMinGb.Int32), int(plan.CustomTrafficMaxGb.Int32)
+			offer.PricePerGBMinor = price.AmountMinor
 		}
 	}
 	return offer, nil

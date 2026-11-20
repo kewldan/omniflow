@@ -312,6 +312,28 @@ func (q *Queries) InsertPlanVersionSquad(ctx context.Context, arg InsertPlanVers
 	return err
 }
 
+const insertPlanVersionTrafficPackage = `-- name: InsertPlanVersionTrafficPackage :exec
+INSERT INTO plan_version_traffic_packages (plan_version_id, traffic_gb, currency, amount_minor)
+VALUES ($1, $2, $3, $4)
+`
+
+type InsertPlanVersionTrafficPackageParams struct {
+	PlanVersionID pgtype.UUID `json:"plan_version_id"`
+	TrafficGb     int32       `json:"traffic_gb"`
+	Currency      string      `json:"currency"`
+	AmountMinor   int64       `json:"amount_minor"`
+}
+
+func (q *Queries) InsertPlanVersionTrafficPackage(ctx context.Context, arg InsertPlanVersionTrafficPackageParams) error {
+	_, err := q.db.Exec(ctx, insertPlanVersionTrafficPackage,
+		arg.PlanVersionID,
+		arg.TrafficGb,
+		arg.Currency,
+		arg.AmountMinor,
+	)
+	return err
+}
+
 const lastOrderPeriod = `-- name: LastOrderPeriod :one
 SELECT o.period_seconds FROM orders o
 WHERE o.subscription_id = $1
@@ -469,6 +491,35 @@ func (q *Queries) ListPlanVersionPeriods(ctx context.Context, planVersionID pgty
 			&i.AmountMinor,
 			&i.ForPurchase,
 			&i.ForRenewal,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPlanVersionTrafficPackages = `-- name: ListPlanVersionTrafficPackages :many
+SELECT plan_version_id, traffic_gb, currency, amount_minor FROM plan_version_traffic_packages WHERE plan_version_id = $1 ORDER BY traffic_gb, currency
+`
+
+func (q *Queries) ListPlanVersionTrafficPackages(ctx context.Context, planVersionID pgtype.UUID) ([]PlanVersionTrafficPackage, error) {
+	rows, err := q.db.Query(ctx, listPlanVersionTrafficPackages, planVersionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []PlanVersionTrafficPackage{}
+	for rows.Next() {
+		var i PlanVersionTrafficPackage
+		if err := rows.Scan(
+			&i.PlanVersionID,
+			&i.TrafficGb,
+			&i.Currency,
+			&i.AmountMinor,
 		); err != nil {
 			return nil, err
 		}
@@ -695,6 +746,20 @@ type SetPlanVersionRemnawaveProfileParams struct {
 // Written once, in the transaction that publishes the version.
 func (q *Queries) SetPlanVersionRemnawaveProfile(ctx context.Context, arg SetPlanVersionRemnawaveProfileParams) error {
 	_, err := q.db.Exec(ctx, setPlanVersionRemnawaveProfile, arg.TrafficResetStrategy, arg.ExternalSquadID, arg.PlanVersionID)
+	return err
+}
+
+const setPlanVersionTrafficMode = `-- name: SetPlanVersionTrafficMode :exec
+UPDATE plan_versions SET traffic_mode = $1 WHERE id = $2
+`
+
+type SetPlanVersionTrafficModeParams struct {
+	TrafficMode   string      `json:"traffic_mode"`
+	PlanVersionID pgtype.UUID `json:"plan_version_id"`
+}
+
+func (q *Queries) SetPlanVersionTrafficMode(ctx context.Context, arg SetPlanVersionTrafficModeParams) error {
+	_, err := q.db.Exec(ctx, setPlanVersionTrafficMode, arg.TrafficMode, arg.PlanVersionID)
 	return err
 }
 

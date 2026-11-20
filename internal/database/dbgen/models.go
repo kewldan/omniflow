@@ -2093,6 +2093,7 @@ type PlanVersion struct {
 	CustomDaysMax         pgtype.Int4        `json:"custom_days_max"`
 	CustomTrafficMinGb    pgtype.Int4        `json:"custom_traffic_min_gb"`
 	CustomTrafficMaxGb    pgtype.Int4        `json:"custom_traffic_max_gb"`
+	TrafficMode           string             `json:"traffic_mode"`
 }
 
 type PlanVersionAddon struct {
@@ -2127,6 +2128,13 @@ type PlanVersionSquad struct {
 	LabelRu       string      `json:"label_ru"`
 	LabelEn       string      `json:"label_en"`
 	SortOrder     int32       `json:"sort_order"`
+}
+
+type PlanVersionTrafficPackage struct {
+	PlanVersionID pgtype.UUID `json:"plan_version_id"`
+	TrafficGb     int32       `json:"traffic_gb"`
+	Currency      string      `json:"currency"`
+	AmountMinor   int64       `json:"amount_minor"`
 }
 
 type Poll struct {

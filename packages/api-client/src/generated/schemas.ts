@@ -2844,6 +2844,11 @@ export const getPanelPlanResponseVersionsItemPeriodsItemDaysMax = 3650;
 export const getPanelPlanResponseVersionsItemPeriodsItemCurrencyRegExp = /^[A-Z]{3}$/;
 export const getPanelPlanResponseVersionsItemPeriodsItemAmountMinorMin = 0;
 
+export const getPanelPlanResponseVersionsItemTrafficPackagesItemGbMax = 1000000;
+
+export const getPanelPlanResponseVersionsItemTrafficPackagesItemCurrencyRegExp = /^[A-Z]{3}$/;
+export const getPanelPlanResponseVersionsItemTrafficPackagesItemAmountMinorMin = 0;
+
 export const GetPanelPlanResponse = zod.object({
   plan: zod.object({
     id: zod.uuid(),
@@ -2928,6 +2933,21 @@ export const GetPanelPlanResponse = zod.object({
         customTrafficMinGb: zod.int().optional(),
         customTrafficMaxGb: zod.int().optional(),
         gbPrices: zod.record(zod.string(), zod.int()).optional(),
+        trafficMode: zod.enum(["fixed", "fixed_with_topup", "selectable"]).optional(),
+        trafficPackages: zod
+          .array(
+            zod.object({
+              gb: zod.int().min(1).max(getPanelPlanResponseVersionsItemTrafficPackagesItemGbMax),
+              currency: zod
+                .string()
+                .regex(getPanelPlanResponseVersionsItemTrafficPackagesItemCurrencyRegExp),
+              amountMinor: zod
+                .int()
+                .min(getPanelPlanResponseVersionsItemTrafficPackagesItemAmountMinorMin)
+                .describe("The package's price for the version's own duration."),
+            }),
+          )
+          .nullish(),
       }),
     )
     .nullable(),
@@ -3036,6 +3056,11 @@ export const createPanelPlanVersionBodyCustomDaysMaxMax = 3650;
 
 export const createPanelPlanVersionBodyCustomTrafficMaxGbMax = 1000000;
 
+export const createPanelPlanVersionBodyTrafficPackagesItemGbMax = 1000000;
+
+export const createPanelPlanVersionBodyTrafficPackagesItemCurrencyRegExp = /^[A-Z]{3}$/;
+export const createPanelPlanVersionBodyTrafficPackagesItemAmountMinorMin = 0;
+
 export const CreatePanelPlanVersionBody = zod.object({
   billingPeriod: zod.enum([
     "none",
@@ -3127,6 +3152,25 @@ export const CreatePanelPlanVersionBody = zod.object({
     .record(zod.string(), zod.int().min(1))
     .optional()
     .describe("Price per chosen gigabyte by currency, for the version's own duration."),
+  trafficMode: zod
+    .enum(["fixed", "fixed_with_topup", "selectable"])
+    .optional()
+    .describe(
+      "How the version sells traffic. Empty is selectable when packages or a custom range are sent, and fixed_with_topup otherwise.",
+    ),
+  trafficPackages: zod
+    .array(
+      zod.object({
+        gb: zod.int().min(1).max(createPanelPlanVersionBodyTrafficPackagesItemGbMax),
+        currency: zod.string().regex(createPanelPlanVersionBodyTrafficPackagesItemCurrencyRegExp),
+        amountMinor: zod
+          .int()
+          .min(createPanelPlanVersionBodyTrafficPackagesItemAmountMinorMin)
+          .describe("The package's price for the version's own duration."),
+      }),
+    )
+    .optional()
+    .describe("The traffic volumes a selectable version is sold with."),
 });
 
 export const createPanelPlanVersionResponseOfferedSquadsItemLabelRuMax = 80;
@@ -3137,6 +3181,11 @@ export const createPanelPlanVersionResponsePeriodsItemDaysMax = 3650;
 
 export const createPanelPlanVersionResponsePeriodsItemCurrencyRegExp = /^[A-Z]{3}$/;
 export const createPanelPlanVersionResponsePeriodsItemAmountMinorMin = 0;
+
+export const createPanelPlanVersionResponseTrafficPackagesItemGbMax = 1000000;
+
+export const createPanelPlanVersionResponseTrafficPackagesItemCurrencyRegExp = /^[A-Z]{3}$/;
+export const createPanelPlanVersionResponseTrafficPackagesItemAmountMinorMin = 0;
 
 export const CreatePanelPlanVersionResponse = zod.object({
   id: zod.uuid(),
@@ -3189,6 +3238,21 @@ export const CreatePanelPlanVersionResponse = zod.object({
   customTrafficMinGb: zod.int().optional(),
   customTrafficMaxGb: zod.int().optional(),
   gbPrices: zod.record(zod.string(), zod.int()).optional(),
+  trafficMode: zod.enum(["fixed", "fixed_with_topup", "selectable"]).optional(),
+  trafficPackages: zod
+    .array(
+      zod.object({
+        gb: zod.int().min(1).max(createPanelPlanVersionResponseTrafficPackagesItemGbMax),
+        currency: zod
+          .string()
+          .regex(createPanelPlanVersionResponseTrafficPackagesItemCurrencyRegExp),
+        amountMinor: zod
+          .int()
+          .min(createPanelPlanVersionResponseTrafficPackagesItemAmountMinorMin)
+          .describe("The package's price for the version's own duration."),
+      }),
+    )
+    .nullish(),
 });
 
 /**

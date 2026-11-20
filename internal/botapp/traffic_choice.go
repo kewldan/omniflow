@@ -99,23 +99,28 @@ func trafficView(locale Locale, offer accountcheckout.TrafficOffer, chosenGB int
 		text(locale, "traffic.title"),
 		"",
 		text(locale, "traffic.current", trafficLabel(locale, offer, chosenGB)),
-		text(locale, "traffic.perGb", formatMoney(offer.PricePerGBMinor, offer.Currency), offer.MinGB, offer.MaxGB),
 	}
 	rows := [][]models.InlineKeyboardButton{
 		row(actionButton(selectedMark(chosenGB == 0, text(locale, "traffic.own", trafficLabel(locale, offer, 0))), "traffic-set:0")),
 	}
-	steps := trafficSteps(offer)
-	for start := 0; start < len(steps); start += 3 {
-		buttons := make([]models.InlineKeyboardButton, 0, 3)
-		for _, value := range steps[start:min(start+3, len(steps))] {
-			buttons = append(buttons, actionButton(selectedMark(chosenGB == value, text(locale, "traffic.gb", value)), "traffic-set:"+strconv.Itoa(value)))
-		}
-		rows = append(rows, buttons)
+	// A listed package is a volume at its own price for the plan's period.
+	for _, pack := range offer.Packages {
+		label := text(locale, "traffic.package", pack.GB, formatMoney(pack.AmountMinor, offer.Currency))
+		rows = append(rows, row(actionButton(selectedMark(chosenGB == pack.GB, label), "traffic-set:"+strconv.Itoa(pack.GB))))
 	}
-	rows = append(rows,
-		row(actionButton(text(locale, "traffic.enter"), "traffic-enter")),
-		row(actionButton(text(locale, "action.back"), "checkout")),
-	)
+	if offer.MinGB > 0 {
+		lines = append(lines, text(locale, "traffic.perGb", formatMoney(offer.PricePerGBMinor, offer.Currency), offer.MinGB, offer.MaxGB))
+		steps := trafficSteps(offer)
+		for start := 0; start < len(steps); start += 3 {
+			buttons := make([]models.InlineKeyboardButton, 0, 3)
+			for _, value := range steps[start:min(start+3, len(steps))] {
+				buttons = append(buttons, actionButton(selectedMark(chosenGB == value, text(locale, "traffic.gb", value)), "traffic-set:"+strconv.Itoa(value)))
+			}
+			rows = append(rows, buttons)
+		}
+		rows = append(rows, row(actionButton(text(locale, "traffic.enter"), "traffic-enter")))
+	}
+	rows = append(rows, row(actionButton(text(locale, "action.back"), "checkout")))
 	return View{Text: strings.Join(lines, "\n"), Keyboard: keyboard(rows...)}
 }
 

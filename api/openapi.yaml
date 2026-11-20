@@ -6976,6 +6976,15 @@ components:
         customTrafficMinGb: {type: integer}
         customTrafficMaxGb: {type: integer}
         gbPrices: {type: object, additionalProperties: {type: integer, format: int64}}
+        trafficMode: {type: string, enum: [fixed, fixed_with_topup, selectable]}
+        trafficPackages: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelTrafficPackage"}}
+    PanelTrafficPackage:
+      type: object
+      required: [gb, currency, amountMinor]
+      properties:
+        gb: {type: integer, minimum: 1, maximum: 1000000}
+        currency: {type: string, pattern: "^[A-Z]{3}$"}
+        amountMinor: {type: integer, format: int64, minimum: 0, description: "The package's price for the version's own duration."}
     PanelPlanPeriod:
       type: object
       required: [days, currency, amountMinor, forPurchase, forRenewal]
@@ -7024,6 +7033,8 @@ components:
         customTrafficMinGb: {type: integer, minimum: 1, nullable: true, description: The smallest traffic volume a customer may choose; null sells none.}
         customTrafficMaxGb: {type: integer, maximum: 1000000, nullable: true}
         gbPrices: {type: object, additionalProperties: {type: integer, format: int64, minimum: 1}, description: "Price per chosen gigabyte by currency, for the version's own duration."}
+        trafficMode: {type: string, enum: [fixed, fixed_with_topup, selectable], description: "How the version sells traffic. Empty is selectable when packages or a custom range are sent, and fixed_with_topup otherwise."}
+        trafficPackages: {type: array, items: {$ref: "#/components/schemas/PanelTrafficPackage"}, description: The traffic volumes a selectable version is sold with.}
     PanelPlanOptions:
       type: object
       properties:

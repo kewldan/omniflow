@@ -75,6 +75,16 @@ type PlanVersionOptions struct {
 	CustomTrafficMinGB *int32           `json:"customTrafficMinGb"`
 	CustomTrafficMaxGB *int32           `json:"customTrafficMaxGb"`
 	GBPrices           map[string]int64 `json:"gbPrices"`
+	// TrafficMode is how the version sells traffic: `fixed` (its own
+	// allowance, no top-ups), `fixed_with_topup` (its own allowance, topped up
+	// by the traffic add-ons it offers), or `selectable` (a package or a
+	// custom volume chosen at checkout). Empty is `selectable` when the
+	// version lists packages or a custom range and `fixed_with_topup`
+	// otherwise, which is what a version published before modes existed did.
+	TrafficMode string `json:"trafficMode"`
+	// TrafficPackages are the volumes a selectable version is sold with, each
+	// priced per currency for the version's own duration.
+	TrafficPackages []TrafficPackage `json:"trafficPackages"`
 }
 
 var validTrafficResetStrategy = map[string]bool{
@@ -236,6 +246,7 @@ func (service *Service) CreatePlanVersion(
 		created = planVersionFromRow(row, input.Prices)
 		created.OfferedSquads = input.OfferedSquads
 		created.AddonIDs = input.AddonIDs
+		created.TrafficMode, created.TrafficPackages = trafficMode(input), input.TrafficPackages
 		return appendAudit(ctx, queries, actor.audit(
 			"panel.plan_version.created", "configuration", "plan", planID,
 			map[string]any{

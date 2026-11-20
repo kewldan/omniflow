@@ -23,11 +23,21 @@ func periodPayload(offer accountcheckout.PeriodOffer) map[string]any {
 }
 
 // trafficPayload is the traffic a version sells beside its own allowance, as
-// the checkout renders it: the allowance itself (null for unlimited) and a
-// custom volume with its bounds and price per gigabyte, when there is one.
+// the checkout renders it: the mode, the allowance itself (null for
+// unlimited), the listed packages, and a custom volume with its bounds and
+// price per gigabyte, when there is one.
 func trafficPayload(offer accountcheckout.TrafficOffer) map[string]any {
-	payload := map[string]any{"ownBytes": offer.OwnBytes}
+	packages := make([]map[string]any, 0, len(offer.Packages))
 	if offer.Choosable() {
+		for _, pack := range offer.Packages {
+			packages = append(packages, map[string]any{
+				"gb":    pack.GB,
+				"price": map[string]any{"amountMinor": pack.AmountMinor, "currency": offer.Currency},
+			})
+		}
+	}
+	payload := map[string]any{"mode": offer.Mode, "ownBytes": offer.OwnBytes, "packages": packages}
+	if offer.Choosable() && offer.MinGB > 0 {
 		payload["custom"] = map[string]any{
 			"minGb": offer.MinGB, "maxGb": offer.MaxGB,
 			"pricePerGb": map[string]any{"amountMinor": offer.PricePerGBMinor, "currency": offer.Currency},

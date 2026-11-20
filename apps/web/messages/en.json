@@ -2058,14 +2058,29 @@
         "created": "Promotion created"
       },
       "customTraffic": {
-        "title": "Custom traffic",
+        "title": "Traffic",
         "hint": "Let the customer choose a traffic volume in this range, priced per gigabyte. The price is for this version's own duration and scales with a longer or shorter period. Leave both bounds empty to sell none.",
         "min": "From, GB",
         "max": "Up to, GB",
         "currency": "Currency",
         "price": "Price per GB",
         "remove": "Remove",
-        "addPrice": "Add a price per GB"
+        "addPrice": "Add a price per GB",
+        "mode": "How traffic is sold",
+        "modeValue": {
+          "fixed": "Fixed",
+          "fixed_with_topup": "Fixed, with top-ups",
+          "selectable": "Chosen at checkout"
+        },
+        "modeHint": {
+          "fixed": "Every subscription gets the traffic above, and no traffic add-on is sold for it.",
+          "fixed_with_topup": "Every subscription gets the traffic above, and the traffic add-ons this version offers can top it up.",
+          "selectable": "The customer chooses a package or a custom volume at checkout; the traffic above is the default and costs nothing extra. Traffic add-ons can top it up."
+        },
+        "packagesHint": "Packages: a volume and what it adds to the price, per currency, for this version's own duration.",
+        "packageGb": "Volume, GB",
+        "packagePrice": "Adds to the price",
+        "addPackage": "Add a package"
       }
     },
     "codes": {
@@ -6261,7 +6276,8 @@
       "custom": "Choose the number of gigabytes",
       "volume": "Gigabytes ({min}–{max})",
       "perGb": "{price} per GB",
-      "apply": "Apply"
+      "apply": "Apply",
+      "package": "{gb} GB — +{price}"
     }
   },
   "pages": {

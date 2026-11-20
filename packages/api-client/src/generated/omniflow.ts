@@ -1654,6 +1654,15 @@ export type PanelPlanVersionSummaryDayPrices = { [key: string]: number };
 
 export type PanelPlanVersionSummaryGbPrices = { [key: string]: number };
 
+export type PanelPlanVersionSummaryTrafficMode =
+  (typeof PanelPlanVersionSummaryTrafficMode)[keyof typeof PanelPlanVersionSummaryTrafficMode];
+
+export const PanelPlanVersionSummaryTrafficMode = {
+  fixed: "fixed",
+  fixed_with_topup: "fixed_with_topup",
+  selectable: "selectable",
+} as const;
+
 export interface PanelOfferedSquad {
   squadId: string;
   /**
@@ -1680,6 +1689,21 @@ export interface PanelPlanPeriod {
   amountMinor: number;
   forPurchase: boolean;
   forRenewal: boolean;
+}
+
+export interface PanelTrafficPackage {
+  /**
+   * @minimum 1
+   * @maximum 1000000
+   */
+  gb: number;
+  /** @pattern ^[A-Z]{3}$ */
+  currency: string;
+  /**
+   * The package's price for the version's own duration.
+   * @minimum 0
+   */
+  amountMinor: number;
 }
 
 export interface PanelPlanVersionSummary {
@@ -1719,6 +1743,9 @@ export interface PanelPlanVersionSummary {
   customTrafficMinGb?: number;
   customTrafficMaxGb?: number;
   gbPrices?: PanelPlanVersionSummaryGbPrices;
+  trafficMode?: PanelPlanVersionSummaryTrafficMode;
+  /** @nullable */
+  trafficPackages?: PanelTrafficPackage[] | null;
 }
 
 export type PanelPlanVersionInputBillingPeriod =
@@ -1806,6 +1833,18 @@ export type PanelPlanVersionInputDayPrices = { [key: string]: number };
  */
 export type PanelPlanVersionInputGbPrices = { [key: string]: number };
 
+/**
+ * How the version sells traffic. Empty is selectable when packages or a custom range are sent, and fixed_with_topup otherwise.
+ */
+export type PanelPlanVersionInputTrafficMode =
+  (typeof PanelPlanVersionInputTrafficMode)[keyof typeof PanelPlanVersionInputTrafficMode];
+
+export const PanelPlanVersionInputTrafficMode = {
+  fixed: "fixed",
+  fixed_with_topup: "fixed_with_topup",
+  selectable: "selectable",
+} as const;
+
 export interface PanelPlanVersionInput {
   billingPeriod: PanelPlanVersionInputBillingPeriod;
   /** @minimum 1 */
@@ -1888,6 +1927,10 @@ export interface PanelPlanVersionInput {
   customTrafficMaxGb?: number | null;
   /** Price per chosen gigabyte by currency, for the version's own duration. */
   gbPrices?: PanelPlanVersionInputGbPrices;
+  /** How the version sells traffic. Empty is selectable when packages or a custom range are sent, and fixed_with_topup otherwise. */
+  trafficMode?: PanelPlanVersionInputTrafficMode;
+  /** The traffic volumes a selectable version is sold with. */
+  trafficPackages?: PanelTrafficPackage[];
 }
 
 export interface PanelPlanOptions {

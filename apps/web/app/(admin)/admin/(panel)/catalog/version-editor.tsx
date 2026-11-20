@@ -108,6 +108,8 @@ const schema = z.object({
   gbPrices: z.array(z.object({ amount: z.string(), currency: z.string() })),
   trafficMax: z.string(),
   trafficMin: z.string(),
+  trafficMode: z.string(),
+  trafficPackages: z.array(z.object({ amount: z.string(), currency: z.string(), gb: z.string() })),
   // Remnawave's own trafficLimitStrategy for users on this version, and the
   // external squad that shapes their subscription page.
   externalSquadId: z.array(z.string()),

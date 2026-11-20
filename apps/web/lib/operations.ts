@@ -261,6 +261,9 @@ export type PlanVersion = {
   customTrafficMinGb?: number;
   customTrafficMaxGb?: number;
   gbPrices?: Record<string, number>;
+  /** `fixed`, `fixed_with_topup`, or `selectable`; see the traffic editor. */
+  trafficMode?: string;
+  trafficPackages?: { gb: number; currency: string; amountMinor: number }[];
 };
 
 export type PersonalOffer = {

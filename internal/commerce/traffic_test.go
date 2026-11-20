@@ -25,6 +25,18 @@ func TestResolveTraffic(t *testing.T) {
 		{name: "nothing chosen", gigabytes: 0, offer: offer, period: 30 * day, err: ErrTrafficUnavailable},
 		{name: "not sold", gigabytes: 50, offer: TrafficOffer{}, period: 30 * day, err: ErrTrafficUnavailable},
 		{
+			name: "a package wins over the range", gigabytes: 50, period: 60 * day, amount: 2_000,
+			offer: TrafficOffer{Packages: []TrafficPackage{{GB: 50, PriceMinor: 1_000}}, MinGB: 10, MaxGB: 500, PricePerGBMinor: 300},
+		},
+		{
+			name: "a package without a range", gigabytes: 25, period: 30 * day, amount: 0,
+			offer: TrafficOffer{Packages: []TrafficPackage{{GB: 25, PriceMinor: 0}}},
+		},
+		{
+			name: "a volume that is no package", gigabytes: 30, period: 30 * day, err: ErrTrafficUnavailable,
+			offer: TrafficOffer{Packages: []TrafficPackage{{GB: 25, PriceMinor: 0}}},
+		},
+		{
 			name: "overflow is refused", gigabytes: 1_000_000,
 			offer:  TrafficOffer{MinGB: 1, MaxGB: 1_000_000, PricePerGBMinor: 1 << 50},
 			period: 3650 * day, err: ErrInvalidAmount,

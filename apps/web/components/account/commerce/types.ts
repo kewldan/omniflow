@@ -417,9 +417,13 @@ export type PeriodOffer = {
 
 /**
  * A plan version's traffic choice in one currency: its own allowance (`null`
- * is unlimited) and a volume the customer chooses, priced per gigabyte.
+ * is unlimited), listed packages, and a volume the customer chooses, priced
+ * per gigabyte.
  */
 export type TrafficOffer = {
+  /** `fixed`, `fixed_with_topup`, or `selectable`; only the last sells a choice. */
+  mode: string;
   ownBytes: number | null;
+  packages: { gb: number; price: Money }[];
   custom?: { minGb: number; maxGb: number; pricePerGb: Money };
 };

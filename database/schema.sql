@@ -4031,6 +4031,21 @@ CREATE TABLE public.plan_version_squads (
 
 
 --
+-- Name: plan_version_traffic_packages; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.plan_version_traffic_packages (
+    plan_version_id uuid NOT NULL,
+    traffic_gb integer NOT NULL,
+    currency text NOT NULL,
+    amount_minor bigint NOT NULL,
+    CONSTRAINT plan_version_traffic_packages_amount_nonnegative CHECK ((amount_minor >= 0)),
+    CONSTRAINT plan_version_traffic_packages_currency_shape CHECK ((currency ~ '^[A-Z]{3}$'::text)),
+    CONSTRAINT plan_version_traffic_packages_volume_range CHECK (((traffic_gb >= 1) AND (traffic_gb <= 1000000)))
+);
+
+
+--
 -- Name: plan_versions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -4062,6 +4077,7 @@ CREATE TABLE public.plan_versions (
     custom_days_max integer,
     custom_traffic_min_gb integer,
     custom_traffic_max_gb integer,
+    traffic_mode text DEFAULT 'fixed_with_topup'::text NOT NULL,
     CONSTRAINT plan_versions_billing_period_check CHECK ((billing_period = ANY (ARRAY['none'::text, 'day'::text, 'week'::text, 'month'::text, 'quarter'::text, 'half_year'::text, 'year'::text, 'custom'::text]))),
     CONSTRAINT plan_versions_cancellation_policy_check CHECK ((cancellation_policy = ANY (ARRAY['forbid'::text, 'immediate'::text, 'at_expiry'::text]))),
     CONSTRAINT plan_versions_custom_days_range CHECK ((((custom_days_min IS NULL) = (custom_days_max IS NULL)) AND ((custom_days_min IS NULL) OR ((custom_days_min >= 1) AND (custom_days_max >= custom_days_min) AND (custom_days_max <= 3650))))),
@@ -4076,6 +4092,7 @@ CREATE TABLE public.plan_versions (
     CONSTRAINT plan_versions_selectable_squad_range_check CHECK (((max_selectable_squads IS NULL) OR (max_selectable_squads >= min_selectable_squads))),
     CONSTRAINT plan_versions_squad_selection_check CHECK ((squad_selection = ANY (ARRAY['automatic'::text, 'optional'::text, 'required'::text]))),
     CONSTRAINT plan_versions_traffic_allowance_bytes_check CHECK (((traffic_allowance_bytes IS NULL) OR (traffic_allowance_bytes >= 0))),
+    CONSTRAINT plan_versions_traffic_mode_known CHECK ((traffic_mode = ANY (ARRAY['fixed'::text, 'fixed_with_topup'::text, 'selectable'::text]))),
     CONSTRAINT plan_versions_traffic_reset_price_bps_range CHECK (((traffic_reset_price_bps IS NULL) OR ((traffic_reset_price_bps >= 1) AND (traffic_reset_price_bps <= 100000)))),
     CONSTRAINT plan_versions_traffic_reset_strategy_known CHECK ((traffic_reset_strategy = ANY (ARRAY['NO_RESET'::text, 'DAY'::text, 'WEEK'::text, 'MONTH'::text, 'MONTH_ROLLING'::text]))),
     CONSTRAINT plan_versions_trial_eligibility_check CHECK ((trial_eligibility = ANY (ARRAY['new_customer'::text, 'never_trialled'::text, 'any'::text]))),
@@ -7136,6 +7153,14 @@ ALTER TABLE ONLY public.plan_version_periods
 
 ALTER TABLE ONLY public.plan_version_squads
     ADD CONSTRAINT plan_version_squads_pkey PRIMARY KEY (plan_version_id, squad_id);
+
+
+--
+-- Name: plan_version_traffic_packages plan_version_traffic_packages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.plan_version_traffic_packages
+    ADD CONSTRAINT plan_version_traffic_packages_pkey PRIMARY KEY (plan_version_id, traffic_gb, currency);
 
 
 --
@@ -11104,6 +11129,14 @@ ALTER TABLE ONLY public.plan_version_periods
 
 ALTER TABLE ONLY public.plan_version_squads
     ADD CONSTRAINT plan_version_squads_plan_version_id_fkey FOREIGN KEY (plan_version_id) REFERENCES public.plan_versions(id);
+
+
+--
+-- Name: plan_version_traffic_packages plan_version_traffic_packages_plan_version_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.plan_version_traffic_packages
+    ADD CONSTRAINT plan_version_traffic_packages_plan_version_id_fkey FOREIGN KEY (plan_version_id) REFERENCES public.plan_versions(id) ON DELETE CASCADE;
 
 
 --

@@ -261,6 +261,7 @@ var catalog = map[string]phrase{
 	"traffic.perGb":     {ru: "Свой объём: %s за ГБ, от %d до %d ГБ.", en: "Your own volume: %s per GB, from %d to %d GB."},
 	"traffic.own":       {ru: "Как в тарифе: %s", en: "As in the plan: %s"},
 	"traffic.gb":        {ru: "%d ГБ", en: "%d GB"},
+	"traffic.package":   {ru: "%d ГБ — +%s", en: "%d GB — +%s"},
 	"traffic.unlimited": {ru: "без ограничений", en: "unlimited"},
 	"traffic.change":    {ru: "📶 Изменить трафик", en: "📶 Change traffic"},
 	"traffic.enter":     {ru: "✏️ Ввести объём", en: "✏️ Enter a volume"},

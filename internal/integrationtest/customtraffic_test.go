@@ -100,3 +100,80 @@ func TestCustomTrafficIsPricedPerGigabyte(t *testing.T) {
 		t.Fatalf("checkout traffic = %+v (chosen %d, subtotal %+v)", view.Traffic, view.TrafficGB, view.Quote.Subtotal)
 	}
 }
+
+// The traffic mode decides what a version sells: a fixed version sells no
+// traffic add-on, at checkout or later, and no volume of the customer's
+// choosing; a selectable one sells its packages at their own price.
+func TestTrafficModeDecidesWhatIsSold(t *testing.T) {
+	ctx := context.Background()
+	harness := newHarness(t)
+	panel := newOperations(t, harness)
+	actor := harness.operator(ctx, t, "traffic-mode@example.test")
+	store := harness.commerceStore(t, testOptions())
+	customerID := harness.customer(ctx, t)
+	fixed := harness.catalog(ctx, t, "fixed-traffic", 0)
+	pack := harness.addon(ctx, t, fixed, "fixed-pack", 0, 10*commerce.GiB, "full_price")
+	if _, err := harness.pool.Exec(ctx, `UPDATE plan_versions SET traffic_mode = 'fixed' WHERE id = $1::uuid`, fixed); err != nil {
+		t.Fatalf("fix the traffic: %v", err)
+	}
+	if _, err := store.CreateOrder(ctx, commercepg.CreateOrderInput{
+		CustomerID: customerID, PlanVersionID: fixed, Currency: "RUB", Operation: "purchase",
+		IdempotencyKey: "fixed-with-pack", Addons: []commercepg.AddonSelection{{AddonVersionID: pack, Quantity: 1}},
+	}); !errors.Is(err, commercepg.ErrAddonUnavailable) {
+		t.Fatalf("a traffic add-on on a fixed version at checkout: %v", err)
+	}
+	if _, err := store.PreviewOrder(ctx, commercepg.CreateOrderInput{
+		CustomerID: customerID, PlanVersionID: fixed, Currency: "RUB", Operation: "purchase",
+		IdempotencyKey: "fixed-volume", TrafficGB: 50,
+	}); !errors.Is(err, commercepg.ErrTrafficUnavailable) {
+		t.Fatalf("a chosen volume on a fixed version: %v", err)
+	}
+	if _, err := store.CreateOrder(ctx, commercepg.CreateOrderInput{
+		CustomerID: customerID, PlanVersionID: fixed, Currency: "RUB", Operation: "purchase",
+		IdempotencyKey: "fixed-plain",
+	}); err != nil {
+		t.Fatalf("buy the fixed version: %v", err)
+	}
+	if _, err := store.CreateAddonOrder(ctx, commercepg.AddonOrderInput{
+		CustomerID: customerID, Currency: "RUB", IdempotencyKey: "fixed-topup",
+		Addons: []commercepg.AddonSelection{{AddonVersionID: pack, Quantity: 1}},
+	}); !errors.Is(err, commercepg.ErrAddonUnavailable) {
+		t.Fatalf("a traffic top-up on a fixed version: %v", err)
+	}
+
+	planID := harness.planID(ctx, t, harness.catalog(ctx, t, "selectable-traffic", 0))
+	own := int64(10) * commerce.GiB
+	input := panelpg.PlanVersionInput{
+		BillingPeriod: "month", DurationSeconds: 30 * 86_400, SquadSelection: "automatic",
+		UpgradePolicy: "extend", DowngradePolicy: "at_expiry", CancellationPolicy: "at_expiry",
+		TrialEligibility: "new_customer", Prices: map[string]int64{"RUB": 1000}, TrafficAllowanceBytes: &own,
+		PlanVersionOptions: panelpg.PlanVersionOptions{
+			TrafficMode:     "fixed",
+			TrafficPackages: []panelpg.TrafficPackage{{GB: 50, Currency: "RUB", AmountMinor: 500}},
+		},
+	}
+	if _, err := panel.CreatePlanVersion(ctx, planID, input, actor); !errors.Is(err, panelpg.ErrValidaton) {
+		t.Fatalf("packages on a fixed version: %v", err)
+	}
+	input.TrafficMode = "selectable"
+	version, err := panel.CreatePlanVersion(ctx, planID, input, actor)
+	if err != nil {
+		t.Fatalf("publish a selectable version: %v", err)
+	}
+	if version.TrafficMode != "selectable" {
+		t.Fatalf("published mode = %q", version.TrafficMode)
+	}
+	other := harness.customer(ctx, t)
+	if quote, quoteErr := store.PreviewOrder(ctx, commercepg.CreateOrderInput{
+		CustomerID: other, PlanVersionID: version.ID, Currency: "RUB", Operation: "purchase",
+		IdempotencyKey: "selectable-package", TrafficGB: 50,
+	}); quoteErr != nil || quote.TotalMinor() != 1500 {
+		t.Fatalf("the 50 GB package = %d, %v; want 1500", quote.TotalMinor(), quoteErr)
+	}
+	if _, err = store.PreviewOrder(ctx, commercepg.CreateOrderInput{
+		CustomerID: other, PlanVersionID: version.ID, Currency: "RUB", Operation: "purchase",
+		IdempotencyKey: "selectable-other", TrafficGB: 60,
+	}); !errors.Is(err, commercepg.ErrTrafficUnavailable) {
+		t.Fatalf("a volume that is no package: %v", err)
+	}
+}

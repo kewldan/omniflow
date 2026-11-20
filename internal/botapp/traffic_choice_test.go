@@ -20,7 +20,7 @@ func TestTrafficStepsStayInsideTheRange(t *testing.T) {
 
 func TestTheCheckoutShowsTheTrafficChoice(t *testing.T) {
 	own := int64(10) << 30
-	offer := accountcheckout.TrafficOffer{Currency: "RUB", OwnBytes: &own, MinGB: 20, MaxGB: 200, PricePerGBMinor: 100}
+	offer := accountcheckout.TrafficOffer{Currency: "RUB", Mode: "selectable", OwnBytes: &own, MinGB: 20, MaxGB: 200, PricePerGBMinor: 100}
 	base := View{
 		Text:     "title\n\nplan\nperiod\nmethod\n\nsubtotal",
 		Keyboard: keyboard(row(actionButton("pay", "confirm")), row(actionButton("promo", "promo"))),
@@ -35,5 +35,16 @@ func TestTheCheckoutShowsTheTrafficChoice(t *testing.T) {
 	plain := withTrafficChoice(View{Text: "x"}, LocaleEnglish, accountcheckout.TrafficOffer{}, CheckoutSession{})
 	if plain.Text != "x" {
 		t.Fatal("a version without a choice changed the summary")
+	}
+	fixed := offer
+	fixed.Mode = "fixed_with_topup"
+	if withTrafficChoice(View{Text: "x"}, LocaleEnglish, fixed, CheckoutSession{}).Text != "x" {
+		t.Fatal("a fixed version offered a traffic choice")
+	}
+	packages := accountcheckout.TrafficOffer{Currency: "RUB", Mode: "selectable", OwnBytes: &own,
+		Packages: []accountcheckout.TrafficPackage{{GB: 50, AmountMinor: 10000}}}
+	screen := trafficView(LocaleEnglish, packages, 50)
+	if len(screen.Keyboard.InlineKeyboard) != 3 || !strings.Contains(screen.Keyboard.InlineKeyboard[1][0].Text, "• 50 GB") {
+		t.Fatalf("package screen = %+v", screen.Keyboard.InlineKeyboard)
 	}
 }
