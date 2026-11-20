@@ -28,6 +28,7 @@ const PROMO_REJECTIONS = [
   "promo_ineligible",
   "promo_exhausted",
   "promo_invalid",
+  "promo_daily_limit",
 ] as const;
 
 /**
@@ -83,6 +84,8 @@ const PROBLEMS = [
   "promo_ineligible",
   "promo_invalid",
   "promo_unknown",
+  "promo_daily_limit",
+  "rate_limited",
   "provider_currency_unsupported",
   "provider_unavailable",
   "request_failed",

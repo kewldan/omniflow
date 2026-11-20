@@ -97,6 +97,9 @@ func (store *Store) redeemRewardPromo(ctx context.Context, normalized string, us
 	default:
 		return RedeemedReward{}, ErrPromoNotReward
 	}
+	if err = dailyCodeLimit(ctx, queries, userID, promo.ID); err != nil {
+		return RedeemedReward{}, ErrPromoNotApplicable
+	}
 	now := store.clock().UTC()
 	if promo.StartsAt.Valid && now.Before(promo.StartsAt.Time) || promo.EndsAt.Valid && !now.Before(promo.EndsAt.Time) {
 		return RedeemedReward{}, ErrPromoNotApplicable

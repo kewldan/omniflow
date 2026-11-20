@@ -230,6 +230,8 @@ func PromoRejection(err error) string {
 		return PromoExhausted
 	case errors.Is(err, commercepg.ErrPromoInvalid):
 		return PromoInvalid
+	case errors.Is(err, commercepg.ErrPromoDailyLimit):
+		return PromoDailyLimit
 	default:
 		return ""
 	}

@@ -420,17 +420,21 @@ Previewing a price runs the same reads at `ReadCommitted` and then rolls back, s
 | --- | --- | --- |
 | Telegram bot | 5 attempts per Telegram account per minute | The bot answers "too many promo-code attempts" |
 | `POST /v1/admin/orders` | 10 per customer per minute | A limiter outage answers 503 `rate_limit_unavailable` rather than allowing the request |
-| `POST /v1/account/checkout/promo` | **None** | — |
+| `POST /v1/account/checkout/promo` | 20 per customer per hour | 429 `rate_limited`, shown under the code field |
+| `POST /v1/account/codes/redeem` | 10 per customer per hour | 429 `rate_limited` |
 
-Bot rate limiting fails closed for every money-moving scope and open only for navigation.
+Bot rate limiting fails closed for every money-moving scope and open only for navigation. The web
+limits fail closed too: an unreachable limiter refuses the attempt.
 
-<Warning>
-  The customer web panel's promo endpoint has no rate limit. Nothing in its path
-  consults a limiter, so a signed-in customer can try codes as fast as the API
-  will answer. Guessing a code is still bounded by the 3-to-64-character
-  namespace and by the promotion's own limits, but there is no per-customer
-  attempt budget on this route the way there is in the bot.
-</Warning>
+### Daily limit of distinct codes
+
+**Settings → Marketing → Different promo codes a customer may use per day** caps how many different
+codes one customer may use in 24 hours, as Bedolaga's daily promo-code limit does; `0` or unset is
+no limit. It counts the distinct codes behind the customer's redemptions in the last 24 hours whose
+orders did not close unpaid, and applies to discount codes at checkout (the reason
+`promo_daily_limit`, shown in both panels) and to reward codes redeemed on their own (refused like
+any other code). Using the same code again is not a second code, and a personal offer an operator
+issued, applied by itself, does not count.
 
 ## Scope: plans or goods
 

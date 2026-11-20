@@ -317,6 +317,12 @@ func (handlers *AccountHandlers) cancelCheckout(writer http.ResponseWriter, requ
 
 func (handlers *AccountHandlers) applyPromo(writer http.ResponseWriter, request *http.Request) {
 	principal, _ := CustomerFrom(request.Context())
+	// Codes are tried per customer at a bounded rate, as in the bot, so the
+	// checkout cannot be used to enumerate which codes exist.
+	if !handlers.allowPrivacyRate(request, "account_promo_apply", principal.Customer.ID, 20, time.Hour) {
+		writeProblem(writer, request, http.StatusTooManyRequests, "rate_limited", "Too many codes were tried; try again later")
+		return
+	}
 	var body struct {
 		Code string `json:"code"`
 	}

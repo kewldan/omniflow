@@ -237,6 +237,9 @@ type CreateOrderInput struct {
 	// SelectedSquadIDs are the squads the customer chose from the plan's
 	// selectable set. They are validated against the plan's squad policy.
 	SelectedSquadIDs []string
+	// autoOffer marks a quote priced with the customer's personal offer
+	// rather than a code they entered.
+	autoOffer bool
 	// Addons are bought together with the plan and charged on the same order,
 	// so one confirmation is one payment. They cover the full first period, so
 	// no proration applies to them here.
@@ -254,6 +257,9 @@ var (
 	ErrPromoIneligible = errors.New("promo_ineligible")
 	ErrPromoExhausted  = errors.New("promo_exhausted")
 	ErrPromoInvalid    = errors.New("promo_invalid")
+	// ErrPromoDailyLimit reports a customer who already used as many distinct
+	// codes in the last day as the operator allows.
+	ErrPromoDailyLimit = errors.New("promo_daily_limit")
 	// ErrPromoBelowCost reports a shop discount that would take the price under
 	// what the provider charges. It is its own reason rather than folded into
 	// ineligible, because the customer's next move differs: an ineligible code
@@ -345,6 +351,9 @@ func (store *Store) quote(ctx context.Context, queries *dbgen.Queries, userID, p
 		if err == nil && offerCode != "" {
 			withOffer := input
 			withOffer.PromoCode = offerCode
+			// An offer the operator issued is not a code the customer chose,
+			// so it does not count against the daily code limit.
+			withOffer.autoOffer = true
 			if quote, quoteErr := store.quoteWith(ctx, queries, userID, planVersionID, withOffer); quoteErr == nil {
 				return quote, nil
 			}
@@ -415,6 +424,11 @@ func (store *Store) quoteWith(ctx context.Context, queries *dbgen.Queries, userI
 		lockedPromo, promoErr := queries.GetPromoForRedemption(ctx, normalized)
 		if promoErr != nil {
 			return OrderQuote{}, ErrPromoUnknown
+		}
+		if !input.autoOffer {
+			if limitErr := dailyCodeLimit(ctx, queries, userID, lockedPromo.ID); limitErr != nil {
+				return OrderQuote{}, limitErr
+			}
 		}
 		eligible, eligibilityErr := queries.IsPromotionPlanEligible(ctx, dbgen.IsPromotionPlanEligibleParams{TargetPromotionID: lockedPromo.PromotionID, TargetPlanID: plan.PlanID})
 		if eligibilityErr != nil || !eligible {

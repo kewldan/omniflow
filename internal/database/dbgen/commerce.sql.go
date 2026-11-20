@@ -3401,6 +3401,38 @@ func (q *Queries) PauseEntitlement(ctx context.Context, entitlementID pgtype.UUI
 	return i, err
 }
 
+const promoDailyUsage = `-- name: PromoDailyUsage :one
+SELECT
+  COALESCE((SELECT (s.document->>'promoDailyCodeLimit')::int FROM installation_settings s
+    WHERE s.section = 'marketing' AND s.document->>'promoDailyCodeLimit' ~ '^[0-9]+$'), 0)::int AS daily_limit,
+  (SELECT count(DISTINCT r.promo_code_id) FROM promo_redemptions r
+    JOIN orders o ON o.id = r.order_id
+    WHERE r.user_id = $1 AND r.promo_code_id <> $2
+      AND r.redeemed_at > now() - interval '24 hours'
+      AND o.state NOT IN ('cancelled', 'expired'))::int AS used_today
+`
+
+type PromoDailyUsageParams struct {
+	UserID      pgtype.UUID `json:"user_id"`
+	PromoCodeID pgtype.UUID `json:"promo_code_id"`
+}
+
+type PromoDailyUsageRow struct {
+	DailyLimit int32 `json:"daily_limit"`
+	UsedToday  int32 `json:"used_today"`
+}
+
+// Bedolaga's limit of distinct promo codes a customer may use in a day: the
+// operator's limit from the marketing settings (zero is no limit), and how
+// many other codes the customer redeemed in the last 24 hours on orders that
+// did not close unpaid.
+func (q *Queries) PromoDailyUsage(ctx context.Context, arg PromoDailyUsageParams) (PromoDailyUsageRow, error) {
+	row := q.db.QueryRow(ctx, promoDailyUsage, arg.UserID, arg.PromoCodeID)
+	var i PromoDailyUsageRow
+	err := row.Scan(&i.DailyLimit, &i.UsedToday)
+	return i, err
+}
+
 const recordRefundOutcome = `-- name: RecordRefundOutcome :one
 UPDATE refunds
 SET status = $1,

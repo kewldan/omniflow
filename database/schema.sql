@@ -2707,7 +2707,7 @@ CREATE TABLE public.installation_settings (
     version integer DEFAULT 1 NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_by uuid,
-    CONSTRAINT installation_settings_section_known CHECK ((section = ANY (ARRAY['branding'::text, 'remnawave'::text, 'telegram'::text, 'operator_group'::text, 'required_channels'::text, 'maintenance'::text, 'notifications'::text, 'telemetry'::text, 'backup'::text, 'security'::text, 'ai'::text, 'mcp'::text, 'customer_auth'::text, 'theme'::text, 'analytics'::text, 'bot'::text, 'support'::text, 'reports'::text, 'access'::text, 'moderation'::text]))),
+    CONSTRAINT installation_settings_section_known CHECK ((section = ANY (ARRAY['branding'::text, 'remnawave'::text, 'telegram'::text, 'operator_group'::text, 'required_channels'::text, 'maintenance'::text, 'notifications'::text, 'telemetry'::text, 'backup'::text, 'security'::text, 'ai'::text, 'mcp'::text, 'customer_auth'::text, 'theme'::text, 'analytics'::text, 'bot'::text, 'support'::text, 'reports'::text, 'access'::text, 'moderation'::text, 'marketing'::text]))),
     CONSTRAINT installation_settings_version_check CHECK ((version > 0))
 );
 

@@ -11,6 +11,19 @@ import (
 	"github.com/omniflow/omniflow/internal/loyalty"
 )
 
+// dailyCodeLimit refuses a code when the customer already used as many other
+// distinct codes in the last day as the marketing settings allow.
+func dailyCodeLimit(ctx context.Context, queries *dbgen.Queries, userID, promoCodeID pgtype.UUID) error {
+	usage, err := queries.PromoDailyUsage(ctx, dbgen.PromoDailyUsageParams{UserID: userID, PromoCodeID: promoCodeID})
+	if err != nil {
+		return err
+	}
+	if usage.DailyLimit > 0 && usage.UsedToday >= usage.DailyLimit {
+		return ErrPromoDailyLimit
+	}
+	return nil
+}
+
 // ErrProviderRestricted reports a payment method the customer's loyalty group
 // does not allow.
 var ErrProviderRestricted = errors.New("provider_restricted")

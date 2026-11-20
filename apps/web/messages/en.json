@@ -1735,7 +1735,8 @@
         "trial": "{value}-day trial",
         "traffic": "{value} GB of traffic",
         "balanceDays": "{value} extra days plus wallet credit",
-        "loyaltyTier": "Loyalty group for {value} days"
+        "loyaltyTier": "Loyalty group for {value} days",
+        "daysWallet": "{value} extra days plus wallet credit"
       },
       "version": {
         "open": "New version",
@@ -1925,7 +1926,8 @@
           "trial": "Trial",
           "traffic": "Extra traffic",
           "balance_days": "Extra days plus wallet credit",
-          "loyalty_tier": "Loyalty group"
+          "loyalty_tier": "Loyalty group",
+          "days_wallet": "Extra days plus wallet credit"
         },
         "value": {
           "percent": "Percent",
@@ -1935,7 +1937,8 @@
           "trial": "Trial days",
           "traffic": "Gigabytes",
           "balance_days": "Days",
-          "loyalty_tier": "Days in the group"
+          "loyalty_tier": "Days in the group",
+          "days_wallet": "Days"
         },
         "currency": "Currency",
         "credit": "Wallet credit",
@@ -3224,6 +3227,10 @@
         "access": {
           "title": "Registration",
           "description": "Who may become a customer: anybody, only people arriving by an invitation (referral link, an allowed campaign, or an invite code), or nobody new. Existing customers are never affected."
+        },
+        "marketing": {
+          "title": "Marketing",
+          "description": "Promo-code limits, the bot's start screen, the terms gate, and customers who blocked the bot."
         }
       },
       "fields": {
@@ -3331,7 +3338,8 @@
         "accessMode": "Registration",
         "allowReferrals": "Referral links count as invitations",
         "allowedCampaigns": "Campaign codes that count as invitations (comma-separated; empty means all)",
-        "inviteCodes": "Invite codes for t.me/BOT?start=inv_CODE (comma-separated)"
+        "inviteCodes": "Invite codes for t.me/BOT?start=inv_CODE (comma-separated)",
+        "promoDailyCodeLimit": "Different promo codes a customer may use per day (0 = no limit)"
       },
       "telemetryPreview": {
         "title": "What telemetry would send",
@@ -5071,7 +5079,8 @@
         "promo_ineligible": "That code does not apply to this purchase. You can continue without it.",
         "promo_exhausted": "That code has been used up. Continue without it, or ask support whether another applies.",
         "promo_invalid": "That code cannot be used here. Continue without it.",
-        "unknown": "That code was not applied. You can continue without it."
+        "unknown": "That code was not applied. You can continue without it.",
+        "promo_daily_limit": "You have used as many different promo codes today as allowed. Try again tomorrow."
       },
       "problems": {
         "addon_unavailable": "That extra is not offered with this plan.",
@@ -5132,7 +5141,9 @@
         "squad_unavailable": "One of the servers this purchase includes is not available right now. Nothing was charged; please contact support.",
         "traffic_reset_unavailable": "This subscription cannot buy a traffic reset.",
         "period_unavailable": "This plan is not sold for that period here.",
-        "provider_amount_out_of_range": "This payment method does not accept this amount. Choose another amount or method."
+        "provider_amount_out_of_range": "This payment method does not accept this amount. Choose another amount or method.",
+        "promo_daily_limit": "You have used as many different promo codes today as allowed.",
+        "rate_limited": "Too many attempts. Try again later."
       },
       "breakdown": {
         "subtotal": "Plan",

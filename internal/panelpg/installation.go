@@ -53,6 +53,9 @@ var settingSections = map[string]bool{
 	// Read by the bot, the support desk, the report scheduler, sign-up, and
 	// moderation. See internal/installsettings.
 	"bot": true, "support": true, "reports": true, "access": true, "moderation": true,
+	// Promo-code limits, the start screen, tips, the terms gate, and blocked
+	// customers, read by the bot, the checkout, and the API.
+	"marketing": true,
 	// The palette is a section like any other — a document, a version guard,
 	// an audit event — but it is never edited through the generic settings
 	// renderer, because a colour is not a text field. See branding.go.

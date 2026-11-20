@@ -855,6 +855,9 @@ var catalog = map[string]phrase{
 	"gift.claimedTraffic":     {ru: "К текущему периоду подписки добавлено %d ГБ трафика.", en: "%d GB of traffic was added to your current subscription period."},
 	"gift.claimedTier":        {ru: "Вам открыт новый уровень лояльности — скидки уже действуют.", en: "A new loyalty tier is now yours — its discounts already apply."},
 	"event.renewalLowBalance": {ru: "💳 <b>Не хватает баланса для автопродления</b>\n\nЧерез %s подписка продлится с баланса, но на нём не хватает %s. Пополните кошелёк, чтобы продление прошло.", en: "💳 <b>Your balance will not cover auto-renew</b>\n\nIn %s your subscription renews from your wallet, which is %s short. Top up so the renewal goes through."},
+	"code.claimedTraffic":     {ru: "К подписке добавлено <b>%d ГБ</b> трафика.", en: "<b>%d GB</b> of traffic added to your subscription."},
+	"code.claimedTier":        {ru: "Вы в группе «<b>%s</b>».", en: "You are now in the “<b>%s</b>” group."},
+	"promo.promo_daily_limit": {ru: "Сегодня вы уже использовали максимум разных промокодов. Попробуйте завтра.", en: "You have used as many different promo codes today as allowed. Try again tomorrow."},
 }
 
 // formatMoney renders an integer minor-unit amount for display. Telegram Stars

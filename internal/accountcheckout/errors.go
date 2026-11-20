@@ -73,6 +73,8 @@ const (
 	PromoIneligible = "promo_ineligible"
 	PromoExhausted  = "promo_exhausted"
 	PromoInvalid    = "promo_invalid"
+	// PromoDailyLimit is a customer past the daily limit of distinct codes.
+	PromoDailyLimit = "promo_daily_limit"
 )
 
 // invalidInput wraps a value the customer supplied that this package refused,

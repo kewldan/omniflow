@@ -954,3 +954,17 @@ WHERE o.user_id = sqlc.arg(user_id) AND o.status = 'active'
   AND p.active AND p.applies_to = 'plans' AND p.kind IN ('percent', 'fixed')
 ORDER BY (p.kind = 'percent') DESC, p.value DESC, o.expires_at
 LIMIT 1;
+
+-- name: PromoDailyUsage :one
+-- Bedolaga's limit of distinct promo codes a customer may use in a day: the
+-- operator's limit from the marketing settings (zero is no limit), and how
+-- many other codes the customer redeemed in the last 24 hours on orders that
+-- did not close unpaid.
+SELECT
+  COALESCE((SELECT (s.document->>'promoDailyCodeLimit')::int FROM installation_settings s
+    WHERE s.section = 'marketing' AND s.document->>'promoDailyCodeLimit' ~ '^[0-9]+$'), 0)::int AS daily_limit,
+  (SELECT count(DISTINCT r.promo_code_id) FROM promo_redemptions r
+    JOIN orders o ON o.id = r.order_id
+    WHERE r.user_id = sqlc.arg(user_id) AND r.promo_code_id <> sqlc.arg(promo_code_id)
+      AND r.redeemed_at > now() - interval '24 hours'
+      AND o.state NOT IN ('cancelled', 'expired'))::int AS used_today;

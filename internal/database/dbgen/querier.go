@@ -1733,6 +1733,11 @@ type Querier interface {
 	PaymentHealthByProvider(ctx context.Context, arg PaymentHealthByProviderParams) ([]PaymentHealthByProviderRow, error)
 	PlaceRetentionHold(ctx context.Context, arg PlaceRetentionHoldParams) (AiRetentionHold, error)
 	ProgressBlockerScan(ctx context.Context, arg ProgressBlockerScanParams) error
+	// Bedolaga's limit of distinct promo codes a customer may use in a day: the
+	// operator's limit from the marketing settings (zero is no limit), and how
+	// many other codes the customer redeemed in the last 24 hours on orders that
+	// did not close unpaid.
+	PromoDailyUsage(ctx context.Context, arg PromoDailyUsageParams) (PromoDailyUsageRow, error)
 	PruneAPITokenRequests(ctx context.Context) (int64, error)
 	PruneCustomerActivity(ctx context.Context) (int64, error)
 	// Enabling one programme disables the rest, because the partial unique index
