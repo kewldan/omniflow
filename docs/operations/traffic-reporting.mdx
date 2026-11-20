@@ -76,6 +76,26 @@ the conversion it applies divides by 1024 and calling that a gigabyte would be
 seven percent out at that scale — enough to stop an operator's arithmetic
 reconciling against their host's invoice.
 
+## Usage monitoring
+
+Two optional worker passes watch what Remnawave already counts and tell operators in the **Usage
+monitoring** topic. They change nothing in the panel and keep no traffic ledger: the only thing kept
+between passes is the previous counter reading of every user, in Valkey with an expiry. Without
+`APP_VALKEY_URL` the traffic passes stay off.
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `APP_TRAFFIC_MONITOR_FAST_THRESHOLD_GB` / `APP_TRAFFIC_MONITOR_FAST_INTERVAL_MINUTES` | off / `10` | Every interval, report users whose `usedTrafficBytes` grew by at least this many gigabytes since the previous pass |
+| `APP_TRAFFIC_MONITOR_DAILY_THRESHOLD_GB` | off | Once a day, the same over 24 hours |
+| `APP_TRAFFIC_MONITOR_NODES` / `APP_TRAFFIC_MONITOR_IGNORED_NODES` | none | Node UUIDs: watch only users last connected through these, or leave users of these out (`lastConnectedNodeUuid`) |
+| `APP_TRAFFIC_MONITOR_EXCLUDED_USERS` | none | Panel user IDs never reported |
+| `APP_TRAFFIC_MONITOR_COOLDOWN_MINUTES` | `60` | How long a reported user is not reported again |
+| `APP_DEVICE_OVERFLOW_REPORT` | `false` | Once a day, list users with more devices active in the last 30 days (`GET /api/hwid/devices`) than their `hwidDeviceLimit`; a limit of 0 is unlimited |
+
+Disabled and expired users are skipped, and a counter that went down — a reset — is a new starting
+point rather than a negative spike. The first pass of each kind only takes a reading. A notice names
+the panel user IDs (at most 20, then a count), the window, and the threshold.
+
 ## Permissions
 
 Both routes need `customers.read`. The half that matters names customers and

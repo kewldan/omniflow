@@ -218,6 +218,32 @@ type UserTraffic struct {
 	UsedBytes     int64      `json:"usedTrafficBytes"`
 	LifetimeBytes int64      `json:"lifetimeUsedTrafficBytes"`
 	OnlineAt      *time.Time `json:"onlineAt"`
+	// LastConnectedNodeUUID is the node the user last connected through.
+	LastConnectedNodeUUID string `json:"lastConnectedNodeUuid"`
+}
+
+// PanelDevice is one HWID device in the panel-wide device list.
+type PanelDevice struct {
+	UserID    int64     `json:"userId"`
+	Platform  *string   `json:"platform"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// AllDevices pages through every HWID device the panel knows. The hardware
+// ID is deliberately not decoded: the passes that read this count devices,
+// they do not identify them.
+func (client *Client) AllDevices(ctx context.Context, start, size int) ([]PanelDevice, int, error) {
+	endpoint := "/api/hwid/devices?start=" + strconv.Itoa(start) + "&size=" + strconv.Itoa(size)
+	var envelope struct {
+		Response struct {
+			Devices []PanelDevice `json:"devices"`
+			Total   int           `json:"total"`
+		} `json:"response"`
+	}
+	if err := client.get(ctx, endpoint, &envelope); err != nil {
+		return nil, 0, err
+	}
+	return envelope.Response.Devices, envelope.Response.Total, nil
 }
 
 type Subscription struct {

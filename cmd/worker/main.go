@@ -29,6 +29,7 @@ import (
 	"github.com/omniflow/omniflow/internal/paymentservice"
 	"github.com/omniflow/omniflow/internal/platform"
 	"github.com/omniflow/omniflow/internal/remnawave"
+	"github.com/omniflow/omniflow/internal/remnawavesync"
 	"github.com/omniflow/omniflow/internal/renewal"
 	"github.com/omniflow/omniflow/internal/retention"
 	"github.com/omniflow/omniflow/internal/sweeper"
@@ -133,6 +134,12 @@ func main() {
 		logger.Error("initialize periodic tasks", "error", err)
 		os.Exit(1)
 	}
+	monitoring, err := monitoringTasks(logger, cfg, pool, remnawaveClient, gate(pool))
+	if err != nil {
+		logger.Error("initialize usage monitoring", "error", err)
+		os.Exit(1)
+	}
+	tasks = append(tasks, monitoring...)
 	periodicWorker, schedule, err := jobs.NewPeriodic(logger, tasks...)
 	if err != nil {
 		logger.Error("initialize periodic tasks", "error", err)
@@ -375,4 +382,58 @@ func startOperationalServer(logger *slog.Logger, cfg config.WorkerConfig, pool *
 		}
 	}()
 	return server
+}
+
+func gate(pool *pgxpool.Pool) *jobs.Gate { return jobs.NewGate(pool) }
+
+// monitoringTasks are the read-only usage passes over Remnawave: unusual
+// traffic growth and devices over their limit. They report to operators and
+// change nothing in the panel.
+func monitoringTasks(
+	logger *slog.Logger, cfg config.WorkerConfig, pool *pgxpool.Pool,
+	panel *remnawave.Client, claims *jobs.Gate,
+) ([]jobs.Task, error) {
+	settings, err := remnawavesync.MonitorSettingsFromEnv(os.Getenv)
+	if err != nil {
+		return nil, err
+	}
+	var store remnawavesync.SnapshotStore
+	if cfg.ValkeyURL != "" {
+		client, clientErr := platform.NewValkeyClient(cfg.ValkeyURL)
+		if clientErr != nil {
+			return nil, clientErr
+		}
+		store = remnawavesync.ValkeySnapshots{Client: client}
+	} else if settings.FastInterval > 0 || settings.DailyThresholdBytes > 0 {
+		logger.Warn("traffic monitoring is off: it keeps its readings in Valkey and APP_VALKEY_URL is not set")
+	}
+	monitor := remnawavesync.NewMonitor(pool, panel, store, settings, logger)
+	var tasks []jobs.Task
+	if settings.FastInterval > 0 && store != nil {
+		tasks = append(tasks, jobs.Task{Name: "traffic_monitor_fast", Interval: settings.FastInterval, Timeout: 10 * time.Minute,
+			Run: func(ctx context.Context) error {
+				return monitor.TrafficPass(ctx, "fast", settings.FastThresholdBytes, 3*settings.FastInterval)
+			}})
+	}
+	if settings.DailyThresholdBytes > 0 && store != nil {
+		tasks = append(tasks, jobs.Task{Name: "traffic_monitor_daily", Interval: time.Hour, Timeout: 30 * time.Minute,
+			Run: func(ctx context.Context) error {
+				due, claimErr := claims.Claim(ctx, "traffic_monitor_daily", 24*time.Hour)
+				if claimErr != nil || !due {
+					return claimErr
+				}
+				return monitor.TrafficPass(ctx, "daily", settings.DailyThresholdBytes, 49*time.Hour)
+			}})
+	}
+	if settings.DeviceReport {
+		tasks = append(tasks, jobs.Task{Name: "device_overflow_report", Interval: time.Hour, Timeout: 30 * time.Minute,
+			Run: func(ctx context.Context) error {
+				due, claimErr := claims.Claim(ctx, "device_overflow_report", 24*time.Hour)
+				if claimErr != nil || !due {
+					return claimErr
+				}
+				return monitor.DeviceOverflowPass(ctx, time.Now())
+			}})
+	}
+	return tasks, nil
 }
