@@ -3253,6 +3253,48 @@ COMMENT ON COLUMN public.notification_deliveries.error_code IS 'Why a message wa
 
 
 --
+-- Name: offer_sends; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.offer_sends (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    template_id uuid NOT NULL,
+    segment_id uuid NOT NULL,
+    offered integer DEFAULT 0 NOT NULL,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: offer_templates; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.offer_templates (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    code text NOT NULL,
+    promotion_id uuid NOT NULL,
+    plan_id uuid,
+    title_ru text NOT NULL,
+    title_en text NOT NULL,
+    terms_ru text DEFAULT ''::text NOT NULL,
+    terms_en text DEFAULT ''::text NOT NULL,
+    valid_hours integer DEFAULT 168 NOT NULL,
+    activation_hours integer,
+    bonus_minor bigint DEFAULT 0 NOT NULL,
+    bonus_currency text,
+    created_by uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    archived_at timestamp with time zone,
+    CONSTRAINT offer_templates_bonus CHECK (((bonus_minor >= 0) AND ((bonus_minor = 0) OR (bonus_currency ~ '^[A-Z]{3}$'::text)))),
+    CONSTRAINT offer_templates_code_shape CHECK ((code ~ '^[a-z][a-z0-9_-]{1,63}$'::text)),
+    CONSTRAINT offer_templates_hours CHECK ((((valid_hours >= 1) AND (valid_hours <= 8760)) AND ((activation_hours IS NULL) OR ((activation_hours >= 1) AND (activation_hours <= 8760))))),
+    CONSTRAINT offer_templates_terms CHECK (((char_length(terms_ru) <= 1000) AND (char_length(terms_en) <= 1000))),
+    CONSTRAINT offer_templates_titles CHECK ((((char_length(title_ru) >= 1) AND (char_length(title_ru) <= 120)) AND ((char_length(title_en) >= 1) AND (char_length(title_en) <= 120))))
+);
+
+
+--
 -- Name: operator_notifications; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -3604,6 +3646,12 @@ CREATE TABLE public.personal_offers (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     resolved_at timestamp with time zone,
     notify_email boolean DEFAULT false NOT NULL,
+    template_id uuid,
+    activation_hours integer,
+    activated_at timestamp with time zone,
+    bonus_minor bigint DEFAULT 0 NOT NULL,
+    bonus_currency text,
+    CONSTRAINT personal_offers_bonus CHECK (((bonus_minor >= 0) AND ((bonus_minor = 0) OR (bonus_currency ~ '^[A-Z]{3}$'::text)) AND ((activation_hours IS NULL) OR ((activation_hours >= 1) AND (activation_hours <= 8760))))),
     CONSTRAINT personal_offers_redemption_complete CHECK (((status = 'redeemed'::text) = (order_id IS NOT NULL))),
     CONSTRAINT personal_offers_status_check CHECK ((status = ANY (ARRAY['active'::text, 'redeemed'::text, 'dismissed'::text, 'expired'::text, 'revoked'::text]))),
     CONSTRAINT personal_offers_terms_en_check CHECK ((char_length(terms_en) <= 1000)),
@@ -6429,6 +6477,30 @@ ALTER TABLE ONLY public.notice_test_sends
 
 ALTER TABLE ONLY public.notification_deliveries
     ADD CONSTRAINT notification_deliveries_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: offer_sends offer_sends_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.offer_sends
+    ADD CONSTRAINT offer_sends_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: offer_templates offer_templates_code_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.offer_templates
+    ADD CONSTRAINT offer_templates_code_key UNIQUE (code);
+
+
+--
+-- Name: offer_templates offer_templates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.offer_templates
+    ADD CONSTRAINT offer_templates_pkey PRIMARY KEY (id);
 
 
 --
@@ -10039,6 +10111,54 @@ ALTER TABLE ONLY public.notification_deliveries
 
 
 --
+-- Name: offer_sends offer_sends_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.offer_sends
+    ADD CONSTRAINT offer_sends_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.admin_users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: offer_sends offer_sends_segment_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.offer_sends
+    ADD CONSTRAINT offer_sends_segment_id_fkey FOREIGN KEY (segment_id) REFERENCES public.audience_segments(id);
+
+
+--
+-- Name: offer_sends offer_sends_template_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.offer_sends
+    ADD CONSTRAINT offer_sends_template_id_fkey FOREIGN KEY (template_id) REFERENCES public.offer_templates(id);
+
+
+--
+-- Name: offer_templates offer_templates_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.offer_templates
+    ADD CONSTRAINT offer_templates_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.admin_users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: offer_templates offer_templates_plan_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.offer_templates
+    ADD CONSTRAINT offer_templates_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.plans(id);
+
+
+--
+-- Name: offer_templates offer_templates_promotion_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.offer_templates
+    ADD CONSTRAINT offer_templates_promotion_id_fkey FOREIGN KEY (promotion_id) REFERENCES public.promotions(id);
+
+
+--
 -- Name: order_addon_lines order_addon_lines_addon_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -10188,6 +10308,14 @@ ALTER TABLE ONLY public.personal_offers
 
 ALTER TABLE ONLY public.personal_offers
     ADD CONSTRAINT personal_offers_promotion_id_fkey FOREIGN KEY (promotion_id) REFERENCES public.promotions(id);
+
+
+--
+-- Name: personal_offers personal_offers_template_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.personal_offers
+    ADD CONSTRAINT personal_offers_template_id_fkey FOREIGN KEY (template_id) REFERENCES public.offer_templates(id);
 
 
 --

@@ -2492,6 +2492,34 @@
         "title": "What the customer will see",
         "approximation": "An approximation of the Telegram message, not a live render — the bot draws the real one.",
         "missing": "No title for this language"
+      },
+      "templates": {
+        "title": "Offer templates",
+        "description": "A reusable offer you send to a whole segment at once. With a discount timer, the offer waits to be taken and its discount runs for that many hours from then; a bonus is credited to the balance when it is taken. Sending twice offers nobody twice.",
+        "columns": {
+          "template": "Template",
+          "window": "Window",
+          "bonus": "Bonus",
+          "send": "Send to a segment"
+        },
+        "window": "can be taken for {hours} h",
+        "timer": "then runs {hours} h",
+        "segment": "Segment",
+        "sendButton": "Send",
+        "sent": "{count, plural, one {# customer} other {# customers}} received the offer",
+        "sendFailed": "The offer was not sent.",
+        "code": "Code",
+        "promotion": "Discount",
+        "pickPromotion": "Pick a discount promotion",
+        "titleRu": "Title (RU)",
+        "titleEn": "Title (EN)",
+        "validHours": "Can be taken for, hours",
+        "activationHours": "Discount timer, hours",
+        "noTimer": "No timer",
+        "bonus": "Balance bonus, ₽",
+        "save": "Save template",
+        "saved": "Template saved",
+        "invalid": "Not saved: check the code, the hours, and the bonus."
       }
     },
     "bulk": {

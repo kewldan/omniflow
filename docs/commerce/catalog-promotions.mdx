@@ -539,6 +539,24 @@ The offer shows the promotion's first active promo code by creation order. A pro
   `per_customer_limit`.
 </Warning>
 
+### Offer templates and sending to a segment
+
+`/admin/offers` → **Offer templates** (`marketing.write`) saves a reusable offer — Bedolaga's promo
+offer template — and sends it to a whole [audience segment](/commerce/campaigns) at once:
+
+| Field | Meaning |
+| --- | --- |
+| `promotionId` | The discount promotion the offer applies |
+| `validHours` | How long a sent offer can be used — or, with a timer, taken |
+| `activationHours` | A discount timer: the offer does not apply by itself until the customer takes it (**✨ Your offer** in the bot), and from then it runs for that many hours |
+| `bonusMinor`, `bonusCurrency` | A balance bonus credited, once, when the customer takes the offer (ledger key `offer-bonus:<offer>`) |
+
+`PUT /v1/panel/offers/templates` saves a template by code; `POST
+/v1/panel/offers/templates/{templateID}/send` with `{"segmentId": "…"}` creates one personal offer
+per active customer of the segment in one statement and answers how many it created. A customer who
+already holds a live offer of the same promotion is skipped, so sending twice offers nobody twice.
+Each send is recorded in `offer_sends` and audited as `panel.offer_template.sent`.
+
 ## What the admin panel cannot do
 
 `/admin/catalog` can publish plan versions, toggle plan visibility, save add-ons, retire add-on versions, edit a promotion's numbers, and toggle a promo code's active flag. Everything below needs an API call, and the last two need SQL:

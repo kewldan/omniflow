@@ -1108,6 +1108,8 @@ JOIN promotions p ON p.id = o.promotion_id
 JOIN promo_codes c ON c.promotion_id = p.id AND c.active
 WHERE o.user_id = $1 AND o.status = 'active'
   AND o.starts_at <= now() AND o.expires_at > now()
+  -- An offer with a discount timer applies only once the customer activated it.
+  AND (o.activation_hours IS NULL OR o.activated_at IS NOT NULL)
   AND p.active AND p.applies_to = 'plans' AND p.kind IN ('percent', 'fixed')
 ORDER BY (p.kind = 'percent') DESC, p.value DESC, o.expires_at
 LIMIT 1

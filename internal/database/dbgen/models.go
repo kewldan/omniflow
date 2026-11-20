@@ -1662,6 +1662,33 @@ type NotificationDelivery struct {
 	SubscriptionID pgtype.UUID        `json:"subscription_id"`
 }
 
+type OfferSend struct {
+	ID         pgtype.UUID        `json:"id"`
+	TemplateID pgtype.UUID        `json:"template_id"`
+	SegmentID  pgtype.UUID        `json:"segment_id"`
+	Offered    int32              `json:"offered"`
+	CreatedBy  pgtype.UUID        `json:"created_by"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type OfferTemplate struct {
+	ID              pgtype.UUID        `json:"id"`
+	Code            string             `json:"code"`
+	PromotionID     pgtype.UUID        `json:"promotion_id"`
+	PlanID          pgtype.UUID        `json:"plan_id"`
+	TitleRu         string             `json:"title_ru"`
+	TitleEn         string             `json:"title_en"`
+	TermsRu         string             `json:"terms_ru"`
+	TermsEn         string             `json:"terms_en"`
+	ValidHours      int32              `json:"valid_hours"`
+	ActivationHours pgtype.Int4        `json:"activation_hours"`
+	BonusMinor      int64              `json:"bonus_minor"`
+	BonusCurrency   pgtype.Text        `json:"bonus_currency"`
+	CreatedBy       pgtype.UUID        `json:"created_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	ArchivedAt      pgtype.Timestamptz `json:"archived_at"`
+}
+
 type OperatorNotification struct {
 	ID        pgtype.UUID        `json:"id"`
 	Kind      string             `json:"kind"`
@@ -1855,22 +1882,27 @@ type PeriodicTaskRun struct {
 }
 
 type PersonalOffer struct {
-	ID          pgtype.UUID        `json:"id"`
-	UserID      pgtype.UUID        `json:"user_id"`
-	PromotionID pgtype.UUID        `json:"promotion_id"`
-	PlanID      pgtype.UUID        `json:"plan_id"`
-	TitleRu     string             `json:"title_ru"`
-	TitleEn     string             `json:"title_en"`
-	TermsRu     string             `json:"terms_ru"`
-	TermsEn     string             `json:"terms_en"`
-	Status      string             `json:"status"`
-	StartsAt    pgtype.Timestamptz `json:"starts_at"`
-	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
-	OrderID     pgtype.UUID        `json:"order_id"`
-	CreatedBy   pgtype.UUID        `json:"created_by"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	ResolvedAt  pgtype.Timestamptz `json:"resolved_at"`
-	NotifyEmail bool               `json:"notify_email"`
+	ID              pgtype.UUID        `json:"id"`
+	UserID          pgtype.UUID        `json:"user_id"`
+	PromotionID     pgtype.UUID        `json:"promotion_id"`
+	PlanID          pgtype.UUID        `json:"plan_id"`
+	TitleRu         string             `json:"title_ru"`
+	TitleEn         string             `json:"title_en"`
+	TermsRu         string             `json:"terms_ru"`
+	TermsEn         string             `json:"terms_en"`
+	Status          string             `json:"status"`
+	StartsAt        pgtype.Timestamptz `json:"starts_at"`
+	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
+	OrderID         pgtype.UUID        `json:"order_id"`
+	CreatedBy       pgtype.UUID        `json:"created_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	ResolvedAt      pgtype.Timestamptz `json:"resolved_at"`
+	NotifyEmail     bool               `json:"notify_email"`
+	TemplateID      pgtype.UUID        `json:"template_id"`
+	ActivationHours pgtype.Int4        `json:"activation_hours"`
+	ActivatedAt     pgtype.Timestamptz `json:"activated_at"`
+	BonusMinor      int64              `json:"bonus_minor"`
+	BonusCurrency   pgtype.Text        `json:"bonus_currency"`
 }
 
 type Plan struct {

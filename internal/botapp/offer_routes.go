@@ -3,6 +3,7 @@ package botapp
 import (
 	"context"
 	"errors"
+	"github.com/omniflow/omniflow/internal/commercepg"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -125,6 +126,12 @@ func (app *App) offersScreen(ctx context.Context, session commerceContext) View 
 // not used anything — and burning a single-use offer on a tap would be taking
 // something from them for nothing.
 func (app *App) takeOffer(ctx context.Context, session commerceContext, offerID string) View {
+	// Taking an offer activates it: its discount timer starts now and its
+	// balance bonus, if it carries one, is paid once.
+	activation, activateErr := app.commerce.orders.ActivatePersonalOffer(ctx, session.Customer.ID, offerID)
+	if activateErr != nil && !errors.Is(activateErr, commercepg.ErrOfferUnavailable) {
+		app.logger.Error("offer activation failed", "error", activateErr)
+	}
 	offers, err := app.customers.ActiveOffers(ctx, session.Customer.ID, session.Locale, 5)
 	if err != nil {
 		app.logger.Error("offer lookup failed", "error", err)
@@ -134,7 +141,11 @@ func (app *App) takeOffer(ctx context.Context, session commerceContext, offerID 
 		if offer.ID != offerID {
 			continue
 		}
-		return offerDetailView(session.Locale, offer, time.Now().UTC())
+		view := offerDetailView(session.Locale, offer, time.Now().UTC())
+		if activation.Activated && activation.BonusMinor > 0 {
+			view.Text = text(session.Locale, "offer.bonusCredited", formatMoney(activation.BonusMinor, activation.Currency)) + "\n\n" + view.Text
+		}
+		return view
 	}
 	return app.offersScreen(ctx, session)
 }

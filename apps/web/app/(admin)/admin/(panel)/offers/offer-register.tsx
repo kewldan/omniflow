@@ -16,6 +16,7 @@ import { useSession } from "@/lib/session";
 import { useUrlFilters } from "@/lib/use-url-filters";
 
 import { OfferComposer } from "./offer-composer";
+import { OfferTemplatesCard } from "./offer-templates";
 
 const STATUSES = ["", "active", "redeemed", "dismissed", "expired", "revoked"] as const;
 
@@ -68,6 +69,8 @@ export function OfferRegister() {
           }}
         />
       )}
+
+      {can("marketing.write") && <OfferTemplatesCard />}
 
       <div className="flex flex-wrap items-end gap-2">
         {STATUSES.map((status) => (
