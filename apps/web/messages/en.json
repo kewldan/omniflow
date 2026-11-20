@@ -3443,6 +3443,80 @@
         "reject": "Decline",
         "decided": "This application was already decided.",
         "invalid": "Check the rates: each is between 0 and 100%."
+      },
+      "games": {
+        "title": "Daily games",
+        "description": "Seven games customers play from the bot and the Invites screen. Results come from crypto/rand on the server; a prize is paid in the play's own transaction. A game that cannot pay its prize again today — the daily budget or number of prizes is used up — closes until tomorrow (UTC). Customers younger than the wheel's minimum age cannot play.",
+        "names": {
+          "dice": "Dice",
+          "slots": "Slots",
+          "guess_number": "Guess the number",
+          "lucky_ticket": "Lucky ticket",
+          "quiz": "Quiz",
+          "daily_streak": "Daily streak",
+          "first_to_answer": "First to answer"
+        },
+        "rules": {
+          "dice": "One die; the customer wins at or above the threshold.",
+          "slots": "Three reels of six symbols; three of a kind wins (1 in 36).",
+          "guess_number": "The customer picks 1..N; the secret is drawn after the pick.",
+          "lucky_ticket": "A random six-digit ticket; lucky when both halves sum alike (about 5.5%).",
+          "quiz": "One question a day the customer has not answered yet; a right answer wins.",
+          "daily_streak": "One check-in a day; every N-th day in a row wins.",
+          "first_to_answer": "A round is open for a day; the first N right answers win."
+        },
+        "parameter": {
+          "dice": "Win at or above (1–6)",
+          "guess_number": "Numbers (2–10)",
+          "daily_streak": "Win every N days (2–30)",
+          "first_to_answer": "Winners per round (1–100)"
+        },
+        "win": "win {percent}%",
+        "rtp": "return {percent}%",
+        "today": "Today: {plays} plays, {wins} prizes, {paid} paid",
+        "prizeKind": "Prize",
+        "prizeKinds": {
+          "wallet": "Wallet credit",
+          "days": "Subscription days",
+          "promo": "Personal offer"
+        },
+        "prizeAmount": "Amount, ₽",
+        "prizeDays": "Days",
+        "template": "Offer template",
+        "pickTemplate": "Choose a template",
+        "playsPerDay": "Plays per customer per day",
+        "cost": "Entry fee, ₽ (0 = free)",
+        "targetRtp": "Target return, % of the fee",
+        "budget": "Daily budget, ₽ (0 = none)",
+        "limit": "Prizes per day (0 = no limit)",
+        "save": "Save",
+        "rtpExceeded": "The expected payout is above the target return of the entry fee.",
+        "invalid": "Check the settings: days prizes need the days plan set on the fortune wheel, a promo prize a live template, and every number must be in range.",
+        "questions": {
+          "title": "Quiz questions and first-to-answer rounds",
+          "description": "A quiz question is asked from its moment on, one a day, to customers who have not answered it. A first-to-answer round is open for 24 hours from its moment. Customers never see the right answer.",
+          "empty": "No questions yet.",
+          "games": {
+            "quiz": "Quiz",
+            "first_to_answer": "First to answer"
+          },
+          "answer": "answer: {answer}",
+          "counts": "{answers} answered, {winners} won",
+          "archived": "Withdrawn",
+          "archive": "Withdraw",
+          "game": "Game",
+          "opensAt": "Opens at",
+          "now": "Now",
+          "hour": "Hour",
+          "minute": "Minute",
+          "questionRu": "Question in Russian",
+          "questionEn": "Question in English",
+          "options": "Answers, one per line: Russian | English",
+          "optionsPlaceholder": "Москва | Moscow",
+          "correct": "Number of the right answer",
+          "create": "Add",
+          "invalid": "Check the question: both languages, two to six answers, and the right answer's number among them."
+        }
       }
     },
     "installationSettings": {
@@ -4908,6 +4982,53 @@
         "apply": "Apply",
         "sent": "Application sent",
         "failed": "The application could not be sent"
+      },
+      "games": {
+        "title": "Daily games",
+        "fairness": "Every result is drawn on our server by a cryptographically secure random generator, after you choose. Prizes are credited at once.",
+        "name": {
+          "dice": "🎲 Dice",
+          "slots": "🎰 Slots",
+          "guess_number": "🔢 Guess the number",
+          "lucky_ticket": "🎫 Lucky ticket",
+          "quiz": "❓ Quiz",
+          "daily_streak": "🔥 Daily streak",
+          "first_to_answer": "⚡ First to answer"
+        },
+        "rules": {
+          "dice": "Roll the die: {count} or higher wins.",
+          "slots": "Three of a kind wins.",
+          "guess_number": "Pick a number from 1 to {count}; the secret is drawn after you pick.",
+          "lucky_ticket": "A ticket is lucky when its first three digits add up to its last three.",
+          "quiz": "Answer the question; a right answer wins.",
+          "daily_streak": "Check in every day: every {count}th day in a row wins.",
+          "first_to_answer": "The first {count} right answers win."
+        },
+        "play": {
+          "dice": "Roll",
+          "slots": "Spin",
+          "lucky_ticket": "Draw a ticket",
+          "daily_streak": "Check in"
+        },
+        "left": "{count} left today",
+        "prize": "Prize: {prize}",
+        "cost": "entry {amount}",
+        "streak": "streak {count} days",
+        "days": "{count, plural, one {# day} other {# days}} of subscription",
+        "closed": "Today's prizes are taken; come back tomorrow.",
+        "noQuestion": "There is no question right now.",
+        "doneToday": "That's all for today.",
+        "won": "You won! The prize is yours.",
+        "lost": "no luck this time",
+        "failed": "The game could not be played",
+        "result": {
+          "dice": "You rolled {roll}",
+          "guess": "You picked {guess}; the number was {secret}",
+          "ticket": "Ticket {ticket}",
+          "streak": "Streak: {count} days",
+          "right": "Right",
+          "wrong": "Wrong"
+        }
       }
     },
     "shop": {

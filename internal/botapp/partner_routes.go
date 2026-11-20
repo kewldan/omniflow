@@ -80,15 +80,18 @@ func bpsPercent(bps *int32) string {
 	return fmt.Sprintf("%.2f%%", float64(*bps)/100)
 }
 
-// withReferralExtras adds the partner programme and the daily games to the
-// invitation screen, above its back button.
-func (app *App) withReferralExtras(view View, locale Locale) View {
+// withReferralExtras adds the partner programme and, when any is switched
+// on, the daily games to the invitation screen, above its back button.
+func (app *App) withReferralExtras(view View, locale Locale, games bool) View {
 	if view.Keyboard == nil || len(view.Keyboard.InlineKeyboard) == 0 {
 		return view
 	}
 	extra := [][]models.InlineKeyboardButton{}
 	if app.partners != nil {
 		extra = append(extra, row(actionButton(text(locale, "partner.open"), "partner")))
+	}
+	if games {
+		extra = append(extra, row(actionButton(text(locale, "games.open"), "games")))
 	}
 	if len(extra) == 0 {
 		return view

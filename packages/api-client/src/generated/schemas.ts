@@ -14519,6 +14519,52 @@ export const SpinAccountWheelHeader = zod.object({
 export const SpinAccountWheelResponse = zod.record(zod.string(), zod.unknown());
 
 /**
+ * The daily games the operator switched on, each with its prize, entry fee, plays left today, whether it has paid out what it may today, and — for the quiz and first-to-answer — the question to answer, never its correct answer. Also the customer's last ten plays.
+ */
+export const ListAccountGamesResponse = zod.record(zod.string(), zod.unknown());
+
+/**
+ * Plays one game once. Draws use crypto/rand; a guess is drawn against after it is made. The fee, the draw or answer, the play, and the prize commit together; a replay with the same Idempotency-Key returns the play already made. Refused over the daily limit, when the game has paid out today's budget or prizes, and for accounts younger than the operator's minimum.
+ */
+export const PlayAccountGameParams = zod.object({
+  code: zod.enum([
+    "dice",
+    "slots",
+    "guess_number",
+    "lucky_ticket",
+    "quiz",
+    "daily_streak",
+    "first_to_answer",
+  ]),
+});
+
+export const playAccountGameHeaderIdempotencyKeyMin = 8;
+export const playAccountGameHeaderIdempotencyKeyMax = 128;
+
+export const PlayAccountGameHeader = zod.object({
+  "Idempotency-Key": zod
+    .string()
+    .min(playAccountGameHeaderIdempotencyKeyMin)
+    .max(playAccountGameHeaderIdempotencyKeyMax),
+});
+
+export const playAccountGameBodyChoiceMin = 0;
+
+export const PlayAccountGameBody = zod.object({
+  choice: zod
+    .int()
+    .min(playAccountGameBodyChoiceMin)
+    .optional()
+    .describe("The number for guess_number; the answer's index for quiz and first_to_answer."),
+  questionId: zod
+    .uuid()
+    .optional()
+    .describe("The question being answered, for quiz and first_to_answer."),
+});
+
+export const PlayAccountGameResponse = zod.record(zod.string(), zod.unknown());
+
+/**
  * The open polls and the customer's own answer to each; never other customers' answers.
  */
 export const ListAccountPollsResponse = zod.record(zod.string(), zod.unknown());

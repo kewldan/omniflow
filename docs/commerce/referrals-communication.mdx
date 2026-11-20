@@ -420,5 +420,63 @@ answers once; the reward is paid once, and only to an account older than the
 minimum age (a younger one may still answer). Customers never see how others
 answered; the panel shows the counts and can close a poll early.
 
-Daily games beyond the free daily spin (Bedolaga's seven contest types) are not
-reproduced.
+## Daily games
+
+Bedolaga's seven daily contests, configured in **Marketing → Daily games**
+(`marketing.write`; reading needs `marketing.read`) and played in the bot —
+**🎲 Daily games** on the invitation screen, shown once a game is on — and on the
+web panel's **Invites** screen.
+
+| Game | How it is decided | Chance to win |
+| --- | --- | --- |
+| Dice | One die from `crypto/rand`; wins at or above the threshold you set (1–6) | (7 − threshold) / 6 |
+| Slots | Three independent reels of six symbols; three of a kind wins | 1 in 36 |
+| Guess the number | The customer picks 1..N (2–10); the secret is drawn **after** the pick | 1 / N |
+| Lucky ticket | A six-digit ticket; lucky when the first three digits add up to the last three | 55 252 in 10⁶ ≈ 5.5% |
+| Quiz | One multiple-choice question a day: the oldest open question the customer has not answered yet | knowledge |
+| Daily streak | One check-in a day; every N-th day in a row (2–30) wins | 1 / N per check-in |
+| First to answer | A multiple-choice round open for 24 hours; the first N right answers (1–100) win | speed and knowledge |
+
+**Fairness.** Every draw is made on the server with `crypto/rand`, so no
+earlier result predicts the next; a guess is drawn against after it is made, so
+nothing the customer saw beforehand carries the answer. The outcome — the roll,
+the reels, the secret, the ticket, the streak, the answer — is stored with the
+play, and the customer never sees a question's right answer. First-to-answer
+ranks answers by commit order under serializable isolation: of two right answers
+racing for the last place, one wins and the other is told the round is over. The
+quiz and first-to-answer are decided by knowledge, not chance; an answer passed
+between customers cannot be prevented, which is why those games pay a fixed
+prize rather than a draw and why each customer answers a question once.
+
+**Prizes and limits.** A prize is wallet credit, days of the plan version set as
+the wheel's days plan, or a personal offer from an [offer
+template](/commerce/catalog-promotions) — a customer already holding that offer is refused
+until they use it, since a win would give them nothing. Per game you set:
+
+- plays per customer per UTC day (1–20; the quiz, the streak, and first-to-answer
+  are once a day — first-to-answer once per round);
+- a daily budget, with a prize day valued at the wheel's day value, and a daily
+  number of prizes. A game that could not pay its prize again today is closed
+  for the rest of the UTC day **before** anyone plays, so nobody wins a prize
+  that is then withheld;
+- an optional entry fee charged to the wallet, refused on save when the expected
+  payout is above the target return; the quiz and first-to-answer are counted as
+  always won for this check.
+
+Customers younger than the wheel's minimum account age cannot play. The fee, the
+draw, the play row, and the prize commit in one serializable transaction, a
+retried request with the same `Idempotency-Key` (the bot uses the tap's key)
+returns the play already made, and the prize's ledger posting is keyed on the
+play, so it is paid once. Saves are audited as `panel.engagement.game_saved`,
+`panel.engagement.game_question_created`, and
+`panel.engagement.game_question_archived`; the panel shows each game's chance,
+return, and today's plays, prizes, and payout.
+
+| Route | Who | What it does |
+| --- | --- | --- |
+| `GET /v1/account/engagement/games` | customer | The games switched on, with prize, fee, plays left, whether closed today, the question to answer, the streak, and the last ten plays |
+| `POST /v1/account/engagement/games/{code}/play` | customer | `{"choice", "questionId"}` with `Idempotency-Key`; 409 `play_limit`, `game_closed`, `question_changed`, `already_answered`, `prize_held`, or `account_too_new`; 422 `insufficient_balance` |
+| `GET /v1/panel/marketing/games` | `marketing.read` | Every game with today's figures, and the questions with their answers |
+| `PUT /v1/panel/marketing/games/{code}` | `marketing.write` | A game's settings; 422 `rtp_exceeded` |
+| `POST /v1/panel/marketing/games/questions` | `marketing.write` | `{"game", "questionRu", "questionEn", "options", "correctIndex", "opensAt"}` |
+| `POST /v1/panel/marketing/games/questions/{questionID}/archive` | `marketing.write` | Withdraws a question; plays that answered it stay |

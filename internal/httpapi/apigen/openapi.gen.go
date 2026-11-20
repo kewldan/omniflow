@@ -4409,6 +4409,39 @@ func (e AddAccountContactJSONBodyKind) Valid() bool {
 	}
 }
 
+// Defines values for PlayAccountGameParamsCode.
+const (
+	DailyStreak   PlayAccountGameParamsCode = "daily_streak"
+	Dice          PlayAccountGameParamsCode = "dice"
+	FirstToAnswer PlayAccountGameParamsCode = "first_to_answer"
+	GuessNumber   PlayAccountGameParamsCode = "guess_number"
+	LuckyTicket   PlayAccountGameParamsCode = "lucky_ticket"
+	Quiz          PlayAccountGameParamsCode = "quiz"
+	Slots         PlayAccountGameParamsCode = "slots"
+)
+
+// Valid indicates whether the value is a known member of the PlayAccountGameParamsCode enum.
+func (e PlayAccountGameParamsCode) Valid() bool {
+	switch e {
+	case DailyStreak:
+		return true
+	case Dice:
+		return true
+	case FirstToAnswer:
+		return true
+	case GuessNumber:
+		return true
+	case LuckyTicket:
+		return true
+	case Quiz:
+		return true
+	case Slots:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for StartGuestPurchaseJSONBodyLocale.
 const (
 	StartGuestPurchaseJSONBodyLocaleEn StartGuestPurchaseJSONBodyLocale = "en"
@@ -10546,6 +10579,23 @@ type UnsubscribeAccountEmailParams struct {
 	Token *string `form:"token,omitempty" json:"token,omitempty"`
 }
 
+// PlayAccountGameJSONBody defines parameters for PlayAccountGame.
+type PlayAccountGameJSONBody struct {
+	// Choice The number for guess_number; the answer's index for quiz and first_to_answer.
+	Choice *int `json:"choice,omitempty"`
+
+	// QuestionId The question being answered, for quiz and first_to_answer.
+	QuestionId *openapi_types.UUID `json:"questionId,omitempty"`
+}
+
+// PlayAccountGameParams defines parameters for PlayAccountGame.
+type PlayAccountGameParams struct {
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// PlayAccountGameParamsCode defines parameters for PlayAccountGame.
+type PlayAccountGameParamsCode string
+
 // AnswerAccountPollJSONBody defines parameters for AnswerAccountPoll.
 type AnswerAccountPollJSONBody struct {
 	Option int `json:"option"`
@@ -12607,6 +12657,9 @@ type UnsubscribeAccountEmailJSONRequestBody UnsubscribeAccountEmailJSONBody
 // UnsubscribeAccountEmailFormdataRequestBody defines body for UnsubscribeAccountEmail for application/x-www-form-urlencoded ContentType.
 type UnsubscribeAccountEmailFormdataRequestBody UnsubscribeAccountEmailFormdataBody
 
+// PlayAccountGameJSONRequestBody defines body for PlayAccountGame for application/json ContentType.
+type PlayAccountGameJSONRequestBody PlayAccountGameJSONBody
+
 // AnswerAccountPollJSONRequestBody defines body for AnswerAccountPoll for application/json ContentType.
 type AnswerAccountPollJSONRequestBody AnswerAccountPollJSONBody
 
@@ -13214,6 +13267,12 @@ type ServerInterface interface {
 
 	// (POST /v1/account/email/unsubscribe)
 	UnsubscribeAccountEmail(w http.ResponseWriter, r *http.Request, params UnsubscribeAccountEmailParams)
+
+	// (GET /v1/account/engagement/games)
+	ListAccountGames(w http.ResponseWriter, r *http.Request)
+
+	// (POST /v1/account/engagement/games/{code}/play)
+	PlayAccountGame(w http.ResponseWriter, r *http.Request, code PlayAccountGameParamsCode, params PlayAccountGameParams)
 
 	// (GET /v1/account/engagement/polls)
 	ListAccountPolls(w http.ResponseWriter, r *http.Request)
@@ -14413,6 +14472,16 @@ func (_ Unimplemented) OpenAccountEmailUnsubscribe(w http.ResponseWriter, r *htt
 
 // (POST /v1/account/email/unsubscribe)
 func (_ Unimplemented) UnsubscribeAccountEmail(w http.ResponseWriter, r *http.Request, params UnsubscribeAccountEmailParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/engagement/games)
+func (_ Unimplemented) ListAccountGames(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/engagement/games/{code}/play)
+func (_ Unimplemented) PlayAccountGame(w http.ResponseWriter, r *http.Request, code PlayAccountGameParamsCode, params PlayAccountGameParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -17108,6 +17177,74 @@ func (siw *ServerInterfaceWrapper) UnsubscribeAccountEmail(w http.ResponseWriter
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UnsubscribeAccountEmail(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAccountGames operation middleware
+func (siw *ServerInterfaceWrapper) ListAccountGames(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAccountGames(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PlayAccountGame operation middleware
+func (siw *ServerInterfaceWrapper) PlayAccountGame(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "code" -------------
+	var code PlayAccountGameParamsCode
+
+	err = runtime.BindStyledParameterWithOptions("simple", "code", chi.URLParam(r, "code"), &code, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PlayAccountGameParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PlayAccountGame(w, r, code, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -33389,6 +33526,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/v1/account/engagement/wheel/spin", wrapper.SpinAccountWheel)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/engagement/games", wrapper.ListAccountGames)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/engagement/games/{code}/play", wrapper.PlayAccountGame)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/account/engagement/polls", wrapper.ListAccountPolls)
 	})
 	r.Group(func(r chi.Router) {
@@ -34625,6 +34768,109 @@ func (response UnsubscribeAccountEmail404ApplicationProblemPlusJSONResponse) Vis
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAccountGamesRequestObject struct {
+}
+
+type ListAccountGamesResponseObject interface {
+	VisitListAccountGamesResponse(w http.ResponseWriter) error
+}
+
+type ListAccountGames200JSONResponse map[string]interface{}
+
+func (response ListAccountGames200JSONResponse) VisitListAccountGamesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PlayAccountGameRequestObject struct {
+	Code   PlayAccountGameParamsCode `json:"code"`
+	Params PlayAccountGameParams
+	Body   *PlayAccountGameJSONRequestBody
+}
+
+type PlayAccountGameResponseObject interface {
+	VisitPlayAccountGameResponse(w http.ResponseWriter) error
+}
+
+type PlayAccountGame201JSONResponse map[string]interface{}
+
+func (response PlayAccountGame201JSONResponse) VisitPlayAccountGameResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PlayAccountGame404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response PlayAccountGame404ApplicationProblemPlusJSONResponse) VisitPlayAccountGameResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PlayAccountGame409ApplicationProblemPlusJSONResponse Problem
+
+func (response PlayAccountGame409ApplicationProblemPlusJSONResponse) VisitPlayAccountGameResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PlayAccountGame422ApplicationProblemPlusJSONResponse Problem
+
+func (response PlayAccountGame422ApplicationProblemPlusJSONResponse) VisitPlayAccountGameResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PlayAccountGame429ApplicationProblemPlusJSONResponse Problem
+
+func (response PlayAccountGame429ApplicationProblemPlusJSONResponse) VisitPlayAccountGameResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(429)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -50842,6 +51088,12 @@ type StrictServerInterface interface {
 	// (POST /v1/account/email/unsubscribe)
 	UnsubscribeAccountEmail(ctx context.Context, request UnsubscribeAccountEmailRequestObject) (UnsubscribeAccountEmailResponseObject, error)
 
+	// (GET /v1/account/engagement/games)
+	ListAccountGames(ctx context.Context, request ListAccountGamesRequestObject) (ListAccountGamesResponseObject, error)
+
+	// (POST /v1/account/engagement/games/{code}/play)
+	PlayAccountGame(ctx context.Context, request PlayAccountGameRequestObject) (PlayAccountGameResponseObject, error)
+
 	// (GET /v1/account/engagement/polls)
 	ListAccountPolls(ctx context.Context, request ListAccountPollsRequestObject) (ListAccountPollsResponseObject, error)
 
@@ -52735,6 +52987,64 @@ func (sh *strictHandler) UnsubscribeAccountEmail(w http.ResponseWriter, r *http.
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(UnsubscribeAccountEmailResponseObject); ok {
 		if err := validResponse.VisitUnsubscribeAccountEmailResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAccountGames operation middleware
+func (sh *strictHandler) ListAccountGames(w http.ResponseWriter, r *http.Request) {
+	var request ListAccountGamesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAccountGames(ctx, request.(ListAccountGamesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAccountGames")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAccountGamesResponseObject); ok {
+		if err := validResponse.VisitListAccountGamesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PlayAccountGame operation middleware
+func (sh *strictHandler) PlayAccountGame(w http.ResponseWriter, r *http.Request, code PlayAccountGameParamsCode, params PlayAccountGameParams) {
+	var request PlayAccountGameRequestObject
+
+	request.Code = code
+	request.Params = params
+
+	var body PlayAccountGameJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PlayAccountGame(ctx, request.(PlayAccountGameRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PlayAccountGame")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PlayAccountGameResponseObject); ok {
+		if err := validResponse.VisitPlayAccountGameResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -5558,6 +5558,46 @@ paths:
         "201": {description: Spin, content: {application/json: {schema: {type: object, additionalProperties: true}}}}
         "409": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/account/engagement/games:
+    get:
+      operationId: listAccountGames
+      tags: [account]
+      description: >-
+        The daily games the operator switched on, each with its prize, entry
+        fee, plays left today, whether it has paid out what it may today, and —
+        for the quiz and first-to-answer — the question to answer, never its
+        correct answer. Also the customer's last ten plays.
+      responses:
+        "200": {description: Games, content: {application/json: {schema: {type: object, additionalProperties: true}}}}
+  /v1/account/engagement/games/{code}/play:
+    post:
+      operationId: playAccountGame
+      tags: [account]
+      description: >-
+        Plays one game once. Draws use crypto/rand; a guess is drawn against
+        after it is made. The fee, the draw or answer, the play, and the prize
+        commit together; a replay with the same Idempotency-Key returns the
+        play already made. Refused over the daily limit, when the game has paid
+        out today's budget or prizes, and for accounts younger than the
+        operator's minimum.
+      parameters:
+        - {in: path, name: code, required: true, schema: {type: string, enum: [dice, slots, guess_number, lucky_ticket, quiz, daily_streak, first_to_answer]}}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                choice: {type: integer, minimum: 0, description: "The number for guess_number; the answer's index for quiz and first_to_answer."}
+                questionId: {type: string, format: uuid, description: "The question being answered, for quiz and first_to_answer."}
+      responses:
+        "201": {description: Play, content: {application/json: {schema: {type: object, additionalProperties: true}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+        "429": {$ref: "#/components/responses/Problem"}
   /v1/account/engagement/polls:
     get:
       operationId: listAccountPolls

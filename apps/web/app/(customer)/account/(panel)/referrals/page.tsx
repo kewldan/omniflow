@@ -5,6 +5,7 @@ import { ExternalLink } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import useSWR from "swr";
+import { DailyGames } from "@/components/account/account/daily-games";
 import { Engagement } from "@/components/account/account/engagement";
 import { LoyaltyStanding } from "@/components/account/account/loyalty-standing";
 import { PartnerProgramme } from "@/components/account/account/partner-programme";
@@ -168,6 +169,8 @@ export default function ReferralsPage() {
       <ReferralContests />
 
       <Engagement />
+
+      <DailyGames />
 
       <SectionLabel>{translate("loyalty.title")}</SectionLabel>
       <LoyaltyStanding />

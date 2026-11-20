@@ -7810,6 +7810,20 @@ export type GetAccountWheel200 = { [key: string]: unknown };
 
 export type SpinAccountWheel201 = { [key: string]: unknown };
 
+export type ListAccountGames200 = { [key: string]: unknown };
+
+export type PlayAccountGameBody = {
+  /**
+   * The number for guess_number; the answer's index for quiz and first_to_answer.
+   * @minimum 0
+   */
+  choice?: number;
+  /** The question being answered, for quiz and first_to_answer. */
+  questionId?: string;
+};
+
+export type PlayAccountGame201 = { [key: string]: unknown };
+
 export type ListAccountPolls200 = { [key: string]: unknown };
 
 export type AnswerAccountPollBody = {
@@ -39519,6 +39533,206 @@ export const useSpinAccountWheel = <TError = Promise<ProblemResponse>>(options?:
 
   const swrKey = swrOptions?.swrKey ?? getSpinAccountWheelMutationKey();
   const swrFn = getSpinAccountWheelMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listAccountGamesResponse200 = {
+  data: ListAccountGames200;
+  status: 200;
+};
+
+export type listAccountGamesResponseSuccess = listAccountGamesResponse200 & {
+  headers: Headers;
+};
+
+export type listAccountGamesResponse = listAccountGamesResponseSuccess;
+
+export const getListAccountGamesUrl = () => {
+  return `/v1/account/engagement/games`;
+};
+
+/**
+ * The daily games the operator switched on, each with its prize, entry fee, plays left today, whether it has paid out what it may today, and — for the quiz and first-to-answer — the question to answer, never its correct answer. Also the customer's last ten plays.
+ */
+export const listAccountGames = async (
+  options?: RequestInit,
+): Promise<listAccountGamesResponse> => {
+  const res = await fetch(getListAccountGamesUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listAccountGamesResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listAccountGamesResponse;
+};
+
+export const getListAccountGamesKey = () => [`/v1/account/engagement/games`] as const;
+
+export type ListAccountGamesQueryResult = NonNullable<Awaited<ReturnType<typeof listAccountGames>>>;
+
+export const useListAccountGames = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listAccountGames>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListAccountGamesKey() : null));
+  const swrFn = () => listAccountGames(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type playAccountGameResponse201 = {
+  data: PlayAccountGame201;
+  status: 201;
+};
+
+export type playAccountGameResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type playAccountGameResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type playAccountGameResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type playAccountGameResponse429 = {
+  data: ProblemResponse;
+  status: 429;
+};
+
+export type playAccountGameResponseSuccess = playAccountGameResponse201 & {
+  headers: Headers;
+};
+export type playAccountGameResponseError = (
+  | playAccountGameResponse404
+  | playAccountGameResponse409
+  | playAccountGameResponse422
+  | playAccountGameResponse429
+) & {
+  headers: Headers;
+};
+
+export type playAccountGameResponse = playAccountGameResponseSuccess | playAccountGameResponseError;
+
+export const getPlayAccountGameUrl = (
+  code:
+    | "dice"
+    | "slots"
+    | "guess_number"
+    | "lucky_ticket"
+    | "quiz"
+    | "daily_streak"
+    | "first_to_answer",
+) => {
+  return `/v1/account/engagement/games/${code}/play`;
+};
+
+/**
+ * Plays one game once. Draws use crypto/rand; a guess is drawn against after it is made. The fee, the draw or answer, the play, and the prize commit together; a replay with the same Idempotency-Key returns the play already made. Refused over the daily limit, when the game has paid out today's budget or prizes, and for accounts younger than the operator's minimum.
+ */
+export const playAccountGame = async (
+  code:
+    | "dice"
+    | "slots"
+    | "guess_number"
+    | "lucky_ticket"
+    | "quiz"
+    | "daily_streak"
+    | "first_to_answer",
+  playAccountGameBody: PlayAccountGameBody,
+  options?: RequestInit,
+): Promise<playAccountGameResponse> => {
+  const res = await fetch(getPlayAccountGameUrl(code), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(playAccountGameBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: playAccountGameResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as playAccountGameResponse;
+};
+
+export const getPlayAccountGameMutationFetcher = (
+  code:
+    | "dice"
+    | "slots"
+    | "guess_number"
+    | "lucky_ticket"
+    | "quiz"
+    | "daily_streak"
+    | "first_to_answer",
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: PlayAccountGameBody }) => {
+    return playAccountGame(code, arg, options);
+  };
+};
+export const getPlayAccountGameMutationKey = (
+  code:
+    | "dice"
+    | "slots"
+    | "guess_number"
+    | "lucky_ticket"
+    | "quiz"
+    | "daily_streak"
+    | "first_to_answer",
+) => [`/v1/account/engagement/games/${code}/play`] as const;
+
+export type PlayAccountGameMutationResult = NonNullable<
+  Awaited<ReturnType<typeof playAccountGame>>
+>;
+
+export const usePlayAccountGame = <TError = Promise<ProblemResponse>>(
+  code:
+    | "dice"
+    | "slots"
+    | "guess_number"
+    | "lucky_ticket"
+    | "quiz"
+    | "daily_streak"
+    | "first_to_answer",
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof playAccountGame>>,
+      TError,
+      Key,
+      PlayAccountGameBody,
+      Awaited<ReturnType<typeof playAccountGame>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getPlayAccountGameMutationKey(code);
+  const swrFn = getPlayAccountGameMutationFetcher(code, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

@@ -22,6 +22,7 @@ import { localized } from "@/lib/localized";
 import { formatMoney, type Listing, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 import { AdCampaignsCard } from "./ad-campaigns";
+import { DailyGamesCard } from "./daily-games";
 import { EmailDeliveryCard } from "./email-delivery";
 import { EngagementCard } from "./engagement";
 import { LoyaltyCard } from "./loyalty-card";
@@ -75,6 +76,7 @@ export function MarketingWorkspace() {
       <ReferralInsightsCard currency="RUB" editable={can("marketing.write")} />
       {can("settings.read") && <EmailDeliveryCard editable={can("settings.write")} />}
       <EngagementCard editable={can("marketing.write")} />
+      <DailyGamesCard editable={can("marketing.write")} />
       <ReferralLevelsCard canPay={can("finance.write")} editable={can("marketing.write")} />
       <PartnerApplicationsCard editable={can("marketing.write")} />
     </div>

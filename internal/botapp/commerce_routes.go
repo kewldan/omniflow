@@ -893,6 +893,9 @@ func (app *App) handleCommerceAction(ctx context.Context, session commerceContex
 	if view, handled := app.handlePartnerAction(ctx, session, parts); handled {
 		return view, true
 	}
+	if view, handled := app.handleGameAction(ctx, session, parts); handled {
+		return view, true
+	}
 	if view, handled := app.handleWelcomeAction(ctx, session, parts); handled {
 		return view, true
 	}
@@ -1365,7 +1368,7 @@ var commerceActions = func() map[string]bool {
 		"quiet": true, "quiet-menu": true, "tz-menu": true, "tz": true, "invoice": true,
 		"ref-qr": true,
 	}
-	for _, owned := range []map[string]bool{expansionActions, giftActions, shopActions, starsActions, offerActions, termsActions, welcomeActions, partnerActions} {
+	for _, owned := range []map[string]bool{expansionActions, giftActions, shopActions, starsActions, offerActions, termsActions, welcomeActions, partnerActions, gameActions} {
 		for action := range owned {
 			actions[action] = true
 		}

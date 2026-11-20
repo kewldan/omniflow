@@ -74,6 +74,7 @@ func (handlers *AdminHandlers) mountGrowth(secure chi.Router) {
 	handlers.mountSelfEmployed(secure)
 	handlers.mountCurrency(secure)
 	handlers.mountEngagement(secure)
+	handlers.mountGames(secure)
 	handlers.mountReferralPlus(secure)
 	handlers.mountReferralAdmin(secure)
 	handlers.mountOfferTemplates(secure)
@@ -105,6 +106,7 @@ func (handlers *AccountHandlers) mountGrowth(secure chi.Router) {
 	handlers.mountAccountWithdrawals(secure)
 	handlers.mountAccountSelfEmployed(secure)
 	handlers.mountAccountEngagement(secure)
+	handlers.mountAccountGames(secure)
 	handlers.mountAccountReferralPlus(secure)
 }
 

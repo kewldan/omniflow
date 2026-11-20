@@ -37,6 +37,9 @@ var boundedValues = map[string]int{
 	"enabled": 3, "state": 3, "action": 20, "label": 20,
 	"choice.Provider": 14, "choice.Currency": 3, "amount": integerWidth,
 	"option": 12,
+	// Daily games: the longest game code, a guess (1–10), and the plays
+	// left today (at most 20).
+	"gameCode": 15, "number": 2, "playsLeft": 2,
 	// Helpers whose result is bounded by construction: a UUID compacted to
 	// base64url, and a payment button key (a provider and a method of at most
 	// ten characters).

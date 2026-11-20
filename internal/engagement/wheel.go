@@ -20,6 +20,8 @@ const (
 	KindWallet  = "wallet"
 	KindDays    = "days"
 	KindNothing = "nothing"
+	// KindPromo is a daily game prize: a personal offer from a template.
+	KindPromo = "promo"
 )
 
 // Prize is one segment of the wheel.
