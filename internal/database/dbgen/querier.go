@@ -756,6 +756,9 @@ type Querier interface {
 	GetEnabledLoyaltyProgram(ctx context.Context) (LoyaltyProgram, error)
 	GetEnabledLoyaltyTierByCode(ctx context.Context, code string) (LoyaltyTier, error)
 	GetEntitlement(ctx context.Context, id pgtype.UUID) (Entitlement, error)
+	// The squads an entitlement holds by its plan and its order's selection, as
+	// opposed to those its add-on packs added.
+	GetEntitlementBaseSquads(ctx context.Context, entitlementID pgtype.UUID) (GetEntitlementBaseSquadsRow, error)
 	GetFulfillmentOperation(ctx context.Context, id pgtype.UUID) (FulfillmentOperation, error)
 	GetGift(ctx context.Context, id pgtype.UUID) (Gift, error)
 	// The claim path's only lookup. The plaintext code never reaches the database.
@@ -2187,6 +2190,7 @@ type Querier interface {
 	// allows exactly one default: doing them apart would leave a window in which a
 	// new ticket has nowhere to go.
 	SetDefaultSupportQueue(ctx context.Context, queueID pgtype.UUID) error
+	SetEntitlementSquads(ctx context.Context, arg SetEntitlementSquadsParams) (Entitlement, error)
 	// The promo code a saved shop purchase carries.
 	//
 	// It lives on the cart rather than in a session state because the cart is

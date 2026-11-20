@@ -4024,6 +4024,36 @@ paths:
         "409": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
         "502": {$ref: "#/components/responses/Problem"}
+  /v1/account/subscriptions/{subscriptionID}/squad-addons:
+    get:
+      operationId: listAccountSquadAddons
+      tags: [account]
+      description: >-
+        The paid squad (server) add-ons of a live subscription, each with what
+        removing it now hands back. Empty when there are none or the
+        subscription has no live period.
+      parameters:
+        - {$ref: "#/components/parameters/AccountSubscriptionID"}
+        - {in: query, name: locale, schema: {type: string, enum: [ru, en]}}
+      responses:
+        "200": {description: Squad add-ons, content: {application/json: {schema: {$ref: "#/components/schemas/AccountSquadAddons"}}}}
+  /v1/account/subscriptions/{subscriptionID}/squad-addons/{packID}/removal:
+    post:
+      operationId: removeAccountSquadAddon
+      tags: [account]
+      description: >-
+        Opens a squad_removal order, which charges nothing, credits what is
+        left of the add-on, and takes the squads it alone granted off the
+        subscription through fulfillment. A repeated key is the same order.
+      parameters:
+        - {$ref: "#/components/parameters/AccountSubscriptionID"}
+        - {in: path, name: packID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      responses:
+        "201": {description: Order created, content: {application/json: {schema: {$ref: "#/components/schemas/AccountOrder"}}}}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
   /v1/account/subscriptions/{subscriptionID}/addons:
     get:
       operationId: listAccountSubscriptionAddons
@@ -9182,6 +9212,21 @@ components:
             properties:
               deviceLimit: {type: integer}
               excessDevices: {type: integer, description: Connected devices to disconnect before this limit is accepted.}
+              quote: {$ref: "#/components/schemas/AccountCapacityQuote"}
+    AccountSquadAddons:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [packId, addonVersionId, name, squadCount, quote]
+            properties:
+              packId: {type: string, format: uuid}
+              addonVersionId: {type: string, format: uuid}
+              name: {type: string}
+              squadCount: {type: integer}
               quote: {$ref: "#/components/schemas/AccountCapacityQuote"}
     AccountTrafficPackages:
       type: object

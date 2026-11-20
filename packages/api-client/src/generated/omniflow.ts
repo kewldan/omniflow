@@ -4660,6 +4660,18 @@ export interface AccountDeviceReduction {
   options: AccountDeviceReductionOptionsItem[];
 }
 
+export type AccountSquadAddonsItemsItem = {
+  packId: string;
+  addonVersionId: string;
+  name: string;
+  squadCount: number;
+  quote: AccountCapacityQuote;
+};
+
+export interface AccountSquadAddons {
+  items: AccountSquadAddonsItemsItem[];
+}
+
 export type AccountTrafficPackagesOptionsItemDirection =
   (typeof AccountTrafficPackagesOptionsItemDirection)[keyof typeof AccountTrafficPackagesOptionsItemDirection];
 
@@ -7245,6 +7257,18 @@ export type ReduceAccountDeviceLimitBody = {
   /** @minimum 0 */
   deviceLimit: number;
 };
+
+export type ListAccountSquadAddonsParams = {
+  locale?: ListAccountSquadAddonsLocale;
+};
+
+export type ListAccountSquadAddonsLocale =
+  (typeof ListAccountSquadAddonsLocale)[keyof typeof ListAccountSquadAddonsLocale];
+
+export const ListAccountSquadAddonsLocale = {
+  ru: "ru",
+  en: "en",
+} as const;
 
 export type ListAccountSubscriptionAddonsParams = {
   locale?: ListAccountSubscriptionAddonsLocale;
@@ -30695,6 +30719,192 @@ export const useReduceAccountDeviceLimit = <TError = Promise<ProblemResponse>>(
 
   const swrKey = swrOptions?.swrKey ?? getReduceAccountDeviceLimitMutationKey(subscriptionID);
   const swrFn = getReduceAccountDeviceLimitMutationFetcher(subscriptionID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listAccountSquadAddonsResponse200 = {
+  data: AccountSquadAddons;
+  status: 200;
+};
+
+export type listAccountSquadAddonsResponseSuccess = listAccountSquadAddonsResponse200 & {
+  headers: Headers;
+};
+
+export type listAccountSquadAddonsResponse = listAccountSquadAddonsResponseSuccess;
+
+export const getListAccountSquadAddonsUrl = (
+  subscriptionID: string,
+  params?: ListAccountSquadAddonsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/account/subscriptions/${subscriptionID}/squad-addons?${stringifiedParams}`
+    : `/v1/account/subscriptions/${subscriptionID}/squad-addons`;
+};
+
+/**
+ * The paid squad (server) add-ons of a live subscription, each with what removing it now hands back. Empty when there are none or the subscription has no live period.
+ */
+export const listAccountSquadAddons = async (
+  subscriptionID: string,
+  params?: ListAccountSquadAddonsParams,
+  options?: RequestInit,
+): Promise<listAccountSquadAddonsResponse> => {
+  const res = await fetch(getListAccountSquadAddonsUrl(subscriptionID, params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listAccountSquadAddonsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listAccountSquadAddonsResponse;
+};
+
+export const getListAccountSquadAddonsKey = (
+  subscriptionID: string,
+  params?: ListAccountSquadAddonsParams,
+) =>
+  [
+    `/v1/account/subscriptions/${subscriptionID}/squad-addons`,
+    ...(params ? [params] : []),
+  ] as const;
+
+export type ListAccountSquadAddonsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAccountSquadAddons>>
+>;
+
+export const useListAccountSquadAddons = <TError = Promise<unknown>>(
+  subscriptionID: string,
+  params?: ListAccountSquadAddonsParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listAccountSquadAddons>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && subscriptionID !== null && subscriptionID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ??
+    (() => (isEnabled ? getListAccountSquadAddonsKey(subscriptionID, params) : null));
+  const swrFn = () => listAccountSquadAddons(subscriptionID, params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type removeAccountSquadAddonResponse201 = {
+  data: AccountOrder;
+  status: 201;
+};
+
+export type removeAccountSquadAddonResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type removeAccountSquadAddonResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type removeAccountSquadAddonResponseSuccess = removeAccountSquadAddonResponse201 & {
+  headers: Headers;
+};
+export type removeAccountSquadAddonResponseError = (
+  | removeAccountSquadAddonResponse409
+  | removeAccountSquadAddonResponse422
+) & {
+  headers: Headers;
+};
+
+export type removeAccountSquadAddonResponse =
+  | removeAccountSquadAddonResponseSuccess
+  | removeAccountSquadAddonResponseError;
+
+export const getRemoveAccountSquadAddonUrl = (subscriptionID: string, packID: string) => {
+  return `/v1/account/subscriptions/${subscriptionID}/squad-addons/${packID}/removal`;
+};
+
+/**
+ * Opens a squad_removal order, which charges nothing, credits what is left of the add-on, and takes the squads it alone granted off the subscription through fulfillment. A repeated key is the same order.
+ */
+export const removeAccountSquadAddon = async (
+  subscriptionID: string,
+  packID: string,
+  options?: RequestInit,
+): Promise<removeAccountSquadAddonResponse> => {
+  const res = await fetch(getRemoveAccountSquadAddonUrl(subscriptionID, packID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: removeAccountSquadAddonResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as removeAccountSquadAddonResponse;
+};
+
+export const getRemoveAccountSquadAddonMutationFetcher = (
+  subscriptionID: string,
+  packID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return removeAccountSquadAddon(subscriptionID, packID, options);
+  };
+};
+export const getRemoveAccountSquadAddonMutationKey = (subscriptionID: string, packID: string) =>
+  [`/v1/account/subscriptions/${subscriptionID}/squad-addons/${packID}/removal`] as const;
+
+export type RemoveAccountSquadAddonMutationResult = NonNullable<
+  Awaited<ReturnType<typeof removeAccountSquadAddon>>
+>;
+
+export const useRemoveAccountSquadAddon = <TError = Promise<ProblemResponse>>(
+  subscriptionID: string,
+  packID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof removeAccountSquadAddon>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof removeAccountSquadAddon>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey =
+    swrOptions?.swrKey ?? getRemoveAccountSquadAddonMutationKey(subscriptionID, packID);
+  const swrFn = getRemoveAccountSquadAddonMutationFetcher(subscriptionID, packID, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

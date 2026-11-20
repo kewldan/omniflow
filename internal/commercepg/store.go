@@ -1063,7 +1063,7 @@ func (store *Store) settlePaidOrder(ctx context.Context, tx pgx.Tx, queries *dbg
 		return store.grantReferralCommission(ctx, tx, queries, order)
 	case "traffic_reset":
 		return store.settleTrafficReset(ctx, tx, queries, order, idempotencyKey)
-	case OperationTrafficChange, OperationDeviceReduction:
+	case OperationTrafficChange, OperationDeviceReduction, OperationSquadRemoval:
 		return store.settleCapacityChange(ctx, tx, queries, order, idempotencyKey)
 	case "addon":
 		if err := store.recordOrderRevenue(ctx, queries, order, idempotencyKey); err != nil {

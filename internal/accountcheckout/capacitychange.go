@@ -163,3 +163,42 @@ func (service *Service) ReduceDevices(ctx context.Context, customerID, subscript
 	}
 	return service.store.Order(ctx, customerID, UUIDText(order.ID), locale)
 }
+
+// SquadAddonRemoval is one paid squad add-on a subscription may remove.
+type SquadAddonRemoval struct {
+	commercepg.SquadRemovalOption
+	Name string
+}
+
+// SquadAddonRemovals lists the paid squad add-ons of a live subscription with
+// what removing each hands back now.
+func (service *Service) SquadAddonRemovals(ctx context.Context, customerID, subscriptionID, locale string) ([]SquadAddonRemoval, error) {
+	options, err := service.orders.SquadRemovals(ctx, customerID, subscriptionID, service.settings.Currency)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]SquadAddonRemoval, 0, len(options))
+	for _, option := range options {
+		name := ""
+		if lookupErr := service.store.pool.QueryRow(ctx, `SELECT COALESCE(
+				(SELECT l.name FROM addon_localizations l WHERE l.addon_id = v.addon_id AND l.locale = $2),
+				(SELECT l.name FROM addon_localizations l WHERE l.addon_id = v.addon_id ORDER BY l.locale LIMIT 1), '')
+			FROM addon_versions v WHERE v.id = $1::uuid`, option.AddonVersionID, normalizeLocale(locale)).Scan(&name); lookupErr != nil {
+			return nil, lookupErr
+		}
+		result = append(result, SquadAddonRemoval{SquadRemovalOption: option, Name: name})
+	}
+	return result, nil
+}
+
+// RemoveSquadAddon opens the order that removes one paid squad add-on.
+func (service *Service) RemoveSquadAddon(ctx context.Context, customerID, subscriptionID, packID, idempotencyKey, locale string) (OrderSummary, error) {
+	order, err := service.orders.CreateSquadRemovalOrder(ctx, commercepg.CapacityChangeInput{
+		CustomerID: customerID, SubscriptionID: subscriptionID, Currency: service.settings.Currency,
+		AddonPackID: packID, IdempotencyKey: "web-squad:" + idempotencyKey,
+	})
+	if err != nil {
+		return OrderSummary{}, err
+	}
+	return service.store.Order(ctx, customerID, UUIDText(order.ID), locale)
+}

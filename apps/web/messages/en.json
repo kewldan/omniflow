@@ -5809,7 +5809,8 @@
         "traffic_change_unavailable": "This subscription cannot change its traffic package.",
         "capacity_change_same": "That would leave the subscription exactly as it is.",
         "device_reduction_unavailable": "This subscription cannot lower its device limit that far.",
-        "devices_over_limit": "More devices are connected than the new limit allows. Disconnect some first."
+        "devices_over_limit": "More devices are connected than the new limit allows. Disconnect some first.",
+        "squad_removal_unavailable": "That server add-on is not on this subscription."
       },
       "breakdown": {
         "subtotal": "Plan",
@@ -6380,7 +6381,10 @@
       "devicesOption": "Lower to {limit}",
       "devicesExcess": "{count, plural, one {# device is} other {# devices are}} over a limit of {limit}. Disconnect {count, plural, one {it} other {them}} first — these were seen least recently:",
       "devicesManage": "Manage devices",
-      "devicesConfirm": "Lower the device limit to {limit} for the rest of this period."
+      "devicesConfirm": "Lower the device limit to {limit} for the rest of this period.",
+      "squadsTitle": "Server add-ons",
+      "squadsRemove": "Remove",
+      "squadsConfirm": "Remove {name} for the rest of this period. What is left of it is credited to your wallet at what you paid."
     }
   },
   "pages": {

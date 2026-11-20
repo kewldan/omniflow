@@ -9423,6 +9423,188 @@ export const ReduceAccountDeviceLimitResponse = zod.object({
 });
 
 /**
+ * The paid squad (server) add-ons of a live subscription, each with what removing it now hands back. Empty when there are none or the subscription has no live period.
+ */
+export const ListAccountSquadAddonsParams = zod.object({
+  subscriptionID: zod.uuid(),
+});
+
+export const ListAccountSquadAddonsQueryParams = zod.object({
+  locale: zod.enum(["ru", "en"]).optional(),
+});
+
+export const ListAccountSquadAddonsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      packId: zod.uuid(),
+      addonVersionId: zod.uuid(),
+      name: zod.string(),
+      squadCount: zod.int(),
+      quote: zod
+        .object({
+          currency: zod.string(),
+          chargeMinor: zod.int(),
+          creditMinor: zod.int(),
+          creditAppliedMinor: zod.int().describe("The part of the credit the order spends."),
+          creditToWalletMinor: zod
+            .int()
+            .describe("The part of the credit that stays in the wallet."),
+          walletMinor: zod.int().describe("The customer's own balance the order spends."),
+          externalMinor: zod.int().describe("What a provider must settle."),
+          walletBalanceMinor: zod.int(),
+          endsAt: zod.iso.datetime({ offset: true }).optional(),
+        })
+        .describe(
+          "What a mid-period capacity change costs or hands back now. chargeMinor is the prorated price of what is added and creditMinor the prorated value of what is released, at what the customer paid for it.",
+        ),
+    }),
+  ),
+});
+
+/**
+ * Opens a squad_removal order, which charges nothing, credits what is left of the add-on, and takes the squads it alone granted off the subscription through fulfillment. A repeated key is the same order.
+ */
+export const RemoveAccountSquadAddonParams = zod.object({
+  subscriptionID: zod.uuid(),
+  packID: zod.uuid(),
+});
+
+export const removeAccountSquadAddonHeaderIdempotencyKeyMin = 8;
+export const removeAccountSquadAddonHeaderIdempotencyKeyMax = 128;
+
+export const RemoveAccountSquadAddonHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "Idempotency-Key": zod
+    .string()
+    .min(removeAccountSquadAddonHeaderIdempotencyKeyMin)
+    .max(removeAccountSquadAddonHeaderIdempotencyKeyMax),
+});
+
+export const RemoveAccountSquadAddonResponse = zod.object({
+  id: zod.uuid(),
+  state: zod.enum([
+    "draft",
+    "pending",
+    "paid",
+    "fulfilled",
+    "cancelled",
+    "expired",
+    "partially_refunded",
+    "refunded",
+  ]),
+  operation: zod.string(),
+  phase: zod
+    .string()
+    .describe(
+      "The combined payment and provisioning state the panel renders: what the customer is waiting for, rather than which table changed.",
+    ),
+  currency: zod.string(),
+  subtotalMinor: zod.int(),
+  discountMinor: zod.int(),
+  walletMinor: zod.int(),
+  externalMinor: zod.int(),
+  paidMinor: zod.int(),
+  refundedMinor: zod.int(),
+  plan: zod.string(),
+  subscriptionId: zod.string().optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+  expiresAt: zod.iso.datetime({ offset: true }).optional(),
+  payment: zod
+    .object({
+      id: zod.uuid(),
+      provider: zod.string(),
+      status: zod.string(),
+      handoff: zod.enum(["hosted", "telegram_invoice", "manual", "none"]),
+      checkoutUrl: zod.string().optional(),
+      receiptUrl: zod.string().optional(),
+    })
+    .optional(),
+  fulfillment: zod
+    .object({
+      status: zod.string(),
+      attempts: zod.int(),
+      errorCode: zod.string().optional(),
+      updatedAt: zod.iso.datetime({ offset: true }).optional(),
+    })
+    .optional()
+    .describe(
+      "Provisioning progress, read from the fulfillment operation rather than carried by the client.",
+    ),
+  refunds: zod
+    .array(
+      zod.object({
+        status: zod.string(),
+        amountMinor: zod.int(),
+        currency: zod.string(),
+        createdAt: zod.iso.datetime({ offset: true }),
+      }),
+    )
+    .optional(),
+  paymentChoices: zod
+    .array(
+      zod.object({
+        provider: zod.string(),
+        currency: zod.string(),
+        amountMinor: zod.int().optional(),
+        recurring: zod.boolean(),
+        canSaveMethod: zod
+          .boolean()
+          .optional()
+          .describe(
+            "The customer may tick consent to keep the card or mandate for automatic renewal: the adapter binds methods and the operator enabled recurring after a passing capability test.",
+          ),
+        method: zod
+          .string()
+          .optional()
+          .describe(
+            "The provider method this button opens (sbp, card, ...). Empty is the adapter's default.",
+          ),
+        key: zod
+          .string()
+          .optional()
+          .describe("The button's identity, provider or provider.method."),
+        name: zod
+          .object({
+            ru: zod.string().optional(),
+            en: zod.string().optional(),
+          })
+          .optional(),
+        description: zod
+          .object({
+            ru: zod.string().optional(),
+            en: zod.string().optional(),
+          })
+          .optional(),
+        minMinor: zod.int().optional(),
+        maxMinor: zod.int().optional(),
+        quickAmountsMinor: zod.array(zod.int()).optional(),
+        openDirectly: zod
+          .boolean()
+          .optional()
+          .describe("Open the provider's page as soon as the payment starts."),
+      }),
+    )
+    .optional()
+    .describe(
+      "The methods that can settle this order in its currency, each priced at what the order still owes. Present on the detail response while the order is pending and owes something, so the page can offer a method without depending on the URL the checkout redirected to. Telegram Stars appears only for a customer with a Telegram identity.",
+    ),
+  preferredProvider: zod
+    .string()
+    .optional()
+    .describe(
+      "The method the checkout recorded, while that checkout is still attached to the order.",
+    ),
+  manualInstructions: zod
+    .string()
+    .optional()
+    .describe(
+      "The operator's transfer instructions, in the customer's language, when the order is paid or payable by manual transfer.",
+    ),
+});
+
+/**
  * The add-ons a live subscription's plan offers, each priced for the time its period has left. `available` is false, with a `reason`, when nothing can be added now. `cart`, when present, is the add-on saved for this subscription until a top-up covers it: `saved` is the most it will be bought for, `total` what it costs now, `missingMinor` what the wallet still lacks, and `stale` marks one that can no longer be bought.
  */
 export const ListAccountSubscriptionAddonsParams = zod.object({

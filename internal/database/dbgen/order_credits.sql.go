@@ -51,6 +51,28 @@ func (q *Queries) CountReleasableSlots(ctx context.Context, arg CountReleasableS
 	return column_1, err
 }
 
+const getEntitlementBaseSquads = `-- name: GetEntitlementBaseSquads :one
+SELECT o.selected_squad_ids, pv.remnawave_squad_ids AS plan_squad_ids
+FROM entitlements e
+JOIN orders o ON o.id = e.order_id
+JOIN plan_versions pv ON pv.id = e.plan_version_id
+WHERE e.id = $1
+`
+
+type GetEntitlementBaseSquadsRow struct {
+	SelectedSquadIds []pgtype.UUID `json:"selected_squad_ids"`
+	PlanSquadIds     []pgtype.UUID `json:"plan_squad_ids"`
+}
+
+// The squads an entitlement holds by its plan and its order's selection, as
+// opposed to those its add-on packs added.
+func (q *Queries) GetEntitlementBaseSquads(ctx context.Context, entitlementID pgtype.UUID) (GetEntitlementBaseSquadsRow, error) {
+	row := q.db.QueryRow(ctx, getEntitlementBaseSquads, entitlementID)
+	var i GetEntitlementBaseSquadsRow
+	err := row.Scan(&i.SelectedSquadIds, &i.PlanSquadIds)
+	return i, err
+}
+
 const getOrderCredit = `-- name: GetOrderCredit :one
 SELECT order_id, user_id, kind, source_entitlement_id, source_order_id, currency, basis_minor, remaining_seconds, period_seconds, credit_minor, ledger_transaction_id, credited_at, created_at, released_addon_ids, released_slots FROM order_credits WHERE order_id = $1
 `
@@ -415,6 +437,43 @@ func (q *Queries) ReleaseEntitlementAddonSlots(ctx context.Context, arg ReleaseE
 	row := q.db.QueryRow(ctx, releaseEntitlementAddonSlots, arg.OrderID, arg.Slots, arg.EntitlementAddonID)
 	var i ReleaseEntitlementAddonSlotsRow
 	err := row.Scan(&i.Taken, &i.EntitlementID)
+	return i, err
+}
+
+const setEntitlementSquads = `-- name: SetEntitlementSquads :one
+UPDATE entitlements SET remnawave_squad_ids = $1::uuid[], updated_at = now()
+WHERE id = $2
+RETURNING id, user_id, order_id, plan_version_id, status, starts_at, ends_at, traffic_allowance_bytes, device_limit, remnawave_squad_ids, remnawave_user_id, observed_state, reconciled_at, created_at, updated_at, subscription_id, paused_at, paused_seconds
+`
+
+type SetEntitlementSquadsParams struct {
+	SquadIds      []pgtype.UUID `json:"squad_ids"`
+	EntitlementID pgtype.UUID   `json:"entitlement_id"`
+}
+
+func (q *Queries) SetEntitlementSquads(ctx context.Context, arg SetEntitlementSquadsParams) (Entitlement, error) {
+	row := q.db.QueryRow(ctx, setEntitlementSquads, arg.SquadIds, arg.EntitlementID)
+	var i Entitlement
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.OrderID,
+		&i.PlanVersionID,
+		&i.Status,
+		&i.StartsAt,
+		&i.EndsAt,
+		&i.TrafficAllowanceBytes,
+		&i.DeviceLimit,
+		&i.RemnawaveSquadIds,
+		&i.RemnawaveUserID,
+		&i.ObservedState,
+		&i.ReconciledAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.SubscriptionID,
+		&i.PausedAt,
+		&i.PausedSeconds,
+	)
 	return i, err
 }
 

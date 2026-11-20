@@ -23,6 +23,7 @@ const CreditAddonRemainder = "addon_remainder"
 const (
 	OperationTrafficChange   = "traffic_change"
 	OperationDeviceReduction = "device_reduction"
+	OperationSquadRemoval    = "squad_removal"
 )
 
 // capacityChange is a priced mid-period change of one subscription's
@@ -96,9 +97,11 @@ type CapacityChangeInput struct {
 	// ConnectedDevices how many devices Remnawave reports connected now.
 	DeviceLimit      int
 	ConnectedDevices int
-	SkipWallet       bool
-	ExpiresAt        time.Time
-	Provider         string
+	// AddonPackID is the squad add-on pack a removal takes off.
+	AddonPackID string
+	SkipWallet  bool
+	ExpiresAt   time.Time
+	Provider    string
 }
 
 // liveForChange resolves the customer's subscription and its live, running
@@ -453,7 +456,139 @@ func (store *Store) takeBackPack(ctx context.Context, queries *dbgen.Queries, en
 	if pack.TrafficBytes.Valid && pack.TrafficBytes.Int64 > 0 {
 		return queries.SubtractEntitlementTraffic(ctx, dbgen.SubtractEntitlementTrafficParams{EntitlementID: entitlement.ID, TrafficBytes: pack.TrafficBytes.Int64})
 	}
+	if len(pack.RemnawaveSquadIds) > 0 {
+		return store.withdrawPackSquads(ctx, queries, entitlement, pack)
+	}
 	return entitlement, nil
+}
+
+// withdrawPackSquads takes off the entitlement the squads a released pack
+// alone granted. A squad the plan, the customer's own selection, or another
+// pack still grants stays.
+func (store *Store) withdrawPackSquads(ctx context.Context, queries *dbgen.Queries, entitlement dbgen.Entitlement, pack dbgen.EntitlementAddon) (dbgen.Entitlement, error) {
+	keep := map[pgtype.UUID]bool{}
+	base, err := queries.GetEntitlementBaseSquads(ctx, entitlement.ID)
+	if err != nil {
+		return entitlement, err
+	}
+	for _, squad := range append(base.SelectedSquadIds, base.PlanSquadIds...) {
+		keep[squad] = true
+	}
+	others, err := queries.ListLivePacks(ctx, entitlement.ID)
+	if err != nil {
+		return entitlement, err
+	}
+	for _, other := range others {
+		for _, squad := range other.RemnawaveSquadIds {
+			keep[squad] = true
+		}
+	}
+	withdrawn := map[pgtype.UUID]bool{}
+	for _, squad := range pack.RemnawaveSquadIds {
+		if !keep[squad] {
+			withdrawn[squad] = true
+		}
+	}
+	if len(withdrawn) == 0 {
+		return entitlement, nil
+	}
+	remaining := make([]pgtype.UUID, 0, len(entitlement.RemnawaveSquadIds))
+	for _, squad := range entitlement.RemnawaveSquadIds {
+		if !withdrawn[squad] {
+			remaining = append(remaining, squad)
+		}
+	}
+	return queries.SetEntitlementSquads(ctx, dbgen.SetEntitlementSquadsParams{EntitlementID: entitlement.ID, SquadIds: remaining})
+}
+
+// SquadRemovalOption is one paid squad add-on a subscription may remove,
+// with what removing it hands back.
+type SquadRemovalOption struct {
+	PackID         string
+	AddonVersionID string
+	SquadIDs       []string
+	Quote          CapacityChangeQuote
+}
+
+// planSquadRemoval prices taking one squad add-on pack off the subscription:
+// nothing is charged and what is left of the pack is credited at what its
+// order took for it.
+func (store *Store) planSquadRemoval(ctx context.Context, queries *dbgen.Queries, userID pgtype.UUID, input CapacityChangeInput) (capacityChange, error) {
+	entitlement, err := store.liveForChange(ctx, queries, userID, input.SubscriptionID)
+	if err != nil {
+		return capacityChange{}, err
+	}
+	packID, err := parseUUID(input.AddonPackID)
+	if err != nil {
+		return capacityChange{}, commerce.ErrSquadRemovalUnavailable
+	}
+	packs, err := queries.ListLivePacks(ctx, entitlement.ID)
+	if err != nil {
+		return capacityChange{}, err
+	}
+	for _, pack := range packs {
+		if pack.ID != packID || pack.AddonKind != "squads" || len(pack.RemnawaveSquadIds) == 0 {
+			continue
+		}
+		change := capacityChange{operation: OperationSquadRemoval, entitlement: entitlement}
+		change.release(pack, packCredit(pack, entitlement, input.Currency, store.clock().UTC()))
+		return change, nil
+	}
+	return capacityChange{}, commerce.ErrSquadRemovalUnavailable
+}
+
+// SquadRemovals lists the paid squad add-ons a live subscription may remove,
+// each with what removing it now hands back.
+func (store *Store) SquadRemovals(ctx context.Context, customerID, subscriptionID, currency string) ([]SquadRemovalOption, error) {
+	userID, err := parseUUID(customerID)
+	if err != nil {
+		return nil, err
+	}
+	tx, err := store.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	queries := dbgen.New(tx)
+	entitlement, err := store.liveForChange(ctx, queries, userID, subscriptionID)
+	if errors.Is(err, ErrNoActiveSubscription) || errors.Is(err, ErrSubscriptionUnknown) {
+		return []SquadRemovalOption{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	packs, err := queries.ListLivePacks(ctx, entitlement.ID)
+	if err != nil {
+		return nil, err
+	}
+	wallet, err := availableWallet(ctx, queries, userID, currency)
+	if err != nil {
+		return nil, err
+	}
+	options := []SquadRemovalOption{}
+	for _, pack := range packs {
+		if pack.AddonKind != "squads" || len(pack.RemnawaveSquadIds) == 0 {
+			continue
+		}
+		change := capacityChange{operation: OperationSquadRemoval, entitlement: entitlement}
+		change.release(pack, packCredit(pack, entitlement, currency, store.clock().UTC()))
+		quote, _, quoteErr := quoteChange(change, currency, wallet, false)
+		if quoteErr != nil {
+			return nil, quoteErr
+		}
+		options = append(options, SquadRemovalOption{
+			PackID: uuidString(pack.ID), AddonVersionID: uuidString(pack.AddonVersionID),
+			SquadIDs: databaseutil.UUIDStrings(pack.RemnawaveSquadIds), Quote: quote,
+		})
+	}
+	return options, nil
+}
+
+// CreateSquadRemovalOrder opens the order that removes one paid squad add-on.
+// It charges nothing; what is left of the pack goes to the wallet, and the
+// squads it alone granted leave the entitlement through one `set_limits`.
+func (store *Store) CreateSquadRemovalOrder(ctx context.Context, input CapacityChangeInput) (dbgen.Order, error) {
+	return store.createCapacityChangeOrder(ctx, input, OperationSquadRemoval, store.planSquadRemoval)
 }
 
 // releaseSlots gives back a device reduction's slots, from the packs its

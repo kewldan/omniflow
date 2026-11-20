@@ -120,6 +120,7 @@ const PROBLEMS = [
   "capacity_change_same",
   "device_reduction_unavailable",
   "devices_over_limit",
+  "squad_removal_unavailable",
   "period_unavailable",
   "traffic_unavailable",
   "not_daily",

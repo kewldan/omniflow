@@ -227,6 +227,16 @@ A reduction gives back slots newest pack first, each credited at its share of wh
 | `capacity_change_same` | The limit asked for is the current one |
 | `no_active_subscription` | No live entitlement, a paused one, or one scheduled to start later |
 
+### Removing a server add-on
+
+A paid `squads` add-on — an extra country or server group — can be removed part-way through the period, and what is left of it is credited at what its order took for it, by the same rule as [a traffic package change](#changing-the-traffic-package).
+
+*Web.* `/account/subscriptions/{id}` lists the subscription's server add-ons under **Server add-ons**, each with **Remove**; choosing one shows the credit and **Confirm**. `GET /v1/account/subscriptions/{subscriptionID}/squad-addons` lists them with a quote each; `POST /v1/account/subscriptions/{subscriptionID}/squad-addons/{packID}/removal` with an `Idempotency-Key` removes one.
+
+*Telegram.* The subscription screen shows **🌍 Server add-ons** when there are any; an add-on opens the preview, and confirming removes it.
+
+The removal is one `squad_removal` order that charges nothing; its [credit line](/commerce/orders-payments#credit-lines) names the pack and posts the credit to the wallet at once. Settlement releases the pack and takes off the entitlement only the squads that pack alone granted: a squad the plan assigns, the customer chose at checkout, or another live pack grants stays. The new squad set reaches Remnawave through one `set_limits` keyed `order:<id>:change` — never by a direct panel call. Removing an add-on that is not on the subscription, or one already removed, is refused with `squad_removal_unavailable`.
+
 ### Proration rules
 
 The proration rule is a property of the add-on version, and it is always explicit. Omniflow never infers a partial price from remaining time unless the add-on says so. It applies only to a mid-period purchase; an add-on bought with the plan covers a full period and is charged at the catalog price whatever its rule says.
@@ -303,6 +313,8 @@ If the target subscription has no live entitlement by the time an add-on settles
 | `POST /v1/account/subscriptions/{subscriptionID}/traffic-package` | Customer session, `Idempotency-Key` | Switch the traffic package |
 | `GET /v1/account/subscriptions/{subscriptionID}/device-limit` | Customer session | Lower device limits with their credit, and the connected devices |
 | `POST /v1/account/subscriptions/{subscriptionID}/device-limit` | Customer session, `Idempotency-Key` | Give back device slots |
+| `GET /v1/account/subscriptions/{subscriptionID}/squad-addons` | Customer session | Paid server add-ons with what removing each hands back |
+| `POST /v1/account/subscriptions/{subscriptionID}/squad-addons/{packID}/removal` | Customer session, `Idempotency-Key` | Remove one server add-on |
 
 The add-on save and retire routes are implemented but missing from `api/openapi.yaml`, so they are absent from the generated client and the published API reference. [Integrating with the API](/integrations/api) explains how to call them anyway.
 

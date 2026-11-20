@@ -117,3 +117,17 @@ SET device_limit = CASE WHEN device_limit IS NULL THEN NULL
     updated_at = now()
 WHERE id = sqlc.arg(entitlement_id)
 RETURNING *;
+
+-- name: GetEntitlementBaseSquads :one
+-- The squads an entitlement holds by its plan and its order's selection, as
+-- opposed to those its add-on packs added.
+SELECT o.selected_squad_ids, pv.remnawave_squad_ids AS plan_squad_ids
+FROM entitlements e
+JOIN orders o ON o.id = e.order_id
+JOIN plan_versions pv ON pv.id = e.plan_version_id
+WHERE e.id = sqlc.arg(entitlement_id);
+
+-- name: SetEntitlementSquads :one
+UPDATE entitlements SET remnawave_squad_ids = sqlc.arg(squad_ids)::uuid[], updated_at = now()
+WHERE id = sqlc.arg(entitlement_id)
+RETURNING *;

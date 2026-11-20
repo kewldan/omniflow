@@ -13,7 +13,8 @@ import (
 )
 
 // mountCapacityChanges registers the mid-period capacity changes of a live
-// subscription: switching its traffic package and giving back device slots.
+// subscription: switching its traffic package, giving back device slots, and
+// removing a paid squad add-on.
 func (handlers *AccountHandlers) mountCapacityChanges(router chi.Router) {
 	if handlers.checkout == nil {
 		return
@@ -22,6 +23,8 @@ func (handlers *AccountHandlers) mountCapacityChanges(router chi.Router) {
 	router.Post("/subscriptions/{subscriptionID}/traffic-package", handlers.changeTrafficPackage)
 	router.Get("/subscriptions/{subscriptionID}/device-limit", handlers.deviceReduction)
 	router.Post("/subscriptions/{subscriptionID}/device-limit", handlers.reduceDevices)
+	router.Get("/subscriptions/{subscriptionID}/squad-addons", handlers.squadAddons)
+	router.Post("/subscriptions/{subscriptionID}/squad-addons/{packID}/removal", handlers.removeSquadAddon)
 }
 
 // capacityQuotePayload is one priced change as the customer is shown it.
@@ -172,6 +175,40 @@ func (handlers *AccountHandlers) reduceDevices(writer http.ResponseWriter, reque
 	}
 	order, err := handlers.checkout.ReduceDevices(
 		request.Context(), principal.Customer.ID, subscriptionID, body.DeviceLimit, len(devices),
+		strings.TrimSpace(request.Header.Get("Idempotency-Key")), accountLocale(request, principal.Customer.Locale),
+	)
+	if handlers.writeCheckoutError(writer, request, err) {
+		return
+	}
+	writeJSON(writer, http.StatusCreated, handlers.orderPayload(request.Context(), order, nil))
+}
+
+func (handlers *AccountHandlers) squadAddons(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := CustomerFrom(request.Context())
+	options, err := handlers.checkout.SquadAddonRemovals(
+		request.Context(), principal.Customer.ID, chi.URLParam(request, "subscriptionID"),
+		accountLocale(request, principal.Customer.Locale),
+	)
+	if handlers.writeCheckoutError(writer, request, err) {
+		return
+	}
+	items := make([]map[string]any, 0, len(options))
+	for _, option := range options {
+		items = append(items, map[string]any{
+			"packId": option.PackID, "addonVersionId": option.AddonVersionID, "name": option.Name,
+			"squadCount": len(option.SquadIDs), "quote": capacityQuotePayload(option.Quote),
+		})
+	}
+	writeJSON(writer, http.StatusOK, map[string]any{"items": items})
+}
+
+func (handlers *AccountHandlers) removeSquadAddon(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := CustomerFrom(request.Context())
+	if !requireIdempotencyKey(writer, request) {
+		return
+	}
+	order, err := handlers.checkout.RemoveSquadAddon(
+		request.Context(), principal.Customer.ID, chi.URLParam(request, "subscriptionID"), chi.URLParam(request, "packID"),
 		strings.TrimSpace(request.Header.Get("Idempotency-Key")), accountLocale(request, principal.Customer.Locale),
 	)
 	if handlers.writeCheckoutError(writer, request, err) {

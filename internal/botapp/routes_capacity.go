@@ -51,6 +51,9 @@ func (app *App) withCapacityButtons(ctx context.Context, session commerceContext
 	if _, _, ok, err := app.commerce.orders.DeviceLimitRange(ctx, session.Customer.ID, subscription.ID); err == nil && ok {
 		view = withRowBeforeLast(view, row(actionButton(text(session.Locale, "capacity.devicesButton"), "devl:"+slot)))
 	}
+	if squads, err := app.commerce.SquadAddonRemovals(ctx, session.Customer.ID, subscription.ID, session.Locale); err == nil && len(squads) > 0 {
+		view = withRowBeforeLast(view, row(actionButton(text(session.Locale, "capacity.squadsButton"), "sqr:"+slot)))
+	}
 	return view
 }
 
@@ -88,6 +91,19 @@ func (app *App) handleCapacityAction(ctx context.Context, session commerceContex
 			return app.deviceLimitConfirmScreen(ctx, session, parts[1], limit)
 		}
 		return app.reduceDeviceLimit(ctx, session, parts[1], limit)
+	case "sqr":
+		if len(parts) != 2 {
+			return app.errorView(session.Locale, routeSubscriptions)
+		}
+		return app.squadAddonsScreen(ctx, session, parts[1])
+	case "sqr-ask", "sqr-buy":
+		if len(parts) != 3 {
+			return app.errorView(session.Locale, routeSubscriptions)
+		}
+		if parts[0] == "sqr-ask" {
+			return app.squadAddonConfirmScreen(ctx, session, parts[1], parts[2])
+		}
+		return app.removeSquadAddon(ctx, session, parts[1], parts[2])
 	}
 	return app.errorView(session.Locale, routeSubscriptions)
 }
@@ -389,4 +405,79 @@ func remoteDeviceLabel(device remnawave.Device) string {
 		return "—"
 	}
 	return strings.Join(parts, " · ")
+}
+
+// SquadAddonRemovals lists the paid squad add-ons a subscription may remove.
+func (service *Commerce) SquadAddonRemovals(ctx context.Context, customerID, subscriptionID string, locale Locale) ([]accountcheckout.SquadAddonRemoval, error) {
+	return service.checkout.SquadAddonRemovals(ctx, customerID, subscriptionID, string(locale))
+}
+
+func (app *App) squadAddonsScreen(ctx context.Context, session commerceContext, slot string) View {
+	subscription, ok := app.capacitySubscription(ctx, session, slot)
+	if !ok {
+		return capacityUnavailableView(session.Locale, "", "capacity.squadsUnavailable")
+	}
+	options, err := app.commerce.SquadAddonRemovals(ctx, session.Customer.ID, subscription.ID, session.Locale)
+	if err != nil {
+		app.logger.Error("squad add-on lookup failed", "error", err)
+		return app.errorView(session.Locale, routeSubscriptions)
+	}
+	if len(options) == 0 {
+		return capacityUnavailableView(session.Locale, subscription.ID, "capacity.squadsUnavailable")
+	}
+	rows := make([][]models.InlineKeyboardButton, 0, len(options)+1)
+	for _, option := range options {
+		rows = append(rows, row(actionButton("✖️ "+option.Name, "sqr-ask:"+slot+":"+option.PackID)))
+	}
+	rows = append(rows, row(actionButton(text(session.Locale, "action.back"), "sub:"+subscription.ID)))
+	body := text(session.Locale, "capacity.squadsTitle") + "\n\n" +
+		text(session.Locale, "subs.detail", html.EscapeString(subscription.Label)) + "\n\n" +
+		text(session.Locale, "capacity.squadsExplain")
+	return View{Text: body, Keyboard: keyboard(rows...)}
+}
+
+func (app *App) squadAddonConfirmScreen(ctx context.Context, session commerceContext, slot, packID string) View {
+	subscription, ok := app.capacitySubscription(ctx, session, slot)
+	if !ok {
+		return capacityUnavailableView(session.Locale, "", "capacity.squadsUnavailable")
+	}
+	options, err := app.commerce.SquadAddonRemovals(ctx, session.Customer.ID, subscription.ID, session.Locale)
+	if err != nil {
+		app.logger.Error("squad add-on lookup failed", "error", err)
+		return app.errorView(session.Locale, routeSubscriptions)
+	}
+	for _, option := range options {
+		if option.PackID == packID {
+			return capacityConfirmView(session.Locale, subscription,
+				text(session.Locale, "capacity.squadsConfirm", html.EscapeString(option.Name)),
+				option.Quote, "sqr-buy:"+slot+":"+packID)
+		}
+	}
+	return capacityUnavailableView(session.Locale, subscription.ID, "capacity.squadsUnavailable")
+}
+
+// removeSquadAddon opens the squad_removal order. It charges nothing, so it
+// settles at once: the credit lands in the wallet and the squads leave
+// through fulfillment.
+func (app *App) removeSquadAddon(ctx context.Context, session commerceContext, slot, packID string) View {
+	subscription, ok := app.capacitySubscription(ctx, session, slot)
+	if !ok {
+		return capacityUnavailableView(session.Locale, "", "capacity.squadsUnavailable")
+	}
+	key, err := keyOrNew(session.TapKey)
+	if err != nil {
+		return app.errorView(session.Locale, routeSubscriptions)
+	}
+	order, err := app.commerce.orders.CreateSquadRemovalOrder(ctx, commercepg.CapacityChangeInput{
+		CustomerID: session.Customer.ID, SubscriptionID: subscription.ID, Currency: app.settings.Currency,
+		AddonPackID: packID, IdempotencyKey: "bot-squad:" + key,
+	})
+	if errors.Is(err, commerce.ErrSquadRemovalUnavailable) || errors.Is(err, commercepg.ErrNoActiveSubscription) {
+		return capacityUnavailableView(session.Locale, subscription.ID, "capacity.squadsUnavailable")
+	}
+	if err != nil {
+		app.logger.Error("squad removal order failed", "error", err)
+		return app.errorView(session.Locale, routeSubscriptions)
+	}
+	return app.capacityOrderView(ctx, session, uuidText(order.ID))
 }

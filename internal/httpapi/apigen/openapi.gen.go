@@ -4907,6 +4907,24 @@ func (e RemoveAllAccountDevicesParamsConfirm) Valid() bool {
 	}
 }
 
+// Defines values for ListAccountSquadAddonsParamsLocale.
+const (
+	ListAccountSquadAddonsParamsLocaleEn ListAccountSquadAddonsParamsLocale = "en"
+	ListAccountSquadAddonsParamsLocaleRu ListAccountSquadAddonsParamsLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the ListAccountSquadAddonsParamsLocale enum.
+func (e ListAccountSquadAddonsParamsLocale) Valid() bool {
+	switch e {
+	case ListAccountSquadAddonsParamsLocaleEn:
+		return true
+	case ListAccountSquadAddonsParamsLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetAccountTrafficPackagesParamsLocale.
 const (
 	GetAccountTrafficPackagesParamsLocaleEn GetAccountTrafficPackagesParamsLocale = "en"
@@ -6819,6 +6837,19 @@ type AccountSignInMethods struct {
 
 	// Telegram A bot token is configured, so the login widget can be verified.
 	Telegram bool `json:"telegram"`
+}
+
+// AccountSquadAddons defines model for AccountSquadAddons.
+type AccountSquadAddons struct {
+	Items []struct {
+		AddonVersionId openapi_types.UUID `json:"addonVersionId"`
+		Name           string             `json:"name"`
+		PackId         openapi_types.UUID `json:"packId"`
+
+		// Quote What a mid-period capacity change costs or hands back now. chargeMinor is the prorated price of what is added and creditMinor the prorated value of what is released, at what the customer paid for it.
+		Quote      AccountCapacityQuote `json:"quote"`
+		SquadCount int                  `json:"squadCount"`
+	} `json:"items"`
 }
 
 // AccountSquadOffer defines model for AccountSquadOffer.
@@ -11421,6 +11452,21 @@ type RotateAccountSubscriptionLinkParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// ListAccountSquadAddonsParams defines parameters for ListAccountSquadAddons.
+type ListAccountSquadAddonsParams struct {
+	Locale *ListAccountSquadAddonsParamsLocale `form:"locale,omitempty" json:"locale,omitempty"`
+}
+
+// ListAccountSquadAddonsParamsLocale defines parameters for ListAccountSquadAddons.
+type ListAccountSquadAddonsParamsLocale string
+
+// RemoveAccountSquadAddonParams defines parameters for RemoveAccountSquadAddon.
+type RemoveAccountSquadAddonParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
 // GetAccountTrafficPackagesParams defines parameters for GetAccountTrafficPackages.
 type GetAccountTrafficPackagesParams struct {
 	Locale *GetAccountTrafficPackagesParamsLocale `form:"locale,omitempty" json:"locale,omitempty"`
@@ -13901,6 +13947,12 @@ type ServerInterface interface {
 	// (POST /v1/account/subscriptions/{subscriptionID}/rotate-link)
 	RotateAccountSubscriptionLink(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params RotateAccountSubscriptionLinkParams)
 
+	// (GET /v1/account/subscriptions/{subscriptionID}/squad-addons)
+	ListAccountSquadAddons(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params ListAccountSquadAddonsParams)
+
+	// (POST /v1/account/subscriptions/{subscriptionID}/squad-addons/{packID}/removal)
+	RemoveAccountSquadAddon(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, packID openapi_types.UUID, params RemoveAccountSquadAddonParams)
+
 	// (GET /v1/account/subscriptions/{subscriptionID}/traffic-package)
 	GetAccountTrafficPackages(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params GetAccountTrafficPackagesParams)
 
@@ -15315,6 +15367,16 @@ func (_ Unimplemented) RenameAccountDevice(w http.ResponseWriter, r *http.Reques
 
 // (POST /v1/account/subscriptions/{subscriptionID}/rotate-link)
 func (_ Unimplemented) RotateAccountSubscriptionLink(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params RotateAccountSubscriptionLinkParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/subscriptions/{subscriptionID}/squad-addons)
+func (_ Unimplemented) ListAccountSquadAddons(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params ListAccountSquadAddonsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/subscriptions/{subscriptionID}/squad-addons/{packID}/removal)
+func (_ Unimplemented) RemoveAccountSquadAddon(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, packID openapi_types.UUID, params RemoveAccountSquadAddonParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -21155,6 +21217,134 @@ func (siw *ServerInterfaceWrapper) RotateAccountSubscriptionLink(w http.Response
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RotateAccountSubscriptionLink(w, r, subscriptionID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAccountSquadAddons operation middleware
+func (siw *ServerInterfaceWrapper) ListAccountSquadAddons(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID AccountSubscriptionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAccountSquadAddonsParams
+
+	// ------------- Optional query parameter "locale" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "locale", r.URL.Query(), &params.Locale, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "locale"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "locale", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAccountSquadAddons(w, r, subscriptionID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RemoveAccountSquadAddon operation middleware
+func (siw *ServerInterfaceWrapper) RemoveAccountSquadAddon(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID AccountSubscriptionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "packID" -------------
+	var packID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "packID", chi.URLParam(r, "packID"), &packID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "packID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RemoveAccountSquadAddonParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RemoveAccountSquadAddon(w, r, subscriptionID, packID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -34272,6 +34462,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/device-limit", wrapper.ReduceAccountDeviceLimit)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/squad-addons", wrapper.ListAccountSquadAddons)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/squad-addons/{packID}/removal", wrapper.RemoveAccountSquadAddon)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/addons", wrapper.ListAccountSubscriptionAddons)
 	})
 	r.Group(func(r chi.Router) {
@@ -39657,6 +39853,83 @@ func (response RotateAccountSubscriptionLink503ApplicationProblemPlusJSONRespons
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAccountSquadAddonsRequestObject struct {
+	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
+	Params         ListAccountSquadAddonsParams
+}
+
+type ListAccountSquadAddonsResponseObject interface {
+	VisitListAccountSquadAddonsResponse(w http.ResponseWriter) error
+}
+
+type ListAccountSquadAddons200JSONResponse AccountSquadAddons
+
+func (response ListAccountSquadAddons200JSONResponse) VisitListAccountSquadAddonsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveAccountSquadAddonRequestObject struct {
+	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
+	PackID         openapi_types.UUID    `json:"packID"`
+	Params         RemoveAccountSquadAddonParams
+}
+
+type RemoveAccountSquadAddonResponseObject interface {
+	VisitRemoveAccountSquadAddonResponse(w http.ResponseWriter) error
+}
+
+type RemoveAccountSquadAddon201JSONResponse AccountOrder
+
+func (response RemoveAccountSquadAddon201JSONResponse) VisitRemoveAccountSquadAddonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveAccountSquadAddon409ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RemoveAccountSquadAddon409ApplicationProblemPlusJSONResponse) VisitRemoveAccountSquadAddonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RemoveAccountSquadAddon422ApplicationProblemPlusJSONResponse Problem
+
+func (response RemoveAccountSquadAddon422ApplicationProblemPlusJSONResponse) VisitRemoveAccountSquadAddonResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -53118,6 +53391,12 @@ type StrictServerInterface interface {
 	// (POST /v1/account/subscriptions/{subscriptionID}/rotate-link)
 	RotateAccountSubscriptionLink(ctx context.Context, request RotateAccountSubscriptionLinkRequestObject) (RotateAccountSubscriptionLinkResponseObject, error)
 
+	// (GET /v1/account/subscriptions/{subscriptionID}/squad-addons)
+	ListAccountSquadAddons(ctx context.Context, request ListAccountSquadAddonsRequestObject) (ListAccountSquadAddonsResponseObject, error)
+
+	// (POST /v1/account/subscriptions/{subscriptionID}/squad-addons/{packID}/removal)
+	RemoveAccountSquadAddon(ctx context.Context, request RemoveAccountSquadAddonRequestObject) (RemoveAccountSquadAddonResponseObject, error)
+
 	// (GET /v1/account/subscriptions/{subscriptionID}/traffic-package)
 	GetAccountTrafficPackages(ctx context.Context, request GetAccountTrafficPackagesRequestObject) (GetAccountTrafficPackagesResponseObject, error)
 
@@ -57221,6 +57500,61 @@ func (sh *strictHandler) RotateAccountSubscriptionLink(w http.ResponseWriter, r 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(RotateAccountSubscriptionLinkResponseObject); ok {
 		if err := validResponse.VisitRotateAccountSubscriptionLinkResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAccountSquadAddons operation middleware
+func (sh *strictHandler) ListAccountSquadAddons(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params ListAccountSquadAddonsParams) {
+	var request ListAccountSquadAddonsRequestObject
+
+	request.SubscriptionID = subscriptionID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAccountSquadAddons(ctx, request.(ListAccountSquadAddonsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAccountSquadAddons")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAccountSquadAddonsResponseObject); ok {
+		if err := validResponse.VisitListAccountSquadAddonsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RemoveAccountSquadAddon operation middleware
+func (sh *strictHandler) RemoveAccountSquadAddon(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, packID openapi_types.UUID, params RemoveAccountSquadAddonParams) {
+	var request RemoveAccountSquadAddonRequestObject
+
+	request.SubscriptionID = subscriptionID
+	request.PackID = packID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RemoveAccountSquadAddon(ctx, request.(RemoveAccountSquadAddonRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RemoveAccountSquadAddon")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RemoveAccountSquadAddonResponseObject); ok {
+		if err := validResponse.VisitRemoveAccountSquadAddonResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

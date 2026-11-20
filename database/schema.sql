@@ -3684,7 +3684,7 @@ CREATE TABLE public.orders (
     CONSTRAINT orders_external_minor_check CHECK ((external_minor >= 0)),
     CONSTRAINT orders_loyalty_discount_bounded CHECK (((loyalty_discount_minor >= 0) AND (loyalty_discount_minor <= discount_minor))),
     CONSTRAINT orders_loyalty_tier_present CHECK (((loyalty_discount_minor = 0) OR (loyalty_tier_code IS NOT NULL))),
-    CONSTRAINT orders_operation_known CHECK ((operation = ANY (ARRAY['purchase'::text, 'upgrade'::text, 'downgrade'::text, 'extension'::text, 'topup'::text, 'addon'::text, 'gift'::text, 'goods'::text, 'renewal'::text, 'code'::text, 'traffic_reset'::text, 'traffic_change'::text, 'device_reduction'::text]))),
+    CONSTRAINT orders_operation_known CHECK ((operation = ANY (ARRAY['purchase'::text, 'upgrade'::text, 'downgrade'::text, 'extension'::text, 'topup'::text, 'addon'::text, 'gift'::text, 'goods'::text, 'renewal'::text, 'code'::text, 'traffic_reset'::text, 'traffic_change'::text, 'device_reduction'::text, 'squad_removal'::text]))),
     CONSTRAINT orders_paid_minor_check CHECK ((paid_minor >= 0)),
     CONSTRAINT orders_period_seconds_positive CHECK (((period_seconds IS NULL) OR (period_seconds > 0))),
     CONSTRAINT orders_refunded_minor_check CHECK ((refunded_minor >= 0)),

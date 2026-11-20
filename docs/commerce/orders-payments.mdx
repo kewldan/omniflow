@@ -31,6 +31,7 @@ cannot be written at all.
 | `goods` | Telegram Premium or Stars | one delivery row |
 | `traffic_change` | a bigger or smaller traffic package mid-period | the old packs released, the new one applied, one `set_limits` |
 | `device_reduction` | bought device slots given back mid-period | nothing charged, the slots' remainder credited, one `set_limits` |
+| `squad_removal` | a paid server add-on removed mid-period | nothing charged, its remainder credited, the squads it alone granted taken off, one `set_limits` |
 
 `renewal` was split out of `extension` on purpose. Support answers "why was I charged?" from this
 column, and the honest answer differs between a change a customer asked for and a charge that

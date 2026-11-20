@@ -1093,6 +1093,11 @@ func (handlers *AccountHandlers) writeCheckoutError(
 			writer, request, http.StatusConflict,
 			"devices_over_limit", "More devices are connected than the new limit allows; disconnect some first",
 		)
+	case errors.Is(err, commerce.ErrSquadRemovalUnavailable):
+		writeProblem(
+			writer, request, http.StatusUnprocessableEntity,
+			"squad_removal_unavailable", "That server add-on is not on this subscription",
+		)
 	case errors.Is(err, commerce.ErrCapacityChangeSame):
 		writeProblem(
 			writer, request, http.StatusUnprocessableEntity,

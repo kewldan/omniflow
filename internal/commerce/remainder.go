@@ -141,3 +141,7 @@ func ShareOf(amountMinor int64, part, total int) int64 {
 	}
 	return scaleRoundingDown(amountMinor, int64(part), int64(total))
 }
+
+// ErrSquadRemovalUnavailable refuses removing a squad add-on the
+// subscription does not hold, or one already removed.
+var ErrSquadRemovalUnavailable = errors.New("squad_removal_unavailable")

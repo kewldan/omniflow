@@ -713,6 +713,7 @@ var expansionActions = map[string]bool{
 	"squad": true, "addons": true, "addon-buy": true, "addon-confirm": true, "addon-cart": true,
 	"reset-ask": true, "reset-buy": true, "tpk": true, "tpk-ask": true, "tpk-buy": true,
 	"devl": true, "devl-ask": true, "devl-buy": true,
+	"sqr": true, "sqr-ask": true, "sqr-buy": true,
 	"methods": true, "pm-change": true, "checkout-addons": true, "addon-toggle": true,
 	"sub-dev-ask": true, "sub-devs-ask": true, "sub-dev-del": true, "sub-devs-del": true,
 	"ops": true, "ops-backup": true, "ops-restore-confirm": true, "ops-restore": true,
@@ -821,7 +822,7 @@ func (app *App) handleExpansionAction(ctx context.Context, session commerceConte
 		return app.trafficResetConfirmScreen(ctx, session, argument), true
 	case "reset-buy":
 		return app.buyTrafficReset(ctx, session, argument), true
-	case "tpk", "tpk-ask", "tpk-buy", "devl", "devl-ask", "devl-buy":
+	case "tpk", "tpk-ask", "tpk-buy", "devl", "devl-ask", "devl-buy", "sqr", "sqr-ask", "sqr-buy":
 		return app.handleCapacityAction(ctx, session, parts), true
 	case "ops", "ops-backup", "ops-restore-confirm", "ops-restore":
 		return app.handleOperatorAction(ctx, session.TelegramID, parts)
