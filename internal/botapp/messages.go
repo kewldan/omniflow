@@ -255,6 +255,13 @@ var catalog = map[string]phrase{
 	"checkout.changeMethod": {ru: "💱 Другой способ", en: "💱 Change method"},
 	"checkout.traffic":      {ru: "Трафик: <b>%s</b>", en: "Traffic: <b>%s</b>"},
 
+	// The simple subscription: one plan and one Buy button.
+	"simple.title":   {ru: "🛒 <b>%s</b>", en: "🛒 <b>%s</b>"},
+	"simple.period":  {ru: "Период: <b>%s</b>", en: "Period: <b>%s</b>"},
+	"simple.traffic": {ru: "Трафик: <b>%s</b>", en: "Traffic: <b>%s</b>"},
+	"simple.devices": {ru: "Устройств: <b>%d</b>", en: "Devices: <b>%d</b>"},
+	"simple.price":   {ru: "Цена: <b>%s</b>", en: "Price: <b>%s</b>"},
+
 	// The traffic choice in the checkout.
 	"traffic.title": {ru: "📶 <b>Объём трафика</b>", en: "📶 <b>Traffic volume</b>"},
 

@@ -6776,6 +6776,24 @@ type AccountSignInMethods struct {
 	Telegram bool `json:"telegram"`
 }
 
+// AccountSimpleSubscription defines model for AccountSimpleSubscription.
+type AccountSimpleSubscription struct {
+	Enabled      bool `json:"enabled"`
+	ExtraDevices *int `json:"extraDevices,omitempty"`
+
+	// PeriodDays 0 is the plan's own period.
+	PeriodDays    *int                `json:"periodDays,omitempty"`
+	Plan          *AccountPlan        `json:"plan,omitempty"`
+	PlanVersionId *openapi_types.UUID `json:"planVersionId,omitempty"`
+	Total         *struct {
+		AmountMinor int64  `json:"amountMinor"`
+		Currency    string `json:"currency"`
+	} `json:"total,omitempty"`
+
+	// TrafficGb 0 is the plan's own traffic.
+	TrafficGb *int `json:"trafficGb,omitempty"`
+}
+
 // AccountSquadOffer defines model for AccountSquadOffer.
 type AccountSquadOffer struct {
 	Configurable bool `json:"configurable"`
@@ -9604,6 +9622,23 @@ type PanelSession struct {
 	SessionId              openapi_types.UUID `json:"sessionId"`
 }
 
+// PanelSimpleSubscription defines model for PanelSimpleSubscription.
+type PanelSimpleSubscription struct {
+	// DeviceAddonId A devices add-on bought with the plan; empty for none.
+	DeviceAddonId  string `json:"deviceAddonId"`
+	DeviceQuantity int    `json:"deviceQuantity"`
+	Enabled        bool   `json:"enabled"`
+
+	// PeriodDays 0 is the version's own period.
+	PeriodDays int `json:"periodDays"`
+
+	// PlanId The plan sold; empty for none.
+	PlanId string `json:"planId"`
+
+	// TrafficGb 0 is the version's own traffic.
+	TrafficGb int `json:"trafficGb"`
+}
+
 // PanelSquadListing defines model for PanelSquadListing.
 type PanelSquadListing struct {
 	Detail   *PanelSquadListingDetail `json:"detail,omitempty"`
@@ -11258,6 +11293,12 @@ type UnlinkAccountSignInMethodParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// OpenAccountSimpleCheckoutParams defines parameters for OpenAccountSimpleCheckout.
+type OpenAccountSimpleCheckoutParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // RotateAllAccountSubscriptionLinksJSONBody defines parameters for RotateAllAccountSubscriptionLinks.
 type RotateAllAccountSubscriptionLinksJSONBody struct {
 	Confirm bool `json:"confirm"`
@@ -11910,6 +11951,12 @@ type CreatePanelPromotionParams struct {
 
 // UpdatePanelPromotionParams defines parameters for UpdatePanelPromotion.
 type UpdatePanelPromotionParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// SavePanelSimpleSubscriptionParams defines parameters for SavePanelSimpleSubscription.
+type SavePanelSimpleSubscriptionParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
@@ -13181,6 +13228,9 @@ type CreatePanelPromotionJSONRequestBody = PanelPromotionInput
 // UpdatePanelPromotionJSONRequestBody defines body for UpdatePanelPromotion for application/json ContentType.
 type UpdatePanelPromotionJSONRequestBody = PanelPromotionUpdate
 
+// SavePanelSimpleSubscriptionJSONRequestBody defines body for SavePanelSimpleSubscription for application/json ContentType.
+type SavePanelSimpleSubscriptionJSONRequestBody = PanelSimpleSubscription
+
 // CreatePanelCodeBatchJSONRequestBody defines body for CreatePanelCodeBatch for application/json ContentType.
 type CreatePanelCodeBatchJSONRequestBody = PanelCodeBatch
 
@@ -13798,6 +13848,12 @@ type ServerInterface interface {
 	// (DELETE /v1/account/sign-in-methods/{identityID})
 	UnlinkAccountSignInMethod(w http.ResponseWriter, r *http.Request, identityID openapi_types.UUID, params UnlinkAccountSignInMethodParams)
 
+	// (GET /v1/account/simple-subscription)
+	GetAccountSimpleSubscription(w http.ResponseWriter, r *http.Request)
+
+	// (POST /v1/account/simple-subscription/checkout)
+	OpenAccountSimpleCheckout(w http.ResponseWriter, r *http.Request, params OpenAccountSimpleCheckoutParams)
+
 	// (POST /v1/account/subscriptions/rotate-links)
 	RotateAllAccountSubscriptionLinks(w http.ResponseWriter, r *http.Request, params RotateAllAccountSubscriptionLinksParams)
 
@@ -14181,6 +14237,12 @@ type ServerInterface interface {
 
 	// (GET /v1/panel/catalog/promotions/{promotionID}/codes)
 	ListPanelPromoCodes(w http.ResponseWriter, r *http.Request, promotionID openapi_types.UUID)
+
+	// (GET /v1/panel/catalog/simple-subscription)
+	GetPanelSimpleSubscription(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /v1/panel/catalog/simple-subscription)
+	SavePanelSimpleSubscription(w http.ResponseWriter, r *http.Request, params SavePanelSimpleSubscriptionParams)
 
 	// (GET /v1/panel/codes/batches)
 	ListPanelCodeBatches(w http.ResponseWriter, r *http.Request, params ListPanelCodeBatchesParams)
@@ -15177,6 +15239,16 @@ func (_ Unimplemented) UnlinkAccountSignInMethod(w http.ResponseWriter, r *http.
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /v1/account/simple-subscription)
+func (_ Unimplemented) GetAccountSimpleSubscription(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/simple-subscription/checkout)
+func (_ Unimplemented) OpenAccountSimpleCheckout(w http.ResponseWriter, r *http.Request, params OpenAccountSimpleCheckoutParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (POST /v1/account/subscriptions/rotate-links)
 func (_ Unimplemented) RotateAllAccountSubscriptionLinks(w http.ResponseWriter, r *http.Request, params RotateAllAccountSubscriptionLinksParams) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -15814,6 +15886,16 @@ func (_ Unimplemented) UpdatePanelPromotion(w http.ResponseWriter, r *http.Reque
 
 // (GET /v1/panel/catalog/promotions/{promotionID}/codes)
 func (_ Unimplemented) ListPanelPromoCodes(w http.ResponseWriter, r *http.Request, promotionID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/catalog/simple-subscription)
+func (_ Unimplemented) GetPanelSimpleSubscription(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /v1/panel/catalog/simple-subscription)
+func (_ Unimplemented) SavePanelSimpleSubscription(w http.ResponseWriter, r *http.Request, params SavePanelSimpleSubscriptionParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -20244,6 +20326,65 @@ func (siw *ServerInterfaceWrapper) UnlinkAccountSignInMethod(w http.ResponseWrit
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UnlinkAccountSignInMethod(w, r, identityID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountSimpleSubscription operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountSimpleSubscription(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountSimpleSubscription(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// OpenAccountSimpleCheckout operation middleware
+func (siw *ServerInterfaceWrapper) OpenAccountSimpleCheckout(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params OpenAccountSimpleCheckoutParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.OpenAccountSimpleCheckout(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -25490,6 +25631,65 @@ func (siw *ServerInterfaceWrapper) ListPanelPromoCodes(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListPanelPromoCodes(w, r, promotionID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPanelSimpleSubscription operation middleware
+func (siw *ServerInterfaceWrapper) GetPanelSimpleSubscription(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPanelSimpleSubscription(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SavePanelSimpleSubscription operation middleware
+func (siw *ServerInterfaceWrapper) SavePanelSimpleSubscription(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SavePanelSimpleSubscriptionParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SavePanelSimpleSubscription(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -33605,6 +33805,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Put(options.BaseURL+"/v1/panel/catalog/plans/{planID}/options", wrapper.SavePanelPlanOptions)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/catalog/simple-subscription", wrapper.GetPanelSimpleSubscription)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/v1/panel/catalog/simple-subscription", wrapper.SavePanelSimpleSubscription)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/remnawave/squads", wrapper.ListPanelRemnawaveSquads)
 	})
 	r.Group(func(r chi.Router) {
@@ -34068,6 +34274,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/traffic-reset", wrapper.BuyAccountTrafficReset)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/simple-subscription", wrapper.GetAccountSimpleSubscription)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/simple-subscription/checkout", wrapper.OpenAccountSimpleCheckout)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/daily-billing", wrapper.GetAccountDailyBilling)
@@ -38529,6 +38741,79 @@ func (response UnlinkAccountSignInMethod409ApplicationProblemPlusJSONResponse) V
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountSimpleSubscriptionRequestObject struct {
+}
+
+type GetAccountSimpleSubscriptionResponseObject interface {
+	VisitGetAccountSimpleSubscriptionResponse(w http.ResponseWriter) error
+}
+
+type GetAccountSimpleSubscription200JSONResponse AccountSimpleSubscription
+
+func (response GetAccountSimpleSubscription200JSONResponse) VisitGetAccountSimpleSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type OpenAccountSimpleCheckoutRequestObject struct {
+	Params OpenAccountSimpleCheckoutParams
+}
+
+type OpenAccountSimpleCheckoutResponseObject interface {
+	VisitOpenAccountSimpleCheckoutResponse(w http.ResponseWriter) error
+}
+
+type OpenAccountSimpleCheckout201JSONResponse AccountCheckout
+
+func (response OpenAccountSimpleCheckout201JSONResponse) VisitOpenAccountSimpleCheckoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type OpenAccountSimpleCheckout409ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response OpenAccountSimpleCheckout409ApplicationProblemPlusJSONResponse) VisitOpenAccountSimpleCheckoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type OpenAccountSimpleCheckout422ApplicationProblemPlusJSONResponse Problem
+
+func (response OpenAccountSimpleCheckout422ApplicationProblemPlusJSONResponse) VisitOpenAccountSimpleCheckoutResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -44209,6 +44494,96 @@ func (response ListPanelPromoCodes403ApplicationProblemPlusJSONResponse) VisitLi
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelSimpleSubscriptionRequestObject struct {
+}
+
+type GetPanelSimpleSubscriptionResponseObject interface {
+	VisitGetPanelSimpleSubscriptionResponse(w http.ResponseWriter) error
+}
+
+type GetPanelSimpleSubscription200JSONResponse PanelSimpleSubscription
+
+func (response GetPanelSimpleSubscription200JSONResponse) VisitGetPanelSimpleSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelSimpleSubscription403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetPanelSimpleSubscription403ApplicationProblemPlusJSONResponse) VisitGetPanelSimpleSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelSimpleSubscriptionRequestObject struct {
+	Params SavePanelSimpleSubscriptionParams
+	Body   *SavePanelSimpleSubscriptionJSONRequestBody
+}
+
+type SavePanelSimpleSubscriptionResponseObject interface {
+	VisitSavePanelSimpleSubscriptionResponse(w http.ResponseWriter) error
+}
+
+type SavePanelSimpleSubscription200JSONResponse PanelSimpleSubscription
+
+func (response SavePanelSimpleSubscription200JSONResponse) VisitSavePanelSimpleSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelSimpleSubscription403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SavePanelSimpleSubscription403ApplicationProblemPlusJSONResponse) VisitSavePanelSimpleSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelSimpleSubscription422ApplicationProblemPlusJSONResponse Problem
+
+func (response SavePanelSimpleSubscription422ApplicationProblemPlusJSONResponse) VisitSavePanelSimpleSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -52767,6 +53142,12 @@ type StrictServerInterface interface {
 	// (DELETE /v1/account/sign-in-methods/{identityID})
 	UnlinkAccountSignInMethod(ctx context.Context, request UnlinkAccountSignInMethodRequestObject) (UnlinkAccountSignInMethodResponseObject, error)
 
+	// (GET /v1/account/simple-subscription)
+	GetAccountSimpleSubscription(ctx context.Context, request GetAccountSimpleSubscriptionRequestObject) (GetAccountSimpleSubscriptionResponseObject, error)
+
+	// (POST /v1/account/simple-subscription/checkout)
+	OpenAccountSimpleCheckout(ctx context.Context, request OpenAccountSimpleCheckoutRequestObject) (OpenAccountSimpleCheckoutResponseObject, error)
+
 	// (POST /v1/account/subscriptions/rotate-links)
 	RotateAllAccountSubscriptionLinks(ctx context.Context, request RotateAllAccountSubscriptionLinksRequestObject) (RotateAllAccountSubscriptionLinksResponseObject, error)
 
@@ -53150,6 +53531,12 @@ type StrictServerInterface interface {
 
 	// (GET /v1/panel/catalog/promotions/{promotionID}/codes)
 	ListPanelPromoCodes(ctx context.Context, request ListPanelPromoCodesRequestObject) (ListPanelPromoCodesResponseObject, error)
+
+	// (GET /v1/panel/catalog/simple-subscription)
+	GetPanelSimpleSubscription(ctx context.Context, request GetPanelSimpleSubscriptionRequestObject) (GetPanelSimpleSubscriptionResponseObject, error)
+
+	// (PUT /v1/panel/catalog/simple-subscription)
+	SavePanelSimpleSubscription(ctx context.Context, request SavePanelSimpleSubscriptionRequestObject) (SavePanelSimpleSubscriptionResponseObject, error)
 
 	// (GET /v1/panel/codes/batches)
 	ListPanelCodeBatches(ctx context.Context, request ListPanelCodeBatchesRequestObject) (ListPanelCodeBatchesResponseObject, error)
@@ -56432,6 +56819,56 @@ func (sh *strictHandler) UnlinkAccountSignInMethod(w http.ResponseWriter, r *htt
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(UnlinkAccountSignInMethodResponseObject); ok {
 		if err := validResponse.VisitUnlinkAccountSignInMethodResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountSimpleSubscription operation middleware
+func (sh *strictHandler) GetAccountSimpleSubscription(w http.ResponseWriter, r *http.Request) {
+	var request GetAccountSimpleSubscriptionRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountSimpleSubscription(ctx, request.(GetAccountSimpleSubscriptionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountSimpleSubscription")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountSimpleSubscriptionResponseObject); ok {
+		if err := validResponse.VisitGetAccountSimpleSubscriptionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// OpenAccountSimpleCheckout operation middleware
+func (sh *strictHandler) OpenAccountSimpleCheckout(w http.ResponseWriter, r *http.Request, params OpenAccountSimpleCheckoutParams) {
+	var request OpenAccountSimpleCheckoutRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.OpenAccountSimpleCheckout(ctx, request.(OpenAccountSimpleCheckoutRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "OpenAccountSimpleCheckout")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(OpenAccountSimpleCheckoutResponseObject); ok {
+		if err := validResponse.VisitOpenAccountSimpleCheckoutResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -60143,6 +60580,63 @@ func (sh *strictHandler) ListPanelPromoCodes(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListPanelPromoCodesResponseObject); ok {
 		if err := validResponse.VisitListPanelPromoCodesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPanelSimpleSubscription operation middleware
+func (sh *strictHandler) GetPanelSimpleSubscription(w http.ResponseWriter, r *http.Request) {
+	var request GetPanelSimpleSubscriptionRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPanelSimpleSubscription(ctx, request.(GetPanelSimpleSubscriptionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPanelSimpleSubscription")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPanelSimpleSubscriptionResponseObject); ok {
+		if err := validResponse.VisitGetPanelSimpleSubscriptionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SavePanelSimpleSubscription operation middleware
+func (sh *strictHandler) SavePanelSimpleSubscription(w http.ResponseWriter, r *http.Request, params SavePanelSimpleSubscriptionParams) {
+	var request SavePanelSimpleSubscriptionRequestObject
+
+	request.Params = params
+
+	var body SavePanelSimpleSubscriptionJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SavePanelSimpleSubscription(ctx, request.(SavePanelSimpleSubscriptionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SavePanelSimpleSubscription")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SavePanelSimpleSubscriptionResponseObject); ok {
+		if err := validResponse.VisitSavePanelSimpleSubscriptionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

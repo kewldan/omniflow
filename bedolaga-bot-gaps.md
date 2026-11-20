@@ -131,7 +131,7 @@
 - ✅ **Выбор сквадов из списка панели** — `B: /admin/tariffs/available-servers` — нет: UUID текстом — S
 - ✅ **Применение новых сквадов к действующим подпискам** — `B: tariff_squad_sync.py` — частично: массовой смены сквадов нет — M
 - ✅ **Проверка сквада перед списанием** — `B: checkout_squad_validation.py` — нет — S
-- ⏸ **«Простая подписка» в одну кнопку** — `B: SIMPLE_SUBSCRIPTION_*` — частично — S
+- ✅ **«Простая подписка» в одну кнопку** — `B: SIMPLE_SUBSCRIPTION_*` — частично — S
 - ✅ **Режим трафика selectable/fixed/fixed_with_topup** — `B: TRAFFIC_SELECTION_MODE` — частично — S
 
 ### 2.2. Смена тарифа и сбросы

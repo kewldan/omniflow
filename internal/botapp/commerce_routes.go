@@ -195,6 +195,10 @@ func (app *App) plansScreen(ctx context.Context, session commerceContext, forNew
 	if view, blocked := app.blockedByMaintenance(ctx, session); blocked {
 		return view
 	}
+	// The simple subscription replaces the catalogue with one plan.
+	if view, simple := app.simplePlansScreen(ctx, session); simple {
+		return view
+	}
 	plans, err := app.customers.Plans(ctx, session.Locale, app.settings.Currency)
 	if err != nil {
 		app.logger.Error("plan catalog lookup failed", "error", err)
@@ -958,6 +962,10 @@ func (app *App) handleCommerceAction(ctx context.Context, session commerceContex
 		return app.confirmCheckout(ctx, session), true
 	case "traffic":
 		return app.trafficScreen(ctx, session), true
+	case "simple":
+		return app.plansScreen(ctx, session, false), true
+	case "simple-buy":
+		return app.buySimple(ctx, session), true
 	case "traffic-set":
 		return app.setTraffic(ctx, session, argument), true
 	case "traffic-enter":
@@ -1416,6 +1424,7 @@ var commerceActions = func() map[string]bool {
 		"method-default": true, "method-remove": true,
 		"quiet": true, "quiet-menu": true, "tz-menu": true, "tz": true, "invoice": true,
 		"ref-qr": true, "traffic": true, "traffic-set": true, "traffic-enter": true,
+		"simple": true, "simple-buy": true,
 	}
 	for _, owned := range []map[string]bool{expansionActions, giftActions, shopActions, starsActions, offerActions, termsActions, welcomeActions, partnerActions, gameActions} {
 		for action := range owned {
