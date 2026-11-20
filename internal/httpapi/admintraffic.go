@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/omniflow/omniflow/internal/rbac"
@@ -51,6 +52,8 @@ func (handlers *AdminHandlers) mountTraffic(secure chi.Router) {
 	secure.With(handlers.requirePermission(rbac.PermissionCustomersRead)).Group(func(read chi.Router) {
 		read.Get("/reports/traffic", handlers.trafficReport)
 		read.Get("/reports/traffic/export", handlers.exportTrafficReport)
+		read.Get("/reports/devices", handlers.deviceReport)
+		read.Get("/reports/remnawave-users/{remnawaveID}/subscription-requests", handlers.subscriptionRequests)
 	})
 }
 
@@ -273,4 +276,62 @@ func (handlers *AdminHandlers) exportTrafficReport(writer http.ResponseWriter, r
 			strconv.FormatInt(consumer.LimitBytes, 10),
 			consumer.CustomerID, consumer.Status)
 	}
+}
+
+// deviceReport is the panel's own device census: how many devices, on which
+// platforms, with which applications. It is read live and stored nowhere.
+func (handlers *AdminHandlers) deviceReport(writer http.ResponseWriter, request *http.Request) {
+	if handlers.remnawave == nil {
+		writeProblem(writer, request, http.StatusServiceUnavailable, "remnawave_unavailable", "Remnawave is not configured")
+		return
+	}
+	stats, err := handlers.remnawave.DeviceStats(request.Context())
+	if errors.Is(err, remnawave.ErrNotFound) {
+		writeJSON(writer, http.StatusOK, map[string]any{"reported": false, "byPlatform": []any{}})
+		return
+	}
+	if err != nil {
+		writeProblem(writer, request, http.StatusBadGateway, "remnawave_unavailable", "Remnawave could not be read")
+		return
+	}
+	platforms := stats.ByPlatform
+	if platforms == nil {
+		platforms = []remnawave.PlatformCount{}
+	}
+	writeJSON(writer, http.StatusOK, map[string]any{
+		"reported": true, "byPlatform": platforms,
+		"totalDevices": stats.Stats.TotalHWIDDevices, "uniqueDevices": stats.Stats.TotalUniqueDevices,
+		"averagePerUser": stats.Stats.AverageHWIDDevicesPerUser,
+	})
+}
+
+// subscriptionRequests is the panel's history of one user's subscription
+// fetches — when, from which address, by which application. It answers "is
+// this link being used somewhere it should not be" and is not kept.
+func (handlers *AdminHandlers) subscriptionRequests(writer http.ResponseWriter, request *http.Request) {
+	if handlers.remnawave == nil {
+		writeProblem(writer, request, http.StatusServiceUnavailable, "remnawave_unavailable", "Remnawave is not configured")
+		return
+	}
+	userID, err := strconv.ParseInt(chi.URLParam(request, "remnawaveID"), 10, 64)
+	if err != nil || userID <= 0 {
+		writeProblem(writer, request, http.StatusUnprocessableEntity, "invalid_input", "A panel user ID is a positive number")
+		return
+	}
+	records, err := handlers.remnawave.SubscriptionRequests(request.Context(), userID)
+	if errors.Is(err, remnawave.ErrNotFound) {
+		writeProblem(writer, request, http.StatusNotFound, "not_found", "Remnawave has no such user")
+		return
+	}
+	if err != nil {
+		writeProblem(writer, request, http.StatusBadGateway, "remnawave_unavailable", "Remnawave could not be read")
+		return
+	}
+	items := make([]map[string]any, 0, len(records))
+	for _, record := range records {
+		items = append(items, map[string]any{
+			"requestAt": record.RequestAt.UTC().Format(time.RFC3339), "ip": record.RequestIP, "userAgent": record.UserAgent,
+		})
+	}
+	writeJSON(writer, http.StatusOK, map[string]any{"items": items})
 }

@@ -2341,6 +2341,71 @@ paths:
       responses:
         "200": {description: CSV, content: {text/csv: {schema: {type: string}}}}
         "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/reports/devices:
+    get:
+      operationId: getPanelDeviceReport
+      tags: [panel]
+      description: >-
+        Requires customers.read. Remnawave's device census by platform and application, read live
+        (GET /api/hwid/devices/stats) and stored nowhere. `reported` is false when the panel does
+        not expose it.
+      responses:
+        "200":
+          description: Device census
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [reported, byPlatform]
+                properties:
+                  reported: {type: boolean}
+                  totalDevices: {type: integer}
+                  uniqueDevices: {type: integer}
+                  averagePerUser: {type: number}
+                  byPlatform:
+                    type: array
+                    items:
+                      type: object
+                      required: [platform, count]
+                      properties:
+                        platform: {type: string}
+                        count: {type: integer}
+                        byApp:
+                          type: array
+                          items: {type: object, required: [app, count], properties: {app: {type: string}, count: {type: integer}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "502": {$ref: "#/components/responses/Problem"}
+  /v1/panel/reports/remnawave-users/{remnawaveID}/subscription-requests:
+    get:
+      operationId: listPanelSubscriptionRequests
+      tags: [panel]
+      description: >-
+        Requires customers.read. Remnawave's history of one panel user's subscription fetches —
+        time, address, application — read live and stored nowhere.
+      parameters:
+        - {in: path, name: remnawaveID, required: true, schema: {type: integer, format: int64}}
+      responses:
+        "200":
+          description: Fetches
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [requestAt, ip, userAgent]
+                      properties:
+                        requestAt: {type: string, format: date-time}
+                        ip: {type: string}
+                        userAgent: {type: string}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+        "502": {$ref: "#/components/responses/Problem"}
   /v1/panel/settings/theme:
     get:
       operationId: getPanelTheme

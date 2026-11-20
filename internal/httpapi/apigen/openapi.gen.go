@@ -13031,8 +13031,14 @@ type ServerInterface interface {
 	// (GET /v1/panel/reports/conversions)
 	GetPanelConversions(w http.ResponseWriter, r *http.Request, params GetPanelConversionsParams)
 
+	// (GET /v1/panel/reports/devices)
+	GetPanelDeviceReport(w http.ResponseWriter, r *http.Request)
+
 	// (GET /v1/panel/reports/payments)
 	GetPanelPaymentHealth(w http.ResponseWriter, r *http.Request, params GetPanelPaymentHealthParams)
+
+	// (GET /v1/panel/reports/remnawave-users/{remnawaveID}/subscription-requests)
+	ListPanelSubscriptionRequests(w http.ResponseWriter, r *http.Request, remnawaveID int64)
 
 	// (GET /v1/panel/reports/sales)
 	GetPanelSalesReport(w http.ResponseWriter, r *http.Request, params GetPanelSalesReportParams)
@@ -14586,8 +14592,18 @@ func (_ Unimplemented) GetPanelConversions(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /v1/panel/reports/devices)
+func (_ Unimplemented) GetPanelDeviceReport(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /v1/panel/reports/payments)
 func (_ Unimplemented) GetPanelPaymentHealth(w http.ResponseWriter, r *http.Request, params GetPanelPaymentHealthParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/reports/remnawave-users/{remnawaveID}/subscription-requests)
+func (_ Unimplemented) ListPanelSubscriptionRequests(w http.ResponseWriter, r *http.Request, remnawaveID int64) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -26162,6 +26178,20 @@ func (siw *ServerInterfaceWrapper) GetPanelConversions(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// GetPanelDeviceReport operation middleware
+func (siw *ServerInterfaceWrapper) GetPanelDeviceReport(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPanelDeviceReport(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetPanelPaymentHealth operation middleware
 func (siw *ServerInterfaceWrapper) GetPanelPaymentHealth(w http.ResponseWriter, r *http.Request) {
 
@@ -26212,6 +26242,32 @@ func (siw *ServerInterfaceWrapper) GetPanelPaymentHealth(w http.ResponseWriter, 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetPanelPaymentHealth(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPanelSubscriptionRequests operation middleware
+func (siw *ServerInterfaceWrapper) ListPanelSubscriptionRequests(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "remnawaveID" -------------
+	var remnawaveID int64
+
+	err = runtime.BindStyledParameterWithOptions("simple", "remnawaveID", chi.URLParam(r, "remnawaveID"), &remnawaveID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "integer", Format: "int64", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "remnawaveID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPanelSubscriptionRequests(w, r, remnawaveID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -30167,6 +30223,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/reports/traffic/export", wrapper.ExportPanelTrafficReport)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/reports/devices", wrapper.GetPanelDeviceReport)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/reports/remnawave-users/{remnawaveID}/subscription-requests", wrapper.ListPanelSubscriptionRequests)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/settings/theme", wrapper.GetPanelTheme)
@@ -42559,6 +42621,70 @@ func (response GetPanelConversions403ApplicationProblemPlusJSONResponse) VisitGe
 	return err
 }
 
+type GetPanelDeviceReportRequestObject struct {
+}
+
+type GetPanelDeviceReportResponseObject interface {
+	VisitGetPanelDeviceReportResponse(w http.ResponseWriter) error
+}
+
+type GetPanelDeviceReport200JSONResponse struct {
+	AveragePerUser *float32 `json:"averagePerUser,omitempty"`
+	ByPlatform     []struct {
+		ByApp *[]struct {
+			App   string `json:"app"`
+			Count int    `json:"count"`
+		} `json:"byApp,omitempty"`
+		Count    int    `json:"count"`
+		Platform string `json:"platform"`
+	} `json:"byPlatform"`
+	Reported      bool `json:"reported"`
+	TotalDevices  *int `json:"totalDevices,omitempty"`
+	UniqueDevices *int `json:"uniqueDevices,omitempty"`
+}
+
+func (response GetPanelDeviceReport200JSONResponse) VisitGetPanelDeviceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelDeviceReport403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetPanelDeviceReport403ApplicationProblemPlusJSONResponse) VisitGetPanelDeviceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelDeviceReport502ApplicationProblemPlusJSONResponse Problem
+
+func (response GetPanelDeviceReport502ApplicationProblemPlusJSONResponse) VisitGetPanelDeviceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetPanelPaymentHealthRequestObject struct {
 	Params GetPanelPaymentHealthParams
 }
@@ -42607,6 +42733,92 @@ func (response GetPanelPaymentHealth422ApplicationProblemPlusJSONResponse) Visit
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelSubscriptionRequestsRequestObject struct {
+	RemnawaveID int64 `json:"remnawaveID"`
+}
+
+type ListPanelSubscriptionRequestsResponseObject interface {
+	VisitListPanelSubscriptionRequestsResponse(w http.ResponseWriter) error
+}
+
+type ListPanelSubscriptionRequests200JSONResponse struct {
+	Items []struct {
+		Ip        string    `json:"ip"`
+		RequestAt time.Time `json:"requestAt"`
+		UserAgent string    `json:"userAgent"`
+	} `json:"items"`
+}
+
+func (response ListPanelSubscriptionRequests200JSONResponse) VisitListPanelSubscriptionRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelSubscriptionRequests403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListPanelSubscriptionRequests403ApplicationProblemPlusJSONResponse) VisitListPanelSubscriptionRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelSubscriptionRequests404ApplicationProblemPlusJSONResponse Problem
+
+func (response ListPanelSubscriptionRequests404ApplicationProblemPlusJSONResponse) VisitListPanelSubscriptionRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelSubscriptionRequests422ApplicationProblemPlusJSONResponse Problem
+
+func (response ListPanelSubscriptionRequests422ApplicationProblemPlusJSONResponse) VisitListPanelSubscriptionRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelSubscriptionRequests502ApplicationProblemPlusJSONResponse Problem
+
+func (response ListPanelSubscriptionRequests502ApplicationProblemPlusJSONResponse) VisitListPanelSubscriptionRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -47124,8 +47336,14 @@ type StrictServerInterface interface {
 	// (GET /v1/panel/reports/conversions)
 	GetPanelConversions(ctx context.Context, request GetPanelConversionsRequestObject) (GetPanelConversionsResponseObject, error)
 
+	// (GET /v1/panel/reports/devices)
+	GetPanelDeviceReport(ctx context.Context, request GetPanelDeviceReportRequestObject) (GetPanelDeviceReportResponseObject, error)
+
 	// (GET /v1/panel/reports/payments)
 	GetPanelPaymentHealth(ctx context.Context, request GetPanelPaymentHealthRequestObject) (GetPanelPaymentHealthResponseObject, error)
+
+	// (GET /v1/panel/reports/remnawave-users/{remnawaveID}/subscription-requests)
+	ListPanelSubscriptionRequests(ctx context.Context, request ListPanelSubscriptionRequestsRequestObject) (ListPanelSubscriptionRequestsResponseObject, error)
 
 	// (GET /v1/panel/reports/sales)
 	GetPanelSalesReport(ctx context.Context, request GetPanelSalesReportRequestObject) (GetPanelSalesReportResponseObject, error)
@@ -54944,6 +55162,30 @@ func (sh *strictHandler) GetPanelConversions(w http.ResponseWriter, r *http.Requ
 	}
 }
 
+// GetPanelDeviceReport operation middleware
+func (sh *strictHandler) GetPanelDeviceReport(w http.ResponseWriter, r *http.Request) {
+	var request GetPanelDeviceReportRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPanelDeviceReport(ctx, request.(GetPanelDeviceReportRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPanelDeviceReport")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPanelDeviceReportResponseObject); ok {
+		if err := validResponse.VisitGetPanelDeviceReportResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetPanelPaymentHealth operation middleware
 func (sh *strictHandler) GetPanelPaymentHealth(w http.ResponseWriter, r *http.Request, params GetPanelPaymentHealthParams) {
 	var request GetPanelPaymentHealthRequestObject
@@ -54963,6 +55205,32 @@ func (sh *strictHandler) GetPanelPaymentHealth(w http.ResponseWriter, r *http.Re
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetPanelPaymentHealthResponseObject); ok {
 		if err := validResponse.VisitGetPanelPaymentHealthResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPanelSubscriptionRequests operation middleware
+func (sh *strictHandler) ListPanelSubscriptionRequests(w http.ResponseWriter, r *http.Request, remnawaveID int64) {
+	var request ListPanelSubscriptionRequestsRequestObject
+
+	request.RemnawaveID = remnawaveID
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPanelSubscriptionRequests(ctx, request.(ListPanelSubscriptionRequestsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPanelSubscriptionRequests")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPanelSubscriptionRequestsResponseObject); ok {
+		if err := validResponse.VisitListPanelSubscriptionRequestsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

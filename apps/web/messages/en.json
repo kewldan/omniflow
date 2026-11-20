@@ -1336,6 +1336,29 @@
         "consumers": "Heaviest consumers",
         "consumersDescription": "The ten largest of the {scanned} users scanned, out of {total}.",
         "consumersEmpty": "Nobody in the scanned set has used anything."
+      },
+      "devices": {
+        "title": "Devices",
+        "description": "The panel's own count of devices by platform and application.",
+        "summary": "{total} devices, {average} per user on average.",
+        "platform": "Platform",
+        "count": "Devices",
+        "apps": "Applications",
+        "none": "No device data",
+        "noneHint": "The panel reported no devices, or does not expose its device statistics.",
+        "failed": "Device statistics could not be read"
+      },
+      "requests": {
+        "title": "Subscription requests",
+        "description": "When, from which address, and by which application one panel user's subscription was fetched, as Remnawave records it.",
+        "userId": "Panel user ID",
+        "show": "Show",
+        "when": "When",
+        "ip": "Address",
+        "app": "Application",
+        "none": "No requests",
+        "noneHint": "Remnawave has no recorded fetch of this subscription.",
+        "failed": "The request history could not be read"
       }
     },
     "content": {

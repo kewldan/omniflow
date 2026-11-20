@@ -5373,6 +5373,47 @@ export const GetPanelTrafficReportResponse = zod.object({
 export const ExportPanelTrafficReportResponse = zod.unknown();
 
 /**
+ * Requires customers.read. Remnawave's device census by platform and application, read live (GET /api/hwid/devices/stats) and stored nowhere. `reported` is false when the panel does not expose it.
+ */
+export const GetPanelDeviceReportResponse = zod.object({
+  reported: zod.boolean(),
+  totalDevices: zod.int().optional(),
+  uniqueDevices: zod.int().optional(),
+  averagePerUser: zod.number().optional(),
+  byPlatform: zod.array(
+    zod.object({
+      platform: zod.string(),
+      count: zod.int(),
+      byApp: zod
+        .array(
+          zod.object({
+            app: zod.string(),
+            count: zod.int(),
+          }),
+        )
+        .optional(),
+    }),
+  ),
+});
+
+/**
+ * Requires customers.read. Remnawave's history of one panel user's subscription fetches — time, address, application — read live and stored nowhere.
+ */
+export const ListPanelSubscriptionRequestsParams = zod.object({
+  remnawaveID: zod.int(),
+});
+
+export const ListPanelSubscriptionRequestsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      requestAt: zod.iso.datetime({ offset: true }),
+      ip: zod.string(),
+      userAgent: zod.string(),
+    }),
+  ),
+});
+
+/**
  * Requires settings.read. The stored palette, the stylesheet it renders as, the tokens this build honours, and every contrast problem the palette has. The warnings are recomputed on each read rather than stored, so they cannot go stale against a palette edited elsewhere.
  */
 export const GetPanelThemeResponse = zod.object({

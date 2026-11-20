@@ -76,6 +76,18 @@ the conversion it applies divides by 1024 and calling that a gigabyte would be
 seven percent out at that scale — enough to stop an operator's arithmetic
 reconciling against their host's invoice.
 
+## Devices and subscription requests
+
+Two more read-only cards sit on the same screen. **Devices** is Remnawave's own census
+(`GET /api/hwid/devices/stats`): how many devices report each platform and which client applications
+they use. **Subscription requests** takes a panel user ID and lists when, from which address, and by
+which application that user's subscription was fetched (`GET /api/users/{id}/subscription-request-history`)
+— the way to tell whether a link is being used somewhere it should not be. Both are read on each
+request and stored nowhere.
+
+There is no history of node usage over time on this screen, by the same rule: a node's figures are
+Remnawave's, and keeping them in Omniflow would be the start of a second traffic ledger.
+
 ## Usage monitoring
 
 Two optional worker passes watch what Remnawave already counts and tell operators in the **Usage

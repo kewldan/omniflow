@@ -6301,6 +6301,35 @@ export type GetPanelPaymentHealthParams = {
   timezone?: ReportTimezoneParameter;
 };
 
+export type GetPanelDeviceReport200ByPlatformItemByAppItem = {
+  app: string;
+  count: number;
+};
+
+export type GetPanelDeviceReport200ByPlatformItem = {
+  platform: string;
+  count: number;
+  byApp?: GetPanelDeviceReport200ByPlatformItemByAppItem[];
+};
+
+export type GetPanelDeviceReport200 = {
+  reported: boolean;
+  totalDevices?: number;
+  uniqueDevices?: number;
+  averagePerUser?: number;
+  byPlatform: GetPanelDeviceReport200ByPlatformItem[];
+};
+
+export type ListPanelSubscriptionRequests200ItemsItem = {
+  requestAt: string;
+  ip: string;
+  userAgent: string;
+};
+
+export type ListPanelSubscriptionRequests200 = {
+  items: ListPanelSubscriptionRequests200ItemsItem[];
+};
+
 export type SavePanelThemeBody = {
   theme: ThemeDocument;
   /** The version the screen was showing. A mismatch is a conflict rather than an overwrite. */
@@ -21191,6 +21220,170 @@ export const useExportPanelTrafficReport = <TError = Promise<ProblemResponse>>(o
     ...query,
   };
 };
+
+export type getPanelDeviceReportResponse200 = {
+  data: GetPanelDeviceReport200
+  status: 200
+}
+
+export type getPanelDeviceReportResponse403 = {
+  data: ProblemResponse
+  status: 403
+}
+
+export type getPanelDeviceReportResponse502 = {
+  data: ProblemResponse
+  status: 502
+}
+
+export type getPanelDeviceReportResponseSuccess = (getPanelDeviceReportResponse200) & {
+  headers: Headers;
+};
+export type getPanelDeviceReportResponseError = (getPanelDeviceReportResponse403 | getPanelDeviceReportResponse502) & {
+  headers: Headers;
+};
+
+export type getPanelDeviceReportResponse = (getPanelDeviceReportResponseSuccess | getPanelDeviceReportResponseError)
+
+export const getGetPanelDeviceReportUrl = () => {
+
+
+
+
+  return `/v1/panel/reports/devices`
+}
+
+/**
+ * Requires customers.read. Remnawave's device census by platform and application, read live (GET /api/hwid/devices/stats) and stored nowhere. `reported` is false when the panel does not expose it.
+ */
+export const getPanelDeviceReport = async ( options?: RequestInit): Promise<getPanelDeviceReportResponse> => {
+
+  const res = await fetch(getGetPanelDeviceReportUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelDeviceReportResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getPanelDeviceReportResponse
+}
+
+
+
+
+export const getGetPanelDeviceReportKey = () => [`/v1/panel/reports/devices`] as const;
+
+export type GetPanelDeviceReportQueryResult = NonNullable<Awaited<ReturnType<typeof getPanelDeviceReport>>>
+
+export const useGetPanelDeviceReport = <TError = Promise<ProblemResponse>>(
+   options?: { swr?:SWRConfiguration<Awaited<ReturnType<typeof getPanelDeviceReport>>, TError> & { swrKey?: Key, enabled?: boolean }, fetch?: RequestInit }
+) => {
+  const {swr: swrOptions, fetch: fetchOptions} = options ?? {}
+
+  const isEnabled = swrOptions?.enabled !== false
+  const swrKey = swrOptions?.swrKey ?? (() => isEnabled ? getGetPanelDeviceReportKey() : null);
+  const swrFn = () => getPanelDeviceReport(fetchOptions)
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions)
+
+  return {
+    swrKey,
+    ...query
+  }
+}
+
+export type listPanelSubscriptionRequestsResponse200 = {
+  data: ListPanelSubscriptionRequests200
+  status: 200
+}
+
+export type listPanelSubscriptionRequestsResponse403 = {
+  data: ProblemResponse
+  status: 403
+}
+
+export type listPanelSubscriptionRequestsResponse404 = {
+  data: ProblemResponse
+  status: 404
+}
+
+export type listPanelSubscriptionRequestsResponse422 = {
+  data: ProblemResponse
+  status: 422
+}
+
+export type listPanelSubscriptionRequestsResponse502 = {
+  data: ProblemResponse
+  status: 502
+}
+
+export type listPanelSubscriptionRequestsResponseSuccess = (listPanelSubscriptionRequestsResponse200) & {
+  headers: Headers;
+};
+export type listPanelSubscriptionRequestsResponseError = (listPanelSubscriptionRequestsResponse403 | listPanelSubscriptionRequestsResponse404 | listPanelSubscriptionRequestsResponse422 | listPanelSubscriptionRequestsResponse502) & {
+  headers: Headers;
+};
+
+export type listPanelSubscriptionRequestsResponse = (listPanelSubscriptionRequestsResponseSuccess | listPanelSubscriptionRequestsResponseError)
+
+export const getListPanelSubscriptionRequestsUrl = (remnawaveID: number,) => {
+
+
+
+
+  return `/v1/panel/reports/remnawave-users/${remnawaveID}/subscription-requests`
+}
+
+/**
+ * Requires customers.read. Remnawave's history of one panel user's subscription fetches — time, address, application — read live and stored nowhere.
+ */
+export const listPanelSubscriptionRequests = async (remnawaveID: number, options?: RequestInit): Promise<listPanelSubscriptionRequestsResponse> => {
+
+  const res = await fetch(getListPanelSubscriptionRequestsUrl(remnawaveID),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelSubscriptionRequestsResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as listPanelSubscriptionRequestsResponse
+}
+
+
+
+
+export const getListPanelSubscriptionRequestsKey = (remnawaveID: number,) => [`/v1/panel/reports/remnawave-users/${remnawaveID}/subscription-requests`] as const;
+
+export type ListPanelSubscriptionRequestsQueryResult = NonNullable<Awaited<ReturnType<typeof listPanelSubscriptionRequests>>>
+
+export const useListPanelSubscriptionRequests = <TError = Promise<ProblemResponse>>(
+  remnawaveID: number, options?: { swr?:SWRConfiguration<Awaited<ReturnType<typeof listPanelSubscriptionRequests>>, TError> & { swrKey?: Key, enabled?: boolean }, fetch?: RequestInit }
+) => {
+  const {swr: swrOptions, fetch: fetchOptions} = options ?? {}
+
+  const isEnabled = swrOptions?.enabled !== false && remnawaveID !== null && remnawaveID !== undefined
+  const swrKey = swrOptions?.swrKey ?? (() => isEnabled ? getListPanelSubscriptionRequestsKey(remnawaveID) : null);
+  const swrFn = () => listPanelSubscriptionRequests(remnawaveID, fetchOptions)
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions)
+
+  return {
+    swrKey,
+    ...query
+  }
+}
 
 export type getPanelThemeResponse200 = {
   data: PanelTheme;

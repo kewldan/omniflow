@@ -16,6 +16,8 @@ import { StateNotice } from "@/components/admin/state-notice";
 import { type ApiError, fetcher } from "@/lib/api";
 import type { TrafficReport } from "@/lib/operations";
 
+import { DeviceCensusCard, SubscriptionRequestsCard } from "./device-report";
+
 const ENDPOINT = "/v1/panel/reports/traffic";
 
 /**
@@ -85,6 +87,8 @@ export function TrafficReportScreen() {
           <ConsumerCard report={data} />
         </>
       )}
+      <DeviceCensusCard />
+      <SubscriptionRequestsCard />
     </div>
   );
 }

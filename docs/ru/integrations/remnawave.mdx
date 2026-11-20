@@ -128,6 +128,7 @@ Remnawave.
 | `POST /api/hwid/devices/delete` (тело `{userId, hwid}`) | Удаление одного устройства |
 | `POST /api/hwid/devices/delete-all` (тело `{userId}`) | Отключение клиентом всех устройств; продление, если установка удаляет устройства при продлении |
 | `GET /api/nodes` | [Отчёты по трафику](/ru/operations/traffic-reporting): заполнение узлов. Единственный вызов, отсутствие которого — нормальный исход: панель, не отдающая его, даёт на экране прямо названное отсутствие, а не страницу нулей |
+| `GET /api/hwid/devices/stats`, `GET /api/users/{id}/subscription-request-history` | [Отчёты по трафику](/ru/operations/traffic-reporting): подсчёт устройств и запросы подписки одного пользователя, читаются вживую |
 | `GET /api/hwid/devices?start=&size=` | [Мониторинг расхода](/ru/operations/traffic-reporting): ежедневный отчёт об устройствах сверх лимита |
 | `GET /api/internal-squads`, `GET /api/external-squads` | Списки сквадов в редакторе тарифа; читаются вживую и не сохраняются |
 | `GET /api/subscription-page-configs/{uuid}` | [Импорт каталога подключения](/ru/operations/connection-catalogue) со страницы подписки самой панели |
