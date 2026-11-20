@@ -179,7 +179,7 @@ func quoteFrom(preview commercepg.OrderQuote, session Session) commerce.Checkout
 		Subtotal:           commerce.Money{Amount: preview.Plan.AmountMinor, Currency: preview.Plan.Currency},
 		DiscountMinor:      preview.DiscountMinor,
 		WalletBalanceMinor: preview.WalletBalance,
-		WalletAppliedMinor: preview.WalletFundsMinor,
+		WalletAppliedMinor: preview.WalletMinor - preview.CreditAppliedMinor,
 		ExternalMinor:      preview.ExternalMinor,
 		PromoCode:          session.PromoCode,
 		PromoRejection:     session.PromoRejection,
