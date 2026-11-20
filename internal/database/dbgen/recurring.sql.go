@@ -306,6 +306,7 @@ JOIN entitlements e ON e.subscription_id IS NOT DISTINCT FROM a.subscription_id
   AND e.user_id = a.user_id
   AND e.status IN ('active', 'limited')
 JOIN users u ON u.id = a.user_id AND u.status = 'active'
+JOIN plan_versions pv ON pv.id = e.plan_version_id AND NOT pv.daily_billing
 WHERE a.enabled
   AND a.state IN ('scheduled', 'dunning')
   AND e.ends_at <= now() + make_interval(secs => a.lead_time_seconds)
@@ -345,6 +346,7 @@ type ListAutoRenewDueRow struct {
 // here, from the entitlement identity and its end instant, so the worker and
 // the dunning table agree on what "this renewal" means without a second round
 // trip.
+// A daily plan is renewed by the daily charge, never by auto-renew as well.
 func (q *Queries) ListAutoRenewDue(ctx context.Context, pageSize int32) ([]ListAutoRenewDueRow, error) {
 	rows, err := q.db.Query(ctx, listAutoRenewDue, pageSize)
 	if err != nil {

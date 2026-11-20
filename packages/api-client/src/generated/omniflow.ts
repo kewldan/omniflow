@@ -1746,6 +1746,7 @@ export interface PanelPlanVersionSummary {
   trafficMode?: PanelPlanVersionSummaryTrafficMode;
   /** @nullable */
   trafficPackages?: PanelTrafficPackage[] | null;
+  dailyBilling?: boolean;
 }
 
 export type PanelPlanVersionInputBillingPeriod =
@@ -1931,6 +1932,8 @@ export interface PanelPlanVersionInput {
   trafficMode?: PanelPlanVersionInputTrafficMode;
   /** The traffic volumes a selectable version is sold with. */
   trafficPackages?: PanelTrafficPackage[];
+  /** Bill the version one day at a time from the wallet, pausable by the customer. Needs billingPeriod day, durationSeconds 86400, and no other periods. */
+  dailyBilling?: boolean;
 }
 
 export interface PanelPlanOptions {
@@ -4848,6 +4851,19 @@ export interface AccountCheckout {
   expiresAt?: string;
 }
 
+export type AccountDailyBillingPrice = {
+  amountMinor: number;
+  currency: string;
+};
+
+export interface AccountDailyBilling {
+  daily: boolean;
+  paused?: boolean;
+  suspended?: boolean;
+  endsAt?: string;
+  price?: AccountDailyBillingPrice;
+}
+
 /**
  * How the customer completes the payment. `none` means nothing further is owed, which is what a wallet-covered order looks like.
  */
@@ -7207,6 +7223,10 @@ export const GetAccountOverviewLocale = {
 } as const;
 
 export type GetAccountTrafficReset200 = { [key: string]: unknown };
+
+export type SetAccountDailyBillingBody = {
+  paused: boolean;
+};
 
 export type ListAccountSubscriptionAddonsParams = {
   locale?: ListAccountSubscriptionAddonsLocale;
@@ -30290,6 +30310,177 @@ export const useBuyAccountTrafficReset = <TError = Promise<ProblemResponse>>(
 
   const swrKey = swrOptions?.swrKey ?? getBuyAccountTrafficResetMutationKey(subscriptionID);
   const swrFn = getBuyAccountTrafficResetMutationFetcher(subscriptionID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountDailyBillingResponse200 = {
+  data: AccountDailyBilling;
+  status: 200;
+};
+
+export type getAccountDailyBillingResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type getAccountDailyBillingResponseSuccess = getAccountDailyBillingResponse200 & {
+  headers: Headers;
+};
+export type getAccountDailyBillingResponseError = getAccountDailyBillingResponse404 & {
+  headers: Headers;
+};
+
+export type getAccountDailyBillingResponse =
+  | getAccountDailyBillingResponseSuccess
+  | getAccountDailyBillingResponseError;
+
+export const getGetAccountDailyBillingUrl = (subscriptionID: string) => {
+  return `/v1/account/subscriptions/${subscriptionID}/daily-billing`;
+};
+
+/**
+ * How a subscription on a daily plan is billed. `daily` is false for any other plan; otherwise `paused` is the customer's pause, `suspended` a day the wallet did not cover (it resumes on its own after a top-up), `endsAt` when the paid day runs out, and `price` one day's price.
+ */
+export const getAccountDailyBilling = async (
+  subscriptionID: string,
+  options?: RequestInit,
+): Promise<getAccountDailyBillingResponse> => {
+  const res = await fetch(getGetAccountDailyBillingUrl(subscriptionID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountDailyBillingResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getAccountDailyBillingResponse;
+};
+
+export const getGetAccountDailyBillingKey = (subscriptionID: string) =>
+  [`/v1/account/subscriptions/${subscriptionID}/daily-billing`] as const;
+
+export type GetAccountDailyBillingQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountDailyBilling>>
+>;
+
+export const useGetAccountDailyBilling = <TError = Promise<ProblemResponse>>(
+  subscriptionID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountDailyBilling>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && subscriptionID !== null && subscriptionID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetAccountDailyBillingKey(subscriptionID) : null));
+  const swrFn = () => getAccountDailyBilling(subscriptionID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type setAccountDailyBillingResponse200 = {
+  data: AccountDailyBilling;
+  status: 200;
+};
+
+export type setAccountDailyBillingResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type setAccountDailyBillingResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type setAccountDailyBillingResponseSuccess = setAccountDailyBillingResponse200 & {
+  headers: Headers;
+};
+export type setAccountDailyBillingResponseError = (
+  | setAccountDailyBillingResponse404
+  | setAccountDailyBillingResponse409
+) & {
+  headers: Headers;
+};
+
+export type setAccountDailyBillingResponse =
+  | setAccountDailyBillingResponseSuccess
+  | setAccountDailyBillingResponseError;
+
+export const getSetAccountDailyBillingUrl = (subscriptionID: string) => {
+  return `/v1/account/subscriptions/${subscriptionID}/daily-billing`;
+};
+
+/**
+ * Pauses or resumes a daily subscription. A pause stops the daily charge and disables access through fulfillment; a resume gives back the part of the day the pause held. Asking for the state the subscription is already in succeeds without doing anything.
+ */
+export const setAccountDailyBilling = async (
+  subscriptionID: string,
+  setAccountDailyBillingBody: SetAccountDailyBillingBody,
+  options?: RequestInit,
+): Promise<setAccountDailyBillingResponse> => {
+  const res = await fetch(getSetAccountDailyBillingUrl(subscriptionID), {
+    ...options,
+    method: "PUT",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(setAccountDailyBillingBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: setAccountDailyBillingResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as setAccountDailyBillingResponse;
+};
+
+export const getSetAccountDailyBillingMutationFetcher = (
+  subscriptionID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: SetAccountDailyBillingBody }) => {
+    return setAccountDailyBilling(subscriptionID, arg, options);
+  };
+};
+export const getSetAccountDailyBillingMutationKey = (subscriptionID: string) =>
+  [`/v1/account/subscriptions/${subscriptionID}/daily-billing`] as const;
+
+export type SetAccountDailyBillingMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setAccountDailyBilling>>
+>;
+
+export const useSetAccountDailyBilling = <TError = Promise<ProblemResponse>>(
+  subscriptionID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof setAccountDailyBilling>>,
+      TError,
+      Key,
+      SetAccountDailyBillingBody,
+      Awaited<ReturnType<typeof setAccountDailyBilling>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSetAccountDailyBillingMutationKey(subscriptionID);
+  const swrFn = getSetAccountDailyBillingMutationFetcher(subscriptionID, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

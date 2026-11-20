@@ -79,6 +79,7 @@ const schema = z.object({
   prices: priceList(),
   reason: requiredText(),
   recurringCapable: z.boolean(),
+  dailyBilling: z.boolean(),
   squadIds: z.array(z.string()),
   squadSelection: z.string(),
   // The squads a customer may choose, each with what the customer reads in
@@ -196,6 +197,7 @@ function defaults(current?: PlanVersion): Values {
     })),
     reason: "",
     recurringCapable: current?.recurringCapable ?? false,
+    dailyBilling: current?.dailyBilling ?? false,
     squadIds: current?.squadIds ?? [],
     // A version stored with a value from the old editor starts from the
     // nearest one that exists rather than from a value that cannot publish.
@@ -232,6 +234,7 @@ function VersionForm({
   const translate = useTranslations("admin.catalog.version");
   const translateForm = useTranslations("common.form");
   const recurringId = useId();
+  const dailyId = useId();
 
   const form = useForm<Values>({ defaultValues: defaults(current), resolver: zodResolver(schema) });
   const { control, formState, handleSubmit, register, resetField, setValue } = form;
@@ -269,6 +272,7 @@ function VersionForm({
           : [],
         prices: readPriceList(values.prices),
         recurringCapable: values.recurringCapable,
+        dailyBilling: values.dailyBilling,
         squadIds: values.squadIds,
         squadSelection: values.squadSelection,
         trafficAllowanceBytes: (() => {
@@ -548,6 +552,19 @@ function VersionForm({
                   )}
                 />
                 <Label htmlFor={recurringId}>{translate("recurringCapable")}</Label>
+              </div>
+              <div className="flex flex-col gap-1 sm:col-span-2">
+                <div className="flex items-center gap-3">
+                  <Controller
+                    control={control}
+                    name="dailyBilling"
+                    render={({ field }) => (
+                      <Switch checked={field.value} id={dailyId} onCheckedChange={field.onChange} />
+                    )}
+                  />
+                  <Label htmlFor={dailyId}>{translate("dailyBilling")}</Label>
+                </div>
+                <p className="text-muted-foreground text-xs">{translate("dailyBillingHint")}</p>
               </div>
             </div>
 

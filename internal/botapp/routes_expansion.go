@@ -291,6 +291,15 @@ func (app *App) subscriptionDetailScreen(ctx context.Context, session commerceCo
 		}
 	}
 	view := subscriptionDetailView(session.Locale, subscription, time.Now().UTC(), hasAddons)
+	// A daily plan says how it is billed and offers the customer's pause.
+	if subscription.Found && app.commerce != nil && app.commerce.orders != nil {
+		status, statusErr := app.commerce.orders.DailyBillingStatus(ctx, session.Customer.ID, subscription.ID)
+		if statusErr != nil {
+			app.logger.Warn("daily billing lookup failed", "error", statusErr)
+		} else if status.Daily {
+			view = withDailyBilling(session.Locale, view, subscription.ID, status)
+		}
+	}
 	// A paid traffic reset is offered only when the plan sells one and the
 	// subscription has a traffic limit to reset.
 	if subscription.Found && app.commerce != nil && app.commerce.orders != nil {
@@ -699,6 +708,7 @@ var expansionActions = map[string]bool{
 	"cart-save": true, "cart-auto": true, "cart-clear": true, "cart-buy": true,
 	"sub": true, "sub-new": true, "sub-rename": true, "sub-connect": true,
 	"sub-devices": true, "sub-renew": true, "sub-revoke-confirm": true, "sub-revoke": true,
+	"sub-pause": true, "sub-resume": true,
 	"squad": true, "addons": true, "addon-buy": true, "addon-confirm": true, "addon-cart": true,
 	"reset-ask": true, "reset-buy": true,
 	"methods": true, "pm-change": true, "checkout-addons": true, "addon-toggle": true,
@@ -760,6 +770,8 @@ func (app *App) handleExpansionAction(ctx context.Context, session commerceConte
 		return app.subscriptionRemnawaveView(ctx, session, argument, "devices"), true
 	case "sub-renew":
 		return app.renewSubscription(ctx, session, argument), true
+	case "sub-pause", "sub-resume":
+		return app.setDailyPause(ctx, session, argument, parts[0] == "sub-pause"), true
 	case "sub-revoke-confirm":
 		return View{
 			Text: text(session.Locale, "subs.rotateConfirm"),

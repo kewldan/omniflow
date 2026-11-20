@@ -730,6 +730,20 @@ func (q *Queries) SetPlanVersionCustomTraffic(ctx context.Context, arg SetPlanVe
 	return err
 }
 
+const setPlanVersionDailyBilling = `-- name: SetPlanVersionDailyBilling :exec
+UPDATE plan_versions SET daily_billing = $1 WHERE id = $2
+`
+
+type SetPlanVersionDailyBillingParams struct {
+	DailyBilling  bool        `json:"daily_billing"`
+	PlanVersionID pgtype.UUID `json:"plan_version_id"`
+}
+
+func (q *Queries) SetPlanVersionDailyBilling(ctx context.Context, arg SetPlanVersionDailyBillingParams) error {
+	_, err := q.db.Exec(ctx, setPlanVersionDailyBilling, arg.DailyBilling, arg.PlanVersionID)
+	return err
+}
+
 const setPlanVersionRemnawaveProfile = `-- name: SetPlanVersionRemnawaveProfile :exec
 UPDATE plan_versions
 SET traffic_reset_strategy = $1,

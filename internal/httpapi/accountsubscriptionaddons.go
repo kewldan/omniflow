@@ -24,6 +24,8 @@ func (handlers *AccountHandlers) mountSubscriptionAddons(router chi.Router) {
 	router.Delete("/subscriptions/{subscriptionID}/addons/cart", handlers.discardSubscriptionAddonCart)
 	router.Get("/subscriptions/{subscriptionID}/traffic-reset", handlers.trafficResetQuote)
 	router.Post("/subscriptions/{subscriptionID}/traffic-reset", handlers.buyTrafficReset)
+	router.Get("/subscriptions/{subscriptionID}/daily-billing", handlers.dailyBilling)
+	router.Put("/subscriptions/{subscriptionID}/daily-billing", handlers.setDailyBilling)
 	router.With(handlers.requireRecentAuthentication).
 		Delete("/subscriptions/{subscriptionID}", handlers.closeSubscription)
 }

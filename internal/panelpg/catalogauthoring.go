@@ -85,6 +85,10 @@ type PlanVersionOptions struct {
 	// TrafficPackages are the volumes a selectable version is sold with, each
 	// priced per currency for the version's own duration.
 	TrafficPackages []TrafficPackage `json:"trafficPackages"`
+	// DailyBilling bills the version one day at a time from the wallet: the
+	// worker buys each next day, and the customer may pause and resume. It
+	// needs a one-day version (`day`, 86400 seconds) with no other periods.
+	DailyBilling bool `json:"dailyBilling"`
 }
 
 var validTrafficResetStrategy = map[string]bool{
@@ -230,6 +234,11 @@ func (service *Service) CreatePlanVersion(
 		if txErr = writeTraffic(ctx, queries, row.ID, input); txErr != nil {
 			return txErr
 		}
+		if txErr = queries.SetPlanVersionDailyBilling(ctx, dbgen.SetPlanVersionDailyBillingParams{
+			PlanVersionID: row.ID, DailyBilling: input.DailyBilling,
+		}); txErr != nil {
+			return txErr
+		}
 		if txErr = queries.SetPlanVersionTrafficResetPrice(ctx, dbgen.SetPlanVersionTrafficResetPriceParams{
 			PlanVersionID: row.ID, TrafficResetPriceBps: optionalInt4(input.TrafficResetPriceBps),
 		}); txErr != nil {
@@ -247,6 +256,7 @@ func (service *Service) CreatePlanVersion(
 		created.OfferedSquads = input.OfferedSquads
 		created.AddonIDs = input.AddonIDs
 		created.TrafficMode, created.TrafficPackages = trafficMode(input), input.TrafficPackages
+		created.DailyBilling = input.DailyBilling
 		return appendAudit(ctx, queries, actor.audit(
 			"panel.plan_version.created", "configuration", "plan", planID,
 			map[string]any{
@@ -291,6 +301,10 @@ func validatePlanVersion(input PlanVersionInput) error {
 	}
 	if err := validateTraffic(input); err != nil {
 		return err
+	}
+	if input.DailyBilling && (input.BillingPeriod != "day" || input.DurationSeconds != 86_400 ||
+		len(input.Periods) > 0 || input.CustomDaysMin != nil || input.CustomDaysMax != nil) {
+		return ErrValidaton
 	}
 	if input.TrafficResetPriceBps != nil && (*input.TrafficResetPriceBps < 1 || *input.TrafficResetPriceBps > 100_000) {
 		return ErrValidaton

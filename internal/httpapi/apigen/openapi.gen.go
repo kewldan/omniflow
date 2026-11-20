@@ -5865,6 +5865,18 @@ type AccountCustomerLocale string
 // AccountCustomerStatus defines model for AccountCustomer.Status.
 type AccountCustomerStatus string
 
+// AccountDailyBilling defines model for AccountDailyBilling.
+type AccountDailyBilling struct {
+	Daily  bool       `json:"daily"`
+	EndsAt *time.Time `json:"endsAt,omitempty"`
+	Paused *bool      `json:"paused,omitempty"`
+	Price  *struct {
+		AmountMinor int64  `json:"amountMinor"`
+		Currency    string `json:"currency"`
+	} `json:"price,omitempty"`
+	Suspended *bool `json:"suspended,omitempty"`
+}
+
 // AccountDeletion defines model for AccountDeletion.
 type AccountDeletion struct {
 	CancelledAt *time.Time `json:"cancelledAt,omitempty"`
@@ -9101,6 +9113,9 @@ type PanelPlanVersionInput struct {
 	// CustomTrafficMinGb The smallest traffic volume a customer may choose; null sells none.
 	CustomTrafficMinGb *int `json:"customTrafficMinGb,omitempty"`
 
+	// DailyBilling Bill the version one day at a time from the wallet, pausable by the customer. Needs billingPeriod day, durationSeconds 86400, and no other periods.
+	DailyBilling *bool `json:"dailyBilling,omitempty"`
+
 	// DayPrices Price per custom day by currency.
 	DayPrices *map[string]int64 `json:"dayPrices,omitempty"`
 
@@ -9185,6 +9200,7 @@ type PanelPlanVersionSummary struct {
 	CustomDaysMin         *int                                         `json:"customDaysMin,omitempty"`
 	CustomTrafficMaxGb    *int                                         `json:"customTrafficMaxGb,omitempty"`
 	CustomTrafficMinGb    *int                                         `json:"customTrafficMinGb,omitempty"`
+	DailyBilling          *bool                                        `json:"dailyBilling,omitempty"`
 	DayPrices             *map[string]int64                            `json:"dayPrices,omitempty"`
 	DeviceLimit           *int                                         `json:"deviceLimit,omitempty"`
 	DowngradePolicy       string                                       `json:"downgradePolicy"`
@@ -11323,6 +11339,18 @@ type GetAccountConnectionParams struct {
 	Platform *string `form:"platform,omitempty" json:"platform,omitempty"`
 }
 
+// SetAccountDailyBillingJSONBody defines parameters for SetAccountDailyBilling.
+type SetAccountDailyBillingJSONBody struct {
+	Paused bool `json:"paused"`
+}
+
+// SetAccountDailyBillingParams defines parameters for SetAccountDailyBilling.
+type SetAccountDailyBillingParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
 // RemoveAllAccountDevicesParams defines parameters for RemoveAllAccountDevices.
 type RemoveAllAccountDevicesParams struct {
 	Confirm RemoveAllAccountDevicesParamsConfirm `form:"confirm" json:"confirm"`
@@ -13000,6 +13028,9 @@ type BuyAccountSubscriptionAddonJSONRequestBody BuyAccountSubscriptionAddonJSONB
 // SaveAccountSubscriptionAddonCartJSONRequestBody defines body for SaveAccountSubscriptionAddonCart for application/json ContentType.
 type SaveAccountSubscriptionAddonCartJSONRequestBody SaveAccountSubscriptionAddonCartJSONBody
 
+// SetAccountDailyBillingJSONRequestBody defines body for SetAccountDailyBilling for application/json ContentType.
+type SetAccountDailyBillingJSONRequestBody SetAccountDailyBillingJSONBody
+
 // RenameAccountDeviceJSONRequestBody defines body for RenameAccountDevice for application/json ContentType.
 type RenameAccountDeviceJSONRequestBody RenameAccountDeviceJSONBody
 
@@ -13793,6 +13824,12 @@ type ServerInterface interface {
 
 	// (GET /v1/account/subscriptions/{subscriptionID}/connection)
 	GetAccountConnection(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params GetAccountConnectionParams)
+
+	// (GET /v1/account/subscriptions/{subscriptionID}/daily-billing)
+	GetAccountDailyBilling(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID)
+
+	// (PUT /v1/account/subscriptions/{subscriptionID}/daily-billing)
+	SetAccountDailyBilling(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params SetAccountDailyBillingParams)
 
 	// (DELETE /v1/account/subscriptions/{subscriptionID}/devices)
 	RemoveAllAccountDevices(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params RemoveAllAccountDevicesParams)
@@ -15182,6 +15219,16 @@ func (_ Unimplemented) SaveAccountSubscriptionAddonCart(w http.ResponseWriter, r
 
 // (GET /v1/account/subscriptions/{subscriptionID}/connection)
 func (_ Unimplemented) GetAccountConnection(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params GetAccountConnectionParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/subscriptions/{subscriptionID}/daily-billing)
+func (_ Unimplemented) GetAccountDailyBilling(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /v1/account/subscriptions/{subscriptionID}/daily-billing)
+func (_ Unimplemented) SetAccountDailyBilling(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params SetAccountDailyBillingParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -20661,6 +20708,109 @@ func (siw *ServerInterfaceWrapper) GetAccountConnection(w http.ResponseWriter, r
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAccountConnection(w, r, subscriptionID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountDailyBilling operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountDailyBilling(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID AccountSubscriptionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountDailyBilling(w, r, subscriptionID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetAccountDailyBilling operation middleware
+func (siw *ServerInterfaceWrapper) SetAccountDailyBilling(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID AccountSubscriptionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SetAccountDailyBillingParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetAccountDailyBilling(w, r, subscriptionID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -33920,6 +34070,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/traffic-reset", wrapper.BuyAccountTrafficReset)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/daily-billing", wrapper.GetAccountDailyBilling)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/daily-billing", wrapper.SetAccountDailyBilling)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/addons", wrapper.ListAccountSubscriptionAddons)
 	})
 	r.Group(func(r chi.Router) {
@@ -38855,6 +39011,98 @@ func (response GetAccountConnection503ApplicationProblemPlusJSONResponse) VisitG
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountDailyBillingRequestObject struct {
+	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
+}
+
+type GetAccountDailyBillingResponseObject interface {
+	VisitGetAccountDailyBillingResponse(w http.ResponseWriter) error
+}
+
+type GetAccountDailyBilling200JSONResponse AccountDailyBilling
+
+func (response GetAccountDailyBilling200JSONResponse) VisitGetAccountDailyBillingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountDailyBilling404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetAccountDailyBilling404ApplicationProblemPlusJSONResponse) VisitGetAccountDailyBillingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetAccountDailyBillingRequestObject struct {
+	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
+	Params         SetAccountDailyBillingParams
+	Body           *SetAccountDailyBillingJSONRequestBody
+}
+
+type SetAccountDailyBillingResponseObject interface {
+	VisitSetAccountDailyBillingResponse(w http.ResponseWriter) error
+}
+
+type SetAccountDailyBilling200JSONResponse AccountDailyBilling
+
+func (response SetAccountDailyBilling200JSONResponse) VisitSetAccountDailyBillingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetAccountDailyBilling404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SetAccountDailyBilling404ApplicationProblemPlusJSONResponse) VisitSetAccountDailyBillingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetAccountDailyBilling409ApplicationProblemPlusJSONResponse Problem
+
+func (response SetAccountDailyBilling409ApplicationProblemPlusJSONResponse) VisitSetAccountDailyBillingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -52546,6 +52794,12 @@ type StrictServerInterface interface {
 	// (GET /v1/account/subscriptions/{subscriptionID}/connection)
 	GetAccountConnection(ctx context.Context, request GetAccountConnectionRequestObject) (GetAccountConnectionResponseObject, error)
 
+	// (GET /v1/account/subscriptions/{subscriptionID}/daily-billing)
+	GetAccountDailyBilling(ctx context.Context, request GetAccountDailyBillingRequestObject) (GetAccountDailyBillingResponseObject, error)
+
+	// (PUT /v1/account/subscriptions/{subscriptionID}/daily-billing)
+	SetAccountDailyBilling(ctx context.Context, request SetAccountDailyBillingRequestObject) (SetAccountDailyBillingResponseObject, error)
+
 	// (DELETE /v1/account/subscriptions/{subscriptionID}/devices)
 	RemoveAllAccountDevices(ctx context.Context, request RemoveAllAccountDevicesRequestObject) (RemoveAllAccountDevicesResponseObject, error)
 
@@ -56448,6 +56702,66 @@ func (sh *strictHandler) GetAccountConnection(w http.ResponseWriter, r *http.Req
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetAccountConnectionResponseObject); ok {
 		if err := validResponse.VisitGetAccountConnectionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountDailyBilling operation middleware
+func (sh *strictHandler) GetAccountDailyBilling(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID) {
+	var request GetAccountDailyBillingRequestObject
+
+	request.SubscriptionID = subscriptionID
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountDailyBilling(ctx, request.(GetAccountDailyBillingRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountDailyBilling")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountDailyBillingResponseObject); ok {
+		if err := validResponse.VisitGetAccountDailyBillingResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetAccountDailyBilling operation middleware
+func (sh *strictHandler) SetAccountDailyBilling(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params SetAccountDailyBillingParams) {
+	var request SetAccountDailyBillingRequestObject
+
+	request.SubscriptionID = subscriptionID
+	request.Params = params
+
+	var body SetAccountDailyBillingJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetAccountDailyBilling(ctx, request.(SetAccountDailyBillingRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetAccountDailyBilling")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetAccountDailyBillingResponseObject); ok {
+		if err := validResponse.VisitSetAccountDailyBillingResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

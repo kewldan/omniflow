@@ -251,6 +251,10 @@ type CreateOrderInput struct {
 	// TrafficGB chooses a traffic volume in gigabytes other than the version's
 	// own allowance, priced per gigabyte. Zero is the version's own.
 	TrafficGB int
+	// WalletOnly refuses the order with ErrWalletShort, creating nothing,
+	// when the wallet does not cover all of it. A daily charge uses it so a
+	// day is either paid or not ordered at all, never left pending.
+	WalletOnly bool
 }
 
 // Promotion and policy rejections carry a stable machine reason so a customer
@@ -584,6 +588,9 @@ func (store *Store) CreateOrder(ctx context.Context, input CreateOrderInput) (db
 	quote, err := store.quote(ctx, queries, userID, planVersionID, input)
 	if err != nil {
 		return dbgen.Order{}, err
+	}
+	if input.WalletOnly && quote.ExternalMinor > 0 {
+		return dbgen.Order{}, ErrWalletShort
 	}
 	plan, discount, promo := quote.Plan, quote.DiscountMinor, quote.promo
 	subscriptionID, err := store.resolveSubscription(ctx, queries, userID, plan, input)

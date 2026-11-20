@@ -143,6 +143,7 @@ A pass gets one attempt. A failure is logged as `periodic task failed` with the 
 | `commerce_maintenance` | 1 min | interval | Expires pending orders, expires wallet credits as a double-entry `expiration` transaction, sweeps saved carts |
 | `payment_reconcile` | 1 min | interval | Re-polls up to 100 in-flight payment intents |
 | `renewal` | 1 min | 5 min | Charges due renewals in batches of 100 |
+| `daily_billing` | 1 min | 5 min | Buys the next day of [daily plans](/commerce/subscriptions#daily-plans) from the wallet, in batches of 100 |
 | `fulfillment_reconcile` | 15 min | interval | Creates `reconcile` operations for up to 500 entitlements, keyed `reconcile:<entitlementID>:<15-minute bucket>` |
 | `fulfillment_revive` | 5 min | interval | Re-queues fulfillment operations whose job never ran or was discarded |
 | `lifecycle_sweep` | 5 min | interval | Expires gifts and personal offers, refreshes up to 20 blocklist sources |

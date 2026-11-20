@@ -38,6 +38,7 @@ func (worker *Worker) warnLowBalance(ctx context.Context) {
 		JOIN entitlements e ON e.subscription_id IS NOT DISTINCT FROM a.subscription_id
 			AND e.user_id = a.user_id AND e.status IN ('active', 'limited')
 		JOIN users u ON u.id = a.user_id AND u.status = 'active'
+		JOIN plan_versions pv ON pv.id = e.plan_version_id AND NOT pv.daily_billing
 		WHERE a.enabled AND a.consent_at IS NOT NULL AND a.funding = $1 AND a.state = 'scheduled'
 		  AND a.plan_version_id IS NOT NULL AND a.currency IS NOT NULL
 		  AND e.ends_at - make_interval(secs => a.lead_time_seconds) > now()

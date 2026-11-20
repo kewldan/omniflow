@@ -2094,6 +2094,7 @@ type PlanVersion struct {
 	CustomTrafficMinGb    pgtype.Int4        `json:"custom_traffic_min_gb"`
 	CustomTrafficMaxGb    pgtype.Int4        `json:"custom_traffic_max_gb"`
 	TrafficMode           string             `json:"traffic_mode"`
+	DailyBilling          bool               `json:"daily_billing"`
 }
 
 type PlanVersionAddon struct {

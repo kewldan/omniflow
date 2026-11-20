@@ -269,6 +269,8 @@ func periodicTasks(
 		{Name: "commerce_maintenance", Interval: time.Minute, Run: core.Store.MaintenancePass},
 		{Name: "payment_reconcile", Interval: time.Minute, Run: core.Payments.ReconcilePass},
 		{Name: "renewal", Interval: time.Minute, Timeout: 5 * time.Minute, Run: pass(renewals.RunOnce)},
+		// Daily plans buy their next day from the wallet; see internal/renewal/daily.go.
+		{Name: "daily_billing", Interval: time.Minute, Timeout: 5 * time.Minute, Run: pass(renewals.RunDaily)},
 		// The reconcile cadence is the Remnawave section's, read on a one-minute
 		// tick, so changing it in the panel applies within a minute.
 		{Name: "fulfillment_reconcile", Interval: time.Minute, Timeout: 10 * time.Minute, Run: func(ctx context.Context) error {

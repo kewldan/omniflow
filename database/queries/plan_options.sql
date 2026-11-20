@@ -246,3 +246,6 @@ VALUES (sqlc.arg(plan_version_id), sqlc.arg(traffic_gb), sqlc.arg(currency), sql
 
 -- name: SetPlanVersionTrafficMode :exec
 UPDATE plan_versions SET traffic_mode = sqlc.arg(traffic_mode) WHERE id = sqlc.arg(plan_version_id);
+
+-- name: SetPlanVersionDailyBilling :exec
+UPDATE plan_versions SET daily_billing = sqlc.arg(daily_billing) WHERE id = sqlc.arg(plan_version_id);

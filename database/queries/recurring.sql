@@ -156,6 +156,8 @@ JOIN entitlements e ON e.subscription_id IS NOT DISTINCT FROM a.subscription_id
   AND e.user_id = a.user_id
   AND e.status IN ('active', 'limited')
 JOIN users u ON u.id = a.user_id AND u.status = 'active'
+-- A daily plan is renewed by the daily charge, never by auto-renew as well.
+JOIN plan_versions pv ON pv.id = e.plan_version_id AND NOT pv.daily_billing
 WHERE a.enabled
   AND a.state IN ('scheduled', 'dunning')
   AND e.ends_at <= now() + make_interval(secs => a.lead_time_seconds)

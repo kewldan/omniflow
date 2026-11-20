@@ -1086,6 +1086,7 @@ type Querier interface {
 	// here, from the entitlement identity and its end instant, so the worker and
 	// the dunning table agree on what "this renewal" means without a second round
 	// trip.
+	// A daily plan is renewed by the daily charge, never by auto-renew as well.
 	ListAutoRenewDue(ctx context.Context, pageSize int32) ([]ListAutoRenewDueRow, error)
 	ListBackupRequests(ctx context.Context) ([]BackupRequest, error)
 	ListBackupRestores(ctx context.Context, limit int32) ([]BackupRestore, error)
@@ -2196,6 +2197,7 @@ type Querier interface {
 	SetPlanVersionAddons(ctx context.Context, planVersionID pgtype.UUID) error
 	SetPlanVersionCustomDays(ctx context.Context, arg SetPlanVersionCustomDaysParams) error
 	SetPlanVersionCustomTraffic(ctx context.Context, arg SetPlanVersionCustomTrafficParams) error
+	SetPlanVersionDailyBilling(ctx context.Context, arg SetPlanVersionDailyBillingParams) error
 	// Written once, in the transaction that publishes the version.
 	SetPlanVersionRemnawaveProfile(ctx context.Context, arg SetPlanVersionRemnawaveProfileParams) error
 	SetPlanVersionTrafficMode(ctx context.Context, arg SetPlanVersionTrafficModeParams) error

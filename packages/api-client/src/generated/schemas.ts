@@ -2948,6 +2948,7 @@ export const GetPanelPlanResponse = zod.object({
             }),
           )
           .nullish(),
+        dailyBilling: zod.boolean().optional(),
       }),
     )
     .nullable(),
@@ -3171,6 +3172,12 @@ export const CreatePanelPlanVersionBody = zod.object({
     )
     .optional()
     .describe("The traffic volumes a selectable version is sold with."),
+  dailyBilling: zod
+    .boolean()
+    .optional()
+    .describe(
+      "Bill the version one day at a time from the wallet, pausable by the customer. Needs billingPeriod day, durationSeconds 86400, and no other periods.",
+    ),
 });
 
 export const createPanelPlanVersionResponseOfferedSquadsItemLabelRuMax = 80;
@@ -3253,6 +3260,7 @@ export const CreatePanelPlanVersionResponse = zod.object({
       }),
     )
     .nullish(),
+  dailyBilling: zod.boolean().optional(),
 });
 
 /**
@@ -9094,6 +9102,63 @@ export const BuyAccountTrafficResetResponse = zod.object({
     .describe(
       "The operator's transfer instructions, in the customer's language, when the order is paid or payable by manual transfer.",
     ),
+});
+
+/**
+ * How a subscription on a daily plan is billed. `daily` is false for any other plan; otherwise `paused` is the customer's pause, `suspended` a day the wallet did not cover (it resumes on its own after a top-up), `endsAt` when the paid day runs out, and `price` one day's price.
+ */
+export const GetAccountDailyBillingParams = zod.object({
+  subscriptionID: zod.uuid(),
+});
+
+export const GetAccountDailyBillingResponse = zod.object({
+  daily: zod.boolean(),
+  paused: zod.boolean().optional(),
+  suspended: zod.boolean().optional(),
+  endsAt: zod.iso.datetime({ offset: true }).optional(),
+  price: zod
+    .object({
+      amountMinor: zod.int(),
+      currency: zod.string(),
+    })
+    .optional(),
+});
+
+/**
+ * Pauses or resumes a daily subscription. A pause stops the daily charge and disables access through fulfillment; a resume gives back the part of the day the pause held. Asking for the state the subscription is already in succeeds without doing anything.
+ */
+export const SetAccountDailyBillingParams = zod.object({
+  subscriptionID: zod.uuid(),
+});
+
+export const setAccountDailyBillingHeaderIdempotencyKeyMin = 8;
+export const setAccountDailyBillingHeaderIdempotencyKeyMax = 128;
+
+export const SetAccountDailyBillingHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "Idempotency-Key": zod
+    .string()
+    .min(setAccountDailyBillingHeaderIdempotencyKeyMin)
+    .max(setAccountDailyBillingHeaderIdempotencyKeyMax),
+});
+
+export const SetAccountDailyBillingBody = zod.object({
+  paused: zod.boolean(),
+});
+
+export const SetAccountDailyBillingResponse = zod.object({
+  daily: zod.boolean(),
+  paused: zod.boolean().optional(),
+  suspended: zod.boolean().optional(),
+  endsAt: zod.iso.datetime({ offset: true }).optional(),
+  price: zod
+    .object({
+      amountMinor: zod.int(),
+      currency: zod.string(),
+    })
+    .optional(),
 });
 
 /**

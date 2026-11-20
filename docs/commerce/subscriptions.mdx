@@ -328,6 +328,51 @@ told nothing is wrong.
 Automatic renewal skips a paused subscription without any extra rule: the
 renewal query already selects only `active` and `limited` entitlements.
 
+The one exception is a [daily plan](#daily-plans): a pause there holds at most
+the rest of one day, so the customer may pause and resume it themselves.
+
+## Daily plans
+
+A daily plan is Bedolaga's daily subscription: a plan version billed one day at
+a time from the wallet. **Bill daily from the balance** in the version editor
+(`dailyBilling`) turns it on; it needs the **Day** billing period, a one-day
+duration, and no other periods or custom days, so one charge is always one day.
+The first day is bought like any plan, with any payment method.
+
+**The daily charge.** The worker's `daily_billing` pass runs every minute. Ten
+minutes before a subscription's paid day ends it buys the next one as an
+ordinary wallet-funded `renewal` order of the plan's newest live daily version
+— so a price the operator publishes applies from the next day, and the
+subscription's chosen traffic volume is kept — priced, posted to the ledger,
+and provisioned exactly as any renewal. The order's idempotency key is
+`daily:<subscription>:<date the day starts>`, so however many passes or worker
+replicas reach a day there is one order for it. The order is created only when
+the wallet covers all of it: a day the wallet does not cover is not ordered and
+reserves nothing. Automatic renewal never renews a daily plan, so the two
+cannot both buy the same day.
+
+**Low balance and suspension.** After each charge the next day is priced
+against what is left; when the balance will not cover it, the customer is told
+once (`daily_low_balance`, delivered by the bot under the payment preference).
+When a day ends and the wallet still does not cover the next one, access stops
+with the paid day — the Remnawave user expires as any lapsed subscription does —
+and the customer is told once (`daily_suspended`). For 30 days afterwards the
+pass keeps looking at the subscription, so a top-up resumes it on the next pass
+with a new day starting then; after that the customer buys the plan again.
+
+**The customer's pause.** The web subscription page shows **Daily billing**
+with **Pause** or **Resume** (`GET` and `PUT /v1/account/subscriptions/{subscriptionID}/daily-billing`
+with `{"paused": true|false}` and an `Idempotency-Key`), and the bot's
+subscription screen shows the same buttons. A pause freezes the entitlement as
+an operator's pause does and queues a `pause` fulfillment operation, which
+disables the Remnawave user, in the same transaction; nothing is charged while
+it lasts. A resume gives back the part of the day the pause held, queues a
+`resume`, and the daily charge continues when that day ends. Asking for the
+state the subscription is already in succeeds without doing anything. A
+subscription on any other plan answers `not_daily`; one that is not running, or
+a day the wallet did not cover, answers `not_pausable` — the latter resumes on
+its own after a top-up.
+
 ## Reminders, grace notices, and recovery
 
 The bot's notifier walks every subscription a customer owns and sends, per subscription:

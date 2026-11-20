@@ -264,6 +264,8 @@ export type PlanVersion = {
   /** `fixed`, `fixed_with_topup`, or `selectable`; see the traffic editor. */
   trafficMode?: string;
   trafficPackages?: { gb: number; currency: string; amountMinor: number }[];
+  /** Billed one day at a time from the wallet, pausable by the customer. */
+  dailyBilling?: boolean;
 };
 
 export type PersonalOffer = {

@@ -122,7 +122,7 @@
 - ✅ **Произвольное число дней** (цена за день, мин/макс) — `B: tariff_custom_days.py` — нет — M
 - ✅ **Произвольный объём трафика** (цена за ГБ) — `B: tariff_custom_traffic.py` — нет — M
 - ⛔ **Лимит трафика на сервер** — `B: Tariff.server_traffic_limits` — нет — M/L
-- ⏸ **Суточные тарифы** (ежедневное списание, пауза клиентом, уведомления) — `B: daily_subscription_service.py`, `DAILY_SUBSCRIPTIONS_*` — частично: `billing_period=day` есть, ежедневного списания и паузы нет — L
+- ✅ **Суточные тарифы** (ежедневное списание, пауза клиентом, уведомления) — `B: daily_subscription_service.py`, `DAILY_SUBSCRIPTIONS_*` — частично: `billing_period=day` есть, ежедневного списания и паузы нет — L
 - ✅ **Стратегия сброса трафика DAY/WEEK/MONTH** — `B: Tariff.traffic_reset_mode` — нет: `trafficLimitStrategy` не передаётся (`O: internal/remnawave/client.go`) — S/M
 - ✅ **Внешний сквад тарифа** — `B: Tariff.external_squad_uuid` — нет — S
 - ✅ **Теги пользователя панели** (тариф, триал, платные) — `B: panel_tag`, `TRIAL_USER_TAG`, `PAID_SUBSCRIPTION_USER_TAG` — нет — S

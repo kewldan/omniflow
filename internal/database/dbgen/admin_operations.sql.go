@@ -340,7 +340,7 @@ INSERT INTO plan_versions (
   $11, $12, $13,
   $14, $15, $16
 )
-RETURNING id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads, traffic_reset_strategy, external_squad_id, max_addon_traffic_bytes, traffic_reset_price_bps, custom_days_min, custom_days_max, custom_traffic_min_gb, custom_traffic_max_gb, traffic_mode
+RETURNING id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads, traffic_reset_strategy, external_squad_id, max_addon_traffic_bytes, traffic_reset_price_bps, custom_days_min, custom_days_max, custom_traffic_min_gb, custom_traffic_max_gb, traffic_mode, daily_billing
 `
 
 type CreatePlanVersionFullParams struct {
@@ -417,6 +417,7 @@ func (q *Queries) CreatePlanVersionFull(ctx context.Context, arg CreatePlanVersi
 		&i.CustomTrafficMinGb,
 		&i.CustomTrafficMaxGb,
 		&i.TrafficMode,
+		&i.DailyBilling,
 	)
 	return i, err
 }
@@ -2174,7 +2175,7 @@ func (q *Queries) ListPlanPrices(ctx context.Context, planVersionID pgtype.UUID)
 }
 
 const listPlanVersions = `-- name: ListPlanVersions :many
-SELECT id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads, traffic_reset_strategy, external_squad_id, max_addon_traffic_bytes, traffic_reset_price_bps, custom_days_min, custom_days_max, custom_traffic_min_gb, custom_traffic_max_gb, traffic_mode FROM plan_versions WHERE plan_id = $1 ORDER BY version DESC
+SELECT id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads, traffic_reset_strategy, external_squad_id, max_addon_traffic_bytes, traffic_reset_price_bps, custom_days_min, custom_days_max, custom_traffic_min_gb, custom_traffic_max_gb, traffic_mode, daily_billing FROM plan_versions WHERE plan_id = $1 ORDER BY version DESC
 `
 
 func (q *Queries) ListPlanVersions(ctx context.Context, planID pgtype.UUID) ([]PlanVersion, error) {
@@ -2215,6 +2216,7 @@ func (q *Queries) ListPlanVersions(ctx context.Context, planID pgtype.UUID) ([]P
 			&i.CustomTrafficMinGb,
 			&i.CustomTrafficMaxGb,
 			&i.TrafficMode,
+			&i.DailyBilling,
 		); err != nil {
 			return nil, err
 		}
@@ -2806,7 +2808,7 @@ const retirePlanVersion = `-- name: RetirePlanVersion :one
 UPDATE plan_versions
 SET retired_at = now()
 WHERE id = $1 AND retired_at IS NULL
-RETURNING id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads, traffic_reset_strategy, external_squad_id, max_addon_traffic_bytes, traffic_reset_price_bps, custom_days_min, custom_days_max, custom_traffic_min_gb, custom_traffic_max_gb, traffic_mode
+RETURNING id, plan_id, version, billing_period, duration_seconds, traffic_allowance_bytes, device_limit, remnawave_squad_ids, upgrade_policy, downgrade_policy, cancellation_policy, recurring_capable, created_at, retired_at, grace_period_seconds, trial_eligibility, squad_selection, min_selectable_squads, max_selectable_squads, traffic_reset_strategy, external_squad_id, max_addon_traffic_bytes, traffic_reset_price_bps, custom_days_min, custom_days_max, custom_traffic_min_gb, custom_traffic_max_gb, traffic_mode, daily_billing
 `
 
 func (q *Queries) RetirePlanVersion(ctx context.Context, planVersionID pgtype.UUID) (PlanVersion, error) {
@@ -2841,6 +2843,7 @@ func (q *Queries) RetirePlanVersion(ctx context.Context, planVersionID pgtype.UU
 		&i.CustomTrafficMinGb,
 		&i.CustomTrafficMaxGb,
 		&i.TrafficMode,
+		&i.DailyBilling,
 	)
 	return i, err
 }

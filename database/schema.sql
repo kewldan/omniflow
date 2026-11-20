@@ -2028,7 +2028,7 @@ CREATE TABLE public.customer_event_notices (
     params jsonb DEFAULT '{}'::jsonb NOT NULL,
     dedupe_key text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT customer_event_notices_kind_known CHECK ((kind = ANY (ARRAY['referral_joined'::text, 'referral_welcome'::text, 'referral_reward'::text, 'loyalty_tier'::text, 'renewal_low_balance'::text]))),
+    CONSTRAINT customer_event_notices_kind_known CHECK ((kind = ANY (ARRAY['referral_joined'::text, 'referral_welcome'::text, 'referral_reward'::text, 'loyalty_tier'::text, 'renewal_low_balance'::text, 'daily_low_balance'::text, 'daily_suspended'::text]))),
     CONSTRAINT customer_event_notices_params_object CHECK ((jsonb_typeof(params) = 'object'::text))
 );
 
@@ -4078,10 +4078,12 @@ CREATE TABLE public.plan_versions (
     custom_traffic_min_gb integer,
     custom_traffic_max_gb integer,
     traffic_mode text DEFAULT 'fixed_with_topup'::text NOT NULL,
+    daily_billing boolean DEFAULT false NOT NULL,
     CONSTRAINT plan_versions_billing_period_check CHECK ((billing_period = ANY (ARRAY['none'::text, 'day'::text, 'week'::text, 'month'::text, 'quarter'::text, 'half_year'::text, 'year'::text, 'custom'::text]))),
     CONSTRAINT plan_versions_cancellation_policy_check CHECK ((cancellation_policy = ANY (ARRAY['forbid'::text, 'immediate'::text, 'at_expiry'::text]))),
     CONSTRAINT plan_versions_custom_days_range CHECK ((((custom_days_min IS NULL) = (custom_days_max IS NULL)) AND ((custom_days_min IS NULL) OR ((custom_days_min >= 1) AND (custom_days_max >= custom_days_min) AND (custom_days_max <= 3650))))),
     CONSTRAINT plan_versions_custom_traffic_range CHECK ((((custom_traffic_min_gb IS NULL) = (custom_traffic_max_gb IS NULL)) AND ((custom_traffic_min_gb IS NULL) OR ((custom_traffic_min_gb >= 1) AND (custom_traffic_max_gb >= custom_traffic_min_gb) AND (custom_traffic_max_gb <= 1000000))))),
+    CONSTRAINT plan_versions_daily_billing_day CHECK (((NOT daily_billing) OR ((billing_period = 'day'::text) AND (duration_seconds = 86400) AND (custom_days_min IS NULL)))),
     CONSTRAINT plan_versions_device_limit_check CHECK (((device_limit IS NULL) OR (device_limit >= 0))),
     CONSTRAINT plan_versions_downgrade_policy_check CHECK ((downgrade_policy = ANY (ARRAY['forbid'::text, 'immediate'::text, 'at_expiry'::text]))),
     CONSTRAINT plan_versions_duration_seconds_check CHECK ((duration_seconds > 0)),

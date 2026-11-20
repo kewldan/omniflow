@@ -1922,7 +1922,9 @@
         "addonTrafficCap": "Most traffic add-ons may add (GB)",
         "addonTrafficCapHint": "Per subscription period. Leave empty for no cap.",
         "trafficResetPrice": "Paid traffic reset (% of the price)",
-        "trafficResetPriceHint": "Customers may restart their traffic counter for this share of the version's price. Empty sells no resets."
+        "trafficResetPriceHint": "Customers may restart their traffic counter for this share of the version's price. Empty sells no resets.",
+        "dailyBilling": "Bill daily from the balance",
+        "dailyBillingHint": "The worker buys each next day from the customer's balance, and the customer can pause and resume. Needs the Day billing period, a 1-day duration, and no other periods."
       },
       "addons": {
         "create": "New add-on",
@@ -5753,7 +5755,9 @@
         "promo_daily_limit": "You have used as many different promo codes today as allowed.",
         "rate_limited": "Too many attempts. Try again later.",
         "terms_required": "Accept the terms before buying.",
-        "traffic_unavailable": "This plan is not sold with that traffic volume."
+        "traffic_unavailable": "This plan is not sold with that traffic volume.",
+        "not_daily": "This subscription is not billed by the day.",
+        "not_pausable": "This subscription cannot be paused or resumed right now."
       },
       "breakdown": {
         "subtotal": "Plan",
@@ -6278,6 +6282,20 @@
       "perGb": "{price} per GB",
       "apply": "Apply",
       "package": "{gb} GB — +{price}"
+    },
+    "dailyBilling": {
+      "title": "Daily billing",
+      "running": "This plan is billed {price} a day from your balance.",
+      "paused": "Paused: nothing is charged and access is off until you resume.",
+      "suspended": "Suspended: the balance did not cover the next day ({price}). Top up and it resumes on its own within a minute.",
+      "pause": "Pause",
+      "resume": "Resume",
+      "topUp": "Top up the balance",
+      "pauseConfirm": "Charges of {price} a day stop and access turns off. What is left of today is kept for when you resume.",
+      "resumeConfirm": "Access returns with what was left of the day, and charges of {price} a day continue.",
+      "cancel": "Cancel",
+      "pausedDone": "Paused. Access turns off within a minute.",
+      "resumedDone": "Resumed. Access returns within a minute."
     }
   },
   "pages": {

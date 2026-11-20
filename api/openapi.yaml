@@ -3832,6 +3832,45 @@ paths:
         "201": {description: Order created, content: {application/json: {schema: {$ref: "#/components/schemas/AccountOrder"}}}}
         "409": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/account/subscriptions/{subscriptionID}/daily-billing:
+    get:
+      operationId: getAccountDailyBilling
+      tags: [account]
+      description: >-
+        How a subscription on a daily plan is billed. `daily` is false for
+        any other plan; otherwise `paused` is the customer's pause,
+        `suspended` a day the wallet did not cover (it resumes on its own
+        after a top-up), `endsAt` when the paid day runs out, and `price` one
+        day's price.
+      parameters: [{$ref: "#/components/parameters/AccountSubscriptionID"}]
+      responses:
+        "200": {description: Daily billing, content: {application/json: {schema: {$ref: "#/components/schemas/AccountDailyBilling"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+    put:
+      operationId: setAccountDailyBilling
+      tags: [account]
+      description: >-
+        Pauses or resumes a daily subscription. A pause stops the daily
+        charge and disables access through fulfillment; a resume gives back
+        the part of the day the pause held. Asking for the state the
+        subscription is already in succeeds without doing anything.
+      parameters:
+        - {$ref: "#/components/parameters/AccountSubscriptionID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [paused]
+              properties:
+                paused: {type: boolean}
+      responses:
+        "200": {description: Daily billing, content: {application/json: {schema: {$ref: "#/components/schemas/AccountDailyBilling"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
   /v1/account/subscriptions/{subscriptionID}/addons:
     get:
       operationId: listAccountSubscriptionAddons
@@ -6978,6 +7017,7 @@ components:
         gbPrices: {type: object, additionalProperties: {type: integer, format: int64}}
         trafficMode: {type: string, enum: [fixed, fixed_with_topup, selectable]}
         trafficPackages: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelTrafficPackage"}}
+        dailyBilling: {type: boolean}
     PanelTrafficPackage:
       type: object
       required: [gb, currency, amountMinor]
@@ -7035,6 +7075,7 @@ components:
         gbPrices: {type: object, additionalProperties: {type: integer, format: int64, minimum: 1}, description: "Price per chosen gigabyte by currency, for the version's own duration."}
         trafficMode: {type: string, enum: [fixed, fixed_with_topup, selectable], description: "How the version sells traffic. Empty is selectable when packages or a custom range are sent, and fixed_with_topup otherwise."}
         trafficPackages: {type: array, items: {$ref: "#/components/schemas/PanelTrafficPackage"}, description: The traffic volumes a selectable version is sold with.}
+        dailyBilling: {type: boolean, description: "Bill the version one day at a time from the wallet, pausable by the customer. Needs billingPeriod day, durationSeconds 86400, and no other periods."}
     PanelPlanOptions:
       type: object
       properties:
@@ -9039,6 +9080,20 @@ components:
               quantity: {type: integer}
         termsUrl: {type: string}
         expiresAt: {type: string, format: date-time}
+    AccountDailyBilling:
+      type: object
+      required: [daily]
+      properties:
+        daily: {type: boolean}
+        paused: {type: boolean}
+        suspended: {type: boolean}
+        endsAt: {type: string, format: date-time}
+        price:
+          type: object
+          required: [amountMinor, currency]
+          properties:
+            amountMinor: {type: integer, format: int64}
+            currency: {type: string}
     AccountPaymentHandle:
       type: object
       required: [id, provider, status, amountMinor, currency, handoff]
