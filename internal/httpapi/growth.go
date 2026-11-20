@@ -9,7 +9,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/omniflow/omniflow/internal/emailpg"
 	"github.com/omniflow/omniflow/internal/fxrate"
+	"github.com/omniflow/omniflow/internal/guestpurchase"
 	"github.com/omniflow/omniflow/internal/mailer"
+	"github.com/omniflow/omniflow/internal/paymentservice"
 	"github.com/omniflow/omniflow/internal/rbac"
 	"github.com/omniflow/omniflow/internal/referralpayout"
 	"github.com/omniflow/omniflow/internal/selfemployed"
@@ -30,6 +32,11 @@ type GrowthServices struct {
 	SelfEmployed *selfemployed.Service
 	// Rates holds the Stars and USD/RUB exchange rates.
 	Rates *fxrate.Service
+	// Guest sells subscriptions to visitors without an account. GuestPayments
+	// lists the providers a guest may pay with, in GuestCurrency.
+	Guest         *guestpurchase.Service
+	GuestPayments *paymentservice.Service
+	GuestCurrency string
 }
 
 // WithGrowth attaches the growth services to the panel.
@@ -68,6 +75,7 @@ func (handlers *AccountHandlers) mountGrowthPublic(account chi.Router) {
 		// than being unsubscribed by a GET, which link scanners follow.
 		account.Get("/email/unsubscribe", handlers.emailUnsubscribePage)
 	}
+	handlers.mountGuest(account)
 }
 
 func (handlers *AccountHandlers) mountGrowth(secure chi.Router) {

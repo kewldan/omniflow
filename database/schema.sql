@@ -2325,6 +2325,31 @@ CREATE TABLE public.goods_providers (
 
 
 --
+-- Name: guest_purchases; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.guest_purchases (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    order_id uuid NOT NULL,
+    gift_id uuid NOT NULL,
+    payer_email_ciphertext bytea NOT NULL,
+    recipient_email_ciphertext bytea,
+    is_gift boolean DEFAULT false NOT NULL,
+    locale text DEFAULT 'ru'::text NOT NULL,
+    code_ciphertext bytea,
+    status_token_hash bytea NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    mailed_at timestamp with time zone,
+    CONSTRAINT guest_purchases_code_released CHECK (((status = 'pending'::text) OR (code_ciphertext IS NULL))),
+    CONSTRAINT guest_purchases_mailed_complete CHECK (((status = 'mailed'::text) = (mailed_at IS NOT NULL))),
+    CONSTRAINT guest_purchases_recipient_only_for_gift CHECK (((recipient_email_ciphertext IS NULL) OR is_gift)),
+    CONSTRAINT guest_purchases_status_known CHECK ((status = ANY (ARRAY['pending'::text, 'mailed'::text, 'expired'::text]))),
+    CONSTRAINT guest_purchases_token_length CHECK ((octet_length(status_token_hash) = 32))
+);
+
+
+--
 -- Name: identities; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -5299,6 +5324,22 @@ ALTER TABLE ONLY public.goods_providers
 
 
 --
+-- Name: guest_purchases guest_purchases_order_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.guest_purchases
+    ADD CONSTRAINT guest_purchases_order_unique UNIQUE (order_id);
+
+
+--
+-- Name: guest_purchases guest_purchases_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.guest_purchases
+    ADD CONSTRAINT guest_purchases_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: identities identities_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6839,6 +6880,13 @@ CREATE INDEX goods_orders_status_idx ON public.goods_orders USING btree (status,
 --
 
 CREATE INDEX goods_products_catalog_idx ON public.goods_products USING btree (sort_order, code) WHERE (visible AND (archived_at IS NULL));
+
+
+--
+-- Name: guest_purchases_pending_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX guest_purchases_pending_idx ON public.guest_purchases USING btree (created_at) WHERE (status = 'pending'::text);
 
 
 --
@@ -8514,6 +8562,22 @@ ALTER TABLE ONLY public.goods_product_localizations
 
 ALTER TABLE ONLY public.goods_products
     ADD CONSTRAINT goods_products_provider_slug_fkey FOREIGN KEY (provider_slug) REFERENCES public.goods_providers(slug);
+
+
+--
+-- Name: guest_purchases guest_purchases_gift_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.guest_purchases
+    ADD CONSTRAINT guest_purchases_gift_id_fkey FOREIGN KEY (gift_id) REFERENCES public.gifts(id);
+
+
+--
+-- Name: guest_purchases guest_purchases_order_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.guest_purchases
+    ADD CONSTRAINT guest_purchases_order_id_fkey FOREIGN KEY (order_id) REFERENCES public.orders(id);
 
 
 --

@@ -1586,6 +1586,30 @@ func (e FulfillmentOperationInputOperation) Valid() bool {
 	}
 }
 
+// Defines values for GuestPurchaseStatus.
+const (
+	GuestPurchaseStatusExpired GuestPurchaseStatus = "expired"
+	GuestPurchaseStatusMailed  GuestPurchaseStatus = "mailed"
+	GuestPurchaseStatusPaid    GuestPurchaseStatus = "paid"
+	GuestPurchaseStatusPending GuestPurchaseStatus = "pending"
+)
+
+// Valid indicates whether the value is a known member of the GuestPurchaseStatus enum.
+func (e GuestPurchaseStatus) Valid() bool {
+	switch e {
+	case GuestPurchaseStatusExpired:
+		return true
+	case GuestPurchaseStatusMailed:
+		return true
+	case GuestPurchaseStatusPaid:
+		return true
+	case GuestPurchaseStatusPending:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LifecycleInputAction.
 const (
 	LifecycleInputActionAnonymize LifecycleInputAction = "anonymize"
@@ -4343,6 +4367,24 @@ func (e AddAccountContactJSONBodyKind) Valid() bool {
 	}
 }
 
+// Defines values for StartGuestPurchaseJSONBodyLocale.
+const (
+	StartGuestPurchaseJSONBodyLocaleEn StartGuestPurchaseJSONBodyLocale = "en"
+	StartGuestPurchaseJSONBodyLocaleRu StartGuestPurchaseJSONBodyLocale = "ru"
+)
+
+// Valid indicates whether the value is a known member of the StartGuestPurchaseJSONBodyLocale enum.
+func (e StartGuestPurchaseJSONBodyLocale) Valid() bool {
+	switch e {
+	case StartGuestPurchaseJSONBodyLocaleEn:
+		return true
+	case StartGuestPurchaseJSONBodyLocaleRu:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListAccountNewsParamsLocale.
 const (
 	ListAccountNewsParamsLocaleEn ListAccountNewsParamsLocale = "en"
@@ -7003,6 +7045,19 @@ type FulfillmentOperationInput struct {
 
 // FulfillmentOperationInputOperation defines model for FulfillmentOperationInput.Operation.
 type FulfillmentOperationInputOperation string
+
+// GuestPurchase defines model for GuestPurchase.
+type GuestPurchase struct {
+	AmountMinor int64               `json:"amountMinor"`
+	CheckoutUrl *string             `json:"checkoutUrl,omitempty"`
+	Currency    string              `json:"currency"`
+	Id          openapi_types.UUID  `json:"id"`
+	Status      GuestPurchaseStatus `json:"status"`
+	Token       *string             `json:"token,omitempty"`
+}
+
+// GuestPurchaseStatus defines model for GuestPurchase.Status.
+type GuestPurchaseStatus string
 
 // Health defines model for Health.
 type Health struct {
@@ -10289,6 +10344,36 @@ type AccountBuyGiftParams struct {
 	IdempotencyKey string `json:"Idempotency-Key"`
 }
 
+// GetGuestPurchaseOptionsParams defines parameters for GetGuestPurchaseOptions.
+type GetGuestPurchaseOptionsParams struct {
+	Currency *string `form:"currency,omitempty" json:"currency,omitempty"`
+}
+
+// StartGuestPurchaseJSONBody defines parameters for StartGuestPurchase.
+type StartGuestPurchaseJSONBody struct {
+	Currency       *string                           `json:"currency,omitempty"`
+	Email          string                            `json:"email"`
+	Gift           *bool                             `json:"gift,omitempty"`
+	Locale         *StartGuestPurchaseJSONBodyLocale `json:"locale,omitempty"`
+	Message        *string                           `json:"message,omitempty"`
+	PlanVersionId  openapi_types.UUID                `json:"planVersionId"`
+	Provider       string                            `json:"provider"`
+	RecipientEmail *string                           `json:"recipientEmail,omitempty"`
+}
+
+// StartGuestPurchaseParams defines parameters for StartGuestPurchase.
+type StartGuestPurchaseParams struct {
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// StartGuestPurchaseJSONBodyLocale defines parameters for StartGuestPurchase.
+type StartGuestPurchaseJSONBodyLocale string
+
+// GetGuestPurchaseParams defines parameters for GetGuestPurchase.
+type GetGuestPurchaseParams struct {
+	Token string `form:"token" json:"token"`
+}
+
 // UpdateAccountProfileParams defines parameters for UpdateAccountProfile.
 type UpdateAccountProfileParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
@@ -12240,6 +12325,9 @@ type UnsubscribeAccountEmailFormdataRequestBody UnsubscribeAccountEmailFormdataB
 // AccountBuyGiftJSONRequestBody defines body for AccountBuyGift for application/json ContentType.
 type AccountBuyGiftJSONRequestBody AccountBuyGiftJSONBody
 
+// StartGuestPurchaseJSONRequestBody defines body for StartGuestPurchase for application/json ContentType.
+type StartGuestPurchaseJSONRequestBody StartGuestPurchaseJSONBody
+
 // UpdateAccountProfileJSONRequestBody defines body for UpdateAccountProfile for application/json ContentType.
 type UpdateAccountProfileJSONRequestBody = AccountProfileInput
 
@@ -12829,6 +12917,15 @@ type ServerInterface interface {
 
 	// (POST /v1/account/gifts)
 	AccountBuyGift(w http.ResponseWriter, r *http.Request, params AccountBuyGiftParams)
+
+	// (GET /v1/account/guest/options)
+	GetGuestPurchaseOptions(w http.ResponseWriter, r *http.Request, params GetGuestPurchaseOptionsParams)
+
+	// (POST /v1/account/guest/purchases)
+	StartGuestPurchase(w http.ResponseWriter, r *http.Request, params StartGuestPurchaseParams)
+
+	// (GET /v1/account/guest/purchases/{purchaseID})
+	GetGuestPurchase(w http.ResponseWriter, r *http.Request, purchaseID openapi_types.UUID, params GetGuestPurchaseParams)
 
 	// (GET /v1/account/loyalty)
 	GetAccountLoyalty(w http.ResponseWriter, r *http.Request)
@@ -13969,6 +14066,21 @@ func (_ Unimplemented) AccountListGifts(w http.ResponseWriter, r *http.Request) 
 
 // (POST /v1/account/gifts)
 func (_ Unimplemented) AccountBuyGift(w http.ResponseWriter, r *http.Request, params AccountBuyGiftParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/guest/options)
+func (_ Unimplemented) GetGuestPurchaseOptions(w http.ResponseWriter, r *http.Request, params GetGuestPurchaseOptionsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/guest/purchases)
+func (_ Unimplemented) StartGuestPurchase(w http.ResponseWriter, r *http.Request, params StartGuestPurchaseParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/guest/purchases/{purchaseID})
+func (_ Unimplemented) GetGuestPurchase(w http.ResponseWriter, r *http.Request, purchaseID openapi_types.UUID, params GetGuestPurchaseParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -16608,6 +16720,126 @@ func (siw *ServerInterfaceWrapper) AccountBuyGift(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AccountBuyGift(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetGuestPurchaseOptions operation middleware
+func (siw *ServerInterfaceWrapper) GetGuestPurchaseOptions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetGuestPurchaseOptionsParams
+
+	// ------------- Optional query parameter "currency" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "currency", r.URL.Query(), &params.Currency, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "currency"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "currency", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetGuestPurchaseOptions(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartGuestPurchase operation middleware
+func (siw *ServerInterfaceWrapper) StartGuestPurchase(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params StartGuestPurchaseParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartGuestPurchase(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetGuestPurchase operation middleware
+func (siw *ServerInterfaceWrapper) GetGuestPurchase(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "purchaseID" -------------
+	var purchaseID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "purchaseID", chi.URLParam(r, "purchaseID"), &purchaseID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "purchaseID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetGuestPurchaseParams
+
+	// ------------- Required query parameter "token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "token", r.URL.Query(), &params.Token, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetGuestPurchase(w, r, purchaseID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -32153,6 +32385,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/account/orders/{orderID}/tax-receipt", wrapper.GetAccountOrderTaxReceipt)
 	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/guest/options", wrapper.GetGuestPurchaseOptions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/guest/purchases", wrapper.StartGuestPurchase)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/guest/purchases/{purchaseID}", wrapper.GetGuestPurchase)
+	})
 
 	return r
 }
@@ -33463,6 +33704,123 @@ func (response AccountBuyGift422ApplicationProblemPlusJSONResponse) VisitAccount
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetGuestPurchaseOptionsRequestObject struct {
+	Params GetGuestPurchaseOptionsParams
+}
+
+type GetGuestPurchaseOptionsResponseObject interface {
+	VisitGetGuestPurchaseOptionsResponse(w http.ResponseWriter) error
+}
+
+type GetGuestPurchaseOptions200JSONResponse struct {
+	Currency  string   `json:"currency"`
+	Providers []string `json:"providers"`
+}
+
+func (response GetGuestPurchaseOptions200JSONResponse) VisitGetGuestPurchaseOptionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartGuestPurchaseRequestObject struct {
+	Params StartGuestPurchaseParams
+	Body   *StartGuestPurchaseJSONRequestBody
+}
+
+type StartGuestPurchaseResponseObject interface {
+	VisitStartGuestPurchaseResponse(w http.ResponseWriter) error
+}
+
+type StartGuestPurchase201JSONResponse GuestPurchase
+
+func (response StartGuestPurchase201JSONResponse) VisitStartGuestPurchaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartGuestPurchase422ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response StartGuestPurchase422ApplicationProblemPlusJSONResponse) VisitStartGuestPurchaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartGuestPurchase429ApplicationProblemPlusJSONResponse Problem
+
+func (response StartGuestPurchase429ApplicationProblemPlusJSONResponse) VisitStartGuestPurchaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetGuestPurchaseRequestObject struct {
+	PurchaseID openapi_types.UUID `json:"purchaseID"`
+	Params     GetGuestPurchaseParams
+}
+
+type GetGuestPurchaseResponseObject interface {
+	VisitGetGuestPurchaseResponse(w http.ResponseWriter) error
+}
+
+type GetGuestPurchase200JSONResponse GuestPurchase
+
+func (response GetGuestPurchase200JSONResponse) VisitGetGuestPurchaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetGuestPurchase404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetGuestPurchase404ApplicationProblemPlusJSONResponse) VisitGetGuestPurchaseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -48782,6 +49140,15 @@ type StrictServerInterface interface {
 	// (POST /v1/account/gifts)
 	AccountBuyGift(ctx context.Context, request AccountBuyGiftRequestObject) (AccountBuyGiftResponseObject, error)
 
+	// (GET /v1/account/guest/options)
+	GetGuestPurchaseOptions(ctx context.Context, request GetGuestPurchaseOptionsRequestObject) (GetGuestPurchaseOptionsResponseObject, error)
+
+	// (POST /v1/account/guest/purchases)
+	StartGuestPurchase(ctx context.Context, request StartGuestPurchaseRequestObject) (StartGuestPurchaseResponseObject, error)
+
+	// (GET /v1/account/guest/purchases/{purchaseID})
+	GetGuestPurchase(ctx context.Context, request GetGuestPurchaseRequestObject) (GetGuestPurchaseResponseObject, error)
+
 	// (GET /v1/account/loyalty)
 	GetAccountLoyalty(ctx context.Context, request GetAccountLoyaltyRequestObject) (GetAccountLoyaltyResponseObject, error)
 
@@ -50663,6 +51030,92 @@ func (sh *strictHandler) AccountBuyGift(w http.ResponseWriter, r *http.Request, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(AccountBuyGiftResponseObject); ok {
 		if err := validResponse.VisitAccountBuyGiftResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetGuestPurchaseOptions operation middleware
+func (sh *strictHandler) GetGuestPurchaseOptions(w http.ResponseWriter, r *http.Request, params GetGuestPurchaseOptionsParams) {
+	var request GetGuestPurchaseOptionsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetGuestPurchaseOptions(ctx, request.(GetGuestPurchaseOptionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetGuestPurchaseOptions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetGuestPurchaseOptionsResponseObject); ok {
+		if err := validResponse.VisitGetGuestPurchaseOptionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StartGuestPurchase operation middleware
+func (sh *strictHandler) StartGuestPurchase(w http.ResponseWriter, r *http.Request, params StartGuestPurchaseParams) {
+	var request StartGuestPurchaseRequestObject
+
+	request.Params = params
+
+	var body StartGuestPurchaseJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StartGuestPurchase(ctx, request.(StartGuestPurchaseRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StartGuestPurchase")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StartGuestPurchaseResponseObject); ok {
+		if err := validResponse.VisitStartGuestPurchaseResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetGuestPurchase operation middleware
+func (sh *strictHandler) GetGuestPurchase(w http.ResponseWriter, r *http.Request, purchaseID openapi_types.UUID, params GetGuestPurchaseParams) {
+	var request GetGuestPurchaseRequestObject
+
+	request.PurchaseID = purchaseID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetGuestPurchase(ctx, request.(GetGuestPurchaseRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetGuestPurchase")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetGuestPurchaseResponseObject); ok {
+		if err := validResponse.VisitGetGuestPurchaseResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

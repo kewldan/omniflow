@@ -4,6 +4,7 @@ import { Button } from "@omniflow/ui/button";
 import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { toast } from "@omniflow/ui/toast";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
@@ -51,7 +52,10 @@ function redeemedMessage(
 export function RedeemCode({ onRedeemed }: { onRedeemed: () => void }) {
   const translate = useTranslations("account.commerce.wallet.redeem");
   const money = useMoney();
-  const [code, setCode] = useState("");
+  // An activation link from a guest purchase e-mail carries the code as
+  // ?code=, so the customer only has to press the button after signing in.
+  const params = useSearchParams();
+  const [code, setCode] = useState(params?.get("code") ?? "");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

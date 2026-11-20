@@ -5920,6 +5920,25 @@ export interface AccountWithdrawalSummary {
   requests: AccountWithdrawal[];
 }
 
+export type GuestPurchaseStatus = typeof GuestPurchaseStatus[keyof typeof GuestPurchaseStatus];
+
+
+export const GuestPurchaseStatus = {
+  pending: 'pending',
+  paid: 'paid',
+  mailed: 'mailed',
+  expired: 'expired',
+} as const;
+
+export interface GuestPurchase {
+  id: string;
+  token?: string;
+  status: GuestPurchaseStatus;
+  checkoutUrl?: string;
+  amountMinor: number;
+  currency: string;
+}
+
 /**
  * Request failed
  */
@@ -7587,6 +7606,42 @@ export type RequestAccountReferralWithdrawalBody = {
 
 export type GetAccountOrderTaxReceipt200 = {
   receiptUrl: string;
+};
+
+export type GetGuestPurchaseOptionsParams = {
+  /** @pattern ^[A-Z]{3}$ */
+  currency?: string;
+};
+
+export type GetGuestPurchaseOptions200 = {
+  currency: string;
+  providers: string[];
+};
+
+export type StartGuestPurchaseBodyLocale = typeof StartGuestPurchaseBodyLocale[keyof typeof StartGuestPurchaseBodyLocale];
+
+
+export const StartGuestPurchaseBodyLocale = {
+  ru: 'ru',
+  en: 'en',
+} as const;
+
+export type StartGuestPurchaseBody = {
+  planVersionId: string;
+  /** @maxLength 254 */
+  email: string;
+  gift?: boolean;
+  /** @maxLength 254 */
+  recipientEmail?: string;
+  /** @maxLength 200 */
+  message?: string;
+  provider: string;
+  currency?: string;
+  locale?: StartGuestPurchaseBodyLocale;
+};
+
+export type GetGuestPurchaseParams = {
+  token: string;
 };
 
 const getHeaders = (...sources: (RequestInit['headers'] | Record<string, string | undefined>)[]) => {
@@ -38092,6 +38147,240 @@ export const useGetAccountOrderTaxReceipt = <TError = Promise<ProblemResponse>>(
   const isEnabled = swrOptions?.enabled !== false && orderID !== null && orderID !== undefined
   const swrKey = swrOptions?.swrKey ?? (() => isEnabled ? getGetAccountOrderTaxReceiptKey(orderID) : null);
   const swrFn = () => getAccountOrderTaxReceipt(orderID, fetchOptions)
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions)
+
+  return {
+    swrKey,
+    ...query
+  }
+}
+
+export type getGuestPurchaseOptionsResponse200 = {
+  data: GetGuestPurchaseOptions200
+  status: 200
+}
+
+export type getGuestPurchaseOptionsResponseSuccess = (getGuestPurchaseOptionsResponse200) & {
+  headers: Headers;
+};
+;
+
+export type getGuestPurchaseOptionsResponse = (getGuestPurchaseOptionsResponseSuccess)
+
+export const getGetGuestPurchaseOptionsUrl = (params?: GetGuestPurchaseOptionsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/v1/account/guest/options?${stringifiedParams}` : `/v1/account/guest/options`
+}
+
+/**
+ * The payment providers a visitor without an account may pay with, in the shop currency. Telegram Stars and manual transfers are never offered.
+ */
+export const getGuestPurchaseOptions = async (params?: GetGuestPurchaseOptionsParams, options?: RequestInit): Promise<getGuestPurchaseOptionsResponse> => {
+
+  const res = await fetch(getGetGuestPurchaseOptionsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getGuestPurchaseOptionsResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getGuestPurchaseOptionsResponse
+}
+
+
+
+
+export const getGetGuestPurchaseOptionsKey = (params?: GetGuestPurchaseOptionsParams,) => [`/v1/account/guest/options`, ...(params ? [params]: [])] as const;
+
+export type GetGuestPurchaseOptionsQueryResult = NonNullable<Awaited<ReturnType<typeof getGuestPurchaseOptions>>>
+
+export const useGetGuestPurchaseOptions = <TError = Promise<unknown>>(
+  params?: GetGuestPurchaseOptionsParams, options?: { swr?:SWRConfiguration<Awaited<ReturnType<typeof getGuestPurchaseOptions>>, TError> & { swrKey?: Key, enabled?: boolean }, fetch?: RequestInit }
+) => {
+  const {swr: swrOptions, fetch: fetchOptions} = options ?? {}
+
+  const isEnabled = swrOptions?.enabled !== false
+  const swrKey = swrOptions?.swrKey ?? (() => isEnabled ? getGetGuestPurchaseOptionsKey(params) : null);
+  const swrFn = () => getGuestPurchaseOptions(params, fetchOptions)
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions)
+
+  return {
+    swrKey,
+    ...query
+  }
+}
+
+export type startGuestPurchaseResponse201 = {
+  data: GuestPurchase
+  status: 201
+}
+
+export type startGuestPurchaseResponse422 = {
+  data: ProblemResponse
+  status: 422
+}
+
+export type startGuestPurchaseResponse429 = {
+  data: ProblemResponse
+  status: 429
+}
+
+export type startGuestPurchaseResponseSuccess = (startGuestPurchaseResponse201) & {
+  headers: Headers;
+};
+export type startGuestPurchaseResponseError = (startGuestPurchaseResponse422 | startGuestPurchaseResponse429) & {
+  headers: Headers;
+};
+
+export type startGuestPurchaseResponse = (startGuestPurchaseResponseSuccess | startGuestPurchaseResponseError)
+
+export const getStartGuestPurchaseUrl = () => {
+
+
+
+
+  return `/v1/account/guest/purchases`
+}
+
+/**
+ * Opens a subscription order for a visitor with no account. The activation code is e-mailed to the payer (and to the recipient of a gift) once the payment settles. Same-origin only, limited to five per client address an hour. The token in the answer reads the purchase's status; a replay with the same Idempotency-Key returns the same purchase without a token.
+ */
+export const startGuestPurchase = async (startGuestPurchaseBody: StartGuestPurchaseBody, options?: RequestInit): Promise<startGuestPurchaseResponse> => {
+
+  const res = await fetch(getStartGuestPurchaseUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: getHeaders({ 'Content-Type': 'application/json' }, options?.headers),
+    body: JSON.stringify(startGuestPurchaseBody)
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: startGuestPurchaseResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as startGuestPurchaseResponse
+}
+
+
+
+
+export const getStartGuestPurchaseMutationFetcher = ( options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: StartGuestPurchaseBody }) => {
+    return startGuestPurchase(arg, options);
+  }
+}
+export const getStartGuestPurchaseMutationKey = () => [`/v1/account/guest/purchases`] as const;
+
+export type StartGuestPurchaseMutationResult = NonNullable<Awaited<ReturnType<typeof startGuestPurchase>>>
+
+export const useStartGuestPurchase = <TError = Promise<ProblemResponse>>(
+   options?: { swr?:SWRMutationConfiguration<Awaited<ReturnType<typeof startGuestPurchase>>, TError, Key, StartGuestPurchaseBody, Awaited<ReturnType<typeof startGuestPurchase>>> & { swrKey?: string }, fetch?: RequestInit}
+) => {
+
+  const {swr: swrOptions, fetch: fetchOptions} = options ?? {}
+
+  const swrKey = swrOptions?.swrKey ?? getStartGuestPurchaseMutationKey();
+  const swrFn = getStartGuestPurchaseMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions)
+
+  return {
+    swrKey,
+    ...query
+  }
+}
+
+export type getGuestPurchaseResponse200 = {
+  data: GuestPurchase
+  status: 200
+}
+
+export type getGuestPurchaseResponse404 = {
+  data: ProblemResponse
+  status: 404
+}
+
+export type getGuestPurchaseResponseSuccess = (getGuestPurchaseResponse200) & {
+  headers: Headers;
+};
+export type getGuestPurchaseResponseError = (getGuestPurchaseResponse404) & {
+  headers: Headers;
+};
+
+export type getGuestPurchaseResponse = (getGuestPurchaseResponseSuccess | getGuestPurchaseResponseError)
+
+export const getGetGuestPurchaseUrl = (purchaseID: string,
+    params: GetGuestPurchaseParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/v1/account/guest/purchases/${purchaseID}?${stringifiedParams}` : `/v1/account/guest/purchases/${purchaseID}`
+}
+
+export const getGuestPurchase = async (purchaseID: string,
+    params: GetGuestPurchaseParams, options?: RequestInit): Promise<getGuestPurchaseResponse> => {
+
+  const res = await fetch(getGetGuestPurchaseUrl(purchaseID,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+)
+
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getGuestPurchaseResponse['data'] = body ? JSON.parse(body) : {}
+  return { data, status: res.status, headers: res.headers } as getGuestPurchaseResponse
+}
+
+
+
+
+export const getGetGuestPurchaseKey = (purchaseID: string,
+    params: GetGuestPurchaseParams,) => [`/v1/account/guest/purchases/${purchaseID}`, ...(params ? [params]: [])] as const;
+
+export type GetGuestPurchaseQueryResult = NonNullable<Awaited<ReturnType<typeof getGuestPurchase>>>
+
+export const useGetGuestPurchase = <TError = Promise<ProblemResponse>>(
+  purchaseID: string,
+    params: GetGuestPurchaseParams, options?: { swr?:SWRConfiguration<Awaited<ReturnType<typeof getGuestPurchase>>, TError> & { swrKey?: Key, enabled?: boolean }, fetch?: RequestInit }
+) => {
+  const {swr: swrOptions, fetch: fetchOptions} = options ?? {}
+
+  const isEnabled = swrOptions?.enabled !== false && purchaseID !== null && purchaseID !== undefined
+  const swrKey = swrOptions?.swrKey ?? (() => isEnabled ? getGetGuestPurchaseKey(purchaseID,params) : null);
+  const swrFn = () => getGuestPurchase(purchaseID,params, fetchOptions)
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions)
 

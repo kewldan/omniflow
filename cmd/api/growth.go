@@ -8,6 +8,7 @@ import (
 	"github.com/omniflow/omniflow/internal/config"
 	"github.com/omniflow/omniflow/internal/emailpg"
 	"github.com/omniflow/omniflow/internal/fxrate"
+	"github.com/omniflow/omniflow/internal/guestpurchase"
 	apihttp "github.com/omniflow/omniflow/internal/httpapi"
 	"github.com/omniflow/omniflow/internal/mailer"
 	"github.com/omniflow/omniflow/internal/paymentservice"
@@ -25,7 +26,6 @@ func buildGrowth(
 	logger *slog.Logger, cfg config.Config, pool *pgxpool.Pool,
 	commerceStore *commercepg.Store, paymentService *paymentservice.Service,
 ) (apihttp.GrowthServices, error) {
-	_, _ = commerceStore, paymentService
 	mail, err := config.LoadMail()
 	if err != nil {
 		return apihttp.GrowthServices{}, err
@@ -47,5 +47,17 @@ func buildGrowth(
 		return apihttp.GrowthServices{}, err
 	}
 	services.Rates = fxrate.New(pool, fxrate.Options{})
+	// Guest purchases deliver their activation code by e-mail, so they are
+	// offered only when a transport is configured and a public address exists
+	// for the activation link.
+	if mail.Configured() && cfg.PublicURL != "" {
+		if services.Guest, err = guestpurchase.New(pool, commerceStore, paymentService, email, guestpurchase.Options{
+			DataKey: cfg.DataEncryptionKey, PublicURL: cfg.PublicURL, Currency: cfg.DefaultCurrency,
+			Disposable: mailer.NewDisposableChecker(mail.BlockedDomains), Logger: logger,
+		}); err != nil {
+			return apihttp.GrowthServices{}, err
+		}
+		services.GuestPayments, services.GuestCurrency = paymentService, cfg.DefaultCurrency
+	}
 	return services, nil
 }

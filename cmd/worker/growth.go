@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omniflow/omniflow/internal/config"
 	"github.com/omniflow/omniflow/internal/emailpg"
+	"github.com/omniflow/omniflow/internal/guestpurchase"
 	"github.com/omniflow/omniflow/internal/jobs"
 	"github.com/omniflow/omniflow/internal/mailer"
 	"github.com/omniflow/omniflow/internal/selfemployed"
@@ -52,6 +53,15 @@ func growthTasks(logger *slog.Logger, cfg config.WorkerConfig, pool *pgxpool.Poo
 			return nil, emailErr
 		}
 		tasks = append(tasks, jobs.Task{Name: "email_delivery", Interval: emailInterval, Timeout: 2 * time.Minute, Run: email.Pass})
+		// Paid guest purchases are mailed their activation code through the
+		// same queue.
+		guests, guestErr := guestpurchase.New(pool, nil, nil, email, guestpurchase.Options{
+			DataKey: cfg.DataEncryptionKey, PublicURL: os.Getenv("APP_PUBLIC_URL"), Logger: logger,
+		})
+		if guestErr != nil {
+			return nil, guestErr
+		}
+		tasks = append(tasks, jobs.Task{Name: "guest_purchases", Interval: emailInterval, Timeout: time.Minute, Run: guests.Pass})
 	}
 	// Self-employed receipts. The pass does nothing until an operator switches
 	// the integration on in the panel, so it is registered whenever the

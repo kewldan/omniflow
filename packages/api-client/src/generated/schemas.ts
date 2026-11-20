@@ -14163,3 +14163,73 @@ export const GetAccountOrderTaxReceiptParams = zod.object({
 export const GetAccountOrderTaxReceiptResponse = zod.object({
   receiptUrl: zod.string(),
 });
+
+/**
+ * The payment providers a visitor without an account may pay with, in the shop currency. Telegram Stars and manual transfers are never offered.
+ */
+export const getGuestPurchaseOptionsQueryCurrencyRegExp = /^[A-Z]{3}$/;
+
+export const GetGuestPurchaseOptionsQueryParams = zod.object({
+  currency: zod.string().regex(getGuestPurchaseOptionsQueryCurrencyRegExp).optional(),
+});
+
+export const GetGuestPurchaseOptionsResponse = zod.object({
+  currency: zod.string(),
+  providers: zod.array(zod.string()),
+});
+
+/**
+ * Opens a subscription order for a visitor with no account. The activation code is e-mailed to the payer (and to the recipient of a gift) once the payment settles. Same-origin only, limited to five per client address an hour. The token in the answer reads the purchase's status; a replay with the same Idempotency-Key returns the same purchase without a token.
+ */
+export const startGuestPurchaseHeaderIdempotencyKeyMin = 8;
+export const startGuestPurchaseHeaderIdempotencyKeyMax = 128;
+
+export const StartGuestPurchaseHeader = zod.object({
+  "Idempotency-Key": zod
+    .string()
+    .min(startGuestPurchaseHeaderIdempotencyKeyMin)
+    .max(startGuestPurchaseHeaderIdempotencyKeyMax),
+});
+
+export const startGuestPurchaseBodyEmailMax = 254;
+
+export const startGuestPurchaseBodyRecipientEmailMax = 254;
+
+export const startGuestPurchaseBodyMessageMax = 200;
+
+export const StartGuestPurchaseBody = zod.object({
+  planVersionId: zod.uuid(),
+  email: zod.string().max(startGuestPurchaseBodyEmailMax),
+  gift: zod.boolean().optional(),
+  recipientEmail: zod.string().max(startGuestPurchaseBodyRecipientEmailMax).optional(),
+  message: zod.string().max(startGuestPurchaseBodyMessageMax).optional(),
+  provider: zod.string(),
+  currency: zod.string().optional(),
+  locale: zod.enum(["ru", "en"]).optional(),
+});
+
+export const StartGuestPurchaseResponse = zod.object({
+  id: zod.uuid(),
+  token: zod.string().optional(),
+  status: zod.enum(["pending", "paid", "mailed", "expired"]),
+  checkoutUrl: zod.string().optional(),
+  amountMinor: zod.int(),
+  currency: zod.string(),
+});
+
+export const GetGuestPurchaseParams = zod.object({
+  purchaseID: zod.uuid(),
+});
+
+export const GetGuestPurchaseQueryParams = zod.object({
+  token: zod.string(),
+});
+
+export const GetGuestPurchaseResponse = zod.object({
+  id: zod.uuid(),
+  token: zod.string().optional(),
+  status: zod.enum(["pending", "paid", "mailed", "expired"]),
+  checkoutUrl: zod.string().optional(),
+  amountMinor: zod.int(),
+  currency: zod.string(),
+});

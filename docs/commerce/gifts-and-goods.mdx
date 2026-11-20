@@ -554,3 +554,33 @@ or cancelling one, is the same refund.
 A delivery that keeps failing before any payment — Fragment down, a session that
 expired — is retried on the backoff schedule and refunded after the sixth attempt,
 like every other provider.
+
+## Guest purchases
+
+A visitor with no account can buy a subscription at `/guest` with only an
+e-mail address, for themselves or as a gift, as in Bedolaga. Landing pages with
+their own analytics are not part of it; link to `/guest` from your own site.
+
+It is offered when an e-mail transport is configured (see [E-mail](/integrations/email))
+and `APP_PUBLIC_URL` is set, with every payment provider that settles the shop
+currency except Telegram Stars and manual transfers, which need a chat or an
+operator.
+
+1. The visitor picks a plan, enters their address, optionally marks it a gift
+   with the recipient's address, and pays. Throwaway-mailbox addresses are
+   refused. Starting a purchase is limited to five per client address an hour.
+2. The purchase is a **subscription gift order** owned by one system account,
+   the *guest checkout* (`00000000-0000-4000-8000-00000000600e`). Payment,
+   expiry, refunds, and the gift register work exactly as for any gift; the
+   account has no identity and cannot sign in. It appears in the customer list
+   as the owner of every guest order.
+3. When the order is paid, the worker's `guest_purchases` pass e-mails the
+   activation code: to the payer, and to the recipient of a gift with an
+   address. A gift without a recipient address mails the payer a gift link to
+   pass on. The code is stored sealed only until it is mailed, then erased.
+4. The link opens `/account/wallet?code=…`. A visitor who is not signed in signs
+   in first — by e-mail with the same address needs no password — and redeems
+   the code there. Whoever redeems it first receives the subscription.
+
+The purchase page polls its status with a token kept in the browser; it never
+shows the code.

@@ -5560,6 +5560,28 @@
       "done": "Done. You will not receive news and offers by e-mail any more.",
       "invalid": "This unsubscribe link is not valid. Open it from the e-mail again.",
       "failed": "Something went wrong. Try again in a minute."
+    },
+    "guest": {
+      "title": "Buy without an account",
+      "description": "Pay with just an e-mail address, for yourself or as a gift. The activation code arrives by e-mail once the payment goes through.",
+      "unavailable": "Purchases without an account are not available right now.",
+      "plan": "Plan",
+      "choose": "Choose",
+      "email": "Your e-mail",
+      "gift": "This is a gift",
+      "recipient": "Recipient's e-mail (optional)",
+      "recipientHint": "Leave it empty to receive a gift link you can pass on yourself.",
+      "provider": "Payment method",
+      "howItWorks": "After paying, open the link from the e-mail and sign in with that address (no password needed) to activate the subscription.",
+      "submit": "Go to payment",
+      "pay": "Pay",
+      "failed": "The purchase could not be started.",
+      "status": {
+        "pending": "Waiting for the payment.",
+        "paid": "Paid. The activation code is on its way to your e-mail.",
+        "mailed": "Paid. The activation code has been sent to your e-mail.",
+        "expired": "The payment window has closed. Start a new purchase."
+      }
     }
   }
 }

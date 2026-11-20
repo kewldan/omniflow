@@ -42,7 +42,8 @@
               "architecture/decision-0008-email-delivery-channel",
               "architecture/decision-0009-referral-withdrawals",
               "architecture/decision-0010-self-employed-receipts",
-              "architecture/decision-0011-converted-stars-payments"
+              "architecture/decision-0011-converted-stars-payments",
+              "architecture/decision-0012-guest-purchases"
             ]
           },
           {
@@ -181,7 +182,8 @@
               "ru/architecture/decision-0008-email-delivery-channel",
               "ru/architecture/decision-0009-referral-withdrawals",
               "ru/architecture/decision-0010-self-employed-receipts",
-              "ru/architecture/decision-0011-converted-stars-payments"
+              "ru/architecture/decision-0011-converted-stars-payments",
+              "ru/architecture/decision-0012-guest-purchases"
             ]
           },
           {

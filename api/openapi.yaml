@@ -5314,6 +5314,59 @@ paths:
       responses:
         "200": {description: Receipt link, content: {application/json: {schema: {type: object, required: [receiptUrl], properties: {receiptUrl: {type: string}}}}}}
         "404": {$ref: "#/components/responses/Problem"}
+  /v1/account/guest/options:
+    get:
+      operationId: getGuestPurchaseOptions
+      tags: [account]
+      description: >-
+        The payment providers a visitor without an account may pay with, in the
+        shop currency. Telegram Stars and manual transfers are never offered.
+      parameters:
+        - {in: query, name: currency, required: false, schema: {type: string, pattern: "^[A-Z]{3}$"}}
+      responses:
+        "200": {description: Options, content: {application/json: {schema: {type: object, required: [currency, providers], properties: {currency: {type: string}, providers: {type: array, items: {type: string}}}}}}}
+  /v1/account/guest/purchases:
+    post:
+      operationId: startGuestPurchase
+      tags: [account]
+      description: >-
+        Opens a subscription order for a visitor with no account. The activation
+        code is e-mailed to the payer (and to the recipient of a gift) once the
+        payment settles. Same-origin only, limited to five per client address an
+        hour. The token in the answer reads the purchase's status; a replay with
+        the same Idempotency-Key returns the same purchase without a token.
+      parameters:
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [planVersionId, email, provider]
+              properties:
+                planVersionId: {type: string, format: uuid}
+                email: {type: string, maxLength: 254}
+                gift: {type: boolean}
+                recipientEmail: {type: string, maxLength: 254}
+                message: {type: string, maxLength: 200}
+                provider: {type: string}
+                currency: {type: string}
+                locale: {type: string, enum: [ru, en]}
+      responses:
+        "201": {description: Purchase started, content: {application/json: {schema: {$ref: "#/components/schemas/GuestPurchase"}}}}
+        "422": {$ref: "#/components/responses/Problem"}
+        "429": {$ref: "#/components/responses/Problem"}
+  /v1/account/guest/purchases/{purchaseID}:
+    get:
+      operationId: getGuestPurchase
+      tags: [account]
+      parameters:
+        - {in: path, name: purchaseID, required: true, schema: {type: string, format: uuid}}
+        - {in: query, name: token, required: true, schema: {type: string}}
+      responses:
+        "200": {description: Purchase status, content: {application/json: {schema: {$ref: "#/components/schemas/GuestPurchase"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
 components:
   securitySchemes:
     operatorToken: {type: http, scheme: bearer}
@@ -9312,5 +9365,15 @@ components:
         availableMinor: {type: integer, format: int64}
         nextAllowedAt: {type: string, format: date-time}
         requests: {type: array, items: {$ref: "#/components/schemas/AccountWithdrawal"}}
+    GuestPurchase:
+      type: object
+      required: [id, status, amountMinor, currency]
+      properties:
+        id: {type: string, format: uuid}
+        token: {type: string}
+        status: {type: string, enum: [pending, paid, mailed, expired]}
+        checkoutUrl: {type: string}
+        amountMinor: {type: integer, format: int64}
+        currency: {type: string}
   responses:
     Problem: {description: Request failed, content: {application/problem+json: {schema: {$ref: "#/components/schemas/Problem"}}}}
