@@ -1007,6 +1007,21 @@ type EmailOutbox struct {
 	SentAt            pgtype.Timestamptz `json:"sent_at"`
 }
 
+type EngagementSetting struct {
+	Singleton              bool               `json:"singleton"`
+	Currency               string             `json:"currency"`
+	DaysPlanVersionID      pgtype.UUID        `json:"days_plan_version_id"`
+	DayValueMinor          int64              `json:"day_value_minor"`
+	WheelEnabled           bool               `json:"wheel_enabled"`
+	WheelSpinCostMinor     int64              `json:"wheel_spin_cost_minor"`
+	WheelFreeSpinsPerDay   int32              `json:"wheel_free_spins_per_day"`
+	WheelMaxSpinsPerDay    int32              `json:"wheel_max_spins_per_day"`
+	WheelTargetRtpPercent  int32              `json:"wheel_target_rtp_percent"`
+	MinimumAccountAgeHours int32              `json:"minimum_account_age_hours"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy              pgtype.UUID        `json:"updated_by"`
+}
+
 type Entitlement struct {
 	ID                    pgtype.UUID        `json:"id"`
 	UserID                pgtype.UUID        `json:"user_id"`
@@ -1221,6 +1236,21 @@ type GoodsProvider struct {
 	LastCheckedAt            pgtype.Timestamptz `json:"last_checked_at"`
 	CreatedAt                pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt                pgtype.Timestamptz `json:"updated_at"`
+}
+
+type GuestPurchase struct {
+	ID                       pgtype.UUID        `json:"id"`
+	OrderID                  pgtype.UUID        `json:"order_id"`
+	GiftID                   pgtype.UUID        `json:"gift_id"`
+	PayerEmailCiphertext     []byte             `json:"payer_email_ciphertext"`
+	RecipientEmailCiphertext []byte             `json:"recipient_email_ciphertext"`
+	IsGift                   bool               `json:"is_gift"`
+	Locale                   string             `json:"locale"`
+	CodeCiphertext           []byte             `json:"code_ciphertext"`
+	StatusTokenHash          []byte             `json:"status_token_hash"`
+	Status                   string             `json:"status"`
+	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+	MailedAt                 pgtype.Timestamptz `json:"mailed_at"`
 }
 
 type Identity struct {
@@ -1782,6 +1812,28 @@ type PlanVersionSquad struct {
 	SortOrder     int32       `json:"sort_order"`
 }
 
+type Poll struct {
+	ID          pgtype.UUID        `json:"id"`
+	QuestionRu  string             `json:"question_ru"`
+	QuestionEn  string             `json:"question_en"`
+	Options     []byte             `json:"options"`
+	RewardKind  string             `json:"reward_kind"`
+	RewardValue int64              `json:"reward_value"`
+	StartsAt    pgtype.Timestamptz `json:"starts_at"`
+	EndsAt      pgtype.Timestamptz `json:"ends_at"`
+	ClosedAt    pgtype.Timestamptz `json:"closed_at"`
+	CreatedBy   pgtype.UUID        `json:"created_by"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type PollAnswer struct {
+	PollID      pgtype.UUID        `json:"poll_id"`
+	UserID      pgtype.UUID        `json:"user_id"`
+	OptionIndex int32              `json:"option_index"`
+	Rewarded    bool               `json:"rewarded"`
+	AnsweredAt  pgtype.Timestamptz `json:"answered_at"`
+}
+
 type PromoCode struct {
 	ID              pgtype.UUID        `json:"id"`
 	PromotionID     pgtype.UUID        `json:"promotion_id"`
@@ -2263,4 +2315,28 @@ type WalletTopup struct {
 	LedgerTransactionID pgtype.UUID        `json:"ledger_transaction_id"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 	CreditedAt          pgtype.Timestamptz `json:"credited_at"`
+}
+
+type WheelPrize struct {
+	ID        pgtype.UUID        `json:"id"`
+	LabelRu   string             `json:"label_ru"`
+	LabelEn   string             `json:"label_en"`
+	Kind      string             `json:"kind"`
+	Value     int64              `json:"value"`
+	Weight    int32              `json:"weight"`
+	Active    bool               `json:"active"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type WheelSpin struct {
+	ID             pgtype.UUID        `json:"id"`
+	UserID         pgtype.UUID        `json:"user_id"`
+	PrizeID        pgtype.UUID        `json:"prize_id"`
+	PrizeKind      string             `json:"prize_kind"`
+	PrizeValue     int64              `json:"prize_value"`
+	CostMinor      int64              `json:"cost_minor"`
+	Currency       string             `json:"currency"`
+	Free           bool               `json:"free"`
+	IdempotencyKey string             `json:"idempotency_key"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }

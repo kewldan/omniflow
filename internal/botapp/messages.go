@@ -33,6 +33,9 @@ func text(locale Locale, key string, args ...any) string {
 		message = override
 	}
 	rendered := message.get(locale)
+	if translated, ok := extraCatalog[locale][key]; ok {
+		rendered = translated
+	}
 	if len(args) == 0 {
 		return rendered
 	}

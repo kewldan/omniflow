@@ -17,6 +17,12 @@ type Locale string
 const (
 	LocaleEnglish Locale = "en"
 	LocaleRussian Locale = "ru"
+	// The three languages added for Bedolaga parity. Their catalogues are
+	// partial and machine-translated (see messages_extra.go); a key with no
+	// translation falls back to English.
+	LocaleUkrainian Locale = "uk"
+	LocaleChinese   Locale = "zh"
+	LocalePersian   Locale = "fa"
 )
 
 type View struct {
@@ -34,11 +40,21 @@ func localeFrom(code string) Locale {
 	if policy.only != "" {
 		return policy.only
 	}
+	detected := Locale("")
 	switch lower := strings.ToLower(code); {
 	case strings.HasPrefix(lower, "ru"):
-		return LocaleRussian
+		detected = LocaleRussian
 	case strings.HasPrefix(lower, "en"):
-		return LocaleEnglish
+		detected = LocaleEnglish
+	case strings.HasPrefix(lower, "uk"), strings.HasPrefix(lower, "ua"):
+		detected = LocaleUkrainian
+	case strings.HasPrefix(lower, "zh"):
+		detected = LocaleChinese
+	case strings.HasPrefix(lower, "fa"):
+		detected = LocalePersian
+	}
+	if detected != "" && languageOffered(detected) {
+		return detected
 	}
 	return policy.fallback
 }

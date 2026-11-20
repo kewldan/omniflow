@@ -5,6 +5,32 @@ import { LOCALE_COOKIE, resolveLocale } from "@/lib/locale";
 import { formats } from "./formats";
 import { missingMessage } from "./missing-message";
 
+type Catalogue = { [key: string]: string | Catalogue };
+
+/** Lays a partial catalogue over English, key by key. */
+function overlay(base: Catalogue, partial: Catalogue): Catalogue {
+  const merged: Catalogue = { ...base };
+  for (const [key, value] of Object.entries(partial)) {
+    const under = merged[key];
+    merged[key] =
+      typeof value === "object" && typeof under === "object" ? overlay(under, value) : value;
+  }
+  return merged;
+}
+
+/**
+ * The catalogue for a language. Russian and English are complete; the partial
+ * ones fall back to English for every message they do not translate.
+ */
+async function loadMessages(locale: string): Promise<Catalogue> {
+  const own = (await import(`../messages/${locale}.json`)).default as Catalogue;
+  if (locale === "ru" || locale === "en") {
+    return own;
+  }
+  const english = (await import("../messages/en.json")).default as Catalogue;
+  return overlay(english, own);
+}
+
 export default getRequestConfig(async ({ requestLocale }) => {
   // See lib/locale.ts: without this the Russian catalogue was never served.
   const [requested, cookieStore, headerList] = await Promise.all([
@@ -20,7 +46,7 @@ export default getRequestConfig(async ({ requestLocale }) => {
 
   return {
     locale,
-    messages: (await import(`../messages/${locale}.json`)).default,
+    messages: await loadMessages(locale),
     formats,
     // The server cannot know who is looking, so it renders in UTC — which is
     // also what the API's timestamps and the reports' day boundaries are in.

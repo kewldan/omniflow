@@ -4385,6 +4385,33 @@ func (e StartGuestPurchaseJSONBodyLocale) Valid() bool {
 	}
 }
 
+// Defines values for ListAccountLanguages200JSONResponseBodyLanguages.
+const (
+	ListAccountLanguages200JSONResponseBodyLanguagesEn ListAccountLanguages200JSONResponseBodyLanguages = "en"
+	ListAccountLanguages200JSONResponseBodyLanguagesFa ListAccountLanguages200JSONResponseBodyLanguages = "fa"
+	ListAccountLanguages200JSONResponseBodyLanguagesRu ListAccountLanguages200JSONResponseBodyLanguages = "ru"
+	ListAccountLanguages200JSONResponseBodyLanguagesUk ListAccountLanguages200JSONResponseBodyLanguages = "uk"
+	ListAccountLanguages200JSONResponseBodyLanguagesZh ListAccountLanguages200JSONResponseBodyLanguages = "zh"
+)
+
+// Valid indicates whether the value is a known member of the ListAccountLanguages200JSONResponseBodyLanguages enum.
+func (e ListAccountLanguages200JSONResponseBodyLanguages) Valid() bool {
+	switch e {
+	case ListAccountLanguages200JSONResponseBodyLanguagesEn:
+		return true
+	case ListAccountLanguages200JSONResponseBodyLanguagesFa:
+		return true
+	case ListAccountLanguages200JSONResponseBodyLanguagesRu:
+		return true
+	case ListAccountLanguages200JSONResponseBodyLanguagesUk:
+		return true
+	case ListAccountLanguages200JSONResponseBodyLanguagesZh:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListAccountNewsParamsLocale.
 const (
 	ListAccountNewsParamsLocaleEn ListAccountNewsParamsLocale = "en"
@@ -10384,6 +10411,9 @@ type GetGuestPurchaseParams struct {
 	Token string `form:"token" json:"token"`
 }
 
+// ListAccountLanguages200JSONResponseBodyLanguages defines parameters for ListAccountLanguages.
+type ListAccountLanguages200JSONResponseBodyLanguages string
+
 // UpdateAccountProfileParams defines parameters for UpdateAccountProfile.
 type UpdateAccountProfileParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
@@ -12952,6 +12982,9 @@ type ServerInterface interface {
 	// (GET /v1/account/guest/purchases/{purchaseID})
 	GetGuestPurchase(w http.ResponseWriter, r *http.Request, purchaseID openapi_types.UUID, params GetGuestPurchaseParams)
 
+	// (GET /v1/account/languages)
+	ListAccountLanguages(w http.ResponseWriter, r *http.Request)
+
 	// (GET /v1/account/loyalty)
 	GetAccountLoyalty(w http.ResponseWriter, r *http.Request)
 
@@ -14126,6 +14159,11 @@ func (_ Unimplemented) StartGuestPurchase(w http.ResponseWriter, r *http.Request
 
 // (GET /v1/account/guest/purchases/{purchaseID})
 func (_ Unimplemented) GetGuestPurchase(w http.ResponseWriter, r *http.Request, purchaseID openapi_types.UUID, params GetGuestPurchaseParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/languages)
+func (_ Unimplemented) ListAccountLanguages(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -16984,6 +17022,20 @@ func (siw *ServerInterfaceWrapper) GetGuestPurchase(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetGuestPurchase(w, r, purchaseID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAccountLanguages operation middleware
+func (siw *ServerInterfaceWrapper) ListAccountLanguages(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAccountLanguages(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -32550,6 +32602,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/account/engagement/polls/{pollID}/answer", wrapper.AnswerAccountPoll)
 	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/languages", wrapper.ListAccountLanguages)
+	})
 
 	return r
 }
@@ -34112,6 +34167,29 @@ func (response GetGuestPurchase404ApplicationProblemPlusJSONResponse) VisitGetGu
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAccountLanguagesRequestObject struct {
+}
+
+type ListAccountLanguagesResponseObject interface {
+	VisitListAccountLanguagesResponse(w http.ResponseWriter) error
+}
+
+type ListAccountLanguages200JSONResponse struct {
+	Languages []ListAccountLanguages200JSONResponseBodyLanguages `json:"languages"`
+}
+
+func (response ListAccountLanguages200JSONResponse) VisitListAccountLanguagesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -49452,6 +49530,9 @@ type StrictServerInterface interface {
 	// (GET /v1/account/guest/purchases/{purchaseID})
 	GetGuestPurchase(ctx context.Context, request GetGuestPurchaseRequestObject) (GetGuestPurchaseResponseObject, error)
 
+	// (GET /v1/account/languages)
+	ListAccountLanguages(ctx context.Context, request ListAccountLanguagesRequestObject) (ListAccountLanguagesResponseObject, error)
+
 	// (GET /v1/account/loyalty)
 	GetAccountLoyalty(ctx context.Context, request GetAccountLoyaltyRequestObject) (GetAccountLoyaltyResponseObject, error)
 
@@ -51526,6 +51607,30 @@ func (sh *strictHandler) GetGuestPurchase(w http.ResponseWriter, r *http.Request
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetGuestPurchaseResponseObject); ok {
 		if err := validResponse.VisitGetGuestPurchaseResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAccountLanguages operation middleware
+func (sh *strictHandler) ListAccountLanguages(w http.ResponseWriter, r *http.Request) {
+	var request ListAccountLanguagesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAccountLanguages(ctx, request.(ListAccountLanguagesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAccountLanguages")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAccountLanguagesResponseObject); ok {
+		if err := validResponse.VisitListAccountLanguagesResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

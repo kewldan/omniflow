@@ -2,6 +2,7 @@ package botapp
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-telegram/bot/models"
@@ -28,11 +29,14 @@ func customerSettingsView(locale Locale, preferences CustomerPreferences, market
 	rows := [][]models.InlineKeyboardButton{}
 	// With one language offered there is nothing to choose.
 	if languageChoiceOffered() {
-		rows = append(rows, row(
+		buttons := []models.InlineKeyboardButton{
 			actionButton(languageMark(preferences.Locale, "auto")+" "+autoLabel(locale), "lang:auto"),
-			actionButton(languageMark(preferences.Locale, "ru")+" RU", "lang:ru"),
-			actionButton(languageMark(preferences.Locale, "en")+" EN", "lang:en"),
-		))
+		}
+		for _, offered := range offeredLanguages() {
+			buttons = append(buttons, actionButton(
+				languageMark(preferences.Locale, string(offered))+" "+strings.ToUpper(string(offered)), "lang:"+string(offered)))
+		}
+		rows = append(rows, row(buttons...))
 	}
 	rows = append(rows,
 		row(actionButton(text(locale, "settings.expiry", toggleLabel(preferences.ExpiryNotifications)), "notify:expiry")),

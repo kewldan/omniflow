@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/url"
@@ -40,6 +41,8 @@ type GrowthServices struct {
 	GuestCurrency string
 	// Engagement runs the fortune wheel and polls.
 	Engagement *engagement.Service
+	// Languages lists the languages the operator offers customers.
+	Languages func(ctx context.Context) []string
 }
 
 // WithGrowth attaches the growth services to the panel.
@@ -80,6 +83,12 @@ func (handlers *AccountHandlers) mountGrowthPublic(account chi.Router) {
 		account.Get("/email/unsubscribe", handlers.emailUnsubscribePage)
 	}
 	handlers.mountGuest(account)
+	if handlers.growth.Languages != nil {
+		// Public: the sign-in screen offers only these before anyone signs in.
+		account.Get("/languages", func(writer http.ResponseWriter, request *http.Request) {
+			writeJSON(writer, http.StatusOK, map[string]any{"languages": handlers.growth.Languages(request.Context())})
+		})
+	}
 }
 
 func (handlers *AccountHandlers) mountGrowth(secure chi.Router) {

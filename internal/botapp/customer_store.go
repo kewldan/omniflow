@@ -224,7 +224,7 @@ func (store *PostgresStore) SetTimezone(ctx context.Context, customerID, zone st
 
 // SetCustomerLocale persists the interface language for a customer.
 func (store *PostgresStore) SetCustomerLocale(ctx context.Context, customerID, locale string) error {
-	if locale != "auto" && locale != "ru" && locale != "en" {
+	if _, supported := supportedLocales[locale]; locale != "auto" && !supported {
 		return errors.New("unsupported locale")
 	}
 	_, err := store.pool.Exec(ctx, `INSERT INTO bot_preferences (user_id, locale) VALUES ($1::uuid, $2)

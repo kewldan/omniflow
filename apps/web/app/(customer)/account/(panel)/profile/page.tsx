@@ -19,14 +19,15 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { useState } from "react";
-
+import useSWR from "swr";
 import { HubNav } from "@/components/account/account/hub-nav";
 import { SectionLabel } from "@/components/account/state";
 import { useSwitchLocale } from "@/components/intl/locale-switch";
 import { useAllowedThemes } from "@/components/theme-provider";
 import { useAccount } from "@/lib/account-session";
-import { type ApiError, apiFetch } from "@/lib/api";
-import { isLocale, type Locale } from "@/lib/locale";
+
+import { type ApiError, apiFetch, fetcher } from "@/lib/api";
+import { isLocale, LOCALES, type Locale } from "@/lib/locale";
 
 /**
  * The account screen: who you are, the two preferences that follow you between
@@ -261,7 +262,7 @@ function LanguageChoice({
   onSaved,
   timezone,
 }: {
-  current: "en" | "ru";
+  current: string;
   onSaved: () => void;
   timezone: string;
 }) {
@@ -270,6 +271,18 @@ function LanguageChoice({
   const translateLanguage = useTranslations("common.language");
   const switchLocale = useSwitchLocale();
   const [busy, setBusy] = useState(false);
+  // Only the languages the operator offers; the current one stays listed so
+  // the field never shows an empty value.
+  const { data: offered } = useSWR<{ languages: string[] }, ApiError>(
+    "/v1/account/languages",
+    fetcher,
+    {
+      shouldRetryOnError: false,
+    },
+  );
+  const choices = LOCALES.filter(
+    (code) => code === current || (offered?.languages ?? ["ru", "en"]).includes(code),
+  );
 
   async function save(next: string) {
     if (next === current) {
@@ -301,12 +314,11 @@ function LanguageChoice({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem lang="ru" value="ru">
-            {translateLanguage("ru")}
-          </SelectItem>
-          <SelectItem lang="en" value="en">
-            {translateLanguage("en")}
-          </SelectItem>
+          {choices.map((code) => (
+            <SelectItem key={code} lang={code} value={code}>
+              {translateLanguage(code)}
+            </SelectItem>
+          ))}
         </SelectContent>
       </Select>
       <p className="font-mono text-[11px] text-subtle-foreground">

@@ -7658,6 +7658,21 @@ export type AnswerAccountPoll200 = {
   rewarded: boolean;
 };
 
+export type ListAccountLanguages200LanguagesItem =
+  (typeof ListAccountLanguages200LanguagesItem)[keyof typeof ListAccountLanguages200LanguagesItem];
+
+export const ListAccountLanguages200LanguagesItem = {
+  ru: "ru",
+  en: "en",
+  uk: "uk",
+  zh: "zh",
+  fa: "fa",
+} as const;
+
+export type ListAccountLanguages200 = {
+  languages: ListAccountLanguages200LanguagesItem[];
+};
+
 const getHeaders = (
   ...sources: (RequestInit["headers"] | Record<string, string | undefined>)[]
 ) => {
@@ -38697,6 +38712,65 @@ export const useAnswerAccountPoll = <TError = Promise<ProblemResponse>>(
   const swrFn = getAnswerAccountPollMutationFetcher(pollID, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listAccountLanguagesResponse200 = {
+  data: ListAccountLanguages200;
+  status: 200;
+};
+
+export type listAccountLanguagesResponseSuccess = listAccountLanguagesResponse200 & {
+  headers: Headers;
+};
+
+export type listAccountLanguagesResponse = listAccountLanguagesResponseSuccess;
+
+export const getListAccountLanguagesUrl = () => {
+  return `/v1/account/languages`;
+};
+
+/**
+ * The interface languages the operator offers customers (the bot section's `languages`), from ru, en, uk, zh, fa. Russian and English when none are chosen. Reachable before sign-in.
+ */
+export const listAccountLanguages = async (
+  options?: RequestInit,
+): Promise<listAccountLanguagesResponse> => {
+  const res = await fetch(getListAccountLanguagesUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listAccountLanguagesResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listAccountLanguagesResponse;
+};
+
+export const getListAccountLanguagesKey = () => [`/v1/account/languages`] as const;
+
+export type ListAccountLanguagesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAccountLanguages>>
+>;
+
+export const useListAccountLanguages = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listAccountLanguages>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListAccountLanguagesKey() : null));
+  const swrFn = () => listAccountLanguages(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,

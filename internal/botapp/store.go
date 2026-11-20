@@ -144,7 +144,7 @@ func (store *PostgresStore) Preferences(ctx context.Context, telegramID int64) (
 }
 
 func (store *PostgresStore) SetLocale(ctx context.Context, telegramID int64, locale string) error {
-	if locale != "auto" && locale != "ru" && locale != "en" {
+	if _, supported := supportedLocales[locale]; locale != "auto" && !supported {
 		return errors.New("unsupported locale")
 	}
 	return store.upsertPreference(ctx, telegramID, "locale", locale)

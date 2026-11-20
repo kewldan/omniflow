@@ -1027,6 +1027,11 @@ func (app *App) handleAction(ctx context.Context, client *telegram.Bot, query *m
 // customer when commerce is enabled, and against the Telegram-linked account
 // otherwise.
 func (app *App) setLocalePreference(ctx context.Context, telegramID int64, telegramLocale, locale string) error {
+	// A language the operator does not offer cannot be chosen, even by a
+	// callback crafted by hand.
+	if locale != "auto" && !languageOffered(Locale(locale)) {
+		return errors.New("that language is not offered")
+	}
 	if !app.commerceEnabled() {
 		return app.store.SetLocale(ctx, telegramID, locale)
 	}
@@ -1321,7 +1326,7 @@ func (app *App) locale(ctx context.Context, telegramID int64, telegramLocale str
 		}
 	}
 	preferences, err := app.store.Preferences(ctx, telegramID)
-	if err == nil && (preferences.Locale == "ru" || preferences.Locale == "en") {
+	if err == nil && preferences.Locale != "" && preferences.Locale != "auto" {
 		return localeFrom(preferences.Locale)
 	}
 	return localeFrom(telegramLocale)

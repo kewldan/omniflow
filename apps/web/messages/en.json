@@ -5596,7 +5596,10 @@
       "label": "Language",
       "en": "English",
       "ru": "Русский",
-      "switchTo": "Switch the interface to {language}"
+      "switchTo": "Switch the interface to {language}",
+      "uk": "Українська",
+      "zh": "中文",
+      "fa": "فارسی"
     },
     "openApp": {
       "opening": "Opening the app…",

@@ -1,0 +1,73 @@
+{
+  "home": {
+    "eyebrow": "{name} 用户中心",
+    "title": "您的连接，尽在一处。",
+    "description": "查看订阅、流量、设备、访问链接、付款、邀请和客服。",
+    "action": "打开我的账户"
+  },
+  "common": {
+    "meta": { "account": "账户", "admin": "管理", "signIn": "登录" },
+    "ui": { "close": "关闭", "more": "更多", "breadcrumb": "导航" },
+    "status": {
+      "notFound": {
+        "title": "页面不存在",
+        "description": "地址可能输入有误，或其指向的内容已被删除。"
+      },
+      "error": {
+        "title": "无法显示此页面",
+        "description": "加载时出错。您输入的内容没有丢失，请重试。"
+      },
+      "retry": "重试",
+      "toHome": "返回首页",
+      "toAccount": "前往账户",
+      "toAdmin": "前往控制台"
+    },
+    "copy": { "action": "复制{label}", "copied": "已复制", "failed": "浏览器不允许复制" },
+    "language": {
+      "label": "语言",
+      "en": "English",
+      "ru": "Русский",
+      "uk": "Українська",
+      "zh": "中文",
+      "fa": "فارسی",
+      "switchTo": "将界面切换为{language}"
+    }
+  },
+  "account": {
+    "nav": {
+      "title": "VPN",
+      "subtitle": "您的账户",
+      "tabs": "分区",
+      "back": "返回",
+      "subscriptions": "订阅",
+      "devices": "设备",
+      "profile": "账户",
+      "store": "商店",
+      "wallet": "钱包",
+      "support": "客服",
+      "more": "更多",
+      "orders": "订单",
+      "referrals": "邀请好友",
+      "news": "公告",
+      "security": "安全",
+      "accountId": "账户编号",
+      "signOut": "退出登录",
+      "signOutFailed": "无法退出，请重试。",
+      "gifts": "礼物",
+      "renewal": "自动续费"
+    },
+    "actions": { "cancel": "取消", "save": "保存", "retry": "重试" },
+    "states": {
+      "signedOut": "请登录后继续",
+      "signedOutDescription": "登录后才能查看账户、订阅和设备。",
+      "unavailable": "此账户不可用",
+      "unavailableDescription": "账户已被暂停或关闭。如有疑问请联系客服。",
+      "error": "出现问题",
+      "errorDescription": "页面无法加载，请稍后重试。",
+      "retry": "重试",
+      "signInAgain": "重新登录",
+      "maintenance": "正在维护",
+      "maintenanceDescription": "我们正在维护服务。您的订阅和剩余时间不受影响。"
+    }
+  }
+}

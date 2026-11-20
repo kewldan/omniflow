@@ -14275,3 +14275,10 @@ export const AnswerAccountPollBody = zod.object({
 export const AnswerAccountPollResponse = zod.object({
   rewarded: zod.boolean(),
 });
+
+/**
+ * The interface languages the operator offers customers (the bot section's `languages`), from ru, en, uk, zh, fa. Russian and English when none are chosen. Reachable before sign-in.
+ */
+export const ListAccountLanguagesResponse = zod.object({
+  languages: zod.array(zod.enum(["ru", "en", "uk", "zh", "fa"])),
+});

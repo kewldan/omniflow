@@ -3,7 +3,10 @@ import { describe, expect, test } from "bun:test";
 import { createTranslator } from "next-intl";
 
 import en from "../messages/en.json";
+import fa from "../messages/fa.json";
 import ru from "../messages/ru.json";
+import uk from "../messages/uk.json";
+import zh from "../messages/zh.json";
 
 /**
  * The two catalogues are one contract in two languages.
@@ -102,6 +105,31 @@ describe("message catalogues", () => {
         (translate as any).rich(key, {});
       }
       expect(invalid).toEqual([]);
+    });
+  }
+});
+
+/**
+ * The Ukrainian, Chinese, and Persian catalogues are partial: anything they do
+ * not translate renders from English. What they do translate must be a key
+ * English has, with the same arguments, so the overlay never invents a message
+ * or drops a placeholder.
+ */
+describe("partial catalogues", () => {
+  for (const [locale, catalogue] of [
+    ["uk", uk],
+    ["zh", zh],
+    ["fa", fa],
+  ] as const) {
+    test(`${locale} translates only English keys, with the same arguments`, () => {
+      const partial = flatten(catalogue as Catalogue);
+      const problems = [...partial]
+        .filter(([key, message]) => {
+          const source = english.get(key);
+          return source === undefined || argumentsOf(source).join() !== argumentsOf(message).join();
+        })
+        .map(([key]) => key);
+      expect(problems).toEqual([]);
     });
   }
 });

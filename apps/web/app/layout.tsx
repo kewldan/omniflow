@@ -11,6 +11,7 @@ import { UiLabelsBridge } from "@/components/intl/ui-labels-bridge";
 import { ThemeProvider } from "@/components/theme-provider";
 import { readAnalytics } from "@/lib/analytics";
 import { readBranding } from "@/lib/branding";
+import { type Locale, RTL_LOCALES } from "@/lib/locale";
 import { readNonce } from "@/lib/nonce";
 import "./globals.css";
 
@@ -47,6 +48,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
      */
     <html
       className={`${GeistSans.variable} ${GeistMono.variable}`}
+      dir={RTL_LOCALES.includes(locale as Locale) ? "rtl" : "ltr"}
       lang={locale}
       suppressHydrationWarning
     >

@@ -155,7 +155,7 @@ func PreviewImport(candidates []ImportCandidate, existingSourceIDs map[string]st
 }
 
 func ValidateLocaleTimezone(locale, timezone string) error {
-	if locale != "ru" && locale != "en" {
+	if locale != "ru" && locale != "en" && locale != "uk" && locale != "zh" && locale != "fa" {
 		return fmt.Errorf("unsupported locale %q", locale)
 	}
 	if _, err := time.LoadLocation(timezone); err != nil {

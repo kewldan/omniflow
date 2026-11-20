@@ -20,6 +20,30 @@ type languagePolicy struct {
 	// only is set when the operator offers a single language: every message is
 	// in it, whatever the customer chose before.
 	only Locale
+	// offered is every language a customer may use. Russian and English when
+	// the operator lists none; Ukrainian, Chinese, and Persian only when listed.
+	offered []Locale
+}
+
+// defaultOffered is what an installation that configured nothing speaks.
+var defaultOffered = []Locale{LocaleEnglish, LocaleRussian}
+
+// supportedLocales maps every code the bot speaks to its locale.
+var supportedLocales = map[string]Locale{
+	"ru": LocaleRussian, "en": LocaleEnglish, "uk": LocaleUkrainian, "zh": LocaleChinese, "fa": LocalePersian,
+}
+
+// offeredLanguages lists the languages the operator offers.
+func offeredLanguages() []Locale {
+	if offered := activeLanguages().offered; len(offered) > 0 {
+		return offered
+	}
+	return defaultOffered
+}
+
+// languageOffered reports whether a customer may use the locale.
+func languageOffered(locale Locale) bool {
+	return slices.Contains(offeredLanguages(), locale)
 }
 
 var currentLanguages atomic.Pointer[languagePolicy]
@@ -28,7 +52,7 @@ func activeLanguages() languagePolicy {
 	if policy := currentLanguages.Load(); policy != nil {
 		return *policy
 	}
-	return languagePolicy{fallback: LocaleEnglish}
+	return languagePolicy{fallback: LocaleEnglish, offered: defaultOffered}
 }
 
 // SetLanguagePolicy applies the branding section's default language and the
@@ -41,15 +65,19 @@ func SetLanguagePolicy(defaultLocale string, available []string) {
 	}
 	offered := []Locale{}
 	for _, code := range available {
-		switch strings.ToLower(strings.TrimSpace(code)) {
-		case "ru":
-			offered = append(offered, LocaleRussian)
-		case "en":
-			offered = append(offered, LocaleEnglish)
+		if locale, ok := supportedLocales[strings.ToLower(strings.TrimSpace(code))]; ok {
+			offered = append(offered, locale)
 		}
 	}
 	slices.Sort(offered)
 	offered = slices.Compact(offered)
+	if len(offered) == 0 {
+		offered = defaultOffered
+	}
+	policy.offered = offered
+	if !slices.Contains(offered, policy.fallback) {
+		policy.fallback = offered[0]
+	}
 	if len(offered) == 1 {
 		policy.only, policy.fallback = offered[0], offered[0]
 	}

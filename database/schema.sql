@@ -1207,7 +1207,7 @@ CREATE TABLE public.bot_preferences (
     marketing_enabled boolean DEFAULT false NOT NULL,
     quiet_hours_start smallint,
     quiet_hours_end smallint,
-    CONSTRAINT bot_preferences_locale_check CHECK ((locale = ANY (ARRAY['auto'::text, 'ru'::text, 'en'::text]))),
+    CONSTRAINT bot_preferences_locale_check CHECK ((locale = ANY (ARRAY['auto'::text, 'ru'::text, 'en'::text, 'uk'::text, 'zh'::text, 'fa'::text]))),
     CONSTRAINT bot_preferences_quiet_hours_check CHECK (((quiet_hours_start IS NULL) = (quiet_hours_end IS NULL))),
     CONSTRAINT bot_preferences_quiet_hours_end_check CHECK (((quiet_hours_end >= 0) AND (quiet_hours_end <= 23))),
     CONSTRAINT bot_preferences_quiet_hours_start_check CHECK (((quiet_hours_start >= 0) AND (quiet_hours_start <= 23)))
@@ -4323,7 +4323,7 @@ CREATE TABLE public.users (
     retention_until timestamp with time zone,
     merged_into uuid,
     merged_at timestamp with time zone,
-    CONSTRAINT users_locale_check CHECK ((locale = ANY (ARRAY['ru'::text, 'en'::text]))),
+    CONSTRAINT users_locale_check CHECK ((locale = ANY (ARRAY['ru'::text, 'en'::text, 'uk'::text, 'zh'::text, 'fa'::text]))),
     CONSTRAINT users_merge_complete CHECK ((((status = 'merged'::text) = (merged_into IS NOT NULL)) AND ((merged_into IS NULL) = (merged_at IS NULL)))),
     CONSTRAINT users_merge_not_self CHECK (((merged_into IS NULL) OR (merged_into <> id))),
     CONSTRAINT users_status_known CHECK ((status = ANY (ARRAY['active'::text, 'suspended'::text, 'deleted'::text, 'merged'::text])))

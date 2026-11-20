@@ -15,7 +15,7 @@
  * language. It holds a language code and nothing else.
  */
 
-export const LOCALES = ["ru", "en"] as const;
+export const LOCALES = ["ru", "en", "uk", "zh", "fa"] as const;
 export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = "en";
 
@@ -75,6 +75,16 @@ export function resolveLocale({
   }
   return negotiateLocale(acceptLanguage) ?? DEFAULT_LOCALE;
 }
+
+/**
+ * Ukrainian, Chinese, and Persian catalogues are partial, machine-quality
+ * translations marked for review in the documentation; every message they
+ * lack renders from the English catalogue (see i18n/request.ts).
+ */
+export const PARTIAL_LOCALES: readonly Locale[] = ["uk", "zh", "fa"];
+
+/** Languages written right to left. */
+export const RTL_LOCALES: readonly Locale[] = ["fa"];
 
 /** The `document.cookie` assignment that records a language choice. */
 export function localeCookie(locale: Locale, secure = false): string {

@@ -167,7 +167,12 @@ export const SECTIONS: SectionSchema[] = [
     group: "integrations",
     messageKey: "bot",
     fields: [
-      { name: "languages", kind: "multiselect", messageKey: "botLanguages", options: ["ru", "en"] },
+      {
+        name: "languages",
+        kind: "multiselect",
+        messageKey: "botLanguages",
+        options: ["ru", "en", "uk", "zh", "fa"],
+      },
       { name: "miniAppUrl", kind: "url", messageKey: "miniAppUrl" },
       { name: "cabinetOnly", kind: "boolean", messageKey: "cabinetOnly" },
       {
