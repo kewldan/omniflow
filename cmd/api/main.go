@@ -394,11 +394,17 @@ func buildCustomerPanel(
 			emailSignIn = &customerauthpg.EmailSignInOptions{Contacts: contacts, Mailer: sender, Disposable: disposable}
 		}
 	}
+	access := installsettings.New(pool, logger)
 	identity, err := customerauthpg.New(pool, cfg.DataEncryptionKey, customerauthpg.Options{
 		TelegramBotToken: cfg.TelegramToken,
 		MagicLinkEnabled: cfg.CustomerPanel.MagicLinkEnabled,
 		PublicURL:        cfg.PublicURL,
 		EmailSignIn:      emailSignIn,
+		// Invite-only or closed registration: the web has no invitation link
+		// to carry, so only existing customers sign in there.
+		SignupAllowed: func(ctx context.Context) bool {
+			return access.Section(ctx, "access").String("mode", "open") == "open"
+		},
 	})
 	if err != nil {
 		return nil, nil, err

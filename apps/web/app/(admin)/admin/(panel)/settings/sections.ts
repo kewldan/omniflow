@@ -224,6 +224,22 @@ export const SECTIONS: SectionSchema[] = [
     ],
   },
   {
+    section: "access",
+    group: "integrations",
+    messageKey: "access",
+    fields: [
+      {
+        name: "mode",
+        kind: "select",
+        messageKey: "accessMode",
+        options: ["open", "invite", "closed"],
+      },
+      { name: "allowReferrals", kind: "boolean", messageKey: "allowReferrals", defaultValue: true },
+      { name: "allowedCampaigns", kind: "text", messageKey: "allowedCampaigns" },
+      { name: "inviteCodes", kind: "text", messageKey: "inviteCodes" },
+    ],
+  },
+  {
     section: "moderation",
     group: "integrations",
     messageKey: "moderation",

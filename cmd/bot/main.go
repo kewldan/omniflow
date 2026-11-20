@@ -73,7 +73,7 @@ func main() {
 	metrics := platform.NewMetrics("bot")
 	options := []telegram.Option{
 		telegram.WithDefaultHandler(application.HandleDefault),
-		telegram.WithMiddlewares(botapp.ObservabilityMiddleware(metrics), application.SettingsMiddleware(), application.NameFilterMiddleware(), application.ActivityMiddleware()),
+		telegram.WithMiddlewares(botapp.ObservabilityMiddleware(metrics), application.SettingsMiddleware(), application.NameFilterMiddleware(), application.AccessMiddleware(), application.ActivityMiddleware()),
 	}
 	if cfg.Webhook.Enabled {
 		options = append(options, telegram.WithWebhookSecretToken(cfg.Webhook.SecretToken))

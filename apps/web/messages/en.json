@@ -2997,6 +2997,10 @@
         "support": {
           "title": "Support in the bot",
           "description": "Whether the bot offers tickets, a contact link, or both, what it says above the list, and which ticket events reach the operator group."
+        },
+        "access": {
+          "title": "Registration",
+          "description": "Who may become a customer: anybody, only people arriving by an invitation (referral link, an allowed campaign, or an invite code), or nobody new. Existing customers are never affected."
         }
       },
       "fields": {
@@ -3084,7 +3088,10 @@
           "gifts": "Gifts",
           "news": "News",
           "referral": "Invite",
-          "settings": "Settings"
+          "settings": "Settings",
+          "open": "Open",
+          "invite": "By invitation",
+          "closed": "Closed"
         },
         "botLanguages": "Languages offered (none selected means both)",
         "filterDisplayNames": "Filter dangerous display names",
@@ -3097,7 +3104,11 @@
         "notifySlaBreach": "Tell operators about overdue first responses",
         "miniAppUrl": "Mini App address (https; adds a «My account» button)",
         "cabinetOnly": "Cabinet only: the menu is just the Mini App and support",
-        "hiddenMenu": "Hide menu entries"
+        "hiddenMenu": "Hide menu entries",
+        "accessMode": "Registration",
+        "allowReferrals": "Referral links count as invitations",
+        "allowedCampaigns": "Campaign codes that count as invitations (comma-separated; empty means all)",
+        "inviteCodes": "Invite codes for t.me/BOT?start=inv_CODE (comma-separated)"
       },
       "telemetryPreview": {
         "title": "What telemetry would send",
@@ -3735,7 +3746,8 @@
         "miniapp_failed": "Telegram could not sign you in automatically. Use one of the methods below.",
         "identity_taken": "This Telegram account is attached to a different customer record. Contact support to have the two reconciled.",
         "sign_in_rejected": "Telegram's answer could not be verified. Try again.",
-        "unverified_email": "That provider did not confirm your email address, so it cannot be used to sign in here."
+        "unverified_email": "That provider did not confirm your email address, so it cannot be used to sign in here.",
+        "signup_closed": "New accounts are by invitation only. Open our Telegram bot from an invitation link first."
       },
       "confirm": {
         "title": "Continue signing in",

@@ -138,6 +138,12 @@ func (handlers *AccountHandlers) finishSignIn(
 			"account_unavailable", "This account is not available",
 		)
 		return
+	case errors.Is(err, customerauthpg.ErrSignupClosed):
+		writeProblem(
+			writer, request, http.StatusForbidden,
+			"signup_closed", "New accounts are by invitation only",
+		)
+		return
 	case errors.Is(err, customerauthpg.ErrSignInRejected):
 		writeProblem(writer, request, http.StatusUnauthorized, "sign_in_rejected", "Sign-in could not be completed")
 		return
@@ -409,6 +415,9 @@ func (handlers *AccountHandlers) callbackOIDC(writer http.ResponseWriter, reques
 		return
 	case errors.Is(err, customerauthpg.ErrAccountInactive):
 		handlers.redirectToSignIn(writer, request, "account_unavailable")
+		return
+	case errors.Is(err, customerauthpg.ErrSignupClosed):
+		handlers.redirectToSignIn(writer, request, "signup_closed")
 		return
 	case err != nil:
 		handlers.logger.Warn("customer OIDC sign-in failed", "slug", slug, "error", err)

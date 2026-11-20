@@ -76,10 +76,13 @@ const (
 
 // Service is the customer identity adapter.
 type Service struct {
-	pool     *pgxpool.Pool
-	secrets  cipher.AEAD
-	sessions customerauth.SessionPolicy
-	clock    func() time.Time
+	// signupAllowed answers whether a sign-in may create a new customer; nil
+	// always may. See Options.SignupAllowed.
+	signupAllowed func(context.Context) bool
+	pool          *pgxpool.Pool
+	secrets       cipher.AEAD
+	sessions      customerauth.SessionPolicy
+	clock         func() time.Time
 
 	// botToken verifies Telegram login payloads. An installation that has not
 	// configured a bot simply cannot offer Telegram sign-in, which is reported
@@ -120,8 +123,12 @@ type Options struct {
 	Clock            func() time.Time
 	TelegramBotToken string
 	MagicLinkEnabled bool
-	PublicURL        string
-	HTTPClient       *http.Client
+	// SignupAllowed answers whether a web sign-in may create a new customer.
+	// The api passes the access section: with invite-only or closed
+	// registration only existing customers sign in on the web.
+	SignupAllowed func(context.Context) bool
+	PublicURL     string
+	HTTPClient    *http.Client
 	// TelegramAPIURL replaces https://api.telegram.org. Tests only.
 	TelegramAPIURL string
 	// EmailSignIn turns on sign-in by e-mailed link. Both fields are required.
@@ -154,6 +161,7 @@ func New(pool *pgxpool.Pool, encryptionKey []byte, options Options) (*Service, e
 		clock:            options.Clock,
 		botToken:         strings.TrimSpace(options.TelegramBotToken),
 		magicLinkEnabled: options.MagicLinkEnabled,
+		signupAllowed:    options.SignupAllowed,
 		publicURL:        strings.TrimRight(strings.TrimSpace(options.PublicURL), "/"),
 		httpClient:       options.HTTPClient,
 		telegramAPI:      strings.TrimSpace(options.TelegramAPIURL),

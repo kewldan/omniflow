@@ -289,7 +289,7 @@ func (service *Service) CompleteOIDCSignIn(
 			if strings.HasPrefix(strings.ToLower(claims.Locale), "ru") {
 				locale = "ru"
 			}
-			created, createErr := queries.CreateCustomerForSignIn(ctx, dbgen.CreateCustomerForSignInParams{
+			created, createErr := service.createCustomer(ctx, queries, dbgen.CreateCustomerForSignInParams{
 				Locale: locale, Timezone: "UTC",
 			})
 			if createErr != nil {

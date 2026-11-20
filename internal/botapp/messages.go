@@ -840,6 +840,8 @@ var catalog = map[string]phrase{
 	"menu.pages":                  {ru: "📄 Правила и FAQ", en: "📄 Rules and FAQ"},
 	"pages.list":                  {ru: "📄 <b>Правила, оферта и ответы на вопросы</b>", en: "📄 <b>Rules, offer, and answers</b>"},
 	"pages.empty":                 {ru: "Страниц пока нет.", en: "No pages yet."},
+	"access.inviteOnly":           {ru: "🔒 Регистрация только по приглашению. Откройте бота по ссылке-приглашению.", en: "🔒 Registration is by invitation only. Open the bot from an invitation link."},
+	"access.closed":               {ru: "🔒 Регистрация новых пользователей сейчас закрыта.", en: "🔒 Registration of new users is closed at the moment."},
 }
 
 // formatMoney renders an integer minor-unit amount for display. Telegram Stars

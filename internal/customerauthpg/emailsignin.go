@@ -136,7 +136,7 @@ func (service *Service) emailLinkCustomer(
 		return dbgen.User{}, err
 	}
 	locale := customerauth.ResolveSignUpLocale("", request.AcceptLanguage)
-	created, err := queries.CreateCustomerForSignIn(ctx, dbgen.CreateCustomerForSignInParams{Locale: locale, Timezone: "UTC"})
+	created, err := service.createCustomer(ctx, queries, dbgen.CreateCustomerForSignInParams{Locale: locale, Timezone: "UTC"})
 	if err != nil {
 		return dbgen.User{}, err
 	}

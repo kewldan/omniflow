@@ -172,7 +172,7 @@ func (service *Service) resolveTelegramCustomer(
 
 	if !haveOwner {
 		locale := customerauth.ResolveSignUpLocale(identity.LanguageCode, request.AcceptLanguage)
-		created, createErr := queries.CreateCustomerForSignIn(ctx, dbgen.CreateCustomerForSignInParams{
+		created, createErr := service.createCustomer(ctx, queries, dbgen.CreateCustomerForSignInParams{
 			Locale: locale, Timezone: "UTC",
 		})
 		if createErr != nil {
