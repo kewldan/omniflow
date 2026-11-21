@@ -205,8 +205,8 @@ TypeScript — версии 7.0, и сгенерированные клиент�
 
 Образы собираются из `build/go.Dockerfile` с `CGO_ENABLED=0 go build -trimpath`. `RUNTIME=static` даёт
 distroless-образ `nonroot` для API; `RUNTIME=postgres` даёт образ Alpine с клиентом PostgreSQL для бота и
-воркера, которым он нужен для резервных копий. Выпущенные образы публикуются в GHCR для `linux/amd64` и
-`linux/arm64` с provenance и SBOM.
+воркера, которым он нужен для резервных копий. Выпущенные образы публикуются в GHCR для `linux/amd64` с provenance и
+SBOM.
 
 Обратный прокси не входит в поставку и не обязателен. В `deploy/proxies/` лежат проверенные в CI примеры для
 Caddy и Traefik, которые терминируют TLS, ограничивают размер тела запроса, выставляют заголовки безопасности

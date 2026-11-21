@@ -207,7 +207,7 @@ internal network.
 Images are built from `build/go.Dockerfile` with `CGO_ENABLED=0 go build -trimpath`. `RUNTIME=static`
 produces a distroless `nonroot` image for the API; `RUNTIME=postgres` produces an Alpine image with the
 PostgreSQL client for the bot and worker, which need it for backups. Released images are pushed to GHCR
-for `linux/amd64` and `linux/arm64` with provenance and an SBOM.
+for `linux/amd64` with provenance and an SBOM.
 
 No reverse proxy is bundled and none is required. `deploy/proxies/` carries CI-validated Caddy and Traefik
 examples that terminate TLS, cap request bodies, set security headers, and — the part that matters — keep

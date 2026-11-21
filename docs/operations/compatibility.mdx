@@ -38,8 +38,8 @@ Releases follow [Semantic Versioning](https://semver.org/) and are cut by
 [Conventional Commits](https://www.conventionalcommits.org/), which also
 generates `CHANGELOG.md` — nothing is hand-written after the fact.
 
-Each tagged release publishes five multi-arch (`linux/amd64`,
-`linux/arm64`) container images to GitHub Container Registry:
+Each tagged release publishes five `linux/amd64` container images to GitHub
+Container Registry (an ARM server builds from source with `compose.yaml`):
 
 ```text
 ghcr.io/kewldan/omniflow/api:X.Y.Z

@@ -38,9 +38,9 @@ description: Поддерживаемая матрица версий, верс�
 [Conventional Commits](https://www.conventionalcommits.org/), который также
 формирует `CHANGELOG.md` — ничего не пишется вручную постфактум.
 
-Каждый помеченный релиз публикует пять мультиархитектурных
-(`linux/amd64`, `linux/arm64`) образа контейнеров в GitHub Container
-Registry:
+Каждый помеченный релиз публикует пять образов контейнеров `linux/amd64` в
+GitHub Container Registry (сервер на ARM собирает из исходников через
+`compose.yaml`):
 
 ```text
 ghcr.io/kewldan/omniflow/api:X.Y.Z

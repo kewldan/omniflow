@@ -171,7 +171,14 @@ jobs:
           build-args: |
             ${{ matrix.build_args }}
             VERSION=${{ steps.version.outputs.value }}
-          platforms: linux/amd64,linux/arm64
+          # amd64 only: the installations this ships to run on x86_64, and an
+          # arm64 build on an amd64 runner goes through QEMU, which made every
+          # release several times slower for an architecture nobody pulls.
+          platforms: linux/amd64
+          # Layers come from the Actions cache, one scope per image, so a
+          # release rebuilds only what changed since the last one.
+          cache-from: type=gha,scope=image-${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=image-${{ matrix.image }}
           push: true
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}

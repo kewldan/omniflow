@@ -137,8 +137,8 @@ release rather than annotating it:
 - **CodeQL.** Semantic analysis of the Go and TypeScript sources, which is a
   different question from whether a dependency has a known advisory.
 
-Only then are the four images — `api`, `bot`, `worker`, `web` — built for
-`linux/amd64` and `linux/arm64`, published to GitHub Container Registry with an
+Only then are the five images — `api`, `bot`, `worker`, `web`, `migrate` — built
+for `linux/amd64` with layers cached between releases, published to GitHub Container Registry with an
 SBOM and build provenance attached, and signed keyless with cosign using the
 workflow's own GitHub Actions OIDC identity. There is no signing key to manage,
 rotate, or leak, and the signature is recorded in the public Rekor transparency

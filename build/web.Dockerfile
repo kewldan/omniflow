@@ -1,14 +1,15 @@
+# syntax=docker/dockerfile:1
 FROM oven/bun:1.4.5-alpine AS dependencies
 WORKDIR /src
 COPY package.json bun.lock bunfig.toml ./
 COPY apps/web/package.json apps/web/package.json
 COPY packages/api-client/package.json packages/api-client/package.json
 COPY packages/ui/package.json packages/ui/package.json
-RUN bun install --frozen-lockfile
+RUN --mount=type=cache,target=/root/.bun/install/cache bun install --frozen-lockfile
 
 FROM dependencies AS build
 COPY . .
-RUN bun --filter @omniflow/web build
+RUN --mount=type=cache,target=/src/apps/web/.next/cache bun --filter @omniflow/web build
 
 FROM node:26.13-alpine AS runtime
 ENV NODE_ENV=production
