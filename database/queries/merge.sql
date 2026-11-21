@@ -154,6 +154,25 @@ WHERE user_id = sqlc.arg(source);
 UPDATE legacy_subscription_periods SET user_id = sqlc.arg(target), updated_at = now()
 WHERE user_id = sqlc.arg(source);
 
+-- name: MoveCustomerReferralAliases :exec
+-- Invite links the source handed out in the previous bot keep crediting the
+-- person, now the merged account.
+UPDATE referral_code_aliases SET user_id = sqlc.arg(target)
+WHERE user_id = sqlc.arg(source);
+
+-- name: MoveCustomerLegacyDiscount :exec
+-- The later of the two customers' carried discount dates survives, so the
+-- merged account is no easier to discount than either was.
+WITH moved AS (
+  DELETE FROM legacy_customer_discounts gone WHERE gone.user_id = sqlc.arg(source)::uuid
+  RETURNING gone.source AS origin, gone.last_discount_at
+)
+INSERT INTO legacy_customer_discounts (user_id, source, last_discount_at)
+SELECT sqlc.arg(target)::uuid, moved.origin, moved.last_discount_at FROM moved
+ON CONFLICT (user_id) DO UPDATE
+SET last_discount_at = GREATEST(legacy_customer_discounts.last_discount_at, EXCLUDED.last_discount_at),
+    updated_at = now();
+
 -- name: CloseMergedAccount :one
 -- Marks the source and points it at the target.
 --

@@ -1487,6 +1487,13 @@ type LedgerTransaction struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
+type LegacyCustomerDiscount struct {
+	UserID         pgtype.UUID        `json:"user_id"`
+	Source         string             `json:"source"`
+	LastDiscountAt pgtype.Timestamptz `json:"last_discount_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
 type LegacyPayment struct {
 	ID          pgtype.UUID        `json:"id"`
 	UserID      pgtype.UUID        `json:"user_id"`
@@ -2314,6 +2321,13 @@ type ReferralAttribution struct {
 type ReferralCode struct {
 	UserID    pgtype.UUID        `json:"user_id"`
 	Code      string             `json:"code"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type ReferralCodeAlias struct {
+	Code      string             `json:"code"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	Source    string             `json:"source"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 

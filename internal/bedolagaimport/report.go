@@ -60,6 +60,14 @@ type PeriodSection struct {
 	Ended int `json:"ended"`
 }
 
+// GiftSection counts the paid gifts whose recipient has not received them.
+// They are not carried; their Bedolaga IDs are in the problems.
+type GiftSection struct {
+	Unclaimed int            `json:"unclaimed"`
+	SumMinor  int64          `json:"sumMinor"`
+	ByStatus  map[string]int `json:"byStatus"`
+}
+
 // PaymentSection adds the money to the payment history decisions.
 type PaymentSection struct {
 	Section
@@ -70,6 +78,9 @@ type PaymentSection struct {
 	// ExcludedByMethod counts the deposits left out per method, so the
 	// operator can see what excludedPaymentMethods removed.
 	ExcludedByMethod map[string]int `json:"excludedByMethod"`
+	// ByKind counts the carried payments by where Bedolaga recorded them:
+	// topup, direct, gift.
+	ByKind map[string]int `json:"byKind"`
 }
 
 // BalanceSection adds the money totals to the balance decisions.
@@ -128,6 +139,9 @@ type Report struct {
 	Trials          TrialSection        `json:"trials"`
 	Periods         PeriodSection       `json:"periods"`
 	Payments        PaymentSection      `json:"payments"`
+	Discounts       Section             `json:"discounts"`
+	ReferralCodes   Section             `json:"referralCodes"`
+	Gifts           GiftSection         `json:"gifts"`
 	UnmappedTariffs []UnmappedTariff    `json:"unmappedTariffs"`
 	PlanVersions    []PlanVersionUse    `json:"planVersions"`
 	// Available lists every Omniflow plan version a mapping may name.
@@ -141,12 +155,12 @@ type Report struct {
 var NotMigrated = []string{
 	"transactions other than completed top-ups (purchases from the balance, refunds, credits) and per-provider payment tables: stay in the archived dump; completed top-ups are carried as payment history",
 	"Telegram Stars shop orders (stars_orders): counted here, stays in the archived dump",
+	"gifts paid for and not yet received: counted here with their IDs; hand them over or refund them in Bedolaga before cutover",
 	"support tickets and their messages: close them in Bedolaga before cutover",
 	"promo codes, promo groups and their discounts: recreate the ones you still want in the panel",
 	"referral earnings history and partner withdrawal requests: the earned money is already in the balance",
 	"saved payment methods and recurring payment agreements: customers pay again once in Omniflow",
-	"OAuth links (Google, Yandex, Discord, VK) and cabinet passwords: customers sign in with Telegram",
-	"Bedolaga referral codes and links: every customer gets a new Omniflow referral code",
+	"cabinet passwords: customers sign in with Telegram, an e-mailed link, or a carried Google, Yandex, Discord, or VK ID link",
 }
 
 // Pending reports how many decisions a run would still write.
@@ -187,6 +201,16 @@ func (plan Plan) Pending() int {
 			count++
 		}
 	}
+	for _, decision := range plan.Discounts {
+		if decision.Action == ActionCreate || decision.Action == ActionRefresh {
+			count++
+		}
+	}
+	for _, decision := range plan.Aliases {
+		if decision.Action == ActionCreate {
+			count++
+		}
+	}
 	return count
 }
 
@@ -197,7 +221,10 @@ func buildReport(plan Plan, source Source, tariffs map[int64]Tariff, mapping Map
 		Subscriptions:   SubscriptionSection{Section: newSection()},
 		Trials:          TrialSection{Section: newSection(), ByOrigin: map[string]int{}},
 		Periods:         PeriodSection{Section: newSection()},
-		Payments:        PaymentSection{Section: newSection(), ExcludedByMethod: map[string]int{}},
+		Payments:        PaymentSection{Section: newSection(), ExcludedByMethod: map[string]int{}, ByKind: map[string]int{}},
+		Discounts:       newSection(),
+		ReferralCodes:   newSection(),
+		Gifts:           GiftSection{ByStatus: map[string]int{}},
 		UnmappedTariffs: []UnmappedTariff{}, PlanVersions: []PlanVersionUse{}, Problems: []Problem{},
 		Archive: source.Archive, NotMigrated: NotMigrated,
 	}
@@ -312,6 +339,7 @@ func buildReport(plan Plan, source Source, tariffs map[int64]Tariff, mapping Map
 		switch decision.Action {
 		case ActionCreate, ActionUnchanged:
 			report.Payments.CarriedMinor += decision.Source.AmountKopeks
+			report.Payments.ByKind[decision.Source.Kind]++
 			payers[decision.Source.UserID] = true
 		case ActionSkip:
 			if hasCode(decision.Codes, CodePaymentMethodExcluded) {
@@ -324,6 +352,25 @@ func buildReport(plan Plan, source Source, tariffs map[int64]Tariff, mapping Map
 		}
 	}
 	report.Payments.Payers = len(payers)
+	for _, decision := range plan.Discounts {
+		report.Discounts.add(decision.Action, decision.Codes, nil)
+	}
+	for _, decision := range plan.Aliases {
+		report.ReferralCodes.add(decision.Action, decision.Codes, nil)
+		if decision.Action == ActionConflict {
+			report.Problems = append(report.Problems, Problem{Kind: "referral_code", SourceID: decision.SourceUserID, Action: decision.Action, Codes: decision.Codes})
+		}
+	}
+	for _, gift := range source.Gifts {
+		report.Gifts.Unclaimed++
+		report.Gifts.SumMinor += gift.AmountKopeks
+		status := gift.Status
+		if status == "" {
+			status = "unknown"
+		}
+		report.Gifts.ByStatus[status]++
+		report.Problems = append(report.Problems, Problem{Kind: "gift", SourceID: gift.ID, Action: ActionSkip, Codes: []string{CodeGiftUnclaimed}})
+	}
 	for _, entry := range unmapped {
 		report.UnmappedTariffs = append(report.UnmappedTariffs, *entry)
 	}
@@ -378,7 +425,15 @@ func (report Report) WriteText(writer io.Writer) {
 	fmt.Fprintf(writer, "  carried %s %s from %d payers (source: %d top-ups, %s)\n",
 		FormatMinor(report.Payments.CarriedMinor), report.Currency, report.Payments.Payers,
 		report.Source.Payments, FormatMinor(report.Source.PaymentsMinor))
+	writeCounts(writer, "carried by kind", report.Payments.ByKind)
 	writeCounts(writer, "left out by method", report.Payments.ExcludedByMethod)
+	writeSection(writer, "Discounts", report.Discounts)
+	writeSection(writer, "Referral codes", report.ReferralCodes)
+	if report.Gifts.Unclaimed > 0 {
+		fmt.Fprintf(writer, "Unclaimed gifts: %d paid, not received, %s %s — not carried; hand them over or refund them in Bedolaga first\n",
+			report.Gifts.Unclaimed, FormatMinor(report.Gifts.SumMinor), report.Currency)
+		writeCounts(writer, "by status", report.Gifts.ByStatus)
+	}
 	if len(report.UnmappedTariffs) > 0 {
 		fmt.Fprintln(writer, "\nUnmapped tariffs (add them to the mapping file):")
 		for _, entry := range report.UnmappedTariffs {

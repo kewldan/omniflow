@@ -42,6 +42,9 @@ type NewPromotion struct {
 	PlanIDs []string `json:"planIds"`
 	Codes   []string `json:"codes"`
 	Active  bool     `json:"active"`
+	// DiscountCooldownDays, when set, refuses a customer who had any discount
+	// in that many days: "a discount at most once in sixty days".
+	DiscountCooldownDays int32 `json:"discountCooldownDays,omitempty"`
 }
 
 var promotionKinds = map[string]bool{
@@ -91,6 +94,9 @@ func (promotion NewPromotion) validate() error {
 	if (promotion.Kind == "loyalty_tier") != (promotion.TierCode != "") {
 		return ErrValidaton
 	}
+	if promotion.DiscountCooldownDays < 0 || promotion.DiscountCooldownDays > commerce.MaxDiscountCooldownDays {
+		return ErrValidaton
+	}
 	for _, code := range promotion.Codes {
 		if _, err := commerce.NormalizePromoCode(code); err != nil {
 			return ErrValidaton
@@ -108,6 +114,10 @@ func (service *Service) CreatePromotion(ctx context.Context, promotion NewPromot
 	if err := promotion.validate(); err != nil {
 		return Promotion{}, err
 	}
+	eligibility := json.RawMessage("{}")
+	if promotion.DiscountCooldownDays > 0 {
+		eligibility, _ = json.Marshal(map[string]any{commerce.EligibilityDiscountCooldownDays: promotion.DiscountCooldownDays})
+	}
 	var created Promotion
 	err := service.inTx(ctx, func(queries *dbgen.Queries) error {
 		row, txErr := queries.CreatePromotion(ctx, dbgen.CreatePromotionParams{
@@ -116,7 +126,7 @@ func (service *Service) CreatePromotion(ctx context.Context, promotion NewPromot
 			StartsAt:         optionalTimestamp(promotion.StartsAt),
 			EndsAt:           optionalTimestamp(promotion.EndsAt),
 			RedemptionLimit:  optionalInt4(promotion.RedemptionLimit),
-			PerCustomerLimit: promotion.PerCustomer, Eligibility: json.RawMessage("{}"),
+			PerCustomerLimit: promotion.PerCustomer, Eligibility: eligibility,
 			Active:      promotion.Active,
 			CreditMinor: pgtype.Int8{Int64: promotion.CreditMinor, Valid: promotion.Kind == "balance_days"},
 			TierCode:    optionalText(promotion.TierCode),

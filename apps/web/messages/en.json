@@ -2070,6 +2070,9 @@
         "tier": "Group code",
         "perCustomer": "Uses per customer",
         "limit": "Total uses",
+        "cooldown": "A discount at most once in, days",
+        "noCooldown": "Any discount counts",
+        "cooldownHint": "A customer who had any discount in this many days — from any code or offer, or in the previous bot before a migration — cannot use this one.",
         "unlimited": "No limit",
         "startsAt": "Starts",
         "endsAt": "Ends",
@@ -2154,7 +2157,8 @@
         "reason": "Reason",
         "save": "Save",
         "remove": "Remove from the catalogue"
-      }
+      },
+      "cooldown": "1 per {days} d"
     },
     "codes": {
       "title": "Wholesale code batches",
@@ -3689,7 +3693,7 @@
         },
         "remnawave": {
           "title": "Remnawave reconciliation",
-          "description": "How often every subscription is re-read from Remnawave. The address and token stay in APP_REMNAWAVE_URL and APP_REMNAWAVE_TOKEN."
+          "description": "How often every subscription is re-read from Remnawave, and which panel users an import never turns into customers — a service account such as the one a proxy chain stands on. The address and token stay in APP_REMNAWAVE_URL and APP_REMNAWAVE_TOKEN."
         },
         "telegram": {
           "title": "Telegram bot",
@@ -3879,7 +3883,9 @@
         "broadcastCustomers": "Tell customers in the bot when maintenance starts and ends",
         "broadcastEmail": "Also e-mail customers with a verified address",
         "miniAppFullscreen": "Open the Mini App full screen (Telegram 8.0 and later; older clients expand it)",
-        "miniAppLite": "Lite Mini App: only subscription, store, and support in its navigation"
+        "miniAppLite": "Lite Mini App: only subscription, store, and support in its navigation",
+        "importExcludedUsernames": "Never import these usernames (one per line)",
+        "importExcludedSquads": "Never import users in these squads (UUID or name, one per line)"
       },
       "telemetryPreview": {
         "title": "What telemetry would send",

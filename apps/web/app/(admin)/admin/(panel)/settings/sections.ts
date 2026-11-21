@@ -143,7 +143,13 @@ export const SECTIONS: SectionSchema[] = [
     section: "remnawave",
     group: "integrations",
     messageKey: "remnawave",
-    fields: [{ name: "reconcileIntervalMinutes", kind: "number", messageKey: "reconcileInterval" }],
+    fields: [
+      { name: "reconcileIntervalMinutes", kind: "number", messageKey: "reconcileInterval" },
+      // Panel users an import never makes customers, one per line: service
+      // accounts a proxy chain stands on. Read by internal/importservice.
+      { name: "importExcludedUsernames", kind: "textarea", messageKey: "importExcludedUsernames" },
+      { name: "importExcludedSquads", kind: "textarea", messageKey: "importExcludedSquads" },
+    ],
   },
   {
     section: "operator_group",

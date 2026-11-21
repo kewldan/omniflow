@@ -77,9 +77,11 @@ customers who cannot both be resolved.
 | `invalid_telegram_id` | The Telegram ID is zero or negative |
 | `telegram_already_linked` | That Telegram ID is already held by a mapping, an active identity, or an earlier staged page |
 | `duplicate_telegram_id` | The same Telegram ID appears twice on this page |
+| `excluded` | The operator listed this panel user as never a customer; see [Excluded panel users](#excluded-panel-users) |
 
 The item's status follows from the codes: none means `valid`; any code means `conflict`; a code
-beginning `missing_` or `invalid_` makes it `invalid` instead. The distinction is the point of the
+beginning `missing_` or `invalid_` makes it `invalid` instead; `excluded` alone makes it `skipped`,
+and an excluded user's Telegram ID does not make anybody else a conflict. The distinction is the point of the
 counters — a conflict is a record that belongs to somebody, an invalid record is one that cannot be
 read at all, and the two need different decisions from an operator.
 
@@ -88,6 +90,22 @@ changed record from an unchanged one. Re-previewing never rewrites an item that 
 applied or skipped: the upsert carries
 `WHERE customer_import_items.status NOT IN ('applied', 'skipped')`, which is what makes running
 preview again on a partially applied run harmless.
+
+### Excluded panel users
+
+Some panel users are not customers: a service account a chain of proxies stands on, a monitoring
+user. Imported, such a user would be reconciled, expired, and disabled like a customer. List them in
+`/admin/settings` → **Remnawave**: **Never import these usernames** and **Never import users in these
+squads**, one per line (commas work too). A username matches exactly, ignoring case and a leading
+`@`; a squad matches by its UUID or its name, ignoring case. They are the `remnawave` section's
+`importExcludedUsernames` and `importExcludedSquads`.
+
+Every import reads the list when it previews: the panel import, the [scheduled import](#scheduled-import),
+and an uploaded CSV (which has no squads, so only the usernames apply). A match is staged as `skipped`
+with the code `excluded`, so the preview says why it was left out, and it is never applied. A user
+who was already imported before you listed them stays a customer; the list does not undo an import.
+Nothing else in Omniflow changes a panel user that no customer holds, so an excluded user is left
+alone; read-only reports, such as traffic, still count it.
 
 ### Cursor and run status
 
@@ -317,6 +335,8 @@ decision, and they are why this is not a loop over the foreign-key catalogue:
 - **Read markers** move only where the target has not read the same post; the
   pair is a primary key, and the whole merge should not fail over a read
   receipt.
+- **History carried from a previous bot** moves with the customer: payments, subscription periods,
+  and invite codes are reassigned; of two carried "last discount" dates the later one survives.
 - **Saved payment methods** move but arrive as non-default. One default per
   customer is a unique index, and the survivor's is the method they last chose.
 

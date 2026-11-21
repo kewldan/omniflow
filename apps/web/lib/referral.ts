@@ -18,8 +18,12 @@ import { apiFetch } from "@/lib/api";
 
 const STORAGE_KEY = "omniflow.referral";
 
-/** The schema's own shape for a code, so nothing unshaped is ever stored or sent. */
-const CODE = /^[A-Za-z0-9]{10}$/;
+/**
+ * The schema's own shape for a code, so nothing unshaped is ever stored or
+ * sent: an Omniflow code is ten letters and digits, and a code carried from
+ * the previous bot (`refAbCd1234`) is matched by referral_code_aliases.
+ */
+const CODE = /^[A-Za-z0-9_-]{3,32}$/;
 
 /** Holds a code found on the sign-in screen. An invalid or absent value is ignored. */
 export function rememberReferralCode(code: string | null | undefined): void {

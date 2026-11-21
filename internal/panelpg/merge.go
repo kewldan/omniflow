@@ -367,6 +367,16 @@ func (service *Service) MergeCustomers(
 				})
 			},
 			func() error {
+				return queries.MoveCustomerReferralAliases(ctx, dbgen.MoveCustomerReferralAliasesParams{
+					Source: sourceUUID, Target: targetUUID,
+				})
+			},
+			func() error {
+				return queries.MoveCustomerLegacyDiscount(ctx, dbgen.MoveCustomerLegacyDiscountParams{
+					Source: sourceUUID, Target: targetUUID,
+				})
+			},
+			func() error {
 				return queries.MoveCustomerLegacyPeriods(ctx, dbgen.MoveCustomerLegacyPeriodsParams{
 					Source: sourceUUID, Target: targetUUID,
 				})

@@ -124,8 +124,14 @@ type Target struct {
 	// LegacyPeriods maps a Bedolaga subscription ID to the period carried
 	// over for it.
 	LegacyPeriods map[int64]LegacyPeriod
-	// LegacyPayments holds the Bedolaga transaction IDs already carried over.
-	LegacyPayments map[int64]bool
+	// LegacyPayments holds the payments already carried over, by Payment.Key.
+	LegacyPayments map[string]bool
+	// LegacyDiscounts maps a customer to the carried date of their last
+	// Bedolaga discount.
+	LegacyDiscounts map[string]time.Time
+	// ReferralAliases maps an upper-cased carried referral code to the
+	// customer it belongs to.
+	ReferralAliases map[string]string
 }
 
 // ItemKey is the map key of Target.Items.
@@ -213,6 +219,8 @@ type Plan struct {
 	Trials        []TrialDecision
 	Periods       []PeriodDecision
 	Payments      []PaymentDecision
+	Discounts     []DiscountDecision
+	Aliases       []AliasDecision
 	Report        Report
 }
 

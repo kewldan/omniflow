@@ -60,6 +60,7 @@ description: "Что хранит экран настроек, что из эт�
 | Брендинг | `defaultLocale` | бот | Язык клиента, чей язык Telegram бот не предлагает: русский, если значение `ru`, иначе английский | английский |
 | Брендинг | `timezone` | воркер, бот | Часовой пояс IANA, в котором считаются тихие часы, время бэкапа и плановые отчёты | `UTC` |
 | Remnawave | `reconcileIntervalMinutes` | воркер | Как часто каждая подписка перечитывается из Remnawave | 15 минут |
+| Remnawave | `importExcludedUsernames`, `importExcludedSquads` | api, воркер | Пользователи панели, которых импорт никогда не делает клиентами, — по имени или скваду (UUID или название), по одному в строке. См. [Исключённые пользователи панели](/ru/commerce/customers-imports#исключённые-пользователи-панели) | нет |
 | Telegram-бот | `languages` | бот, веб | Языки для клиентов: `ru`, `en`, `uk` (украинский), `zh` (китайский), `fa` (персидский). С одним языком все сообщения бота на нём, а переключатель языка пропадает из настроек бота; выбор языка в веб-кабинете показывает только эти. См. [Языки](#языки) | `ru` и `en` |
 | Telegram-бот | `miniAppUrl`, `cabinetOnly` | бот | Адрес Mini App (https) добавляет кнопку «Личный кабинет», открывающую его внутри Telegram; режим «только кабинет» оставляет в меню лишь её и поддержку | нет |
 | Telegram-бот | `miniAppFullscreen`, `miniAppLite` | api, web | Внутри Telegram открывать кабинет клиента на весь экран и оставлять в его навигации только подписку, магазин и поддержку. См. [Клиентская веб-панель](/ru/customer/web-panel#внутри-telegram-как-mini-app) | выключено |
@@ -171,7 +172,7 @@ description: "Что хранит экран настроек, что из эт�
 | Раздел | Поля документа | Секреты |
 | --- | --- | --- |
 | `branding` | `serviceName`, `supportContact`, `termsUrl`, `defaultLocale`, `timezone` | — |
-| `remnawave` | `reconcileIntervalMinutes` | — |
+| `remnawave` | `reconcileIntervalMinutes`, `importExcludedUsernames`, `importExcludedSquads` | — |
 | `bot` | `languages`, `miniAppUrl`, `cabinetOnly`, `miniAppFullscreen`, `miniAppLite`, `hiddenMenu`, `buttons`, `texts`, `menuLayout`, `menuStyles` | — |
 | `support` | `mode`, `introRu`, `introEn`, `notifyNewTicket`, `notifyCustomerReply`, `notifySlaBreach` | — |
 | `operator_group` | `chatId`, `createTopics`, `notificationCap`, `windowMinutes`, `disabledKinds` | — |

@@ -335,6 +335,23 @@ func (app *App) HandleStart(ctx context.Context, client *telegram.Bot, update *m
 	switch payload.Kind {
 	case startPayloadReferral:
 		app.attributeReferral(ctx, message.From.ID, message.From.LanguageCode, payload.Value)
+	case startPayloadLegacyReferral:
+		// A bare `refAbCd1234` is how the previous bot wrote invite links, and
+		// it is also a shape a campaign code can have: a code somebody holds
+		// as a referral code wins, anything else is tried as a campaign.
+		known := false
+		if app.customers != nil {
+			var err error
+			if known, err = app.customers.ReferralCodeKnown(ctx, payload.Value); err != nil {
+				app.logger.Warn("referral code lookup failed", "error", err)
+			}
+		}
+		switch {
+		case known:
+			app.attributeReferral(ctx, message.From.ID, message.From.LanguageCode, payload.Value)
+		case app.commerceEnabled() && campaignArgument.MatchString(strings.ToLower(payload.Value)):
+			app.attributeCampaign(ctx, client, message.Chat.ID, message.From.ID, message.From.LanguageCode, locale, strings.ToLower(payload.Value))
+		}
 	case startPayloadCampaign:
 		if app.commerceEnabled() {
 			app.attributeCampaign(ctx, client, message.Chat.ID, message.From.ID, message.From.LanguageCode, locale, payload.Value)
@@ -385,8 +402,11 @@ type startPayload struct {
 // The deep-link payloads the bot understands. Anything else opens the menu.
 const (
 	startPayloadReferral = "ref"
-	startPayloadLogin    = "login"
-	startPayloadPay      = "pay"
+	// startPayloadLegacyReferral is a previous bot's invite: the bare code,
+	// `ref` and six to eight letters or digits.
+	startPayloadLegacyReferral = "legacy_ref"
+	startPayloadLogin          = "login"
+	startPayloadPay            = "pay"
 	// startPayloadCampaign is an advertising campaign: `c_<code>`, or the
 	// bare code the way Bedolaga links are written.
 	startPayloadCampaign = "campaign"
@@ -454,6 +474,8 @@ func parseStartPayload(messageText string) startPayload {
 		if code := strings.TrimPrefix(argument, "coupon_"); couponArgument.MatchString(code) {
 			return startPayload{Kind: startPayloadCoupon, Value: code}
 		}
+	case legacyReferralArgument.MatchString(argument):
+		return startPayload{Kind: startPayloadLegacyReferral, Value: argument}
 	case strings.HasPrefix(argument, "c_"):
 		if code := strings.ToLower(strings.TrimPrefix(argument, "c_")); campaignArgument.MatchString(code) {
 			return startPayload{Kind: startPayloadCampaign, Value: code}
@@ -1472,6 +1494,10 @@ func linkPreview(view View) *models.LinkPreviewOptions {
 
 // campaignArgument is what a /start campaign code may look like.
 var campaignArgument = regexp.MustCompile(`^[a-z0-9_]{2,40}$`)
+
+// legacyReferralArgument is the code a Bedolaga invite link carried bare:
+// `ref` and eight letters or digits, or `ref` and six digits.
+var legacyReferralArgument = regexp.MustCompile(`^ref[A-Za-z0-9]{6,8}$`)
 
 // attributeCampaign credits an advertising campaign with a new customer and
 // tells them about a sign-up bonus, when the campaign grants one. An unknown

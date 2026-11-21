@@ -114,7 +114,8 @@ func (service *Service) AttachReferrer(ctx context.Context, customerID, code str
 	code = strings.ToUpper(strings.TrimSpace(code))
 	return service.inTxRaw(ctx, func(tx pgx.Tx, queries *dbgen.Queries) error {
 		var referrer pgtype.UUID
-		err := tx.QueryRow(ctx, `SELECT user_id FROM referral_codes WHERE code = $1`, code).Scan(&referrer)
+		err := tx.QueryRow(ctx, `SELECT user_id FROM referral_codes WHERE code = $1
+			UNION ALL SELECT user_id FROM referral_code_aliases WHERE code = $1 LIMIT 1`, code).Scan(&referrer)
 		if errors.Is(err, pgx.ErrNoRows) || err == nil && referrer == id {
 			return ErrValidaton
 		}

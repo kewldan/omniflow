@@ -401,13 +401,14 @@ func (q *Queries) InsertImportedTrialClaim(ctx context.Context, arg InsertImport
 
 const insertLegacyPayment = `-- name: InsertLegacyPayment :execrows
 INSERT INTO legacy_payments (user_id, source, source_id, method, amount_minor, currency, paid_at)
-VALUES ($1, 'bedolaga', $2, $3,
-        $4, $5, $6)
+VALUES ($1, $2, $3, $4,
+        $5, $6, $7)
 ON CONFLICT (source, source_id) DO NOTHING
 `
 
 type InsertLegacyPaymentParams struct {
 	UserID      pgtype.UUID        `json:"user_id"`
+	Source      string             `json:"source"`
 	SourceID    int64              `json:"source_id"`
 	Method      string             `json:"method"`
 	AmountMinor int64              `json:"amount_minor"`
@@ -420,12 +421,34 @@ type InsertLegacyPaymentParams struct {
 func (q *Queries) InsertLegacyPayment(ctx context.Context, arg InsertLegacyPaymentParams) (int64, error) {
 	result, err := q.db.Exec(ctx, insertLegacyPayment,
 		arg.UserID,
+		arg.Source,
 		arg.SourceID,
 		arg.Method,
 		arg.AmountMinor,
 		arg.Currency,
 		arg.PaidAt,
 	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const insertReferralAlias = `-- name: InsertReferralAlias :execrows
+INSERT INTO referral_code_aliases (code, user_id, source)
+VALUES ($1, $2, 'bedolaga')
+ON CONFLICT (code) DO NOTHING
+`
+
+type InsertReferralAliasParams struct {
+	Code   string      `json:"code"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+// A Bedolaga referral code, upper-cased, beside the customer's Omniflow code.
+// A code somebody else already holds is left with them.
+func (q *Queries) InsertReferralAlias(ctx context.Context, arg InsertReferralAliasParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertReferralAlias, arg.Code, arg.UserID)
 	if err != nil {
 		return 0, err
 	}
@@ -501,24 +524,29 @@ func (q *Queries) ListBedolagaImportRuns(ctx context.Context, pageSize int32) ([
 }
 
 const listBedolagaLegacyPayments = `-- name: ListBedolagaLegacyPayments :many
-SELECT source_id FROM legacy_payments WHERE source = 'bedolaga'
+SELECT source, source_id FROM legacy_payments WHERE source IN ('bedolaga', 'bedolaga_gift')
 `
+
+type ListBedolagaLegacyPaymentsRow struct {
+	Source   string `json:"source"`
+	SourceID int64  `json:"source_id"`
+}
 
 // The source rows already carried over, so a repeated run plans only the
 // payments taken since.
-func (q *Queries) ListBedolagaLegacyPayments(ctx context.Context) ([]int64, error) {
+func (q *Queries) ListBedolagaLegacyPayments(ctx context.Context) ([]ListBedolagaLegacyPaymentsRow, error) {
 	rows, err := q.db.Query(ctx, listBedolagaLegacyPayments)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []int64{}
+	items := []ListBedolagaLegacyPaymentsRow{}
 	for rows.Next() {
-		var source_id int64
-		if err := rows.Scan(&source_id); err != nil {
+		var i ListBedolagaLegacyPaymentsRow
+		if err := rows.Scan(&i.Source, &i.SourceID); err != nil {
 			return nil, err
 		}
-		items = append(items, source_id)
+		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -555,6 +583,35 @@ func (q *Queries) ListBedolagaLegacyPeriods(ctx context.Context) ([]ListBedolaga
 			&i.StartsAt,
 			&i.EndsAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listBedolagaReferralAliases = `-- name: ListBedolagaReferralAliases :many
+SELECT code, user_id FROM referral_code_aliases
+`
+
+type ListBedolagaReferralAliasesRow struct {
+	Code   string      `json:"code"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) ListBedolagaReferralAliases(ctx context.Context) ([]ListBedolagaReferralAliasesRow, error) {
+	rows, err := q.db.Query(ctx, listBedolagaReferralAliases)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListBedolagaReferralAliasesRow{}
+	for rows.Next() {
+		var i ListBedolagaReferralAliasesRow
+		if err := rows.Scan(&i.Code, &i.UserID); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -679,6 +736,35 @@ func (q *Queries) ListImportedSubscriptionsForVerify(ctx context.Context) ([]Lis
 			&i.EntitlementStatus,
 			&i.EndsAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLegacyDiscounts = `-- name: ListLegacyDiscounts :many
+SELECT user_id, last_discount_at FROM legacy_customer_discounts WHERE source = 'bedolaga'
+`
+
+type ListLegacyDiscountsRow struct {
+	UserID         pgtype.UUID        `json:"user_id"`
+	LastDiscountAt pgtype.Timestamptz `json:"last_discount_at"`
+}
+
+func (q *Queries) ListLegacyDiscounts(ctx context.Context) ([]ListLegacyDiscountsRow, error) {
+	rows, err := q.db.Query(ctx, listLegacyDiscounts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLegacyDiscountsRow{}
+	for rows.Next() {
+		var i ListLegacyDiscountsRow
+		if err := rows.Scan(&i.UserID, &i.LastDiscountAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1093,6 +1179,28 @@ func (q *Queries) UpsertBedolagaImportItem(ctx context.Context, arg UpsertBedola
 		&i.AppliedAt,
 	)
 	return i, err
+}
+
+const upsertLegacyDiscount = `-- name: UpsertLegacyDiscount :execrows
+INSERT INTO legacy_customer_discounts (user_id, source, last_discount_at)
+VALUES ($1, 'bedolaga', $2)
+ON CONFLICT (user_id) DO UPDATE
+SET last_discount_at = EXCLUDED.last_discount_at, updated_at = now()
+WHERE legacy_customer_discounts.last_discount_at < EXCLUDED.last_discount_at
+`
+
+type UpsertLegacyDiscountParams struct {
+	UserID         pgtype.UUID        `json:"user_id"`
+	LastDiscountAt pgtype.Timestamptz `json:"last_discount_at"`
+}
+
+// The customer's last discount in the previous bot. It only ever moves later.
+func (q *Queries) UpsertLegacyDiscount(ctx context.Context, arg UpsertLegacyDiscountParams) (int64, error) {
+	result, err := q.db.Exec(ctx, upsertLegacyDiscount, arg.UserID, arg.LastDiscountAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const upsertLegacyPeriod = `-- name: UpsertLegacyPeriod :execrows

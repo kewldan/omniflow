@@ -145,6 +145,16 @@ func (runner *applier) run(ctx context.Context, plan bedolagaimport.Plan) error 
 			return err
 		}
 	}
+	for _, decision := range plan.Discounts {
+		if err := runner.discount(ctx, decision); err != nil {
+			return err
+		}
+	}
+	for _, decision := range plan.Aliases {
+		if err := runner.alias(ctx, decision); err != nil {
+			return err
+		}
+	}
 	for _, decision := range plan.Referrals {
 		if err := runner.referral(ctx, decision); err != nil {
 			return err
@@ -627,12 +637,57 @@ func (runner *applier) payment(ctx context.Context, decision bedolagaimport.Paym
 		method = method[:64]
 	}
 	if _, err := dbgen.New(runner.service.pool).InsertLegacyPayment(ctx, dbgen.InsertLegacyPaymentParams{
-		UserID: optionalUUID(customerID), SourceID: decision.Source.ID, Method: method,
+		UserID: optionalUUID(customerID), Source: bedolagaimport.LegacyPaymentSource(decision.Source.Kind),
+		SourceID: decision.Source.ID, Method: method,
 		AmountMinor: decision.Source.AmountKopeks, Currency: decision.Currency, PaidAt: timestamp(decision.Source.PaidAt),
 	}); err != nil {
 		return runner.fail(ctx, "payment", decision.Source.ID, [32]byte{}, err)
 	}
 	runner.result.Written["payment"]++
+	return nil
+}
+
+func (runner *applier) alias(ctx context.Context, decision bedolagaimport.AliasDecision) error {
+	if decision.Action != bedolagaimport.ActionCreate {
+		return nil
+	}
+	customerID := runner.customers[decision.SourceUserID]
+	if customerID == "" {
+		return nil
+	}
+	if err := runner.step(); err != nil {
+		return err
+	}
+	inserted, err := dbgen.New(runner.service.pool).InsertReferralAlias(ctx, dbgen.InsertReferralAliasParams{
+		Code: decision.Code, UserID: optionalUUID(customerID),
+	})
+	if err == nil && inserted == 0 {
+		err = codedError{bedolagaimport.CodeReferralCodeTaken, errors.New("another customer already holds this referral code")}
+	}
+	if err != nil {
+		return runner.fail(ctx, "referral_code", decision.SourceUserID, [32]byte{}, err)
+	}
+	runner.result.Written["referral_code"]++
+	return nil
+}
+
+func (runner *applier) discount(ctx context.Context, decision bedolagaimport.DiscountDecision) error {
+	if decision.Action != bedolagaimport.ActionCreate && decision.Action != bedolagaimport.ActionRefresh {
+		return nil
+	}
+	customerID := runner.customers[decision.SourceUserID]
+	if customerID == "" {
+		return nil
+	}
+	if err := runner.step(); err != nil {
+		return err
+	}
+	if _, err := dbgen.New(runner.service.pool).UpsertLegacyDiscount(ctx, dbgen.UpsertLegacyDiscountParams{
+		UserID: optionalUUID(customerID), LastDiscountAt: timestamp(decision.At),
+	}); err != nil {
+		return runner.fail(ctx, "discount", decision.SourceUserID, [32]byte{}, err)
+	}
+	runner.result.Written["discount"]++
 	return nil
 }
 

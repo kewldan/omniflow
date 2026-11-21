@@ -9,7 +9,10 @@
 // tariff becomes — is decided here, where it can be tested without a database.
 package bedolagaimport
 
-import "time"
+import (
+	"strconv"
+	"time"
+)
 
 // User is one row of Bedolaga's `users` table, reduced to what migrates.
 type User struct {
@@ -64,16 +67,63 @@ type Subscription struct {
 	CreatedAt   time.Time
 }
 
-// Payment is one completed top-up in Bedolaga's `transactions` table: money a
-// customer paid in. Bedolaga sells everything from the balance, so a top-up is
-// the moment money arrived; the purchases made from it are not payments.
+// Payment kinds: where in Bedolaga the money arrived.
+const (
+	// PaymentTopUp is a completed `deposit` transaction: money paid into the
+	// balance, which everything bought in the bot is then paid from.
+	PaymentTopUp = "topup"
+	// PaymentDirect is a completed `subscription_payment` transaction paid
+	// through a provider rather than from the balance: a landing-page purchase.
+	PaymentDirect = "direct"
+	// PaymentGift is a gift bought in the web cabinet through a provider, a
+	// `guest_purchases` row the buyer paid for.
+	PaymentGift = "gift"
+)
+
+// Payment is money a customer paid in, from one of the places Bedolaga
+// records it. A purchase paid from the balance is not one: the top-up that
+// funded the balance already was.
 type Payment struct {
+	// Kind says which table ID belongs to: transactions for PaymentTopUp and
+	// PaymentDirect, guest_purchases for PaymentGift.
+	Kind         string
 	ID           int64
 	UserID       int64
 	AmountKopeks int64
 	// Method is Bedolaga's payment_method, empty when it recorded none.
 	Method string
 	PaidAt time.Time
+}
+
+// Key identifies the payment across its kinds.
+func (payment Payment) Key() string {
+	return LegacyPaymentSource(payment.Kind) + ":" + strconv.FormatInt(payment.ID, 10)
+}
+
+// LegacyPaymentSource is the legacy_payments.source a payment of this kind is
+// stored under: transactions and guest purchases number their rows apart.
+func LegacyPaymentSource(kind string) string {
+	if kind == PaymentGift {
+		return "bedolaga_gift"
+	}
+	return "bedolaga"
+}
+
+// Discount is the latest moment a Bedolaga user had a discount: a one-off
+// `discount` promo code, or a claimed discount offer.
+type Discount struct {
+	UserID int64
+	At     time.Time
+}
+
+// Gift is a gift somebody paid for in Bedolaga that its recipient has not
+// received yet. Gifts are not carried over; the plan counts them so none is
+// lost at the cutover.
+type Gift struct {
+	ID           int64
+	Status       string
+	AmountKopeks int64
+	PaidAt       time.Time
 }
 
 // Tariff is one row of Bedolaga's `tariffs` table.
@@ -129,5 +179,7 @@ type Source struct {
 	Subscriptions []Subscription
 	Tariffs       []Tariff
 	Payments      []Payment
+	Discounts     []Discount
+	Gifts         []Gift
 	Archive       Archive
 }

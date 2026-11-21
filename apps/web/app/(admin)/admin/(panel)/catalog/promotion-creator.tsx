@@ -52,6 +52,7 @@ export function PromotionCreator({ onCreated }: { onCreated: () => void }) {
     squad: useId(),
     perCustomer: useId(),
     limit: useId(),
+    cooldown: useId(),
     starts: useId(),
     ends: useId(),
     codes: useId(),
@@ -70,6 +71,7 @@ export function PromotionCreator({ onCreated }: { onCreated: () => void }) {
     tier: "",
     perCustomer: "1",
     limit: "",
+    cooldown: "",
     starts: "",
     ends: "",
     codes: "",
@@ -104,6 +106,10 @@ export function PromotionCreator({ onCreated }: { onCreated: () => void }) {
         squadId: kind === "squad_access" && squad ? squad : undefined,
         perCustomerLimit: Number(form.perCustomer) || 1,
         redemptionLimit: form.limit ? Number(form.limit) : undefined,
+        discountCooldownDays:
+          (kind === "percent" || kind === "fixed") && form.cooldown
+            ? Number(form.cooldown)
+            : undefined,
         startsAt: form.starts ? new Date(form.starts).toISOString() : undefined,
         endsAt: form.ends ? new Date(form.ends).toISOString() : undefined,
         planIds: kind === "percent" || kind === "fixed" ? planIds : [],
@@ -227,6 +233,22 @@ export function PromotionCreator({ onCreated }: { onCreated: () => void }) {
                 value={form.limit}
               />
             </div>
+            {(kind === "percent" || kind === "fixed") && (
+              <div className="flex flex-col gap-1">
+                <Label htmlFor={ids.cooldown}>{translate("cooldown")}</Label>
+                <Input
+                  aria-describedby={`${ids.cooldown}-hint`}
+                  id={ids.cooldown}
+                  inputMode="numeric"
+                  onChange={(event) => set({ cooldown: event.target.value })}
+                  placeholder={translate("noCooldown")}
+                  value={form.cooldown}
+                />
+                <p className="text-muted-foreground text-xs" id={`${ids.cooldown}-hint`}>
+                  {translate("cooldownHint")}
+                </p>
+              </div>
+            )}
             <div className="flex flex-col gap-1">
               <Label htmlFor={ids.starts}>{translate("startsAt")}</Label>
               <DateTimeField

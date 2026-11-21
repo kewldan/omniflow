@@ -52,3 +52,53 @@ func TestScheduledImportAdoptsPanelUsersOnce(t *testing.T) {
 		t.Fatalf("a second run mapped %d", count())
 	}
 }
+
+// A panel user the operator excluded by username or squad never becomes a
+// customer, in the scheduled import or an uploaded file, and is staged as
+// skipped with the reason so the preview shows why.
+func TestImportSkipsExcludedPanelUsers(t *testing.T) {
+	ctx := context.Background()
+	harness := newHarness(t)
+	if _, err := harness.pool.Exec(ctx, `INSERT INTO installation_settings (section, document) VALUES ('remnawave',
+		'{"importExcludedUsernames": "Bridge_User\n@relay", "importExcludedSquads": "chains\n7d0c6b0e-0000-4000-8000-0000000000aa"}')
+		ON CONFLICT (section) DO UPDATE SET document = EXCLUDED.document`); err != nil {
+		t.Fatalf("save exclusions: %v", err)
+	}
+	telegram := int64(820001)
+	service := importservice.New(harness.pool, panelUsers{
+		{ID: 9101, Username: "bridge_user", Status: "ACTIVE"},
+		{ID: 9102, Username: "relay", Status: "ACTIVE"},
+		{ID: 9103, Username: "hop", Status: "ACTIVE", ActiveInternalSquads: []remnawave.InternalSquad{{UUID: "1b1b1b1b-0000-4000-8000-000000000001", Name: "Chains"}}},
+		{ID: 9104, Username: "hop2", Status: "ACTIVE", ActiveInternalSquads: []remnawave.InternalSquad{{UUID: "7d0c6b0e-0000-4000-8000-0000000000aa", Name: "Other"}}},
+		{ID: 9105, Username: "customer", Status: "ACTIVE", TelegramID: &telegram},
+	})
+	run, err := service.RunAll(ctx)
+	if err != nil || run.Status != "completed" {
+		t.Fatalf("run: %s (%v)", run.Status, err)
+	}
+	var mapped []int64
+	rows, err := harness.pool.Query(ctx, `SELECT remnawave_id FROM remnawave_users WHERE remnawave_id BETWEEN 9101 AND 9105 ORDER BY 1`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rows.Next() {
+		var id int64
+		_ = rows.Scan(&id)
+		mapped = append(mapped, id)
+	}
+	rows.Close()
+	if len(mapped) != 1 || mapped[0] != 9105 {
+		t.Fatalf("mapped %v, want only the real customer", mapped)
+	}
+	var skipped int
+	if err = harness.pool.QueryRow(ctx, `SELECT count(*) FROM customer_import_items
+		WHERE status = 'skipped' AND validation_errors ? 'excluded'`).Scan(&skipped); err != nil || skipped != 4 {
+		t.Fatalf("staged %d excluded users (%v), want 4", skipped, err)
+	}
+
+	rowsIn := []importservice.FileRow{{RemnawaveID: 9201, Username: "BRIDGE_USER"}, {RemnawaveID: 9202, Username: "filed"}}
+	file, err := service.PreviewFile(ctx, rowsIn, nil)
+	if err != nil || file.ValidCount != 1 {
+		t.Fatalf("file preview: valid %d (%v), want the excluded username left out", file.ValidCount, err)
+	}
+}

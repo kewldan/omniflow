@@ -57,6 +57,7 @@ diagnostics bundle needs `system.read` and lives on the system screen. See
 | Branding | `defaultLocale` | bot | The language of a customer whose Telegram language is not one the bot offers: Russian when it is `ru`, otherwise English | English |
 | Branding | `timezone` | worker, bot | The IANA zone quiet hours, the backup time of day, and scheduled reports are counted in | `UTC` |
 | Remnawave | `reconcileIntervalMinutes` | worker | How often every subscription is re-read from Remnawave | 15 minutes |
+| Remnawave | `importExcludedUsernames`, `importExcludedSquads` | api, worker | Panel users no import ever makes customers, by username or by squad (UUID or name), one per line. See [Excluded panel users](/commerce/customers-imports#excluded-panel-users) | none |
 | Telegram bot | `languages` | bot, web | The languages offered to customers: `ru`, `en`, `uk` (Ukrainian), `zh` (Chinese), `fa` (Persian). With one, every bot message is in it and the language switch disappears from the bot's settings; the web panel's language picker lists only these. See [Languages](#languages) | `ru` and `en` |
 | Telegram bot | `miniAppUrl`, `cabinetOnly` | bot | An https Mini App address adds a «My account» button that opens it inside Telegram; cabinet-only shrinks the menu to that button and support | none |
 | Telegram bot | `miniAppFullscreen`, `miniAppLite` | api, web | Inside Telegram, open the customer panel full screen, and keep only subscription, store, and support in its navigation. See [Customer web panel](/customer/web-panel#inside-telegram-as-a-mini-app) | off |
@@ -167,7 +168,7 @@ somewhere it does not belong.
 | Section | Document fields | Secrets |
 | --- | --- | --- |
 | `branding` | `serviceName`, `supportContact`, `termsUrl`, `defaultLocale`, `timezone` | — |
-| `remnawave` | `reconcileIntervalMinutes` | — |
+| `remnawave` | `reconcileIntervalMinutes`, `importExcludedUsernames`, `importExcludedSquads` | — |
 | `bot` | `languages`, `miniAppUrl`, `cabinetOnly`, `miniAppFullscreen`, `miniAppLite`, `hiddenMenu`, `buttons`, `texts`, `menuLayout`, `menuStyles` | — |
 | `support` | `mode`, `introRu`, `introEn`, `notifyNewTicket`, `notifyCustomerReply`, `notifySlaBreach` | — |
 | `operator_group` | `chatId`, `createTopics`, `notificationCap`, `windowMinutes`, `disabledKinds` | — |

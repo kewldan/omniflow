@@ -209,3 +209,104 @@ func TestExcludedPaymentMethodsAreValidated(t *testing.T) {
 		t.Fatal("left out, the default list applies")
 	}
 }
+
+// The last Bedolaga discount is carried once and only ever moves later.
+func TestLastDiscountIsCarried(t *testing.T) {
+	source, remote := fixtureSource()
+	at := planNow.AddDate(0, 0, -20)
+	source.Discounts = []Discount{{UserID: 1, At: at}, {UserID: 6, At: at}}
+	plan := BuildPlan(source, remote, fixtureTarget(), fixtureMapping(), planNow)
+	if len(plan.Discounts) != 2 || plan.Discounts[0].Action != ActionCreate || plan.Discounts[1].Action != ActionSkip {
+		t.Fatalf("discounts: %+v", plan.Discounts)
+	}
+	target := fixtureTarget()
+	target.Items[ItemKey(KindUser, 1)] = Item{Status: ItemApplied, CustomerID: customerFor(1)}
+	target.LegacyDiscounts[customerFor(1)] = at
+	if decision := BuildPlan(source, remote, target, fixtureMapping(), planNow).Discounts[0]; decision.Action != ActionUnchanged {
+		t.Fatalf("the same date is unchanged: %+v", decision)
+	}
+	source.Discounts[0].At = at.AddDate(0, 0, 5)
+	if decision := BuildPlan(source, remote, target, fixtureMapping(), planNow).Discounts[0]; decision.Action != ActionRefresh {
+		t.Fatalf("a later discount moves the date: %+v", decision)
+	}
+	target.LegacyDiscounts[customerFor(1)] = at.AddDate(0, 1, 0)
+	if decision := BuildPlan(source, remote, target, fixtureMapping(), planNow).Discounts[0]; decision.Action != ActionUnchanged {
+		t.Fatalf("an earlier source date never moves it back: %+v", decision)
+	}
+}
+
+// Gift payments and direct purchases are carried under their own keys, and
+// unclaimed gifts are counted and named by ID for the operator.
+func TestGiftsAndDirectPurchases(t *testing.T) {
+	source, remote := fixtureSource()
+	paid := planNow.AddDate(0, -1, 0)
+	source.Payments = []Payment{
+		{Kind: PaymentTopUp, ID: 7, UserID: 1, AmountKopeks: 10000, Method: "yookassa", PaidAt: paid},
+		{Kind: PaymentDirect, ID: 8, UserID: 2, AmountKopeks: 22900, Method: "platega", PaidAt: paid},
+		{Kind: PaymentGift, ID: 7, UserID: 1, AmountKopeks: 30000, Method: "yookassa", PaidAt: paid},
+	}
+	source.Gifts = []Gift{{ID: 7, Status: "pending_activation", AmountKopeks: 30000, PaidAt: paid}, {ID: 9, Status: "paid", AmountKopeks: 1000, PaidAt: paid}}
+	plan := BuildPlan(source, remote, fixtureTarget(), fixtureMapping(), planNow)
+	for _, decision := range plan.Payments {
+		if decision.Action != ActionCreate {
+			t.Fatalf("payment %s is carried: %+v", decision.Source.Key(), decision)
+		}
+	}
+	if plan.Payments[0].Source.Key() == plan.Payments[2].Source.Key() {
+		t.Fatal("a gift and a transaction with the same row number are different payments")
+	}
+	payments := plan.Report.Payments
+	if payments.ByKind[PaymentGift] != 1 || payments.ByKind[PaymentDirect] != 1 || payments.CarriedMinor != 62900 {
+		t.Fatalf("payment section: %+v", payments)
+	}
+	gifts := plan.Report.Gifts
+	if gifts.Unclaimed != 2 || gifts.SumMinor != 31000 || gifts.ByStatus["paid"] != 1 {
+		t.Fatalf("gift section: %+v", gifts)
+	}
+	named := 0
+	for _, problem := range plan.Report.Problems {
+		if problem.Kind == "gift" && problem.Codes[0] == CodeGiftUnclaimed {
+			named++
+		}
+	}
+	if named != 2 {
+		t.Fatalf("each unclaimed gift is named by its ID: %+v", plan.Report.Problems)
+	}
+	if pending := plan.Pending(); pending == 0 {
+		t.Fatal("unclaimed gifts are reported, the payments are still to write")
+	}
+}
+
+// Bedolaga referral codes become aliases, upper-cased; two codes that differ
+// only in case, or one somebody else already holds, are not carried.
+func TestReferralCodesBecomeAliases(t *testing.T) {
+	source, remote := fixtureSource()
+	source.Users[0].ReferralCode = "refAbCd1234"
+	source.Users[1].ReferralCode = "refabcd1234"
+	source.Users[3].ReferralCode = "refQwErTy12"
+	source.Users[7].ReferralCode = "ref!bad"
+	target := fixtureTarget()
+	target.ReferralAliases["REFQWERTY12"] = "someone-else"
+	plan := BuildPlan(source, remote, target, fixtureMapping(), planNow)
+	byUser := map[int64]AliasDecision{}
+	for _, decision := range plan.Aliases {
+		byUser[decision.SourceUserID] = decision
+	}
+	if byUser[1].Action != ActionConflict || byUser[1].Codes[0] != CodeDuplicateReferralCode || byUser[2].Action != ActionConflict {
+		t.Fatalf("codes equal but for case are both refused: %+v %+v", byUser[1], byUser[2])
+	}
+	if byUser[4].Action != ActionConflict || byUser[4].Codes[0] != CodeReferralCodeTaken {
+		t.Fatalf("a code another customer holds is refused: %+v", byUser[4])
+	}
+	if byUser[8].Action != ActionSkip || byUser[8].Codes[0] != CodeInvalidReferralCode {
+		t.Fatalf("a code that cannot be stored is skipped: %+v", byUser[8])
+	}
+
+	source.Users[1].ReferralCode = "refOther99"
+	plan = BuildPlan(source, remote, fixtureTarget(), fixtureMapping(), planNow)
+	for _, decision := range plan.Aliases {
+		if decision.SourceUserID == 1 && (decision.Action != ActionCreate || decision.Code != "REFABCD1234") {
+			t.Fatalf("a unique code is carried upper-cased: %+v", decision)
+		}
+	}
+}

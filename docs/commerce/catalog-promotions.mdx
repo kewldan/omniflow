@@ -339,13 +339,22 @@ Percent arithmetic is `subtotal × value ÷ 10000` with integer truncation, so r
 
 ### Eligibility
 
-The `eligibility` JSON object is evaluated in SQL. Three keys are understood, and an absent key imposes no constraint:
+The `eligibility` JSON object is evaluated in SQL. Four keys are understood, and an absent key imposes no constraint:
 
 | Key | Meaning |
 | --- | --- |
 | `locales` | An array; the customer's stored locale must be a member |
 | `newCustomerOnly` | Boolean; the customer must have zero subscription orders (`purchase`, `extension`, `renewal`, `upgrade`, `downgrade`) in `paid`, `fulfilled`, `partially_refunded`, or `refunded`. A wallet top-up, a shop purchase, a gift, or an access code does not make somebody an existing customer |
 | `minimumCompletedOrders` | Integer; the customer must have at least that many such subscription orders |
+| `discountCooldownDays` | Integer from 1 to 3650; the customer must have had no discount in that many days. A discount is a promo code that took money off an order now `paid`, `fulfilled`, `partially_refunded`, or `refunded` — whichever promotion it belonged to; a personal offer redeems through one too — or the last discount a [migration](/operations/migrate-from-bedolaga#history-trials-periods-and-payments) carried from the previous bot. A reward that takes nothing off (days, credit, a trial) is not a discount, and an abandoned checkout does not count |
+
+`discountCooldownDays` is how "a discount at most once in sixty days" is written, so customers do not
+learn to wait for the next sale. Set it in **New promotion** → **A discount at most once in, days**,
+shown for percent and fixed discounts; the list shows such a promotion with a "1 per 60 d" badge. A
+value the checkout could not read — a fraction, text, zero, more than ten years — is refused when the
+promotion is saved, through the panel and the bearer API alike. Two checkouts a customer opens at the
+same moment are each checked against settled orders only, so both can carry a discount; the rule is
+about habits, not about a race.
 
 The same query advertises a campaign on the plan page and accepts a code at redemption, so a campaign advertised as available is one the order would accept.
 

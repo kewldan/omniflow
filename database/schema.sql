@@ -2968,6 +2968,19 @@ CREATE TABLE public.ledger_transactions (
 
 
 --
+-- Name: legacy_customer_discounts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.legacy_customer_discounts (
+    user_id uuid NOT NULL,
+    source text NOT NULL,
+    last_discount_at timestamp with time zone NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT legacy_customer_discounts_source_known CHECK ((source = 'bedolaga'::text))
+);
+
+
+--
 -- Name: legacy_payments; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2984,7 +2997,7 @@ CREATE TABLE public.legacy_payments (
     CONSTRAINT legacy_payments_amount_positive CHECK ((amount_minor > 0)),
     CONSTRAINT legacy_payments_currency_code CHECK ((currency ~ '^[A-Z]{3}$'::text)),
     CONSTRAINT legacy_payments_method_length CHECK ((char_length(method) <= 64)),
-    CONSTRAINT legacy_payments_source_known CHECK ((source = 'bedolaga'::text))
+    CONSTRAINT legacy_payments_source_known CHECK ((source = ANY (ARRAY['bedolaga'::text, 'bedolaga_gift'::text])))
 );
 
 
@@ -4419,6 +4432,20 @@ CREATE TABLE public.referral_attributions (
     CONSTRAINT referral_attributions_check CHECK ((referred_user_id <> referrer_user_id)),
     CONSTRAINT referral_attributions_review_note_check CHECK (((review_note IS NULL) OR (char_length(review_note) <= 400))),
     CONSTRAINT referral_attributions_review_state_check CHECK ((review_state = ANY (ARRAY['clear'::text, 'held'::text, 'rejected'::text])))
+);
+
+
+--
+-- Name: referral_code_aliases; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.referral_code_aliases (
+    code text NOT NULL,
+    user_id uuid NOT NULL,
+    source text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT referral_code_aliases_code_shape CHECK ((code ~ '^[A-Z0-9_-]{3,32}$'::text)),
+    CONSTRAINT referral_code_aliases_source_known CHECK ((source = 'bedolaga'::text))
 );
 
 
@@ -6864,6 +6891,14 @@ ALTER TABLE ONLY public.ledger_transactions
 
 
 --
+-- Name: legacy_customer_discounts legacy_customer_discounts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.legacy_customer_discounts
+    ADD CONSTRAINT legacy_customer_discounts_pkey PRIMARY KEY (user_id);
+
+
+--
 -- Name: legacy_payments legacy_payments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7581,6 +7616,14 @@ ALTER TABLE ONLY public.provider_webhook_events
 
 ALTER TABLE ONLY public.referral_attributions
     ADD CONSTRAINT referral_attributions_pkey PRIMARY KEY (referred_user_id);
+
+
+--
+-- Name: referral_code_aliases referral_code_aliases_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.referral_code_aliases
+    ADD CONSTRAINT referral_code_aliases_pkey PRIMARY KEY (code);
 
 
 --
@@ -9167,6 +9210,13 @@ CREATE INDEX referral_attributions_referrer_idx ON public.referral_attributions 
 --
 
 CREATE INDEX referral_attributions_review_idx ON public.referral_attributions USING btree (review_state, created_at DESC) WHERE (review_state <> 'clear'::text);
+
+
+--
+-- Name: referral_code_aliases_user_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX referral_code_aliases_user_idx ON public.referral_code_aliases USING btree (user_id);
 
 
 --
@@ -10992,6 +11042,14 @@ ALTER TABLE ONLY public.ledger_entries
 
 
 --
+-- Name: legacy_customer_discounts legacy_customer_discounts_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.legacy_customer_discounts
+    ADD CONSTRAINT legacy_customer_discounts_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
 -- Name: legacy_payments legacy_payments_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -11725,6 +11783,14 @@ ALTER TABLE ONLY public.referral_attributions
 
 ALTER TABLE ONLY public.referral_attributions
     ADD CONSTRAINT referral_attributions_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES public.admin_users(id);
+
+
+--
+-- Name: referral_code_aliases referral_code_aliases_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.referral_code_aliases
+    ADD CONSTRAINT referral_code_aliases_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --

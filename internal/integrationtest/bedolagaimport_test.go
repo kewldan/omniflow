@@ -110,6 +110,37 @@ CREATE TABLE promocodes (
   valid_until timestamptz,
   is_active boolean DEFAULT true
 );
+CREATE TABLE promocode_uses (
+  id serial PRIMARY KEY,
+  promocode_id integer NOT NULL REFERENCES promocodes(id),
+  user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  used_at timestamptz DEFAULT now()
+);
+CREATE TABLE discount_offers (
+  id serial PRIMARY KEY,
+  user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  notification_type varchar(50) NOT NULL DEFAULT 'expired',
+  discount_percent integer NOT NULL DEFAULT 0,
+  bonus_amount_kopeks integer NOT NULL DEFAULT 0,
+  expires_at timestamptz NOT NULL,
+  claimed_at timestamptz,
+  is_active boolean NOT NULL DEFAULT true
+);
+CREATE TABLE guest_purchases (
+  id serial PRIMARY KEY,
+  token varchar(64) NOT NULL UNIQUE,
+  contact_type varchar(20) NOT NULL,
+  contact_value varchar(255) NOT NULL,
+  is_gift boolean NOT NULL DEFAULT false,
+  buyer_user_id integer REFERENCES users(id) ON DELETE SET NULL,
+  user_id integer REFERENCES users(id) ON DELETE SET NULL,
+  period_days integer NOT NULL,
+  amount_kopeks integer NOT NULL,
+  payment_method varchar(50),
+  status varchar(20) NOT NULL DEFAULT 'pending',
+  created_at timestamptz DEFAULT now(),
+  paid_at timestamptz
+);
 CREATE TABLE referral_earnings (
   id serial PRIMARY KEY,
   user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,

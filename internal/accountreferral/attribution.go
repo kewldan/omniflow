@@ -20,8 +20,10 @@ const (
 	AttributionNotNew          = "not_new"
 )
 
-// referralCodePattern is the schema's own check on referral_codes.code.
-var referralCodePattern = regexp.MustCompile(`^[A-Z0-9]{10}$`)
+// referralCodePattern accepts an Omniflow code (the schema's check on
+// referral_codes.code) and a code carried from the previous bot
+// (referral_code_aliases), both upper-cased.
+var referralCodePattern = regexp.MustCompile(`^[A-Z0-9_-]{3,32}$`)
 
 // AttributionResult reports what a referral code did for the signed-in
 // customer.

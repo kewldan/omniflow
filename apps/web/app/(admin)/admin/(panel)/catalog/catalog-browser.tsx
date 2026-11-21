@@ -252,6 +252,13 @@ function Promotions({ active }: { active: boolean }) {
                     <span className="font-mono text-[11px] text-muted-foreground">
                       #{promotion.precedence}
                     </span>
+                    {typeof promotion.eligibility?.discountCooldownDays === "number" && (
+                      <Badge variant="neutral">
+                        {translate("cooldown", {
+                          days: promotion.eligibility.discountCooldownDays,
+                        })}
+                      </Badge>
+                    )}
                   </span>
                 </TableCell>
                 <TableCell data-numeric>
@@ -273,7 +280,9 @@ function Promotions({ active }: { active: boolean }) {
                         body: {
                           active: nextActive,
                           currency: promotion.currency ?? "",
-                          eligibility: {},
+                          // The switch changes nothing but the flag: the
+                          // eligibility rules are sent back as they are.
+                          eligibility: promotion.eligibility ?? {},
                           endsAt: promotion.endsAt ?? null,
                           perCustomerLimit: promotion.perCustomerLimit,
                           precedence: promotion.precedence,

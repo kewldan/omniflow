@@ -275,7 +275,9 @@ func (store *PostgresStore) Referral(ctx context.Context, telegramID int64) (str
 func (store *PostgresStore) AttributeReferral(ctx context.Context, telegramID int64, code string) error {
 	_, err := store.pool.Exec(ctx, `INSERT INTO referral_attributions (referred_user_id, referrer_user_id, code)
 		SELECT referred.user_id, code_owner.user_id, code_owner.code
-		FROM remnawave_users referred JOIN referral_codes code_owner ON code_owner.code = $2
+		FROM remnawave_users referred
+		JOIN (SELECT user_id, code FROM referral_codes
+			UNION ALL SELECT user_id, code FROM referral_code_aliases) code_owner ON code_owner.code = $2
 		WHERE referred.telegram_id = $1 AND referred.user_id <> code_owner.user_id
 		ON CONFLICT (referred_user_id) DO NOTHING`, telegramID, strings.ToUpper(strings.TrimSpace(code)))
 	return err

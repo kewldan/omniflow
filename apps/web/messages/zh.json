@@ -2060,6 +2060,9 @@
         "tier": "分组代码",
         "perCustomer": "每位用户可用次数",
         "limit": "总使用次数",
+        "cooldown": "折扣间隔（天）",
+        "noCooldown": "不限制",
+        "cooldownHint": "在这么多天内享受过任何折扣的客户（任何代码或优惠，或迁移前在旧机器人中）不能使用此折扣。",
         "unlimited": "不限",
         "startsAt": "开始",
         "endsAt": "结束",
@@ -2074,7 +2077,8 @@
         "invalid": "未创建：请检查代码格式、数值和币种。",
         "create": "创建促销",
         "created": "促销已创建"
-      }
+      },
+      "cooldown": "每 {days} 天 1 次"
     },
     "codes": {
       "title": "批发代码批次",
@@ -3597,7 +3601,7 @@
         },
         "remnawave": {
           "title": "Remnawave 同步核对",
-          "description": "从 Remnawave 重新读取所有订阅的频率。地址和令牌仍保存在 APP_REMNAWAVE_URL 和 APP_REMNAWAVE_TOKEN 中。"
+          "description": "多久从 Remnawave 重新读取一次每个订阅，以及导入永远不会变成客户的面板用户——例如代理链所依赖的服务账号。地址和令牌仍在 APP_REMNAWAVE_URL 和 APP_REMNAWAVE_TOKEN 中。"
         },
         "telegram": {
           "title": "Telegram 机器人",
@@ -3787,7 +3791,9 @@
         "broadcastCustomers": "维护开始和结束时在机器人中通知用户",
         "broadcastEmail": "同时向已验证邮箱的用户发送邮件",
         "miniAppFullscreen": "全屏打开小程序(Mini App)（Telegram 8.0 及以上；旧版客户端会将其展开）",
-        "miniAppLite": "精简版小程序(Mini App)：导航中仅保留订阅、商店和客服"
+        "miniAppLite": "精简版小程序(Mini App)：导航中仅保留订阅、商店和客服",
+        "importExcludedUsernames": "永不导入这些用户名（每行一个）",
+        "importExcludedSquads": "永不导入这些分组中的用户（UUID 或名称，每行一个）"
       },
       "telemetryPreview": {
         "title": "遥测将发送的内容",

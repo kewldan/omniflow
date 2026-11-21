@@ -124,6 +124,12 @@ minted lazily the first time they open their referral screen. The same generator
 the bot and in the web panel, so a code minted on one surface is attributable on
 the other.
 
+A customer carried over from Bedolaga also keeps their old code as an alias
+(`referral_code_aliases`), so invite links they handed out before the migration —
+`/start refAbCd1234` in the bot, `?ref=refAbCd1234` on the site — still credit
+them. Codes are compared upper-cased everywhere. See
+[Migrating from Bedolaga](/operations/migrate-from-bedolaga#referrals).
+
 `referral_attributions` is keyed on the **invited** customer, inserted with
 `ON CONFLICT DO NOTHING`. Attribution is therefore immutable and first-write-wins:
 whoever invited a customer is settled the moment they arrive, and no later

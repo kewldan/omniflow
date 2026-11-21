@@ -114,7 +114,13 @@ GROUP BY 1, 2, 3;
 -- name: ListBedolagaLegacyPayments :many
 -- The source rows already carried over, so a repeated run plans only the
 -- payments taken since.
-SELECT source_id FROM legacy_payments WHERE source = 'bedolaga';
+SELECT source, source_id FROM legacy_payments WHERE source IN ('bedolaga', 'bedolaga_gift');
+
+-- name: ListBedolagaReferralAliases :many
+SELECT code, user_id FROM referral_code_aliases;
+
+-- name: ListLegacyDiscounts :many
+SELECT user_id, last_discount_at FROM legacy_customer_discounts WHERE source = 'bedolaga';
 
 -- name: ListBedolagaLegacyPeriods :many
 SELECT source_id, user_id, is_trial, starts_at, ends_at
@@ -229,9 +235,24 @@ ON CONFLICT (user_id) DO NOTHING;
 -- A payment the previous bot took. Inserted once per source row; a repeated
 -- run inserts nothing.
 INSERT INTO legacy_payments (user_id, source, source_id, method, amount_minor, currency, paid_at)
-VALUES (sqlc.arg(user_id), 'bedolaga', sqlc.arg(source_id), sqlc.arg(method),
+VALUES (sqlc.arg(user_id), sqlc.arg(source), sqlc.arg(source_id), sqlc.arg(method),
         sqlc.arg(amount_minor), sqlc.arg(currency), sqlc.arg(paid_at))
 ON CONFLICT (source, source_id) DO NOTHING;
+
+-- name: InsertReferralAlias :execrows
+-- A Bedolaga referral code, upper-cased, beside the customer's Omniflow code.
+-- A code somebody else already holds is left with them.
+INSERT INTO referral_code_aliases (code, user_id, source)
+VALUES (sqlc.arg(code), sqlc.arg(user_id), 'bedolaga')
+ON CONFLICT (code) DO NOTHING;
+
+-- name: UpsertLegacyDiscount :execrows
+-- The customer's last discount in the previous bot. It only ever moves later.
+INSERT INTO legacy_customer_discounts (user_id, source, last_discount_at)
+VALUES (sqlc.arg(user_id), 'bedolaga', sqlc.arg(last_discount_at))
+ON CONFLICT (user_id) DO UPDATE
+SET last_discount_at = EXCLUDED.last_discount_at, updated_at = now()
+WHERE legacy_customer_discounts.last_discount_at < EXCLUDED.last_discount_at;
 
 -- name: UpsertLegacyPeriod :execrows
 -- A subscription period of the previous bot. A repeated run before cutover

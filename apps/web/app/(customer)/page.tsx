@@ -1,12 +1,24 @@
 import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader } from "@omniflow/ui/card";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
 import { CornerLocaleSwitch } from "@/components/intl/corner-locale-switch";
 import { brandName } from "@/lib/metadata";
 
-export default async function CustomerHome() {
+export default async function CustomerHome({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  // The previous bot's cabinet links were `<site>/?ref=<code>`. They still
+  // reach this page after a migration, so the code is carried to sign-in,
+  // which holds it until the friend has an account.
+  const { ref } = await searchParams;
+  if (typeof ref === "string" && /^[A-Za-z0-9_-]{3,32}$/.test(ref)) {
+    redirect(`/account/sign-in?ref=${encodeURIComponent(ref)}`);
+  }
   const [translate, name] = await Promise.all([getTranslations("home"), brandName()]);
   return (
     <main className="mx-auto flex min-h-screen max-w-5xl items-center px-6 py-20">

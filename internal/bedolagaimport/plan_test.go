@@ -21,7 +21,8 @@ func fixtureTarget() Target {
 	return Target{
 		Items: map[string]Item{}, TelegramOwners: map[int64]string{}, RemnawaveOwners: map[int64]string{},
 		Referrers: map[string]string{}, Wallets: map[int64]WalletMovements{},
-		TrialHolders: map[string]bool{}, LegacyPeriods: map[int64]LegacyPeriod{}, LegacyPayments: map[int64]bool{},
+		TrialHolders: map[string]bool{}, LegacyPeriods: map[int64]LegacyPeriod{}, LegacyPayments: map[string]bool{},
+		LegacyDiscounts: map[string]time.Time{}, ReferralAliases: map[string]string{},
 		PlanVersions: map[string]PlanVersion{
 			versionMonth: {ID: versionMonth, PlanID: "p-month", PlanCode: "month", PlanKind: "one_time"},
 			versionTrial: {ID: versionTrial, PlanID: "p-trial", PlanCode: "trial", PlanKind: "trial"},
@@ -47,7 +48,17 @@ func applyHistory(target *Target, plan Plan) {
 	}
 	for _, decision := range plan.Payments {
 		if decision.Action == ActionCreate {
-			target.LegacyPayments[decision.Source.ID] = true
+			target.LegacyPayments[decision.Source.Key()] = true
+		}
+	}
+	for _, decision := range plan.Discounts {
+		if decision.Action == ActionCreate || decision.Action == ActionRefresh {
+			target.LegacyDiscounts[customerFor(decision.SourceUserID)] = decision.At
+		}
+	}
+	for _, decision := range plan.Aliases {
+		if decision.Action == ActionCreate {
+			target.ReferralAliases[decision.Code] = customerFor(decision.SourceUserID)
 		}
 	}
 }

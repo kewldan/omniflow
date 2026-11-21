@@ -151,6 +151,13 @@ type Querier interface {
 	// a distributor paid for is not the purchase a welcome offer is about, so the
 	// completed-order counts look at subscription operations only — the same
 	// predicate referral qualification uses.
+	//
+	// discountCooldownDays refuses a customer who had a discount in that many
+	// days: a promo code that took money off an order that was paid (a personal
+	// offer redeems through one too), or a discount the previous bot gave before
+	// a migration. A reward that takes nothing off — days, credit, a trial — is
+	// not a discount. Only settled orders count, so an abandoned checkout never
+	// locks a customer out.
 	CheckPromotionCustomerEligibility(ctx context.Context, arg CheckPromotionCustomerEligibilityParams) (pgtype.Bool, error)
 	// Accepts a TOTP code's time step exactly once. The predicate refuses the step
 	// already used and any earlier one, so a code observed in transit cannot be
@@ -1013,6 +1020,9 @@ type Querier interface {
 	InsertPlanVersionSquad(ctx context.Context, arg InsertPlanVersionSquadParams) error
 	InsertPlanVersionTrafficPackage(ctx context.Context, arg InsertPlanVersionTrafficPackageParams) error
 	InsertPromoRedemption(ctx context.Context, arg InsertPromoRedemptionParams) (PromoRedemption, error)
+	// A Bedolaga referral code, upper-cased, beside the customer's Omniflow code.
+	// A code somebody else already holds is left with them.
+	InsertReferralAlias(ctx context.Context, arg InsertReferralAliasParams) (int64, error)
 	// A retried delivery carries the same bytes and is a no-op: no row comes back.
 	InsertRemnawaveWebhookEvent(ctx context.Context, arg InsertRemnawaveWebhookEventParams) (int64, error)
 	// Temporary squad access: one squad added for some hours.
@@ -1173,8 +1183,9 @@ type Querier interface {
 	ListBedolagaImportRuns(ctx context.Context, pageSize int32) ([]BedolagaImportRun, error)
 	// The source rows already carried over, so a repeated run plans only the
 	// payments taken since.
-	ListBedolagaLegacyPayments(ctx context.Context) ([]int64, error)
+	ListBedolagaLegacyPayments(ctx context.Context) ([]ListBedolagaLegacyPaymentsRow, error)
 	ListBedolagaLegacyPeriods(ctx context.Context) ([]ListBedolagaLegacyPeriodsRow, error)
+	ListBedolagaReferralAliases(ctx context.Context) ([]ListBedolagaReferralAliasesRow, error)
 	ListBlocklistMatchesForCustomer(ctx context.Context, userID pgtype.UUID) ([]ListBlocklistMatchesForCustomerRow, error)
 	// The Telegram identifiers a blocklist screen checks, one page of customers at a
 	// time in identifier order. Deleted and merged customers are skipped: neither
@@ -1350,6 +1361,7 @@ type Querier interface {
 	// The operator's view: every page, including drafts.
 	ListInfoPages(ctx context.Context) ([]ListInfoPagesRow, error)
 	ListLedgerEntriesByTransaction(ctx context.Context, transactionID pgtype.UUID) ([]LedgerEntry, error)
+	ListLegacyDiscounts(ctx context.Context) ([]ListLegacyDiscountsRow, error)
 	// Entitlements that have just expired, or that Remnawave reports out of
 	// traffic, and may open a limited access period now. Each must be its
 	// subscription's latest live entitlement, on an active subscription, with no
@@ -1737,6 +1749,9 @@ type Querier interface {
 	MoveCustomerEntitlements(ctx context.Context, arg MoveCustomerEntitlementsParams) error
 	MoveCustomerGoodsOrders(ctx context.Context, arg MoveCustomerGoodsOrdersParams) error
 	MoveCustomerIdentities(ctx context.Context, arg MoveCustomerIdentitiesParams) error
+	// The later of the two customers' carried discount dates survives, so the
+	// merged account is no easier to discount than either was.
+	MoveCustomerLegacyDiscount(ctx context.Context, arg MoveCustomerLegacyDiscountParams) error
 	// Payments carried over from the previous bot follow the customer, as orders
 	// do, so the merged account keeps the spend its segments and tiers read.
 	MoveCustomerLegacyPayments(ctx context.Context, arg MoveCustomerLegacyPaymentsParams) error
@@ -1755,6 +1770,9 @@ type Querier interface {
 	// merge. The target keeps theirs, which is also the right answer: it is the
 	// method they last chose, on the account that is surviving.
 	MoveCustomerPaymentMethods(ctx context.Context, arg MoveCustomerPaymentMethodsParams) error
+	// Invite links the source handed out in the previous bot keep crediting the
+	// person, now the merged account.
+	MoveCustomerReferralAliases(ctx context.Context, arg MoveCustomerReferralAliasesParams) error
 	MoveCustomerSecurityEvents(ctx context.Context, arg MoveCustomerSecurityEventsParams) error
 	MoveCustomerTickets(ctx context.Context, arg MoveCustomerTicketsParams) error
 	MoveCustomerTopUps(ctx context.Context, arg MoveCustomerTopUpsParams) error
@@ -2546,6 +2564,8 @@ type Querier interface {
 	UpsertGoodsProvider(ctx context.Context, arg UpsertGoodsProviderParams) (GoodsProvider, error)
 	UpsertInfoPage(ctx context.Context, arg UpsertInfoPageParams) (InfoPage, error)
 	UpsertInfoPageLocalization(ctx context.Context, arg UpsertInfoPageLocalizationParams) error
+	// The customer's last discount in the previous bot. It only ever moves later.
+	UpsertLegacyDiscount(ctx context.Context, arg UpsertLegacyDiscountParams) (int64, error)
 	// A subscription period of the previous bot. A repeated run before cutover
 	// moves its dates when the previous bot renewed or cut it short.
 	UpsertLegacyPeriod(ctx context.Context, arg UpsertLegacyPeriodParams) (int64, error)

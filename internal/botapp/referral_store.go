@@ -129,6 +129,16 @@ func (store *PostgresStore) ReferralRewards(ctx context.Context, customerID stri
 	return entries, rows.Err()
 }
 
+// ReferralCodeKnown reports whether a code belongs to somebody: an Omniflow
+// referral code, or one carried from the previous bot.
+func (store *PostgresStore) ReferralCodeKnown(ctx context.Context, code string) (bool, error) {
+	var known bool
+	err := store.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM referral_codes WHERE code = $1)
+		OR EXISTS (SELECT 1 FROM referral_code_aliases WHERE code = $1)`,
+		strings.ToUpper(strings.TrimSpace(code))).Scan(&known)
+	return known, err
+}
+
 // AttributeReferralForCustomer records an immutable inviter/invitee pair. The
 // primary key on the invited customer makes attribution first-write-wins, and
 // self-referral is impossible by construction.
@@ -149,7 +159,8 @@ func (store *PostgresStore) AttributeReferralForCustomer(ctx context.Context, cu
 	}
 	_, err = store.pool.Exec(ctx, `INSERT INTO referral_attributions (referred_user_id, referrer_user_id, code)
 		SELECT $1::uuid, owner.user_id, owner.code
-		FROM referral_codes owner
+		FROM (SELECT user_id, code FROM referral_codes
+			UNION ALL SELECT user_id, code FROM referral_code_aliases) owner
 		WHERE owner.code = $2 AND owner.user_id <> $1::uuid
 		  AND NOT EXISTS (
 			SELECT 1 FROM orders o

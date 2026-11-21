@@ -30,7 +30,10 @@ The Remnawave import runs in two phases: **Preview** stages every record and cou
 the conflicts, and the unreadable ones before anything is written; **Apply** then commits the clean
 ones. A record whose Telegram ID already belongs to a customer is left as a conflict rather than
 merged. `APP_REMNAWAVE_AUTO_IMPORT_HOURS` makes the worker repeat the whole import on a schedule, so a
-user you create directly in Remnawave becomes a customer without anybody pressing a button.
+user you create directly in Remnawave becomes a customer without anybody pressing a button. Panel
+users that are not customers — a service account a proxy chain stands on — are listed in
+`/admin/settings` → **Remnawave** by username or squad, and no import ever makes them customers; see
+[Excluded panel users](/commerce/customers-imports#excluded-panel-users).
 
 <Note>
   An import does not invent subscriptions, orders, or payments. Remnawave does not record what a

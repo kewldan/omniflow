@@ -280,12 +280,31 @@ WHERE r.promotion_id = sqlc.arg(promotion_id)
 -- a distributor paid for is not the purchase a welcome offer is about, so the
 -- completed-order counts look at subscription operations only — the same
 -- predicate referral qualification uses.
+--
+-- discountCooldownDays refuses a customer who had a discount in that many
+-- days: a promo code that took money off an order that was paid (a personal
+-- offer redeems through one too), or a discount the previous bot gave before
+-- a migration. A reward that takes nothing off — days, credit, a trial — is
+-- not a discount. Only settled orders count, so an abandoned checkout never
+-- locks a customer out.
 SELECT
   (NOT (sqlc.arg(eligibility)::jsonb ? 'locales') OR (sqlc.arg(eligibility)::jsonb -> 'locales') ? u.locale)
   AND (NOT COALESCE((sqlc.arg(eligibility)::jsonb ->> 'newCustomerOnly')::boolean, false)
        OR count(o.id) FILTER (WHERE o.state IN ('paid','fulfilled','partially_refunded','refunded')) = 0)
   AND count(o.id) FILTER (WHERE o.state IN ('paid','fulfilled','partially_refunded','refunded'))
-       >= COALESCE((sqlc.arg(eligibility)::jsonb ->> 'minimumCompletedOrders')::integer, 0) AS eligible
+       >= COALESCE((sqlc.arg(eligibility)::jsonb ->> 'minimumCompletedOrders')::integer, 0)
+  AND (NOT (sqlc.arg(eligibility)::jsonb ? 'discountCooldownDays') OR (
+    NOT EXISTS (
+      SELECT 1 FROM promo_redemptions r
+      JOIN orders discounted ON discounted.id = r.order_id
+      WHERE r.user_id = u.id AND r.discount_minor > 0
+        AND discounted.state IN ('paid','fulfilled','partially_refunded','refunded')
+        AND r.redeemed_at > now() - make_interval(days => (sqlc.arg(eligibility)::jsonb ->> 'discountCooldownDays')::int))
+    AND NOT EXISTS (
+      SELECT 1 FROM legacy_customer_discounts ld
+      WHERE ld.user_id = u.id
+        AND ld.last_discount_at > now() - make_interval(days => (sqlc.arg(eligibility)::jsonb ->> 'discountCooldownDays')::int))
+  )) AS eligible
 FROM users u
 LEFT JOIN orders o ON o.user_id = u.id
   AND o.operation IN ('purchase','extension','renewal','upgrade','downgrade')

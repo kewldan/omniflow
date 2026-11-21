@@ -64,7 +64,11 @@ const attributeAccountReferral = `-- name: AttributeAccountReferral :one
 
 
 WITH owner AS (
+  -- The customer's Omniflow code, or one they carried from the previous bot.
   SELECT rc.user_id FROM referral_codes rc WHERE rc.code = $1
+  UNION ALL
+  SELECT ra.user_id FROM referral_code_aliases ra WHERE ra.code = $1
+  LIMIT 1
 ), state AS (
   SELECT
     EXISTS (SELECT 1 FROM owner) AS owner_known,

@@ -155,6 +155,12 @@ func (service *Service) CreatePromotion(ctx context.Context, input PromotionInpu
 	defer func() { _ = tx.Rollback(ctx) }()
 	q := dbgen.New(tx)
 	eligibility, _ := json.Marshal(input.Eligibility)
+	if input.Eligibility == nil {
+		eligibility = []byte("{}")
+	}
+	if err := commerce.ValidatePromotionEligibility(eligibility); err != nil {
+		return dbgen.Promotion{}, err
+	}
 	promotion, err := q.CreatePromotion(ctx, dbgen.CreatePromotionParams{Code: input.Code, Kind: input.Kind, Value: input.Value, Currency: optionalText(input.Currency), StartsAt: optionalTime(input.StartsAt), EndsAt: optionalTime(input.EndsAt), RedemptionLimit: optionalInt4(input.RedemptionLimit), PerCustomerLimit: input.PerCustomerLimit, Eligibility: eligibility, Active: input.Active, CreditMinor: pgtype.Int8{Int64: input.CreditMinor, Valid: input.CreditMinor > 0}, TierCode: optionalText(input.TierCode)})
 	if err != nil {
 		return dbgen.Promotion{}, err

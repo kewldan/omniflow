@@ -102,6 +102,10 @@ type ImportCandidate struct {
 	TelegramID *int64
 	Username   string
 	Payload    map[string]any
+	// Excluded marks a panel user the operator listed as never a customer —
+	// a service account a proxy chain stands on. It is staged as skipped with
+	// the code "excluded" and never applied.
+	Excluded bool
 }
 
 type ImportItem struct {
@@ -119,6 +123,13 @@ func PreviewImport(candidates []ImportCandidate, existingSourceIDs map[string]st
 	for _, candidate := range candidates {
 		data, _ := json.Marshal(candidate.Payload)
 		item := ImportItem{SourceID: candidate.SourceID, Status: "valid", Fingerprint: sha256.Sum256(data), StagedData: data}
+		if candidate.Excluded {
+			// Checked first and alone: an excluded user is nobody's conflict,
+			// and its Telegram ID must not make another candidate one.
+			item.Status, item.ValidationCodes = "skipped", []string{"excluded"}
+			items = append(items, item)
+			continue
+		}
 		if strings.TrimSpace(candidate.SourceID) == "" {
 			item.ValidationCodes = append(item.ValidationCodes, "missing_source_id")
 		}

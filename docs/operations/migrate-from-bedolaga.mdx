@@ -60,7 +60,9 @@ cutover.
 | Expired `subscriptions` row whose panel user still exists | `subscriptions` | Linked to that panel user, no entitlement |
 | Any subscription, ended or not, or `has_had_paid_subscription` | `trial_claims` | The customer's one trial is spent, see [history](#history-trials-periods-and-payments) |
 | Every `subscriptions` row except `pending` | `legacy_subscription_periods` | Start, end, and the trial flag, so segments find customers whose subscription ran out before the migration |
-| Completed `transactions` of type `deposit` | `legacy_payments` | Amount, date, and method, so segments, loyalty, and reports count what customers paid before the migration |
+| Completed `transactions` of type `deposit`, completed `subscription_payment` paid through a provider, and gifts bought through a provider (`guest_purchases`) | `legacy_payments` | Amount, date, and method, so segments, loyalty, and reports count what customers paid before the migration |
+| Last use of a `discount` promo code, last claimed discount offer (`discount_offers`) | `legacy_customer_discounts` | The date a promotion's [`discountCooldownDays`](/commerce/catalog-promotions#eligibility) reads |
+| `users.referral_code` | `referral_code_aliases` | Upper-cased beside the new Omniflow code, so invite links already handed out keep attributing; see [referrals](#referrals) |
 | `users.referred_by_id` | `referral_attributions` | Same referrer; qualified when the referee had paid, see [referrals](#referrals) |
 | `tariffs` | — | Mapped to plan versions by your [mapping file](#the-mapping-file) |
 
@@ -128,16 +130,35 @@ about thousands of trials taken today.
 is gone. A subscription still running also became an entitlement; the period sits beside it. A
 repeated run before the cutover moves a period's dates when Bedolaga renewed or cut the subscription.
 
-**Payments.** Bedolaga sells everything from the balance, so the moment money arrived is a completed
-top-up: a `transactions` row of type `deposit` with `is_completed`. Each one becomes a row of
-`legacy_payments` with its amount in kopeks, its date (`completed_at`, or `created_at` where Bedolaga
-did not record one), and `payment_method`. A deposit with no method is the bot's own credit and is
+**Payments.** Bedolaga sells most things from the balance, so the moment money usually arrived is a
+completed top-up: a `transactions` row of type `deposit` with `is_completed`. Two kinds of payment
+bypass the balance and are carried too: a completed `subscription_payment` whose `payment_method` is
+a provider (a landing-page purchase; one paid from the `balance` is not money arriving), and a gift
+bought in the web cabinet through a provider (a `guest_purchases` row with `is_gift`, a buyer, and
+`paid_at`, stored under the source `bedolaga_gift`). Each becomes a row of `legacy_payments` with its
+amount in kopeks, its date (`completed_at`, or `created_at` where Bedolaga did not record one; a
+gift's `paid_at`), and `payment_method`. Stars shop orders are paid from the balance and so are
+already counted through the top-ups. A deposit with no method is the bot's own credit and is
 never carried; the methods in the mapping's `excludedPaymentMethods` — `manual` and `balance` unless
 you say otherwise — are left out too, and the plan counts what each excluded method removed. Check
 the plan's "completed deposits by method" against that list before applying. A payment is carried
 once: a repeated run writes only the top-ups taken since.
 
-None of the three is Omniflow's record of a sale. No ledger entry, order, or entitlement is written
+**Last discount.** For each customer the importer takes the latest moment Bedolaga gave them a
+one-off discount — a use of a promo code of type `discount`, or a discount offer they claimed with a
+non-zero percent — and stores it in `legacy_customer_discounts`. A promotion with
+`discountCooldownDays` reads it beside Omniflow's own redemptions, so "a discount at most once in
+sixty days" holds across the cutover. A promo group's standing discount is not a one-off and is not
+read. A repeated run only ever moves the date later.
+
+**Unclaimed gifts.** A gift somebody paid for whose recipient has not received it yet (a
+`guest_purchases` row with `is_gift`, `paid_at` set, and a status other than `delivered`) is **not**
+carried: the recipient's claim link points at Bedolaga. The plan counts them, sums them, breaks them
+down by status, and names each one by its Bedolaga ID in the problems with the code
+`gift_unclaimed`. Hand each over or refund it in Bedolaga before the cutover; the money for it is
+already in the buyer's carried payments.
+
+None of these is Omniflow's record of a sale. No ledger entry, order, or entitlement is written
 for them, and Omniflow's own sales figures do not include them. What reads them:
 
 | Reader | What it counts |
@@ -150,6 +171,14 @@ for them, and Omniflow's own sales figures do not include them. What reads them:
 | [Sales report](/operations/sales-reporting) | Carried payments as earlier payments for returning payers, and the previous bot's takings in the period apart from the sales |
 
 ### Referrals
+
+Every customer gets an Omniflow referral code, and their Bedolaga code is kept beside it in
+`referral_code_aliases`, upper-cased. Links already handed out keep crediting the same inviter: the
+bot reads a bare `/start refAbCd1234` as a referral when somebody holds that code, and otherwise as a
+campaign code the way it did before; a `<site>/?ref=refAbCd1234` cabinet link is carried to sign-in;
+a code typed or attached by an operator works in either form. Two Bedolaga codes that differ only in
+case cannot be told apart once upper-cased, so neither is carried (`duplicate_referral_code`); a code
+another customer already holds stays with them (`referral_code_taken`).
 
 Every pair whose both sides are imported becomes an attribution with Bedolaga's sign-up date as its
 `created_at`. When the referee had paid in Bedolaga (`has_had_paid_subscription`) the attribution
@@ -168,7 +197,6 @@ Omniflow order as usual, subject to the programme's validity window.
 | Referral earnings history and partner withdrawal requests | The earned money is already part of the balance that moves. Settle pending withdrawals in Bedolaga first |
 | Saved payment methods and auto-payment agreements | Provider tokens belong to Bedolaga's merchant setup; customers turn auto-renewal on again in Omniflow |
 | Cabinet passwords | Omniflow has no customer passwords. Customers sign in with Telegram, an e-mailed link (`APP_RESEND_API_KEY`), or a provider. Google, Yandex, Discord, and VK ID links **are** carried as identities bound to the preset issuers, so enable those providers under the preset slugs `google`, `yandex`, `discord`, `vk`. A customer with neither a Telegram ID nor a verified e-mail is imported with the warning `no_sign_in_identity` |
-| Bedolaga referral codes and links | Every customer gets a new Omniflow referral code. Old `start=ref…` links stop attributing |
 | Deleted users | Skipped with `deleted_in_source` |
 | Grace-period overlays | The entitlement ends at the paid `end_date`, not at a grace overlay's date |
 

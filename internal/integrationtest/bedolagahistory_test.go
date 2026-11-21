@@ -4,6 +4,7 @@ package integrationtest
 
 import (
 	"context"
+	"strconv"
 	"testing"
 	"time"
 
@@ -45,9 +46,31 @@ func TestBedolagaImportCarriesHistory(t *testing.T) {
 		(30, 'deposit', 50000, 'manual', true, $2, NULL),
 		(30, 'deposit', 99900, 'yookassa', false, $2, NULL)`, paidEnd.AddDate(0, -1, 0), paidEnd.AddDate(0, 0, -40))
 
+	// A landing purchase paid through a provider, and one paid from the
+	// balance, which is not a payment of its own.
+	fixture.exec(ctx, t, `INSERT INTO transactions (user_id, type, amount_kopeks, payment_method, is_completed, created_at) VALUES
+		(30, 'subscription_payment', 19900, 'platega', true, $1),
+		(30, 'subscription_payment', 19900, 'balance', true, $1)`, paidEnd.AddDate(0, 0, -60))
+	// Gifts: one Hana bought through a provider that its recipient is still
+	// to claim, one she paid from the balance and was delivered.
+	fixture.exec(ctx, t, `INSERT INTO guest_purchases (token, contact_type, contact_value, is_gift, buyer_user_id,
+		period_days, amount_kopeks, payment_method, status, paid_at) VALUES
+		('g1', 'telegram', '@friend', true, 30, 30, 30000, 'yookassa', 'pending_activation', $1),
+		('g2', 'telegram', '@other', true, 30, 30, 30000, 'balance', 'delivered', $1),
+		('g3', 'telegram', '@nobody', true, NULL, 30, 30000, 'yookassa', 'pending', NULL)`, paidEnd)
+	// Her last discount: a discount code twenty days ago, after an older offer.
+	fixture.exec(ctx, t, `INSERT INTO promocodes (code, type) VALUES ('SALE20', 'discount'), ('BONUS', 'balance')`)
+	lastDiscount := now.AddDate(0, 0, -20)
+	fixture.exec(ctx, t, `INSERT INTO promocode_uses (promocode_id, user_id, used_at)
+		SELECT id, 30, CASE WHEN code = 'SALE20' THEN $1::timestamptz ELSE $2::timestamptz END FROM promocodes
+		WHERE code IN ('SALE20', 'BONUS')`, lastDiscount, now.AddDate(0, 0, -1))
+	fixture.exec(ctx, t, `INSERT INTO discount_offers (user_id, discount_percent, expires_at, claimed_at)
+		VALUES (30, 15, $1, $1)`, now.AddDate(0, -3, 0))
+
 	source := fixture.read(ctx, t)
-	if len(source.Payments) != 5 {
-		t.Fatalf("read %d completed top-ups, want 5", len(source.Payments))
+	if len(source.Payments) != 7 || len(source.Gifts) != 1 || len(source.Discounts) != 1 ||
+		!source.Discounts[0].At.Equal(lastDiscount) {
+		t.Fatalf("read %d payments, %d unclaimed gifts, discounts %+v", len(source.Payments), len(source.Gifts), source.Discounts)
 	}
 	result, err := service.Apply(ctx, source, fixture.mapping, bedolagaimportpg.ApplyOptions{})
 	if err != nil {
@@ -56,8 +79,12 @@ func TestBedolagaImportCarriesHistory(t *testing.T) {
 	if len(result.Failures) != 0 || result.Remaining != 0 {
 		t.Fatalf("apply: failures %+v, remaining %d", result.Failures, result.Remaining)
 	}
-	if result.Written["payment"] != 4 || result.Plan.Payments.Codes[bedolagaimport.CodePaymentMethodExcluded] != 1 {
+	if result.Written["payment"] != 6 || result.Plan.Payments.Codes[bedolagaimport.CodePaymentMethodExcluded] != 1 ||
+		result.Plan.Payments.ByKind[bedolagaimport.PaymentGift] != 1 || result.Plan.Payments.ByKind[bedolagaimport.PaymentDirect] != 1 {
 		t.Fatalf("payments: written %d, plan %+v", result.Written["payment"], result.Plan.Payments)
+	}
+	if result.Written["discount"] != 1 || result.Plan.Gifts.Unclaimed != 1 || result.Plan.Gifts.SumMinor != 30000 {
+		t.Fatalf("discounts written %d, gifts %+v", result.Written["discount"], result.Plan.Gifts)
 	}
 
 	hana := fixture.customerOf(ctx, t, 30)
@@ -96,9 +123,10 @@ func TestBedolagaImportCarriesHistory(t *testing.T) {
 		t.Fatal("a customer whose Bedolaga trial expired cannot take another")
 	}
 
-	if fixture.count(ctx, t, `SELECT count(*) FROM legacy_payments WHERE user_id = $1::uuid`, hana) != 2 ||
+	if fixture.count(ctx, t, `SELECT count(*) FROM legacy_payments WHERE user_id = $1::uuid`, hana) != 4 ||
+		fixture.count(ctx, t, `SELECT count(*) FROM legacy_payments WHERE user_id = $1::uuid AND source = 'bedolaga_gift'`, hana) != 1 ||
 		fixture.count(ctx, t, `SELECT count(*) FROM legacy_subscription_periods WHERE user_id = $1::uuid AND ends_at < now()`, hana) != 2 {
-		t.Fatal("hana's two payments and two periods are carried")
+		t.Fatal("hana's top-ups, landing purchase, and gift are carried, and her two periods")
 	}
 
 	segment := func(filters map[string]any) map[string]bool {
@@ -135,12 +163,12 @@ func TestBedolagaImportCarriesHistory(t *testing.T) {
 	if segment(map[string]any{audience.FilterExpiredDaysAgo: map[string]any{"max": float64(14)}})[hana] {
 		t.Fatal("hana ended 45 days ago, outside the last fortnight")
 	}
-	if !segment(map[string]any{audience.FilterMinimumSpendMinor: float64(45800)})[hana] {
+	if !segment(map[string]any{audience.FilterMinimumSpendMinor: float64(95700)})[hana] {
 		t.Fatal("carried payments count as spend")
 	}
-	if !segment(map[string]any{audience.FilterInactiveForDays: float64(60)})[hana] ||
-		segment(map[string]any{audience.FilterInactiveForDays: float64(120)})[hana] {
-		t.Fatal("hana last paid 75 days ago")
+	if !segment(map[string]any{audience.FilterInactiveForDays: float64(30)})[hana] ||
+		segment(map[string]any{audience.FilterInactiveForDays: float64(60)})[hana] {
+		t.Fatal("hana last paid 45 days ago, for the gift")
 	}
 	if !segment(map[string]any{audience.FilterTrial: "used"})[hana] {
 		t.Fatal("a carried trial is a trial had")
@@ -155,8 +183,24 @@ func TestBedolagaImportCarriesHistory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loyalty metric: %v", err)
 	}
-	if metric.SpendMinor != 45800 || metric.OrderCount != 2 || metric.TenureDays < 364 {
+	if metric.SpendMinor != 95700 || metric.OrderCount != 4 || metric.TenureDays < 364 {
 		t.Fatalf("loyalty reads the carried history: %+v", metric)
+	}
+
+	// "A discount at most once in sixty days": her Bedolaga code twenty days
+	// ago keeps her out; thirty days lets her in.
+	eligible := func(days int) bool {
+		t.Helper()
+		row, err := queries.CheckPromotionCustomerEligibility(ctx, dbgen.CheckPromotionCustomerEligibilityParams{
+			Eligibility: []byte(`{"discountCooldownDays": ` + strconv.Itoa(days) + `}`), UserID: hanaID,
+		})
+		if err != nil {
+			t.Fatalf("eligibility: %v", err)
+		}
+		return row.Valid && row.Bool
+	}
+	if eligible(60) || !eligible(14) {
+		t.Fatal("the carried discount date decides the cooldown")
 	}
 
 	// Hana comes back and pays in Omniflow: a returning payer, not a new one.
@@ -177,12 +221,33 @@ func TestBedolagaImportCarriesHistory(t *testing.T) {
 		t.Fatalf("returning payers: %+v", payers)
 	}
 
+	// Alice's Bedolaga invite link still works: a new customer arriving with
+	// `refalice` in any case is attributed to her, on the web and in the bot.
+	alice := fixture.customerOf(ctx, t, 1)
+	if fixture.count(ctx, t, `SELECT count(*) FROM referral_code_aliases WHERE code = 'REFALICE' AND user_id = $1::uuid`, alice) != 1 {
+		t.Fatal("alice's Bedolaga referral code is an alias of hers")
+	}
+	newcomer := fixture.harness.customer(ctx, t)
+	var newcomerID pgtype.UUID
+	if err := newcomerID.Scan(newcomer); err != nil {
+		t.Fatal(err)
+	}
+	state, err := queries.AttributeAccountReferral(ctx, dbgen.AttributeAccountReferralParams{UserID: newcomerID, Code: "REFALICE"})
+	if err != nil || !state.OwnerKnown || !state.Inserted {
+		t.Fatalf("web attribution by a carried code: %+v %v", state, err)
+	}
+	if fixture.count(ctx, t, `SELECT count(*) FROM referral_attributions WHERE referred_user_id = $1::uuid AND referrer_user_id = $2::uuid`,
+		newcomer, alice) != 1 {
+		t.Fatal("the newcomer is attributed to alice")
+	}
+
 	// A repeated run carries nothing twice, and verification holds.
 	again, err := service.Apply(ctx, fixture.read(ctx, t), fixture.mapping, bedolagaimportpg.ApplyOptions{})
 	if err != nil {
 		t.Fatalf("second apply: %v", err)
 	}
-	if again.Written["payment"] != 0 || again.Written["trial"] != 0 || again.Written["period"] != 0 {
+	if again.Written["payment"] != 0 || again.Written["trial"] != 0 || again.Written["period"] != 0 ||
+		again.Written["discount"] != 0 || again.Written["referral_code"] != 0 {
 		t.Fatalf("second apply wrote history again: %+v", again.Written)
 	}
 	report, err := service.Verify(ctx, fixture.read(ctx, t), fixture.mapping)

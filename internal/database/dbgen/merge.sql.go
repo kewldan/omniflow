@@ -325,6 +325,30 @@ func (q *Queries) MoveCustomerIdentities(ctx context.Context, arg MoveCustomerId
 	return err
 }
 
+const moveCustomerLegacyDiscount = `-- name: MoveCustomerLegacyDiscount :exec
+WITH moved AS (
+  DELETE FROM legacy_customer_discounts gone WHERE gone.user_id = $2::uuid
+  RETURNING gone.source AS origin, gone.last_discount_at
+)
+INSERT INTO legacy_customer_discounts (user_id, source, last_discount_at)
+SELECT $1::uuid, moved.origin, moved.last_discount_at FROM moved
+ON CONFLICT (user_id) DO UPDATE
+SET last_discount_at = GREATEST(legacy_customer_discounts.last_discount_at, EXCLUDED.last_discount_at),
+    updated_at = now()
+`
+
+type MoveCustomerLegacyDiscountParams struct {
+	Target pgtype.UUID `json:"target"`
+	Source pgtype.UUID `json:"source"`
+}
+
+// The later of the two customers' carried discount dates survives, so the
+// merged account is no easier to discount than either was.
+func (q *Queries) MoveCustomerLegacyDiscount(ctx context.Context, arg MoveCustomerLegacyDiscountParams) error {
+	_, err := q.db.Exec(ctx, moveCustomerLegacyDiscount, arg.Target, arg.Source)
+	return err
+}
+
 const moveCustomerLegacyPayments = `-- name: MoveCustomerLegacyPayments :exec
 UPDATE legacy_payments SET user_id = $1
 WHERE user_id = $2
@@ -428,6 +452,23 @@ type MoveCustomerPaymentMethodsParams struct {
 // method they last chose, on the account that is surviving.
 func (q *Queries) MoveCustomerPaymentMethods(ctx context.Context, arg MoveCustomerPaymentMethodsParams) error {
 	_, err := q.db.Exec(ctx, moveCustomerPaymentMethods, arg.Target, arg.Source)
+	return err
+}
+
+const moveCustomerReferralAliases = `-- name: MoveCustomerReferralAliases :exec
+UPDATE referral_code_aliases SET user_id = $1
+WHERE user_id = $2
+`
+
+type MoveCustomerReferralAliasesParams struct {
+	Target pgtype.UUID `json:"target"`
+	Source pgtype.UUID `json:"source"`
+}
+
+// Invite links the source handed out in the previous bot keep crediting the
+// person, now the merged account.
+func (q *Queries) MoveCustomerReferralAliases(ctx context.Context, arg MoveCustomerReferralAliasesParams) error {
+	_, err := q.db.Exec(ctx, moveCustomerReferralAliases, arg.Target, arg.Source)
 	return err
 }
 

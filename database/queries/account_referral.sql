@@ -20,7 +20,11 @@
 -- and the same answer for both. The insert is first-write-wins on the invited
 -- customer.
 WITH owner AS (
+  -- The customer's Omniflow code, or one they carried from the previous bot.
   SELECT rc.user_id FROM referral_codes rc WHERE rc.code = sqlc.arg(code)
+  UNION ALL
+  SELECT ra.user_id FROM referral_code_aliases ra WHERE ra.code = sqlc.arg(code)
+  LIMIT 1
 ), state AS (
   SELECT
     EXISTS (SELECT 1 FROM owner) AS owner_known,

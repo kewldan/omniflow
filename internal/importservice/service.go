@@ -88,10 +88,17 @@ func (service *Service) Preview(ctx context.Context, importID string, pageSize i
 			existingTelegram[staged.TelegramID] = struct{}{}
 		}
 	}
+	excluded, err := service.exclusions(ctx, queries)
+	if err != nil {
+		return dbgen.CustomerImport{}, err
+	}
 	candidates := make([]customer.ImportCandidate, 0, len(remoteUsers))
 	for _, user := range remoteUsers {
 		payload := map[string]any{"remnawaveId": user.ID, "username": user.Username, "status": user.Status, "telegramId": user.TelegramID}
-		candidates = append(candidates, customer.ImportCandidate{SourceID: strconv.FormatInt(user.ID, 10), TelegramID: user.TelegramID, Username: user.Username, Payload: payload})
+		candidates = append(candidates, customer.ImportCandidate{
+			SourceID: strconv.FormatInt(user.ID, 10), TelegramID: user.TelegramID, Username: user.Username, Payload: payload,
+			Excluded: excluded.User(user),
+		})
 	}
 	items := customer.PreviewImport(candidates, existingSources, existingTelegram)
 	for _, item := range items {

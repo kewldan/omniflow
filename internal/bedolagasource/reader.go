@@ -69,6 +69,15 @@ func Read(ctx context.Context, connection *pgx.Conn) (bedolagaimport.Source, err
 	if source.Payments, err = readPayments(ctx, tx, columns); err != nil {
 		return bedolagaimport.Source{}, err
 	}
+	gifts, unclaimed, err := readGifts(ctx, tx, columns)
+	if err != nil {
+		return bedolagaimport.Source{}, err
+	}
+	source.Payments = append(source.Payments, gifts...)
+	source.Gifts = unclaimed
+	if source.Discounts, err = readDiscounts(ctx, tx, columns); err != nil {
+		return bedolagaimport.Source{}, err
+	}
 	if source.Archive, err = readArchive(ctx, tx, columns); err != nil {
 		return bedolagaimport.Source{}, err
 	}
@@ -209,10 +218,12 @@ func readTariffs(ctx context.Context, tx pgx.Tx) ([]bedolagaimport.Tariff, error
 	})
 }
 
-// readPayments loads every completed top-up. A Bedolaga without a
-// transactions table has no payment history to carry; the archive reports the
-// table as missing. The moment a top-up completed is completed_at where this
-// Bedolaga records it, and its creation otherwise.
+// readPayments loads every completed top-up, and every completed
+// subscription payment made through a provider rather than from the balance —
+// a landing-page purchase. A Bedolaga without a transactions table has no
+// payment history to carry; the archive reports the table as missing. The
+// moment a payment completed is completed_at where this Bedolaga records it,
+// and its creation otherwise.
 func readPayments(ctx context.Context, tx pgx.Tx, columns map[string]map[string]bool) ([]bedolagaimport.Payment, error) {
 	table := columns["transactions"]
 	for _, name := range []string{"id", "user_id", "type", "amount_kopeks", "created_at"} {
@@ -232,18 +243,100 @@ func readPayments(ctx context.Context, tx pgx.Tx, columns map[string]map[string]
 	}
 	// A top-up with no date at all cannot be placed in any window, so it is
 	// not history anything could read.
-	rows, err := tx.Query(ctx, `SELECT id::bigint, user_id::bigint, amount_kopeks::bigint, `+method+`, `+paidAt+`
+	kind := "'" + bedolagaimport.PaymentTopUp + "'"
+	direct := "false"
+	if table["payment_method"] {
+		// A purchase paid from the balance, or with no method on record, is
+		// not money arriving: the top-up behind it is.
+		kind = "CASE WHEN type = 'deposit' THEN '" + bedolagaimport.PaymentTopUp + "' ELSE '" + bedolagaimport.PaymentDirect + "' END"
+		direct = "(type = 'subscription_payment' AND COALESCE(payment_method, '') NOT IN ('', 'balance'))"
+	}
+	rows, err := tx.Query(ctx, `SELECT `+kind+`, id::bigint, user_id::bigint, amount_kopeks::bigint, `+method+`, `+paidAt+`
 		FROM transactions
-		WHERE type = 'deposit' AND `+completed+` AND user_id IS NOT NULL AND created_at IS NOT NULL
+		WHERE (type = 'deposit' OR `+direct+`) AND `+completed+` AND user_id IS NOT NULL AND created_at IS NOT NULL
 		ORDER BY id`)
 	if err != nil {
 		return nil, fmt.Errorf("read payments: %w", err)
 	}
 	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (bedolagaimport.Payment, error) {
 		var payment bedolagaimport.Payment
-		err := row.Scan(&payment.ID, &payment.UserID, &payment.AmountKopeks, &payment.Method, &payment.PaidAt)
+		err := row.Scan(&payment.Kind, &payment.ID, &payment.UserID, &payment.AmountKopeks, &payment.Method, &payment.PaidAt)
 		payment.PaidAt = payment.PaidAt.UTC()
 		return payment, err
+	})
+}
+
+// readGifts loads the gifts bought through a provider in the web cabinet —
+// payments of their buyers that no transaction records — and the paid gifts
+// whose recipient has not received them yet. A gift paid from the balance is
+// not a payment of its own: the top-up behind it is.
+func readGifts(ctx context.Context, tx pgx.Tx, columns map[string]map[string]bool) ([]bedolagaimport.Payment, []bedolagaimport.Gift, error) {
+	table := columns["guest_purchases"]
+	for _, name := range []string{"id", "is_gift", "status", "amount_kopeks", "payment_method", "paid_at", "buyer_user_id"} {
+		if !table[name] {
+			return nil, nil, nil
+		}
+	}
+	rows, err := tx.Query(ctx, `SELECT id::bigint, buyer_user_id::bigint, amount_kopeks::bigint,
+		COALESCE(payment_method, ''), paid_at, COALESCE(status, '')
+		FROM guest_purchases
+		WHERE is_gift AND paid_at IS NOT NULL
+		ORDER BY id`)
+	if err != nil {
+		return nil, nil, fmt.Errorf("read gifts: %w", err)
+	}
+	defer rows.Close()
+	var payments []bedolagaimport.Payment
+	var unclaimed []bedolagaimport.Gift
+	for rows.Next() {
+		var (
+			id, amount     int64
+			buyer          *int64
+			method, status string
+			paidAt         time.Time
+		)
+		if err := rows.Scan(&id, &buyer, &amount, &method, &paidAt, &status); err != nil {
+			return nil, nil, err
+		}
+		paidAt = paidAt.UTC()
+		if buyer != nil && method != "" && method != "balance" {
+			payments = append(payments, bedolagaimport.Payment{
+				Kind: bedolagaimport.PaymentGift, ID: id, UserID: *buyer, AmountKopeks: amount, Method: method, PaidAt: paidAt,
+			})
+		}
+		if status != "delivered" {
+			unclaimed = append(unclaimed, bedolagaimport.Gift{ID: id, Status: status, AmountKopeks: amount, PaidAt: paidAt})
+		}
+	}
+	return payments, unclaimed, rows.Err()
+}
+
+// readDiscounts finds, per user, the latest discount Bedolaga gave: a one-off
+// `discount` promo code it recorded a use of, or a discount offer the user
+// claimed. A promo group's standing discount is not a one-off and is not read.
+func readDiscounts(ctx context.Context, tx pgx.Tx, columns map[string]map[string]bool) ([]bedolagaimport.Discount, error) {
+	parts := []string{}
+	if columns["promocode_uses"]["used_at"] && columns["promocode_uses"]["promocode_id"] && columns["promocodes"]["type"] {
+		parts = append(parts, `SELECT u.user_id, u.used_at AS at FROM promocode_uses u
+			JOIN promocodes p ON p.id = u.promocode_id WHERE p.type = 'discount' AND u.used_at IS NOT NULL`)
+	}
+	if offers := columns["discount_offers"]; offers["claimed_at"] && offers["discount_percent"] && offers["user_id"] {
+		parts = append(parts, `SELECT o.user_id, o.claimed_at AS at FROM discount_offers o
+			WHERE o.claimed_at IS NOT NULL AND o.discount_percent > 0`)
+	}
+	if len(parts) == 0 {
+		return nil, nil
+	}
+	rows, err := tx.Query(ctx, `SELECT user_id::bigint, max(at) FROM (`+strings.Join(parts, " UNION ALL ")+`) discounts
+		GROUP BY user_id ORDER BY user_id`)
+	if err != nil {
+		return nil, fmt.Errorf("read discounts: %w", err)
+	}
+	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (bedolagaimport.Discount, error) {
+		var discount bedolagaimport.Discount
+		err := row.Scan(&discount.UserID, &discount.At)
+		discount.At = discount.At.UTC()
+		return discount, err
 	})
 }
 

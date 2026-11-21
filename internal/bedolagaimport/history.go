@@ -1,7 +1,9 @@
 package bedolagaimport
 
 import (
+	"regexp"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -21,7 +23,56 @@ const (
 	CodeTrialPlanMissing      = "trial_plan_missing"
 	CodePaymentMethodExcluded = "payment_method_excluded"
 	CodeNonPositiveAmount     = "non_positive_amount"
+	CodeGiftUnclaimed         = "gift_unclaimed"
+	CodeDuplicateReferralCode = "duplicate_referral_code"
+	CodeReferralCodeTaken     = "referral_code_taken"
+	CodeInvalidReferralCode   = "invalid_referral_code"
 )
+
+// AliasDecision carries a user's Bedolaga referral code as an alias of their
+// Omniflow code, so invite links already handed out keep attributing.
+type AliasDecision struct {
+	SourceUserID int64
+	Action       Action
+	Codes        []string
+	// Code is upper-cased, the way every referral lookup normalises a code.
+	Code string
+}
+
+// referralAliasPattern is referral_code_aliases_code_shape.
+var referralAliasPattern = regexp.MustCompile(`^[A-Z0-9_-]{3,32}$`)
+
+func decideAliases(plan *Plan, target Target) {
+	owners := map[string]int{}
+	for _, user := range plan.Users {
+		if code := strings.ToUpper(strings.TrimSpace(user.Source.ReferralCode)); code != "" && user.Importable() {
+			owners[code]++
+		}
+	}
+	for _, user := range plan.Users {
+		code := strings.ToUpper(strings.TrimSpace(user.Source.ReferralCode))
+		if code == "" || !user.Importable() {
+			continue
+		}
+		decision := AliasDecision{SourceUserID: user.Source.ID, Code: code}
+		holder, taken := target.ReferralAliases[code]
+		switch {
+		case !referralAliasPattern.MatchString(code):
+			decision.Action, decision.Codes = ActionSkip, []string{CodeInvalidReferralCode}
+		case taken && holder != "" && holder == user.CustomerID:
+			decision.Action = ActionUnchanged
+		case taken:
+			decision.Action, decision.Codes = ActionConflict, []string{CodeReferralCodeTaken}
+		case owners[code] > 1:
+			// Two Bedolaga codes that differ only in case: neither can be
+			// told apart once normalised, so neither is carried.
+			decision.Action, decision.Codes = ActionConflict, []string{CodeDuplicateReferralCode}
+		default:
+			decision.Action = ActionCreate
+		}
+		plan.Aliases = append(plan.Aliases, decision)
+	}
+}
 
 // LegacyPeriod is a subscription period the importer already carried over.
 type LegacyPeriod struct {
@@ -54,8 +105,16 @@ type PeriodDecision struct {
 	EndsAt   time.Time
 }
 
-// PaymentDecision carries one completed Bedolaga top-up over as a payment of
-// history.
+// DiscountDecision carries the date of a Bedolaga user's last discount, which
+// a promotion's discountCooldownDays reads.
+type DiscountDecision struct {
+	SourceUserID int64
+	Action       Action
+	Codes        []string
+	At           time.Time
+}
+
+// PaymentDecision carries one Bedolaga payment over as a payment of history.
 type PaymentDecision struct {
 	Source   Payment
 	Action   Action
@@ -139,12 +198,38 @@ func decideHistory(plan *Plan, source Source, target Target, mapping Mapping, us
 			decision.Action, decision.Codes = ActionSkip, []string{CodeNonPositiveAmount}
 		case mapping.PaymentMethodExcluded(payment.Method):
 			decision.Action, decision.Codes = ActionSkip, []string{CodePaymentMethodExcluded}
-		case target.LegacyPayments[payment.ID]:
+		case target.LegacyPayments[payment.Key()]:
 			decision.Action = ActionUnchanged
 		default:
 			decision.Action = ActionCreate
 		}
 		plan.Payments = append(plan.Payments, decision)
+	}
+
+	decideAliases(plan, target)
+
+	discounts := append([]Discount(nil), source.Discounts...)
+	sort.Slice(discounts, func(i, j int) bool { return discounts[i].UserID < discounts[j].UserID })
+	for _, discount := range discounts {
+		decision := DiscountDecision{SourceUserID: discount.UserID, At: discount.At.UTC()}
+		user := owner(discount.UserID)
+		switch {
+		case user == nil || !user.Importable():
+			decision.Action, decision.Codes = ActionSkip, []string{CodeUserNotImported}
+		case user.CustomerID == "":
+			decision.Action = ActionCreate
+		default:
+			carried, ok := target.LegacyDiscounts[user.CustomerID]
+			switch {
+			case !ok:
+				decision.Action = ActionCreate
+			case carried.Before(decision.At):
+				decision.Action = ActionRefresh
+			default:
+				decision.Action = ActionUnchanged
+			}
+		}
+		plan.Discounts = append(plan.Discounts, decision)
 	}
 }
 

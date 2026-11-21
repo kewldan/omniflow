@@ -135,7 +135,8 @@ func (service *Service) loadTarget(ctx context.Context) (bedolagaimport.Target, 
 		RemnawaveOwners: map[int64]string{}, PlanVersions: map[string]bedolagaimport.PlanVersion{},
 		Referrers: map[string]string{}, Wallets: map[int64]bedolagaimport.WalletMovements{},
 		TrialHolders: map[string]bool{}, LegacyPeriods: map[int64]bedolagaimport.LegacyPeriod{},
-		LegacyPayments: map[int64]bool{},
+		LegacyPayments: map[string]bool{}, LegacyDiscounts: map[string]time.Time{},
+		ReferralAliases: map[string]string{},
 	}
 	items, err := queries.ListBedolagaImportItems(ctx)
 	if err != nil {
@@ -225,8 +226,22 @@ func (service *Service) loadTarget(ctx context.Context) (bedolagaimport.Target, 
 	if err != nil {
 		return target, nil, fmt.Errorf("read carried-over payments: %w", err)
 	}
-	for _, id := range payments {
-		target.LegacyPayments[id] = true
+	for _, payment := range payments {
+		target.LegacyPayments[payment.Source+":"+strconv.FormatInt(payment.SourceID, 10)] = true
+	}
+	aliases, err := queries.ListBedolagaReferralAliases(ctx)
+	if err != nil {
+		return target, nil, fmt.Errorf("read carried referral codes: %w", err)
+	}
+	for _, alias := range aliases {
+		target.ReferralAliases[alias.Code] = uuidString(alias.UserID)
+	}
+	discounts, err := queries.ListLegacyDiscounts(ctx)
+	if err != nil {
+		return target, nil, fmt.Errorf("read carried-over discounts: %w", err)
+	}
+	for _, discount := range discounts {
+		target.LegacyDiscounts[uuidString(discount.UserID)] = discount.LastDiscountAt.Time.UTC()
 	}
 	return target, versions, nil
 }

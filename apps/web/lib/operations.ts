@@ -210,6 +210,8 @@ export type Promotion = {
   discountMinor: number;
   startsAt?: string;
   endsAt?: string;
+  /** Who may redeem it; `discountCooldownDays` is "a discount at most once in N days". */
+  eligibility?: Record<string, unknown>;
 };
 
 /**

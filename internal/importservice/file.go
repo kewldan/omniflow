@@ -105,11 +105,17 @@ func (service *Service) PreviewFile(ctx context.Context, rows []FileRow, invalid
 	if err != nil {
 		return dbgen.CustomerImport{}, err
 	}
+	excluded, err := service.exclusions(ctx, queries)
+	if err != nil {
+		return dbgen.CustomerImport{}, err
+	}
 	candidates := make([]customer.ImportCandidate, 0, len(rows))
 	for _, row := range rows {
 		payload := map[string]any{"remnawaveId": row.RemnawaveID, "username": row.Username, "status": row.Status, "telegramId": row.TelegramID}
+		// A file carries no squads, so only the username list applies to it.
 		candidates = append(candidates, customer.ImportCandidate{
 			SourceID: strconv.FormatInt(row.RemnawaveID, 10), TelegramID: row.TelegramID, Username: row.Username, Payload: payload,
+			Excluded: excluded.Username(row.Username),
 		})
 	}
 	for _, item := range customer.PreviewImport(candidates, existingSources, existingTelegram) {

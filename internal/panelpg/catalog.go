@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 )
 
@@ -468,8 +469,11 @@ func (service *Service) UpdatePromotion(
 		return err
 	}
 	eligibility := update.Eligibility
-	if len(eligibility) == 0 {
+	if len(eligibility) == 0 || string(eligibility) == "null" {
 		eligibility = json.RawMessage("{}")
+	}
+	if commerce.ValidatePromotionEligibility(eligibility) != nil {
+		return ErrValidaton
 	}
 
 	return service.inTx(ctx, func(queries *dbgen.Queries) error {
