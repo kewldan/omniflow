@@ -128,7 +128,7 @@ func arrangeMenu(
 		}
 	}
 	placed := map[string]bool{}
-	arranged := make([][]models.InlineKeyboardButton, 0, len(layout)+len(rows)+len(extra))
+	var arranged [][]models.InlineKeyboardButton
 	if len(recover) > 0 {
 		arranged = append(arranged, recover)
 	}

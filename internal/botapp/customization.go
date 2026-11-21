@@ -144,8 +144,8 @@ func customizeMenuWith(custom customization, locale Locale, rows [][]models.Inli
 		}
 		rows = filtered
 	}
-	extra := make([][]models.InlineKeyboardButton, 0, len(custom.buttons)+1)
-	extraKeys := make([]string, 0, len(custom.buttons)+1)
+	var extra [][]models.InlineKeyboardButton
+	var extraKeys []string
 	if custom.miniApp != "" {
 		extra = append(extra, row(miniAppButton(locale, custom.miniApp)))
 		extraKeys = append(extraKeys, MenuEntryCabinet)

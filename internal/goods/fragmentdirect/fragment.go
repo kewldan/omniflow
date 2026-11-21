@@ -53,7 +53,7 @@ const (
 var requiredCookies = []string{"stel_ssid", "stel_dt", "stel_token", "stel_ton_token"}
 
 var (
-	hashPattern     = regexp.MustCompile(`(?:https://fragment\.com)?/api\?hash=([a-f0-9]+)`)
+	hashPattern     = regexp.MustCompile(`/api\?hash=([a-f0-9]+)`)
 	tonPricePattern = regexp.MustCompile(`icon-ton[^>]*>([^<]*(?:<span[^>]*>[^<]*</span>)?)`)
 	// tagPattern is the fork's linear `<[^<>]+>`, not the original's
 	// quadratic `<[^>]+>`.

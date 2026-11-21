@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -394,7 +395,7 @@ func orderSource(source string) string {
 }
 
 func optionalInt4(value int) pgtype.Int4 {
-	if value <= 0 {
+	if value <= 0 || value > math.MaxInt32 {
 		return pgtype.Int4{}
 	}
 	return pgtype.Int4{Int32: int32(value), Valid: true}
