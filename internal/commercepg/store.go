@@ -588,7 +588,22 @@ func (store *Store) resolveSquads(ctx context.Context, queries *dbgen.Queries, p
 	return policy.ResolveSquads(selected)
 }
 
+// CreateOrder opens an order, or returns the one its idempotency key already
+// opened. Two requests with the same key at once — a double click, or renewal
+// passes on several worker replicas — conflict inside their serializable
+// transactions, and PostgreSQL aborts one of them. Running the loser again lets
+// its idempotency check find the winner's order instead of reporting a failure.
 func (store *Store) CreateOrder(ctx context.Context, input CreateOrderInput) (dbgen.Order, error) {
+	var order dbgen.Order
+	err := retrySerializable(ctx, func() error {
+		var attemptErr error
+		order, attemptErr = store.createOrder(ctx, input)
+		return attemptErr
+	})
+	return order, err
+}
+
+func (store *Store) createOrder(ctx context.Context, input CreateOrderInput) (dbgen.Order, error) {
 	userID, err := parseUUID(input.CustomerID)
 	if err != nil {
 		return dbgen.Order{}, fmt.Errorf("customer ID: %w", err)

@@ -345,7 +345,22 @@ func (worker *Worker) cycleOrder(
 			return dbgen.Order{}, errInsufficientWallet
 		}
 	}
-	return worker.orders.CreateOrder(ctx, input)
+	order, createErr := worker.orders.CreateOrder(ctx, input)
+	if createErr == nil {
+		return order, nil
+	}
+	// Simultaneous passes on several worker replicas race to open the same
+	// cycle order. The loser's serializable insert fails — a serialization
+	// failure or a unique violation on the idempotency key — once the winner
+	// commits, and that is not a failed renewal: the cycle has its one order.
+	// Re-reading it lets this pass carry on with that order instead of
+	// recording a failure that would beat the winner's success to the attempt.
+	if existing, err := queries.GetCycleOrder(ctx, dbgen.GetCycleOrderParams{
+		UserID: attempt.UserID, IdempotencyKey: key,
+	}); err == nil {
+		return existing, nil
+	}
+	return dbgen.Order{}, createErr
 }
 
 // submit charges the saved method for what the wallet did not cover.
