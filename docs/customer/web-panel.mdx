@@ -185,11 +185,22 @@ next restart. Telegram only renders the widget on a domain bound to the bot, so
 set that domain with `/setdomain` in BotFather before enabling it; while the
 username cannot be resolved the button is simply not rendered.
 
-Opened as a Telegram Mini App the panel signs in with no button at all: the
-surrounding client hands the page a signed `initData`, which is verified the same
-way under a different key derivation. The attempt is made once; if it is refused
-the screen says so and offers the ordinary methods, rather than retrying the same
-`initData` until the customer closes the app. A Telegram subject that has no
+Opened as a Telegram Mini App the screen shows one button, **Sign in as**, with
+the customer's Telegram name and picture (initials when Telegram has no picture),
+and none of the browser's methods. The surrounding client hands the page a signed
+`initData`; the name and picture are read from it for display only, and pressing
+the button sends the whole string to `POST /v1/account/auth/telegram/miniapp`,
+which verifies it the same way under a different key derivation. If it is refused
+the screen says so and offers the ordinary methods below the message.
+
+In a browser, when the sign-in link below is enabled, Telegram is offered as a
+plain **Sign in with Telegram** button that opens the bot; the widget is then not
+drawn, because two Telegram controls side by side read as two accounts. Without the
+sign-in link the widget is the Telegram route, as above.
+
+The site's front door (`/`) has no page of its own: it sends a signed-in customer
+to the dashboard and anyone else to this screen, and carries `?ref=` from the
+previous bot's links to sign-in. A Telegram subject that has no
 identity row provisions a new customer — unlike the OIDC rule below, because a
 Telegram subject is not an address somebody else can assert, so there is no
 account here to take over.
@@ -241,8 +252,9 @@ the installation must not become an oracle for which Telegram accounts it knows:
 
 ### The sign-in link
 
-An operator-enabled fallback for installations where the widget is not usable.
-The customer sends `/login` to the bot and receives a one-time link, valid for
+Enabled with `APP_CUSTOMER_MAGIC_LINK_ENABLED`, it is what **Sign in with Telegram**
+does in a browser, and it needs no domain bound to the bot, unlike the widget. The
+button opens the bot with `/start login` (or the customer sends `/login` to the bot) and receives a one-time link, valid for
 ten minutes and single-use, capped at five links per hour per account. That cap
 protects the customer rather than the server: without it, repeatedly asking for a
 link is a way to flood somebody else's Telegram chat with sign-in prompts.

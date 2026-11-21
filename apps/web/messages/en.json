@@ -4677,8 +4677,8 @@
       "description": "Use the account you already have. Nothing new to remember.",
       "withProvider": "Continue with {provider}",
       "telegramHint": "Loading the Telegram button…",
-      "magicLinkHint": "The bot sends a one-time link that opens this panel. It works even when the Telegram button does not.",
-      "magicLinkAction": "Sign in through the bot",
+      "magicLinkHint": "Telegram opens the bot, which sends a one-time link that signs you in here.",
+      "magicLinkAction": "Sign in with Telegram",
       "telegramUnavailable": "The Telegram button could not load. That is usually the bot domain not matching this address; sign in through the bot instead.",
       "noMethods": "No sign-in method is configured yet. Contact support.",
       "errors": {
@@ -4712,6 +4712,11 @@
           "rate_limited": "Too many requests. Try again in an hour.",
           "generic": "The e-mail could not be sent. Try again later."
         }
+      },
+      "miniApp": {
+        "as": "Sign in as {name}",
+        "generic": "Sign in with Telegram",
+        "signingIn": "Signing in…"
       }
     },
     "timezone": {

@@ -89,3 +89,45 @@ export function prepareMiniApp(fullscreen: boolean) {
     postMiniAppEvent("web_app_request_fullscreen");
   }
 }
+
+/** Who opened the Mini App, as Telegram's launch data describes them. */
+export type MiniAppUser = {
+  /** First and last name, or the @username when there is no name. */
+  name: string;
+  /** The profile picture Telegram serves from t.me, when the client sent one. */
+  photoUrl?: string;
+};
+
+/**
+ * Reads the customer from a Mini App's initData, for the "Sign in as" button.
+ *
+ * This is display only. The API checks the signature over the whole string
+ * when the button is pressed; nothing here is trusted to sign anybody in.
+ */
+export function miniAppUser(initData: string): MiniAppUser | null {
+  try {
+    const raw = new URLSearchParams(initData).get("user");
+    if (!raw) {
+      return null;
+    }
+    const user = JSON.parse(raw) as {
+      first_name?: string;
+      last_name?: string;
+      username?: string;
+      photo_url?: string;
+    };
+    const name =
+      [user.first_name, user.last_name].filter(Boolean).join(" ").trim() ||
+      (user.username ? `@${user.username}` : "");
+    if (!name) {
+      return null;
+    }
+    const photoUrl =
+      typeof user.photo_url === "string" && user.photo_url.startsWith("https://t.me/")
+        ? user.photo_url
+        : undefined;
+    return { name, photoUrl };
+  } catch {
+    return null;
+  }
+}

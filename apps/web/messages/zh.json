@@ -4585,8 +4585,8 @@
       "description": "使用您已有的账户登录，无需记住任何新信息。",
       "withProvider": "通过 {provider} 继续",
       "telegramHint": "正在加载 Telegram 按钮…",
-      "magicLinkHint": "机器人会发送一个打开此面板的一次性链接。即使 Telegram 按钮无法使用，它也能正常工作。",
-      "magicLinkAction": "通过机器人登录",
+      "magicLinkHint": "将打开机器人，它会发送一个一次性链接，用于在此登录。",
+      "magicLinkAction": "通过 Telegram 登录",
       "telegramUnavailable": "Telegram 按钮无法加载，通常是因为机器人域名与当前地址不一致。请改为通过机器人登录。",
       "noMethods": "尚未配置任何登录方式，请联系客服。",
       "errors": {
@@ -4620,6 +4620,11 @@
           "rate_limited": "请求过于频繁，请一小时后再试。",
           "generic": "邮件无法发送，请稍后再试。"
         }
+      },
+      "miniApp": {
+        "as": "以 {name} 身份登录",
+        "generic": "通过 Telegram 登录",
+        "signingIn": "正在登录…"
       }
     },
     "timezone": {

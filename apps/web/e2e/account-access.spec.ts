@@ -129,12 +129,9 @@ test.describe("customer account access", () => {
     }
   });
 
-  test("the landing page leads into the account", async ({ page }) => {
+  test("the front door goes straight to the account", async ({ page }) => {
+    // No landing page in between: a signed-out visitor is on sign-in at once.
     await page.goto("/");
-    const link = page
-      .getByRole("link")
-      .filter({ hasText: /account|кабинет/i })
-      .first();
-    await expect(link).toHaveAttribute("href", "/account");
+    await expect(page).toHaveURL(/\/account\/sign-in/);
   });
 });

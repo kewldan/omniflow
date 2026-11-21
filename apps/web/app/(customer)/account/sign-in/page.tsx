@@ -15,6 +15,7 @@ import { useBrandName } from "@/components/brand-name";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 import { rememberReferralCode } from "@/lib/referral";
 import { safeNext } from "@/lib/sign-in-path";
+import { type MiniAppUser, miniAppUser } from "@/lib/telegram-miniapp";
 
 type SignInMethods = {
   telegram: boolean;
@@ -49,11 +50,15 @@ export default function SignInPage() {
   const [busy, setBusy] = useState(false);
   const [widgetFailed, setWidgetFailed] = useState(false);
   const [miniAppFailed, setMiniAppFailed] = useState(false);
-  // One attempt per page. The effect below used to re-run whenever `busy`
-  // dropped back to false, which on a refused sign-in meant an unbounded loop
-  // of POSTs against the same initData; the ref makes the first attempt the
-  // only one, and a failure falls through to the other sign-in methods.
-  const miniAppAttempted = useRef(false);
+  // Where the screen was opened: unknown until the first effect runs, then a
+  // browser or a Telegram Mini App with the launch data it was handed. The
+  // methods are not drawn while it is unknown, so a Mini App never flashes
+  // the browser's sign-in methods before its own button.
+  const [opened, setOpened] = useState<
+    | { in: "pending" }
+    | { in: "web" }
+    | { in: "miniapp"; initData: string; user: MiniAppUser | null }
+  >({ in: "pending" });
 
   const reason = search.get("error");
   // Where to go once signed in. The shell and the re-authentication screens
@@ -68,15 +73,15 @@ export default function SignInPage() {
     rememberReferralCode(search.get("ref"));
   }, [search]);
 
-  // Opened inside Telegram, the surrounding client has already signed the
-  // customer's identity, so the widget is unnecessary and this signs in
-  // immediately. Outside Telegram the global is absent and nothing happens.
+  // Inside Telegram the client has already signed who the customer is, so
+  // the screen offers one button: sign in as that person. Outside Telegram
+  // the launch data is absent and the browser's methods are shown.
   useEffect(() => {
     const initData = readMiniAppInitData();
-    if (!initData || miniAppAttempted.current) {
-      return;
-    }
-    miniAppAttempted.current = true;
+    setOpened(initData ? { in: "miniapp", initData, user: miniAppUser(initData) } : { in: "web" });
+  }, []);
+
+  function signInWithMiniApp(initData: string) {
     setBusy(true);
     apiFetch("/v1/account/auth/telegram/miniapp", {
       body: JSON.stringify({ initData }),
@@ -84,10 +89,11 @@ export default function SignInPage() {
     })
       .then(() => router.replace(next))
       .catch(() => {
+        // A refusal is said once, and the browser's methods appear below it.
         setMiniAppFailed(true);
         setBusy(false);
       });
-  }, [next, router]);
+  }
 
   const botRoute = data?.magicLink && data.telegramBot ? data.telegramBot : undefined;
 
@@ -128,14 +134,43 @@ export default function SignInPage() {
         </p>
       )}
 
-      {isLoading ? (
+      {opened.in === "miniapp" && !miniAppFailed ? (
+        <MiniAppSignIn
+          busy={busy}
+          onSignIn={() => signInWithMiniApp(opened.initData)}
+          user={opened.user}
+        />
+      ) : isLoading || opened.in === "pending" ? (
         <div className="space-y-3">
           <Skeleton className="h-11 w-full rounded-md" />
           <Skeleton className="h-11 w-full rounded-md" />
         </div>
       ) : (
         <div className="space-y-3">
-          {data?.telegram && data.telegramBot && (
+          {/* Telegram first, as a plain button: it opens the bot, which sends a
+              one-time link back. It needs no domain bound to the bot, so it
+              works where the widget cannot load. */}
+          {botRoute && (
+            <div className="space-y-2">
+              <Button asChild className="w-full" size="lg">
+                <a
+                  href={`https://t.me/${botRoute}?start=login`}
+                  rel="noreferrer noopener"
+                  target="_blank"
+                >
+                  <Send aria-hidden className="size-4" />
+                  {translate("signIn.magicLinkAction")}
+                </a>
+              </Button>
+              <p className="text-[12.5px] text-muted-foreground leading-relaxed">
+                {translate("signIn.magicLinkHint")}
+              </p>
+            </div>
+          )}
+
+          {/* The widget only where the bot route is not offered: two Telegram
+              controls side by side read as two different accounts. */}
+          {!botRoute && data?.telegram && data.telegramBot && (
             <TelegramButton
               botUsername={data.telegramBot}
               disabled={busy}
@@ -168,27 +203,6 @@ export default function SignInPage() {
             </Button>
           ))}
 
-          {/* The bot route as a control. `?start=login` opens the chat with the
-              command already staged, so the customer taps twice rather than
-              typing a command they have to be told about. */}
-          {botRoute && (
-            <div className="space-y-2">
-              <Button asChild className="w-full" size="lg" variant="outline">
-                <a
-                  href={`https://t.me/${botRoute}?start=login`}
-                  rel="noreferrer noopener"
-                  target="_blank"
-                >
-                  <Send aria-hidden className="size-4" />
-                  {translate("signIn.magicLinkAction")}
-                </a>
-              </Button>
-              <p className="text-[12.5px] text-muted-foreground leading-relaxed">
-                {translate("signIn.magicLinkHint")}
-              </p>
-            </div>
-          )}
-
           {/* Magic link without a known bot name is the one case that still has
               to be described rather than offered. */}
           {data?.magicLink && !botRoute && (
@@ -210,6 +224,77 @@ export default function SignInPage() {
         </div>
       )}
     </main>
+  );
+}
+
+/**
+ * The Mini App's sign-in: one button naming the person Telegram says opened
+ * it, with their picture. Pressing it sends the signed launch data, which the
+ * API verifies before a session exists.
+ */
+function MiniAppSignIn({
+  busy,
+  onSignIn,
+  user,
+}: {
+  busy: boolean;
+  onSignIn: () => void;
+  user: MiniAppUser | null;
+}) {
+  const translate = useTranslations("account");
+  const [pictureFailed, setPictureFailed] = useState(false);
+  const initials = (user?.name ?? "")
+    .replace(/^@/, "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+  return (
+    <Button
+      className="h-14 w-full justify-start gap-3 px-4"
+      disabled={busy}
+      onClick={onSignIn}
+      size="lg"
+    >
+      {user ? (
+        user.photoUrl && !pictureFailed ? (
+          // biome-ignore lint/performance/noImgElement: Telegram's own picture URL, shown once on this screen
+          <img
+            alt=""
+            className="size-9 shrink-0 rounded-full object-cover"
+            height={36}
+            onError={() => setPictureFailed(true)}
+            // Telegram answers a picture it does not have with a 1×1 image,
+            // which would draw an empty circle; initials read better.
+            onLoad={(event) => {
+              if (event.currentTarget.naturalWidth < 2) {
+                setPictureFailed(true);
+              }
+            }}
+            referrerPolicy="no-referrer"
+            src={user.photoUrl}
+            width={36}
+          />
+        ) : (
+          <span
+            aria-hidden
+            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-background/20 font-semibold text-sm"
+          >
+            {initials || <Send className="size-4" />}
+          </span>
+        )
+      ) : (
+        <Send aria-hidden className="size-4" />
+      )}
+      <span className="truncate text-left">
+        {busy
+          ? translate("signIn.miniApp.signingIn")
+          : user
+            ? translate("signIn.miniApp.as", { name: user.name })
+            : translate("signIn.miniApp.generic")}
+      </span>
+    </Button>
   );
 }
 
