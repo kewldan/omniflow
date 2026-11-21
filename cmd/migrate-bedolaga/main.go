@@ -235,7 +235,8 @@ func readMapping(path string) (bedolagaimport.Mapping, error) {
 func writeApply(stdout io.Writer, result bedolagaimportpg.ApplyResult) {
 	result.Plan.WriteText(stdout)
 	_, _ = fmt.Fprintf(stdout, "\nApply run %s\n", result.RunID)
-	for _, kind := range []string{bedolagaimport.KindUser, "balance", bedolagaimport.KindSubscription, bedolagaimport.KindReferral, "trial", "period", "payment", "discount", "referral_code"} {
+	for _, kind := range []string{bedolagaimport.KindUser, "balance", bedolagaimport.KindSubscription, bedolagaimport.KindReferral, "trial", "period", "payment", "discount", "referral_code",
+		"campaign", "campaign_registration", "stars_order", "page", "ticket", "consent"} {
 		_, _ = fmt.Fprintf(stdout, "  written %-13s %d\n", kind+":", result.Written[kind])
 	}
 	if len(result.Failures) > 0 {
