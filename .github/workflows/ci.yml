@@ -38,6 +38,20 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.5
+      # setup-bun caches only the bun binary, not the packages it installs.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      # Lets `next build` reuse what it compiled last time instead of starting
+      # from scratch. The output is the same, so the bundle budget still reads
+      # a real build.
+      - uses: actions/cache@v6
+        with:
+          path: apps/web/.next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('apps/web/**', '!apps/web/.next/**', '!apps/web/node_modules/**') }}
+          restore-keys: next-${{ runner.os }}-${{ hashFiles('bun.lock') }}-
       - run: bun ci
       - run: bun run generate:api
       - run: git diff --exit-code
@@ -158,6 +172,22 @@ jobs:
           curl -fsS -X POST http://127.0.0.1:8080/v1/panel/bootstrap \
             -H 'Content-Type: application/json' \
             -d "{\"setupToken\":\"$TOKEN\",\"email\":\"e2e@omniflow.test\",\"displayName\":\"E2E Operator\",\"password\":\"e2e-operator-passphrase-2026\",\"locale\":\"en\"}"
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+      - uses: actions/cache@v6
+        with:
+          path: apps/web/.next/cache
+          key: next-${{ runner.os }}-${{ hashFiles('bun.lock') }}-${{ hashFiles('apps/web/**', '!apps/web/.next/**', '!apps/web/node_modules/**') }}
+          restore-keys: next-${{ runner.os }}-${{ hashFiles('bun.lock') }}-
+      # The browser binaries follow the Playwright version, which the lockfile
+      # pins. `--with-deps` still installs the system libraries every run.
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
       - run: bun ci
       # The suite runs against a production build rather than the dev server:
       # Next.js behaves differently in development, and a gate that passes
@@ -255,9 +285,24 @@ jobs:
       - name: The database lands in the volume operators back up
         run: sh tools/volume-drill.sh
 
+      # Bake builds the same compose targets as `docker compose build`, and
+      # unlike it can keep their layers in the Actions cache, one scope per
+      # service. `source: .` reads the checkout, where the .env seeded above
+      # lives, instead of a fresh Git context without it.
+      - uses: docker/setup-buildx-action@v4
       - name: Build the images the stack runs
-        run: |
-          docker compose -f compose.yaml build api bot worker
+        uses: docker/bake-action@v7
+        with:
+          source: .
+          files: compose.yaml
+          targets: api,bot,worker
+          set: |
+            api.cache-from=type=gha,scope=compose-api
+            api.cache-to=type=gha,mode=max,scope=compose-api
+            bot.cache-from=type=gha,scope=compose-bot
+            bot.cache-to=type=gha,mode=max,scope=compose-bot
+            worker.cache-from=type=gha,scope=compose-worker
+            worker.cache-to=type=gha,mode=max,scope=compose-worker
 
   docs:
     name: Mintlify docs
