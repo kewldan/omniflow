@@ -3,6 +3,7 @@ package botapp
 import (
 	"encoding/json"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/go-telegram/bot/models"
@@ -175,6 +176,10 @@ type MenuPreviewButton struct {
 	// Kind is "screen" for a bot screen, "url" for a link, "webapp" for a Mini
 	// App.
 	Kind string `json:"kind"`
+	// Style and Emoji are the operator's colour and custom emoji, as the
+	// bot would send them.
+	Style string `json:"style,omitempty"`
+	Emoji string `json:"emoji,omitempty"`
 }
 
 // PreviewMainMenu renders the main menu a bot section document would produce,
@@ -193,7 +198,10 @@ func PreviewMainMenu(section installsettings.Document, language string) [][]Menu
 	for _, buttons := range rows {
 		line := make([]MenuPreviewButton, 0, len(buttons))
 		for _, button := range buttons {
-			item := MenuPreviewButton{Key: menuEntryKey(button), Label: button.Text, Kind: "screen"}
+			item := MenuPreviewButton{
+				Key: previewKey(custom, button), Label: button.Text, Kind: "screen",
+				Style: button.Style, Emoji: button.IconCustomEmojiID,
+			}
 			switch {
 			case button.WebApp != nil:
 				item.Kind = "webapp"
@@ -206,6 +214,29 @@ func PreviewMainMenu(section installsettings.Document, language string) [][]Menu
 		preview = append(preview, line)
 	}
 	return preview
+}
+
+// previewKey names a preview button by the key a layout or a style places it
+// with. Built-in buttons carry it in their route; the Mini App and the
+// operator's own buttons carry none, so they are recognised by their links —
+// without this the editor could neither move nor colour them.
+func previewKey(custom customization, button models.InlineKeyboardButton) string {
+	if key := menuEntryKey(button); key != "" {
+		return key
+	}
+	link := button.URL
+	if button.WebApp != nil {
+		link = button.WebApp.URL
+		if link == custom.miniApp {
+			return MenuEntryCabinet
+		}
+	}
+	for index, own := range custom.buttons {
+		if own.URL == link && (own.Kind == "webapp") == (button.WebApp != nil) {
+			return MenuEntryCustomPrefix + strconv.Itoa(index)
+		}
+	}
+	return ""
 }
 
 // previewLabel applies the draft's override of a built-in entry's label.

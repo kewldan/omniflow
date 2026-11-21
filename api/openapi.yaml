@@ -2017,8 +2017,8 @@ paths:
       tags: [panel]
       description: >-
         Requires settings.read. Renders the bot's main menu from an unsaved bot
-        section document — its `menuLayout`, `hiddenMenu`, custom `buttons`,
-        `miniAppUrl`, `cabinetOnly`, and `texts` — with the bot's own menu code,
+        section document — its `menuLayout`, `menuStyles`, `hiddenMenu`, custom
+        `buttons`, `miniAppUrl`, `cabinetOnly`, and `texts` — with the bot's own menu code,
         for a customer who can see every optional entry. Nothing is saved;
         saving goes through `PUT /v1/panel/settings/bot`. `entries` lists the
         built-in keys a layout may place, besides `custom:<n>` for the n-th
@@ -2051,9 +2051,11 @@ paths:
                         type: object
                         required: [key, label, kind]
                         properties:
-                          key: {type: string}
+                          key: {type: string, description: "The layout and style key; `cabinet` for the Mini App button, `custom:<n>` for the n-th custom button, empty for the fixed restore button."}
                           label: {type: string}
                           kind: {type: string, enum: [screen, url, webapp]}
+                          style: {type: string, enum: [primary, success, danger], description: "The Bot API colour the button is sent with. Absent for Telegram's default."}
+                          emoji: {type: string, description: "The custom emoji identifier the button is sent with."}
                   entries: {type: array, items: {type: string}}
         "403": {$ref: "#/components/responses/Problem"}
   /v1/panel/codes/batches:

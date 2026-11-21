@@ -3829,7 +3829,10 @@
           "settings": "Settings",
           "open": "Open",
           "invite": "By invitation",
-          "closed": "Closed"
+          "closed": "Closed",
+          "uk": "Ukrainian",
+          "zh": "Chinese",
+          "fa": "Persian"
         },
         "botLanguages": "Languages offered (none selected means both)",
         "filterDisplayNames": "Filter dangerous display names",
@@ -4535,7 +4538,7 @@
       "moveDown": "Move {entry} down a row",
       "hint": "Up to three buttons per row. Entries you hide stay hidden; entries that appear only when usable (top-up, cart, shop, offers) take their place when they do. The restore button stays first and Refresh stays last.",
       "save": "Save layout",
-      "reset": "Restore the shipped layout",
+      "reset": "Restore the shipped layout and colours",
       "saved": "Layout saved",
       "saveFailed": "Not saved — reload if somebody else changed the bot section",
       "preview": "Preview",
@@ -4549,6 +4552,17 @@
       "kinds": {
         "url": "Opens a link",
         "webapp": "Opens a Mini App"
+      },
+      "colourFor": "Colour of {entry}",
+      "emojiFor": "Custom emoji of {entry}",
+      "emojiPlaceholder": "Custom emoji id",
+      "emojiMark": "custom emoji",
+      "emojiHint": "Colours work in every bot. A custom emoji is shown only if the bot owner has Telegram Premium or the bot has an extra username bought on Fragment — otherwise Telegram refuses the menu, so leave it empty unless you are sure.",
+      "colours": {
+        "default": "Default",
+        "primary": "Blue",
+        "success": "Green",
+        "danger": "Red"
       }
     }
   },

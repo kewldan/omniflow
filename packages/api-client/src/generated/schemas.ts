@@ -5361,7 +5361,7 @@ export const ApplyPanelSubscriptionSyncResponse = zod.object({
 });
 
 /**
- * Requires settings.read. Renders the bot's main menu from an unsaved bot section document — its `menuLayout`, `hiddenMenu`, custom `buttons`, `miniAppUrl`, `cabinetOnly`, and `texts` — with the bot's own menu code, for a customer who can see every optional entry. Nothing is saved; saving goes through `PUT /v1/panel/settings/bot`. `entries` lists the built-in keys a layout may place, besides `custom:<n>` for the n-th custom button.
+ * Requires settings.read. Renders the bot's main menu from an unsaved bot section document — its `menuLayout`, `menuStyles`, `hiddenMenu`, custom `buttons`, `miniAppUrl`, `cabinetOnly`, and `texts` — with the bot's own menu code, for a customer who can see every optional entry. Nothing is saved; saving goes through `PUT /v1/panel/settings/bot`. `entries` lists the built-in keys a layout may place, besides `custom:<n>` for the n-th custom button.
  */
 export const PreviewPanelBotMenuHeader = zod.object({
   "X-CSRF-Token": zod
@@ -5378,9 +5378,21 @@ export const PreviewPanelBotMenuResponse = zod.object({
   rows: zod.array(
     zod.array(
       zod.object({
-        key: zod.string(),
+        key: zod
+          .string()
+          .describe(
+            "The layout and style key; `cabinet` for the Mini App button, `custom:<n>` for the n-th custom button, empty for the fixed restore button.",
+          ),
         label: zod.string(),
         kind: zod.enum(["screen", "url", "webapp"]),
+        style: zod
+          .enum(["primary", "success", "danger"])
+          .optional()
+          .describe("The Bot API colour the button is sent with. Absent for Telegram's default."),
+        emoji: zod
+          .string()
+          .optional()
+          .describe("The custom emoji identifier the button is sent with."),
       }),
     ),
   ),

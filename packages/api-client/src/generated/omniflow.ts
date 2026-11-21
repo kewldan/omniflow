@@ -6955,10 +6955,27 @@ export const PreviewPanelBotMenu200RowsItemItemKind = {
   webapp: "webapp",
 } as const;
 
+/**
+ * The Bot API colour the button is sent with. Absent for Telegram's default.
+ */
+export type PreviewPanelBotMenu200RowsItemItemStyle =
+  (typeof PreviewPanelBotMenu200RowsItemItemStyle)[keyof typeof PreviewPanelBotMenu200RowsItemItemStyle];
+
+export const PreviewPanelBotMenu200RowsItemItemStyle = {
+  primary: "primary",
+  success: "success",
+  danger: "danger",
+} as const;
+
 export type PreviewPanelBotMenu200RowsItemItem = {
+  /** The layout and style key; `cabinet` for the Mini App button, `custom:<n>` for the n-th custom button, empty for the fixed restore button. */
   key: string;
   label: string;
   kind: PreviewPanelBotMenu200RowsItemItemKind;
+  /** The Bot API colour the button is sent with. Absent for Telegram's default. */
+  style?: PreviewPanelBotMenu200RowsItemItemStyle;
+  /** The custom emoji identifier the button is sent with. */
+  emoji?: string;
 };
 
 export type PreviewPanelBotMenu200 = {
@@ -21571,7 +21588,7 @@ export const getPreviewPanelBotMenuUrl = () => {
 };
 
 /**
- * Requires settings.read. Renders the bot's main menu from an unsaved bot section document — its `menuLayout`, `hiddenMenu`, custom `buttons`, `miniAppUrl`, `cabinetOnly`, and `texts` — with the bot's own menu code, for a customer who can see every optional entry. Nothing is saved; saving goes through `PUT /v1/panel/settings/bot`. `entries` lists the built-in keys a layout may place, besides `custom:<n>` for the n-th custom button.
+ * Requires settings.read. Renders the bot's main menu from an unsaved bot section document — its `menuLayout`, `menuStyles`, `hiddenMenu`, custom `buttons`, `miniAppUrl`, `cabinetOnly`, and `texts` — with the bot's own menu code, for a customer who can see every optional entry. Nothing is saved; saving goes through `PUT /v1/panel/settings/bot`. `entries` lists the built-in keys a layout may place, besides `custom:<n>` for the n-th custom button.
  */
 export const previewPanelBotMenu = async (
   previewPanelBotMenuBody: PreviewPanelBotMenuBody,

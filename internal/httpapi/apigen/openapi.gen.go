@@ -1387,19 +1387,19 @@ func (e AuditEventActorType) Valid() bool {
 
 // Defines values for AuditOutcome.
 const (
-	Denied  AuditOutcome = "denied"
-	Failure AuditOutcome = "failure"
-	Success AuditOutcome = "success"
+	AuditOutcomeDenied  AuditOutcome = "denied"
+	AuditOutcomeFailure AuditOutcome = "failure"
+	AuditOutcomeSuccess AuditOutcome = "success"
 )
 
 // Valid indicates whether the value is a known member of the AuditOutcome enum.
 func (e AuditOutcome) Valid() bool {
 	switch e {
-	case Denied:
+	case AuditOutcomeDenied:
 		return true
-	case Failure:
+	case AuditOutcomeFailure:
 		return true
-	case Success:
+	case AuditOutcomeSuccess:
 		return true
 	default:
 		return false
@@ -5207,6 +5207,27 @@ func (e PreviewPanelBotMenu200JSONResponseBodyRowsKind) Valid() bool {
 	case Url:
 		return true
 	case Webapp:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PreviewPanelBotMenu200JSONResponseBodyRowsStyle.
+const (
+	PreviewPanelBotMenu200JSONResponseBodyRowsStyleDanger  PreviewPanelBotMenu200JSONResponseBodyRowsStyle = "danger"
+	PreviewPanelBotMenu200JSONResponseBodyRowsStylePrimary PreviewPanelBotMenu200JSONResponseBodyRowsStyle = "primary"
+	PreviewPanelBotMenu200JSONResponseBodyRowsStyleSuccess PreviewPanelBotMenu200JSONResponseBodyRowsStyle = "success"
+)
+
+// Valid indicates whether the value is a known member of the PreviewPanelBotMenu200JSONResponseBodyRowsStyle enum.
+func (e PreviewPanelBotMenu200JSONResponseBodyRowsStyle) Valid() bool {
+	switch e {
+	case PreviewPanelBotMenu200JSONResponseBodyRowsStyleDanger:
+		return true
+	case PreviewPanelBotMenu200JSONResponseBodyRowsStylePrimary:
+		return true
+	case PreviewPanelBotMenu200JSONResponseBodyRowsStyleSuccess:
 		return true
 	default:
 		return false
@@ -12187,6 +12208,9 @@ type PreviewPanelBotMenuJSONBodyLocale string
 
 // PreviewPanelBotMenu200JSONResponseBodyRowsKind defines parameters for PreviewPanelBotMenu.
 type PreviewPanelBotMenu200JSONResponseBodyRowsKind string
+
+// PreviewPanelBotMenu200JSONResponseBodyRowsStyle defines parameters for PreviewPanelBotMenu.
+type PreviewPanelBotMenu200JSONResponseBodyRowsStyle string
 
 // ListPanelBulkOperationsParams defines parameters for ListPanelBulkOperations.
 type ListPanelBulkOperationsParams struct {
@@ -44913,9 +44937,16 @@ type PreviewPanelBotMenuResponseObject interface {
 type PreviewPanelBotMenu200JSONResponse struct {
 	Entries []string `json:"entries"`
 	Rows    [][]struct {
+		// Emoji The custom emoji identifier the button is sent with.
+		Emoji *string `json:"emoji,omitempty"`
+
+		// Key The layout and style key; `cabinet` for the Mini App button, `custom:<n>` for the n-th custom button, empty for the fixed restore button.
 		Key   string                                         `json:"key"`
 		Kind  PreviewPanelBotMenu200JSONResponseBodyRowsKind `json:"kind"`
 		Label string                                         `json:"label"`
+
+		// Style The Bot API colour the button is sent with. Absent for Telegram's default.
+		Style *PreviewPanelBotMenu200JSONResponseBodyRowsStyle `json:"style,omitempty"`
 	} `json:"rows"`
 }
 

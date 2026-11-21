@@ -52,6 +52,11 @@ All of this is on `/admin/settings/integrations` and applies within a minute, wi
 - **Main menu layout.** The **Main menu layout** card reorders the menu row by row, up to three
   buttons per row, with a live preview drawn by the bot's own menu code. `hiddenMenu` hides
   built-in entries you do not use.
+- **Button colours.** The same card gives every entry, your own buttons and the Mini App button
+  included, a Telegram colour — blue, green, or red — and optionally a custom emoji shown before
+  the label (`menuStyles`). Colours work in every bot. A custom emoji shows only if the bot's owner
+  has Telegram Premium or the bot has an extra username bought on Fragment; otherwise Telegram
+  refuses the whole menu, so leave the emoji empty unless you are sure.
 - **Custom buttons.** The **Bot menu and wording** card adds your own menu buttons that open an
   `https` link or a Mini App.
 - **Welcome.** The marketing section holds a welcome text sent once on a customer's first `/start`

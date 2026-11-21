@@ -3737,7 +3737,10 @@
           "settings": "设置",
           "open": "开放",
           "invite": "仅限邀请",
-          "closed": "关闭"
+          "closed": "关闭",
+          "uk": "乌克兰语",
+          "zh": "中文",
+          "fa": "波斯语"
         },
         "botLanguages": "提供的语言（未选择则两种都提供）",
         "filterDisplayNames": "过滤危险的显示名称",
@@ -4443,7 +4446,7 @@
       "moveDown": "将 {entry} 下移一行",
       "hint": "每行最多三个按钮。已隐藏的菜单项保持隐藏；仅在可用时出现的菜单项（充值、购物车、商店、优惠）出现时会占据其位置。恢复按钮始终在最前，“刷新”始终在最后。",
       "save": "保存布局",
-      "reset": "恢复默认布局",
+      "reset": "恢复默认布局和颜色",
       "saved": "布局已保存",
       "saveFailed": "未保存：如果他人修改了机器人设置，请重新加载",
       "preview": "预览",
@@ -4457,6 +4460,17 @@
       "kinds": {
         "url": "打开链接",
         "webapp": "打开小程序（Mini App）"
+      },
+      "colourFor": "“{entry}”的颜色",
+      "emojiFor": "“{entry}”的自定义表情",
+      "emojiPlaceholder": "自定义表情 ID",
+      "emojiMark": "自定义表情",
+      "emojiHint": "颜色适用于所有机器人。只有当机器人所有者拥有 Telegram Premium，或机器人在 Fragment 上购买了附加用户名时，才会显示自定义表情——否则 Telegram 会拒绝整个菜单，因此不确定时请留空。",
+      "colours": {
+        "default": "默认",
+        "primary": "蓝色",
+        "success": "绿色",
+        "danger": "红色"
       }
     }
   },

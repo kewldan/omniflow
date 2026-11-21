@@ -35,6 +35,9 @@ type customization struct {
 	// layout is the operator's main-menu arrangement: rows of entry keys.
 	// Empty keeps the shipped arrangement.
 	layout [][]string
+	// styles colour main-menu buttons by entry key. Empty keeps Telegram's
+	// default look.
+	styles map[string]MenuStyle
 }
 
 var currentCustomization atomic.Pointer[customization]
@@ -98,6 +101,7 @@ func parseCustomization(section installsettings.Document) customization {
 	}
 	next.cabinetOnly = section.Bool("cabinetOnly", false) && next.miniApp != ""
 	next.layout = parseMenuLayout(section["menuLayout"])
+	next.styles = parseMenuStyles(section["menuStyles"])
 	return next
 }
 
@@ -122,9 +126,15 @@ func customizeMenu(locale Locale, rows [][]models.InlineKeyboardButton) [][]mode
 
 // customizeMenuWith is customizeMenu for a given customization.
 func customizeMenuWith(custom customization, locale Locale, rows [][]models.InlineKeyboardButton) [][]models.InlineKeyboardButton {
+	return styleMenu(custom.styles, arrangeCustomMenu(custom, locale, rows))
+}
+
+// arrangeCustomMenu applies everything but the styles of built-in buttons,
+// which styleMenu adds to the finished menu.
+func arrangeCustomMenu(custom customization, locale Locale, rows [][]models.InlineKeyboardButton) [][]models.InlineKeyboardButton {
 	if custom.cabinetOnly {
 		return [][]models.InlineKeyboardButton{
-			row(miniAppButton(locale, custom.miniApp)),
+			row(styleButton(custom.styles, MenuEntryCabinet, miniAppButton(locale, custom.miniApp))),
 			row(callbackButton(text(locale, "menu.support"), routeSupport), callbackButton(text(locale, "action.refresh"), routeHome)),
 		}
 	}
@@ -147,20 +157,21 @@ func customizeMenuWith(custom customization, locale Locale, rows [][]models.Inli
 	var extra [][]models.InlineKeyboardButton
 	var extraKeys []string
 	if custom.miniApp != "" {
-		extra = append(extra, row(miniAppButton(locale, custom.miniApp)))
+		extra = append(extra, row(styleButton(custom.styles, MenuEntryCabinet, miniAppButton(locale, custom.miniApp))))
 		extraKeys = append(extraKeys, MenuEntryCabinet)
 	}
 	for index, button := range custom.buttons {
-		extraKeys = append(extraKeys, MenuEntryCustomPrefix+strconv.Itoa(index))
+		key := MenuEntryCustomPrefix + strconv.Itoa(index)
+		extraKeys = append(extraKeys, key)
 		label := button.LabelEN
 		if locale == LocaleRussian && button.LabelRU != "" || label == "" {
 			label = button.LabelRU
 		}
+		built := models.InlineKeyboardButton{Text: label, URL: button.URL}
 		if button.Kind == "webapp" {
-			extra = append(extra, row(models.InlineKeyboardButton{Text: label, WebApp: &models.WebAppInfo{URL: button.URL}}))
-		} else {
-			extra = append(extra, row(models.InlineKeyboardButton{Text: label, URL: button.URL}))
+			built = models.InlineKeyboardButton{Text: label, WebApp: &models.WebAppInfo{URL: button.URL}}
 		}
+		extra = append(extra, row(styleButton(custom.styles, key, built)))
 	}
 	if len(custom.layout) > 0 {
 		return arrangeMenu(custom.layout, rows, extra, extraKeys)
