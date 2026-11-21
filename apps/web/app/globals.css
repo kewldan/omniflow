@@ -27,3 +27,12 @@ html[data-miniapp="fullscreen"] {
 html[data-miniapp="fullscreen"] body {
   padding-top: var(--miniapp-top);
 }
+
+/* Sidebar icon animations are drawn in black; they take the entry's text
+   colour, as the static icons do. */
+.nav-lottie svg path[stroke]:not([stroke="none"]) {
+  stroke: currentColor;
+}
+.nav-lottie svg path[fill]:not([fill="none"]) {
+  fill: currentColor;
+}

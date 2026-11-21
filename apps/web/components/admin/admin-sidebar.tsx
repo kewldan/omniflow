@@ -6,11 +6,37 @@ import { ScrollArea } from "@omniflow/ui/scroll-area";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useState } from "react";
 import useSWR from "swr";
 
+import { NavIcon } from "@/components/admin/nav-icon";
 import { fetcher } from "@/lib/api";
 import { NAVIGATION, NAVIGATION_ITEMS } from "@/lib/navigation";
 import { useSession } from "@/lib/session";
+
+/** Entries that have an animation under /lottie/sidebar. */
+const SIDEBAR_ANIMATIONS = new Set([
+  "dashboard",
+  "customers",
+  "finance",
+  "payouts",
+  "reports",
+  "traffic",
+  "catalog",
+  "shop",
+  "gifts",
+  "offers",
+  "support",
+  "content",
+  "marketing",
+  "risk",
+  "operators",
+  "audit",
+  "system",
+  "settings",
+  "aiSettings",
+  "security",
+]);
 
 /**
  * Primary navigation.
@@ -23,6 +49,8 @@ export function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const translate = useTranslations("admin");
   const { can } = useSession();
+  // How many times each entry has been hovered; every change plays its icon.
+  const [plays, setPlays] = useState<Record<string, number>>({});
   // What waits on an operator in each area, beside its entry. Refreshed every
   // minute and on returning to the tab, so a new ticket shows without a reload.
   const { data: counts } = useSWR<Record<string, number>>(
@@ -90,8 +118,15 @@ export function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
                           )}
                           href={item.href}
                           onClick={onNavigate}
+                          onMouseEnter={() =>
+                            setPlays((all) => ({ ...all, [item.key]: (all[item.key] ?? 0) + 1 }))
+                          }
                         >
-                          <Icon aria-hidden="true" className="size-4 shrink-0" />
+                          <NavIcon
+                            animation={SIDEBAR_ANIMATIONS.has(item.key) ? item.key : undefined}
+                            icon={Icon}
+                            play={plays[item.key] ?? 0}
+                          />
                           <span className="truncate">{label}</span>
                           {(counts?.[item.key] ?? 0) > 0 && (
                             <>
