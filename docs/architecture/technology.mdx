@@ -13,7 +13,7 @@ are load-bearing and which are merely current.
 | Layer | Technology |
 | --- | --- |
 | Backend | Go 1.27, chi v5, pgx v5, sqlc, River v0.51 |
-| Data | PostgreSQL 18, Atlas, Valkey 9 |
+| Data | PostgreSQL 19, Atlas, Valkey 9 |
 | Contract | OpenAPI 3.0.3, oapi-codegen, Orval |
 | Frontend | One Next.js 16.4 app, React 19, TypeScript 7, SWR, Zustand, Tailwind v4, shadcn/ui |
 | Forms and validation | React Hook Form, Zod |
@@ -68,7 +68,7 @@ produced only by `atlas migrate hash` and is never hand-edited: a checksum misma
 changed, not that the file is stale.
 
 CI applies every committed migration from several baselines up to head and proves that re-applying head
-changes nothing, and the integration suite applies them into a Testcontainers PostgreSQL 18.4. See
+changes nothing, and the integration suite applies them into a Testcontainers PostgreSQL 19.0. See
 [Database](/contributing/database).
 
 ## River for durable work
@@ -96,12 +96,11 @@ installation, so the worker can run as several replicas. Only loops that touch t
 `time.Ticker`. Both are inventoried in
 [Jobs and queues](/operations/jobs-and-queues#periodic-passes-and-in-process-loops).
 
-## PostgreSQL 18 and Valkey 9
+## PostgreSQL 19 and Valkey 9
 
-PostgreSQL is the only durable source of truth. The compose stack pins `postgres:18.7-alpine`, and the
-`bot` and `worker` images carry `postgresql18-client` so `pg_dump` and `pg_restore` match the server's
-major version — the Dockerfile warns against lowering the Alpine base below 3.23, which is the first
-release carrying that package.
+PostgreSQL is the only durable source of truth. The compose stack pins `postgres:19.0-alpine`, and the
+`bot` and `worker` images carry `pg_dump` and `pg_restore` copied from the same PostgreSQL 19 image so
+they match the server's major version — Alpine has no `postgresql19-client` package.
 
 Valkey (`valkey/valkey:9.2.0-alpine`) is used for rate-limit counters, single-use replay tokens, locks,
 and cache, and is run with `--save "" --appendonly no`. Persistence is switched off deliberately: nothing

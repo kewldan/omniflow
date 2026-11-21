@@ -84,7 +84,7 @@ APP_BACKUP_RETENTION_DAYS=14
   a database that loads and whose sealed values will not open.
 </Warning>
 
-The bot and worker images ship the matching PostgreSQL 18 client tools. In the compose
+The bot and worker images ship the matching PostgreSQL 19 client tools. In the compose
 stack both mount a shared `backup-data` volume at `/var/lib/omniflow/backups`, so
 rebuilding a container never discards backups.
 
@@ -316,7 +316,7 @@ is trusted.
 
 ## Upgrading PostgreSQL
 
-Omniflow supports PostgreSQL 18. To move between major versions:
+Omniflow supports PostgreSQL 19. To move between major versions:
 
 1. Stop `api`, `bot`, and `worker`; leave `postgres` running.
 2. Take a backup and verify it.
@@ -327,7 +327,7 @@ Omniflow supports PostgreSQL 18. To move between major versions:
 Do not point a new PostgreSQL major version at an old data directory. `pg_upgrade` is the
 alternative if you prefer an in-place upgrade, but the dump-and-restore path is the one
 this backup format is designed for. Remember that `pg_dump` and `pg_restore` must match
-the server major version; the shipped images pin the PostgreSQL 18 client tools for
+the server major version; the shipped images pin the PostgreSQL 19 client tools for
 exactly this reason.
 
 ## Disaster-recovery drill

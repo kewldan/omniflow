@@ -27,7 +27,7 @@ tooling.
   «Остаток паритета с Bedolaga»: QR payment in the bot, Overpay INT, Overpay
   `.p12` upload, embedded payment forms, ban-system, Abuse API, ABAC, a log
   viewer, bot button styles, a live menu editor. Do not start one unasked.
-- Targets: Remnawave 3.4.x API, PostgreSQL 18, Valkey 9, Go with River jobs,
+- Targets: Remnawave 3.4.x API, PostgreSQL 19, Valkey 9, Go with River jobs,
   Next.js 16 with next-intl.
 - Exists in code but not reachable from any screen yet — say so instead of
   documenting it as working: AI drafting, copilot, and the MCP server

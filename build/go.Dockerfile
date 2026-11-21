@@ -23,15 +23,23 @@ COPY --from=build /out/app /app
 USER nonroot:nonroot
 ENTRYPOINT ["/app"]
 
-# pg_dump and pg_restore must match the server major version, so the client is
-# pinned to the same PostgreSQL 18 the compose stack runs. Alpine 3.23 is the
-# first release carrying postgresql18-client; do not lower this base without
-# checking that the package still exists.
+# pg_dump and pg_restore must match the server major version (PostgreSQL 19,
+# as in compose.yaml). Alpine ships no postgresql19-client package, so the two
+# tools and libpq are copied from the official image built on the same Alpine
+# release, and their remaining shared libraries come from apk. Basing the
+# runtime on the postgres image itself would also inherit its VOLUME and
+# STOPSIGNAL. Keep both tags on the same Alpine release.
+FROM postgres:19.0-alpine3.24 AS pgclient
+
 FROM alpine:3.24.4 AS runtime-postgres
-RUN apk add --no-cache postgresql18-client ca-certificates tzdata \
+RUN apk add --no-cache ca-certificates tzdata zstd-libs lz4-libs libssl3 libcrypto3 zlib \
+        krb5-libs libldap \
     && adduser -D -u 65532 -h /home/nonroot nonroot \
     && mkdir -p /var/lib/omniflow/backups \
     && chown -R nonroot:nonroot /var/lib/omniflow
+COPY --from=pgclient /usr/local/lib/libpq.so.5* /usr/local/lib/
+COPY --from=pgclient /usr/local/bin/pg_dump /usr/local/bin/pg_restore /usr/local/bin/
+RUN pg_dump --version && pg_restore --version
 COPY --from=build /out/app /app
 USER nonroot:nonroot
 ENTRYPOINT ["/app"]

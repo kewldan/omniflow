@@ -25,7 +25,7 @@ compose запускает его с `--save "" --appendonly no`, чтобы н�
 | `web` | `apps/web` | `3000` | Одно приложение Next.js, отдающее клиентскую панель на `/account` и рабочее место оператора на `/admin` поверх одной общей системы компонентов shadcn |
 
 Три образа Go различаются только тем, что им нужно во время выполнения: `api` поставляется на distroless-базе,
-а `bot` и `worker` — на Alpine с `postgresql18-client`, потому что оба вызывают `pg_dump` и `pg_restore`.
+а `bot` и `worker` — на Alpine с `pg_dump` и `pg_restore` из PostgreSQL 19, потому что оба вызывают `pg_dump` и `pg_restore`.
 Веб-образ отдаёт standalone-сборку Next.js на базе Node. См.
 [Развёртывание](/ru/operations/deployment).
 

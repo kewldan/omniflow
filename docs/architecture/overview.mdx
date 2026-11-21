@@ -24,7 +24,7 @@ them.
 | `web` | `apps/web` | `3000` | One Next.js application serving the customer panel at `/account` and the operator workspace at `/admin`, backed by one shared shadcn component system |
 
 The three Go images differ only in what they need at runtime: `api` ships on a distroless base, while
-`bot` and `worker` ship on Alpine with `postgresql18-client`, because both shell out to `pg_dump` and
+`bot` and `worker` ship on Alpine with `pg_dump` and `pg_restore` from PostgreSQL 19, because both shell out to `pg_dump` and
 `pg_restore`. The web image serves Next.js standalone output from a Node base. See
 [Deployment](/operations/deployment).
 

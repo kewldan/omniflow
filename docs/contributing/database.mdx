@@ -60,7 +60,7 @@ is a new file after it.
     ```bash
     make schema-snapshot   # sh tools/schema-snapshot.sh
     ```
-    It applies every migration to a throwaway PostgreSQL 18 and dumps the schema with that server's
+    It applies every migration to a throwaway PostgreSQL 19 and dumps the schema with that server's
     own `pg_dump`, so the result does not depend on your local client tools. A diff draft from the
     previous step is overwritten with the real shape.
   </Step>

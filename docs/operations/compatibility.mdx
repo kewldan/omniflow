@@ -13,7 +13,7 @@ silently removed.
 | Component | Supported | Notes |
 | --- | --- | --- |
 | Remnawave | 3.4.x | Targets the 3.4.11 API surface (`@remnawave/backend-contract` 3.4.17); asserted in `internal/remnawave/contract_test.go`. Every route Omniflow calls is unchanged since 3.2.2. |
-| PostgreSQL | 18.x | The only durable store. Shipped images pin the matching PostgreSQL 18 client tools for `pg_dump`/`pg_restore`. |
+| PostgreSQL | 19.x | The only durable store. Shipped images pin the matching PostgreSQL 19 client tools for `pg_dump`/`pg_restore`. |
 | Valkey | 9.x | Cache, rate limits, locks, and disposable state only — never a source of truth. |
 | Go | 1.27 | Build-time only. Contributors building from source need it; the shipped Docker images already contain a compiled binary. |
 | Bun / Node.js | Bun 1.4, Node ≥ 26 | Build-time only, for the frontend workspace. Not required to run the shipped `web` image. |

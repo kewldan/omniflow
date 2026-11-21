@@ -60,7 +60,7 @@ jobs:
     # break reached a release: nothing in the suite had ever made a call.
     services:
       postgres:
-        image: postgres:18.7-alpine
+        image: postgres:19.0-alpine
         env:
           POSTGRES_DB: omniflow
           POSTGRES_USER: omniflow
@@ -206,7 +206,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:18.7-alpine
+        image: postgres:19.0-alpine
         env:
           POSTGRES_DB: omniflow
           POSTGRES_USER: omniflow

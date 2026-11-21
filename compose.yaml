@@ -2,7 +2,7 @@ name: omniflow
 
 services:
   postgres:
-    image: postgres:18.7-alpine
+    image: postgres:19.0-alpine
     environment:
       POSTGRES_DB: omniflow
       POSTGRES_USER: omniflow
@@ -13,8 +13,8 @@ services:
       timeout: 3s
       retries: 20
     volumes:
-      # /var/lib/postgresql, not /var/lib/postgresql/data. PostgreSQL 18's image
-      # sets PGDATA to /var/lib/postgresql/18/docker — a versioned directory, so
+      # /var/lib/postgresql, not /var/lib/postgresql/data. PostgreSQL 18+ images
+      # set PGDATA to /var/lib/postgresql/<major>/docker — a versioned directory, so
       # a major upgrade can hold two of them side by side — and declares its
       # VOLUME at the parent. Mounting the old 17-and-earlier path leaves this
       # named volume empty and puts the database in the anonymous volume Docker

@@ -25,7 +25,7 @@
   <br>
   <img alt="Go 1.27" src="https://img.shields.io/badge/Go-1.27-00ADD8?logo=go&logoColor=white">
   <img alt="Next.js 16" src="https://img.shields.io/badge/Next.js-16-000000?logo=next.js&logoColor=white">
-  <img alt="PostgreSQL 18" src="https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&logoColor=white">
+  <img alt="PostgreSQL 19" src="https://img.shields.io/badge/PostgreSQL-19-4169E1?logo=postgresql&logoColor=white">
   <img alt="Valkey 9" src="https://img.shields.io/badge/Valkey-9-6E3CBC">
   <a href="https://docs.rw/api/"><img alt="Remnawave 3.4.11" src="https://img.shields.io/badge/Remnawave-3.4.11-8b5cf6"></a>
   <br>
@@ -173,7 +173,7 @@ flowchart LR
     Telegram --> API["Go application<br/>api · bot · worker"]
     Account --> API
     Admin --> API
-    API --> PostgreSQL[("PostgreSQL 18")]
+    API --> PostgreSQL[("PostgreSQL 19")]
     API --> Valkey[("Valkey 9")]
     API --> Remnawave["Remnawave API"]
     Remnawave -. "signed webhooks" .-> API
@@ -187,7 +187,7 @@ flowchart LR
 | Layer | Technology |
 | --- | --- |
 | Backend | Go 1.27, Chi, pgx, sqlc, River jobs, transactional outbox, OpenAPI, OpenTelemetry |
-| Data | PostgreSQL 18 with Atlas migrations, Valkey 9 |
+| Data | PostgreSQL 19 with Atlas migrations, Valkey 9 |
 | Web | Next.js 16, React 19, TypeScript 7, Tailwind CSS 4, shadcn/ui, SWR |
 | Tooling | Bun workspaces, Biome, Orval, Mintlify, Playwright, Testcontainers |
 | Delivery | GitHub Actions, Release Please, Renovate, Trivy, Gitleaks, CodeQL, Cosign-signed images |

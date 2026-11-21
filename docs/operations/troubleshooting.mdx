@@ -267,7 +267,7 @@ Scheduled backups run in the **worker**; `/ops` backups and restores run in the 
 so look in that process's log even though the on-screen message mentions the worker.
 
 `pg_dump` must match the server major version. The bot and worker images ship the
-PostgreSQL 18 client tools for exactly this reason; if you run them elsewhere, point
+PostgreSQL 19 client tools for exactly this reason; if you run them elsewhere, point
 `APP_PG_DUMP_PATH` and `APP_PG_RESTORE_PATH` at matching binaries. See
 [Backup and restore](/operations/backup-restore).
 

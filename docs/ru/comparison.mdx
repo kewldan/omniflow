@@ -13,7 +13,7 @@ Bedolaga Bot и RemnaCore сравнивались 11 августа 2026 год
 
 | Проект | Что это | Лицензия | Стек |
 | --- | --- | --- | --- |
-| **Omniflow** | Telegram-first платформа коммерции и поддержки для Remnawave с полноценными веб-панелями оператора и клиента | Apache-2.0 | Go 1.27, PostgreSQL 18, Valkey 9, River, Next.js 16 / React 19 |
+| **Omniflow** | Telegram-first платформа коммерции и поддержки для Remnawave с полноценными веб-панелями оператора и клиента | Apache-2.0 | Go 1.27, PostgreSQL 19, Valkey 9, River, Next.js 16 / React 19 |
 | **[Bedolaga Bot](https://github.com/BEDOLAGA-DEV/remnawave-bedolaga-telegram-bot)** | Зрелый Telegram-бот продаж для Remnawave, администрируемый изнутри Telegram | MIT | Python 3.13, aiogram 3.x, FastAPI, PostgreSQL + SQLAlchemy, Redis |
 | **[Bedolaga Cabinet](https://github.com/BEDOLAGA-DEV/bedolaga-cabinet)** | Веб-кабинет клиента для Bedolaga Bot; требует Cabinet API этого бота | AGPL-3.0 | React, Vite, TypeScript, Tailwind, Nginx |
 | **[RemnaCore](https://github.com/BEDOLAGA-DEV/RemnaCore)** | Модульная DDD-платформа поверх Remnawave с поддержкой реселлеров и плагинов; помечена как находящаяся в разработке | AGPL-3.0 | Go 1.26, PostgreSQL 18, Valkey 9, NATS JetStream, Extism/wazero WASM, React 19 |
@@ -197,7 +197,7 @@ Omniflow намеренно держит администрирование вн
 | Здоровье узлов, умная маршрутизация, тест скорости | ❌ | — | ✅ |
 | Вебхуки Remnawave (события панели с подписью HMAC) | ✅ | ✅ | — |
 
-RemnaCore — ближайший архитектурный родственник: тот же фундамент из Go, PostgreSQL 18, Valkey 9 и React 19. Расхождение — в том, что каждый проект считает обязательным. RemnaCore требует NATS JetStream и поставляет среду выполнения WASM-плагинов с развёртыванием через Kubernetes и Pulumi. Omniflow перечисляет брокер, среду выполнения плагинов и Kubernetes как кандидатов на период после 1.0 именно для того, чтобы односерверному оператору никогда не пришлось их запускать.
+RemnaCore — ближайший архитектурный родственник: тот же фундамент из Go, PostgreSQL, Valkey 9 и React 19. Расхождение — в том, что каждый проект считает обязательным. RemnaCore требует NATS JetStream и поставляет среду выполнения WASM-плагинов с развёртыванием через Kubernetes и Pulumi. Omniflow перечисляет брокер, среду выполнения плагинов и Kubernetes как кандидатов на период после 1.0 именно для того, чтобы односерверному оператору никогда не пришлось их запускать.
 
 RemnaCore также забирается в мониторинг здоровья узлов, умную маршрутизацию и тесты скорости. Omniflow этого не делает и делать не будет: Remnawave авторитетна для узлов, хостов, сквадов и состояния Xray, а Omniflow пользуется только её поддерживаемым API. См. [Владение данными](/ru/architecture/data-ownership).
 

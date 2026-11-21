@@ -17,7 +17,7 @@
 # CI runs the check, so a migration committed without its snapshot fails the build.
 set -eu
 
-image="${POSTGRES_IMAGE:-postgres:18.7-alpine}"
+image="${POSTGRES_IMAGE:-postgres:19.0-alpine}"
 root="$(cd "$(dirname "$0")/.." && pwd)"
 target="$root/database/schema.sql"
 name="omniflow-schema-snapshot-$$"

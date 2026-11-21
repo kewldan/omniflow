@@ -28,7 +28,7 @@ Valkey stay on the internal Compose network.
 
 | Service | Image or build | What it does |
 | --- | --- | --- |
-| `postgres` | `postgres:18.7-alpine` | The single source of truth. Volume `postgres-data`, `pg_isready` health check |
+| `postgres` | `postgres:19.0-alpine` | The single source of truth. Volume `postgres-data`, `pg_isready` health check |
 | `valkey` | `valkey/valkey:9.2.0-alpine` | Rate limits, replay guards, locks, and temporary state. Started with `--save "" --appendonly no`, because nothing durable is kept here |
 | `migrate` | `arigaio/atlas:1.4.0` | Applies the committed Atlas migrations, then exits. Every application service waits for it to complete successfully |
 | `api` | `build/go.Dockerfile`, `TARGET=api` | The HTTP API on `:8080`: `/v1/catalog`, `/v1/payments/webhooks/{provider}`, `/v1/admin`, `/v1/panel`, `/v1/account`, the probes, `/metrics`, maintenance detection, and the first-run setup token |

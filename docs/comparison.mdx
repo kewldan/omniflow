@@ -13,7 +13,7 @@ Bedolaga Bot and RemnaCore were compared on 11 August 2026 against their public 
 
 | Project | What it is | License | Stack |
 | --- | --- | --- | --- |
-| **Omniflow** | Telegram-first commerce and support platform for Remnawave, with complete operator and customer web panels | Apache-2.0 | Go 1.27, PostgreSQL 18, Valkey 9, River, Next.js 16 / React 19 |
+| **Omniflow** | Telegram-first commerce and support platform for Remnawave, with complete operator and customer web panels | Apache-2.0 | Go 1.27, PostgreSQL 19, Valkey 9, River, Next.js 16 / React 19 |
 | **[Bedolaga Bot](https://github.com/BEDOLAGA-DEV/remnawave-bedolaga-telegram-bot)** | Mature Telegram sales bot for Remnawave, administered from inside Telegram | MIT | Python 3.13, aiogram 3.x, FastAPI, PostgreSQL + SQLAlchemy, Redis |
 | **[Bedolaga Cabinet](https://github.com/BEDOLAGA-DEV/bedolaga-cabinet)** | Customer web cabinet for Bedolaga Bot; requires the bot's Cabinet API | AGPL-3.0 | React, Vite, TypeScript, Tailwind, Nginx |
 | **[RemnaCore](https://github.com/BEDOLAGA-DEV/RemnaCore)** | Modular DDD platform wrapping Remnawave, with reseller and plugin support; marked in development | AGPL-3.0 | Go 1.26, PostgreSQL 18, Valkey 9, NATS JetStream, Extism/wazero WASM, React 19 |
@@ -197,7 +197,7 @@ The client application catalogue was a trade-off rather than an omission, and th
 | Node health, smart routing, speed test | ❌ | — | ✅ |
 | Remnawave webhooks (HMAC-signed panel events) | ✅ | ✅ | — |
 
-RemnaCore is the closest architectural relative — the same Go, PostgreSQL 18, Valkey 9, and React 19 foundation. The divergence is what each project treats as mandatory. RemnaCore requires NATS JetStream and ships a WASM plugin runtime with Kubernetes and Pulumi deployment. Omniflow lists a broker, a plugin runtime, and Kubernetes as post-1.0 candidates precisely so that a single-server operator never has to run them.
+RemnaCore is the closest architectural relative — the same Go, PostgreSQL, Valkey 9, and React 19 foundation. The divergence is what each project treats as mandatory. RemnaCore requires NATS JetStream and ships a WASM plugin runtime with Kubernetes and Pulumi deployment. Omniflow lists a broker, a plugin runtime, and Kubernetes as post-1.0 candidates precisely so that a single-server operator never has to run them.
 
 RemnaCore also reaches into node health monitoring, smart routing, and speed tests. Omniflow does not, and will not: Remnawave is authoritative for nodes, hosts, squads, and Xray state, and Omniflow uses only its supported API. See [Data ownership](/architecture/data-ownership).
 
