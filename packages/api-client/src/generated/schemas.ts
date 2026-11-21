@@ -2208,6 +2208,24 @@ export const GetPanelDashboardResponse = zod.object({
           "Stable identifier the panel resolves to localised copy explaining exactly what was counted.",
         ),
       value: zod.int(),
+      comparison: zod
+        .int()
+        .optional()
+        .describe(
+          "The same measure over the preceding window of the same length. Absent for a point-in-time total.",
+        ),
+      series: zod
+        .array(
+          zod.object({
+            start: zod.iso.datetime({ offset: true }),
+            value: zod.int(),
+          }),
+        )
+        .optional()
+        .describe(
+          "The measure split into consecutive 24-hour buckets measured from the moment the dashboard was read, oldest first for history and soonest first for upcoming. Absent for a point-in-time total, whose history is not recorded.",
+        ),
+      seriesKind: zod.enum(["history", "upcoming"]).optional(),
     }),
   ),
   subscriptions: zod.array(
@@ -2219,6 +2237,24 @@ export const GetPanelDashboardResponse = zod.object({
           "Stable identifier the panel resolves to localised copy explaining exactly what was counted.",
         ),
       value: zod.int(),
+      comparison: zod
+        .int()
+        .optional()
+        .describe(
+          "The same measure over the preceding window of the same length. Absent for a point-in-time total.",
+        ),
+      series: zod
+        .array(
+          zod.object({
+            start: zod.iso.datetime({ offset: true }),
+            value: zod.int(),
+          }),
+        )
+        .optional()
+        .describe(
+          "The measure split into consecutive 24-hour buckets measured from the moment the dashboard was read, oldest first for history and soonest first for upcoming. Absent for a point-in-time total, whose history is not recorded.",
+        ),
+      seriesKind: zod.enum(["history", "upcoming"]).optional(),
     }),
   ),
   payments: zod.array(
@@ -2230,6 +2266,24 @@ export const GetPanelDashboardResponse = zod.object({
           "Stable identifier the panel resolves to localised copy explaining exactly what was counted.",
         ),
       value: zod.int(),
+      comparison: zod
+        .int()
+        .optional()
+        .describe(
+          "The same measure over the preceding window of the same length. Absent for a point-in-time total.",
+        ),
+      series: zod
+        .array(
+          zod.object({
+            start: zod.iso.datetime({ offset: true }),
+            value: zod.int(),
+          }),
+        )
+        .optional()
+        .describe(
+          "The measure split into consecutive 24-hour buckets measured from the moment the dashboard was read, oldest first for history and soonest first for upcoming. Absent for a point-in-time total, whose history is not recorded.",
+        ),
+      seriesKind: zod.enum(["history", "upcoming"]).optional(),
     }),
   ),
   revenue: zod
@@ -2241,6 +2295,19 @@ export const GetPanelDashboardResponse = zod.object({
           walletMinor: zod.int(),
           refundedMinor: zod.int(),
           orderCount: zod.int(),
+          previousPaidMinor: zod
+            .int()
+            .optional()
+            .describe("Provider money over the preceding window of the same length."),
+          paidSeries: zod
+            .array(
+              zod.object({
+                start: zod.iso.datetime({ offset: true }),
+                value: zod.int(),
+              }),
+            )
+            .optional()
+            .describe("paidMinor in 24-hour buckets, oldest first."),
         })
         .describe(
           "Three separate figures. Wallet credit was already counted as revenue when the balance was funded, so adding it to provider money counts it twice.",
@@ -2256,6 +2323,24 @@ export const GetPanelDashboardResponse = zod.object({
           "Stable identifier the panel resolves to localised copy explaining exactly what was counted.",
         ),
       value: zod.int(),
+      comparison: zod
+        .int()
+        .optional()
+        .describe(
+          "The same measure over the preceding window of the same length. Absent for a point-in-time total.",
+        ),
+      series: zod
+        .array(
+          zod.object({
+            start: zod.iso.datetime({ offset: true }),
+            value: zod.int(),
+          }),
+        )
+        .optional()
+        .describe(
+          "The measure split into consecutive 24-hour buckets measured from the moment the dashboard was read, oldest first for history and soonest first for upcoming. Absent for a point-in-time total, whose history is not recorded.",
+        ),
+      seriesKind: zod.enum(["history", "upcoming"]).optional(),
     }),
   ),
   operations: zod.array(
@@ -2267,6 +2352,24 @@ export const GetPanelDashboardResponse = zod.object({
           "Stable identifier the panel resolves to localised copy explaining exactly what was counted.",
         ),
       value: zod.int(),
+      comparison: zod
+        .int()
+        .optional()
+        .describe(
+          "The same measure over the preceding window of the same length. Absent for a point-in-time total.",
+        ),
+      series: zod
+        .array(
+          zod.object({
+            start: zod.iso.datetime({ offset: true }),
+            value: zod.int(),
+          }),
+        )
+        .optional()
+        .describe(
+          "The measure split into consecutive 24-hour buckets measured from the moment the dashboard was read, oldest first for history and soonest first for upcoming. Absent for a point-in-time total, whose history is not recorded.",
+        ),
+      seriesKind: zod.enum(["history", "upcoming"]).optional(),
     }),
   ),
   attention: zod

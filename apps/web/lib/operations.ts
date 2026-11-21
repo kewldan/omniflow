@@ -25,6 +25,15 @@ export type Metric = {
   value: number;
   /** The same measure over the preceding window; absent for a point-in-time total. */
   comparison?: number;
+  /** The measure in 24-hour buckets; absent for a point-in-time total. */
+  series?: SeriesPoint[];
+  /** "history" ends now, oldest first; "upcoming" starts now, soonest first. */
+  seriesKind?: "history" | "upcoming";
+};
+
+export type SeriesPoint = {
+  start: string;
+  value: number;
 };
 
 export type DependencyCheck = {
@@ -80,6 +89,8 @@ export type RevenueLine = {
   refundedMinor: number;
   orderCount: number;
   previousPaidMinor?: number;
+  /** Provider money in 24-hour buckets, oldest first. */
+  paidSeries?: SeriesPoint[];
 };
 
 export type AttentionItem = {

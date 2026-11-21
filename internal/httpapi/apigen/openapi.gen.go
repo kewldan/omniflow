@@ -2843,6 +2843,24 @@ func (e PanelMergePreviewNotes) Valid() bool {
 	}
 }
 
+// Defines values for PanelMetricSeriesKind.
+const (
+	History  PanelMetricSeriesKind = "history"
+	Upcoming PanelMetricSeriesKind = "upcoming"
+)
+
+// Valid indicates whether the value is a known member of the PanelMetricSeriesKind enum.
+func (e PanelMetricSeriesKind) Valid() bool {
+	switch e {
+	case History:
+		return true
+	case Upcoming:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PanelNoticeTestLocale.
 const (
 	PanelNoticeTestLocaleEn PanelNoticeTestLocale = "en"
@@ -8994,11 +9012,21 @@ type PanelMergeSide struct {
 
 // PanelMetric defines model for PanelMetric.
 type PanelMetric struct {
+	// Comparison The same measure over the preceding window of the same length. Absent for a point-in-time total.
+	Comparison *int64 `json:"comparison,omitempty"`
+
 	// Definition Stable identifier the panel resolves to localised copy explaining exactly what was counted.
 	Definition string `json:"definition"`
 	Key        string `json:"key"`
-	Value      int64  `json:"value"`
+
+	// Series The measure split into consecutive 24-hour buckets measured from the moment the dashboard was read, oldest first for history and soonest first for upcoming. Absent for a point-in-time total, whose history is not recorded.
+	Series     *[]PanelSeriesPoint    `json:"series,omitempty"`
+	SeriesKind *PanelMetricSeriesKind `json:"seriesKind,omitempty"`
+	Value      int64                  `json:"value"`
 }
+
+// PanelMetricSeriesKind defines model for PanelMetric.SeriesKind.
+type PanelMetricSeriesKind string
 
 // PanelNotice defines model for PanelNotice.
 type PanelNotice struct {
@@ -9707,11 +9735,17 @@ type PanelRemnawaveSquad struct {
 
 // PanelRevenueLine Three separate figures. Wallet credit was already counted as revenue when the balance was funded, so adding it to provider money counts it twice.
 type PanelRevenueLine struct {
-	Currency      string `json:"currency"`
-	OrderCount    int64  `json:"orderCount"`
-	PaidMinor     int64  `json:"paidMinor"`
-	RefundedMinor int64  `json:"refundedMinor"`
-	WalletMinor   int64  `json:"walletMinor"`
+	Currency   string `json:"currency"`
+	OrderCount int64  `json:"orderCount"`
+	PaidMinor  int64  `json:"paidMinor"`
+
+	// PaidSeries paidMinor in 24-hour buckets, oldest first.
+	PaidSeries *[]PanelSeriesPoint `json:"paidSeries,omitempty"`
+
+	// PreviousPaidMinor Provider money over the preceding window of the same length.
+	PreviousPaidMinor *int64 `json:"previousPaidMinor,omitempty"`
+	RefundedMinor     int64  `json:"refundedMinor"`
+	WalletMinor       int64  `json:"walletMinor"`
 }
 
 // PanelSalesLine defines model for PanelSalesLine.
@@ -9809,6 +9843,12 @@ type PanelSearchResults struct {
 
 // PanelSearchResultsHints defines model for PanelSearchResults.Hints.
 type PanelSearchResultsHints string
+
+// PanelSeriesPoint defines model for PanelSeriesPoint.
+type PanelSeriesPoint struct {
+	Start time.Time `json:"start"`
+	Value int64     `json:"value"`
+}
 
 // PanelServer defines model for PanelServer.
 type PanelServer struct {

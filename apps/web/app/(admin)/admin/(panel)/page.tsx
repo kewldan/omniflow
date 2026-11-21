@@ -11,10 +11,12 @@ import { useFormatter, useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import useSWR from "swr";
 
+import { MetricDelta, MetricSparkline, MetricTrendNote } from "@/components/admin/metric-trend";
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
+import { metricPolarity } from "@/lib/metric-trends";
 import {
   type Dashboard,
   formatBytes,
@@ -164,16 +166,19 @@ export default function AdminHome() {
           <MetricGroup
             chart={<CustomerMix metrics={data.customers} />}
             metrics={data.customers}
+            windowSeconds={data.windowSeconds}
             title={translate("dashboard.groups.customers")}
           />
           <MetricGroup
             chart={<SubscriptionMix metrics={data.subscriptions} />}
             metrics={data.subscriptions}
+            windowSeconds={data.windowSeconds}
             title={translate("dashboard.groups.subscriptions")}
           />
           <MetricGroup
             chart={<PaymentMix metrics={data.payments} />}
             metrics={data.payments}
+            windowSeconds={data.windowSeconds}
             title={translate("dashboard.groups.payments")}
           />
 
@@ -195,16 +200,24 @@ export default function AdminHome() {
                      The measures are ones the domain forbids adding, and a row
                      of similar-looking figures is exactly where somebody adds
                      them. */
-                  <RevenueChart lines={data.revenue ?? []} />
+                  <RevenueChart
+                    lines={data.revenue ?? []}
+                    windowDays={Math.round(data.windowSeconds / 86_400)}
+                  />
                 )}
               </CardContent>
             </Card>
           </section>
 
-          <MetricGroup metrics={data.support} title={translate("dashboard.groups.support")} />
+          <MetricGroup
+            metrics={data.support}
+            title={translate("dashboard.groups.support")}
+            windowSeconds={data.windowSeconds}
+          />
           <MetricGroup
             chart={<OperationsBacklog metrics={data.operations} />}
             metrics={data.operations}
+            windowSeconds={data.windowSeconds}
             title={translate("dashboard.groups.operations")}
           />
           <Incidents />
@@ -331,10 +344,12 @@ function MetricGroup({
   chart,
   metrics,
   title,
+  windowSeconds,
 }: {
   chart?: ReactNode;
   metrics: Metric[];
   title: string;
+  windowSeconds: number;
 }) {
   const headingId = `metrics-${title.replace(/\s+/g, "-").toLowerCase()}`;
 
@@ -345,7 +360,11 @@ function MetricGroup({
       </h2>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {metrics.map((metric) => (
-          <MetricTile key={metric.key} metric={metric} />
+          <MetricTile
+            key={metric.key}
+            metric={metric}
+            windowDays={Math.round(windowSeconds / 86_400)}
+          />
         ))}
       </div>
       {/* The picture sits under the numbers it is made of, rather than in a
@@ -368,10 +387,13 @@ function MetricGroup({
  * destination is a link. One without stays a plain card: sending an operator to
  * a page that merely looks related is worse than not moving at all.
  */
-function MetricTile({ metric }: { metric: Metric }) {
+function MetricTile({ metric, windowDays }: { metric: Metric; windowDays: number }) {
   const translate = useTranslations("admin.dashboard");
   const format = useFormatter();
   const href = METRIC_LINKS[metric.key];
+  const polarity = metricPolarity(metric.key);
+  const series = metric.series ?? [];
+  const seriesKind = metric.seriesKind ?? "history";
 
   const body = (
     <>
@@ -384,12 +406,30 @@ function MetricTile({ metric }: { metric: Metric }) {
           />
         ) : null}
       </CardTitle>
-      <p className="mt-1 flex items-baseline gap-2">
+      <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
         <span className="font-semibold text-2xl tabular-nums">
           {renderMetric(metric, (value) => format.number(value))}
         </span>
-        <Comparison metric={metric} />
+        {metric.comparison !== undefined ? (
+          <MetricDelta
+            polarity={polarity}
+            previous={metric.comparison}
+            value={metric.value}
+            windowDays={windowDays}
+          />
+        ) : null}
       </p>
+      {series.length > 0 ? (
+        <>
+          <MetricSparkline className="mt-3" kind={seriesKind} series={series} />
+          <MetricTrendNote
+            className="mt-1.5"
+            kind={seriesKind}
+            polarity={polarity}
+            series={series}
+          />
+        </>
+      ) : null}
       <p className="mt-1 text-muted-foreground text-xs">
         {translate(`definitions.${metric.definition}`)}
       </p>
@@ -408,31 +448,6 @@ function MetricTile({ metric }: { metric: Metric }) {
         {body}
       </Link>
     </Card>
-  );
-}
-
-/**
- * The change against the preceding window of the same length.
- *
- * Only windowed measures carry one. A point-in-time total compared against
- * "the same total a month ago" would be answering a question the query did not
- * ask, so those simply have no arrow.
- */
-function Comparison({ metric }: { metric: Metric }) {
-  const translate = useTranslations("admin.dashboard");
-  const format = useFormatter();
-  if (metric.comparison === undefined) {
-    return null;
-  }
-  const delta = metric.value - metric.comparison;
-  if (delta === 0) {
-    return <span className="text-muted-foreground text-xs">{translate("unchanged")}</span>;
-  }
-  return (
-    <span className="text-muted-foreground text-xs tabular-nums">
-      {delta > 0 ? "+" : ""}
-      {format.number(delta)} {translate("versusPrevious")}
-    </span>
   );
 }
 

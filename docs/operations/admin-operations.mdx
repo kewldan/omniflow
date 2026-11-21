@@ -88,6 +88,33 @@ rather than a ring for the same reason in reverse: they are unrelated piles that
 happen to be measured at one moment, and adding them produces a number nothing
 is. Every chart carries its figures as a table beneath it.
 
+**Movement sits in the tiles.** A windowed tile — new customers, succeeded and
+failed payments — carries three more things under its number:
+
+- A **change chip** against the previous thirty days. It is a percentage when the
+  previous window had something to be a percentage of, and the absolute change
+  ("+63") when it was empty, because growth from nothing has no percentage. The
+  colour is the verdict, not the direction: more sales is green, more failed
+  payments is red, and an up-arrow in red is not a contradiction.
+- A **sparkline** of the same window cut into thirty 24-hour buckets, counted
+  back from the moment the dashboard was read rather than from midnight, so the
+  newest bucket is never a half-finished day that reads as a collapse. The
+  buckets add up to the number beside them.
+- At most one **trend note**, and only when there is something to say: the last
+  24 hours are the most in the window, nothing happened in the last seven days,
+  or the last seven days ran at least 25% above or below the rest of the window.
+  A steady series gets no note rather than a filler one.
+
+Renewals due looks forward instead: one bar per day for the next thirty days,
+with a note saying how many fall due in the next seven and which day is busiest.
+Under each revenue chart, provider money gets the same chip and a line by day;
+wallet spend and refunds do not, because they move for reasons a
+period-over-period arrow would misrepresent.
+
+Point-in-time totals — active customers, active entitlements, open tickets, the
+queues — have no sparkline. Their history is not recorded, and reconstructing it
+from today's rows would draw a past that never existed.
+
 The "needs action" list is derived from the same figures the tiles show, so an
 alert can never contradict the tile beside it. Each entry deep-links into the
 ordinary surface that resolves it rather than offering a shortcut that bypasses

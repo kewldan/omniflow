@@ -672,7 +672,8 @@
         "definition": "此时间窗口内共 {orders, plural, one {# 笔已结算订单} other {# 笔已结算订单}}。这三个数值从不相加：钱包消费在余额充值时已计入收入。",
         "measure": "指标",
         "amount": "金额",
-        "none": "此币种下没有结算记录。"
+        "none": "此币种下没有结算记录。",
+        "paidByDay": "每日支付渠道收款"
       },
       "severity": {
         "alert": "警报",
@@ -776,8 +777,6 @@
           "oldest_age": "最早一条未发布事件的存在时长。大量新事件积压是正常的；但有一条陈旧事件则不正常。"
         }
       },
-      "unchanged": "无变化",
-      "versusPrevious": "较上一周期",
       "incidents": "近期事件",
       "incidentAction": {
         "activated": "已进入维护",
@@ -805,6 +804,17 @@
         "backlog": "积压",
         "backlogDescription": "等待处理的内容，按数量从多到少排列。这些是相互独立的队列，长度可比较但不可相加。",
         "backlogEmpty": "所有队列均为空。"
+      },
+      "trend": {
+        "versusPrevious": "与前 {days} 天相比",
+        "unchanged": "无变化",
+        "historyLabel": "过去 {days} 天每日数据：最低 {min}，最高 {max}，最近 24 小时 {last}。",
+        "upcomingLabel": "未来 {days} 天每日到期：最高 {max}，未来 24 小时 {first}。",
+        "peak": "本窗口内单日最高",
+        "quiet": "最近 {days} 天为零",
+        "above": "最近 {days} 天：比平常高 {shift}",
+        "below": "最近 {days} 天：比平常低 {shift}",
+        "upcoming": "未来 {days} 天内 {soon} 个 · 最多在 {date}：{busiest}"
       }
     },
     "customers": {

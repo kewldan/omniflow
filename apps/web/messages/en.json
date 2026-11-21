@@ -672,7 +672,8 @@
         "definition": "{orders, plural, one {# settled order} other {# settled orders}} in this window. The three figures are never added: wallet spend was already counted as revenue when the balance was funded.",
         "measure": "Measure",
         "amount": "Amount",
-        "none": "Nothing settled in this currency."
+        "none": "Nothing settled in this currency.",
+        "paidByDay": "Provider money by day"
       },
       "severity": {
         "alert": "Alert",
@@ -776,8 +777,6 @@
           "oldest_age": "Age of the oldest unpublished event. A large backlog of fresh events is healthy; one old event is not."
         }
       },
-      "unchanged": "unchanged",
-      "versusPrevious": "vs previous period",
       "incidents": "Recent incidents",
       "incidentAction": {
         "activated": "Maintenance engaged",
@@ -805,6 +804,17 @@
         "backlog": "Backlog",
         "backlogDescription": "What is waiting, largest first. These are separate queues, so the lengths compare but never add.",
         "backlogEmpty": "Every queue is empty."
+      },
+      "trend": {
+        "versusPrevious": "compared with the previous {days} days",
+        "unchanged": "No change",
+        "historyLabel": "Per day over the last {days} days: lowest {min}, highest {max}, last 24 hours {last}.",
+        "upcomingLabel": "Due per day over the next {days} days: highest {max}, next 24 hours {first}.",
+        "peak": "Most in a day this window",
+        "quiet": "None in the last {days} days",
+        "above": "Last {days} days: {shift} above the usual pace",
+        "below": "Last {days} days: {shift} below the usual pace",
+        "upcoming": "{soon} in the next {days} days · busiest {date}: {busiest}"
       }
     },
     "customers": {

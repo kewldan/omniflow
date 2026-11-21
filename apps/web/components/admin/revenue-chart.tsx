@@ -6,6 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useLocale, useTranslations } from "next-intl";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
+import { MetricDelta, MetricSparkline, MetricTrendNote } from "@/components/admin/metric-trend";
+import { metricPolarity } from "@/lib/metric-trends";
 import { formatMoney, type RevenueLine } from "@/lib/operations";
 
 /**
@@ -21,7 +23,7 @@ import { formatMoney, type RevenueLine } from "@/lib/operations";
  * numbers that are not comparable — a hundred of one is not a hundred of the
  * other, and a shared scale asserts that it is.
  */
-export function RevenueChart({ lines }: { lines: RevenueLine[] }) {
+export function RevenueChart({ lines, windowDays }: { lines: RevenueLine[]; windowDays: number }) {
   const translate = useTranslations("admin.dashboard.revenue");
   const locale = useLocale();
 
@@ -38,67 +40,94 @@ export function RevenueChart({ lines }: { lines: RevenueLine[] }) {
           { fill: chartColor("chart-3"), key: "refunded", value: line.refundedMinor },
         ].map((entry) => ({ ...entry, label: translate(entry.key) }));
 
+        const money = (value: number) =>
+          formatMoney(value, line.currency, locale, { compact: true });
+        const paidSeries = line.paidSeries ?? [];
+
         return (
-          <ChartFigure
-            description={translate("definition", { orders: line.orderCount })}
-            isEmpty={data.every((entry) => entry.value === 0)}
-            empty={translate("none")}
-            key={line.currency}
-            table={
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{translate("measure")}</TableHead>
-                    <TableHead className="text-right">{translate("amount")}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.map((entry) => (
-                    <TableRow key={entry.key}>
-                      <TableCell className="flex items-center gap-2">
-                        {/* The swatch carries identity beside the label rather
-                            than instead of it, so the row reads without colour. */}
-                        <span
-                          aria-hidden
-                          className="size-2.5 shrink-0 rounded-[3px]"
-                          style={{ background: entry.fill }}
-                        />
-                        {entry.label}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatMoney(entry.value, line.currency, locale)}
-                      </TableCell>
+          <div className="flex flex-col gap-4" key={line.currency}>
+            <ChartFigure
+              description={translate("definition", { orders: line.orderCount })}
+              isEmpty={data.every((entry) => entry.value === 0)}
+              empty={translate("none")}
+              table={
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{translate("measure")}</TableHead>
+                      <TableHead className="text-right">{translate("amount")}</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            }
-            title={
-              <>
-                {translate("title")} <Badge variant="neutral">{line.currency}</Badge>
-              </>
-            }
-          >
-            <BarChart data={data} margin={{ left: 8, right: 8, top: 8 }}>
-              <CartesianGrid {...chartGrid} />
-              <XAxis {...chartAxis} dataKey="label" />
-              <YAxis
-                {...chartAxis}
-                tickFormatter={(value: number) =>
-                  formatMoney(value, line.currency, locale, { compact: true })
-                }
-                width={72}
-              />
-              <Bar
-                // 4px rounded ends anchored to the baseline, and a bar thin
-                // enough that three of them are a comparison rather than a
-                // block of colour.
-                dataKey="value"
-                maxBarSize={56}
-                radius={[4, 4, 0, 0]}
-              />
-            </BarChart>
-          </ChartFigure>
+                  </TableHeader>
+                  <TableBody>
+                    {data.map((entry) => (
+                      <TableRow key={entry.key}>
+                        <TableCell className="flex items-center gap-2">
+                          {/* The swatch carries identity beside the label rather
+                            than instead of it, so the row reads without colour. */}
+                          <span
+                            aria-hidden
+                            className="size-2.5 shrink-0 rounded-[3px]"
+                            style={{ background: entry.fill }}
+                          />
+                          {entry.label}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {formatMoney(entry.value, line.currency, locale)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              }
+              title={
+                <>
+                  {translate("title")} <Badge variant="neutral">{line.currency}</Badge>
+                  {/* Provider money only: wallet spend and refunds move for
+                    reasons a period-over-period arrow would misrepresent. */}
+                  {line.previousPaidMinor !== undefined ? (
+                    <MetricDelta
+                      format={money}
+                      polarity={metricPolarity("paidMinor")}
+                      previous={line.previousPaidMinor}
+                      value={line.paidMinor}
+                      windowDays={windowDays}
+                    />
+                  ) : null}
+                </>
+              }
+            >
+              <BarChart data={data} margin={{ left: 8, right: 8, top: 8 }}>
+                <CartesianGrid {...chartGrid} />
+                <XAxis {...chartAxis} dataKey="label" />
+                <YAxis
+                  {...chartAxis}
+                  tickFormatter={(value: number) =>
+                    formatMoney(value, line.currency, locale, { compact: true })
+                  }
+                  width={72}
+                />
+                <Bar
+                  // 4px rounded ends anchored to the baseline, and a bar thin
+                  // enough that three of them are a comparison rather than a
+                  // block of colour.
+                  dataKey="value"
+                  maxBarSize={56}
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            </ChartFigure>
+            {paidSeries.some((point) => point.value > 0) ? (
+              <div className="flex flex-col gap-1.5">
+                <span className="text-muted-foreground text-xs">{translate("paidByDay")}</span>
+                <MetricSparkline format={money} kind="history" series={paidSeries} />
+                <MetricTrendNote
+                  kind="history"
+                  polarity={metricPolarity("paidMinor")}
+                  series={paidSeries}
+                />
+              </div>
+            ) : null}
+          </div>
         );
       })}
     </div>

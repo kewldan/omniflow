@@ -454,6 +454,17 @@ type Querier interface {
 	// show a comparison without a second, subtly different query that could drift
 	// from this one.
 	DashboardCustomerTotals(ctx context.Context, arg DashboardCustomerTotalsParams) (DashboardCustomerTotalsRow, error)
+	// The windowed tile figures above, split into consecutive 24-hour buckets that
+	// end now. Bucket 0 is the last 24 hours, bucket days-1 the oldest. Buckets are
+	// measured back from now rather than cut at midnight, so the window is the
+	// same one the tiles count and the newest bucket is never a partial day that
+	// reads as a collapse. A record exactly on the far edge joins the oldest bucket.
+	DashboardDailyActivity(ctx context.Context, days int32) ([]DashboardDailyActivityRow, error)
+	// Provider money per currency per 24-hour bucket, over the same window and
+	// with the same order states as DashboardRevenue. Only provider money: wallet
+	// spend and refunds move for reasons a daily line would misrepresent. Empty
+	// buckets are absent; the caller fills them with zero.
+	DashboardDailyRevenue(ctx context.Context, days int32) ([]DashboardDailyRevenueRow, error)
 	DashboardDriftTotals(ctx context.Context) (DashboardDriftTotalsRow, error)
 	DashboardJobHealth(ctx context.Context, lateAfter pgtype.Interval) (DashboardJobHealthRow, error)
 	// The oldest unpublished event is the honest measure of lag: a queue with a
@@ -471,6 +482,11 @@ type Querier interface {
 	DashboardRevenue(ctx context.Context, arg DashboardRevenueParams) ([]DashboardRevenueRow, error)
 	DashboardSubscriptionTotals(ctx context.Context, lookback pgtype.Interval) (DashboardSubscriptionTotalsRow, error)
 	DashboardSupportTotals(ctx context.Context, staleAfter pgtype.Interval) (DashboardSupportTotalsRow, error)
+	// The renewals-due tile looking forward: active entitlements by the 24-hour
+	// bucket in which they end, bucket 0 being the next 24 hours. The predicate is
+	// the tile's own, so the buckets add up to the figure beside them. Empty
+	// buckets are absent; the caller fills them with zero.
+	DashboardUpcomingRenewals(ctx context.Context, days int32) ([]DashboardUpcomingRenewalsRow, error)
 	DashboardWebhookHealth(ctx context.Context, lookback pgtype.Interval) (DashboardWebhookHealthRow, error)
 	// The only path that moves a match out of review. The deciding operator and
 	// their reason are required by the row itself, so an adverse decision cannot be

@@ -1208,11 +1208,29 @@ export interface PanelSearchResults {
   hints: PanelSearchResultsHintsItem[];
 }
 
+export type PanelMetricSeriesKind =
+  (typeof PanelMetricSeriesKind)[keyof typeof PanelMetricSeriesKind];
+
+export const PanelMetricSeriesKind = {
+  history: "history",
+  upcoming: "upcoming",
+} as const;
+
+export interface PanelSeriesPoint {
+  start: string;
+  value: number;
+}
+
 export interface PanelMetric {
   key: string;
   /** Stable identifier the panel resolves to localised copy explaining exactly what was counted. */
   definition: string;
   value: number;
+  /** The same measure over the preceding window of the same length. Absent for a point-in-time total. */
+  comparison?: number;
+  /** The measure split into consecutive 24-hour buckets measured from the moment the dashboard was read, oldest first for history and soonest first for upcoming. Absent for a point-in-time total, whose history is not recorded. */
+  series?: PanelSeriesPoint[];
+  seriesKind?: PanelMetricSeriesKind;
 }
 
 /**
@@ -1224,6 +1242,10 @@ export interface PanelRevenueLine {
   walletMinor: number;
   refundedMinor: number;
   orderCount: number;
+  /** Provider money over the preceding window of the same length. */
+  previousPaidMinor?: number;
+  /** paidMinor in 24-hour buckets, oldest first. */
+  paidSeries?: PanelSeriesPoint[];
 }
 
 export type PanelAttentionItemSeverity =

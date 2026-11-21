@@ -470,6 +470,114 @@ func (q *Queries) DashboardCustomerTotals(ctx context.Context, arg DashboardCust
 	return i, err
 }
 
+const dashboardDailyActivity = `-- name: DashboardDailyActivity :many
+WITH customers AS (
+  SELECT LEAST(floor(extract(epoch FROM now() - created_at) / 86400)::int, $1::int - 1) AS bucket,
+         count(*)::bigint AS created
+  FROM users
+  WHERE created_at >= now() - make_interval(days => $1::int)
+    AND created_at < now()
+  GROUP BY 1
+), intents AS (
+  SELECT LEAST(floor(extract(epoch FROM now() - created_at) / 86400)::int, $1::int - 1) AS bucket,
+         count(*) FILTER (WHERE status = 'succeeded')::bigint AS succeeded,
+         count(*) FILTER (WHERE status = 'failed')::bigint AS failed
+  FROM payment_intents
+  WHERE created_at >= now() - make_interval(days => $1::int)
+    AND created_at < now()
+  GROUP BY 1
+)
+SELECT
+  b.bucket::int AS bucket,
+  COALESCE(c.created, 0)::bigint AS new_customers,
+  COALESCE(i.succeeded, 0)::bigint AS payments_succeeded,
+  COALESCE(i.failed, 0)::bigint AS payments_failed
+FROM generate_series(0, $1::int - 1) AS b(bucket)
+LEFT JOIN customers c ON c.bucket = b.bucket
+LEFT JOIN intents i ON i.bucket = b.bucket
+ORDER BY b.bucket
+`
+
+type DashboardDailyActivityRow struct {
+	Bucket            int32 `json:"bucket"`
+	NewCustomers      int64 `json:"new_customers"`
+	PaymentsSucceeded int64 `json:"payments_succeeded"`
+	PaymentsFailed    int64 `json:"payments_failed"`
+}
+
+// The windowed tile figures above, split into consecutive 24-hour buckets that
+// end now. Bucket 0 is the last 24 hours, bucket days-1 the oldest. Buckets are
+// measured back from now rather than cut at midnight, so the window is the
+// same one the tiles count and the newest bucket is never a partial day that
+// reads as a collapse. A record exactly on the far edge joins the oldest bucket.
+func (q *Queries) DashboardDailyActivity(ctx context.Context, days int32) ([]DashboardDailyActivityRow, error) {
+	rows, err := q.db.Query(ctx, dashboardDailyActivity, days)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []DashboardDailyActivityRow{}
+	for rows.Next() {
+		var i DashboardDailyActivityRow
+		if err := rows.Scan(
+			&i.Bucket,
+			&i.NewCustomers,
+			&i.PaymentsSucceeded,
+			&i.PaymentsFailed,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const dashboardDailyRevenue = `-- name: DashboardDailyRevenue :many
+SELECT
+  o.currency,
+  LEAST(floor(extract(epoch FROM now() - o.updated_at) / 86400)::int, $1::int - 1)::int AS bucket,
+  COALESCE(sum(o.paid_minor), 0)::bigint AS paid_minor
+FROM orders o
+WHERE o.state IN ('paid', 'fulfilled', 'partially_refunded', 'refunded')
+  AND o.updated_at >= now() - make_interval(days => $1::int)
+  AND o.updated_at < now()
+GROUP BY 1, 2
+ORDER BY 1, 2
+`
+
+type DashboardDailyRevenueRow struct {
+	Currency  string `json:"currency"`
+	Bucket    int32  `json:"bucket"`
+	PaidMinor int64  `json:"paid_minor"`
+}
+
+// Provider money per currency per 24-hour bucket, over the same window and
+// with the same order states as DashboardRevenue. Only provider money: wallet
+// spend and refunds move for reasons a daily line would misrepresent. Empty
+// buckets are absent; the caller fills them with zero.
+func (q *Queries) DashboardDailyRevenue(ctx context.Context, days int32) ([]DashboardDailyRevenueRow, error) {
+	rows, err := q.db.Query(ctx, dashboardDailyRevenue, days)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []DashboardDailyRevenueRow{}
+	for rows.Next() {
+		var i DashboardDailyRevenueRow
+		if err := rows.Scan(&i.Currency, &i.Bucket, &i.PaidMinor); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const dashboardDriftTotals = `-- name: DashboardDriftTotals :one
 SELECT
   count(*) FILTER (WHERE status = 'open')::bigint AS open_drifts,
@@ -732,6 +840,46 @@ func (q *Queries) DashboardSupportTotals(ctx context.Context, staleAfter pgtype.
 	var i DashboardSupportTotalsRow
 	err := row.Scan(&i.OpenTickets, &i.StaleTickets)
 	return i, err
+}
+
+const dashboardUpcomingRenewals = `-- name: DashboardUpcomingRenewals :many
+SELECT
+  LEAST(floor(extract(epoch FROM e.ends_at - now()) / 86400)::int, $1::int - 1)::int AS bucket,
+  count(*)::bigint AS ending
+FROM entitlements e
+WHERE e.status = 'active'
+  AND e.ends_at BETWEEN now() AND now() + make_interval(days => $1::int)
+GROUP BY 1
+ORDER BY 1
+`
+
+type DashboardUpcomingRenewalsRow struct {
+	Bucket int32 `json:"bucket"`
+	Ending int64 `json:"ending"`
+}
+
+// The renewals-due tile looking forward: active entitlements by the 24-hour
+// bucket in which they end, bucket 0 being the next 24 hours. The predicate is
+// the tile's own, so the buckets add up to the figure beside them. Empty
+// buckets are absent; the caller fills them with zero.
+func (q *Queries) DashboardUpcomingRenewals(ctx context.Context, days int32) ([]DashboardUpcomingRenewalsRow, error) {
+	rows, err := q.db.Query(ctx, dashboardUpcomingRenewals, days)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []DashboardUpcomingRenewalsRow{}
+	for rows.Next() {
+		var i DashboardUpcomingRenewalsRow
+		if err := rows.Scan(&i.Bucket, &i.Ending); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const dashboardWebhookHealth = `-- name: DashboardWebhookHealth :one

@@ -227,6 +227,68 @@ SELECT
   count(*) FILTER (WHERE status = 'open' AND kind = 'missing_remote')::bigint AS missing_remote
 FROM entitlement_drifts;
 
+-- name: DashboardDailyActivity :many
+-- The windowed tile figures above, split into consecutive 24-hour buckets that
+-- end now. Bucket 0 is the last 24 hours, bucket days-1 the oldest. Buckets are
+-- measured back from now rather than cut at midnight, so the window is the
+-- same one the tiles count and the newest bucket is never a partial day that
+-- reads as a collapse. A record exactly on the far edge joins the oldest bucket.
+WITH customers AS (
+  SELECT LEAST(floor(extract(epoch FROM now() - created_at) / 86400)::int, sqlc.arg(days)::int - 1) AS bucket,
+         count(*)::bigint AS created
+  FROM users
+  WHERE created_at >= now() - make_interval(days => sqlc.arg(days)::int)
+    AND created_at < now()
+  GROUP BY 1
+), intents AS (
+  SELECT LEAST(floor(extract(epoch FROM now() - created_at) / 86400)::int, sqlc.arg(days)::int - 1) AS bucket,
+         count(*) FILTER (WHERE status = 'succeeded')::bigint AS succeeded,
+         count(*) FILTER (WHERE status = 'failed')::bigint AS failed
+  FROM payment_intents
+  WHERE created_at >= now() - make_interval(days => sqlc.arg(days)::int)
+    AND created_at < now()
+  GROUP BY 1
+)
+SELECT
+  b.bucket::int AS bucket,
+  COALESCE(c.created, 0)::bigint AS new_customers,
+  COALESCE(i.succeeded, 0)::bigint AS payments_succeeded,
+  COALESCE(i.failed, 0)::bigint AS payments_failed
+FROM generate_series(0, sqlc.arg(days)::int - 1) AS b(bucket)
+LEFT JOIN customers c ON c.bucket = b.bucket
+LEFT JOIN intents i ON i.bucket = b.bucket
+ORDER BY b.bucket;
+
+-- name: DashboardDailyRevenue :many
+-- Provider money per currency per 24-hour bucket, over the same window and
+-- with the same order states as DashboardRevenue. Only provider money: wallet
+-- spend and refunds move for reasons a daily line would misrepresent. Empty
+-- buckets are absent; the caller fills them with zero.
+SELECT
+  o.currency,
+  LEAST(floor(extract(epoch FROM now() - o.updated_at) / 86400)::int, sqlc.arg(days)::int - 1)::int AS bucket,
+  COALESCE(sum(o.paid_minor), 0)::bigint AS paid_minor
+FROM orders o
+WHERE o.state IN ('paid', 'fulfilled', 'partially_refunded', 'refunded')
+  AND o.updated_at >= now() - make_interval(days => sqlc.arg(days)::int)
+  AND o.updated_at < now()
+GROUP BY 1, 2
+ORDER BY 1, 2;
+
+-- name: DashboardUpcomingRenewals :many
+-- The renewals-due tile looking forward: active entitlements by the 24-hour
+-- bucket in which they end, bucket 0 being the next 24 hours. The predicate is
+-- the tile's own, so the buckets add up to the figure beside them. Empty
+-- buckets are absent; the caller fills them with zero.
+SELECT
+  LEAST(floor(extract(epoch FROM e.ends_at - now()) / 86400)::int, sqlc.arg(days)::int - 1)::int AS bucket,
+  count(*)::bigint AS ending
+FROM entitlements e
+WHERE e.status = 'active'
+  AND e.ends_at BETWEEN now() AND now() + make_interval(days => sqlc.arg(days)::int)
+GROUP BY 1
+ORDER BY 1;
+
 -- name: DashboardOutboxLag :one
 -- The oldest unpublished event is the honest measure of lag: a queue with a
 -- thousand fresh events is healthy, and one with a single event from an hour

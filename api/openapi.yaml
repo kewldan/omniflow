@@ -6907,6 +6907,22 @@ components:
         key: {type: string}
         definition: {type: string, description: "Stable identifier the panel resolves to localised copy explaining exactly what was counted."}
         value: {type: integer, format: int64}
+        comparison: {type: integer, format: int64, description: "The same measure over the preceding window of the same length. Absent for a point-in-time total."}
+        series:
+          type: array
+          description: >-
+            The measure split into consecutive 24-hour buckets measured from the
+            moment the dashboard was read, oldest first for history and soonest
+            first for upcoming. Absent for a point-in-time total, whose history
+            is not recorded.
+          items: {$ref: "#/components/schemas/PanelSeriesPoint"}
+        seriesKind: {type: string, enum: [history, upcoming]}
+    PanelSeriesPoint:
+      type: object
+      required: [start, value]
+      properties:
+        start: {type: string, format: date-time}
+        value: {type: integer, format: int64}
     PanelRevenueLine:
       type: object
       description: >-
@@ -6919,6 +6935,8 @@ components:
         walletMinor: {type: integer, format: int64}
         refundedMinor: {type: integer, format: int64}
         orderCount: {type: integer, format: int64}
+        previousPaidMinor: {type: integer, format: int64, description: "Provider money over the preceding window of the same length."}
+        paidSeries: {type: array, description: "paidMinor in 24-hour buckets, oldest first.", items: {$ref: "#/components/schemas/PanelSeriesPoint"}}
     PanelAttentionItem:
       type: object
       required: [key, severity, count, href]

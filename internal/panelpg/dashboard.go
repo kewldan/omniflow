@@ -24,6 +24,63 @@ type Metric struct {
 	// against "the same total a month ago" would mean something the query did
 	// not measure.
 	Comparison *int64 `json:"comparison,omitempty"`
+	// Series is the same measure split into consecutive 24-hour buckets, oldest
+	// first. It is drawn as the small line or bars inside the tile and read for
+	// the trend label beneath it. A point-in-time total has none: its history
+	// is not recorded, and reconstructing it from today's rows would draw a
+	// past that never existed.
+	Series []SeriesPoint `json:"series,omitempty"`
+	// SeriesKind says which way the series looks: "history" ends now, and
+	// "upcoming" starts now and runs forward.
+	SeriesKind string `json:"seriesKind,omitempty"`
+}
+
+// SeriesPoint is one 24-hour bucket of a dashboard series.
+type SeriesPoint struct {
+	// Start is when the bucket begins. Buckets are measured from the moment the
+	// dashboard was read rather than cut at midnight, so none is a partial day.
+	Start time.Time `json:"start"`
+	Value int64     `json:"value"`
+}
+
+// Series kinds.
+const (
+	SeriesHistory  = "history"
+	SeriesUpcoming = "upcoming"
+)
+
+const seriesBucket = 24 * time.Hour
+
+// historySeries lays out buckets counted back from now, oldest first. Bucket
+// zero is the last 24 hours.
+func historySeries(now time.Time, days int, value func(bucket int) int64) []SeriesPoint {
+	points := make([]SeriesPoint, 0, days)
+	for bucket := days - 1; bucket >= 0; bucket-- {
+		points = append(points, SeriesPoint{
+			Start: now.Add(-time.Duration(bucket+1) * seriesBucket),
+			Value: value(bucket),
+		})
+	}
+	return points
+}
+
+// upcomingSeries lays out buckets counted forward from now, soonest first.
+func upcomingSeries(now time.Time, days int, value func(bucket int) int64) []SeriesPoint {
+	points := make([]SeriesPoint, 0, days)
+	for bucket := range days {
+		points = append(points, SeriesPoint{
+			Start: now.Add(time.Duration(bucket) * seriesBucket),
+			Value: value(bucket),
+		})
+	}
+	return points
+}
+
+// withSeries attaches a series to a metric.
+func withSeries(metric Metric, kind string, points []SeriesPoint) Metric {
+	metric.Series = points
+	metric.SeriesKind = kind
+	return metric
 }
 
 // compared attaches a previous-window figure to a windowed metric.
@@ -50,6 +107,8 @@ type RevenueLine struct {
 	// PreviousPaidMinor is provider money over the preceding window of the same
 	// length, when there was any.
 	PreviousPaidMinor *int64 `json:"previousPaidMinor,omitempty"`
+	// PaidSeries is PaidMinor split into 24-hour buckets, oldest first.
+	PaidSeries []SeriesPoint `json:"paidSeries,omitempty"`
 }
 
 // Dashboard is the operations overview.
@@ -103,6 +162,8 @@ const (
 	// Outbox lag beyond this is a publisher that has stopped rather than a
 	// queue that is busy.
 	outboxLagAlert = 5 * time.Minute
+	// dashboardDays is the window in 24-hour buckets, one per series point.
+	dashboardDays = int(dashboardWindow / seriesBucket)
 )
 
 // Dashboard reads the operations overview.
@@ -178,6 +239,18 @@ func (service *Service) Dashboard(ctx context.Context) (Dashboard, error) {
 	if err != nil {
 		return Dashboard{}, err
 	}
+	activity, err := queries.DashboardDailyActivity(ctx, int32(dashboardDays))
+	if err != nil {
+		return Dashboard{}, err
+	}
+	dailyRevenue, err := queries.DashboardDailyRevenue(ctx, int32(dashboardDays))
+	if err != nil {
+		return Dashboard{}, err
+	}
+	upcoming, err := queries.DashboardUpcomingRenewals(ctx, int32(dashboardDays))
+	if err != nil {
+		return Dashboard{}, err
+	}
 	openSignals, err := queries.CountOpenAnomalySignals(ctx)
 	if err != nil {
 		return Dashboard{}, err
@@ -187,38 +260,61 @@ func (service *Service) Dashboard(ctx context.Context) (Dashboard, error) {
 		return Dashboard{}, err
 	}
 
+	now := service.now()
+	byBucket := make(map[int]dbgen.DashboardDailyActivityRow, len(activity))
+	for _, row := range activity {
+		byBucket[int(row.Bucket)] = row
+	}
+	activitySeries := func(pick func(dbgen.DashboardDailyActivityRow) int64) []SeriesPoint {
+		return historySeries(now, dashboardDays, func(bucket int) int64 { return pick(byBucket[bucket]) })
+	}
+	ending := make(map[int]int64, len(upcoming))
+	for _, row := range upcoming {
+		ending[int(row.Bucket)] = row.Ending
+	}
+	paidByCurrency := make(map[string]map[int]int64)
+	for _, row := range dailyRevenue {
+		if paidByCurrency[row.Currency] == nil {
+			paidByCurrency[row.Currency] = make(map[int]int64)
+		}
+		paidByCurrency[row.Currency][int(row.Bucket)] = row.PaidMinor
+	}
+
 	dashboard := Dashboard{
 		Window:      dashboardWindow,
-		GeneratedAt: service.now(),
+		GeneratedAt: now,
 		Timezone:    "UTC",
 		Customers: []Metric{
 			{Key: "activeCustomers", Definition: "customer.status.active", Value: customers.ActiveCustomers},
 			{Key: "suspendedCustomers", Definition: "customer.status.suspended", Value: customers.SuspendedCustomers},
 			{Key: "deletedCustomers", Definition: "customer.status.deleted", Value: customers.DeletedCustomers},
-			compared(
+			withSeries(compared(
 				Metric{Key: "newCustomers", Definition: "customer.created.window", Value: customers.NewCustomers},
 				previousCustomers.NewCustomers,
-			),
+			), SeriesHistory, activitySeries(func(row dbgen.DashboardDailyActivityRow) int64 { return row.NewCustomers })),
 		},
 		Subscriptions: []Metric{
 			{Key: "activeEntitlements", Definition: "entitlement.active", Value: subscriptions.ActiveEntitlements},
 			{Key: "limitedEntitlements", Definition: "entitlement.limited", Value: subscriptions.LimitedEntitlements},
 			{Key: "lapsedEntitlements", Definition: "entitlement.lapsed", Value: subscriptions.LapsedEntitlements},
-			{Key: "renewalsDue", Definition: "entitlement.renewal.window", Value: subscriptions.RenewalsDue},
+			withSeries(
+				Metric{Key: "renewalsDue", Definition: "entitlement.renewal.window", Value: subscriptions.RenewalsDue},
+				SeriesUpcoming, upcomingSeries(now, dashboardDays, func(bucket int) int64 { return ending[bucket] }),
+			),
 			// Remnawave owns traffic; this is the counter Omniflow last
 			// observed, which is why the definition says "observed".
 			{Key: "observedTrafficBytes", Definition: "traffic.observed", Value: subscriptions.ObservedTrafficBytes},
 		},
 		Payments: []Metric{
-			compared(
+			withSeries(compared(
 				Metric{Key: "paymentsSucceeded", Definition: "payment.succeeded.window", Value: payments.Succeeded},
 				previousPayments.Succeeded,
-			),
+			), SeriesHistory, activitySeries(func(row dbgen.DashboardDailyActivityRow) int64 { return row.PaymentsSucceeded })),
 			{Key: "paymentsInFlight", Definition: "payment.inflight", Value: payments.InFlight},
-			compared(
+			withSeries(compared(
 				Metric{Key: "paymentsFailed", Definition: "payment.failed.window", Value: payments.Failed},
 				previousPayments.Failed,
-			),
+			), SeriesHistory, activitySeries(func(row dbgen.DashboardDailyActivityRow) int64 { return row.PaymentsFailed })),
 			{Key: "paymentsStuck", Definition: "payment.stuck", Value: payments.Stuck},
 		},
 		Support: []Metric{
@@ -257,6 +353,8 @@ func (service *Service) Dashboard(ctx context.Context) (Dashboard, error) {
 		if previous, ok := previousPaid[line.Currency]; ok {
 			entry.PreviousPaidMinor = &previous
 		}
+		paid := paidByCurrency[line.Currency]
+		entry.PaidSeries = historySeries(now, dashboardDays, func(bucket int) int64 { return paid[bucket] })
 		dashboard.Revenue = append(dashboard.Revenue, entry)
 	}
 
