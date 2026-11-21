@@ -58,10 +58,18 @@ the contact form is not verified until it is used to sign in.
 - **Receipts** and other account messages go to a verified address whose
   "transactional" flag is on. They carry no unsubscribe link: they are not
   marketing.
+- **Support replies** the bot could not deliver — the customer has no Telegram,
+  blocked the bot, or Telegram kept failing — go to the same address, with the
+  reply and a link to the conversation in the web cabinet. A reply is mailed
+  once, only while it is unread, at least five minutes after it was written (a
+  customer still on the cabinet page reads it there), and no later than seven
+  days after.
 - **Broadcasts and offers** go only to a verified address whose "marketing" flag
   is on, and pass the same policy as a Telegram broadcast: the suppression list
-  vetoes, and the marketing frequency cap (`APP_MARKETING_FREQUENCY_CAP` per
-  `APP_MARKETING_WINDOW_HOURS`) counts marketing sent on **both** channels, so a
+  vetoes, and the marketing frequency caps (`APP_MARKETING_FREQUENCY_CAP` per
+  `APP_MARKETING_WINDOW_HOURS`, and the optional second one,
+  `APP_MARKETING_LONG_FREQUENCY_CAP` per `APP_MARKETING_LONG_WINDOW_HOURS`) count
+  marketing sent on **both** channels, so a
   customer with Telegram and e-mail is not messaged twice as often.
 
 A recipient the policy refuses is recorded with the reason, never dropped

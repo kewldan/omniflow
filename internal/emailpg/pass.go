@@ -28,6 +28,7 @@ func (service *Service) Pass(ctx context.Context) error {
 		{"receipts", service.prepareReceipts},
 		{"gifts", service.prepareGifts},
 		{"maintenance", service.prepareMaintenance},
+		{"support replies", service.prepareSupportReplies},
 		{"delivery", service.deliver},
 		{"prune", service.prune},
 	} {

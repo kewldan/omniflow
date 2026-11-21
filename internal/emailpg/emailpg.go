@@ -88,9 +88,12 @@ type Options struct {
 	// The marketing policy shared with the Telegram broadcasts.
 	MarketingFrequencyCap int
 	MarketingWindow       time.Duration
-	Disposable            mailer.DisposableChecker
-	Logger                *slog.Logger
-	Clock                 func() time.Time
+	// The second, longer window; a cap of zero disables it.
+	MarketingLongCap    int
+	MarketingLongWindow time.Duration
+	Disposable          mailer.DisposableChecker
+	Logger              *slog.Logger
+	Clock               func() time.Time
 }
 
 // Service is the queue.
@@ -126,6 +129,9 @@ func New(pool *pgxpool.Pool, options Options) (*Service, error) {
 	}
 	if options.MarketingWindow <= 0 {
 		options.MarketingWindow = 7 * 24 * time.Hour
+	}
+	if options.MarketingLongWindow <= 0 {
+		options.MarketingLongWindow = 30 * 24 * time.Hour
 	}
 	options.PublicURL = strings.TrimRight(options.PublicURL, "/")
 	return &Service{pool: pool, aead: aead, signer: signer, options: options}, nil
@@ -250,6 +256,7 @@ type recipient struct {
 	Transactional bool
 	Suppressed    bool
 	SentInWindow  int
+	SentInLong    int
 	Active        bool
 }
 
@@ -267,14 +274,19 @@ func (service *Service) recipientFor(ctx context.Context, customerID string) (re
 			+ (SELECT count(*)::integer FROM email_outbox e WHERE e.user_id = u.id
 				AND e.class = 'marketing' AND e.status IN ('pending', 'sent') AND e.payload_ciphertext <> '\x'::bytea
 				AND e.created_at > now() - $2::interval),
+			(SELECT count(*)::integer FROM notification_deliveries n WHERE n.user_id = u.id
+				AND n.class = 'marketing' AND n.status = 'sent' AND n.sent_at > now() - $3::interval)
+			+ (SELECT count(*)::integer FROM email_outbox e WHERE e.user_id = u.id
+				AND e.class = 'marketing' AND e.status IN ('pending', 'sent') AND e.payload_ciphertext <> '\x'::bytea
+				AND e.created_at > now() - $3::interval),
 			u.status = 'active'
 		FROM users u
 		JOIN LATERAL (SELECT * FROM contact_channels c WHERE c.user_id = u.id AND c.kind = 'email'
 			AND c.revoked_at IS NULL AND c.verified_at IS NOT NULL AND c.value_ciphertext IS NOT NULL
 			ORDER BY c.verified_at DESC LIMIT 1) c ON true
-		WHERE u.id = $1::uuid`, customerID, service.options.MarketingWindow).Scan(
+		WHERE u.id = $1::uuid`, customerID, service.options.MarketingWindow, service.options.MarketingLongWindow).Scan(
 		&value, &found.Locale, &found.Marketing, &found.Transactional, &found.Suppressed,
-		&found.SentInWindow, &found.Active)
+		&found.SentInWindow, &found.SentInLong, &found.Active)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return recipient{}, false, nil
 	}
@@ -296,11 +308,14 @@ func (service *Service) marketingDecision(person recipient) (string, error) {
 		return "no_consent", nil
 	}
 	decision, err := commerce.EvaluateDelivery(service.options.Clock().UTC(), "marketing", commerce.DeliveryPolicy{
-		KindEnabled:           true,
-		MarketingConsent:      person.Marketing,
-		MarketingSentInWindow: person.SentInWindow,
-		MarketingFrequencyCap: service.options.MarketingFrequencyCap,
-		FrequencyWindow:       service.options.MarketingWindow,
+		KindEnabled:               true,
+		MarketingConsent:          person.Marketing,
+		MarketingSentInWindow:     person.SentInWindow,
+		MarketingFrequencyCap:     service.options.MarketingFrequencyCap,
+		FrequencyWindow:           service.options.MarketingWindow,
+		MarketingSentInLongWindow: person.SentInLong,
+		MarketingLongCap:          service.options.MarketingLongCap,
+		LongWindow:                service.options.MarketingLongWindow,
 	})
 	if err != nil {
 		return "", err

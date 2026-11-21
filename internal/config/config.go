@@ -289,6 +289,10 @@ type BotConfig struct {
 	// disables the cap.
 	MarketingFrequencyCap int
 	MarketingWindow       time.Duration
+	// MarketingLongCap bounds marketing messages per MarketingLongWindow, a
+	// second and longer window beside the first. Zero, the default, disables it.
+	MarketingLongCap    int
+	MarketingLongWindow time.Duration
 	// DeliveryRate is how many messages a second the bot sends across every
 	// chat. Zero means the bot's default.
 	DeliveryRate int
@@ -492,6 +496,8 @@ func LoadBot() (BotConfig, error) {
 		YooKassaSecret:         os.Getenv("APP_YOOKASSA_SECRET"),
 		MarketingFrequencyCap:  intEnvOr("APP_MARKETING_FREQUENCY_CAP", 3),
 		MarketingWindow:        hourEnvOr("APP_MARKETING_WINDOW_HOURS", 7*24*time.Hour),
+		MarketingLongCap:       intEnvOr("APP_MARKETING_LONG_FREQUENCY_CAP", 0),
+		MarketingLongWindow:    hourEnvOr("APP_MARKETING_LONG_WINDOW_HOURS", 30*24*time.Hour),
 		DeliveryRate:           intEnvOr("APP_TELEGRAM_DELIVERY_RATE", 25),
 		RecoveryWindow:         hourEnvOr("APP_RECOVERY_WINDOW_HOURS", 14*24*time.Hour),
 		MinimumTrialAccountAge: hourEnvOr("APP_TRIAL_MINIMUM_ACCOUNT_AGE_HOURS", 0),

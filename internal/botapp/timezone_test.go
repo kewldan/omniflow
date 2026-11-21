@@ -79,7 +79,7 @@ func TestQuietHoursNameTheirZone(t *testing.T) {
 		t.Fatalf("a customer on UTC is not told so: %q", view.Text)
 	}
 	preferences.Timezone = "Asia/Vladivostok"
-	settings := customerSettingsView(LocaleEnglish, preferences, 3, timezoneTestNow)
+	settings := customerSettingsView(LocaleEnglish, preferences, 3, longLimit{}, timezoneTestNow)
 	if !strings.Contains(buttonLabels(settings), "22:00–08:00 · Vladivostok · UTC+10:00") {
 		t.Fatalf("the settings screen does not name the zone beside the window: %s", buttonLabels(settings))
 	}

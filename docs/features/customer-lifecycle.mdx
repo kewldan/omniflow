@@ -168,10 +168,14 @@ their marketing consent, their quiet hours, the marketing frequency cap, and whe
 reach them. The answer is send now, wait until a stated time, or do not send and record why.
 
 - **Transactional messages** — expiry and renewal reminders, traffic warnings, payment and
-  activation results, support replies, announcements — need no consent.
+  activation results, support replies, announcements — need no consent. A support reply that cannot
+  reach the customer in Telegram — no Telegram account, a blocked bot — is e-mailed to their verified
+  address instead, with a link to the conversation in the web cabinet.
 - **Marketing messages** — campaigns and `news` posts — need marketing consent, which is off until
   the customer turns it on, and are limited by `APP_MARKETING_FREQUENCY_CAP` (3 per
-  `APP_MARKETING_WINDOW_HOURS`, 168 hours, by default).
+  `APP_MARKETING_WINDOW_HOURS`, 168 hours, by default) and, when you set it, by a second cap over a
+  longer window, `APP_MARKETING_LONG_FREQUENCY_CAP` per `APP_MARKETING_LONG_WINDOW_HOURS` (720 hours).
+  "At most one a week and two a month" is `1` per `168` plus `2` per `720`.
 - **Quiet hours** hold non-urgent messages until the window ends, in the customer's own time zone.
   Payment, activation, support, and incident messages always arrive.
 

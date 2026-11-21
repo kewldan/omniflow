@@ -174,6 +174,13 @@ type DeliveryPolicy struct {
 	MarketingSentInWindow int
 	MarketingFrequencyCap int
 	FrequencyWindow       time.Duration
+	// The second, longer window: MarketingSentInLongWindow counts marketing
+	// messages delivered inside LongWindow, and MarketingLongCap bounds it —
+	// "at most one a week and two a month" is the first window plus this one.
+	// A cap of zero or less disables it.
+	MarketingSentInLongWindow int
+	MarketingLongCap          int
+	LongWindow                time.Duration
 	// DeliveryStatus mirrors bot_delivery_state.status.
 	DeliveryStatus string
 	// RetryAfter defers delivery after a Telegram flood wait.
@@ -218,6 +225,10 @@ func EvaluateDelivery(now time.Time, kind string, policy DeliveryPolicy) (Delive
 			return decision, nil
 		}
 		if policy.MarketingFrequencyCap > 0 && policy.MarketingSentInWindow >= policy.MarketingFrequencyCap {
+			decision.Reason = "frequency_cap"
+			return decision, nil
+		}
+		if policy.MarketingLongCap > 0 && policy.MarketingSentInLongWindow >= policy.MarketingLongCap {
 			decision.Reason = "frequency_cap"
 			return decision, nil
 		}

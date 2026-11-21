@@ -713,7 +713,8 @@ var catalog = map[string]phrase{
 	"settings.quietOn": {ru: "%02d:00–%02d:00", en: "%02d:00–%02d:00"},
 	"settings.quietTitle": {ru: "🌙 <b>Тихие часы</b>\n\nВ это время мы не присылаем несрочные сообщения. Уведомления об оплате, активации и ответах поддержки приходят всегда.",
 		en: "🌙 <b>Quiet hours</b>\n\nNon-urgent messages wait during this window. Payment, activation, and support replies always arrive."},
-	"settings.marketingNote": {ru: "\n\nРекламные сообщения приходят только с вашего согласия и не чаще %d раз в неделю.", en: "\n\nMarketing messages require your consent and are limited to %d per week."},
+	"settings.marketingNote":     {ru: "\n\nРекламные сообщения приходят только с вашего согласия и не чаще %d раз в неделю.", en: "\n\nMarketing messages require your consent and are limited to %d per week."},
+	"settings.marketingLongNote": {ru: " И не больше %d за %d дней.", en: " And no more than %d in %d days."},
 
 	// Push notifications.
 	"alert.subscription": {ru: "🗂 Подписка: <b>%s</b>", en: "🗂 Subscription: <b>%s</b>"},

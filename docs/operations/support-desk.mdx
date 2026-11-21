@@ -253,7 +253,11 @@ it" has one answer on both sides.
 | `delivery failed` | Three transport failures; it is not tried again |
 
 An undeliverable or failed message is not lost. It stays in the conversation,
-unread, and the customer sees it when they open `/account/support`. The label
+unread, and the customer sees it when they open `/account/support`. If they
+have a verified e-mail address with account messages on, the worker also mails
+them the reply with a link to the conversation, once, while it is still unread
+and between five minutes and seven days after it was written; see
+[E-mail](/integrations/email). The label
 exists so an operator knows to say so rather than waiting for a push that is not
 coming — and so that one customer who blocked the bot cannot hold the head of
 the queue: a message in a terminal state is excluded from the next claim, and
@@ -273,10 +277,12 @@ it into the audit trail would duplicate customer content into a second retention
 regime.
 
 <Warning>
-  **A customer with no Telegram identity is never pushed a reply.** Someone who
-  signed in by magic link or OIDC sees the reply when they open
+  **A customer with no Telegram identity is never pushed a reply in Telegram.**
+  Someone who signed in by magic link or OIDC sees the reply when they open
   `/account/support`; the loop records the message as `undeliverable` with
-  reason `no_telegram` and sends nothing anywhere. Support replies still bypass
+  reason `no_telegram`, and the e-mail pass mails it to their verified address
+  if they have one that accepts account messages. Without such an address the
+  reply waits in the cabinet only. Support replies still bypass
   the consent, quiet-hours, and frequency-cap checks — a reply is something the
   customer asked for — but they do write a delivery row, which is where the
   retry count and the undeliverable reason live.

@@ -134,6 +134,17 @@ func ReceiptMessage(to, locale string, receipt Receipt) Message {
 	})
 }
 
+// SupportReply carries a support answer the customer could not get in
+// Telegram, with a link to the conversation in the web cabinet.
+func SupportReply(to, locale, subject, body, ticketURL string) Message {
+	paragraphs := []string{Text(locale, "support_reply_intro", subject), body}
+	return Render(to, Content{
+		Locale: locale, Subject: Text(locale, "support_reply_subject", subject), Paragraphs: paragraphs,
+		ActionLabel: Text(locale, "support_reply_action"), ActionURL: ticketURL,
+		Footer: Text(locale, "support_reply_footer"),
+	})
+}
+
 // Broadcast renders an operator-written marketing message.
 func Broadcast(to, locale, subject, body, unsubscribeURL string) Message {
 	return Render(to, Content{
@@ -216,6 +227,10 @@ var catalogue = map[string]map[string]string{
 		"signin_body":                 "Open the link below to sign in. It works once and expires in %d minutes.",
 		"signin_action":               "Sign in",
 		"signin_footer":               "If you did not ask to sign in, ignore this e-mail.",
+		"support_reply_subject":       "Support replied: %s",
+		"support_reply_intro":         "Support answered your request \u201c%s\u201d:",
+		"support_reply_action":        "Open the conversation",
+		"support_reply_footer":        "You are getting this e-mail because the reply could not reach you in Telegram. Answer in the web cabinet.",
 		"receipt_subject":             "Payment received — order %s",
 		"receipt_body":                "Thank you, your payment has been received.",
 		"receipt_lines":               "Order: %s\nPurchase: %s\nAmount: %s\nPaid: %s",
@@ -251,6 +266,10 @@ var catalogue = map[string]map[string]string{
 		"signin_body":                 "Чтобы войти, откройте ссылку ниже. Она работает один раз и действует %d минут.",
 		"signin_action":               "Войти",
 		"signin_footer":               "Если вы не запрашивали вход, просто проигнорируйте это письмо.",
+		"support_reply_subject":       "Ответ поддержки: %s",
+		"support_reply_intro":         "Поддержка ответила на ваше обращение «%s»:",
+		"support_reply_action":        "Открыть переписку",
+		"support_reply_footer":        "Это письмо пришло, потому что ответ не удалось доставить вам в Telegram. Ответить можно в веб-кабинете.",
 		"receipt_subject":             "Оплата получена — заказ %s",
 		"receipt_body":                "Спасибо, оплата получена.",
 		"receipt_lines":               "Заказ: %s\nПокупка: %s\nСумма: %s\nОплачено: %s",

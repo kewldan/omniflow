@@ -469,6 +469,7 @@ var ukFullCatalog = map[string]string{
 	"restricted.payment":               "🚫 <b>Ця оплата для вашого акаунта недоступна.</b>\nНапишіть у підтримку, якщо вважаєте це помилкою.",
 	"settings.expiry":                  "%s Термін підписки",
 	"settings.marketing":               "%s Рекламні повідомлення",
+	"settings.marketingLongNote":       " І не більше ніж %d за %d днів.",
 	"settings.marketingNote":           "\n\nРекламні повідомлення надходять лише за вашою згодою і не частіше ніж %d раз на тиждень.",
 	"settings.news":                    "%s Новини сервісу",
 	"settings.quiet":                   "🌙 Тихі години: %s",

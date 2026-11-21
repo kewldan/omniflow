@@ -96,7 +96,8 @@ Two paths deliberately bypass the policy machinery:
   asked for. They do leave a `support` delivery row, so the history below shows
   each one as delivered, waiting, or held back with the reason (`bot_blocked`,
   `no_telegram`); the message itself stays readable on `/account/support` either
-  way.
+  way, and a reply held back is e-mailed to a verified address that accepts
+  account messages.
 - **Dunning notices** — a failed automatic charge — are sent regardless of
   preferences and quiet hours. A customer about to lose access because a card
   was declined is not served by holding the message until morning, and there is
@@ -351,6 +352,8 @@ an entry there; adding one is an API call rather than a screen. See
 | --- | --- | --- |
 | `APP_MARKETING_FREQUENCY_CAP` | `3` | Marketing messages allowed per window. `0` disables the cap. |
 | `APP_MARKETING_WINDOW_HOURS` | `168` | Window length in hours; the default is seven days. |
+| `APP_MARKETING_LONG_FREQUENCY_CAP` | `0` | A second cap over a longer window, beside the first; `0` disables it. `1` per 168 hours with `2` per 720 hours is "at most one a week and two a month" |
+| `APP_MARKETING_LONG_WINDOW_HOURS` | `720` | Length of the second window in hours — thirty days |
 
 Both are read by the bot process. The count is taken over delivery rows with
 class `marketing` and status `sent` inside the window, so a suppressed or

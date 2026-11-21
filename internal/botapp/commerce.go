@@ -28,6 +28,10 @@ type CommerceSettings struct {
 	MinimumTrialAccountAge time.Duration
 	MarketingFrequencyCap  int
 	MarketingWindow        time.Duration
+	// MarketingLongCap bounds marketing messages per MarketingLongWindow, a
+	// second and longer window; zero disables it.
+	MarketingLongCap    int
+	MarketingLongWindow time.Duration
 	// CartTTL is how long a saved cart waits for the balance to cover it.
 	CartTTL time.Duration
 	// MultiSubscription mirrors the installation switch so a screen can hide the

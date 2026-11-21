@@ -1225,7 +1225,7 @@ func (app *App) settingsScreen(ctx context.Context, session commerceContext) Vie
 		app.logger.Error("preferences lookup failed", "error", err)
 		return app.errorView(session.Locale, routeSettings)
 	}
-	return customerSettingsView(session.Locale, preferences, app.settings.MarketingFrequencyCap, time.Now())
+	return customerSettingsView(session.Locale, preferences, app.settings.MarketingFrequencyCap, app.marketingLongLimit(), time.Now())
 }
 
 // subscriptionFor reads the customer's Remnawave subscription. A customer with

@@ -131,3 +131,35 @@ func TestQuietHoursWrapsMidnight(t *testing.T) {
 		t.Fatal("09:00 must fall outside a 22:00-08:00 window")
 	}
 }
+
+// "At most one a week and two a month": the weekly cap has room, the monthly
+// one does not, and the message is held back.
+func TestEvaluateDeliveryAppliesTheLongWindowToo(t *testing.T) {
+	now := time.Date(2026, 8, 11, 12, 0, 0, 0, time.UTC)
+	policy := DeliveryPolicy{
+		KindEnabled: true, MarketingConsent: true, DeliveryStatus: "active",
+		MarketingSentInWindow: 0, MarketingFrequencyCap: 1, FrequencyWindow: 7 * 24 * time.Hour,
+		MarketingSentInLongWindow: 2, MarketingLongCap: 2, LongWindow: 30 * 24 * time.Hour,
+	}
+	decision, err := EvaluateDelivery(now, "news", policy)
+	if err != nil {
+		t.Fatalf("evaluate: %v", err)
+	}
+	if decision.Allow || decision.Reason != "frequency_cap" {
+		t.Fatalf("decision = %+v, want the monthly cap to hold it", decision)
+	}
+	policy.MarketingSentInLongWindow = 1
+	if decision, _ = EvaluateDelivery(now, "news", policy); !decision.Allow {
+		t.Fatalf("decision = %+v, want allowed with room in both windows", decision)
+	}
+	policy.MarketingLongCap = 0
+	policy.MarketingSentInLongWindow = 9
+	if decision, _ = EvaluateDelivery(now, "news", policy); !decision.Allow {
+		t.Fatalf("decision = %+v, a zero long cap is off", decision)
+	}
+	// Transactional messages never count against either window.
+	if decision, _ = EvaluateDelivery(now, "expiry", DeliveryPolicy{KindEnabled: true, DeliveryStatus: "active",
+		MarketingSentInLongWindow: 9, MarketingLongCap: 1}); !decision.Allow {
+		t.Fatalf("decision = %+v, transactional ignores the cap", decision)
+	}
+}

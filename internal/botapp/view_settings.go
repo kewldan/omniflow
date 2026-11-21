@@ -12,12 +12,31 @@ import (
 // callback data closed and avoids a free-text time parser.
 var quietWindows = [][2]int{{22, 8}, {23, 9}, {0, 0}}
 
+// longLimit is the second marketing window as the settings screen states it.
+type longLimit struct{ cap, days int }
+
+// marketingLongLimit is the second window in whole days, or nothing when the
+// cap is off.
+func (app *App) marketingLongLimit() longLimit {
+	if app.settings.MarketingLongCap <= 0 {
+		return longLimit{}
+	}
+	days := int(app.settings.MarketingLongWindow.Hours() / 24)
+	if days <= 0 {
+		days = 30
+	}
+	return longLimit{cap: app.settings.MarketingLongCap, days: days}
+}
+
 // customerSettingsView renders language, per-kind notification switches,
 // marketing consent, and quiet hours in one screen.
-func customerSettingsView(locale Locale, preferences CustomerPreferences, marketingCap int, now time.Time) View {
+func customerSettingsView(locale Locale, preferences CustomerPreferences, marketingCap int, long longLimit, now time.Time) View {
 	body := text(locale, "settings.title")
 	if marketingCap > 0 {
 		body += text(locale, "settings.marketingNote", marketingCap)
+	}
+	if long.cap > 0 {
+		body += text(locale, "settings.marketingLongNote", long.cap, long.days)
 	}
 	// The window is only meaningful with the zone it is counted in, so the
 	// zone is named beside it rather than on a screen of its own.

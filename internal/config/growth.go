@@ -31,6 +31,8 @@ type MailConfig struct {
 	// The marketing policy shared with Telegram broadcasts.
 	MarketingFrequencyCap int
 	MarketingWindow       time.Duration
+	MarketingLongCap      int
+	MarketingLongWindow   time.Duration
 }
 
 // Configured reports whether any transport is set up.
@@ -53,6 +55,8 @@ func LoadMail() (MailConfig, error) {
 		BlockedDomains:        os.Getenv("APP_EMAIL_BLOCKED_DOMAINS"),
 		MarketingFrequencyCap: intEnvOr("APP_MARKETING_FREQUENCY_CAP", 3),
 		MarketingWindow:       hourEnvOr("APP_MARKETING_WINDOW_HOURS", 7*24*time.Hour),
+		MarketingLongCap:      intEnvOr("APP_MARKETING_LONG_FREQUENCY_CAP", 0),
+		MarketingLongWindow:   hourEnvOr("APP_MARKETING_LONG_WINDOW_HOURS", 30*24*time.Hour),
 	}
 	switch mail.Transport {
 	case "auto", "resend", "smtp":

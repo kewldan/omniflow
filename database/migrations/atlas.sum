@@ -1,4 +1,4 @@
-h1:C9Dd/Y7gCuzZQQpFbYxd2CNEyKc6+tT6k40Xw0vxhiE=
+h1:RODZoKCKoaM667Ym2b5SzS6ioSBNXGygm/eTlgz8n3E=
 20261120000000_baseline.sql h1:xcYk9mdv44B3O0TRxq3RP+hXxJ2VeeOilGnwKO251mQ=
 20261120010000_river_schema_v8.sql h1:AfdQpxaviEf8asJ5gyLmMVZr+zMYaWEw+o/vE8CMj7A=
 20261120020000_customer_email_signin.sql h1:PrCKaTaDm5ggof8aqRooMbqOXEHML5fwq1TF877zQa8=
@@ -77,3 +77,4 @@ h1:C9Dd/Y7gCuzZQQpFbYxd2CNEyKc6+tT6k40Xw0vxhiE=
 20261122550000_temporary_squad_access.sql h1:TCiWPCIhv7P04NXVERK1mdJgl7G+i7xIAso5NHiuDxQ=
 20261122560000_payment_quotes.sql h1:QaTMWAhNSijnddvPGQHgkvsDyYLM/Fyz32aEE7p8uY0=
 20261122570000_bedolaga_history.sql h1:7C8aeMRKW6YPU1Rnx/qsjf5QgsRCtoCedwqMGWdn4/Y=
+20261122580000_support_reply_email.sql h1:feLuydT+KlVpLr3NqeLS8aMLyQ/vlFYrATlI6OVMw84=

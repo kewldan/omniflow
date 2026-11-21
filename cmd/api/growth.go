@@ -37,6 +37,7 @@ func buildGrowth(
 		DataKey: cfg.DataEncryptionKey, PublicURL: cfg.PublicURL,
 		ReceiptsEnabled:       mail.ReceiptsEnabled,
 		MarketingFrequencyCap: mail.MarketingFrequencyCap, MarketingWindow: mail.MarketingWindow,
+		MarketingLongCap: mail.MarketingLongCap, MarketingLongWindow: mail.MarketingLongWindow,
 		Disposable: mailer.NewDisposableChecker(mail.BlockedDomains), Logger: logger,
 	})
 	if err != nil {

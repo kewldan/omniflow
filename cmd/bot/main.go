@@ -301,6 +301,8 @@ func commerceSettings(cfg config.BotConfig) botapp.CommerceSettings {
 		MinimumTrialAccountAge: cfg.MinimumTrialAccountAge,
 		MarketingFrequencyCap:  cfg.MarketingFrequencyCap,
 		MarketingWindow:        cfg.MarketingWindow,
+		MarketingLongCap:       cfg.MarketingLongCap,
+		MarketingLongWindow:    cfg.MarketingLongWindow,
 		DeliveryRate:           cfg.DeliveryRate,
 		CartTTL:                cfg.CartTTL,
 		MultiSubscription:      cfg.Subscriptions.MultiEnabled,

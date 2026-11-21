@@ -467,6 +467,7 @@ var faFullCatalog = map[string]string{
 	"restricted.payment":               "🚫 <b>این پرداخت برای حساب شما در دسترس نیست.</b>\nاگر فکر می‌کنید اشتباهی رخ داده، به پشتیبانی پیام دهید.",
 	"settings.expiry":                  "%s پایان اشتراک",
 	"settings.marketing":               "%s پیام‌های تبلیغاتی",
+	"settings.marketingLongNote":       " و حداکثر %d پیام در %d روز.",
 	"settings.marketingNote":           "\n\nپیام‌های تبلیغاتی نیازمند رضایت شما هستند و حداکثر %d پیام در هفته ارسال می‌شود.",
 	"settings.news":                    "%s اخبار سرویس",
 	"settings.quiet":                   "🌙 ساعات سکوت: %s",

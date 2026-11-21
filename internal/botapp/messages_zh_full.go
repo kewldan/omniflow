@@ -468,6 +468,7 @@ var zhFullCatalog = map[string]string{
 	"restricted.payment":               "🚫 <b>您的账户无法使用此支付。</b>\n如认为有误，请联系客服。",
 	"settings.expiry":                  "%s 订阅到期",
 	"settings.marketing":               "%s 营销消息",
+	"settings.marketingLongNote":       " 且最多 %d 条／%d 天。",
 	"settings.marketingNote":           "\n\n营销消息需征得您的同意，且每周最多 %d 条。",
 	"settings.news":                    "%s 服务动态",
 	"settings.quiet":                   "🌙 免打扰时段：%s",

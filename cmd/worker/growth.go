@@ -48,6 +48,7 @@ func growthTasks(logger *slog.Logger, cfg config.WorkerConfig, pool *pgxpool.Poo
 			Sender: sender, DataKey: cfg.DataEncryptionKey, PublicURL: os.Getenv("APP_PUBLIC_URL"),
 			ReceiptsEnabled:       mail.ReceiptsEnabled,
 			MarketingFrequencyCap: mail.MarketingFrequencyCap, MarketingWindow: mail.MarketingWindow,
+			MarketingLongCap: mail.MarketingLongCap, MarketingLongWindow: mail.MarketingLongWindow,
 			Disposable: mailer.NewDisposableChecker(mail.BlockedDomains), Logger: logger,
 		})
 		if emailErr != nil {

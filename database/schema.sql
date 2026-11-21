@@ -2329,7 +2329,7 @@ CREATE TABLE public.email_outbox (
     CONSTRAINT email_outbox_attempts_nonnegative CHECK ((attempts >= 0)),
     CONSTRAINT email_outbox_class_known CHECK ((class = ANY (ARRAY['transactional'::text, 'marketing'::text]))),
     CONSTRAINT email_outbox_dedupe_key_length CHECK (((char_length(dedupe_key) >= 1) AND (char_length(dedupe_key) <= 200))),
-    CONSTRAINT email_outbox_kind_known CHECK ((kind = ANY (ARRAY['receipt'::text, 'campaign'::text, 'offer'::text, 'guest_purchase'::text, 'guest_gift'::text, 'withdrawal'::text, 'test'::text, 'maintenance'::text]))),
+    CONSTRAINT email_outbox_kind_known CHECK ((kind = ANY (ARRAY['receipt'::text, 'campaign'::text, 'offer'::text, 'guest_purchase'::text, 'guest_gift'::text, 'withdrawal'::text, 'test'::text, 'maintenance'::text, 'support_reply'::text]))),
     CONSTRAINT email_outbox_sent_complete CHECK (((status = 'sent'::text) = (sent_at IS NOT NULL))),
     CONSTRAINT email_outbox_status_known CHECK ((status = ANY (ARRAY['pending'::text, 'sent'::text, 'failed'::text])))
 );

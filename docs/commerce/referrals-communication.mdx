@@ -241,6 +241,8 @@ hours off is expressed on both surfaces.
 | --- | --- | --- |
 | `APP_MARKETING_FREQUENCY_CAP` | `3` | Marketing messages allowed per window; `0` disables the cap |
 | `APP_MARKETING_WINDOW_HOURS` | `168` | Window length in hours — seven days |
+| `APP_MARKETING_LONG_FREQUENCY_CAP` | `0` | A second cap over a longer window, beside the first; `0` disables it. `1` per 168 hours with `2` per 720 hours is "at most one a week and two a month" |
+| `APP_MARKETING_LONG_WINDOW_HOURS` | `720` | Length of the second window in hours — thirty days |
 
 Both are read by the bot process. The count is the number of delivery rows with
 class `marketing` and status `sent` inside the window, so a suppressed or

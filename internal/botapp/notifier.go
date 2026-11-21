@@ -49,6 +49,8 @@ type notificationCandidate struct {
 	DeliveryStatus       string
 	RetryAfter           pgtype.Timestamptz
 	MarketingSent        int
+	// MarketingSentLong counts the same messages over the longer window.
+	MarketingSentLong int
 	// Suppressed is true when a row in communication_suppressions names this
 	// customer — their own unsubscribe, or an operator's bounce or complaint
 	// finding. It stops every marketing-class message regardless of what the
@@ -184,7 +186,7 @@ func (notifier *Notifier) runLifecyclePass(ctx context.Context) {
 	// bounds memory; the walk is what makes the pass reach the customer whose
 	// identifier sorts last, which a single bounded read never did.
 	err := walkCandidatePages(ctx, notificationBatch, func(ctx context.Context, after string, limit int) ([]notificationCandidate, error) {
-		return notifier.store.notificationCandidates(ctx, notifier.settings.MarketingWindow, after, limit)
+		return notifier.store.notificationCandidates(ctx, notifier.marketingWindows(), after, limit)
 	}, func(candidate notificationCandidate) bool {
 		notifier.deliverLifecycle(ctx, candidate)
 		return ctx.Err() == nil && !notifier.paused()
@@ -587,14 +589,17 @@ func (notifier *Notifier) deliverCampaigns(ctx context.Context) int {
 			continue
 		}
 		policy := commerce.DeliveryPolicy{
-			KindEnabled:           kindEnabled("marketing", candidate),
-			MarketingConsent:      candidate.MarketingEnabled,
-			QuietHours:            candidate.quietHours(),
-			MarketingSentInWindow: candidate.MarketingSent,
-			MarketingFrequencyCap: notifier.settings.MarketingFrequencyCap,
-			FrequencyWindow:       notifier.settings.MarketingWindow,
-			DeliveryStatus:        candidate.DeliveryStatus,
-			RetryAfter:            candidate.RetryAfter.Time,
+			KindEnabled:               kindEnabled("marketing", candidate),
+			MarketingConsent:          candidate.MarketingEnabled,
+			QuietHours:                candidate.quietHours(),
+			MarketingSentInWindow:     candidate.MarketingSent,
+			MarketingFrequencyCap:     notifier.settings.MarketingFrequencyCap,
+			FrequencyWindow:           notifier.settings.MarketingWindow,
+			MarketingSentInLongWindow: candidate.MarketingSentLong,
+			MarketingLongCap:          notifier.settings.MarketingLongCap,
+			LongWindow:                notifier.settings.MarketingLongWindow,
+			DeliveryStatus:            candidate.DeliveryStatus,
+			RetryAfter:                candidate.RetryAfter.Time,
 		}
 		decision, err := commerce.EvaluateDelivery(notifier.clock().UTC(), message.Class, policy)
 		if err != nil {
@@ -834,14 +839,17 @@ func (notifier *Notifier) deliver(ctx context.Context, candidate notificationCan
 		return
 	}
 	policy := commerce.DeliveryPolicy{
-		KindEnabled:           kindEnabled(kind, candidate),
-		MarketingConsent:      candidate.MarketingEnabled,
-		QuietHours:            candidate.quietHours(),
-		MarketingSentInWindow: candidate.MarketingSent,
-		MarketingFrequencyCap: notifier.settings.MarketingFrequencyCap,
-		FrequencyWindow:       notifier.settings.MarketingWindow,
-		DeliveryStatus:        candidate.DeliveryStatus,
-		RetryAfter:            candidate.RetryAfter.Time,
+		KindEnabled:               kindEnabled(kind, candidate),
+		MarketingConsent:          candidate.MarketingEnabled,
+		QuietHours:                candidate.quietHours(),
+		MarketingSentInWindow:     candidate.MarketingSent,
+		MarketingFrequencyCap:     notifier.settings.MarketingFrequencyCap,
+		FrequencyWindow:           notifier.settings.MarketingWindow,
+		MarketingSentInLongWindow: candidate.MarketingSentLong,
+		MarketingLongCap:          notifier.settings.MarketingLongCap,
+		LongWindow:                notifier.settings.MarketingLongWindow,
+		DeliveryStatus:            candidate.DeliveryStatus,
+		RetryAfter:                candidate.RetryAfter.Time,
 	}
 	decision, err := commerce.EvaluateDelivery(notifier.clock().UTC(), kind, policy)
 	if err != nil {
@@ -890,7 +898,7 @@ func (notifier *Notifier) candidateLookup() func(ctx context.Context, userID str
 		if entry, seen := cache[userID]; seen {
 			return entry.candidate, entry.found, nil
 		}
-		candidate, found, err := notifier.store.notificationCandidate(ctx, notifier.settings.MarketingWindow, userID)
+		candidate, found, err := notifier.store.notificationCandidate(ctx, notifier.marketingWindows(), userID)
 		if err != nil {
 			return notificationCandidate{}, false, err
 		}
@@ -901,8 +909,8 @@ func (notifier *Notifier) candidateLookup() func(ctx context.Context, userID str
 
 // notificationCandidate resolves a single customer, or reports that they are
 // not reachable through Telegram at all.
-func (store *PostgresStore) notificationCandidate(ctx context.Context, marketingWindow time.Duration, userID string) (notificationCandidate, bool, error) {
-	candidates, err := store.candidateRows(ctx, marketingWindow, "", userID, 1)
+func (store *PostgresStore) notificationCandidate(ctx context.Context, windows marketingWindows, userID string) (notificationCandidate, bool, error) {
+	candidates, err := store.candidateRows(ctx, windows, "", userID, 1)
 	if err != nil || len(candidates) == 0 {
 		return notificationCandidate{}, false, err
 	}
@@ -912,16 +920,28 @@ func (store *PostgresStore) notificationCandidate(ctx context.Context, marketing
 // notificationCandidates reads one page of reachable customers in identifier
 // order, starting after the given identifier. An empty cursor starts at the
 // beginning; a page shorter than the limit is the last one.
-func (store *PostgresStore) notificationCandidates(ctx context.Context, marketingWindow time.Duration, after string, limit int) ([]notificationCandidate, error) {
+func (store *PostgresStore) notificationCandidates(ctx context.Context, windows marketingWindows, after string, limit int) ([]notificationCandidate, error) {
 	if limit <= 0 {
 		limit = notificationBatch
 	}
-	return store.candidateRows(ctx, marketingWindow, after, "", limit)
+	return store.candidateRows(ctx, windows, after, "", limit)
 }
 
-func (store *PostgresStore) candidateRows(ctx context.Context, marketingWindow time.Duration, after, only string, limit int) ([]notificationCandidate, error) {
-	if marketingWindow <= 0 {
-		marketingWindow = 7 * 24 * time.Hour
+// marketingWindows are the two windows the marketing frequency caps count over.
+type marketingWindows struct {
+	short, long time.Duration
+}
+
+func (notifier *Notifier) marketingWindows() marketingWindows {
+	return marketingWindows{short: notifier.settings.MarketingWindow, long: notifier.settings.MarketingLongWindow}
+}
+
+func (store *PostgresStore) candidateRows(ctx context.Context, windows marketingWindows, after, only string, limit int) ([]notificationCandidate, error) {
+	if windows.short <= 0 {
+		windows.short = 7 * 24 * time.Hour
+	}
+	if windows.long <= 0 {
+		windows.long = 30 * 24 * time.Hour
 	}
 	var cursor, single pgtype.UUID
 	if after != "" {
@@ -953,6 +973,12 @@ func (store *PostgresStore) candidateRows(ctx context.Context, marketingWindow t
 		+ (SELECT count(*)::integer FROM email_outbox e
 			WHERE e.user_id = u.id AND e.class = 'marketing' AND e.status IN ('pending', 'sent')
 			  AND e.payload_ciphertext <> '\x'::bytea AND e.created_at > now() - $1::interval),
+		(SELECT count(*)::integer FROM notification_deliveries n
+			WHERE n.user_id = u.id AND n.class = 'marketing' AND n.status = 'sent'
+			  AND n.sent_at > now() - $5::interval)
+		+ (SELECT count(*)::integer FROM email_outbox e
+			WHERE e.user_id = u.id AND e.class = 'marketing' AND e.status IN ('pending', 'sent')
+			  AND e.payload_ciphertext <> '\x'::bytea AND e.created_at > now() - $5::interval),
 		EXISTS (SELECT 1 FROM communication_suppressions s WHERE s.user_id = u.id)
 		FROM recipient
 		JOIN users u ON u.id = recipient.user_id
@@ -964,7 +990,7 @@ func (store *PostgresStore) candidateRows(ctx context.Context, marketingWindow t
 		  AND ($2::uuid IS NULL OR u.id > $2::uuid)
 		  AND ($3::uuid IS NULL OR u.id = $3::uuid)
 		ORDER BY u.id
-		LIMIT $4`, marketingWindow, cursor, single, limit)
+		LIMIT $4`, windows.short, cursor, single, limit, windows.long)
 	if err != nil {
 		return nil, err
 	}
@@ -976,7 +1002,7 @@ func (store *PostgresStore) candidateRows(ctx context.Context, marketingWindow t
 			&candidate.ExpiryNotifications, &candidate.TrafficNotifications, &candidate.RenewalNotifications,
 			&candidate.NewsNotifications, &candidate.MarketingEnabled, &candidate.QuietHoursStart,
 			&candidate.QuietHoursEnd, &candidate.Timezone, &candidate.DeliveryStatus, &candidate.RetryAfter,
-			&candidate.MarketingSent, &candidate.Suppressed); err != nil {
+			&candidate.MarketingSent, &candidate.MarketingSentLong, &candidate.Suppressed); err != nil {
 			return nil, err
 		}
 		candidates = append(candidates, candidate)
