@@ -26,6 +26,11 @@ const OperatorWorkload = dynamic(
   { loading: () => <Skeleton className="h-40 w-full" />, ssr: false },
 );
 
+const SupportSatisfactionCard = dynamic(
+  () => import("./support-satisfaction").then((module) => module.SupportSatisfactionCard),
+  { loading: () => <Skeleton className="h-32 w-full" />, ssr: false },
+);
+
 const WINDOWS = [7, 30, 90] as const;
 
 /** The five headline figures, in the order an operator reads them. */
@@ -107,6 +112,8 @@ export function SupportReport({ active }: { active: boolean }) {
       <Card className="p-4">
         <OperatorWorkload operators={data.operators} />
       </Card>
+
+      <SupportSatisfactionCard windowDays={windowDays} />
     </div>
   );
 }

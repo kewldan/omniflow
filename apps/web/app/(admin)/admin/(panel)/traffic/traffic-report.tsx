@@ -36,16 +36,20 @@ const ConsumerChart = dynamic(
   () => import("./traffic-charts").then((module) => module.ConsumerChart),
   { loading: () => <Skeleton className="h-56 w-full" />, ssr: false },
 );
+const TrafficHistoryCard = dynamic(
+  () => import("./traffic-history").then((module) => module.TrafficHistoryCard),
+  { loading: () => <Skeleton className="h-56 w-full" />, ssr: false },
+);
 
 /**
  * Traffic, read live from Remnawave.
  *
- * Nothing on this screen is stored by Omniflow. Remnawave owns traffic, nodes,
- * and connections; this reads them on each request and adds the one thing
- * Omniflow can add — which customer holds a given Remnawave user. There is no
- * table here for a node or for a byte somebody used, and there is deliberately
- * no history: keeping one would be the first step towards Omniflow having an
- * opinion about traffic.
+ * Nothing in the live view is stored by Omniflow. Remnawave owns traffic,
+ * nodes, and connections; this reads them on each request and adds the one
+ * thing Omniflow can add — which customer holds a given Remnawave user. The
+ * history card below reads the hourly samples of the nodes' own counters,
+ * which Remnawave does not keep: an observation for reporting that decides
+ * nothing (architecture decision 0016). No byte a customer used is stored.
  */
 export function TrafficReportScreen() {
   const translate = useTranslations("admin.traffic");
@@ -87,6 +91,7 @@ export function TrafficReportScreen() {
           <ConsumerCard report={data} />
         </>
       )}
+      <TrafficHistoryCard />
       <DeviceCensusCard />
       <SubscriptionRequestsCard />
     </div>

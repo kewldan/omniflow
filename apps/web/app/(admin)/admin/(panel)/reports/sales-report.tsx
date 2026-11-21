@@ -62,6 +62,17 @@ const PaymentHealthScreen = dynamic(
   { ssr: false },
 );
 
+// Subscriptions and acquisition carry their own charts and tables, and are
+// loaded only when their tab is opened, for the same first-load budget.
+const SubscriptionReportScreen = dynamic(
+  () => import("./subscriptions").then((module) => module.SubscriptionReportScreen),
+  { loading: () => <Skeleton className="h-96 w-full" />, ssr: false },
+);
+const AcquisitionReportScreen = dynamic(
+  () => import("./acquisition").then((module) => module.AcquisitionReportScreen),
+  { loading: () => <Skeleton className="h-96 w-full" />, ssr: false },
+);
+
 /** The ranges an operator actually asks for, as offsets from now. */
 const PRESETS = [
   { days: 7, key: "week" },
@@ -179,6 +190,8 @@ export function SalesReportScreen() {
           <TabsTrigger value="sales">{translate("tabs.sales")}</TabsTrigger>
           <TabsTrigger value="payments">{translate("tabs.payments")}</TabsTrigger>
           <TabsTrigger value="channels">{translate("tabs.channels")}</TabsTrigger>
+          <TabsTrigger value="subscriptions">{translate("tabs.subscriptions")}</TabsTrigger>
+          <TabsTrigger value="acquisition">{translate("tabs.acquisition")}</TabsTrigger>
         </TabsList>
 
         <TabsContent className="flex flex-col gap-5" value="sales">
@@ -211,6 +224,14 @@ export function SalesReportScreen() {
 
         <TabsContent className="flex flex-col gap-5" value="payments">
           <PaymentHealthScreen query={query} />
+        </TabsContent>
+
+        <TabsContent className="flex flex-col gap-5" value="subscriptions">
+          <SubscriptionReportScreen query={query} />
+        </TabsContent>
+
+        <TabsContent className="flex flex-col gap-5" value="acquisition">
+          <AcquisitionReportScreen query={query} />
         </TabsContent>
       </Tabs>
     </div>

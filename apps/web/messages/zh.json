@@ -1496,7 +1496,9 @@
       "tabs": {
         "sales": "销售",
         "payments": "支付健康度",
-        "channels": "渠道"
+        "channels": "渠道",
+        "subscriptions": "订阅",
+        "acquisition": "获客"
       },
       "channels": {
         "failed": "无法加载渠道报表。",
@@ -4959,6 +4961,219 @@
       "handleNotFound": "没有客户登记此 @用户名。只有最近使用过机器人的客户才有记录；请尝试 Telegram ID。",
       "found": "搜索结果",
       "recent": "最近打开"
+    },
+    "subscriptionReport": {
+      "failed": "无法加载订阅报表",
+      "empty": "暂无数据",
+      "snapshotsPending": "后台任务每小时记录一次订阅基数，并在最初几次运行中补齐过去一年。请在下一次运行后再来查看。",
+      "day": "日期",
+      "kinds": {
+        "paid": "付费",
+        "imported": "迁移",
+        "trial": "试用",
+        "free": "免费"
+      },
+      "tiles": {
+        "paid": "付费订阅",
+        "paidHint": "在此付费或从旧机器人迁移，按最新一天计",
+        "trial": "试用",
+        "trialHint": "最新一天的有效试用",
+        "renewal": "续订率",
+        "renewalHint": "已结束的付费周期中，在 {days} 天内有后续周期的比例",
+        "churn": "流失率",
+        "churnHint": "未续订的周期占期初付费基数的比例"
+      },
+      "mrr": {
+        "title": "月度经常性收入（MRR）",
+        "description": "每个有效付费订阅扣除折扣后的价格，按每 30 天计费折算。按币种分列，不做换算。",
+        "estimated": "另有 {amount} 为迁移周期按标价估算",
+        "chart": "经常性收入",
+        "chartDescription": "实线：实际价格。虚线：迁移周期按标价估算。",
+        "paid": "实际",
+        "estimate": "估算"
+      },
+      "base": {
+        "title": "按类型的订阅",
+        "description": "每天拥有访问权限的订阅。免费发放仅在表格中显示。"
+      },
+      "plans": {
+        "title": "按套餐",
+        "description": "{day} 的基数，按套餐和计费周期。",
+        "plan": "套餐",
+        "period": "计费周期",
+        "kind": "类型",
+        "active": "有效",
+        "mrr": "经常性收入"
+      },
+      "renewals": {
+        "title": "续订",
+        "description": "在所选期间内结束的付费周期。若同一订阅的下一个付费周期在其结束后 {days} 天内开始，则视为已续订；最近结束且尚无后续的周期为待定，不计入比率。",
+        "ended": "已结束",
+        "renewed": "已续订",
+        "churned": "未续订",
+        "pending": "待定",
+        "rate": "续订率",
+        "total": "全部套餐"
+      },
+      "autoRenew": {
+        "title": "自动续订",
+        "description": "在期间内开始的扣费周期。目前有 {enabled} 位客户开启了自动续订。",
+        "empty": "此期间没有自动续订尝试。",
+        "funding": "支付来源",
+        "fundings": {
+          "wallet": "余额",
+          "saved_method": "已保存的卡"
+        },
+        "cycles": "周期",
+        "firstTry": "首次成功",
+        "recovered": "重试挽回",
+        "lost": "失败",
+        "inProgress": "重试中",
+        "success": "成功率",
+        "failures": "常见失败原因："
+      },
+      "perCustomer": {
+        "title": "每客户收入",
+        "description": "ARPPU：期间内通过支付服务商收到的款项除以付款客户数。ARPU：同一金额除以期间内每日付费订阅的平均数。",
+        "currency": "币种",
+        "revenue": "服务商收款",
+        "payers": "付款客户",
+        "arppu": "ARPPU",
+        "subscribers": "平均订阅数",
+        "arpu": "ARPU"
+      },
+      "cohorts": {
+        "title": "付款客户同期群",
+        "description": "按首次付款月份划分的客户，以及之后每个月仍有付费访问的比例。LTV 为该群组迄今人均支付金额（扣除退款）。",
+        "empty": "尚无客户付款。",
+        "month": "首次付款",
+        "customers": "客户",
+        "offset": "第{offset}月",
+        "ltv": "LTV"
+      },
+      "showFigures": "显示数据"
+    },
+    "acquisition": {
+      "failed": "无法加载获客报表",
+      "empty": "暂无数据",
+      "funnel": {
+        "title": "购买漏斗",
+        "description": "期间内注册的客户及其至今到达的步骤。截至今天的期间数字偏低。",
+        "signups": "已注册",
+        "plansViewed": "查看过套餐",
+        "checkoutStarted": "打开结账",
+        "trialClaimed": "领取试用",
+        "paid": "已付款",
+        "channels": {
+          "bot": "机器人",
+          "web": "网页"
+        }
+      },
+      "economics": {
+        "title": "成本与回报",
+        "revenue": "收入",
+        "spend": "花费",
+        "cac": "CAC",
+        "roi": "ROI",
+        "line": "花费 {spend}，收入 {revenue}"
+      },
+      "campaigns": {
+        "title": "/start 推广活动",
+        "description": "每个活动在期间内带来的客户、此后付款的人数及其付款金额。CAC 为花费除以付款客户数。",
+        "empty": "此期间没有活动带来客户或产生花费。",
+        "campaign": "活动",
+        "signups": "注册",
+        "payers": "付款",
+        "conversion": "转化率"
+      },
+      "sources": {
+        "title": "网页来源",
+        "description": "按 utm_source 统计的已付款订单。CAC 为花费除以首次付款客户数；有花费但无订单的来源也会列出。",
+        "empty": "此期间没有带 utm_source 的已付款订单。",
+        "source": "utm_source",
+        "orders": "订单",
+        "newPayers": "新付款客户"
+      },
+      "spend": {
+        "title": "广告花费",
+        "description": "您为广告支付的费用，需手动录入。Omniflow 能看到广告带来的收入，但看不到其账单。",
+        "target": "花费于",
+        "targetSource": "网页来源（utm_source）",
+        "targetCampaign": "/start 活动",
+        "campaign": "活动",
+        "campaignPlaceholder": "选择活动",
+        "source": "utm_source",
+        "day": "日期",
+        "currency": "币种",
+        "amount": "金额",
+        "note": "备注",
+        "record": "记录花费",
+        "remove": "删除",
+        "empty": "此期间没有记录花费。",
+        "invalidAmount": "请输入以该币种单位计的正数金额。",
+        "invalidDay": "请选择花费的日期。"
+      },
+      "promo": {
+        "title": "优惠码",
+        "description": "每个优惠码送出的金额，以及使用它的订单带来的收入。",
+        "empty": "此期间没有使用优惠码。",
+        "code": "优惠码",
+        "redemptions": "使用次数",
+        "newCustomers": "首次购买",
+        "discount": "折扣金额"
+      },
+      "given": {
+        "title": "免费赠送",
+        "description": "按来源统计的赠送（而非购买）的余额，以及按类型统计的免费访问。",
+        "creditSource": "余额来源",
+        "accessSource": "访问来源",
+        "grants": "发放次数",
+        "amount": "金额",
+        "days": "天数",
+        "none": "此期间没有。"
+      }
+    },
+    "trafficHistory": {
+      "title": "流量历史",
+      "description": "每个节点每天承载的流量，来自对节点自身计数器的每小时采样。Remnawave 只保存当前计数；此历史仅为观测数据，不用于任何决策。",
+      "window": "{days} 天",
+      "failed": "无法加载流量历史",
+      "empty": "暂无采样",
+      "emptyDescription": "后台任务每小时采样一次节点。几次运行后将显示第一天。",
+      "chart": "每日流量",
+      "chartDescription": "所有节点合计。",
+      "day": "日期",
+      "used": "流量",
+      "node": "节点",
+      "total": "窗口内",
+      "perDay": "每天",
+      "peakOnline": "在线峰值",
+      "limit": "节点限额",
+      "showFigures": "显示数据"
+    },
+    "supportSatisfaction": {
+      "title": "客户满意度",
+      "description": "工单解决后，机器人会请客户为回复打 1 到 5 分，仅一次。",
+      "distribution": "1 到 5 分的分布",
+      "operator": "客服",
+      "figures": {
+        "csat": {
+          "label": "CSAT",
+          "definition": "收到的评分中 4 分和 5 分的比例"
+        },
+        "average": {
+          "label": "平均分",
+          "definition": "平均评分，1 到 5"
+        },
+        "ratings": {
+          "label": "评分数",
+          "definition": "窗口内收到的评分"
+        },
+        "responseRate": {
+          "label": "回复率",
+          "definition": "窗口内收到的评分与发出的询问之比"
+        }
+      }
     }
   },
   "account": {

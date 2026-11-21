@@ -1501,7 +1501,9 @@
       "tabs": {
         "sales": "Sales",
         "payments": "Payment health",
-        "channels": "Channels"
+        "channels": "Channels",
+        "subscriptions": "Subscriptions",
+        "acquisition": "Acquisition"
       },
       "channels": {
         "failed": "The channel report could not be loaded.",
@@ -5051,6 +5053,219 @@
       "handleNotFound": "No customer has this @username on file. It is known only for customers who used the bot recently; try the Telegram ID.",
       "found": "Found",
       "recent": "Opened recently"
+    },
+    "subscriptionReport": {
+      "failed": "The subscription report could not be loaded",
+      "empty": "Nothing to show yet",
+      "snapshotsPending": "The worker records the subscription base once an hour and fills in the past year over its first few passes. Come back after the next pass.",
+      "day": "Day",
+      "kinds": {
+        "paid": "Paid",
+        "imported": "Imported",
+        "trial": "Trial",
+        "free": "Free"
+      },
+      "tiles": {
+        "paid": "Paying subscriptions",
+        "paidHint": "Paid here or imported from the previous bot, on the latest day",
+        "trial": "Trials",
+        "trialHint": "Active trials on the latest day",
+        "renewal": "Renewal rate",
+        "renewalHint": "Paid periods that ended and got a successor within {days} days",
+        "churn": "Churn",
+        "churnHint": "Lapsed periods over the paying base at the start of the period"
+      },
+      "mrr": {
+        "title": "Monthly recurring revenue",
+        "description": "The price of every active paid subscription, net of discount, as if it were billed every 30 days. Per currency, never converted.",
+        "estimated": "plus {amount} estimated for imported periods at list price",
+        "chart": "Recurring revenue",
+        "chartDescription": "Solid: prices charged. Dashed: imported periods valued at list price.",
+        "paid": "Charged",
+        "estimate": "Estimated"
+      },
+      "base": {
+        "title": "Subscriptions by kind",
+        "description": "Subscriptions with access on each day. Free grants are in the table only."
+      },
+      "plans": {
+        "title": "By plan",
+        "description": "The base on {day}, by plan and billing period.",
+        "plan": "Plan",
+        "period": "Billing period",
+        "kind": "Kind",
+        "active": "Active",
+        "mrr": "Recurring revenue"
+      },
+      "renewals": {
+        "title": "Renewals",
+        "description": "Paid periods that ended in the period. A period renewed if another paid period for the same subscription started within {days} days of its end; one that ended more recently with no successor yet is pending and stays out of the rate.",
+        "ended": "Ended",
+        "renewed": "Renewed",
+        "churned": "Lapsed",
+        "pending": "Pending",
+        "rate": "Renewal rate",
+        "total": "All plans"
+      },
+      "autoRenew": {
+        "title": "Automatic renewal",
+        "description": "Billing cycles that started in the period. {enabled} customers have automatic renewal on now.",
+        "empty": "No automatic renewal was attempted in this period.",
+        "funding": "Paid from",
+        "fundings": {
+          "wallet": "Wallet",
+          "saved_method": "Saved card"
+        },
+        "cycles": "Cycles",
+        "firstTry": "First try",
+        "recovered": "Recovered by retry",
+        "lost": "Lost",
+        "inProgress": "Still retrying",
+        "success": "Success rate",
+        "failures": "Most common failures:"
+      },
+      "perCustomer": {
+        "title": "Revenue per customer",
+        "description": "ARPPU divides provider money taken in the period by the customers it came from. ARPU divides it by the average number of paying subscriptions on a day of the period.",
+        "currency": "Currency",
+        "revenue": "Provider money",
+        "payers": "Payers",
+        "arppu": "ARPPU",
+        "subscribers": "Average subscriptions",
+        "arpu": "ARPU"
+      },
+      "cohorts": {
+        "title": "Cohorts of payers",
+        "description": "Customers by the month of their first payment, and the share of them that held paid access in each month since. Lifetime value is what a cohort has paid so far per customer, net of refunds.",
+        "empty": "No customer has paid yet.",
+        "month": "First payment",
+        "customers": "Customers",
+        "offset": "M{offset}",
+        "ltv": "Lifetime value"
+      },
+      "showFigures": "Show the figures"
+    },
+    "acquisition": {
+      "failed": "The acquisition report could not be loaded",
+      "empty": "Nothing to show yet",
+      "funnel": {
+        "title": "Purchase funnel",
+        "description": "Customers who signed up in the period and how far each got by now. It reads low for a period that ends today.",
+        "signups": "Signed up",
+        "plansViewed": "Looked at plans",
+        "checkoutStarted": "Opened a checkout",
+        "trialClaimed": "Claimed a trial",
+        "paid": "Paid",
+        "channels": {
+          "bot": "bot",
+          "web": "web"
+        }
+      },
+      "economics": {
+        "title": "Cost and return",
+        "revenue": "Revenue",
+        "spend": "Spend",
+        "cac": "CAC",
+        "roi": "ROI",
+        "line": "{revenue} from {spend}"
+      },
+      "campaigns": {
+        "title": "/start campaigns",
+        "description": "Customers each campaign brought in during the period, how many have paid since, and what they paid. CAC divides the cost by the paying customers.",
+        "empty": "No campaign brought a customer or had a cost in this period.",
+        "campaign": "Campaign",
+        "signups": "Sign-ups",
+        "payers": "Paying",
+        "conversion": "Conversion"
+      },
+      "sources": {
+        "title": "Web sources",
+        "description": "Paid orders by the utm_source they came with. CAC divides the cost by the customers paying for the first time; a source with a cost and no orders is listed too.",
+        "empty": "No paid order carried a utm_source in this period.",
+        "source": "utm_source",
+        "orders": "Orders",
+        "newPayers": "New payers"
+      },
+      "spend": {
+        "title": "Advertising costs",
+        "description": "What you paid for advertising, entered by hand. Omniflow sees the revenue an advertisement brought, never its invoice.",
+        "target": "Spent on",
+        "targetSource": "A web source (utm_source)",
+        "targetCampaign": "A /start campaign",
+        "campaign": "Campaign",
+        "campaignPlaceholder": "Choose a campaign",
+        "source": "utm_source",
+        "day": "Day",
+        "currency": "Currency",
+        "amount": "Amount",
+        "note": "Note",
+        "record": "Record the cost",
+        "remove": "Remove",
+        "empty": "No costs recorded for this period.",
+        "invalidAmount": "Enter a positive amount in the currency's own units.",
+        "invalidDay": "Choose the day the money was spent."
+      },
+      "promo": {
+        "title": "Promo codes",
+        "description": "What each code gave away and what the orders it was used on brought.",
+        "empty": "No promo code was redeemed in this period.",
+        "code": "Code",
+        "redemptions": "Redemptions",
+        "newCustomers": "First purchases",
+        "discount": "Discount given"
+      },
+      "given": {
+        "title": "Given away",
+        "description": "Wallet credit granted rather than bought, by where it came from, and free access by kind.",
+        "creditSource": "Credit from",
+        "accessSource": "Access from",
+        "grants": "Grants",
+        "amount": "Amount",
+        "days": "Days",
+        "none": "Nothing in this period."
+      }
+    },
+    "trafficHistory": {
+      "title": "Traffic history",
+      "description": "Traffic each node carried per day, from hourly samples of the nodes' own counters. Remnawave keeps the counters for now only; this history is an observation and decides nothing.",
+      "window": "{days} days",
+      "failed": "The traffic history could not be loaded",
+      "empty": "No samples yet",
+      "emptyDescription": "The worker samples the nodes once an hour. The first day appears after a few passes.",
+      "chart": "Traffic per day",
+      "chartDescription": "All nodes together.",
+      "day": "Day",
+      "used": "Traffic",
+      "node": "Node",
+      "total": "In the window",
+      "perDay": "Per day",
+      "peakOnline": "Peak online",
+      "limit": "Node limit",
+      "showFigures": "Show the figures"
+    },
+    "supportSatisfaction": {
+      "title": "Customer satisfaction",
+      "description": "Once a ticket is resolved, the bot asks its customer for a mark from 1 to 5, once.",
+      "distribution": "Marks from 1 to 5",
+      "operator": "Operator",
+      "figures": {
+        "csat": {
+          "label": "CSAT",
+          "definition": "Share of fours and fives among the marks received"
+        },
+        "average": {
+          "label": "Average",
+          "definition": "Mean mark, from 1 to 5"
+        },
+        "ratings": {
+          "label": "Marks",
+          "definition": "Marks received in the window"
+        },
+        "responseRate": {
+          "label": "Response rate",
+          "definition": "Marks received over questions sent in the window"
+        }
+      }
     }
   },
   "account": {
