@@ -91,10 +91,15 @@ ORDER BY r.currency;
 -- trial claimed yesterday has had a day to convert. That is a property of the
 -- question rather than a fault in the query, and the panel says so beside the
 -- figure rather than quietly excluding recent trials.
+--
+-- A claim carried over from the previous bot for a customer who subscribed
+-- there without a trial blocks a trial without having been one, and is left
+-- out. A carried-over trial converts on a payment the previous bot took, too.
 WITH claims AS (
   SELECT tc.user_id, tc.claimed_at
   FROM trial_claims tc
   WHERE tc.claimed_at >= sqlc.arg(since) AND tc.claimed_at < sqlc.arg(until)
+    AND tc.origin <> 'bedolaga_history'
 )
 SELECT
   count(*)::bigint AS trials,
@@ -108,9 +113,50 @@ SELECT
         -- A zero-value order is a free grant rather than a conversion. Counting
         -- one would make a promotion that gives a month away look like revenue.
         AND o.subtotal_minor - o.discount_minor > 0
+    ) OR EXISTS (
+      SELECT 1 FROM legacy_payments lp
+      WHERE lp.user_id = claims.user_id AND lp.paid_at > claims.claimed_at
     )
   )::bigint AS converted
 FROM claims;
+
+-- name: ReturningPayers :one
+-- Of the customers who paid in this period, how many had paid before it.
+--
+-- A payment is money arriving from outside: an order a provider settled for a
+-- non-zero amount, or a payment the previous bot took before the migration.
+-- An order paid from the wallet is not one, because the top-up that funded the
+-- wallet already was. Counting the previous bot's payments is what lets the
+-- first months after a migration tell a returning customer from a new one.
+SELECT
+  count(*)::bigint AS payers,
+  count(*) FILTER (WHERE payers.paid_before)::bigint AS returning
+FROM (
+  SELECT payments.user_id, bool_or(payments.moment < sqlc.arg(since)::timestamptz) AS paid_before
+  FROM (
+    SELECT o.user_id, o.paid_at AS moment FROM orders o
+    WHERE o.paid_at IS NOT NULL AND o.paid_minor > 0
+      AND (sqlc.narg(currency)::text IS NULL OR o.currency = sqlc.narg(currency)::text)
+    UNION ALL
+    SELECT lp.user_id, lp.paid_at AS moment FROM legacy_payments lp
+    WHERE (sqlc.narg(currency)::text IS NULL OR lp.currency = sqlc.narg(currency)::text)
+  ) payments
+  WHERE payments.moment < sqlc.arg(until)::timestamptz
+  GROUP BY payments.user_id
+  HAVING bool_or(payments.moment >= sqlc.arg(since)::timestamptz)
+) payers;
+
+-- name: LegacyPaymentsInPeriod :many
+-- What the previous bot took in the period, kept apart from Omniflow's own
+-- sales: it is history the operator compares against, not revenue Omniflow
+-- settled.
+SELECT lp.currency, count(*)::bigint AS payment_count,
+       COALESCE(sum(lp.amount_minor), 0)::bigint AS amount_minor
+FROM legacy_payments lp
+WHERE lp.paid_at >= sqlc.arg(since) AND lp.paid_at < sqlc.arg(until)
+  AND (sqlc.narg(currency)::text IS NULL OR lp.currency = sqlc.narg(currency)::text)
+GROUP BY lp.currency
+ORDER BY lp.currency;
 
 -- Payment health per provider.
 --

@@ -111,6 +111,18 @@ WHERE t.reference_type = 'operator_adjustment'
   AND t.reference_id LIKE 'bedolaga-user:%'
 GROUP BY 1, 2, 3;
 
+-- name: ListBedolagaLegacyPayments :many
+-- The source rows already carried over, so a repeated run plans only the
+-- payments taken since.
+SELECT source_id FROM legacy_payments WHERE source = 'bedolaga';
+
+-- name: ListBedolagaLegacyPeriods :many
+SELECT source_id, user_id, is_trial, starts_at, ends_at
+FROM legacy_subscription_periods WHERE source = 'bedolaga';
+
+-- name: ListTrialClaimHolders :many
+SELECT user_id FROM trial_claims;
+
 -- ---------------------------------------------------------------------------
 -- Writes
 -- ---------------------------------------------------------------------------
@@ -203,6 +215,35 @@ VALUES (
 )
 ON CONFLICT (referred_user_id) DO NOTHING
 RETURNING *;
+
+-- name: InsertImportedTrialClaim :execrows
+-- The trial a customer already had, or could no longer have had, in the
+-- previous bot. It is dated when that happened rather than now, so trial
+-- reports do not show the whole carried-over base as claimed on migration day.
+-- A claim the customer already holds is left alone.
+INSERT INTO trial_claims (user_id, plan_id, order_id, origin, claimed_at)
+VALUES (sqlc.arg(user_id), sqlc.arg(plan_id), sqlc.narg(order_id), sqlc.arg(origin), sqlc.arg(claimed_at))
+ON CONFLICT (user_id) DO NOTHING;
+
+-- name: InsertLegacyPayment :execrows
+-- A payment the previous bot took. Inserted once per source row; a repeated
+-- run inserts nothing.
+INSERT INTO legacy_payments (user_id, source, source_id, method, amount_minor, currency, paid_at)
+VALUES (sqlc.arg(user_id), 'bedolaga', sqlc.arg(source_id), sqlc.arg(method),
+        sqlc.arg(amount_minor), sqlc.arg(currency), sqlc.arg(paid_at))
+ON CONFLICT (source, source_id) DO NOTHING;
+
+-- name: UpsertLegacyPeriod :execrows
+-- A subscription period of the previous bot. A repeated run before cutover
+-- moves its dates when the previous bot renewed or cut it short.
+INSERT INTO legacy_subscription_periods (user_id, source, source_id, is_trial, starts_at, ends_at)
+VALUES (sqlc.arg(user_id), 'bedolaga', sqlc.arg(source_id), sqlc.arg(is_trial),
+        sqlc.arg(starts_at), sqlc.arg(ends_at))
+ON CONFLICT (source, source_id) DO UPDATE
+SET is_trial = EXCLUDED.is_trial, starts_at = EXCLUDED.starts_at,
+    ends_at = EXCLUDED.ends_at, updated_at = now()
+WHERE (legacy_subscription_periods.is_trial, legacy_subscription_periods.starts_at, legacy_subscription_periods.ends_at)
+  IS DISTINCT FROM (EXCLUDED.is_trial, EXCLUDED.starts_at, EXCLUDED.ends_at);
 
 -- ---------------------------------------------------------------------------
 -- Verification

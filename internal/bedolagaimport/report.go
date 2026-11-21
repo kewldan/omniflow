@@ -39,6 +39,37 @@ type SourceTotals struct {
 	Subscriptions        int   `json:"subscriptions"`
 	ActiveSubscriptions  int   `json:"activeSubscriptions"`
 	ReferralPairs        int   `json:"referralPairs"`
+	// Payments are completed top-ups, whatever their method.
+	Payments      int   `json:"payments"`
+	PaymentsMinor int64 `json:"paymentsMinor"`
+}
+
+// TrialSection counts the trial claims by where they come from.
+type TrialSection struct {
+	Section
+	// ByOrigin counts the claims to create: bedolaga_trial for a customer who
+	// had a trial, bedolaga_history for one who subscribed without one.
+	ByOrigin map[string]int `json:"byOrigin"`
+}
+
+// PeriodSection counts the subscription periods carried as history.
+type PeriodSection struct {
+	Section
+	// Ended counts the periods already over, the customers the "expired"
+	// segments find.
+	Ended int `json:"ended"`
+}
+
+// PaymentSection adds the money to the payment history decisions.
+type PaymentSection struct {
+	Section
+	// CarriedMinor is what the carried payments add up to, created or already
+	// there; Payers is how many customers they belong to.
+	CarriedMinor int64 `json:"carriedMinor"`
+	Payers       int   `json:"payers"`
+	// ExcludedByMethod counts the deposits left out per method, so the
+	// operator can see what excludedPaymentMethods removed.
+	ExcludedByMethod map[string]int `json:"excludedByMethod"`
 }
 
 // BalanceSection adds the money totals to the balance decisions.
@@ -94,6 +125,9 @@ type Report struct {
 	Balances        BalanceSection      `json:"balances"`
 	Subscriptions   SubscriptionSection `json:"subscriptions"`
 	Referrals       Section             `json:"referrals"`
+	Trials          TrialSection        `json:"trials"`
+	Periods         PeriodSection       `json:"periods"`
+	Payments        PaymentSection      `json:"payments"`
 	UnmappedTariffs []UnmappedTariff    `json:"unmappedTariffs"`
 	PlanVersions    []PlanVersionUse    `json:"planVersions"`
 	// Available lists every Omniflow plan version a mapping may name.
@@ -105,7 +139,7 @@ type Report struct {
 
 // NotMigrated lists what the importer deliberately leaves in Bedolaga.
 var NotMigrated = []string{
-	"payment history (transactions and per-provider payment tables): stays in the archived Bedolaga dump",
+	"transactions other than completed top-ups (purchases from the balance, refunds, credits) and per-provider payment tables: stay in the archived dump; completed top-ups are carried as payment history",
 	"Telegram Stars shop orders (stars_orders): counted here, stays in the archived dump",
 	"support tickets and their messages: close them in Bedolaga before cutover",
 	"promo codes, promo groups and their discounts: recreate the ones you still want in the panel",
@@ -138,6 +172,21 @@ func (plan Plan) Pending() int {
 			count++
 		}
 	}
+	for _, decision := range plan.Trials {
+		if decision.Action == ActionCreate {
+			count++
+		}
+	}
+	for _, decision := range plan.Periods {
+		if decision.Action == ActionCreate || decision.Action == ActionRefresh {
+			count++
+		}
+	}
+	for _, decision := range plan.Payments {
+		if decision.Action == ActionCreate {
+			count++
+		}
+	}
 	return count
 }
 
@@ -146,6 +195,9 @@ func buildReport(plan Plan, source Source, tariffs map[int64]Tariff, mapping Map
 		GeneratedAt: now, Currency: mapping.Currency, Users: newSection(), Referrals: newSection(),
 		Balances:        BalanceSection{Section: newSection()},
 		Subscriptions:   SubscriptionSection{Section: newSection()},
+		Trials:          TrialSection{Section: newSection(), ByOrigin: map[string]int{}},
+		Periods:         PeriodSection{Section: newSection()},
+		Payments:        PaymentSection{Section: newSection(), ExcludedByMethod: map[string]int{}},
 		UnmappedTariffs: []UnmappedTariff{}, PlanVersions: []PlanVersionUse{}, Problems: []Problem{},
 		Archive: source.Archive, NotMigrated: NotMigrated,
 	}
@@ -235,6 +287,43 @@ func buildReport(plan Plan, source Source, tariffs map[int64]Tariff, mapping Map
 			report.Problems = append(report.Problems, Problem{Kind: KindReferral, SourceID: decision.RefereeID, Action: decision.Action, Codes: decision.Codes})
 		}
 	}
+	for _, decision := range plan.Trials {
+		report.Trials.add(decision.Action, decision.Codes, nil)
+		switch decision.Action {
+		case ActionCreate:
+			report.Trials.ByOrigin[decision.Origin]++
+		case ActionConflict:
+			report.Problems = append(report.Problems, Problem{Kind: "trial", SourceID: decision.SourceUserID, Action: decision.Action, Codes: decision.Codes})
+		}
+	}
+	for _, decision := range plan.Periods {
+		report.Periods.add(decision.Action, decision.Codes, nil)
+		if decision.Action != ActionSkip && !decision.EndsAt.After(now) {
+			report.Periods.Ended++
+		}
+	}
+	payers := map[int64]bool{}
+	for _, payment := range source.Payments {
+		report.Source.Payments++
+		report.Source.PaymentsMinor += payment.AmountKopeks
+	}
+	for _, decision := range plan.Payments {
+		report.Payments.add(decision.Action, decision.Codes, nil)
+		switch decision.Action {
+		case ActionCreate, ActionUnchanged:
+			report.Payments.CarriedMinor += decision.Source.AmountKopeks
+			payers[decision.Source.UserID] = true
+		case ActionSkip:
+			if hasCode(decision.Codes, CodePaymentMethodExcluded) {
+				method := strings.ToLower(strings.TrimSpace(decision.Source.Method))
+				if method == "" {
+					method = "none"
+				}
+				report.Payments.ExcludedByMethod[method]++
+			}
+		}
+	}
+	report.Payments.Payers = len(payers)
 	for _, entry := range unmapped {
 		report.UnmappedTariffs = append(report.UnmappedTariffs, *entry)
 	}
@@ -281,6 +370,15 @@ func (report Report) WriteText(writer io.Writer) {
 	fmt.Fprintf(writer, "  %d with an entitlement, %d linked to their Remnawave user only\n",
 		report.Subscriptions.WithEntitlement, report.Subscriptions.LinkOnly)
 	writeSection(writer, "Referrals", report.Referrals)
+	writeSection(writer, "Trial claims", report.Trials.Section)
+	writeCounts(writer, "to create by origin", report.Trials.ByOrigin)
+	writeSection(writer, "Periods", report.Periods.Section)
+	fmt.Fprintf(writer, "  %d ended, which the expired segments find\n", report.Periods.Ended)
+	writeSection(writer, "Payments", report.Payments.Section)
+	fmt.Fprintf(writer, "  carried %s %s from %d payers (source: %d top-ups, %s)\n",
+		FormatMinor(report.Payments.CarriedMinor), report.Currency, report.Payments.Payers,
+		report.Source.Payments, FormatMinor(report.Source.PaymentsMinor))
+	writeCounts(writer, "left out by method", report.Payments.ExcludedByMethod)
 	if len(report.UnmappedTariffs) > 0 {
 		fmt.Fprintln(writer, "\nUnmapped tariffs (add them to the mapping file):")
 		for _, entry := range report.UnmappedTariffs {

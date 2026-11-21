@@ -641,21 +641,36 @@ LIMIT sqlc.arg(page_size);
 -- name: CustomerLoyaltyMetric :one
 -- The metric a standing is evaluated on, computed from facts Omniflow already
 -- records. Nothing new is tracked to support loyalty.
+--
+-- Payments and subscriptions carried over from the previous bot count as if
+-- Omniflow had taken them, so a customer who paid for a year before the
+-- migration keeps the tier the year earned. The zero-value order an imported
+-- subscription hangs off is not a purchase and is not counted.
 SELECT
-  COALESCE((SELECT sum(o.paid_minor) FROM orders o
+  (COALESCE((SELECT sum(o.paid_minor) FROM orders o
     WHERE o.user_id = sqlc.arg(user_id)
       AND o.state IN ('paid', 'fulfilled')
       AND o.currency = sqlc.arg(currency)
       AND o.created_at >= now() - make_interval(days => sqlc.arg(window_days)::int)
-  ), 0)::bigint AS spend_minor,
-  (SELECT count(*)::bigint FROM orders o
+  ), 0) + COALESCE((SELECT sum(lp.amount_minor) FROM legacy_payments lp
+    WHERE lp.user_id = sqlc.arg(user_id)
+      AND lp.currency = sqlc.arg(currency)
+      AND lp.paid_at >= now() - make_interval(days => sqlc.arg(window_days)::int)
+  ), 0))::bigint AS spend_minor,
+  ((SELECT count(*) FROM orders o
     WHERE o.user_id = sqlc.arg(user_id)
       AND o.state IN ('paid', 'fulfilled')
+      AND NOT (o.subtotal_minor = 0 AND o.idempotency_key LIKE 'bedolaga:%')
       AND o.created_at >= now() - make_interval(days => sqlc.arg(window_days)::int)
-  ) AS order_count,
-  COALESCE((SELECT extract(days FROM now() - min(e.starts_at))::bigint
-    FROM entitlements e WHERE e.user_id = sqlc.arg(user_id)
-  ), 0)::bigint AS tenure_days;
+  ) + (SELECT count(*) FROM legacy_payments lp
+    WHERE lp.user_id = sqlc.arg(user_id)
+      AND lp.paid_at >= now() - make_interval(days => sqlc.arg(window_days)::int)
+  ))::bigint AS order_count,
+  COALESCE((SELECT extract(days FROM now() - min(started))::bigint FROM (
+    SELECT e.starts_at AS started FROM entitlements e WHERE e.user_id = sqlc.arg(user_id)
+    UNION ALL
+    SELECT lsp.starts_at FROM legacy_subscription_periods lsp WHERE lsp.user_id = sqlc.arg(user_id)
+  ) starts), 0)::bigint AS tenure_days;
 
 -- name: GetCustomerLoyaltyTiers :many
 -- The tiers a customer holds under the programme in force. A standing is

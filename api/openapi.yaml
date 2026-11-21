@@ -7825,9 +7825,22 @@ components:
         trials: {type: integer, format: int64, description: "Trials claimed inside the period."}
         converted: {type: integer, format: int64, description: "How many of those customers have since paid for anything."}
         cohort: {type: boolean, description: "Always true. The numerator counts conversions at any later time, so a period ending today reads low by construction."}
+    PanelReturningPayers:
+      type: object
+      required: [payers, returning]
+      properties:
+        payers: {type: integer, format: int64, description: "Customers with a payment in the period: a provider-settled order or a payment the previous bot took. An order paid from the wallet is not a payment."}
+        returning: {type: integer, format: int64, description: "Of those, how many had paid before the period began, counting the previous bot's payments."}
+    PanelLegacyPeriodPayments:
+      type: object
+      required: [currency, payments, amountMinor]
+      properties:
+        currency: {type: string}
+        payments: {type: integer, format: int64}
+        amountMinor: {type: integer, format: int64, description: "What the previous bot took in the period. History to compare against, never part of Omniflow's sales."}
     PanelSalesReport:
       type: object
-      required: [since, until, timezone, byOperation, byPlan, byDay, refunds, trials, generatedAt]
+      required: [since, until, timezone, byOperation, byPlan, byDay, refunds, trials, payers, legacy, generatedAt]
       properties:
         since: {type: string, format: date-time}
         until: {type: string, format: date-time}
@@ -7838,6 +7851,8 @@ components:
         byDay: {type: array, items: {$ref: "#/components/schemas/PanelDaySales"}}
         refunds: {type: array, items: {$ref: "#/components/schemas/PanelPeriodRefunds"}}
         trials: {$ref: "#/components/schemas/PanelTrialConversion"}
+        payers: {$ref: "#/components/schemas/PanelReturningPayers"}
+        legacy: {type: array, items: {$ref: "#/components/schemas/PanelLegacyPeriodPayments"}}
         generatedAt: {type: string, format: date-time}
     PanelProviderHealthLine:
       type: object

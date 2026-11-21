@@ -308,8 +308,8 @@ func (store *PostgresStore) TrialContext(ctx context.Context, customerID string)
 	var settledOrders, activeEntitlements int64
 	var methods, disabled []string
 	err := store.pool.QueryRow(ctx, `SELECT u.created_at,
-		EXISTS (SELECT 1 FROM trial_claims c JOIN orders co ON co.id = c.order_id
-			WHERE c.user_id = u.id AND co.state NOT IN ('cancelled', 'expired')),
+		EXISTS (SELECT 1 FROM trial_claims c LEFT JOIN orders co ON co.id = c.order_id
+			WHERE c.user_id = u.id AND (c.order_id IS NULL OR co.state NOT IN ('cancelled', 'expired'))),
 		(SELECT count(*) FROM orders o WHERE o.user_id = u.id
 			AND o.state IN ('paid','fulfilled','partially_refunded','refunded')),
 		(SELECT count(*) FROM entitlements e WHERE e.user_id = u.id
@@ -319,9 +319,9 @@ func (store *PostgresStore) TrialContext(ctx context.Context, customerID string)
 			JOIN identities other ON other.provider = mine.provider
 				AND other.provider_subject = mine.provider_subject AND other.user_id <> mine.user_id
 			JOIN trial_claims claimed ON claimed.user_id = other.user_id
-			JOIN orders claimed_order ON claimed_order.id = claimed.order_id
-				AND claimed_order.state NOT IN ('cancelled', 'expired')
+			LEFT JOIN orders claimed_order ON claimed_order.id = claimed.order_id
 			WHERE mine.user_id = u.id AND mine.status = 'active'
+				AND (claimed.order_id IS NULL OR claimed_order.state NOT IN ('cancelled', 'expired'))
 		),
 		`+accountcheckout.TrialSignInColumns+`
 		FROM users u WHERE u.id = $1::uuid`, customerID).

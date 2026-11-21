@@ -12,29 +12,33 @@ import { useId, useState } from "react";
 import { useOperatorAction } from "@/lib/operations";
 
 /** The segment vocabulary and how each value is entered; mirrors internal/audience. */
-const FILTERS: Record<string, { kind: "choice" | "number" | "text" | "ids"; options?: string[] }> =
-  {
-    status: { kind: "choice", options: ["active", "suspended", "deleted"] },
-    locale: { kind: "choice", options: ["ru", "en"] },
-    subscription: { kind: "choice", options: ["active", "expired", "none"] },
-    trial: { kind: "choice", options: ["active", "used", "never"] },
-    expiringWithinDays: { kind: "number" },
-    inactiveForDays: { kind: "number" },
-    activeWithinDays: { kind: "number" },
-    registeredWithinDays: { kind: "number" },
-    registeredBeforeDays: { kind: "number" },
-    trafficUsedPercent: { kind: "number" },
-    minimumSpendMinor: { kind: "number" },
-    zeroBalance: { kind: "choice", options: ["true", "false"] },
-    referrals: { kind: "choice", options: ["inviter", "invitee"] },
-    signInMethod: { kind: "choice", options: ["telegram", "email", "vkid", "oidc"] },
-    loyaltyTier: { kind: "text" },
-    planCode: { kind: "text" },
-    adCampaign: { kind: "text" },
-    customerIds: { kind: "ids" },
-  };
+const FILTERS: Record<
+  string,
+  { kind: "choice" | "number" | "range" | "text" | "ids"; options?: string[] }
+> = {
+  status: { kind: "choice", options: ["active", "suspended", "deleted"] },
+  locale: { kind: "choice", options: ["ru", "en"] },
+  subscription: { kind: "choice", options: ["active", "expired", "none"] },
+  trial: { kind: "choice", options: ["active", "used", "never"] },
+  expiringWithinDays: { kind: "number" },
+  expiredDaysAgo: { kind: "range" },
+  inactiveForDays: { kind: "number" },
+  activeWithinDays: { kind: "number" },
+  registeredWithinDays: { kind: "number" },
+  registeredBeforeDays: { kind: "number" },
+  trafficUsedPercent: { kind: "number" },
+  minimumSpendMinor: { kind: "number" },
+  zeroBalance: { kind: "choice", options: ["true", "false"] },
+  referrals: { kind: "choice", options: ["inviter", "invitee"] },
+  signInMethod: { kind: "choice", options: ["telegram", "email", "vkid", "oidc"] },
+  loyaltyTier: { kind: "text" },
+  planCode: { kind: "text" },
+  adCampaign: { kind: "text" },
+  customerIds: { kind: "ids" },
+};
 
-type Row = { key: string; filter: string; value: string };
+/** `value` holds the single value, or the lower bound of a range; `upper` its upper bound. */
+type Row = { key: string; filter: string; value: string; upper: string };
 
 function encode(row: Row): unknown {
   const spec = FILTERS[row.filter];
@@ -43,6 +47,18 @@ function encode(row: Row): unknown {
   }
   if (spec.kind === "number") {
     return Number(row.value) || 0;
+  }
+  if (spec.kind === "range") {
+    // An empty bound is left out rather than sent as zero: "at least 30 days
+    // ago" and "between 0 and 30 days ago" are different audiences.
+    const bounds: Record<string, number> = {};
+    if (row.value.trim() !== "") {
+      bounds.min = Number(row.value);
+    }
+    if (row.upper.trim() !== "") {
+      bounds.max = Number(row.upper);
+    }
+    return bounds;
   }
   if (row.filter === "zeroBalance") {
     return row.value === "true";
@@ -138,7 +154,7 @@ export function SegmentEditorCard({ onSaved }: { onSaved: () => void }) {
             return (
               <div className="grid gap-2 sm:grid-cols-[16rem_1fr_auto]" key={row.key}>
                 <Select
-                  onValueChange={(filter) => setRow(index, { filter, value: "" })}
+                  onValueChange={(filter) => setRow(index, { filter, value: "", upper: "" })}
                   value={row.filter}
                 >
                   <SelectTrigger aria-label={translate("filter")}>
@@ -167,6 +183,23 @@ export function SegmentEditorCard({ onSaved }: { onSaved: () => void }) {
                       ))}
                     </SelectContent>
                   </Select>
+                ) : spec?.kind === "range" ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      aria-label={translate("rangeFrom")}
+                      inputMode="numeric"
+                      onChange={(event) => setRow(index, { value: event.target.value })}
+                      placeholder={translate("rangeFrom")}
+                      value={row.value}
+                    />
+                    <Input
+                      aria-label={translate("rangeTo")}
+                      inputMode="numeric"
+                      onChange={(event) => setRow(index, { upper: event.target.value })}
+                      placeholder={translate("rangeTo")}
+                      value={row.upper}
+                    />
+                  </div>
                 ) : spec?.kind === "ids" ? (
                   <Textarea
                     aria-label={translate("value")}
@@ -203,6 +236,7 @@ export function SegmentEditorCard({ onSaved }: { onSaved: () => void }) {
                   key: crypto.randomUUID(),
                   filter: Object.keys(FILTERS).find((filter) => !used.has(filter)) ?? "status",
                   value: "",
+                  upper: "",
                 },
               ])
             }

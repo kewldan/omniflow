@@ -90,6 +90,24 @@ type TrialConversion struct {
 	Cohort bool `json:"cohort"`
 }
 
+// ReturningPayers answers the question the retention strategy is measured by:
+// of the customers who paid in the period, how many had paid before it. A
+// payment is money arriving from outside — a provider-settled order, or a
+// payment the previous bot took before the migration — so the months right
+// after a migration still tell a returning customer from a new one.
+type ReturningPayers struct {
+	Payers    int64 `json:"payers"`
+	Returning int64 `json:"returning"`
+}
+
+// LegacyPeriodPayments is what the previous bot took in the period. It is
+// history to compare against and is never added to Omniflow's own sales.
+type LegacyPeriodPayments struct {
+	Currency    string `json:"currency"`
+	Payments    int64  `json:"payments"`
+	AmountMinor int64  `json:"amountMinor"`
+}
+
 // SalesReport is the whole screen in one read.
 type SalesReport struct {
 	Since    time.Time `json:"since"`
@@ -103,7 +121,10 @@ type SalesReport struct {
 	ByDay       []DaySales      `json:"byDay"`
 	Refunds     []PeriodRefunds `json:"refunds"`
 	Trials      TrialConversion `json:"trials"`
-	GeneratedAt time.Time       `json:"generatedAt"`
+	Payers      ReturningPayers `json:"payers"`
+	// Legacy is what the previous bot took in the period, per currency.
+	Legacy      []LegacyPeriodPayments `json:"legacy"`
+	GeneratedAt time.Time              `json:"generatedAt"`
 }
 
 // MaxSalesReportWindow bounds a single report.
@@ -145,7 +166,7 @@ func (service *Service) SalesReport(
 		Since: since.UTC(), Until: until.UTC(), Timezone: timezone, Currency: currency,
 		ByOperation: []SalesLine{}, ByPlan: []PlanSales{}, ByDay: []DaySales{},
 		Refunds: []PeriodRefunds{}, Trials: TrialConversion{Cohort: true},
-		GeneratedAt: time.Now().UTC(),
+		Legacy: []LegacyPeriodPayments{}, GeneratedAt: time.Now().UTC(),
 	}
 
 	operations, err := queries.SalesByOperation(ctx, dbgen.SalesByOperationParams{
@@ -212,5 +233,25 @@ func (service *Service) SalesReport(
 		return SalesReport{}, err
 	}
 	report.Trials.Trials, report.Trials.Converted = trials.Trials, trials.Converted
+
+	payers, err := queries.ReturningPayers(ctx, dbgen.ReturningPayersParams{
+		Since: timestamp(since), Until: timestamp(until), Currency: optionalText(currency),
+	})
+	if err != nil {
+		return SalesReport{}, err
+	}
+	report.Payers = ReturningPayers{Payers: payers.Payers, Returning: payers.Returning}
+
+	legacy, err := queries.LegacyPaymentsInPeriod(ctx, dbgen.LegacyPaymentsInPeriodParams{
+		Since: timestamp(since), Until: timestamp(until), Currency: optionalText(currency),
+	})
+	if err != nil {
+		return SalesReport{}, err
+	}
+	for _, row := range legacy {
+		report.Legacy = append(report.Legacy, LegacyPeriodPayments{
+			Currency: row.Currency, Payments: row.PaymentCount, AmountMinor: row.AmountMinor,
+		})
+	}
 	return report, nil
 }

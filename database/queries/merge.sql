@@ -144,6 +144,16 @@ DELETE FROM news_reads WHERE user_id = sqlc.arg(source);
 UPDATE customer_security_events SET user_id = sqlc.arg(target)
 WHERE user_id = sqlc.arg(source);
 
+-- name: MoveCustomerLegacyPayments :exec
+-- Payments carried over from the previous bot follow the customer, as orders
+-- do, so the merged account keeps the spend its segments and tiers read.
+UPDATE legacy_payments SET user_id = sqlc.arg(target)
+WHERE user_id = sqlc.arg(source);
+
+-- name: MoveCustomerLegacyPeriods :exec
+UPDATE legacy_subscription_periods SET user_id = sqlc.arg(target), updated_at = now()
+WHERE user_id = sqlc.arg(source);
+
 -- name: CloseMergedAccount :one
 -- Marks the source and points it at the target.
 --

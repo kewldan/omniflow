@@ -116,7 +116,7 @@ func (store *Store) trialTakenSince(ctx context.Context, queries *dbgen.Queries,
 		return false, true, err
 	}
 	for _, claim := range claims {
-		if claim.OrderID != order.ID && !commerce.ClosedUnpaid(commerce.OrderState(claim.OrderState)) {
+		if claim.OrderID != order.ID && !commerce.ClosedUnpaid(commerce.OrderState(claim.OrderState.String)) {
 			return true, true, nil
 		}
 	}

@@ -64,6 +64,18 @@ type Subscription struct {
 	CreatedAt   time.Time
 }
 
+// Payment is one completed top-up in Bedolaga's `transactions` table: money a
+// customer paid in. Bedolaga sells everything from the balance, so a top-up is
+// the moment money arrived; the purchases made from it are not payments.
+type Payment struct {
+	ID           int64
+	UserID       int64
+	AmountKopeks int64
+	// Method is Bedolaga's payment_method, empty when it recorded none.
+	Method string
+	PaidAt time.Time
+}
+
 // Tariff is one row of Bedolaga's `tariffs` table.
 type Tariff struct {
 	ID       int64
@@ -93,10 +105,11 @@ type CountSum struct {
 	SumMinor int64  `json:"sumMinor"`
 }
 
-// Archive is what stays behind in the Bedolaga dump. Omniflow has no
-// append-only place for another system's payment history, so these records
-// are counted for the operator and left in the archived database rather than
+// Archive is what stays behind in the Bedolaga dump. These records are
+// counted for the operator and left in the archived database rather than
 // rewritten into Omniflow's ledger as if Omniflow had taken those payments.
+// Completed top-ups are carried separately, as legacy payments: history that
+// segments, loyalty, and reports read, never ledger entries.
 type Archive struct {
 	Transactions       []CountSum `json:"transactions"`
 	CompletedDeposits  []CountSum `json:"completedDeposits"`
@@ -115,5 +128,6 @@ type Source struct {
 	Users         []User
 	Subscriptions []Subscription
 	Tariffs       []Tariff
+	Payments      []Payment
 	Archive       Archive
 }

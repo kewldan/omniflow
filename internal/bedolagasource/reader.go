@@ -66,6 +66,9 @@ func Read(ctx context.Context, connection *pgx.Conn) (bedolagaimport.Source, err
 	if source.Tariffs, err = readTariffs(ctx, tx); err != nil {
 		return bedolagaimport.Source{}, err
 	}
+	if source.Payments, err = readPayments(ctx, tx, columns); err != nil {
+		return bedolagaimport.Source{}, err
+	}
 	if source.Archive, err = readArchive(ctx, tx, columns); err != nil {
 		return bedolagaimport.Source{}, err
 	}
@@ -203,6 +206,44 @@ func readTariffs(ctx context.Context, tx pgx.Tx) ([]bedolagaimport.Tariff, error
 		err := row.Scan(&id, &tariff.Name, &tariff.IsActive)
 		tariff.ID = int64(id)
 		return tariff, err
+	})
+}
+
+// readPayments loads every completed top-up. A Bedolaga without a
+// transactions table has no payment history to carry; the archive reports the
+// table as missing. The moment a top-up completed is completed_at where this
+// Bedolaga records it, and its creation otherwise.
+func readPayments(ctx context.Context, tx pgx.Tx, columns map[string]map[string]bool) ([]bedolagaimport.Payment, error) {
+	table := columns["transactions"]
+	for _, name := range []string{"id", "user_id", "type", "amount_kopeks", "created_at"} {
+		if !table[name] {
+			return nil, nil
+		}
+	}
+	method, completed, paidAt := "''", "true", "created_at"
+	if table["payment_method"] {
+		method = "COALESCE(payment_method, '')"
+	}
+	if table["is_completed"] {
+		completed = "COALESCE(is_completed, true)"
+	}
+	if table["completed_at"] {
+		paidAt = "COALESCE(completed_at, created_at)"
+	}
+	// A top-up with no date at all cannot be placed in any window, so it is
+	// not history anything could read.
+	rows, err := tx.Query(ctx, `SELECT id::bigint, user_id::bigint, amount_kopeks::bigint, `+method+`, `+paidAt+`
+		FROM transactions
+		WHERE type = 'deposit' AND `+completed+` AND user_id IS NOT NULL AND created_at IS NOT NULL
+		ORDER BY id`)
+	if err != nil {
+		return nil, fmt.Errorf("read payments: %w", err)
+	}
+	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (bedolagaimport.Payment, error) {
+		var payment bedolagaimport.Payment
+		err := row.Scan(&payment.ID, &payment.UserID, &payment.AmountKopeks, &payment.Method, &payment.PaidAt)
+		payment.PaidAt = payment.PaidAt.UTC()
+		return payment, err
 	})
 }
 

@@ -28,6 +28,7 @@ import (
 //	    planVersionId: 9a40…
 //	  - noTariff: true
 //	    planVersionId: 77f2…
+//	excludedPaymentMethods: [manual, balance]
 type Mapping struct {
 	// Currency is the ISO code Bedolaga's kopek amounts are carried into.
 	// Bedolaga stores every balance in kopeks, which are RUB minor units.
@@ -41,6 +42,36 @@ type Mapping struct {
 	WalletReason string `yaml:"walletReason"`
 	// Plans maps Bedolaga tariffs to Omniflow plan versions.
 	Plans []PlanRule `yaml:"plans"`
+	// ExcludedPaymentMethods are Bedolaga payment methods whose completed
+	// deposits are not money a customer paid in — an operator's manual credit,
+	// a transfer between balances — and so are not carried as payment history.
+	// A deposit with no method is never carried. Left out, it is
+	// DefaultExcludedPaymentMethods; an explicit empty list carries every
+	// deposit that names a method.
+	ExcludedPaymentMethods []string `yaml:"excludedPaymentMethods"`
+}
+
+// DefaultExcludedPaymentMethods are the Bedolaga methods that do not bring
+// money in: an operator's manual top-up and a move from another balance.
+var DefaultExcludedPaymentMethods = []string{"manual", "balance"}
+
+// PaymentMethodExcluded reports whether a deposit by this method is left out
+// of the payment history.
+func (mapping Mapping) PaymentMethodExcluded(method string) bool {
+	method = strings.ToLower(strings.TrimSpace(method))
+	if method == "" {
+		return true
+	}
+	excluded := mapping.ExcludedPaymentMethods
+	if excluded == nil {
+		excluded = DefaultExcludedPaymentMethods
+	}
+	for _, candidate := range excluded {
+		if candidate == method {
+			return true
+		}
+	}
+	return false
 }
 
 // PlanRule maps one kind of Bedolaga subscription to an Omniflow plan version.
@@ -114,6 +145,17 @@ func (mapping *Mapping) normalize() error {
 	}
 	if len([]rune(mapping.WalletReason)) > 200 {
 		return errors.New("mapping file: walletReason must be at most 200 characters")
+	}
+	if mapping.ExcludedPaymentMethods != nil {
+		methods := make([]string, 0, len(mapping.ExcludedPaymentMethods))
+		for index, method := range mapping.ExcludedPaymentMethods {
+			method = strings.ToLower(strings.TrimSpace(method))
+			if method == "" || len(method) > 50 {
+				return fmt.Errorf("mapping file: excludedPaymentMethods[%d] must be a method name", index+1)
+			}
+			methods = append(methods, method)
+		}
+		mapping.ExcludedPaymentMethods = methods
 	}
 	seen := map[string]int{}
 	for index := range mapping.Plans {

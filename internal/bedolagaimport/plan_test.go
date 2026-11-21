@@ -21,10 +21,34 @@ func fixtureTarget() Target {
 	return Target{
 		Items: map[string]Item{}, TelegramOwners: map[int64]string{}, RemnawaveOwners: map[int64]string{},
 		Referrers: map[string]string{}, Wallets: map[int64]WalletMovements{},
+		TrialHolders: map[string]bool{}, LegacyPeriods: map[int64]LegacyPeriod{}, LegacyPayments: map[int64]bool{},
 		PlanVersions: map[string]PlanVersion{
 			versionMonth: {ID: versionMonth, PlanID: "p-month", PlanCode: "month", PlanKind: "one_time"},
 			versionTrial: {ID: versionTrial, PlanID: "p-trial", PlanCode: "trial", PlanKind: "trial"},
 		},
+	}
+}
+
+// customerFor is the customer ID the tests pretend a Bedolaga user became.
+func customerFor(sourceID int64) string { return "c" + string(rune('0'+sourceID)) }
+
+// applyHistory records the trial claims, periods, and payments a plan would
+// write, as a complete apply leaves them.
+func applyHistory(target *Target, plan Plan) {
+	for _, decision := range plan.Trials {
+		if decision.Action == ActionCreate {
+			target.TrialHolders[customerFor(decision.SourceUserID)] = true
+		}
+	}
+	for _, decision := range plan.Periods {
+		if decision.Action == ActionCreate || decision.Action == ActionRefresh {
+			target.LegacyPeriods[decision.Source.ID] = LegacyPeriod{IsTrial: decision.Source.IsTrial, StartsAt: decision.StartsAt, EndsAt: decision.EndsAt}
+		}
+	}
+	for _, decision := range plan.Payments {
+		if decision.Action == ActionCreate {
+			target.LegacyPayments[decision.Source.ID] = true
+		}
 	}
 }
 
@@ -269,7 +293,7 @@ func TestReRunIsUnchanged(t *testing.T) {
 	target := fixtureTarget()
 	for _, decision := range first.Users {
 		if decision.Action == ActionCreate {
-			target.Items[ItemKey(KindUser, decision.Source.ID)] = Item{Status: ItemApplied, CustomerID: "c" + string(rune('0'+decision.Source.ID)), Fingerprint: decision.Fingerprint}
+			target.Items[ItemKey(KindUser, decision.Source.ID)] = Item{Status: ItemApplied, CustomerID: customerFor(decision.Source.ID), Fingerprint: decision.Fingerprint}
 		}
 	}
 	for _, decision := range first.Subscriptions {
@@ -291,6 +315,7 @@ func TestReRunIsUnchanged(t *testing.T) {
 			target.Items[ItemKey(KindReferral, decision.RefereeID)] = Item{Status: ItemApplied}
 		}
 	}
+	applyHistory(&target, first)
 	second := BuildPlan(source, remote, target, fixtureMapping(), planNow)
 	if pending := second.Pending(); pending != 0 {
 		t.Fatalf("a re-run after a complete apply must have nothing to write, has %d", pending)
@@ -349,13 +374,14 @@ func TestVerifyFindsMismatches(t *testing.T) {
 	// Pretend everything was applied, then verify against matching rows.
 	target := fixtureTarget()
 	for _, decision := range plan.Users {
-		target.Items[ItemKey(KindUser, decision.Source.ID)] = Item{Status: ItemApplied, CustomerID: "c" + string(rune('0'+decision.Source.ID)), Fingerprint: decision.Fingerprint}
+		target.Items[ItemKey(KindUser, decision.Source.ID)] = Item{Status: ItemApplied, CustomerID: customerFor(decision.Source.ID), Fingerprint: decision.Fingerprint}
 	}
 	for _, decision := range plan.Subscriptions {
 		target.Items[ItemKey(KindSubscription, decision.Source.ID)] = Item{Status: ItemApplied, EntitlementID: "e", Fingerprint: decision.Fingerprint}
 	}
 	target.Items[ItemKey(KindReferral, 2)] = Item{Status: ItemApplied}
 	target.Wallets[1] = WalletMovements{Currency: "RUB", TotalMinor: 15000, Count: 1}
+	applyHistory(&target, plan)
 	applied := BuildPlan(source, remote, target, fixtureMapping(), planNow)
 	input := VerifyInput{
 		Customers: map[int64]VerifiedCustomer{1: {CustomerID: "c1", TelegramSubject: "1001"}, 2: {CustomerID: "c2", TelegramSubject: "1002"}},

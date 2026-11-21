@@ -24,7 +24,7 @@ If you already have a customer base, two tools bring it in.
 | --- | --- | --- |
 | Users already in Remnawave | The **Imports** card on `/admin/customers` | A customer and a Remnawave mapping per user, so the bot recognises them by Telegram ID on their next `/start` |
 | A CSV exported from another panel | **Upload CSV** on the same card | The same, from a file with `remnawave_id` and optionally `telegram_id`, `username`, `status` (up to 50,000 rows) |
-| A Bedolaga bot | `cmd/migrate-bedolaga` | Customers, balances, subscriptions, and referrals, with a rehearsed cutover that keeps every subscription link working |
+| A Bedolaga bot | `cmd/migrate-bedolaga` | Customers, balances, subscriptions, and referrals, plus the history segments need — spent trials, past subscriptions, and payments — with a rehearsed cutover that keeps every subscription link working |
 
 The Remnawave import runs in two phases: **Preview** stages every record and counts the clean ones,
 the conflicts, and the unreadable ones before anything is written; **Apply** then commits the clean
@@ -36,7 +36,9 @@ user you create directly in Remnawave becomes a customer without anybody pressin
   An import does not invent subscriptions, orders, or payments. Remnawave does not record what a
   customer paid, so the imported customer keeps their live access in Remnawave and Omniflow starts
   tracking money from their first purchase. A Bedolaga migration is different: it carries balances
-  and subscriptions over. See [Migrating from Bedolaga](/operations/migrate-from-bedolaga).
+  and subscriptions over, and keeps past trials, subscriptions, and payments as history that
+  segments, loyalty, and reports read, so customers who paid and left before the move can still be
+  found. See [Migrating from Bedolaga](/operations/migrate-from-bedolaga#history-trials-periods-and-payments).
 </Note>
 
 ## The customer card

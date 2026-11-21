@@ -128,6 +128,23 @@ func (runner *applier) run(ctx context.Context, plan bedolagaimport.Plan) error 
 			return err
 		}
 	}
+	// Trial claims after subscriptions: a live trial claims through the order
+	// its entitlement hangs off, and the history claim then finds it taken.
+	for _, decision := range plan.Trials {
+		if err := runner.trial(ctx, decision); err != nil {
+			return err
+		}
+	}
+	for _, decision := range plan.Periods {
+		if err := runner.period(ctx, decision); err != nil {
+			return err
+		}
+	}
+	for _, decision := range plan.Payments {
+		if err := runner.payment(ctx, decision); err != nil {
+			return err
+		}
+	}
 	for _, decision := range plan.Referrals {
 		if err := runner.referral(ctx, decision); err != nil {
 			return err
@@ -157,10 +174,17 @@ func (runner *applier) fail(ctx context.Context, kind string, sourceID int64, fi
 		code = coded.code
 	}
 	runner.result.Failures = append(runner.result.Failures, Failure{Kind: kind, SourceID: sourceID, Code: code, Error: err.Error()})
-	if kind == "balance" {
+	if !itemKinds[kind] {
+		// Only users, subscriptions, and referrals have an item row; the rest
+		// is found again by the next plan from the tables themselves.
 		return nil
 	}
 	return runner.record(ctx, dbgen.New(runner.service.pool), kind, sourceID, bedolagaimport.ItemConflict, []string{code}, fingerprint, pgtype.UUID{}, pgtype.UUID{}, pgtype.UUID{})
+}
+
+// itemKinds are the record kinds bedolaga_import_items keeps.
+var itemKinds = map[string]bool{
+	bedolagaimport.KindUser: true, bedolagaimport.KindSubscription: true, bedolagaimport.KindReferral: true,
 }
 
 type codedError struct {
@@ -519,12 +543,97 @@ func (runner *applier) createEntitlement(
 		return pgtype.UUID{}, err
 	}
 	if version.PlanKind == "trial" {
-		// The trial Bedolaga already gave counts as this customer's one trial.
-		if _, err = queries.ClaimTrial(ctx, dbgen.ClaimTrialParams{UserID: customerID, PlanID: version.PlanID, OrderID: order.ID}); err != nil {
+		// The trial Bedolaga already gave counts as this customer's one trial,
+		// dated when it started there.
+		if _, err = queries.InsertImportedTrialClaim(ctx, dbgen.InsertImportedTrialClaimParams{
+			UserID: customerID, PlanID: version.PlanID, OrderID: order.ID,
+			Origin: bedolagaimport.TrialOriginTrial, ClaimedAt: timestamp(decision.StartsAt),
+		}); err != nil {
 			return pgtype.UUID{}, err
 		}
 	}
 	return entitlement.ID, nil
+}
+
+// ---------------------------------------------------------------------------
+// History: trial claims, subscription periods, payments
+// ---------------------------------------------------------------------------
+
+func (runner *applier) trial(ctx context.Context, decision bedolagaimport.TrialDecision) error {
+	if decision.Action != bedolagaimport.ActionCreate {
+		return nil
+	}
+	customerID := runner.customers[decision.SourceUserID]
+	if customerID == "" {
+		return nil
+	}
+	planID, err := parseUUID(decision.PlanID)
+	if err != nil {
+		return runner.fail(ctx, "trial", decision.SourceUserID, [32]byte{}, err)
+	}
+	if err = runner.step(); err != nil {
+		return err
+	}
+	// In a transaction marked as an import, so the operator stream does not
+	// announce every carried-over claim as a trial taken today.
+	err = runner.inTx(ctx, func(_ pgx.Tx, queries *dbgen.Queries) error {
+		_, err := queries.InsertImportedTrialClaim(ctx, dbgen.InsertImportedTrialClaimParams{
+			UserID: optionalUUID(customerID), PlanID: planID, Origin: decision.Origin,
+			ClaimedAt: timestamp(decision.ClaimedAt),
+		})
+		return err
+	})
+	if err != nil {
+		return runner.fail(ctx, "trial", decision.SourceUserID, [32]byte{}, err)
+	}
+	runner.result.Written["trial"]++
+	return nil
+}
+
+func (runner *applier) period(ctx context.Context, decision bedolagaimport.PeriodDecision) error {
+	if decision.Action != bedolagaimport.ActionCreate && decision.Action != bedolagaimport.ActionRefresh {
+		return nil
+	}
+	customerID := runner.customers[decision.Source.UserID]
+	if customerID == "" {
+		return nil
+	}
+	if err := runner.step(); err != nil {
+		return err
+	}
+	if _, err := dbgen.New(runner.service.pool).UpsertLegacyPeriod(ctx, dbgen.UpsertLegacyPeriodParams{
+		UserID: optionalUUID(customerID), SourceID: decision.Source.ID, IsTrial: decision.Source.IsTrial,
+		StartsAt: timestamp(decision.StartsAt), EndsAt: timestamp(decision.EndsAt),
+	}); err != nil {
+		return runner.fail(ctx, "period", decision.Source.ID, [32]byte{}, err)
+	}
+	runner.result.Written["period"]++
+	return nil
+}
+
+func (runner *applier) payment(ctx context.Context, decision bedolagaimport.PaymentDecision) error {
+	if decision.Action != bedolagaimport.ActionCreate {
+		return nil
+	}
+	customerID := runner.customers[decision.Source.UserID]
+	if customerID == "" {
+		return nil
+	}
+	if err := runner.step(); err != nil {
+		return err
+	}
+	method := decision.Source.Method
+	if len(method) > 64 {
+		method = method[:64]
+	}
+	if _, err := dbgen.New(runner.service.pool).InsertLegacyPayment(ctx, dbgen.InsertLegacyPaymentParams{
+		UserID: optionalUUID(customerID), SourceID: decision.Source.ID, Method: method,
+		AmountMinor: decision.Source.AmountKopeks, Currency: decision.Currency, PaidAt: timestamp(decision.Source.PaidAt),
+	}); err != nil {
+		return runner.fail(ctx, "payment", decision.Source.ID, [32]byte{}, err)
+	}
+	runner.result.Written["payment"]++
+	return nil
 }
 
 // ---------------------------------------------------------------------------

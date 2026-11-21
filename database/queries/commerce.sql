@@ -395,7 +395,7 @@ FOR UPDATE OF pc, p;
 INSERT INTO trial_claims (user_id, plan_id, order_id)
 VALUES (sqlc.arg(user_id), sqlc.arg(plan_id), sqlc.arg(order_id))
 ON CONFLICT (user_id) DO UPDATE
-SET plan_id = EXCLUDED.plan_id, order_id = EXCLUDED.order_id, claimed_at = now()
+SET plan_id = EXCLUDED.plan_id, order_id = EXCLUDED.order_id, origin = 'omniflow', claimed_at = now()
 WHERE trial_claims.order_id = EXCLUDED.order_id
    OR EXISTS (SELECT 1 FROM orders closed
      WHERE closed.id = trial_claims.order_id AND closed.state IN ('cancelled', 'expired'));
@@ -403,10 +403,11 @@ WHERE trial_claims.order_id = EXCLUDED.order_id
 -- name: LockTrialClaim :many
 -- The customer's trial claim and the state of the order behind it, locked so
 -- a decision made on it holds until the transaction ends. ClaimTrial's rule
--- reads the same two facts.
+-- reads the same two facts. A claim carried over from the previous bot has no
+-- order and no state, and stands like a claim behind a paid order.
 SELECT tc.order_id, claimed.state AS order_state
 FROM trial_claims tc
-JOIN orders claimed ON claimed.id = tc.order_id
+LEFT JOIN orders claimed ON claimed.id = tc.order_id
 WHERE tc.user_id = $1
 FOR UPDATE OF tc;
 

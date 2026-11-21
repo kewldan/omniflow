@@ -122,4 +122,10 @@ func (handlers *AdminHandlers) exportSalesReport(writer http.ResponseWriter, req
 	}
 	write("trial", "claimed", "", "", strconv.FormatInt(report.Trials.Trials, 10), "", "", "", "")
 	write("trial", "converted", "", "", strconv.FormatInt(report.Trials.Converted, 10), "", "", "", "")
+	write("payers", "paid", "", "", strconv.FormatInt(report.Payers.Payers, 10), "", "", "", "")
+	write("payers", "returning", "", "", strconv.FormatInt(report.Payers.Returning, 10), "", "", "", "")
+	for _, line := range report.Legacy {
+		write("legacy", "payments", "", line.Currency, strconv.FormatInt(line.Payments, 10), "", "",
+			strconv.FormatInt(line.AmountMinor, 10), "")
+	}
 }

@@ -137,3 +137,70 @@ func TestDayCountsMustBeWholeAndPositive(t *testing.T) {
 		t.Fatalf("a whole positive day count should be accepted: %v", err)
 	}
 }
+
+// "Subscription ended between 30 and 90 days ago" is a range of whole days,
+// either bound optional. A bound that is not a whole non-negative number, an
+// unknown key, or a lower bound above the upper one is refused, so a mistyped
+// range cannot silently widen the audience.
+func TestExpiredDaysAgoIsAClosedRange(t *testing.T) {
+	query, err := Compile(map[string]any{
+		FilterExpiredDaysAgo: map[string]any{"min": float64(30), "max": float64(90)},
+	}, testClock)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	if len(query.Args) != 2 || query.Args[0] != int64(30) || query.Args[1] != int64(90) {
+		t.Fatalf("both bounds are parameters, lower first: %v", query.Args)
+	}
+	if query.Explain[0] != "last subscription ended 30 to 90 days ago" {
+		t.Fatalf("explain: %q", query.Explain[0])
+	}
+	for _, table := range []string{"legacy_subscription_periods", "entitlements"} {
+		if !strings.Contains(query.Where, table) {
+			t.Fatalf("the range reads %s, so customers who left before a migration are found:\n%s", table, query.Where)
+		}
+	}
+
+	only, err := Compile(map[string]any{FilterExpiredDaysAgo: map[string]any{"min": float64(14)}}, testClock)
+	if err != nil || len(only.Args) != 1 || only.Explain[0] != "last subscription ended at least 14 days ago" {
+		t.Fatalf("a lower bound alone: %v %v %v", err, only.Args, only.Explain)
+	}
+
+	for _, value := range []any{
+		map[string]any{},
+		map[string]any{"min": float64(90), "max": float64(30)},
+		map[string]any{"min": float64(-1)},
+		map[string]any{"min": 1.5},
+		map[string]any{"from": float64(30)},
+		float64(30),
+	} {
+		if err := Validate(map[string]any{FilterExpiredDaysAgo: value}); err != ErrInvalidValue {
+			t.Fatalf("%v must be refused, got %v", value, err)
+		}
+	}
+}
+
+// Payments the previous bot took count as spend and as activity, and its
+// subscriptions as subscriptions: a customer who paid before a migration is
+// not a customer who never paid.
+func TestCarriedHistoryIsRead(t *testing.T) {
+	for filter, value := range map[string]any{
+		FilterMinimumSpendMinor: float64(100),
+		FilterInactiveForDays:   float64(30),
+		FilterActiveWithinDays:  float64(30),
+	} {
+		query, err := Compile(map[string]any{filter: value}, testClock)
+		if err != nil {
+			t.Fatalf("%s: %v", filter, err)
+		}
+		if !strings.Contains(query.Where, "legacy_payments") {
+			t.Fatalf("%s ignores carried payments:\n%s", filter, query.Where)
+		}
+	}
+	for _, state := range []string{"expired", "none"} {
+		query, err := Compile(map[string]any{FilterSubscription: state}, testClock)
+		if err != nil || !strings.Contains(query.Where, "legacy_subscription_periods") {
+			t.Fatalf("subscription %s ignores carried periods: %v\n%s", state, err, query.Where)
+		}
+	}
+}

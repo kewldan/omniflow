@@ -49,7 +49,7 @@ needs `finance.read`.
 
 | Tab | What it answers |
 | --- | --- |
-| **Sales** | Trial conversion; sales by kind (new, renewal, extension, upgrade, add-on, top-up, gift, digital goods); sales by plan and billing period; provider money by day; refunds issued |
+| **Sales** | Trial conversion; returning payers; sales by kind (new, renewal, extension, upgrade, add-on, top-up, gift, digital goods); sales by plan and billing period; provider money by day; refunds issued |
 | **Payment health** | Whether the money arrived: settlement rate, completion rate, payments still in flight, time to settle, and webhook intake per provider |
 | **Channels** | Where paying customers came from — see below |
 
@@ -62,6 +62,12 @@ not as 0%, and every rate carries its sample size.
 Trial conversion is a cohort figure: of trials claimed in the period, how many of those customers
 have paid since. A period ending today therefore reads low, because yesterday's trials have had
 one day to convert.
+
+Returning payers is the retention figure: of the customers who paid in the period, how many had
+paid before it. After a [Bedolaga migration](/operations/migrate-from-bedolaga) the payments the
+old bot took count as earlier payments, so a customer coming back in the first month is not
+mistaken for a new one; what the old bot took inside the period is shown on the same card and is
+never added to the sales. See [Sales reporting](/operations/sales-reporting).
 
 **Export CSV** downloads the whole sales report as one file with a `section` column. Amounts are
 in minor units, exactly as stored — divide by your currency's own factor.

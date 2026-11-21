@@ -119,6 +119,13 @@ type Target struct {
 	Referrers map[string]string
 	// Wallets maps a Bedolaga user ID to what the importer moved for them.
 	Wallets map[int64]WalletMovements
+	// TrialHolders is every customer who already holds a trial claim.
+	TrialHolders map[string]bool
+	// LegacyPeriods maps a Bedolaga subscription ID to the period carried
+	// over for it.
+	LegacyPeriods map[int64]LegacyPeriod
+	// LegacyPayments holds the Bedolaga transaction IDs already carried over.
+	LegacyPayments map[int64]bool
 }
 
 // ItemKey is the map key of Target.Items.
@@ -203,6 +210,9 @@ type Plan struct {
 	Balances      []BalanceDecision
 	Subscriptions []SubscriptionDecision
 	Referrals     []ReferralDecision
+	Trials        []TrialDecision
+	Periods       []PeriodDecision
+	Payments      []PaymentDecision
 	Report        Report
 }
 
@@ -274,6 +284,7 @@ func BuildPlan(source Source, remote map[int64]RemoteUser, target Target, mappin
 		}
 		plan.Referrals = append(plan.Referrals, decideReferral(user, plan.Users, userIndex, target))
 	}
+	decideHistory(&plan, source, target, mapping, userIndex)
 	plan.Report = buildReport(plan, source, tariffs, mapping, now)
 	for _, version := range target.PlanVersions {
 		plan.Report.Available = append(plan.Report.Available, version)

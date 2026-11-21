@@ -325,6 +325,38 @@ func (q *Queries) MoveCustomerIdentities(ctx context.Context, arg MoveCustomerId
 	return err
 }
 
+const moveCustomerLegacyPayments = `-- name: MoveCustomerLegacyPayments :exec
+UPDATE legacy_payments SET user_id = $1
+WHERE user_id = $2
+`
+
+type MoveCustomerLegacyPaymentsParams struct {
+	Target pgtype.UUID `json:"target"`
+	Source pgtype.UUID `json:"source"`
+}
+
+// Payments carried over from the previous bot follow the customer, as orders
+// do, so the merged account keeps the spend its segments and tiers read.
+func (q *Queries) MoveCustomerLegacyPayments(ctx context.Context, arg MoveCustomerLegacyPaymentsParams) error {
+	_, err := q.db.Exec(ctx, moveCustomerLegacyPayments, arg.Target, arg.Source)
+	return err
+}
+
+const moveCustomerLegacyPeriods = `-- name: MoveCustomerLegacyPeriods :exec
+UPDATE legacy_subscription_periods SET user_id = $1, updated_at = now()
+WHERE user_id = $2
+`
+
+type MoveCustomerLegacyPeriodsParams struct {
+	Target pgtype.UUID `json:"target"`
+	Source pgtype.UUID `json:"source"`
+}
+
+func (q *Queries) MoveCustomerLegacyPeriods(ctx context.Context, arg MoveCustomerLegacyPeriodsParams) error {
+	_, err := q.db.Exec(ctx, moveCustomerLegacyPeriods, arg.Target, arg.Source)
+	return err
+}
+
 const moveCustomerLifecycleEvents = `-- name: MoveCustomerLifecycleEvents :exec
 UPDATE customer_lifecycle_events SET user_id = $1
 WHERE user_id = $2

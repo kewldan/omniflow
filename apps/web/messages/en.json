@@ -1351,6 +1351,14 @@
         "converted": "Converted since",
         "rate": "Conversion"
       },
+      "payers": {
+        "title": "Returning payers",
+        "description": "Of the customers who paid in this period, how many had paid before it. Payments the previous bot took before the migration count as earlier payments; what it took inside the period is shown here and is not part of the sales below.",
+        "paid": "Paid in the period",
+        "returning": "Had paid before",
+        "rate": "Returning share",
+        "legacy": "Previous bot, payments: {count}"
+      },
       "operations": {
         "title": "By kind of sale",
         "description": "Provider money and wallet balance are shown apart and must not be added: the balance was already revenue when it was funded.",
@@ -3503,6 +3511,7 @@
           "subscription": "Subscription",
           "trial": "Trial",
           "expiringWithinDays": "Subscription ends within, days",
+          "expiredDaysAgo": "Last subscription ended, days ago",
           "inactiveForDays": "Has not paid for, days",
           "activeWithinDays": "Active within, days",
           "registeredWithinDays": "Signed up within, days",
@@ -3535,7 +3544,9 @@
           "email": "verified e-mail",
           "vkid": "VK ID",
           "oidc": "external provider"
-        }
+        },
+        "rangeFrom": "From, days",
+        "rangeTo": "To, days"
       },
       "pinned": {
         "title": "Pinned message",

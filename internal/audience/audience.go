@@ -35,6 +35,10 @@ const (
 	FilterSubscription = "subscription"
 	// FilterExpiringWithinDays selects customers whose entitlement ends soon.
 	FilterExpiringWithinDays = "expiringWithinDays"
+	// FilterExpiredDaysAgo selects customers with no live subscription whose
+	// last one ended between min and max days ago, both inclusive:
+	// {"min": 30, "max": 90}. Either bound may be left out.
+	FilterExpiredDaysAgo = "expiredDaysAgo"
 	// FilterInactiveForDays selects customers with no paid order in that many
 	// days.
 	FilterInactiveForDays = "inactiveForDays"
@@ -84,6 +88,35 @@ var (
 	validLocale       = map[string]bool{"en": true, "ru": true}
 	validSubscription = map[string]bool{"active": true, "expired": true, "none": true}
 )
+
+// liveEntitlement is a subscription that serves the customer right now.
+const liveEntitlement = `SELECT 1 FROM entitlements e
+	WHERE e.user_id = u.id AND e.status IN ('active', 'limited') AND e.ends_at > now()`
+
+// everSubscribed is any subscription the customer has had: an entitlement, or
+// a period carried over from the previous bot, which keeps the customers who
+// left before the migration findable after it.
+const everSubscribed = `(EXISTS (SELECT 1 FROM entitlements e WHERE e.user_id = u.id)
+	OR EXISTS (SELECT 1 FROM legacy_subscription_periods l WHERE l.user_id = u.id))`
+
+// subscriptionEnded is a subscription the customer had and that is over, or an
+// entitlement in any state. A carried period still running is not one: its
+// subscription did not become an entitlement because the import refused it,
+// and the customer has not left.
+const subscriptionEnded = `(EXISTS (SELECT 1 FROM entitlements e WHERE e.user_id = u.id)
+	OR EXISTS (SELECT 1 FROM legacy_subscription_periods l WHERE l.user_id = u.id AND l.ends_at <= now()))`
+
+// lastSubscriptionEnd is when the customer's latest subscription ended or
+// ends. A pending or failed entitlement never served anybody and is ignored.
+const lastSubscriptionEnd = `GREATEST(
+	(SELECT max(e.ends_at) FROM entitlements e WHERE e.user_id = u.id AND e.status NOT IN ('pending', 'failed')),
+	(SELECT max(l.ends_at) FROM legacy_subscription_periods l WHERE l.user_id = u.id))`
+
+// realOrder is an order that counts as a purchase. Payments the previous
+// bot took are read beside it; the zero-value order an imported subscription
+// hangs off is not a purchase.
+const realOrder = `o.user_id = u.id AND o.state IN ('paid', 'fulfilled')
+	AND NOT (o.subtotal_minor = 0 AND o.idempotency_key LIKE 'bedolaga:%')`
 
 // Query is a compiled segment: a WHERE fragment and its arguments.
 //
@@ -175,13 +208,10 @@ func compileOne(
 				WHERE e.user_id = u.id AND e.status IN ('active', 'limited') AND e.ends_at > now())`,
 				"holds a live subscription", args, nil
 		case "expired":
-			return `EXISTS (SELECT 1 FROM entitlements e WHERE e.user_id = u.id)
-				AND NOT EXISTS (SELECT 1 FROM entitlements e
-					WHERE e.user_id = u.id AND e.status IN ('active', 'limited') AND e.ends_at > now())`,
+			return subscriptionEnded + " AND NOT EXISTS (" + liveEntitlement + ")",
 				"had a subscription and no longer does", args, nil
 		default:
-			return "NOT EXISTS (SELECT 1 FROM entitlements e WHERE e.user_id = u.id)",
-				"has never had a subscription", args, nil
+			return "NOT " + everSubscribed, "has never had a subscription", args, nil
 		}
 
 	case FilterExpiringWithinDays:
@@ -196,15 +226,43 @@ func compileOne(
 			  AND e.ends_at <= now() + make_interval(days => %s::int))`, next()),
 			fmt.Sprintf("subscription ends within %d days", days), args, nil
 
+	case FilterExpiredDaysAgo:
+		low, high, err := dayRange(value)
+		if err != nil {
+			return "", "", nil, err
+		}
+		clause = subscriptionEnded + " AND NOT EXISTS (" + liveEntitlement + ")"
+		explain = "last subscription ended"
+		if low != nil {
+			args = append(args, *low)
+			clause += fmt.Sprintf(" AND %s <= now() - make_interval(days => %s::int)", lastSubscriptionEnd, next())
+		}
+		if high != nil {
+			args = append(args, *high)
+			clause += fmt.Sprintf(" AND %s >= now() - make_interval(days => %s::int)", lastSubscriptionEnd, next())
+		}
+		switch {
+		case low != nil && high != nil:
+			explain += fmt.Sprintf(" %d to %d days ago", *low, *high)
+		case low != nil:
+			explain += fmt.Sprintf(" at least %d days ago", *low)
+		default:
+			explain += fmt.Sprintf(" at most %d days ago", *high)
+		}
+		return clause, explain, args, nil
+
 	case FilterInactiveForDays:
 		days, err := wholeNumber(value)
 		if err != nil || days <= 0 {
 			return "", "", nil, ErrInvalidValue
 		}
 		args = append(args, days)
-		return fmt.Sprintf(`NOT EXISTS (SELECT 1 FROM orders o
-			WHERE o.user_id = u.id AND o.state IN ('paid', 'fulfilled')
-			  AND o.created_at > now() - make_interval(days => %s::int))`, next()),
+		// realOrder carries a LIKE pattern, so it is joined to the formatted
+		// text rather than passed through the format string.
+		return "NOT EXISTS (SELECT 1 FROM orders o WHERE " + realOrder + fmt.Sprintf(`
+			  AND o.created_at > now() - make_interval(days => %[1]s::int))
+			AND NOT EXISTS (SELECT 1 FROM legacy_payments lp
+			WHERE lp.user_id = u.id AND lp.paid_at > now() - make_interval(days => %[1]s::int))`, next()),
 			fmt.Sprintf("has not paid for anything in %d days", days), args, nil
 
 	case FilterMinimumSpendMinor:
@@ -214,7 +272,8 @@ func compileOne(
 		}
 		args = append(args, amount)
 		return fmt.Sprintf(`COALESCE((SELECT sum(o.paid_minor) FROM orders o
-			WHERE o.user_id = u.id AND o.state IN ('paid', 'fulfilled')), 0) >= %s::bigint`, next()),
+			WHERE o.user_id = u.id AND o.state IN ('paid', 'fulfilled')), 0)
+			+ COALESCE((SELECT sum(lp.amount_minor) FROM legacy_payments lp WHERE lp.user_id = u.id), 0) >= %s::bigint`, next()),
 			fmt.Sprintf("has spent at least %d (minor units)", amount), args, nil
 
 	case FilterLoyaltyTier:
@@ -244,6 +303,9 @@ func compileOne(
 		state, ok := value.(string)
 		trialEntitlement := `SELECT 1 FROM entitlements e JOIN plan_versions v ON v.id = e.plan_version_id
 			JOIN plans p ON p.id = v.plan_id WHERE e.user_id = u.id AND p.kind = 'trial'`
+		// A trial the previous bot gave counts as one had.
+		hadTrial := "(EXISTS (" + trialEntitlement + `) OR EXISTS (SELECT 1 FROM legacy_subscription_periods l
+			WHERE l.user_id = u.id AND l.is_trial))`
 		switch {
 		case !ok:
 			return "", "", nil, ErrInvalidValue
@@ -251,9 +313,9 @@ func compileOne(
 			return "EXISTS (" + trialEntitlement + " AND e.status IN ('active', 'limited') AND e.ends_at > now())",
 				"is on a live trial", args, nil
 		case state == "used":
-			return "EXISTS (" + trialEntitlement + ")", "has had a trial", args, nil
+			return hadTrial, "has had a trial", args, nil
 		case state == "never":
-			return "NOT EXISTS (" + trialEntitlement + ")", "has never had a trial", args, nil
+			return "NOT " + hadTrial, "has never had a trial", args, nil
 		default:
 			return "", "", nil, ErrInvalidValue
 		}
@@ -291,7 +353,8 @@ func compileOne(
 		args = append(args, days)
 		return fmt.Sprintf(`(EXISTS (SELECT 1 FROM customer_sessions cs WHERE cs.user_id = u.id
 				AND cs.last_seen_at > now() - make_interval(days => %[1]s::int))
-			OR EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id AND o.paid_at > now() - make_interval(days => %[1]s::int)))`, next()),
+			OR EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id AND o.paid_at > now() - make_interval(days => %[1]s::int))
+			OR EXISTS (SELECT 1 FROM legacy_payments lp WHERE lp.user_id = u.id AND lp.paid_at > now() - make_interval(days => %[1]s::int)))`, next()),
 			fmt.Sprintf("used the web panel or paid within %d days", days), args, nil
 
 	case FilterReferrals:
@@ -384,6 +447,34 @@ var uuidShape = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4
 func Validate(filters map[string]any) error {
 	_, err := Compile(filters, time.Now())
 	return err
+}
+
+// dayRange reads {"min": a, "max": b}. At least one bound is required, both are
+// whole non-negative days, and min may not exceed max. Unknown keys are
+// refused, so a misspelt bound cannot silently widen the audience.
+func dayRange(value any) (low, high *int64, err error) {
+	bounds, ok := value.(map[string]any)
+	if !ok || len(bounds) == 0 {
+		return nil, nil, ErrInvalidValue
+	}
+	for key, raw := range bounds {
+		days, numberErr := wholeNumber(raw)
+		if numberErr != nil || days < 0 || days > 36500 {
+			return nil, nil, ErrInvalidValue
+		}
+		switch key {
+		case "min":
+			low = &days
+		case "max":
+			high = &days
+		default:
+			return nil, nil, ErrInvalidValue
+		}
+	}
+	if low != nil && high != nil && *low > *high {
+		return nil, nil, ErrInvalidValue
+	}
+	return low, high, nil
 }
 
 // wholeNumber accepts the several shapes a JSON number arrives in.

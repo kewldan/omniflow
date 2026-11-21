@@ -2730,6 +2730,20 @@ export interface PanelTrialConversion {
   cohort: boolean;
 }
 
+export interface PanelReturningPayers {
+  /** Customers with a payment in the period: a provider-settled order or a payment the previous bot took. An order paid from the wallet is not a payment. */
+  payers: number;
+  /** Of those, how many had paid before the period began, counting the previous bot's payments. */
+  returning: number;
+}
+
+export interface PanelLegacyPeriodPayments {
+  currency: string;
+  payments: number;
+  /** What the previous bot took in the period. History to compare against, never part of Omniflow's sales. */
+  amountMinor: number;
+}
+
 export interface PanelSalesReport {
   since: string;
   until: string;
@@ -2740,6 +2754,8 @@ export interface PanelSalesReport {
   byDay: PanelDaySales[];
   refunds: PanelPeriodRefunds[];
   trials: PanelTrialConversion;
+  payers: PanelReturningPayers;
+  legacy: PanelLegacyPeriodPayments[];
   generatedAt: string;
 }
 

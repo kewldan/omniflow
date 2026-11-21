@@ -42,17 +42,18 @@ reading a table it has no business reading.
 | `status` | `active`, `suspended`, `deleted` | Account status | "account status is active" |
 | `locale` | `en`, `ru` | Interface language | "interface language is ru" |
 | `subscription` | `active` | Holds a live entitlement ending in the future | "holds a live subscription" |
-| `subscription` | `expired` | Had an entitlement, has none live | "had a subscription and no longer does" |
-| `subscription` | `none` | Has never had one | "has never had a subscription" |
+| `subscription` | `expired` | Had an entitlement or a subscription carried from a previous bot, has none live | "had a subscription and no longer does" |
+| `subscription` | `none` | Has never had one, in Omniflow or in a previous bot | "has never had a subscription" |
 | `expiringWithinDays` | Integer above zero | Live entitlement ending within N days | "subscription ends within 7 days" |
-| `inactiveForDays` | Integer above zero | No `paid` or `fulfilled` order in N days | "has not paid for anything in 60 days" |
-| `minimumSpendMinor` | Integer, zero or above | Settled spend at or above the amount | "has spent at least 500000 (minor units)" |
+| `expiredDaysAgo` | `{"min": 30, "max": 90}`, either bound optional | No live subscription, and the last one ended between `min` and `max` days ago, both inclusive | "last subscription ended 30 to 90 days ago" |
+| `inactiveForDays` | Integer above zero | No purchase and no payment carried from a previous bot in N days | "has not paid for anything in 60 days" |
+| `minimumSpendMinor` | Integer, zero or above | Settled spend plus payments carried from a previous bot at or above the amount | "has spent at least 500000 (minor units)" |
 | `loyaltyTier` | A tier code | Currently standing in that tier | "stands in the gold loyalty tier" |
 | `planCode` | A plan code | Holds an entitlement for that plan | "holds the pro plan" |
-| `trial` | `active`, `used`, `never` | On a live trial plan, ever had one, or never | "is on a live trial" |
+| `trial` | `active`, `used`, `never` | On a live trial plan, ever had one (a carried trial counts), or never | "is on a live trial" |
 | `trafficUsedPercent` | 1–100 | A live subscription used at least that share of its allowance, as last observed from Remnawave | "has used at least 80% of their traffic" |
 | `registeredWithinDays`, `registeredBeforeDays` | Days | Signed up within, or more than, that many days ago | "signed up within the last 7 days" |
-| `activeWithinDays` | Days | Used the web panel or paid for something in that window | "used the web panel or paid within 30 days" |
+| `activeWithinDays` | Days | Used the web panel, paid for something, or paid in a previous bot in that window | "used the web panel or paid within 30 days" |
 | `referrals` | `inviter`, `invitee` | Invited somebody, or was invited | "has invited somebody" |
 | `adCampaign` | A `/start` campaign code | A Telegram advertising campaign brought them | "came from the stars_elite campaign" |
 | `signInMethod` | `telegram`, `email`, `vkid`, `oidc` | Has that sign-in method; `email` is a verified address | "signs in with Telegram" |
@@ -67,6 +68,20 @@ and discovering that when the send begins is discovering it too late.
 
 Numbers arriving as JSON floats must be whole. `expiringWithinDays: 7.5` is a
 refusal, not a rounding.
+
+`expiredDaysAgo` is the filter the win-back ladder stands on: `{"min": 30,
+"max": 60}` is the 30-day step, `{"min": 90, "max": 120}` the 90-day one, and
+`{"min": 14}` leaves out everybody whose subscription ended in the last
+fortnight. "Ended" is the latest end among the customer's entitlements (a
+pending or failed one never served anybody and does not count) and the
+subscription periods a [migration](/operations/migrate-from-bedolaga#history-trials-periods-and-payments)
+carried, so customers who left before the migration are found too. A key other
+than `min` and `max`, a bound that is not a whole number of days, or `min` above
+`max` is refused. In the panel's segment editor the two bounds are the "From"
+and "To" fields; an empty field leaves that bound out.
+
+The zero-value order an imported subscription hangs off is not a purchase, so
+`inactiveForDays` ignores it.
 
 ### It explains itself
 

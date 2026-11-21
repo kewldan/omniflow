@@ -134,6 +134,8 @@ func (service *Service) loadTarget(ctx context.Context) (bedolagaimport.Target, 
 		Items: map[string]bedolagaimport.Item{}, TelegramOwners: map[int64]string{},
 		RemnawaveOwners: map[int64]string{}, PlanVersions: map[string]bedolagaimport.PlanVersion{},
 		Referrers: map[string]string{}, Wallets: map[int64]bedolagaimport.WalletMovements{},
+		TrialHolders: map[string]bool{}, LegacyPeriods: map[int64]bedolagaimport.LegacyPeriod{},
+		LegacyPayments: map[int64]bool{},
 	}
 	items, err := queries.ListBedolagaImportItems(ctx)
 	if err != nil {
@@ -202,6 +204,29 @@ func (service *Service) loadTarget(ctx context.Context) (bedolagaimport.Target, 
 			wallet.Count += existing.Count
 		}
 		target.Wallets[movement.SourceUserID] = wallet
+	}
+	holders, err := queries.ListTrialClaimHolders(ctx)
+	if err != nil {
+		return target, nil, fmt.Errorf("read trial claims: %w", err)
+	}
+	for _, holder := range holders {
+		target.TrialHolders[uuidString(holder)] = true
+	}
+	periods, err := queries.ListBedolagaLegacyPeriods(ctx)
+	if err != nil {
+		return target, nil, fmt.Errorf("read carried-over subscription periods: %w", err)
+	}
+	for _, period := range periods {
+		target.LegacyPeriods[period.SourceID] = bedolagaimport.LegacyPeriod{
+			IsTrial: period.IsTrial, StartsAt: period.StartsAt.Time.UTC(), EndsAt: period.EndsAt.Time.UTC(),
+		}
+	}
+	payments, err := queries.ListBedolagaLegacyPayments(ctx)
+	if err != nil {
+		return target, nil, fmt.Errorf("read carried-over payments: %w", err)
+	}
+	for _, id := range payments {
+		target.LegacyPayments[id] = true
 	}
 	return target, versions, nil
 }

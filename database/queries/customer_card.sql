@@ -91,8 +91,10 @@ WHERE u.status <> 'merged'
         SELECT 1 FROM auto_renew_settings a WHERE a.user_id = u.id AND a.enabled))
   AND (NOT sqlc.arg(restricted)::boolean OR EXISTS (
         SELECT 1 FROM customer_restrictions c WHERE c.user_id = u.id))
-  AND (NOT sqlc.arg(trial_only)::boolean OR (EXISTS (SELECT 1 FROM trial_claims t WHERE t.user_id = u.id)
-        AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id AND o.paid_minor > 0)))
+  AND (NOT sqlc.arg(trial_only)::boolean OR (EXISTS (SELECT 1 FROM trial_claims t
+          WHERE t.user_id = u.id AND t.origin <> 'bedolaga_history')
+        AND NOT EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id AND o.paid_minor > 0)
+        AND NOT EXISTS (SELECT 1 FROM legacy_payments lp WHERE lp.user_id = u.id)))
   AND (sqlc.narg(campaign)::text IS NULL OR EXISTS (
         SELECT 1 FROM customer_campaign_attributions c JOIN ad_campaigns ac ON ac.id = c.campaign_id
         WHERE c.user_id = u.id AND ac.code = sqlc.narg(campaign)::text))

@@ -6307,6 +6307,29 @@ export const GetPanelSalesReportResponse = zod.object({
         "Always true. The numerator counts conversions at any later time, so a period ending today reads low by construction.",
       ),
   }),
+  payers: zod.object({
+    payers: zod
+      .int()
+      .describe(
+        "Customers with a payment in the period: a provider-settled order or a payment the previous bot took. An order paid from the wallet is not a payment.",
+      ),
+    returning: zod
+      .int()
+      .describe(
+        "Of those, how many had paid before the period began, counting the previous bot's payments.",
+      ),
+  }),
+  legacy: zod.array(
+    zod.object({
+      currency: zod.string(),
+      payments: zod.int(),
+      amountMinor: zod
+        .int()
+        .describe(
+          "What the previous bot took in the period. History to compare against, never part of Omniflow's sales.",
+        ),
+    }),
+  ),
   generatedAt: zod.iso.datetime({ offset: true }),
 });
 

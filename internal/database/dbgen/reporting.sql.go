@@ -62,6 +62,51 @@ func (q *Queries) CustomersByRemnawaveIDs(ctx context.Context, remnawaveIds []in
 	return items, nil
 }
 
+const legacyPaymentsInPeriod = `-- name: LegacyPaymentsInPeriod :many
+SELECT lp.currency, count(*)::bigint AS payment_count,
+       COALESCE(sum(lp.amount_minor), 0)::bigint AS amount_minor
+FROM legacy_payments lp
+WHERE lp.paid_at >= $1 AND lp.paid_at < $2
+  AND ($3::text IS NULL OR lp.currency = $3::text)
+GROUP BY lp.currency
+ORDER BY lp.currency
+`
+
+type LegacyPaymentsInPeriodParams struct {
+	Since    pgtype.Timestamptz `json:"since"`
+	Until    pgtype.Timestamptz `json:"until"`
+	Currency pgtype.Text        `json:"currency"`
+}
+
+type LegacyPaymentsInPeriodRow struct {
+	Currency     string `json:"currency"`
+	PaymentCount int64  `json:"payment_count"`
+	AmountMinor  int64  `json:"amount_minor"`
+}
+
+// What the previous bot took in the period, kept apart from Omniflow's own
+// sales: it is history the operator compares against, not revenue Omniflow
+// settled.
+func (q *Queries) LegacyPaymentsInPeriod(ctx context.Context, arg LegacyPaymentsInPeriodParams) ([]LegacyPaymentsInPeriodRow, error) {
+	rows, err := q.db.Query(ctx, legacyPaymentsInPeriod, arg.Since, arg.Until, arg.Currency)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []LegacyPaymentsInPeriodRow{}
+	for rows.Next() {
+		var i LegacyPaymentsInPeriodRow
+		if err := rows.Scan(&i.Currency, &i.PaymentCount, &i.AmountMinor); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const paymentHealthByDay = `-- name: PaymentHealthByDay :many
 SELECT
   (date_trunc('day', pi.created_at AT TIME ZONE $1::text))::date AS day,
@@ -270,6 +315,51 @@ func (q *Queries) RefundsInPeriod(ctx context.Context, arg RefundsInPeriodParams
 		return nil, err
 	}
 	return items, nil
+}
+
+const returningPayers = `-- name: ReturningPayers :one
+SELECT
+  count(*)::bigint AS payers,
+  count(*) FILTER (WHERE payers.paid_before)::bigint AS returning
+FROM (
+  SELECT payments.user_id, bool_or(payments.moment < $1::timestamptz) AS paid_before
+  FROM (
+    SELECT o.user_id, o.paid_at AS moment FROM orders o
+    WHERE o.paid_at IS NOT NULL AND o.paid_minor > 0
+      AND ($2::text IS NULL OR o.currency = $2::text)
+    UNION ALL
+    SELECT lp.user_id, lp.paid_at AS moment FROM legacy_payments lp
+    WHERE ($2::text IS NULL OR lp.currency = $2::text)
+  ) payments
+  WHERE payments.moment < $3::timestamptz
+  GROUP BY payments.user_id
+  HAVING bool_or(payments.moment >= $1::timestamptz)
+) payers
+`
+
+type ReturningPayersParams struct {
+	Since    pgtype.Timestamptz `json:"since"`
+	Currency pgtype.Text        `json:"currency"`
+	Until    pgtype.Timestamptz `json:"until"`
+}
+
+type ReturningPayersRow struct {
+	Payers    int64 `json:"payers"`
+	Returning int64 `json:"returning"`
+}
+
+// Of the customers who paid in this period, how many had paid before it.
+//
+// A payment is money arriving from outside: an order a provider settled for a
+// non-zero amount, or a payment the previous bot took before the migration.
+// An order paid from the wallet is not one, because the top-up that funded the
+// wallet already was. Counting the previous bot's payments is what lets the
+// first months after a migration tell a returning customer from a new one.
+func (q *Queries) ReturningPayers(ctx context.Context, arg ReturningPayersParams) (ReturningPayersRow, error) {
+	row := q.db.QueryRow(ctx, returningPayers, arg.Since, arg.Currency, arg.Until)
+	var i ReturningPayersRow
+	err := row.Scan(&i.Payers, &i.Returning)
+	return i, err
 }
 
 const salesByDay = `-- name: SalesByDay :many
@@ -483,6 +573,7 @@ WITH claims AS (
   SELECT tc.user_id, tc.claimed_at
   FROM trial_claims tc
   WHERE tc.claimed_at >= $1 AND tc.claimed_at < $2
+    AND tc.origin <> 'bedolaga_history'
 )
 SELECT
   count(*)::bigint AS trials,
@@ -496,6 +587,9 @@ SELECT
         -- A zero-value order is a free grant rather than a conversion. Counting
         -- one would make a promotion that gives a month away look like revenue.
         AND o.subtotal_minor - o.discount_minor > 0
+    ) OR EXISTS (
+      SELECT 1 FROM legacy_payments lp
+      WHERE lp.user_id = claims.user_id AND lp.paid_at > claims.claimed_at
     )
   )::bigint AS converted
 FROM claims
@@ -518,6 +612,10 @@ type TrialConversionRow struct {
 // trial claimed yesterday has had a day to convert. That is a property of the
 // question rather than a fault in the query, and the panel says so beside the
 // figure rather than quietly excluding recent trials.
+//
+// A claim carried over from the previous bot for a customer who subscribed
+// there without a trial blocks a trial without having been one, and is left
+// out. A carried-over trial converts on a payment the previous bot took, too.
 func (q *Queries) TrialConversion(ctx context.Context, arg TrialConversionParams) (TrialConversionRow, error) {
 	row := q.db.QueryRow(ctx, trialConversion, arg.Since, arg.Until)
 	var i TrialConversionRow

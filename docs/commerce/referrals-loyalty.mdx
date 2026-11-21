@@ -430,9 +430,13 @@ The new version number is one above the highest already published. `POST` needs
 
 | Metric | Value |
 | --- | --- |
-| `spend` | Sum of `paid_minor` over `paid` and `fulfilled` orders in the programme currency, inside the window |
-| `orders` | Count of those same orders |
-| `tenure` | Days since the customer's earliest entitlement started; the window is irrelevant |
+| `spend` | Sum of `paid_minor` over `paid` and `fulfilled` orders in the programme currency, inside the window, plus payments a previous bot took in that currency and window |
+| `orders` | Count of those same orders and carried payments. The zero-value order an imported subscription hangs off is not counted |
+| `tenure` | Days since the customer's earliest entitlement, or carried subscription period, started; the window is irrelevant |
+
+Payments and subscription periods carried by a [migration](/operations/migrate-from-bedolaga#history-trials-periods-and-payments)
+count as if Omniflow had taken them, so a customer who paid for a year before the
+migration keeps the tier that year earned.
 
 All three are facts Omniflow already records. That is deliberate: a loyalty model
 that needs new tracking is a loyalty model that needs new consent.

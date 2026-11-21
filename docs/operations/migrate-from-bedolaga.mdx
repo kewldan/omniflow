@@ -58,7 +58,9 @@ cutover.
 | `users.remnawave_id`, or the first active subscription's panel user | `remnawave_users` | The customer-level mapping the bot reads |
 | Active `subscriptions` row | `subscriptions` + `orders` + `order_lines` + `entitlements` | See [subscriptions](#subscriptions) |
 | Expired `subscriptions` row whose panel user still exists | `subscriptions` | Linked to that panel user, no entitlement |
-| Active trial | as above, plus `trial_claims` | The Bedolaga trial counts as the customer's one trial |
+| Any subscription, ended or not, or `has_had_paid_subscription` | `trial_claims` | The customer's one trial is spent, see [history](#history-trials-periods-and-payments) |
+| Every `subscriptions` row except `pending` | `legacy_subscription_periods` | Start, end, and the trial flag, so segments find customers whose subscription ran out before the migration |
+| Completed `transactions` of type `deposit` | `legacy_payments` | Amount, date, and method, so segments, loyalty, and reports count what customers paid before the migration |
 | `users.referred_by_id` | `referral_attributions` | Same referrer; qualified when the referee had paid, see [referrals](#referrals) |
 | `tariffs` | — | Mapped to plan versions by your [mapping file](#the-mapping-file) |
 
@@ -103,6 +105,50 @@ A subscription is matched to its panel user by `subscriptions.remnawave_id`. A u
 subscription and no ID on it falls back to `users.remnawave_id`, which is how Bedolaga stored it
 before multi-tariff.
 
+### History: trials, periods, and payments
+
+Three kinds of record carry what happened before the migration, so a migrated base is not a base of
+customers who seem never to have subscribed or paid.
+
+**Trial claims.** Bedolaga offered the trial only to somebody with no subscription at all. Every
+imported customer who had any subscription in Bedolaga — a live or expired trial, a paid subscription,
+whether or not its panel user still exists — or who is marked `has_had_paid_subscription` gets a row
+in `trial_claims`, so the Omniflow trial is refused to them as Bedolaga refused it. The claim is dated
+when their first Bedolaga subscription started, and its `origin` says which kind it is:
+`bedolaga_trial` for a customer who had a trial, `bedolaga_history` for one who subscribed without
+one. A `bedolaga_history` claim blocks a trial without having been one, so trial conversion figures
+leave it out. A live trial still claims through the order its entitlement hangs off; every other
+carried claim has no order. The claim names the plan of the mapping's `trial: true` rule, or the
+catalogue's only plan of kind `trial`; with neither, the claims are the conflict `trial_plan_missing`.
+Carried claims are written in a transaction marked as an import, so the operator group is not told
+about thousands of trials taken today.
+
+**Subscription periods.** Every Bedolaga subscription except an unpaid `pending` one becomes a row of
+`legacy_subscription_periods` with its start, end, and trial flag, including the ones whose panel user
+is gone. A subscription still running also became an entitlement; the period sits beside it. A
+repeated run before the cutover moves a period's dates when Bedolaga renewed or cut the subscription.
+
+**Payments.** Bedolaga sells everything from the balance, so the moment money arrived is a completed
+top-up: a `transactions` row of type `deposit` with `is_completed`. Each one becomes a row of
+`legacy_payments` with its amount in kopeks, its date (`completed_at`, or `created_at` where Bedolaga
+did not record one), and `payment_method`. A deposit with no method is the bot's own credit and is
+never carried; the methods in the mapping's `excludedPaymentMethods` — `manual` and `balance` unless
+you say otherwise — are left out too, and the plan counts what each excluded method removed. Check
+the plan's "completed deposits by method" against that list before applying. A payment is carried
+once: a repeated run writes only the top-ups taken since.
+
+None of the three is Omniflow's record of a sale. No ledger entry, order, or entitlement is written
+for them, and Omniflow's own sales figures do not include them. What reads them:
+
+| Reader | What it counts |
+| --- | --- |
+| Segment filter `subscription` | `expired` and `none` count carried periods as subscriptions had |
+| Segment filter `expiredDaysAgo` | The end of the last carried period or entitlement |
+| Segment filters `minimumSpendMinor`, `inactiveForDays`, `activeWithinDays` | Carried payments as spend and as activity |
+| Segment filter `trial` | A carried trial period as a trial had |
+| [Loyalty](/commerce/referrals-loyalty) | Carried payments in the programme's currency and window as spend and as orders; the first carried period as the start of tenure |
+| [Sales report](/operations/sales-reporting) | Carried payments as earlier payments for returning payers, and the previous bot's takings in the period apart from the sales |
+
 ### Referrals
 
 Every pair whose both sides are imported becomes an attribution with Bedolaga's sign-up date as its
@@ -115,7 +161,7 @@ Omniflow order as usual, subject to the programme's validity window.
 
 | Stays in Bedolaga | Why, and what to do |
 | --- | --- |
-| Payment history: `transactions` and the per-provider payment tables | Omniflow's ledger records money Omniflow moved, and there is no append-only place for another system's payments. The snapshot from `01-snapshot-bedolaga.sh` is the archive; keep it |
+| Every `transactions` row other than a completed top-up, and the per-provider payment tables | Omniflow's ledger records money Omniflow moved. Completed top-ups are carried as [payment history](#history-trials-periods-and-payments); purchases from the balance, refunds, and credits are not. The snapshot from `01-snapshot-bedolaga.sh` is the archive; keep it |
 | Telegram Stars shop orders (`stars_orders`) | An Omniflow goods order needs a real order and quote behind it. The plan counts them by status and sum; they stay in the archive |
 | Support tickets and messages | Close or answer them in Bedolaga before the cutover; the plan counts them |
 | Promo codes and promo groups | Their discount rules do not map onto Omniflow's promotions one to one. The plan counts active codes by type and groups by members; recreate what you still want in the panel |
@@ -125,7 +171,6 @@ Omniflow order as usual, subject to the programme's validity window.
 | Bedolaga referral codes and links | Every customer gets a new Omniflow referral code. Old `start=ref…` links stop attributing |
 | Deleted users | Skipped with `deleted_in_source` |
 | Grace-period overlays | The entitlement ends at the paid `end_date`, not at a grace overlay's date |
-| Trial history of customers with nothing active | Only an active trial is carried as a trial claim. A former trial user with no active subscription can claim an Omniflow trial once |
 
 ## Before you start
 
@@ -133,7 +178,7 @@ Omniflow order as usual, subject to the programme's validity window.
   The reader checks the columns it needs and stops with the missing one named.
 - **Omniflow deployed**, migrations applied, the API answering on `APP_PUBLIC_URL`, payment providers
   configured, and a plan version for every tariff with active subscriptions. A trial plan (kind
-  `trial`) if you had trials.
+  `trial`) if anybody ever subscribed in Bedolaga: carried trial claims name it.
 - **The importer built**, from the same commit as your Omniflow deployment:
 
   ```bash
@@ -184,11 +229,16 @@ plans:
     planVersionId: 9a40…       # every trial
   - noTariff: true
     planVersionId: 77f2…       # subscriptions sold without a tariff
+excludedPaymentMethods: [manual, balance]   # the default; top-ups by these are not payment history
 ```
 
 More specific rules win: a tariff with `periodDays` over the tariff alone, a tariff rule over a
 tariff-less trial rule. `periodDays` matches a subscription whose start-to-end length rounds to that
 many days. `plan` lists every Omniflow plan version you can name and every tariff still unmapped.
+
+`excludedPaymentMethods` lists the Bedolaga payment methods whose completed top-ups are not money a
+customer paid in. Left out, it is `[manual, balance]`; an empty list `[]` carries every top-up that
+names a method. Methods are matched without regard to case.
 
 `blockedUsers` has no default on purpose. Bedolaga writes `blocked` both when an operator bans
 somebody and when a broadcast finds that the customer blocked the bot; the data cannot tell the two

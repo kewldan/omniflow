@@ -447,20 +447,30 @@ func (q *Queries) CreateLoyaltyTier(ctx context.Context, arg CreateLoyaltyTierPa
 
 const customerLoyaltyMetric = `-- name: CustomerLoyaltyMetric :one
 SELECT
-  COALESCE((SELECT sum(o.paid_minor) FROM orders o
+  (COALESCE((SELECT sum(o.paid_minor) FROM orders o
     WHERE o.user_id = $1
       AND o.state IN ('paid', 'fulfilled')
       AND o.currency = $2
       AND o.created_at >= now() - make_interval(days => $3::int)
-  ), 0)::bigint AS spend_minor,
-  (SELECT count(*)::bigint FROM orders o
+  ), 0) + COALESCE((SELECT sum(lp.amount_minor) FROM legacy_payments lp
+    WHERE lp.user_id = $1
+      AND lp.currency = $2
+      AND lp.paid_at >= now() - make_interval(days => $3::int)
+  ), 0))::bigint AS spend_minor,
+  ((SELECT count(*) FROM orders o
     WHERE o.user_id = $1
       AND o.state IN ('paid', 'fulfilled')
+      AND NOT (o.subtotal_minor = 0 AND o.idempotency_key LIKE 'bedolaga:%')
       AND o.created_at >= now() - make_interval(days => $3::int)
-  ) AS order_count,
-  COALESCE((SELECT extract(days FROM now() - min(e.starts_at))::bigint
-    FROM entitlements e WHERE e.user_id = $1
-  ), 0)::bigint AS tenure_days
+  ) + (SELECT count(*) FROM legacy_payments lp
+    WHERE lp.user_id = $1
+      AND lp.paid_at >= now() - make_interval(days => $3::int)
+  ))::bigint AS order_count,
+  COALESCE((SELECT extract(days FROM now() - min(started))::bigint FROM (
+    SELECT e.starts_at AS started FROM entitlements e WHERE e.user_id = $1
+    UNION ALL
+    SELECT lsp.starts_at FROM legacy_subscription_periods lsp WHERE lsp.user_id = $1
+  ) starts), 0)::bigint AS tenure_days
 `
 
 type CustomerLoyaltyMetricParams struct {
@@ -477,6 +487,11 @@ type CustomerLoyaltyMetricRow struct {
 
 // The metric a standing is evaluated on, computed from facts Omniflow already
 // records. Nothing new is tracked to support loyalty.
+//
+// Payments and subscriptions carried over from the previous bot count as if
+// Omniflow had taken them, so a customer who paid for a year before the
+// migration keeps the tier the year earned. The zero-value order an imported
+// subscription hangs off is not a purchase and is not counted.
 func (q *Queries) CustomerLoyaltyMetric(ctx context.Context, arg CustomerLoyaltyMetricParams) (CustomerLoyaltyMetricRow, error) {
 	row := q.db.QueryRow(ctx, customerLoyaltyMetric, arg.UserID, arg.Currency, arg.WindowDays)
 	var i CustomerLoyaltyMetricRow

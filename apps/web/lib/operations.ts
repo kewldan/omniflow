@@ -619,6 +619,13 @@ export type SalesReport = {
    * low by construction, which the screen says rather than hides.
    */
   trials: { trials: number; converted: number; cohort: boolean };
+  /**
+   * Of the customers who paid in the period, how many had paid before it,
+   * counting payments the previous bot took before a migration.
+   */
+  payers: { payers: number; returning: number };
+  /** What the previous bot took in the period; never part of the sales above. */
+  legacy: { currency: string; payments: number; amountMinor: number }[];
   generatedAt: string;
 };
 

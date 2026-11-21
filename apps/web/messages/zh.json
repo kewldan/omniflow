@@ -1346,6 +1346,14 @@
         "converted": "之后已转化",
         "rate": "转化率"
       },
+      "payers": {
+        "title": "回头付款客户",
+        "description": "本期付款的客户中，有多少在此之前付过款。迁移前旧机器人收到的付款计为此前付款；旧机器人在本期内收到的款项显示在此处，不计入下方销售额。",
+        "paid": "本期付款",
+        "returning": "此前付过款",
+        "rate": "回头比例",
+        "legacy": "旧机器人付款：{count} 笔"
+      },
       "operations": {
         "title": "按销售类型",
         "description": "支付渠道收款和钱包余额分开显示，不能相加：余额在充值时就已计入收入。",
@@ -3411,6 +3419,7 @@
           "subscription": "订阅",
           "trial": "试用",
           "expiringWithinDays": "订阅在几天内到期",
+          "expiredDaysAgo": "上一个订阅结束于（天前）",
           "inactiveForDays": "未付费天数",
           "activeWithinDays": "几天内活跃",
           "registeredWithinDays": "几天内注册",
@@ -3443,7 +3452,9 @@
           "email": "已验证邮箱",
           "vkid": "VK ID",
           "oidc": "外部身份提供方"
-        }
+        },
+        "rangeFrom": "从（天）",
+        "rangeTo": "到（天）"
       },
       "pinned": {
         "title": "置顶消息",

@@ -8964,6 +8964,14 @@ type PanelLedgerList struct {
 	Items *[]PanelLedgerLine `json:"items"`
 }
 
+// PanelLegacyPeriodPayments defines model for PanelLegacyPeriodPayments.
+type PanelLegacyPeriodPayments struct {
+	// AmountMinor What the previous bot took in the period. History to compare against, never part of Omniflow's sales.
+	AmountMinor int64  `json:"amountMinor"`
+	Currency    string `json:"currency"`
+	Payments    int64  `json:"payments"`
+}
+
 // PanelLocalization defines model for PanelLocalization.
 type PanelLocalization struct {
 	Description *string `json:"description,omitempty"`
@@ -9754,6 +9762,15 @@ type PanelRemnawaveSquad struct {
 	Uuid    openapi_types.UUID `json:"uuid"`
 }
 
+// PanelReturningPayers defines model for PanelReturningPayers.
+type PanelReturningPayers struct {
+	// Payers Customers with a payment in the period: a provider-settled order or a payment the previous bot took. An order paid from the wallet is not a payment.
+	Payers int64 `json:"payers"`
+
+	// Returning Of those, how many had paid before the period began, counting the previous bot's payments.
+	Returning int64 `json:"returning"`
+}
+
 // PanelRevenueLine Three separate figures. Wallet credit was already counted as revenue when the balance was funded, so adding it to provider money counts it twice.
 type PanelRevenueLine struct {
 	Currency   string `json:"currency"`
@@ -9788,16 +9805,18 @@ type PanelSalesLine struct {
 
 // PanelSalesReport defines model for PanelSalesReport.
 type PanelSalesReport struct {
-	ByDay       []PanelDaySales      `json:"byDay"`
-	ByOperation []PanelSalesLine     `json:"byOperation"`
-	ByPlan      []PanelPlanSales     `json:"byPlan"`
-	Currency    *string              `json:"currency,omitempty"`
-	GeneratedAt time.Time            `json:"generatedAt"`
-	Refunds     []PanelPeriodRefunds `json:"refunds"`
-	Since       time.Time            `json:"since"`
-	Timezone    string               `json:"timezone"`
-	Trials      PanelTrialConversion `json:"trials"`
-	Until       time.Time            `json:"until"`
+	ByDay       []PanelDaySales             `json:"byDay"`
+	ByOperation []PanelSalesLine            `json:"byOperation"`
+	ByPlan      []PanelPlanSales            `json:"byPlan"`
+	Currency    *string                     `json:"currency,omitempty"`
+	GeneratedAt time.Time                   `json:"generatedAt"`
+	Legacy      []PanelLegacyPeriodPayments `json:"legacy"`
+	Payers      PanelReturningPayers        `json:"payers"`
+	Refunds     []PanelPeriodRefunds        `json:"refunds"`
+	Since       time.Time                   `json:"since"`
+	Timezone    string                      `json:"timezone"`
+	Trials      PanelTrialConversion        `json:"trials"`
+	Until       time.Time                   `json:"until"`
 }
 
 // PanelSavedMethod A provider-issued token and the masked label the provider supplied. No card data is stored or returned.

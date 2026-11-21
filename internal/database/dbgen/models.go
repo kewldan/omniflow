@@ -1487,6 +1487,30 @@ type LedgerTransaction struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
+type LegacyPayment struct {
+	ID          pgtype.UUID        `json:"id"`
+	UserID      pgtype.UUID        `json:"user_id"`
+	Source      string             `json:"source"`
+	SourceID    int64              `json:"source_id"`
+	Method      string             `json:"method"`
+	AmountMinor int64              `json:"amount_minor"`
+	Currency    string             `json:"currency"`
+	PaidAt      pgtype.Timestamptz `json:"paid_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type LegacySubscriptionPeriod struct {
+	ID        pgtype.UUID        `json:"id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	Source    string             `json:"source"`
+	SourceID  int64              `json:"source_id"`
+	IsTrial   bool               `json:"is_trial"`
+	StartsAt  pgtype.Timestamptz `json:"starts_at"`
+	EndsAt    pgtype.Timestamptz `json:"ends_at"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
 type LimitedAccessSession struct {
 	ID             pgtype.UUID        `json:"id"`
 	UserID         pgtype.UUID        `json:"user_id"`
@@ -2832,6 +2856,7 @@ type TrialClaim struct {
 	PlanID    pgtype.UUID        `json:"plan_id"`
 	OrderID   pgtype.UUID        `json:"order_id"`
 	ClaimedAt pgtype.Timestamptz `json:"claimed_at"`
+	Origin    string             `json:"origin"`
 }
 
 type User struct {

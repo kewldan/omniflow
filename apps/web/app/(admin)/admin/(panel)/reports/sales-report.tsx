@@ -187,6 +187,7 @@ export function SalesReportScreen() {
           ) : (
             <>
               <TrialCard report={data} />
+              <PayersCard locale={locale} report={data} />
               <OperationCard locale={locale} report={data} />
               <PlanCard locale={locale} report={data} />
               <Card>
@@ -304,6 +305,38 @@ function TrialCard({ report }: { report: SalesReport }) {
           label={translate("trials.rate")}
           value={report.trials.trials > 0 ? `${rate}%` : "—"}
         />
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Returning payers: of the customers who paid in the period, how many had paid
+ * before it. Payments the previous bot took count as earlier payments, so the
+ * first months after a migration still tell a returning customer from a new
+ * one; what that bot took inside the period is shown apart from the sales.
+ */
+function PayersCard({ locale, report }: { locale: string; report: SalesReport }) {
+  const translate = useTranslations("admin.reports");
+  const { payers, returning } = report.payers;
+  const rate = payers > 0 ? Math.round((returning / payers) * 1000) / 10 : 0;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{translate("payers.title")}</CardTitle>
+        <CardDescription>{translate("payers.description")}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-wrap items-baseline gap-6">
+        <Figure label={translate("payers.paid")} value={String(payers)} />
+        <Figure label={translate("payers.returning")} value={String(returning)} />
+        <Figure label={translate("payers.rate")} value={payers > 0 ? `${rate}%` : "—"} />
+        {report.legacy.map((line) => (
+          <Figure
+            key={line.currency}
+            label={translate("payers.legacy", { count: line.payments })}
+            value={formatMoney(line.amountMinor, line.currency, locale)}
+          />
+        ))}
       </CardContent>
     </Card>
   );

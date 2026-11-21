@@ -2968,6 +2968,46 @@ CREATE TABLE public.ledger_transactions (
 
 
 --
+-- Name: legacy_payments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.legacy_payments (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    source text NOT NULL,
+    source_id bigint NOT NULL,
+    method text DEFAULT ''::text NOT NULL,
+    amount_minor bigint NOT NULL,
+    currency text NOT NULL,
+    paid_at timestamp with time zone NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT legacy_payments_amount_positive CHECK ((amount_minor > 0)),
+    CONSTRAINT legacy_payments_currency_code CHECK ((currency ~ '^[A-Z]{3}$'::text)),
+    CONSTRAINT legacy_payments_method_length CHECK ((char_length(method) <= 64)),
+    CONSTRAINT legacy_payments_source_known CHECK ((source = 'bedolaga'::text))
+);
+
+
+--
+-- Name: legacy_subscription_periods; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.legacy_subscription_periods (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    source text NOT NULL,
+    source_id bigint NOT NULL,
+    is_trial boolean DEFAULT false NOT NULL,
+    starts_at timestamp with time zone NOT NULL,
+    ends_at timestamp with time zone NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT legacy_subscription_periods_order CHECK ((ends_at >= starts_at)),
+    CONSTRAINT legacy_subscription_periods_source_known CHECK ((source = 'bedolaga'::text))
+);
+
+
+--
 -- Name: limited_access_sessions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -5413,8 +5453,11 @@ CREATE TABLE public.telemetry_installation (
 CREATE TABLE public.trial_claims (
     user_id uuid NOT NULL,
     plan_id uuid NOT NULL,
-    order_id uuid NOT NULL,
-    claimed_at timestamp with time zone DEFAULT now() NOT NULL
+    order_id uuid,
+    claimed_at timestamp with time zone DEFAULT now() NOT NULL,
+    origin text DEFAULT 'omniflow'::text NOT NULL,
+    CONSTRAINT trial_claims_order_required CHECK (((order_id IS NOT NULL) OR (origin <> 'omniflow'::text))),
+    CONSTRAINT trial_claims_origin_known CHECK ((origin = ANY (ARRAY['omniflow'::text, 'bedolaga_trial'::text, 'bedolaga_history'::text])))
 );
 
 
@@ -6818,6 +6861,38 @@ ALTER TABLE ONLY public.ledger_transactions
 
 ALTER TABLE ONLY public.ledger_transactions
     ADD CONSTRAINT ledger_transactions_reference_type_reference_id_type_key UNIQUE (reference_type, reference_id, type);
+
+
+--
+-- Name: legacy_payments legacy_payments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.legacy_payments
+    ADD CONSTRAINT legacy_payments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: legacy_payments legacy_payments_source_row; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.legacy_payments
+    ADD CONSTRAINT legacy_payments_source_row UNIQUE (source, source_id);
+
+
+--
+-- Name: legacy_subscription_periods legacy_subscription_periods_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.legacy_subscription_periods
+    ADD CONSTRAINT legacy_subscription_periods_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: legacy_subscription_periods legacy_subscription_periods_source_row; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.legacy_subscription_periods
+    ADD CONSTRAINT legacy_subscription_periods_source_row UNIQUE (source, source_id);
 
 
 --
@@ -8763,6 +8838,27 @@ CREATE INDEX info_pages_published_idx ON public.info_pages USING btree (sort_ord
 --
 
 CREATE INDEX ledger_entries_balance_idx ON public.ledger_entries USING btree (user_id, currency, created_at) WHERE (account_type = 'customer_wallet'::text);
+
+
+--
+-- Name: legacy_payments_paid_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX legacy_payments_paid_idx ON public.legacy_payments USING btree (paid_at);
+
+
+--
+-- Name: legacy_payments_user_paid_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX legacy_payments_user_paid_idx ON public.legacy_payments USING btree (user_id, paid_at);
+
+
+--
+-- Name: legacy_subscription_periods_user_ends_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX legacy_subscription_periods_user_ends_idx ON public.legacy_subscription_periods USING btree (user_id, ends_at);
 
 
 --
@@ -10893,6 +10989,22 @@ ALTER TABLE ONLY public.ledger_entries
 
 ALTER TABLE ONLY public.ledger_entries
     ADD CONSTRAINT ledger_entries_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: legacy_payments legacy_payments_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.legacy_payments
+    ADD CONSTRAINT legacy_payments_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: legacy_subscription_periods legacy_subscription_periods_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.legacy_subscription_periods
+    ADD CONSTRAINT legacy_subscription_periods_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --

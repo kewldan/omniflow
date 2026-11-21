@@ -426,6 +426,11 @@ type Querier interface {
 	CustomerLastActivity(ctx context.Context, userID pgtype.UUID) (pgtype.Timestamptz, error)
 	// The metric a standing is evaluated on, computed from facts Omniflow already
 	// records. Nothing new is tracked to support loyalty.
+	//
+	// Payments and subscriptions carried over from the previous bot count as if
+	// Omniflow had taken them, so a customer who paid for a year before the
+	// migration keeps the tier the year earned. The zero-value order an imported
+	// subscription hangs off is not a purchase and is not counted.
 	CustomerLoyaltyMetric(ctx context.Context, arg CustomerLoyaltyMetricParams) (CustomerLoyaltyMetricRow, error)
 	// The three facts a payment button's visibility rules read: how the customer
 	// signs in, whether a top-up of theirs was ever paid, and their loyalty tier.
@@ -979,7 +984,15 @@ type Querier interface {
 	// keeps working and a later renewal patches that user rather than minting a
 	// new one.
 	InsertImportedSubscription(ctx context.Context, arg InsertImportedSubscriptionParams) (Subscription, error)
+	// The trial a customer already had, or could no longer have had, in the
+	// previous bot. It is dated when that happened rather than now, so trial
+	// reports do not show the whole carried-over base as claimed on migration day.
+	// A claim the customer already holds is left alone.
+	InsertImportedTrialClaim(ctx context.Context, arg InsertImportedTrialClaimParams) (int64, error)
 	InsertLedgerEntry(ctx context.Context, arg InsertLedgerEntryParams) (LedgerEntry, error)
+	// A payment the previous bot took. Inserted once per source row; a repeated
+	// run inserts nothing.
+	InsertLegacyPayment(ctx context.Context, arg InsertLegacyPaymentParams) (int64, error)
 	InsertMaintenanceEvent(ctx context.Context, arg InsertMaintenanceEventParams) (MaintenanceEvent, error)
 	InsertOrderAddonLine(ctx context.Context, arg InsertOrderAddonLineParams) (OrderAddonLine, error)
 	// Credit lines: the unused value a change order hands back to the customer.
@@ -1034,6 +1047,10 @@ type Querier interface {
 	LatestBlockerScan(ctx context.Context) (BlockerScan, error)
 	// The plan version an operator means when they pick a plan by name.
 	LatestLivePlanVersion(ctx context.Context, planID pgtype.UUID) (LatestLivePlanVersionRow, error)
+	// What the previous bot took in the period, kept apart from Omniflow's own
+	// sales: it is history the operator compares against, not revenue Omniflow
+	// settled.
+	LegacyPaymentsInPeriod(ctx context.Context, arg LegacyPaymentsInPeriodParams) ([]LegacyPaymentsInPeriodRow, error)
 	// The issuer is stored with the subject because a subject is only unique within
 	// one issuer; sign-in refuses a binding whose issuer differs from the token's.
 	LinkAdminOIDCIdentity(ctx context.Context, arg LinkAdminOIDCIdentityParams) (AdminOidcIdentity, error)
@@ -1154,6 +1171,10 @@ type Querier interface {
 	ListBatchCodes(ctx context.Context, batchID pgtype.UUID) ([]ListBatchCodesRow, error)
 	ListBedolagaImportItems(ctx context.Context) ([]BedolagaImportItem, error)
 	ListBedolagaImportRuns(ctx context.Context, pageSize int32) ([]BedolagaImportRun, error)
+	// The source rows already carried over, so a repeated run plans only the
+	// payments taken since.
+	ListBedolagaLegacyPayments(ctx context.Context) ([]int64, error)
+	ListBedolagaLegacyPeriods(ctx context.Context) ([]ListBedolagaLegacyPeriodsRow, error)
 	ListBlocklistMatchesForCustomer(ctx context.Context, userID pgtype.UUID) ([]ListBlocklistMatchesForCustomerRow, error)
 	// The Telegram identifiers a blocklist screen checks, one page of customers at a
 	// time in identifier order. Deleted and merged customers are skipped: neither
@@ -1559,6 +1580,7 @@ type Querier interface {
 	// identity or through the Remnawave mapping the bot adopts by. Either one
 	// means a second customer for that ID could never be resolved.
 	ListTelegramOwners(ctx context.Context) ([]ListTelegramOwnersRow, error)
+	ListTrialClaimHolders(ctx context.Context) ([]pgtype.UUID, error)
 	// Refunds recorded before the provider was asked whose answer was never
 	// written: the process stopped between the two, or the provider could not be
 	// reached. Asking again with the same idempotency key is safe. A day is the
@@ -1627,7 +1649,8 @@ type Querier interface {
 	LockTelegramSubject(ctx context.Context, subject string) error
 	// The customer's trial claim and the state of the order behind it, locked so
 	// a decision made on it holds until the transaction ends. ClaimTrial's rule
-	// reads the same two facts.
+	// reads the same two facts. A claim carried over from the previous bot has no
+	// order and no state, and stands like a claim behind a paid order.
 	LockTrialClaim(ctx context.Context, userID pgtype.UUID) ([]LockTrialClaimRow, error)
 	LockWalletTopup(ctx context.Context, orderID pgtype.UUID) (WalletTopup, error)
 	LogAPITokenRequest(ctx context.Context, arg LogAPITokenRequestParams) error
@@ -1714,6 +1737,10 @@ type Querier interface {
 	MoveCustomerEntitlements(ctx context.Context, arg MoveCustomerEntitlementsParams) error
 	MoveCustomerGoodsOrders(ctx context.Context, arg MoveCustomerGoodsOrdersParams) error
 	MoveCustomerIdentities(ctx context.Context, arg MoveCustomerIdentitiesParams) error
+	// Payments carried over from the previous bot follow the customer, as orders
+	// do, so the merged account keeps the spend its segments and tiers read.
+	MoveCustomerLegacyPayments(ctx context.Context, arg MoveCustomerLegacyPaymentsParams) error
+	MoveCustomerLegacyPeriods(ctx context.Context, arg MoveCustomerLegacyPeriodsParams) error
 	MoveCustomerLifecycleEvents(ctx context.Context, arg MoveCustomerLifecycleEventsParams) error
 	// Read markers move only where the target has not read the same post.
 	//
@@ -2055,6 +2082,14 @@ type Querier interface {
 	// scheduled to start later and the change it carried was given back. It is
 	// `superseded` rather than deleted, so the order still explains itself.
 	RetireUnprovisionedEntitlement(ctx context.Context, id pgtype.UUID) (int64, error)
+	// Of the customers who paid in this period, how many had paid before it.
+	//
+	// A payment is money arriving from outside: an order a provider settled for a
+	// non-zero amount, or a payment the previous bot took before the migration.
+	// An order paid from the wallet is not one, because the top-up that funded the
+	// wallet already was. Counting the previous bot's payments is what lets the
+	// first months after a migration tell a returning customer from a new one.
+	ReturningPayers(ctx context.Context, arg ReturningPayersParams) (ReturningPayersRow, error)
 	// Records the reversal on the reward. The compensating ledger entries are
 	// written by the caller in the same transaction, so a reward can never read as
 	// reversed without the money having moved back.
@@ -2404,6 +2439,10 @@ type Querier interface {
 	// trial claimed yesterday has had a day to convert. That is a property of the
 	// question rather than a fault in the query, and the panel says so beside the
 	// figure rather than quietly excluding recent trials.
+	//
+	// A claim carried over from the previous bot for a customer who subscribed
+	// there without a trial blocks a trial without having been one, and is left
+	// out. A carried-over trial converts on a payment the previous bot took, too.
 	TrialConversion(ctx context.Context, arg TrialConversionParams) (TrialConversionRow, error)
 	UnsuppressCustomer(ctx context.Context, userID pgtype.UUID) error
 	UntagSupportTicket(ctx context.Context, arg UntagSupportTicketParams) error
@@ -2507,6 +2546,9 @@ type Querier interface {
 	UpsertGoodsProvider(ctx context.Context, arg UpsertGoodsProviderParams) (GoodsProvider, error)
 	UpsertInfoPage(ctx context.Context, arg UpsertInfoPageParams) (InfoPage, error)
 	UpsertInfoPageLocalization(ctx context.Context, arg UpsertInfoPageLocalizationParams) error
+	// A subscription period of the previous bot. A repeated run before cutover
+	// moves its dates when the previous bot renewed or cut it short.
+	UpsertLegacyPeriod(ctx context.Context, arg UpsertLegacyPeriodParams) (int64, error)
 	UpsertLoyaltyMembership(ctx context.Context, arg UpsertLoyaltyMembershipParams) (LoyaltyMembership, error)
 	UpsertLoyaltyStanding(ctx context.Context, arg UpsertLoyaltyStandingParams) (LoyaltyStanding, error)
 	UpsertMCPServer(ctx context.Context, arg UpsertMCPServerParams) (UpsertMCPServerRow, error)

@@ -361,6 +361,16 @@ func (service *Service) MergeCustomers(
 					Source: sourceUUID, Target: targetUUID,
 				})
 			},
+			func() error {
+				return queries.MoveCustomerLegacyPayments(ctx, dbgen.MoveCustomerLegacyPaymentsParams{
+					Source: sourceUUID, Target: targetUUID,
+				})
+			},
+			func() error {
+				return queries.MoveCustomerLegacyPeriods(ctx, dbgen.MoveCustomerLegacyPeriodsParams{
+					Source: sourceUUID, Target: targetUUID,
+				})
+			},
 			// The duplicates the read-marker move deliberately left behind.
 			func() error { return queries.DropDuplicateNewsReads(ctx, sourceUUID) },
 			func() error { return queries.CancelMergedCustomerCart(ctx, sourceUUID) },

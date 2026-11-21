@@ -367,6 +367,71 @@ func (q *Queries) InsertImportedSubscription(ctx context.Context, arg InsertImpo
 	return i, err
 }
 
+const insertImportedTrialClaim = `-- name: InsertImportedTrialClaim :execrows
+INSERT INTO trial_claims (user_id, plan_id, order_id, origin, claimed_at)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (user_id) DO NOTHING
+`
+
+type InsertImportedTrialClaimParams struct {
+	UserID    pgtype.UUID        `json:"user_id"`
+	PlanID    pgtype.UUID        `json:"plan_id"`
+	OrderID   pgtype.UUID        `json:"order_id"`
+	Origin    string             `json:"origin"`
+	ClaimedAt pgtype.Timestamptz `json:"claimed_at"`
+}
+
+// The trial a customer already had, or could no longer have had, in the
+// previous bot. It is dated when that happened rather than now, so trial
+// reports do not show the whole carried-over base as claimed on migration day.
+// A claim the customer already holds is left alone.
+func (q *Queries) InsertImportedTrialClaim(ctx context.Context, arg InsertImportedTrialClaimParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertImportedTrialClaim,
+		arg.UserID,
+		arg.PlanID,
+		arg.OrderID,
+		arg.Origin,
+		arg.ClaimedAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const insertLegacyPayment = `-- name: InsertLegacyPayment :execrows
+INSERT INTO legacy_payments (user_id, source, source_id, method, amount_minor, currency, paid_at)
+VALUES ($1, 'bedolaga', $2, $3,
+        $4, $5, $6)
+ON CONFLICT (source, source_id) DO NOTHING
+`
+
+type InsertLegacyPaymentParams struct {
+	UserID      pgtype.UUID        `json:"user_id"`
+	SourceID    int64              `json:"source_id"`
+	Method      string             `json:"method"`
+	AmountMinor int64              `json:"amount_minor"`
+	Currency    string             `json:"currency"`
+	PaidAt      pgtype.Timestamptz `json:"paid_at"`
+}
+
+// A payment the previous bot took. Inserted once per source row; a repeated
+// run inserts nothing.
+func (q *Queries) InsertLegacyPayment(ctx context.Context, arg InsertLegacyPaymentParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertLegacyPayment,
+		arg.UserID,
+		arg.SourceID,
+		arg.Method,
+		arg.AmountMinor,
+		arg.Currency,
+		arg.PaidAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const listBedolagaImportItems = `-- name: ListBedolagaImportItems :many
 SELECT kind, source_id, status, codes, user_id, subscription_id, entitlement_id, fingerprint, last_run_id, created_at, updated_at, applied_at FROM bedolaga_import_items ORDER BY kind, source_id
 `
@@ -424,6 +489,71 @@ func (q *Queries) ListBedolagaImportRuns(ctx context.Context, pageSize int32) ([
 			&i.Report,
 			&i.StartedAt,
 			&i.FinishedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listBedolagaLegacyPayments = `-- name: ListBedolagaLegacyPayments :many
+SELECT source_id FROM legacy_payments WHERE source = 'bedolaga'
+`
+
+// The source rows already carried over, so a repeated run plans only the
+// payments taken since.
+func (q *Queries) ListBedolagaLegacyPayments(ctx context.Context) ([]int64, error) {
+	rows, err := q.db.Query(ctx, listBedolagaLegacyPayments)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var source_id int64
+		if err := rows.Scan(&source_id); err != nil {
+			return nil, err
+		}
+		items = append(items, source_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listBedolagaLegacyPeriods = `-- name: ListBedolagaLegacyPeriods :many
+SELECT source_id, user_id, is_trial, starts_at, ends_at
+FROM legacy_subscription_periods WHERE source = 'bedolaga'
+`
+
+type ListBedolagaLegacyPeriodsRow struct {
+	SourceID int64              `json:"source_id"`
+	UserID   pgtype.UUID        `json:"user_id"`
+	IsTrial  bool               `json:"is_trial"`
+	StartsAt pgtype.Timestamptz `json:"starts_at"`
+	EndsAt   pgtype.Timestamptz `json:"ends_at"`
+}
+
+func (q *Queries) ListBedolagaLegacyPeriods(ctx context.Context) ([]ListBedolagaLegacyPeriodsRow, error) {
+	rows, err := q.db.Query(ctx, listBedolagaLegacyPeriods)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListBedolagaLegacyPeriodsRow{}
+	for rows.Next() {
+		var i ListBedolagaLegacyPeriodsRow
+		if err := rows.Scan(
+			&i.SourceID,
+			&i.UserID,
+			&i.IsTrial,
+			&i.StartsAt,
+			&i.EndsAt,
 		); err != nil {
 			return nil, err
 		}
@@ -730,6 +860,30 @@ func (q *Queries) ListTelegramOwners(ctx context.Context) ([]ListTelegramOwnersR
 	return items, nil
 }
 
+const listTrialClaimHolders = `-- name: ListTrialClaimHolders :many
+SELECT user_id FROM trial_claims
+`
+
+func (q *Queries) ListTrialClaimHolders(ctx context.Context) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, listTrialClaimHolders)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []pgtype.UUID{}
+	for rows.Next() {
+		var user_id pgtype.UUID
+		if err := rows.Scan(&user_id); err != nil {
+			return nil, err
+		}
+		items = append(items, user_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockBedolagaImportItem = `-- name: LockBedolagaImportItem :one
 SELECT kind, source_id, status, codes, user_id, subscription_id, entitlement_id, fingerprint, last_run_id, created_at, updated_at, applied_at FROM bedolaga_import_items
 WHERE kind = $1 AND source_id = $2
@@ -939,4 +1093,39 @@ func (q *Queries) UpsertBedolagaImportItem(ctx context.Context, arg UpsertBedola
 		&i.AppliedAt,
 	)
 	return i, err
+}
+
+const upsertLegacyPeriod = `-- name: UpsertLegacyPeriod :execrows
+INSERT INTO legacy_subscription_periods (user_id, source, source_id, is_trial, starts_at, ends_at)
+VALUES ($1, 'bedolaga', $2, $3,
+        $4, $5)
+ON CONFLICT (source, source_id) DO UPDATE
+SET is_trial = EXCLUDED.is_trial, starts_at = EXCLUDED.starts_at,
+    ends_at = EXCLUDED.ends_at, updated_at = now()
+WHERE (legacy_subscription_periods.is_trial, legacy_subscription_periods.starts_at, legacy_subscription_periods.ends_at)
+  IS DISTINCT FROM (EXCLUDED.is_trial, EXCLUDED.starts_at, EXCLUDED.ends_at)
+`
+
+type UpsertLegacyPeriodParams struct {
+	UserID   pgtype.UUID        `json:"user_id"`
+	SourceID int64              `json:"source_id"`
+	IsTrial  bool               `json:"is_trial"`
+	StartsAt pgtype.Timestamptz `json:"starts_at"`
+	EndsAt   pgtype.Timestamptz `json:"ends_at"`
+}
+
+// A subscription period of the previous bot. A repeated run before cutover
+// moves its dates when the previous bot renewed or cut it short.
+func (q *Queries) UpsertLegacyPeriod(ctx context.Context, arg UpsertLegacyPeriodParams) (int64, error) {
+	result, err := q.db.Exec(ctx, upsertLegacyPeriod,
+		arg.UserID,
+		arg.SourceID,
+		arg.IsTrial,
+		arg.StartsAt,
+		arg.EndsAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

@@ -1,6 +1,7 @@
 package bedolagaimport
 
 import (
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -98,5 +99,22 @@ func TestResolvePrefersTheMostSpecificRule(t *testing.T) {
 	withoutTrial := Mapping{Plans: []PlanRule{{TariffID: int64p(3), PlanVersionID: versionMonth}}}
 	if got := withoutTrial.Resolve(Subscription{TariffID: int64p(3), IsTrial: true, StartDate: start, EndDate: start.AddDate(0, 0, 3)}); got != versionMonth {
 		t.Fatalf("a trial with no trial rule must fall back to its tariff, got %q", got)
+	}
+}
+
+// The example the runbook tells operators to copy must itself be a valid
+// mapping, new keys included.
+func TestExampleMappingParses(t *testing.T) {
+	file, err := os.Open("../../deploy/migration/mapping.example.yaml")
+	if err != nil {
+		t.Fatalf("open the example: %v", err)
+	}
+	defer func() { _ = file.Close() }()
+	mapping, err := ParseMapping(file)
+	if err != nil {
+		t.Fatalf("the example mapping does not parse: %v", err)
+	}
+	if !mapping.PaymentMethodExcluded("manual") || mapping.PaymentMethodExcluded("yookassa") {
+		t.Fatalf("example excludedPaymentMethods: %v", mapping.ExcludedPaymentMethods)
 	}
 }

@@ -37,6 +37,7 @@ month that had closed.
 | Section | What it answers |
 | --- | --- |
 | Trial conversion | Of the trials claimed in this period, how many of those customers have since paid for anything. |
+| Returning payers | Of the customers who paid in this period, how many had paid before it, and what a previous bot took in the period. |
 | By kind of sale | New purchases, automatic renewals, extensions, upgrades, downgrades, add-ons, wallet top-ups, gifts, and digital goods, per currency. |
 | By plan | Which plan version sold, at which billing period, and what it was worth at list price. |
 | Provider money by day | One chart per currency, with the same figures as a table beside it. |
@@ -49,6 +50,20 @@ month that had closed.
   low — a trial claimed yesterday has had one day to convert — and that is a
   property of the question rather than a fault in the measurement.
 </Note>
+
+**Returning payers** is the retention figure. A payment here is money arriving
+from outside: an order a provider settled for a non-zero amount, or a payment a
+previous bot took before a [migration](/operations/migrate-from-bedolaga#history-trials-periods-and-payments).
+An order paid from the wallet is not one, because the top-up that funded the
+wallet already was. "Had paid before" counts any such payment before the period
+began, so the months right after a migration still tell a returning customer
+from a new one. What the previous bot took inside the period is shown on the
+same card, per currency, and is never added to the sales figures: it is history
+to compare against, not revenue Omniflow settled.
+
+Trial conversion leaves out the claims a migration carried for customers who
+subscribed in the previous bot without a trial: those block a trial without
+having been one. A carried trial converts on a payment either system took.
 
 ## The period
 
@@ -113,8 +128,10 @@ worth seeing.
 ## The export
 
 `GET /v1/panel/reports/sales/export` takes the same four parameters and returns
-one CSV with a `section` column — `operation`, `plan`, `day`, `refund`, `trial` —
-rather than four files, because the breakdowns are four views of one period.
+one CSV with a `section` column — `operation`, `plan`, `day`, `refund`, `trial`,
+`payers`, `legacy` — rather than separate files, because the breakdowns are views
+of one period. `payers` has a `paid` and a `returning` row; `legacy` has one row
+per currency with the count in `orders` and the amount in `paid_minor`.
 
 Amounts are exported in **minor units, unscaled**, exactly as they are stored.
 Dividing by a hundred is wrong for every zero-decimal currency, and it is
