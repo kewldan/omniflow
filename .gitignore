@@ -43,3 +43,6 @@ docs/openapi.yaml
 # Binaries `go build ./cmd/<name>` drops at the repository root.
 /bot
 /worker
+
+# Dockerfiles live in build/; a global ignore of build/ must not hide them.
+!/build/
