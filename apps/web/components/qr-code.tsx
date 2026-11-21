@@ -18,12 +18,11 @@ import { useEffect, useState } from "react";
 export function QrCode({
   alt,
   className,
-  size = 320,
   value,
 }: {
   alt: string;
   className?: string;
-  /** Pixel width handed to the encoder; the element itself scales with its box. */
+  /** Kept for callers; the code is drawn as a vector and scales with its box. */
   size?: number;
   value: string;
 }) {
@@ -34,9 +33,10 @@ export function QrCode({
     let cancelled = false;
     setFailed(false);
     import("qrcode")
-      .then((module) =>
-        module.toDataURL(value, { errorCorrectionLevel: "M", margin: 1, width: size }),
-      )
+      .then((module) => {
+        const code = module.create(value, { errorCorrectionLevel: "M" });
+        return roundedQrDataUrl(code.modules.size, (x, y) => Boolean(code.modules.get(x, y)));
+      })
       .then((url) => {
         if (!cancelled) {
           setDataUrl(url);
@@ -50,7 +50,7 @@ export function QrCode({
     return () => {
       cancelled = true;
     };
-  }, [size, value]);
+  }, [value]);
 
   // A failed encode renders nothing rather than a broken frame. Every caller
   // shows the same value as text beside this, so nobody is left without it.
@@ -68,4 +68,47 @@ export function QrCode({
   ) : (
     <span aria-hidden className={className ?? "size-full animate-pulse bg-muted"} />
   );
+}
+
+/** The quiet zone around the code, in modules. */
+const MARGIN = 2;
+
+/**
+ * Draws a QR code as an SVG with rounded corners: a white tile with rounded
+ * corners, rounded finder eyes, and softly rounded modules. The modules sit
+ * where the encoder put them, so the code scans exactly as a square one does.
+ */
+export function roundedQrSvg(size: number, dark: (x: number, y: number) => boolean): string {
+  const total = size + MARGIN * 2;
+  const finder = (x: number, y: number) =>
+    (x < 7 && y < 7) || (x >= size - 7 && y < 7) || (x < 7 && y >= size - 7);
+  const parts: string[] = [
+    `<rect width="${total}" height="${total}" rx="${total * 0.06}" fill="#ffffff"/>`,
+  ];
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      if (dark(x, y) && !finder(x, y)) {
+        parts.push(
+          `<rect x="${x + MARGIN + 0.05}" y="${y + MARGIN + 0.05}" width="0.9" height="0.9" rx="0.3"/>`,
+        );
+      }
+    }
+  }
+  for (const [fx, fy] of [
+    [0, 0],
+    [size - 7, 0],
+    [0, size - 7],
+  ] as const) {
+    const ox = fx + MARGIN;
+    const oy = fy + MARGIN;
+    parts.push(
+      `<rect x="${ox + 0.5}" y="${oy + 0.5}" width="6" height="6" rx="1.6" fill="none" stroke="#000" stroke-width="1"/>`,
+      `<rect x="${ox + 2}" y="${oy + 2}" width="3" height="3" rx="0.9"/>`,
+    );
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="320" height="320" viewBox="0 0 ${total} ${total}" shape-rendering="geometricPrecision" fill="#000">${parts.join("")}</svg>`;
+}
+
+function roundedQrDataUrl(size: number, dark: (x: number, y: number) => boolean): string {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(roundedQrSvg(size, dark))}`;
 }

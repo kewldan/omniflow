@@ -19,10 +19,7 @@ func referralQRPNG(link string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Ten pixels a module keeps the code readable from a phone held up to
-	// another phone's screen.
-	code.Scale = 10
-	return code.PNG(), nil
+	return roundedQRPNG(code)
 }
 
 // sendReferralQR sends the customer's invitation link as a QR code photo, with
