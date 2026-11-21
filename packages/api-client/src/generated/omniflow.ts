@@ -2908,6 +2908,323 @@ export interface PanelPaymentHealth {
   generatedAt: string;
 }
 
+export interface PanelSubscriptionBaseDay {
+  day: string;
+  paid: number;
+  imported: number;
+  trial: number;
+  free: number;
+}
+
+export interface PanelRecurringRevenueDay {
+  day: string;
+  currency: string;
+  mrrMinor: number;
+  /** Imported periods valued at list price. */
+  estimatedMinor: number;
+}
+
+export type PanelSubscriptionPlanLineKind =
+  (typeof PanelSubscriptionPlanLineKind)[keyof typeof PanelSubscriptionPlanLineKind];
+
+export const PanelSubscriptionPlanLineKind = {
+  paid: "paid",
+  imported: "imported",
+  trial: "trial",
+  free: "free",
+} as const;
+
+export interface PanelSubscriptionPlanLine {
+  planCode: string;
+  billingPeriod: string;
+  kind: PanelSubscriptionPlanLineKind;
+  /** Empty for trial and free access. */
+  currency: string;
+  active: number;
+  mrrMinor: number;
+}
+
+export type PanelRenewalLineKind = (typeof PanelRenewalLineKind)[keyof typeof PanelRenewalLineKind];
+
+export const PanelRenewalLineKind = {
+  paid: "paid",
+  imported: "imported",
+} as const;
+
+export interface PanelRenewalLine {
+  planCode: string;
+  billingPeriod: string;
+  kind: PanelRenewalLineKind;
+  ended: number;
+  renewed: number;
+  churned: number;
+  /** Ended within the grace period with no successor yet. */
+  pending: number;
+  renewalRate?: number;
+}
+
+export interface PanelRenewals {
+  graceDays: number;
+  ended: number;
+  renewed: number;
+  churned: number;
+  pending: number;
+  renewalRate?: number;
+  /** Paid and imported subscriptions on the first day of the period. */
+  activeAtStart?: number;
+  /** Churned periods over the paying base at the start of the period. */
+  churnRate?: number;
+  lines: PanelRenewalLine[];
+}
+
+export interface PanelAutoRenewLine {
+  funding: string;
+  cycles: number;
+  firstTry: number;
+  recovered: number;
+  lost: number;
+  inProgress: number;
+  successRate?: number;
+  recoveryRate?: number;
+}
+
+export type PanelAutoRenewFailureCodesItem = {
+  code: string;
+  attempts: number;
+};
+
+export interface PanelAutoRenew {
+  enabled: number;
+  lines: PanelAutoRenewLine[];
+  failureCodes: PanelAutoRenewFailureCodesItem[];
+}
+
+export interface PanelRevenuePerCustomer {
+  currency: string;
+  paidMinor: number;
+  payers: number;
+  arppuMinor?: number;
+  averageSubscribers?: number;
+  arpuMinor?: number;
+}
+
+export type PanelCohortRetentionItem = {
+  offset: number;
+  active: number;
+  rate?: number;
+};
+
+export type PanelCohortRevenueItem = {
+  currency: string;
+  customers: number;
+  revenueMinor: number;
+  ltvMinor?: number;
+};
+
+export interface PanelCohort {
+  month: string;
+  customers: number;
+  retention: PanelCohortRetentionItem[];
+  revenue: PanelCohortRevenueItem[];
+}
+
+export interface PanelSubscriptionReport {
+  since: string;
+  until: string;
+  timezone: string;
+  generatedAt: string;
+  latestDay?: string;
+  base: PanelSubscriptionBaseDay[];
+  mrr: PanelRecurringRevenueDay[];
+  plans: PanelSubscriptionPlanLine[];
+  renewals: PanelRenewals;
+  autoRenew: PanelAutoRenew;
+  perCustomer: PanelRevenuePerCustomer[];
+  cohorts: PanelCohort[];
+}
+
+export interface PanelAcquisitionEconomics {
+  currency: string;
+  spendMinor: number;
+  revenueMinor: number;
+  cacMinor?: number;
+  /** (revenue − spend) ÷ spend. */
+  roi?: number;
+}
+
+export interface PanelAcquisitionCampaign {
+  campaignId: string;
+  code: string;
+  name: string;
+  signups: number;
+  payers: number;
+  conversionRate?: number;
+  economics: PanelAcquisitionEconomics[];
+}
+
+export interface PanelAcquisitionSource {
+  utmSource: string;
+  currency: string;
+  orders: number;
+  payers: number;
+  newPayers: number;
+  revenueMinor: number;
+  spendMinor: number;
+  cacMinor?: number;
+  roi?: number;
+}
+
+export interface PanelPromoCodeLine {
+  code: string;
+  promotionKind: string;
+  currency: string;
+  redemptions: number;
+  customers: number;
+  newCustomers: number;
+  discountMinor: number;
+  revenueMinor: number;
+}
+
+export type PanelFunnelByChannelItemStep =
+  (typeof PanelFunnelByChannelItemStep)[keyof typeof PanelFunnelByChannelItemStep];
+
+export const PanelFunnelByChannelItemStep = {
+  plans_viewed: "plans_viewed",
+  checkout_started: "checkout_started",
+} as const;
+
+export type PanelFunnelByChannelItemChannel =
+  (typeof PanelFunnelByChannelItemChannel)[keyof typeof PanelFunnelByChannelItemChannel];
+
+export const PanelFunnelByChannelItemChannel = {
+  bot: "bot",
+  web: "web",
+} as const;
+
+export type PanelFunnelByChannelItem = {
+  step: PanelFunnelByChannelItemStep;
+  channel: PanelFunnelByChannelItemChannel;
+  customers: number;
+};
+
+export interface PanelFunnel {
+  signups: number;
+  plansViewed: number;
+  checkoutStarted: number;
+  trialClaimed: number;
+  paid: number;
+  byChannel: PanelFunnelByChannelItem[];
+}
+
+export type PanelAcquisitionReportBonusCreditItem = {
+  source: string;
+  currency: string;
+  grants: number;
+  amountMinor: number;
+};
+
+export type PanelAcquisitionReportFreeAccessItem = {
+  source: string;
+  grants: number;
+  days: number;
+};
+
+export interface PanelAcquisitionReport {
+  since: string;
+  until: string;
+  timezone: string;
+  generatedAt: string;
+  campaigns: PanelAcquisitionCampaign[];
+  sources: PanelAcquisitionSource[];
+  promoCodes: PanelPromoCodeLine[];
+  bonusCredit: PanelAcquisitionReportBonusCreditItem[];
+  freeAccess: PanelAcquisitionReportFreeAccessItem[];
+  funnel: PanelFunnel;
+}
+
+export interface PanelAcquisitionSpend {
+  id: string;
+  campaignId?: string;
+  campaignCode?: string;
+  campaignName?: string;
+  utmSource?: string;
+  spentOn: string;
+  currency: string;
+  amountMinor: number;
+  note: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface PanelAcquisitionSpendInput {
+  campaignId?: string;
+  /** @pattern ^[A-Za-z0-9._-]{1,64}$ */
+  utmSource?: string;
+  spentOn: string;
+  /** @pattern ^[A-Za-z]{3}$ */
+  currency: string;
+  /** @minimum 1 */
+  amountMinor: number;
+  /** @maxLength 200 */
+  note?: string;
+}
+
+export type PanelTrafficHistoryNodeDaysItem = {
+  day: string;
+  usedBytes: number;
+  peakOnline: number;
+};
+
+export interface PanelTrafficHistoryNode {
+  nodeUuid: string;
+  nodeName: string;
+  countryCode: string;
+  limitBytes: number;
+  totalBytes: number;
+  peakOnline: number;
+  days: PanelTrafficHistoryNodeDaysItem[];
+}
+
+export type PanelTrafficHistoryTotalsItem = {
+  day: string;
+  usedBytes: number;
+};
+
+export interface PanelTrafficHistory {
+  since: string;
+  until: string;
+  timezone: string;
+  generatedAt: string;
+  nodes: PanelTrafficHistoryNode[];
+  totals: PanelTrafficHistoryTotalsItem[];
+}
+
+export type PanelSupportSatisfactionOperatorsItem = {
+  operatorId: string;
+  displayName: string;
+  ratings: number;
+  csat?: number;
+  average?: number;
+};
+
+export interface PanelSupportSatisfaction {
+  since: string;
+  until: string;
+  requested: number;
+  ratings: number;
+  responseRate?: number;
+  /** Share of fours and fives. */
+  csat?: number;
+  average?: number;
+  /**
+   * Counts of marks one to five.
+   * @minItems 5
+   * @maxItems 5
+   */
+  distribution: number[];
+  operators: PanelSupportSatisfactionOperatorsItem[];
+}
+
 export interface PanelTrafficNode {
   name: string;
   countryCode?: string;
@@ -7367,6 +7684,53 @@ export const GetPanelCustomerPaymentsFormat = {
 
 export type GetPanelCustomerPayments200One = {
   customers: PanelCustomerPayments[];
+};
+
+export type GetPanelSubscriptionReportParams = {
+  /** Start of the period, inclusive. Defaults to thirty days before `until`. */
+  since?: ReportSinceParameter;
+  /** End of the period, exclusive. Defaults to now. */
+  until?: ReportUntilParameter;
+  /** The zone the day boundaries are computed in. "Sales on the third" means the operator's third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day. */
+  timezone?: ReportTimezoneParameter;
+};
+
+export type GetPanelAcquisitionReportParams = {
+  /** Start of the period, inclusive. Defaults to thirty days before `until`. */
+  since?: ReportSinceParameter;
+  /** End of the period, exclusive. Defaults to now. */
+  until?: ReportUntilParameter;
+  /** The zone the day boundaries are computed in. "Sales on the third" means the operator's third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day. */
+  timezone?: ReportTimezoneParameter;
+};
+
+export type ListPanelAcquisitionSpendParams = {
+  /** Start of the period, inclusive. Defaults to thirty days before `until`. */
+  since?: ReportSinceParameter;
+  /** End of the period, exclusive. Defaults to now. */
+  until?: ReportUntilParameter;
+  /** The zone the day boundaries are computed in. "Sales on the third" means the operator's third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day. */
+  timezone?: ReportTimezoneParameter;
+};
+
+export type ListPanelAcquisitionSpend200 = {
+  items: PanelAcquisitionSpend[];
+};
+
+export type GetPanelTrafficHistoryParams = {
+  /** Start of the period, inclusive. Defaults to thirty days before `until`. */
+  since?: ReportSinceParameter;
+  /** End of the period, exclusive. Defaults to now. */
+  until?: ReportUntilParameter;
+  /** The zone the day boundaries are computed in. "Sales on the third" means the operator's third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day. */
+  timezone?: ReportTimezoneParameter;
+};
+
+export type GetPanelSupportSatisfactionParams = {
+  /** Start of the period, inclusive. Defaults to thirty days before `until`. */
+  since?: ReportSinceParameter;
+  /** End of the period, exclusive. Defaults to now. */
+  until?: ReportUntilParameter;
 };
 
 export type GetPanelDeviceReport200ByPlatformItemByAppItem = {
@@ -24286,6 +24650,663 @@ export const useGetPanelCustomerPayments = <TError = Promise<ProblemResponse>>(
   };
 };
 
+export type getPanelSubscriptionReportResponse200 = {
+  data: PanelSubscriptionReport;
+  status: 200;
+};
+
+export type getPanelSubscriptionReportResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelSubscriptionReportResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type getPanelSubscriptionReportResponseSuccess = getPanelSubscriptionReportResponse200 & {
+  headers: Headers;
+};
+export type getPanelSubscriptionReportResponseError = (
+  | getPanelSubscriptionReportResponse403
+  | getPanelSubscriptionReportResponse422
+) & {
+  headers: Headers;
+};
+
+export type getPanelSubscriptionReportResponse =
+  | getPanelSubscriptionReportResponseSuccess
+  | getPanelSubscriptionReportResponseError;
+
+export const getGetPanelSubscriptionReportUrl = (params?: GetPanelSubscriptionReportParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/reports/subscriptions?${stringifiedParams}`
+    : `/v1/panel/reports/subscriptions`;
+};
+
+/**
+ * Requires finance.read. The subscription base over the period from the daily snapshots (paid, imported, trial, free), monthly recurring revenue per currency, the latest day by plan, renewals of the paid periods that ended in the period, automatic renewal outcomes, revenue per paying customer and per subscriber, and the last twelve monthly cohorts of payers with retention and lifetime value.
+ * Recurring revenue normalises the price charged to a thirty-day month. Imported periods carry no price and are valued at list price, reported apart as `estimatedMinor`. A rate with nothing behind it is absent, not zero. A period longer than two years is refused.
+ */
+export const getPanelSubscriptionReport = async (
+  params?: GetPanelSubscriptionReportParams,
+  options?: RequestInit,
+): Promise<getPanelSubscriptionReportResponse> => {
+  const res = await fetch(getGetPanelSubscriptionReportUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelSubscriptionReportResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelSubscriptionReportResponse;
+};
+
+export const getGetPanelSubscriptionReportKey = (params?: GetPanelSubscriptionReportParams) =>
+  [`/v1/panel/reports/subscriptions`, ...(params ? [params] : [])] as const;
+
+export type GetPanelSubscriptionReportQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelSubscriptionReport>>
+>;
+
+export const useGetPanelSubscriptionReport = <TError = Promise<ProblemResponse>>(
+  params?: GetPanelSubscriptionReportParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelSubscriptionReport>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelSubscriptionReportKey(params) : null));
+  const swrFn = () => getPanelSubscriptionReport(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelAcquisitionReportResponse200 = {
+  data: PanelAcquisitionReport;
+  status: 200;
+};
+
+export type getPanelAcquisitionReportResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelAcquisitionReportResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type getPanelAcquisitionReportResponseSuccess = getPanelAcquisitionReportResponse200 & {
+  headers: Headers;
+};
+export type getPanelAcquisitionReportResponseError = (
+  | getPanelAcquisitionReportResponse403
+  | getPanelAcquisitionReportResponse422
+) & {
+  headers: Headers;
+};
+
+export type getPanelAcquisitionReportResponse =
+  | getPanelAcquisitionReportResponseSuccess
+  | getPanelAcquisitionReportResponseError;
+
+export const getGetPanelAcquisitionReportUrl = (params?: GetPanelAcquisitionReportParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/reports/acquisition?${stringifiedParams}`
+    : `/v1/panel/reports/acquisition`;
+};
+
+/**
+ * Requires finance.read. What acquiring customers cost and brought over the period: /start campaigns and `utm_source` channels with the costs recorded against them, customer acquisition cost and return on spend per currency, promo codes, wallet credit and free access given away, and the purchase funnel of the customers who signed up in the period.
+ * Cost and return are computed only where spend and revenue share a currency; nothing is converted.
+ */
+export const getPanelAcquisitionReport = async (
+  params?: GetPanelAcquisitionReportParams,
+  options?: RequestInit,
+): Promise<getPanelAcquisitionReportResponse> => {
+  const res = await fetch(getGetPanelAcquisitionReportUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelAcquisitionReportResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelAcquisitionReportResponse;
+};
+
+export const getGetPanelAcquisitionReportKey = (params?: GetPanelAcquisitionReportParams) =>
+  [`/v1/panel/reports/acquisition`, ...(params ? [params] : [])] as const;
+
+export type GetPanelAcquisitionReportQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelAcquisitionReport>>
+>;
+
+export const useGetPanelAcquisitionReport = <TError = Promise<ProblemResponse>>(
+  params?: GetPanelAcquisitionReportParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelAcquisitionReport>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelAcquisitionReportKey(params) : null));
+  const swrFn = () => getPanelAcquisitionReport(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelAcquisitionSpendResponse200 = {
+  data: ListPanelAcquisitionSpend200;
+  status: 200;
+};
+
+export type listPanelAcquisitionSpendResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelAcquisitionSpendResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type listPanelAcquisitionSpendResponseSuccess = listPanelAcquisitionSpendResponse200 & {
+  headers: Headers;
+};
+export type listPanelAcquisitionSpendResponseError = (
+  | listPanelAcquisitionSpendResponse403
+  | listPanelAcquisitionSpendResponse422
+) & {
+  headers: Headers;
+};
+
+export type listPanelAcquisitionSpendResponse =
+  | listPanelAcquisitionSpendResponseSuccess
+  | listPanelAcquisitionSpendResponseError;
+
+export const getListPanelAcquisitionSpendUrl = (params?: ListPanelAcquisitionSpendParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/reports/acquisition/spend?${stringifiedParams}`
+    : `/v1/panel/reports/acquisition/spend`;
+};
+
+/**
+ * Requires finance.read. Advertising costs recorded for days in the period, newest first.
+ */
+export const listPanelAcquisitionSpend = async (
+  params?: ListPanelAcquisitionSpendParams,
+  options?: RequestInit,
+): Promise<listPanelAcquisitionSpendResponse> => {
+  const res = await fetch(getListPanelAcquisitionSpendUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelAcquisitionSpendResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelAcquisitionSpendResponse;
+};
+
+export const getListPanelAcquisitionSpendKey = (params?: ListPanelAcquisitionSpendParams) =>
+  [`/v1/panel/reports/acquisition/spend`, ...(params ? [params] : [])] as const;
+
+export type ListPanelAcquisitionSpendQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelAcquisitionSpend>>
+>;
+
+export const useListPanelAcquisitionSpend = <TError = Promise<ProblemResponse>>(
+  params?: ListPanelAcquisitionSpendParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelAcquisitionSpend>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelAcquisitionSpendKey(params) : null));
+  const swrFn = () => listPanelAcquisitionSpend(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type createPanelAcquisitionSpendResponse201 = {
+  data: PanelAcquisitionSpend;
+  status: 201;
+};
+
+export type createPanelAcquisitionSpendResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type createPanelAcquisitionSpendResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type createPanelAcquisitionSpendResponseSuccess = createPanelAcquisitionSpendResponse201 & {
+  headers: Headers;
+};
+export type createPanelAcquisitionSpendResponseError = (
+  | createPanelAcquisitionSpendResponse403
+  | createPanelAcquisitionSpendResponse422
+) & {
+  headers: Headers;
+};
+
+export type createPanelAcquisitionSpendResponse =
+  | createPanelAcquisitionSpendResponseSuccess
+  | createPanelAcquisitionSpendResponseError;
+
+export const getCreatePanelAcquisitionSpendUrl = () => {
+  return `/v1/panel/reports/acquisition/spend`;
+};
+
+/**
+ * Requires finance.write. Records what was paid for advertising on one day, against a /start campaign or a `utm_source`, never both. Omniflow sees the revenue an advertisement brought and never its invoice, so the cost is entered by hand. The change is audited. A retry with the same `Idempotency-Key` returns the cost the first request recorded.
+ */
+export const createPanelAcquisitionSpend = async (
+  panelAcquisitionSpendInput: PanelAcquisitionSpendInput,
+  options?: RequestInit,
+): Promise<createPanelAcquisitionSpendResponse> => {
+  const res = await fetch(getCreatePanelAcquisitionSpendUrl(), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(panelAcquisitionSpendInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: createPanelAcquisitionSpendResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as createPanelAcquisitionSpendResponse;
+};
+
+export const getCreatePanelAcquisitionSpendMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PanelAcquisitionSpendInput }) => {
+    return createPanelAcquisitionSpend(arg, options);
+  };
+};
+export const getCreatePanelAcquisitionSpendMutationKey = () =>
+  [`/v1/panel/reports/acquisition/spend`] as const;
+
+export type CreatePanelAcquisitionSpendMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createPanelAcquisitionSpend>>
+>;
+
+export const useCreatePanelAcquisitionSpend = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof createPanelAcquisitionSpend>>,
+    TError,
+    Key,
+    PanelAcquisitionSpendInput,
+    Awaited<ReturnType<typeof createPanelAcquisitionSpend>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getCreatePanelAcquisitionSpendMutationKey();
+  const swrFn = getCreatePanelAcquisitionSpendMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type deletePanelAcquisitionSpendResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type deletePanelAcquisitionSpendResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type deletePanelAcquisitionSpendResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type deletePanelAcquisitionSpendResponseSuccess = deletePanelAcquisitionSpendResponse204 & {
+  headers: Headers;
+};
+export type deletePanelAcquisitionSpendResponseError = (
+  | deletePanelAcquisitionSpendResponse403
+  | deletePanelAcquisitionSpendResponse404
+) & {
+  headers: Headers;
+};
+
+export type deletePanelAcquisitionSpendResponse =
+  | deletePanelAcquisitionSpendResponseSuccess
+  | deletePanelAcquisitionSpendResponseError;
+
+export const getDeletePanelAcquisitionSpendUrl = (spendID: string) => {
+  return `/v1/panel/reports/acquisition/spend/${spendID}`;
+};
+
+/**
+ * Requires finance.write. Removes a cost entered by mistake. The audit trail keeps what it was.
+ */
+export const deletePanelAcquisitionSpend = async (
+  spendID: string,
+  options?: RequestInit,
+): Promise<deletePanelAcquisitionSpendResponse> => {
+  const res = await fetch(getDeletePanelAcquisitionSpendUrl(spendID), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: deletePanelAcquisitionSpendResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as deletePanelAcquisitionSpendResponse;
+};
+
+export const getDeletePanelAcquisitionSpendMutationFetcher = (
+  spendID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return deletePanelAcquisitionSpend(spendID, options);
+  };
+};
+export const getDeletePanelAcquisitionSpendMutationKey = (spendID: string) =>
+  [`/v1/panel/reports/acquisition/spend/${spendID}`] as const;
+
+export type DeletePanelAcquisitionSpendMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deletePanelAcquisitionSpend>>
+>;
+
+export const useDeletePanelAcquisitionSpend = <TError = Promise<ProblemResponse>>(
+  spendID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof deletePanelAcquisitionSpend>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof deletePanelAcquisitionSpend>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getDeletePanelAcquisitionSpendMutationKey(spendID);
+  const swrFn = getDeletePanelAcquisitionSpendMutationFetcher(spendID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelTrafficHistoryResponse200 = {
+  data: PanelTrafficHistory;
+  status: 200;
+};
+
+export type getPanelTrafficHistoryResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelTrafficHistoryResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type getPanelTrafficHistoryResponseSuccess = getPanelTrafficHistoryResponse200 & {
+  headers: Headers;
+};
+export type getPanelTrafficHistoryResponseError = (
+  | getPanelTrafficHistoryResponse403
+  | getPanelTrafficHistoryResponse422
+) & {
+  headers: Headers;
+};
+
+export type getPanelTrafficHistoryResponse =
+  | getPanelTrafficHistoryResponseSuccess
+  | getPanelTrafficHistoryResponseError;
+
+export const getGetPanelTrafficHistoryUrl = (params?: GetPanelTrafficHistoryParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/reports/traffic/history?${stringifiedParams}`
+    : `/v1/panel/reports/traffic/history`;
+};
+
+/**
+ * Requires customers.read. Traffic each node carried per day and its busiest hour, from the hourly samples the worker records of Remnawave's node counters. Remnawave keeps the counters for now only; the samples are observations for reporting and decide nothing. A drop to less than half the previous reading is a reset and counts the new reading; a smaller drop is a wobble and counts as nothing.
+ */
+export const getPanelTrafficHistory = async (
+  params?: GetPanelTrafficHistoryParams,
+  options?: RequestInit,
+): Promise<getPanelTrafficHistoryResponse> => {
+  const res = await fetch(getGetPanelTrafficHistoryUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelTrafficHistoryResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelTrafficHistoryResponse;
+};
+
+export const getGetPanelTrafficHistoryKey = (params?: GetPanelTrafficHistoryParams) =>
+  [`/v1/panel/reports/traffic/history`, ...(params ? [params] : [])] as const;
+
+export type GetPanelTrafficHistoryQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelTrafficHistory>>
+>;
+
+export const useGetPanelTrafficHistory = <TError = Promise<ProblemResponse>>(
+  params?: GetPanelTrafficHistoryParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelTrafficHistory>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelTrafficHistoryKey(params) : null));
+  const swrFn = () => getPanelTrafficHistory(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelSupportSatisfactionResponse200 = {
+  data: PanelSupportSatisfaction;
+  status: 200;
+};
+
+export type getPanelSupportSatisfactionResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelSupportSatisfactionResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type getPanelSupportSatisfactionResponseSuccess = getPanelSupportSatisfactionResponse200 & {
+  headers: Headers;
+};
+export type getPanelSupportSatisfactionResponseError = (
+  | getPanelSupportSatisfactionResponse403
+  | getPanelSupportSatisfactionResponse422
+) & {
+  headers: Headers;
+};
+
+export type getPanelSupportSatisfactionResponse =
+  | getPanelSupportSatisfactionResponseSuccess
+  | getPanelSupportSatisfactionResponseError;
+
+export const getGetPanelSupportSatisfactionUrl = (params?: GetPanelSupportSatisfactionParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/reports/support-satisfaction?${stringifiedParams}`
+    : `/v1/panel/reports/support-satisfaction`;
+};
+
+/**
+ * Requires support.read. Marks customers gave resolved tickets in the period: how many were asked and answered, CSAT (the share of fours and fives), the average, the distribution, and the same per operator the ticket was assigned to.
+ */
+export const getPanelSupportSatisfaction = async (
+  params?: GetPanelSupportSatisfactionParams,
+  options?: RequestInit,
+): Promise<getPanelSupportSatisfactionResponse> => {
+  const res = await fetch(getGetPanelSupportSatisfactionUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelSupportSatisfactionResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelSupportSatisfactionResponse;
+};
+
+export const getGetPanelSupportSatisfactionKey = (params?: GetPanelSupportSatisfactionParams) =>
+  [`/v1/panel/reports/support-satisfaction`, ...(params ? [params] : [])] as const;
+
+export type GetPanelSupportSatisfactionQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelSupportSatisfaction>>
+>;
+
+export const useGetPanelSupportSatisfaction = <TError = Promise<ProblemResponse>>(
+  params?: GetPanelSupportSatisfactionParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelSupportSatisfaction>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelSupportSatisfactionKey(params) : null));
+  const swrFn = () => getPanelSupportSatisfaction(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
 export type getPanelTrafficReportResponse200 = {
   data: PanelTrafficReport;
   status: 200;
@@ -24313,7 +25334,7 @@ export const getGetPanelTrafficReportUrl = () => {
 
 /**
  * Requires customers.read. Node saturation and the heaviest users, read live from Remnawave on every request.
- * Omniflow stores none of it. Remnawave is authoritative for traffic, nodes, and connections, and this repository has no table for a node or for a byte a customer used — keeping one would be the first step towards Omniflow having an opinion about traffic. What Omniflow adds is the join: a Remnawave user identifier resolved to the customer who holds it.
+ * This view stores nothing. Remnawave is authoritative for traffic, nodes, and connections, and nothing here keeps a byte a customer used. What Omniflow adds is the join: a Remnawave user identifier resolved to the customer who holds it. The node counters' history is a separate, read-only observation served by `GET /v1/panel/reports/traffic/history`.
  * `nodesReported` is false when the panel does not expose a node listing or could not be reached, and `nodesDetail` says which. An empty node list and no node data look identical on a screen and mean opposite things.
  * The consumer ranking pages the panel's user list and stops after ten pages. `scanned` and `total` say how far it got, so a truncated ranking is never presented as a complete one.
  */

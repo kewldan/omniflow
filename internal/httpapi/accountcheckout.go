@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/omniflow/omniflow/internal/accountcheckout"
 	"github.com/omniflow/omniflow/internal/adtracking"
+	"github.com/omniflow/omniflow/internal/analytics"
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/commercepg"
 )
@@ -111,6 +112,7 @@ func (handlers *AccountHandlers) listPlans(writer http.ResponseWriter, request *
 	for _, plan := range plans {
 		items = append(items, planPayload(plan))
 	}
+	handlers.recordFunnel(request.Context(), principal.Customer.ID, analytics.StepPlansViewed)
 	writeJSON(writer, http.StatusOK, map[string]any{
 		"items": items, "currency": handlers.checkout.Settings().Currency,
 	})
@@ -272,6 +274,7 @@ func (handlers *AccountHandlers) openCheckout(writer http.ResponseWriter, reques
 	if handlers.writeCheckoutError(writer, request, err) {
 		return
 	}
+	handlers.recordFunnel(request.Context(), principal.Customer.ID, analytics.StepCheckoutStarted)
 	writeJSON(writer, http.StatusCreated, checkoutPayload(view))
 }
 

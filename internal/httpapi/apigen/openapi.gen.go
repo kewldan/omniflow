@@ -2426,6 +2426,42 @@ func (e PanelDunningAttemptOutcome) Valid() bool {
 	}
 }
 
+// Defines values for PanelFunnelByChannelChannel.
+const (
+	PanelFunnelByChannelChannelBot PanelFunnelByChannelChannel = "bot"
+	PanelFunnelByChannelChannelWeb PanelFunnelByChannelChannel = "web"
+)
+
+// Valid indicates whether the value is a known member of the PanelFunnelByChannelChannel enum.
+func (e PanelFunnelByChannelChannel) Valid() bool {
+	switch e {
+	case PanelFunnelByChannelChannelBot:
+		return true
+	case PanelFunnelByChannelChannelWeb:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelFunnelByChannelStep.
+const (
+	CheckoutStarted PanelFunnelByChannelStep = "checkout_started"
+	PlansViewed     PanelFunnelByChannelStep = "plans_viewed"
+)
+
+// Valid indicates whether the value is a known member of the PanelFunnelByChannelStep enum.
+func (e PanelFunnelByChannelStep) Valid() bool {
+	switch e {
+	case CheckoutStarted:
+		return true
+	case PlansViewed:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PanelGiftKind.
 const (
 	PanelGiftKindAddon        PanelGiftKind = "addon"
@@ -3482,6 +3518,24 @@ func (e PanelReminderSegment) Valid() bool {
 	}
 }
 
+// Defines values for PanelRenewalLineKind.
+const (
+	PanelRenewalLineKindImported PanelRenewalLineKind = "imported"
+	PanelRenewalLineKindPaid     PanelRenewalLineKind = "paid"
+)
+
+// Valid indicates whether the value is a known member of the PanelRenewalLineKind enum.
+func (e PanelRenewalLineKind) Valid() bool {
+	switch e {
+	case PanelRenewalLineKindImported:
+		return true
+	case PanelRenewalLineKindPaid:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PanelSavedMethodStatus.
 const (
 	PanelSavedMethodStatusActive  PanelSavedMethodStatus = "active"
@@ -3668,6 +3722,30 @@ func (e PanelSubscriptionStatus) Valid() bool {
 	case PanelSubscriptionStatusActive:
 		return true
 	case PanelSubscriptionStatusClosed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelSubscriptionPlanLineKind.
+const (
+	PanelSubscriptionPlanLineKindFree     PanelSubscriptionPlanLineKind = "free"
+	PanelSubscriptionPlanLineKindImported PanelSubscriptionPlanLineKind = "imported"
+	PanelSubscriptionPlanLineKindPaid     PanelSubscriptionPlanLineKind = "paid"
+	PanelSubscriptionPlanLineKindTrial    PanelSubscriptionPlanLineKind = "trial"
+)
+
+// Valid indicates whether the value is a known member of the PanelSubscriptionPlanLineKind enum.
+func (e PanelSubscriptionPlanLineKind) Valid() bool {
+	switch e {
+	case PanelSubscriptionPlanLineKindFree:
+		return true
+	case PanelSubscriptionPlanLineKindImported:
+		return true
+	case PanelSubscriptionPlanLineKindPaid:
+		return true
+	case PanelSubscriptionPlanLineKindTrial:
 		return true
 	default:
 		return false
@@ -8028,6 +8106,89 @@ type PanelAIProviderTestInput struct {
 	Model *string `json:"model,omitempty"`
 }
 
+// PanelAcquisitionCampaign defines model for PanelAcquisitionCampaign.
+type PanelAcquisitionCampaign struct {
+	CampaignId     openapi_types.UUID          `json:"campaignId"`
+	Code           string                      `json:"code"`
+	ConversionRate *float64                    `json:"conversionRate,omitempty"`
+	Economics      []PanelAcquisitionEconomics `json:"economics"`
+	Name           string                      `json:"name"`
+	Payers         int64                       `json:"payers"`
+	Signups        int64                       `json:"signups"`
+}
+
+// PanelAcquisitionEconomics defines model for PanelAcquisitionEconomics.
+type PanelAcquisitionEconomics struct {
+	CacMinor     *int64 `json:"cacMinor,omitempty"`
+	Currency     string `json:"currency"`
+	RevenueMinor int64  `json:"revenueMinor"`
+
+	// Roi (revenue − spend) ÷ spend.
+	Roi        *float64 `json:"roi,omitempty"`
+	SpendMinor int64    `json:"spendMinor"`
+}
+
+// PanelAcquisitionReport defines model for PanelAcquisitionReport.
+type PanelAcquisitionReport struct {
+	BonusCredit []struct {
+		AmountMinor int64  `json:"amountMinor"`
+		Currency    string `json:"currency"`
+		Grants      int64  `json:"grants"`
+		Source      string `json:"source"`
+	} `json:"bonusCredit"`
+	Campaigns  []PanelAcquisitionCampaign `json:"campaigns"`
+	FreeAccess []struct {
+		Days   int64  `json:"days"`
+		Grants int64  `json:"grants"`
+		Source string `json:"source"`
+	} `json:"freeAccess"`
+	Funnel      PanelFunnel              `json:"funnel"`
+	GeneratedAt time.Time                `json:"generatedAt"`
+	PromoCodes  []PanelPromoCodeLine     `json:"promoCodes"`
+	Since       time.Time                `json:"since"`
+	Sources     []PanelAcquisitionSource `json:"sources"`
+	Timezone    string                   `json:"timezone"`
+	Until       time.Time                `json:"until"`
+}
+
+// PanelAcquisitionSource defines model for PanelAcquisitionSource.
+type PanelAcquisitionSource struct {
+	CacMinor     *int64   `json:"cacMinor,omitempty"`
+	Currency     string   `json:"currency"`
+	NewPayers    int64    `json:"newPayers"`
+	Orders       int64    `json:"orders"`
+	Payers       int64    `json:"payers"`
+	RevenueMinor int64    `json:"revenueMinor"`
+	Roi          *float64 `json:"roi,omitempty"`
+	SpendMinor   int64    `json:"spendMinor"`
+	UtmSource    string   `json:"utmSource"`
+}
+
+// PanelAcquisitionSpend defines model for PanelAcquisitionSpend.
+type PanelAcquisitionSpend struct {
+	AmountMinor  int64               `json:"amountMinor"`
+	CampaignCode *string             `json:"campaignCode,omitempty"`
+	CampaignId   *openapi_types.UUID `json:"campaignId,omitempty"`
+	CampaignName *string             `json:"campaignName,omitempty"`
+	CreatedAt    time.Time           `json:"createdAt"`
+	CreatedBy    string              `json:"createdBy"`
+	Currency     string              `json:"currency"`
+	Id           openapi_types.UUID  `json:"id"`
+	Note         string              `json:"note"`
+	SpentOn      openapi_types.Date  `json:"spentOn"`
+	UtmSource    *string             `json:"utmSource,omitempty"`
+}
+
+// PanelAcquisitionSpendInput defines model for PanelAcquisitionSpendInput.
+type PanelAcquisitionSpendInput struct {
+	AmountMinor int64               `json:"amountMinor"`
+	CampaignId  *openapi_types.UUID `json:"campaignId,omitempty"`
+	Currency    string              `json:"currency"`
+	Note        *string             `json:"note,omitempty"`
+	SpentOn     openapi_types.Date  `json:"spentOn"`
+	UtmSource   *string             `json:"utmSource,omitempty"`
+}
+
 // PanelAddonList defines model for PanelAddonList.
 type PanelAddonList struct {
 	Items *[]PanelAddonSummary `json:"items"`
@@ -8166,6 +8327,28 @@ type PanelAttentionItem struct {
 
 // PanelAttentionItemSeverity defines model for PanelAttentionItem.Severity.
 type PanelAttentionItemSeverity string
+
+// PanelAutoRenew defines model for PanelAutoRenew.
+type PanelAutoRenew struct {
+	Enabled      int64 `json:"enabled"`
+	FailureCodes []struct {
+		Attempts int64  `json:"attempts"`
+		Code     string `json:"code"`
+	} `json:"failureCodes"`
+	Lines []PanelAutoRenewLine `json:"lines"`
+}
+
+// PanelAutoRenewLine defines model for PanelAutoRenewLine.
+type PanelAutoRenewLine struct {
+	Cycles       int64    `json:"cycles"`
+	FirstTry     int64    `json:"firstTry"`
+	Funding      string   `json:"funding"`
+	InProgress   int64    `json:"inProgress"`
+	Lost         int64    `json:"lost"`
+	Recovered    int64    `json:"recovered"`
+	RecoveryRate *float64 `json:"recoveryRate,omitempty"`
+	SuccessRate  *float64 `json:"successRate,omitempty"`
+}
 
 // PanelBatchCode defines model for PanelBatchCode.
 type PanelBatchCode struct {
@@ -8442,6 +8625,23 @@ type PanelCodeBatch struct {
 type PanelCodeBatchList struct {
 	Items        []PanelCodeBatch `json:"items"`
 	MaxBatchSize int              `json:"maxBatchSize"`
+}
+
+// PanelCohort defines model for PanelCohort.
+type PanelCohort struct {
+	Customers int64              `json:"customers"`
+	Month     openapi_types.Date `json:"month"`
+	Retention []struct {
+		Active int64    `json:"active"`
+		Offset int      `json:"offset"`
+		Rate   *float64 `json:"rate,omitempty"`
+	} `json:"retention"`
+	Revenue []struct {
+		Currency     string `json:"currency"`
+		Customers    int64  `json:"customers"`
+		LtvMinor     *int64 `json:"ltvMinor,omitempty"`
+		RevenueMinor int64  `json:"revenueMinor"`
+	} `json:"revenue"`
 }
 
 // PanelCommerceSettings defines model for PanelCommerceSettings.
@@ -8753,6 +8953,26 @@ type PanelFulfillmentPage struct {
 	Items      *[]PanelFulfillmentOperation `json:"items"`
 	NextCursor *string                      `json:"nextCursor,omitempty"`
 }
+
+// PanelFunnel defines model for PanelFunnel.
+type PanelFunnel struct {
+	ByChannel []struct {
+		Channel   PanelFunnelByChannelChannel `json:"channel"`
+		Customers int64                       `json:"customers"`
+		Step      PanelFunnelByChannelStep    `json:"step"`
+	} `json:"byChannel"`
+	CheckoutStarted int64 `json:"checkoutStarted"`
+	Paid            int64 `json:"paid"`
+	PlansViewed     int64 `json:"plansViewed"`
+	Signups         int64 `json:"signups"`
+	TrialClaimed    int64 `json:"trialClaimed"`
+}
+
+// PanelFunnelByChannelChannel defines model for PanelFunnel.ByChannel.Channel.
+type PanelFunnelByChannelChannel string
+
+// PanelFunnelByChannelStep defines model for PanelFunnel.ByChannel.Step.
+type PanelFunnelByChannelStep string
 
 // PanelGeneratedBatch defines model for PanelGeneratedBatch.
 type PanelGeneratedBatch struct {
@@ -9699,6 +9919,18 @@ type PanelPromoCode struct {
 	RedemptionLimit *int               `json:"redemptionLimit,omitempty"`
 }
 
+// PanelPromoCodeLine defines model for PanelPromoCodeLine.
+type PanelPromoCodeLine struct {
+	Code          string `json:"code"`
+	Currency      string `json:"currency"`
+	Customers     int64  `json:"customers"`
+	DiscountMinor int64  `json:"discountMinor"`
+	NewCustomers  int64  `json:"newCustomers"`
+	PromotionKind string `json:"promotionKind"`
+	Redemptions   int64  `json:"redemptions"`
+	RevenueMinor  int64  `json:"revenueMinor"`
+}
+
 // PanelPromoCodeList defines model for PanelPromoCodeList.
 type PanelPromoCodeList struct {
 	Items *[]PanelPromoCode `json:"items"`
@@ -9876,6 +10108,16 @@ type PanelQueuedTest struct {
 	Status      string     `json:"status"`
 }
 
+// PanelRecurringRevenueDay defines model for PanelRecurringRevenueDay.
+type PanelRecurringRevenueDay struct {
+	Currency string             `json:"currency"`
+	Day      openapi_types.Date `json:"day"`
+
+	// EstimatedMinor Imported periods valued at list price.
+	EstimatedMinor int64 `json:"estimatedMinor"`
+	MrrMinor       int64 `json:"mrrMinor"`
+}
+
 // PanelRecurringTest defines model for PanelRecurringTest.
 type PanelRecurringTest struct {
 	// Enable Only honoured alongside a passing test and an adapter that declares the capability.
@@ -9941,6 +10183,39 @@ type PanelRemnawaveSquad struct {
 	Uuid    openapi_types.UUID `json:"uuid"`
 }
 
+// PanelRenewalLine defines model for PanelRenewalLine.
+type PanelRenewalLine struct {
+	BillingPeriod string               `json:"billingPeriod"`
+	Churned       int64                `json:"churned"`
+	Ended         int64                `json:"ended"`
+	Kind          PanelRenewalLineKind `json:"kind"`
+
+	// Pending Ended within the grace period with no successor yet.
+	Pending     int64    `json:"pending"`
+	PlanCode    string   `json:"planCode"`
+	RenewalRate *float64 `json:"renewalRate,omitempty"`
+	Renewed     int64    `json:"renewed"`
+}
+
+// PanelRenewalLineKind defines model for PanelRenewalLine.Kind.
+type PanelRenewalLineKind string
+
+// PanelRenewals defines model for PanelRenewals.
+type PanelRenewals struct {
+	// ActiveAtStart Paid and imported subscriptions on the first day of the period.
+	ActiveAtStart *int64 `json:"activeAtStart,omitempty"`
+
+	// ChurnRate Churned periods over the paying base at the start of the period.
+	ChurnRate   *float64           `json:"churnRate,omitempty"`
+	Churned     int64              `json:"churned"`
+	Ended       int64              `json:"ended"`
+	GraceDays   int                `json:"graceDays"`
+	Lines       []PanelRenewalLine `json:"lines"`
+	Pending     int64              `json:"pending"`
+	RenewalRate *float64           `json:"renewalRate,omitempty"`
+	Renewed     int64              `json:"renewed"`
+}
+
 // PanelReturningPayers defines model for PanelReturningPayers.
 type PanelReturningPayers struct {
 	// Payers Customers with a payment in the period: a provider-settled order or a payment the previous bot took. An order paid from the wallet is not a payment.
@@ -9963,6 +10238,16 @@ type PanelRevenueLine struct {
 	PreviousPaidMinor *int64 `json:"previousPaidMinor,omitempty"`
 	RefundedMinor     int64  `json:"refundedMinor"`
 	WalletMinor       int64  `json:"walletMinor"`
+}
+
+// PanelRevenuePerCustomer defines model for PanelRevenuePerCustomer.
+type PanelRevenuePerCustomer struct {
+	ArppuMinor         *int64   `json:"arppuMinor,omitempty"`
+	ArpuMinor          *int64   `json:"arpuMinor,omitempty"`
+	AverageSubscribers *float64 `json:"averageSubscribers,omitempty"`
+	Currency           string   `json:"currency"`
+	PaidMinor          int64    `json:"paidMinor"`
+	Payers             int64    `json:"payers"`
 }
 
 // PanelSalesLine defines model for PanelSalesLine.
@@ -10253,6 +10538,15 @@ type PanelSubscription struct {
 // PanelSubscriptionStatus defines model for PanelSubscription.Status.
 type PanelSubscriptionStatus string
 
+// PanelSubscriptionBaseDay defines model for PanelSubscriptionBaseDay.
+type PanelSubscriptionBaseDay struct {
+	Day      openapi_types.Date `json:"day"`
+	Free     int64              `json:"free"`
+	Imported int64              `json:"imported"`
+	Paid     int64              `json:"paid"`
+	Trial    int64              `json:"trial"`
+}
+
 // PanelSubscriptionList defines model for PanelSubscriptionList.
 type PanelSubscriptionList struct {
 	Items *[]PanelSubscription `json:"items"`
@@ -10264,6 +10558,21 @@ type PanelSubscriptionOperationAccepted struct {
 	OperationId openapi_types.UUID `json:"operationId"`
 	Status      string             `json:"status"`
 }
+
+// PanelSubscriptionPlanLine defines model for PanelSubscriptionPlanLine.
+type PanelSubscriptionPlanLine struct {
+	Active        int64  `json:"active"`
+	BillingPeriod string `json:"billingPeriod"`
+
+	// Currency Empty for trial and free access.
+	Currency string                        `json:"currency"`
+	Kind     PanelSubscriptionPlanLineKind `json:"kind"`
+	MrrMinor int64                         `json:"mrrMinor"`
+	PlanCode string                        `json:"planCode"`
+}
+
+// PanelSubscriptionPlanLineKind defines model for PanelSubscriptionPlanLine.Kind.
+type PanelSubscriptionPlanLineKind string
 
 // PanelSubscriptionPolicy defines model for PanelSubscriptionPolicy.
 type PanelSubscriptionPolicy struct {
@@ -10331,6 +10640,22 @@ type PanelSubscriptionPolicyTrialDisabledMethods string
 
 // PanelSubscriptionPolicyTrialRemainder What a trial's or free plan's remaining time does on a move to a paid plan.
 type PanelSubscriptionPolicyTrialRemainder string
+
+// PanelSubscriptionReport defines model for PanelSubscriptionReport.
+type PanelSubscriptionReport struct {
+	AutoRenew   PanelAutoRenew              `json:"autoRenew"`
+	Base        []PanelSubscriptionBaseDay  `json:"base"`
+	Cohorts     []PanelCohort               `json:"cohorts"`
+	GeneratedAt time.Time                   `json:"generatedAt"`
+	LatestDay   *openapi_types.Date         `json:"latestDay,omitempty"`
+	Mrr         []PanelRecurringRevenueDay  `json:"mrr"`
+	PerCustomer []PanelRevenuePerCustomer   `json:"perCustomer"`
+	Plans       []PanelSubscriptionPlanLine `json:"plans"`
+	Renewals    PanelRenewals               `json:"renewals"`
+	Since       time.Time                   `json:"since"`
+	Timezone    string                      `json:"timezone"`
+	Until       time.Time                   `json:"until"`
+}
 
 // PanelSubscriptionSettings defines model for PanelSubscriptionSettings.
 type PanelSubscriptionSettings struct {
@@ -10461,6 +10786,29 @@ type PanelSupportReport struct {
 	WindowSeconds     int64 `json:"windowSeconds"`
 }
 
+// PanelSupportSatisfaction defines model for PanelSupportSatisfaction.
+type PanelSupportSatisfaction struct {
+	Average *float64 `json:"average,omitempty"`
+
+	// Csat Share of fours and fives.
+	Csat *float64 `json:"csat,omitempty"`
+
+	// Distribution Counts of marks one to five.
+	Distribution []int64 `json:"distribution"`
+	Operators    []struct {
+		Average     *float64           `json:"average,omitempty"`
+		Csat        *float64           `json:"csat,omitempty"`
+		DisplayName string             `json:"displayName"`
+		OperatorId  openapi_types.UUID `json:"operatorId"`
+		Ratings     int64              `json:"ratings"`
+	} `json:"operators"`
+	Ratings      int64     `json:"ratings"`
+	Requested    int64     `json:"requested"`
+	ResponseRate *float64  `json:"responseRate,omitempty"`
+	Since        time.Time `json:"since"`
+	Until        time.Time `json:"until"`
+}
+
 // PanelSupportTag defines model for PanelSupportTag.
 type PanelSupportTag struct {
 	Code   string             `json:"code"`
@@ -10582,6 +10930,34 @@ type PanelTrafficConsumer struct {
 	// UsedBytes The current cycle, which resets.
 	UsedBytes int64  `json:"usedBytes"`
 	Username  string `json:"username"`
+}
+
+// PanelTrafficHistory defines model for PanelTrafficHistory.
+type PanelTrafficHistory struct {
+	GeneratedAt time.Time                 `json:"generatedAt"`
+	Nodes       []PanelTrafficHistoryNode `json:"nodes"`
+	Since       time.Time                 `json:"since"`
+	Timezone    string                    `json:"timezone"`
+	Totals      []struct {
+		Day       openapi_types.Date `json:"day"`
+		UsedBytes int64              `json:"usedBytes"`
+	} `json:"totals"`
+	Until time.Time `json:"until"`
+}
+
+// PanelTrafficHistoryNode defines model for PanelTrafficHistoryNode.
+type PanelTrafficHistoryNode struct {
+	CountryCode string `json:"countryCode"`
+	Days        []struct {
+		Day        openapi_types.Date `json:"day"`
+		PeakOnline int                `json:"peakOnline"`
+		UsedBytes  int64              `json:"usedBytes"`
+	} `json:"days"`
+	LimitBytes int64  `json:"limitBytes"`
+	NodeName   string `json:"nodeName"`
+	NodeUuid   string `json:"nodeUuid"`
+	PeakOnline int    `json:"peakOnline"`
+	TotalBytes int64  `json:"totalBytes"`
 }
 
 // PanelTrafficNode defines model for PanelTrafficNode.
@@ -13084,6 +13460,36 @@ type ListPanelIncidentsParams struct {
 	PageSize *PageSize `form:"pageSize,omitempty" json:"pageSize,omitempty"`
 }
 
+// GetPanelAcquisitionReportParams defines parameters for GetPanelAcquisitionReport.
+type GetPanelAcquisitionReportParams struct {
+	// Since Start of the period, inclusive. Defaults to thirty days before `until`.
+	Since *ReportSince `form:"since,omitempty" json:"since,omitempty"`
+
+	// Until End of the period, exclusive. Defaults to now.
+	Until *ReportUntil `form:"until,omitempty" json:"until,omitempty"`
+
+	// Timezone The zone the day boundaries are computed in. "Sales on the third" means the operator's third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day.
+	Timezone *ReportTimezone `form:"timezone,omitempty" json:"timezone,omitempty"`
+}
+
+// ListPanelAcquisitionSpendParams defines parameters for ListPanelAcquisitionSpend.
+type ListPanelAcquisitionSpendParams struct {
+	// Since Start of the period, inclusive. Defaults to thirty days before `until`.
+	Since *ReportSince `form:"since,omitempty" json:"since,omitempty"`
+
+	// Until End of the period, exclusive. Defaults to now.
+	Until *ReportUntil `form:"until,omitempty" json:"until,omitempty"`
+
+	// Timezone The zone the day boundaries are computed in. "Sales on the third" means the operator's third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day.
+	Timezone *ReportTimezone `form:"timezone,omitempty" json:"timezone,omitempty"`
+}
+
+// CreatePanelAcquisitionSpendParams defines parameters for CreatePanelAcquisitionSpend.
+type CreatePanelAcquisitionSpendParams struct {
+	// IdempotencyKey Optional here. Supplying one makes a repeated submission resolve to the record already created instead of a second one.
+	IdempotencyKey *IdempotencyKeyOptional `json:"Idempotency-Key,omitempty"`
+}
+
 // GetPanelChannelReportParams defines parameters for GetPanelChannelReport.
 type GetPanelChannelReportParams struct {
 	Since *time.Time `form:"since,omitempty" json:"since,omitempty"`
@@ -13160,6 +13566,39 @@ type ExportPanelSalesReportParams struct {
 
 	// Currency ISO currency to restrict the report to. Omit for every currency.
 	Currency *ReportCurrency `form:"currency,omitempty" json:"currency,omitempty"`
+}
+
+// GetPanelSubscriptionReportParams defines parameters for GetPanelSubscriptionReport.
+type GetPanelSubscriptionReportParams struct {
+	// Since Start of the period, inclusive. Defaults to thirty days before `until`.
+	Since *ReportSince `form:"since,omitempty" json:"since,omitempty"`
+
+	// Until End of the period, exclusive. Defaults to now.
+	Until *ReportUntil `form:"until,omitempty" json:"until,omitempty"`
+
+	// Timezone The zone the day boundaries are computed in. "Sales on the third" means the operator's third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day.
+	Timezone *ReportTimezone `form:"timezone,omitempty" json:"timezone,omitempty"`
+}
+
+// GetPanelSupportSatisfactionParams defines parameters for GetPanelSupportSatisfaction.
+type GetPanelSupportSatisfactionParams struct {
+	// Since Start of the period, inclusive. Defaults to thirty days before `until`.
+	Since *ReportSince `form:"since,omitempty" json:"since,omitempty"`
+
+	// Until End of the period, exclusive. Defaults to now.
+	Until *ReportUntil `form:"until,omitempty" json:"until,omitempty"`
+}
+
+// GetPanelTrafficHistoryParams defines parameters for GetPanelTrafficHistory.
+type GetPanelTrafficHistoryParams struct {
+	// Since Start of the period, inclusive. Defaults to thirty days before `until`.
+	Since *ReportSince `form:"since,omitempty" json:"since,omitempty"`
+
+	// Until End of the period, exclusive. Defaults to now.
+	Until *ReportUntil `form:"until,omitempty" json:"until,omitempty"`
+
+	// Timezone The zone the day boundaries are computed in. "Sales on the third" means the operator's third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day.
+	Timezone *ReportTimezone `form:"timezone,omitempty" json:"timezone,omitempty"`
 }
 
 // SearchPanelAnomaliesParams defines parameters for SearchPanelAnomalies.
@@ -13960,6 +14399,9 @@ type SendPanelNoticeTestJSONRequestBody SendPanelNoticeTestJSONBody
 
 // CreatePanelOfferJSONRequestBody defines body for CreatePanelOffer for application/json ContentType.
 type CreatePanelOfferJSONRequestBody = PanelOfferInput
+
+// CreatePanelAcquisitionSpendJSONRequestBody defines body for CreatePanelAcquisitionSpend for application/json ContentType.
+type CreatePanelAcquisitionSpendJSONRequestBody = PanelAcquisitionSpendInput
 
 // ReviewPanelAnomalyJSONRequestBody defines body for ReviewPanelAnomaly for application/json ContentType.
 type ReviewPanelAnomalyJSONRequestBody ReviewPanelAnomalyJSONBody
@@ -15193,6 +15635,18 @@ type ServerInterface interface {
 	// (GET /v1/panel/remnawave/squads)
 	ListPanelRemnawaveSquads(w http.ResponseWriter, r *http.Request)
 
+	// (GET /v1/panel/reports/acquisition)
+	GetPanelAcquisitionReport(w http.ResponseWriter, r *http.Request, params GetPanelAcquisitionReportParams)
+
+	// (GET /v1/panel/reports/acquisition/spend)
+	ListPanelAcquisitionSpend(w http.ResponseWriter, r *http.Request, params ListPanelAcquisitionSpendParams)
+
+	// (POST /v1/panel/reports/acquisition/spend)
+	CreatePanelAcquisitionSpend(w http.ResponseWriter, r *http.Request, params CreatePanelAcquisitionSpendParams)
+
+	// (DELETE /v1/panel/reports/acquisition/spend/{spendID})
+	DeletePanelAcquisitionSpend(w http.ResponseWriter, r *http.Request, spendID openapi_types.UUID)
+
 	// (GET /v1/panel/reports/channels)
 	GetPanelChannelReport(w http.ResponseWriter, r *http.Request, params GetPanelChannelReportParams)
 
@@ -15217,11 +15671,20 @@ type ServerInterface interface {
 	// (GET /v1/panel/reports/sales/export)
 	ExportPanelSalesReport(w http.ResponseWriter, r *http.Request, params ExportPanelSalesReportParams)
 
+	// (GET /v1/panel/reports/subscriptions)
+	GetPanelSubscriptionReport(w http.ResponseWriter, r *http.Request, params GetPanelSubscriptionReportParams)
+
+	// (GET /v1/panel/reports/support-satisfaction)
+	GetPanelSupportSatisfaction(w http.ResponseWriter, r *http.Request, params GetPanelSupportSatisfactionParams)
+
 	// (GET /v1/panel/reports/traffic)
 	GetPanelTrafficReport(w http.ResponseWriter, r *http.Request)
 
 	// (GET /v1/panel/reports/traffic/export)
 	ExportPanelTrafficReport(w http.ResponseWriter, r *http.Request)
+
+	// (GET /v1/panel/reports/traffic/history)
+	GetPanelTrafficHistory(w http.ResponseWriter, r *http.Request, params GetPanelTrafficHistoryParams)
 
 	// (GET /v1/panel/risk/anomalies)
 	SearchPanelAnomalies(w http.ResponseWriter, r *http.Request, params SearchPanelAnomaliesParams)
@@ -17088,6 +17551,26 @@ func (_ Unimplemented) ListPanelRemnawaveSquads(w http.ResponseWriter, r *http.R
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /v1/panel/reports/acquisition)
+func (_ Unimplemented) GetPanelAcquisitionReport(w http.ResponseWriter, r *http.Request, params GetPanelAcquisitionReportParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/reports/acquisition/spend)
+func (_ Unimplemented) ListPanelAcquisitionSpend(w http.ResponseWriter, r *http.Request, params ListPanelAcquisitionSpendParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/reports/acquisition/spend)
+func (_ Unimplemented) CreatePanelAcquisitionSpend(w http.ResponseWriter, r *http.Request, params CreatePanelAcquisitionSpendParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /v1/panel/reports/acquisition/spend/{spendID})
+func (_ Unimplemented) DeletePanelAcquisitionSpend(w http.ResponseWriter, r *http.Request, spendID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /v1/panel/reports/channels)
 func (_ Unimplemented) GetPanelChannelReport(w http.ResponseWriter, r *http.Request, params GetPanelChannelReportParams) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -17128,6 +17611,16 @@ func (_ Unimplemented) ExportPanelSalesReport(w http.ResponseWriter, r *http.Req
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /v1/panel/reports/subscriptions)
+func (_ Unimplemented) GetPanelSubscriptionReport(w http.ResponseWriter, r *http.Request, params GetPanelSubscriptionReportParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/reports/support-satisfaction)
+func (_ Unimplemented) GetPanelSupportSatisfaction(w http.ResponseWriter, r *http.Request, params GetPanelSupportSatisfactionParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /v1/panel/reports/traffic)
 func (_ Unimplemented) GetPanelTrafficReport(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -17135,6 +17628,11 @@ func (_ Unimplemented) GetPanelTrafficReport(w http.ResponseWriter, r *http.Requ
 
 // (GET /v1/panel/reports/traffic/export)
 func (_ Unimplemented) ExportPanelTrafficReport(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/reports/traffic/history)
+func (_ Unimplemented) GetPanelTrafficHistory(w http.ResponseWriter, r *http.Request, params GetPanelTrafficHistoryParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -31203,6 +31701,191 @@ func (siw *ServerInterfaceWrapper) ListPanelRemnawaveSquads(w http.ResponseWrite
 	handler.ServeHTTP(w, r)
 }
 
+// GetPanelAcquisitionReport operation middleware
+func (siw *ServerInterfaceWrapper) GetPanelAcquisitionReport(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPanelAcquisitionReportParams
+
+	// ------------- Optional query parameter "since" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "since", r.URL.Query(), &params.Since, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "since"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "since", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "until" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "until", r.URL.Query(), &params.Until, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "until"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "until", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "timezone" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "timezone", r.URL.Query(), &params.Timezone, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "timezone"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "timezone", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPanelAcquisitionReport(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPanelAcquisitionSpend operation middleware
+func (siw *ServerInterfaceWrapper) ListPanelAcquisitionSpend(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPanelAcquisitionSpendParams
+
+	// ------------- Optional query parameter "since" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "since", r.URL.Query(), &params.Since, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "since"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "since", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "until" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "until", r.URL.Query(), &params.Until, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "until"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "until", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "timezone" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "timezone", r.URL.Query(), &params.Timezone, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "timezone"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "timezone", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPanelAcquisitionSpend(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreatePanelAcquisitionSpend operation middleware
+func (siw *ServerInterfaceWrapper) CreatePanelAcquisitionSpend(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CreatePanelAcquisitionSpendParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKeyOptional
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreatePanelAcquisitionSpend(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeletePanelAcquisitionSpend operation middleware
+func (siw *ServerInterfaceWrapper) DeletePanelAcquisitionSpend(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "spendID" -------------
+	var spendID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "spendID", chi.URLParam(r, "spendID"), &spendID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "spendID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeletePanelAcquisitionSpend(w, r, spendID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetPanelChannelReport operation middleware
 func (siw *ServerInterfaceWrapper) GetPanelChannelReport(w http.ResponseWriter, r *http.Request) {
 
@@ -31636,6 +32319,111 @@ func (siw *ServerInterfaceWrapper) ExportPanelSalesReport(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// GetPanelSubscriptionReport operation middleware
+func (siw *ServerInterfaceWrapper) GetPanelSubscriptionReport(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPanelSubscriptionReportParams
+
+	// ------------- Optional query parameter "since" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "since", r.URL.Query(), &params.Since, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "since"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "since", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "until" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "until", r.URL.Query(), &params.Until, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "until"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "until", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "timezone" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "timezone", r.URL.Query(), &params.Timezone, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "timezone"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "timezone", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPanelSubscriptionReport(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPanelSupportSatisfaction operation middleware
+func (siw *ServerInterfaceWrapper) GetPanelSupportSatisfaction(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPanelSupportSatisfactionParams
+
+	// ------------- Optional query parameter "since" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "since", r.URL.Query(), &params.Since, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "since"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "since", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "until" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "until", r.URL.Query(), &params.Until, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "until"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "until", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPanelSupportSatisfaction(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetPanelTrafficReport operation middleware
 func (siw *ServerInterfaceWrapper) GetPanelTrafficReport(w http.ResponseWriter, r *http.Request) {
 
@@ -31655,6 +32443,65 @@ func (siw *ServerInterfaceWrapper) ExportPanelTrafficReport(w http.ResponseWrite
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ExportPanelTrafficReport(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPanelTrafficHistory operation middleware
+func (siw *ServerInterfaceWrapper) GetPanelTrafficHistory(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPanelTrafficHistoryParams
+
+	// ------------- Optional query parameter "since" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "since", r.URL.Query(), &params.Since, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "since"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "since", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "until" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "until", r.URL.Query(), &params.Until, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "until"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "until", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "timezone" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "timezone", r.URL.Query(), &params.Timezone, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "timezone"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "timezone", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPanelTrafficHistory(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -35664,6 +36511,27 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/reports/customer-payments", wrapper.GetPanelCustomerPayments)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/reports/subscriptions", wrapper.GetPanelSubscriptionReport)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/reports/acquisition", wrapper.GetPanelAcquisitionReport)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/reports/acquisition/spend", wrapper.ListPanelAcquisitionSpend)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/reports/acquisition/spend", wrapper.CreatePanelAcquisitionSpend)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/panel/reports/acquisition/spend/{spendID}", wrapper.DeletePanelAcquisitionSpend)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/reports/traffic/history", wrapper.GetPanelTrafficHistory)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/reports/support-satisfaction", wrapper.GetPanelSupportSatisfaction)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/reports/traffic", wrapper.GetPanelTrafficReport)
@@ -51013,6 +51881,211 @@ func (response ListPanelRemnawaveSquads403ApplicationProblemPlusJSONResponse) Vi
 	return err
 }
 
+type GetPanelAcquisitionReportRequestObject struct {
+	Params GetPanelAcquisitionReportParams
+}
+
+type GetPanelAcquisitionReportResponseObject interface {
+	VisitGetPanelAcquisitionReportResponse(w http.ResponseWriter) error
+}
+
+type GetPanelAcquisitionReport200JSONResponse PanelAcquisitionReport
+
+func (response GetPanelAcquisitionReport200JSONResponse) VisitGetPanelAcquisitionReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelAcquisitionReport403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetPanelAcquisitionReport403ApplicationProblemPlusJSONResponse) VisitGetPanelAcquisitionReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelAcquisitionReport422ApplicationProblemPlusJSONResponse Problem
+
+func (response GetPanelAcquisitionReport422ApplicationProblemPlusJSONResponse) VisitGetPanelAcquisitionReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelAcquisitionSpendRequestObject struct {
+	Params ListPanelAcquisitionSpendParams
+}
+
+type ListPanelAcquisitionSpendResponseObject interface {
+	VisitListPanelAcquisitionSpendResponse(w http.ResponseWriter) error
+}
+
+type ListPanelAcquisitionSpend200JSONResponse struct {
+	Items []PanelAcquisitionSpend `json:"items"`
+}
+
+func (response ListPanelAcquisitionSpend200JSONResponse) VisitListPanelAcquisitionSpendResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelAcquisitionSpend403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListPanelAcquisitionSpend403ApplicationProblemPlusJSONResponse) VisitListPanelAcquisitionSpendResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelAcquisitionSpend422ApplicationProblemPlusJSONResponse Problem
+
+func (response ListPanelAcquisitionSpend422ApplicationProblemPlusJSONResponse) VisitListPanelAcquisitionSpendResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePanelAcquisitionSpendRequestObject struct {
+	Params CreatePanelAcquisitionSpendParams
+	Body   *CreatePanelAcquisitionSpendJSONRequestBody
+}
+
+type CreatePanelAcquisitionSpendResponseObject interface {
+	VisitCreatePanelAcquisitionSpendResponse(w http.ResponseWriter) error
+}
+
+type CreatePanelAcquisitionSpend201JSONResponse PanelAcquisitionSpend
+
+func (response CreatePanelAcquisitionSpend201JSONResponse) VisitCreatePanelAcquisitionSpendResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePanelAcquisitionSpend403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CreatePanelAcquisitionSpend403ApplicationProblemPlusJSONResponse) VisitCreatePanelAcquisitionSpendResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreatePanelAcquisitionSpend422ApplicationProblemPlusJSONResponse Problem
+
+func (response CreatePanelAcquisitionSpend422ApplicationProblemPlusJSONResponse) VisitCreatePanelAcquisitionSpendResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePanelAcquisitionSpendRequestObject struct {
+	SpendID openapi_types.UUID `json:"spendID"`
+}
+
+type DeletePanelAcquisitionSpendResponseObject interface {
+	VisitDeletePanelAcquisitionSpendResponse(w http.ResponseWriter) error
+}
+
+type DeletePanelAcquisitionSpend204Response struct {
+}
+
+func (response DeletePanelAcquisitionSpend204Response) VisitDeletePanelAcquisitionSpendResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeletePanelAcquisitionSpend403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DeletePanelAcquisitionSpend403ApplicationProblemPlusJSONResponse) VisitDeletePanelAcquisitionSpendResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePanelAcquisitionSpend404ApplicationProblemPlusJSONResponse Problem
+
+func (response DeletePanelAcquisitionSpend404ApplicationProblemPlusJSONResponse) VisitDeletePanelAcquisitionSpendResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetPanelChannelReportRequestObject struct {
 	Params GetPanelChannelReportParams
 }
@@ -51499,6 +52572,110 @@ func (response ExportPanelSalesReport422ApplicationProblemPlusJSONResponse) Visi
 	return err
 }
 
+type GetPanelSubscriptionReportRequestObject struct {
+	Params GetPanelSubscriptionReportParams
+}
+
+type GetPanelSubscriptionReportResponseObject interface {
+	VisitGetPanelSubscriptionReportResponse(w http.ResponseWriter) error
+}
+
+type GetPanelSubscriptionReport200JSONResponse PanelSubscriptionReport
+
+func (response GetPanelSubscriptionReport200JSONResponse) VisitGetPanelSubscriptionReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelSubscriptionReport403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetPanelSubscriptionReport403ApplicationProblemPlusJSONResponse) VisitGetPanelSubscriptionReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelSubscriptionReport422ApplicationProblemPlusJSONResponse Problem
+
+func (response GetPanelSubscriptionReport422ApplicationProblemPlusJSONResponse) VisitGetPanelSubscriptionReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelSupportSatisfactionRequestObject struct {
+	Params GetPanelSupportSatisfactionParams
+}
+
+type GetPanelSupportSatisfactionResponseObject interface {
+	VisitGetPanelSupportSatisfactionResponse(w http.ResponseWriter) error
+}
+
+type GetPanelSupportSatisfaction200JSONResponse PanelSupportSatisfaction
+
+func (response GetPanelSupportSatisfaction200JSONResponse) VisitGetPanelSupportSatisfactionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelSupportSatisfaction403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetPanelSupportSatisfaction403ApplicationProblemPlusJSONResponse) VisitGetPanelSupportSatisfactionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelSupportSatisfaction422ApplicationProblemPlusJSONResponse Problem
+
+func (response GetPanelSupportSatisfaction422ApplicationProblemPlusJSONResponse) VisitGetPanelSupportSatisfactionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetPanelTrafficReportRequestObject struct {
 }
 
@@ -51575,6 +52752,58 @@ func (response ExportPanelTrafficReport403ApplicationProblemPlusJSONResponse) Vi
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelTrafficHistoryRequestObject struct {
+	Params GetPanelTrafficHistoryParams
+}
+
+type GetPanelTrafficHistoryResponseObject interface {
+	VisitGetPanelTrafficHistoryResponse(w http.ResponseWriter) error
+}
+
+type GetPanelTrafficHistory200JSONResponse PanelTrafficHistory
+
+func (response GetPanelTrafficHistory200JSONResponse) VisitGetPanelTrafficHistoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelTrafficHistory403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetPanelTrafficHistory403ApplicationProblemPlusJSONResponse) VisitGetPanelTrafficHistoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelTrafficHistory422ApplicationProblemPlusJSONResponse Problem
+
+func (response GetPanelTrafficHistory422ApplicationProblemPlusJSONResponse) VisitGetPanelTrafficHistoryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -56338,6 +57567,18 @@ type StrictServerInterface interface {
 	// (GET /v1/panel/remnawave/squads)
 	ListPanelRemnawaveSquads(ctx context.Context, request ListPanelRemnawaveSquadsRequestObject) (ListPanelRemnawaveSquadsResponseObject, error)
 
+	// (GET /v1/panel/reports/acquisition)
+	GetPanelAcquisitionReport(ctx context.Context, request GetPanelAcquisitionReportRequestObject) (GetPanelAcquisitionReportResponseObject, error)
+
+	// (GET /v1/panel/reports/acquisition/spend)
+	ListPanelAcquisitionSpend(ctx context.Context, request ListPanelAcquisitionSpendRequestObject) (ListPanelAcquisitionSpendResponseObject, error)
+
+	// (POST /v1/panel/reports/acquisition/spend)
+	CreatePanelAcquisitionSpend(ctx context.Context, request CreatePanelAcquisitionSpendRequestObject) (CreatePanelAcquisitionSpendResponseObject, error)
+
+	// (DELETE /v1/panel/reports/acquisition/spend/{spendID})
+	DeletePanelAcquisitionSpend(ctx context.Context, request DeletePanelAcquisitionSpendRequestObject) (DeletePanelAcquisitionSpendResponseObject, error)
+
 	// (GET /v1/panel/reports/channels)
 	GetPanelChannelReport(ctx context.Context, request GetPanelChannelReportRequestObject) (GetPanelChannelReportResponseObject, error)
 
@@ -56362,11 +57603,20 @@ type StrictServerInterface interface {
 	// (GET /v1/panel/reports/sales/export)
 	ExportPanelSalesReport(ctx context.Context, request ExportPanelSalesReportRequestObject) (ExportPanelSalesReportResponseObject, error)
 
+	// (GET /v1/panel/reports/subscriptions)
+	GetPanelSubscriptionReport(ctx context.Context, request GetPanelSubscriptionReportRequestObject) (GetPanelSubscriptionReportResponseObject, error)
+
+	// (GET /v1/panel/reports/support-satisfaction)
+	GetPanelSupportSatisfaction(ctx context.Context, request GetPanelSupportSatisfactionRequestObject) (GetPanelSupportSatisfactionResponseObject, error)
+
 	// (GET /v1/panel/reports/traffic)
 	GetPanelTrafficReport(ctx context.Context, request GetPanelTrafficReportRequestObject) (GetPanelTrafficReportResponseObject, error)
 
 	// (GET /v1/panel/reports/traffic/export)
 	ExportPanelTrafficReport(ctx context.Context, request ExportPanelTrafficReportRequestObject) (ExportPanelTrafficReportResponseObject, error)
+
+	// (GET /v1/panel/reports/traffic/history)
+	GetPanelTrafficHistory(ctx context.Context, request GetPanelTrafficHistoryRequestObject) (GetPanelTrafficHistoryResponseObject, error)
 
 	// (GET /v1/panel/risk/anomalies)
 	SearchPanelAnomalies(ctx context.Context, request SearchPanelAnomaliesRequestObject) (SearchPanelAnomaliesResponseObject, error)
@@ -65933,6 +67183,117 @@ func (sh *strictHandler) ListPanelRemnawaveSquads(w http.ResponseWriter, r *http
 	}
 }
 
+// GetPanelAcquisitionReport operation middleware
+func (sh *strictHandler) GetPanelAcquisitionReport(w http.ResponseWriter, r *http.Request, params GetPanelAcquisitionReportParams) {
+	var request GetPanelAcquisitionReportRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPanelAcquisitionReport(ctx, request.(GetPanelAcquisitionReportRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPanelAcquisitionReport")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPanelAcquisitionReportResponseObject); ok {
+		if err := validResponse.VisitGetPanelAcquisitionReportResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPanelAcquisitionSpend operation middleware
+func (sh *strictHandler) ListPanelAcquisitionSpend(w http.ResponseWriter, r *http.Request, params ListPanelAcquisitionSpendParams) {
+	var request ListPanelAcquisitionSpendRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPanelAcquisitionSpend(ctx, request.(ListPanelAcquisitionSpendRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPanelAcquisitionSpend")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPanelAcquisitionSpendResponseObject); ok {
+		if err := validResponse.VisitListPanelAcquisitionSpendResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreatePanelAcquisitionSpend operation middleware
+func (sh *strictHandler) CreatePanelAcquisitionSpend(w http.ResponseWriter, r *http.Request, params CreatePanelAcquisitionSpendParams) {
+	var request CreatePanelAcquisitionSpendRequestObject
+
+	request.Params = params
+
+	var body CreatePanelAcquisitionSpendJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreatePanelAcquisitionSpend(ctx, request.(CreatePanelAcquisitionSpendRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreatePanelAcquisitionSpend")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreatePanelAcquisitionSpendResponseObject); ok {
+		if err := validResponse.VisitCreatePanelAcquisitionSpendResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeletePanelAcquisitionSpend operation middleware
+func (sh *strictHandler) DeletePanelAcquisitionSpend(w http.ResponseWriter, r *http.Request, spendID openapi_types.UUID) {
+	var request DeletePanelAcquisitionSpendRequestObject
+
+	request.SpendID = spendID
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeletePanelAcquisitionSpend(ctx, request.(DeletePanelAcquisitionSpendRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeletePanelAcquisitionSpend")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeletePanelAcquisitionSpendResponseObject); ok {
+		if err := validResponse.VisitDeletePanelAcquisitionSpendResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetPanelChannelReport operation middleware
 func (sh *strictHandler) GetPanelChannelReport(w http.ResponseWriter, r *http.Request, params GetPanelChannelReportParams) {
 	var request GetPanelChannelReportRequestObject
@@ -66139,6 +67500,58 @@ func (sh *strictHandler) ExportPanelSalesReport(w http.ResponseWriter, r *http.R
 	}
 }
 
+// GetPanelSubscriptionReport operation middleware
+func (sh *strictHandler) GetPanelSubscriptionReport(w http.ResponseWriter, r *http.Request, params GetPanelSubscriptionReportParams) {
+	var request GetPanelSubscriptionReportRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPanelSubscriptionReport(ctx, request.(GetPanelSubscriptionReportRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPanelSubscriptionReport")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPanelSubscriptionReportResponseObject); ok {
+		if err := validResponse.VisitGetPanelSubscriptionReportResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPanelSupportSatisfaction operation middleware
+func (sh *strictHandler) GetPanelSupportSatisfaction(w http.ResponseWriter, r *http.Request, params GetPanelSupportSatisfactionParams) {
+	var request GetPanelSupportSatisfactionRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPanelSupportSatisfaction(ctx, request.(GetPanelSupportSatisfactionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPanelSupportSatisfaction")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPanelSupportSatisfactionResponseObject); ok {
+		if err := validResponse.VisitGetPanelSupportSatisfactionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetPanelTrafficReport operation middleware
 func (sh *strictHandler) GetPanelTrafficReport(w http.ResponseWriter, r *http.Request) {
 	var request GetPanelTrafficReportRequestObject
@@ -66180,6 +67593,32 @@ func (sh *strictHandler) ExportPanelTrafficReport(w http.ResponseWriter, r *http
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ExportPanelTrafficReportResponseObject); ok {
 		if err := validResponse.VisitExportPanelTrafficReportResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPanelTrafficHistory operation middleware
+func (sh *strictHandler) GetPanelTrafficHistory(w http.ResponseWriter, r *http.Request, params GetPanelTrafficHistoryParams) {
+	var request GetPanelTrafficHistoryRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPanelTrafficHistory(ctx, request.(GetPanelTrafficHistoryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPanelTrafficHistory")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPanelTrafficHistoryResponseObject); ok {
+		if err := validResponse.VisitGetPanelTrafficHistoryResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

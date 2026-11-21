@@ -73,6 +73,19 @@ type AccessCode struct {
 	CreatedAt             pgtype.Timestamptz `json:"created_at"`
 }
 
+type AcquisitionSpend struct {
+	ID             pgtype.UUID        `json:"id"`
+	CampaignID     pgtype.UUID        `json:"campaign_id"`
+	UtmSource      pgtype.Text        `json:"utm_source"`
+	SpentOn        pgtype.Date        `json:"spent_on"`
+	Currency       string             `json:"currency"`
+	AmountMinor    int64              `json:"amount_minor"`
+	Note           string             `json:"note"`
+	CreatedBy      string             `json:"created_by"`
+	IdempotencyKey pgtype.Text        `json:"idempotency_key"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
 type AdCampaign struct {
 	ID          pgtype.UUID        `json:"id"`
 	Code        string             `json:"code"`
@@ -1245,6 +1258,13 @@ type FulfillmentOperation struct {
 	CompletedAt    pgtype.Timestamptz `json:"completed_at"`
 }
 
+type FunnelEvent struct {
+	UserID     pgtype.UUID        `json:"user_id"`
+	Step       string             `json:"step"`
+	Channel    string             `json:"channel"`
+	OccurredAt pgtype.Timestamptz `json:"occurred_at"`
+}
+
 type GamePlay struct {
 	ID              pgtype.UUID        `json:"id"`
 	UserID          pgtype.UUID        `json:"user_id"`
@@ -1807,6 +1827,17 @@ type NewsRead struct {
 	UserID pgtype.UUID        `json:"user_id"`
 	PostID pgtype.UUID        `json:"post_id"`
 	ReadAt pgtype.Timestamptz `json:"read_at"`
+}
+
+type NodeTrafficSample struct {
+	NodeUuid          string             `json:"node_uuid"`
+	SampledAt         pgtype.Timestamptz `json:"sampled_at"`
+	NodeName          string             `json:"node_name"`
+	CountryCode       string             `json:"country_code"`
+	Connected         bool               `json:"connected"`
+	TrafficUsedBytes  int64              `json:"traffic_used_bytes"`
+	TrafficLimitBytes int64              `json:"traffic_limit_bytes"`
+	UsersOnline       pgtype.Int4        `json:"users_online"`
 }
 
 // Operator wording for transactional notices. A missing row means the shipped default, so deleting one is a real revert.
@@ -2745,6 +2776,17 @@ type Subscription struct {
 	LinkRotatedAt pgtype.Timestamptz `json:"link_rotated_at"`
 }
 
+type SubscriptionDailySnapshot struct {
+	Day           pgtype.Date        `json:"day"`
+	PlanCode      string             `json:"plan_code"`
+	BillingPeriod string             `json:"billing_period"`
+	Kind          string             `json:"kind"`
+	Currency      string             `json:"currency"`
+	Active        int32              `json:"active"`
+	MrrMinor      int64              `json:"mrr_minor"`
+	TakenAt       pgtype.Timestamptz `json:"taken_at"`
+}
+
 // Installation-wide switches for plan changes and what a paid period resets. One row, edited from the panel.
 type SubscriptionPolicy struct {
 	Singleton                bool               `json:"singleton"`
@@ -2768,6 +2810,11 @@ type SubscriptionPolicy struct {
 	LimitedAccessSquadID     pgtype.UUID        `json:"limited_access_squad_id"`
 	LimitedAccessTrafficGb   pgtype.Int4        `json:"limited_access_traffic_gb"`
 	LimitedAccessDays        pgtype.Int4        `json:"limited_access_days"`
+}
+
+type SubscriptionSnapshotDay struct {
+	Day     pgtype.Date        `json:"day"`
+	TakenAt pgtype.Timestamptz `json:"taken_at"`
 }
 
 type SupportAttachment struct {
@@ -2866,6 +2913,9 @@ type SupportTicket struct {
 	ReopenedCount       int32              `json:"reopened_count"`
 	OperatorUnreadCount int32              `json:"operator_unread_count"`
 	MergedIntoTicketID  pgtype.UUID        `json:"merged_into_ticket_id"`
+	Rating              pgtype.Int2        `json:"rating"`
+	RatedAt             pgtype.Timestamptz `json:"rated_at"`
+	RatingRequestedAt   pgtype.Timestamptz `json:"rating_requested_at"`
 }
 
 type SupportTicketTag struct {

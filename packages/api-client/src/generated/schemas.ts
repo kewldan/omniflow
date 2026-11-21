@@ -6627,8 +6627,436 @@ export const GetPanelCustomerPaymentsResponse = zod.object({
 });
 
 /**
+ * Requires finance.read. The subscription base over the period from the daily snapshots (paid, imported, trial, free), monthly recurring revenue per currency, the latest day by plan, renewals of the paid periods that ended in the period, automatic renewal outcomes, revenue per paying customer and per subscriber, and the last twelve monthly cohorts of payers with retention and lifetime value.
+ * Recurring revenue normalises the price charged to a thirty-day month. Imported periods carry no price and are valued at list price, reported apart as `estimatedMinor`. A rate with nothing behind it is absent, not zero. A period longer than two years is refused.
+ */
+export const getPanelSubscriptionReportQueryTimezoneDefault = `UTC`;
+
+export const GetPanelSubscriptionReportQueryParams = zod.object({
+  since: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("Start of the period, inclusive. Defaults to thirty days before `until`."),
+  until: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("End of the period, exclusive. Defaults to now."),
+  timezone: zod
+    .string()
+    .default(getPanelSubscriptionReportQueryTimezoneDefault)
+    .describe(
+      'The zone the day boundaries are computed in. "Sales on the third" means the operator\'s third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day.',
+    ),
+});
+
+export const GetPanelSubscriptionReportResponse = zod.object({
+  since: zod.iso.datetime({ offset: true }),
+  until: zod.iso.datetime({ offset: true }),
+  timezone: zod.string(),
+  generatedAt: zod.iso.datetime({ offset: true }),
+  latestDay: zod.iso.date().optional(),
+  base: zod.array(
+    zod.object({
+      day: zod.iso.date(),
+      paid: zod.int(),
+      imported: zod.int(),
+      trial: zod.int(),
+      free: zod.int(),
+    }),
+  ),
+  mrr: zod.array(
+    zod.object({
+      day: zod.iso.date(),
+      currency: zod.string(),
+      mrrMinor: zod.int(),
+      estimatedMinor: zod.int().describe("Imported periods valued at list price."),
+    }),
+  ),
+  plans: zod.array(
+    zod.object({
+      planCode: zod.string(),
+      billingPeriod: zod.string(),
+      kind: zod.enum(["paid", "imported", "trial", "free"]),
+      currency: zod.string().describe("Empty for trial and free access."),
+      active: zod.int(),
+      mrrMinor: zod.int(),
+    }),
+  ),
+  renewals: zod.object({
+    graceDays: zod.int(),
+    ended: zod.int(),
+    renewed: zod.int(),
+    churned: zod.int(),
+    pending: zod.int(),
+    renewalRate: zod.number().optional(),
+    activeAtStart: zod
+      .int()
+      .optional()
+      .describe("Paid and imported subscriptions on the first day of the period."),
+    churnRate: zod
+      .number()
+      .optional()
+      .describe("Churned periods over the paying base at the start of the period."),
+    lines: zod.array(
+      zod.object({
+        planCode: zod.string(),
+        billingPeriod: zod.string(),
+        kind: zod.enum(["paid", "imported"]),
+        ended: zod.int(),
+        renewed: zod.int(),
+        churned: zod.int(),
+        pending: zod.int().describe("Ended within the grace period with no successor yet."),
+        renewalRate: zod.number().optional(),
+      }),
+    ),
+  }),
+  autoRenew: zod.object({
+    enabled: zod.int(),
+    lines: zod.array(
+      zod.object({
+        funding: zod.string(),
+        cycles: zod.int(),
+        firstTry: zod.int(),
+        recovered: zod.int(),
+        lost: zod.int(),
+        inProgress: zod.int(),
+        successRate: zod.number().optional(),
+        recoveryRate: zod.number().optional(),
+      }),
+    ),
+    failureCodes: zod.array(
+      zod.object({
+        code: zod.string(),
+        attempts: zod.int(),
+      }),
+    ),
+  }),
+  perCustomer: zod.array(
+    zod.object({
+      currency: zod.string(),
+      paidMinor: zod.int(),
+      payers: zod.int(),
+      arppuMinor: zod.int().optional(),
+      averageSubscribers: zod.number().optional(),
+      arpuMinor: zod.int().optional(),
+    }),
+  ),
+  cohorts: zod.array(
+    zod.object({
+      month: zod.iso.date(),
+      customers: zod.int(),
+      retention: zod.array(
+        zod.object({
+          offset: zod.int(),
+          active: zod.int(),
+          rate: zod.number().optional(),
+        }),
+      ),
+      revenue: zod.array(
+        zod.object({
+          currency: zod.string(),
+          customers: zod.int(),
+          revenueMinor: zod.int(),
+          ltvMinor: zod.int().optional(),
+        }),
+      ),
+    }),
+  ),
+});
+
+/**
+ * Requires finance.read. What acquiring customers cost and brought over the period: /start campaigns and `utm_source` channels with the costs recorded against them, customer acquisition cost and return on spend per currency, promo codes, wallet credit and free access given away, and the purchase funnel of the customers who signed up in the period.
+ * Cost and return are computed only where spend and revenue share a currency; nothing is converted.
+ */
+export const getPanelAcquisitionReportQueryTimezoneDefault = `UTC`;
+
+export const GetPanelAcquisitionReportQueryParams = zod.object({
+  since: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("Start of the period, inclusive. Defaults to thirty days before `until`."),
+  until: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("End of the period, exclusive. Defaults to now."),
+  timezone: zod
+    .string()
+    .default(getPanelAcquisitionReportQueryTimezoneDefault)
+    .describe(
+      'The zone the day boundaries are computed in. "Sales on the third" means the operator\'s third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day.',
+    ),
+});
+
+export const GetPanelAcquisitionReportResponse = zod.object({
+  since: zod.iso.datetime({ offset: true }),
+  until: zod.iso.datetime({ offset: true }),
+  timezone: zod.string(),
+  generatedAt: zod.iso.datetime({ offset: true }),
+  campaigns: zod.array(
+    zod.object({
+      campaignId: zod.uuid(),
+      code: zod.string(),
+      name: zod.string(),
+      signups: zod.int(),
+      payers: zod.int(),
+      conversionRate: zod.number().optional(),
+      economics: zod.array(
+        zod.object({
+          currency: zod.string(),
+          spendMinor: zod.int(),
+          revenueMinor: zod.int(),
+          cacMinor: zod.int().optional(),
+          roi: zod.number().optional().describe("(revenue − spend) ÷ spend."),
+        }),
+      ),
+    }),
+  ),
+  sources: zod.array(
+    zod.object({
+      utmSource: zod.string(),
+      currency: zod.string(),
+      orders: zod.int(),
+      payers: zod.int(),
+      newPayers: zod.int(),
+      revenueMinor: zod.int(),
+      spendMinor: zod.int(),
+      cacMinor: zod.int().optional(),
+      roi: zod.number().optional(),
+    }),
+  ),
+  promoCodes: zod.array(
+    zod.object({
+      code: zod.string(),
+      promotionKind: zod.string(),
+      currency: zod.string(),
+      redemptions: zod.int(),
+      customers: zod.int(),
+      newCustomers: zod.int(),
+      discountMinor: zod.int(),
+      revenueMinor: zod.int(),
+    }),
+  ),
+  bonusCredit: zod.array(
+    zod.object({
+      source: zod.string(),
+      currency: zod.string(),
+      grants: zod.int(),
+      amountMinor: zod.int(),
+    }),
+  ),
+  freeAccess: zod.array(
+    zod.object({
+      source: zod.string(),
+      grants: zod.int(),
+      days: zod.int(),
+    }),
+  ),
+  funnel: zod.object({
+    signups: zod.int(),
+    plansViewed: zod.int(),
+    checkoutStarted: zod.int(),
+    trialClaimed: zod.int(),
+    paid: zod.int(),
+    byChannel: zod.array(
+      zod.object({
+        step: zod.enum(["plans_viewed", "checkout_started"]),
+        channel: zod.enum(["bot", "web"]),
+        customers: zod.int(),
+      }),
+    ),
+  }),
+});
+
+/**
+ * Requires finance.read. Advertising costs recorded for days in the period, newest first.
+ */
+export const listPanelAcquisitionSpendQueryTimezoneDefault = `UTC`;
+
+export const ListPanelAcquisitionSpendQueryParams = zod.object({
+  since: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("Start of the period, inclusive. Defaults to thirty days before `until`."),
+  until: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("End of the period, exclusive. Defaults to now."),
+  timezone: zod
+    .string()
+    .default(listPanelAcquisitionSpendQueryTimezoneDefault)
+    .describe(
+      'The zone the day boundaries are computed in. "Sales on the third" means the operator\'s third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day.',
+    ),
+});
+
+export const ListPanelAcquisitionSpendResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      campaignId: zod.uuid().optional(),
+      campaignCode: zod.string().optional(),
+      campaignName: zod.string().optional(),
+      utmSource: zod.string().optional(),
+      spentOn: zod.iso.date(),
+      currency: zod.string(),
+      amountMinor: zod.int(),
+      note: zod.string(),
+      createdBy: zod.string(),
+      createdAt: zod.iso.datetime({ offset: true }),
+    }),
+  ),
+});
+
+/**
+ * Requires finance.write. Records what was paid for advertising on one day, against a /start campaign or a `utm_source`, never both. Omniflow sees the revenue an advertisement brought and never its invoice, so the cost is entered by hand. The change is audited. A retry with the same `Idempotency-Key` returns the cost the first request recorded.
+ */
+export const createPanelAcquisitionSpendHeaderIdempotencyKeyMin = 8;
+export const createPanelAcquisitionSpendHeaderIdempotencyKeyMax = 128;
+
+export const CreatePanelAcquisitionSpendHeader = zod.object({
+  "Idempotency-Key": zod
+    .string()
+    .min(createPanelAcquisitionSpendHeaderIdempotencyKeyMin)
+    .max(createPanelAcquisitionSpendHeaderIdempotencyKeyMax)
+    .optional()
+    .describe(
+      "Optional here. Supplying one makes a repeated submission resolve to the record already created instead of a second one.",
+    ),
+});
+
+export const createPanelAcquisitionSpendBodyUtmSourceRegExp = /^[A-Za-z0-9._-]{1,64}$/;
+export const createPanelAcquisitionSpendBodyCurrencyRegExp = /^[A-Za-z]{3}$/;
+
+export const createPanelAcquisitionSpendBodyNoteMax = 200;
+
+export const CreatePanelAcquisitionSpendBody = zod.object({
+  campaignId: zod.uuid().optional(),
+  utmSource: zod.string().regex(createPanelAcquisitionSpendBodyUtmSourceRegExp).optional(),
+  spentOn: zod.iso.date(),
+  currency: zod.string().regex(createPanelAcquisitionSpendBodyCurrencyRegExp),
+  amountMinor: zod.int().min(1),
+  note: zod.string().max(createPanelAcquisitionSpendBodyNoteMax).optional(),
+});
+
+export const CreatePanelAcquisitionSpendResponse = zod.object({
+  id: zod.uuid(),
+  campaignId: zod.uuid().optional(),
+  campaignCode: zod.string().optional(),
+  campaignName: zod.string().optional(),
+  utmSource: zod.string().optional(),
+  spentOn: zod.iso.date(),
+  currency: zod.string(),
+  amountMinor: zod.int(),
+  note: zod.string(),
+  createdBy: zod.string(),
+  createdAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * Requires finance.write. Removes a cost entered by mistake. The audit trail keeps what it was.
+ */
+export const DeletePanelAcquisitionSpendParams = zod.object({
+  spendID: zod.uuid(),
+});
+
+export const DeletePanelAcquisitionSpendResponse = zod.void();
+
+/**
+ * Requires customers.read. Traffic each node carried per day and its busiest hour, from the hourly samples the worker records of Remnawave's node counters. Remnawave keeps the counters for now only; the samples are observations for reporting and decide nothing. A drop to less than half the previous reading is a reset and counts the new reading; a smaller drop is a wobble and counts as nothing.
+ */
+export const getPanelTrafficHistoryQueryTimezoneDefault = `UTC`;
+
+export const GetPanelTrafficHistoryQueryParams = zod.object({
+  since: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("Start of the period, inclusive. Defaults to thirty days before `until`."),
+  until: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("End of the period, exclusive. Defaults to now."),
+  timezone: zod
+    .string()
+    .default(getPanelTrafficHistoryQueryTimezoneDefault)
+    .describe(
+      'The zone the day boundaries are computed in. "Sales on the third" means the operator\'s third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day.',
+    ),
+});
+
+export const GetPanelTrafficHistoryResponse = zod.object({
+  since: zod.iso.datetime({ offset: true }),
+  until: zod.iso.datetime({ offset: true }),
+  timezone: zod.string(),
+  generatedAt: zod.iso.datetime({ offset: true }),
+  nodes: zod.array(
+    zod.object({
+      nodeUuid: zod.string(),
+      nodeName: zod.string(),
+      countryCode: zod.string(),
+      limitBytes: zod.int(),
+      totalBytes: zod.int(),
+      peakOnline: zod.int(),
+      days: zod.array(
+        zod.object({
+          day: zod.iso.date(),
+          usedBytes: zod.int(),
+          peakOnline: zod.int(),
+        }),
+      ),
+    }),
+  ),
+  totals: zod.array(
+    zod.object({
+      day: zod.iso.date(),
+      usedBytes: zod.int(),
+    }),
+  ),
+});
+
+/**
+ * Requires support.read. Marks customers gave resolved tickets in the period: how many were asked and answered, CSAT (the share of fours and fives), the average, the distribution, and the same per operator the ticket was assigned to.
+ */
+export const GetPanelSupportSatisfactionQueryParams = zod.object({
+  since: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("Start of the period, inclusive. Defaults to thirty days before `until`."),
+  until: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("End of the period, exclusive. Defaults to now."),
+});
+
+export const getPanelSupportSatisfactionResponseDistributionMin = 5;
+export const getPanelSupportSatisfactionResponseDistributionMax = 5;
+
+export const GetPanelSupportSatisfactionResponse = zod.object({
+  since: zod.iso.datetime({ offset: true }),
+  until: zod.iso.datetime({ offset: true }),
+  requested: zod.int(),
+  ratings: zod.int(),
+  responseRate: zod.number().optional(),
+  csat: zod.number().optional().describe("Share of fours and fives."),
+  average: zod.number().optional(),
+  distribution: zod
+    .array(zod.int())
+    .min(getPanelSupportSatisfactionResponseDistributionMin)
+    .max(getPanelSupportSatisfactionResponseDistributionMax)
+    .describe("Counts of marks one to five."),
+  operators: zod.array(
+    zod.object({
+      operatorId: zod.uuid(),
+      displayName: zod.string(),
+      ratings: zod.int(),
+      csat: zod.number().optional(),
+      average: zod.number().optional(),
+    }),
+  ),
+});
+
+/**
  * Requires customers.read. Node saturation and the heaviest users, read live from Remnawave on every request.
- * Omniflow stores none of it. Remnawave is authoritative for traffic, nodes, and connections, and this repository has no table for a node or for a byte a customer used — keeping one would be the first step towards Omniflow having an opinion about traffic. What Omniflow adds is the join: a Remnawave user identifier resolved to the customer who holds it.
+ * This view stores nothing. Remnawave is authoritative for traffic, nodes, and connections, and nothing here keeps a byte a customer used. What Omniflow adds is the join: a Remnawave user identifier resolved to the customer who holds it. The node counters' history is a separate, read-only observation served by `GET /v1/panel/reports/traffic/history`.
  * `nodesReported` is false when the panel does not expose a node listing or could not be reached, and `nodesDetail` says which. An empty node list and no node data look identical on a screen and mean opposite things.
  * The consumer ranking pages the panel's user list and stops after ten pages. `scanned` and `total` say how far it got, so a truncated ranking is never presented as a complete one.
  */

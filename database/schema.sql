@@ -457,6 +457,30 @@ COMMENT ON COLUMN public.access_codes.code_hash IS 'SHA-256 of the code. The pla
 
 
 --
+-- Name: acquisition_spend; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.acquisition_spend (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    campaign_id uuid,
+    utm_source text,
+    spent_on date NOT NULL,
+    currency text NOT NULL,
+    amount_minor bigint NOT NULL,
+    note text DEFAULT ''::text NOT NULL,
+    created_by text NOT NULL,
+    idempotency_key text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT acquisition_spend_amount_positive CHECK ((amount_minor > 0)),
+    CONSTRAINT acquisition_spend_currency_shape CHECK ((currency ~ '^[A-Z]{3}$'::text)),
+    CONSTRAINT acquisition_spend_idempotency_key_length CHECK (((idempotency_key IS NULL) OR ((char_length(idempotency_key) >= 1) AND (char_length(idempotency_key) <= 128)))),
+    CONSTRAINT acquisition_spend_note_length CHECK ((char_length(note) <= 200)),
+    CONSTRAINT acquisition_spend_one_target CHECK (((campaign_id IS NULL) <> (utm_source IS NULL))),
+    CONSTRAINT acquisition_spend_utm_source_shape CHECK (((utm_source IS NULL) OR (utm_source ~ '^[a-z0-9._-]{1,64}$'::text)))
+);
+
+
+--
 -- Name: ad_campaigns; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2532,6 +2556,20 @@ CREATE TABLE public.fulfillment_operations (
 
 
 --
+-- Name: funnel_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.funnel_events (
+    user_id uuid NOT NULL,
+    step text NOT NULL,
+    channel text NOT NULL,
+    occurred_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT funnel_events_channel_known CHECK ((channel = ANY (ARRAY['bot'::text, 'web'::text]))),
+    CONSTRAINT funnel_events_step_known CHECK ((step = ANY (ARRAY['plans_viewed'::text, 'checkout_started'::text])))
+);
+
+
+--
 -- Name: game_plays; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -3527,6 +3565,25 @@ CREATE TABLE public.news_reads (
     user_id uuid NOT NULL,
     post_id uuid NOT NULL,
     read_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: node_traffic_samples; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.node_traffic_samples (
+    node_uuid text NOT NULL,
+    sampled_at timestamp with time zone NOT NULL,
+    node_name text NOT NULL,
+    country_code text DEFAULT ''::text NOT NULL,
+    connected boolean NOT NULL,
+    traffic_used_bytes bigint NOT NULL,
+    traffic_limit_bytes bigint DEFAULT 0 NOT NULL,
+    users_online integer,
+    CONSTRAINT node_traffic_samples_limit_check CHECK ((traffic_limit_bytes >= 0)),
+    CONSTRAINT node_traffic_samples_online_check CHECK (((users_online IS NULL) OR (users_online >= 0))),
+    CONSTRAINT node_traffic_samples_used_check CHECK ((traffic_used_bytes >= 0))
 );
 
 
@@ -5193,6 +5250,26 @@ CREATE TABLE public.stars_quotes (
 
 
 --
+-- Name: subscription_daily_snapshots; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.subscription_daily_snapshots (
+    day date NOT NULL,
+    plan_code text NOT NULL,
+    billing_period text NOT NULL,
+    kind text NOT NULL,
+    currency text DEFAULT ''::text NOT NULL,
+    active integer NOT NULL,
+    mrr_minor bigint DEFAULT 0 NOT NULL,
+    taken_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT subscription_daily_snapshots_active_check CHECK ((active >= 0)),
+    CONSTRAINT subscription_daily_snapshots_currency_shape CHECK (((currency = ''::text) OR (currency ~ '^[A-Z]{3}$'::text))),
+    CONSTRAINT subscription_daily_snapshots_kind_known CHECK ((kind = ANY (ARRAY['paid'::text, 'imported'::text, 'trial'::text, 'free'::text]))),
+    CONSTRAINT subscription_daily_snapshots_mrr_check CHECK ((mrr_minor >= 0))
+);
+
+
+--
 -- Name: subscription_policy; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -5235,6 +5312,16 @@ CREATE TABLE public.subscription_policy (
 --
 
 COMMENT ON TABLE public.subscription_policy IS 'Installation-wide switches for plan changes and what a paid period resets. One row, edited from the panel.';
+
+
+--
+-- Name: subscription_snapshot_days; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.subscription_snapshot_days (
+    day date NOT NULL,
+    taken_at timestamp with time zone DEFAULT now() NOT NULL
+);
 
 
 --
@@ -5465,10 +5552,15 @@ CREATE TABLE public.support_tickets (
     reopened_count integer DEFAULT 0 NOT NULL,
     operator_unread_count integer DEFAULT 0 NOT NULL,
     merged_into_ticket_id uuid,
+    rating smallint,
+    rated_at timestamp with time zone,
+    rating_requested_at timestamp with time zone,
     CONSTRAINT support_tickets_customer_unread_count_check CHECK ((customer_unread_count >= 0)),
     CONSTRAINT support_tickets_merge_is_not_self CHECK (((merged_into_ticket_id IS NULL) OR (merged_into_ticket_id <> id))),
     CONSTRAINT support_tickets_operator_unread_count_check CHECK ((operator_unread_count >= 0)),
     CONSTRAINT support_tickets_priority_check CHECK ((priority = ANY (ARRAY['low'::text, 'normal'::text, 'high'::text, 'urgent'::text]))),
+    CONSTRAINT support_tickets_rated_at_present CHECK (((rating IS NULL) = (rated_at IS NULL))),
+    CONSTRAINT support_tickets_rating_range CHECK (((rating IS NULL) OR ((rating >= 1) AND (rating <= 5)))),
     CONSTRAINT support_tickets_reopened_count_check CHECK ((reopened_count >= 0)),
     CONSTRAINT support_tickets_status_check CHECK ((status = ANY (ARRAY['open'::text, 'pending'::text, 'resolved'::text, 'closed'::text, 'merged'::text]))),
     CONSTRAINT support_tickets_subject_check CHECK ((char_length(subject) <= 120))
@@ -5729,6 +5821,22 @@ ALTER TABLE ONLY public.access_codes
 
 ALTER TABLE ONLY public.access_codes
     ADD CONSTRAINT access_codes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: acquisition_spend acquisition_spend_idempotency_key_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.acquisition_spend
+    ADD CONSTRAINT acquisition_spend_idempotency_key_unique UNIQUE (idempotency_key);
+
+
+--
+-- Name: acquisition_spend acquisition_spend_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.acquisition_spend
+    ADD CONSTRAINT acquisition_spend_pkey PRIMARY KEY (id);
 
 
 --
@@ -6748,6 +6856,14 @@ ALTER TABLE ONLY public.fulfillment_operations
 
 
 --
+-- Name: funnel_events funnel_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.funnel_events
+    ADD CONSTRAINT funnel_events_pkey PRIMARY KEY (user_id, step);
+
+
+--
 -- Name: game_plays game_plays_idempotency_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7249,6 +7365,14 @@ ALTER TABLE ONLY public.news_posts
 
 ALTER TABLE ONLY public.news_reads
     ADD CONSTRAINT news_reads_pkey PRIMARY KEY (user_id, post_id);
+
+
+--
+-- Name: node_traffic_samples node_traffic_samples_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.node_traffic_samples
+    ADD CONSTRAINT node_traffic_samples_pkey PRIMARY KEY (node_uuid, sampled_at);
 
 
 --
@@ -8052,11 +8176,27 @@ ALTER TABLE ONLY public.stars_quotes
 
 
 --
+-- Name: subscription_daily_snapshots subscription_daily_snapshots_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.subscription_daily_snapshots
+    ADD CONSTRAINT subscription_daily_snapshots_pkey PRIMARY KEY (day, plan_code, billing_period, kind, currency);
+
+
+--
 -- Name: subscription_policy subscription_policy_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.subscription_policy
     ADD CONSTRAINT subscription_policy_pkey PRIMARY KEY (singleton);
+
+
+--
+-- Name: subscription_snapshot_days subscription_snapshot_days_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.subscription_snapshot_days
+    ADD CONSTRAINT subscription_snapshot_days_pkey PRIMARY KEY (day);
 
 
 --
@@ -8280,6 +8420,13 @@ ALTER TABLE ONLY public.wheel_spins
 --
 
 CREATE INDEX access_codes_batch_idx ON public.access_codes USING btree (batch_id, status);
+
+
+--
+-- Name: acquisition_spend_spent_on_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX acquisition_spend_spent_on_idx ON public.acquisition_spend USING btree (spent_on);
 
 
 --
@@ -9151,6 +9298,13 @@ CREATE INDEX news_posts_tags ON public.news_posts USING gin (tags);
 
 
 --
+-- Name: node_traffic_samples_time_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX node_traffic_samples_time_idx ON public.node_traffic_samples USING btree (sampled_at);
+
+
+--
 -- Name: notice_test_sends_pending_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -9634,6 +9788,20 @@ CREATE INDEX support_tickets_queue_idx ON public.support_tickets USING btree (qu
 
 
 --
+-- Name: support_tickets_rated_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX support_tickets_rated_at_idx ON public.support_tickets USING btree (rated_at) WHERE (rating IS NOT NULL);
+
+
+--
+-- Name: support_tickets_rating_due_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX support_tickets_rating_due_idx ON public.support_tickets USING btree (resolved_at) WHERE ((rating_requested_at IS NULL) AND (rating IS NULL) AND (status = ANY (ARRAY['resolved'::text, 'closed'::text])));
+
+
+--
 -- Name: support_tickets_subject_trgm_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -9865,6 +10033,14 @@ ALTER TABLE ONLY public.access_codes
 
 ALTER TABLE ONLY public.access_codes
     ADD CONSTRAINT access_codes_redeemed_entitlement_id_fkey FOREIGN KEY (redeemed_entitlement_id) REFERENCES public.entitlements(id);
+
+
+--
+-- Name: acquisition_spend acquisition_spend_campaign_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.acquisition_spend
+    ADD CONSTRAINT acquisition_spend_campaign_id_fkey FOREIGN KEY (campaign_id) REFERENCES public.ad_campaigns(id);
 
 
 --
@@ -10937,6 +11113,14 @@ ALTER TABLE ONLY public.fulfillment_history
 
 ALTER TABLE ONLY public.fulfillment_operations
     ADD CONSTRAINT fulfillment_operations_entitlement_id_fkey FOREIGN KEY (entitlement_id) REFERENCES public.entitlements(id);
+
+
+--
+-- Name: funnel_events funnel_events_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.funnel_events
+    ADD CONSTRAINT funnel_events_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --

@@ -152,6 +152,7 @@ func main() {
 		os.Exit(1)
 	}
 	tasks = append(tasks, monitoring...)
+	tasks = append(tasks, analyticsTasks(pool, remnawaveClient)...)
 	periodicWorker, schedule, err := jobs.NewPeriodic(logger, tasks...)
 	if err != nil {
 		logger.Error("initialize periodic tasks", "error", err)

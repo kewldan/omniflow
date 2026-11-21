@@ -17,6 +17,7 @@ import (
 	telegram "github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/omniflow/omniflow/internal/analytics"
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/commercepg"
 	databaseutil "github.com/omniflow/omniflow/internal/database"
@@ -107,6 +108,9 @@ type App struct {
 
 	// terms is the gate that holds the menu until the terms are accepted.
 	terms *termsgate.Gate
+
+	// analytics records funnel steps and support marks; see analytics.go.
+	analytics *analytics.Service
 
 	// partners is the partner programme: applications and the partner's
 	// standing. It is built with the commerce surface.
@@ -249,7 +253,7 @@ var consequentialActions = map[string]bool{
 	"confirm": true, "order-cancel": true, "pm": true, "wallet-toggle": true,
 	"pay": true, "order-pm": true, "gift-buy": true, "shop-buy": true,
 	"promo-clear": true, "invoice": true, "device-delete": true, "devices-delete": true,
-	"revoke": true, "ticket-close": true, "ticket-open": true, "autorenew": true,
+	"revoke": true, "ticket-close": true, "ticket-open": true, "autorenew": true, "csat": true,
 	// v0.5 actions that move money, provisioning, or database state.
 	"topup-pm": true, "cart-buy": true, "cart-clear": true, "cart-save": true,
 	"cart-auto": true, "addon-confirm": true, "reset-buy": true, "sub-revoke": true, "sub-pause": true, "sub-resume": true, "sub-dev-del": true, "sub-devs-del": true, "tpk-buy": true, "devl-buy": true, "sqr-buy": true,

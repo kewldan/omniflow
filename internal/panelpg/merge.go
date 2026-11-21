@@ -512,6 +512,11 @@ func (pair mergePair) move(ctx context.Context, queries *dbgen.Queries) error {
 		func() error {
 			return queries.MoveCustomerReferralsMade(ctx, dbgen.MoveCustomerReferralsMadeParams{Source: p.Source, Target: p.Target})
 		},
+		// The purchase funnel's steps, so the person's earliest look at the
+		// plans counts once, on the survivor.
+		func() error {
+			return queries.MoveCustomerFunnelEvents(ctx, dbgen.MoveCustomerFunnelEventsParams{Source: p.Source, Target: p.Target})
+		},
 		func() error {
 			return queries.MoveCustomerReferralAttribution(ctx, dbgen.MoveCustomerReferralAttributionParams{Source: p.Source, Target: p.Target})
 		},

@@ -3,6 +3,7 @@ package botapp
 import (
 	"context"
 	"errors"
+	"github.com/omniflow/omniflow/internal/analytics"
 	"github.com/omniflow/omniflow/internal/payments"
 	"log/slog"
 	"strconv"
@@ -190,6 +191,7 @@ func (app *App) loadCommerceView(ctx context.Context, session commerceContext, r
 const newSubscriptionFlag = "new"
 
 func (app *App) plansScreen(ctx context.Context, session commerceContext, forNew bool) View {
+	app.recordFunnel(ctx, session.Customer.ID, analytics.StepPlansViewed)
 	// Maintenance stops the purchase surface at its entry point rather than at
 	// the payment step, so a customer is told before they choose anything.
 	if view, blocked := app.blockedByMaintenance(ctx, session); blocked {
@@ -349,6 +351,9 @@ func (app *App) checkoutScreen(ctx context.Context, session commerceContext) Vie
 	if err != nil {
 		app.logError(ctx, "checkout lookup failed", "error", err)
 		return app.errorView(session.Locale, routePlans)
+	}
+	if found {
+		app.recordFunnel(ctx, session.Customer.ID, analytics.StepCheckoutStarted)
 	}
 	if !found {
 		return View{Text: text(session.Locale, "checkout.expired"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "menu.plans"), routePlans)))}
@@ -1016,6 +1021,8 @@ func (app *App) handleCommerceAction(ctx context.Context, session commerceContex
 		return app.setTicketStatus(ctx, session, argument, "closed"), true
 	case "ticket-open":
 		return app.setTicketStatus(ctx, session, argument, "open"), true
+	case "csat":
+		return app.rateTicket(ctx, session, argument, argumentAt(parts, 2)), true
 	case "pages":
 		return app.pagesScreen(ctx, session.Locale), true
 	case "page":
@@ -1427,7 +1434,7 @@ var commerceActions = func() map[string]bool {
 		"promo": true, "promo-clear": true, "wallet-toggle": true, "order": true,
 		"pay": true, "order-pm": true, "opms": true, "opm": true,
 		"order-cancel": true, "news": true, "ticket": true, "ticket-reply": true,
-		"ticket-close": true, "ticket-open": true, "support-new": true, "connect": true,
+		"ticket-close": true, "ticket-open": true, "support-new": true, "connect": true, "csat": true,
 		"pages": true, "page": true,
 		"autorenew": true, "renew-settings": true, "renew-funding": true, "renew-lead": true,
 		"renew-days":     true,

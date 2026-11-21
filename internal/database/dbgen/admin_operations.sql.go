@@ -2026,7 +2026,7 @@ func (q *Queries) ListCustomerSubscriptionsDetailed(ctx context.Context, userID 
 }
 
 const listCustomerSupportTickets = `-- name: ListCustomerSupportTickets :many
-SELECT id, user_id, status, created_at, updated_at, subject, priority, last_message_at, customer_unread_count, closed_at, queue_id, assignee_id, assigned_at, first_response_at, resolved_at, reopened_count, operator_unread_count, merged_into_ticket_id FROM support_tickets WHERE user_id = $1 ORDER BY updated_at DESC LIMIT $2
+SELECT id, user_id, status, created_at, updated_at, subject, priority, last_message_at, customer_unread_count, closed_at, queue_id, assignee_id, assigned_at, first_response_at, resolved_at, reopened_count, operator_unread_count, merged_into_ticket_id, rating, rated_at, rating_requested_at FROM support_tickets WHERE user_id = $1 ORDER BY updated_at DESC LIMIT $2
 `
 
 type ListCustomerSupportTicketsParams struct {
@@ -2062,6 +2062,9 @@ func (q *Queries) ListCustomerSupportTickets(ctx context.Context, arg ListCustom
 			&i.ReopenedCount,
 			&i.OperatorUnreadCount,
 			&i.MergedIntoTicketID,
+			&i.Rating,
+			&i.RatedAt,
+			&i.RatingRequestedAt,
 		); err != nil {
 			return nil, err
 		}

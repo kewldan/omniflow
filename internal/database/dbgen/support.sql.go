@@ -37,7 +37,7 @@ SET customer_unread_count = s.customer_unread_count + a.customer_unread_count,
 FROM support_tickets a
 WHERE s.id = $1 AND a.id = $2
   AND s.status <> 'merged'
-RETURNING s.id, s.user_id, s.status, s.created_at, s.updated_at, s.subject, s.priority, s.last_message_at, s.customer_unread_count, s.closed_at, s.queue_id, s.assignee_id, s.assigned_at, s.first_response_at, s.resolved_at, s.reopened_count, s.operator_unread_count, s.merged_into_ticket_id
+RETURNING s.id, s.user_id, s.status, s.created_at, s.updated_at, s.subject, s.priority, s.last_message_at, s.customer_unread_count, s.closed_at, s.queue_id, s.assignee_id, s.assigned_at, s.first_response_at, s.resolved_at, s.reopened_count, s.operator_unread_count, s.merged_into_ticket_id, s.rating, s.rated_at, s.rating_requested_at
 `
 
 type AbsorbSupportTicketCountersParams struct {
@@ -72,6 +72,9 @@ func (q *Queries) AbsorbSupportTicketCounters(ctx context.Context, arg AbsorbSup
 		&i.ReopenedCount,
 		&i.OperatorUnreadCount,
 		&i.MergedIntoTicketID,
+		&i.Rating,
+		&i.RatedAt,
+		&i.RatingRequestedAt,
 	)
 	return i, err
 }
@@ -256,7 +259,7 @@ SET assignee_id = $1,
     assigned_at = CASE WHEN $1::uuid IS NULL THEN NULL ELSE now() END,
     updated_at = now()
 WHERE id = $2 AND status <> 'merged'
-RETURNING id, user_id, status, created_at, updated_at, subject, priority, last_message_at, customer_unread_count, closed_at, queue_id, assignee_id, assigned_at, first_response_at, resolved_at, reopened_count, operator_unread_count, merged_into_ticket_id
+RETURNING id, user_id, status, created_at, updated_at, subject, priority, last_message_at, customer_unread_count, closed_at, queue_id, assignee_id, assigned_at, first_response_at, resolved_at, reopened_count, operator_unread_count, merged_into_ticket_id, rating, rated_at, rating_requested_at
 `
 
 type AssignSupportTicketParams struct {
@@ -292,6 +295,9 @@ func (q *Queries) AssignSupportTicket(ctx context.Context, arg AssignSupportTick
 		&i.ReopenedCount,
 		&i.OperatorUnreadCount,
 		&i.MergedIntoTicketID,
+		&i.Rating,
+		&i.RatedAt,
+		&i.RatingRequestedAt,
 	)
 	return i, err
 }
@@ -753,7 +759,7 @@ func (q *Queries) GetSupportTagByCode(ctx context.Context, code string) (Support
 
 const getSupportTicket = `-- name: GetSupportTicket :one
 SELECT
-  t.id, t.user_id, t.status, t.created_at, t.updated_at, t.subject, t.priority, t.last_message_at, t.customer_unread_count, t.closed_at, t.queue_id, t.assignee_id, t.assigned_at, t.first_response_at, t.resolved_at, t.reopened_count, t.operator_unread_count, t.merged_into_ticket_id,
+  t.id, t.user_id, t.status, t.created_at, t.updated_at, t.subject, t.priority, t.last_message_at, t.customer_unread_count, t.closed_at, t.queue_id, t.assignee_id, t.assigned_at, t.first_response_at, t.resolved_at, t.reopened_count, t.operator_unread_count, t.merged_into_ticket_id, t.rating, t.rated_at, t.rating_requested_at,
   q.code AS queue_code,
   q.first_response_target_seconds,
   q.resolution_target_seconds,
@@ -803,6 +809,9 @@ func (q *Queries) GetSupportTicket(ctx context.Context, id pgtype.UUID) (GetSupp
 		&i.SupportTicket.ReopenedCount,
 		&i.SupportTicket.OperatorUnreadCount,
 		&i.SupportTicket.MergedIntoTicketID,
+		&i.SupportTicket.Rating,
+		&i.SupportTicket.RatedAt,
+		&i.SupportTicket.RatingRequestedAt,
 		&i.QueueCode,
 		&i.FirstResponseTargetSeconds,
 		&i.ResolutionTargetSeconds,
@@ -1493,7 +1502,7 @@ func (q *Queries) ListSupportTicketAttachments(ctx context.Context, ticketID pgt
 }
 
 const lockSupportTicket = `-- name: LockSupportTicket :one
-SELECT id, user_id, status, created_at, updated_at, subject, priority, last_message_at, customer_unread_count, closed_at, queue_id, assignee_id, assigned_at, first_response_at, resolved_at, reopened_count, operator_unread_count, merged_into_ticket_id FROM support_tickets WHERE id = $1 FOR UPDATE
+SELECT id, user_id, status, created_at, updated_at, subject, priority, last_message_at, customer_unread_count, closed_at, queue_id, assignee_id, assigned_at, first_response_at, resolved_at, reopened_count, operator_unread_count, merged_into_ticket_id, rating, rated_at, rating_requested_at FROM support_tickets WHERE id = $1 FOR UPDATE
 `
 
 func (q *Queries) LockSupportTicket(ctx context.Context, id pgtype.UUID) (SupportTicket, error) {
@@ -1518,6 +1527,9 @@ func (q *Queries) LockSupportTicket(ctx context.Context, id pgtype.UUID) (Suppor
 		&i.ReopenedCount,
 		&i.OperatorUnreadCount,
 		&i.MergedIntoTicketID,
+		&i.Rating,
+		&i.RatedAt,
+		&i.RatingRequestedAt,
 	)
 	return i, err
 }
@@ -1540,7 +1552,7 @@ func (q *Queries) MarkLoyaltyRecalculated(ctx context.Context, arg MarkLoyaltyRe
 const markSupportTicketRead = `-- name: MarkSupportTicketRead :one
 UPDATE support_tickets SET operator_unread_count = 0, updated_at = now()
 WHERE id = $1
-RETURNING id, user_id, status, created_at, updated_at, subject, priority, last_message_at, customer_unread_count, closed_at, queue_id, assignee_id, assigned_at, first_response_at, resolved_at, reopened_count, operator_unread_count, merged_into_ticket_id
+RETURNING id, user_id, status, created_at, updated_at, subject, priority, last_message_at, customer_unread_count, closed_at, queue_id, assignee_id, assigned_at, first_response_at, resolved_at, reopened_count, operator_unread_count, merged_into_ticket_id, rating, rated_at, rating_requested_at
 `
 
 func (q *Queries) MarkSupportTicketRead(ctx context.Context, ticketID pgtype.UUID) (SupportTicket, error) {
@@ -1565,6 +1577,9 @@ func (q *Queries) MarkSupportTicketRead(ctx context.Context, ticketID pgtype.UUI
 		&i.ReopenedCount,
 		&i.OperatorUnreadCount,
 		&i.MergedIntoTicketID,
+		&i.Rating,
+		&i.RatedAt,
+		&i.RatingRequestedAt,
 	)
 	return i, err
 }
@@ -1580,7 +1595,7 @@ SET status = 'merged',
 WHERE id = $2
   AND status <> 'merged'
   AND id <> $1
-RETURNING id, user_id, status, created_at, updated_at, subject, priority, last_message_at, customer_unread_count, closed_at, queue_id, assignee_id, assigned_at, first_response_at, resolved_at, reopened_count, operator_unread_count, merged_into_ticket_id
+RETURNING id, user_id, status, created_at, updated_at, subject, priority, last_message_at, customer_unread_count, closed_at, queue_id, assignee_id, assigned_at, first_response_at, resolved_at, reopened_count, operator_unread_count, merged_into_ticket_id, rating, rated_at, rating_requested_at
 `
 
 type MergeSupportTicketParams struct {
@@ -1613,6 +1628,9 @@ func (q *Queries) MergeSupportTicket(ctx context.Context, arg MergeSupportTicket
 		&i.ReopenedCount,
 		&i.OperatorUnreadCount,
 		&i.MergedIntoTicketID,
+		&i.Rating,
+		&i.RatedAt,
+		&i.RatingRequestedAt,
 	)
 	return i, err
 }
@@ -1639,7 +1657,7 @@ const moveSupportTicket = `-- name: MoveSupportTicket :one
 UPDATE support_tickets
 SET queue_id = $1, updated_at = now()
 WHERE id = $2 AND status <> 'merged'
-RETURNING id, user_id, status, created_at, updated_at, subject, priority, last_message_at, customer_unread_count, closed_at, queue_id, assignee_id, assigned_at, first_response_at, resolved_at, reopened_count, operator_unread_count, merged_into_ticket_id
+RETURNING id, user_id, status, created_at, updated_at, subject, priority, last_message_at, customer_unread_count, closed_at, queue_id, assignee_id, assigned_at, first_response_at, resolved_at, reopened_count, operator_unread_count, merged_into_ticket_id, rating, rated_at, rating_requested_at
 `
 
 type MoveSupportTicketParams struct {
@@ -1669,6 +1687,9 @@ func (q *Queries) MoveSupportTicket(ctx context.Context, arg MoveSupportTicketPa
 		&i.ReopenedCount,
 		&i.OperatorUnreadCount,
 		&i.MergedIntoTicketID,
+		&i.Rating,
+		&i.RatedAt,
+		&i.RatingRequestedAt,
 	)
 	return i, err
 }
@@ -1789,7 +1810,7 @@ const recordSupportFirstResponse = `-- name: RecordSupportFirstResponse :one
 UPDATE support_tickets
 SET first_response_at = now(), updated_at = now()
 WHERE id = $1 AND first_response_at IS NULL
-RETURNING id, user_id, status, created_at, updated_at, subject, priority, last_message_at, customer_unread_count, closed_at, queue_id, assignee_id, assigned_at, first_response_at, resolved_at, reopened_count, operator_unread_count, merged_into_ticket_id
+RETURNING id, user_id, status, created_at, updated_at, subject, priority, last_message_at, customer_unread_count, closed_at, queue_id, assignee_id, assigned_at, first_response_at, resolved_at, reopened_count, operator_unread_count, merged_into_ticket_id, rating, rated_at, rating_requested_at
 `
 
 // Only the first operator reply sets it, so the measure survives a
@@ -1816,6 +1837,9 @@ func (q *Queries) RecordSupportFirstResponse(ctx context.Context, ticketID pgtyp
 		&i.ReopenedCount,
 		&i.OperatorUnreadCount,
 		&i.MergedIntoTicketID,
+		&i.Rating,
+		&i.RatedAt,
+		&i.RatingRequestedAt,
 	)
 	return i, err
 }
@@ -1977,7 +2001,7 @@ func (q *Queries) SearchReferralAttributions(ctx context.Context, arg SearchRefe
 const searchSupportTickets = `-- name: SearchSupportTickets :many
 
 SELECT
-  t.id, t.user_id, t.status, t.created_at, t.updated_at, t.subject, t.priority, t.last_message_at, t.customer_unread_count, t.closed_at, t.queue_id, t.assignee_id, t.assigned_at, t.first_response_at, t.resolved_at, t.reopened_count, t.operator_unread_count, t.merged_into_ticket_id,
+  t.id, t.user_id, t.status, t.created_at, t.updated_at, t.subject, t.priority, t.last_message_at, t.customer_unread_count, t.closed_at, t.queue_id, t.assignee_id, t.assigned_at, t.first_response_at, t.resolved_at, t.reopened_count, t.operator_unread_count, t.merged_into_ticket_id, t.rating, t.rated_at, t.rating_requested_at,
   q.code AS queue_code,
   q.first_response_target_seconds,
   q.resolution_target_seconds,
@@ -2092,6 +2116,9 @@ func (q *Queries) SearchSupportTickets(ctx context.Context, arg SearchSupportTic
 			&i.SupportTicket.ReopenedCount,
 			&i.SupportTicket.OperatorUnreadCount,
 			&i.SupportTicket.MergedIntoTicketID,
+			&i.SupportTicket.Rating,
+			&i.SupportTicket.RatedAt,
+			&i.SupportTicket.RatingRequestedAt,
 			&i.QueueCode,
 			&i.FirstResponseTargetSeconds,
 			&i.ResolutionTargetSeconds,
@@ -2172,7 +2199,7 @@ const setSupportTicketPriority = `-- name: SetSupportTicketPriority :one
 UPDATE support_tickets
 SET priority = $1, updated_at = now()
 WHERE id = $2 AND status <> 'merged'
-RETURNING id, user_id, status, created_at, updated_at, subject, priority, last_message_at, customer_unread_count, closed_at, queue_id, assignee_id, assigned_at, first_response_at, resolved_at, reopened_count, operator_unread_count, merged_into_ticket_id
+RETURNING id, user_id, status, created_at, updated_at, subject, priority, last_message_at, customer_unread_count, closed_at, queue_id, assignee_id, assigned_at, first_response_at, resolved_at, reopened_count, operator_unread_count, merged_into_ticket_id, rating, rated_at, rating_requested_at
 `
 
 type SetSupportTicketPriorityParams struct {
@@ -2202,6 +2229,9 @@ func (q *Queries) SetSupportTicketPriority(ctx context.Context, arg SetSupportTi
 		&i.ReopenedCount,
 		&i.OperatorUnreadCount,
 		&i.MergedIntoTicketID,
+		&i.Rating,
+		&i.RatedAt,
+		&i.RatingRequestedAt,
 	)
 	return i, err
 }
@@ -2221,7 +2251,7 @@ SET status = $1,
     END,
     updated_at = now()
 WHERE id = $2 AND status <> 'merged'
-RETURNING id, user_id, status, created_at, updated_at, subject, priority, last_message_at, customer_unread_count, closed_at, queue_id, assignee_id, assigned_at, first_response_at, resolved_at, reopened_count, operator_unread_count, merged_into_ticket_id
+RETURNING id, user_id, status, created_at, updated_at, subject, priority, last_message_at, customer_unread_count, closed_at, queue_id, assignee_id, assigned_at, first_response_at, resolved_at, reopened_count, operator_unread_count, merged_into_ticket_id, rating, rated_at, rating_requested_at
 `
 
 type SetSupportTicketStatusParams struct {
@@ -2256,6 +2286,9 @@ func (q *Queries) SetSupportTicketStatus(ctx context.Context, arg SetSupportTick
 		&i.ReopenedCount,
 		&i.OperatorUnreadCount,
 		&i.MergedIntoTicketID,
+		&i.Rating,
+		&i.RatedAt,
+		&i.RatingRequestedAt,
 	)
 	return i, err
 }

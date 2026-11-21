@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"github.com/omniflow/omniflow/internal/analytics"
 	"github.com/omniflow/omniflow/internal/telegramavatar"
 	"log/slog"
 	"net/http"
@@ -298,6 +299,15 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 	if services.account != nil {
 		services.account.WithGrowth(growth)
 		services.account.WithTermsGate(termsgate.New(pool).WithTermsURL(cfg.TermsURL))
+	}
+	// Business analytics: the panel's subscription, acquisition, traffic
+	// history, and satisfaction reports, and the customer panel's funnel steps.
+	businessAnalytics := analytics.New(pool)
+	if services.admin != nil {
+		services.admin.WithAnalytics(businessAnalytics)
+	}
+	if services.account != nil {
+		services.account.WithAnalytics(businessAnalytics)
 	}
 	return services, closeAll, nil
 }

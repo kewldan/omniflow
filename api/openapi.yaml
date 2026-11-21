@@ -2700,6 +2700,138 @@ paths:
               schema: {type: string}
         "403": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/reports/subscriptions:
+    get:
+      operationId: getPanelSubscriptionReport
+      tags: [panel]
+      description: >-
+        Requires finance.read. The subscription base over the period from the
+        daily snapshots (paid, imported, trial, free), monthly recurring revenue
+        per currency, the latest day by plan, renewals of the paid periods that
+        ended in the period, automatic renewal outcomes, revenue per paying
+        customer and per subscriber, and the last twelve monthly cohorts of
+        payers with retention and lifetime value.
+
+        Recurring revenue normalises the price charged to a thirty-day month.
+        Imported periods carry no price and are valued at list price, reported
+        apart as `estimatedMinor`. A rate with nothing behind it is absent, not
+        zero. A period longer than two years is refused.
+      parameters:
+        - {$ref: "#/components/parameters/ReportSince"}
+        - {$ref: "#/components/parameters/ReportUntil"}
+        - {$ref: "#/components/parameters/ReportTimezone"}
+      responses:
+        "200": {description: Subscription report, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSubscriptionReport"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/reports/acquisition:
+    get:
+      operationId: getPanelAcquisitionReport
+      tags: [panel]
+      description: >-
+        Requires finance.read. What acquiring customers cost and brought over
+        the period: /start campaigns and `utm_source` channels with the costs
+        recorded against them, customer acquisition cost and return on spend
+        per currency, promo codes, wallet credit and free access given away, and
+        the purchase funnel of the customers who signed up in the period.
+
+        Cost and return are computed only where spend and revenue share a
+        currency; nothing is converted.
+      parameters:
+        - {$ref: "#/components/parameters/ReportSince"}
+        - {$ref: "#/components/parameters/ReportUntil"}
+        - {$ref: "#/components/parameters/ReportTimezone"}
+      responses:
+        "200": {description: Acquisition report, content: {application/json: {schema: {$ref: "#/components/schemas/PanelAcquisitionReport"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/reports/acquisition/spend:
+    get:
+      operationId: listPanelAcquisitionSpend
+      tags: [panel]
+      description: Requires finance.read. Advertising costs recorded for days in the period, newest first.
+      parameters:
+        - {$ref: "#/components/parameters/ReportSince"}
+        - {$ref: "#/components/parameters/ReportUntil"}
+        - {$ref: "#/components/parameters/ReportTimezone"}
+      responses:
+        "200":
+          description: Costs
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: {type: array, items: {$ref: "#/components/schemas/PanelAcquisitionSpend"}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+    post:
+      operationId: createPanelAcquisitionSpend
+      tags: [panel]
+      description: >-
+        Requires finance.write. Records what was paid for advertising on one
+        day, against a /start campaign or a `utm_source`, never both. Omniflow
+        sees the revenue an advertisement brought and never its invoice, so the
+        cost is entered by hand. The change is audited. A retry with the same
+        `Idempotency-Key` returns the cost the first request recorded.
+      parameters:
+        - {$ref: "#/components/parameters/IdempotencyKeyOptional"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: "#/components/schemas/PanelAcquisitionSpendInput"}
+      responses:
+        "201": {description: Recorded, content: {application/json: {schema: {$ref: "#/components/schemas/PanelAcquisitionSpend"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/reports/acquisition/spend/{spendID}:
+    delete:
+      operationId: deletePanelAcquisitionSpend
+      tags: [panel]
+      description: Requires finance.write. Removes a cost entered by mistake. The audit trail keeps what it was.
+      parameters:
+        - {in: path, name: spendID, required: true, schema: {type: string, format: uuid}}
+      responses:
+        "204": {description: Removed}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/panel/reports/traffic/history:
+    get:
+      operationId: getPanelTrafficHistory
+      tags: [panel]
+      description: >-
+        Requires customers.read. Traffic each node carried per day and its
+        busiest hour, from the hourly samples the worker records of Remnawave's
+        node counters. Remnawave keeps the counters for now only; the samples are
+        observations for reporting and decide nothing. A drop to less than half
+        the previous reading is a reset and counts the new reading; a smaller
+        drop is a wobble and counts as nothing.
+      parameters:
+        - {$ref: "#/components/parameters/ReportSince"}
+        - {$ref: "#/components/parameters/ReportUntil"}
+        - {$ref: "#/components/parameters/ReportTimezone"}
+      responses:
+        "200": {description: Traffic history, content: {application/json: {schema: {$ref: "#/components/schemas/PanelTrafficHistory"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/reports/support-satisfaction:
+    get:
+      operationId: getPanelSupportSatisfaction
+      tags: [panel]
+      description: >-
+        Requires support.read. Marks customers gave resolved tickets in the
+        period: how many were asked and answered, CSAT (the share of fours and
+        fives), the average, the distribution, and the same per operator the
+        ticket was assigned to.
+      parameters:
+        - {$ref: "#/components/parameters/ReportSince"}
+        - {$ref: "#/components/parameters/ReportUntil"}
+      responses:
+        "200": {description: Satisfaction, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSupportSatisfaction"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
   /v1/panel/reports/traffic:
     get:
       operationId: getPanelTrafficReport
@@ -2708,11 +2840,11 @@ paths:
         Requires customers.read. Node saturation and the heaviest users, read
         live from Remnawave on every request.
 
-        Omniflow stores none of it. Remnawave is authoritative for traffic,
-        nodes, and connections, and this repository has no table for a node or
-        for a byte a customer used — keeping one would be the first step towards
-        Omniflow having an opinion about traffic. What Omniflow adds is the join:
-        a Remnawave user identifier resolved to the customer who holds it.
+        This view stores nothing. Remnawave is authoritative for traffic,
+        nodes, and connections, and nothing here keeps a byte a customer used.
+        What Omniflow adds is the join: a Remnawave user identifier resolved to
+        the customer who holds it. The node counters' history is a separate,
+        read-only observation served by `GET /v1/panel/reports/traffic/history`.
 
         `nodesReported` is false when the panel does not expose a node listing or
         could not be reached, and `nodesDetail` says which. An empty node list
@@ -8055,6 +8187,318 @@ components:
         byDay: {type: array, items: {$ref: "#/components/schemas/PanelProviderHealthDay"}}
         webhooks: {type: array, items: {$ref: "#/components/schemas/PanelWebhookHealthLine"}}
         generatedAt: {type: string, format: date-time}
+    PanelSubscriptionBaseDay:
+      type: object
+      required: [day, paid, imported, trial, free]
+      properties:
+        day: {type: string, format: date}
+        paid: {type: integer, format: int64}
+        imported: {type: integer, format: int64}
+        trial: {type: integer, format: int64}
+        free: {type: integer, format: int64}
+    PanelRecurringRevenueDay:
+      type: object
+      required: [day, currency, mrrMinor, estimatedMinor]
+      properties:
+        day: {type: string, format: date}
+        currency: {type: string}
+        mrrMinor: {type: integer, format: int64}
+        estimatedMinor: {type: integer, format: int64, description: "Imported periods valued at list price."}
+    PanelSubscriptionPlanLine:
+      type: object
+      required: [planCode, billingPeriod, kind, currency, active, mrrMinor]
+      properties:
+        planCode: {type: string}
+        billingPeriod: {type: string}
+        kind: {type: string, enum: [paid, imported, trial, free]}
+        currency: {type: string, description: "Empty for trial and free access."}
+        active: {type: integer, format: int64}
+        mrrMinor: {type: integer, format: int64}
+    PanelRenewalLine:
+      type: object
+      required: [planCode, billingPeriod, kind, ended, renewed, churned, pending]
+      properties:
+        planCode: {type: string}
+        billingPeriod: {type: string}
+        kind: {type: string, enum: [paid, imported]}
+        ended: {type: integer, format: int64}
+        renewed: {type: integer, format: int64}
+        churned: {type: integer, format: int64}
+        pending: {type: integer, format: int64, description: "Ended within the grace period with no successor yet."}
+        renewalRate: {type: number, format: double}
+    PanelRenewals:
+      type: object
+      required: [graceDays, ended, renewed, churned, pending, lines]
+      properties:
+        graceDays: {type: integer}
+        ended: {type: integer, format: int64}
+        renewed: {type: integer, format: int64}
+        churned: {type: integer, format: int64}
+        pending: {type: integer, format: int64}
+        renewalRate: {type: number, format: double}
+        activeAtStart: {type: integer, format: int64, description: "Paid and imported subscriptions on the first day of the period."}
+        churnRate: {type: number, format: double, description: "Churned periods over the paying base at the start of the period."}
+        lines: {type: array, items: {$ref: "#/components/schemas/PanelRenewalLine"}}
+    PanelAutoRenewLine:
+      type: object
+      required: [funding, cycles, firstTry, recovered, lost, inProgress]
+      properties:
+        funding: {type: string}
+        cycles: {type: integer, format: int64}
+        firstTry: {type: integer, format: int64}
+        recovered: {type: integer, format: int64}
+        lost: {type: integer, format: int64}
+        inProgress: {type: integer, format: int64}
+        successRate: {type: number, format: double}
+        recoveryRate: {type: number, format: double}
+    PanelAutoRenew:
+      type: object
+      required: [enabled, lines, failureCodes]
+      properties:
+        enabled: {type: integer, format: int64}
+        lines: {type: array, items: {$ref: "#/components/schemas/PanelAutoRenewLine"}}
+        failureCodes:
+          type: array
+          items:
+            type: object
+            required: [code, attempts]
+            properties:
+              code: {type: string}
+              attempts: {type: integer, format: int64}
+    PanelRevenuePerCustomer:
+      type: object
+      required: [currency, paidMinor, payers]
+      properties:
+        currency: {type: string}
+        paidMinor: {type: integer, format: int64}
+        payers: {type: integer, format: int64}
+        arppuMinor: {type: integer, format: int64}
+        averageSubscribers: {type: number, format: double}
+        arpuMinor: {type: integer, format: int64}
+    PanelCohort:
+      type: object
+      required: [month, customers, retention, revenue]
+      properties:
+        month: {type: string, format: date}
+        customers: {type: integer, format: int64}
+        retention:
+          type: array
+          items:
+            type: object
+            required: [offset, active]
+            properties:
+              offset: {type: integer}
+              active: {type: integer, format: int64}
+              rate: {type: number, format: double}
+        revenue:
+          type: array
+          items:
+            type: object
+            required: [currency, customers, revenueMinor]
+            properties:
+              currency: {type: string}
+              customers: {type: integer, format: int64}
+              revenueMinor: {type: integer, format: int64}
+              ltvMinor: {type: integer, format: int64}
+    PanelSubscriptionReport:
+      type: object
+      required: [since, until, timezone, generatedAt, base, mrr, plans, renewals, autoRenew, perCustomer, cohorts]
+      properties:
+        since: {type: string, format: date-time}
+        until: {type: string, format: date-time}
+        timezone: {type: string}
+        generatedAt: {type: string, format: date-time}
+        latestDay: {type: string, format: date}
+        base: {type: array, items: {$ref: "#/components/schemas/PanelSubscriptionBaseDay"}}
+        mrr: {type: array, items: {$ref: "#/components/schemas/PanelRecurringRevenueDay"}}
+        plans: {type: array, items: {$ref: "#/components/schemas/PanelSubscriptionPlanLine"}}
+        renewals: {$ref: "#/components/schemas/PanelRenewals"}
+        autoRenew: {$ref: "#/components/schemas/PanelAutoRenew"}
+        perCustomer: {type: array, items: {$ref: "#/components/schemas/PanelRevenuePerCustomer"}}
+        cohorts: {type: array, items: {$ref: "#/components/schemas/PanelCohort"}}
+    PanelAcquisitionEconomics:
+      type: object
+      required: [currency, spendMinor, revenueMinor]
+      properties:
+        currency: {type: string}
+        spendMinor: {type: integer, format: int64}
+        revenueMinor: {type: integer, format: int64}
+        cacMinor: {type: integer, format: int64}
+        roi: {type: number, format: double, description: "(revenue − spend) ÷ spend."}
+    PanelAcquisitionCampaign:
+      type: object
+      required: [campaignId, code, name, signups, payers, economics]
+      properties:
+        campaignId: {type: string, format: uuid}
+        code: {type: string}
+        name: {type: string}
+        signups: {type: integer, format: int64}
+        payers: {type: integer, format: int64}
+        conversionRate: {type: number, format: double}
+        economics: {type: array, items: {$ref: "#/components/schemas/PanelAcquisitionEconomics"}}
+    PanelAcquisitionSource:
+      type: object
+      required: [utmSource, currency, orders, payers, newPayers, revenueMinor, spendMinor]
+      properties:
+        utmSource: {type: string}
+        currency: {type: string}
+        orders: {type: integer, format: int64}
+        payers: {type: integer, format: int64}
+        newPayers: {type: integer, format: int64}
+        revenueMinor: {type: integer, format: int64}
+        spendMinor: {type: integer, format: int64}
+        cacMinor: {type: integer, format: int64}
+        roi: {type: number, format: double}
+    PanelPromoCodeLine:
+      type: object
+      required: [code, promotionKind, currency, redemptions, customers, newCustomers, discountMinor, revenueMinor]
+      properties:
+        code: {type: string}
+        promotionKind: {type: string}
+        currency: {type: string}
+        redemptions: {type: integer, format: int64}
+        customers: {type: integer, format: int64}
+        newCustomers: {type: integer, format: int64}
+        discountMinor: {type: integer, format: int64}
+        revenueMinor: {type: integer, format: int64}
+    PanelFunnel:
+      type: object
+      required: [signups, plansViewed, checkoutStarted, trialClaimed, paid, byChannel]
+      properties:
+        signups: {type: integer, format: int64}
+        plansViewed: {type: integer, format: int64}
+        checkoutStarted: {type: integer, format: int64}
+        trialClaimed: {type: integer, format: int64}
+        paid: {type: integer, format: int64}
+        byChannel:
+          type: array
+          items:
+            type: object
+            required: [step, channel, customers]
+            properties:
+              step: {type: string, enum: [plans_viewed, checkout_started]}
+              channel: {type: string, enum: [bot, web]}
+              customers: {type: integer, format: int64}
+    PanelAcquisitionReport:
+      type: object
+      required: [since, until, timezone, generatedAt, campaigns, sources, promoCodes, bonusCredit, freeAccess, funnel]
+      properties:
+        since: {type: string, format: date-time}
+        until: {type: string, format: date-time}
+        timezone: {type: string}
+        generatedAt: {type: string, format: date-time}
+        campaigns: {type: array, items: {$ref: "#/components/schemas/PanelAcquisitionCampaign"}}
+        sources: {type: array, items: {$ref: "#/components/schemas/PanelAcquisitionSource"}}
+        promoCodes: {type: array, items: {$ref: "#/components/schemas/PanelPromoCodeLine"}}
+        bonusCredit:
+          type: array
+          items:
+            type: object
+            required: [source, currency, grants, amountMinor]
+            properties:
+              source: {type: string}
+              currency: {type: string}
+              grants: {type: integer, format: int64}
+              amountMinor: {type: integer, format: int64}
+        freeAccess:
+          type: array
+          items:
+            type: object
+            required: [source, grants, days]
+            properties:
+              source: {type: string}
+              grants: {type: integer, format: int64}
+              days: {type: integer, format: int64}
+        funnel: {$ref: "#/components/schemas/PanelFunnel"}
+    PanelAcquisitionSpend:
+      type: object
+      required: [id, spentOn, currency, amountMinor, note, createdBy, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        campaignId: {type: string, format: uuid}
+        campaignCode: {type: string}
+        campaignName: {type: string}
+        utmSource: {type: string}
+        spentOn: {type: string, format: date}
+        currency: {type: string}
+        amountMinor: {type: integer, format: int64}
+        note: {type: string}
+        createdBy: {type: string}
+        createdAt: {type: string, format: date-time}
+    PanelAcquisitionSpendInput:
+      type: object
+      required: [spentOn, currency, amountMinor]
+      properties:
+        campaignId: {type: string, format: uuid}
+        utmSource: {type: string, pattern: "^[A-Za-z0-9._-]{1,64}$"}
+        spentOn: {type: string, format: date}
+        currency: {type: string, pattern: "^[A-Za-z]{3}$"}
+        amountMinor: {type: integer, format: int64, minimum: 1}
+        note: {type: string, maxLength: 200}
+    PanelTrafficHistoryNode:
+      type: object
+      required: [nodeUuid, nodeName, countryCode, limitBytes, totalBytes, peakOnline, days]
+      properties:
+        nodeUuid: {type: string}
+        nodeName: {type: string}
+        countryCode: {type: string}
+        limitBytes: {type: integer, format: int64}
+        totalBytes: {type: integer, format: int64}
+        peakOnline: {type: integer}
+        days:
+          type: array
+          items:
+            type: object
+            required: [day, usedBytes, peakOnline]
+            properties:
+              day: {type: string, format: date}
+              usedBytes: {type: integer, format: int64}
+              peakOnline: {type: integer}
+    PanelTrafficHistory:
+      type: object
+      required: [since, until, timezone, generatedAt, nodes, totals]
+      properties:
+        since: {type: string, format: date-time}
+        until: {type: string, format: date-time}
+        timezone: {type: string}
+        generatedAt: {type: string, format: date-time}
+        nodes: {type: array, items: {$ref: "#/components/schemas/PanelTrafficHistoryNode"}}
+        totals:
+          type: array
+          items:
+            type: object
+            required: [day, usedBytes]
+            properties:
+              day: {type: string, format: date}
+              usedBytes: {type: integer, format: int64}
+    PanelSupportSatisfaction:
+      type: object
+      required: [since, until, requested, ratings, distribution, operators]
+      properties:
+        since: {type: string, format: date-time}
+        until: {type: string, format: date-time}
+        requested: {type: integer, format: int64}
+        ratings: {type: integer, format: int64}
+        responseRate: {type: number, format: double}
+        csat: {type: number, format: double, description: "Share of fours and fives."}
+        average: {type: number, format: double}
+        distribution:
+          type: array
+          minItems: 5
+          maxItems: 5
+          description: Counts of marks one to five.
+          items: {type: integer, format: int64}
+        operators:
+          type: array
+          items:
+            type: object
+            required: [operatorId, displayName, ratings]
+            properties:
+              operatorId: {type: string, format: uuid}
+              displayName: {type: string}
+              ratings: {type: integer, format: int64}
+              csat: {type: number, format: double}
+              average: {type: number, format: double}
     PanelTrafficNode:
       type: object
       required: [name, connected, disabled, usedBytes, limitBytes]

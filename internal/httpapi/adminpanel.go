@@ -12,6 +12,7 @@ import (
 	"github.com/omniflow/omniflow/internal/adminauth"
 	"github.com/omniflow/omniflow/internal/adminauthpg"
 	"github.com/omniflow/omniflow/internal/airuntime"
+	"github.com/omniflow/omniflow/internal/analytics"
 	"github.com/omniflow/omniflow/internal/backup"
 	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/customerauthpg"
@@ -75,6 +76,9 @@ type AdminHandlers struct {
 	// leaves those settings routes unmounted, which is what an installation
 	// running no customer panel gets.
 	customerAuth *customerauthpg.Service
+	// businessAnalytics serves the subscription, acquisition, traffic
+	// history, and satisfaction reports. A nil value leaves them unmounted.
+	businessAnalytics *analytics.Service
 	// growth holds the Bedolaga-parity services (e-mail, withdrawals,
 	// receipts, exchange rates, guest purchases, engagement); see growth.go.
 	growth GrowthServices
@@ -312,6 +316,7 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 			handlers.mountTheme(secure)
 			handlers.mountConnectCatalogue(secure)
 			handlers.mountReports(secure)
+			handlers.mountBusinessAnalytics(secure)
 			handlers.mountTraffic(secure)
 			handlers.mountContent(secure)
 			handlers.mountCodeBatches(secure)

@@ -12,6 +12,7 @@ import (
 	"github.com/omniflow/omniflow/internal/accountreferral"
 	"github.com/omniflow/omniflow/internal/accountshop"
 	"github.com/omniflow/omniflow/internal/accountsupport"
+	"github.com/omniflow/omniflow/internal/analytics"
 	"github.com/omniflow/omniflow/internal/customerauthpg"
 	"github.com/omniflow/omniflow/internal/platform"
 	"github.com/omniflow/omniflow/internal/termsgate"
@@ -46,6 +47,9 @@ type AccountHandlers struct {
 	terms *termsgate.Gate
 	// miniApp reads the Mini App settings; see accountminiapp.go.
 	miniApp func(context.Context) MiniAppSettings
+	// businessAnalytics records the purchase funnel's steps; see
+	// businessanalytics.go.
+	businessAnalytics *analytics.Service
 
 	cookieName   string
 	cookieSecure bool

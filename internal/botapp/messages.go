@@ -658,7 +658,11 @@ var catalog = map[string]phrase{
 	"support.closedHint": {ru: "⚠️ Обращение закрыто. Откройте его заново или создайте новое.", en: "⚠️ This request is closed. Reopen it or create a new one."},
 	"support.notFound":   {ru: "⚠️ Обращение не найдено.", en: "⚠️ Request not found."},
 	"support.replyAlert": {ru: "🛟 <b>Ответ поддержки</b>\n\n%s\n\n%s", en: "🛟 <b>Support reply</b>\n\n%s\n\n%s"},
-	"support.open":       {ru: "💬 Открыть обращение", en: "💬 Open request"},
+	"support.rate.ask": {ru: "⭐ <b>Как вам помогла поддержка?</b>\n\nОбращение «%s» решено. Оцените ответ от 1 до 5 — это одно нажатие.",
+		en: "⭐ <b>How did support do?</b>\n\nYour request “%s” is resolved. Rate the answer from 1 to 5 — it takes one tap."},
+	"support.rate.thanks":  {ru: "🙏 <b>Спасибо за оценку!</b>\n\nОна помогает нам отвечать лучше.", en: "🙏 <b>Thank you for the rating!</b>\n\nIt helps us answer better."},
+	"support.rate.already": {ru: "Оценка уже учтена. Спасибо!", en: "Your rating is already recorded. Thank you!"},
+	"support.open":         {ru: "💬 Открыть обращение", en: "💬 Open request"},
 
 	// A test notification, sent by an operator to establish that notifications
 	// reach this customer at all. It says who sent it and when, because an

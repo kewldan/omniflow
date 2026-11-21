@@ -1,4 +1,4 @@
-h1:xEQ+cp+vACV3qNunqezJW8WzuzYr7pPkQ0P2BUIZG5I=
+h1:itzcUzD3Fl8Xw385v+8IcBgVbJwR4aYTOYGPL7bs9KQ=
 20261120000000_baseline.sql h1:xcYk9mdv44B3O0TRxq3RP+hXxJ2VeeOilGnwKO251mQ=
 20261120010000_river_schema_v8.sql h1:AfdQpxaviEf8asJ5gyLmMVZr+zMYaWEw+o/vE8CMj7A=
 20261120020000_customer_email_signin.sql h1:PrCKaTaDm5ggof8aqRooMbqOXEHML5fwq1TF877zQa8=
@@ -89,3 +89,4 @@ h1:xEQ+cp+vACV3qNunqezJW8WzuzYr7pPkQ0P2BUIZG5I=
 20261122670000_admin_session_rotation_grace.sql h1:PwmOoNK2ze6Lz+4gLbViGxJ0hAyyAhQhtxXPp8ZIhj4=
 20261122680000_telegram_handle_search.sql h1:kePs3hKKQ60m7B6SWxgNNdWp+Upy2Z6OmMZ19ZR7Jmo=
 20261122690000_legacy_records.sql h1:fvPLaHrQVc0EHGf2ITyysCUxwz11w1iW/FOuMQlL+Hk=
+20261122700000_business_analytics.sql h1:97lvlzXgghXkL8OR5Cp/nVAP0JRrqXVjKfAzWsK43PI=

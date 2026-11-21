@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-telegram/bot/models"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/omniflow/omniflow/internal/analytics"
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/remnawave"
 )
@@ -103,6 +104,8 @@ type Notifier struct {
 	notices notices
 	// botUsername builds {{referral_link}}. Empty leaves the link empty.
 	botUsername string
+	// analytics asks for support marks; nil asks nothing. See analytics.go.
+	analytics *analytics.Service
 }
 
 // SetBotUsername names the bot, which a broadcast's {{referral_link}} needs.
@@ -460,6 +463,7 @@ func (notifier *Notifier) runSupportReplies(ctx context.Context) {
 	notifier.deliverGifts(ctx)
 	notifier.DeliverPanelEvents(ctx)
 	notifier.deliverEventNotices(ctx)
+	notifier.deliverRatingRequests(ctx)
 	ticker := time.NewTicker(supportReplyInterval)
 	defer ticker.Stop()
 	for {
@@ -472,6 +476,7 @@ func (notifier *Notifier) runSupportReplies(ctx context.Context) {
 			notifier.deliverGifts(ctx)
 			notifier.DeliverPanelEvents(ctx)
 			notifier.deliverEventNotices(ctx)
+			notifier.deliverRatingRequests(ctx)
 		}
 	}
 }

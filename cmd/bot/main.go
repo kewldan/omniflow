@@ -12,6 +12,7 @@ import (
 	telegram "github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/omniflow/omniflow/internal/analytics"
 	"github.com/omniflow/omniflow/internal/app"
 	"github.com/omniflow/omniflow/internal/backup"
 	"github.com/omniflow/omniflow/internal/botapp"
@@ -76,6 +77,9 @@ func main() {
 	remnawaveClient.WithObserver(metrics.ObserveRemnawave)
 	application := botapp.New(logger, identities, remnawaveClient, cfg.SupportURL)
 	application.UseInstallationSettings(installation)
+	// Funnel steps and support marks for business analytics.
+	businessAnalytics := analytics.New(pool)
+	application.UseAnalytics(businessAnalytics)
 	options := []telegram.Option{
 		telegram.WithDefaultHandler(application.HandleDefault),
 		telegram.WithMiddlewares(botapp.ObservabilityMiddleware(metrics), application.SettingsMiddleware(), application.NameFilterMiddleware(), application.AccessMiddleware(), application.ActivityMiddleware()),
@@ -177,7 +181,8 @@ func main() {
 	if err := operator.AnnounceStart(ctx, pool, "bot", version, time.Now()); err != nil {
 		logger.Warn("bot start notice could not be queued", "error", err)
 	}
-	customerNotifier := botapp.NewNotifier(logger, sender, identities, remnawaveClient, commerceService, settings)
+	customerNotifier := botapp.NewNotifier(logger, sender, identities, remnawaveClient, commerceService, settings).
+		WithAnalytics(businessAnalytics)
 	if me, getMeErr := client.GetMe(ctx); getMeErr == nil {
 		customerNotifier.SetBotUsername(me.Username)
 	}
