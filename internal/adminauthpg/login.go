@@ -1,6 +1,7 @@
 package adminauthpg
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"math"
@@ -485,7 +486,11 @@ func (service *Service) Resolve(ctx context.Context, sessionToken string) (Princ
 	}
 
 	idle := service.policy(ctx).NextIdleDeadline(now, row.AdminSession.AbsoluteExpiresAt.Time)
-	rotate := service.policy(ctx).ShouldRotate(sessionState(row.AdminSession), now)
+	presented := adminauth.HashSessionToken(sessionToken)
+	// A superseded token, inside its grace minute, is served and never rotates:
+	// the session already has a newer one the browser is about to present.
+	current := bytes.Equal(row.AdminSession.TokenHash, presented)
+	rotate := current && service.policy(ctx).ShouldRotate(sessionState(row.AdminSession), now)
 
 	var rotatedToken string
 	var digest []byte
@@ -502,8 +507,15 @@ func (service *Service) Resolve(ctx context.Context, sessionToken string) (Princ
 		if rotate {
 			session, txErr = queries.RotateAdminSessionToken(ctx, dbgen.RotateAdminSessionTokenParams{
 				SessionID: row.AdminSession.ID, TokenHash: digest, IdleExpiresAt: timestamp(idle),
+				CurrentTokenHash: presented,
 			})
-		} else {
+			if errors.Is(txErr, pgx.ErrNoRows) {
+				// Another request rotated first. This one carries on with the
+				// token it came with, which the grace minute still accepts.
+				rotate, rotatedToken = false, ""
+			}
+		}
+		if !rotate {
 			session, txErr = queries.TouchAdminSession(ctx, dbgen.TouchAdminSessionParams{
 				SessionID: row.AdminSession.ID, IdleExpiresAt: timestamp(idle),
 			})

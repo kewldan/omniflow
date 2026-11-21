@@ -226,6 +226,7 @@ type AdminSession struct {
 	RevokedAt         pgtype.Timestamptz `json:"revoked_at"`
 	RevokedReason     pgtype.Text        `json:"revoked_reason"`
 	ChallengeFailures int32              `json:"challenge_failures"`
+	PreviousTokenHash []byte             `json:"previous_token_hash"`
 }
 
 type AdminSetupToken struct {

@@ -730,10 +730,12 @@ CREATE TABLE public.admin_sessions (
     revoked_at timestamp with time zone,
     revoked_reason text,
     challenge_failures integer DEFAULT 0 NOT NULL,
+    previous_token_hash bytea,
     CONSTRAINT admin_sessions_absolute_after_idle CHECK ((absolute_expires_at >= created_at)),
     CONSTRAINT admin_sessions_auth_methods_known CHECK ((auth_methods <@ ARRAY['password'::text, 'totp'::text, 'recovery_code'::text, 'oidc'::text, 'passkey'::text])),
     CONSTRAINT admin_sessions_challenge_failures_nonnegative CHECK ((challenge_failures >= 0)),
     CONSTRAINT admin_sessions_csrf_secret_check CHECK ((octet_length(csrf_secret) = 32)),
+    CONSTRAINT admin_sessions_previous_token_hash_check CHECK (((previous_token_hash IS NULL) OR (octet_length(previous_token_hash) = 32))),
     CONSTRAINT admin_sessions_revocation_complete CHECK (((revoked_at IS NULL) = (revoked_reason IS NULL))),
     CONSTRAINT admin_sessions_revoked_reason_known CHECK (((revoked_reason IS NULL) OR (revoked_reason = ANY (ARRAY['logout'::text, 'logout_all'::text, 'password_change'::text, 'admin_revoked'::text, 'expired'::text, 'challenge_failed'::text])))),
     CONSTRAINT admin_sessions_token_hash_check CHECK ((octet_length(token_hash) = 32)),
@@ -8301,6 +8303,13 @@ CREATE INDEX admin_sessions_expiry_idx ON public.admin_sessions USING btree (abs
 --
 
 CREATE INDEX admin_sessions_live_idx ON public.admin_sessions USING btree (admin_user_id, last_seen_at DESC) WHERE (revoked_at IS NULL);
+
+
+--
+-- Name: admin_sessions_previous_token_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX admin_sessions_previous_token_hash ON public.admin_sessions USING btree (previous_token_hash) WHERE (previous_token_hash IS NOT NULL);
 
 
 --

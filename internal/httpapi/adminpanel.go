@@ -1040,7 +1040,18 @@ func (handlers *AdminHandlers) permissionCatalog(writer http.ResponseWriter, req
 // Helpers
 // ---------------------------------------------------------------------------
 
+// adminCookieLifetime is how long the browser keeps the session cookie: the
+// longest absolute session the security settings allow. The server decides
+// when a session ends — idle and absolute — on every request; a cookie that
+// expired at the idle deadline of the moment it was set signed an operator out
+// while they were working, because the idle window slides on the server and
+// the cookie is only rewritten when the token rotates.
+const adminCookieLifetime = 30 * 24 * time.Hour
+
 func (handlers *AdminHandlers) setSessionCookie(writer http.ResponseWriter, token string, expires time.Time) {
+	if longest := time.Now().Add(adminCookieLifetime); expires.Before(longest) {
+		expires = longest
+	}
 	http.SetCookie(writer, &http.Cookie{
 		Name:     handlers.cookieName,
 		Value:    token,

@@ -194,7 +194,10 @@ RETURNING *;
 SELECT sqlc.embed(s), sqlc.embed(u)
 FROM admin_sessions s
 JOIN admin_users u ON u.id = s.admin_user_id
-WHERE s.token_hash = $1;
+WHERE s.token_hash = $1
+   -- A token the session rotated away from within the last minute: a request
+   -- the browser sent before it saw the new cookie.
+   OR (s.previous_token_hash = $1 AND s.rotated_at > now() - interval '1 minute');
 
 -- name: TouchAdminSession :one
 -- Slides the inactivity window forward. The absolute deadline is never
@@ -205,12 +208,17 @@ WHERE id = sqlc.arg(session_id) AND revoked_at IS NULL
 RETURNING *;
 
 -- name: RotateAdminSessionToken :one
+-- A compare-and-set on the current digest: of several concurrent requests due
+-- to rotate, exactly one does, and keeps the old digest for the grace minute;
+-- the rest find no row and carry on with the token they came with.
 UPDATE admin_sessions
-SET token_hash = sqlc.arg(token_hash),
+SET previous_token_hash = token_hash,
+    token_hash = sqlc.arg(token_hash),
     rotated_at = now(),
     last_seen_at = now(),
     idle_expires_at = sqlc.arg(idle_expires_at)
 WHERE id = sqlc.arg(session_id) AND revoked_at IS NULL
+  AND token_hash = sqlc.arg(current_token_hash)
 RETURNING *;
 
 -- name: CompleteAdminSessionChallenge :one

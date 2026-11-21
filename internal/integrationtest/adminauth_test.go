@@ -649,3 +649,70 @@ func TestAdminDuplicateEmailIsRejected(t *testing.T) {
 		t.Fatalf("expected ErrConflict for a duplicate address, got %v", err)
 	}
 }
+
+// The panel fires several requests at once. When the session is due for
+// rotation, exactly one of them rotates; the rest, holding the old token,
+// are still served for a minute, so the browser is never signed out by the
+// rotation itself.
+func TestAdminSessionRotationKeepsConcurrentRequestsSignedIn(t *testing.T) {
+	harness := newHarness(t)
+	ctx := context.Background()
+	service := newAdminService(t, harness, time.Now)
+	bootstrapOwner(t, ctx, service)
+	result, err := service.Authenticate(ctx, "owner@example.com", "correct horse battery staple", adminauthpg.RequestContext{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Due for rotation: the token was last swapped long ago.
+	if _, err = harness.pool.Exec(ctx, `UPDATE admin_sessions SET rotated_at = now() - interval '20 minutes'`); err != nil {
+		t.Fatal(err)
+	}
+
+	type outcome struct {
+		principal adminauthpg.Principal
+		err       error
+	}
+	results := make(chan outcome, 6)
+	for range 6 {
+		go func() {
+			principal, resolveErr := service.Resolve(ctx, result.Token)
+			results <- outcome{principal, resolveErr}
+		}()
+	}
+	rotated := ""
+	for range 6 {
+		got := <-results
+		if got.err != nil {
+			t.Fatalf("a concurrent request was refused: %v", got.err)
+		}
+		if got.principal.RotatedToken != "" {
+			if rotated != "" {
+				t.Fatal("the session rotated twice")
+			}
+			rotated = got.principal.RotatedToken
+		}
+	}
+	if rotated == "" {
+		t.Fatal("no request rotated the token")
+	}
+
+	// A late request with the old token is still served, without rotating.
+	late, err := service.Resolve(ctx, result.Token)
+	if err != nil || late.RotatedToken != "" {
+		t.Fatalf("late request with the old token: %+v %v", late.RotatedToken, err)
+	}
+	if _, err = service.Resolve(ctx, rotated); err != nil {
+		t.Fatalf("the new token: %v", err)
+	}
+
+	// After the grace minute the old token is dead; the new one is not.
+	if _, err = harness.pool.Exec(ctx, `UPDATE admin_sessions SET rotated_at = now() - interval '2 minutes'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = service.Resolve(ctx, result.Token); !errors.Is(err, adminauthpg.ErrSessionInvalid) {
+		t.Fatalf("the old token after the grace minute: %v", err)
+	}
+	if _, err = service.Resolve(ctx, rotated); err != nil {
+		t.Fatalf("the new token after the grace minute: %v", err)
+	}
+}

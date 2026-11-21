@@ -45,7 +45,7 @@ SET pending_totp = false,
     last_seen_at = now(),
     idle_expires_at = $3
 WHERE id = $4 AND revoked_at IS NULL AND pending_totp = true
-RETURNING id, admin_user_id, token_hash, csrf_secret, pending_totp, auth_methods, ip, user_agent, created_at, last_seen_at, rotated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason, challenge_failures
+RETURNING id, admin_user_id, token_hash, csrf_secret, pending_totp, auth_methods, ip, user_agent, created_at, last_seen_at, rotated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason, challenge_failures, previous_token_hash
 `
 
 type CompleteAdminSessionChallengeParams struct {
@@ -83,6 +83,7 @@ func (q *Queries) CompleteAdminSessionChallenge(ctx context.Context, arg Complet
 		&i.RevokedAt,
 		&i.RevokedReason,
 		&i.ChallengeFailures,
+		&i.PreviousTokenHash,
 	)
 	return i, err
 }
@@ -411,7 +412,7 @@ INSERT INTO admin_sessions (
   $6, $7,
   $8, $9
 )
-RETURNING id, admin_user_id, token_hash, csrf_secret, pending_totp, auth_methods, ip, user_agent, created_at, last_seen_at, rotated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason, challenge_failures
+RETURNING id, admin_user_id, token_hash, csrf_secret, pending_totp, auth_methods, ip, user_agent, created_at, last_seen_at, rotated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason, challenge_failures, previous_token_hash
 `
 
 type CreateAdminSessionParams struct {
@@ -459,6 +460,7 @@ func (q *Queries) CreateAdminSession(ctx context.Context, arg CreateAdminSession
 		&i.RevokedAt,
 		&i.RevokedReason,
 		&i.ChallengeFailures,
+		&i.PreviousTokenHash,
 	)
 	return i, err
 }
@@ -814,10 +816,13 @@ func (q *Queries) GetAdminPasswordReset(ctx context.Context, tokenHash []byte) (
 }
 
 const getAdminSessionByToken = `-- name: GetAdminSessionByToken :one
-SELECT s.id, s.admin_user_id, s.token_hash, s.csrf_secret, s.pending_totp, s.auth_methods, s.ip, s.user_agent, s.created_at, s.last_seen_at, s.rotated_at, s.idle_expires_at, s.absolute_expires_at, s.revoked_at, s.revoked_reason, s.challenge_failures, u.id, u.email, u.email_normalized, u.display_name, u.password_hash, u.status, u.locale, u.timezone, u.preferences, u.totp_secret_ciphertext, u.totp_confirmed_at, u.failed_login_count, u.locked_until, u.password_changed_at, u.last_login_at, u.created_at, u.updated_at, u.disabled_at, u.totp_failed_count, u.totp_last_used_step
+SELECT s.id, s.admin_user_id, s.token_hash, s.csrf_secret, s.pending_totp, s.auth_methods, s.ip, s.user_agent, s.created_at, s.last_seen_at, s.rotated_at, s.idle_expires_at, s.absolute_expires_at, s.revoked_at, s.revoked_reason, s.challenge_failures, s.previous_token_hash, u.id, u.email, u.email_normalized, u.display_name, u.password_hash, u.status, u.locale, u.timezone, u.preferences, u.totp_secret_ciphertext, u.totp_confirmed_at, u.failed_login_count, u.locked_until, u.password_changed_at, u.last_login_at, u.created_at, u.updated_at, u.disabled_at, u.totp_failed_count, u.totp_last_used_step
 FROM admin_sessions s
 JOIN admin_users u ON u.id = s.admin_user_id
 WHERE s.token_hash = $1
+   -- A token the session rotated away from within the last minute: a request
+   -- the browser sent before it saw the new cookie.
+   OR (s.previous_token_hash = $1 AND s.rotated_at > now() - interval '1 minute')
 `
 
 type GetAdminSessionByTokenRow struct {
@@ -848,6 +853,7 @@ func (q *Queries) GetAdminSessionByToken(ctx context.Context, tokenHash []byte) 
 		&i.AdminSession.RevokedAt,
 		&i.AdminSession.RevokedReason,
 		&i.AdminSession.ChallengeFailures,
+		&i.AdminSession.PreviousTokenHash,
 		&i.AdminUser.ID,
 		&i.AdminUser.Email,
 		&i.AdminUser.EmailNormalized,
@@ -1188,7 +1194,7 @@ func (q *Queries) ListAdminRolesForUsers(ctx context.Context, adminUserIds []pgt
 }
 
 const listAdminSessions = `-- name: ListAdminSessions :many
-SELECT id, admin_user_id, token_hash, csrf_secret, pending_totp, auth_methods, ip, user_agent, created_at, last_seen_at, rotated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason, challenge_failures FROM admin_sessions
+SELECT id, admin_user_id, token_hash, csrf_secret, pending_totp, auth_methods, ip, user_agent, created_at, last_seen_at, rotated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason, challenge_failures, previous_token_hash FROM admin_sessions
 WHERE admin_user_id = $1 AND revoked_at IS NULL AND absolute_expires_at > now()
 ORDER BY last_seen_at DESC
 LIMIT $2
@@ -1225,6 +1231,7 @@ func (q *Queries) ListAdminSessions(ctx context.Context, arg ListAdminSessionsPa
 			&i.RevokedAt,
 			&i.RevokedReason,
 			&i.ChallengeFailures,
+			&i.PreviousTokenHash,
 		); err != nil {
 			return nil, err
 		}
@@ -1421,7 +1428,7 @@ SET challenge_failures = challenge_failures + 1,
       ELSE revoked_reason
     END
 WHERE id = $2 AND revoked_at IS NULL AND pending_totp = true
-RETURNING id, admin_user_id, token_hash, csrf_secret, pending_totp, auth_methods, ip, user_agent, created_at, last_seen_at, rotated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason, challenge_failures
+RETURNING id, admin_user_id, token_hash, csrf_secret, pending_totp, auth_methods, ip, user_agent, created_at, last_seen_at, rotated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason, challenge_failures, previous_token_hash
 `
 
 type RecordAdminChallengeFailureParams struct {
@@ -1452,6 +1459,7 @@ func (q *Queries) RecordAdminChallengeFailure(ctx context.Context, arg RecordAdm
 		&i.RevokedAt,
 		&i.RevokedReason,
 		&i.ChallengeFailures,
+		&i.PreviousTokenHash,
 	)
 	return i, err
 }
@@ -1675,7 +1683,7 @@ const revokeAdminSession = `-- name: RevokeAdminSession :one
 UPDATE admin_sessions
 SET revoked_at = now(), revoked_reason = $1
 WHERE id = $2 AND revoked_at IS NULL
-RETURNING id, admin_user_id, token_hash, csrf_secret, pending_totp, auth_methods, ip, user_agent, created_at, last_seen_at, rotated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason, challenge_failures
+RETURNING id, admin_user_id, token_hash, csrf_secret, pending_totp, auth_methods, ip, user_agent, created_at, last_seen_at, rotated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason, challenge_failures, previous_token_hash
 `
 
 type RevokeAdminSessionParams struct {
@@ -1703,6 +1711,7 @@ func (q *Queries) RevokeAdminSession(ctx context.Context, arg RevokeAdminSession
 		&i.RevokedAt,
 		&i.RevokedReason,
 		&i.ChallengeFailures,
+		&i.PreviousTokenHash,
 	)
 	return i, err
 }
@@ -1733,22 +1742,33 @@ func (q *Queries) RevokeAdminSessionsForUser(ctx context.Context, arg RevokeAdmi
 
 const rotateAdminSessionToken = `-- name: RotateAdminSessionToken :one
 UPDATE admin_sessions
-SET token_hash = $1,
+SET previous_token_hash = token_hash,
+    token_hash = $1,
     rotated_at = now(),
     last_seen_at = now(),
     idle_expires_at = $2
 WHERE id = $3 AND revoked_at IS NULL
-RETURNING id, admin_user_id, token_hash, csrf_secret, pending_totp, auth_methods, ip, user_agent, created_at, last_seen_at, rotated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason, challenge_failures
+  AND token_hash = $4
+RETURNING id, admin_user_id, token_hash, csrf_secret, pending_totp, auth_methods, ip, user_agent, created_at, last_seen_at, rotated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason, challenge_failures, previous_token_hash
 `
 
 type RotateAdminSessionTokenParams struct {
-	TokenHash     []byte             `json:"token_hash"`
-	IdleExpiresAt pgtype.Timestamptz `json:"idle_expires_at"`
-	SessionID     pgtype.UUID        `json:"session_id"`
+	TokenHash        []byte             `json:"token_hash"`
+	IdleExpiresAt    pgtype.Timestamptz `json:"idle_expires_at"`
+	SessionID        pgtype.UUID        `json:"session_id"`
+	CurrentTokenHash []byte             `json:"current_token_hash"`
 }
 
+// A compare-and-set on the current digest: of several concurrent requests due
+// to rotate, exactly one does, and keeps the old digest for the grace minute;
+// the rest find no row and carry on with the token they came with.
 func (q *Queries) RotateAdminSessionToken(ctx context.Context, arg RotateAdminSessionTokenParams) (AdminSession, error) {
-	row := q.db.QueryRow(ctx, rotateAdminSessionToken, arg.TokenHash, arg.IdleExpiresAt, arg.SessionID)
+	row := q.db.QueryRow(ctx, rotateAdminSessionToken,
+		arg.TokenHash,
+		arg.IdleExpiresAt,
+		arg.SessionID,
+		arg.CurrentTokenHash,
+	)
 	var i AdminSession
 	err := row.Scan(
 		&i.ID,
@@ -1767,6 +1787,7 @@ func (q *Queries) RotateAdminSessionToken(ctx context.Context, arg RotateAdminSe
 		&i.RevokedAt,
 		&i.RevokedReason,
 		&i.ChallengeFailures,
+		&i.PreviousTokenHash,
 	)
 	return i, err
 }
@@ -2084,7 +2105,7 @@ const touchAdminSession = `-- name: TouchAdminSession :one
 UPDATE admin_sessions
 SET last_seen_at = now(), idle_expires_at = $1
 WHERE id = $2 AND revoked_at IS NULL
-RETURNING id, admin_user_id, token_hash, csrf_secret, pending_totp, auth_methods, ip, user_agent, created_at, last_seen_at, rotated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason, challenge_failures
+RETURNING id, admin_user_id, token_hash, csrf_secret, pending_totp, auth_methods, ip, user_agent, created_at, last_seen_at, rotated_at, idle_expires_at, absolute_expires_at, revoked_at, revoked_reason, challenge_failures, previous_token_hash
 `
 
 type TouchAdminSessionParams struct {
@@ -2114,6 +2135,7 @@ func (q *Queries) TouchAdminSession(ctx context.Context, arg TouchAdminSessionPa
 		&i.RevokedAt,
 		&i.RevokedReason,
 		&i.ChallengeFailures,
+		&i.PreviousTokenHash,
 	)
 	return i, err
 }
