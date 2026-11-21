@@ -84,6 +84,15 @@ func Read(ctx context.Context, connection *pgx.Conn) (bedolagaimport.Source, err
 	if source.StarsOrders, err = readStarsOrders(ctx, tx, columns); err != nil {
 		return bedolagaimport.Source{}, err
 	}
+	if source.Pages, err = readPages(ctx, tx, columns); err != nil {
+		return bedolagaimport.Source{}, err
+	}
+	if source.Tickets, err = readTickets(ctx, tx, columns); err != nil {
+		return bedolagaimport.Source{}, err
+	}
+	if source.Consents, err = readConsents(ctx, tx, columns); err != nil {
+		return bedolagaimport.Source{}, err
+	}
 	if source.Archive, err = readArchive(ctx, tx, columns); err != nil {
 		return bedolagaimport.Source{}, err
 	}
@@ -172,6 +181,146 @@ func readStarsOrders(ctx context.Context, tx pgx.Tx, columns map[string]map[stri
 		return nil, fmt.Errorf("read stars orders: %w", err)
 	}
 	return orders, nil
+}
+
+// readPages reads the privacy policy, the public offer, the service rules and
+// the FAQ. Each is optional: an older Bedolaga has some of them or none.
+func readPages(ctx context.Context, tx pgx.Tx, columns map[string]map[string]bool) ([]bedolagaimport.Page, error) {
+	type query struct {
+		kind, table, statement string
+		required               []string
+	}
+	queries := []query{
+		{bedolagaimport.PagePrivacy, "privacy_policies", `SELECT id::bigint, COALESCE(language, 'ru'), '',
+			COALESCE(content, ''), COALESCE(is_enabled, false), 0::bigint, COALESCE(updated_at, created_at, now())
+			FROM privacy_policies ORDER BY id`, []string{"id", "language", "content", "is_enabled"}},
+		{bedolagaimport.PageOffer, "public_offers", `SELECT id::bigint, COALESCE(language, 'ru'), '',
+			COALESCE(content, ''), COALESCE(is_enabled, false), 0::bigint, COALESCE(updated_at, created_at, now())
+			FROM public_offers ORDER BY id`, []string{"id", "language", "content", "is_enabled"}},
+		{bedolagaimport.PageRules, "service_rules", `SELECT id::bigint, COALESCE(language, 'ru'), COALESCE(title, ''),
+			COALESCE(content, ''), COALESCE(is_active, false), COALESCE("order", 0)::bigint, COALESCE(updated_at, created_at, now())
+			FROM service_rules ORDER BY id`, []string{"id", "language", "title", "content", "is_active", "order"}},
+		{bedolagaimport.PageFAQ, "faq_pages", `SELECT p.id::bigint, COALESCE(p.language, 'ru'), COALESCE(p.title, ''),
+			COALESCE(p.content, ''), COALESCE(p.is_active, false) AND COALESCE(s.is_enabled, true),
+			COALESCE(p.display_order, 0)::bigint, COALESCE(p.updated_at, p.created_at, now())
+			FROM faq_pages p LEFT JOIN faq_settings s ON s.language = p.language ORDER BY p.id`,
+			[]string{"id", "language", "title", "content", "is_active", "display_order"}},
+	}
+	pages := []bedolagaimport.Page{}
+	for _, entry := range queries {
+		if !hasColumns(columns, entry.table, entry.required...) {
+			continue
+		}
+		statement := entry.statement
+		if entry.table == "faq_pages" && !hasColumns(columns, "faq_settings", "language", "is_enabled") {
+			statement = strings.Replace(statement, " AND COALESCE(s.is_enabled, true)", "", 1)
+			statement = strings.Replace(statement, " LEFT JOIN faq_settings s ON s.language = p.language", "", 1)
+		}
+		rows, err := tx.Query(ctx, statement)
+		if err != nil {
+			return nil, fmt.Errorf("read %s: %w", entry.table, err)
+		}
+		read, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (bedolagaimport.Page, error) {
+			page := bedolagaimport.Page{Kind: entry.kind}
+			err := row.Scan(&page.SourceID, &page.Language, &page.Title, &page.Body, &page.Enabled, &page.Order, &page.UpdatedAt)
+			page.UpdatedAt = page.UpdatedAt.UTC()
+			return page, err
+		})
+		if err != nil {
+			return nil, fmt.Errorf("read %s: %w", entry.table, err)
+		}
+		pages = append(pages, read...)
+	}
+	return pages, nil
+}
+
+// readTickets reads every support ticket with its whole conversation.
+func readTickets(ctx context.Context, tx pgx.Tx, columns map[string]map[string]bool) ([]bedolagaimport.Ticket, error) {
+	if !hasColumns(columns, "tickets", "id", "user_id", "title", "status", "created_at") ||
+		!hasColumns(columns, "ticket_messages", "id", "ticket_id", "message_text", "is_from_admin", "created_at") {
+		return nil, nil
+	}
+	optional := func(table, column, fallback string) string {
+		if columns[table][column] {
+			return column
+		}
+		return fallback
+	}
+	rows, err := tx.Query(ctx, `SELECT id::bigint, user_id::bigint, COALESCE(title, ''), COALESCE(status, 'open'),
+		COALESCE(`+optional("tickets", "priority", "'normal'")+`, 'normal'), created_at,
+		COALESCE(`+optional("tickets", "updated_at", "created_at")+`, created_at), `+optional("tickets", "closed_at", "NULL::timestamptz")+`
+		FROM tickets WHERE user_id IS NOT NULL ORDER BY id`)
+	if err != nil {
+		return nil, fmt.Errorf("read tickets: %w", err)
+	}
+	tickets, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (bedolagaimport.Ticket, error) {
+		var ticket bedolagaimport.Ticket
+		err := row.Scan(&ticket.ID, &ticket.UserID, &ticket.Title, &ticket.Status, &ticket.Priority,
+			&ticket.CreatedAt, &ticket.UpdatedAt, &ticket.ClosedAt)
+		ticket.CreatedAt, ticket.UpdatedAt = ticket.CreatedAt.UTC(), ticket.UpdatedAt.UTC()
+		if ticket.ClosedAt != nil {
+			closed := ticket.ClosedAt.UTC()
+			ticket.ClosedAt = &closed
+		}
+		return ticket, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("read tickets: %w", err)
+	}
+	index := make(map[int64]int, len(tickets))
+	for position, ticket := range tickets {
+		index[ticket.ID] = position
+	}
+	rows, err = tx.Query(ctx, `SELECT id::bigint, ticket_id::bigint, COALESCE(is_from_admin, false),
+		COALESCE(message_text, ''), COALESCE(`+optional("ticket_messages", "has_media", "false")+`, false),
+		COALESCE(`+optional("ticket_messages", "media_type", "''")+`, ''),
+		COALESCE(`+optional("ticket_messages", "media_caption", "''")+`, ''), created_at
+		FROM ticket_messages WHERE created_at IS NOT NULL ORDER BY created_at, id`)
+	if err != nil {
+		return nil, fmt.Errorf("read ticket messages: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var (
+			message  bedolagaimport.TicketMessage
+			ticketID int64
+		)
+		if err := rows.Scan(&message.ID, &ticketID, &message.FromAdmin, &message.Text, &message.HasMedia,
+			&message.MediaType, &message.Caption, &message.CreatedAt); err != nil {
+			return nil, fmt.Errorf("read ticket messages: %w", err)
+		}
+		message.CreatedAt = message.CreatedAt.UTC()
+		if position, ok := index[ticketID]; ok {
+			tickets[position].Messages = append(tickets[position].Messages, message)
+		}
+	}
+	return tickets, rows.Err()
+}
+
+// readConsents reads which legal documents customers accepted, and when.
+func readConsents(ctx context.Context, tx pgx.Tx, columns map[string]map[string]bool) ([]bedolagaimport.Consent, error) {
+	if !hasColumns(columns, "legal_consents", "id", "user_id", "document", "accepted_at") {
+		return nil, nil
+	}
+	source := "''"
+	if columns["legal_consents"]["source"] {
+		source = "COALESCE(source, '')"
+	}
+	rows, err := tx.Query(ctx, `SELECT id::bigint, user_id::bigint, COALESCE(document, ''), `+source+`, accepted_at
+		FROM legal_consents WHERE user_id IS NOT NULL AND accepted_at IS NOT NULL ORDER BY id`)
+	if err != nil {
+		return nil, fmt.Errorf("read legal consents: %w", err)
+	}
+	consents, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (bedolagaimport.Consent, error) {
+		var consent bedolagaimport.Consent
+		err := row.Scan(&consent.ID, &consent.UserID, &consent.Document, &consent.Source, &consent.AcceptedAt)
+		consent.AcceptedAt = consent.AcceptedAt.UTC()
+		return consent, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("read legal consents: %w", err)
+	}
+	return consents, nil
 }
 
 func loadColumns(ctx context.Context, tx pgx.Tx) (map[string]map[string]bool, error) {

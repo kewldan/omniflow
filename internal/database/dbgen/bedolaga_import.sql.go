@@ -91,6 +91,30 @@ func (q *Queries) CustomerTelegramSubjects(ctx context.Context, userID pgtype.UU
 	return items, nil
 }
 
+const defaultSupportQueue = `-- name: DefaultSupportQueue :one
+SELECT id FROM support_queues WHERE is_default AND archived_at IS NULL LIMIT 1
+`
+
+func (q *Queries) DefaultSupportQueue(ctx context.Context) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, defaultSupportQueue)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const dropImportedTicketNotices = `-- name: DropImportedTicketNotices :exec
+DELETE FROM operator_notifications
+WHERE kind = 'support' AND payload->>'ticketId' = $1::text
+`
+
+// The insert triggers queue "new ticket" and "customer replied" notices for
+// the operators' group. A carried ticket is history, so they are removed in
+// the same transaction, before the notifier can see them.
+func (q *Queries) DropImportedTicketNotices(ctx context.Context, ticketID string) error {
+	_, err := q.db.Exec(ctx, dropImportedTicketNotices, ticketID)
+	return err
+}
+
 const finishBedolagaImportRun = `-- name: FinishBedolagaImportRun :one
 UPDATE bedolaga_import_runs
 SET status = $1, report = $2, finished_at = now()
@@ -250,6 +274,31 @@ func (q *Queries) InsertImportedCampaignAttribution(ctx context.Context, arg Ins
 	return result.RowsAffected(), nil
 }
 
+const insertImportedConsent = `-- name: InsertImportedConsent :exec
+INSERT INTO consent_records (user_id, purpose, granted, policy_version, source, occurred_at, request_id)
+VALUES ($1, $2, true, 'bedolaga', $3, $4,
+        $5)
+`
+
+type InsertImportedConsentParams struct {
+	UserID     pgtype.UUID        `json:"user_id"`
+	Purpose    string             `json:"purpose"`
+	Source     string             `json:"source"`
+	OccurredAt pgtype.Timestamptz `json:"occurred_at"`
+	RequestID  pgtype.Text        `json:"request_id"`
+}
+
+func (q *Queries) InsertImportedConsent(ctx context.Context, arg InsertImportedConsentParams) error {
+	_, err := q.db.Exec(ctx, insertImportedConsent,
+		arg.UserID,
+		arg.Purpose,
+		arg.Source,
+		arg.OccurredAt,
+		arg.RequestID,
+	)
+	return err
+}
+
 const insertImportedCustomer = `-- name: InsertImportedCustomer :one
 
 INSERT INTO users (status, locale, created_at, updated_at, suspended_at)
@@ -361,6 +410,57 @@ func (q *Queries) InsertImportedEntitlement(ctx context.Context, arg InsertImpor
 		&i.PausedSeconds,
 	)
 	return i, err
+}
+
+const insertImportedInfoPage = `-- name: InsertImportedInfoPage :exec
+INSERT INTO info_pages (slug, kind, published_at, listed, sort_order)
+VALUES ($1, $2, $3, true, $4)
+ON CONFLICT (slug) DO NOTHING
+`
+
+type InsertImportedInfoPageParams struct {
+	Slug        string             `json:"slug"`
+	Kind        string             `json:"kind"`
+	PublishedAt pgtype.Timestamptz `json:"published_at"`
+	SortOrder   int32              `json:"sort_order"`
+}
+
+// The page row a carried document hangs off. A page that exists keeps its
+// kind, publication, and order.
+func (q *Queries) InsertImportedInfoPage(ctx context.Context, arg InsertImportedInfoPageParams) error {
+	_, err := q.db.Exec(ctx, insertImportedInfoPage,
+		arg.Slug,
+		arg.Kind,
+		arg.PublishedAt,
+		arg.SortOrder,
+	)
+	return err
+}
+
+const insertImportedInfoPageLocalization = `-- name: InsertImportedInfoPageLocalization :execrows
+INSERT INTO info_page_localizations (page_slug, locale, title, body)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (page_slug, locale) DO NOTHING
+`
+
+type InsertImportedInfoPageLocalizationParams struct {
+	PageSlug string `json:"page_slug"`
+	Locale   string `json:"locale"`
+	Title    string `json:"title"`
+	Body     string `json:"body"`
+}
+
+func (q *Queries) InsertImportedInfoPageLocalization(ctx context.Context, arg InsertImportedInfoPageLocalizationParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertImportedInfoPageLocalization,
+		arg.PageSlug,
+		arg.Locale,
+		arg.Title,
+		arg.Body,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const insertImportedOrder = `-- name: InsertImportedOrder :one
@@ -546,6 +646,80 @@ func (q *Queries) InsertImportedSubscription(ctx context.Context, arg InsertImpo
 		&i.LinkRotatedAt,
 	)
 	return i, err
+}
+
+const insertImportedSupportMessage = `-- name: InsertImportedSupportMessage :exec
+INSERT INTO support_messages (ticket_id, sender, body, created_at, dedupe_key, delivered_at, read_at)
+VALUES ($1, $2, $3, $4, $5,
+        $4, $4)
+`
+
+type InsertImportedSupportMessageParams struct {
+	TicketID  pgtype.UUID        `json:"ticket_id"`
+	Sender    string             `json:"sender"`
+	Body      string             `json:"body"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	DedupeKey pgtype.Text        `json:"dedupe_key"`
+}
+
+// A carried message is already delivered and read, so the bot's support loop
+// never pushes an old answer to the customer again.
+func (q *Queries) InsertImportedSupportMessage(ctx context.Context, arg InsertImportedSupportMessageParams) error {
+	_, err := q.db.Exec(ctx, insertImportedSupportMessage,
+		arg.TicketID,
+		arg.Sender,
+		arg.Body,
+		arg.CreatedAt,
+		arg.DedupeKey,
+	)
+	return err
+}
+
+const insertImportedTicket = `-- name: InsertImportedTicket :one
+INSERT INTO support_tickets (
+  user_id, status, created_at, updated_at, subject, priority, last_message_at,
+  closed_at, queue_id, first_response_at, resolved_at
+) VALUES (
+  $1, $2, $3, $4, $5,
+  $6, $7, $8, $9,
+  $10, $11
+)
+RETURNING id
+`
+
+type InsertImportedTicketParams struct {
+	UserID          pgtype.UUID        `json:"user_id"`
+	Status          string             `json:"status"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	Subject         string             `json:"subject"`
+	Priority        string             `json:"priority"`
+	LastMessageAt   pgtype.Timestamptz `json:"last_message_at"`
+	ClosedAt        pgtype.Timestamptz `json:"closed_at"`
+	QueueID         pgtype.UUID        `json:"queue_id"`
+	FirstResponseAt pgtype.Timestamptz `json:"first_response_at"`
+	ResolvedAt      pgtype.Timestamptz `json:"resolved_at"`
+}
+
+// A carried ticket, with its own dates. Nothing in it is unread: it is
+// history both sides have seen.
+func (q *Queries) InsertImportedTicket(ctx context.Context, arg InsertImportedTicketParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, insertImportedTicket,
+		arg.UserID,
+		arg.Status,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+		arg.Subject,
+		arg.Priority,
+		arg.LastMessageAt,
+		arg.ClosedAt,
+		arg.QueueID,
+		arg.FirstResponseAt,
+		arg.ResolvedAt,
+	)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
 }
 
 const insertImportedTrialClaim = `-- name: InsertImportedTrialClaim :execrows
@@ -779,6 +953,32 @@ func (q *Queries) ListBedolagaImportRuns(ctx context.Context, pageSize int32) ([
 	return items, nil
 }
 
+const listBedolagaLegacyConsents = `-- name: ListBedolagaLegacyConsents :many
+SELECT split_part(request_id, ':', 3)::bigint AS source_id
+FROM consent_records
+WHERE request_id LIKE 'bedolaga:legal_consent:%'
+`
+
+func (q *Queries) ListBedolagaLegacyConsents(ctx context.Context) ([]int64, error) {
+	rows, err := q.db.Query(ctx, listBedolagaLegacyConsents)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var source_id int64
+		if err := rows.Scan(&source_id); err != nil {
+			return nil, err
+		}
+		items = append(items, source_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listBedolagaLegacyGoods = `-- name: ListBedolagaLegacyGoods :many
 SELECT source_id FROM legacy_goods_orders WHERE source = 'bedolaga'
 `
@@ -866,6 +1066,34 @@ func (q *Queries) ListBedolagaLegacyPeriods(ctx context.Context) ([]ListBedolaga
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listBedolagaLegacyTickets = `-- name: ListBedolagaLegacyTickets :many
+SELECT DISTINCT split_part(dedupe_key, ':', 3)::bigint AS source_id
+FROM support_messages
+WHERE dedupe_key LIKE 'bedolaga:ticket:%'
+`
+
+// The Bedolaga tickets already carried, found by the dedupe key their
+// messages were written with.
+func (q *Queries) ListBedolagaLegacyTickets(ctx context.Context) ([]int64, error) {
+	rows, err := q.db.Query(ctx, listBedolagaLegacyTickets)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var source_id int64
+		if err := rows.Scan(&source_id); err != nil {
+			return nil, err
+		}
+		items = append(items, source_id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -1094,6 +1322,41 @@ func (q *Queries) ListImportedSubscriptionsForVerify(ctx context.Context) ([]Lis
 			&i.EntitlementStatus,
 			&i.EndsAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listInfoPageLocales = `-- name: ListInfoPageLocales :many
+
+SELECT page_slug, locale FROM info_page_localizations
+`
+
+type ListInfoPageLocalesRow struct {
+	PageSlug string `json:"page_slug"`
+	Locale   string `json:"locale"`
+}
+
+// ---------------------------------------------------------------------------
+// Pages, tickets, and consents
+// ---------------------------------------------------------------------------
+// Every language every page already has. A carried document never replaces
+// one an operator wrote in Omniflow, or one carried before.
+func (q *Queries) ListInfoPageLocales(ctx context.Context) ([]ListInfoPageLocalesRow, error) {
+	rows, err := q.db.Query(ctx, listInfoPageLocales)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListInfoPageLocalesRow{}
+	for rows.Next() {
+		var i ListInfoPageLocalesRow
+		if err := rows.Scan(&i.PageSlug, &i.Locale); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1518,6 +1781,23 @@ func (q *Queries) SumBedolagaWalletMovements(ctx context.Context) ([]SumBedolaga
 		return nil, err
 	}
 	return items, nil
+}
+
+const supportTopicPending = `-- name: SupportTopicPending :one
+SELECT EXISTS (
+  SELECT 1 FROM support_topic_choices
+  WHERE user_id = $1 AND chosen_at > now() - interval '1 hour'
+)::boolean
+`
+
+// Whether the customer picked a support topic in the last hour. Inserting a
+// ticket for them would consume that choice, which belongs to the ticket they
+// are about to open.
+func (q *Queries) SupportTopicPending(ctx context.Context, userID pgtype.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, supportTopicPending, userID)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const upsertBedolagaImportItem = `-- name: UpsertBedolagaImportItem :one

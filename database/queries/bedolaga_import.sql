@@ -394,3 +394,80 @@ INSERT INTO legacy_goods_orders (user_id, source, source_id, kind, quantity, amo
 VALUES (sqlc.arg(user_id), 'bedolaga', sqlc.arg(source_id), 'telegram_stars', sqlc.arg(quantity),
         sqlc.arg(amount_minor), sqlc.arg(currency), sqlc.arg(delivered_at))
 ON CONFLICT (source, source_id) DO NOTHING;
+
+-- ---------------------------------------------------------------------------
+-- Pages, tickets, and consents
+-- ---------------------------------------------------------------------------
+
+-- name: ListInfoPageLocales :many
+-- Every language every page already has. A carried document never replaces
+-- one an operator wrote in Omniflow, or one carried before.
+SELECT page_slug, locale FROM info_page_localizations;
+
+-- name: ListBedolagaLegacyTickets :many
+-- The Bedolaga tickets already carried, found by the dedupe key their
+-- messages were written with.
+SELECT DISTINCT split_part(dedupe_key, ':', 3)::bigint AS source_id
+FROM support_messages
+WHERE dedupe_key LIKE 'bedolaga:ticket:%';
+
+-- name: ListBedolagaLegacyConsents :many
+SELECT split_part(request_id, ':', 3)::bigint AS source_id
+FROM consent_records
+WHERE request_id LIKE 'bedolaga:legal_consent:%';
+
+-- name: InsertImportedInfoPage :exec
+-- The page row a carried document hangs off. A page that exists keeps its
+-- kind, publication, and order.
+INSERT INTO info_pages (slug, kind, published_at, listed, sort_order)
+VALUES (sqlc.arg(slug), sqlc.arg(kind), sqlc.narg(published_at), true, sqlc.arg(sort_order))
+ON CONFLICT (slug) DO NOTHING;
+
+-- name: InsertImportedInfoPageLocalization :execrows
+INSERT INTO info_page_localizations (page_slug, locale, title, body)
+VALUES (sqlc.arg(page_slug), sqlc.arg(locale), sqlc.arg(title), sqlc.arg(body))
+ON CONFLICT (page_slug, locale) DO NOTHING;
+
+-- name: DefaultSupportQueue :one
+SELECT id FROM support_queues WHERE is_default AND archived_at IS NULL LIMIT 1;
+
+-- name: SupportTopicPending :one
+-- Whether the customer picked a support topic in the last hour. Inserting a
+-- ticket for them would consume that choice, which belongs to the ticket they
+-- are about to open.
+SELECT EXISTS (
+  SELECT 1 FROM support_topic_choices
+  WHERE user_id = sqlc.arg(user_id) AND chosen_at > now() - interval '1 hour'
+)::boolean;
+
+-- name: InsertImportedTicket :one
+-- A carried ticket, with its own dates. Nothing in it is unread: it is
+-- history both sides have seen.
+INSERT INTO support_tickets (
+  user_id, status, created_at, updated_at, subject, priority, last_message_at,
+  closed_at, queue_id, first_response_at, resolved_at
+) VALUES (
+  sqlc.arg(user_id), sqlc.arg(status), sqlc.arg(created_at), sqlc.arg(updated_at), sqlc.arg(subject),
+  sqlc.arg(priority), sqlc.arg(last_message_at), sqlc.narg(closed_at), sqlc.arg(queue_id),
+  sqlc.narg(first_response_at), sqlc.narg(resolved_at)
+)
+RETURNING id;
+
+-- name: InsertImportedSupportMessage :exec
+-- A carried message is already delivered and read, so the bot's support loop
+-- never pushes an old answer to the customer again.
+INSERT INTO support_messages (ticket_id, sender, body, created_at, dedupe_key, delivered_at, read_at)
+VALUES (sqlc.arg(ticket_id), sqlc.arg(sender), sqlc.arg(body), sqlc.arg(created_at), sqlc.arg(dedupe_key),
+        sqlc.arg(created_at), sqlc.arg(created_at));
+
+-- name: DropImportedTicketNotices :exec
+-- The insert triggers queue "new ticket" and "customer replied" notices for
+-- the operators' group. A carried ticket is history, so they are removed in
+-- the same transaction, before the notifier can see them.
+DELETE FROM operator_notifications
+WHERE kind = 'support' AND payload->>'ticketId' = sqlc.arg(ticket_id)::text;
+
+-- name: InsertImportedConsent :exec
+INSERT INTO consent_records (user_id, purpose, granted, policy_version, source, occurred_at, request_id)
+VALUES (sqlc.arg(user_id), sqlc.arg(purpose), true, 'bedolaga', sqlc.arg(source), sqlc.arg(occurred_at),
+        sqlc.arg(request_id));

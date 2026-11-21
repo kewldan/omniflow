@@ -177,6 +177,21 @@ func (runner *applier) run(ctx context.Context, plan bedolagaimport.Plan) error 
 			return err
 		}
 	}
+	for _, decision := range plan.Pages {
+		if err := runner.page(ctx, decision); err != nil {
+			return err
+		}
+	}
+	for _, decision := range plan.Tickets {
+		if err := runner.ticket(ctx, decision); err != nil {
+			return err
+		}
+	}
+	for _, decision := range plan.Consents {
+		if err := runner.consent(ctx, decision); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -242,6 +257,164 @@ func (runner *applier) goods(ctx context.Context, decision bedolagaimport.GoodsD
 		return runner.fail(ctx, "stars_order", decision.Source.ID, [32]byte{}, err)
 	}
 	runner.result.Written["stars_order"]++
+	return nil
+}
+
+// ---------------------------------------------------------------------------
+// Pages, tickets, and consents
+// ---------------------------------------------------------------------------
+
+// page writes one language of a carried document. The page row is created
+// only when it does not exist, so a page an operator set up keeps its
+// publication and order; a language it already has is never replaced.
+func (runner *applier) page(ctx context.Context, decision bedolagaimport.PageDecision) error {
+	if decision.Action != bedolagaimport.ActionCreate {
+		return nil
+	}
+	if err := runner.step(); err != nil {
+		return err
+	}
+	sourceID := int64(0)
+	if len(decision.SourceIDs) > 0 {
+		sourceID = decision.SourceIDs[0]
+	}
+	err := runner.inTx(ctx, func(_ pgx.Tx, queries *dbgen.Queries) error {
+		published := pgtype.Timestamptz{}
+		if decision.Published {
+			published = timestamp(time.Now())
+		}
+		if err := queries.InsertImportedInfoPage(ctx, dbgen.InsertImportedInfoPageParams{
+			Slug: decision.Slug, Kind: decision.Kind, PublishedAt: published, SortOrder: int32(decision.SortOrder),
+		}); err != nil {
+			return err
+		}
+		_, err := queries.InsertImportedInfoPageLocalization(ctx, dbgen.InsertImportedInfoPageLocalizationParams{
+			PageSlug: decision.Slug, Locale: decision.Locale, Title: decision.Title, Body: decision.Body,
+		})
+		return err
+	})
+	if err != nil {
+		return runner.fail(ctx, "page", sourceID, [32]byte{}, err)
+	}
+	runner.result.Written["page"]++
+	return nil
+}
+
+// ticket writes one carried ticket and its whole conversation in one
+// transaction. The messages are marked delivered and read, so nothing is
+// pushed to the customer, and the operator notices the insert triggers
+// queue are removed before they are sent.
+func (runner *applier) ticket(ctx context.Context, decision bedolagaimport.TicketDecision) error {
+	if decision.Action != bedolagaimport.ActionCreate {
+		return nil
+	}
+	customerID := runner.customers[decision.Source.UserID]
+	if customerID == "" {
+		customerID = decision.CustomerID
+	}
+	if customerID == "" {
+		return nil
+	}
+	if err := runner.step(); err != nil {
+		return err
+	}
+	ticket := decision.Source
+	err := runner.inTx(ctx, func(_ pgx.Tx, queries *dbgen.Queries) error {
+		customer := optionalUUID(customerID)
+		pending, err := queries.SupportTopicPending(ctx, customer)
+		if err != nil {
+			return err
+		}
+		if pending {
+			return codedError{bedolagaimport.CodeSupportTopicChosen, errors.New("the customer is opening a ticket right now; the next run carries this one")}
+		}
+		queue, err := queries.DefaultSupportQueue(ctx)
+		if err != nil {
+			return err
+		}
+		var firstResponse pgtype.Timestamptz
+		for _, message := range ticket.Messages {
+			if message.FromAdmin {
+				firstResponse = timestamp(message.CreatedAt)
+				break
+			}
+		}
+		last := ticket.Messages[len(ticket.Messages)-1].CreatedAt
+		var closed, resolved pgtype.Timestamptz
+		if decision.Status == "closed" || decision.Status == "resolved" {
+			at := ticket.UpdatedAt
+			if ticket.ClosedAt != nil {
+				at = *ticket.ClosedAt
+			}
+			resolved = timestamp(at)
+			if decision.Status == "closed" {
+				closed = timestamp(at)
+			}
+		}
+		updated := ticket.UpdatedAt
+		if updated.Before(last) {
+			updated = last
+		}
+		ticketID, err := queries.InsertImportedTicket(ctx, dbgen.InsertImportedTicketParams{
+			UserID: customer, Status: decision.Status, CreatedAt: timestamp(ticket.CreatedAt),
+			UpdatedAt: timestamp(updated), Subject: decision.Subject, Priority: decision.Priority,
+			LastMessageAt: timestamp(last), ClosedAt: closed, QueueID: queue,
+			FirstResponseAt: firstResponse, ResolvedAt: resolved,
+		})
+		if err != nil {
+			return err
+		}
+		for _, message := range ticket.Messages {
+			sender := "customer"
+			if message.FromAdmin {
+				sender = "operator"
+			}
+			if err := queries.InsertImportedSupportMessage(ctx, dbgen.InsertImportedSupportMessageParams{
+				TicketID: ticketID, Sender: sender, Body: bedolagaimport.TicketMessageBody(message),
+				CreatedAt: timestamp(message.CreatedAt),
+				DedupeKey: pgtype.Text{String: bedolagaimport.LegacyTicketKey(ticket.ID, message.ID), Valid: true},
+			}); err != nil {
+				return err
+			}
+		}
+		return queries.DropImportedTicketNotices(ctx, uuidString(ticketID))
+	})
+	if err != nil {
+		return runner.fail(ctx, "ticket", ticket.ID, [32]byte{}, err)
+	}
+	runner.result.Written["ticket"]++
+	return nil
+}
+
+// consent writes one accepted document as a consent record. Its policy
+// version is "bedolaga", so a terms gate asking for a newer version still
+// asks.
+func (runner *applier) consent(ctx context.Context, decision bedolagaimport.ConsentDecision) error {
+	if decision.Action != bedolagaimport.ActionCreate {
+		return nil
+	}
+	customerID := runner.customers[decision.Source.UserID]
+	if customerID == "" {
+		customerID = decision.CustomerID
+	}
+	if customerID == "" {
+		return nil
+	}
+	if err := runner.step(); err != nil {
+		return err
+	}
+	source := "bedolaga"
+	if origin := strings.TrimSpace(decision.Source.Source); origin != "" {
+		source = "bedolaga:" + origin
+	}
+	if err := dbgen.New(runner.service.pool).InsertImportedConsent(ctx, dbgen.InsertImportedConsentParams{
+		UserID: optionalUUID(customerID), Purpose: decision.Purpose, Source: source,
+		OccurredAt: timestamp(decision.Source.AcceptedAt),
+		RequestID:  pgtype.Text{String: bedolagaimport.LegacyConsentKey(decision.Source.ID), Valid: true},
+	}); err != nil {
+		return runner.fail(ctx, "consent", decision.Source.ID, [32]byte{}, err)
+	}
+	runner.result.Written["consent"]++
 	return nil
 }
 

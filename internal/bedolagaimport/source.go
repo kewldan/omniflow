@@ -190,5 +190,10 @@ type Source struct {
 	Campaigns             []Campaign
 	CampaignRegistrations []CampaignRegistration
 	StarsOrders           []StarsOrder
-	Archive               Archive
+	// Pages are the legal documents and FAQ questions; Tickets carry their
+	// messages; Consents are the documents customers accepted.
+	Pages    []Page
+	Tickets  []Ticket
+	Consents []Consent
+	Archive  Archive
 }

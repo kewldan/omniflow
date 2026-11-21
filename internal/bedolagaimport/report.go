@@ -149,6 +149,9 @@ type Report struct {
 	Campaigns       Section             `json:"campaigns"`
 	Attributions    Section             `json:"campaignRegistrations"`
 	Goods           GoodsSection        `json:"starsOrders"`
+	Pages           Section             `json:"pages"`
+	Tickets         TicketSection       `json:"tickets"`
+	Consents        Section             `json:"consents"`
 	UnmappedTariffs []UnmappedTariff    `json:"unmappedTariffs"`
 	PlanVersions    []PlanVersionUse    `json:"planVersions"`
 	// Available lists every Omniflow plan version a mapping may name.
@@ -156,6 +159,12 @@ type Report struct {
 	Problems    []Problem     `json:"problems"`
 	Archive     Archive       `json:"archive"`
 	NotMigrated []string      `json:"notMigrated"`
+}
+
+// TicketSection is the support tickets carried as history.
+type TicketSection struct {
+	Section
+	Messages int `json:"messages"`
 }
 
 // GoodsSection is the delivered Stars orders carried as shop history.
@@ -172,7 +181,7 @@ var NotMigrated = []string{
 	"Telegram Stars shop orders not delivered (paid, failed, refunded, in review): counted here, stay in the archived dump; delivered orders are carried as shop history",
 	"advertising campaign bonuses already given: a carried registration is attributed with its date and is not given the bonus again",
 	"gifts paid for and not yet received: counted here with their IDs; hand them over or refund them in Bedolaga before cutover",
-	"support tickets and their messages: close them in Bedolaga before cutover",
+	"files attached to support messages: the message says a file was attached; the file stays in the previous bot's chat",
 	"promo codes, promo groups and their discounts: recreate the ones you still want in the panel",
 	"referral earnings history and partner withdrawal requests: the earned money is already in the balance",
 	"saved payment methods and recurring payment agreements: customers pay again once in Omniflow",
@@ -242,6 +251,21 @@ func (plan Plan) Pending() int {
 			count++
 		}
 	}
+	for _, decision := range plan.Pages {
+		if decision.Action == ActionCreate {
+			count++
+		}
+	}
+	for _, decision := range plan.Tickets {
+		if decision.Action == ActionCreate {
+			count++
+		}
+	}
+	for _, decision := range plan.Consents {
+		if decision.Action == ActionCreate {
+			count++
+		}
+	}
 	return count
 }
 
@@ -257,6 +281,7 @@ func buildReport(plan Plan, source Source, tariffs map[int64]Tariff, mapping Map
 		ReferralCodes: newSection(),
 		Gifts:         GiftSection{ByStatus: map[string]int{}},
 		Campaigns:     newSection(), Attributions: newSection(), Goods: GoodsSection{Section: newSection()},
+		Pages: newSection(), Tickets: TicketSection{Section: newSection()}, Consents: newSection(),
 		UnmappedTariffs: []UnmappedTariff{}, PlanVersions: []PlanVersionUse{}, Problems: []Problem{},
 		Archive: source.Archive, NotMigrated: NotMigrated,
 	}
@@ -427,6 +452,18 @@ func buildReport(plan Plan, source Source, tariffs map[int64]Tariff, mapping Map
 		}
 	}
 	report.Goods.Buyers = len(buyers)
+	for _, decision := range plan.Pages {
+		report.Pages.add(decision.Action, decision.Codes, decision.Warnings)
+	}
+	for _, decision := range plan.Tickets {
+		report.Tickets.add(decision.Action, decision.Codes, decision.Warnings)
+		if decision.Action == ActionCreate || decision.Action == ActionUnchanged {
+			report.Tickets.Messages += len(decision.Source.Messages)
+		}
+	}
+	for _, decision := range plan.Consents {
+		report.Consents.add(decision.Action, decision.Codes, nil)
+	}
 	for _, entry := range unmapped {
 		report.UnmappedTariffs = append(report.UnmappedTariffs, *entry)
 	}
@@ -495,6 +532,10 @@ func (report Report) WriteText(writer io.Writer) {
 	fmt.Fprintf(writer, "  delivered orders carried: %d, %d stars, %s %s, from %d buyers\n",
 		report.Goods.Actions[ActionCreate]+report.Goods.Actions[ActionUnchanged], report.Goods.CarriedStars,
 		FormatMinor(report.Goods.CarriedMinor), report.Currency, report.Goods.Buyers)
+	writeSection(writer, "Pages", report.Pages)
+	writeSection(writer, "Tickets", report.Tickets.Section)
+	fmt.Fprintf(writer, "  messages carried with them: %d\n", report.Tickets.Messages)
+	writeSection(writer, "Consents", report.Consents)
 	if report.Gifts.Unclaimed > 0 {
 		fmt.Fprintf(writer, "Unclaimed gifts: %d paid, not received, %s %s — not carried; hand them over or refund them in Bedolaga first\n",
 			report.Gifts.Unclaimed, FormatMinor(report.Gifts.SumMinor), report.Currency)

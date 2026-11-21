@@ -542,6 +542,7 @@ type Querier interface {
 	// their reason are required by the row itself, so an adverse decision cannot be
 	// recorded anonymously.
 	DecideBlocklistMatch(ctx context.Context, arg DecideBlocklistMatchParams) (BlocklistMatch, error)
+	DefaultSupportQueue(ctx context.Context) (pgtype.UUID, error)
 	// Pushes an attempt out without resolving it.
 	//
 	// This is what a still-pending payment gets. The provider has been asked and
@@ -635,6 +636,10 @@ type Querier interface {
 	DropAbandonedTrialClaim(ctx context.Context, arg DropAbandonedTrialClaimParams) error
 	// Whatever the move above left behind, which is exactly the duplicates.
 	DropDuplicateNewsReads(ctx context.Context, source pgtype.UUID) error
+	// The insert triggers queue "new ticket" and "customer replied" notices for
+	// the operators' group. A carried ticket is history, so they are removed in
+	// the same transaction, before the notifier can see them.
+	DropImportedTicketNotices(ctx context.Context, ticketID string) error
 	DueWebhookDeliveries(ctx context.Context) ([]DueWebhookDeliveriesRow, error)
 	// Grants whose hours are up and that no scheduled operation ended — the
 	// entitlement it was queued for was retired in between.
@@ -1040,6 +1045,7 @@ type Querier interface {
 	// granted then and is never given again. A customer already attributed
 	// keeps their attribution.
 	InsertImportedCampaignAttribution(ctx context.Context, arg InsertImportedCampaignAttributionParams) (int64, error)
+	InsertImportedConsent(ctx context.Context, arg InsertImportedConsentParams) error
 	// ---------------------------------------------------------------------------
 	// Writes
 	// ---------------------------------------------------------------------------
@@ -1047,6 +1053,10 @@ type Querier interface {
 	// tenure, cohorts, and support all read.
 	InsertImportedCustomer(ctx context.Context, arg InsertImportedCustomerParams) (User, error)
 	InsertImportedEntitlement(ctx context.Context, arg InsertImportedEntitlementParams) (Entitlement, error)
+	// The page row a carried document hangs off. A page that exists keeps its
+	// kind, publication, and order.
+	InsertImportedInfoPage(ctx context.Context, arg InsertImportedInfoPageParams) error
+	InsertImportedInfoPageLocalization(ctx context.Context, arg InsertImportedInfoPageLocalizationParams) (int64, error)
 	// The zero-value order an imported entitlement hangs off. It is fulfilled at
 	// birth because the period was paid for in Bedolaga; carrying no amount, it
 	// adds nothing to revenue. The idempotency key starts with `bedolaga:` so the
@@ -1062,6 +1072,12 @@ type Querier interface {
 	// keeps working and a later renewal patches that user rather than minting a
 	// new one.
 	InsertImportedSubscription(ctx context.Context, arg InsertImportedSubscriptionParams) (Subscription, error)
+	// A carried message is already delivered and read, so the bot's support loop
+	// never pushes an old answer to the customer again.
+	InsertImportedSupportMessage(ctx context.Context, arg InsertImportedSupportMessageParams) error
+	// A carried ticket, with its own dates. Nothing in it is unread: it is
+	// history both sides have seen.
+	InsertImportedTicket(ctx context.Context, arg InsertImportedTicketParams) (pgtype.UUID, error)
 	// The trial a customer already had, or could no longer have had, in the
 	// previous bot. It is dated when that happened rather than now, so trial
 	// reports do not show the whole carried-over base as claimed on migration day.
@@ -1265,11 +1281,15 @@ type Querier interface {
 	ListBatchCodes(ctx context.Context, batchID pgtype.UUID) ([]ListBatchCodesRow, error)
 	ListBedolagaImportItems(ctx context.Context) ([]BedolagaImportItem, error)
 	ListBedolagaImportRuns(ctx context.Context, pageSize int32) ([]BedolagaImportRun, error)
+	ListBedolagaLegacyConsents(ctx context.Context) ([]int64, error)
 	ListBedolagaLegacyGoods(ctx context.Context) ([]int64, error)
 	// The source rows already carried over, so a repeated run plans only the
 	// payments taken since.
 	ListBedolagaLegacyPayments(ctx context.Context) ([]ListBedolagaLegacyPaymentsRow, error)
 	ListBedolagaLegacyPeriods(ctx context.Context) ([]ListBedolagaLegacyPeriodsRow, error)
+	// The Bedolaga tickets already carried, found by the dedupe key their
+	// messages were written with.
+	ListBedolagaLegacyTickets(ctx context.Context) ([]int64, error)
 	ListBedolagaPaymentClaims(ctx context.Context, arg ListBedolagaPaymentClaimsParams) ([]BedolagaPaymentClaim, error)
 	ListBedolagaReferralAliases(ctx context.Context) ([]ListBedolagaReferralAliasesRow, error)
 	ListBlocklistMatchesForCustomer(ctx context.Context, userID pgtype.UUID) ([]ListBlocklistMatchesForCustomerRow, error)
@@ -1446,6 +1466,12 @@ type Querier interface {
 	ListImportedCustomersForVerify(ctx context.Context) ([]ListImportedCustomersForVerifyRow, error)
 	ListImportedReferralsForVerify(ctx context.Context) ([]ListImportedReferralsForVerifyRow, error)
 	ListImportedSubscriptionsForVerify(ctx context.Context) ([]ListImportedSubscriptionsForVerifyRow, error)
+	// ---------------------------------------------------------------------------
+	// Pages, tickets, and consents
+	// ---------------------------------------------------------------------------
+	// Every language every page already has. A carried document never replaces
+	// one an operator wrote in Omniflow, or one carried before.
+	ListInfoPageLocales(ctx context.Context) ([]ListInfoPageLocalesRow, error)
 	// The operator's view: every page, including drafts.
 	ListInfoPages(ctx context.Context) ([]ListInfoPagesRow, error)
 	ListLedgerEntriesByTransaction(ctx context.Context, transactionID pgtype.UUID) ([]LedgerEntry, error)
@@ -2635,6 +2661,10 @@ type Querier interface {
 	// The desk at a glance: what is waiting, what is overdue, and how quickly the
 	// desk is answering.
 	SupportDeskSummary(ctx context.Context, since pgtype.Timestamptz) (SupportDeskSummaryRow, error)
+	// Whether the customer picked a support topic in the last hour. Inserting a
+	// ticket for them would consume that choice, which belongs to the ticket they
+	// are about to open.
+	SupportTopicPending(ctx context.Context, userID pgtype.UUID) (bool, error)
 	// ---------------------------------------------------------------------------
 	// Workload and response-time reporting
 	// ---------------------------------------------------------------------------

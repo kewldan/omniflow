@@ -265,6 +265,28 @@ func (service *Service) loadTarget(ctx context.Context) (bedolagaimport.Target, 
 	for _, sourceID := range goods {
 		target.LegacyGoods[sourceID] = true
 	}
+	target.InfoPageLocales, target.LegacyTickets, target.LegacyConsents = map[string]bool{}, map[int64]bool{}, map[int64]bool{}
+	locales, err := queries.ListInfoPageLocales(ctx)
+	if err != nil {
+		return target, nil, fmt.Errorf("read info pages: %w", err)
+	}
+	for _, locale := range locales {
+		target.InfoPageLocales[locale.PageSlug+":"+locale.Locale] = true
+	}
+	tickets, err := queries.ListBedolagaLegacyTickets(ctx)
+	if err != nil {
+		return target, nil, fmt.Errorf("read carried-over tickets: %w", err)
+	}
+	for _, sourceID := range tickets {
+		target.LegacyTickets[sourceID] = true
+	}
+	consents, err := queries.ListBedolagaLegacyConsents(ctx)
+	if err != nil {
+		return target, nil, fmt.Errorf("read carried-over consents: %w", err)
+	}
+	for _, sourceID := range consents {
+		target.LegacyConsents[sourceID] = true
+	}
 	return target, versions, nil
 }
 

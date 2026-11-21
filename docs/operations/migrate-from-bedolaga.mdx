@@ -67,6 +67,9 @@ cutover.
 | `advertising_campaigns` | `ad_campaigns` | By `/start` code, lower-cased; an Omniflow campaign with the code already is matched and left as it is, see [campaigns](#advertising-campaigns) |
 | `advertising_campaign_registrations` | `customer_campaign_attributions` | The first campaign a customer arrived through, on its original date, with the bonus recorded as given |
 | `stars_orders` with status `completed` | `legacy_goods_orders` | Stars, amount, and delivery date, so segments find stars buyers and the sales report shows the old shop apart, see [Stars orders](#stars-shop-orders) |
+| `privacy_policies`, `public_offers`, `service_rules`, `faq_pages` | `info_pages`, `info_page_localizations` | The policy, the offer, the rules, and the FAQ as the pages `privacy`, `offer`, `terms`, and `faq`, see [documents](#documents-tickets-and-consents) |
+| `tickets`, `ticket_messages` | `support_tickets`, `support_messages` | Every ticket with its whole conversation and dates, see [documents](#documents-tickets-and-consents) |
+| `legal_consents` | `consent_records` | Who accepted the policy and the offer, and when |
 | `tariffs` | — | Mapped to plan versions by your [mapping file](#the-mapping-file) |
 
 The importer's own bookkeeping is two tables. `bedolaga_import_items` holds one row per Bedolaga
@@ -224,13 +227,30 @@ orders and the carried ones, so "stars buyers without a VPN" is `goods` with `su
 Omniflow's sales and from the previous bot's VPN payments. A carried order is history: no ledger
 entry, goods order, or delivery is written for it.
 
+### Documents, tickets, and consents
+
+The privacy policy, the public offer, the service rules, and the FAQ become the pages `privacy`,
+`offer`, `terms`, and `faq`, one language each for Russian and English. The FAQ is one page with a
+heading per question, in Bedolaga's order; several active rules sections become headed sections of
+one page. The text is converted to the [page syntax](/features/support): https links stay links,
+other markup is dropped, and a short numbered line standing alone becomes a heading. A document
+Bedolaga had switched off is carried unpublished, so its text is not lost. A page that already has
+the language in Omniflow — written in the panel or carried before — is never replaced.
+
+Every ticket moves with every message, its status (`answered` becomes `pending`, Omniflow's
+**Answered**), its priority, and its dates. The messages are marked delivered and read, so the bot
+pushes nothing to the customer, and the operator notices the insert would queue are removed in the
+same transaction. A file attached in Bedolaga is carried as a line such as `📎 фото: caption`: the
+file itself stays in the previous bot's chat. Accepted documents become consent records with the
+policy version `bedolaga`, so a terms gate that asks for a newer version still asks.
+
 ## What does not move
 
 | Stays in Bedolaga | Why, and what to do |
 | --- | --- |
 | Every `transactions` row other than a completed top-up, and the per-provider payment tables | Omniflow's ledger records money Omniflow moved. Completed top-ups are carried as [payment history](#history-trials-periods-and-payments); purchases from the balance, refunds, and credits are not. The snapshot from `01-snapshot-bedolaga.sh` is the archive; keep it |
 | Telegram Stars shop orders that were not delivered | Paid, failed, refunded, or in-review orders are not stars anybody received. The plan counts them by status and sum; they stay in the archive. Delivered ones are carried as [history](#stars-shop-orders) |
-| Support tickets and messages | Close or answer them in Bedolaga before the cutover; the plan counts them |
+| Files attached to support messages | The message says a file was attached; the file stays in the previous bot's chat |
 | Promo codes and promo groups | Their discount rules do not map onto Omniflow's promotions one to one. The plan counts active codes by type and groups by members; recreate what you still want in the panel |
 | Referral earnings history and partner withdrawal requests | The earned money is already part of the balance that moves. Settle pending withdrawals in Bedolaga first |
 | Saved payment methods and auto-payment agreements | Provider tokens belong to Bedolaga's merchant setup; customers turn auto-renewal on again in Omniflow |

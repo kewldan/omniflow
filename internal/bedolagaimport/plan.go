@@ -140,6 +140,12 @@ type Target struct {
 	CampaignAttributions map[string]string
 	// LegacyGoods holds the Bedolaga Stars orders already carried, by ID.
 	LegacyGoods map[int64]bool
+	// InfoPageLocales holds every "slug:locale" an Omniflow page already has.
+	InfoPageLocales map[string]bool
+	// LegacyTickets and LegacyConsents hold the Bedolaga tickets and consents
+	// already carried, by ID.
+	LegacyTickets  map[int64]bool
+	LegacyConsents map[int64]bool
 }
 
 // ItemKey is the map key of Target.Items.
@@ -235,6 +241,9 @@ type Plan struct {
 	Campaigns     []CampaignDecision
 	Attributions  []AttributionDecision
 	Goods         []GoodsDecision
+	Pages         []PageDecision
+	Tickets       []TicketDecision
+	Consents      []ConsentDecision
 	Report        Report
 }
 
@@ -309,6 +318,9 @@ func BuildPlan(source Source, remote map[int64]RemoteUser, target Target, mappin
 	decideHistory(&plan, source, target, mapping, userIndex)
 	decideCampaigns(&plan, source, target, userIndex)
 	decideGoods(&plan, source, target, mapping, userIndex)
+	decidePages(&plan, source, target)
+	decideTickets(&plan, source, target, userIndex)
+	decideConsents(&plan, source, target, userIndex)
 	plan.Report = buildReport(plan, source, tariffs, mapping, now)
 	for _, version := range target.PlanVersions {
 		plan.Report.Available = append(plan.Report.Available, version)
