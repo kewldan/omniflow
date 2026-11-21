@@ -8,6 +8,7 @@ import { Skeleton } from "@omniflow/ui/skeleton";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR from "swr";
+import { useEnumLabel } from "@/components/admin/enum-label";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import { formatBytes, useOperatorAction } from "@/lib/operations";
@@ -46,6 +47,7 @@ export function SubscriptionSync({
   subscriptionId: string;
 }) {
   const translate = useTranslations("admin.customers.sync");
+  const label = useEnumLabel();
   const { can } = useSession();
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -93,6 +95,8 @@ export function SubscriptionSync({
           ? translate("noSquads")
           : squads.map((squad) => squad.slice(0, 8)).join(", ");
       }
+      case "status":
+        return typeof value === "string" ? label("entitlementStatus", value.toLowerCase()) : "—";
       default:
         return String(value ?? "—");
     }

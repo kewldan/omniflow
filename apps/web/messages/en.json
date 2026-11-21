@@ -850,7 +850,8 @@
       "status": {
         "active": "Active",
         "suspended": "Suspended",
-        "deleted": "Deleted"
+        "deleted": "Deleted",
+        "merged": "Merged"
       },
       "segments": {
         "subscribed": "Has a live subscription",
@@ -1440,7 +1441,12 @@
         "addon": "Add-on",
         "topup": "Wallet top-up",
         "gift": "Gift",
-        "goods": "Digital goods"
+        "goods": "Digital goods",
+        "code": "Code",
+        "traffic_reset": "Traffic reset",
+        "traffic_change": "Traffic change",
+        "device_reduction": "Fewer devices",
+        "squad_removal": "Squad removal"
       },
       "billingPeriod": {
         "none": "One-off",
@@ -4107,7 +4113,11 @@
         "referral": "Referral",
         "trial": "Trial",
         "test": "Test",
-        "loyalty": "Loyalty"
+        "loyalty": "Loyalty",
+        "connection": "Connection",
+        "device": "Device",
+        "access": "Access",
+        "reminder": "Reminder"
       },
       "reason": {
         "quiet_hours": "Inside the customer's quiet hours",
@@ -4662,6 +4672,23 @@
         "anthropic": "Anthropic",
         "gemini": "Gemini"
       },
+      "anomalyEvidence": {
+        "orderCount": "Orders",
+        "paidMinor": "Paid",
+        "currency": "Currency",
+        "refundCount": "Refunds",
+        "refundedMinor": "Refunded",
+        "qualifiedCount": "Qualified referrals",
+        "usedBytes": "Traffic used",
+        "measure": "Measure",
+        "reconciledAt": "Checked at"
+      },
+      "anomalySubject": {
+        "installation": "Installation",
+        "customer": "Customer",
+        "plan": "Plan",
+        "provider": "Provider"
+      },
       "backupKind": {
         "scheduled": "Scheduled",
         "manual": "Manual",
@@ -4699,6 +4726,16 @@
         "delivered": "Delivered",
         "failed": "Failed"
       },
+      "entitlementStatus": {
+        "pending": "Pending",
+        "active": "Active",
+        "limited": "Limited",
+        "disabled": "Disabled",
+        "paused": "Paused",
+        "expired": "Expired",
+        "superseded": "Replaced",
+        "failed": "Failed"
+      },
       "fulfillmentOperation": {
         "create": "Create user",
         "extend": "Extend",
@@ -4723,6 +4760,18 @@
         "retrying": "Retrying",
         "failed": "Failed",
         "cancelled": "Cancelled"
+      },
+      "goodsDeliveryStatus": {
+        "pending": "Pending",
+        "submitted": "Submitted",
+        "delivered": "Delivered",
+        "failed": "Failed",
+        "cancelled": "Cancelled",
+        "needs_review": "Needs review"
+      },
+      "goodsProvider": {
+        "fragment": "Fragment",
+        "fragment_direct": "Fragment (direct)"
       },
       "health": {
         "unknown": "Not checked",
@@ -4754,6 +4803,14 @@
         "blocked": "Blocked",
         "appealed": "Appealed"
       },
+      "mcpFinding": {
+        "instruction_override": "Tried to override instructions",
+        "role_claim": "Claimed a role",
+        "tool_directive": "Told a tool what to do",
+        "exfiltration_attempt": "Tried to leak data",
+        "hidden_text": "Hidden text",
+        "fence_breakout": "Broke out of quoting"
+      },
       "orderOperation": {
         "purchase": "New purchase",
         "upgrade": "Upgrade",
@@ -4779,6 +4836,21 @@
         "expired": "Expired",
         "partially_refunded": "Partly refunded",
         "refunded": "Refunded"
+      },
+      "paymentMethod": {
+        "sbp": "SBP",
+        "card": "card",
+        "sberpay": "SberPay",
+        "crypto": "crypto",
+        "intl": "foreign card",
+        "applepay": "Apple Pay",
+        "googlepay": "Google Pay",
+        "mastercard": "Mastercard"
+      },
+      "process": {
+        "api": "API",
+        "bot": "Bot",
+        "worker": "Worker"
       },
       "provider": {
         "telegram_stars": "Telegram Stars",
@@ -4811,6 +4883,11 @@
         "jupiter": "Jupiter",
         "tabpay": "TabPay"
       },
+      "rateSource": {
+        "manual": "set by hand",
+        "tonapi": "TonAPI",
+        "coingecko": "CoinGecko"
+      },
       "refundStatus": {
         "pending": "Pending",
         "processing": "Processing",
@@ -4839,6 +4916,10 @@
         "complaint": "Spam complaint",
         "operator": "Operator"
       },
+      "surface": {
+        "bot": "Bot",
+        "web": "Web"
+      },
       "ticketStatus": {
         "open": "Open",
         "pending": "Answered",
@@ -4846,11 +4927,76 @@
         "closed": "Closed",
         "merged": "Merged"
       },
+      "topicError": {
+        "missing_manage_topics_permission": "The bot cannot manage topics",
+        "chat_not_found": "Chat not found",
+        "forum_topics_disabled": "Topics are off in the group",
+        "bot_not_in_group": "The bot is not in the group",
+        "telegram_error": "Telegram error"
+      },
       "webhookStatus": {
         "received": "Received",
         "processed": "Processed",
         "ignored": "Ignored",
         "failed": "Failed"
+      }
+    },
+    "permissions": {
+      "admins": {
+        "read": "Operators: read",
+        "write": "Operators: change",
+        "roles": "Operators: grant roles"
+      },
+      "audit": {
+        "read": "Audit log: read",
+        "export": "Audit log: export"
+      },
+      "customers": {
+        "read": "Customers: read",
+        "write": "Customers: change",
+        "export": "Customers: export"
+      },
+      "subscriptions": {
+        "read": "Subscriptions: read",
+        "write": "Subscriptions: change"
+      },
+      "finance": {
+        "read": "Finance: read",
+        "write": "Finance: change"
+      },
+      "catalog": {
+        "read": "Catalog: read",
+        "write": "Catalog: change"
+      },
+      "support": {
+        "read": "Support: read",
+        "write": "Support: change"
+      },
+      "marketing": {
+        "read": "Marketing: read",
+        "write": "Marketing: change",
+        "send": "Marketing: send campaigns"
+      },
+      "settings": {
+        "read": "Settings: read",
+        "write": "Settings: change"
+      },
+      "system": {
+        "read": "System: read",
+        "write": "System: change"
+      },
+      "risk": {
+        "read": "Risk: read",
+        "write": "Risk: change"
+      },
+      "gifts": {
+        "read": "Gifts: read",
+        "write": "Gifts: change"
+      },
+      "goods": {
+        "read": "Shop: read",
+        "write": "Shop: change",
+        "manage": "Shop: decide orders"
       }
     }
   },
@@ -5996,7 +6142,11 @@
           "referral": "Referral",
           "trial": "Trial",
           "test": "Test",
-          "loyalty": "Loyalty"
+          "loyalty": "Loyalty",
+          "connection": "Connection",
+          "device": "Device",
+          "access": "Access",
+          "reminder": "Reminder"
         },
         "why": {
           "quiet_hours": "Held back — it fell inside your quiet hours",
@@ -6289,7 +6439,10 @@
             "card": "card",
             "sberpay": "SberPay",
             "crypto": "crypto",
-            "intl": "foreign card"
+            "intl": "foreign card",
+            "applepay": "Apple Pay",
+            "googlepay": "Google Pay",
+            "mastercard": "Mastercard"
           },
           "bounds": "From {minimum} to {maximum}"
         }

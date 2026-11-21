@@ -1064,15 +1064,18 @@ export function useOperatorAction() {
 }
 
 /** Formats a duration in seconds as a coarse, readable span. */
-export function formatDuration(seconds: number): string {
-  if (seconds < 60) {
-    return `${Math.round(seconds)}s`;
-  }
-  if (seconds < 3600) {
-    return `${Math.round(seconds / 60)}m`;
-  }
-  if (seconds < 86_400) {
-    return `${Math.round(seconds / 3600)}h`;
-  }
-  return `${Math.round(seconds / 86_400)}d`;
+export function formatDuration(seconds: number, locale = "en"): string {
+  // The coarsest unit that still says something useful, in the reader's own
+  // abbreviations: "5m" in English, "5 мин" in Russian.
+  const [value, unit] =
+    seconds < 60
+      ? [seconds, "second"]
+      : seconds < 3600
+        ? [seconds / 60, "minute"]
+        : seconds < 86_400
+          ? [seconds / 3600, "hour"]
+          : [seconds / 86_400, "day"];
+  return new Intl.NumberFormat(locale, { style: "unit", unit, unitDisplay: "narrow" }).format(
+    Math.round(value),
+  );
 }

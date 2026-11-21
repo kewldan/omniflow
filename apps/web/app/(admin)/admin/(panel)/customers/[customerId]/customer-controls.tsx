@@ -13,7 +13,7 @@ import { toast } from "@omniflow/ui/toast";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
-
+import { useEnumLabel } from "@/components/admin/enum-label";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import { type Listing, type PlanSummary, useOperatorAction } from "@/lib/operations";
@@ -278,6 +278,7 @@ export function CustomerControlsPanel({ customerId }: { customerId: string }) {
 /** The customer's own action log: which screens and buttons, when. */
 export function ActivityPanel({ customerId, active }: { customerId: string; active: boolean }) {
   const translate = useTranslations("admin.customers.controls");
+  const label = useEnumLabel();
   const { data } = useSWR<
     { items: { surface: string; action: string; occurredAt: string }[] },
     ApiError
@@ -301,7 +302,7 @@ export function ActivityPanel({ customerId, active }: { customerId: string; acti
             <TableCell>
               <Timestamp value={item.occurredAt} />
             </TableCell>
-            <TableCell>{item.surface}</TableCell>
+            <TableCell>{label("surface", item.surface)}</TableCell>
             <TableCell className="font-mono text-xs">{item.action}</TableCell>
           </TableRow>
         ))}

@@ -11,7 +11,7 @@ import { toast } from "@omniflow/ui/toast";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
-import { useEnumLabel } from "@/components/admin/enum-label";
+import { useEnumLabel, usePermissionLabel } from "@/components/admin/enum-label";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 import { useOperatorAction } from "@/lib/operations";
@@ -70,7 +70,7 @@ export function IntegrationsCard() {
   const [tokenName, setTokenName] = useState("");
   const [tokenPermissions, setTokenPermissions] = useState<string[]>([]);
   const [fullAccess, setFullAccess] = useState(false);
-  const translatePermission = useTranslations("admin.permissions");
+  const permissionLabel = usePermissionLabel();
   const { data: catalog } = useSWR<RbacCatalog, ApiError>(
     writable ? "/v1/panel/rbac/catalog" : null,
     fetcher,
@@ -138,7 +138,7 @@ export function IntegrationsCard() {
                 ) : (
                   (token.permissions ?? []).map((permission) => (
                     <Badge key={permission} variant="outline">
-                      {permission}
+                      {permissionLabel(permission)}
                     </Badge>
                   ))
                 )}
@@ -215,11 +215,7 @@ export function IntegrationsCard() {
                             )
                           }
                         />
-                        <Label htmlFor={checkboxId}>
-                          {translatePermission.has(permission)
-                            ? translatePermission(permission)
-                            : permission}
-                        </Label>
+                        <Label htmlFor={checkboxId}>{permissionLabel(permission)}</Label>
                       </div>
                     );
                   })}

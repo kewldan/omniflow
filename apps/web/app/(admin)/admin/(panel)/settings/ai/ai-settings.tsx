@@ -13,11 +13,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useFormatter, useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
-import { useEnumLabel } from "@/components/admin/enum-label";
+import { useEnumLabel, usePermissionLabel } from "@/components/admin/enum-label";
 import { PageHeader } from "@/components/admin/resource-table";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
-import { formatBytes, formatDuration, type Listing, useOperatorAction } from "@/lib/operations";
+import { useElapsed } from "@/lib/format";
+import { formatBytes, type Listing, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 import type {
   AiFeature,
@@ -247,6 +248,7 @@ function ProviderRow({
 
 function ProviderEditor({ existing, onSaved }: { existing: AiProvider[]; onSaved: () => void }) {
   const translate = useTranslations("admin.aiSettings");
+  const label = useEnumLabel();
   const translateForm = useTranslations("common.form.errors");
   const { run, pending, error } = useOperatorAction();
   const [secretMissing, setSecretMissing] = useState(false);
@@ -329,7 +331,7 @@ function ProviderEditor({ existing, onSaved }: { existing: AiProvider[]; onSaved
               name="ai-provider-kind"
               onChange={() => setForm({ ...form, kind })}
             />
-            {kind}
+            {label("aiProviderKind", kind)}
           </label>
         ))}
       </div>
@@ -540,8 +542,18 @@ function FeatureRow({
   );
 }
 
+/** A feature's name in the operator's language, or its code when it has none. */
+function featureName(
+  translate: ReturnType<typeof useTranslations<"admin.aiSettings">>,
+  feature: string,
+): string {
+  const key = `features.names.${feature}`;
+  return translate.has(key) ? translate(key as never) : feature;
+}
+
 function LimitCard({ editable }: { editable: boolean }) {
   const translate = useTranslations("admin.aiSettings");
+  const duration = useElapsed();
   const label = useEnumLabel();
   const { data, isLoading, mutate } = useSWR<Listing<AiUsageLimit>, ApiError>(
     "/v1/panel/settings/ai/limits",
@@ -601,9 +613,9 @@ function LimitCard({ editable }: { editable: boolean }) {
                 <TableCell>
                   {label("aiLimitScope", limit.scope)}
                   {limit.ref ? ` · ${limit.ref}` : ""}
-                  {limit.feature ? ` · ${limit.feature}` : ""}
+                  {limit.feature ? ` · ${featureName(translate, limit.feature)}` : ""}
                 </TableCell>
-                <TableCell>{formatDuration(limit.windowSeconds)}</TableCell>
+                <TableCell>{duration(limit.windowSeconds)}</TableCell>
                 <TableCell>{limit.maxRequests ?? "—"}</TableCell>
                 <TableCell className="text-right">
                   {editable && limit.id ? (
@@ -659,7 +671,7 @@ function LimitCard({ editable }: { editable: boolean }) {
                     name="ai-limit-scope"
                     onChange={() => setForm({ ...form, scope })}
                   />
-                  {scope}
+                  {label("aiLimitScope", scope)}
                 </label>
               ))}
             </div>
@@ -716,7 +728,7 @@ function UsageCard() {
             <TableBody>
               {rows.map((row) => (
                 <TableRow key={`${row.feature}-${row.provider}-${row.model}`}>
-                  <TableCell>{row.feature}</TableCell>
+                  <TableCell>{featureName(translate, row.feature)}</TableCell>
                   <TableCell className="font-mono text-xs">
                     {row.provider} · {row.model}
                   </TableCell>
@@ -778,6 +790,8 @@ function McpServerRow({
   onSaved: () => void;
 }) {
   const translate = useTranslations("admin.aiSettings");
+  const duration = useElapsed();
+  const permission = usePermissionLabel();
   const { run, pending } = useOperatorAction();
   const { data } = useSWR<Listing<McpTool>, ApiError>(
     `/v1/panel/settings/mcp/servers/${server.slug}/tools`,
@@ -807,7 +821,7 @@ function McpServerRow({
           bytes: formatBytes(server.maxResponseBytes),
           calls: server.maxCallsPerRequest,
           depth: server.maxDepth,
-          timeout: formatDuration(server.timeoutMs / 1000),
+          timeout: duration(server.timeoutMs / 1000),
         })}
       </p>
 
@@ -853,7 +867,7 @@ function McpServerRow({
                     </p>
                   ) : null}
                 </TableCell>
-                <TableCell className="font-mono text-xs">{tool.permission}</TableCell>
+                <TableCell className="text-xs">{permission(tool.permission)}</TableCell>
                 <TableCell>
                   {tool.writes ? (
                     <Badge variant="danger">{translate("mcp.writesYes")}</Badge>
@@ -892,6 +906,7 @@ function McpServerRow({
 
 function McpAuditCard() {
   const translate = useTranslations("admin.aiSettings");
+  const label = useEnumLabel();
   const { data, isLoading } = useSWR<McpEventPage, ApiError>(
     "/v1/panel/settings/mcp/events?pageSize=25",
     fetcher,
@@ -947,7 +962,9 @@ function McpAuditCard() {
                     {event.detail}
                     {(event.findings ?? []).length > 0 ? (
                       <span className="ml-2 text-destructive">
-                        {(event.findings ?? []).join(", ")}
+                        {(event.findings ?? [])
+                          .map((finding) => label("mcpFinding", finding))
+                          .join(", ")}
                       </span>
                     ) : null}
                   </TableCell>

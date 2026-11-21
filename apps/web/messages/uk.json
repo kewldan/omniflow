@@ -850,7 +850,8 @@
       "status": {
         "active": "Активний",
         "suspended": "Заблокований",
-        "deleted": "Видалений"
+        "deleted": "Видалений",
+        "merged": "Об'єднано"
       },
       "segments": {
         "subscribed": "Є чинна підписка",
@@ -1435,7 +1436,12 @@
         "addon": "Доповнення",
         "topup": "Поповнення гаманця",
         "gift": "Подарунок",
-        "goods": "Цифрові товари"
+        "goods": "Цифрові товари",
+        "code": "Активація коду",
+        "traffic_reset": "Скидання трафіку",
+        "traffic_change": "Зміна ліміту трафіку",
+        "device_reduction": "Зменшення пристроїв",
+        "squad_removal": "Видалення скваду"
       },
       "billingPeriod": {
         "none": "Разовий",
@@ -4015,7 +4021,11 @@
         "referral": "Реферальна програма",
         "trial": "Пробний період",
         "test": "Тест",
-        "loyalty": "Лояльність"
+        "loyalty": "Лояльність",
+        "connection": "Підключення",
+        "device": "Пристрій",
+        "access": "Доступ",
+        "reminder": "Нагадування"
       },
       "reason": {
         "quiet_hours": "Потрапило в тихі години клієнта",
@@ -4570,6 +4580,23 @@
         "anthropic": "Anthropic",
         "gemini": "Gemini"
       },
+      "anomalyEvidence": {
+        "orderCount": "Замовлень",
+        "paidMinor": "Оплачено",
+        "currency": "Валюта",
+        "refundCount": "Повернень",
+        "refundedMinor": "Повернено",
+        "qualifiedCount": "Зарахованих рефералів",
+        "usedBytes": "Трафіку використано",
+        "measure": "Показник",
+        "reconciledAt": "Перевірено"
+      },
+      "anomalySubject": {
+        "installation": "Установка",
+        "customer": "Клієнт",
+        "plan": "Тариф",
+        "provider": "Провайдер"
+      },
       "backupKind": {
         "scheduled": "За розкладом",
         "manual": "Вручну",
@@ -4607,6 +4634,16 @@
         "delivered": "Доставлено",
         "failed": "Помилка"
       },
+      "entitlementStatus": {
+        "pending": "Очікує",
+        "active": "Активна",
+        "limited": "Обмежена",
+        "disabled": "Вимкнена",
+        "paused": "На паузі",
+        "expired": "Минула",
+        "superseded": "Замінена",
+        "failed": "Помилка"
+      },
       "fulfillmentOperation": {
         "create": "Створення користувача",
         "extend": "Продовження",
@@ -4631,6 +4668,18 @@
         "retrying": "Повтор",
         "failed": "Помилка",
         "cancelled": "Скасовано"
+      },
+      "goodsDeliveryStatus": {
+        "pending": "Очікує",
+        "submitted": "Надіслано",
+        "delivered": "Доставлено",
+        "failed": "Помилка",
+        "cancelled": "Скасовано",
+        "needs_review": "Потрібна перевірка"
+      },
+      "goodsProvider": {
+        "fragment": "Fragment",
+        "fragment_direct": "Fragment (напряму)"
       },
       "health": {
         "unknown": "Не перевірено",
@@ -4662,6 +4711,14 @@
         "blocked": "Заблоковано",
         "appealed": "Оскаржено"
       },
+      "mcpFinding": {
+        "instruction_override": "Спроба підмінити інструкції",
+        "role_claim": "Видає себе за роль",
+        "tool_directive": "Команда інструменту",
+        "exfiltration_attempt": "Спроба вивести дані",
+        "hidden_text": "Прихований текст",
+        "fence_breakout": "Вихід за межі цитати"
+      },
       "orderOperation": {
         "purchase": "Покупка",
         "upgrade": "Підвищення тарифу",
@@ -4687,6 +4744,21 @@
         "expired": "Минув",
         "partially_refunded": "Частковий повернення",
         "refunded": "Повернено"
+      },
+      "paymentMethod": {
+        "sbp": "СБП",
+        "card": "картка",
+        "sberpay": "SberPay",
+        "crypto": "криптовалюта",
+        "intl": "закордонна картка",
+        "applepay": "Apple Pay",
+        "googlepay": "Google Pay",
+        "mastercard": "Mastercard"
+      },
+      "process": {
+        "api": "API",
+        "bot": "Бот",
+        "worker": "Фонові задачі"
       },
       "provider": {
         "telegram_stars": "Telegram Stars",
@@ -4719,6 +4791,11 @@
         "jupiter": "Jupiter",
         "tabpay": "TabPay"
       },
+      "rateSource": {
+        "manual": "задано вручну",
+        "tonapi": "TonAPI",
+        "coingecko": "CoinGecko"
+      },
       "refundStatus": {
         "pending": "Очікує",
         "processing": "Обробляється",
@@ -4747,6 +4824,10 @@
         "complaint": "Скарга на спам",
         "operator": "Оператор"
       },
+      "surface": {
+        "bot": "Бот",
+        "web": "Веб"
+      },
       "ticketStatus": {
         "open": "Відкрито",
         "pending": "Відповідено",
@@ -4754,11 +4835,76 @@
         "closed": "Закрито",
         "merged": "Об'єднано"
       },
+      "topicError": {
+        "missing_manage_topics_permission": "Бот не має права керувати темами",
+        "chat_not_found": "Чат не знайдено",
+        "forum_topics_disabled": "У групі вимкнено теми",
+        "bot_not_in_group": "Бота немає в групі",
+        "telegram_error": "Помилка Telegram"
+      },
       "webhookStatus": {
         "received": "Отримано",
         "processed": "Оброблено",
         "ignored": "Пропущено",
         "failed": "Помилка"
+      }
+    },
+    "permissions": {
+      "admins": {
+        "read": "Оператори: перегляд",
+        "write": "Оператори: зміна",
+        "roles": "Оператори: видача ролей"
+      },
+      "audit": {
+        "read": "Журнал аудиту: перегляд",
+        "export": "Журнал аудиту: вивантаження"
+      },
+      "customers": {
+        "read": "Клієнти: перегляд",
+        "write": "Клієнти: зміна",
+        "export": "Клієнти: вивантаження"
+      },
+      "subscriptions": {
+        "read": "Підписки: перегляд",
+        "write": "Підписки: зміна"
+      },
+      "finance": {
+        "read": "Фінанси: перегляд",
+        "write": "Фінанси: зміна"
+      },
+      "catalog": {
+        "read": "Каталог: перегляд",
+        "write": "Каталог: зміна"
+      },
+      "support": {
+        "read": "Підтримка: перегляд",
+        "write": "Підтримка: зміна"
+      },
+      "marketing": {
+        "read": "Маркетинг: перегляд",
+        "write": "Маркетинг: зміна",
+        "send": "Маркетинг: надсилання розсилок"
+      },
+      "settings": {
+        "read": "Налаштування: перегляд",
+        "write": "Налаштування: зміна"
+      },
+      "system": {
+        "read": "Система: перегляд",
+        "write": "Система: зміна"
+      },
+      "risk": {
+        "read": "Ризики: перегляд",
+        "write": "Ризики: зміна"
+      },
+      "gifts": {
+        "read": "Подарунки: перегляд",
+        "write": "Подарунки: зміна"
+      },
+      "goods": {
+        "read": "Магазин: перегляд",
+        "write": "Магазин: зміна",
+        "manage": "Магазин: рішення щодо замовлень"
       }
     }
   },
@@ -5904,7 +6050,11 @@
           "referral": "Реферальна програма",
           "trial": "Пробний період",
           "test": "Тест",
-          "loyalty": "Лояльність"
+          "loyalty": "Лояльність",
+          "connection": "Підключення",
+          "device": "Пристрій",
+          "access": "Доступ",
+          "reminder": "Нагадування"
         },
         "why": {
           "quiet_hours": "Притримано — потрапило у ваші тихі години",
@@ -6185,7 +6335,10 @@
             "card": "картка",
             "sberpay": "SberPay",
             "crypto": "криптовалюта",
-            "intl": "закордонна картка"
+            "intl": "закордонна картка",
+            "applepay": "Apple Pay",
+            "googlepay": "Google Pay",
+            "mastercard": "Mastercard"
           },
           "bounds": "Від {minimum} до {maximum}"
         }

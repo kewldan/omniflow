@@ -14,7 +14,7 @@ import { toast } from "@omniflow/ui/toast";
 import { useLocale, useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
-
+import { useEnumLabel } from "@/components/admin/enum-label";
 import { type ApiError, fetcher } from "@/lib/api";
 import { type Listing, type PlanSummary, useOperatorAction } from "@/lib/operations";
 
@@ -154,6 +154,7 @@ function tierFrom(draft: TierDraft): LoyaltyTier {
  */
 export function LoyaltyCard({ editable }: { editable: boolean }) {
   const translate = useTranslations("admin.marketing.loyalty");
+  const label = useEnumLabel();
   const locale = useLocale();
   const { data, isLoading, mutate } = useSWR<Listing<LoyaltyProgram>, ApiError>(
     "/v1/panel/loyalty/programs?pageSize=5",
@@ -246,7 +247,10 @@ export function LoyaltyCard({ editable }: { editable: boolean }) {
                         {translate("restrictionsLine", {
                           plans: tier.allowedPlanIds?.length ?? 0,
                           squads: tier.allowedSquadIds?.length ?? 0,
-                          providers: (tier.allowedProviders ?? []).join(", ") || "—",
+                          providers:
+                            (tier.allowedProviders ?? [])
+                              .map((provider) => label("provider", provider))
+                              .join(", ") || "—",
                         })}
                       </TableCell>
                     </TableRow>

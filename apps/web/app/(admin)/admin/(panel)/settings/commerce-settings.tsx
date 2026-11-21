@@ -373,7 +373,7 @@ function ProviderCard() {
                               : "neutral"
                         }
                       >
-                        {provider.connectionStatus}
+                        {label("health", provider.connectionStatus)}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -386,7 +386,7 @@ function ProviderCard() {
                               : "neutral"
                         }
                       >
-                        {provider.webhookStatus}
+                        {label("health", provider.webhookStatus)}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-sm">

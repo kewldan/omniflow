@@ -850,7 +850,8 @@
       "status": {
         "active": "فعال",
         "suspended": "معلق",
-        "deleted": "حذف‌شده"
+        "deleted": "حذف‌شده",
+        "merged": "ادغام‌شده"
       },
       "segments": {
         "subscribed": "دارای اشتراک فعال",
@@ -1435,7 +1436,12 @@
         "addon": "افزونه",
         "topup": "شارژ کیف پول",
         "gift": "هدیه",
-        "goods": "کالای دیجیتال"
+        "goods": "کالای دیجیتال",
+        "code": "کد",
+        "traffic_reset": "بازنشانی ترافیک",
+        "traffic_change": "تغییر ترافیک",
+        "device_reduction": "کاهش دستگاه‌ها",
+        "squad_removal": "حذف اسکواد"
       },
       "billingPeriod": {
         "none": "یک‌باره",
@@ -4015,7 +4021,11 @@
         "referral": "معرفی",
         "trial": "دوره آزمایشی",
         "test": "آزمایشی",
-        "loyalty": "وفاداری"
+        "loyalty": "وفاداری",
+        "connection": "اتصال",
+        "device": "دستگاه",
+        "access": "دسترسی",
+        "reminder": "یادآوری"
       },
       "reason": {
         "quiet_hours": "در ساعات سکوت مشتری",
@@ -4570,6 +4580,23 @@
         "anthropic": "Anthropic",
         "gemini": "Gemini"
       },
+      "anomalyEvidence": {
+        "orderCount": "سفارش‌ها",
+        "paidMinor": "پرداخت‌شده",
+        "currency": "ارز",
+        "refundCount": "بازپرداخت‌ها",
+        "refundedMinor": "بازپرداخت‌شده",
+        "qualifiedCount": "معرفی‌های معتبر",
+        "usedBytes": "ترافیک مصرف‌شده",
+        "measure": "معیار",
+        "reconciledAt": "زمان بررسی"
+      },
+      "anomalySubject": {
+        "installation": "نصب",
+        "customer": "مشتری",
+        "plan": "طرح",
+        "provider": "ارائه‌دهنده"
+      },
       "backupKind": {
         "scheduled": "زمان‌بندی‌شده",
         "manual": "دستی",
@@ -4607,6 +4634,16 @@
         "delivered": "تحویل‌شده",
         "failed": "ناموفق"
       },
+      "entitlementStatus": {
+        "pending": "در انتظار",
+        "active": "فعال",
+        "limited": "محدود",
+        "disabled": "غیرفعال",
+        "paused": "متوقف",
+        "expired": "منقضی",
+        "superseded": "جایگزین‌شده",
+        "failed": "ناموفق"
+      },
       "fulfillmentOperation": {
         "create": "ایجاد کاربر",
         "extend": "تمدید",
@@ -4631,6 +4668,18 @@
         "retrying": "تلاش مجدد",
         "failed": "ناموفق",
         "cancelled": "لغوشده"
+      },
+      "goodsDeliveryStatus": {
+        "pending": "در انتظار",
+        "submitted": "ارسال‌شده",
+        "delivered": "تحویل‌شده",
+        "failed": "ناموفق",
+        "cancelled": "لغوشده",
+        "needs_review": "نیازمند بررسی"
+      },
+      "goodsProvider": {
+        "fragment": "Fragment",
+        "fragment_direct": "Fragment (مستقیم)"
       },
       "health": {
         "unknown": "بررسی‌نشده",
@@ -4662,6 +4711,14 @@
         "blocked": "مسدود",
         "appealed": "اعتراض‌شده"
       },
+      "mcpFinding": {
+        "instruction_override": "تلاش برای تغییر دستورها",
+        "role_claim": "ادعای نقش",
+        "tool_directive": "دستور به ابزار",
+        "exfiltration_attempt": "تلاش برای نشت داده",
+        "hidden_text": "متن پنهان",
+        "fence_breakout": "خروج از نقل‌قول"
+      },
       "orderOperation": {
         "purchase": "خرید",
         "upgrade": "ارتقا",
@@ -4687,6 +4744,21 @@
         "expired": "منقضی",
         "partially_refunded": "بازپرداخت جزئی",
         "refunded": "بازپرداخت‌شده"
+      },
+      "paymentMethod": {
+        "sbp": "SBP",
+        "card": "کارت",
+        "sberpay": "SberPay",
+        "crypto": "رمزارز",
+        "intl": "کارت خارجی",
+        "applepay": "Apple Pay",
+        "googlepay": "Google Pay",
+        "mastercard": "Mastercard"
+      },
+      "process": {
+        "api": "API",
+        "bot": "ربات",
+        "worker": "کارگر"
       },
       "provider": {
         "telegram_stars": "Telegram Stars",
@@ -4719,6 +4791,11 @@
         "jupiter": "Jupiter",
         "tabpay": "TabPay"
       },
+      "rateSource": {
+        "manual": "دستی",
+        "tonapi": "TonAPI",
+        "coingecko": "CoinGecko"
+      },
       "refundStatus": {
         "pending": "در انتظار",
         "processing": "در حال پردازش",
@@ -4747,6 +4824,10 @@
         "complaint": "شکایت هرزنامه",
         "operator": "اپراتور"
       },
+      "surface": {
+        "bot": "ربات",
+        "web": "وب"
+      },
       "ticketStatus": {
         "open": "باز",
         "pending": "پاسخ داده شد",
@@ -4754,11 +4835,76 @@
         "closed": "بسته",
         "merged": "ادغام‌شده"
       },
+      "topicError": {
+        "missing_manage_topics_permission": "ربات اجازه مدیریت موضوع‌ها را ندارد",
+        "chat_not_found": "گفتگو پیدا نشد",
+        "forum_topics_disabled": "موضوع‌ها در گروه خاموش است",
+        "bot_not_in_group": "ربات در گروه نیست",
+        "telegram_error": "خطای تلگرام"
+      },
       "webhookStatus": {
         "received": "دریافت‌شده",
         "processed": "پردازش‌شده",
         "ignored": "نادیده گرفته شد",
         "failed": "ناموفق"
+      }
+    },
+    "permissions": {
+      "admins": {
+        "read": "اپراتورها: خواندن",
+        "write": "اپراتورها: تغییر",
+        "roles": "اپراتورها: اعطای نقش"
+      },
+      "audit": {
+        "read": "گزارش ممیزی: خواندن",
+        "export": "گزارش ممیزی: برون‌بری"
+      },
+      "customers": {
+        "read": "مشتریان: خواندن",
+        "write": "مشتریان: تغییر",
+        "export": "مشتریان: برون‌بری"
+      },
+      "subscriptions": {
+        "read": "اشتراک‌ها: خواندن",
+        "write": "اشتراک‌ها: تغییر"
+      },
+      "finance": {
+        "read": "امور مالی: خواندن",
+        "write": "امور مالی: تغییر"
+      },
+      "catalog": {
+        "read": "کاتالوگ: خواندن",
+        "write": "کاتالوگ: تغییر"
+      },
+      "support": {
+        "read": "پشتیبانی: خواندن",
+        "write": "پشتیبانی: تغییر"
+      },
+      "marketing": {
+        "read": "بازاریابی: خواندن",
+        "write": "بازاریابی: تغییر",
+        "send": "بازاریابی: ارسال کمپین"
+      },
+      "settings": {
+        "read": "تنظیمات: خواندن",
+        "write": "تنظیمات: تغییر"
+      },
+      "system": {
+        "read": "سیستم: خواندن",
+        "write": "سیستم: تغییر"
+      },
+      "risk": {
+        "read": "ریسک: خواندن",
+        "write": "ریسک: تغییر"
+      },
+      "gifts": {
+        "read": "هدیه‌ها: خواندن",
+        "write": "هدیه‌ها: تغییر"
+      },
+      "goods": {
+        "read": "فروشگاه: خواندن",
+        "write": "فروشگاه: تغییر",
+        "manage": "فروشگاه: تصمیم درباره سفارش‌ها"
       }
     }
   },
@@ -5904,7 +6050,11 @@
           "referral": "معرفی",
           "trial": "دوره آزمایشی",
           "test": "آزمایشی",
-          "loyalty": "وفاداری"
+          "loyalty": "وفاداری",
+          "connection": "اتصال",
+          "device": "دستگاه",
+          "access": "دسترسی",
+          "reminder": "یادآوری"
         },
         "why": {
           "quiet_hours": "نگه داشته شد — در ساعات سکوت شما قرار گرفت",
@@ -6185,7 +6335,10 @@
             "card": "کارت",
             "sberpay": "SberPay",
             "crypto": "رمزارز",
-            "intl": "کارت خارجی"
+            "intl": "کارت خارجی",
+            "applepay": "Apple Pay",
+            "googlepay": "Google Pay",
+            "mastercard": "Mastercard"
           },
           "bounds": "از {minimum} تا {maximum}"
         }

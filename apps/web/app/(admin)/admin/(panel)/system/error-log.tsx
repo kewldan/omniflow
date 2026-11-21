@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
-
+import { useEnumLabel } from "@/components/admin/enum-label";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import { useOperatorAction } from "@/lib/operations";
@@ -36,6 +36,7 @@ type AppError = {
  */
 export function ErrorLogCard() {
   const translate = useTranslations("admin.system.errors");
+  const label = useEnumLabel();
   const { can } = useSession();
   const resolvedId = useId();
   const [showResolved, setShowResolved] = useState(false);
@@ -103,7 +104,7 @@ export function ErrorLogCard() {
                 {items.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>
-                      <Badge variant="outline">{item.process}</Badge>
+                      <Badge variant="outline">{label("process", item.process)}</Badge>
                     </TableCell>
                     <TableCell className="max-w-xl break-words font-mono text-xs">
                       {item.message}

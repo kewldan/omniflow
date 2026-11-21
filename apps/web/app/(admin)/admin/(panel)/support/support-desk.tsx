@@ -12,10 +12,10 @@ import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher, toQuery } from "@/lib/api";
+import { useElapsed } from "@/lib/format";
 import { localized } from "@/lib/localized";
-import { formatDuration, type Listing, type Page } from "@/lib/operations";
+import type { Listing, Page } from "@/lib/operations";
 import { useUrlFilters } from "@/lib/use-url-filters";
-
 import { SupportReport } from "./support-report";
 import { TicketConversation } from "./ticket-conversation";
 import type { SupportQueue, SupportTicket } from "./types";
@@ -55,6 +55,7 @@ export function SupportDesk() {
 
 function Queue({ active }: { active: boolean }) {
   const translate = useTranslations("admin.support");
+  const duration = useElapsed();
   const locale = useLocale();
   const { filters, setFilter, reset } = useUrlFilters(["queueId", "status", "ticketId"]);
 
@@ -117,7 +118,7 @@ function Queue({ active }: { active: boolean }) {
                 {queue.firstResponseTargetSeconds > 0 && (
                   <span className="text-muted-foreground">
                     {translate("target", {
-                      duration: formatDuration(queue.firstResponseTargetSeconds),
+                      duration: duration(queue.firstResponseTargetSeconds),
                     })}
                   </span>
                 )}

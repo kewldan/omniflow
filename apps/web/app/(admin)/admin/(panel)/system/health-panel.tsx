@@ -179,7 +179,9 @@ function MaintenanceControl({ active }: { active: boolean }) {
         <CardDescription>{translate("health.maintenanceDescription")}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        {data.active && data.reason && (
+        {/* An automatic activation's reason repeats the source badge in the
+            server's English, so only an operator's own reason is shown. */}
+        {data.active && data.source === "manual" && data.reason && (
           <p className="text-sm">
             <span className="text-muted-foreground">{translate("health.reason")}: </span>
             {data.reason}

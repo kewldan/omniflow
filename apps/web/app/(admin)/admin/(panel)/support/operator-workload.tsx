@@ -4,9 +4,7 @@ import { ChartFigure, chartAxis, chartBarTooltip, chartColor, chartGrid } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
 import { useTranslations } from "next-intl";
 import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
-
-import { formatDuration } from "@/lib/operations";
-
+import { useElapsed } from "@/lib/format";
 import type { OperatorLoad } from "./types";
 
 /**
@@ -18,6 +16,7 @@ import type { OperatorLoad } from "./types";
  */
 export function OperatorWorkload({ operators }: { operators: OperatorLoad[] }) {
   const translate = useTranslations("admin.support.report");
+  const duration = useElapsed();
 
   return (
     <ChartFigure
@@ -45,7 +44,7 @@ export function OperatorWorkload({ operators }: { operators: OperatorLoad[] }) {
                 <TableCell data-numeric>{operator.resolvedTickets}</TableCell>
                 <TableCell data-numeric>
                   {operator.medianFirstResponseSeconds > 0
-                    ? formatDuration(operator.medianFirstResponseSeconds)
+                    ? duration(operator.medianFirstResponseSeconds)
                     : "—"}
                 </TableCell>
               </TableRow>

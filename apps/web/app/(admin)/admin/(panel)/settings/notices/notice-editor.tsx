@@ -12,7 +12,7 @@ import { Eye, RotateCcw, Send } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useState } from "react";
 import useSWR from "swr";
-
+import { useEnumLabel } from "@/components/admin/enum-label";
 import { StateNotice } from "@/components/admin/state-notice";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 import type { Notice, NoticePreview, NoticeTest } from "@/lib/operations";
@@ -311,6 +311,7 @@ function NoticeForm({
  */
 function TestHistory({ tests }: { tests: NoticeTest[] }) {
   const translate = useTranslations("admin.notices");
+  const label = useEnumLabel();
   if (tests.length === 0) {
     return null;
   }
@@ -330,7 +331,9 @@ function TestHistory({ tests }: { tests: NoticeTest[] }) {
             <span className="text-subtle-foreground">
               {translate(`locale.${test.locale}` as never)}
             </span>
-            {test.errorCode && <span className="text-subtle-foreground">{test.errorCode}</span>}
+            {test.errorCode && (
+              <span className="text-subtle-foreground">{label("topicError", test.errorCode)}</span>
+            )}
           </li>
         ))}
       </ul>

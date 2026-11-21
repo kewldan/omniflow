@@ -18,12 +18,11 @@ import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
-import { useMoney } from "@/lib/format";
+import { useElapsed, useMoney } from "@/lib/format";
 import { metricPolarity } from "@/lib/metric-trends";
 import {
   type Dashboard,
   formatBytes,
-  formatDuration,
   type Incident,
   type Metric,
   type WalletBalance,
@@ -110,6 +109,7 @@ const DASHBOARD_PERIODS = [1, 7, 30, 90, 365];
 
 export default function AdminHome() {
   const translate = useTranslations("admin");
+  const duration = useElapsed();
   const format = useFormatter();
   const { session, can } = useSession();
   // The period lives in the address, so a reload or a shared link reads the
@@ -193,7 +193,7 @@ export default function AdminHome() {
                 timeZone: data.timezone || "UTC",
               }),
               timezone: data.timezone,
-              window: formatDuration(data.windowSeconds),
+              window: duration(data.windowSeconds),
             })}
           </p>
 
@@ -307,7 +307,12 @@ function Incidents() {
                 <span className="text-muted-foreground">
                   {translate(`incidentSource.${incident.source}`)}
                 </span>
-                {incident.reason && <span className="break-words">{incident.reason}</span>}
+                {/* An automatic incident's reason is the server's English
+                    sentence for what the source label already says, so only an
+                    operator's own words are shown. */}
+                {incident.source === "manual" && incident.reason && (
+                  <span className="break-words">{incident.reason}</span>
+                )}
               </span>
               <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
                 <Timestamp value={incident.occurredAt} />
@@ -426,6 +431,7 @@ function MetricGroup({
  */
 function MetricTile({ metric, windowDays }: { metric: Metric; windowDays: number }) {
   const translate = useTranslations("admin.dashboard");
+  const duration = useElapsed();
   const format = useFormatter();
   const href = METRIC_LINKS[metric.key];
   const polarity = metricPolarity(metric.key);
@@ -445,7 +451,7 @@ function MetricTile({ metric, windowDays }: { metric: Metric; windowDays: number
       </CardTitle>
       <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
         <span className="font-semibold text-2xl tabular-nums">
-          {renderMetric(metric, (value) => format.number(value))}
+          {renderMetric(metric, (value) => format.number(value), duration)}
         </span>
         {metric.comparison !== undefined ? (
           <MetricDelta
@@ -495,12 +501,16 @@ function MetricTile({ metric, windowDays }: { metric: Metric; windowDays: number
  * look identical and mean nothing, so the two that are not plain counts are
  * formatted by their key.
  */
-function renderMetric(metric: Metric, number: (value: number) => string): string {
+function renderMetric(
+  metric: Metric,
+  number: (value: number) => string,
+  duration: (seconds: number) => string,
+): string {
   if (metric.key === "observedTrafficBytes") {
     return formatBytes(metric.value);
   }
   if (metric.key === "outboxOldestAgeSeconds") {
-    return metric.value === 0 ? "—" : formatDuration(metric.value);
+    return metric.value === 0 ? "—" : duration(metric.value);
   }
   return number(metric.value);
 }

@@ -9,7 +9,7 @@ import { toast } from "@omniflow/ui/toast";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
-
+import { useEnumLabel } from "@/components/admin/enum-label";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 import { type Listing, useOperatorAction } from "@/lib/operations";
 
@@ -24,6 +24,7 @@ type Created = { id: string };
  */
 export function ProductCreator({ onCreated }: { onCreated: () => void }) {
   const translate = useTranslations("admin.shop.productCreator");
+  const label = useEnumLabel();
   const ids = {
     code: useId(),
     provider: useId(),
@@ -115,7 +116,7 @@ export function ProductCreator({ onCreated }: { onCreated: () => void }) {
               <SelectContent>
                 {(providers?.items ?? []).map((provider) => (
                   <SelectItem key={provider.slug} value={provider.slug}>
-                    {provider.slug}
+                    {label("goodsProvider", provider.slug)}
                   </SelectItem>
                 ))}
               </SelectContent>

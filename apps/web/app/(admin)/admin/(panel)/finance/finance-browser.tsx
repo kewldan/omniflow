@@ -21,8 +21,8 @@ import { PageHeader, ResourceTable } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher, toQuery } from "@/lib/api";
+import { useElapsed } from "@/lib/format";
 import {
-  formatDuration,
   formatMoney,
   type Listing,
   type OrderSummary,
@@ -169,7 +169,7 @@ function OrderSearch() {
                 <SelectItem value="all">{translate("filters.any")}</SelectItem>
                 {STATES.map((state) => (
                   <SelectItem key={state} value={state}>
-                    {state}
+                    {label("orderState", state)}
                     {counts[state] !== undefined && ` (${counts[state]})`}
                   </SelectItem>
                 ))}
@@ -190,7 +190,7 @@ function OrderSearch() {
                 <SelectItem value="all">{translate("filters.any")}</SelectItem>
                 {OPERATIONS.map((operation) => (
                   <SelectItem key={operation} value={operation}>
-                    {operation}
+                    {label("orderOperation", operation)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -210,7 +210,7 @@ function OrderSearch() {
                 <SelectItem value="all">{translate("filters.any")}</SelectItem>
                 {PAYMENT_PROVIDERS.map((provider) => (
                   <SelectItem key={provider} value={provider}>
-                    {provider}
+                    {label("provider", provider)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -594,6 +594,7 @@ function ResolveBedolagaPayment({ claimId, onDone }: { claimId: string; onDone: 
  */
 function FailedCharges({ active }: { active: boolean }) {
   const translate = useTranslations("admin.finance");
+  const duration = useElapsed();
   const { data, isLoading } = useSWR<Page<DunningAttempt>, ApiError>(
     active ? "/v1/panel/finance/failed-charges" : null,
     fetcher,
@@ -650,7 +651,7 @@ function FailedCharges({ active }: { active: boolean }) {
         </TableBody>
       </Table>
       <p className="border-border border-t p-3 text-muted-foreground text-xs">
-        {translate("chargesNote", { window: formatDuration(60 * 60 * 40) })}
+        {translate("chargesNote", { window: duration(60 * 60 * 40) })}
       </p>
     </Card>
   );

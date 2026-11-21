@@ -225,7 +225,12 @@ export function ImportPanel() {
                 </div>
                 <span className="font-mono text-[11px] text-muted-foreground">
                   <Timestamp value={run.startedAt} />
-                  {run.completedAt ? ` → $<Timestamp value={run.completedAt} />` : ""}
+                  {run.completedAt ? (
+                    <>
+                      {" → "}
+                      <Timestamp value={run.completedAt} />
+                    </>
+                  ) : null}
                 </span>
                 {Object.keys(run.errorSummary ?? {}).length > 0 && (
                   // The validation errors are a class-and-count summary rather

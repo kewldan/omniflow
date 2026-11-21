@@ -850,7 +850,8 @@
       "status": {
         "active": "Активен",
         "suspended": "Заблокирован",
-        "deleted": "Удалён"
+        "deleted": "Удалён",
+        "merged": "Объединён"
       },
       "segments": {
         "subscribed": "Есть действующая подписка",
@@ -1440,7 +1441,12 @@
         "addon": "Дополнение",
         "topup": "Пополнение кошелька",
         "gift": "Подарок",
-        "goods": "Цифровые товары"
+        "goods": "Цифровые товары",
+        "code": "Активация кода",
+        "traffic_reset": "Сброс трафика",
+        "traffic_change": "Смена лимита трафика",
+        "device_reduction": "Уменьшение устройств",
+        "squad_removal": "Удаление сквада"
       },
       "billingPeriod": {
         "none": "Разовый",
@@ -4107,7 +4113,11 @@
         "referral": "Реферальная программа",
         "trial": "Пробный период",
         "test": "Тест",
-        "loyalty": "Лояльность"
+        "loyalty": "Лояльность",
+        "connection": "Подключение",
+        "device": "Устройство",
+        "access": "Доступ",
+        "reminder": "Напоминание"
       },
       "reason": {
         "quiet_hours": "Попало в тихие часы клиента",
@@ -4662,6 +4672,23 @@
         "anthropic": "Anthropic",
         "gemini": "Gemini"
       },
+      "anomalyEvidence": {
+        "orderCount": "Заказов",
+        "paidMinor": "Оплачено",
+        "currency": "Валюта",
+        "refundCount": "Возвратов",
+        "refundedMinor": "Возвращено",
+        "qualifiedCount": "Засчитанных рефералов",
+        "usedBytes": "Трафика использовано",
+        "measure": "Показатель",
+        "reconciledAt": "Проверено"
+      },
+      "anomalySubject": {
+        "installation": "Установка",
+        "customer": "Клиент",
+        "plan": "Тариф",
+        "provider": "Провайдер"
+      },
       "backupKind": {
         "scheduled": "По расписанию",
         "manual": "Вручную",
@@ -4699,6 +4726,16 @@
         "delivered": "Доставлено",
         "failed": "Ошибка"
       },
+      "entitlementStatus": {
+        "pending": "Ожидает",
+        "active": "Активна",
+        "limited": "Ограничена",
+        "disabled": "Отключена",
+        "paused": "На паузе",
+        "expired": "Истекла",
+        "superseded": "Заменена",
+        "failed": "Ошибка"
+      },
       "fulfillmentOperation": {
         "create": "Создание пользователя",
         "extend": "Продление",
@@ -4723,6 +4760,18 @@
         "retrying": "Повтор",
         "failed": "Ошибка",
         "cancelled": "Отменено"
+      },
+      "goodsDeliveryStatus": {
+        "pending": "Ожидает",
+        "submitted": "Отправлен",
+        "delivered": "Доставлен",
+        "failed": "Ошибка",
+        "cancelled": "Отменён",
+        "needs_review": "Нужна проверка"
+      },
+      "goodsProvider": {
+        "fragment": "Fragment",
+        "fragment_direct": "Fragment (напрямую)"
       },
       "health": {
         "unknown": "Не проверено",
@@ -4754,6 +4803,14 @@
         "blocked": "Заблокировано",
         "appealed": "Обжаловано"
       },
+      "mcpFinding": {
+        "instruction_override": "Попытка подменить инструкции",
+        "role_claim": "Выдаёт себя за роль",
+        "tool_directive": "Команда инструменту",
+        "exfiltration_attempt": "Попытка вывести данные",
+        "hidden_text": "Скрытый текст",
+        "fence_breakout": "Выход за рамки цитаты"
+      },
       "orderOperation": {
         "purchase": "Покупка",
         "upgrade": "Повышение тарифа",
@@ -4779,6 +4836,21 @@
         "expired": "Истёк",
         "partially_refunded": "Частичный возврат",
         "refunded": "Возвращён"
+      },
+      "paymentMethod": {
+        "sbp": "СБП",
+        "card": "карта",
+        "sberpay": "SberPay",
+        "crypto": "криптовалюта",
+        "intl": "зарубежная карта",
+        "applepay": "Apple Pay",
+        "googlepay": "Google Pay",
+        "mastercard": "Mastercard"
+      },
+      "process": {
+        "api": "API",
+        "bot": "Бот",
+        "worker": "Фоновые задачи"
       },
       "provider": {
         "telegram_stars": "Telegram Stars",
@@ -4811,6 +4883,11 @@
         "jupiter": "Jupiter",
         "tabpay": "TabPay"
       },
+      "rateSource": {
+        "manual": "задан вручную",
+        "tonapi": "TonAPI",
+        "coingecko": "CoinGecko"
+      },
       "refundStatus": {
         "pending": "Ожидает",
         "processing": "Обрабатывается",
@@ -4839,6 +4916,10 @@
         "complaint": "Жалоба на спам",
         "operator": "Оператор"
       },
+      "surface": {
+        "bot": "Бот",
+        "web": "Веб"
+      },
       "ticketStatus": {
         "open": "Открыто",
         "pending": "Отвечено",
@@ -4846,11 +4927,76 @@
         "closed": "Закрыто",
         "merged": "Объединено"
       },
+      "topicError": {
+        "missing_manage_topics_permission": "У бота нет права управлять темами",
+        "chat_not_found": "Чат не найден",
+        "forum_topics_disabled": "В группе выключены темы",
+        "bot_not_in_group": "Бота нет в группе",
+        "telegram_error": "Ошибка Telegram"
+      },
       "webhookStatus": {
         "received": "Получено",
         "processed": "Обработано",
         "ignored": "Пропущено",
         "failed": "Ошибка"
+      }
+    },
+    "permissions": {
+      "admins": {
+        "read": "Операторы: просмотр",
+        "write": "Операторы: изменение",
+        "roles": "Операторы: выдача ролей"
+      },
+      "audit": {
+        "read": "Журнал аудита: просмотр",
+        "export": "Журнал аудита: выгрузка"
+      },
+      "customers": {
+        "read": "Клиенты: просмотр",
+        "write": "Клиенты: изменение",
+        "export": "Клиенты: выгрузка"
+      },
+      "subscriptions": {
+        "read": "Подписки: просмотр",
+        "write": "Подписки: изменение"
+      },
+      "finance": {
+        "read": "Финансы: просмотр",
+        "write": "Финансы: изменение"
+      },
+      "catalog": {
+        "read": "Каталог: просмотр",
+        "write": "Каталог: изменение"
+      },
+      "support": {
+        "read": "Поддержка: просмотр",
+        "write": "Поддержка: изменение"
+      },
+      "marketing": {
+        "read": "Маркетинг: просмотр",
+        "write": "Маркетинг: изменение",
+        "send": "Маркетинг: отправка рассылок"
+      },
+      "settings": {
+        "read": "Настройки: просмотр",
+        "write": "Настройки: изменение"
+      },
+      "system": {
+        "read": "Система: просмотр",
+        "write": "Система: изменение"
+      },
+      "risk": {
+        "read": "Риски: просмотр",
+        "write": "Риски: изменение"
+      },
+      "gifts": {
+        "read": "Подарки: просмотр",
+        "write": "Подарки: изменение"
+      },
+      "goods": {
+        "read": "Магазин: просмотр",
+        "write": "Магазин: изменение",
+        "manage": "Магазин: решения по заказам"
       }
     }
   },
@@ -5996,7 +6142,11 @@
           "referral": "Реферальная программа",
           "trial": "Пробный период",
           "test": "Тест",
-          "loyalty": "Лояльность"
+          "loyalty": "Лояльность",
+          "connection": "Подключение",
+          "device": "Устройство",
+          "access": "Доступ",
+          "reminder": "Напоминание"
         },
         "why": {
           "quiet_hours": "Удержано — попало в ваши тихие часы",
@@ -6289,7 +6439,10 @@
             "card": "карта",
             "sberpay": "SberPay",
             "crypto": "криптовалюта",
-            "intl": "зарубежная карта"
+            "intl": "зарубежная карта",
+            "applepay": "Apple Pay",
+            "googlepay": "Google Pay",
+            "mastercard": "Mastercard"
           },
           "bounds": "От {minimum} до {maximum}"
         }

@@ -659,6 +659,9 @@ type AddonSummary = { id: string; code: string; kind: string; archivedAt?: strin
  */
 function AddonOffer({ control }: { control: Control<Values> }) {
   const translate = useTranslations("admin.catalog.version");
+  const translateAddons = useTranslations("admin.catalog.addons.kind");
+  const translateAddonKind = (kind: string) =>
+    translateAddons.has(kind) ? translateAddons(kind as never) : kind;
   const { data } = useSWR<Listing<AddonSummary>, ApiError>("/v1/panel/catalog/addons", fetcher);
   const addons = (data?.items ?? []).filter((addon) => !addon.archivedAt);
   if (addons.length === 0) {
@@ -676,7 +679,7 @@ function AddonOffer({ control }: { control: Control<Values> }) {
               <AddonCheckbox
                 checked={field.value.includes(addon.id)}
                 key={addon.id}
-                label={`${addon.code} (${addon.kind})`}
+                label={`${addon.code} (${translateAddonKind(addon.kind)})`}
                 onChange={(checked) =>
                   field.onChange(
                     checked

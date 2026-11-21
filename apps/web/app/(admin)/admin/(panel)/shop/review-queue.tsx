@@ -10,6 +10,7 @@ import { useState } from "react";
 import useSWR from "swr";
 
 import { CustomerChip } from "@/components/admin/customer-chip";
+import { useEnumLabel } from "@/components/admin/enum-label";
 import { StateNotice } from "@/components/admin/state-notice";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
@@ -42,6 +43,7 @@ type ParkedDelivery = {
  */
 export function ReviewQueue({ active }: { active: boolean }) {
   const translate = useTranslations("admin.shop");
+  const label = useEnumLabel();
   const locale = useLocale();
   const { can } = useSession();
   const [reason, setReason] = useState("");
@@ -102,7 +104,8 @@ export function ReviewQueue({ active }: { active: boolean }) {
               <div className="flex flex-col gap-0.5">
                 <span className="font-medium">@{delivery.recipient}</span>
                 <span className="font-mono text-[11px] text-muted-foreground">
-                  {delivery.providerSlug} · <Timestamp value={delivery.updatedAt} />
+                  {label("goodsProvider", delivery.providerSlug)} ·{" "}
+                  <Timestamp value={delivery.updatedAt} />
                 </span>
               </div>
               <Badge variant="warning">{translate("failure.ambiguous")}</Badge>

@@ -2,6 +2,7 @@
 
 import { useLocale } from "next-intl";
 import { useCallback, useMemo } from "react";
+import { formatDuration } from "@/lib/operations";
 
 import { currencyExponent, formatMoney, toMajorUnits } from "./money";
 
@@ -113,4 +114,10 @@ export function useFormatters(): { bytes: (value: number) => string; money: Mone
   const money = useMoney();
   const bytes = useBytes();
   return useMemo(() => ({ bytes, money }), [bytes, money]);
+}
+
+/** Durations in the reader's language: `elapsed(300)` is "5m" or "5 мин". */
+export function useElapsed(): (seconds: number) => string {
+  const locale = useLocale();
+  return useCallback((seconds: number) => formatDuration(seconds, locale), [locale]);
 }

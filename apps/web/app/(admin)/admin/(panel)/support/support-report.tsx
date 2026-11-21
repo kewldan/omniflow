@@ -9,8 +9,7 @@ import { useState } from "react";
 import useSWR from "swr";
 
 import { type ApiError, fetcher } from "@/lib/api";
-import { formatDuration } from "@/lib/operations";
-
+import { useElapsed } from "@/lib/format";
 import type { SupportReportData } from "./types";
 
 /**
@@ -51,6 +50,7 @@ const FIGURES = [
  */
 export function SupportReport({ active }: { active: boolean }) {
   const translate = useTranslations("admin.support.report");
+  const duration = useElapsed();
   const [windowDays, setWindowDays] = useState(7);
 
   const { data, isLoading } = useSWR<SupportReportData, ApiError>(
@@ -65,7 +65,7 @@ export function SupportReport({ active }: { active: boolean }) {
   const values: Record<(typeof FIGURES)[number], string> = {
     breachedTickets: String(data.breachedTickets),
     medianFirstResponseSeconds:
-      data.medianFirstResponseSeconds > 0 ? formatDuration(data.medianFirstResponseSeconds) : "—",
+      data.medianFirstResponseSeconds > 0 ? duration(data.medianFirstResponseSeconds) : "—",
     openTickets: String(data.openTickets),
     resolvedInWindow: String(data.resolvedInWindow),
     unassignedTickets: String(data.unassignedTickets),

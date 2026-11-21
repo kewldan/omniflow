@@ -16,25 +16,36 @@ import { useCallback } from "react";
 export type EnumGroup =
   | "aiLimitScope"
   | "aiProviderKind"
+  | "anomalyEvidence"
+  | "anomalySubject"
   | "backupKind"
   | "backupStatus"
   | "customerEvent"
   | "deliveryStatus"
+  | "entitlementStatus"
   | "fulfillmentOperation"
   | "fulfillmentStatus"
+  | "goodsDeliveryStatus"
+  | "goodsProvider"
   | "health"
   | "intentStatus"
   | "ledgerType"
   | "matchStatus"
+  | "mcpFinding"
   | "orderOperation"
   | "orderState"
+  | "paymentMethod"
+  | "process"
   | "provider"
+  | "rateSource"
   | "refundStatus"
   | "restoreStatus"
   | "subjectKind"
   | "subscriptionStatus"
   | "suppressionReason"
+  | "surface"
   | "ticketStatus"
+  | "topicError"
   | "webhookStatus";
 
 /** A message key cannot hold a dot: `wallet.adjusted` is read as `wallet_adjusted`. */
@@ -52,6 +63,34 @@ export function useEnumLabel() {
       const key = `${group}.${messageKey(code)}`;
       return translate.has(key) ? translate(key as never) : code.replaceAll("_", " ");
     },
+    [translate],
+  );
+}
+
+/**
+ * A payment button's key — a provider, or a provider and one of its methods
+ * (`yookassa.sbp`) — as words.
+ */
+export function paymentMethodName(
+  label: (group: EnumGroup, code: string | null | undefined) => string,
+  key: string,
+): string {
+  const [provider, method] = key.split(".", 2);
+  return method
+    ? `${label("provider", provider)} · ${label("paymentMethod", method)}`
+    : label("provider", provider);
+}
+
+/**
+ * A permission such as `customers.read` as words: "Customers: read". The
+ * catalogue spells each one under `admin.permissions`; a permission this build
+ * has no copy for keeps its code.
+ */
+export function usePermissionLabel() {
+  const translate = useTranslations("admin.permissions");
+  return useCallback(
+    (permission: string): string =>
+      translate.has(permission) ? translate(permission as never) : permission,
     [translate],
   );
 }

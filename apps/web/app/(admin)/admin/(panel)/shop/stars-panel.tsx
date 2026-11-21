@@ -21,7 +21,7 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
-
+import { useEnumLabel } from "@/components/admin/enum-label";
 import { StateNotice } from "@/components/admin/state-notice";
 import { CopyButton } from "@/components/copy-button";
 import { MoneyInput } from "@/components/forms/money-input";
@@ -115,6 +115,7 @@ export function StarsPanel({ active, initialSearch }: { active: boolean; initial
 
 function StatusCard({ active }: { active: boolean }) {
   const translate = useTranslations("admin.shop.stars");
+  const label = useEnumLabel();
   const locale = useLocale();
   const { can } = useSession();
   const { run, pending, error } = useOperatorAction();
@@ -184,7 +185,7 @@ function StatusCard({ active }: { active: boolean }) {
           label={translate("rate")}
           value={
             data.rate
-              ? `${formatMoney(data.rate.minorPerTon, data.rate.currency, locale)} · ${data.rate.source}`
+              ? `${formatMoney(data.rate.minorPerTon, data.rate.currency, locale)} · ${label("rateSource", data.rate.source)}`
               : translate("rateUnknown")
           }
         />

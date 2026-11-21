@@ -16,9 +16,9 @@ import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
+import { useElapsed } from "@/lib/format";
 import {
   type FulfillmentOperation,
-  formatDuration,
   type Listing,
   type Page,
   useOperatorAction,
@@ -316,6 +316,7 @@ function Drifts({ active }: { active: boolean }) {
 
 function Outbox({ active }: { active: boolean }) {
   const translate = useTranslations("admin.system");
+  const duration = useElapsed();
   const { data, isLoading } = useSWR<Listing<OutboxEntry>, ApiError>(
     active ? "/v1/panel/system/outbox" : null,
     fetcher,
@@ -350,7 +351,7 @@ function Outbox({ active }: { active: boolean }) {
           {items.map((entry) => (
             <TableRow key={entry.id}>
               <TableCell className="font-mono text-[12px]">{entry.topic}</TableCell>
-              <TableCell data-numeric>{formatDuration(entry.ageSeconds)}</TableCell>
+              <TableCell data-numeric>{duration(entry.ageSeconds)}</TableCell>
             </TableRow>
           ))}
         </TableBody>

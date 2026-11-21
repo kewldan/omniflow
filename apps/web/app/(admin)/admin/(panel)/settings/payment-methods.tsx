@@ -11,7 +11,7 @@ import { Switch } from "@omniflow/ui/switch";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
-
+import { paymentMethodName, useEnumLabel } from "@/components/admin/enum-label";
 import { type ApiError, fetcher } from "@/lib/api";
 import { type CommerceSettings, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
@@ -46,6 +46,7 @@ const LOGIN_KINDS = ["telegram", "email", "vk", "oidc"];
  */
 export function PaymentMethodsCard() {
   const translate = useTranslations("admin.settings.paymentMethods");
+  const label = useEnumLabel();
   const { can } = useSession();
   const [editing, setEditing] = useState("");
   const { data, isLoading, mutate } = useSWR<{ items: PaymentMethodSettings[] }, ApiError>(
@@ -73,7 +74,7 @@ export function PaymentMethodsCard() {
           items.map((item) => (
             <div className="rounded-md border border-border p-3" key={item.key}>
               <div className="flex flex-wrap items-center gap-2">
-                <span className="font-mono text-[12px]">{item.key}</span>
+                <span className="text-[13px]">{paymentMethodName(label, item.key)}</span>
                 <Badge variant={item.enabled ? "success" : "neutral"}>
                   {translate(item.enabled ? "shown" : "hidden")}
                 </Badge>

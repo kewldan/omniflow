@@ -5,7 +5,7 @@ import { Gift, Info, KeyRound, LifeBuoy, Loader2, Receipt, User } from "lucide-r
 import { useTranslations } from "next-intl";
 import { type ComponentType, useEffect, useState } from "react";
 import useSWR from "swr";
-
+import { useEnumLabel } from "@/components/admin/enum-label";
 import { type ApiError, fetcher } from "@/lib/api";
 import { useMoney } from "@/lib/format";
 
@@ -92,6 +92,7 @@ export function RecordResults({
   search: string;
 }) {
   const translate = useTranslations("admin.commandMenu.search");
+  const label = useEnumLabel();
   const money = useMoney();
   const trimmed = search.trim();
   const term = useDebounced(trimmed, 250);
@@ -131,7 +132,7 @@ export function RecordResults({
       case "orders":
         parts.push(status(hit.state));
         if (hit.provider) {
-          parts.push(hit.provider);
+          parts.push(label("provider", hit.provider));
         }
         if (hit.createdAt) {
           parts.push(translate("created", { date: new Date(hit.createdAt) }));

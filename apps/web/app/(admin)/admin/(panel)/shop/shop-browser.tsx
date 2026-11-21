@@ -89,6 +89,7 @@ export function ShopBrowser() {
 
 function Orders({ active }: { active: boolean }) {
   const translate = useTranslations("admin.shop");
+  const label = useEnumLabel();
   const locale = useLocale();
   const { data, isLoading } = useSWR<Page<GoodsOrder>, ApiError>(
     active ? "/v1/panel/goods/orders" : null,
@@ -157,7 +158,7 @@ function Orders({ active }: { active: boolean }) {
               <TableCell className="font-mono text-[11px] text-muted-foreground">
                 {order.failureClass
                   ? translate(`failure.${order.failureClass}`)
-                  : (order.deliveryStatus ?? "—")}
+                  : label("goodsDeliveryStatus", order.deliveryStatus)}
                 {order.refunded ? ` · ${translate("refunded")}` : ""}
               </TableCell>
             </TableRow>
@@ -327,7 +328,7 @@ function Providers({ active }: { active: boolean }) {
       {items.map((provider) => (
         <Card className="flex flex-col gap-2 p-4" key={provider.slug}>
           <div className="flex items-center justify-between gap-3">
-            <span className="font-medium">{provider.slug}</span>
+            <span className="font-medium">{label("goodsProvider", provider.slug)}</span>
             <div className="flex gap-2">
               {provider.lowBalance && <Badge variant="danger">{translate("lowBalance")}</Badge>}
               <Badge

@@ -53,10 +53,19 @@ export function LoyaltyPanel({
     fetcher,
   );
   const { data: programs } = useSWR<Listing<LoyaltyProgram>, ApiError>(
-    active && editable ? "/v1/panel/loyalty/programs?pageSize=5" : null,
+    active ? "/v1/panel/loyalty/programs?pageSize=5" : null,
     fetcher,
   );
   const tiers = (programs?.items ?? []).find((program) => program.enabled)?.tiers ?? [];
+  // A tier by its name, the way the operator wrote it; a tier that is no
+  // longer in the programme keeps its code.
+  const tierName = (code?: string) => {
+    const tier = tiers.find((entry) => entry.code === code);
+    if (!tier) {
+      return code || "∅";
+    }
+    return (locale === "ru" ? tier.nameRu : tier.nameEn) || tier.code;
+  };
   const ids = { tier: useId(), note: useId(), until: useId() };
   const [tierCode, setTierCode] = useState("");
   const [note, setNote] = useState("");
@@ -89,12 +98,12 @@ export function LoyaltyPanel({
       <div className="flex flex-wrap gap-2">
         {(data?.groups ?? []).map((group) => (
           <Badge className="gap-2" key={group.tierCode} variant="outline">
-            <span className="font-mono">{group.tierCode}</span>
+            <span>{tierName(group.tierCode)}</span>
             <span className="text-muted-foreground">{translate(`sources.${group.source}`)}</span>
             {group.expiresAt && <Timestamp value={group.expiresAt} />}
             {editable && (
               <button
-                aria-label={translate("remove", { tier: group.tierCode })}
+                aria-label={translate("remove", { tier: tierName(group.tierCode) })}
                 className="text-destructive"
                 disabled={pending}
                 onClick={() => void act(`${path}/groups/${group.tierCode}`, "DELETE")}
@@ -180,8 +189,8 @@ export function LoyaltyPanel({
         <ul className="flex flex-col gap-1 text-xs">
           {(data?.history ?? []).map((change) => (
             <li key={`${change.occurredAt}-${change.toTier}`}>
-              <Timestamp value={change.occurredAt} /> — {change.fromTier || "∅"} → {change.toTier} (
-              {translate(`reasons.${change.reason}`)})
+              <Timestamp value={change.occurredAt} /> — {tierName(change.fromTier)} →{" "}
+              {tierName(change.toTier)} ({translate(`reasons.${change.reason}`)})
             </li>
           ))}
         </ul>

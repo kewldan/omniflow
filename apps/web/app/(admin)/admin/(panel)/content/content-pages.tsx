@@ -15,7 +15,7 @@ import { ExternalLink, Plus, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
-
+import { useLanguageLabel } from "@/components/admin/enum-label";
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
 import { type ApiError, fetcher } from "@/lib/api";
@@ -126,6 +126,7 @@ function PageRow({
   page: InfoPage;
 }) {
   const translate = useTranslations("admin.content");
+  const language = useLanguageLabel();
   const { run, pending } = useOperatorAction();
   const [confirming, setConfirming] = useState(false);
   const published = Boolean(page.publishedAt);
@@ -170,7 +171,8 @@ function PageRow({
         <p className="text-subtle-foreground text-xs">
           {translate(`kind.${page.kind}`)}
           {" · "}
-          {(page.availableLocales ?? []).join(", ") || translate("noLanguages")}
+          {(page.availableLocales ?? []).map((code) => language(code)).join(", ") ||
+            translate("noLanguages")}
         </p>
       </div>
 

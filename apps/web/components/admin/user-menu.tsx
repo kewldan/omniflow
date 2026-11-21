@@ -101,7 +101,9 @@ export function UserMenu() {
             {session.account.email}
           </p>
           <p className="mt-1 text-muted-foreground text-xs">
-            {session.account.roles.map((role) => translate(`roles.${role}`)).join(", ")}
+            {session.account.roles
+              .map((role) => (translate.has(`roles.${role}`) ? translate(`roles.${role}`) : role))
+              .join(", ")}
           </p>
         </div>
 

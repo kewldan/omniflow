@@ -11,6 +11,7 @@ import useSWR from "swr";
 
 import { StateNotice } from "@/components/admin/state-notice";
 import { type ApiError, fetcher } from "@/lib/api";
+import { useElapsed } from "@/lib/format";
 import { formatMoney, type PaymentHealthReport, type ProviderHealthLine } from "@/lib/operations";
 
 /**
@@ -31,6 +32,7 @@ import { formatMoney, type PaymentHealthReport, type ProviderHealthLine } from "
  */
 export function PaymentHealthScreen({ query }: { query: string }) {
   const translate = useTranslations("admin.paymentHealth");
+  const duration = useElapsed();
   const locale = useLocale();
 
   const { data, error, isLoading } = useSWR<PaymentHealthReport, ApiError>(
@@ -345,21 +347,4 @@ function percent(value?: number): string {
     return "—";
   }
   return `${Math.round(value * 1000) / 10}%`;
-}
-
-/** Seconds as the coarsest unit that still says something useful. */
-function duration(seconds: number): string {
-  if (seconds <= 0) {
-    return "—";
-  }
-  if (seconds < 90) {
-    return `${Math.round(seconds)}s`;
-  }
-  if (seconds < 5400) {
-    return `${Math.round(seconds / 60)}m`;
-  }
-  if (seconds < 172800) {
-    return `${Math.round(seconds / 3600)}h`;
-  }
-  return `${Math.round(seconds / 86400)}d`;
 }

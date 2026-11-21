@@ -10,11 +10,10 @@ import { toast } from "@omniflow/ui/toast";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
-
+import { usePermissionLabel } from "@/components/admin/enum-label";
 import { type ApiError, fetcher } from "@/lib/api";
 import { useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
-
 import type { RbacCatalog } from "./roles";
 
 /** Never part of a custom role: managing operators stays with owners. */
@@ -28,7 +27,7 @@ const RESERVED = ["admins.write", "admins.roles"];
  */
 export function CustomRoles() {
   const translate = useTranslations("admin.customRoles");
-  const translatePermission = useTranslations("admin.permissions");
+  const permissionLabel = usePermissionLabel();
   const { can } = useSession();
   const { data: catalog, mutate } = useSWR<RbacCatalog, ApiError>(
     "/v1/panel/rbac/catalog",
@@ -84,7 +83,7 @@ export function CustomRoles() {
               <span className="flex flex-wrap gap-1">
                 {entry.permissions.map((permission) => (
                   <Badge key={permission} variant="outline">
-                    {permission}
+                    {permissionLabel(permission)}
                   </Badge>
                 ))}
               </span>
@@ -158,11 +157,7 @@ export function CustomRoles() {
                         )
                       }
                     />
-                    <Label htmlFor={checkboxId}>
-                      {translatePermission.has(permission)
-                        ? translatePermission(permission)
-                        : permission}
-                    </Label>
+                    <Label htmlFor={checkboxId}>{permissionLabel(permission)}</Label>
                   </div>
                 );
               })}

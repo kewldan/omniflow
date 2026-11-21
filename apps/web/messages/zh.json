@@ -850,7 +850,8 @@
       "status": {
         "active": "活跃",
         "suspended": "已停用",
-        "deleted": "已删除"
+        "deleted": "已删除",
+        "merged": "已合并"
       },
       "segments": {
         "subscribed": "拥有生效中的订阅",
@@ -1435,7 +1436,12 @@
         "addon": "附加包",
         "topup": "钱包充值",
         "gift": "礼物",
-        "goods": "数字商品"
+        "goods": "数字商品",
+        "code": "兑换码",
+        "traffic_reset": "流量重置",
+        "traffic_change": "流量变更",
+        "device_reduction": "减少设备",
+        "squad_removal": "移除节点组"
       },
       "billingPeriod": {
         "none": "一次性",
@@ -4015,7 +4021,11 @@
         "referral": "邀请",
         "trial": "试用",
         "test": "测试",
-        "loyalty": "忠诚度"
+        "loyalty": "忠诚度",
+        "connection": "连接",
+        "device": "设备",
+        "access": "访问",
+        "reminder": "提醒"
       },
       "reason": {
         "quiet_hours": "处于用户的免打扰时段",
@@ -4570,6 +4580,23 @@
         "anthropic": "Anthropic",
         "gemini": "Gemini"
       },
+      "anomalyEvidence": {
+        "orderCount": "订单数",
+        "paidMinor": "已支付",
+        "currency": "币种",
+        "refundCount": "退款数",
+        "refundedMinor": "已退款",
+        "qualifiedCount": "合格推荐",
+        "usedBytes": "已用流量",
+        "measure": "指标",
+        "reconciledAt": "核对时间"
+      },
+      "anomalySubject": {
+        "installation": "实例",
+        "customer": "客户",
+        "plan": "套餐",
+        "provider": "支付渠道"
+      },
       "backupKind": {
         "scheduled": "定时",
         "manual": "手动",
@@ -4607,6 +4634,16 @@
         "delivered": "已送达",
         "failed": "失败"
       },
+      "entitlementStatus": {
+        "pending": "待处理",
+        "active": "有效",
+        "limited": "受限",
+        "disabled": "已停用",
+        "paused": "已暂停",
+        "expired": "已过期",
+        "superseded": "已被取代",
+        "failed": "失败"
+      },
       "fulfillmentOperation": {
         "create": "创建用户",
         "extend": "续期",
@@ -4631,6 +4668,18 @@
         "retrying": "重试中",
         "failed": "失败",
         "cancelled": "已取消"
+      },
+      "goodsDeliveryStatus": {
+        "pending": "待处理",
+        "submitted": "已提交",
+        "delivered": "已送达",
+        "failed": "失败",
+        "cancelled": "已取消",
+        "needs_review": "需要审核"
+      },
+      "goodsProvider": {
+        "fragment": "Fragment",
+        "fragment_direct": "Fragment（直连）"
       },
       "health": {
         "unknown": "未检查",
@@ -4662,6 +4711,14 @@
         "blocked": "已封禁",
         "appealed": "已申诉"
       },
+      "mcpFinding": {
+        "instruction_override": "试图覆盖指令",
+        "role_claim": "冒充角色",
+        "tool_directive": "向工具下达指令",
+        "exfiltration_attempt": "试图外泄数据",
+        "hidden_text": "隐藏文本",
+        "fence_breakout": "突破引用边界"
+      },
       "orderOperation": {
         "purchase": "新购",
         "upgrade": "升级",
@@ -4687,6 +4744,21 @@
         "expired": "已过期",
         "partially_refunded": "部分退款",
         "refunded": "已退款"
+      },
+      "paymentMethod": {
+        "sbp": "SBP",
+        "card": "银行卡",
+        "sberpay": "SberPay",
+        "crypto": "加密货币",
+        "intl": "境外银行卡",
+        "applepay": "Apple Pay",
+        "googlepay": "Google Pay",
+        "mastercard": "Mastercard"
+      },
+      "process": {
+        "api": "API",
+        "bot": "机器人",
+        "worker": "后台任务"
       },
       "provider": {
         "telegram_stars": "Telegram Stars",
@@ -4719,6 +4791,11 @@
         "jupiter": "Jupiter",
         "tabpay": "TabPay"
       },
+      "rateSource": {
+        "manual": "手动设置",
+        "tonapi": "TonAPI",
+        "coingecko": "CoinGecko"
+      },
       "refundStatus": {
         "pending": "待处理",
         "processing": "处理中",
@@ -4747,6 +4824,10 @@
         "complaint": "垃圾邮件投诉",
         "operator": "操作员"
       },
+      "surface": {
+        "bot": "机器人",
+        "web": "网页"
+      },
       "ticketStatus": {
         "open": "待处理",
         "pending": "已回复",
@@ -4754,11 +4835,76 @@
         "closed": "已关闭",
         "merged": "已合并"
       },
+      "topicError": {
+        "missing_manage_topics_permission": "机器人无权管理话题",
+        "chat_not_found": "找不到聊天",
+        "forum_topics_disabled": "群组未开启话题",
+        "bot_not_in_group": "机器人不在群组中",
+        "telegram_error": "Telegram 错误"
+      },
       "webhookStatus": {
         "received": "已接收",
         "processed": "已处理",
         "ignored": "已忽略",
         "failed": "失败"
+      }
+    },
+    "permissions": {
+      "admins": {
+        "read": "运营人员: 查看",
+        "write": "运营人员: 修改",
+        "roles": "运营人员: 授予角色"
+      },
+      "audit": {
+        "read": "审计日志: 查看",
+        "export": "审计日志: 导出"
+      },
+      "customers": {
+        "read": "用户: 查看",
+        "write": "用户: 修改",
+        "export": "用户: 导出"
+      },
+      "subscriptions": {
+        "read": "订阅: 查看",
+        "write": "订阅: 修改"
+      },
+      "finance": {
+        "read": "财务: 查看",
+        "write": "财务: 修改"
+      },
+      "catalog": {
+        "read": "商品目录: 查看",
+        "write": "商品目录: 修改"
+      },
+      "support": {
+        "read": "支持: 查看",
+        "write": "支持: 修改"
+      },
+      "marketing": {
+        "read": "营销: 查看",
+        "write": "营销: 修改",
+        "send": "营销: 发送营销"
+      },
+      "settings": {
+        "read": "设置: 查看",
+        "write": "设置: 修改"
+      },
+      "system": {
+        "read": "系统: 查看",
+        "write": "系统: 修改"
+      },
+      "risk": {
+        "read": "风控: 查看",
+        "write": "风控: 修改"
+      },
+      "gifts": {
+        "read": "礼物: 查看",
+        "write": "礼物: 修改"
+      },
+      "goods": {
+        "read": "商店: 查看",
+        "write": "商店: 修改",
+        "manage": "商店: 审批订单"
       }
     }
   },
@@ -5904,7 +6050,11 @@
           "referral": "邀请",
           "trial": "试用",
           "test": "测试",
-          "loyalty": "会员忠诚度"
+          "loyalty": "会员忠诚度",
+          "connection": "连接",
+          "device": "设备",
+          "access": "访问",
+          "reminder": "提醒"
         },
         "why": {
           "quiet_hours": "已暂缓——处于您的免打扰时段",
@@ -6185,7 +6335,10 @@
             "card": "银行卡",
             "sberpay": "SberPay",
             "crypto": "加密货币",
-            "intl": "境外银行卡"
+            "intl": "境外银行卡",
+            "applepay": "Apple Pay",
+            "googlepay": "Google Pay",
+            "mastercard": "Mastercard"
           },
           "bounds": "{minimum} 至 {maximum}"
         }

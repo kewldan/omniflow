@@ -95,6 +95,7 @@ export function RiskReview() {
 
 function Matches({ active }: { active: boolean }) {
   const translate = useTranslations("admin.risk");
+  const label = useEnumLabel();
   const { can } = useSession();
   const [reason, setReason] = useState("");
   const { run, pending, error } = useOperatorAction();
@@ -164,7 +165,9 @@ function Matches({ active }: { active: boolean }) {
                   <CustomerChip id={match.customerId} />
                 </TableCell>
                 <TableCell>{match.sourceName}</TableCell>
-                <TableCell className="text-muted-foreground">{match.subjectKind}</TableCell>
+                <TableCell className="text-muted-foreground">
+                  {label("subjectKind", match.subjectKind)}
+                </TableCell>
                 {can("risk.write") && (
                   <TableCell>
                     <div className="flex gap-2">
@@ -198,6 +201,7 @@ function Matches({ active }: { active: boolean }) {
 
 function Anomalies({ active }: { active: boolean }) {
   const translate = useTranslations("admin.risk");
+  const label = useEnumLabel();
   const { can } = useSession();
   const { run, pending } = useOperatorAction();
 
@@ -225,8 +229,9 @@ function Anomalies({ active }: { active: boolean }) {
           <div className="flex items-start justify-between gap-3">
             <div className="flex flex-col gap-0.5">
               <span className="font-medium">{translate(`metrics.${signal.metric}`)}</span>
-              <span className="font-mono text-[11px] text-muted-foreground">
-                {signal.subjectType}:{signal.subjectId.slice(0, 8)}
+              <span className="text-[11px] text-muted-foreground">
+                {label("anomalySubject", signal.subjectType)}{" "}
+                <span className="font-mono">{signal.subjectId.slice(0, 8)}</span>
               </span>
             </div>
             <Badge variant={signal.severity === "alert" ? "danger" : "warning"}>
@@ -243,7 +248,7 @@ function Anomalies({ active }: { active: boolean }) {
           <dl className="grid grid-cols-2 gap-1 text-xs">
             {Object.entries(signal.evidence ?? {}).map(([field, value]) => (
               <div className="flex justify-between gap-2" key={field}>
-                <dt className="text-muted-foreground">{field}</dt>
+                <dt className="text-muted-foreground">{label("anomalyEvidence", field)}</dt>
                 <dd className="truncate font-mono tabular-nums">{String(value)}</dd>
               </div>
             ))}
@@ -350,7 +355,9 @@ function SourceTable({ items, locale }: { items: BlocklistSource[]; locale: stri
                   {!source.enabled && <Badge variant="neutral">{translate("disabled")}</Badge>}
                 </span>
               </TableCell>
-              <TableCell className="text-muted-foreground">{source.subjectKind}</TableCell>
+              <TableCell className="text-muted-foreground">
+                {label("subjectKind", source.subjectKind)}
+              </TableCell>
               <TableCell data-numeric>{source.entryCount.toLocaleString(locale)}</TableCell>
               <TableCell>
                 <Badge

@@ -6,7 +6,7 @@ import { providerKey } from "@/lib/payment-providers";
 import type { PaymentChoice } from "./types";
 
 /** Method keys this build has copy for, shown after the provider's name. */
-const METHODS = ["sbp", "card", "sberpay", "crypto", "intl"];
+const METHODS = ["sbp", "card", "sberpay", "crypto", "intl", "applepay", "googlepay", "mastercard"];
 
 /**
  * A payment button's identity: the provider alone, or provider.method when the
