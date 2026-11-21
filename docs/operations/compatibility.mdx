@@ -38,15 +38,18 @@ Releases follow [Semantic Versioning](https://semver.org/) and are cut by
 [Conventional Commits](https://www.conventionalcommits.org/), which also
 generates `CHANGELOG.md` — nothing is hand-written after the fact.
 
-Each tagged release publishes four multi-arch (`linux/amd64`,
+Each tagged release publishes five multi-arch (`linux/amd64`,
 `linux/arm64`) container images to GitHub Container Registry:
 
 ```text
-ghcr.io/kewldan/omniflow/api:vX.Y.Z
-ghcr.io/kewldan/omniflow/bot:vX.Y.Z
-ghcr.io/kewldan/omniflow/worker:vX.Y.Z
-ghcr.io/kewldan/omniflow/web:vX.Y.Z
+ghcr.io/kewldan/omniflow/api:X.Y.Z
+ghcr.io/kewldan/omniflow/bot:X.Y.Z
+ghcr.io/kewldan/omniflow/worker:X.Y.Z
+ghcr.io/kewldan/omniflow/web:X.Y.Z
+ghcr.io/kewldan/omniflow/migrate:X.Y.Z
 ```
+
+The tag is the version without a `v`; the release's Git tag is `omniflow-vX.Y.Z`. `compose.release.yaml` at a release tag runs exactly these images — see [Deployment](/operations/deployment).
 
 Every image is also tagged `X.Y` so a deployment can track a minor line
 without floating on `latest`.
@@ -66,11 +69,11 @@ Verify an image before deploying it:
 cosign verify \
   --certificate-identity-regexp 'https://github.com/kewldan/omniflow' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  ghcr.io/kewldan/omniflow/api:vX.Y.Z
+  ghcr.io/kewldan/omniflow/api:X.Y.Z
 ```
 
 Inspect the attached SBOM and provenance with `docker buildx imagetools
-inspect --format '{{ json .SBOM }}' ghcr.io/kewldan/omniflow/api:vX.Y.Z` (and
+inspect --format '{{ json .SBOM }}' ghcr.io/kewldan/omniflow/api:X.Y.Z` (and
 `.Provenance` for the build provenance).
 
 ## Upgrade testing

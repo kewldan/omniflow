@@ -5,7 +5,10 @@
       "release-type": "simple",
       "package-name": "omniflow",
       "changelog-path": "CHANGELOG.md",
-      "initial-version": "1.0.0"
+      "initial-version": "1.0.0",
+      "extra-files": [
+        "compose.release.yaml"
+      ]
     }
   }
 }

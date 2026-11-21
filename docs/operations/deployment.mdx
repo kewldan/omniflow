@@ -52,7 +52,21 @@ Support-ticket attachments uploaded through the customer web panel are the excep
 
 ## First deployment
 
+A production server runs the published images with `compose.release.yaml`: nothing is built on it,
+and the release tag you check out names the exact images it runs. `compose.yaml` builds the same
+stack from the working tree and is what development uses; the steps below are the same for both
+apart from the compose file.
+
 <Steps>
+  <Step title="Check out a release">
+    ```bash
+    git clone https://github.com/kewldan/omniflow.git && cd omniflow
+    git checkout omniflow-v1.2.1
+    ```
+    The checkout carries the compose files, `.env.example`, and the reverse-proxy examples; the code
+    itself arrives in the images. The images are public on `ghcr.io/kewldan/omniflow`, so no
+    registry login is needed.
+  </Step>
   <Step title="Prepare the environment file">
     ```bash
     cp .env.example .env
@@ -61,9 +75,12 @@ Support-ticket attachments uploaded through the customer web panel are the excep
   </Step>
   <Step title="Bring the core stack up">
     ```bash
-    docker compose up --build postgres valkey migrate api bot worker
+    docker compose -f compose.release.yaml pull
+    docker compose -f compose.release.yaml up -d postgres valkey migrate api bot worker
     ```
-    `make dev` runs the same set. Add the web application with `docker compose --profile web up --build`, or `make up`.
+    Add the web application with `--profile web`. From source instead, for development:
+    `docker compose up --build postgres valkey migrate api bot worker` (`make dev`), and
+    `docker compose --profile web up --build` (`make up`).
   </Step>
   <Step title="Read the setup token out of the API log">
     ```
@@ -88,7 +105,7 @@ Migrations are forward-only SQL files in `database/migrations/`, applied by Atla
 There are no down-migrations. That is a deliberate choice rather than an omission: a schema rollback is a restore from a backup, which is the only path that also restores the data the forward migration reshaped. See [Backup and restore](/operations/backup-restore).
 
 <Note>
-  The `migrate` service hard-codes `postgres://omniflow:omniflow@postgres:5432/omniflow?sslmode=disable` in its command and does **not** read `.env`. Changing the database credentials means editing `compose.yaml` as well as `APP_DATABASE_URL`, or the migration job will keep pointing at the old ones.
+  The `migrate` service hard-codes `postgres://omniflow:omniflow@postgres:5432/omniflow?sslmode=disable` in its command and does **not** read `.env`. Changing the database credentials means editing the compose file you run (`compose.release.yaml` or `compose.yaml`) as well as `APP_DATABASE_URL`, or the migration job will keep pointing at the old ones.
 </Note>
 
 The same migrations create the durable job queue's tables, so the first deploy needs no separate queue setup — see [Jobs and queues](/operations/jobs-and-queues#the-queue-schema-ships-with-the-migrations).
@@ -112,13 +129,17 @@ The web image installs and builds with Bun and serves the Next.js standalone out
 
 ### Released images
 
-Tagging `v*` builds and pushes `api`, `bot`, `worker` and `web` to `ghcr.io/<repo>/<name>` for `linux/amd64` and `linux/arm64`, tagged `{{version}}` and `{{major}}.{{minor}}`, with full provenance and an SBOM.
+Every release publishes five images to `ghcr.io/kewldan/omniflow/<name>` for `linux/amd64` and `linux/arm64`, tagged with the version without a `v` (`1.2.1`) and with the minor line (`1.2`), each with full provenance and an SBOM and signed with cosign — see [Compatibility and upgrades](/operations/compatibility#versioning-and-release-artifacts):
 
-Nothing in the repository consumes those images: `compose.yaml` builds from the working tree. Running a pinned release means writing a small override that replaces each `build:` block with an `image:` line. Do not point production at a floating tag — pin the full version, so that what you tested is what restarts.
+| Image | What it is |
+| --- | --- |
+| `api`, `web` | The API on the `static` runtime, and the Next.js server |
+| `bot`, `worker` | Built with `RUNTIME=postgres`, so scheduled backups and the `/ops` restore surface have `pg_dump` and `pg_restore` |
+| `migrate` | `build/migrate.Dockerfile`: the Atlas image with the release's `database/migrations` inside, so the server needs no source tree to apply the schema |
 
-<Warning>
-  The release workflow passes only `TARGET` to the build, so the published `bot` and `worker` images use the default `static` base and do **not** contain `pg_dump` or `pg_restore`. Scheduled backups and the `/ops` restore surface need images built with `RUNTIME=postgres`, which is what `compose.yaml` does. If you switch to released images, keep building `bot` and `worker` yourself or backups will fail with a command error.
-</Warning>
+`compose.release.yaml` runs them. Each image line carries the release's full version, which release-please moves in every release pull request, so the file at a release tag runs exactly that release — never a floating tag. `OMNIFLOW_VERSION` in `.env` overrides all five at once, which is how you roll back without checking out the previous tag.
+
+The web image reads `API_INTERNAL_URL` and `NEXT_PUBLIC_API_URL` on the server at runtime, so one published image serves every installation.
 
 ## Supported topology
 
@@ -172,11 +193,13 @@ Both examples 404 `/metrics` and `/readyz` on the public API host, cap request b
   <Step title="Pause purchases if the upgrade touches provisioning">
     Turning maintenance mode on stops new orders and holds outbound Remnawave calls without touching money already taken. Held fulfillment jobs are snoozed, not failed, and resume when you clear it. See [Maintenance mode](/operations/maintenance-mode).
   </Step>
-  <Step title="Update the source or the pinned image tags, then bring the stack up">
+  <Step title="Check out the new release, pull, and bring the stack up">
     ```bash
-    docker compose up -d --build migrate api bot worker
+    git fetch --tags && git checkout omniflow-vX.Y.Z
+    docker compose -f compose.release.yaml pull
+    docker compose -f compose.release.yaml up -d migrate api bot worker
     ```
-    `migrate` runs to completion first; the three processes then start against the new schema.
+    Add `--profile web` and `web` if you run it. `migrate` runs to completion first; the three processes then start against the new schema. A source installation runs `git pull` and `docker compose up -d --build migrate api bot worker` instead.
   </Step>
   <Step title="Verify, then clear maintenance">
     Check `/readyz` on the API and on the worker's `APP_WORKER_HTTP_ADDR`, confirm the worker logged `worker started`, then clear the maintenance window with a reason.
@@ -199,7 +222,7 @@ Periodic passes are River jobs and stop with River. The remaining in-process tic
 
 There is no schema down-path, so a rollback has two shapes depending on what changed.
 
-**No migration ran.** Put the previous image tag or source revision back and bring the stack up. Nothing else is needed.
+**No migration ran.** Put the previous release back — `git checkout` its tag, or set `OMNIFLOW_VERSION` to it in `.env` — and run `docker compose -f compose.release.yaml up -d`. A source installation checks out the previous revision and rebuilds. Nothing else is needed.
 
 **A migration ran.** The old binaries do not understand the new schema, so restoring the database is part of the rollback. Restore the pre-upgrade backup, then start the previous version against it. `pg_restore` runs with `--clean --if-exists --single-transaction`, so everything written since the backup point is lost — which is exactly why the backup step precedes the upgrade rather than following it.
 

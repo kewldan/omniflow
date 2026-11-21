@@ -81,8 +81,10 @@ than in `CI`, so it is run by hand before a release, below.
     last release and opens — or updates — a release pull request.
   </Step>
   <Step title="Review the release pull request">
-    It contains exactly two kinds of change: the new version in
-    `.release-please-manifest.json`, and the generated `CHANGELOG.md` entries.
+    It contains exactly three kinds of change: the new version in
+    `.release-please-manifest.json`, the same version on every image line of
+    `compose.release.yaml` (the lines marked `x-release-please-version`), and
+    the generated `CHANGELOG.md` entries.
     Read the changelog as a user would. A `feat:` whose description says nothing
     an operator can act on is worth fixing in the commit history's next entry
     rather than by editing the generated file.

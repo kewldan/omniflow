@@ -38,16 +38,19 @@ description: Поддерживаемая матрица версий, верс�
 [Conventional Commits](https://www.conventionalcommits.org/), который также
 формирует `CHANGELOG.md` — ничего не пишется вручную постфактум.
 
-Каждый помеченный релиз публикует четыре мультиархитектурных
+Каждый помеченный релиз публикует пять мультиархитектурных
 (`linux/amd64`, `linux/arm64`) образа контейнеров в GitHub Container
 Registry:
 
 ```text
-ghcr.io/kewldan/omniflow/api:vX.Y.Z
-ghcr.io/kewldan/omniflow/bot:vX.Y.Z
-ghcr.io/kewldan/omniflow/worker:vX.Y.Z
-ghcr.io/kewldan/omniflow/web:vX.Y.Z
+ghcr.io/kewldan/omniflow/api:X.Y.Z
+ghcr.io/kewldan/omniflow/bot:X.Y.Z
+ghcr.io/kewldan/omniflow/worker:X.Y.Z
+ghcr.io/kewldan/omniflow/web:X.Y.Z
+ghcr.io/kewldan/omniflow/migrate:X.Y.Z
 ```
+
+Тег — версия без `v`; тег Git релиза при этом `omniflow-vX.Y.Z`. `compose.release.yaml` на теге релиза запускает ровно эти образы — см. [Развёртывание](/ru/operations/deployment).
 
 Каждый образ также помечен тегом `X.Y`, чтобы развёртывание могло следовать
 минорной линии, не плавая на `latest`.
@@ -68,11 +71,11 @@ OIDC-идентичность релизного workflow в GitHub Actions — 
 cosign verify \
   --certificate-identity-regexp 'https://github.com/kewldan/omniflow' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  ghcr.io/kewldan/omniflow/api:vX.Y.Z
+  ghcr.io/kewldan/omniflow/api:X.Y.Z
 ```
 
 Изучите приложенный SBOM и происхождение сборки командой `docker buildx
-imagetools inspect --format '{{ json .SBOM }}' ghcr.io/kewldan/omniflow/api:vX.Y.Z`
+imagetools inspect --format '{{ json .SBOM }}' ghcr.io/kewldan/omniflow/api:X.Y.Z`
 (и `.Provenance` для происхождения сборки).
 
 ## Тестирование обновлений

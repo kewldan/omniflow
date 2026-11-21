@@ -1,0 +1,120 @@
+# Omniflow from the published images: nothing is built on the server.
+#
+# The image tags below are the release this file belongs to — release-please
+# moves them in every release pull request — so checking out a release tag and
+# running this file runs exactly that release:
+#
+#   git checkout omniflow-v1.2.0
+#   docker compose -f compose.release.yaml pull
+#   docker compose -f compose.release.yaml up -d
+#
+# OMNIFLOW_VERSION in .env overrides every tag at once, for a rollback to the
+# previous release without checking out its tag. The web application starts
+# with `--profile web`, and the reverse-proxy overlays in deploy/proxies combine
+# with this file as they do with compose.yaml. compose.yaml remains the file
+# that builds from the working tree, for development.
+
+name: omniflow
+
+services:
+  postgres:
+    image: postgres:19.0-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: omniflow
+      POSTGRES_USER: omniflow
+      POSTGRES_PASSWORD: omniflow
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U omniflow -d omniflow"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      # /var/lib/postgresql, not /var/lib/postgresql/data: see compose.yaml.
+      - postgres-data:/var/lib/postgresql
+    networks: [internal]
+
+  valkey:
+    image: valkey/valkey:9.2.0-alpine
+    restart: unless-stopped
+    command: ["valkey-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [internal]
+
+  # The release's migrations, applied before the processes start.
+  migrate:
+    image: ghcr.io/kewldan/omniflow/migrate:${OMNIFLOW_VERSION:-1.2.0} # x-release-please-version
+    command: ["migrate", "apply", "--url", "postgres://omniflow:omniflow@postgres:5432/omniflow?sslmode=disable", "--dir", "file:///migrations"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks: [internal]
+
+  api:
+    image: ghcr.io/kewldan/omniflow/api:${OMNIFLOW_VERSION:-1.2.0} # x-release-please-version
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      APP_HTTP_ADDR: :8080
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      valkey:
+        condition: service_healthy
+    volumes:
+      - backup-data:/var/lib/omniflow/backups
+    ports:
+      - "8080:8080"
+    networks: [internal]
+
+  bot:
+    image: ghcr.io/kewldan/omniflow/bot:${OMNIFLOW_VERSION:-1.2.0} # x-release-please-version
+    restart: unless-stopped
+    env_file: [.env]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      valkey:
+        condition: service_healthy
+    volumes:
+      - backup-data:/var/lib/omniflow/backups
+    networks: [internal]
+
+  worker:
+    image: ghcr.io/kewldan/omniflow/worker:${OMNIFLOW_VERSION:-1.2.0} # x-release-please-version
+    restart: unless-stopped
+    env_file: [.env]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      valkey:
+        condition: service_healthy
+    volumes:
+      - backup-data:/var/lib/omniflow/backups
+    networks: [internal]
+
+  web:
+    profiles: [web]
+    image: ghcr.io/kewldan/omniflow/web:${OMNIFLOW_VERSION:-1.2.0} # x-release-please-version
+    restart: unless-stopped
+    environment:
+      # Read by the server at runtime, so one published image serves every
+      # installation: where the web application reaches the API for its own
+      # session check and for the /v1 calls the browser makes same-origin.
+      NEXT_PUBLIC_API_URL: http://api:8080
+      API_INTERNAL_URL: http://api:8080
+    ports:
+      - "3000:3000"
+    depends_on: [api]
+    networks: [internal]
+
+networks:
+  internal:
+
+volumes:
+  postgres-data:
+  backup-data:
