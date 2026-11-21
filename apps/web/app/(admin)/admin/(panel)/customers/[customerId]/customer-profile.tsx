@@ -11,8 +11,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@omniflow/ui/tabs";
 import { useSearchParams } from "next/navigation";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
-import { type ReactNode, useId, useState } from "react";
+import { type ReactNode, useEffect, useId, useState } from "react";
 import useSWR, { mutate as revalidate } from "swr";
+import { rememberCustomer } from "@/components/admin/customer-picker";
 import { useEnumLabel, useLanguageLabel } from "@/components/admin/enum-label";
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
@@ -54,6 +55,11 @@ export function CustomerProfileView({ customerId }: { customerId: string }) {
   const locale = useLocale();
   const format = useFormatter();
   const { can } = useSession();
+  // The merge picker offers the customers opened last, so the other half of
+  // a duplicate is one click away.
+  useEffect(() => {
+    rememberCustomer(customerId);
+  }, [customerId]);
   // The command palette opens a card straight on a tab (?tab=controls).
   const requestedTab = useSearchParams().get("tab");
   const [tab, setTab] = useState(requestedTab ?? "subscriptions");

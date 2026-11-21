@@ -340,8 +340,9 @@ where it went. Deleting it would lose the customer's own words and the trail tha
 explains where they went, and the customer's bookmarked link still resolves —
 the response carries the survivor's id so the panel can link on.
 
-Paste the survivor's UUID into **Merge into** in the conversation header and press
-**Merge**, or call
+Press **Merge** in the conversation header and pick the survivor from the
+customer's other tickets, searchable by subject; a whole ticket ID typed there is
+offered too. Or call
 `POST /v1/panel/support/tickets/{ticketID}/merge` with `{"survivorId": "<uuid>"}`.
 
 Both rows are locked before anything moves. The refusals:

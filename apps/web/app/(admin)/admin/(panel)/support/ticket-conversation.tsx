@@ -3,7 +3,14 @@
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { Card } from "@omniflow/ui/card";
-import { Input, Textarea } from "@omniflow/ui/input";
+import {
+  Command,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@omniflow/ui/command";
+import { Textarea } from "@omniflow/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@omniflow/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
 import { Skeleton } from "@omniflow/ui/skeleton";
@@ -535,18 +542,32 @@ function MergeTicket({
 }) {
   const translate = useTranslations("admin.support");
   const [open, setOpen] = useState(false);
-  const [target, setTarget] = useState("");
+  const [query, setQuery] = useState("");
   const { data } = useSWR<Page<SupportTicket>, ApiError>(
-    open ? `/v1/panel/support/tickets?customerId=${ticket.customerId}&pageSize=20` : null,
+    open ? `/v1/panel/support/tickets?customerId=${ticket.customerId}&pageSize=50` : null,
     fetcher,
   );
   const siblings = (data?.items ?? []).filter(
     (item) => item.id !== ticket.id && item.status !== "merged",
   );
+  const needle = query.trim().toLowerCase();
+  const shown = needle
+    ? siblings.filter(
+        (item) =>
+          item.subject.toLowerCase().includes(needle) || item.id.toLowerCase().startsWith(needle),
+      )
+    : siblings;
+  // A whole identifier typed by hand is offered even when it is not in the
+  // list; the server refuses one that belongs to another customer.
+  const pasted =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(query.trim()) &&
+    !shown.some((item) => item.id === query.trim().toLowerCase())
+      ? query.trim().toLowerCase()
+      : "";
 
   async function merge(survivorId: string) {
     await onMerge(survivorId);
-    setTarget("");
+    setQuery("");
     setOpen(false);
   }
 
@@ -558,51 +579,55 @@ function MergeTicket({
           {translate("merge")}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="flex w-80 flex-col gap-3">
-        <p className="font-medium text-sm">{translate("mergeTitle")}</p>
-        {siblings.length > 0 ? (
-          <ul className="-mx-2 flex flex-col">
-            {siblings.map((item) => (
-              <li key={item.id}>
-                <button
-                  className="flex w-full flex-col gap-0.5 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent disabled:opacity-50"
-                  disabled={pending}
-                  onClick={() => merge(item.id)}
-                  type="button"
-                >
-                  <span className="truncate">{item.subject || translate("noSubject")}</span>
-                  <span className="font-mono text-[11px] text-muted-foreground">
-                    <Timestamp mode="date" value={item.lastMessageAt} />
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-muted-foreground text-xs">
-            {data ? translate("mergeNoSiblings") : translate("mergeLoading")}
-          </p>
-        )}
-        <form
-          className="flex items-center gap-1"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (target.trim()) {
-              void merge(target.trim());
-            }
-          }}
-        >
-          <Input
-            aria-label={translate("mergeInto")}
-            className="h-8 text-xs"
-            onChange={(event) => setTarget(event.target.value)}
-            placeholder={translate("mergeInto")}
-            value={target}
+      <PopoverContent align="end" className="w-80 p-0">
+        <Command shouldFilter={false}>
+          <CommandInput
+            onValueChange={setQuery}
+            placeholder={translate("mergeSearch")}
+            value={query}
           />
-          <Button disabled={pending || target.trim().length === 0} size="sm" type="submit">
-            {translate("merge")}
-          </Button>
-        </form>
+          <CommandList>
+            {shown.length === 0 && !pasted ? (
+              <p className="px-3 py-6 text-center text-muted-foreground text-xs">
+                {!data
+                  ? translate("mergeLoading")
+                  : siblings.length === 0
+                    ? translate("mergeNoSiblings")
+                    : translate("mergeNoMatch")}
+              </p>
+            ) : (
+              <CommandGroup heading={translate("mergeTitle")}>
+                {shown.map((item) => (
+                  <CommandItem
+                    disabled={pending}
+                    key={item.id}
+                    onSelect={() => void merge(item.id)}
+                    value={item.id}
+                  >
+                    <span className="flex min-w-0 flex-col">
+                      <span className="truncate">{item.subject || translate("noSubject")}</span>
+                      <span className="font-mono text-[11px] text-muted-foreground">
+                        {translate(`status.${item.status}`)} ·{" "}
+                        <Timestamp mode="date" value={item.lastMessageAt} />
+                      </span>
+                    </span>
+                  </CommandItem>
+                ))}
+                {pasted && (
+                  <CommandItem
+                    disabled={pending}
+                    onSelect={() => void merge(pasted)}
+                    value={pasted}
+                  >
+                    <span className="truncate font-mono text-xs">
+                      {translate("mergeById", { id: pasted.slice(0, 8) })}
+                    </span>
+                  </CommandItem>
+                )}
+              </CommandGroup>
+            )}
+          </CommandList>
+        </Command>
       </PopoverContent>
     </Popover>
   );

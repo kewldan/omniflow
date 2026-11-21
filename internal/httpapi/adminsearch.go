@@ -104,7 +104,7 @@ func searchPayload(results panelsearchpg.Results, visible []panelsearch.Group, q
 		groups = append(groups, map[string]any{"group": string(group), "items": items})
 	}
 	hints := []string{}
-	if results.HandleNotStored || query.Handle != "" {
+	if results.HandleNotStored {
 		hints = append(hints, "telegram_handle_not_stored")
 	}
 	return map[string]any{"groups": groups, "hints": hints}

@@ -246,9 +246,12 @@ group, each with a preview line and what it matched on:
 A group the operator's roles cannot read is not queried and does not appear in
 the response, so the palette never shows a record its link would refuse to
 open. Emails are matched exactly, through the keyed fingerprint stored beside
-the encrypted address, and the address is never returned. Omniflow does not
-store Telegram @usernames, so a query that starts with `@` finds no customer
-and the palette says so; use the numeric Telegram ID instead.
+the encrypted address, and the address is never returned. A query that starts
+with `@` is a Telegram @username, matched whole and case-insensitively against
+the profile the bot records on a customer's Telegram identity. A customer who
+has not used the bot since it began recording has no handle on file; the
+palette says so, and the numeric Telegram ID still finds them. There is no
+substring search over names.
 
 Every lookup is an index probe — an ID prefix is a primary-key range scan, and
 ticket subjects use a trigram index from the `pg_trgm` extension, which the

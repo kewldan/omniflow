@@ -8971,6 +8971,13 @@ CREATE UNIQUE INDEX identities_one_active_provider_per_user_idx ON public.identi
 
 
 --
+-- Name: identities_telegram_handle_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX identities_telegram_handle_idx ON public.identities USING btree (lower((metadata ->> 'username'::text))) WHERE ((provider = 'telegram'::text) AND (status = 'active'::text) AND (metadata ? 'username'::text));
+
+
+--
 -- Name: info_pages_published_idx; Type: INDEX; Schema: public; Owner: -
 --
 

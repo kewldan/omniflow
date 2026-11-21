@@ -2162,6 +2162,7 @@ export const SearchPanelRecordsResponse = zod.object({
                   "telegramId",
                   "email",
                   "remnawaveUsername",
+                  "telegramHandle",
                   "providerReference",
                   "subject",
                   "code",

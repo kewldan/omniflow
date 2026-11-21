@@ -2061,6 +2061,10 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	PanelSearchCustomersByIDRange(ctx context.Context, arg PanelSearchCustomersByIDRangeParams) ([]PanelSearchCustomersByIDRangeRow, error)
 	PanelSearchCustomersByRemnawaveUsername(ctx context.Context, arg PanelSearchCustomersByRemnawaveUsernameParams) ([]PanelSearchCustomersByRemnawaveUsernameRow, error)
+	// A Telegram @username, matched exactly and case-insensitively against the
+	// profile the bot records on the customer's Telegram identity. A customer who
+	// has not used the bot since it began recording has no handle on file.
+	PanelSearchCustomersByTelegramHandle(ctx context.Context, arg PanelSearchCustomersByTelegramHandleParams) ([]PanelSearchCustomersByTelegramHandleRow, error)
 	// A bot customer carries the identifier on their Remnawave mapping; a web
 	// customer who signed in with the Telegram widget carries it as an identity.
 	PanelSearchCustomersByTelegramID(ctx context.Context, arg PanelSearchCustomersByTelegramIDParams) ([]PanelSearchCustomersByTelegramIDRow, error)

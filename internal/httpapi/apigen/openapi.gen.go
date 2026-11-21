@@ -3541,6 +3541,7 @@ const (
 	PanelSearchHitMatchedByProviderReference PanelSearchHitMatchedBy = "providerReference"
 	PanelSearchHitMatchedByRemnawaveUsername PanelSearchHitMatchedBy = "remnawaveUsername"
 	PanelSearchHitMatchedBySubject           PanelSearchHitMatchedBy = "subject"
+	PanelSearchHitMatchedByTelegramHandle    PanelSearchHitMatchedBy = "telegramHandle"
 	PanelSearchHitMatchedByTelegramId        PanelSearchHitMatchedBy = "telegramId"
 )
 
@@ -3558,6 +3559,8 @@ func (e PanelSearchHitMatchedBy) Valid() bool {
 	case PanelSearchHitMatchedByRemnawaveUsername:
 		return true
 	case PanelSearchHitMatchedBySubject:
+		return true
+	case PanelSearchHitMatchedByTelegramHandle:
 		return true
 	case PanelSearchHitMatchedByTelegramId:
 		return true

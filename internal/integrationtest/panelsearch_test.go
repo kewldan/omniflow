@@ -42,7 +42,8 @@ func seedSearchFixture(ctx context.Context, t *testing.T, harness *harness) sear
 
 	exec(`INSERT INTO remnawave_users (user_id, remnawave_id, telegram_id) VALUES ($1, 501, 777000111)`, fixture.customer)
 	// A web customer known only by a Telegram sign-in identity.
-	exec(`INSERT INTO identities (user_id, provider, provider_subject) VALUES ($1, 'telegram', '888000222')`, fixture.other)
+	exec(`INSERT INTO identities (user_id, provider, provider_subject, metadata)
+		VALUES ($1, 'telegram', '888000222', '{"username": "Petrov_Other"}')`, fixture.other)
 
 	mac := hmac.New(sha256.New, adminTestKey)
 	_, _ = mac.Write([]byte("ivan@example.com"))
@@ -172,7 +173,16 @@ func TestPanelSearchFindsRecordsByEveryIdentifier(t *testing.T) {
 
 	results = runSearch(t, ctx, service, "@ivan_petrov", rbac.RoleOwner)
 	if !results.HandleNotStored || len(results.Customers) != 0 {
-		t.Fatalf("a handle search = %+v", results)
+		t.Fatalf("a handle nobody has on file = %+v", results)
+	}
+	// A handle the bot recorded is found exactly, whatever its case.
+	results = runSearch(t, ctx, service, "@petrov_other", rbac.RoleOwner)
+	if results.HandleNotStored || len(results.Customers) != 1 || results.Customers[0].ID != fixture.other ||
+		results.Customers[0].MatchedBy != "telegramHandle" {
+		t.Fatalf("a recorded handle = %+v", results)
+	}
+	if results = runSearch(t, ctx, service, "@petrov", rbac.RoleOwner); len(results.Customers) != 0 {
+		t.Fatalf("a handle is matched whole, not by prefix: %+v", results.Customers)
 	}
 }
 
@@ -268,5 +278,34 @@ func TestPanelSearchLookupsAreIndexed(t *testing.T) {
 		if !strings.Contains(plan.String(), index) {
 			t.Fatalf("%s is not served by %s:\n%s", statement, index, plan.String())
 		}
+	}
+
+	// On a handful of rows the planner reaches the handle through the
+	// one-identity-per-provider index and filters; with that index out of the
+	// way, inside a transaction that is rolled back, the handle has its own.
+	tx, err := connection.Begin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err = tx.Exec(ctx, `DROP INDEX identities_one_active_provider_per_user_idx`); err != nil {
+		t.Fatal(err)
+	}
+	var plan strings.Builder
+	rows, err := tx.Query(ctx, `EXPLAIN SELECT user_id FROM identities WHERE provider = 'telegram' AND status = 'active'
+		AND metadata ? 'username' AND lower(metadata->>'username') = 'x'`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rows.Next() {
+		var line string
+		if err := rows.Scan(&line); err != nil {
+			t.Fatal(err)
+		}
+		plan.WriteString(line + "\n")
+	}
+	rows.Close()
+	if !strings.Contains(plan.String(), "identities_telegram_handle_idx") {
+		t.Fatalf("a handle lookup is not served by identities_telegram_handle_idx:\n%s", plan.String())
 	}
 }

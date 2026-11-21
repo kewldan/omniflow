@@ -1167,6 +1167,7 @@ export const PanelSearchHitMatchedBy = {
   telegramId: "telegramId",
   email: "email",
   remnawaveUsername: "remnawaveUsername",
+  telegramHandle: "telegramHandle",
   providerReference: "providerReference",
   subject: "subject",
   code: "code",

@@ -182,7 +182,7 @@
         "searching": "正在搜索…",
         "failed": "无法搜索记录。页面和操作仍可使用。",
         "rateLimited": "一分钟内搜索次数过多，请稍候。",
-        "handleNotStored": "系统不存储 Telegram @用户名，因此无法搜索。请使用 Telegram 数字 ID、邮箱或用户 ID。",
+        "handleNotStored": "只有最近使用过机器人的客户才能按 Telegram @用户名找到。其他客户请使用数字 Telegram ID、邮箱或客户 ID。",
         "groups": {
           "customers": "用户",
           "orders": "订单",
@@ -197,7 +197,8 @@
           "remnawaveUsername": "按 Remnawave 用户名",
           "providerReference": "按支付单号",
           "subject": "按主题",
-          "code": "按代码"
+          "code": "按代码",
+          "telegramHandle": "按 @用户名"
         },
         "customer": "用户 {id}",
         "order": "订单 {id} · {amount}",
@@ -1222,7 +1223,7 @@
       "description": "将此账户并入另一个账户。所有可转移的内容都会迁移，此记录将被关闭并指向保留的账户，之后无法撤销。",
       "into": "保留的账户",
       "intoPlaceholder": "用户标识",
-      "intoHint": "粘贴此账户要并入的账户标识。您当前查看的账户是被合并的一方。",
+      "intoHint": "查找要将此账户合并进去的账户：按 ID、Telegram ID、@用户名或邮箱。您正在查看的账户是被合并的一方。",
       "reason": "原因——将记录在审计日志和双方的历史中",
       "absorbed": "被合并",
       "survives": "保留",
@@ -2828,7 +2829,7 @@
       "mergeInto": "合并到工单 ID",
       "merge": "合并",
       "mergeTitle": "合并到另一个工单",
-      "mergeNoSiblings": "该客户没有其他工单。请在下方粘贴工单 ID。",
+      "mergeNoSiblings": "该客户没有其他工单。",
       "mergeLoading": "正在查找该客户的其他工单…",
       "insertCanned": "插入预设回复…",
       "cannedHint": "仅列出您的角色可发送的回复。",
@@ -2949,7 +2950,10 @@
       "closeAllCancel": "取消",
       "closeAllPrompt": "输入 CLOSE 以确认",
       "closeAllDescription": "所有待处理和等待中的工单都将被关闭。用户可通过回复重新打开自己的工单。",
-      "closeAllDone": "所有待处理工单已关闭"
+      "closeAllDone": "所有待处理工单已关闭",
+      "mergeSearch": "主题或工单 ID",
+      "mergeNoMatch": "该客户没有匹配的工单。",
+      "mergeById": "合并到 {id}…"
     },
     "aiSettings": {
       "title": "AI 与 MCP",
@@ -4906,6 +4910,16 @@
         "write": "商店: 修改",
         "manage": "商店: 审批订单"
       }
+    },
+    "customerPicker": {
+      "placeholder": "选择客户",
+      "search": "ID、Telegram ID、@用户名或邮箱",
+      "hint": "输入客户 ID（至少 6 个字符）、Telegram ID、完整的 @用户名或邮箱，或 Remnawave 用户名。最近打开的客户会显示在这里。",
+      "searching": "正在搜索…",
+      "nothing": "未找到客户。搜索为精确匹配：完整的 @用户名、邮箱或 ID。",
+      "handleNotFound": "没有客户登记此 @用户名。只有最近使用过机器人的客户才有记录；请尝试 Telegram ID。",
+      "found": "搜索结果",
+      "recent": "最近打开"
     }
   },
   "account": {

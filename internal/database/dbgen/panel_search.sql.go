@@ -209,6 +209,57 @@ func (q *Queries) PanelSearchCustomersByRemnawaveUsername(ctx context.Context, a
 	return items, nil
 }
 
+const panelSearchCustomersByTelegramHandle = `-- name: PanelSearchCustomersByTelegramHandle :many
+SELECT u.id, u.status, u.created_at, r.telegram_id
+FROM identities i
+JOIN users u ON u.id = i.user_id
+LEFT JOIN remnawave_users r ON r.user_id = u.id
+WHERE i.provider = 'telegram' AND i.status = 'active' AND i.metadata ? 'username'
+  AND lower(i.metadata->>'username') = lower($1::text)
+ORDER BY u.created_at DESC
+LIMIT $2
+`
+
+type PanelSearchCustomersByTelegramHandleParams struct {
+	Handle  string `json:"handle"`
+	MaxRows int32  `json:"max_rows"`
+}
+
+type PanelSearchCustomersByTelegramHandleRow struct {
+	ID         pgtype.UUID        `json:"id"`
+	Status     string             `json:"status"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	TelegramID pgtype.Int8        `json:"telegram_id"`
+}
+
+// A Telegram @username, matched exactly and case-insensitively against the
+// profile the bot records on the customer's Telegram identity. A customer who
+// has not used the bot since it began recording has no handle on file.
+func (q *Queries) PanelSearchCustomersByTelegramHandle(ctx context.Context, arg PanelSearchCustomersByTelegramHandleParams) ([]PanelSearchCustomersByTelegramHandleRow, error) {
+	rows, err := q.db.Query(ctx, panelSearchCustomersByTelegramHandle, arg.Handle, arg.MaxRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []PanelSearchCustomersByTelegramHandleRow{}
+	for rows.Next() {
+		var i PanelSearchCustomersByTelegramHandleRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Status,
+			&i.CreatedAt,
+			&i.TelegramID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const panelSearchCustomersByTelegramID = `-- name: PanelSearchCustomersByTelegramID :many
 SELECT u.id, u.status, u.created_at, r.telegram_id
 FROM users u

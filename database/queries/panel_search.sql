@@ -100,3 +100,16 @@ FROM access_codes c
 JOIN code_batches b ON b.id = c.batch_id
 WHERE c.code_hash = sqlc.arg(code_hash)
 LIMIT 1;
+
+-- name: PanelSearchCustomersByTelegramHandle :many
+-- A Telegram @username, matched exactly and case-insensitively against the
+-- profile the bot records on the customer's Telegram identity. A customer who
+-- has not used the bot since it began recording has no handle on file.
+SELECT u.id, u.status, u.created_at, r.telegram_id
+FROM identities i
+JOIN users u ON u.id = i.user_id
+LEFT JOIN remnawave_users r ON r.user_id = u.id
+WHERE i.provider = 'telegram' AND i.status = 'active' AND i.metadata ? 'username'
+  AND lower(i.metadata->>'username') = lower(sqlc.arg(handle)::text)
+ORDER BY u.created_at DESC
+LIMIT sqlc.arg(max_rows);

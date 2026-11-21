@@ -101,9 +101,9 @@ type Results struct {
 	Tickets     []Ticket
 	Gifts       []Gift
 	AccessCodes []AccessCode
-	// HandleNotStored is set when the input was a Telegram @handle, which
-	// Omniflow does not record, so the palette can say why nothing matched
-	// instead of implying there is no such customer.
+	// HandleNotStored is set when the input was a Telegram @handle that no
+	// customer has on file: handles are recorded from the bot, so a customer
+	// who has not used it since has none.
 	HandleNotStored bool
 }
 
@@ -113,13 +113,18 @@ func (service *Service) Search(
 ) (Results, error) {
 	queries := dbgen.New(service.pool)
 	limit := int32(panelsearch.GroupLimit)
-	results := Results{HandleNotStored: query.Handle != ""}
+	results := Results{}
 	var err error
 
 	if slices.Contains(allowed, panelsearch.GroupCustomers) {
 		if results.Customers, err = service.customers(ctx, queries, query, limit); err != nil {
 			return Results{}, err
 		}
+		// A handle is on file only for a customer who used the bot since it
+		// began recording profiles, so a miss says so rather than "no such
+		// customer".
+		results.HandleNotStored = query.Handle != "" && !slices.ContainsFunc(results.Customers,
+			func(hit Customer) bool { return hit.MatchedBy == "telegramHandle" })
 	}
 	if slices.Contains(allowed, panelsearch.GroupOrders) {
 		if results.Orders, err = orders(ctx, queries, query, limit); err != nil {
@@ -243,6 +248,17 @@ func (service *Service) customers(
 		add(convert(rows, func(row dbgen.PanelSearchCustomersByRemnawaveUsernameRow) customerRow {
 			return customerRow(row)
 		}), "remnawaveUsername")
+	}
+	if query.Handle != "" {
+		rows, err := queries.PanelSearchCustomersByTelegramHandle(ctx, dbgen.PanelSearchCustomersByTelegramHandleParams{
+			Handle: query.Handle, MaxRows: limit,
+		})
+		if err != nil {
+			return nil, err
+		}
+		add(convert(rows, func(row dbgen.PanelSearchCustomersByTelegramHandleRow) customerRow {
+			return customerRow(row)
+		}), "telegramHandle")
 	}
 	return found, nil
 }

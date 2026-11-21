@@ -100,8 +100,8 @@ type Query struct {
 	// only ever matched exactly, through the keyed fingerprint stored beside
 	// the encrypted value, so contact values cannot be trawled by prefix.
 	Email string
-	// Handle is a Telegram @username without the @. Omniflow does not store
-	// handles, so the adapter matches nothing for it and the response says so.
+	// Handle is a Telegram @username without the @, matched exactly against
+	// the profile the bot records on a customer's Telegram identity.
 	Handle string
 	// Username is a candidate Remnawave username, matched exactly.
 	Username string

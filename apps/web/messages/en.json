@@ -182,7 +182,7 @@
         "searching": "Searching…",
         "failed": "Records could not be searched. Pages and actions still work.",
         "rateLimited": "Too many searches in a minute. Wait a moment.",
-        "handleNotStored": "Telegram @usernames are not stored, so they cannot be searched. Use the numeric Telegram ID, the email, or the customer ID.",
+        "handleNotStored": "A Telegram @username is found only for customers who used the bot recently. For anyone else, use the numeric Telegram ID, the e-mail, or the customer ID.",
         "groups": {
           "customers": "Customers",
           "orders": "Orders",
@@ -197,7 +197,8 @@
           "remnawaveUsername": "by Remnawave username",
           "providerReference": "by payment reference",
           "subject": "by subject",
-          "code": "by code"
+          "code": "by code",
+          "telegramHandle": "by @username"
         },
         "customer": "Customer {id}",
         "order": "Order {id} · {amount}",
@@ -1227,7 +1228,7 @@
       "description": "Joins this account into another one. Everything transferable moves, this record is closed and points at the survivor, and nothing can be undone afterwards.",
       "into": "Account that survives",
       "intoPlaceholder": "Customer identifier",
-      "intoHint": "Paste the identifier of the account this one should be folded into. The account you are looking at is the one being absorbed.",
+      "intoHint": "Find the account this one should be merged into: by ID, Telegram ID, @username, or e-mail. The account you are looking at is the one absorbed.",
       "reason": "Why — recorded in the audit trail and both histories",
       "absorbed": "Absorbed",
       "survives": "Survives",
@@ -2920,7 +2921,7 @@
       "mergeInto": "Merge into ticket ID",
       "merge": "Merge",
       "mergeTitle": "Merge into another ticket",
-      "mergeNoSiblings": "This customer has no other tickets. Paste a ticket ID below.",
+      "mergeNoSiblings": "This customer has no other tickets.",
       "mergeLoading": "Looking for this customer's other tickets…",
       "insertCanned": "Insert a canned reply…",
       "cannedHint": "Only replies your role may send are listed.",
@@ -3041,7 +3042,10 @@
       "closeAllCancel": "Cancel",
       "closeAllPrompt": "Type CLOSE to confirm",
       "closeAllDescription": "Every open and pending ticket is closed. Customers can reopen theirs by replying.",
-      "closeAllDone": "All open tickets were closed"
+      "closeAllDone": "All open tickets were closed",
+      "mergeSearch": "Subject or ticket ID",
+      "mergeNoMatch": "No ticket of this customer matches.",
+      "mergeById": "Merge into {id}…"
     },
     "aiSettings": {
       "title": "AI and MCP",
@@ -4998,6 +5002,16 @@
         "write": "Shop: change",
         "manage": "Shop: decide orders"
       }
+    },
+    "customerPicker": {
+      "placeholder": "Choose a customer",
+      "search": "ID, Telegram ID, @username, or e-mail",
+      "hint": "Type a customer ID (6+ characters), a Telegram ID, an exact @username or e-mail, or a Remnawave username. Customers you opened recently appear here.",
+      "searching": "Searching…",
+      "nothing": "No customer matches. Search is exact: a whole @username or e-mail, or an ID.",
+      "handleNotFound": "No customer has this @username on file. It is known only for customers who used the bot recently; try the Telegram ID.",
+      "found": "Found",
+      "recent": "Opened recently"
     }
   },
   "account": {

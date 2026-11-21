@@ -11,7 +11,7 @@ import { ArrowRight } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
-
+import { CustomerPicker } from "@/components/admin/customer-picker";
 import { type ApiError, fetcher } from "@/lib/api";
 import type { MergePreview, MergeSide } from "@/lib/operations";
 import { formatMoney, useOperatorAction } from "@/lib/operations";
@@ -83,13 +83,7 @@ export function MergePanel({ customerId }: { customerId: string }) {
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-2">
             <Label htmlFor={intoId}>{translate("into")}</Label>
-            <Input
-              className="font-mono text-xs"
-              id={intoId}
-              onChange={(event) => setInto(event.target.value)}
-              placeholder={translate("intoPlaceholder")}
-              value={into}
-            />
+            <CustomerPicker exclude={customerId} id={intoId} onChange={setInto} value={into} />
             <p className="text-subtle-foreground text-xs">{translate("intoHint")}</p>
           </div>
           <div className="flex flex-col gap-2">
