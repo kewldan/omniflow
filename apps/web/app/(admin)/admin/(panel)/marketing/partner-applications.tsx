@@ -8,11 +8,11 @@ import { Label } from "@omniflow/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
 
+import { CustomerChip } from "@/components/admin/customer-chip";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import { useOperatorAction } from "@/lib/operations";
@@ -99,12 +99,7 @@ export function PartnerApplicationsCard({ editable }: { editable: boolean }) {
                 {items.map((application) => (
                   <TableRow key={application.id}>
                     <TableCell>
-                      <Link
-                        className="font-mono text-xs underline-offset-2 hover:underline"
-                        href={`/admin/customers/${application.customerId}`}
-                      >
-                        {application.customerId.slice(0, 8)}
-                      </Link>
+                      <CustomerChip id={application.customerId} />
                       <div className="text-muted-foreground text-xs">
                         <Timestamp value={application.createdAt} /> ·{" "}
                         {translate(`sources.${application.source}`)}

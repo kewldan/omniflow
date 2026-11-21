@@ -10,6 +10,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useId, useState } from "react";
 import useSWR from "swr";
 
+import { CustomerChip } from "@/components/admin/customer-chip";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import { formatMoney, useOperatorAction } from "@/lib/operations";
@@ -191,7 +192,7 @@ export function ReferralLevelsCard({ editable, canPay }: { editable: boolean; ca
                 {board.items.map((standing) => (
                   <li key={standing.customerId}>
                     {standing.place}.{" "}
-                    <span className="font-mono">{standing.customerId.slice(0, 8)}</span> —{" "}
+                    <CustomerChip className="align-middle" id={standing.customerId} /> —{" "}
                     {standing.referrals}
                   </li>
                 ))}

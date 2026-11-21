@@ -7,11 +7,11 @@ import { Label } from "@omniflow/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
 import { Switch } from "@omniflow/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
 
+import { CustomerChip } from "@/components/admin/customer-chip";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 
@@ -144,12 +144,7 @@ export function AdvancedCustomerList() {
                 {data.items.map((row) => (
                   <TableRow key={row.id}>
                     <TableCell>
-                      <Link
-                        className="font-mono text-xs underline"
-                        href={`/admin/customers/${row.id}`}
-                      >
-                        {row.telegramId ?? row.id.slice(0, 8)}
-                      </Link>
+                      <CustomerChip id={row.id} />
                     </TableCell>
                     <TableCell className="tabular-nums">
                       {(row.balanceMinor / 100).toFixed(2)}

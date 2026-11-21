@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactElement, ReactNode } from "react";
+import { cloneElement, type ReactElement, type ReactNode } from "react";
 import { ResponsiveContainer } from "recharts";
 
 import { cn } from "./lib/utils";
@@ -87,13 +87,17 @@ export function ChartFigure({
         <p className="py-8 text-center text-muted-foreground text-sm">{empty}</p>
       ) : (
         <>
-          {/* Hidden and inert: the plot is decorative beside the table, which carries
-              the same numbers in a form a screen reader can read in order.
-              `inert` as well, because Recharts makes its surface focusable, and a
-              focus stop inside an aria-hidden region is announced as nothing. */}
-          <div aria-hidden className="w-full" inert style={{ height }}>
+          {/* Hidden from assistive technology: the plot is a picture beside the
+              table, which carries the same numbers in a form a screen reader can
+              read in order. It stays live for the pointer, so hovering shows a
+              point's figures. Recharts' keyboard layer is turned off because it
+              makes the surface focusable, and a focus stop inside an aria-hidden
+              region is announced as nothing. */}
+          <div aria-hidden className="w-full" style={{ height }}>
             <ResponsiveContainer height="100%" width="100%">
-              {children}
+              {cloneElement(children as ReactElement<{ accessibilityLayer?: boolean }>, {
+                accessibilityLayer: false,
+              })}
             </ResponsiveContainer>
           </div>
           {table}
@@ -114,4 +118,29 @@ export const chartGrid = {
   stroke: "var(--border)",
   strokeDasharray: "3 3",
   vertical: false,
+} as const;
+
+/**
+ * The hover card every chart shows: the theme's popover surface, the label
+ * muted, the values in the foreground. A line or area chart marks the hovered
+ * position with a hairline; a bar chart shades the hovered band.
+ */
+export const chartTooltip = {
+  contentStyle: {
+    background: "var(--popover)",
+    border: "1px solid var(--border)",
+    borderRadius: 8,
+    boxShadow: "0 4px 16px rgb(0 0 0 / 0.25)",
+    color: "var(--popover-foreground)",
+    fontSize: 12,
+    padding: "6px 10px",
+  },
+  cursor: { stroke: "var(--muted-foreground)", strokeDasharray: "3 3", strokeWidth: 1 },
+  itemStyle: { color: "var(--popover-foreground)", padding: 0 },
+  labelStyle: { color: "var(--muted-foreground)", marginBottom: 2 },
+} as const;
+
+export const chartBarTooltip = {
+  ...chartTooltip,
+  cursor: { fill: "var(--muted)", opacity: 0.4 },
 } as const;

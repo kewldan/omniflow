@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR from "swr";
 
+import { CustomerChip } from "@/components/admin/customer-chip";
 import { PageHeader, ResourceTable } from "@/components/admin/resource-table";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher, toQuery } from "@/lib/api";
@@ -108,13 +109,8 @@ export function OfferRegister() {
               <span className="font-medium">{offer.titleEn}</span>
               <span className="block text-muted-foreground text-xs">{offer.titleRu}</span>
             </TableCell>
-            <TableCell className="font-mono text-[11px]">
-              <Link
-                className="underline-offset-2 hover:underline"
-                href={`/admin/customers/${offer.customerId}`}
-              >
-                {offer.customerId.slice(0, 8)}
-              </Link>
+            <TableCell>
+              <CustomerChip id={offer.customerId} />
             </TableCell>
             <TableCell className="whitespace-nowrap font-mono text-[11px]" data-numeric>
               <Timestamp mode="date" value={offer.startsAt} />

@@ -3,6 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@omniflow/ui/button";
 import { cn } from "@omniflow/ui/lib/utils";
+import { Radio } from "@omniflow/ui/radio";
 import { toast } from "@omniflow/ui/toast";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -462,12 +463,7 @@ function TopUpForm({
                   )}
                   key={choiceKey(choice)}
                 >
-                  <input
-                    className="size-4 accent-[color:var(--primary)]"
-                    type="radio"
-                    value={choiceKey(choice)}
-                    {...register("provider")}
-                  />
+                  <Radio value={choiceKey(choice)} {...register("provider")} />
                   <span className="min-w-0 flex-1">
                     <span className="block font-medium text-[13.5px]">{copy(choice).label}</span>
                     {copy(choice).description && (

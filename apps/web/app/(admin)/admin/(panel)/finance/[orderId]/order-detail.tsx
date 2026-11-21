@@ -6,11 +6,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omni
 import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { Skeleton } from "@omniflow/ui/skeleton";
-import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
 
+import { CustomerChip } from "@/components/admin/customer-chip";
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
 import { CopyButton } from "@/components/copy-button";
@@ -124,13 +124,7 @@ export function OrderDetailView({ orderId }: { orderId: string }) {
             <Badge variant="neutral">{order.state}</Badge>
           </CardTitle>
           <CardDescription>
-            <Timestamp value={order.createdAt} /> ·{" "}
-            <Link
-              className="underline-offset-2 hover:underline"
-              href={`/admin/customers/${order.customerId}`}
-            >
-              {order.customerId.slice(0, 8)}
-            </Link>
+            <Timestamp value={order.createdAt} /> · <CustomerChip id={order.customerId} />
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-x-8 gap-y-3">

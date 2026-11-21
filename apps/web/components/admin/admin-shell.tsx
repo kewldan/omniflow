@@ -17,7 +17,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Fragment, type ReactNode, useEffect, useState } from "react";
 import { LocaleSync } from "@/components/intl/locale-switch";
-import { TimeZoneLabel } from "@/components/intl/panel-time-zones";
 import { breadcrumbTrail } from "@/lib/navigation";
 import { useSession } from "@/lib/session";
 
@@ -137,9 +136,6 @@ export function AdminShell({ children }: { children: ReactNode }) {
             </BreadcrumbList>
           </Breadcrumb>
 
-          {/* Every time in the panel is in this zone; it is named once here
-              rather than guessed at on each page. */}
-          <TimeZoneLabel className="hidden font-mono text-[11px] text-subtle-foreground xl:inline" />
           {/* The menu renders its own trigger for each width: a field on a
               wide screen, an icon on a phone, where it used to disappear. */}
           <CommandMenu />

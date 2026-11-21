@@ -2,6 +2,8 @@ package botapp
 
 import (
 	"context"
+	"strings"
+	"sync"
 
 	telegram "github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -49,6 +51,38 @@ func (app *App) noteInbound(ctx context.Context, update *models.Update) {
 	if err := recorder.RecordReachable(ctx, telegramID); err != nil {
 		app.logger.Warn("delivery state could not be cleared", "error", err)
 	}
+	if user := senderOf(update); user != nil && user.ID == telegramID {
+		app.noteProfile(ctx, user)
+	}
+}
+
+// profileRecorder keeps the name and @username a customer shows in Telegram
+// on their Telegram identity, which is how the panel names them instead of
+// by an identifier.
+type profileRecorder interface {
+	RecordTelegramProfile(ctx context.Context, telegramID int64, username, firstName, lastName string) error
+}
+
+// seenProfiles remembers, per Telegram account, the profile last written, so
+// an unchanged name costs no database round trip on every tap.
+var seenProfiles sync.Map
+
+// noteProfile writes the sender's Telegram name and @username when they
+// differ from what this process last wrote for them.
+func (app *App) noteProfile(ctx context.Context, user *models.User) {
+	recorder, ok := app.store.(profileRecorder)
+	if !ok {
+		return
+	}
+	key := strings.Join([]string{user.Username, user.FirstName, user.LastName}, "\x00")
+	if previous, seen := seenProfiles.Load(user.ID); seen && previous == key {
+		return
+	}
+	if err := recorder.RecordTelegramProfile(ctx, user.ID, user.Username, user.FirstName, user.LastName); err != nil {
+		app.logger.Warn("telegram profile could not be recorded", "error", err)
+		return
+	}
+	seenProfiles.Store(user.ID, key)
 }
 
 // noteChatMembership follows the bot's own membership in a customer's private

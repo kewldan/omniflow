@@ -10,6 +10,7 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR from "swr";
 
+import { CustomerChip } from "@/components/admin/customer-chip";
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
 import { Timestamp } from "@/components/intl/timestamp";
@@ -300,8 +301,8 @@ function Drifts({ active }: { active: boolean }) {
                 <Timestamp value={drift.detectedAt} />
               </TableCell>
               <TableCell>{translate(`driftKind.${drift.kind}`)}</TableCell>
-              <TableCell className="font-mono text-[11px] text-muted-foreground">
-                {drift.customerId.slice(0, 8)}
+              <TableCell>
+                <CustomerChip id={drift.customerId} />
               </TableCell>
             </TableRow>
           ))}

@@ -6,11 +6,11 @@ import { Card } from "@omniflow/ui/card";
 import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { TableCell, TableRow } from "@omniflow/ui/table";
-import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
 
+import { CustomerChip } from "@/components/admin/customer-chip";
 import { PageHeader, ResourceTable } from "@/components/admin/resource-table";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher, toQuery } from "@/lib/api";
@@ -129,13 +129,8 @@ export function GiftRegister() {
               {gift.creditMinor ? ` · ${formatMoney(gift.creditMinor, gift.currency, locale)}` : ""}
             </TableCell>
             <TableCell className="font-mono text-[12px]">…{gift.codeHint}</TableCell>
-            <TableCell className="font-mono text-[11px]">
-              <Link
-                className="underline-offset-2 hover:underline"
-                href={`/admin/customers/${gift.senderId}`}
-              >
-                {gift.senderId.slice(0, 8)}
-              </Link>
+            <TableCell>
+              <CustomerChip id={gift.senderId} />
             </TableCell>
             <TableCell>
               <Badge variant={STATUS_VARIANT[gift.status] ?? "neutral"}>

@@ -2,11 +2,11 @@
 
 import { Badge } from "@omniflow/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
-import { ChartFigure, chartAxis, chartColor, chartGrid } from "@omniflow/ui/chart";
+import { ChartFigure, chartAxis, chartBarTooltip, chartColor, chartGrid } from "@omniflow/ui/chart";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
 import { useLocale, useTranslations } from "next-intl";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import useSWR from "swr";
 
 import { StateNotice } from "@/components/admin/state-notice";
@@ -247,9 +247,11 @@ function OutcomeChart({ providers }: { providers: ProviderHealthLine[] }) {
         <CartesianGrid {...chartGrid} horizontal={false} vertical />
         <XAxis {...chartAxis} allowDecimals={false} type="number" />
         <YAxis {...chartAxis} dataKey="label" type="category" width={140} />
+        <Tooltip {...chartBarTooltip} />
         {series.map((entry, index) => (
           <Bar
             dataKey={entry.key}
+            name={translate(entry.key)}
             fill={entry.fill}
             key={entry.key}
             maxBarSize={24}

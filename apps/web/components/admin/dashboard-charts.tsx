@@ -1,9 +1,16 @@
 "use client";
 
-import { ChartFigure, chartAxis, chartColor, chartGrid } from "@omniflow/ui/chart";
+import {
+  ChartFigure,
+  chartAxis,
+  chartBarTooltip,
+  chartColor,
+  chartGrid,
+  chartTooltip,
+} from "@omniflow/ui/chart";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
 import { useFormatter, useTranslations } from "next-intl";
-import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, Tooltip, XAxis, YAxis } from "recharts";
 
 import type { Metric } from "@/lib/operations";
 
@@ -119,6 +126,10 @@ function Composition({
       title={title}
     >
       <PieChart>
+        <Tooltip
+          {...chartTooltip}
+          formatter={(value, name) => [format.number(Number(value)), name]}
+        />
         <Pie
           data={slices}
           dataKey="value"
@@ -241,6 +252,10 @@ export function OperationsBacklog({ metrics }: { metrics: Metric[] }) {
         <CartesianGrid {...chartGrid} horizontal={false} vertical />
         <XAxis {...chartAxis} allowDecimals={false} type="number" />
         <YAxis {...chartAxis} dataKey="label" type="category" width={148} />
+        <Tooltip
+          {...chartBarTooltip}
+          formatter={(value) => [format.number(Number(value)), translate("charts.count")]}
+        />
         <Bar dataKey="value" fill={chartColor("chart-1")} maxBarSize={18} radius={[0, 4, 4, 0]} />
       </BarChart>
     </ChartFigure>

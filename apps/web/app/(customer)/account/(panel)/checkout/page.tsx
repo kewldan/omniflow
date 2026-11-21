@@ -3,9 +3,11 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
+import { Checkbox } from "@omniflow/ui/checkbox";
 import { ConfirmDialog } from "@omniflow/ui/confirm-dialog";
 import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
+import { Radio } from "@omniflow/ui/radio";
 import { Switch } from "@omniflow/ui/switch";
 import { toast } from "@omniflow/ui/toast";
 import Link from "next/link";
@@ -500,13 +502,11 @@ function TargetPicker({
       <div className="space-y-2">
         {checkout.operation === "purchase" && (
           <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 has-[:checked]:border-primary">
-            <input
+            <Radio
               checked={checkout.newSubscription}
-              className="size-4 accent-[color:var(--primary)]"
               disabled={disabled}
               name="checkout-target"
               onChange={() => onChange({ newSubscription: true })}
-              type="radio"
             />
             <span className="font-medium text-[13.5px]">{translate("checkout.target.new")}</span>
           </label>
@@ -516,13 +516,11 @@ function TargetPicker({
             className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 has-[:checked]:border-primary"
             key={subscription.id}
           >
-            <input
+            <Radio
               checked={checkout.subscriptionId === subscription.id}
-              className="size-4 accent-[color:var(--primary)]"
               disabled={disabled}
               name="checkout-target"
               onChange={() => onChange({ newSubscription: false, subscriptionId: subscription.id })}
-              type="radio"
             />
             <span className="min-w-0">
               <span className="block font-medium text-[13.5px]">{subscription.label}</span>
@@ -573,21 +571,19 @@ function SquadPicker({
       <div className="space-y-2">
         {checkout.squads.offered.map((squad) => (
           <label
-            className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 has-[:checked]:border-primary"
+            className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 has-[[data-state=checked]]:border-primary"
             key={squad.squadId}
           >
-            <input
+            <Checkbox
               checked={selected.has(squad.squadId)}
-              className="size-4 accent-[color:var(--primary)]"
               disabled={disabled}
-              onChange={() => {
+              onCheckedChange={() => {
                 const next = new Set(selected);
                 if (!next.delete(squad.squadId)) {
                   next.add(squad.squadId);
                 }
                 return onChange({ squadIds: [...next] });
               }}
-              type="checkbox"
             />
             <span className="font-medium text-[13.5px]">{squad.label}</span>
           </label>
@@ -805,13 +801,11 @@ function ProviderPicker({
               className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 has-[:checked]:border-primary"
               key={choiceKey(choice)}
             >
-              <input
+              <Radio
                 checked={checkout.provider === choiceKey(choice)}
-                className="size-4 accent-[color:var(--primary)]"
                 disabled={disabled}
                 name="checkout-provider"
                 onChange={() => onChange({ provider: choiceKey(choice) })}
-                type="radio"
               />
               <span className="min-w-0 flex-1">
                 <span className="block font-medium text-[13.5px]">{copy(choice).label}</span>

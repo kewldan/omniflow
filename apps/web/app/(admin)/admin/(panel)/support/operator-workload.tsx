@@ -1,9 +1,9 @@
 "use client";
 
-import { ChartFigure, chartAxis, chartColor, chartGrid } from "@omniflow/ui/chart";
+import { ChartFigure, chartAxis, chartBarTooltip, chartColor, chartGrid } from "@omniflow/ui/chart";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
 import { useTranslations } from "next-intl";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 
 import { formatDuration } from "@/lib/operations";
 
@@ -62,6 +62,7 @@ export function OperatorWorkload({ operators }: { operators: OperatorLoad[] }) {
         <CartesianGrid {...chartGrid} horizontal={false} vertical />
         <XAxis {...chartAxis} allowDecimals={false} type="number" />
         <YAxis {...chartAxis} dataKey="displayName" type="category" width={140} />
+        <Tooltip {...chartBarTooltip} formatter={(value) => [value, translate("replies")]} />
         <Bar dataKey="replies" fill={chartColor("chart-1")} maxBarSize={24} radius={[0, 4, 4, 0]} />
       </BarChart>
     </ChartFigure>

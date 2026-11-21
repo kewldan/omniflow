@@ -49,6 +49,7 @@ func (handlers *AdminHandlers) mountOperations(secure chi.Router) {
 	// -- Customers -----------------------------------------------------------
 	secure.With(handlers.requirePermission(rbac.PermissionCustomersRead)).Group(func(read chi.Router) {
 		read.Get("/customers", handlers.searchCustomers)
+		read.Get("/customers/labels", handlers.customerLabels)
 		read.Get("/customers/{customerID}", handlers.customerProfile)
 		read.Get("/customers/{customerID}/subscriptions", handlers.customerSubscriptions)
 		read.Get("/customers/{customerID}/orders", handlers.customerOrders)

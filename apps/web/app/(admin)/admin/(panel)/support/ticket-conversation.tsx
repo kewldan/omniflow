@@ -7,11 +7,22 @@ import { Input, Textarea } from "@omniflow/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { toast } from "@omniflow/ui/toast";
-import Link from "next/link";
+import {
+  CircleDot,
+  Flag,
+  GitMerge,
+  Inbox,
+  RotateCcw,
+  Tag,
+  UserCheck,
+  UserMinus,
+  UserRound,
+} from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 
+import { CustomerChip } from "@/components/admin/customer-chip";
 import { StateNotice } from "@/components/admin/state-notice";
 import { Timestamp } from "@/components/intl/timestamp";
 import { ApiError, apiFetch, fetcher } from "@/lib/api";
@@ -93,25 +104,31 @@ export function TicketConversation({
       <header className="flex flex-col gap-2 border-border border-b pb-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="font-semibold">{ticket.subject || translate("noSubject")}</h2>
-          <Link
-            className="font-mono text-[11px] underline-offset-2 hover:underline"
-            href={`/admin/customers/${ticket.customerId}`}
-          >
-            {ticket.customerId.slice(0, 8)}
-          </Link>
+          <CustomerChip id={ticket.customerId} />
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <Badge variant="neutral">{translate(`status.${ticket.status}`)}</Badge>
-          <Badge variant="neutral">{translate(`priority.${ticket.priority}`)}</Badge>
-          <span className="text-muted-foreground">{ticket.queueCode}</span>
-          <span className="text-muted-foreground">
+          <Badge className="gap-1" variant="neutral">
+            <CircleDot aria-hidden className="size-3" />
+            {translate(`status.${ticket.status}`)}
+          </Badge>
+          <Badge className="gap-1" variant={ticket.priority === "urgent" ? "warning" : "neutral"}>
+            <Flag aria-hidden className="size-3" />
+            {translate(`priority.${ticket.priority}`)}
+          </Badge>
+          <span className="inline-flex items-center gap-1 text-muted-foreground">
+            <Inbox aria-hidden className="size-3.5" />
+            {ticket.queueCode}
+          </span>
+          <span className="inline-flex items-center gap-1 text-muted-foreground">
+            <UserRound aria-hidden className="size-3.5" />
             {ticket.assigneeName || translate("nobody")}
           </span>
           {ticket.reopenedCount > 0 && (
             // Reopens are the signal that an answer did not actually answer the
             // question, which is worth showing beside the ticket rather than
             // only in a report.
-            <Badge variant="warning">
+            <Badge className="gap-1" variant="warning">
+              <RotateCcw aria-hidden className="size-3" />
               {translate("reopened", { count: ticket.reopenedCount })}
             </Badge>
           )}
@@ -378,11 +395,20 @@ function TicketControls({
         size="sm"
         variant="outline"
       >
+        {ticket.assigneeId ? (
+          <UserMinus aria-hidden className="size-4" />
+        ) : (
+          <UserCheck aria-hidden className="size-4" />
+        )}
         {translate(ticket.assigneeId ? "release" : "takeIt")}
       </Button>
 
       <Select onValueChange={(value) => post("queue", { queueId: value })} value={ticket.queueId}>
-        <SelectTrigger aria-label={translate("controls.queue")} className="h-8 w-auto text-xs">
+        <SelectTrigger
+          aria-label={translate("controls.queue")}
+          className="h-8 w-auto gap-1.5 text-xs"
+        >
+          <Inbox aria-hidden className="size-3.5 text-muted-foreground" />
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -398,7 +424,11 @@ function TicketControls({
         onValueChange={(value) => post("priority", { priority: value })}
         value={ticket.priority}
       >
-        <SelectTrigger aria-label={translate("controls.priority")} className="h-8 w-auto text-xs">
+        <SelectTrigger
+          aria-label={translate("controls.priority")}
+          className="h-8 w-auto gap-1.5 text-xs"
+        >
+          <Flag aria-hidden className="size-3.5 text-muted-foreground" />
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -411,7 +441,11 @@ function TicketControls({
       </Select>
 
       <Select onValueChange={(value) => post("status", { status: value })} value={ticket.status}>
-        <SelectTrigger aria-label={translate("controls.status")} className="h-8 w-auto text-xs">
+        <SelectTrigger
+          aria-label={translate("controls.status")}
+          className="h-8 w-auto gap-1.5 text-xs"
+        >
+          <CircleDot aria-hidden className="size-3.5 text-muted-foreground" />
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -438,7 +472,11 @@ function TicketControls({
           }}
           value=""
         >
-          <SelectTrigger aria-label={translate("controls.tags")} className="h-8 w-auto text-xs">
+          <SelectTrigger
+            aria-label={translate("controls.tags")}
+            className="h-8 w-auto gap-1.5 text-xs"
+          >
+            <Tag aria-hidden className="size-3.5 text-muted-foreground" />
             <SelectValue placeholder={translate("tagAction")} />
           </SelectTrigger>
           <SelectContent>
@@ -474,6 +512,7 @@ function TicketControls({
           size="sm"
           variant="ghost"
         >
+          <GitMerge aria-hidden className="size-4" />
           {translate("merge")}
         </Button>
       </span>

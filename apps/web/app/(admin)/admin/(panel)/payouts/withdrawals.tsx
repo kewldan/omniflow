@@ -9,11 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Switch } from "@omniflow/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
-import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useId, useState } from "react";
 import useSWR from "swr";
 
+import { CustomerChip } from "@/components/admin/customer-chip";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 import { formatMoney, useOperatorAction } from "@/lib/operations";
@@ -228,12 +228,7 @@ export function WithdrawalsCard({ editable }: { editable: boolean }) {
                 {data?.items.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell>
-                      <Link
-                        className="font-mono text-xs underline"
-                        href={`/admin/customers/${item.customerId}`}
-                      >
-                        {item.customerId.slice(0, 8)}
-                      </Link>
+                      <CustomerChip id={item.customerId} />
                       <p className="text-muted-foreground text-xs">
                         <Timestamp value={item.createdAt} /> ·{" "}
                         {translate(`statuses.${item.status}`)}

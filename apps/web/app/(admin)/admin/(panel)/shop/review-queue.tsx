@@ -5,11 +5,11 @@ import { Button } from "@omniflow/ui/button";
 import { Card } from "@omniflow/ui/card";
 import { Input } from "@omniflow/ui/input";
 import { Skeleton } from "@omniflow/ui/skeleton";
-import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR from "swr";
 
+import { CustomerChip } from "@/components/admin/customer-chip";
 import { StateNotice } from "@/components/admin/state-notice";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
@@ -129,12 +129,7 @@ export function ReviewQueue({ active }: { active: boolean }) {
               <p className="font-mono text-danger-foreground text-xs">{delivery.errorCode}</p>
             )}
 
-            <Link
-              className="font-mono text-[11px] underline-offset-2 hover:underline"
-              href={`/admin/customers/${delivery.customerId}`}
-            >
-              {delivery.customerId.slice(0, 8)}
-            </Link>
+            <CustomerChip id={delivery.customerId} />
 
             {can("goods.manage") && (
               <div className="flex gap-2">

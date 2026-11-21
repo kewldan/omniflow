@@ -1,10 +1,17 @@
 "use client";
 
 import { Badge } from "@omniflow/ui/badge";
-import { ChartFigure, chartAxis, chartColor, chartGrid } from "@omniflow/ui/chart";
+import {
+  ChartFigure,
+  chartAxis,
+  chartBarTooltip,
+  chartColor,
+  chartGrid,
+  chartTooltip,
+} from "@omniflow/ui/chart";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
 import { useTranslations } from "next-intl";
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 
 import { formatMoney, type SalesReport } from "@/lib/operations";
 
@@ -70,6 +77,13 @@ export function DailyChart({ locale, report }: { locale: string; report: SalesRe
                 }
                 width={72}
               />
+              <Tooltip
+                {...chartBarTooltip}
+                formatter={(value) => [
+                  formatMoney(Number(value), currency, locale),
+                  translate("provider"),
+                ]}
+              />
               <Bar dataKey="paidMinor" radius={4} />
             </BarChart>
           </ChartFigure>
@@ -104,6 +118,9 @@ export function OrdersChart({ report }: { report: SalesReport }) {
   if (days.length === 0) {
     return null;
   }
+  // The chart walks every day of the span, a day without orders at zero: a
+  // day missing from the axis would be drawn as whatever its neighbours were.
+  const plottedDays = everyDay(days);
 
   return (
     <ChartFigure
@@ -130,7 +147,7 @@ export function OrdersChart({ report }: { report: SalesReport }) {
       }
       title={translate("ordersDaily.title")}
     >
-      <AreaChart data={days} margin={{ left: 8, right: 8, top: 8 }}>
+      <AreaChart data={plottedDays} margin={{ left: 8, right: 8, top: 8 }}>
         <defs>
           <linearGradient id="orders-fill" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stopColor={chartColor("chart-1")} stopOpacity={0.35} />
@@ -140,7 +157,9 @@ export function OrdersChart({ report }: { report: SalesReport }) {
         <CartesianGrid {...chartGrid} />
         <XAxis {...chartAxis} dataKey="day" />
         <YAxis {...chartAxis} allowDecimals={false} width={40} />
+        <Tooltip {...chartTooltip} formatter={(value) => [value, translate("orders")]} />
         <Area
+          activeDot={{ r: 4, stroke: "var(--background)", strokeWidth: 2 }}
           dataKey="orders"
           fill="url(#orders-fill)"
           stroke={chartColor("chart-1")}
@@ -226,6 +245,13 @@ export function PlanChart({ locale, report }: { locale: string; report: SalesRep
                 type="number"
               />
               <YAxis {...chartAxis} dataKey="label" type="category" width={120} />
+              <Tooltip
+                {...chartBarTooltip}
+                formatter={(value) => [
+                  formatMoney(Number(value), currency, locale),
+                  translate("gross"),
+                ]}
+              />
               <Bar dataKey="grossMinor" maxBarSize={20} radius={[0, 4, 4, 0]} />
             </BarChart>
           </ChartFigure>
@@ -233,4 +259,24 @@ export function PlanChart({ locale, report }: { locale: string; report: SalesRep
       })}
     </div>
   );
+}
+
+/** Every calendar day from the first to the last, a missing one at zero. */
+function everyDay(days: { day: string; orders: number }[]): { day: string; orders: number }[] {
+  const byDay = new Map(days.map((day) => [day.day, day.orders]));
+  const first = new Date(`${days[0]?.day}T00:00:00Z`);
+  const last = new Date(`${days[days.length - 1]?.day}T00:00:00Z`);
+  if (Number.isNaN(first.getTime()) || Number.isNaN(last.getTime())) {
+    return days;
+  }
+  const filled: { day: string; orders: number }[] = [];
+  for (
+    let at = first;
+    at <= last && filled.length < 800;
+    at = new Date(at.getTime() + 86_400_000)
+  ) {
+    const day = at.toISOString().slice(0, 10);
+    filled.push({ day, orders: byDay.get(day) ?? 0 });
+  }
+  return filled;
 }

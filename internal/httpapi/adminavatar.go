@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -47,4 +48,18 @@ func (handlers *AdminHandlers) customerAvatar(writer http.ResponseWriter, reques
 	writer.Header().Set("Cache-Control", "private, max-age=3600")
 	writer.Header().Set("X-Content-Type-Options", "nosniff")
 	_, _ = writer.Write(data)
+}
+
+// customerLabels names a set of customers for a panel table: their Telegram
+// name and @username, and whether a picture can be fetched. `ids` is a
+// comma-separated list of at most 200.
+func (handlers *AdminHandlers) customerLabels(writer http.ResponseWriter, request *http.Request) {
+	ids := strings.Split(query(request, "ids"), ",")
+	labels, err := handlers.operations.CustomerLabels(request.Context(), ids)
+	// Without a bot there is no picture to fetch; the panel draws initials
+	// rather than asking for one that cannot come.
+	for index := range labels {
+		labels[index].Avatar = handlers.avatars != nil && labels[index].TelegramID != nil
+	}
+	handlers.respond(writer, request, map[string]any{"items": labels}, err)
 }

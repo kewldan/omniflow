@@ -15,6 +15,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
 
+import { CustomerChip } from "@/components/admin/customer-chip";
 import { PageHeader, ResourceTable } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
 import { Timestamp } from "@/components/intl/timestamp";
@@ -280,13 +281,8 @@ function OrderSearch() {
                 <Timestamp value={order.createdAt} />
               </Link>
             </TableCell>
-            <TableCell className="font-mono text-[11px]">
-              <Link
-                className="underline-offset-2 hover:underline"
-                href={`/admin/customers/${order.customerId}`}
-              >
-                {order.customerId.slice(0, 8)}
-              </Link>
+            <TableCell>
+              <CustomerChip id={order.customerId} />
             </TableCell>
             <TableCell>{order.operation}</TableCell>
             <TableCell>
@@ -382,13 +378,8 @@ function StuckPayments({ active }: { active: boolean }) {
               <TableCell data-numeric>
                 {formatMoney(payment.amountMinor, payment.currency, locale)}
               </TableCell>
-              <TableCell className="font-mono text-[11px]">
-                <Link
-                  className="underline-offset-2 hover:underline"
-                  href={`/admin/customers/${payment.customerId}`}
-                >
-                  {payment.customerId.slice(0, 8)}
-                </Link>
+              <TableCell>
+                <CustomerChip id={payment.customerId} />
               </TableCell>
               <TableCell>
                 {can("finance.write") && (
@@ -534,12 +525,7 @@ function BedolagaPayments({ active }: { active: boolean }) {
               </TableCell>
               <TableCell className="font-mono text-[11px]">
                 {claim.customerId ? (
-                  <Link
-                    className="underline-offset-2 hover:underline"
-                    href={`/admin/customers/${claim.customerId}`}
-                  >
-                    {claim.customerId.slice(0, 8)}
-                  </Link>
+                  <CustomerChip id={claim.customerId} />
                 ) : claim.bedolagaUserId ? (
                   `Bedolaga #${claim.bedolagaUserId}`
                 ) : (
@@ -642,13 +628,8 @@ function FailedCharges({ active }: { active: boolean }) {
               <TableCell className="whitespace-nowrap font-mono text-[11px]" data-numeric>
                 <Timestamp value={attempt.createdAt} />
               </TableCell>
-              <TableCell className="font-mono text-[11px]">
-                <Link
-                  className="underline-offset-2 hover:underline"
-                  href={`/admin/customers/${attempt.customerId}`}
-                >
-                  {attempt.customerId.slice(0, 8)}
-                </Link>
+              <TableCell>
+                <CustomerChip id={attempt.customerId} />
               </TableCell>
               <TableCell data-numeric>{attempt.attempt}</TableCell>
               <TableCell>{translate(`funding.${attempt.funding}`)}</TableCell>

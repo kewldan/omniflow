@@ -8,11 +8,11 @@ import { Label } from "@omniflow/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
 import { TableCell, TableRow } from "@omniflow/ui/table";
 import { RotateCcw } from "lucide-react";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
 
+import { CustomerChip } from "@/components/admin/customer-chip";
 import { PageHeader, ResourceTable } from "@/components/admin/resource-table";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher, toQuery } from "@/lib/api";
@@ -173,12 +173,7 @@ export function CustomerSearch() {
         renderRow={(customer) => (
           <TableRow key={customer.id}>
             <TableCell className="font-mono text-[12px]">
-              <Link
-                className="underline-offset-2 hover:underline"
-                href={`/admin/customers/${customer.id}`}
-              >
-                {customer.id.slice(0, 8)}
-              </Link>
+              <CustomerChip id={customer.id} />
             </TableCell>
             <TableCell>
               <Badge variant={STATUS_VARIANT[customer.status] ?? "neutral"}>

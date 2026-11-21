@@ -1,10 +1,10 @@
 "use client";
 
 import { Badge } from "@omniflow/ui/badge";
-import { ChartFigure, chartAxis, chartColor, chartGrid } from "@omniflow/ui/chart";
+import { ChartFigure, chartAxis, chartBarTooltip, chartColor, chartGrid } from "@omniflow/ui/chart";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
 import { useLocale, useTranslations } from "next-intl";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 
 import { MetricDelta, MetricSparkline, MetricTrendNote } from "@/components/admin/metric-trend";
 import { metricPolarity } from "@/lib/metric-trends";
@@ -105,6 +105,11 @@ export function RevenueChart({ lines, windowDays }: { lines: RevenueLine[]; wind
                     formatMoney(value, line.currency, locale, { compact: true })
                   }
                   width={72}
+                />
+                <Tooltip
+                  {...chartBarTooltip}
+                  formatter={(value) => [formatMoney(Number(value), line.currency, locale), ""]}
+                  separator=""
                 />
                 <Bar
                   // 4px rounded ends anchored to the baseline, and a bar thin

@@ -3,10 +3,10 @@
 import { Badge } from "@omniflow/ui/badge";
 import { Card } from "@omniflow/ui/card";
 import { Skeleton } from "@omniflow/ui/skeleton";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
 
+import { CustomerChip } from "@/components/admin/customer-chip";
 import { StateNotice } from "@/components/admin/state-notice";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
@@ -74,18 +74,7 @@ export function ReferralPanel({ active, base }: { active: boolean; base: string 
         <Fact label={translate("code")} value={summary.code ?? "—"} />
         <Fact
           label={translate("invitedBy")}
-          value={
-            summary.invitedBy ? (
-              <Link
-                className="underline-offset-2 hover:underline"
-                href={`/admin/customers/${summary.invitedBy}`}
-              >
-                {summary.invitedBy.slice(0, 8)}
-              </Link>
-            ) : (
-              "—"
-            )
-          }
+          value={summary.invitedBy ? <CustomerChip id={summary.invitedBy} /> : "—"}
         />
         <Fact label={translate("invited")} value={String(summary.invitees.length)} />
         <Fact
@@ -103,12 +92,7 @@ export function ReferralPanel({ active, base }: { active: boolean; base: string 
               className="flex flex-wrap items-center justify-between gap-3 text-sm"
               key={invitee.customerId}
             >
-              <Link
-                className="font-mono text-[11px] underline-offset-2 hover:underline"
-                href={`/admin/customers/${invitee.customerId}`}
-              >
-                {invitee.customerId.slice(0, 8)}
-              </Link>
+              <CustomerChip id={invitee.customerId} />
               <span className="flex items-center gap-2">
                 <Badge variant={invitee.converted ? "success" : "neutral"}>
                   {translate(invitee.converted ? "convertedYes" : "convertedNo")}

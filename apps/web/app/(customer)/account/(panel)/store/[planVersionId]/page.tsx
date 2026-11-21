@@ -2,6 +2,7 @@
 
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
+import { Radio } from "@omniflow/ui/radio";
 import { toast } from "@omniflow/ui/toast";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -245,12 +246,14 @@ export default function PlanPage() {
                     className="cursor-pointer rounded-md border border-border bg-card px-3 py-2 text-[12.5px] has-[:checked]:border-primary has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring has-[:focus-visible]:outline-offset-2"
                     key={candidate}
                   >
+                    {/* Visually hidden: the label around it is the segment the
+                        customer sees and taps. */}
                     <input
                       checked={candidate === selected}
                       className="sr-only"
+                      type="radio"
                       name="operation"
                       onChange={() => setOperation(candidate)}
-                      type="radio"
                       value={candidate}
                     />
                     {translate(
@@ -371,15 +374,7 @@ function TargetOption({
 }) {
   return (
     <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 has-[:checked]:border-primary has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring has-[:focus-visible]:outline-offset-2">
-      <input
-        checked={checked}
-        className="size-4 accent-[color:var(--primary)]"
-        name="target"
-        onChange={onSelect}
-        required
-        type="radio"
-        value={value}
-      />
+      <Radio checked={checked} name="target" onChange={onSelect} required value={value} />
       <span className="min-w-0">
         <span className="block font-medium text-[13.5px]">{label}</span>
         {description && (

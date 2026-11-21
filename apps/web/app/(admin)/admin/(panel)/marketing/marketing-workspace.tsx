@@ -11,12 +11,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Switch } from "@omniflow/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
+import { Mail } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useLocale, useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR, { mutate as revalidate } from "swr";
-
 import { PageHeader } from "@/components/admin/resource-table";
+import { TelegramLogo } from "@/components/icons/telegram";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import { localized } from "@/lib/localized";
@@ -281,9 +282,17 @@ function CampaignCard({ editable }: { editable: boolean }) {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="telegram">
-                      {translate("campaigns.channels.telegram")}
+                      <span className="inline-flex items-center gap-2">
+                        <TelegramLogo className="size-4 text-[#229ED9]" />
+                        {translate("campaigns.channels.telegram")}
+                      </span>
                     </SelectItem>
-                    <SelectItem value="email">{translate("campaigns.channels.email")}</SelectItem>
+                    <SelectItem value="email">
+                      <span className="inline-flex items-center gap-2">
+                        <Mail aria-hidden className="size-4 text-muted-foreground" />
+                        {translate("campaigns.channels.email")}
+                      </span>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -384,7 +393,14 @@ function CampaignCard({ editable }: { editable: boolean }) {
                     <span className="font-medium">{campaign.name}</span>
                     <p className="font-mono text-muted-foreground text-xs">
                       {campaign.segmentCode} · {campaign.templateCode} ·{" "}
-                      {translate(`campaigns.channels.${campaign.channel ?? "telegram"}`)}
+                      <span className="inline-flex items-center gap-1 align-middle">
+                        {campaign.channel === "email" ? (
+                          <Mail aria-hidden className="size-3" />
+                        ) : (
+                          <TelegramLogo className="size-3 text-[#229ED9]" />
+                        )}
+                        {translate(`campaigns.channels.${campaign.channel ?? "telegram"}`)}
+                      </span>
                     </p>
                   </TableCell>
                   <TableCell>

@@ -3,6 +3,7 @@
 import { Button } from "@omniflow/ui/button";
 import { Checkbox } from "@omniflow/ui/checkbox";
 import { ConfirmDialog } from "@omniflow/ui/confirm-dialog";
+import { Radio } from "@omniflow/ui/radio";
 import { toast } from "@omniflow/ui/toast";
 import { RefreshCw } from "lucide-react";
 import Link from "next/link";
@@ -414,13 +415,11 @@ function OrderMethodPicker({
           className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 has-[:checked]:border-primary"
           key={choiceKey(choice)}
         >
-          <input
+          <Radio
             checked={chosen === choiceKey(choice)}
-            className="size-4 accent-[color:var(--primary)]"
             disabled={disabled}
             name="order-provider"
             onChange={() => onChange(choiceKey(choice))}
-            type="radio"
           />
           <span className="min-w-0 flex-1">
             <span className="block font-medium text-[13.5px]">{copy(choice).label}</span>

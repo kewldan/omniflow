@@ -7,11 +7,11 @@ import { Input } from "@omniflow/ui/input";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@omniflow/ui/tabs";
-import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 
+import { CustomerChip } from "@/components/admin/customer-chip";
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
 import { Timestamp } from "@/components/intl/timestamp";
@@ -160,13 +160,8 @@ function Matches({ active }: { active: boolean }) {
                 <TableCell className="whitespace-nowrap font-mono text-[11px]" data-numeric>
                   <Timestamp value={match.detectedAt} />
                 </TableCell>
-                <TableCell className="font-mono text-[11px]">
-                  <Link
-                    className="underline-offset-2 hover:underline"
-                    href={`/admin/customers/${match.customerId}`}
-                  >
-                    {match.customerId.slice(0, 8)}
-                  </Link>
+                <TableCell>
+                  <CustomerChip id={match.customerId} />
                 </TableCell>
                 <TableCell>{match.sourceName}</TableCell>
                 <TableCell className="text-muted-foreground">{match.subjectKind}</TableCell>

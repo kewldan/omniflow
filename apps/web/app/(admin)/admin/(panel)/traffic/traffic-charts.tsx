@@ -1,10 +1,11 @@
 "use client";
 
-import { ChartFigure, chartAxis, chartColor, chartGrid } from "@omniflow/ui/chart";
+import { ChartFigure, chartAxis, chartBarTooltip, chartColor, chartGrid } from "@omniflow/ui/chart";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
 import { useTranslations } from "next-intl";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 
+import { CustomerChip, customerTitle, useCustomerLabels } from "@/components/admin/customer-chip";
 import { formatBytes, type TrafficReport } from "@/lib/operations";
 
 /**
@@ -83,6 +84,10 @@ export function NodePressureChart({ report }: { report: TrafficReport }) {
           type="number"
         />
         <YAxis {...chartAxis} dataKey="label" type="category" width={130} />
+        <Tooltip
+          {...chartBarTooltip}
+          formatter={(value) => [`${value}%`, translate("charts.share")]}
+        />
         <Bar dataKey="share" fill={chartColor("chart-1")} maxBarSize={18} radius={[0, 4, 4, 0]} />
       </BarChart>
     </ChartFigure>
@@ -93,15 +98,25 @@ export function NodePressureChart({ report }: { report: TrafficReport }) {
 export function ConsumerChart({ report }: { report: TrafficReport }) {
   const translate = useTranslations("admin.traffic");
 
-  const rows = report.consumers
+  const top = report.consumers
     .slice()
     .sort((left, right) => right.usedBytes - left.usedBytes)
-    .slice(0, 10)
-    .map((consumer) => ({
+    .slice(0, 10);
+  // Named by the customer — their Telegram name or @username — rather than
+  // by the plan, which every row shares. A Remnawave user Omniflow did not
+  // create keeps its panel username.
+  const { data: labels } = useCustomerLabels(top.map((consumer) => consumer.customerId));
+  const rows = top.map((consumer) => {
+    const label = consumer.customerId ? labels?.get(consumer.customerId) : undefined;
+    return {
+      avatar: label?.avatar ? `/v1/panel/customers/${consumer.customerId}/avatar` : undefined,
+      customerId: consumer.customerId,
       key: String(consumer.remnawaveId),
-      label: consumer.label || consumer.username,
+      label: customerTitle(label) ?? consumer.username,
+      plan: consumer.label,
       usedBytes: consumer.usedBytes,
-    }));
+    };
+  });
 
   if (rows.length === 0) {
     return null;
@@ -127,7 +142,13 @@ export function ConsumerChart({ report }: { report: TrafficReport }) {
           <TableBody>
             {rows.map((row) => (
               <TableRow key={row.key}>
-                <TableCell className="font-mono text-xs">{row.label}</TableCell>
+                <TableCell>
+                  {row.customerId ? (
+                    <CustomerChip id={row.customerId} />
+                  ) : (
+                    <span className="font-mono text-xs">{row.label}</span>
+                  )}
+                </TableCell>
                 <TableCell className="text-right tabular-nums">
                   {formatBytes(row.usedBytes)}
                 </TableCell>
@@ -141,7 +162,28 @@ export function ConsumerChart({ report }: { report: TrafficReport }) {
       <BarChart data={rows} layout="vertical" margin={{ left: 8, right: 16, top: 4 }}>
         <CartesianGrid {...chartGrid} horizontal={false} vertical />
         <XAxis {...chartAxis} tickFormatter={(value: number) => formatBytes(value)} type="number" />
-        <YAxis {...chartAxis} dataKey="label" type="category" width={130} />
+        <YAxis
+          {...chartAxis}
+          dataKey="key"
+          interval={0}
+          tick={(props) => (
+            <ConsumerTick
+              row={rows.find((row) => row.key === String(props.payload?.value))}
+              x={Number(props.x)}
+              y={Number(props.y)}
+            />
+          )}
+          type="category"
+          width={170}
+        />
+        <Tooltip
+          {...chartBarTooltip}
+          formatter={(value) => [formatBytes(Number(value)), translate("consumers.used")]}
+          labelFormatter={(key) => {
+            const row = rows.find((candidate) => candidate.key === key);
+            return row?.plan ? `${row.label} · ${row.plan}` : (row?.label ?? key);
+          }}
+        />
         <Bar
           dataKey="usedBytes"
           fill={chartColor("chart-2")}
@@ -150,5 +192,72 @@ export function ConsumerChart({ report }: { report: TrafficReport }) {
         />
       </BarChart>
     </ChartFigure>
+  );
+}
+
+/**
+ * One consumer on the chart's axis: their Telegram picture in a circle, with
+ * initials beneath it for a customer Telegram has no picture of, and the name
+ * cut to the axis width.
+ */
+function ConsumerTick({
+  row,
+  x,
+  y,
+}: {
+  row?: { avatar?: string; key: string; label: string };
+  x: number;
+  y: number;
+}) {
+  if (!row) {
+    return null;
+  }
+  const name = row.label.length > 18 ? `${row.label.slice(0, 17)}…` : row.label;
+  const initials = row.label
+    .replace(/^@/, "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+  const clip = `consumer-${row.key}`;
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text
+        dominantBaseline="central"
+        fill="var(--muted-foreground)"
+        fontSize={11}
+        textAnchor="end"
+        x={-26}
+      >
+        {name}
+      </text>
+      <circle cx={-12} cy={0} fill="var(--secondary)" r={9} />
+      <text
+        dominantBaseline="central"
+        fill="var(--secondary-foreground)"
+        fontSize={8}
+        textAnchor="middle"
+        x={-12}
+      >
+        {initials}
+      </text>
+      {row.avatar && (
+        <>
+          <clipPath id={clip}>
+            <circle cx={-12} cy={0} r={9} />
+          </clipPath>
+          <image
+            clipPath={`url(#${clip})`}
+            height={18}
+            href={row.avatar}
+            preserveAspectRatio="xMidYMid slice"
+            width={18}
+            x={-21}
+            y={-9}
+          />
+        </>
+      )}
+    </g>
   );
 }

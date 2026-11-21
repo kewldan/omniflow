@@ -4,10 +4,10 @@ import { Badge } from "@omniflow/ui/badge";
 import { Card } from "@omniflow/ui/card";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
-import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import useSWR from "swr";
 
+import { CustomerChip } from "@/components/admin/customer-chip";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import { formatMoney } from "@/lib/operations";
@@ -40,14 +40,7 @@ type Network = {
 };
 
 function CustomerLink({ id }: { id: string }) {
-  return (
-    <Link
-      className="font-mono text-xs underline-offset-2 hover:underline"
-      href={`/admin/customers/${id}`}
-    >
-      {id.slice(0, 8)}
-    </Link>
-  );
+  return <CustomerChip id={id} />;
 }
 
 /**

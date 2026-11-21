@@ -19,6 +19,7 @@ export * from "./label";
 export * from "./lib/utils";
 export * from "./pagination";
 export * from "./popover";
+export * from "./radio";
 export * from "./scroll-area";
 export * from "./select";
 export * from "./separator";

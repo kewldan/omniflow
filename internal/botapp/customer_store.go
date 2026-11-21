@@ -310,6 +310,24 @@ func (store *PostgresStore) RecordReachable(ctx context.Context, telegramID int6
 	return err
 }
 
+// RecordTelegramProfile keeps the customer's Telegram name and @username on
+// their active Telegram identity, as the import does for a migrated base. The
+// row is written only when something changed. An account with no identity yet
+// is left alone: the next update after /start finds it.
+func (store *PostgresStore) RecordTelegramProfile(ctx context.Context, telegramID int64, username, firstName, lastName string) error {
+	_, err := store.pool.Exec(ctx, `UPDATE identities
+		SET metadata = (metadata || jsonb_strip_nulls(jsonb_build_object(
+			'username', NULLIF($2, ''), 'firstName', NULLIF($3, ''), 'lastName', NULLIF($4, ''))))
+			- (CASE WHEN $2 = '' THEN 'username' ELSE '' END)
+			- (CASE WHEN $4 = '' THEN 'lastName' ELSE '' END)
+		WHERE provider = 'telegram' AND provider_subject = $1 AND status = 'active'
+		  AND (metadata->>'username' IS DISTINCT FROM NULLIF($2, '')
+		    OR metadata->>'firstName' IS DISTINCT FROM NULLIF($3, '')
+		    OR metadata->>'lastName' IS DISTINCT FROM NULLIF($4, ''))`,
+		strconv.FormatInt(telegramID, 10), username, firstName, lastName)
+	return err
+}
+
 // RecordBlockedChat records that the customer behind a Telegram account
 // blocked the bot, as Telegram reports it in a my_chat_member update — before
 // any send has had the chance to fail against it.

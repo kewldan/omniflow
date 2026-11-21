@@ -1,6 +1,5 @@
 "use client";
 
-import { useTimeZone, useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
 import { useAccount } from "@/lib/account-session";
@@ -23,26 +22,9 @@ export function AccountTimeZone({ children }: { children: ReactNode }) {
 }
 
 /**
- * The operator panel shows every moment in the operator's browser zone, and
- * names that zone in its header (see `TimeZoneLabel`). Reports that bucket by
- * day keep UTC and say so on their own pages.
+ * The operator panel shows every moment in the operator's browser zone.
+ * Reports that bucket by day keep UTC and say so on their own pages.
  */
 export function OperatorTimeZone({ children }: { children: ReactNode }) {
   return <TimeZoneProvider timeZone={useBrowserTimeZone()}>{children}</TimeZoneProvider>;
-}
-
-/** The zone the surrounding panel shows times in, with its current offset. */
-export function TimeZoneLabel({ className }: { className?: string }) {
-  const translate = useTranslations("common.time");
-  const timeZone = useTimeZone() ?? "UTC";
-  const offset =
-    new Intl.DateTimeFormat("en", { timeZone, timeZoneName: "shortOffset" })
-      .formatToParts(new Date())
-      .find((part) => part.type === "timeZoneName")?.value ?? "";
-  const zone = timeZone === "UTC" ? "UTC" : `${timeZone.replaceAll("_", " ")} (${offset})`;
-  return (
-    <span className={className} suppressHydrationWarning>
-      {translate("shownIn", { zone })}
-    </span>
-  );
 }

@@ -6,6 +6,7 @@ import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
 import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
+import { Radio } from "@omniflow/ui/radio";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Switch } from "@omniflow/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
@@ -323,11 +324,10 @@ function ProviderEditor({ existing, onSaved }: { existing: AiProvider[]; onSaved
       <div className="flex flex-wrap items-center gap-4">
         {(["openai_compatible", "anthropic", "gemini"] as const).map((kind) => (
           <label className="flex items-center gap-2 text-sm" key={kind}>
-            <input
+            <Radio
               checked={form.kind === kind}
               name="ai-provider-kind"
               onChange={() => setForm({ ...form, kind })}
-              type="radio"
             />
             {kind}
           </label>
@@ -653,11 +653,10 @@ function LimitCard({ editable }: { editable: boolean }) {
             <div className="flex flex-wrap items-center gap-3">
               {(["installation", "role", "operator", "feature"] as const).map((scope) => (
                 <label className="flex items-center gap-2 text-sm" key={scope}>
-                  <input
+                  <Radio
                     checked={form.scope === scope}
                     name="ai-limit-scope"
                     onChange={() => setForm({ ...form, scope })}
-                    type="radio"
                   />
                   {scope}
                 </label>

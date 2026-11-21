@@ -26,6 +26,7 @@
     "./lib/utils": "./src/lib/utils.ts",
     "./pagination": "./src/pagination.tsx",
     "./popover": "./src/popover.tsx",
+    "./radio": "./src/radio.tsx",
     "./scroll-area": "./src/scroll-area.tsx",
     "./select": "./src/select.tsx",
     "./separator": "./src/separator.tsx",

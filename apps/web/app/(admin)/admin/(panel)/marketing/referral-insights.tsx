@@ -6,11 +6,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
 import { toast } from "@omniflow/ui/toast";
-import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR from "swr";
 
+import { CustomerChip } from "@/components/admin/customer-chip";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import { formatMoney, type Listing, useOperatorAction } from "@/lib/operations";
@@ -61,14 +61,7 @@ export function ReferralInsightsCard({
     }
   }
 
-  const link = (id: string) => (
-    <Link
-      className="font-mono text-xs underline-offset-2 hover:underline"
-      href={`/admin/customers/${id}`}
-    >
-      {id.slice(0, 8)}
-    </Link>
-  );
+  const link = (id: string) => <CustomerChip id={id} />;
 
   return (
     <Card>

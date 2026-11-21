@@ -1,13 +1,13 @@
 "use client";
 
 import { Button } from "@omniflow/ui/button";
-import { ChartFigure, chartAxis, chartColor, chartGrid } from "@omniflow/ui/chart";
+import { ChartFigure, chartAxis, chartBarTooltip, chartColor, chartGrid } from "@omniflow/ui/chart";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
 import { useLocale, useTranslations } from "next-intl";
 import { useId, useState } from "react";
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Tooltip, XAxis, YAxis } from "recharts";
 import useSWR from "swr";
 import { type ApiError, fetcher } from "@/lib/api";
 import { formatMoney } from "@/lib/operations";
@@ -169,9 +169,25 @@ export function AdCampaignStatsPanel({
             <CartesianGrid {...chartGrid} />
             <XAxis {...chartAxis} dataKey="label" />
             <YAxis {...chartAxis} allowDecimals={false} width={40} />
-            <Bar dataKey="registrations" fill={chartColor("chart-1")} radius={3} />
-            <Bar dataKey="trials" fill={chartColor("chart-2")} radius={3} />
-            <Bar dataKey="firstPayments" fill={chartColor("chart-3")} radius={3} />
+            <Tooltip {...chartBarTooltip} />
+            <Bar
+              dataKey="registrations"
+              fill={chartColor("chart-1")}
+              name={translate("registrations")}
+              radius={3}
+            />
+            <Bar
+              dataKey="trials"
+              fill={chartColor("chart-2")}
+              name={translate("trials")}
+              radius={3}
+            />
+            <Bar
+              dataKey="firstPayments"
+              fill={chartColor("chart-3")}
+              name={translate("firstPayments")}
+              radius={3}
+            />
           </BarChart>
         </ChartFigure>
         <ChartFigure
@@ -214,6 +230,10 @@ export function AdCampaignStatsPanel({
                 formatMoney(value, currency, locale, { compact: true })
               }
               width={72}
+            />
+            <Tooltip
+              {...chartBarTooltip}
+              formatter={(value) => [money(Number(value)), translate("revenue")]}
             />
             <Bar dataKey="revenueMinor" fill={chartColor("chart-1")} radius={3} />
           </BarChart>
