@@ -1,0 +1,23 @@
+# Findings reviewed and accepted, one gitleaks fingerprint per line
+# (<commit>:<path>:<rule>:<line>). Every rule stays on; each entry pins one
+# value in one commit, so a new secret anywhere still fails the scan. Values
+# that recur across commits belong in .gitleaks.toml instead.
+
+# Idempotency keys in integration tests: caller-chosen request identifiers that
+# authenticate nothing.
+ec655bd731a138c096ffc2089bc55de6ab3de83e:internal/integrationtest/planperiods_test.go:generic-api-key:55
+ec655bd731a138c096ffc2089bc55de6ab3de83e:internal/integrationtest/planperiods_test.go:generic-api-key:61
+e069e0b2825918ad6382ac8a2fd17f3e417f5c8b:internal/integrationtest/planoptions_test.go:generic-api-key:73
+
+# INCY's shared link-obfuscation key (K1 of @incy/link-encoder) and its
+# published SHA-256: built into every INCY client and documented by INCY as not
+# a secret.
+5143b1313fd8ab26502837cfa74007cb8a20d1f3:internal/commerce/connectlinks.go:generic-api-key:246
+5143b1313fd8ab26502837cfa74007cb8a20d1f3:internal/commerce/connectlinks.go:generic-api-key:247
+
+# Prose in a doc comment describing TabPay's signature header.
+74399369d9c37e62d8f18b7710ac4fcc8fa1a07d:internal/payments/tabpay.go:generic-api-key:25
+
+# Synthetic PayHot credentials in a unit test ("*_synthetic").
+a3abcff8efe9e73b38ce6d513b31a846b50274a5:internal/payments/payhot_test.go:generic-api-key:27
+a3abcff8efe9e73b38ce6d513b31a846b50274a5:internal/payments/payhot_test.go:generic-api-key:41
