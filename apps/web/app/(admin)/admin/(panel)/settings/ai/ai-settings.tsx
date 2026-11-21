@@ -13,13 +13,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useFormatter, useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
-
+import { useEnumLabel } from "@/components/admin/enum-label";
 import { PageHeader } from "@/components/admin/resource-table";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import { formatBytes, formatDuration, type Listing, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
-
 import type {
   AiFeature,
   AiFeatureListing,
@@ -103,6 +102,7 @@ function ProviderRow({
   onSaved: () => void;
 }) {
   const translate = useTranslations("admin.aiSettings");
+  const label = useEnumLabel();
   const { run, pending } = useOperatorAction();
   const { run: test, pending: testing, error: testError } = useOperatorAction();
   const [key, setKey] = useState("");
@@ -146,7 +146,7 @@ function ProviderRow({
     <div className="flex flex-col gap-3 rounded-md border p-4">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">{provider.displayName}</span>
-        <Badge variant="outline">{provider.kind}</Badge>
+        <Badge variant="outline">{label("aiProviderKind", provider.kind)}</Badge>
         {/* What the provider does with the data sits above the switch that
             would send data to it, not in a footnote below. */}
         {provider.zeroRetention ? (
@@ -542,6 +542,7 @@ function FeatureRow({
 
 function LimitCard({ editable }: { editable: boolean }) {
   const translate = useTranslations("admin.aiSettings");
+  const label = useEnumLabel();
   const { data, isLoading, mutate } = useSWR<Listing<AiUsageLimit>, ApiError>(
     "/v1/panel/settings/ai/limits",
     fetcher,
@@ -598,7 +599,7 @@ function LimitCard({ editable }: { editable: boolean }) {
             {limits.map((limit) => (
               <TableRow key={limit.id ?? `${limit.scope}-${limit.ref}-${limit.feature}`}>
                 <TableCell>
-                  {limit.scope}
+                  {label("aiLimitScope", limit.scope)}
                   {limit.ref ? ` · ${limit.ref}` : ""}
                   {limit.feature ? ` · ${limit.feature}` : ""}
                 </TableCell>

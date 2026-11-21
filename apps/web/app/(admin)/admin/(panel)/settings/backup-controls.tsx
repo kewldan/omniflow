@@ -11,7 +11,7 @@ import { toast } from "@omniflow/ui/toast";
 import { useTranslations } from "next-intl";
 import { useId, useRef, useState } from "react";
 import useSWR from "swr";
-
+import { useEnumLabel } from "@/components/admin/enum-label";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 import { formatBytes, useOperatorAction } from "@/lib/operations";
@@ -33,6 +33,7 @@ type BackupRequest = {
  */
 export function BackupControls() {
   const translate = useTranslations("admin.backupControls");
+  const label = useEnumLabel();
   const { can } = useSession();
   const { data: history, mutate: refreshHistory } = useSWR<{ backups: Backup[] | null }, ApiError>(
     can("settings.read") ? "/v1/panel/settings/backups" : null,
@@ -130,7 +131,7 @@ export function BackupControls() {
                   <TableCell className="text-xs">
                     <Timestamp value={item.createdAt} />
                   </TableCell>
-                  <TableCell>{item.kind}</TableCell>
+                  <TableCell>{label("backupKind", item.kind)}</TableCell>
                   <TableCell className="text-right">{formatBytes(item.sizeBytes)}</TableCell>
                   <TableCell className="flex justify-end gap-1">
                     <Button onClick={() => setRestoring(item)} size="sm" variant="outline">
@@ -157,7 +158,7 @@ export function BackupControls() {
                 <Timestamp value={item.createdAt} />
                 <span>{translate(`actions.${item.action}`)}</span>
                 <Badge variant={item.status === "failed" ? "danger" : "neutral"}>
-                  {item.status}
+                  {label("backupStatus", item.status)}
                 </Badge>
                 {item.errorCode ? (
                   <span className="font-mono text-xs">{item.errorCode}</span>

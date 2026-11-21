@@ -2388,6 +2388,18 @@ export const GetPanelDashboardResponse = zod.object({
       }),
     )
     .nullish(),
+  walletBalances: zod
+    .array(
+      zod.object({
+        currency: zod.string(),
+        totalMinor: zod.int(),
+        holders: zod.int().describe("Customers with a positive balance in this currency."),
+      }),
+    )
+    .nullish()
+    .describe(
+      "What customers hold on their wallets now, per currency. Null for an operator without finance.read.",
+    ),
 });
 
 /**

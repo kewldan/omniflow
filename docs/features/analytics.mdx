@@ -26,10 +26,16 @@ end of this page, with how to switch it off.
 ## The dashboard
 
 `/admin` is the operations overview: customers, entitlements, payments in flight, support and
-fulfillment queues, and a fixed thirty-day revenue chart per currency. The window is fixed on
-purpose, so two visits a week apart can be compared. Every tile states what it counts — "active
+fulfillment queues, and a revenue chart per currency. The period switch above it covers a day, a
+week, 30 days (the default), 90 days, or a year, and every windowed tile is compared with the
+period of the same length before it. Every tile states what it counts — "active
 customers" means customer records that are neither suspended nor deleted, not people with a live
 subscription — and every tile with a list behind it opens that list.
+
+An operator with `finance.read` also sees **Customer balances now**: what customers hold on their
+wallets at this moment, per currency, with how many customers hold a positive balance. It is a
+balance, not a figure over the window, and it is not revenue: that money was counted when it was
+topped up and is still owed as service.
 
 Tiles that count over the window — new customers, succeeded and failed payments, provider money —
 also show the change against the previous thirty days, a small line of the same thirty days by day,

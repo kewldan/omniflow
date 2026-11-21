@@ -2,7 +2,6 @@
 
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
-import { Card } from "@omniflow/ui/card";
 import { DateTimeField } from "@omniflow/ui/date-time-field";
 import {
   Dialog,

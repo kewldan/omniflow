@@ -824,6 +824,11 @@
         "30": "۳۰ روز",
         "90": "۹۰ روز",
         "365": "یک سال"
+      },
+      "wallets": {
+        "title": "موجودی فعلی مشتریان",
+        "description": "پولی که مشتریان واریز کرده‌اند و هنوز خرج نکرده‌اند. این بدهی به‌صورت سرویس است و جزو درآمد دوره نیست.",
+        "holders": "{count} مشتری دارای موجودی"
       }
     },
     "customers": {
@@ -2816,6 +2821,9 @@
       "tagAction": "برچسب…",
       "mergeInto": "ادغام در تیکت با شناسه",
       "merge": "ادغام",
+      "mergeTitle": "ادغام با درخواست دیگر",
+      "mergeNoSiblings": "این مشتری درخواست دیگری ندارد. شناسه درخواست را در پایین وارد کنید.",
+      "mergeLoading": "در حال جستجوی درخواست‌های دیگر مشتری…",
       "insertCanned": "درج پاسخ آماده…",
       "cannedHint": "فقط پاسخ‌هایی فهرست شده‌اند که نقش شما اجازه ارسال آن‌ها را دارد.",
       "replyPlaceholder": "پاسخ شما به مشتری",
@@ -2826,7 +2834,7 @@
       "status": {
         "all": "همه",
         "open": "باز",
-        "pending": "در انتظار",
+        "pending": "پاسخ داده شد",
         "resolved": "حل‌شده",
         "closed": "بسته",
         "merged": "ادغام‌شده"
@@ -4548,6 +4556,209 @@
         "primary": "آبی",
         "success": "سبز",
         "danger": "قرمز"
+      }
+    },
+    "enums": {
+      "aiLimitScope": {
+        "installation": "کل نصب",
+        "role": "نقش",
+        "operator": "اپراتور",
+        "feature": "قابلیت"
+      },
+      "aiProviderKind": {
+        "openai_compatible": "سازگار با OpenAI",
+        "anthropic": "Anthropic",
+        "gemini": "Gemini"
+      },
+      "backupKind": {
+        "scheduled": "زمان‌بندی‌شده",
+        "manual": "دستی",
+        "uploaded": "بارگذاری‌شده"
+      },
+      "backupStatus": {
+        "running": "در حال اجرا",
+        "completed": "تکمیل‌شده",
+        "failed": "ناموفق",
+        "pruned": "حذف‌شده",
+        "pending": "در صف"
+      },
+      "customerEvent": {
+        "suspended": "مسدود شد",
+        "restored": "بازیابی شد",
+        "deletion_requested": "درخواست حذف",
+        "deleted": "حذف شد",
+        "anonymized": "ناشناس شد",
+        "merged_away": "ادغام در حساب دیگر",
+        "merged_in": "حساب دیگری ادغام شد",
+        "dormant": "غیرفعال",
+        "revived": "بازگشت",
+        "delete": "حذف شد",
+        "restore": "بازیابی شد",
+        "wallet_adjusted": "کیف پول تنظیم شد",
+        "subscription_closed": "اشتراک بسته شد",
+        "referral_reward_granted": "پاداش معرفی داده شد",
+        "referral_commission_granted": "کمیسیون معرفی داده شد",
+        "order_credit_withdrawn": "اعتبار سفارش برداشت شد",
+        "risk_blocklist_matched": "تطابق با فهرست مسدود",
+        "panel_customers_exported": "خروجی مشتریان"
+      },
+      "deliveryStatus": {
+        "pending": "در انتظار",
+        "delivered": "تحویل‌شده",
+        "failed": "ناموفق"
+      },
+      "fulfillmentOperation": {
+        "create": "ایجاد کاربر",
+        "extend": "تمدید",
+        "enable": "فعال‌سازی",
+        "disable": "غیرفعال‌سازی",
+        "reset_traffic": "بازنشانی ترافیک",
+        "set_limits": "تنظیم محدودیت‌ها",
+        "set_squads": "تنظیم اسکوادها",
+        "reconcile": "تطبیق",
+        "pause": "توقف",
+        "resume": "ازسرگیری",
+        "close": "بستن",
+        "limit_access": "محدودسازی دسترسی",
+        "restore_access": "بازگرداندن دسترسی",
+        "grant_squad": "اعطای اسکواد",
+        "revoke_squad": "لغو اسکواد"
+      },
+      "fulfillmentStatus": {
+        "pending": "در انتظار",
+        "running": "در حال اجرا",
+        "succeeded": "موفق",
+        "retrying": "تلاش مجدد",
+        "failed": "ناموفق",
+        "cancelled": "لغوشده"
+      },
+      "health": {
+        "unknown": "بررسی‌نشده",
+        "healthy": "سالم",
+        "failing": "دچار خطا",
+        "pending": "در انتظار"
+      },
+      "intentStatus": {
+        "pending": "در انتظار",
+        "requires_action": "نیازمند اقدام مشتری",
+        "processing": "در حال پردازش",
+        "succeeded": "موفق",
+        "failed": "ناموفق",
+        "cancelled": "لغوشده",
+        "expired": "منقضی"
+      },
+      "ledgerType": {
+        "credit": "واریز",
+        "debit": "برداشت",
+        "payment": "پرداخت",
+        "refund": "بازپرداخت",
+        "referral_reward": "پاداش معرفی",
+        "correction": "اصلاح",
+        "expiration": "انقضا"
+      },
+      "matchStatus": {
+        "open": "باز",
+        "allowed": "مجاز",
+        "blocked": "مسدود",
+        "appealed": "اعتراض‌شده"
+      },
+      "orderOperation": {
+        "purchase": "خرید",
+        "upgrade": "ارتقا",
+        "downgrade": "تنزل",
+        "extension": "تمدید",
+        "topup": "شارژ کیف پول",
+        "addon": "افزونه",
+        "gift": "هدیه",
+        "goods": "کالای دیجیتال",
+        "renewal": "تمدید خودکار",
+        "code": "کد",
+        "traffic_reset": "بازنشانی ترافیک",
+        "traffic_change": "تغییر ترافیک",
+        "device_reduction": "کاهش دستگاه‌ها",
+        "squad_removal": "حذف اسکواد"
+      },
+      "orderState": {
+        "draft": "پیش‌نویس",
+        "pending": "در انتظار پرداخت",
+        "paid": "پرداخت‌شده",
+        "fulfilled": "انجام‌شده",
+        "cancelled": "لغوشده",
+        "expired": "منقضی",
+        "partially_refunded": "بازپرداخت جزئی",
+        "refunded": "بازپرداخت‌شده"
+      },
+      "provider": {
+        "telegram_stars": "Telegram Stars",
+        "cryptobot": "CryptoBot",
+        "yookassa": "YooKassa",
+        "manual": "دستی",
+        "heleket": "Heleket",
+        "mulenpay": "MulenPay",
+        "pal24": "PayPalych",
+        "platega": "Platega",
+        "cashera": "Cashera",
+        "tribute": "Tribute",
+        "freekassa": "FreeKassa",
+        "kassa_ai": "Kassa AI",
+        "riopay": "RioPay",
+        "severpay": "SeverPay",
+        "rollypay": "RollyPay",
+        "aurapay": "AuraPay",
+        "wata": "WATA",
+        "cloudpayments": "CloudPayments",
+        "lava": "Lava",
+        "overpay": "Overpay",
+        "paritypay": "ParityPay",
+        "payhot": "HOT Pay",
+        "cispay": "CisPay",
+        "antilopay": "Antilopay",
+        "anore": "Anore",
+        "donut": "Donut",
+        "etoplatezhi": "EtoPlatezhi",
+        "jupiter": "Jupiter",
+        "tabpay": "TabPay"
+      },
+      "refundStatus": {
+        "pending": "در انتظار",
+        "processing": "در حال پردازش",
+        "succeeded": "موفق",
+        "failed": "ناموفق",
+        "cancelled": "لغوشده"
+      },
+      "restoreStatus": {
+        "requested": "درخواست‌شده",
+        "running": "در حال اجرا",
+        "completed": "تکمیل‌شده",
+        "failed": "ناموفق"
+      },
+      "subjectKind": {
+        "telegram_id": "شناسه تلگرام",
+        "email": "ایمیل",
+        "username": "نام کاربری"
+      },
+      "subscriptionStatus": {
+        "active": "فعال",
+        "closed": "بسته"
+      },
+      "suppressionReason": {
+        "customer_request": "درخواست مشتری",
+        "bounced": "برگشت خورده",
+        "complaint": "شکایت هرزنامه",
+        "operator": "اپراتور"
+      },
+      "ticketStatus": {
+        "open": "باز",
+        "pending": "پاسخ داده شد",
+        "resolved": "حل‌شده",
+        "closed": "بسته",
+        "merged": "ادغام‌شده"
+      },
+      "webhookStatus": {
+        "received": "دریافت‌شده",
+        "processed": "پردازش‌شده",
+        "ignored": "نادیده گرفته شد",
+        "failed": "ناموفق"
       }
     }
   },

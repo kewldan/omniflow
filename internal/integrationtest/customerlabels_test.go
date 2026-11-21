@@ -58,7 +58,7 @@ func TestNavigationCountsRun(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)
 	operations := newOperations(t, harness)
-	counts, err := operations.NavigationCounts(ctx, []string{"support", "shop", "payouts", "finance", "risk", "system", "unknown"})
+	counts, err := operations.NavigationCounts(ctx, []string{"support", "shop", "payouts", "finance", "risk", "system", "unknown"}, "00000000-0000-0000-0000-000000000001")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +68,7 @@ func TestNavigationCountsRun(t *testing.T) {
 	if _, err = harness.pool.Exec(ctx, `INSERT INTO app_errors (fingerprint, process, message, source) VALUES ('f', 'api', 'boom', 'x')`); err != nil {
 		t.Fatal(err)
 	}
-	counts, err = operations.NavigationCounts(ctx, []string{"system"})
+	counts, err = operations.NavigationCounts(ctx, []string{"system"}, "00000000-0000-0000-0000-000000000001")
 	if err != nil || counts["system"] != 1 || len(counts) != 1 {
 		t.Fatalf("system counts %v %v", counts, err)
 	}

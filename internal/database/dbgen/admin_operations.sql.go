@@ -882,6 +882,52 @@ func (q *Queries) DashboardUpcomingRenewals(ctx context.Context, days int32) ([]
 	return items, nil
 }
 
+const dashboardWalletBalances = `-- name: DashboardWalletBalances :many
+SELECT balances.currency,
+  sum(balances.balance_minor)::bigint AS total_minor,
+  count(*) FILTER (WHERE balances.balance_minor > 0)::bigint AS holders
+FROM (
+  SELECT wallet_entry.user_id, wallet_entry.currency, sum(wallet_entry.amount_minor) AS balance_minor
+  FROM ledger_entries wallet_entry
+  WHERE wallet_entry.account_type = 'customer_wallet'
+  GROUP BY wallet_entry.user_id, wallet_entry.currency
+) balances
+GROUP BY balances.currency
+HAVING sum(balances.balance_minor) <> 0
+ORDER BY balances.currency
+`
+
+type DashboardWalletBalancesRow struct {
+	Currency   string `json:"currency"`
+	TotalMinor int64  `json:"total_minor"`
+	Holders    int64  `json:"holders"`
+}
+
+// What customers hold on their wallets right now, per currency: the money the
+// business owes back as service. It is a balance at this moment, not a figure
+// over the dashboard's window. Holders counts customers with a positive
+// balance; a negative one (a correction gone too far) still counts in the
+// total, because the total is what the ledger says.
+func (q *Queries) DashboardWalletBalances(ctx context.Context) ([]DashboardWalletBalancesRow, error) {
+	rows, err := q.db.Query(ctx, dashboardWalletBalances)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []DashboardWalletBalancesRow{}
+	for rows.Next() {
+		var i DashboardWalletBalancesRow
+		if err := rows.Scan(&i.Currency, &i.TotalMinor, &i.Holders); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const dashboardWebhookHealth = `-- name: DashboardWebhookHealth :one
 SELECT
   count(*) FILTER (WHERE status = 'received')::bigint AS unprocessed,

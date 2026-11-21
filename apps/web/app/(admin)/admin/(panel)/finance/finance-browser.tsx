@@ -16,6 +16,7 @@ import { useId, useState } from "react";
 import useSWR from "swr";
 
 import { CustomerChip } from "@/components/admin/customer-chip";
+import { useEnumLabel } from "@/components/admin/enum-label";
 import { PageHeader, ResourceTable } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
 import { Timestamp } from "@/components/intl/timestamp";
@@ -119,6 +120,7 @@ export function FinanceBrowser() {
 
 function OrderSearch() {
   const translate = useTranslations("admin.finance");
+  const label = useEnumLabel();
   const locale = useLocale();
   const stateId = useId();
   const operationId = useId();
@@ -284,14 +286,14 @@ function OrderSearch() {
             <TableCell>
               <CustomerChip id={order.customerId} />
             </TableCell>
-            <TableCell>{order.operation}</TableCell>
+            <TableCell>{label("orderOperation", order.operation)}</TableCell>
             <TableCell>
               <Badge
                 variant={
                   order.state === "fulfilled" || order.state === "paid" ? "success" : "neutral"
                 }
               >
-                {order.state}
+                {label("orderState", order.state)}
               </Badge>
             </TableCell>
             <TableCell data-numeric>
@@ -331,6 +333,7 @@ function OrderSearch() {
  */
 function StuckPayments({ active }: { active: boolean }) {
   const translate = useTranslations("admin.finance");
+  const label = useEnumLabel();
   const locale = useLocale();
   const { can } = useSession();
   const { data, isLoading, mutate } = useSWR<
@@ -371,9 +374,9 @@ function StuckPayments({ active }: { active: boolean }) {
               <TableCell className="whitespace-nowrap font-mono text-[11px]" data-numeric>
                 <Timestamp value={payment.updatedAt} />
               </TableCell>
-              <TableCell>{payment.provider}</TableCell>
+              <TableCell>{label("provider", payment.provider)}</TableCell>
               <TableCell>
-                <Badge variant="warning">{payment.status}</Badge>
+                <Badge variant="warning">{label("intentStatus", payment.status)}</Badge>
               </TableCell>
               <TableCell data-numeric>
                 {formatMoney(payment.amountMinor, payment.currency, locale)}
@@ -453,6 +456,7 @@ type BedolagaPayment = {
  */
 function BedolagaPayments({ active }: { active: boolean }) {
   const translate = useTranslations("admin.finance");
+  const label = useEnumLabel();
   const locale = useLocale();
   const { can } = useSession();
   const { data, isLoading, mutate } = useSWR<Listing<BedolagaPayment>, ApiError>(
@@ -494,7 +498,7 @@ function BedolagaPayments({ active }: { active: boolean }) {
                 <Timestamp value={claim.createdAt} />
               </TableCell>
               <TableCell>
-                {claim.provider}
+                {label("provider", claim.provider)}
                 <div className="font-mono text-[11px] text-muted-foreground">
                   {claim.providerReference}
                 </div>

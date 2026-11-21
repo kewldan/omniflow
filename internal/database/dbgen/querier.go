@@ -531,6 +531,12 @@ type Querier interface {
 	// the tile's own, so the buckets add up to the figure beside them. Empty
 	// buckets are absent; the caller fills them with zero.
 	DashboardUpcomingRenewals(ctx context.Context, days int32) ([]DashboardUpcomingRenewalsRow, error)
+	// What customers hold on their wallets right now, per currency: the money the
+	// business owes back as service. It is a balance at this moment, not a figure
+	// over the dashboard's window. Holders counts customers with a positive
+	// balance; a negative one (a correction gone too far) still counts in the
+	// total, because the total is what the ledger says.
+	DashboardWalletBalances(ctx context.Context) ([]DashboardWalletBalancesRow, error)
 	DashboardWebhookHealth(ctx context.Context, lookback pgtype.Interval) (DashboardWebhookHealthRow, error)
 	// The only path that moves a match out of review. The deciding operator and
 	// their reason are required by the row itself, so an adverse decision cannot be

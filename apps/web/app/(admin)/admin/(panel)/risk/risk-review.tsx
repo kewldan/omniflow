@@ -12,6 +12,7 @@ import { useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 
 import { CustomerChip } from "@/components/admin/customer-chip";
+import { useEnumLabel } from "@/components/admin/enum-label";
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
 import { Timestamp } from "@/components/intl/timestamp";
@@ -24,7 +25,6 @@ import {
   useOperatorAction,
 } from "@/lib/operations";
 import { useSession } from "@/lib/session";
-
 import { CheckNow } from "./check-now";
 import { NoSources, RuleEditor, SourceEditor } from "./rule-editor";
 
@@ -328,6 +328,7 @@ function Sources({ active }: { active: boolean }) {
 
 function SourceTable({ items, locale }: { items: BlocklistSource[]; locale: string }) {
   const translate = useTranslations("admin.risk");
+  const label = useEnumLabel();
   return (
     <Card className="overflow-x-auto">
       <Table>
@@ -361,7 +362,7 @@ function SourceTable({ items, locale }: { items: BlocklistSource[]; locale: stri
                         : "neutral"
                   }
                 >
-                  {source.status}
+                  {label("health", source.status)}
                 </Badge>
               </TableCell>
               <TableCell className="whitespace-nowrap font-mono text-[11px]" data-numeric>

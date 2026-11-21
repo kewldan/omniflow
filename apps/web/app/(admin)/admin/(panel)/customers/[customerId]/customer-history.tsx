@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import useSWR from "swr";
 
 import { CustomerChip } from "@/components/admin/customer-chip";
+import { useEnumLabel } from "@/components/admin/enum-label";
 import { StateNotice } from "@/components/admin/state-notice";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
@@ -113,6 +114,7 @@ export function ReferralPanel({ active, base }: { active: boolean; base: string 
 /** Support tickets and recorded consents, side by side. */
 export function SupportPanel({ active, base }: { active: boolean; base: string }) {
   const translate = useTranslations("admin.customers.support");
+  const label = useEnumLabel();
   const { data: tickets, isLoading } = useSWR<Listing<SupportTicket>, ApiError>(
     active ? `${base}/tickets` : null,
     fetcher,
@@ -142,7 +144,7 @@ export function SupportPanel({ active, base }: { active: boolean; base: string }
               <span className="truncate">{ticket.subject || translate("noSubject")}</span>
               <span className="flex shrink-0 items-center gap-2">
                 <Badge variant={ticket.status === "open" ? "warning" : "neutral"}>
-                  {ticket.status}
+                  {label("ticketStatus", ticket.status)}
                 </Badge>
                 <span className="font-mono text-[11px] text-muted-foreground">
                   <Timestamp mode="date" value={ticket.lastMessageAt} />
@@ -192,6 +194,7 @@ export function SupportPanel({ active, base }: { active: boolean; base: string }
  */
 export function AuditTimeline({ active, customerId }: { active: boolean; customerId: string }) {
   const translate = useTranslations("admin.customers.timeline");
+  const label = useEnumLabel();
   const { data, isLoading } = useSWR<Page<AuditEvent>, ApiError>(
     active ? `/v1/panel/audit?targetType=customer&targetId=${customerId}&pageSize=50` : null,
     fetcher,
@@ -217,7 +220,7 @@ export function AuditTimeline({ active, customerId }: { active: boolean; custome
         {items.map((event) => (
           <li className="flex flex-col gap-0.5" key={event.id}>
             <span className="flex flex-wrap items-baseline justify-between gap-2">
-              <span className="font-medium text-sm">{event.action}</span>
+              <span className="font-medium text-sm">{label("customerEvent", event.action)}</span>
               <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
                 <Timestamp value={event.occurredAt} />
               </span>

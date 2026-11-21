@@ -16,6 +16,7 @@ import dynamic from "next/dynamic";
 import { useLocale, useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR, { mutate as revalidate } from "swr";
+import { useEnumLabel } from "@/components/admin/enum-label";
 import { PageHeader } from "@/components/admin/resource-table";
 import { TelegramLogo } from "@/components/icons/telegram";
 import { Timestamp } from "@/components/intl/timestamp";
@@ -24,7 +25,6 @@ import { localized } from "@/lib/localized";
 import { formatMoney, type Listing, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 import { ReferralCommissionFields } from "./referral-commission";
-
 import type {
   AudienceSegment,
   Campaign,
@@ -547,6 +547,7 @@ function SegmentCard() {
 
 function SuppressionCard({ editable }: { editable: boolean }) {
   const translate = useTranslations("admin.marketing");
+  const label = useEnumLabel();
   const { data, isLoading, mutate } = useSWR<Listing<Suppression>, ApiError>(
     "/v1/panel/marketing/suppressions",
     fetcher,
@@ -578,7 +579,7 @@ function SuppressionCard({ editable }: { editable: boolean }) {
                 <TableRow key={suppression.customerId}>
                   <TableCell className="font-mono text-xs">{suppression.customerId}</TableCell>
                   <TableCell>
-                    {suppression.reason}
+                    {label("suppressionReason", suppression.reason)}
                     {suppression.note ? (
                       <p className="text-muted-foreground text-xs">{suppression.note}</p>
                     ) : null}

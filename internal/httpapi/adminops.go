@@ -365,19 +365,29 @@ func (handlers *AdminHandlers) dashboard(writer http.ResponseWriter, request *ht
 		handlers.operationsError(writer, request, err)
 		return
 	}
+	// Customer balances are money, so they are read only for an operator who
+	// may read finance; anyone else gets no field rather than a zero.
+	var walletBalances []panelpg.WalletBalance
+	if principal, _ := PrincipalFrom(request.Context()); principal.Grant.Allows(rbac.PermissionFinanceRead) {
+		if walletBalances, err = handlers.operations.WalletBalances(request.Context()); err != nil {
+			handlers.operationsError(writer, request, err)
+			return
+		}
+	}
 	// The window is published in seconds beside the numbers, because a metric
 	// whose period the reader has to guess is a metric they will misread.
 	writeJSON(writer, http.StatusOK, map[string]any{
-		"windowSeconds": int64(dashboard.Window.Seconds()),
-		"generatedAt":   dashboard.GeneratedAt,
-		"timezone":      dashboard.Timezone,
-		"customers":     dashboard.Customers,
-		"subscriptions": dashboard.Subscriptions,
-		"payments":      dashboard.Payments,
-		"revenue":       dashboard.Revenue,
-		"support":       dashboard.Support,
-		"operations":    dashboard.Operations,
-		"attention":     dashboard.Attention,
+		"windowSeconds":  int64(dashboard.Window.Seconds()),
+		"generatedAt":    dashboard.GeneratedAt,
+		"timezone":       dashboard.Timezone,
+		"customers":      dashboard.Customers,
+		"subscriptions":  dashboard.Subscriptions,
+		"payments":       dashboard.Payments,
+		"revenue":        dashboard.Revenue,
+		"support":        dashboard.Support,
+		"operations":     dashboard.Operations,
+		"attention":      dashboard.Attention,
+		"walletBalances": walletBalances,
 	})
 }
 
@@ -402,7 +412,7 @@ func (handlers *AdminHandlers) navigationCounts(writer http.ResponseWriter, requ
 			areas = append(areas, area)
 		}
 	}
-	counts, err := handlers.operations.NavigationCounts(request.Context(), areas)
+	counts, err := handlers.operations.NavigationCounts(request.Context(), areas, principal.Account.ID)
 	handlers.respond(writer, request, counts, err)
 }
 

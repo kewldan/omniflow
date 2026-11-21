@@ -824,6 +824,11 @@
         "30": "30 дней",
         "90": "90 дней",
         "365": "Год"
+      },
+      "wallets": {
+        "title": "Сейчас на балансах клиентов",
+        "description": "Деньги, которые клиенты внесли и ещё не потратили. Это долг сервисом, поэтому в выручку за период не входит.",
+        "holders": "{count, plural, one {у # клиента} few {у # клиентов} many {у # клиентов} other {у # клиента}}"
       }
     },
     "customers": {
@@ -2908,6 +2913,9 @@
       "tagAction": "Метка…",
       "mergeInto": "ID обращения для объединения",
       "merge": "Объединить",
+      "mergeTitle": "Объединить с другим обращением",
+      "mergeNoSiblings": "Других обращений у клиента нет. Вставьте ID обращения ниже.",
+      "mergeLoading": "Ищем другие обращения клиента…",
       "insertCanned": "Вставить шаблон…",
       "cannedHint": "Показаны только шаблоны, доступные вашей роли.",
       "replyPlaceholder": "Ваш ответ клиенту",
@@ -2918,7 +2926,7 @@
       "status": {
         "all": "Все",
         "open": "Открыто",
-        "pending": "В ожидании",
+        "pending": "Отвечено",
         "resolved": "Решено",
         "closed": "Закрыто",
         "merged": "Объединено"
@@ -4640,6 +4648,209 @@
         "primary": "Синий",
         "success": "Зелёный",
         "danger": "Красный"
+      }
+    },
+    "enums": {
+      "aiLimitScope": {
+        "installation": "Вся установка",
+        "role": "Роль",
+        "operator": "Оператор",
+        "feature": "Функция"
+      },
+      "aiProviderKind": {
+        "openai_compatible": "OpenAI-совместимый",
+        "anthropic": "Anthropic",
+        "gemini": "Gemini"
+      },
+      "backupKind": {
+        "scheduled": "По расписанию",
+        "manual": "Вручную",
+        "uploaded": "Загружена"
+      },
+      "backupStatus": {
+        "running": "Выполняется",
+        "completed": "Готова",
+        "failed": "Ошибка",
+        "pruned": "Удалена по сроку",
+        "pending": "В очереди"
+      },
+      "customerEvent": {
+        "suspended": "Заблокирован",
+        "restored": "Восстановлен",
+        "deletion_requested": "Запрошено удаление",
+        "deleted": "Удалён",
+        "anonymized": "Обезличен",
+        "merged_away": "Объединён с другим аккаунтом",
+        "merged_in": "Присоединён другой аккаунт",
+        "dormant": "Неактивен",
+        "revived": "Вернулся",
+        "delete": "Удалён",
+        "restore": "Восстановлен",
+        "wallet_adjusted": "Изменён баланс",
+        "subscription_closed": "Подписка закрыта",
+        "referral_reward_granted": "Начислена реферальная награда",
+        "referral_commission_granted": "Начислена реферальная комиссия",
+        "order_credit_withdrawn": "Списан зачёт по заказу",
+        "risk_blocklist_matched": "Совпадение с блок-листом",
+        "panel_customers_exported": "Выгрузка клиентов"
+      },
+      "deliveryStatus": {
+        "pending": "Ожидает",
+        "delivered": "Доставлено",
+        "failed": "Ошибка"
+      },
+      "fulfillmentOperation": {
+        "create": "Создание пользователя",
+        "extend": "Продление",
+        "enable": "Включение",
+        "disable": "Отключение",
+        "reset_traffic": "Сброс трафика",
+        "set_limits": "Изменение лимитов",
+        "set_squads": "Изменение сквадов",
+        "reconcile": "Сверка",
+        "pause": "Пауза",
+        "resume": "Возобновление",
+        "close": "Закрытие",
+        "limit_access": "Ограничение доступа",
+        "restore_access": "Возврат доступа",
+        "grant_squad": "Выдача сквада",
+        "revoke_squad": "Отзыв сквада"
+      },
+      "fulfillmentStatus": {
+        "pending": "Ожидает",
+        "running": "Выполняется",
+        "succeeded": "Успешно",
+        "retrying": "Повтор",
+        "failed": "Ошибка",
+        "cancelled": "Отменено"
+      },
+      "health": {
+        "unknown": "Не проверено",
+        "healthy": "Работает",
+        "failing": "Сбоит",
+        "pending": "Ожидает"
+      },
+      "intentStatus": {
+        "pending": "Ожидает",
+        "requires_action": "Ждёт действий клиента",
+        "processing": "Обрабатывается",
+        "succeeded": "Успешно",
+        "failed": "Ошибка",
+        "cancelled": "Отменён",
+        "expired": "Истёк"
+      },
+      "ledgerType": {
+        "credit": "Начисление",
+        "debit": "Списание",
+        "payment": "Оплата",
+        "refund": "Возврат",
+        "referral_reward": "Реферальная награда",
+        "correction": "Корректировка",
+        "expiration": "Сгорание"
+      },
+      "matchStatus": {
+        "open": "Открыто",
+        "allowed": "Разрешено",
+        "blocked": "Заблокировано",
+        "appealed": "Обжаловано"
+      },
+      "orderOperation": {
+        "purchase": "Покупка",
+        "upgrade": "Повышение тарифа",
+        "downgrade": "Понижение тарифа",
+        "extension": "Продление",
+        "topup": "Пополнение кошелька",
+        "addon": "Дополнение",
+        "gift": "Подарок",
+        "goods": "Цифровые товары",
+        "renewal": "Автопродление",
+        "code": "Активация кода",
+        "traffic_reset": "Сброс трафика",
+        "traffic_change": "Смена лимита трафика",
+        "device_reduction": "Уменьшение устройств",
+        "squad_removal": "Удаление сквада"
+      },
+      "orderState": {
+        "draft": "Черновик",
+        "pending": "Ожидает оплаты",
+        "paid": "Оплачен",
+        "fulfilled": "Выполнен",
+        "cancelled": "Отменён",
+        "expired": "Истёк",
+        "partially_refunded": "Частичный возврат",
+        "refunded": "Возвращён"
+      },
+      "provider": {
+        "telegram_stars": "Telegram Stars",
+        "cryptobot": "CryptoBot",
+        "yookassa": "ЮKassa",
+        "manual": "Вручную",
+        "heleket": "Heleket",
+        "mulenpay": "MulenPay",
+        "pal24": "PayPalych (Pal24)",
+        "platega": "Platega",
+        "cashera": "Cashera",
+        "tribute": "Tribute",
+        "freekassa": "FreeKassa",
+        "kassa_ai": "Kassa AI",
+        "riopay": "RioPay",
+        "severpay": "SeverPay",
+        "rollypay": "RollyPay",
+        "aurapay": "AuraPay",
+        "wata": "WATA",
+        "cloudpayments": "CloudPayments",
+        "lava": "Lava",
+        "overpay": "Overpay",
+        "paritypay": "ParityPay",
+        "payhot": "HOT Pay",
+        "cispay": "CisPay",
+        "antilopay": "Antilopay",
+        "anore": "Anore",
+        "donut": "Donut",
+        "etoplatezhi": "ЭтоПлатежи",
+        "jupiter": "Jupiter",
+        "tabpay": "TabPay"
+      },
+      "refundStatus": {
+        "pending": "Ожидает",
+        "processing": "Обрабатывается",
+        "succeeded": "Успешно",
+        "failed": "Ошибка",
+        "cancelled": "Отменён"
+      },
+      "restoreStatus": {
+        "requested": "Запрошено",
+        "running": "Выполняется",
+        "completed": "Готово",
+        "failed": "Ошибка"
+      },
+      "subjectKind": {
+        "telegram_id": "Telegram ID",
+        "email": "Почта",
+        "username": "Юзернейм"
+      },
+      "subscriptionStatus": {
+        "active": "Активна",
+        "closed": "Закрыта"
+      },
+      "suppressionReason": {
+        "customer_request": "Просьба клиента",
+        "bounced": "Письмо не доставлено",
+        "complaint": "Жалоба на спам",
+        "operator": "Оператор"
+      },
+      "ticketStatus": {
+        "open": "Открыто",
+        "pending": "Отвечено",
+        "resolved": "Решено",
+        "closed": "Закрыто",
+        "merged": "Объединено"
+      },
+      "webhookStatus": {
+        "received": "Получено",
+        "processed": "Обработано",
+        "ignored": "Пропущено",
+        "failed": "Ошибка"
       }
     }
   },

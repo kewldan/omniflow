@@ -177,6 +177,16 @@ status again is not a transition and writes nothing. A move to `pending` is not
 announced: it is the desk's own bookkeeping, and the operator's reply that
 normally accompanies it says what is needed.
 
+An operator reply on an `open` ticket moves it to `pending` in the same
+transaction, so an answered ticket leaves the queue of tickets waiting on the
+desk until the customer writes again. A reply on a `resolved` or `closed`
+ticket keeps its status: it is a postscript, not a reopen. The panel labels
+`pending` as **Answered**.
+
+The number beside **Support** in the sidebar counts `open` tickets that are the
+reading operator's to answer: assigned to them or to nobody. A ticket assigned
+to a colleague is not in it.
+
 An operator reply is activity too: it bumps `last_message_at` and `updated_at`
 at write time, so a web-only customer's answered ticket rises to the top of
 their inbox without waiting for a push that will never come for them.

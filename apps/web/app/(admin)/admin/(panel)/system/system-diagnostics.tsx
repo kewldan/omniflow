@@ -11,6 +11,7 @@ import { useState } from "react";
 import useSWR from "swr";
 
 import { CustomerChip } from "@/components/admin/customer-chip";
+import { useEnumLabel } from "@/components/admin/enum-label";
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
 import { Timestamp } from "@/components/intl/timestamp";
@@ -24,7 +25,6 @@ import {
   type WebhookEvent,
 } from "@/lib/operations";
 import { useSession } from "@/lib/session";
-
 import { HealthPanel } from "./health-panel";
 
 type OutboxEntry = { id: string; topic: string; occurredAt: string; ageSeconds: number };
@@ -90,6 +90,7 @@ export function SystemDiagnostics() {
  */
 function Jobs({ active }: { active: boolean }) {
   const translate = useTranslations("admin.system");
+  const label = useEnumLabel();
   const { can } = useSession();
   const { run, pending } = useOperatorAction();
 
@@ -131,7 +132,7 @@ function Jobs({ active }: { active: boolean }) {
               <TableCell className="whitespace-nowrap font-mono text-[11px]" data-numeric>
                 <Timestamp value={operation.createdAt} />
               </TableCell>
-              <TableCell>{operation.operation}</TableCell>
+              <TableCell>{label("fulfillmentOperation", operation.operation)}</TableCell>
               <TableCell data-numeric>{operation.attemptCount}</TableCell>
               <TableCell className="font-mono text-[11px] text-muted-foreground">
                 {operation.lastErrorCode ?? "—"}
@@ -187,6 +188,7 @@ function Jobs({ active }: { active: boolean }) {
 
 function Webhooks({ active }: { active: boolean }) {
   const translate = useTranslations("admin.system");
+  const label = useEnumLabel();
   const { can } = useSession();
   const { run, pending } = useOperatorAction();
 
@@ -221,7 +223,7 @@ function Webhooks({ active }: { active: boolean }) {
               <TableCell className="whitespace-nowrap font-mono text-[11px]" data-numeric>
                 <Timestamp value={event.receivedAt} />
               </TableCell>
-              <TableCell>{event.provider}</TableCell>
+              <TableCell>{label("provider", event.provider)}</TableCell>
               <TableCell>
                 <Badge variant={event.signatureValid ? "success" : "danger"}>
                   {translate(event.signatureValid ? "signature.valid" : "signature.invalid")}
@@ -229,7 +231,7 @@ function Webhooks({ active }: { active: boolean }) {
               </TableCell>
               <TableCell>
                 <Badge variant={event.status === "failed" ? "danger" : "neutral"}>
-                  {event.status}
+                  {label("webhookStatus", event.status)}
                 </Badge>
               </TableCell>
               {can("system.write") && (

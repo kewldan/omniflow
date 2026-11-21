@@ -9,6 +9,7 @@ import { Switch } from "@omniflow/ui/switch";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
+import { useEnumLabel } from "@/components/admin/enum-label";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import { type HealthReport, type MaintenanceState, useOperatorAction } from "@/lib/operations";
@@ -25,6 +26,7 @@ import { useSession } from "@/lib/session";
  */
 export function HealthPanel({ active }: { active: boolean }) {
   const translate = useTranslations("admin.system");
+  const label = useEnumLabel();
   const { data, isLoading } = useSWR<HealthReport, ApiError>(
     active ? "/v1/panel/overview/health" : null,
     fetcher,
@@ -85,8 +87,8 @@ export function HealthPanel({ active }: { active: boolean }) {
                   className="flex flex-wrap items-center justify-between gap-3"
                   key={`${provider.provider}:${provider.merchantId ?? ""}`}
                 >
-                  <span className="font-mono text-[12px]">
-                    {provider.provider}
+                  <span className="text-[13px]">
+                    {label("provider", provider.provider)}
                     {provider.merchantId ? ` · ${provider.merchantId}` : ""}
                   </span>
                   <span className="flex items-center gap-2">
@@ -94,10 +96,10 @@ export function HealthPanel({ active }: { active: boolean }) {
                       <Badge variant="neutral">{translate("health.disabled")}</Badge>
                     )}
                     <Badge variant={statusVariant(provider.connectionStatus)}>
-                      {translate("health.connection")}: {provider.connectionStatus}
+                      {translate("health.connection")}: {label("health", provider.connectionStatus)}
                     </Badge>
                     <Badge variant={statusVariant(provider.webhookStatus)}>
-                      {translate("health.webhook")}: {provider.webhookStatus}
+                      {translate("health.webhook")}: {label("health", provider.webhookStatus)}
                     </Badge>
                   </span>
                 </div>
@@ -109,7 +111,9 @@ export function HealthPanel({ active }: { active: boolean }) {
                     {provider.lowBalance && (
                       <Badge variant="danger">{translate("health.lowBalance")}</Badge>
                     )}
-                    <Badge variant={statusVariant(provider.status)}>{provider.status}</Badge>
+                    <Badge variant={statusVariant(provider.status)}>
+                      {label("health", provider.status)}
+                    </Badge>
                   </span>
                 </div>
               ))}

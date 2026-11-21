@@ -4,6 +4,7 @@ import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { Card } from "@omniflow/ui/card";
 import { Input, Textarea } from "@omniflow/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@omniflow/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { toast } from "@omniflow/ui/toast";
@@ -30,7 +31,7 @@ import { downloadThroughApi } from "@/lib/download";
 import { useBytes } from "@/lib/format";
 import { useSubmission } from "@/lib/idempotency";
 import { localized } from "@/lib/localized";
-import { type Listing, useOperatorAction } from "@/lib/operations";
+import { type Listing, type Page, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 import type {
   CannedResponse,
@@ -38,6 +39,7 @@ import type {
   SupportAttachment,
   SupportQueue,
   SupportTag,
+  SupportTicket,
   TicketDetail,
 } from "./types";
 
@@ -61,6 +63,7 @@ export function TicketConversation({
   ticketId: string;
 }) {
   const translate = useTranslations("admin.support");
+  const locale = useLocale();
   const { can } = useSession();
 
   const { data, error, isLoading, mutate } = useSWR<TicketDetail, ApiError>(
@@ -99,8 +102,11 @@ export function TicketConversation({
     ...data.notes.map((note) => ({ kind: "note" as const, value: note })),
   ].sort((left, right) => left.value.createdAt.localeCompare(right.value.createdAt));
 
+  // On a wide screen the conversation takes the window's height, so the
+  // thread is the part that grows; it used to be capped at 42rem, and the
+  // header and reply box above and below left the thread a few lines.
   return (
-    <Card className="flex max-h-[42rem] flex-col gap-3 p-4">
+    <Card className="flex flex-col gap-3 p-4 lg:sticky lg:top-18 lg:h-[calc(100dvh-5.5rem)] lg:min-h-[36rem]">
       <header className="flex flex-col gap-2 border-border border-b pb-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="font-semibold">{ticket.subject || translate("noSubject")}</h2>
@@ -117,7 +123,12 @@ export function TicketConversation({
           </Badge>
           <span className="inline-flex items-center gap-1 text-muted-foreground">
             <Inbox aria-hidden className="size-3.5" />
-            {ticket.queueCode}
+            {(() => {
+              const queue = queues.find((entry) => entry.code === ticket.queueCode);
+              return queue
+                ? localized(locale, queue.nameEn, queue.nameRu, queue.code)
+                : ticket.queueCode;
+            })()}
           </span>
           <span className="inline-flex items-center gap-1 text-muted-foreground">
             <UserRound aria-hidden className="size-3.5" />
@@ -147,7 +158,10 @@ export function TicketConversation({
         )}
       </header>
 
-      <div className="flex flex-1 flex-col gap-3 overflow-y-auto" ref={thread}>
+      <div
+        className="flex min-h-64 flex-1 flex-col gap-3 overflow-y-auto max-lg:max-h-[65dvh]"
+        ref={thread}
+      >
         {timeline.map((entry) =>
           entry.kind === "note" ? (
             <div
@@ -375,7 +389,6 @@ function TicketControls({
   const locale = useLocale();
   const { run, pending } = useOperatorAction();
   const { session } = useSession();
-  const [mergeTarget, setMergeTarget] = useState("");
 
   async function post(path: string, body: Record<string, unknown>) {
     const ok = await run(`/v1/panel/support/tickets/${ticket.id}/${path}`, {
@@ -492,31 +505,106 @@ function TicketControls({
         </Select>
       )}
 
-      {/* Merging is scoped to one customer by the server. Putting one
-          customer's words into another's conversation is refused rather than
-          warned about. */}
-      <span className="flex w-full items-center gap-1 sm:w-auto">
-        <Input
-          aria-label={translate("mergeInto")}
-          className="h-8 w-full text-xs sm:w-56"
-          onChange={(event) => setMergeTarget(event.target.value)}
-          placeholder={translate("mergeInto")}
-          value={mergeTarget}
-        />
-        <Button
-          disabled={pending || mergeTarget.trim().length === 0}
-          onClick={async () => {
-            await post("merge", { survivorId: mergeTarget.trim() });
-            setMergeTarget("");
-          }}
-          size="sm"
-          variant="ghost"
-        >
+      <MergeTicket
+        onMerge={(survivorId) => post("merge", { survivorId })}
+        pending={pending}
+        ticket={ticket}
+      />
+    </div>
+  );
+}
+
+/**
+ * Merging, behind one button: it is the rare action on a ticket, so it no
+ * longer keeps a field open beside the everyday controls.
+ *
+ * The usual case is a customer who wrote twice, so the popover offers that
+ * customer's other tickets first; an identifier can still be pasted for the
+ * rest. Merging is scoped to one customer by the server: putting one
+ * customer's words into another's conversation is refused rather than warned
+ * about.
+ */
+function MergeTicket({
+  onMerge,
+  pending,
+  ticket,
+}: {
+  onMerge: (survivorId: string) => Promise<void>;
+  pending: boolean;
+  ticket: TicketDetail["ticket"];
+}) {
+  const translate = useTranslations("admin.support");
+  const [open, setOpen] = useState(false);
+  const [target, setTarget] = useState("");
+  const { data } = useSWR<Page<SupportTicket>, ApiError>(
+    open ? `/v1/panel/support/tickets?customerId=${ticket.customerId}&pageSize=20` : null,
+    fetcher,
+  );
+  const siblings = (data?.items ?? []).filter(
+    (item) => item.id !== ticket.id && item.status !== "merged",
+  );
+
+  async function merge(survivorId: string) {
+    await onMerge(survivorId);
+    setTarget("");
+    setOpen(false);
+  }
+
+  return (
+    <Popover onOpenChange={setOpen} open={open}>
+      <PopoverTrigger asChild>
+        <Button disabled={pending} size="sm" variant="ghost">
           <GitMerge aria-hidden className="size-4" />
           {translate("merge")}
         </Button>
-      </span>
-    </div>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="flex w-80 flex-col gap-3">
+        <p className="font-medium text-sm">{translate("mergeTitle")}</p>
+        {siblings.length > 0 ? (
+          <ul className="-mx-2 flex flex-col">
+            {siblings.map((item) => (
+              <li key={item.id}>
+                <button
+                  className="flex w-full flex-col gap-0.5 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent disabled:opacity-50"
+                  disabled={pending}
+                  onClick={() => merge(item.id)}
+                  type="button"
+                >
+                  <span className="truncate">{item.subject || translate("noSubject")}</span>
+                  <span className="font-mono text-[11px] text-muted-foreground">
+                    <Timestamp mode="date" value={item.lastMessageAt} />
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-muted-foreground text-xs">
+            {data ? translate("mergeNoSiblings") : translate("mergeLoading")}
+          </p>
+        )}
+        <form
+          className="flex items-center gap-1"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (target.trim()) {
+              void merge(target.trim());
+            }
+          }}
+        >
+          <Input
+            aria-label={translate("mergeInto")}
+            className="h-8 text-xs"
+            onChange={(event) => setTarget(event.target.value)}
+            placeholder={translate("mergeInto")}
+            value={target}
+          />
+          <Button disabled={pending || target.trim().length === 0} size="sm" type="submit">
+            {translate("merge")}
+          </Button>
+        </form>
+      </PopoverContent>
+    </Popover>
   );
 }
 

@@ -1264,6 +1264,13 @@ export interface PanelAttentionItem {
   href: string;
 }
 
+export interface PanelWalletBalance {
+  currency: string;
+  totalMinor: number;
+  /** Customers with a positive balance in this currency. */
+  holders: number;
+}
+
 export interface PanelDashboard {
   windowSeconds: number;
   generatedAt: string;
@@ -1278,6 +1285,11 @@ export interface PanelDashboard {
   operations: PanelMetric[];
   /** @nullable */
   attention?: PanelAttentionItem[] | null;
+  /**
+   * What customers hold on their wallets now, per currency. Null for an operator without finance.read.
+   * @nullable
+   */
+  walletBalances?: PanelWalletBalance[] | null;
 }
 
 export type PanelIncidentAction = (typeof PanelIncidentAction)[keyof typeof PanelIncidentAction];

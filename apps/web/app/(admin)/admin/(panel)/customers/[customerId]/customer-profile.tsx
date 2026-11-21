@@ -13,7 +13,7 @@ import { useSearchParams } from "next/navigation";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { type ReactNode, useId, useState } from "react";
 import useSWR, { mutate as revalidate } from "swr";
-
+import { useEnumLabel, useLanguageLabel } from "@/components/admin/enum-label";
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
 import { CopyButton } from "@/components/copy-button";
@@ -50,6 +50,7 @@ import { SubscriptionActions, SubscriptionDevices } from "./subscription-actions
  */
 export function CustomerProfileView({ customerId }: { customerId: string }) {
   const translate = useTranslations("admin.customers");
+  const language = useLanguageLabel();
   const locale = useLocale();
   const format = useFormatter();
   const { can } = useSession();
@@ -124,7 +125,7 @@ export function CustomerProfileView({ customerId }: { customerId: string }) {
         <CardContent className="flex flex-wrap gap-x-8 gap-y-3">
           <Fact label={translate("columns.status")} value={translate(`status.${profile.status}`)} />
           <Fact label={translate("columns.telegram")} value={String(profile.telegramId ?? "—")} />
-          <Fact label={translate("columns.locale")} value={profile.locale} />
+          <Fact label={translate("columns.locale")} value={language(profile.locale)} />
           <Fact
             label={translate("facts.subscriptions")}
             value={String(profile.activeSubscriptions)}
@@ -325,6 +326,7 @@ function SubscriptionList({
   customerId: string;
 }) {
   const translate = useTranslations("admin.customers");
+  const label = useEnumLabel();
   const { data, isLoading } = useSWR<Listing<SubscriptionDetail>, ApiError>(
     active ? `${base}/subscriptions` : null,
     fetcher,
@@ -351,7 +353,7 @@ function SubscriptionList({
               </span>
             </div>
             <Badge variant={subscription.status === "active" ? "success" : "neutral"}>
-              {subscription.status}
+              {label("subscriptionStatus", subscription.status)}
             </Badge>
           </div>
           <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
@@ -404,6 +406,7 @@ function Detail({ label, value }: { label: string; value: ReactNode }) {
 
 function OrderList({ active, base, locale }: { active: boolean; base: string; locale: string }) {
   const translate = useTranslations("admin.customers");
+  const label = useEnumLabel();
   const { data, isLoading } = useSWR<Listing<OrderSummary>, ApiError>(
     active ? `${base}/orders` : null,
     fetcher,
@@ -434,9 +437,9 @@ function OrderList({ active, base, locale }: { active: boolean; base: string; lo
               <TableCell className="whitespace-nowrap font-mono text-[11px]" data-numeric>
                 <Timestamp value={order.createdAt} />
               </TableCell>
-              <TableCell>{order.operation}</TableCell>
+              <TableCell>{label("orderOperation", order.operation)}</TableCell>
               <TableCell>
-                <Badge variant="neutral">{order.state}</Badge>
+                <Badge variant="neutral">{label("orderState", order.state)}</Badge>
               </TableCell>
               <TableCell data-numeric>
                 {formatMoney(order.paidMinor, order.currency, locale)}
@@ -451,6 +454,7 @@ function OrderList({ active, base, locale }: { active: boolean; base: string; lo
 
 function WalletList({ active, base, locale }: { active: boolean; base: string; locale: string }) {
   const translate = useTranslations("admin.customers");
+  const label = useEnumLabel();
   const { data, isLoading } = useSWR<Listing<LedgerLine>, ApiError>(
     active ? `${base}/wallet` : null,
     fetcher,
@@ -483,7 +487,7 @@ function WalletList({ active, base, locale }: { active: boolean; base: string; l
               <TableCell className="whitespace-nowrap font-mono text-[11px]" data-numeric>
                 <Timestamp value={line.createdAt} />
               </TableCell>
-              <TableCell>{line.type}</TableCell>
+              <TableCell>{label("ledgerType", line.type)}</TableCell>
               <TableCell className="max-w-56 truncate font-mono text-[11px] text-muted-foreground">
                 {line.referenceType}:{line.referenceId}
               </TableCell>
@@ -502,6 +506,7 @@ function WalletList({ active, base, locale }: { active: boolean; base: string; l
 
 function RiskList({ active, base }: { active: boolean; base: string }) {
   const translate = useTranslations("admin.customers");
+  const label = useEnumLabel();
   const { data, isLoading } = useSWR<Listing<BlocklistMatch>, ApiError>(
     active ? `${base}/risk` : null,
     fetcher,
@@ -540,10 +545,12 @@ function RiskList({ active, base }: { active: boolean; base: string }) {
                 <Timestamp value={match.detectedAt} />
               </TableCell>
               <TableCell>{match.sourceName}</TableCell>
-              <TableCell className="text-muted-foreground">{match.subjectKind}</TableCell>
+              <TableCell className="text-muted-foreground">
+                {label("subjectKind", match.subjectKind)}
+              </TableCell>
               <TableCell>
                 <Badge variant={match.status === "blocked" ? "danger" : "neutral"}>
-                  {match.status}
+                  {label("matchStatus", match.status)}
                 </Badge>
               </TableCell>
               <TableCell className="max-w-64 truncate text-muted-foreground">

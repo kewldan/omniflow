@@ -13,11 +13,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useFormatter, useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
+import { useEnumLabel } from "@/components/admin/enum-label";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import { formatBytes, type Listing, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
-
 import {
   type SectionField,
   type SectionSchema,
@@ -449,6 +449,7 @@ function TelemetryCard() {
 
 function BackupCard() {
   const translate = useTranslations("admin.installationSettings");
+  const label = useEnumLabel();
   const { data, isLoading } = useSWR<{
     backups: BackupEntry[] | null;
     restores: BackupEntry[] | null;
@@ -486,10 +487,10 @@ function BackupCard() {
                   <TableCell className="whitespace-nowrap text-xs">
                     <Timestamp value={backup.createdAt} />
                   </TableCell>
-                  <TableCell>{backup.kind}</TableCell>
+                  <TableCell>{label("backupKind", backup.kind)}</TableCell>
                   <TableCell>
                     <Badge variant={backup.status === "completed" ? "neutral" : "danger"}>
-                      {backup.status}
+                      {label("backupStatus", backup.status)}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">{formatBytes(backup.sizeBytes)}</TableCell>
@@ -514,7 +515,7 @@ function BackupCard() {
             <ul className="flex flex-col gap-1 text-sm">
               {restores.map((restore) => (
                 <li key={restore.id}>
-                  <Timestamp value={restore.createdAt} /> · {restore.status}
+                  <Timestamp value={restore.createdAt} /> · {label("restoreStatus", restore.status)}
                   {restore.detail ? ` · ${restore.detail}` : ""}
                 </li>
               ))}

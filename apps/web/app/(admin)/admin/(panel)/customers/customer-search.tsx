@@ -13,6 +13,7 @@ import { useId, useState } from "react";
 import useSWR from "swr";
 
 import { CustomerChip } from "@/components/admin/customer-chip";
+import { useLanguageLabel } from "@/components/admin/enum-label";
 import { PageHeader, ResourceTable } from "@/components/admin/resource-table";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher, toQuery } from "@/lib/api";
@@ -43,6 +44,7 @@ const STATUS_VARIANT: Record<string, "success" | "warning" | "danger"> = {
  */
 export function CustomerSearch() {
   const translate = useTranslations("admin.customers");
+  const language = useLanguageLabel();
   const statusId = useId();
   const segmentId = useId();
   const queryId = useId();
@@ -183,7 +185,7 @@ export function CustomerSearch() {
             <TableCell className="font-mono text-[12px] text-muted-foreground" data-numeric>
               {customer.telegramId ?? "—"}
             </TableCell>
-            <TableCell className="text-muted-foreground">{customer.locale}</TableCell>
+            <TableCell className="text-muted-foreground">{language(customer.locale)}</TableCell>
             <TableCell className="whitespace-nowrap font-mono text-[11px]" data-numeric>
               <Timestamp mode="date" value={customer.createdAt} />
             </TableCell>

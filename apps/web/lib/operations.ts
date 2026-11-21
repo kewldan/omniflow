@@ -111,6 +111,14 @@ export type Dashboard = {
   support: Metric[];
   operations: Metric[];
   attention: AttentionItem[] | null;
+  /** What customers hold on their wallets now; absent without finance.read. */
+  walletBalances?: WalletBalance[] | null;
+};
+
+export type WalletBalance = {
+  currency: string;
+  totalMinor: number;
+  holders: number;
 };
 
 export type CustomerSummary = {

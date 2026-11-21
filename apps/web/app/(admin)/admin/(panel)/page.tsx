@@ -18,6 +18,7 @@ import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
+import { useMoney } from "@/lib/format";
 import { metricPolarity } from "@/lib/metric-trends";
 import {
   type Dashboard,
@@ -25,6 +26,7 @@ import {
   formatDuration,
   type Incident,
   type Metric,
+  type WalletBalance,
 } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 
@@ -218,6 +220,9 @@ export default function AdminHome() {
             <h2 className="font-semibold text-[15px] tracking-tight" id="revenue-heading">
               {translate("dashboard.groups.revenue")}
             </h2>
+            {(data.walletBalances ?? []).length > 0 && (
+              <WalletBalances balances={data.walletBalances ?? []} />
+            )}
             <Card>
               <CardHeader>
                 <CardDescription>{translate("dashboard.revenueDefinition")}</CardDescription>
@@ -498,4 +503,34 @@ function renderMetric(metric: Metric, number: (value: number) => string): string
     return metric.value === 0 ? "—" : formatDuration(metric.value);
   }
   return number(metric.value);
+}
+
+/**
+ * What customers hold on their wallets right now. It is a balance, not a
+ * figure over the selected period, so it sits beside the revenue chart rather
+ * than in it: it is money already taken that is still owed as service.
+ */
+function WalletBalances({ balances }: { balances: WalletBalance[] }) {
+  const translate = useTranslations("admin.dashboard.wallets");
+  const money = useMoney();
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">{translate("title")}</CardTitle>
+        <CardDescription>{translate("description")}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-wrap gap-x-10 gap-y-3">
+        {balances.map((balance) => (
+          <div className="flex flex-col" key={balance.currency}>
+            <span className="font-semibold text-2xl tabular-nums tracking-tight">
+              {money(balance.totalMinor, balance.currency)}
+            </span>
+            <span className="text-muted-foreground text-xs">
+              {translate("holders", { count: balance.holders })}
+            </span>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
 }

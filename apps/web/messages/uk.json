@@ -824,6 +824,11 @@
         "30": "30 днів",
         "90": "90 днів",
         "365": "Рік"
+      },
+      "wallets": {
+        "title": "Зараз на балансах клієнтів",
+        "description": "Гроші, які клієнти внесли й ще не витратили. Це борг сервісом, тому до виторгу за період не входить.",
+        "holders": "{count, plural, one {у # клієнта} few {у # клієнтів} many {у # клієнтів} other {у # клієнта}}"
       }
     },
     "customers": {
@@ -2816,6 +2821,9 @@
       "tagAction": "Мітка…",
       "mergeInto": "ID звернення для об'єднання",
       "merge": "Об'єднати",
+      "mergeTitle": "Об'єднати з іншим зверненням",
+      "mergeNoSiblings": "Інших звернень у клієнта немає. Вставте ID звернення нижче.",
+      "mergeLoading": "Шукаємо інші звернення клієнта…",
       "insertCanned": "Вставити шаблон…",
       "cannedHint": "Показано лише шаблони, доступні вашій ролі.",
       "replyPlaceholder": "Ваша відповідь клієнту",
@@ -2826,7 +2834,7 @@
       "status": {
         "all": "Усі",
         "open": "Відкрито",
-        "pending": "В очікуванні",
+        "pending": "Відповідено",
         "resolved": "Вирішено",
         "closed": "Закрито",
         "merged": "Об'єднано"
@@ -4548,6 +4556,209 @@
         "primary": "Синій",
         "success": "Зелений",
         "danger": "Червоний"
+      }
+    },
+    "enums": {
+      "aiLimitScope": {
+        "installation": "Уся установка",
+        "role": "Роль",
+        "operator": "Оператор",
+        "feature": "Функція"
+      },
+      "aiProviderKind": {
+        "openai_compatible": "OpenAI-сумісний",
+        "anthropic": "Anthropic",
+        "gemini": "Gemini"
+      },
+      "backupKind": {
+        "scheduled": "За розкладом",
+        "manual": "Вручну",
+        "uploaded": "Завантажено"
+      },
+      "backupStatus": {
+        "running": "Виконується",
+        "completed": "Готово",
+        "failed": "Помилка",
+        "pruned": "Видалено за терміном",
+        "pending": "У черзі"
+      },
+      "customerEvent": {
+        "suspended": "Заблоковано",
+        "restored": "Відновлено",
+        "deletion_requested": "Запит на видалення",
+        "deleted": "Видалено",
+        "anonymized": "Знеособлено",
+        "merged_away": "Об'єднано з іншим акаунтом",
+        "merged_in": "Приєднано інший акаунт",
+        "dormant": "Неактивний",
+        "revived": "Повернувся",
+        "delete": "Видалено",
+        "restore": "Відновлено",
+        "wallet_adjusted": "Змінено баланс",
+        "subscription_closed": "Підписку закрито",
+        "referral_reward_granted": "Нараховано реферальну винагороду",
+        "referral_commission_granted": "Нараховано реферальну комісію",
+        "order_credit_withdrawn": "Списано залік за замовленням",
+        "risk_blocklist_matched": "Збіг із блок-листом",
+        "panel_customers_exported": "Вивантаження клієнтів"
+      },
+      "deliveryStatus": {
+        "pending": "Очікує",
+        "delivered": "Доставлено",
+        "failed": "Помилка"
+      },
+      "fulfillmentOperation": {
+        "create": "Створення користувача",
+        "extend": "Продовження",
+        "enable": "Увімкнення",
+        "disable": "Вимкнення",
+        "reset_traffic": "Скидання трафіку",
+        "set_limits": "Зміна лімітів",
+        "set_squads": "Зміна сквадів",
+        "reconcile": "Звірка",
+        "pause": "Пауза",
+        "resume": "Відновлення",
+        "close": "Закриття",
+        "limit_access": "Обмеження доступу",
+        "restore_access": "Повернення доступу",
+        "grant_squad": "Видача скваду",
+        "revoke_squad": "Відкликання скваду"
+      },
+      "fulfillmentStatus": {
+        "pending": "Очікує",
+        "running": "Виконується",
+        "succeeded": "Успішно",
+        "retrying": "Повтор",
+        "failed": "Помилка",
+        "cancelled": "Скасовано"
+      },
+      "health": {
+        "unknown": "Не перевірено",
+        "healthy": "Працює",
+        "failing": "Збоїть",
+        "pending": "Очікує"
+      },
+      "intentStatus": {
+        "pending": "Очікує",
+        "requires_action": "Чекає дій клієнта",
+        "processing": "Обробляється",
+        "succeeded": "Успішно",
+        "failed": "Помилка",
+        "cancelled": "Скасовано",
+        "expired": "Минув"
+      },
+      "ledgerType": {
+        "credit": "Нарахування",
+        "debit": "Списання",
+        "payment": "Оплата",
+        "refund": "Повернення",
+        "referral_reward": "Реферальна винагорода",
+        "correction": "Коригування",
+        "expiration": "Згоряння"
+      },
+      "matchStatus": {
+        "open": "Відкрито",
+        "allowed": "Дозволено",
+        "blocked": "Заблоковано",
+        "appealed": "Оскаржено"
+      },
+      "orderOperation": {
+        "purchase": "Покупка",
+        "upgrade": "Підвищення тарифу",
+        "downgrade": "Зниження тарифу",
+        "extension": "Продовження",
+        "topup": "Поповнення гаманця",
+        "addon": "Доповнення",
+        "gift": "Подарунок",
+        "goods": "Цифрові товари",
+        "renewal": "Автопродовження",
+        "code": "Активація коду",
+        "traffic_reset": "Скидання трафіку",
+        "traffic_change": "Зміна ліміту трафіку",
+        "device_reduction": "Зменшення пристроїв",
+        "squad_removal": "Видалення скваду"
+      },
+      "orderState": {
+        "draft": "Чернетка",
+        "pending": "Очікує оплати",
+        "paid": "Оплачено",
+        "fulfilled": "Виконано",
+        "cancelled": "Скасовано",
+        "expired": "Минув",
+        "partially_refunded": "Частковий повернення",
+        "refunded": "Повернено"
+      },
+      "provider": {
+        "telegram_stars": "Telegram Stars",
+        "cryptobot": "CryptoBot",
+        "yookassa": "YooKassa",
+        "manual": "Вручну",
+        "heleket": "Heleket",
+        "mulenpay": "MulenPay",
+        "pal24": "PayPalych",
+        "platega": "Platega",
+        "cashera": "Cashera",
+        "tribute": "Tribute",
+        "freekassa": "FreeKassa",
+        "kassa_ai": "Kassa AI",
+        "riopay": "RioPay",
+        "severpay": "SeverPay",
+        "rollypay": "RollyPay",
+        "aurapay": "AuraPay",
+        "wata": "WATA",
+        "cloudpayments": "CloudPayments",
+        "lava": "Lava",
+        "overpay": "Overpay",
+        "paritypay": "ParityPay",
+        "payhot": "HOT Pay",
+        "cispay": "CisPay",
+        "antilopay": "Antilopay",
+        "anore": "Anore",
+        "donut": "Donut",
+        "etoplatezhi": "EtoPlatezhi",
+        "jupiter": "Jupiter",
+        "tabpay": "TabPay"
+      },
+      "refundStatus": {
+        "pending": "Очікує",
+        "processing": "Обробляється",
+        "succeeded": "Успішно",
+        "failed": "Помилка",
+        "cancelled": "Скасовано"
+      },
+      "restoreStatus": {
+        "requested": "Запитано",
+        "running": "Виконується",
+        "completed": "Готово",
+        "failed": "Помилка"
+      },
+      "subjectKind": {
+        "telegram_id": "Telegram ID",
+        "email": "Пошта",
+        "username": "Юзернейм"
+      },
+      "subscriptionStatus": {
+        "active": "Активна",
+        "closed": "Закрита"
+      },
+      "suppressionReason": {
+        "customer_request": "Прохання клієнта",
+        "bounced": "Лист не доставлено",
+        "complaint": "Скарга на спам",
+        "operator": "Оператор"
+      },
+      "ticketStatus": {
+        "open": "Відкрито",
+        "pending": "Відповідено",
+        "resolved": "Вирішено",
+        "closed": "Закрито",
+        "merged": "Об'єднано"
+      },
+      "webhookStatus": {
+        "received": "Отримано",
+        "processed": "Оброблено",
+        "ignored": "Пропущено",
+        "failed": "Помилка"
       }
     }
   },

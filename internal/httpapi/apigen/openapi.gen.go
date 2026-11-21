@@ -8597,8 +8597,11 @@ type PanelDashboard struct {
 	Support       []PanelMetric         `json:"support"`
 
 	// Timezone Always UTC. The panel converts for display.
-	Timezone      string `json:"timezone"`
-	WindowSeconds int64  `json:"windowSeconds"`
+	Timezone string `json:"timezone"`
+
+	// WalletBalances What customers hold on their wallets now, per currency. Null for an operator without finance.read.
+	WalletBalances *[]PanelWalletBalance `json:"walletBalances,omitempty"`
+	WindowSeconds  int64                 `json:"windowSeconds"`
 }
 
 // PanelDaySales defines model for PanelDaySales.
@@ -10609,6 +10612,15 @@ type PanelTrialConversion struct {
 
 	// Trials Trials claimed inside the period.
 	Trials int64 `json:"trials"`
+}
+
+// PanelWalletBalance defines model for PanelWalletBalance.
+type PanelWalletBalance struct {
+	Currency string `json:"currency"`
+
+	// Holders Customers with a positive balance in this currency.
+	Holders    int64 `json:"holders"`
+	TotalMinor int64 `json:"totalMinor"`
 }
 
 // PanelWebhookEvent defines model for PanelWebhookEvent.

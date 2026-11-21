@@ -11,12 +11,11 @@ import { toast } from "@omniflow/ui/toast";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
-
+import { useEnumLabel } from "@/components/admin/enum-label";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 import { useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
-
 import type { RbacCatalog } from "../operators/roles";
 
 type Token = {
@@ -55,6 +54,7 @@ type Delivery = {
  */
 export function IntegrationsCard() {
   const translate = useTranslations("admin.integrations");
+  const label = useEnumLabel();
   const { can } = useSession();
   const writable = can("system.write");
   const { data: tokens, mutate: refreshTokens } = useSWR<{ items: Token[] }, ApiError>(
@@ -319,8 +319,9 @@ export function IntegrationsCard() {
               {openDeliveries === hook.id
                 ? (deliveries?.items ?? []).map((delivery) => (
                     <span className="font-mono text-xs" key={delivery.id}>
-                      <Timestamp value={delivery.createdAt} /> {delivery.topic} · {delivery.status}{" "}
-                      · {delivery.attempts}× {delivery.responseStatus ?? ""}
+                      <Timestamp value={delivery.createdAt} /> {delivery.topic} ·{" "}
+                      {label("deliveryStatus", delivery.status)} · {delivery.attempts}×{" "}
+                      {delivery.responseStatus ?? ""}
                     </span>
                   ))
                 : null}

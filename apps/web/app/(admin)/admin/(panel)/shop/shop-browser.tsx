@@ -10,7 +10,7 @@ import { useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR from "swr";
-
+import { useEnumLabel } from "@/components/admin/enum-label";
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
 import { Timestamp } from "@/components/intl/timestamp";
@@ -301,6 +301,7 @@ function Products({ active }: { active: boolean }) {
 
 function Providers({ active }: { active: boolean }) {
   const translate = useTranslations("admin.shop");
+  const label = useEnumLabel();
   const locale = useLocale();
   const { data, isLoading } = useSWR<Listing<GoodsProvider>, ApiError>(
     active ? "/v1/panel/goods/providers" : null,
@@ -338,7 +339,7 @@ function Providers({ active }: { active: boolean }) {
                       : "neutral"
                 }
               >
-                {provider.status}
+                {label("health", provider.status)}
               </Badge>
             </div>
           </div>

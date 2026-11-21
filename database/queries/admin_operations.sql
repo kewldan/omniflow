@@ -179,6 +179,25 @@ FROM payment_intents i
 WHERE i.created_at >= now() - sqlc.arg(lookback)::interval - sqlc.arg(shift)::interval
   AND i.created_at < now() - sqlc.arg(shift)::interval;
 
+-- name: DashboardWalletBalances :many
+-- What customers hold on their wallets right now, per currency: the money the
+-- business owes back as service. It is a balance at this moment, not a figure
+-- over the dashboard's window. Holders counts customers with a positive
+-- balance; a negative one (a correction gone too far) still counts in the
+-- total, because the total is what the ledger says.
+SELECT balances.currency,
+  sum(balances.balance_minor)::bigint AS total_minor,
+  count(*) FILTER (WHERE balances.balance_minor > 0)::bigint AS holders
+FROM (
+  SELECT wallet_entry.user_id, wallet_entry.currency, sum(wallet_entry.amount_minor) AS balance_minor
+  FROM ledger_entries wallet_entry
+  WHERE wallet_entry.account_type = 'customer_wallet'
+  GROUP BY wallet_entry.user_id, wallet_entry.currency
+) balances
+GROUP BY balances.currency
+HAVING sum(balances.balance_minor) <> 0
+ORDER BY balances.currency;
+
 -- name: DashboardRevenue :many
 -- Deliberately three separate figures rather than one "revenue": money taken
 -- through a provider, wallet credit spent, and money returned are different

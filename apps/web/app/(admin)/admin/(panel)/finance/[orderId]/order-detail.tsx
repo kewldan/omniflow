@@ -11,6 +11,7 @@ import { useId, useState } from "react";
 import useSWR from "swr";
 
 import { CustomerChip } from "@/components/admin/customer-chip";
+import { useEnumLabel } from "@/components/admin/enum-label";
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
 import { CopyButton } from "@/components/copy-button";
@@ -79,6 +80,7 @@ type OrderDetail = {
  */
 export function OrderDetailView({ orderId }: { orderId: string }) {
   const translate = useTranslations("admin.finance");
+  const label = useEnumLabel();
   const locale = useLocale();
   const { can } = useSession();
 
@@ -120,8 +122,8 @@ export function OrderDetailView({ orderId }: { orderId: string }) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            {order.operation}
-            <Badge variant="neutral">{order.state}</Badge>
+            {label("orderOperation", order.operation)}
+            <Badge variant="neutral">{label("orderState", order.state)}</Badge>
           </CardTitle>
           <CardDescription>
             <Timestamp value={order.createdAt} /> · <CustomerChip id={order.customerId} />
@@ -190,9 +192,9 @@ export function OrderDetailView({ orderId }: { orderId: string }) {
             <Card className="flex flex-col gap-3 p-4" key={intent.id}>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <span className="flex items-center gap-2">
-                  <span className="font-medium">{intent.provider}</span>
+                  <span className="font-medium">{label("provider", intent.provider)}</span>
                   <Badge variant={intent.status === "succeeded" ? "success" : "neutral"}>
-                    {intent.status}
+                    {label("intentStatus", intent.status)}
                   </Badge>
                 </span>
                 <span className="flex items-center gap-3">
@@ -218,7 +220,7 @@ export function OrderDetailView({ orderId }: { orderId: string }) {
                     <span>
                       {translate(`events.${event.type}`)}
                       {event.previousStatus && event.status
-                        ? ` · ${event.previousStatus} → ${event.status}`
+                        ? ` · ${label("intentStatus", event.previousStatus)} → ${label("intentStatus", event.status)}`
                         : ""}
                     </span>
                     <span className="font-mono text-[11px] text-muted-foreground tabular-nums">
@@ -245,7 +247,7 @@ export function OrderDetailView({ orderId }: { orderId: string }) {
               >
                 <span className="flex items-center gap-2">
                   <Badge variant={refund.status === "succeeded" ? "success" : "neutral"}>
-                    {refund.status}
+                    {label("refundStatus", refund.status)}
                   </Badge>
                   <span className="text-muted-foreground">{refund.reason}</span>
                 </span>

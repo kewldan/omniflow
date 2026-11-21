@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useTranslations } from "next-intl";
 import { Fragment, useEffect, useId, useState } from "react";
 import useSWR from "swr";
-
+import { useEnumLabel } from "@/components/admin/enum-label";
 import { PageHeader } from "@/components/admin/resource-table";
 import { type ApiError, fetcher } from "@/lib/api";
 import {
@@ -22,7 +22,6 @@ import {
 } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 import { useUnsavedChanges } from "@/lib/use-unsaved-changes";
-
 import { PaymentGuidanceCard, PaymentMethodsCard } from "./payment-methods";
 import { ProviderEditor } from "./provider-editor";
 import { SubscriptionPolicyCard } from "./subscription-policy";
@@ -286,6 +285,7 @@ function SubscriptionCard({
  */
 function ProviderCard() {
   const translate = useTranslations("admin.settings");
+  const label = useEnumLabel();
   const { can } = useSession();
   const [editing, setEditing] = useState("");
   const { data, isLoading, mutate } = useSWR<
@@ -351,8 +351,8 @@ function ProviderCard() {
               return (
                 <Fragment key={key}>
                   <TableRow>
-                    <TableCell className="font-mono text-[12px]">
-                      {provider.provider}
+                    <TableCell className="text-[13px]">
+                      {label("provider", provider.provider)}
                       {provider.merchantId && ` · ${provider.merchantId}`}
                     </TableCell>
                     <TableCell>

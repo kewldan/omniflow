@@ -732,6 +732,17 @@ func (service *Service) Reply(
 		if txErr = queries.TouchSupportTicketActivity(ctx, id); txErr != nil {
 			return txErr
 		}
+		// An answer hands the conversation back to the customer: an open ticket
+		// becomes pending, so it leaves the "waiting on us" count, and the
+		// customer's next message turns it open again. A resolved or closed
+		// ticket keeps its status; writing into it is a postscript, not a reopen.
+		if ticket.Status == "open" {
+			if _, txErr = queries.SetSupportTicketStatus(ctx, dbgen.SetSupportTicketStatusParams{
+				TicketID: id, Status: "pending",
+			}); txErr != nil {
+				return txErr
+			}
+		}
 		// Only the first reply sets the measure, so it survives a conversation
 		// that goes back and forth for a week.
 		if _, txErr = queries.RecordSupportFirstResponse(ctx, id); txErr != nil &&

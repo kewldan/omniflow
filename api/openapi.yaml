@@ -7031,6 +7031,18 @@ components:
         support: {type: array, items: {$ref: "#/components/schemas/PanelMetric"}}
         operations: {type: array, items: {$ref: "#/components/schemas/PanelMetric"}}
         attention: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelAttentionItem"}}
+        walletBalances:
+          type: array
+          nullable: true
+          description: "What customers hold on their wallets now, per currency. Null for an operator without finance.read."
+          items: {$ref: "#/components/schemas/PanelWalletBalance"}
+    PanelWalletBalance:
+      type: object
+      required: [currency, totalMinor, holders]
+      properties:
+        currency: {type: string}
+        totalMinor: {type: integer, format: int64}
+        holders: {type: integer, format: int64, description: "Customers with a positive balance in this currency."}
     PanelIncident:
       type: object
       required: [id, action, source, reason, actorType, occurredAt]

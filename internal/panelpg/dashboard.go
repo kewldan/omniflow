@@ -111,6 +111,31 @@ type RevenueLine struct {
 	PaidSeries []SeriesPoint `json:"paidSeries,omitempty"`
 }
 
+// WalletBalance is what customers hold on their wallets in one currency, at
+// the moment of reading: money already taken that the business still owes as
+// service.
+type WalletBalance struct {
+	Currency   string `json:"currency"`
+	TotalMinor int64  `json:"totalMinor"`
+	// Holders is how many customers have a positive balance in the currency.
+	Holders int64 `json:"holders"`
+}
+
+// WalletBalances totals every customer wallet by currency. It is not part of
+// Dashboard because it is money and is read only for an operator who may read
+// finance.
+func (service *Service) WalletBalances(ctx context.Context) ([]WalletBalance, error) {
+	rows, err := service.queries().DashboardWalletBalances(ctx)
+	if err != nil {
+		return nil, err
+	}
+	balances := make([]WalletBalance, 0, len(rows))
+	for _, row := range rows {
+		balances = append(balances, WalletBalance{Currency: row.Currency, TotalMinor: row.TotalMinor, Holders: row.Holders})
+	}
+	return balances, nil
+}
+
 // Dashboard is the operations overview.
 type Dashboard struct {
 	// Window is the length of the reporting period every windowed metric used.
