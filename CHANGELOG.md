@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.2.1](https://github.com/kewldan/omniflow/compare/omniflow-v1.2.0...omniflow-v1.2.1) (2026-11-21)
+
+
+### Bug Fixes
+
+* **release:** pin cosign-installer to a tag that exists ([05a2382](https://github.com/kewldan/omniflow/commit/05a2382956567ab3ed3df072ce967abea610be6c))
+* **release:** publish images a server can run without building ([a01457c](https://github.com/kewldan/omniflow/commit/a01457cb7bc9b09c45f5333429dd98a279fe0741))
+
 ## [1.2.0](https://github.com/kewldan/omniflow/compare/omniflow-v1.1.0...omniflow-v1.2.0) (2026-11-21)
 
 
