@@ -125,10 +125,7 @@ func (service *Service) Apply(ctx context.Context, importID string, limit int) (
 	if run.Status != "ready" && run.Status != "applying" {
 		return dbgen.CustomerImport{}, errors.New("import is not ready")
 	}
-	if limit <= 0 || limit > 500 {
-		limit = 100
-	}
-	items, err := queries.ListCustomerImportItems(ctx, dbgen.ListCustomerImportItemsParams{ImportID: id, Status: pgtype.Text{String: "valid", Valid: true}, PageSize: int32(limit)})
+	items, err := queries.ListCustomerImportItems(ctx, dbgen.ListCustomerImportItemsParams{ImportID: id, Status: pgtype.Text{String: "valid", Valid: true}, PageSize: applyPageSize(limit)})
 	if err != nil {
 		return dbgen.CustomerImport{}, err
 	}
@@ -180,4 +177,14 @@ func optionalInt8(value *int64) pgtype.Int8 {
 		return pgtype.Int8{}
 	}
 	return pgtype.Int8{Int64: *value, Valid: true}
+}
+
+// applyPageSize bounds how many staged items one apply step takes: 100 unless
+// a caller asks for between 1 and 500. The value is converted only once it is
+// known to be in range.
+func applyPageSize(limit int) int32 {
+	if limit <= 0 || limit > 500 {
+		return 100
+	}
+	return int32(limit)
 }

@@ -8,7 +8,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -145,11 +144,8 @@ func (handlers *CommerceHandlers) cancelOrder(writer http.ResponseWriter, reques
 }
 
 func (handlers *CommerceHandlers) listFulfillmentDrifts(writer http.ResponseWriter, request *http.Request) {
-	limit, _ := strconv.Atoi(request.URL.Query().Get("limit"))
-	if limit <= 0 || limit > 500 {
-		limit = 100
-	}
-	rows, err := handlers.queries.ListOpenEntitlementDrifts(request.Context(), int32(limit))
+	limit := queryPageSize(request, "limit", 100, 500)
+	rows, err := handlers.queries.ListOpenEntitlementDrifts(request.Context(), limit)
 	if err != nil {
 		writeProblem(writer, request, 500, "drifts_unavailable", "Fulfillment drifts are unavailable")
 		return
@@ -578,7 +574,7 @@ func (handlers *CommerceHandlers) resumeImport(writer http.ResponseWriter, reque
 	handlers.runImportPreview(writer, request, chi.URLParam(request, "importID"))
 }
 func (handlers *CommerceHandlers) runImportPreview(writer http.ResponseWriter, request *http.Request, id string) {
-	pageSize, _ := strconv.Atoi(request.URL.Query().Get("pageSize"))
+	pageSize := int(parseInt32(request.URL.Query().Get("pageSize")))
 	run, err := handlers.imports.Preview(request.Context(), id, pageSize)
 	if err != nil {
 		writeProblem(writer, request, 422, "import_failed", err.Error())
@@ -587,7 +583,7 @@ func (handlers *CommerceHandlers) runImportPreview(writer http.ResponseWriter, r
 	writeJSON(writer, 200, importResponse(run))
 }
 func (handlers *CommerceHandlers) applyImport(writer http.ResponseWriter, request *http.Request) {
-	limit, _ := strconv.Atoi(request.URL.Query().Get("limit"))
+	limit := int(parseInt32(request.URL.Query().Get("limit")))
 	run, err := handlers.imports.Apply(request.Context(), chi.URLParam(request, "importID"), limit)
 	if err != nil {
 		writeProblem(writer, request, 422, "import_failed", err.Error())

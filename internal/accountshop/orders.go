@@ -221,7 +221,9 @@ func (service *Service) Orders(
 	}
 	defer rows.Close()
 
-	page := Page{Items: make([]Order, 0, limit)}
+	// Sized by a constant, not by limit: append grows a longer page, and a
+	// caller's requested limit never sizes an allocation.
+	page := Page{Items: make([]Order, 0, defaultPageSize)}
 	for rows.Next() {
 		order, scanErr := service.scanOrder(rows)
 		if scanErr != nil {

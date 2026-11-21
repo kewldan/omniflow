@@ -68,7 +68,7 @@ func (service *Service) Deliveries(
 	}
 	defer rows.Close()
 
-	deliveries := make([]Delivery, 0, limit)
+	deliveries := make([]Delivery, 0, deliveryHistoryLimit)
 	for rows.Next() {
 		var delivery Delivery
 		var sentAt, deferredUntil *time.Time

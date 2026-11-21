@@ -3,7 +3,6 @@ package httpapi
 import (
 	"errors"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -615,11 +614,7 @@ func (handlers *AccountHandlers) allowPrivacyRate(
 // referralPageLimit reads an optional page size. An unreadable value is no value: the
 // right response to "limit=banana" is the default page, not a failed request.
 func referralPageLimit(request *http.Request) int {
-	limit, err := strconv.Atoi(trimmedQuery(request, "limit"))
-	if err != nil {
-		return 0
-	}
-	return limit
+	return int(queryInt(request, "limit"))
 }
 
 // referralOptionalTime renders an optional instant, so a JSON null means "never

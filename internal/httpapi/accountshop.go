@@ -242,7 +242,7 @@ func (handlers *AccountHandlers) shopOrders(writer http.ResponseWriter, request 
 		}
 		cursor.CreatedAt = parsed
 	}
-	limit, _ := strconv.Atoi(trimmedQuery(request, "limit"))
+	limit := int(queryInt(request, "limit"))
 
 	page, err := handlers.shop.Orders(
 		request.Context(), principal.Customer.ID,

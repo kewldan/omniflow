@@ -6,7 +6,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -320,11 +319,7 @@ func query(request *http.Request, name string) string {
 // queryInt reads an integer query parameter, defaulting on anything unusable.
 // A malformed page size is a caller mistake that should still return a page.
 func queryInt(request *http.Request, name string) int32 {
-	value, err := strconv.Atoi(query(request, name))
-	if err != nil || value < 0 {
-		return 0
-	}
-	return int32(value)
+	return parseInt32(query(request, name))
 }
 
 // queryTime reads an RFC 3339 instant, or nil when absent or unparseable.

@@ -634,11 +634,7 @@ func idempotencyKey(request *http.Request) string {
 }
 
 func queryLimit(request *http.Request) int {
-	limit, err := strconv.Atoi(trimmedQuery(request, "limit"))
-	if err != nil {
-		return 0
-	}
-	return limit
+	return int(queryInt(request, "limit"))
 }
 
 // writeSupportError maps this surface's errors onto responses, reporting whether

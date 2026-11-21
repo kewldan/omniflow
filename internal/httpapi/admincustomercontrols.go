@@ -62,8 +62,9 @@ func (handlers *AdminHandlers) botButtonStats(writer http.ResponseWriter, reques
 func (handlers *AdminHandlers) searchCustomersAdvanced(writer http.ResponseWriter, request *http.Request) {
 	query := request.URL.Query()
 	number := func(name string) int {
-		value, _ := strconv.Atoi(query.Get(name))
-		return value
+		// Every filter here is a positive bound or absent, so a negative or
+		// malformed value reads as absent, and a huge one cannot wrap.
+		return int(parseInt32(query.Get(name)))
 	}
 	items, err := handlers.operations.SearchCustomersAdvanced(request.Context(), panelpg.AdvancedFilter{
 		Status: query.Get("status"), ExpiringDays: number("expiringDays"),

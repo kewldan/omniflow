@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"math"
 	"net/url"
 	"os"
 	"regexp"
@@ -820,12 +821,19 @@ func envOr(key, fallback string) string {
 	return fallback
 }
 
+// intEnvOr reads a non-negative count, falling back when it is absent,
+// malformed, or negative. A value beyond the int32 range is clamped to it: every
+// count read here is stored or passed on as an int32, and clamping keeps "a very
+// large number" meaning "as many as possible" instead of wrapping negative.
 func intEnvOr(key string, fallback int) int {
-	parsed, err := strconv.Atoi(os.Getenv(key))
+	parsed, err := strconv.ParseInt(os.Getenv(key), 10, 64)
 	if err != nil || parsed < 0 {
 		return fallback
 	}
-	return parsed
+	if parsed > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	return int(parsed)
 }
 
 func int64EnvOr(key string, fallback int64) int64 {

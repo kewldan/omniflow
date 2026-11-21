@@ -4,7 +4,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -808,9 +807,9 @@ func (handlers *AdminHandlers) regenerateRecoveryCodes(writer http.ResponseWrite
 
 func (handlers *AdminHandlers) listAdmins(writer http.ResponseWriter, request *http.Request) {
 	query := request.URL.Query()
-	pageSize, _ := strconv.Atoi(query.Get("pageSize"))
 	page, err := handlers.service.ListAccounts(
-		request.Context(), query.Get("status"), query.Get("cursor"), int32(pageSize),
+		request.Context(), query.Get("status"), query.Get("cursor"),
+		parseInt32(query.Get("pageSize")),
 	)
 	if err != nil {
 		writeProblem(writer, request, http.StatusInternalServerError, "admins_unavailable", "Operators are unavailable")
@@ -1129,7 +1128,6 @@ func auditPayload(event adminauthpg.AuditEvent) map[string]any {
 
 func auditFilterFrom(request *http.Request) adminauthpg.AuditFilter {
 	query := request.URL.Query()
-	pageSize, _ := strconv.Atoi(query.Get("pageSize"))
 	filter := adminauthpg.AuditFilter{
 		Category:   query.Get("category"),
 		Outcome:    query.Get("outcome"),
@@ -1139,7 +1137,7 @@ func auditFilterFrom(request *http.Request) adminauthpg.AuditFilter {
 		TargetType: query.Get("targetType"),
 		TargetID:   query.Get("targetId"),
 		Cursor:     query.Get("cursor"),
-		PageSize:   int32(pageSize),
+		PageSize:   parseInt32(query.Get("pageSize")),
 		// Any value other than an explicit "asc" keeps the newest-first default,
 		// which is the ordering an operator reviewing recent activity wants.
 		Ascending: query.Get("sort") == "asc",

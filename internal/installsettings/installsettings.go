@@ -136,8 +136,10 @@ func (document Document) Int(name string, fallback int) int {
 			return int(value)
 		}
 	case string:
-		if parsed, err := strconv.Atoi(strings.TrimSpace(value)); err == nil {
-			return parsed
+		// Parsed at 32 bits, the same range the number branch accepts, so a
+		// saved value can never wrap when a reader narrows it for a query.
+		if parsed, err := strconv.ParseInt(strings.TrimSpace(value), 10, 32); err == nil {
+			return int(parsed)
 		}
 	}
 	return fallback

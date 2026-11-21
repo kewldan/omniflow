@@ -72,11 +72,8 @@ func (handlers *CommerceHandlers) listJobs(writer http.ResponseWriter, request *
 		writeProblem(writer, request, 400, "invalid_state", "Unknown job state filter")
 		return
 	}
-	limit, _ := strconv.Atoi(request.URL.Query().Get("limit"))
-	if limit <= 0 || limit > 200 {
-		limit = 50
-	}
-	result, err := handlers.operations.jobs.JobList(request.Context(), river.NewJobListParams().States(states...).First(limit))
+	limit := queryPageSize(request, "limit", 50, 200)
+	result, err := handlers.operations.jobs.JobList(request.Context(), river.NewJobListParams().States(states...).First(int(limit)))
 	if err != nil {
 		writeProblem(writer, request, 500, "jobs_unavailable", "Job list is unavailable")
 		return
@@ -144,11 +141,11 @@ func (handlers *CommerceHandlers) mutateJob(writer http.ResponseWriter, request 
 	writeJSON(writer, 200, jobResponse(job))
 }
 
+// webhookEventsDefault is the webhook history page when no limit is asked for.
+const webhookEventsDefault = 50
+
 func (handlers *CommerceHandlers) listWebhookEvents(writer http.ResponseWriter, request *http.Request) {
-	limit, _ := strconv.Atoi(request.URL.Query().Get("limit"))
-	if limit <= 0 || limit > 200 {
-		limit = 50
-	}
+	limit := queryPageSize(request, "limit", webhookEventsDefault, 200)
 	rows, err := handlers.operations.pool.Query(request.Context(), `SELECT id::text, provider, provider_event_id,
 		signature_valid, status, error_code, received_at, processed_at
 		FROM provider_webhook_events ORDER BY received_at DESC LIMIT $1`, limit)
@@ -157,7 +154,9 @@ func (handlers *CommerceHandlers) listWebhookEvents(writer http.ResponseWriter, 
 		return
 	}
 	defer rows.Close()
-	items := make([]map[string]any, 0, limit)
+	// The capacity is a constant rather than the requested limit: append grows
+	// a longer page, and a request parameter never sizes an allocation.
+	items := make([]map[string]any, 0, webhookEventsDefault)
 	for rows.Next() {
 		var (
 			id, provider, eventID, status string
@@ -191,11 +190,8 @@ func (handlers *CommerceHandlers) outboxStatus(writer http.ResponseWriter, reque
 }
 
 func (handlers *CommerceHandlers) listBackups(writer http.ResponseWriter, request *http.Request) {
-	limit, _ := strconv.Atoi(request.URL.Query().Get("limit"))
-	if limit <= 0 || limit > 100 {
-		limit = 20
-	}
-	records, err := dbgen.New(handlers.operations.pool).ListBackups(request.Context(), int32(limit))
+	limit := queryPageSize(request, "limit", 20, 100)
+	records, err := dbgen.New(handlers.operations.pool).ListBackups(request.Context(), limit)
 	if err != nil {
 		writeProblem(writer, request, 500, "backups_unavailable", "Backup history is unavailable")
 		return

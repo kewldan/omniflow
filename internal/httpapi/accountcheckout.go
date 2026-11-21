@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -483,7 +482,7 @@ func (handlers *AccountHandlers) listOrders(writer http.ResponseWriter, request 
 	if !ok {
 		return
 	}
-	limit, _ := strconv.Atoi(trimmedQuery(request, "limit"))
+	limit := int(queryInt(request, "limit"))
 	orders, err := handlers.checkout.Orders(
 		request.Context(), principal.Customer.ID,
 		accountLocale(request, principal.Customer.Locale), cursor, limit,
@@ -746,7 +745,7 @@ func (handlers *AccountHandlers) readWallet(writer http.ResponseWriter, request 
 	if !ok {
 		return
 	}
-	limit, _ := strconv.Atoi(trimmedQuery(request, "limit"))
+	limit := int(queryInt(request, "limit"))
 	entries, err := handlers.checkout.Store().WalletHistory(
 		request.Context(), principal.Customer.ID,
 		strings.ToUpper(trimmedQuery(request, "currency")), cursor, limit,
