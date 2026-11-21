@@ -158,6 +158,8 @@ export const SECTIONS: SectionSchema[] = [
     fields: [
       { name: "chatId", kind: "text", messageKey: "operatorChatId" },
       { name: "createTopics", kind: "boolean", messageKey: "createTopics", defaultValue: true },
+      // The language notices are written in; read by internal/operator.
+      { name: "locale", kind: "select", messageKey: "operatorLocale", options: ["en", "ru"] },
       { name: "notificationCap", kind: "number", messageKey: "notificationCap" },
       { name: "windowMinutes", kind: "number", messageKey: "windowMinutes" },
       {

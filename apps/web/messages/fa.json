@@ -3711,6 +3711,7 @@
         "webhookSecret": "رمز وب‌هوک",
         "operatorChatId": "شناسه گفتگوی اپراتورها",
         "createTopics": "ایجاد خودکار تاپیک‌ها",
+        "operatorLocale": "زبان اعلان‌ها",
         "notificationCap": "تعداد اعلان در هر بازه",
         "windowMinutes": "بازه (دقیقه)",
         "recheckInterval": "بررسی دوباره هر (دقیقه)",

@@ -69,6 +69,7 @@ description: "Что хранит экран настроек, что из эт�
 | Telegram-бот | `buttons`, `texts` | бот | Свои кнопки главного меню со ссылкой https или Mini App и замены любого текста бота по языкам — на карточке **Меню и тексты бота** под разделами. Замена должна сохранять подстановки `%s`/`%d` в том же порядке | нет |
 | Группа операторов | `chatId` | бот | Группа для уведомлений; при смене все топики создаются заново в новой группе | `APP_OPERATOR_CHAT_ID` |
 | Группа операторов | `createTopics` | бот | Выключено — все уведомления идут в саму группу, для группы без топиков | включено |
+| Группа операторов | `locale` | бот | Язык уведомлений: `en` или `ru` | `en` |
 | Группа операторов | `notificationCap`, `windowMinutes` | бот | Лимит на тип уведомлений и его окно; `0` снимает лимит | `APP_OPERATOR_NOTIFICATION_CAP`, `APP_OPERATOR_NOTIFICATION_WINDOW_MINUTES` |
 | Группа операторов | `disabledKinds` | бот | Выключенные потоки. Их уведомления закрываются как `suppressed` с `error_code = disabled` | нет |
 | Регистрация | `mode`, `allowReferrals`, `allowedCampaigns`, `inviteCodes` | бот, api | `open` (по умолчанию), `invite` или `closed`. По приглашению новый Telegram-аккаунт становится клиентом только по `/start` с реферальной ссылкой (если не выключен `allowReferrals`), разрешённой кампанией (`c_…`; пустой список разрешает все) или кодом приглашения (`inv_<код>`); остальным сообщается, что регистрация по приглашению, и ничего не создаётся. Вход в веб-кабинет тогда пускает только существующих клиентов (`403 signup_closed`), потому что у веба нет ссылки-приглашения. Существующих клиентов и операторов это не касается | `open` |
@@ -175,7 +176,7 @@ description: "Что хранит экран настроек, что из эт�
 | `remnawave` | `reconcileIntervalMinutes`, `importExcludedUsernames`, `importExcludedSquads` | — |
 | `bot` | `languages`, `miniAppUrl`, `cabinetOnly`, `miniAppFullscreen`, `miniAppLite`, `hiddenMenu`, `buttons`, `texts`, `menuLayout`, `menuStyles` | — |
 | `support` | `mode`, `introRu`, `introEn`, `notifyNewTicket`, `notifyCustomerReply`, `notifySlaBreach` | — |
-| `operator_group` | `chatId`, `createTopics`, `notificationCap`, `windowMinutes`, `disabledKinds` | — |
+| `operator_group` | `chatId`, `createTopics`, `locale`, `notificationCap`, `windowMinutes`, `disabledKinds` | — |
 | `reports` | `periods`, `time` | — |
 | `maintenance` | `autoEnable`, `failureThreshold`, `noticeEn`, `noticeRu`, `broadcastCustomers`, `broadcastEmail` | — |
 | `notifications` | `fulfillmentAlertAttempts`, `quietHoursStart`, `quietHoursEnd` | — |

@@ -3803,6 +3803,7 @@
         "webhookSecret": "Webhook secret",
         "operatorChatId": "Operator chat ID",
         "createTopics": "Create topics automatically",
+        "operatorLocale": "Notice language",
         "notificationCap": "Notifications per window",
         "windowMinutes": "Window (minutes)",
         "recheckInterval": "Re-verify every (minutes)",

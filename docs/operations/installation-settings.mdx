@@ -66,6 +66,7 @@ diagnostics bundle needs `system.read` and lives on the system screen. See
 | Telegram bot | `buttons`, `texts` | bot | Custom main-menu buttons opening an https link or a Mini App, and overrides of any bot message per language — edited on the **Bot menu and wording** card below the sections. An override must keep the message's `%s`/`%d` placeholders in order | none |
 | Operator group | `chatId` | bot | The group notices go to; changing it rebinds every topic in the new group | `APP_OPERATOR_CHAT_ID` |
 | Operator group | `createTopics` | bot | Off sends every notice to the group itself, for a group without topics | on |
+| Operator group | `locale` | bot | The language notices are written in: `en` or `ru` | `en` |
 | Operator group | `notificationCap`, `windowMinutes` | bot | The per-kind volume cap and its window; `0` removes the cap | `APP_OPERATOR_NOTIFICATION_CAP`, `APP_OPERATOR_NOTIFICATION_WINDOW_MINUTES` |
 | Operator group | `disabledKinds` | bot | Streams switched off. Their notices are completed as `suppressed` with `error_code = disabled` | none |
 | Registration | `mode`, `allowReferrals`, `allowedCampaigns`, `inviteCodes` | bot, api | `open` (default), `invite`, or `closed`. By invitation, a new Telegram account becomes a customer only on a `/start` carrying a referral link (unless `allowReferrals` is off), an allowed campaign (`c_…`; an empty list allows every campaign), or an invite code (`inv_<code>`); anybody else is told registration is by invitation and nothing is created. Web sign-in then only admits existing customers (`403 signup_closed`), because the web has no invitation link to carry. Existing customers and operators are never affected | `open` |
@@ -171,7 +172,7 @@ somewhere it does not belong.
 | `remnawave` | `reconcileIntervalMinutes`, `importExcludedUsernames`, `importExcludedSquads` | — |
 | `bot` | `languages`, `miniAppUrl`, `cabinetOnly`, `miniAppFullscreen`, `miniAppLite`, `hiddenMenu`, `buttons`, `texts`, `menuLayout`, `menuStyles` | — |
 | `support` | `mode`, `introRu`, `introEn`, `notifyNewTicket`, `notifyCustomerReply`, `notifySlaBreach` | — |
-| `operator_group` | `chatId`, `createTopics`, `notificationCap`, `windowMinutes`, `disabledKinds` | — |
+| `operator_group` | `chatId`, `createTopics`, `locale`, `notificationCap`, `windowMinutes`, `disabledKinds` | — |
 | `reports` | `periods`, `time` | — |
 | `maintenance` | `autoEnable`, `failureThreshold`, `noticeEn`, `noticeRu`, `broadcastCustomers`, `broadcastEmail` | — |
 | `notifications` | `fulfillmentAlertAttempts`, `quietHoursStart`, `quietHoursEnd` | — |

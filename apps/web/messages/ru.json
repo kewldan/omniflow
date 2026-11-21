@@ -3803,6 +3803,7 @@
         "webhookSecret": "Секрет вебхука",
         "operatorChatId": "ID чата операторов",
         "createTopics": "Создавать темы автоматически",
+        "operatorLocale": "Язык уведомлений",
         "notificationCap": "Уведомлений за окно",
         "windowMinutes": "Окно (минуты)",
         "recheckInterval": "Перепроверять каждые (минуты)",

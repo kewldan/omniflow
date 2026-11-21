@@ -73,7 +73,7 @@ func TestEffectiveConfigReadsTheOperatorGroupSection(t *testing.T) {
 }
 
 func TestReportRendersAggregatesOnly(t *testing.T) {
-	text := renderNotification(dbgen.OperatorNotification{
+	text, _ := New(nil, nil, nil, Config{}).render(context.Background(), Config{}, dbgen.OperatorNotification{
 		Kind:      "report",
 		Payload:   []byte(`{"period":"day","from":"2026-11-19","to":"2026-11-19","newCustomers":4,"trials":2,"paidOrders":3,"topups":1,"revenue":{"RUB":149900,"USD":500},"ticketsOpened":1,"ticketsWaiting":0,"activeEntitlements":12,"telegramId":12345}`),
 		CreatedAt: pgtype.Timestamptz{Time: time.Unix(0, 0), Valid: true},

@@ -3711,6 +3711,7 @@
         "webhookSecret": "Секрет вебхука",
         "operatorChatId": "ID чату операторів",
         "createTopics": "Створювати теми автоматично",
+        "operatorLocale": "Мова сповіщень",
         "notificationCap": "Сповіщень за вікно",
         "windowMinutes": "Вікно (хвилини)",
         "recheckInterval": "Перевіряти щоразу через (хвилини)",

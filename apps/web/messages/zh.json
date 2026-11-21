@@ -3711,6 +3711,7 @@
         "webhookSecret": "Webhook 密钥",
         "operatorChatId": "运营人员聊天 ID",
         "createTopics": "自动创建话题",
+        "operatorLocale": "通知语言",
         "notificationCap": "每个窗口的通知数",
         "windowMinutes": "窗口（分钟）",
         "recheckInterval": "重新验证间隔（分钟）",

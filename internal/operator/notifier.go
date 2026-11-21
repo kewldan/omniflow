@@ -2,9 +2,9 @@
 // operator run backup and restore actions from the bot.
 //
 // Everything it sends is deliberately content-free: an operator notice names the
-// event, the amount class, and identifiers an operator can look up in the admin
-// API. It never carries customer text, a subscription link, a token, or a
-// payment payload.
+// event, the amounts, the plan, the customer's Telegram handle, and identifiers
+// an operator can open in the panel. It never carries customer text, a
+// subscription link, a token, or a payment payload.
 package operator
 
 import (
@@ -101,6 +101,10 @@ type Config struct {
 	// MutedSupport names support notice events switched off in the support
 	// section: "new" (a new ticket) and "customer_reply".
 	MutedSupport []string
+	// Locale is the language notices are written in: "en" or "ru".
+	Locale string
+	// Location is the installation's timezone, which notice times are in.
+	Location *time.Location
 }
 
 // Notifier owns topic binding and delivery.
@@ -135,6 +139,10 @@ func (notifier *Notifier) effective(ctx context.Context) Config {
 		}
 	}
 	config.Flat = !group.Bool("createTopics", !config.Flat)
+	if locale := group.String("locale", config.Locale); locale == "ru" || locale == "en" {
+		config.Locale = locale
+	}
+	config.Location = notifier.settings.Location(ctx)
 	if group.Has("notificationCap") {
 		config.NotificationCap = max(group.Int("notificationCap", config.NotificationCap), 0)
 	}
@@ -488,13 +496,17 @@ func (notifier *Notifier) deliver(ctx context.Context, queries *dbgen.Queries, c
 			return err
 		}
 	}
-	text := renderNotification(notification)
-	var markup models.ReplyMarkup
+	var (
+		text   string
+		markup models.ReplyMarkup
+	)
 	if sale, ok := decodeGoodsSale(notification); ok {
 		text = renderGoodsSale(sale, notification.CreatedAt.Time)
 		if keyboard := goodsSaleMarkup(sale, notifier.config.PanelURL); keyboard != nil {
 			markup = keyboard
 		}
+	} else {
+		text, markup = notifier.render(ctx, config, notification)
 	}
 	_, sendErr := notifier.client.SendMessage(ctx, &telegram.SendMessageParams{
 		ChatID:          config.ChatID,
@@ -520,29 +532,38 @@ func (notifier *Notifier) deliver(ctx context.Context, queries *dbgen.Queries, c
 	return sendErr
 }
 
-// renderNotification builds the operator message. Only whitelisted, non-personal
-// fields are printed; anything else in the payload is ignored.
-func renderNotification(notification dbgen.OperatorNotification) string {
+// render builds the operator message: the shop sale and the scheduled report
+// by their own renderers, everything else by renderNotice from the payload and
+// what the database says about the order, customer, and ticket it names.
+//
+// The payload is still the allowlist it always was. Security notices name the
+// event and the operator account it concerns, and nothing else: an operator
+// address, a session token, and a raw client address stay out of the group
+// chat; they are in the audit trail for anyone entitled to read it.
+func (notifier *Notifier) render(ctx context.Context, config Config, notification dbgen.OperatorNotification) (string, models.ReplyMarkup) {
 	payload := map[string]any{}
 	_ = json.Unmarshal(notification.Payload, &payload)
-	builder := &strings.Builder{}
-	fmt.Fprintf(builder, "<b>%s</b>\n", html.EscapeString(topicNames[notification.Kind]))
-	// Security notices name the event and the operator account it concerns, and
-	// nothing else. An operator address, a session token, and a raw client
-	// address all stay out of the group chat; they are available in the audit
-	// trail to anyone entitled to read it.
 	if notification.Kind == "report" {
-		return renderReport(notification, payload)
+		return renderReport(notification, payload), nil
 	}
-	for _, field := range notificationFields {
-		value, ok := payload[field]
-		if !ok || value == nil || value == "" {
-			continue
-		}
-		fmt.Fprintf(builder, "%s: <code>%s</code>\n", field, html.EscapeString(fmt.Sprintf("%v", value)))
+	text, markup := RenderNotice(ctx, notifier.pool, notification.Kind, payload, notification.CreatedAt.Time, config)
+	if markup == nil {
+		return text, nil
 	}
-	fmt.Fprintf(builder, "at: <code>%s</code>", notification.CreatedAt.Time.UTC().Format(time.RFC3339))
-	return builder.String()
+	return text, markup
+}
+
+// RenderNotice is the message a notice of a kind and payload becomes: what
+// the dispatcher sends, with the order, customer, and ticket it names read
+// from the database. config supplies the language, the timezone, and the
+// panel address the buttons link to.
+func RenderNotice(
+	ctx context.Context, pool *pgxpool.Pool, kind string, payload map[string]any, at time.Time, config Config,
+) (string, *models.InlineKeyboardMarkup) {
+	return renderNotice(renderInput{
+		Kind: kind, Payload: payload, Facts: lookupFacts(ctx, pool, payload, config.Locale),
+		At: at, Locale: config.Locale, Location: config.Location, PanelURL: config.PanelURL,
+	})
 }
 
 // notificationFields is the allowlist a notice is rendered from.

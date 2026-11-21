@@ -194,9 +194,27 @@ chat message.
 
 ## What a notice contains
 
-The renderer prints the topic name, then only fields from a fixed allowlist, then the
-timestamp. Anything else a payload happens to hold is dropped rather than filtered, so a
-field added to a payload in future cannot leak by omission:
+Each kind and event has its own template: an emoji title that says what happened, a few
+lines with the amounts as money in the installation's currency, the time in the
+installation's timezone, and buttons to the order, the customer, or the ticket in the panel
+when `APP_PUBLIC_URL` is an `https://` address. **Notice language** (`locale`, English or
+Russian) in the operator group settings chooses the language; the forum topics keep the
+names they were created with. A wallet top-up reads like this:
+
+```text
+👛 Пополнение баланса
+
+👤 @ivan · 777000
+💰 +500 ₽ через YooKassa · СБП
+💼 Баланс теперь: 750 ₽
+🔁 3-я оплата
+
+🕐 22 ноя, 00:52 MSK
+[👤 Клиент] [🧾 Заказ]
+```
+
+The payload is still a fixed allowlist — anything else a payload happens to hold is dropped
+rather than filtered, so a field added in future cannot leak by omission:
 
 ```text
 orderId · subscriptionId · entitlementId · provider · operation · currency
@@ -207,22 +225,13 @@ process · fingerprint · occurrences · version · previousVersion · releaseUr
 overdueMinutes · priority
 ```
 
-A purchase notice therefore looks like this:
-
-```text
-💳 Purchases
-orderId: 018f0000-0000-7000-8000-000000000001
-subscriptionId: 018f0000-0000-7000-8000-000000000002
-operation: purchase
-currency: RUB
-amountMinor: 149900
-at: 2026-08-11T10:15:00Z
-```
-
-There is no customer name, no Telegram account, no subscription link, no provider token,
-and no payment payload. Identifiers are included precisely because they are useless on
-their own: an operator looks them up through the panel or the admin API, where
-authorization and audit apply.
+At delivery the bot reads the records those identifiers name: the customer's Telegram ID and
+handle and how many payments they have made, counting a previous bot's; the plan and period
+an order bought, the provider and method that settled it, the wallet part, the discount and
+promo code; the wallet balance after a top-up; a ticket's queue and priority. A record that
+cannot be read is left out and the notice still goes. Nothing a customer wrote — a ticket's
+subject or messages — reaches the group, nor a subscription link, a provider token, or a
+payment payload. A notice no template knows lists its allowlisted fields in words.
 
 A security notice names the event, the operator account, and the method, and nothing else.
 An operator's address, a session token, and a client IP stay out of the group chat; that
