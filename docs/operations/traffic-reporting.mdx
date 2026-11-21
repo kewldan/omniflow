@@ -1,23 +1,24 @@
 ---
 title: Traffic reporting
-description: Which node is filling up and who consumed the most, read live from Remnawave, and why nothing on this screen is stored
+description: Which node is filling up and who consumed the most, read live from Remnawave, and the hourly history of the nodes' own counters
 ---
 
 `/admin/traffic` answers two questions that the anomaly signals cannot. Anomaly
 detection answers "who should somebody look at". This answers **which node is
 filling up** and **who consumed the most**, and it exports both.
 
-## Nothing here is stored
+## What is stored and what is not
 
 Remnawave is authoritative for traffic, nodes, and connections. There is no
-table in this repository for a node, and no column anywhere for a byte a
-customer used — the reconciler records status, expiry, traffic *limit*, and
-device limit, and deliberately not consumption.
+column anywhere for a byte a customer used — the reconciler records status,
+expiry, traffic *limit*, and device limit, and deliberately not consumption.
 
-So both halves of this screen are read from the panel on every request, and
-there is no history. Keeping one would be the first step towards Omniflow having
-an opinion about traffic, which is the boundary
-[decision 0004](/architecture/decisions#remnawave-boundary) exists to hold.
+So the live halves of this screen are read from the panel on every request, as
+the boundary [decision 0004](/architecture/decisions#remnawave-boundary) exists
+to hold requires. The one thing kept is an hourly sample of each **node's own**
+counters, which Remnawave does not keep over time; it feeds the history card at
+the bottom of the screen and nothing else. [Decision 0016](/architecture/decisions#traffic-history-is-an-observation)
+records why that does not cross the boundary.
 
 What Omniflow adds is the one thing it can: the join. A Remnawave user
 identifier resolved to the customer who holds it, and a link to their profile.
@@ -107,6 +108,23 @@ between passes is the previous counter reading of every user, in Valkey with an 
 Disabled and expired users are skipped, and a counter that went down — a reset — is a new starting
 point rather than a negative spike. The first pass of each kind only takes a reading. A notice names
 the panel user IDs (at most 20, then a count), the window, and the threshold.
+
+## Traffic history
+
+**Traffic history** shows traffic per day across all nodes and, for each node,
+the total over 7, 30, or 90 days, the daily average, the busiest hour's online
+count, and its limit. The worker's `node_traffic_sample` pass records each
+node's counters once an hour and prunes samples older than 400 days, so the
+first day appears a few passes after deployment.
+
+A node's counter accumulates within its cycle and drops back when the cycle
+resets. A day's traffic is the sum of the positive steps between samples. A drop
+to less than half the previous reading is a reset and counts the new reading as
+the traffic since it; a smaller drop is the counter wobbling and counts as
+nothing. Hours with no
+sample — the worker or the panel was down — are covered by the next step. The
+route is `GET /v1/panel/reports/traffic/history`; see
+[Subscription and acquisition reporting](/operations/business-analytics#traffic-history).
 
 ## Public server status
 

@@ -40,7 +40,7 @@ tooling.
 - Web catalogues: `en` and `ru` are complete; `uk`, `zh`, `fa` trail them by
   about 150 keys and fall back. New copy goes into all five
   `apps/web/messages/*.json`; bot copy lives in `internal/botapp/messages*.go`.
-- Docs: owner guides in `docs/features/`, reference pages by area, the fifteen
+- Docs: owner guides in `docs/features/`, reference pages by area, the sixteen
   architecture decisions on one page. Every page has a Russian mirror.
 
 ## Practical notes

@@ -155,6 +155,8 @@ A pass gets one attempt. A failure is logged as `periodic task failed` with the 
 | `retention` | `APP_RETENTION_INTERVAL_HOURS` (1 h) | interval | Seven cleanup steps, below |
 | `goods_delivery_schedule` | 30 s | interval | Enqueues up to 200 due deliveries |
 | `backup` | `APP_BACKUP_INTERVAL_HOURS` (24 h) | none | Encrypted `pg_dump` plus prune |
+| `subscription_snapshot` | 1 h | 20 min | Records today's subscription base for [business analytics](/operations/business-analytics) and backfills up to 365 missing days, about two months per pass |
+| `node_traffic_sample` | 1 h | 5 min | Samples each Remnawave node's counters for the [traffic history](/operations/traffic-reporting#traffic-history); prunes samples older than 400 days |
 
 The fulfillment reconcile pass's bucketed idempotency key is worth understanding: two passes inside the same fifteen-minute bucket produce the same key, so a restarted worker cannot create a second reconcile operation for the same entitlement in the same window.
 

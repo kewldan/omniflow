@@ -1,0 +1,176 @@
+---
+title: Subscription and acquisition reporting
+description: The paying base over time, recurring revenue, renewals and churn, automatic renewal, cohorts, what acquiring a customer cost, the purchase funnel, and support satisfaction
+---
+
+`/admin/reports` has two tabs beside sales, payment health, and channels. **Subscriptions** answers
+how the paying base moves: how many hold paid access, what that is worth every month, how much of it
+renews, and what each month's new payers became. **Acquisition** answers what bringing a customer in
+cost and returned, and how far new customers get before they pay. Both share the period controls at
+the top of the screen with the other tabs.
+
+The rules of the [sales report](/operations/sales-reporting) hold here too: provider money and wallet
+credit are never added together, money is reported per currency and never converted, and a rate with
+nothing behind it is shown as absent rather than 0%.
+
+## The history this needs
+
+Three things are recorded that no other table keeps:
+
+| Kept in | What | Written by |
+| --- | --- | --- |
+| `subscription_daily_snapshots` | The subscription base on each UTC day, by plan, billing period, kind, and currency, with its monthly recurring revenue | The worker's `subscription_snapshot` pass, hourly. It rewrites today's reading each time. On its first passes it reconstructs up to 365 past days from the entitlement history, about two months per pass |
+| `node_traffic_samples` | Each Remnawave node's own traffic counter and online count, once an hour | The worker's `node_traffic_sample` pass. Samples older than 400 days are pruned |
+| `funnel_events` | The first time a customer looked at the plans and opened a checkout, and on which channel | The bot and the customer panel, on the customer's own request; a failure to record never fails the request |
+
+A reconstructed day is exact except where a refund or a pause has since moved an entitlement's end —
+which is why the snapshot is kept rather than recomputed on every visit. Until the first passes have
+run, the Subscriptions tab says so instead of showing empty charts.
+
+## Subscriptions
+
+### Kinds of access
+
+Every active entitlement counts once per subscription, in one of four kinds:
+
+| Kind | Meaning |
+| --- | --- |
+| **Paid** | Bought here, with a price above zero after discount; wallet-funded counts, because the balance was money once |
+| **Imported** | Carried over from the previous bot. It was paid for there and has no price here |
+| **Trial** | A claimed trial |
+| **Free** | Any other zero-value grant: a promo code's days, a campaign bonus, an operator's gift |
+
+Refunded orders are out. Where an upgrade or an early renewal left two entitlements covering the
+same moment, the one that started last is the one counted.
+
+### Monthly recurring revenue
+
+The price of each paid subscription, net of discount, as if it were billed every 30 days: a 90-day
+plan sold for 900 contributes 300. Imported periods carry no price, so they are valued at the plan
+version's **list price** in the same currency and shown apart as an estimate — a dashed line on the
+chart, a separate figure on the card. After a migration most of the base is imported, and adding the
+estimate to what was actually charged would present a guess as revenue.
+
+### Renewals and churn
+
+A paid or imported period that **ended** in the window is:
+
+- **renewed** when another paid period for the same subscription started no later than **7 days**
+  after its end (for a customer without subscriptions, any paid period of theirs);
+- **pending** when it ended less than 7 days ago with no successor yet — the customer may still come
+  back, and it stays out of the rate;
+- **lapsed** otherwise.
+
+The **renewal rate** is renewed ÷ (renewed + lapsed). **Churn** is lapsed periods over the paying base
+(paid and imported) on the first day of the window. A customer who returns after the grace is not a
+renewal; the sales report's [returning payers](/operations/sales-reporting) counts them.
+
+### Automatic renewal
+
+One row per funding source — wallet or saved card — over the billing cycles that started in the
+window: succeeded on the first attempt, recovered by a retry, lost when the attempts ran out, or still
+being retried, with the success rate over decided cycles. Below it, the most common failure codes, and
+how many customers have automatic renewal on now.
+
+### Revenue per customer
+
+Per currency: provider money taken in the window, the customers it came from, **ARPPU** (money per
+paying customer), the average number of paying subscriptions per day of the window, and **ARPU**
+(money per average subscription). Wallet spending is not provider money and is not in either.
+
+### Cohorts
+
+Customers by the month of their **first payment** — a provider payment here or one the previous bot
+took — for the twelve months ending with the window's last month, whatever the window's start. Each
+cell is the share of the cohort that held paid or imported access at some point in that month. Access
+rather than payment, so a yearly subscriber reads as retained all year. **Lifetime value** is what the
+cohort has paid so far per customer, per currency, net of refunds: a figure to date, not a forecast.
+
+## Acquisition
+
+### Recording costs
+
+Omniflow sees the revenue an advertisement brought and never its invoice, so the cost is entered by
+hand in **Advertising costs**: the day, the amount and currency, an optional note, and what it was
+spent on — a [/start campaign](/operations/advertising-measurement) or a `utm_source` (stored in lower
+case), never both. Recording and removing a cost needs `finance.write`; both are written to the audit
+trail, and a retried request with the same `Idempotency-Key` records the cost once. Removing is for a
+cost entered by mistake.
+
+### Campaigns and sources
+
+For each /start campaign: customers it brought in during the window, how many of them have paid since,
+and per currency the revenue they brought against the cost recorded for the window. **CAC** divides the
+cost by the paying customers; **ROI** is (revenue − cost) ÷ cost.
+
+For each `utm_source`: paid orders in the window, their customers, how many paid for the first time,
+revenue, and cost. CAC here divides by first-time payers. A source with a cost and no orders is listed —
+it is the line most worth seeing.
+
+CAC and ROI appear only where cost and revenue share a currency. Nothing is converted.
+
+### Promo codes and what was given away
+
+Each promo code redeemed in the window: redemptions, customers, how many were making a first purchase,
+the discount given, and the provider money from the orders it was used on.
+
+**Given away** lists wallet credit granted rather than bought, by its source (`promotion`, `referral`,
+`referral_reward`, `wheel_spin`, `gift`, `operator_adjustment`, and the rest), and free access created in
+the window by kind (`trial`, or the order operation that carried it) with the days it covered.
+
+### The purchase funnel
+
+Of the customers who signed up in the window: how many looked at the plans, opened a checkout, claimed
+a trial, and paid for a subscription — each step counted once per customer, whenever it happened. Below
+it, the two recorded steps by the channel they were first reached on (`bot` or `web`). Like trial
+conversion, it is a cohort figure and reads low for a window that ends today.
+
+## Traffic history
+
+`/admin/traffic` → **Traffic history** shows traffic per day across all nodes and, per node, the total
+over 7, 30, or 90 days, the daily average, the busiest hour's online count, and the node's limit. It
+reads the hourly samples above. A node's counter is cumulative within its cycle. A drop to less than
+half the previous reading is a reset, and the new reading is taken as the traffic since it; a smaller
+drop is the counter wobbling and counts as nothing. The live tables
+above it are unchanged and still read Remnawave on every request. See
+[Traffic reporting](/operations/traffic-reporting) and [decision 0016](/architecture/decisions#traffic-history-is-an-observation).
+
+## Support satisfaction
+
+Ten minutes after a ticket is resolved, and within three days of it, the bot asks its customer once for
+a mark from 1 to 5. A tap records the mark on the ticket; a second tap, or a tap on someone else's
+ticket, changes nothing. The **Support** desk's report shows, over the same 7, 30, or 90 days as the
+workload figures: **CSAT** (the share of fours and fives), the average mark, how many marks arrived, the
+response rate (marks over questions sent in the window), the distribution, and the same per operator the
+ticket was assigned to. Customers the bot cannot reach are not asked; the web cabinet does not ask yet.
+
+## Routes and permissions
+
+| Route | Permission |
+| --- | --- |
+| `GET /v1/panel/reports/subscriptions` | `finance.read` |
+| `GET /v1/panel/reports/acquisition` | `finance.read` |
+| `GET /v1/panel/reports/acquisition/spend` | `finance.read` |
+| `POST /v1/panel/reports/acquisition/spend` | `finance.write` |
+| `DELETE /v1/panel/reports/acquisition/spend/{spendID}` | `finance.write` |
+| `GET /v1/panel/reports/traffic/history` | `customers.read` |
+| `GET /v1/panel/reports/support-satisfaction` | `support.read` |
+
+The period parameters are the sales report's: `since`, `until`, and `timezone`, at most two years.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Sales and payment reporting" icon="chart-column" href="/operations/sales-reporting">
+    What was sold over the same period, and the rules behind every figure.
+  </Card>
+  <Card title="Advertising measurement" icon="bullhorn" href="/operations/advertising-measurement">
+    Click identifiers, /start campaigns, and the conversion export.
+  </Card>
+  <Card title="Traffic reporting" icon="server" href="/operations/traffic-reporting">
+    The live node and consumer views beside the history.
+  </Card>
+  <Card title="Support" icon="life-ring" href="/features/support">
+    The desk the satisfaction figures describe.
+  </Card>
+</CardGroup>

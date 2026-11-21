@@ -78,6 +78,29 @@ never added to the sales. See [Sales reporting](/operations/sales-reporting).
 **Export CSV** downloads the whole sales report as one file with a `section` column. Amounts are
 in minor units, exactly as stored — divide by your currency's own factor.
 
+## Subscriptions, renewals, and cohorts
+
+`/admin/reports` → **Subscriptions** follows the paying base over the same period: how many
+subscriptions are paid, imported from the previous bot, on a trial, or free on each day; **monthly
+recurring revenue** per currency, with imported periods valued at list price and shown apart as an
+estimate; the latest day by plan; **renewals** of the paid periods that ended in the period, with the
+renewal rate and churn; **automatic renewal** by wallet or saved card, with what a retry recovered;
+**ARPU** and **ARPPU**; and twelve monthly **cohorts** of payers with the share retained each month and
+lifetime value so far.
+
+The base is recorded once an hour into a daily snapshot, and a new installation gets a year of
+history reconstructed over its first few hours. See
+[Subscription and acquisition reporting](/operations/business-analytics#subscriptions).
+
+## What acquiring a customer costs
+
+`/admin/reports` → **Acquisition** sets what you paid for advertising against what it brought. Enter a
+cost by hand against a /start campaign or a `utm_source`; the tab then shows per campaign and per
+source the customers, revenue, **CAC**, and **ROI**, in the cost's own currency only. Beside them: what
+each promo code gave away and brought, wallet credit and free access given away, and the **purchase
+funnel** of the customers who signed up in the period — looked at plans, opened a checkout, claimed a
+trial, paid. See [Subscription and acquisition reporting](/operations/business-analytics#acquisition).
+
 ## Advertising measurement
 
 A counter on your website sees the visit but never the sale, because payment happens on the
@@ -122,8 +145,8 @@ and the export like web orders.
 
 ## Traffic
 
-`/admin/traffic` reads Remnawave live on every request; nothing is stored in Omniflow, so there is
-no history.
+`/admin/traffic` reads Remnawave live on every request. The only thing Omniflow keeps is an hourly
+sample of each node's own counters, for the history at the bottom of the screen.
 
 - **Nodes**, sorted by how close each is to its traffic limit. A node with no limit shows no
   saturation figure rather than 0%.
@@ -133,6 +156,11 @@ no history.
 - **Devices**: platforms and client applications, from Remnawave's own census.
 - **Subscription requests**: when, from which address, and by which application one user's
   subscription was fetched — the way to spot a link being used where it should not be.
+
+- **Traffic history**: traffic per day across all nodes, and per node the total, the daily
+  average, and the busiest hour's online count over 7, 30, or 90 days. Remnawave keeps its counters
+  for now only; these samples are an observation for reporting and decide nothing
+  ([decision 0016](/architecture/decisions#traffic-history-is-an-observation)).
 
 Both lists export as CSV with byte counts unscaled. Reading the screen needs `customers.read`.
 

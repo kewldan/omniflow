@@ -1,6 +1,6 @@
 ---
 title: Architecture decisions
-description: The fifteen choices that constrain how Omniflow is built, why each was made, what it costs, and when it should be reopened
+description: The sixteen choices that constrain how Omniflow is built, why each was made, what it costs, and when it should be reopened
 ---
 
 This page records the choices that constrain later work: what was decided, why,
@@ -30,8 +30,9 @@ there was a reason. Read the decision before changing the area it covers.
 | 0013 | [Account-sharing signal](#account-sharing-signal) | Read-only, computed from Remnawave, never acted on |
 | 0014 | [No Apple in-app purchases](#no-apple-in-app-purchases) | Only with a native app, which Omniflow does not have |
 | 0015 | [Live updates over SSE](#live-updates-over-sse) | Short streams that name what changed, not WebSocket |
+| 0016 | [Traffic history is an observation](#traffic-history-is-an-observation) | Hourly node counters kept for reporting, never acted on |
 
-All fifteen are **accepted**. A decision that is replaced is marked
+All sixteen are **accepted**. A decision that is replaced is marked
 *superseded* and kept, with the reasoning that turned out wrong: that is the
 part worth keeping.
 
@@ -370,6 +371,30 @@ HTTP/2, as in the reference deployment, removes it.
 **Revisit when** a feature needs low-latency messages from the client —
 presence, typing, collaborative editing — or the polling cost of open panels
 becomes measurable.
+
+## Traffic history is an observation
+
+**0016.** The worker samples each Remnawave node's own counters — traffic
+used, its limit, users online — once an hour into `node_traffic_samples`, and
+keeps 400 days of them. The samples are read by one report, traffic per node
+per day, and by nothing else: no limit, sanction, notification, or fulfillment
+decision reads them, and no customer's consumption is stored. Live screens keep
+reading Remnawave on every request, as [0004](#remnawave-boundary) requires.
+
+**Why.** Remnawave keeps the counters for the present only, so "which node is
+filling up" had no trend and capacity could not be planned from Omniflow. A
+history of observations is not a mirror treated as truth: nothing compares it
+with the panel or acts when the two disagree, so the failure 0004 guards against
+— two systems disagreeing with nothing saying which is right — cannot arise.
+
+**Cost.** A table of rows that grows by one per node per hour, pruned after 400
+days. A node renamed or replaced in the panel appears under its new name from
+the next sample. Hours the worker or Remnawave was down are missing, and the
+next sample's step covers them.
+
+**Revisit when** anything other than a report needs to read the samples, or
+somebody proposes storing per-customer consumption: either one changes who owns
+traffic, which is 0004's to decide.
 
 ## Adding a decision
 
