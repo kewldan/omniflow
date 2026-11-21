@@ -440,13 +440,13 @@ An expired subscription nobody is told about is a lost customer, and a recoverab
 
 `APP_RECOVERY_WINDOW_HOURS` sets how long that offer stays open; the default is 14 days, which `.env.example` ships as `336`. Marketing volume caps do not apply to these — lifecycle notices go through the customer's own notification preferences and quiet hours instead. See [Notifications](/customer/notifications).
 
-Recovery is Telegram-only. There is no equivalent nudge in the customer web panel.
+The web panel has its own counterpart rather than a pushed message: while a subscription ended (after its grace) within the same recovery window, the dashboard shows a card naming it, the best live discount waiting for the customer, and a button to the store. The checkout applies that discount by itself, so there is no code to copy.
 
 A customer imported before subscriptions existed, holding only a customer-level Remnawave mapping, still gets alerts: the notifier falls back to a summary carrying just the remote identifier. Subscription labels are added to alerts only when the customer holds more than one.
 
 ## Automatic renewal
 
-Auto-renew is consent to be charged for the next period without being present, and it is off unless the customer turned it on. It is configured in the Telegram bot only — there is no auto-renew endpoint or screen in the customer web panel or in `/admin`.
+Auto-renew is consent to be charged for the next period without being present, and it is off unless the customer turned it on. A customer configures it in the Telegram bot or on the web panel's **Auto-renew** page (`/account/renewal`, backed by `GET /v1/account/renewal` and `PUT /v1/account/renewal/{subscriptionID}`). There is no auto-renew endpoint or screen in `/admin`.
 
 [Recurring payments](/commerce/recurring-payments) covers the consent record, the funding sources, the lead time, the dunning schedule, and the current state of the write path.
 

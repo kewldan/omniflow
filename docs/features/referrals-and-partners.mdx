@@ -1,0 +1,229 @@
+---
+title: Referrals and partners
+description: Turn customers into a sales channel with invite rewards, commission on every payment, withdrawals, a second level, contests, and partners on a personal rate
+---
+
+A referral programme pays customers for bringing somebody who then buys. In Omniflow it covers the
+whole ladder an owner usually needs: a one-off reward for an invite, a share of every payment the
+friend makes afterwards, a cash-out of what was earned, a second level, contests, and a partner track
+for bloggers and channel owners who promote the service for a personal rate.
+
+Every payout is a ledger posting in the customer's wallet, so it shows in their balance history, can
+be withdrawn, and can be taken back if the referral turns out to be abuse. This page explains what
+each part does and where to switch it on. The exact rules, routes, and refusals are on
+[Referrals and loyalty](/commerce/referrals-loyalty).
+
+## The referral programme
+
+Each customer has a personal referral code. The bot gives them a link of the form
+`t.me/<bot>?start=ref_<CODE>`, and the web panel gives a link to its sign-in page with `?ref=<CODE>`.
+A friend who opens either link is attributed to the inviter. The pair is fixed at the first
+attribution: a later link does not move the friend to somebody else, and nobody can invite
+themselves.
+
+The referral counts — **qualifies** — when the friend's first subscription order is paid with money
+from outside the wallet: a purchase, an extension, a renewal, or a plan change. A wallet top-up, a
+shop purchase, or a gift does not qualify it. Qualification and the reward are written in the same
+transaction that settles the payment, so a retried webhook never pays twice.
+
+### What an invite earns
+
+You choose what each side gets, independently:
+
+| Reward | What happens |
+| --- | --- |
+| Balance | An amount credited to the wallet, in the programme currency |
+| Days | That many days added to the customer's subscription, on the plan of their latest subscription |
+| Both, with a choice | With **Let customers choose days or balance when both are set** on, the customer picks one on their referral screen; without a choice, days win |
+
+A day reward needs something to extend: an inviter who never had a subscription receives nothing,
+and the friend's payment is not held up by that. Day rewards move no money, so they cannot be
+withdrawn and are not taken back when a referral is rejected in review.
+
+### Commission on every payment
+
+Beside or instead of the one-off rewards, the inviter can earn a share of what their friend pays,
+for as long as they keep paying. The **Commission on payments** block sets the rate (a separate rate
+for the first payment is optional), how many of one friend's payments earn, the smallest payment
+that earns, whether subscriptions, wallet top-ups, or both count, and optional tiers that raise the
+rate once an inviter has enough qualified referrals.
+
+Commission is computed on what the payment provider settled — the wallet part of an order never
+earns — and rounded down. A programme that pays only commission is a valid programme.
+
+### Setting it up
+
+<Steps>
+  <Step title="Open the referral card">
+    Go to **Marketing** (`/admin/marketing`) and scroll to the referral programme card. Changing it
+    needs `settings.write`, because it decides what the business pays.
+  </Step>
+  <Step title="Choose the rewards">
+    Set the currency, the inviter and invitee rewards in balance or days, and the commission if you
+    want one. Optionally cap rewarded invites per inviter, limit how long an attribution can still
+    qualify (90 days by default), set an expiry on credited rewards, and link your programme terms.
+  </Step>
+  <Step title="Enable and save">
+    A programme that is enabled but pays nothing on either side is refused: the panel shows a "pays
+    nothing" alert and keeps **Save** disabled. Beneath the form you see what the programme has
+    produced so far — attributed, qualified, rejected, and the money paid.
+  </Step>
+</Steps>
+
+<Note>
+  Turning the programme on later does not pay for orders that already settled. Invites keep being
+  recorded from the bot while it is off, but a web invite is recorded only while the programme is on
+  and only for a customer who has not paid for anything yet.
+</Note>
+
+### What the customer sees
+
+In the bot, **🎁 Invite** opens the invitation screen with the customer's code and link and a
+**📷 QR code** button that sends the link as a QR picture. The picture is drawn by the bot itself,
+so the link never passes through an outside QR service. The same screen has **🤝 Partner programme**
+and, once a game is switched on, **🎲 Daily games**.
+
+On the web panel, **Invite a friend** (`/account/referrals`) shows the link and its QR code, what
+invites and commissions earned over 7 days, 30 days, and all time, the reward choice when it is
+offered, and the friends invited — when each joined, whether they paid, and what they earned the
+customer. Friends are never identified to the inviter. The customer is told in the bot when a friend
+joins and when a reward is credited; these notices cannot be switched off.
+
+**Settings → Marketing** can also add **🎟 I have an invite code** to a newcomer's welcome in the
+bot, so somebody who was told a code rather than sent a link can still be attributed.
+
+## Review and reversal
+
+Some referrals are abuse: a customer inviting their own second account, or a ring of accounts paying
+each other. A pair can be marked **held** for a look, cleared, or **rejected**. Rejecting writes a
+correcting ledger entry for every money reward on the pair — commissions included — and requires a
+note, because it takes money back from a customer and the note is what you quote to them.
+
+<Warning>
+  A reversal can take a wallet negative. That is deliberate: otherwise an abusive reward would be
+  safe once it was spent. Day rewards are not taken back.
+</Warning>
+
+Review is done through the `/v1/panel/referrals/review` API with the `risk.read` and `risk.write`
+permissions; there is no panel screen for it yet. Signals — notes that hold a pair for review — can
+only ask for a person and never reject anything on their own, and nothing raises them automatically
+today.
+
+The marketing screen does have two related tools: a leaderboard of top inviters, and **lost
+referrals** — friends who paid but never qualified, with the likely cause — each with a **Credit**
+button that grants what the programme pays. On a customer's card, **Referral administration** lets
+you attach a customer to an inviter by code, detach a pair that has paid nothing out, and set a
+personal commission rate.
+
+## Withdrawals
+
+A customer can ask to be paid out what their invitations earned. It is off until you switch it on
+in **Payouts** (`/admin/payouts`), where you set the currency, the minimum amount, the number of days
+between requests, and whether only referral earnings may leave the wallet (the default) or the whole
+balance.
+
+The customer asks on the web panel's referral screen with an amount, a method — card, SBP, crypto,
+or other — and the details to pay to. A request is refused below the minimum, above what may be
+withdrawn, inside the waiting period, or while another request is open.
+
+- **The amount is held at once.** The request and a wallet debit are written together, so money
+  promised for a payout cannot also be spent on a subscription. Rejecting the request, or the
+  customer cancelling it, puts the money back.
+- **The payout happens outside Omniflow.** Approving and marking paid move no money in the system;
+  you pay by whatever means you use and record that you did.
+- **A person decides.** Every request carries a 0–100 risk score with its reasons — referral income
+  with no paying referral, nearly all income from one friend, a very new account, and others. The
+  score is advice; nothing is approved or rejected automatically.
+- **Details are sealed.** The queue shows only the method; **Show details** unseals them for an
+  operator with `finance.write` and writes that to the audit trail.
+
+Deciding needs `finance.write`. A rejection needs a note to the customer, and a customer with a
+verified e-mail address is mailed each decision.
+
+## Second level and referral contests
+
+Both live in **Marketing → Second level and referral contests**.
+
+**Second level.** When an inviter is credited a money reward or a commission, the person who invited
+*them* receives a share of it, from 1 to 50 %. It is paid within a minute by the worker, once per
+first-level reward, and reversed when that reward is reversed. Switching it on pays from the day
+before onwards, never the whole history. Day rewards have no second level, and there is no third.
+
+**Contests.** A contest has a title, a time window, and a prize per place, up to ten places. Each
+inviter is ranked by referrals that qualified inside the window and were not rejected; a tie goes to
+whoever got there first. Customers see running contests on their referral screen — the top ten and
+their own place, never who the others are. When the window closes, an operator with `finance.write`
+presses **Finish and pay**, which credits the prizes to wallets once.
+
+## Partners
+
+A partner is a customer who promotes the service — a channel, a blog, a community — and is paid a
+personal commission rate instead of the programme's.
+
+<Steps>
+  <Step title="The customer applies">
+    In the bot, **🤝 Partner programme** on the invitation screen applies in one tap. On the web,
+    **Partner programme** on the referral screen takes where they will promote the service and a
+    message for you. One application may wait at a time.
+  </Step>
+  <Step title="You decide">
+    **Marketing → Partner applications** lists waiting applications first, with each applicant's
+    referrals so far. **Approve** takes a rate and an optional first-payment rate (0–100 %) and sets
+    them as the customer's personal rate; **Decline** records the decision and changes nothing. Both
+    need `marketing.write`.
+  </Step>
+  <Step title="The partner earns">
+    Commissions on their friends' payments are paid exactly like any other commission, so
+    withdrawals, review, and reversal all apply. Removing the personal rate on the customer's card
+    ends the partnership, and they may apply again.
+  </Step>
+</Steps>
+
+A personal rate can also be set directly on any customer's card, without an application.
+
+## The referral network
+
+On a customer's card, the **Referrals** tab shows **Referral network**: who invited them and that
+person's inviter, and two levels below — the friends they invited and the friends those invited.
+Each level shows how many were invited, how many qualified, and what they earned the customer; each
+member shows when they joined, whether they qualified or were rejected, and what their payments
+earned. It is the place to answer "why did this customer earn so much" before approving a
+withdrawal.
+
+## Campaign links and attribution
+
+A referral link is one of several `/start` links the bot understands, and they do different jobs:
+
+| Link | What it does |
+| --- | --- |
+| `?start=ref_<CODE>` | Attributes the newcomer to the inviter who owns the code |
+| `?start=c_<code>` | Credits an advertising campaign with the sign-up and can grant a sign-up bonus |
+| `?start=utm_<source>__<medium>__<campaign>` | Records UTM tags, which then follow the customer's orders into the channel report |
+| `?start=coupon_<CODE>` | Redeems a promo code on opening the bot |
+
+A customer has one inviter and one advertising campaign at most. When registration is by invitation
+(the `invite` mode under **Registration** in the installation settings), a referral link is one of
+the ways a newcomer may get in, unless referrals are excluded there. Advertising campaigns are covered on [Promotions and offers](/features/promotions-and-offers).
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Referrals and loyalty" icon="users" href="/commerce/referrals-loyalty">
+    Every field, qualification rule, route, and refusal of the referral programme.
+  </Card>
+  <Card title="Promotions and offers" icon="tags" href="/features/promotions-and-offers">
+    Promo codes, personal offers, loyalty tiers, advertising campaigns, and games.
+  </Card>
+  <Card title="The wallet and the ledger" icon="wallet" href="/commerce/wallet-ledger">
+    Where a reward lands and how a reversal reads.
+  </Card>
+  <Card title="Payments and wallet" icon="credit-card" href="/features/payments-and-wallet">
+    How customers pay and what their balance can be spent on.
+  </Card>
+  <Card title="Risk controls" icon="shield-halved" href="/operations/risk-controls">
+    The other decisions behind the `risk` permissions.
+  </Card>
+  <Card title="Installation settings" icon="sliders" href="/operations/installation-settings">
+    Registration modes and the marketing settings.
+  </Card>
+</CardGroup>

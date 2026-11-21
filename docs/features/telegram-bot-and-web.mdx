@@ -1,0 +1,266 @@
+---
+title: Telegram bot and web cabinet
+description: The two places customers buy, connect, and get help, what each one offers, and how to brand, gate, translate, and reword them
+---
+
+A customer reaches an Omniflow installation in one of two ways: the Telegram bot or the web
+cabinet (the customer web panel at `/account`). They are not two products. Both read and write the
+same customer record, the same subscriptions, the same wallet, and the same support conversations,
+so a cart started in the chat is the cart the browser shows, and a reply read on the web stops being
+unread in Telegram.
+
+This page is the owner's tour: what each surface gives a customer, what you switch on to get it, and
+which limits are worth knowing before you advertise them. The full screen-by-screen behaviour is in
+[Telegram bot](/customer/telegram-bot) and [Customer web panel](/customer/web-panel).
+
+## The Telegram bot
+
+The bot is the most complete surface and the one most customers use. It needs one thing from you:
+a token from BotFather in `APP_TELEGRAM_TOKEN`. With an empty token the bot process idles rather than
+failing, so an installation that sells only on the web still starts. Setup, webhook mode, and the
+command list are in [Telegram integration](/integrations/telegram).
+
+The bot works in private chats only, keeps one live screen that it edits in place rather than
+sending a new message per tap, and marks every message protect-content so screens cannot be
+forwarded.
+
+### What a customer can do in the chat
+
+| Area | What the customer gets |
+| --- | --- |
+| Main menu | Status, a traffic bar, the expiry date, and a lifecycle notice when something needs attention. A menu entry appears only when its screen can actually be used |
+| Buying | `/plans` lists every plan with period, traffic, devices, and price; checkout takes promo codes, add-ons, the wallet, and every configured payment method that can settle the currency |
+| Renewal | `♻️ Restore subscription` appears first on the menu when the latest subscription has lapsed, and renews it on the same plan |
+| Connecting | `🚀 Connect` asks for the platform and gives a three-step guide with the client's import link, the raw subscription link, and an open button |
+| Devices | The connected devices with model and last-seen date, and removal of one or all. Hardware IDs and IP addresses are never shown |
+| Link rotation | `🔐 Rotate private link` invalidates a leaked subscription link after a warning |
+| Traffic reset | On a plan version that sells one, the subscription screen shows `🔄 Reset traffic · price`, priced as a share of the plan |
+| Wallet | Balance, history, and top-up through the configured methods |
+| Referral link | `🎁 Invite` shows the code and invited count, a share button, a copy button, and `📷 QR code`, which sends the link as a QR image drawn by the bot itself |
+| Gifts | Gift a subscription or wallet credit, or redeem a gift code. The code is shown once and only its hash is stored |
+| Shop | Telegram Premium and Telegram Stars, for the customer or another `@username`, with a review step before paying |
+| Personal offers | `✨ Your offer` appears only while an offer is active |
+| Support | Tickets with photo and document attachments, replies pushed into the chat |
+| News | An inbox of your posts with a read badge |
+| Settings | Language, per-kind notification switches, marketing consent, quiet hours, time zone, and auto-renew |
+| Web sign-in | `/login` sends a one-time link into the web cabinet |
+
+### Shaping the bot
+
+All of this is on `/admin/settings/integrations` and applies within a minute, without a restart.
+
+- **Main menu layout.** The **Main menu layout** card reorders the menu row by row, up to three
+  buttons per row, with a live preview drawn by the bot's own menu code. `hiddenMenu` hides
+  built-in entries you do not use.
+- **Custom buttons.** The **Bot menu and wording** card adds your own menu buttons that open an
+  `https` link or a Mini App.
+- **Welcome.** The marketing section holds a welcome text sent once on a customer's first `/start`
+  (`welcomeTextRu`, `welcomeTextEn`), an optional logo or video sent on every `/start`
+  (`startPhotoUrl`, `startVideoUrl`), and tips shown one at a time under the menu (`tipsRu`,
+  `tipsEn`).
+- **Who may register.** The registration section can make the bot open to everybody (the default),
+  invitation-only through referral links, campaign links, or invite codes, or closed to new
+  customers. Existing customers are never affected.
+
+<Note>
+  The bot never asks for a username, an email address, or a subscription link to find somebody's
+  VPN access. It links a customer to a Remnawave user only by exact Telegram ID, because every
+  looser match is a way to claim somebody else's subscription. Linking anything else is an operator
+  action.
+</Note>
+
+## The web cabinet
+
+The cabinet is served by the same Next.js application as the operator panel, under `/account`. It is
+on by default (`APP_CUSTOMER_PANEL_ENABLED`) and needs `APP_DATA_ENCRYPTION_KEY`. It is designed for a
+phone first: five tabs in a bottom bar (Subscriptions, Store, Wallet, Support, Account), which become
+a sidebar on a wider screen.
+
+### Signing in without a password
+
+There is no password field, and no setting adds one. The sign-in screen shows only the methods the
+installation can actually serve:
+
+| Method | How to turn it on |
+| --- | --- |
+| Telegram | Set the bot token and bind the cabinet's domain with `/setdomain` in BotFather. Telegram renders its login button only on a bound domain |
+| Link from the bot | `APP_CUSTOMER_MAGIC_LINK_ENABLED=true` plus `APP_PUBLIC_URL`. The customer sends `/login` and gets a single-use link valid for ten minutes |
+| E-mail link | Configure mail (`APP_RESEND_API_KEY`, `APP_EMAIL_FROM`). The customer types an address and receives a one-time link |
+| OIDC providers | Add providers at `/admin/settings/sign-in`. Presets exist for Google, Yandex, Discord, and VK ID |
+
+A customer who signs in with Telegram on the web lands on exactly the account the bot uses. An
+external provider's account is never matched to an existing customer by e-mail address, because
+anyone who can make a provider assert somebody else's address could otherwise take over that account.
+
+### Linking another sign-in method
+
+On `/account/security`, under the linked methods, **Add a way to sign in** offers the Telegram login
+button and a **Link** button for every enabled provider the customer has not linked yet. Adding or
+removing a method needs a sign-in from the last fifteen minutes. A Telegram account or provider
+account that already belongs to another customer is refused rather than merged; joining two existing
+accounts is an operator action, described in [Customers and imports](/commerce/customers-imports).
+
+<Warning>
+  Unlinking Telegram from the security page does not lock that Telegram account out. The next
+  Telegram sign-in with it relinks it and signs straight in. To stop a Telegram account reaching a
+  customer record, suspend the customer from the admin panel.
+</Warning>
+
+### What the cabinet offers
+
+- **Subscriptions.** One card per subscription with phase, remaining days, devices, and traffic. A
+  subscription that ended recently shows a recovery card with **Renew**.
+- **Connecting.** Per-platform instructions, app import links, a QR code drawn in the browser, and
+  the raw link. The client list is the same table the bot uses, so the two surfaces cannot recommend
+  different apps. While access is still being set up after a payment, the screen re-checks every
+  five seconds and turns into the link once it exists.
+- **Devices.** The full device list with removal — the bot shows at most five devices, the cabinet
+  shows all of them.
+- **Store, wallet, gifts, and shop.** Plans, checkout, order history, top-up, gifts, and digital
+  goods.
+- **Personal offers.** `/account/offers` lists the customer's active offers. **Take the offer**
+  starts a timed offer's clock and pays any bonus once; checkout then applies the best active offer
+  by itself, so the customer never types a code. **Not interested** drops the offer.
+- **Support, news, preferences, and personal data.** Tickets with attachments, the news inbox,
+  notification switches and quiet hours, and data export and deletion requests.
+
+**Live updates.** While a customer is signed in, the cabinet keeps open screens current without a
+reload. Support replies, order and payment changes, subscription changes such as finished
+provisioning, and new wallet entries appear within seconds. This is what makes support a live
+conversation on the web.
+
+The cabinet also publishes a web app manifest, so a phone's browser offers **Install app** and opens
+it in its own window under your service name.
+
+### Inside Telegram as a Mini App
+
+Set `miniAppUrl` in the bot section to the cabinet's `https` address, and the bot gains a «My
+account» button that opens the cabinet inside Telegram, signed in from Telegram's own launch data
+with no button to press. Three more switches in the same section shape it:
+
+| Setting | Effect |
+| --- | --- |
+| `cabinetOnly` | Shrinks the bot's menu to the Mini App button and support |
+| `miniAppFullscreen` | Asks Telegram to open the cabinet full screen (clients with Bot API 8.0 and later) |
+| `miniAppLite` | Keeps only subscription, store, and support in the cabinet's navigation inside Telegram |
+
+## Branding
+
+`/admin/settings/brand` holds the branding section and the appearance editor.
+
+- `serviceName` is the name in the cabinet header, the page title, the sign-in screen, and the
+  installed app. `supportContact` is where every "contact support" button points, and `termsUrl`
+  is the terms link.
+- **Appearance** sets a colour palette per light and dark mode, a corner scale, a spacing density,
+  which modes are offered, and three images: a light logo, a dark logo, and a tab icon. PNG, JPEG,
+  or WebP up to 256 KB; SVG is refused because it can carry script.
+
+A palette whose contrast falls below 3:1 is refused, and one between 3:1 and 4.5:1 is saved with a
+warning. The status colours (destructive, success, warning, info) cannot be changed. See
+[White-label appearance](/operations/branding).
+
+## Maintenance mode
+
+Maintenance pauses new purchases and outbound provisioning while you work on Remnawave or the
+database. Existing access, order history, wallet, and support keep working. Switch it on from
+**System → Health** in the admin panel with a reason and a notice in both Russian and English.
+
+In the bot, opening `/plans` or any purchase shows a maintenance screen at the entry point, before
+the customer chooses anything. In the cabinet the notice sits above the dashboard and a purchase
+attempt is refused as paused. To tell every customer when maintenance starts and ends, turn on
+`broadcastCustomers` (and optionally `broadcastEmail`) in the maintenance section on
+`/admin/settings/operations`. Automatic detection can also switch maintenance on when PostgreSQL,
+Remnawave, or Valkey fail repeatedly. See [Maintenance mode](/operations/maintenance-mode).
+
+## Required channel subscription
+
+You can require membership of one or more Telegram channels. Each channel carries two separate
+flags: **required for purchase** asks a customer to join before paying, and **required for
+activation** takes access away from a customer who leaves.
+
+- The purchase check runs at the moment money moves, not when a plan is chosen. The purchase is
+  kept, and `I have subscribed` resumes it.
+- A customer who leaves is warned first and keeps access for a grace period (three days by default)
+  before access is suspended. Rejoining restores it automatically.
+- An answer Telegram could not give is never treated as "not a member", so an outage never
+  suspends anybody or blocks a sale.
+
+Add the bot to each channel as an administrator so it can read membership. The channel list itself
+is the `required_channels` table; this release has no admin-panel screen for editing it, so check
+[Mandatory channel subscription](/operations/required-channels) before planning a campaign around
+it.
+
+<Warning>
+  The activation requirement is the only thing in Omniflow that can suspend a paying customer for a
+  reason unrelated to payment. Use exemptions for customers you have promised access to.
+</Warning>
+
+## Terms acceptance
+
+With `requireTerms` on in the marketing section, the bot answers every menu, command, and button with
+your terms and an **I accept** button until the customer accepts, and the cabinet shows a dialog
+that cannot be dismissed. `/terms`, `/paysupport`, `/faq`, `/support`, and `/login` stay reachable,
+and a referral or campaign link is still recorded before the gate appears. Raise `termsVersion` to
+ask every customer again. Each acceptance is stored as a consent record with its version and
+surface. The terms shown are `branding.termsUrl`, else `APP_TERMS_URL`; host them on your own
+installation with [Information pages](/operations/information-pages).
+
+## Languages
+
+Russian and English are complete everywhere. Ukrainian (`uk`), Chinese (`zh`), and Persian (`fa`)
+are offered only when you list them in the bot section's `languages`. With a single language listed,
+every bot message is in it and the language switch disappears; the cabinet's language picker lists
+only the languages you offer.
+
+The bot follows the customer's Telegram language until they choose one in `/settings`. A Telegram
+language you do not offer falls back to `branding.defaultLocale`.
+
+<Note>
+  The Ukrainian, Chinese, and Persian catalogues are machine translations marked for review.
+  Content you write per language — plans, pages, templates, offers — exists in Russian and English
+  only, so customers in the other languages read the English version. Persian renders right to
+  left.
+</Note>
+
+## Rewording messages
+
+There are two places to change what customers read, and they cover different text.
+
+| Where | What it changes |
+| --- | --- |
+| **Bot menu and wording** card on `/admin/settings/integrations` (`texts`) | Any bot message, per language. An override must keep the original `%s` and `%d` placeholders in the same order |
+| `/admin/settings/notices` | The eleven transactional notices sent on their own: expiry and traffic warnings, renewal reminders, grace, recovery, activation, failed and stopped automatic charges, maintenance started and ended |
+
+The notices screen uses named values such as `{days}` and `{plan}`, refuses a value the notice does
+not carry, checks the Telegram markup, previews the result, and can send one rendered copy to your
+operator group. It never sends a test to a customer. Reverting deletes your override, so a later
+upgrade's improved wording reaches you. See [Message wording](/operations/message-wording).
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Telegram bot" icon="paper-plane" href="/customer/telegram-bot">
+    Every command, screen, refusal, and rate limit in the chat.
+  </Card>
+  <Card title="Customer web panel" icon="browser" href="/customer/web-panel">
+    Sign-in, sessions, checkout, and the cabinet's screens in detail.
+  </Card>
+  <Card title="Connecting a device" icon="qrcode" href="/customer/connection">
+    Clients, import links, QR codes, devices, and link rotation.
+  </Card>
+  <Card title="Installation settings" icon="sliders" href="/operations/installation-settings">
+    Every section and field behind the switches on this page.
+  </Card>
+  <Card title="Telegram integration" icon="paper-plane" href="/integrations/telegram">
+    Creating the bot, webhook mode, and the Mini App.
+  </Card>
+  <Card title="Customer OIDC" icon="key" href="/integrations/oidc">
+    Configuring Google, Yandex, Discord, VK ID, and other providers.
+  </Card>
+  <Card title="Customer lifecycle" icon="users" href="/features/customer-lifecycle">
+    The customer card, blocking, dormancy, notifications, and imports.
+  </Card>
+  <Card title="Support" icon="life-ring" href="/features/support">
+    The support desk behind the bot's and the cabinet's tickets.
+  </Card>
+</CardGroup>

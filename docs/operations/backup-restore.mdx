@@ -30,8 +30,9 @@ partial dump — which is the only outcome worse than having no backup at all. A
 is not an Omniflow backup fails on the magic bytes instead.
 
 Files are named `omniflow-<kind>-<UTC timestamp>.dump.enc`, for example
-`omniflow-scheduled-20260811T030000Z.dump.enc`. `kind` is `scheduled` or `manual` and
-nothing else — the column has a check constraint, so a third kind needs a migration. The
+`omniflow-scheduled-20260811T030000Z.dump.enc`. `kind` is `scheduled`, `manual`, or
+`uploaded` (a file stored through the panel's upload) and nothing else — the column has a
+check constraint, so another kind needs a migration. The
 name is unique and the file is created exclusively, so a collision fails rather than
 overwrites.
 
@@ -39,17 +40,17 @@ overwrites.
 
 | Action | Runs in | Trigger |
 | --- | --- | --- |
-| Scheduled backup + prune | `worker` | `APP_BACKUP_INTERVAL_HOURS`, plus one immediately at start |
-| Manual backup | `bot` | `/ops` → **Back up now** |
-| Restore | `bot` | `/ops` → **Restore latest…** |
+| Scheduled backup + prune | `worker` | Checked every five minutes against the backup section's schedule (`APP_BACKUP_INTERVAL_HOURS` by default). The last run is stored in the database, so a restart does not take an extra one; a fresh installation takes its first on the first check |
+| Manual backup | `bot`, or `worker` for a panel request | `/ops` → **Back up now**, or **Back up now** on `/admin/settings/operations` |
+| Restore | `bot`, or `worker` for a panel request | `/ops` → **Restore latest…**, or **Restore** on `/admin/settings/operations` |
+| Upload and delete | `api` (upload), `worker` (delete) | `/admin/settings/operations`, see [From the web panel](#from-the-web-panel) |
 | Listing | `api` | `GET /v1/admin/backups`, `GET /v1/panel/settings/backups` |
 
 <Note>
-  The operator panel is read-only about backups. There is no panel route and no
-  `/v1/admin` route that takes or restores one; the only two write paths in the product
-  are the worker's schedule and the bot's `/ops` surface. That is deliberate — a restore
-  is destructive, and it lives behind an explicitly enumerated list of Telegram accounts
-  rather than behind a permission that six roles could be granted.
+  There is no `/v1/admin` route that takes or restores a backup. Besides the worker's
+  schedule and the bot's `/ops` surface, the panel can ask the worker to back up, restore,
+  or delete, but only for an operator holding `system.write`, and a restore there needs
+  `RESTORE` typed and a reason — see [From the web panel](#from-the-web-panel).
 </Note>
 
 ## Enabling backups

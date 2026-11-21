@@ -1,0 +1,184 @@
+---
+title: Backups and restore
+description: Encrypted, verified database backups on a schedule, an off-site copy in Telegram, and restoring from the panel, the bot, or the command line
+---
+
+Everything Omniflow knows about your business — customers, orders, wallets, subscriptions,
+tickets, settings — lives in one PostgreSQL database. Lose it without a backup and you lose the
+record of who paid for what. Omniflow takes encrypted backups of that database on a schedule,
+proves each one can be read back before calling it complete, can send a copy to a Telegram chat
+off the server, and lets you restore from the web panel, from Telegram, or by hand when nothing
+else will start.
+
+Backups are **off until you turn them on**.
+
+## What is backed up, and what is not
+
+A backup is a full `pg_dump` of the database, encrypted with AES-256-GCM. It is restorable with
+standard PostgreSQL tools even if Omniflow itself does not start.
+
+Valkey needs no backup: it holds only cache, rate limits, and locks, and a lost instance is
+replaced by an empty one.
+
+<Warning>
+  Some things are not in the database, so no backup contains them. Keep these somewhere safe and
+  separate — a password manager or a secrets manager:
+
+  - **`APP_BACKUP_ENCRYPTION_KEY`** — without it no backup can be opened. A key stored only inside
+    the backups it decrypts is lost with them.
+  - **`APP_DATA_ENCRYPTION_KEY`** — a different key. A database restored without it loads, but
+    every encrypted value inside (provider credentials, two-factor secrets, customer contacts) stays
+    unreadable for good.
+  - Your `.env` as a whole, `APP_OPERATOR_TOKEN`, the reverse-proxy and TLS configuration, and DNS.
+</Warning>
+
+## Turning backups on
+
+<Steps>
+  <Step title="Generate a backup key">
+    ```bash
+    openssl rand -base64 32
+    ```
+    Store the result in your secrets manager first, then put it in the environment.
+  </Step>
+  <Step title="Set the environment">
+    ```env
+    APP_BACKUP_ENABLED=true
+    APP_BACKUP_ENCRYPTION_KEY=<the key>
+    ```
+    Set both on the bot and the worker and restart them. With backups enabled and no valid key, the
+    process refuses to start rather than taking backups nobody can open.
+  </Step>
+  <Step title="Choose a schedule">
+    By default the worker takes a backup every 24 hours and keeps each one for 14 days
+    (`APP_BACKUP_INTERVAL_HOURS`, `APP_BACKUP_RETENTION_DAYS`). The **Backup schedule** section in
+    `/admin/settings/operations` overrides both and adds a time of day — `03:00` means three in the
+    morning in the installation's timezone. A time of day replaces the interval unless you also set
+    one there.
+  </Step>
+  <Step title="Take the first backup and check it">
+    Press **Back up now** on the same screen and wait until the backup shows as verified.
+  </Step>
+</Steps>
+
+Files are written to `APP_BACKUP_DIR` (`/var/lib/omniflow/backups` by default). The Compose stack
+mounts a shared volume there, so rebuilding a container does not discard backups. With several
+worker replicas the directory must be shared.
+
+## Every backup is verified
+
+A backup is marked completed only after the file has been decrypted end to end and its checksum
+compared with the one computed while writing. A backup that fails is deleted and recorded as failed
+with a reason — for example `file_missing` when the directory is not writable, or
+`verification_failed`. The result of every backup goes to the **Backups** topic of your operator
+chat.
+
+Expired backups are pruned after each scheduled run. The file is removed but the record stays, so
+the history of which backups existed remains visible.
+
+## An off-site copy in Telegram
+
+A backup on the same server as the database does not survive the loss of that server. Omniflow can
+send every verified backup — scheduled or taken by hand — to a Telegram chat as a file.
+
+1. Add your bot to a private group or channel that only you and trusted people can read.
+2. In the **Backup schedule** section, set **Send each backup file to chat ID** to that chat's
+   numeric identifier (`telegramChatId`). For a forum group, put the topic in **Topic ID**
+   (`telegramThreadId`).
+3. Make sure the worker has `APP_TELEGRAM_TOKEN`: the worker sends the file, as the bot.
+
+The file is the encrypted `.dump.enc`. Without `APP_BACKUP_ENCRYPTION_KEY`, which never leaves your
+server, it is unreadable, so the copy in Telegram is a backup rather than a disclosure.
+
+| Bot API | Largest file sent |
+| --- | --- |
+| Public (`api.telegram.org`) | 50 MB |
+| Self-hosted Bot API server (`APP_TELEGRAM_API_URL` set) | 2000 MB |
+
+A file over the limit, a chat the bot cannot post to, or an invalid chat ID is logged and skipped;
+it never fails the backup itself. Once your database grows past 50 MB, either run a self-hosted Bot
+API server or copy backups off the server some other way.
+
+## Restoring
+
+<Warning>
+  A restore replaces the current database. Every order, payment, and message since the backup was
+  taken is lost. Before restoring, stop the api, bot, and worker, and take a fresh backup of the
+  current database even if you believe it is broken — it is your only way back from a mistaken
+  restore.
+</Warning>
+
+### From the web panel
+
+**Back up and restore** in `/admin/settings/operations` needs `system.write`. Each action is a
+request the worker carries out within about fifteen seconds.
+
+- **Restore** replays any completed backup, not only the latest, after you type `RESTORE` and give
+  a reason.
+- **Upload a backup file** accepts an encrypted backup from elsewhere — another server, or a copy
+  downloaded from your Telegram chat — after checking that it opens with this installation's key.
+  Restore it like any other.
+- **Delete** removes a backup file; its record stays.
+
+### From Telegram
+
+List the Telegram user IDs allowed to operate backups in `APP_OPERATOR_TELEGRAM_IDS`, comma
+separated, on the bot. In a private chat with the bot, those accounts can send `/ops` and see the
+five latest backups with their status and size, plus **Back up now**, **Restore latest…** (a
+two-step confirmation), and **Refresh**. Anybody else gets no response at all, so the command's
+existence is not revealed. Every action is written to the audit log with the Telegram account that
+took it.
+
+### When nothing else starts
+
+The worker binary can decrypt a backup on its own, with only the key and the file:
+
+```bash
+APP_BACKUP_ENCRYPTION_KEY=... \
+  docker compose run --rm -T worker --decrypt-backup \
+  < omniflow-scheduled-20260811T030000Z.dump.enc > backup.dump
+```
+
+The result is an ordinary `pg_restore` input. The full command is on
+[Backup and restore](/operations/backup-restore#restoring-without-the-bot).
+
+### After any restore
+
+1. Start the worker first, then the api and the bot.
+2. Remnawave still holds whatever was provisioned after the backup point. Scheduled drift detection
+   reports the differences within about fifteen minutes, and each can be resolved from the drift view.
+3. Payments settled after the backup point are picked up again by reconciliation or by the
+   provider's webhook retry, without charging or crediting twice.
+
+## Test your backups
+
+A backup nobody has restored is a backup nobody knows works. Run the drill every quarter:
+
+```bash
+sh tools/restore-drill.sh
+```
+
+It restores the latest completed backup into a throwaway database, compares row counts with the
+live one, and checks that an encrypted value opens with your data key. It never touches the live
+database and exits non-zero on failure. The panel shows the restore history beside the backup list
+for the same reason.
+
+How much you can lose is set by the interval: with the default 24 hours, up to a day of activity.
+Shorten the interval for a tighter margin, and take a manual backup before any risky change.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Backup and restore" icon="database" href="/operations/backup-restore">
+    File format, error codes, upgrades, rollbacks, and full disaster recovery.
+  </Card>
+  <Card title="Installation settings" icon="sliders" href="/operations/installation-settings">
+    The backup schedule section and how panel settings relate to the environment.
+  </Card>
+  <Card title="Configuration" icon="gears" href="/getting-started/configuration">
+    Every `APP_BACKUP_*` variable with its default.
+  </Card>
+  <Card title="Operator notifications" icon="bell" href="/operations/operator-notifications">
+    The Backups topic and the rest of the operator chat.
+  </Card>
+</CardGroup>

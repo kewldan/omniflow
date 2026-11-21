@@ -408,9 +408,9 @@ Three caveats about the operations group:
   rows. The `/v1/panel/system/jobs` view of *fulfillment operations* is a
   different thing, backed by Omniflow's own tables.
 - `GET /v1/admin/outbox` reports the count of unpublished domain events and the
-  age of the oldest. Nothing in the current build ever marks an outbox row
-  published, so this figure grows and is not a useful backlog signal. See
-  [Observability](/operations/observability).
+  age of the oldest. The worker's webhook pass marks events published every
+  fifteen seconds, so a count that keeps growing means that pass is not running.
+  See [Jobs and queues](/operations/jobs-and-queues#the-transactional-outbox).
 
 ## Endpoints that need no credential
 

@@ -1,78 +1,392 @@
 ---
 title: Architecture decisions
-description: The decision records that constrain how Omniflow is built, what each one costs, and the conditions under which it would be reopened
+description: The fifteen choices that constrain how Omniflow is built, why each was made, what it costs, and when it should be reopened
 ---
 
-An architecture decision record is not documentation of a feature. It records a
-choice that constrains later work, the alternative that was rejected, what the
-choice costs, and the condition under which somebody would be right to reopen
-it. The descriptive pages —
-[Architecture overview](/architecture/overview) and
-[Technology stack](/architecture/technology) — say what Omniflow is today. These
-records say why it is allowed to be that and nothing else.
+This page records the choices that constrain later work: what was decided, why,
+what it costs, and the observable condition under which reopening it would be
+right. It is not feature documentation — the [Features](/features/overview)
+section and the reference pages describe what Omniflow does. This page explains
+why it is allowed to do it only that way.
 
-They exist because the expensive mistakes in a platform that moves money are not
-the ones somebody argued about. They are the ones nobody remembers arguing
-about, reversed by a contributor who had no way of knowing there was a reason.
+The expensive mistakes in a platform that moves money are the ones nobody
+remembers arguing about, reversed by a contributor who had no way of knowing
+there was a reason. Read the decision before changing the area it covers.
 
-## The records
+| # | Decision | In one line |
+| --- | --- | --- |
+| 0001 | [Modular monolith](#modular-monolith) | One Go module, three processes, no message broker |
+| 0002 | [PostgreSQL is the only durable store](#postgresql-is-the-only-durable-store) | Valkey holds nothing that cannot be lost |
+| 0003 | [Contract-first API](#contract-first-api) | `api/openapi.yaml` is the source; both sides are generated |
+| 0004 | [Remnawave boundary](#remnawave-boundary) | Remnawave owns VPN state; Omniflow records intent |
+| 0005 | [One web application](#one-web-application) | Customer and operator panels are one Next.js app |
+| 0006 | [AI is optional](#ai-is-optional) | Off until an owner turns it on, and never acts alone |
+| 0007 | [No customer password](#no-customer-password) | Telegram, OIDC, or a bot-delivered link |
+| 0008 | [E-mail is a delivery channel](#e-mail-is-a-delivery-channel) | Queued, under the Telegram consent policy, never a credential |
+| 0009 | [Referral withdrawals](#referral-withdrawals) | Held at request, paid outside Omniflow, decided by a person |
+| 0010 | [Self-employed receipts](#self-employed-receipts) | «Мой налог» behind one package, one receipt per order |
+| 0011 | [Stars pay ruble orders](#stars-pay-ruble-orders) | The order stays in rubles with a per-order Stars quote |
+| 0012 | [Guest purchases](#guest-purchases) | A gift order of one guest checkout account |
+| 0013 | [Account-sharing signal](#account-sharing-signal) | Read-only, computed from Remnawave, never acted on |
+| 0014 | [No Apple in-app purchases](#no-apple-in-app-purchases) | Only with a native app, which Omniflow does not have |
+| 0015 | [Live updates over SSE](#live-updates-over-sse) | Short streams that name what changed, not WebSocket |
 
-| Record | Decision |
-| --- | --- |
-| [0001](/architecture/decision-0001-modular-monolith) | One Go module with three entrypoints, and no message broker |
-| [0002](/architecture/decision-0002-postgresql-only-durability) | PostgreSQL is the only durable store; Valkey holds nothing that cannot be lost |
-| [0003](/architecture/decision-0003-contract-first-api) | `api/openapi.yaml` is the source contract, and both sides are generated from it |
-| [0004](/architecture/decision-0004-remnawave-boundary) | Remnawave owns VPN state; Omniflow records intent and never writes to its storage |
-| [0005](/architecture/decision-0005-one-web-application) | Customer and operator surfaces are one Next.js application |
-| [0006](/architecture/decision-0006-ai-is-optional) | AI and MCP are off until an owner turns them on, and can never act alone |
-| [0007](/architecture/decision-0007-no-customer-password) | Customers sign in through Telegram, OIDC, or a bot-delivered link, and never with a password |
-| [0008](/architecture/decision-0008-email-delivery-channel) | E-mail is a queued delivery channel under the Telegram consent policy, never a credential |
-| [0009](/architecture/decision-0009-referral-withdrawals) | Referral withdrawals hold money at request time, pay out outside Omniflow, and are decided by a person |
-| [0010](/architecture/decision-0010-self-employed-receipts) | Self-employed receipts use the unofficial «Мой налог» API behind one package, one receipt per order |
-| [0011](/architecture/decision-0011-converted-stars-payments) | A ruble order paid in Stars stays in rubles with a per-order Stars quote; rates fall back only to stored or manual values |
-| [0012](/architecture/decision-0012-guest-purchases) | Guest purchases are subscription gift orders of one guest checkout account, activated by a signed-in customer |
-| [0013](/architecture/decision-0013-account-sharing-signal) | Account-sharing detection is a read-only signal from Remnawave's device list; Omniflow stores nothing and never acts |
-| [0014](/architecture/decision-0014-apple-iap-native-only) | Apple in-app purchases ship only with a native app, which Omniflow does not have |
-| [0015](/architecture/decision-0015-live-updates-over-sse) | Live updates and the live support conversation are short SSE streams that name what changed, not WebSocket |
+All fifteen are **accepted**. A decision that is replaced is marked
+*superseded* and kept, with the reasoning that turned out wrong: that is the
+part worth keeping.
 
-## The format
+## Modular monolith
 
-Each record has the same four sections, and they are short on purpose. A record
-nobody finishes reading constrains nothing.
+**0001.** One Go module with three entrypoints — `cmd/api`, `cmd/bot`,
+`cmd/worker` — sharing the domain packages, the database, and the configuration,
+deployed as three containers.
 
-- **Context** — the situation that forced a choice, in terms that were true at
-  the time.
-- **Decision** — what was chosen, stated so that a reviewer can tell whether a
-  pull request violates it.
-- **Consequences** — what this costs, including the things that are now harder.
-  A record listing only benefits is advocacy, not a decision.
-- **Revisit when** — the observable condition that would make reopening this
-  correct. "When it becomes a problem" is not one; "when a second installation
-  has to share the job queue" is.
+**Why.** A purchase is one transaction: taking money, recording the order,
+claiming a trial, redeeming a code, and queuing the job that provisions access
+commit together or not at all. Split across services, that atomicity has to be
+rebuilt from sagas and a broker. And the target installation has no platform
+team: three containers, one database, and one `.env` is what one person can
+reason about at three in the morning.
 
-Every record carries a status. `Accepted` means it constrains current work.
-`Superseded by NNNN` means a later record replaced it — the original text is
-never edited to match the new decision, because the reasoning that was wrong is
-the part worth keeping.
+The modularity is kept by four rules: domain packages never import transport,
+generated database, Telegram, or provider packages; external systems sit behind
+small interfaces; domain events go through the transactional outbox, never a
+broker; construction is plain constructors from each `main`, with the shared
+commerce core built once in `internal/app` and no dependency-injection framework.
 
-## When to add one
+**Cost.** One artifact: an API fix redeploys the bot. Scale is bounded by one
+PostgreSQL instance — `api` and `worker` replicate freely, the `bot` runs as
+exactly one instance because Telegram delivers updates to one consumer. Module
+boundaries are enforced by review, not by a network.
 
-Add a record when a change would be expensive to reverse and its reasoning is
-not visible in the code that results from it. In practice that means: a new
-durable store, a new external dependency in the request path, a change to who
-owns a category of data, a new trust boundary, or the removal of a guard that
-something else assumed.
+**Revisit when** a single PostgreSQL instance is the measured bottleneck of a
+real installation, Omniflow has to run as a control plane across installations
+it does not own, or a capability genuinely cannot commit in the same transaction
+as the change that requires it.
 
-Do not add one for a library swap, a refactor, or a decision whose rationale a
-reader can recover from the diff. `AGENTS.md` names two changes that require an
-accepted record before they can be made at all: introducing a message broker,
-and adding a dependency-injection framework.
+## PostgreSQL is the only durable store
 
-The mechanics — file location, the Russian mirror, and the navigation entry —
-are the same as any other page and are described in
-[Documentation](/contributing/documentation#adding-a-page). Number the file with
-the next unused four-digit prefix; numbers are never reused, including by a
-record that was superseded.
+**0002.** Everything an operator would be upset to lose — customers, orders,
+payments, the wallet ledger, entitlements, support, audit, the River job queue,
+and the outbox — lives in PostgreSQL. Valkey holds cache, rate-limit counters,
+locks, and disposable session-adjacent state, and nothing else.
+
+**Why.** The job that provisions access must commit with the payment that
+justifies it. If the payment lands in PostgreSQL and the job in a broker, there
+is a window in which the customer has paid and nothing will act on it — which
+is exactly what a broker outage looks like. The test for Valkey: flushing it
+during business hours costs a slow minute and some re-authentication, nothing
+more. A durable job is enqueued in the same transaction as the state change; a
+handler that commits and *then* enqueues is wrong even when its tests pass.
+
+**Cost.** The database carries queue polling and outbox scans a broker would
+have absorbed. Losing Valkey degrades the platform; losing PostgreSQL stops it,
+which is why backup and a verified restore are release gates. River's schema is
+an Atlas migration copied from River's own, and a test fails if the two drift.
+
+**Revisit when** queue throughput is measurably limited by PostgreSQL, an
+external consumer of domain events appears, or some state genuinely cannot be
+modelled relationally.
+
+## Contract-first API
+
+**0003.** `api/openapi.yaml` (OpenAPI 3.0.3) is the source contract. Go server
+types come from `oapi-codegen`, the TypeScript bindings and Zod schemas from
+Orval, and CI fails when a contract change is committed without regenerating
+both. Three prefixes stay separate: `/v1/panel` (operator session, CSRF, RBAC),
+`/v1/admin` (bearer token for scripts), and `/v1/account` (customer session, no
+roles).
+
+**Why.** Hand-maintained wire types at both ends drift invisibly, and the API is
+public: an operator scripting against `/v1/admin` builds against whatever the
+contract says. 3.0.3 rather than 3.1 because the Go generator has no stable 3.1
+support. The prefixes are not merged so that a customer credential can never
+inherit its way onto an operator route.
+
+**Cost.** The generated Go server types are imported by nothing — handlers build
+their responses by hand, so a response can drift from its schema without a test
+failing. The panels use a shared typed transport rather than Orval's SWR hooks,
+because those ignore the mutator and would carry neither the session cookie nor
+the CSRF token. Gaps in coverage are listed on
+[Integrating with the API](/integrations/api#the-openapi-contract).
+
+**Revisit when** the Go generator supports OpenAPI 3.1, Orval's SWR client
+accepts a mutator, or response validation against the contract is worth its
+cost as a test-time check.
+
+## Remnawave boundary
+
+**0004.** Remnawave is authoritative for VPN users, traffic, devices, access
+links, nodes, hosts, squads, and Xray. Omniflow never writes to Remnawave
+storage and reaches it only through the versioned adapter over its API. Omniflow
+stores an **entitlement** — what a paid order entitles a customer to — separately
+from observed Remnawave state; a disagreement is recorded as drift with a
+readable reason, never silently resolved. Every write is a fulfillment
+operation: idempotent, retried with backoff, tied to the order that justified it.
+
+**Why.** Writing into Remnawave's database, or treating a mirror of it as truth,
+fails the same way: the moment somebody edits a user in the Remnawave panel, the
+two systems disagree and nothing says which is wrong.
+
+**Cost.** Money and access fail independently — a payment is never lost because
+Remnawave is down — at the price of a whole reconciliation surface: drift
+detection, mismatch reasons, an operator view. Devices and live traffic are
+fetched, not stored, so customer screens have explicit stale and unavailable
+states. Support is bounded to the Remnawave API the contract tests exercise.
+
+**Revisit when** Remnawave's API stops offering something Omniflow needs (the
+answer is still not to write to its storage), or a Remnawave major version
+changes the ownership split itself.
+
+## One web application
+
+**0005.** One Next.js application in `apps/web` serves the customer routes and
+`/admin`, with the same `packages/ui` primitives, `next-intl` catalogues, SWR
+data layer, and form stack. They are separate only where separation is a
+security property: different API prefixes, different sessions with different
+lifetimes (minutes for operators, days for customers), and RBAC at the server
+boundary for the operator side only.
+
+**Why.** Two projects mean two pipelines, two dependency sets, two accessibility
+gates, and two component systems that start identical and diverge — which is how
+a destructive action ends up with a weaker confirmation on one surface.
+
+**Cost.** A change lands on both surfaces at once, careless ones included, and
+both ship at the same version. Route-level code splitting and a per-route
+JavaScript budget keep operator screens out of a customer's first load.
+
+**Revisit when** one surface needs a framework, rendering model, or release
+cadence the other cannot use, or the operator panel grows an offline or desktop
+mode.
+
+## AI is optional
+
+**0006.** AI and MCP are off until an owner configures them, per feature; an
+enabled feature without an approved provider and model cannot be saved. Every
+request goes through one gateway, where redaction, budgets, limits, retention,
+and audit live; adapters only map request shapes. A provider must be an enabled
+row in the installation's registry, so fallback cannot widen where data goes.
+AI **recommends and never executes**: replies are drafts an operator sends, a
+risk assessment suggests a look, a copilot is read-only by default and every
+mutation it proposes needs a preview, a permission, a reason, and a
+confirmation. Ticket text, attachments, and tool output are untrusted data,
+never instructions. Every AI feature has a manual path.
+
+**Why.** AI touches the parts with the least margin for error — complaints about
+payments, accusations of abuse, messages to an audience — and works on text
+strangers control. Two failures had to be designed out: data leaving without the
+owner's agreement, and a model taking an action.
+
+**Cost.** Turning AI on is several deliberate steps. Redaction sometimes leaves a
+model less context than it could use. Nothing runs evaluations against the
+owner's provider on its own, because that would spend their budget unasked.
+
+**Revisit when** a capability genuinely needs autonomous multi-step action
+(which needs its own safety review), or a provider offers a verifiable
+zero-retention guarantee.
+
+## No customer password
+
+**0007.** Customers sign in through Telegram (login widget or Mini App
+`initData`), a configured OIDC provider, or a sign-in link the bot delivers into
+a chat they already control. `customer_identities` never stores a secret, and
+there is no password column, no reset-token table, and no hashing on the
+customer side — adding one means a migration and superseding this decision.
+
+**Why.** A password form has to accept or reject an identifier, and every
+version of that answer tells a stranger whether somebody is a customer here —
+the one thing the panel refuses to answer. Customers already arrive holding a
+stronger credential, often with a second factor Omniflow does not have to
+implement. And a password without a reset channel locks people out for good.
+
+**Cost.** An installation must enable Telegram or OIDC, or nobody can sign in on
+the web; the sign-in screen says so plainly. Account recovery happens at
+Telegram or the identity provider. In exchange, a customer database leak carries
+no credential to crack, and password reset — the largest support category in
+consumer products — does not exist.
+
+**Revisit when** a real installation has customers it cannot sign in because
+neither Telegram nor any acceptable OIDC provider is available to them.
+
+## E-mail is a delivery channel
+
+**0008.** E-mail carries receipts, account notices, marketing the customer
+agreed to, and the one-time sign-in link — never a secret the customer chose.
+Everything except the sign-in link is queued in PostgreSQL (`email_outbox`) in
+the transaction that decides to send it, deduplicated, sealed with the data key,
+and delivered by a worker with bounded retries. Marketing e-mail follows the same
+consent policy, suppression list, and frequency cap as Telegram, and carries a
+one-click unsubscribe. Two transports: Resend and plain SMTP.
+
+**Why.** Operators coming from Bedolaga expect mailed receipts, broadcasts, and
+offers. Adding a transport could have reopened the password question; it does
+not, because the other reasons in [No customer password](#no-customer-password)
+stand on their own.
+
+**Cost.** An address is reachable only after it was verified by an e-mail
+sign-in. Quiet hours do not apply. Delivery status stops at "accepted by the
+transport" — bounces and complaints are not ingested. The panel shows counts and
+reasons, never the content of a queued message.
+
+**Revisit when** sender reputation needs bounce or complaint feedback from the
+transport.
+
+## Referral withdrawals
+
+**0009.** A withdrawal request and a wallet debit are written in one
+serializable transaction, so the amount is held the moment it is requested;
+rejection or cancellation posts the matching credit. The payout itself happens
+outside Omniflow — the operator pays and marks it paid — and the payout details
+are sealed and revealing them is audited. The risk score is advice with its
+reasons shown, never an automatic decision. Multi-level programmes, partners,
+and contests are built on the same ledger, never as a second balance.
+
+**Why.** Debiting only on approval, as Bedolaga does, lets the same money be
+spent on a subscription or withdrawn twice between request and approval.
+
+**Cost.** A customer sees their balance drop on request. An approved request the
+operator never pays leaves the money held. No payout adapter means no payout
+credentials to protect — and no way to pay faster than a person can.
+
+**Revisit when** an installation needs automated payouts through a provider API.
+
+## Self-employed receipts
+
+**0010.** Receipts for self-employed (НПД) operators go through the «Мой налог»
+web-cabinet API behind one package, `internal/nalogo`, with the password and the
+cached token sealed. One receipt per order, ever: an attempt whose outcome is
+unknown first searches the taxpayer's incomes for the same payment before trying
+again. Only external ruble payments settled after the integration was turned on
+are receipted, optionally only for chosen providers.
+
+**Why.** The tax service publishes no versioned API; every integration uses the
+cabinet's endpoints. Keeping it in one package makes a change on their side one
+file to fix.
+
+**Cost.** An outage delays receipts by up to twelve hours of retries, then waits
+for an operator. Only a full refund cancels a receipt. The search-before-retry
+errs toward a missing receipt, which can be issued by hand, over a duplicate,
+which costs tax.
+
+**Revisit when** the tax service offers an official partner API to small
+platforms, or a fiscal-data operator offers НПД receipts through a stable
+contract.
+
+## Stars pay ruble orders
+
+**0011.** An order paid in Telegram Stars stays in its own currency. The Star
+count is a per-order quote (`stars_quotes`), fixed when first asked for, and
+settlement maps the Stars received back through it. USD/RUB comes from the
+Central Bank of Russia, then open.er-api.com, cached for an hour; a reading older
+than two days falls back to the operator's manual rate, and with none the Stars
+option is withdrawn for ruble orders rather than guessed.
+
+**Why.** Converting the order to `XTR` would split one customer's history across
+currencies and make every report, loyalty tier, and referral reward convert
+again.
+
+**Cost.** Telegram's fees are not modelled — the rate is the operator's business
+decision. An order quoted before a rate change keeps its old Star price until it
+expires.
+
+**Revisit when** another provider needs to settle in a currency other than the
+order's.
+
+## Guest purchases
+
+**0012.** A purchase without an account is a subscription gift order sent by one
+system account, the guest checkout. Payment, expiry, refunds, and the claim use
+the existing gift paths; the activation code is mailed after payment and
+redeemed by a signed-in customer. No customer exists until somebody who controls
+an address signs in.
+
+**Why.** Creating a customer for every typed address would let anyone create
+accounts for addresses they do not own, and would leave a shell behind every
+abandoned checkout.
+
+**Cost.** The guest checkout account owns every guest order and appears as such
+in reports. The code is a bearer token: whoever redeems it first gets the
+subscription. Without an e-mail transport, guest purchases are not offered.
+
+**Revisit when** guest orders need per-buyer records for refunds or chargeback
+evidence.
+
+## Account-sharing signal
+
+**0013.** When an operator opens a subscription's devices, Omniflow computes a
+"possible" or "likely" sharing signal from Remnawave's device list — five or
+more devices active in a day, four or more platforms, three or more models of one
+platform — and stores nothing. It never removes devices, lowers limits, blocks,
+or messages anyone, and collects no IP or connection history.
+
+**Why.** The evidence lives in Remnawave, which already enforces a device limit
+per user. Collecting connection logs would duplicate its state and hold personal
+data Omniflow has no other use for.
+
+**Cost.** The signal is only as good as the device reports; a client without a
+hardware ID is invisible. There is no list of all shared subscriptions, because
+that would need a Remnawave call per subscription on a schedule.
+
+**Revisit when** Remnawave exposes an aggregated sharing or concurrent-connection
+signal through its API.
+
+## No Apple in-app purchases
+
+**0014.** Apple IAP is not implemented until a native iOS client exists. No
+StoreKit verification, App Store Server API client, or notifications endpoint is
+added — each would be an unreachable payment path.
+
+**Why.** App Store rules allow StoreKit purchases only inside an App Store app.
+Omniflow's surfaces are a web panel and a Telegram bot.
+
+**Cost.** Subscribers who paid through Bedolaga's iOS app stay on the App Store
+side; the importer does not convert them. iOS customers pay through the web or
+the bot.
+
+**Revisit when** a native iOS or macOS client is accepted onto the roadmap.
+
+## Live updates over SSE
+
+**0015.** Each panel has one server-sent event stream — `GET /v1/panel/live` and
+`GET /v1/account/live` — that re-reads a few version numbers every three seconds
+and names the areas that changed (`support`, `orders`, `subscriptions`,
+`wallet`; for operators `support`, `finance`, `errors`, `customers`, each only
+with its read permission). The browser then re-reads through the routes it
+already uses. A stream carries no records. Sending stays an ordinary request.
+Streams last a minute (five at most for customers) and reconnect through the
+session middleware, handing back `Last-Event-ID` so nothing is missed.
+
+**Why not WebSocket.** The traffic is one-way; everything a client says already
+has a route with its checks. SSE is a plain `GET` with a cookie, so session,
+CSRF, RBAC, proxy configuration, and the prefix separation apply unchanged.
+`EventSource` reconnects on its own. And fan-out over sockets across several
+`api` replicas would want a pub/sub broker this project decided not to add.
+
+**Cost.** Updates arrive within about three seconds, not instantly. Each open
+panel costs one small indexed query per interval. No typing indicators or
+presence. Many tabs over HTTP/1.1 can exhaust the browser's connection limit;
+HTTP/2, as in the reference deployment, removes it.
+
+**Revisit when** a feature needs low-latency messages from the client —
+presence, typing, collaborative editing — or the polling cost of open panels
+becomes measurable.
+
+## Adding a decision
+
+Add a section here when a change would be expensive to reverse and its reasoning
+is not visible in the code that results from it: a new durable store, a new
+external dependency in the request path, a change in who owns a category of
+data, a new trust boundary, or the removal of a guard something else relied on.
+Not for a library swap, a refactor, or anything a reader can recover from the
+diff. `AGENTS.md` names two changes that need an accepted decision before they
+can be made at all: a message broker and a dependency-injection framework.
+
+Each section states the decision so that a reviewer can tell whether a pull
+request violates it, then why, what it costs — a decision listing only benefits
+is advocacy — and the observable condition for reopening it. "When it becomes a
+problem" is not one. Take the next unused number, add a row to the table above,
+and mirror the section on the Russian page. Numbers are never reused, and a
+replaced decision is marked superseded rather than rewritten.
 
 ## Related
 
@@ -81,12 +395,12 @@ record that was superseded.
     The processes, the request path, and how a state change and its durable job commit together.
   </Card>
   <Card title="Technology stack" icon="layer-group" href="/architecture/technology">
-    Every component, why it is there instead of the obvious alternative, and what is deliberately absent.
+    Every component, why it is there, and what is deliberately absent.
   </Card>
   <Card title="Data ownership" icon="scale-balanced" href="/architecture/data-ownership">
     Which system is authoritative for each category of data.
   </Card>
-  <Card title="Documentation" icon="book" href="/contributing/documentation">
-    How to add a page and keep the Russian tree in step.
+  <Card title="Threat model" icon="shield-halved" href="/architecture/threat-model">
+    What the platform defends against and where each defence lives.
   </Card>
 </CardGroup>

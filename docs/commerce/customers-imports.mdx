@@ -15,10 +15,11 @@ customer per transaction. A run of forty thousand records that is interrupted at
 thousand resumes from a stored cursor rather than starting again.
 
 <Note>
-  There is exactly one import source. The table constrains it with
-  `CHECK (source = 'remnawave')` and the reader is the Remnawave list endpoint. There is no CSV
-  import, no file upload, and no second provider. The CSV described at the end of this page is an
-  **export** only.
+  There are two import sources, and the table constrains them with
+  `CHECK (source = ANY (ARRAY['remnawave', 'file']))`: the Remnawave list endpoint, and a CSV an
+  operator uploads (at most 50,000 rows, 10 MB) — see **Upload CSV** below. Both are staged,
+  reviewed, and applied the same way. The CSV described at the end of this page is the customer
+  **export**, a different file.
 
   Moving off a Bedolaga bot is a different tool with its own bookkeeping: see
   [Migrating from Bedolaga](/operations/migrate-from-bedolaga). It does not use these tables.

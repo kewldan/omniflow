@@ -106,8 +106,11 @@ Two paths deliberately bypass the policy machinery:
   A customer with no Telegram identity — one who signed in only with a
   bot-delivered link or an OIDC provider — is never in the recipient set for
   any of this. They see operator replies and announcements in the web panel when
-  they open it, and nothing is pushed to them anywhere. There is no email or SMS
-  sender in Omniflow.
+  they open it, and none of these notices is pushed to them anywhere. There is
+  no SMS sender. E-mail carries a narrower set — the sign-in link, receipts,
+  e-mail broadcasts, personal offers marked for e-mail, guest purchases, and
+  maintenance notices when the operator turns them on — never the lifecycle
+  notices above; see [E-mail](/integrations/email).
 </Warning>
 
 ### Win-back discount waves
@@ -447,12 +450,13 @@ customer does not read the same announcement in two languages depending on which
 surface they opened.
 
 <Note>
-  There is no operator screen for writing announcements. The only state
-  transition any code performs is the worker's `scheduled` → `published` pass,
-  which runs about once a minute and promotes up to 50 posts whose scheduled
-  instant has arrived. Creating a post, writing its translations, unpublishing
-  it, or archiving it is done by writing `news_posts` and
-  `news_post_localizations` directly.
+  Announcements are written at `/admin/content` with `marketing.write`: the news
+  editor creates a post with a Russian or English translation, or both, and moves it
+  between draft, scheduled, published, unpublished, and archived — see
+  [News and customer communication](/commerce/referrals-communication). A scheduled
+  post is promoted by the worker's `scheduled` → `published` pass, which runs
+  about once a minute and promotes up to 50 posts whose scheduled instant has
+  arrived.
 </Note>
 
 The push that accompanies a post is sent once per customer per post, to

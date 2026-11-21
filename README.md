@@ -229,7 +229,7 @@ The exact payload is shown in the operator panel before anything is sent; see [A
 
 - 💸 Payments always open the provider's page; paying by SBP QR code inside the bot, Overpay's foreign-card terminal, and embedded CloudPayments or MulenPay forms are not supported yet.
 - 🛡️ No integration with an external ban system or abuse API, no time- or address-based operator policies, and no log viewer in the panel yet.
-- 🍏 Apple In-App Purchase waits for a native app ([decision 0014](./docs/architecture/decision-0014-apple-iap-native-only.mdx)).
+- 🍏 Apple In-App Purchase waits for a native app ([decision 0014](./docs/architecture/decisions.mdx)).
 - 🧭 Node management, per-node traffic limits, and Omniflow's own traffic accounting are deliberately left to Remnawave.
 
 Everything still open is tracked in [`BACKLOG.md`](./BACKLOG.md) and [`ROADMAP.md`](./ROADMAP.md).

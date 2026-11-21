@@ -211,7 +211,7 @@ incremented attempt count, and the cart stays saved in every case except an expl
 
 ### Using a cart in Telegram
 
-Saved carts are a Telegram feature; the web panel has no save control today.
+A saved plan is a Telegram feature; the web panel has no control that saves a plan. The web panel does save the other two kinds: a shop item with an operator-set price from the shop's purchase form, and a mid-period add-on from the subscription's add-ons (see below).
 
 - **Save** appears on the payment screen when the balance is short, and saves with automatic
   purchase on.
@@ -223,12 +223,15 @@ Saved carts are a Telegram feature; the web panel has no save control today.
 A cart whose plan or add-on has vanished renders a "stale" screen with a **Clear** button rather
 than a price it cannot compute.
 
-### Shop carts never buy themselves
+### Shop carts buy themselves only at the operator's price
 
-A saved digital-goods purchase is stored with automatic purchase off and is skipped by the sweep. A
-shop price is a provider quote that expires in minutes, so charging one unattended would charge a
-number the customer last saw days ago. The full reasoning is on [Gifts and digital
-goods](/commerce/gifts-and-goods).
+A saved digital-goods purchase buys itself only when its price is the operator's own — a fixed
+amount or a fixed price per Star — and only when the wallet alone covers it; the price is
+re-checked against the one the customer saw, and a rise is refused and switches automatic purchase
+off. A quote-priced product is saved with automatic purchase off and skipped by the sweep: a
+provider quote expires in minutes, so charging one unattended would charge a number the customer
+last saw days ago. The web shop saves only operator-priced items. The full reasoning is on
+[Gifts and digital goods](/commerce/gifts-and-goods).
 
 A customer has one open cart, so saving a shop item replaces a saved plan and vice versa.
 
@@ -240,12 +243,10 @@ cart it does buy itself: a mid-period add-on price is the operator's own and onl
 period runs on. [Buying after a top-up](/commerce/addons-configurator#buying-after-a-top-up)
 describes it.
 
-<Warning>
-  A settled top-up asks the customer's open cart to buy itself without checking what kind of cart it
-  is. When that cart is a shop cart, the attempt fails with `cart_plan_unavailable` and increments
-  the attempt count on a cart that was never meant to charge unattended. Nothing is bought and
-  nothing is charged; what you see is a failure recorded against a cart that is behaving correctly.
-</Warning>
+A settled top-up asks the customer's open cart to buy itself, and the purchase path branches on the
+cart's kind first: a plan, an add-on, and a shop item are each re-priced by their own rule, and a
+shop cart saved without automatic purchase answers `cart_auto_purchase_off` without recording a
+failure.
 
 ## What an operator configures
 

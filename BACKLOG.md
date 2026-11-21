@@ -190,10 +190,10 @@ QR и индикатор сложности пароля на `/admin/security`,
 
 Сознательные решения — не пересматривать без новой архитектурной записи:
 - управление нодами, сквадами, Xray, DPI checker, BSCHEK, страница статуса серверов, свой учёт трафика
-  ([граница Remnawave](./docs/architecture/decision-0004-remnawave-boundary.mdx));
+  ([граница Remnawave](./docs/architecture/decisions.mdx));
 - администрирование из Telegram, кроме уведомлений и бэкапов;
 - лендинги с собственной аналитикой;
-- вход по e-mail и паролю ([decision-0007](./docs/architecture/decision-0007-no-customer-password.mdx));
+- вход по e-mail и паролю ([decision-0007](./docs/architecture/decisions.mdx));
 - автоматическая выгрузка конверсий и S2S-постбэки в рекламные сети (вместо этого CSV-экспорт);
 - автопродление, включённое по умолчанию;
 - самостоятельное слияние аккаунтов клиентом.

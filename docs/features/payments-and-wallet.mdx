@@ -1,0 +1,267 @@
+---
+title: Payments and wallet
+description: How customers pay — payment providers, Telegram Stars, the wallet and top-ups, auto-renewal, refunds, self-employed receipts, and guest purchases — and what you configure for each
+---
+
+Omniflow takes money through payment providers you connect, keeps a wallet balance for each
+customer, and turns every paid order into VPN access. This page explains what each part does for
+your business, how a customer sees it, and where you switch it on. The exact rules — state machines,
+ledger entries, refusal codes — are on the reference pages linked at the end of each section.
+
+One rule shapes everything below: **money is recorded first, and access follows**. A payment that
+settles is written to the books in one transaction together with the access it bought and a queued
+job to set that access up in Remnawave. If Remnawave is down at that moment, the customer's money is
+safe and access arrives when it comes back.
+
+## How a customer pays
+
+Every purchase — a plan, a renewal, an add-on, a top-up, a gift — is an order. At checkout the
+customer's available wallet balance is applied first and a payment provider covers the rest. An
+order the wallet covers in full is paid on the spot, with no provider at all. Both the bot and the
+web checkout have an **apply wallet** toggle for a customer who would rather keep their balance.
+
+A customer is shown a payment method only when you configured that provider **and** the plan has a
+price in a currency the provider settles. The same plan can therefore cost a different amount
+through different providers, and the checkout shows the price beside each method.
+
+## Payment providers
+
+Four rails are built in:
+
+| Provider | Currencies | Turn it on with | Refunds |
+| --- | --- | --- | --- |
+| Telegram Stars | `XTR` | `APP_TELEGRAM_TOKEN`, the bot's own token | Full charge only |
+| CryptoBot | Several fiat codes | `APP_CRYPTOBOT_TOKEN` | None |
+| YooKassa | `RUB`, `USD`, `EUR` | `APP_YOOKASSA_SHOP_ID` and `APP_YOOKASSA_SECRET` | Full and partial |
+| Manual | Any | Always registered | Recorded only; you move the money |
+
+Twenty-five more providers carried over from Bedolaga — among them Platega, FreeKassa, Kassa AI,
+CloudPayments, Lava, Heleket, Cashera, Antilopay, WATA, and HOT Pay — are configured the same way:
+each reads its own `APP_<SLUG>_*` variables. Setting none of a provider's variables leaves it off;
+setting only some is a start-up error, so a half-configured provider is caught before the first
+checkout. Restart the API and the worker after changing them. Providers that need a callback address
+use `https://<APP_PUBLIC_URL>/v1/payments/webhooks/<slug>`.
+
+Once a provider is configured, **Settings → Commerce** in the panel controls how it is shown:
+
+- each provider's **Enabled** switch and **Display order**;
+- **Payment buttons** — a name and description per button in both languages, minimum and maximum
+  amounts, quick top-up amounts, and who sees it (by sign-in method, by first top-up, or by loyalty
+  tier). Some providers can show SBP, card, and other methods as separate buttons through their
+  `APP_<SLUG>_PAYMENT_METHODS` variable.
+
+What the provider shows as the payment purpose can be worded with `APP_PAYMENT_SERVICE_NAME` and
+the `APP_PAYMENT_ORDER_TEMPLATE`, `APP_PAYMENT_TOPUP_TEMPLATE`, and `APP_PAYMENT_RENEWAL_TEMPLATE`
+templates.
+
+**Manual payments** cover bank transfers, cash, and anything not integrated. Under **Settings →
+Commerce → Manual payments** write the transfer instructions in Russian and English; the customer
+sees them beside the manual method. A manual order stays payable for 72 hours and is settled when an
+operator approves it through the operator-token API, with a reason that is audited. **Offer top-up
+through support** on the same card adds a "top up through support" path to the wallet for customers
+no provider serves.
+
+<Note>
+  A provider's notification alone never settles an order. Omniflow settles only on a verified
+  notification or on its own authenticated status check, and for providers that support status
+  checks the worker also asks about unsettled payments in the background, so a lost webhook does
+  not leave a paid customer without access.
+</Note>
+
+## Telegram Stars
+
+Stars need no merchant account: set the bot token, price a plan version in `XTR`, and the bot's order
+screen offers an invoice. An installation that sells only for Stars sets `APP_DEFAULT_CURRENCY=XTR`.
+
+To let Stars pay **ruble** prices too, turn on **Payouts → Exchange rates → Stars can pay ruble
+prices** and choose the price of a Star: a fixed number of rubles, or derived from the USD/RUB rate
+at Telegram's own price per Star. When a customer picks Stars for a ruble order, the Star amount is
+fixed once and used for the invoice and the settlement, so a rate change in between moves nothing.
+When no fresh rate is available and no manual value is set, Stars are simply not offered for ruble
+orders.
+
+<Warning>
+  Stars have two limits to plan around. Telegram offers no status check, so a Stars payment settles
+  only through the bot's update stream. And a Stars refund needs the Telegram account that paid,
+  which a payment started from the web panel does not record — sell Stars purchases you may need to
+  refund through the bot.
+</Warning>
+
+## The wallet and top-ups
+
+Each customer has a balance per currency. It is never a stored number: it is the sum of recorded
+movements, so every change has a line in the customer's history with its reason. Customers see three
+figures — total, reserved by their own unpaid orders, and available to spend.
+
+Customers top up from **Wallet → Top up** in the bot or from `/account/wallet` on the web: pick a
+preset or type an amount, choose a provider, and pay. A top-up is credited exactly once, for exactly
+what the provider settled — an over- or underpayment is credited as received and flagged to you.
+
+Top-up limits are environment variables, read at start-up:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `APP_WALLET_TOPUP_ENABLED` | `true` | Offer top-ups at all |
+| `APP_WALLET_TOPUP_PRESETS` | `10000,30000,50000,100000` | One-tap amounts, in minor units |
+| `APP_WALLET_TOPUP_MINIMUM_MINOR` | `10000` | Smallest top-up |
+| `APP_WALLET_TOPUP_MAXIMUM_MINOR` | `5000000` | Largest top-up; `0` removes the ceiling |
+| `APP_WALLET_TOPUP_WINDOW_LIMIT_MINOR` | `10000000` | Most that may be credited in the window; `0` disables it |
+| `APP_WALLET_TOPUP_WINDOW_HOURS` | `24` | Length of the rolling window |
+
+<Warning>
+  The **Wallet top-up** card in `/admin/settings` saves the same fields, but the limits actually
+  enforced come from the variables above. Change the environment and restart.
+</Warning>
+
+A customer who is short of money can **save the purchase** instead of paying the difference through
+a provider. The saved cart buys itself, at the current price, once a top-up covers it; a price that
+has risen is not charged. Carts last `APP_CART_TTL_HOURS` (30 days by default).
+
+From a customer's profile in `/admin/customers`, an operator with `finance.write` can **Adjust
+balance** — a credit or debit with a reason the customer will see — or **Record as a payment** to
+book money received outside a provider as a proper top-up. A balance never goes negative.
+
+## Paying with the balance
+
+Wallet money is spent automatically at checkout, before any provider. It also funds:
+
+- **daily plans**, which charge the wallet one day at a time (see
+  [Plans and subscriptions](/features/plans-and-subscriptions));
+- **mid-period changes** — add-ons, traffic package changes, paid traffic resets;
+- **automatic renewals** whose funding source is the wallet.
+
+Credit coming back to a customer — the unused part of a plan or package on a change, a gift claimed
+as credit, a referral reward — lands in the same wallet.
+
+## Automatic renewal
+
+Auto-renewal is per subscription and always the customer's choice: they turn it on in the bot's
+**Auto-renew** screen or on the web at `/account/renewal`, and that action is the recorded
+consent. Operators cannot turn it on for anyone.
+
+The charge comes from the **wallet** by default. A customer can instead save a card and renew from
+it, where both conditions hold: the provider can store a payment method — today **YooKassa** and
+**HOT Pay** — and you have enabled recurring for your merchant account after a passing capability
+test (`POST /v1/panel/settings/providers/{provider}/recurring`). The customer then sees **Save this
+card for automatic renewal** on the web payment screen, or a "save the card" variant of the method
+button in the bot.
+
+The renewal is attempted three days before expiry by default (the customer can pick one, three, or
+seven). A failed charge is retried after 4, 12, and 24 hours, configurable with
+`APP_RENEWAL_RETRY_HOURS`; the customer is told from the second failure on, and after the last one
+auto-renewal is suspended and they renew by hand. A wallet-funded renewal the balance will not cover
+triggers a low-balance warning `APP_RENEWAL_LOW_BALANCE_WARNING_HOURS` (default 48) before the
+charge. Failed charges are listed for review under **Finance → Failed charges**; nothing there
+charges anyone again.
+
+<Note>
+  Providers that run their own subscription billing — Platega, Lava, Cashera, CisPay — are used for
+  one-off payments only, because Omniflow cannot decide when they charge.
+</Note>
+
+## Refunds
+
+A refund never rewrites history: it is a new record, and it takes back what the money bought. A
+full refund of a subscription order removes the period it paid for; a refund of a top-up removes the
+credit from the wallet; a partial refund changes only the money, leaving access to your judgement.
+Refunds and chargebacks that providers report on their own — made in their dashboard, or disputed by
+the bank — are recorded the same way, and a chargeback also retires the card saved from that payment.
+
+<Warning>
+  The **Issue a refund** form on `/admin/finance/{orderId}` records your decision and its reason in the
+  audit log; it does not move money. Issue the refund itself with the operator-token API,
+  `POST /v1/admin/payments/{paymentID}/refunds`, with an idempotency key and a reason.
+</Warning>
+
+What each provider allows: YooKassa and CloudPayments refund in full or in part, Telegram Stars only
+in full, CryptoBot not at all. For the other providers, refund in the provider's own cabinet and
+record it in Omniflow. The part of an order paid from the wallet is never refunded to a provider,
+because it was never there.
+
+## Self-employed receipts («Мой налог»)
+
+If you are registered in Russia as self-employed (НПД), Omniflow can register each ruble payment in
+«Мой налог» and give the payer a receipt, as Bedolaga's NaloGO integration does.
+
+<Steps>
+  <Step title="Open the settings">
+    Go to **Payouts → Self-employed receipts** (needs `finance.write`).
+  </Step>
+  <Step title="Fill in your details">
+    Enter your 12-digit taxpayer number and the «Мой налог» password, which is stored encrypted with
+    `APP_DATA_ENCRYPTION_KEY`. Optionally change the service name (`Услуги VPN` by default) and limit
+    receipts to some providers — leave out one that already issues a fiscal receipt itself, such as
+    YooKassa with 54-FZ receipts.
+  </Step>
+  <Step title="Check and switch on">
+    Press **Check sign-in**, then turn on **Issue receipts**. Only payments settled after this moment
+    get a receipt.
+  </Step>
+</Steps>
+
+Receipts are sent by the worker, never twice for one order, retried for twelve hours, and cancelled
+when an order is fully refunded. They are listed on the **Payouts** page, announced in their own
+operator topic, and the customer sees **Open the receipt** on the order page. Only the part paid
+through a provider is receipted; the wallet part was receipted when it was topped up.
+
+For YooKassa's own 54-FZ receipts, use the `APP_YOOKASSA_RECEIPTS` and `APP_YOOKASSA_RECEIPT_EMAIL`
+variables instead.
+
+## Guest purchases
+
+A visitor without an account can buy a subscription at `/guest` with only an e-mail address — for
+themselves or as a gift. Link to `/guest` from your own site. It is available when an e-mail transport
+is configured and `APP_PUBLIC_URL` is set, with every provider that settles your shop currency except
+Telegram Stars and manual transfers.
+
+After payment the visitor receives an activation code by e-mail. They redeem it after signing in —
+signing in by e-mail with the same address needs no password — and whoever redeems the code first
+gets the subscription. All guest orders belong to one system account, the guest checkout, which you
+will see in the customer list.
+
+## When money and access fail independently
+
+Payment, wallet, and Remnawave are separate systems, and Omniflow never lets a failure in one undo
+another:
+
+- **Remnawave is unreachable.** The payment and the access it bought are already recorded; the
+  setup job retries until the panel answers. The customer sees "being set up", not an error, and
+  nothing is refunded.
+- **The payment does not match the order** — an underpayment, an overpayment, a duplicate, or a
+  wallet balance that was spent elsewhere in the meantime. The money is recorded, the order does not
+  settle, and you get an incident notice. Resolve it with a wallet adjustment or a refund.
+- **A payment arrives after the order expired or was cancelled.** A matching amount is still
+  settled; a payment on a cancelled order is also flagged to you.
+- **An add-on is paid but the subscription has ended.** The money stays recorded and you get a
+  fulfillment-failure notice; nothing rolls back.
+
+Failed setup jobs are visible under **/admin → System → Jobs** with **Retry** and **Cancel**.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Orders and payments" icon="credit-card" href="/commerce/orders-payments">
+    The order state machine, settlement, manual payments, refunds, and Stars for ruble prices.
+  </Card>
+  <Card title="Payment providers" icon="building-columns" href="/integrations/payments">
+    Setting up Telegram Stars, CryptoBot, YooKassa, and manual payments.
+  </Card>
+  <Card title="More payment providers" icon="building-columns" href="/integrations/payment-providers">
+    The 25 providers carried over from Bedolaga, payment buttons, and payment purpose.
+  </Card>
+  <Card title="Wallet and ledger" icon="wallet" href="/commerce/wallet-ledger">
+    How balances are recorded, credit expiry, and operator adjustments.
+  </Card>
+  <Card title="Wallet top-up and saved carts" icon="wallet" href="/commerce/wallet-topup-cart">
+    Top-up limits, over- and underpayment, and carts that buy themselves.
+  </Card>
+  <Card title="Recurring payments" icon="arrows-rotate" href="/commerce/recurring-payments">
+    Consent, saved cards, lead time, and the retry schedule.
+  </Card>
+  <Card title="Self-employed receipts" icon="receipt" href="/integrations/self-employed-receipts">
+    «Мой налог» receipts in full.
+  </Card>
+  <Card title="Gifts and goods" icon="gift" href="/commerce/gifts-and-goods">
+    Guest purchases and gift orders.
+  </Card>
+</CardGroup>

@@ -93,7 +93,10 @@ built from `status: deleted` selects nobody.
 
 ### Saving one
 
-There is no form. Send:
+On `/admin/marketing`, an operator holding `marketing.write` fills the **Audience segment** card:
+a code, a name in each language, and one row per filter picked from the vocabulary above. Saving
+under an existing code replaces that segment. The card sends the same request you can send
+yourself:
 
 ```bash
 curl -X PUT https://panel.example.com/v1/panel/marketing/segments \

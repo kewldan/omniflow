@@ -1,0 +1,221 @@
+---
+title: Gifts and the Stars shop
+description: Let customers buy VPN access for somebody else, and sell Telegram Stars and Premium next to your plans
+---
+
+Two features turn the bot into more than a place to renew your own subscription. **Gifts** let
+a customer pay for VPN access, an add-on, or wallet credit and hand it to somebody else — a
+friend, a relative, a person who has never opened your bot. The **digital goods shop** sells
+Telegram Stars and Telegram Premium from the same bot, with the same wallet and payment
+providers, so a customer who came for Stars can leave with a VPN trial.
+
+Both are ordinary orders. Wallet balance, promo codes, payment providers, refunds, and order
+history work exactly as they do for a plan, and both appear in your sales reports. This page
+explains what each does and how to switch it on; the full mechanics are on
+[Gifts and digital goods](/commerce/gifts-and-goods).
+
+## Gifts
+
+### What the customer sees
+
+In the bot a customer opens **Gifts**, chooses a subscription or an amount of wallet credit,
+and is asked *Who is it for?* They can send a Telegram `@username`, an e-mail address, or tap
+**Just a code**. An optional note follows, then payment. On the web the same purchase is on
+`/account/gifts`, with an optional **Recipient** field.
+
+Whatever they choose, the sender receives a **claim code** once, on that screen. It is sixteen
+characters with no easily confused letters. Only a hash of it is stored, so a lost code cannot
+be recovered — not by you, and not by anybody reading the database or a backup.
+
+### How the gift reaches the recipient
+
+| Addressed to | What happens after payment |
+| --- | --- |
+| Nobody (just a code) | The sender passes the code on however they like |
+| A `@username` already in the bot | The bot claims it for them within a minute and tells them what they got, with the note |
+| A `@username` not in the bot yet | The gift waits; the first time that person writes to the bot, it is claimed and announced |
+| An e-mail address | A separate claim code and activation link are mailed to that address |
+
+A recipient can always redeem a code by hand: in the bot, or on the web wallet page in the
+**Promo or gift code** field. A gifted subscription **extends** whatever the recipient already
+has rather than replacing it, and the sender is told once when the gift arrives.
+
+The gift for somebody not in the bot yet is worth highlighting to customers: it is how a
+customer can bring a friend to your service without the friend doing anything first. The sender
+is told at once that the person has not used the bot and until when the gift will wait.
+
+### Rules that protect you
+
+- The order belongs to the sender and never appears in the recipient's payment history.
+- A sender cannot redeem their own gift, so the gift path cannot be used to reach a promotion
+  or reward the sender is not eligible for.
+- After ten wrong attempts a code stops answering at all, and every refusal shows the same
+  message, so codes cannot be guessed or probed.
+- An unclaimed gift expires after its lifetime. You can then refund it to the sender.
+
+### Managing gifts
+
+`/admin/gifts` lists every gift with its status — awaiting payment, claimable, claimed, expired,
+revoked, refunded — the last four characters of its code, the sender, and the expiry. Support can
+use those four characters to confirm which gift a conversation is about.
+
+You can **revoke** a gift that has not been claimed, with a reason. A claimed gift cannot be
+revoked or refunded to the sender: the recipient already holds what it bought, and refunding it
+would give the sender their money back while the recipient keeps the access.
+
+<Note>
+  E-mail recipients need `APP_DATA_ENCRYPTION_KEY`, because the address is encrypted before it is
+  stored. Without it the bot accepts only `@usernames`, and the web refuses e-mail recipients.
+  The address is erased once the mail is queued.
+</Note>
+
+## Guest purchases
+
+A visitor with no account can buy a subscription at `/guest` with only an e-mail address — for
+themselves or as a gift to another address. Link to `/guest` from your own website or landing
+page.
+
+It is offered when an [e-mail transport](/integrations/email) is configured and `APP_PUBLIC_URL`
+is set. Every payment provider that settles your shop currency is available except Telegram Stars
+and manual transfers, which need a chat or an operator. After payment the activation code is
+e-mailed; the link opens the web wallet, where the visitor signs in with the same address and
+redeems it. Throwaway mailboxes are refused, and one client address can start at most five
+purchases an hour.
+
+Guest orders belong to one system account, *guest checkout*, which appears in the customer list
+and cannot sign in.
+
+## The digital goods shop
+
+The shop sells two things: **Telegram Premium** for 3, 6, or 12 months, and **Telegram Stars**,
+either as fixed packs or as a custom amount the customer picks. Nothing in the shop touches
+Remnawave, so a failed Stars delivery can never affect anybody's VPN access.
+
+### Choosing how Stars and Premium are bought
+
+Fragment has no public API, and buying there ends with a TON payment from a wallet. You choose
+who holds that wallet.
+
+| Provider | Sells | Who holds the Fragment session and TON wallet |
+| --- | --- | --- |
+| Gateway | Stars and Premium | A separate gateway service you run; Omniflow calls it over HTTP |
+| `fragment_direct` | Stars only | Omniflow itself, from secrets in the environment |
+
+**The gateway** keeps all spending power outside Omniflow. Configure it in `/admin/shop` →
+**Providers**: its URL and token are encrypted with `APP_DATA_ENCRYPTION_KEY` and never shown
+again after you save them.
+
+**Direct buying** suits operators who already run a Fragment account and TON wallet and do not
+want a second service. Its three secrets are environment variables only:
+
+| Variable | What it is |
+| --- | --- |
+| `APP_FRAGMENT_COOKIES` | The session cookies of a KYC-verified fragment.com account |
+| `APP_FRAGMENT_WALLET_MNEMONIC` | The 24-word seed phrase of the paying TON wallet |
+| `APP_FRAGMENT_TON_API_KEY` | The key for toncenter or tonapi, where the wallet is read and the payment sent |
+
+<Warning>
+  These three secrets live in the environment of the api, bot, and worker and nowhere else. They
+  are never written to the database, never returned by the API, never shown in the panel, and
+  never logged; the panel can only say whether the provider is configured and which setting is
+  missing. Keep them in `.env` or your secrets manager, never in a panel field, a ticket, or a
+  repository. The seed phrase spends real money: keep only working capital in that wallet.
+</Warning>
+
+<Steps>
+  <Step title="Try a dry run">
+    Set `APP_FRAGMENT_DRY_RUN=true` and restart. Orders pass through every state without
+    contacting Fragment or the wallet, and the secrets are not needed.
+  </Step>
+  <Step title="Add the secrets">
+    Set the three variables above, turn the dry run off, and restart the api, bot, and worker.
+  </Step>
+  <Step title="Switch the provider on">
+    `fragment_direct` is already listed under **Providers**, switched off. Enable it, then check
+    the **Stars** tab: provider state, wallet address and balance, and how many Stars it covers.
+  </Step>
+  <Step title="Make one small real purchase">
+    Buy the minimum of 50 Stars to yourself before opening the product to customers.
+  </Step>
+</Steps>
+
+The other `APP_FRAGMENT_*` settings — wallet version, TON API provider and rate limit, a proxy,
+a fixed TON rate, the low-balance threshold — are on [Configuration](/getting-started/configuration).
+
+### Products and pricing
+
+`/admin/shop` → **Products** → **New product** creates Premium or a fixed Stars pack, hidden. Set
+its price in the pricing editor, then make it visible. A custom-amount Stars product — minimum and
+maximum, up to twelve preset buttons, a price per Star — is created in one step on the **Stars**
+tab and adds **Buy Stars** to the bot's main menu.
+
+A price is either:
+
+- **A markup** over what the provider charges, followed by a rounding rule that always rounds up;
+- **A fixed amount**, required for Premium, because no provider publishes Premium's cost;
+- **A fixed price per Star**, charged whatever Fragment asks that minute.
+
+A provider-quoted price expires after a short time and is re-taken rather than honoured late.
+Promotions apply to plans *or* to shop products, never both, and a promo code that would push a
+quoted price below the provider's cost is refused rather than quietly capped.
+
+### Paying from the wallet
+
+Wallet balance pays first, as for any order. When it does not cover the total, the bot shows the
+shortfall with every payment method for exactly that amount. For a product with a fixed price the
+purchase is saved and placed from the wallet automatically as soon as the top-up settles; if the
+price rose in the meantime, nothing is charged and the customer is asked to confirm again.
+
+After a delivery, a buyer without an active paid subscription is offered VPN — a trial if they
+never had one. Turn that off with `APP_GOODS_VPN_OFFER_ENABLED=false`.
+
+### Delivery and the review queue
+
+Each order has exactly one delivery, so a retried job can never buy twice. A failure is sorted
+into one of three outcomes:
+
+- **Retried** — the provider is down, a session expired, or the wallet is short. After six
+  attempts, a little over two hours, the customer is refunded to their wallet.
+- **Refunded** — the username does not exist or the order was rejected outright.
+- **Parked** — money may already have left, but nobody can tell. These go to
+  **Needs review**.
+
+A parked delivery is never retried or refunded automatically: retrying could pay twice, refunding
+could return money for Stars that arrived. An operator with `goods.manage` checks the wallet's
+outgoing transfers against the Fragment request shown on the order, then marks it delivered,
+retries it, or refunds it, with a reason that goes to the audit log.
+
+<Warning>
+  The gateway does not honour an idempotency key and reports success even for a purchase it later
+  abandoned. With the gateway, read "delivered" in the panel as "submitted and accepted", and
+  expect more parked deliveries than with direct buying.
+</Warning>
+
+### Spend controls and monitoring
+
+Each provider carries a **spend ceiling** over a rolling window, measured in what the provider
+charges you rather than what customers pay, and a low-balance threshold. A zero ceiling means no
+ceiling. The gateway publishes no balance, so its low-balance alert cannot fire; direct buying
+reads the wallet itself.
+
+With direct buying every sale is posted to your operator chat with buyer, recipient, Stars,
+price, cost in TON and in your currency, margin, and the remaining wallet balance — with a top-up
+request when it covers fewer Stars than `APP_FRAGMENT_WALLET_LOW_STARS`. The **Stars** tab shows
+revenue, cost, and margin for any period.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Gifts and digital goods" icon="gift" href="/commerce/gifts-and-goods">
+    Claim codes, delivery classes, the settlement marker, and every refusal in detail.
+  </Card>
+  <Card title="Configuration" icon="sliders" href="/getting-started/configuration">
+    Every `APP_FRAGMENT_*` variable with its default.
+  </Card>
+  <Card title="Payments and wallet" icon="wallet" href="/features/payments-and-wallet">
+    How wallet-first payment and top-ups work for every order.
+  </Card>
+  <Card title="Promotions and offers" icon="tag" href="/features/promotions-and-offers">
+    Promo codes, and why shop promotions are scoped separately.
+  </Card>
+</CardGroup>

@@ -18,7 +18,7 @@ fetched all of it whether or not you were looking at any of it.
 | Area | Holds |
 | --- | --- |
 | `/admin/settings/commerce` | Currency, top-up limits, subscription policy, payment providers |
-| `/admin/settings/integrations` | Remnawave, the Telegram bot, the operator group, required channels |
+| `/admin/settings/integrations` | Remnawave, the Telegram bot, the operator group, support, registration, moderation |
 | `/admin/settings/operations` | Maintenance, notifications, backups, telemetry — plus the telemetry preview and backup history |
 | `/admin/settings/brand` | Branding, [appearance](/operations/branding), and the security section |
 | `/admin/settings/connect` | [Connection guidance](/operations/connection-catalogue): the platforms and applications customers are told to install |
@@ -54,7 +54,7 @@ diagnostics bundle needs `system.read` and lives on the system screen. See
 | Branding | `serviceName` | both web panels | The name in the header, the page title, and the sign-in screen | `Omniflow` |
 | Branding | `supportContact` | bot | Where every "contact support" button points | `APP_SUPPORT_URL` |
 | Branding | `termsUrl` | bot | The terms button on a plan and the `/terms` command | `APP_TERMS_URL` |
-| Branding | `defaultLocale` | bot | The language of a customer whose Telegram language is neither Russian nor English (`ru` or `en`) | English |
+| Branding | `defaultLocale` | bot | The language of a customer whose Telegram language is not one the bot offers: Russian when it is `ru`, otherwise English | English |
 | Branding | `timezone` | worker, bot | The IANA zone quiet hours, the backup time of day, and scheduled reports are counted in | `UTC` |
 | Remnawave | `reconcileIntervalMinutes` | worker | How often every subscription is re-read from Remnawave | 15 minutes |
 | Telegram bot | `languages` | bot, web | The languages offered to customers: `ru`, `en`, `uk` (Ukrainian), `zh` (Chinese), `fa` (Persian). With one, every bot message is in it and the language switch disappears from the bot's settings; the web panel's language picker lists only these. See [Languages](#languages) | `ru` and `en` |
@@ -68,6 +68,9 @@ diagnostics bundle needs `system.read` and lives on the system screen. See
 | Operator group | `notificationCap`, `windowMinutes` | bot | The per-kind volume cap and its window; `0` removes the cap | `APP_OPERATOR_NOTIFICATION_CAP`, `APP_OPERATOR_NOTIFICATION_WINDOW_MINUTES` |
 | Operator group | `disabledKinds` | bot | Streams switched off. Their notices are completed as `suppressed` with `error_code = disabled` | none |
 | Registration | `mode`, `allowReferrals`, `allowedCampaigns`, `inviteCodes` | bot, api | `open` (default), `invite`, or `closed`. By invitation, a new Telegram account becomes a customer only on a `/start` carrying a referral link (unless `allowReferrals` is off), an allowed campaign (`c_…`; an empty list allows every campaign), or an invite code (`inv_<code>`); anybody else is told registration is by invitation and nothing is created. Web sign-in then only admits existing customers (`403 signup_closed`), because the web has no invitation link to carry. Existing customers and operators are never affected | `open` |
+| Support | `mode`, `introRu`, `introEn` | bot | The bot's support screen: `both` (tickets and the contact link, the default), `tickets` only, or `contact` only, with an optional introduction per language above it | `both`, no introduction |
+| Support | `notifyNewTicket`, `notifyCustomerReply` | bot | Whether the operator group hears about a new ticket and a customer's reply | on |
+| Support | `notifySlaBreach` | worker | Whether a ticket whose first response is overdue is announced | on |
 | Moderation | `filterDisplayNames`, `blockedNamePatterns` | bot | Refuse the bot to accounts whose name pretends to be staff or carries a link; see [Admin operations](/operations/admin-operations) | off |
 | Scheduled reports | `periods`, `time` | worker | Daily, weekly (Mondays), and monthly (the 1st) summaries in the Reports topic, at the local time given | none sent |
 | Maintenance | `autoEnable`, `failureThreshold` | api | Whether dependency failures switch maintenance on, and after how many consecutive failed probes | `APP_MAINTENANCE_AUTO_DETECT`, `APP_MAINTENANCE_FAILURE_STREAK` |
@@ -94,9 +97,11 @@ offered on this screen: the Remnawave address and token, the bot token and webho
 public URL that signed links are built from, the backup key and directory, and the
 telemetry endpoint. Two answers to "which token do we use" is one too many, and a copy
 the processes never read was a trap. The section documents keep any values saved before
-this change; nothing reads them. Membership re-check and grace for required channels are
-configured on the [Required channels](/operations/required-channels) screen, which is what
-the bot reads.
+this change; nothing reads them. Required channels have no panel screen or route in this
+build: the channels are rows in `required_channels`, and the membership grace and re-check
+interval are the `channel_grace_seconds` and `channel_recheck_seconds` columns of
+`commerce_settings`, which is what the bot reads — see
+[Required channels](/operations/required-channels).
 
 The complete list of variables is in [Configuration](/getting-started/configuration).
 
@@ -164,6 +169,7 @@ somewhere it does not belong.
 | `branding` | `serviceName`, `supportContact`, `termsUrl`, `defaultLocale`, `timezone` | — |
 | `remnawave` | `reconcileIntervalMinutes` | — |
 | `bot` | `languages`, `miniAppUrl`, `cabinetOnly`, `miniAppFullscreen`, `miniAppLite`, `hiddenMenu`, `buttons`, `texts`, `menuLayout` | — |
+| `support` | `mode`, `introRu`, `introEn`, `notifyNewTicket`, `notifyCustomerReply`, `notifySlaBreach` | — |
 | `operator_group` | `chatId`, `createTopics`, `notificationCap`, `windowMinutes`, `disabledKinds` | — |
 | `reports` | `periods`, `time` | — |
 | `maintenance` | `autoEnable`, `failureThreshold`, `noticeEn`, `noticeRu`, `broadcastCustomers`, `broadcastEmail` | — |

@@ -12,14 +12,6 @@ creates.
 Work through it in order. Each step is verifiable on its own, which matters because the checks that
 decide whether a plan is sellable are spread across four tables.
 
-<Warning>
-  A purchase cannot currently settle on a freshly migrated database. Settlement inserts a
-  fulfillment job in the same transaction as the money, and no committed migration creates the
-  River queue's own tables, so that insert fails and the whole settlement transaction rolls back.
-  Everything up to and including the provider handoff works and is worth setting up; the step where
-  it stops is described under [Where a test purchase stops today](#where-a-test-purchase-stops-today).
-</Warning>
-
 ## Decide the settlement currency first
 
 `APP_DEFAULT_CURRENCY` (default `RUB`) is the currency both customer surfaces compare the catalogue
@@ -321,7 +313,7 @@ The customer web panel is the same flow with the same records: `/account/store` 
 `/account/checkout` → **Confirm**. A checkout opened in one surface is the checkout the other one
 shows.
 
-## Where a test purchase stops today
+## What settlement does
 
 When the provider reports success, the webhook or the Stars update reaches
 `RecordProviderPayment`, which opens one transaction and does all of the following together: records
@@ -329,27 +321,15 @@ the payment event, moves the order to `paid`, spends any wallet credit through t
 ledger, creates the entitlement, writes the fulfillment operation, inserts the `order.paid` outbox
 event, grants any referral reward, and enqueues the fulfillment job.
 
-That last insert is the problem. The job goes into River's own tables, no committed migration
-creates them, and nothing in the stack runs River's migrator — so the insert fails and the entire
-transaction rolls back. What you observe:
-
-- The provider has the money.
-- The order stays `pending`. No entitlement, no ledger movement, no Remnawave user.
-- The webhook is recorded on `/admin/system` → **Webhooks** with status `failed`.
-- `worker` is not running either; it exits at startup logging `start River`.
-
-The same applies to an order fully covered by wallet credit, which settles at creation time through
-the same path, and to a free or trial plan, which owes nothing externally and therefore settles
-immediately.
-
-Everything before settlement is real and worth verifying: the catalogue, eligibility, the quote, the
-promo code, the wallet arithmetic, the order, and the provider handoff all work and are all
-recorded. Watch this page and [Jobs and queues](/operations/jobs-and-queues) for the migration that
-closes it.
+The job goes into River's own tables, which the baseline migration creates, so the `migrate` service
+is all a fresh database needs. The `worker` then picks the job up and creates or updates the
+Remnawave user. An order fully covered by wallet credit settles at creation time through the same
+path, and so does a free or trial plan, which owes nothing externally. If provisioning is not
+happening, check that `worker` is running — see [Jobs and queues](/operations/jobs-and-queues).
 
 ## Where a completed sale lands
 
-Once the queue exists, this is the trail one purchase leaves, and it is worth knowing which screen
+This is the trail one purchase leaves, and it is worth knowing which screen
 answers which question.
 
 | Question | Where to look |

@@ -14,13 +14,13 @@ calls. That split is why the schedule below can be read as a specification
 rather than as a description of one code path.
 
 <Warning>
-  **Current implementation state.** Auto-renew has one surface — the Telegram
-  bot — which arms and disarms it per subscription. No code path saves a
-  payment method, so the wallet is the only funding source a customer can
-  choose. The rules, the schedule, and the operator read surfaces described on
-  this page are implemented. [What does not work yet](#what-does-not-work-yet)
-  states exactly which parts are not, so an operator can tell what to expect
-  before enabling a provider for recurring charges.
+  **Which providers can charge a saved card.** A customer arms auto-renew per
+  subscription in the Telegram bot or on the web panel's **Auto-renew** page.
+  A card or mandate is saved only through YooKassa or HOT Pay, and only after
+  the operator enabled recurring for that provider with a passing capability
+  test; until then the wallet is the only funding source a customer can
+  choose. [Providers that cannot bind a method](#providers-that-cannot-bind-a-method)
+  lists the adapters that stay one-off checkouts.
 </Warning>
 
 ## Auto-renew is opt-in
@@ -54,7 +54,8 @@ Two gates, both required:
 
 - The **adapter** declares whether it can bind a payment method at all. This is
   compiled in, through `payments.Capabilities.Recurring`. Of the shipped
-  adapters only YooKassa declares it; Telegram Stars and CryptoBot do not.
+  adapters only YooKassa and HOT Pay declare it; Telegram Stars, CryptoBot,
+  and the other collectors do not.
 - The **operator's own merchant account** must have passed a capability test,
   recorded in `payment_provider_settings`. Several acquirers grant card binding
   per merchant rather than per integration, so the adapter's word alone is not
@@ -401,7 +402,7 @@ There is no auto-renew endpoint under `/v1/panel`. An operator cannot enable,
 disable, or reconfigure a customer's auto-renew at all, which is consistent with
 consent being the customer's to give.
 
-## What does not work yet
+## Providers that cannot bind a method
 
 Only YooKassa and HOT Pay can bind a method. Platega, Lava, Cashera, and CisPay
 run recurring as subscriptions the *provider* schedules and charges on its own

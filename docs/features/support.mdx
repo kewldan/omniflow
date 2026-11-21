@@ -1,0 +1,241 @@
+---
+title: Support
+description: How customers reach you from the bot and the web cabinet, how operators work the queue, and how notifications, attachments, AI drafts, and FAQ pages fit around it
+---
+
+Support in Omniflow is one desk with two front doors. A customer writes from the Telegram bot or
+from the web cabinet; an operator answers from `/admin/support` in the admin panel; the reply reaches
+the customer in the chat and on the web. It is one conversation per ticket, whichever surface the
+customer happened to open, so a reply read in Telegram is not still unread in the browser.
+
+This page covers what the customer sees, how to set up and work the desk, how operators are told
+about new work, and the information pages that answer questions before they become tickets. The full
+reference is [Support desk](/operations/support-desk).
+
+## How customers reach you
+
+### From the bot
+
+`/support` or `💬 Support` lists the customer's recent conversations with their status and unread
+count, and offers `✍️ New request`, plus two shortcuts that say what the request is about: a payment
+problem goes to the `payment` queue, and urgent raises the priority to `high`.
+
+- A message is up to 4000 characters, with up to five photos or documents of at most 10 MB each.
+  Video, voice notes, animations, and stickers are refused rather than silently dropped.
+- The bot warns before the customer writes: never send passwords, tokens, or the subscription link.
+- A customer who receives a reply and simply types an answer has it added to their most recent live
+  request from the last 72 hours, with a confirmation naming the request and a button to open it.
+- Replying to a resolved request reopens it; a closed one has to be reopened or replaced.
+
+### From the web cabinet
+
+`/account/support` shows the same conversations. **New conversation** opens a ticket with a subject,
+a message, an optional topic and urgency, and attachments. The cabinet loads its limits from the API
+before the form is usable, so the counters show exactly what will be accepted.
+
+| Limit | Value |
+| --- | --- |
+| Open conversations at once | 5 |
+| Subject / message | 120 / 4000 characters |
+| Attachment | 5 MiB; PNG, JPEG, WebP, PDF, or plain text |
+| Web uploads per conversation | 20 |
+
+Customers also get explicit **Close** and **Reopen** controls. Internal operator notes are never
+returned to them — they live in a separate table that no customer-facing query reads.
+
+### Choosing what the bot offers
+
+The support section on `/admin/settings/integrations` decides the bot's support screen:
+
+| Field | Effect |
+| --- | --- |
+| `mode` | `both` (tickets and a contact link, the default), `tickets` only, or `contact` only |
+| `introRu`, `introEn` | Your introduction above the ticket list, per language |
+
+The contact link is `supportContact` in the branding section, falling back to `APP_SUPPORT_URL`.
+`contact` mode turns the bot's support screen into a single link to your own account or chat.
+
+## Working the desk
+
+`/admin/support` has two tabs: **Queue**, the workspace, and **Report**, the response-time figures.
+It needs `support.read` to open and `support.write` to act.
+
+### Queues and their promises
+
+A queue is a named bucket with a first-response target and a resolution target. Each queue card shows
+the open count, how many nobody has taken, and how many are already past the target, and clicking a
+card filters the list. A target of zero means the queue promises nothing and never breaches.
+
+Every installation starts with a default `general` queue, and a `payment` queue customers can choose
+when they report a payment problem.
+
+<Note>
+  Queues, tags, and canned responses have no editing form in the panel. They are defined through
+  the API — `PUT /v1/panel/support/queues`, `PUT /v1/panel/support/tags`, and
+  `PUT /v1/panel/support/canned` — and need `settings.write` rather than `support.write`, because
+  they are configuration: the person answering tickets should not redefine what their queue promises.
+</Note>
+
+### A ticket, from arrival to close
+
+<Steps>
+  <Step title="Take it">
+    **Take it** in the conversation header assigns the ticket to you; **Release** puts it down
+    again. Priority (`low`, `normal`, `high`, `urgent`), queue, and tags are set from the same
+    header.
+  </Step>
+  <Step title="Answer, or leave a note">
+    The conversation has two separate boxes: a reply with **Send**, and an amber internal note with
+    **Add note**. They are deliberately two boxes rather than one with a toggle. **Insert canned
+    reply** fills the reply box with a prepared answer.
+  </Step>
+  <Step title="Watch it deliver">
+    A reply appears as `queued` and turns `delivered` once the bot has pushed it into the customer's
+    chat, which happens within about 30 seconds. A reply that cannot be pushed stays in the
+    conversation and is labelled with the reason.
+  </Step>
+  <Step title="Resolve or close">
+    Setting `resolved` or `closed` writes a short system message telling the customer, in their
+    language, that they can reply or reopen. A customer who replies to a resolved ticket reopens it,
+    and the reopen is counted.
+  </Step>
+</Steps>
+
+Other tools on the same screen: **Merge into** folds a duplicate ticket into another of the same
+customer's; **Hide from customer** takes a wrong reply or a pasted secret out of the customer's view
+(the desk keeps it, struck through); **Close all open tickets** closes everything after a typed
+confirmation. The **No support** restriction on the customer card stops one customer from opening
+tickets or writing into them.
+
+<Warning>
+  The panel inserts the English body of a canned response whatever the customer's language. When
+  answering a Russian-speaking customer, paste the Russian text yourself.
+</Warning>
+
+### A live conversation
+
+On the web, support is a live conversation. While a customer has the cabinet open, an operator's
+reply appears in their conversation within seconds, and the operator sees the customer's messages
+the same way in the admin panel. In Telegram, the reply arrives as a `🛟 Support reply` message with
+a button to open the request.
+
+<Warning>
+  A customer with no Telegram account linked — one who signs in only by e-mail or an OIDC provider —
+  is never pushed a reply. They read it when they open `/account/support`, and the cabinet tells them
+  so. The desk marks such a message as undeliverable, so you know not to wait for a push.
+</Warning>
+
+## Attachments and how long they are kept
+
+Attachments are stored two ways, and the difference matters for operators.
+
+- **From the bot**, Omniflow keeps only Telegram's file reference and safe metadata — name, type,
+  size — never the bytes. The desk labels such a file **in Telegram** with no download button. Ask
+  the customer to send it again through the cabinet if you need it outside the chat.
+- **From the web**, the file is stored by the installation in `APP_SUPPORT_ATTACHMENT_DIR`
+  (`/var/lib/omniflow/support-attachments` by default) and has a **Download** button for anyone with
+  `support.read`.
+
+Attachments expire 90 days after upload, and the worker's hourly retention sweep removes them. This
+is not configurable.
+
+<Warning>
+  The `api` and `worker` processes must mount the same attachment directory. The api writes the
+  files and the worker's sweep removes them; if they disagree, rows are deleted while files stay and
+  the disk grows without bound.
+</Warning>
+
+## Operator notifications
+
+If you have connected an operator group, the bot posts support events into its **💬 Support
+tickets** topic: every new ticket, every later customer message, and every ticket whose first
+response is overdue. A notice carries ticket and queue identifiers only — never the subject or the
+message, which are customer text and do not belong in a chat kept for years. Setting up the group is
+covered in [Operator notifications](/operations/operator-notifications).
+
+Three switches in the support section narrow the stream, all on by default:
+
+| Field | Turns off |
+| --- | --- |
+| `notifyNewTicket` | Notices for new tickets |
+| `notifyCustomerReply` | Notices for later customer messages |
+| `notifySlaBreach` | The once-per-ticket notice that the first response is overdue |
+
+The operator group section can also switch the whole support stream off or cap its volume. The
+daily, weekly, and monthly reports in the same group include tickets opened and waiting.
+
+## The response-time report
+
+**Report** shows open, unassigned, and breached tickets, tickets resolved in the window, and the
+median first response, for 7, 30, or 90 days, with each definition printed under its figure. Below
+them, replies per operator are drawn as a bar chart with the full table — replies, open tickets,
+resolved tickets, and each operator's median first response. Replies count every message an operator
+wrote, including on tickets assigned to somebody else.
+
+## AI-drafted replies
+
+Not usable in this release. The AI features for support — ticket summaries, suggested replies,
+rewriting, translation, and classification — can be configured on `/admin/settings/ai`, each off until
+you enable it and choose a provider and a model. Their code exists, but no screen or endpoint in this
+build calls them: the support desk has no control that requests a draft, and the only thing on the AI
+settings screen that reaches a provider is **Test connection**. Enabling them changes nothing about
+how tickets are answered, and the desk works fully without AI.
+
+<Note>
+  The design these features follow is documented so you know what to expect when they are wired in:
+  everything they produce is a draft labelled as generated, nothing is sent without an operator
+  accepting it, and ticket text passes through a redaction gateway first. See
+  [AI assistant](/features/ai-assistant) and [AI governance](/operations/ai-governance).
+</Note>
+
+## Information pages and FAQ
+
+The cheapest ticket is the one never written. `/admin/content` publishes documents at addresses on
+your own installation — `/pages/faq`, `/pages/terms`, `/pages/offer`, `/pages/privacy`, and any slug
+you need.
+
+- A page is a draft, published, or published but unlisted. Withdrawing is reversible; deleting
+  takes the address itself, so it needs the slug typed to confirm.
+- The body uses a small, safe syntax — headings, bullets, numbered items, and `https` links — and is
+  never rendered as HTML.
+- A page in one language still answers for readers of the other.
+
+Customers find these pages through **📄 Rules and FAQ** and `/faq` in the bot, which open each page
+as text inside Telegram, and from the account screen in the web cabinet. The pages are public and
+server-rendered, which is what a payment provider's reviewer needs. See
+[Information pages](/operations/information-pages).
+
+## Permissions
+
+| Action | Permission |
+| --- | --- |
+| Read queues, tickets, canned replies, and the report | `support.read` |
+| Assign, move, prioritise, reply, note, tag, merge, change status, hide a message | `support.write` |
+| Define queues, tags, and canned replies; change the support section | `settings.write` |
+| Block a customer from support | `customers.write` |
+
+Reading and answering are separate on purpose: a finance operator investigating a refund can read the
+conversation without being able to reply in the desk's voice.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Support desk" icon="life-ring" href="/operations/support-desk">
+    Queues, statuses, merging, attachments, and the report in full.
+  </Card>
+  <Card title="Operator notifications" icon="tower-broadcast" href="/operations/operator-notifications">
+    The operator group, its topics, caps, and quiet hours.
+  </Card>
+  <Card title="Information pages" icon="scroll" href="/operations/information-pages">
+    Publishing the FAQ, terms, offer, and privacy policy.
+  </Card>
+  <Card title="Telegram bot" icon="paper-plane" href="/customer/telegram-bot">
+    The support screens as the customer sees them in the chat.
+  </Card>
+  <Card title="AI governance" icon="robot" href="/operations/ai-governance">
+    Enabling AI features one at a time, with budgets and retention.
+  </Card>
+  <Card title="Telegram bot and web cabinet" icon="paper-plane" href="/features/telegram-bot-and-web">
+    The two surfaces customers write from.
+  </Card>
+</CardGroup>

@@ -25,28 +25,30 @@
             ]
           },
           {
+            "group": "Features",
+            "pages": [
+              "features/overview",
+              "features/plans-and-subscriptions",
+              "features/payments-and-wallet",
+              "features/telegram-bot-and-web",
+              "features/customer-lifecycle",
+              "features/support",
+              "features/referrals-and-partners",
+              "features/promotions-and-offers",
+              "features/gifts-and-stars-shop",
+              "features/analytics",
+              "features/backups",
+              "features/ai-assistant"
+            ]
+          },
+          {
             "group": "Architecture",
             "pages": [
               "architecture/overview",
               "architecture/data-ownership",
               "architecture/technology",
               "architecture/threat-model",
-              "architecture/decisions",
-              "architecture/decision-0001-modular-monolith",
-              "architecture/decision-0002-postgresql-only-durability",
-              "architecture/decision-0003-contract-first-api",
-              "architecture/decision-0004-remnawave-boundary",
-              "architecture/decision-0005-one-web-application",
-              "architecture/decision-0006-ai-is-optional",
-              "architecture/decision-0007-no-customer-password",
-              "architecture/decision-0008-email-delivery-channel",
-              "architecture/decision-0009-referral-withdrawals",
-              "architecture/decision-0010-self-employed-receipts",
-              "architecture/decision-0011-converted-stars-payments",
-              "architecture/decision-0012-guest-purchases",
-              "architecture/decision-0013-account-sharing-signal",
-              "architecture/decision-0014-apple-iap-native-only",
-              "architecture/decision-0015-live-updates-over-sse"
+              "architecture/decisions"
             ]
           },
           {
@@ -168,28 +170,30 @@
             ]
           },
           {
+            "group": "Возможности",
+            "pages": [
+              "ru/features/overview",
+              "ru/features/plans-and-subscriptions",
+              "ru/features/payments-and-wallet",
+              "ru/features/telegram-bot-and-web",
+              "ru/features/customer-lifecycle",
+              "ru/features/support",
+              "ru/features/referrals-and-partners",
+              "ru/features/promotions-and-offers",
+              "ru/features/gifts-and-stars-shop",
+              "ru/features/analytics",
+              "ru/features/backups",
+              "ru/features/ai-assistant"
+            ]
+          },
+          {
             "group": "Архитектура",
             "pages": [
               "ru/architecture/overview",
               "ru/architecture/data-ownership",
               "ru/architecture/technology",
               "ru/architecture/threat-model",
-              "ru/architecture/decisions",
-              "ru/architecture/decision-0001-modular-monolith",
-              "ru/architecture/decision-0002-postgresql-only-durability",
-              "ru/architecture/decision-0003-contract-first-api",
-              "ru/architecture/decision-0004-remnawave-boundary",
-              "ru/architecture/decision-0005-one-web-application",
-              "ru/architecture/decision-0006-ai-is-optional",
-              "ru/architecture/decision-0007-no-customer-password",
-              "ru/architecture/decision-0008-email-delivery-channel",
-              "ru/architecture/decision-0009-referral-withdrawals",
-              "ru/architecture/decision-0010-self-employed-receipts",
-              "ru/architecture/decision-0011-converted-stars-payments",
-              "ru/architecture/decision-0012-guest-purchases",
-              "ru/architecture/decision-0013-account-sharing-signal",
-              "ru/architecture/decision-0014-apple-iap-native-only",
-              "ru/architecture/decision-0015-live-updates-over-sse"
+              "ru/architecture/decisions"
             ]
           },
           {
@@ -303,5 +307,127 @@
     "socials": {
       "github": "https://github.com/kewldan/omniflow"
     }
-  }
+  },
+  "redirects": [
+    {
+      "source": "/architecture/decision-0001-modular-monolith",
+      "destination": "/architecture/decisions"
+    },
+    {
+      "source": "/ru/architecture/decision-0001-modular-monolith",
+      "destination": "/ru/architecture/decisions"
+    },
+    {
+      "source": "/architecture/decision-0002-postgresql-only-durability",
+      "destination": "/architecture/decisions"
+    },
+    {
+      "source": "/ru/architecture/decision-0002-postgresql-only-durability",
+      "destination": "/ru/architecture/decisions"
+    },
+    {
+      "source": "/architecture/decision-0003-contract-first-api",
+      "destination": "/architecture/decisions"
+    },
+    {
+      "source": "/ru/architecture/decision-0003-contract-first-api",
+      "destination": "/ru/architecture/decisions"
+    },
+    {
+      "source": "/architecture/decision-0004-remnawave-boundary",
+      "destination": "/architecture/decisions"
+    },
+    {
+      "source": "/ru/architecture/decision-0004-remnawave-boundary",
+      "destination": "/ru/architecture/decisions"
+    },
+    {
+      "source": "/architecture/decision-0005-one-web-application",
+      "destination": "/architecture/decisions"
+    },
+    {
+      "source": "/ru/architecture/decision-0005-one-web-application",
+      "destination": "/ru/architecture/decisions"
+    },
+    {
+      "source": "/architecture/decision-0006-ai-is-optional",
+      "destination": "/architecture/decisions"
+    },
+    {
+      "source": "/ru/architecture/decision-0006-ai-is-optional",
+      "destination": "/ru/architecture/decisions"
+    },
+    {
+      "source": "/architecture/decision-0007-no-customer-password",
+      "destination": "/architecture/decisions"
+    },
+    {
+      "source": "/ru/architecture/decision-0007-no-customer-password",
+      "destination": "/ru/architecture/decisions"
+    },
+    {
+      "source": "/architecture/decision-0008-email-delivery-channel",
+      "destination": "/architecture/decisions"
+    },
+    {
+      "source": "/ru/architecture/decision-0008-email-delivery-channel",
+      "destination": "/ru/architecture/decisions"
+    },
+    {
+      "source": "/architecture/decision-0009-referral-withdrawals",
+      "destination": "/architecture/decisions"
+    },
+    {
+      "source": "/ru/architecture/decision-0009-referral-withdrawals",
+      "destination": "/ru/architecture/decisions"
+    },
+    {
+      "source": "/architecture/decision-0010-self-employed-receipts",
+      "destination": "/architecture/decisions"
+    },
+    {
+      "source": "/ru/architecture/decision-0010-self-employed-receipts",
+      "destination": "/ru/architecture/decisions"
+    },
+    {
+      "source": "/architecture/decision-0011-converted-stars-payments",
+      "destination": "/architecture/decisions"
+    },
+    {
+      "source": "/ru/architecture/decision-0011-converted-stars-payments",
+      "destination": "/ru/architecture/decisions"
+    },
+    {
+      "source": "/architecture/decision-0012-guest-purchases",
+      "destination": "/architecture/decisions"
+    },
+    {
+      "source": "/ru/architecture/decision-0012-guest-purchases",
+      "destination": "/ru/architecture/decisions"
+    },
+    {
+      "source": "/architecture/decision-0013-account-sharing-signal",
+      "destination": "/architecture/decisions"
+    },
+    {
+      "source": "/ru/architecture/decision-0013-account-sharing-signal",
+      "destination": "/ru/architecture/decisions"
+    },
+    {
+      "source": "/architecture/decision-0014-apple-iap-native-only",
+      "destination": "/architecture/decisions"
+    },
+    {
+      "source": "/ru/architecture/decision-0014-apple-iap-native-only",
+      "destination": "/ru/architecture/decisions"
+    },
+    {
+      "source": "/architecture/decision-0015-live-updates-over-sse",
+      "destination": "/architecture/decisions"
+    },
+    {
+      "source": "/ru/architecture/decision-0015-live-updates-over-sse",
+      "destination": "/ru/architecture/decisions"
+    }
+  ]
 }

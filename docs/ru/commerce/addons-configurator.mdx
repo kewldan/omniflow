@@ -48,7 +48,7 @@ description: Наборы сквадов на уровне тарифа, вер�
 
 ### Каталог серверов
 
-**Серверы** на странице каталога — это то, как Omniflow называет и ограничивает продажу каждого внутреннего сквада Remnawave, как список серверов в Bedolaga, — без управления сквадом или его нодами, которые остаются за Remnawave ([решение 0004](/ru/architecture/decision-0004-remnawave-boundary)). Экран показывает внутренние сквады панели с числом участников, прочитанным вживую и нигде не сохраняемым, рядом с записью каталога для каждого (`GET /v1/panel/catalog/servers`, `catalog.read`). Запись (`PUT`/`DELETE /v1/panel/catalog/servers/{squadID}`, `catalog.write`, события аудита `panel.server.saved` и `panel.server.deleted`) содержит:
+**Серверы** на странице каталога — это то, как Omniflow называет и ограничивает продажу каждого внутреннего сквада Remnawave, как список серверов в Bedolaga, — без управления сквадом или его нодами, которые остаются за Remnawave ([решение 0004](/ru/architecture/decisions#граница-с-remnawave)). Экран показывает внутренние сквады панели с числом участников, прочитанным вживую и нигде не сохраняемым, рядом с записью каталога для каждого (`GET /v1/panel/catalog/servers`, `catalog.read`). Запись (`PUT`/`DELETE /v1/panel/catalog/servers/{squadID}`, `catalog.write`, события аудита `panel.server.saved` и `panel.server.deleted`) содержит:
 
 | Поле | Что делает |
 | --- | --- |

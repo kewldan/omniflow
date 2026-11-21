@@ -12,17 +12,18 @@ screen means.
 The decisions behind the design — why nothing talks to a provider directly, why
 approval is a database row, and why a model can never act on its own — are on
 [AI privacy and the gateway](/operations/ai-privacy) and
-[record 0006](/architecture/decision-0006-ai-is-optional). Read this page for
+[record 0006](/architecture/decisions#ai-is-optional). Read this page for
 the mechanics.
 
 <Warning>
-  **No feature invokes a provider in this build.** The registry, the credential
+  **No customer or operator feature invokes a provider in this build.** The registry, the credential
   sealing, the per-feature routing, the budgets, and the usage report are real
   and are what a provider will be driven through. The gateway and the feature
   packages are implemented and unit-tested, but no process mounts them: there is
   no AI endpoint on `/v1/panel`, and no screen outside these settings calls one.
-  A provider registered today is configuration waiting for the surfaces, and
-  registering one sends nothing anywhere.
+  A provider registered today is configuration waiting for the surfaces.
+  Registering one sends nothing anywhere; the only request this build makes is
+  the one real request behind **Test connection**, which an operator presses.
 </Warning>
 
 ## Where it lives

@@ -55,25 +55,31 @@ currency that method settles. Selection never falls back to an incompatible adap
 that the wallet already covers is offered no provider at all. Wallet top-ups have no plan price
 list, so they offer every enabled adapter that supports the currency.
 
-The list a customer sees is sorted by provider slug — `cryptobot`, `manual`, `telegram_stars`,
-`yookassa` — and both surfaces use the same sort, so a method never appears in one position in the
-bot and another in the browser. The panel's display-order field does not change it.
+The list a customer sees follows the display order saved on the **Payment providers** card at
+`/admin/settings/commerce`, then each button's own order from the **Payment methods** card, with
+the button key breaking ties. A provider with no saved row keeps the compiled-in order, which puts
+`manual` last. Both surfaces read the same list, so a method never appears in one position in the
+bot and another in the browser.
 
 <Warning>
-  The `manual` adapter is always registered and there is no switch that hides it. It also declares
-  no currency restriction, so it matches every plan price. An installation that never intended to
-  take bank transfers will still show **manual** as a payment method to every customer in both the
-  bot and the web panel, and every intent it creates waits for an operator decision that only the
-  token surface can make. See [Manual payments](#manual-payments).
+  The `manual` adapter is always registered. It also declares no currency restriction, so it
+  matches every plan price. Until it is switched off on the **Payment providers** card, an
+  installation that never intended to take bank transfers shows **manual** as a payment method to
+  every customer in both the bot and the web panel, and every intent it creates waits for an
+  operator decision that only the token surface can make. See [Manual payments](#manual-payments).
 </Warning>
 
 <Note>
-  `/admin/settings` has a **Payment providers** card that stores `enabled`, a display order, sealed
-  credentials, and a webhook secret per `(provider, merchantId)`. None of it configures a running
-  adapter: `ConfigureProviders` reads environment variables only, and the customer-facing list uses
-  the compiled-in display order. The stored credentials have no reader. Configure providers in
-  `.env` and restart. [Installation settings](/operations/installation-settings) covers what the
-  settings screens do and do not affect.
+  `/admin/settings/commerce` has a **Payment providers** card that stores `enabled`, a display
+  order, sealed credentials, and a webhook secret per `(provider, merchantId)`. The switch and the
+  order of the single-merchant row decide which configured providers customers see and in what
+  order: a provider switched off disappears from the bot and the web panel, and a provider with no
+  saved row is shown. The **Payment methods** card below it hides, renames, and orders single
+  buttons and limits who sees them. Other processes pick a save up within 30 seconds. The card does
+  not register an adapter: `ConfigureProviders` reads environment variables only, and the stored
+  credentials and webhook secret have no reader. Configure credentials in `.env` and restart.
+  [Installation settings](/operations/installation-settings) covers what the settings screens do
+  and do not affect.
 </Note>
 
 ## Telegram Stars
@@ -250,10 +256,11 @@ provider.
 in one step, because nobody is present to confirm a two-phase authorisation.
 
 <Warning>
-  No code path ever *creates* a saved payment method: `Create` never sets `save_payment_method`, so
-  no method ID is ever returned to bind, and the saved-method list stays empty. Recurring charging is
-  declared and wired but cannot currently be armed. [Recurring payments](/commerce/recurring-payments)
-  states exactly which parts work.
+  A method is saved only on the customer's explicit consent at checkout: `Create` then sets
+  `save_payment_method: true`, and the returned `payment_method.id` is bound once the payment
+  succeeded and YooKassa reports it saved. The checkbox is offered only after recurring was enabled
+  for YooKassa with a passing capability test.
+  [Recurring payments](/commerce/recurring-payments#how-a-card-is-saved) describes the flow.
 </Warning>
 
 

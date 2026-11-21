@@ -1,0 +1,252 @@
+---
+title: Customer lifecycle
+description: How customers arrive, how you look after them from the customer card, and how they are blocked, go quiet, are messaged, and leave
+---
+
+Every person who presses `/start` or signs in to the web cabinet becomes one customer record. That
+record owns their subscriptions, wallet, orders, support conversations, consent, and contact
+channels, whichever surface they used. This page follows a customer through their life at your
+installation: how they get in, what you can see and do from the customer card, how you block
+somebody, what happens to customers who stop showing up, how you talk to them, and what happens when
+they leave.
+
+The detailed references are [Admin operations](/operations/admin-operations),
+[Notifications and announcements](/customer/notifications), and
+[Personal data and privacy](/customer/privacy).
+
+## Where customers come from
+
+Most customers create themselves: the first `/start` in the bot or the first sign-in on the web
+creates the record, under a lock that stops two simultaneous first contacts from making two accounts.
+If you already have a customer base, two tools bring it in.
+
+| Source | Tool | What it produces |
+| --- | --- | --- |
+| Users already in Remnawave | The **Imports** card on `/admin/customers` | A customer and a Remnawave mapping per user, so the bot recognises them by Telegram ID on their next `/start` |
+| A CSV exported from another panel | **Upload CSV** on the same card | The same, from a file with `remnawave_id` and optionally `telegram_id`, `username`, `status` (up to 50,000 rows) |
+| A Bedolaga bot | `cmd/migrate-bedolaga` | Customers, balances, subscriptions, and referrals, with a rehearsed cutover that keeps every subscription link working |
+
+The Remnawave import runs in two phases: **Preview** stages every record and counts the clean ones,
+the conflicts, and the unreadable ones before anything is written; **Apply** then commits the clean
+ones. A record whose Telegram ID already belongs to a customer is left as a conflict rather than
+merged. `APP_REMNAWAVE_AUTO_IMPORT_HOURS` makes the worker repeat the whole import on a schedule, so a
+user you create directly in Remnawave becomes a customer without anybody pressing a button.
+
+<Note>
+  An import does not invent subscriptions, orders, or payments. Remnawave does not record what a
+  customer paid, so the imported customer keeps their live access in Remnawave and Omniflow starts
+  tracking money from their first purchase. A Bedolaga migration is different: it carries balances
+  and subscriptions over. See [Migrating from Bedolaga](/operations/migrate-from-bedolaga).
+</Note>
+
+## The customer card
+
+`/admin/customers` finds a customer by their Omniflow ID, Telegram ID, or Remnawave username. There
+is deliberately no free-text search over names or addresses, because contact details are stored
+encrypted precisely so they cannot be trawled. **Filter and sort** narrows the list instead: access
+expiring within N days, a positive balance, auto-renew on, a restriction, trial-only customers,
+customers from a campaign, recent activity, or heavy traffic use.
+
+Opening a customer shows:
+
+- **The header.** Their Telegram profile photo, fetched from the Bot API when the card opens and
+  never stored, or two letters of their ID when there is none; and a copy button for the ID.
+- **The overview.** Status, Telegram ID, language, and counts of subscriptions, orders, open tickets,
+  and referrals.
+- **Badges.** **N flagged for review** when risk controls matched something, **Allowlisted**, and
+  **Dormant since …** for a customer who has gone quiet (see below).
+- **Tabs.** Subscriptions, orders, wallet, referrals and loyalty, support, notifications, controls,
+  activity, risk, and the audit timeline. Each tab appears only for operators whose role holds its
+  permission — the wallet needs `finance.read`, risk needs `risk.read`, the timeline `audit.read`.
+
+The **Activity** tab is the customer's own action log in the bot and the cabinet — which screen,
+button, or command, and when — with route names only, never anything they typed. It is kept for
+ninety days. The **Notifications** tab shows what was sent to the customer and, when something was
+not, which rule held it back.
+
+### What you can do from the card
+
+| Action | Where | Permission |
+| --- | --- | --- |
+| Add days, give the trial, or change the plan for the time left | Controls | `subscriptions.write` |
+| Buy a plan with the customer's own balance | Controls | `finance.write` |
+| Adjust the wallet | Wallet | `finance.write` |
+| Stop wallet top-ups, purchases, or support for this customer, with a reason | Controls | `customers.write` |
+| Turn auto-renew off, or back on where the customer consented before | Controls | `subscriptions.write` |
+| Reset the trial so the customer may take it again | Controls | `subscriptions.write` |
+| Write to the customer in Telegram in your own words | Support | `support.write` |
+| Suspend or reactivate the account, with a reason | Header | `customers.write` |
+| Mark for deletion, or anonymise | Controls, after typing a confirmation word | `customers.write` |
+| Merge this account into another | Below the tabs | `customers.write` |
+
+Every action is written to the audit trail. A merge is for the customer who bought in Telegram and
+later signed in on the web with a provider the first account never had: the account you are looking
+at is the one being absorbed, and a preview shows what will move before anything does.
+
+## Blocking and unblocking
+
+There are three strengths of block, and the lightest one that does the job is usually right.
+
+1. **A restriction** stops one thing — wallet top-ups, purchases, or support — and leaves everything
+   else working. The customer sees that the action is not available and a support button.
+2. **Suspension** puts the whole account on hold. In the bot every screen is replaced by "Account
+   suspended" with a support button; in the cabinet every request is refused and live sessions end.
+   Support keeps working, because you usually suspend somebody in order to talk to them.
+   **Reactivate** reverses it. Both need a reason.
+3. **Moderation bans** on `/admin/customers` suspend a pasted list of up to 1,000 customer or
+   Telegram IDs at once, optionally sending a ban message from a template (torrents, account sharing,
+   spam, payment fraud, rules) or your own text.
+
+<Note>
+  Suspension does not write to Remnawave directly. The fulfillment pipeline observes customer state,
+  because a panel click that bypassed it would leave Omniflow and Remnawave disagreeing with no record
+  of why.
+</Note>
+
+The same Moderation card counts customers who blocked the bot (**Scan now**) and can suspend the
+blockers who hold no live subscription; a customer with running access is never touched. With
+`disableBlockedSubscriptions` in the marketing section, live subscriptions of a customer who blocked
+the bot for longer than `blockedGraceHours` (24 by default) are disabled, and enabled again as soon as
+the bot hears from them. The moderation section's **Filter dangerous display names** refuses the bot
+to accounts whose name pretends to be staff or carries a link.
+
+## Customers who go quiet
+
+The `lifecycle` section on `/admin/settings/integrations` handles customers who stopped using the
+service. It is off by default.
+
+| Field | Default | Effect |
+| --- | --- | --- |
+| `dormancyEnabled` | off | Turns the pass on |
+| `inactiveDays` | 180 | Days without any activity before a customer is marked dormant |
+| `deleteAfterDays` | 0 | Days of dormancy before the account is deleted. Zero never deletes anybody |
+
+A customer is marked dormant only when they have done nothing for `inactiveDays` — no sign-in, no
+message or button in the bot — and have nothing to lose: no live or limited subscription, nothing in
+the wallet, no open support ticket, no order waiting for payment. Dormancy is a flag, not a status.
+The customer sees nothing, and the card shows **Dormant since …**.
+
+Any activity clears the flag at once — a database trigger does it, so the bot, the cabinet, and the
+Mini App all revive a customer without having to remember to. Deletion is a second, opt-in step: with
+`deleteAfterDays` above zero, a customer who stayed dormant that long is deleted through the same
+deletion flow an operator starts from the card, and the privacy and retention rules apply unchanged.
+The pass is checked hourly and runs at most once a day.
+
+## Deletion and privacy
+
+A customer manages their own data on `/account/privacy` in the cabinet: account state, contact
+channels, consent history, a personal-data export, and a deletion request.
+
+<Steps>
+  <Step title="The customer asks">
+    They write a reason and confirm. This needs a recent sign-in, and it records a request — it does
+    not delete anything. They can cancel it while it is pending.
+  </Step>
+  <Step title="You delete">
+    From the card's Controls tab, after typing the confirmation word, you mark the account deleted.
+    Sessions end and the bot shows "This account has been deleted".
+  </Step>
+  <Step title="You anonymise">
+    Anonymisation runs only on a deleted account and cannot be undone. It revokes every identity,
+    wipes contact channels, cuts the Telegram ID from the Remnawave mapping, replaces support message
+    bodies with `[anonymized]`, and deletes the referral code.
+  </Step>
+</Steps>
+
+<Warning>
+  The financial and audit record survives anonymisation on purpose. An order that funded a ledger
+  entry cannot be removed without unbalancing the ledger, so an anonymised customer keeps their
+  financial history and loses everything that identifies who placed it.
+</Warning>
+
+## Notifications and preferences
+
+Every message to a customer passes through one decision: its kind, the customer's per-kind switches,
+their marketing consent, their quiet hours, the marketing frequency cap, and whether Telegram can
+reach them. The answer is send now, wait until a stated time, or do not send and record why.
+
+- **Transactional messages** — expiry and renewal reminders, traffic warnings, payment and
+  activation results, support replies, announcements — need no consent.
+- **Marketing messages** — campaigns and `news` posts — need marketing consent, which is off until
+  the customer turns it on, and are limited by `APP_MARKETING_FREQUENCY_CAP` (3 per
+  `APP_MARKETING_WINDOW_HOURS`, 168 hours, by default).
+- **Quiet hours** hold non-urgent messages until the window ends, in the customer's own time zone.
+  Payment, activation, support, and incident messages always arrive.
+
+Customers set all of this in the bot's `/settings` or on `/account/preferences`: switches for expiry,
+traffic, renewal, and news, marketing consent, a quiet window, and a time zone. Every consent change
+is appended as a record with its date, surface, and policy version, never edited. Unsubscribing stops
+marketing and news but never expiry, traffic, or renewal reminders, because those carry facts a
+customer needs to keep their access. To change the wording of the automatic notices, see
+[Message wording](/operations/message-wording).
+
+## News and broadcasts
+
+Two tools reach many customers at once, and they serve different purposes.
+
+| Tool | Where | Use it for |
+| --- | --- | --- |
+| News posts | `/admin/content` | Announcements that stay readable in the bot's and the cabinet's news inbox, with a push when published. Draft, schedule, unpublish, archive |
+| Campaigns | `/admin/marketing` | One template sent to one audience segment, by Telegram or e-mail, with an audience estimate before scheduling and a test send to your operator group |
+
+Each news category maps to one of four kinds: `news`, `announcement`, `incident`, or `maintenance`.
+
+<Warning>
+  A post in a `news` category is marketing: it needs consent and spends the frequency cap. Publish an
+  outage notice as an `incident` or an `announcement`, or only customers who opted into offers will
+  see it pushed.
+</Warning>
+
+## Account-sharing signal
+
+When an operator opens a subscription's devices on the customer card, the list carries a sharing
+signal computed from what Remnawave reports about those devices: five or more devices active within a
+day, four or more platforms, or three or more models of one platform. One reason reads as **Possibly
+shared**, two or more as **Likely shared**.
+
+The signal is read-only by design. Omniflow stores no device history and blocks, removes, or messages
+nobody because of it — Remnawave owns devices and their limits. What you do with it is your decision:
+talk to the customer, or use the account-sharing ban template.
+
+## Retention
+
+The worker's hourly retention sweep removes disposable operational data: expired bot and checkout
+sessions, processed payment webhooks after 30 days, support attachments after 90 days, outbox events,
+and resolved drift records. It never touches financial, audit, consent, identity, or entitlement
+history, which is kept for the life of the installation. Retention runs only in the `worker`
+process; an installation without one accumulates everything.
+
+<Note>
+  Customer sessions, sign-in links, and customer security events have documented windows (30 and 180
+  days) that no job enforces today. Expired sessions still cannot be used, but the rows remain. See
+  [Privacy](/operations/privacy).
+</Note>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Admin operations" icon="shield-halved" href="/operations/admin-operations">
+    Customer search, controls, moderation, and bulk actions.
+  </Card>
+  <Card title="Customers and imports" icon="database" href="/commerce/customers-imports">
+    Remnawave import, CSV upload and export, and merging accounts.
+  </Card>
+  <Card title="Notifications and announcements" icon="bell" href="/customer/notifications">
+    Every message kind, consent, quiet hours, and the delivery record.
+  </Card>
+  <Card title="Audience segments and campaigns" icon="bullhorn" href="/commerce/campaigns">
+    Segments, templates, scheduling, and campaign results.
+  </Card>
+  <Card title="Personal data and privacy" icon="file-export" href="/customer/privacy">
+    Export, deletion requests, anonymisation, and what is kept.
+  </Card>
+  <Card title="Installation settings" icon="sliders" href="/operations/installation-settings">
+    The lifecycle, marketing, and moderation sections.
+  </Card>
+  <Card title="Telegram bot and web cabinet" icon="paper-plane" href="/features/telegram-bot-and-web">
+    The two surfaces customers use.
+  </Card>
+  <Card title="Support" icon="life-ring" href="/features/support">
+    Tickets, queues, and the live conversation.
+  </Card>
+</CardGroup>

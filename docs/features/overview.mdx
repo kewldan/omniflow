@@ -1,0 +1,107 @@
+---
+title: Features
+description: What Omniflow gives a VPN business, grouped the way an owner thinks about it, with a guide for each area
+---
+
+Omniflow sells and runs access to a Remnawave VPN: a Telegram bot and a web
+cabinet for customers, an operator panel for you and your team, and the
+payments, renewals, referrals, and support around them. Remnawave keeps doing
+what it does — users, nodes, traffic — and Omniflow never touches its database.
+
+Each guide in this section answers three questions: what the feature gives the
+business, what the customer sees, and where you turn it on. The deep reference
+pages each guide links to explain the exact rules.
+
+<Tip>
+  New installation? Start with the [Quickstart](/getting-started/quickstart) and
+  [Your first sale](/getting-started/first-sale), then come back here to switch on
+  what your business needs. Almost everything beyond a plan and a payment
+  provider is off until you turn it on.
+</Tip>
+
+## Selling
+
+<CardGroup cols={2}>
+  <Card title="Plans and subscriptions" icon="repeat" href="/features/plans-and-subscriptions">
+    Plans with versioned prices, periods down to one day, traffic packages or per-gigabyte traffic,
+    device limits, server choice, trials, mid-period changes, plan switching, grace access, pausing.
+  </Card>
+  <Card title="Payments and wallet" icon="credit-card" href="/features/payments-and-wallet">
+    Card and local payment providers, Telegram Stars, the customer balance, autopay, refunds,
+    self-employed receipts, and purchases without an account.
+  </Card>
+  <Card title="Gifts and the Stars shop" icon="gift" href="/features/gifts-and-stars-shop">
+    Subscriptions as gifts with claim codes, and a shop selling Telegram Stars and Premium through
+    Fragment.
+  </Card>
+  <Card title="Promotions and offers" icon="tags" href="/features/promotions-and-offers">
+    Promo codes, discounts, personal offers, wholesale code batches, loyalty tiers, campaigns, the
+    fortune wheel, polls, and daily games.
+  </Card>
+  <Card title="Referrals and partners" icon="users" href="/features/referrals-and-partners">
+    Rewards in days or balance, commission on every payment, two levels, contests, partner
+    applications with a personal rate, and withdrawals decided by a person.
+  </Card>
+</CardGroup>
+
+## Customers
+
+<CardGroup cols={2}>
+  <Card title="Telegram bot and web cabinet" icon="paper-plane" href="/features/telegram-bot-and-web">
+    Two full storefronts over one account: buying, connecting devices, traffic, gifts, referrals,
+    and support, in five languages, with no customer passwords.
+  </Card>
+  <Card title="Customer lifecycle" icon="user-clock" href="/features/customer-lifecycle">
+    The customer card, blocking, deletion, dormant customers, notifications and quiet hours, news,
+    account-sharing signals, and imports.
+  </Card>
+  <Card title="Support" icon="life-ring" href="/features/support">
+    Tickets from the bot and the web, queues, a live conversation, attachments, operator alerts, and
+    FAQ pages.
+  </Card>
+</CardGroup>
+
+## Running the business
+
+<CardGroup cols={2}>
+  <Card title="Analytics" icon="chart-line" href="/features/analytics">
+    Sales, traffic, and advertising reports, campaign attribution, exports, and what telemetry sends.
+  </Card>
+  <Card title="Backups" icon="database" href="/features/backups">
+    Scheduled, verified backups, delivery of the backup file to a Telegram chat, and restore.
+  </Card>
+  <Card title="AI assistant" icon="wand-magic-sparkles" href="/features/ai-assistant">
+    Optional and off by default. Providers, models, and budgets can be configured today; the drafting
+    features and the MCP server are not wired to any screen yet.
+  </Card>
+  <Card title="Moving from Bedolaga" icon="truck-moving" href="/operations/migrate-from-bedolaga">
+    Import customers, balances, subscriptions, and referrals from a running Bedolaga bot.
+  </Card>
+</CardGroup>
+
+## What every feature has in common
+
+A few rules hold everywhere, and they explain most of what you will see in the
+panel.
+
+- **Money and access fail independently.** A payment is recorded even when
+  Remnawave is down, and access is provisioned when it comes back. Nothing a
+  customer paid for is lost to an outage.
+- **Money moves only through the ledger.** Balance, referral rewards,
+  withdrawals, refunds, and bonuses are ledger entries, so every figure in the
+  panel can be traced to the order or action behind it.
+- **Prices are versioned.** Editing a plan publishes a new version; customers who
+  bought an old one keep what they paid for.
+- **Destructive actions ask for a reason** and land in the audit log with the
+  operator who did them.
+- **Automation suggests, people decide** wherever a decision affects a customer:
+  risk signals, account-sharing signals, withdrawal scores, and AI drafts never
+  act on their own.
+- **Optional means off.** Dormant-customer handling, AI, plan switching with
+  credit for the unused remainder, and other features that change how money or
+  data moves stay off until you turn them on in **Settings** or the area's own
+  screen.
+
+What Omniflow deliberately does not do, and why, is on
+[Architecture decisions](/architecture/decisions). How it compares with Bedolaga
+feature by feature is on [How it compares](/comparison).

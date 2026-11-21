@@ -218,8 +218,10 @@ Three domain events are written to `outbox_events` in the same transaction as th
 
 Two surfaces read the backlog. `GET /v1/admin/outbox` returns `{pendingCount, oldestAgeSeconds}`; the panel's **System → Outbox** tab (permission `system.read`) lists the topic and age of each pending event and nothing else, because an outbox payload is a domain event that can name a customer and an amount, and "is the publisher running" needs neither.
 
+The worker's `webhooks` pass dispatches the outbox every fifteen seconds. It takes up to 200 unpublished events in order, turns each into one delivery per enabled [outgoing webhook](/integrations/api#outgoing-webhooks) subscribed to its topic, and marks every one of them published in the same statement — including events no endpoint subscribed to. The pending count therefore stays near zero, and `APP_RETENTION_OUTBOX_DAYS` deletes published rows once they are older than the window.
+
 <Warning>
-  **Nothing dispatches the outbox.** No code in Omniflow ever sets `outbox_events.published_at`, and there is no publisher process, no subscriber, and no delivery target. Two consequences follow directly. The pending count grows for the life of the installation and never falls, so a rising number here is the normal steady state rather than an incident. And because the retention step deletes only rows where `published_at` is not null, `APP_RETENTION_OUTBOX_DAYS` removes nothing at all — the table grows without bound alongside the count.
+  The pass runs only in a worker that has a 32-byte `APP_DATA_ENCRYPTION_KEY`, because the same service unseals the endpoints' signing secrets. A worker without the key, or an installation running no worker, never marks an event published: the pending count then grows for the life of the installation, and the retention step, which deletes only published rows, removes nothing. A pending count that keeps rising is that signal.
 </Warning>
 
 `omniflow_outbox_pending_events` is declared but never set, so the gauge is not an alternative view of this. Read the count from the admin route or the panel tab if you want to track the table's size.

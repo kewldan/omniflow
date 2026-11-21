@@ -1,0 +1,162 @@
+---
+title: AI assistant
+description: Optional AI help for support, marketing, and operations — off until you configure it, redacted before anything leaves, and never acting on its own
+---
+
+Omniflow can use a language model to help your team: summarise a long support thread, draft a
+reply, translate it, suggest a ticket's category, draft campaign copy, explain an anomaly, or
+answer an operator's question about the panel. It is entirely optional. Every one of those jobs
+already has a manual workflow, and switching AI off leaves that workflow exactly as it was.
+
+Three rules hold whatever you configure: AI is **off until you turn it on**, everything sent to a
+provider passes through **one redacting gateway**, and a model **never acts by itself** — a person
+sends, refunds, suspends, or launches.
+
+<Warning>
+  **What works in this build.** The configuration is real: you can register providers, store keys,
+  route each feature to a model, set budgets and limits, and run **Test connection**, which sends
+  one real request. The AI features themselves — reply drafts, summaries, marketing drafts, the
+  copilot, and both sides of MCP — are implemented and unit-tested but **not yet available**: no
+  screen calls them, and apart from a connection test nothing is sent to any provider. The rest of
+  this page describes what you configure now and how the features behave once they are switched on.
+</Warning>
+
+## Off until you configure it
+
+A fresh installation has no provider, and with no provider every AI surface answers
+"unavailable" without contacting anybody. Nothing is sent anywhere by default.
+
+Turning a feature on takes three deliberate steps: register a provider, approve it, and enable the
+feature with that provider and a model. A feature switched on but missing a provider or model
+cannot be saved, so a switch never reads as on while behaving as off.
+
+## Providers
+
+`/admin/settings/ai` holds everything. Viewing needs `settings.read`; changing anything needs
+`settings.write`, and every change goes to the audit trail.
+
+| Kind | Use it for |
+| --- | --- |
+| `openai_compatible` | OpenAI, and anything that speaks its chat-completions API: Ollama, vLLM, LM Studio, llama.cpp's server, most self-hosted gateways |
+| `anthropic` | Anthropic's Messages API |
+| `gemini` | Google Gemini |
+
+<Steps>
+  <Step title="Register the provider">
+    On the **Providers** card give it an identifier (`openai-main`, `local-llama`), a name, a kind,
+    and optionally a base URL. Record what its terms say: **Zero retention** and **May train on your
+    data**. Omniflow cannot verify these; it uses them to warn you before a feature sends data there.
+  </Step>
+  <Step title="Add the key and test it">
+    Paste the API key and save. The key is encrypted with `APP_DATA_ENCRYPTION_KEY` and never shown
+    again; the field stays empty, and leaving it empty keeps the stored key. Press
+    **Test connection** — one real request with a tiny answer — and check the result.
+  </Step>
+  <Step title="Approve it">
+    A new provider is created disabled. Turn on **Approved for use**. A feature routed to a provider
+    that is not approved is refused; it never falls back to another provider.
+  </Step>
+  <Step title="Enable features one at a time">
+    On the **Features** card, pick a provider and model for each feature you want, with its own
+    budget and retention, and enable it.
+  </Step>
+</Steps>
+
+**Local models.** To keep everything on your own hardware, register an `openai_compatible`
+provider whose base URL points at your model server — a Compose service name or a LAN address, not
+`localhost`, which inside a container is the container. Put any placeholder in the key field if the
+server does not check one, and set `APP_AI_ALLOW_PRIVATE_NETWORK=true` on the API. Without that
+variable a provider must be HTTPS to a public address. With it, **every** provider may reach your
+private network, so only enable it where that is acceptable.
+
+## What leaves the installation
+
+Every request goes through a single gateway, and the gateway redacts before it sends. Redaction
+cannot be partially disabled. It replaces each of these with a labelled placeholder, so the model
+can still follow the conversation:
+
+- subscription and VPN links (`https`, `vless`, `vmess`, `trojan`, `ss`);
+- bot tokens, API keys, and other long secrets;
+- card numbers, e-mail addresses, phone numbers, labelled Telegram IDs, IP addresses, and internal
+  identifiers.
+
+Marketing drafts receive a segment described in words, never a list of customers. Prompts are not
+kept in Omniflow by default; outputs are kept for the period you set per feature. Nothing AI-related
+— prompts, outputs, ticket text, tool arguments — ever enters telemetry.
+
+## Governance and cost
+
+- **Per-feature settings.** Each feature has its own provider, model, temperature, token ceiling,
+  timeout, budget, and retention, because summarising a ticket and judging fraud are not the same
+  risk.
+- **Usage limits.** Ceilings on requests, tokens, or estimated cost for the whole installation, a
+  role, one operator, or one feature. When several apply, the operator is told about the narrowest.
+  A meter that cannot be read refuses the call rather than spending blind.
+- **Spend and performance.** Requests, tokens, latency, failures, and estimated cost per feature
+  and model. It contains no prompt or output text, because none is stored there.
+- **Warnings beside each switch** — the provider may train on your data, is not zero-retention,
+  has no data region recorded, has never been tested, or failed its last test.
+- **A record of AI-influenced decisions.** When an operator acts on something a model produced,
+  the audit trail records the feature, provider, model, and whether the operator accepted, edited,
+  or rejected it.
+
+## The features
+
+| Feature | What it does for your team |
+| --- | --- |
+| Ticket summaries | Condense a long support thread before an operator reads it |
+| Suggested replies | Draft a reply for the operator to edit and send |
+| Rewrite | Make a reply shorter, clearer, friendlier, more formal, or more technical |
+| Translation | Russian and English, keeping product names and template variables intact |
+| Classification | Suggest a ticket's category, priority, tags, and sentiment |
+| Marketing drafts | Draft news, announcements, and campaign copy |
+| Abuse analysis | Explain why an account looks risky, as a recommendation |
+| Admin copilot | Answer operators' questions about the panel using only what that operator may see |
+| MCP tools | Let the copilot call tools on MCP servers you registered |
+
+Each has a manual equivalent, and each produces something a person decides on.
+
+## It never acts alone
+
+These are constraints of the product, not settings:
+
+- A generated reply is a **draft**. An operator sends it.
+- AI may prepare a campaign. It cannot choose recipients, schedule, or send.
+- AI may recommend action against a customer. It cannot suspend, refund, deny a refund, change a
+  wallet, or change access — those stay ordinary actions with their own permission, reason, and
+  audit record.
+- The copilot and MCP tools are read-only by default. Any change requires a preview, a permission
+  check, a reason, and a confirmation.
+
+## MCP
+
+Omniflow sits on both sides of the Model Context Protocol, and both are configured under
+**Settings → AI and MCP**.
+
+- **As a client**, Omniflow can connect to MCP servers you register. Nothing a server advertises
+  becomes callable until you allowlist the tool and map it to an Omniflow permission; the check runs
+  against the asking operator's own grant. Tools you mark as writes need confirmation and a reason on
+  every call, and everything a server returns is treated as data, never as instructions.
+- **As a server**, Omniflow exposes admin tools to an assistant your operators connect. Every call
+  is authorised as the operator behind the token, so a tool they cannot use in the panel is a tool
+  they cannot use here. It is read-only unless you enable mutations and name each mutating tool.
+
+Credentials are write-only, connections are checked against private addresses before every
+request, and every call, confirmation, and refusal is recorded.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="AI providers and local models" icon="robot" href="/operations/ai-providers">
+    Every field on the providers and features cards, and troubleshooting.
+  </Card>
+  <Card title="AI privacy and the gateway" icon="shield-halved" href="/operations/ai-privacy">
+    What redaction removes, and in what order.
+  </Card>
+  <Card title="AI governance and evaluation" icon="scale-balanced" href="/operations/ai-governance">
+    Limits, retention, legal hold, audit exports, and evaluation thresholds.
+  </Card>
+  <Card title="MCP connections" icon="plug" href="/operations/mcp">
+    Allowlists, schema validation, egress rules, and the first-party server.
+  </Card>
+</CardGroup>

@@ -538,7 +538,7 @@ Both locales are required. An offer with copy in only one language is an offer t
 
 Only one live offer per customer per promotion exists at a time. A partial unique index plus a conflict-do-nothing insert makes a repeat idempotent, and the service maps the empty return to 409, so a conflict reads as "already offered" rather than as a failure.
 
-Offers are created one customer at a time. There is no bulk targeting job, and no import; the composer's UUID field is the only input.
+The composer creates one offer for one customer, by UUID. To reach many customers at once, send an offer template to a segment, described below.
 
 ### Revoking
 
@@ -560,13 +560,13 @@ Dismissal is final, and the update predicate includes the customer, so an offer 
 
 The offer shows the promotion's first active promo code by creation order. A promotion with no code produces an offer with no code, and there is nothing for the customer to enter.
 
-<Warning>
-  Nothing in the order path knows about personal offers. The status only ever
-  moves from `active` to `dismissed`, `revoked`, or `expired`; `order_id` is
-  always null, which makes the register's "redeemed" filter and its order links
-  dead. "Single use" is imposed only indirectly, by the underlying promotion's
-  `per_customer_limit`.
-</Warning>
+<Note>
+  Checkout applies the customer's best live offer by itself when no code is
+  entered: a percent discount before a fixed one, then the larger value, then the
+  one ending first. An offer with a discount timer applies only after the
+  customer took it. The order that uses an offer marks it `redeemed` and links
+  it, which is what the register's "redeemed" filter and order links show.
+</Note>
 
 ### Offer templates and sending to a segment
 
@@ -588,7 +588,7 @@ Each send is recorded in `offer_sends` and audited as `panel.offer_template.sent
 
 ## What the admin panel cannot do
 
-`/admin/catalog` can publish plan versions, toggle plan visibility, save add-ons, retire add-on versions, edit a promotion's numbers, and toggle a promo code's active flag. Everything below needs an API call, and the last two need SQL:
+`/admin/catalog` can publish plan versions, toggle a plan's visibility and **Best deal** flag, save add-ons, create a promotion with its codes, and edit a promotion's numbers. Everything below needs an API call, and the last two need SQL:
 
 | Task | Route |
 | --- | --- |
@@ -597,6 +597,8 @@ Each send is recorded in `offer_sends` and audited as `panel.offer_template.sent
 | Archive or restore a plan | `POST /v1/panel/catalog/plans/{planID}/archive` |
 | Retire a plan version | `POST /v1/panel/catalog/plan-versions/{planVersionID}/retire` |
 | Change a plan's concurrency cap | `PATCH /v1/panel/catalog/plans/{planID}` |
+| Retire an add-on version | `POST /v1/panel/catalog/addon-versions/{addonVersionID}/retire` |
+| List a promotion's codes, or disable and re-enable one | `GET /v1/panel/catalog/promotions/{promotionID}/codes`, `POST /v1/panel/catalog/promo-codes/{promoCodeID}/status` |
 | Scope a promotion to goods | Direct SQL |
 | Inspect or change a promotion's plan scope | Direct SQL |
 

@@ -131,14 +131,14 @@ whoever invited a customer is settled the moment they arrive, and no later
 table carries a `CHECK` that the two customers differ, and the insert also refuses
 a code owned by the customer using it.
 
-<Warning>
-  **Only the Telegram path attributes today.** Attribution is recorded from a
-  `/start` payload in the bot. The referral link the customer is given points at
-  `<APP_PUBLIC_URL>/account/sign-in?ref=<CODE>`, but the web sign-in page reads
-  only its `error` parameter and no `/v1/account` route accepts a referral code,
-  so a web-originated invite is never attributed. Share the bot link if the
-  programme is meant to pay.
-</Warning>
+<Note>
+  **Both surfaces attribute.** The bot records attribution from a `/start`
+  payload. The web referral link points at
+  `<APP_PUBLIC_URL>/account/sign-in?ref=<CODE>`; the sign-in page keeps the code
+  and, once the customer is signed in, sends it to
+  `POST /v1/account/referrals/attribution`. The web path attributes only while the
+  programme is enabled and only a customer who has not paid for anything yet.
+</Note>
 
 ### Qualification runs inside the settling transaction
 
@@ -320,7 +320,7 @@ customer has a verified e-mail address, each decision is mailed to them.
 ## Second level and referral contests
 
 Both are configured in **Marketing → Second level and referral contests** and
-follow [decision 0009](/architecture/decision-0009-referral-withdrawals): every
+follow [decision 0009](/architecture/decisions#referral-withdrawals): every
 payout is a ledger posting, so it is withdrawable and reversible like any
 referral reward.
 

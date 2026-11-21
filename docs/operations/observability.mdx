@@ -125,7 +125,7 @@ Four metrics appear in `/metrics` output with no samples, because nothing in the
 
 | Metric | State |
 | --- | --- |
-| `omniflow_outbox_pending_events` | Never `Set`. The outbox has no dispatcher — see [Jobs and queues](/operations/jobs-and-queues#the-transactional-outbox) |
+| `omniflow_outbox_pending_events` | Never `Set`, although the worker's webhook pass does dispatch the outbox — see [Jobs and queues](/operations/jobs-and-queues#the-transactional-outbox) |
 | `omniflow_remnawave_requests_total` | Never incremented; the Remnawave client is not instrumented |
 | `omniflow_remnawave_errors_total` | Never incremented |
 | `omniflow_telegram_sends_total` | Never incremented; only inbound updates are counted |

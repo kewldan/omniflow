@@ -567,9 +567,10 @@ makes "payment success and durable fulfillment intent commit together" an invari
 ordering convention.
 
 <Note>
-  The `outbox_events` row is written but never marked published — no process in the repository
-  sets `published_at` today. Treat the table as an internal record of what settled, not as an event
-  feed you can subscribe to.
+  The worker marks the `outbox_events` row published within about fifteen seconds and delivers it
+  to every enabled outgoing webhook subscribed to `order.paid`. Subscribe through
+  [Outgoing webhooks](/integrations/api#outgoing-webhooks) rather than reading the table, which the
+  retention sweep empties.
 </Note>
 
 Two deliberate exceptions:

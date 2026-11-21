@@ -1,0 +1,270 @@
+---
+title: Promotions and offers
+description: Discount and reward codes, personal offers, wholesale code batches, loyalty tiers and promo groups, advertising campaigns, and the fortune wheel, polls, and daily games
+---
+
+Omniflow gives an owner several ways to change what a customer pays or receives, each aimed at a
+different moment: a public code for a sale, a personal discount for somebody about to leave, a batch
+of codes for a reseller, a standing discount for loyal customers, a sign-up bonus for an advertising
+campaign, and small games that bring customers back to the bot.
+
+All of them share one rule: a discount changes what an order is charged, never the plan version the
+order is bought at, and never what somebody already paid. Every reward that moves money is a ledger
+posting, and every one is paid once even when a request is retried. The deep rules are on
+[Catalog and promotions](/commerce/catalog-promotions) and
+[Referrals and loyalty](/commerce/referrals-loyalty).
+
+## Promotions and reward kinds
+
+A **promotion** is the campaign: what it gives, when it is valid, how many times it may be used in
+total and per customer, and who is eligible. The **promo codes** customers type sit under it; one
+promotion can have several codes, so you can hand a different code to each audience and still read
+one set of results.
+
+| Kind | What the customer gets | Where it is used |
+| --- | --- | --- |
+| Percent | A percentage off the plan price | At checkout |
+| Fixed | A fixed amount off, in the promotion's currency | At checkout |
+| Wallet credit | Money credited to the wallet | Redeemed on its own |
+| Days | Days added to the current subscription | Redeemed on its own |
+| Trial | A trial for that many days — the customer's one trial | Redeemed on its own |
+| Balance and days | Days and wallet credit together | Redeemed on its own |
+| Traffic | Gigabytes added to the current period | Redeemed on its own |
+| Loyalty group | Membership in a promo group for that many days | Redeemed on its own |
+| Squad access | A squad opened on the live subscription for that many hours | Redeemed on its own |
+
+A discount code goes into the **Promo code** field at checkout — on the web and in the bot. A reward
+code is redeemed on its own: under **🔑 Redeem a code** in the bot, or **Promo or gift code** on the
+web wallet page. It applies at once and shows in the order history as a zero-amount order. A link
+`t.me/<bot>?start=coupon_<CODE>` redeems a code the moment the customer opens the bot.
+
+Eligibility can limit a promotion to certain interface languages, to new customers only (nobody who
+has paid for a subscription), or to customers with at least a number of paid subscription orders.
+
+### Creating a promotion
+
+<Steps>
+  <Step title="Open the form">
+    Go to **Catalog → Promotions** (`/admin/catalog`) and press **New promotion**. You need
+    `catalog.write`.
+  </Step>
+  <Step title="Describe the reward">
+    Pick the kind and its value, the currency where one applies, the per-customer and total limits,
+    the start and end, and the codes customers will type. For a discount, pick the plans it applies
+    to; leave them empty for every plan.
+  </Step>
+  <Step title="Switch it on or off later">
+    The promotions table shows each promotion's redemptions against its limit and the total discount
+    given, with an **Active** switch.
+  </Step>
+</Steps>
+
+A promotion's kind cannot be changed after creation — changing a percentage into a wallet credit
+would silently change what every unredeemed code is worth. Its plan scope is also fixed at creation.
+
+## Promo codes
+
+Codes are normalised before anything else: surrounding spaces are trimmed, letters are upper-cased,
+and only `A–Z`, `0–9`, `_`, and `-` are allowed, 3 to 64 characters. `spring25` and ` SPRING25 ` are
+the same code. A code is never deleted, because its redemptions are financial records; disabling it
+stops new uses and leaves the old ones alone.
+
+### Limits
+
+- A **total** limit on the promotion, an optional limit on each code, and a **per-customer** limit.
+  An order that closes unpaid gives its use back, so "pressed Pay, changed my mind" does not burn a
+  one-per-customer code.
+- **Settings → Marketing → Different promo codes a customer may use per day** caps how many
+  *different* codes one customer may use in 24 hours; empty or `0` is no limit.
+- Attempts are rate-limited on both surfaces: five a minute in the bot, twenty an hour at the web
+  checkout, ten an hour for reward codes.
+
+### What a customer is told when a code is refused
+
+| Reason | When |
+| --- | --- |
+| Invalid | The text is not a valid code at all |
+| Unknown | No such code, or the code or its promotion is switched off |
+| Not eligible | Wrong plan, outside the dates, the customer fails the eligibility rule, a fixed discount in another currency, or a reward code typed at checkout |
+| Used up | A total, per-code, or per-customer limit is reached |
+| Daily limit | The customer already used the allowed number of different codes today |
+| Below cost | Shop orders only: the discount would take the price under what the provider charges |
+
+A refused code does not break the checkout: the price is recomputed without it and the reason is
+shown under the field, so the customer can try another code.
+
+## Stacking
+
+One order carries **one** promo code. On top of it, the customer's loyalty tier discount always
+applies: the tier comes off first, then the code discounts what is left, so a 10 % tier and a 10 %
+code make 19 %, never more than the price.
+
+<Note>
+  The promotions table shows a **Stacks / Exclusive** badge and a precedence number. These are
+  stored but no pricing path reads them today, so they do not change what a customer pays.
+</Note>
+
+## Scope: plans or goods
+
+A promotion discounts either plans or shop goods, never both. Every promotion created in the panel
+or through the API discounts plans; scoping one to goods currently needs a direct database change.
+A goods discount may never take the price below what the upstream provider charges — that is
+refused as **Below cost** rather than quietly capped. See [Gifts and the Stars
+shop](/features/gifts-and-stars-shop) for the shop side.
+
+## Personal offers
+
+A personal offer is a discount pointed at one customer, with its own title and terms in Russian and
+English and its own validity window. It does not define a discount of its own: it points at an
+existing discount promotion, so the same limits and rules apply.
+
+### How the customer sees it
+
+In the bot, a **✨ Your offer** entry appears in the main menu while an offer is waiting. On the web
+it is **More → Offers** (`/account/offers`), soonest to end first.
+
+- **The customer does not type anything.** With no code entered, checkout applies the customer's
+  best active offer by itself — a percentage before a fixed amount, then the larger one. The order
+  that uses it marks the offer redeemed.
+- **Take the offer** starts a timed offer's clock and credits its balance bonus, once. A taken offer
+  shows **Go to the store**.
+- **Not interested** drops the offer after a confirmation, and checkout stops applying it at once.
+
+### Creating one, or many
+
+<Steps>
+  <Step title="A single offer">
+    Go to **Offers** (`/admin/offers`) and press **New offer**: the customer, the promotion, titles
+    and terms in both languages, and the validity window. A preview shows the bot message in each
+    language. Both languages are required. One customer can hold only one live offer per promotion.
+  </Step>
+  <Step title="A template">
+    Under **Offer templates**, save a reusable offer: the promotion, how many hours a sent offer
+    lasts, an optional **timer** — the offer applies only after the customer takes it, and from then
+    for that many hours — and an optional **balance bonus** credited when it is taken.
+  </Step>
+  <Step title="Send to a segment">
+    Send a template to an [audience segment](/commerce/campaigns). One offer is created per active
+    customer in the segment; anybody already holding a live offer of that promotion is skipped, so
+    sending twice offers nobody twice.
+  </Step>
+</Steps>
+
+The register filters offers by status, and an active offer can be revoked with a reason. Creating,
+sending, and revoking need `marketing.write`.
+
+Offers also appear without an operator: the bot sends win-back discounts after a subscription or a
+trial ends, and a daily game can award an offer from a template. Win-back waves are described on
+[Customer lifecycle](/features/customer-lifecycle).
+
+## Wholesale code batches
+
+For a reseller or a partner deal: generate up to 10 000 codes at an agreed price, hand over the list,
+and kill whatever is left if it leaks. **Wholesale code batches** is on `/admin/catalog`.
+
+- A batch grants a specific **plan version**, so a new version cannot change what code holders get.
+- The agreed price is recorded, never charged — the money is settled outside Omniflow. Zero is
+  allowed.
+- An optional expiry and an optional limit of codes per customer.
+- Customers redeem a batch code in the same box as a gift code. Redeeming extends what they already
+  have rather than replacing it.
+
+<Warning>
+  The codes are shown **once**, right after generation. Only a hash is stored, so they cannot be
+  shown again. Download or copy the list before closing it.
+</Warning>
+
+**Revoke** kills every unredeemed code in the batch and needs a reason. Codes already redeemed keep
+working.
+
+## Loyalty tiers and promo groups
+
+A loyalty programme places every customer on a ladder by what they spent, how many orders they paid,
+or how long they have been a customer. Each tier can carry a discount that comes off every
+subscription order — purchase, extension, renewal, plan change, and automatic renewal — and shows as
+its own line at checkout. It does not apply to top-ups, the shop, gifts, or codes.
+
+Configure it in **Marketing → Loyalty and promo groups**. **Publish a new version** opens the editor
+pre-filled with the current ladder; a programme is never edited in place, so "why am I silver?"
+always has an answer. The lowest tier must start at zero, so every customer has one.
+
+- **Automatic placement.** The worker re-evaluates customers who paid since their last evaluation
+  every five minutes; **Recalculate everyone** re-places the whole base once.
+- **Grace before demotion.** A customer who falls below their tier keeps it for the grace period you
+  set; recovering inside it cancels the demotion.
+- **Promo groups.** A tier can also act as a promo group: discounts by billing period, discounts on
+  traffic, device, and squad add-ons, and restrictions on which plans, squads, and payment methods
+  its members may use. A **manual-only** group is never reached by spending; it is granted by an
+  operator on the customer's card (with an optional end date) or by a loyalty-group promo code.
+
+Customers see the ladder, their rung, and the distance to the next one on **Invite a friend**
+(`/account/referrals`), and are told in the bot when their tier changes.
+
+## Advertising campaigns
+
+**Marketing → Advertising campaigns (/start)** creates a code and a link
+`t.me/<bot>?start=c_<code>` for a post in a channel or another bot.
+
+- The first `/start` with the code credits the campaign with the customer — only a brand-new
+  account without a paid order, and only one campaign per customer.
+- An optional **sign-up bonus**: wallet credit, VPN days, the installation's trial, or days of a
+  plan you pick. It is paid once, with the attribution.
+- The table shows sign-ups, trials, paying customers, conversion, and net revenue per campaign;
+  **Report** opens daily charts for the last 7, 30, 90, or 365 days.
+
+For web traffic, `/admin/settings/analytics` turns on your own counters and click-identifier capture,
+and `/admin/reports` → **Channels** shows revenue by source with an export for offline conversion
+upload. A Telegram link can also carry UTM tags (`?start=utm_<source>__<medium>__<campaign>`) or a
+click ID. Nothing is ever sent to an advertising network by Omniflow. See
+[Advertising measurement](/operations/advertising-measurement).
+
+## Engagement: wheel, polls, and daily games
+
+These give customers a reason to come back. Prizes are wallet credit, subscription days on a plan
+version you choose, or — for games — a personal offer from a template. Every draw is made on the
+server with a cryptographic random generator, and every play is stored with its outcome.
+
+**Fortune wheel** (**Marketing → Fortune wheel and polls**). Prizes with weights; the first spins of
+each UTC day are free, later ones cost a price charged to the wallet. Saving refuses a prize table
+whose expected payout is above your target return on a paid spin, and the panel shows the current
+return. You can cap spins per day and exclude accounts younger than a minimum age.
+
+**Polls.** A question with two to ten answers in both languages, an end time, and an optional
+reward. Each customer answers once and never sees how others answered; the panel shows the counts.
+
+The wheel and polls appear on the web panel's **Invite a friend** screen.
+
+**Daily games** (**Marketing → Daily games**). Seven games, each switched on separately: dice, slots,
+guess the number, lucky ticket, a daily quiz, a daily streak, and first to answer. For each you set
+the prize, plays per day, a daily budget and number of prizes, and an optional entry fee. A game
+that could not pay its prize again today closes for the rest of the day **before** anybody plays, so
+nobody wins a prize that is then withheld. Customers play under **🎲 Daily games** in the bot and on
+the web panel.
+
+<Note>
+  Settings for the wheel, polls, and games need `marketing.write`. Accounts younger than the wheel's
+  minimum age can neither spin nor play, and receive no poll reward.
+</Note>
+
+## See also
+
+<CardGroup cols={2}>
+  <Card title="Catalog and promotions" icon="tags" href="/commerce/catalog-promotions">
+    Every promotion field, refusal, limit, and the personal offer and wholesale batch reference.
+  </Card>
+  <Card title="Referrals and loyalty" icon="users" href="/commerce/referrals-loyalty">
+    Loyalty versions, evaluation rules, and promo group fields.
+  </Card>
+  <Card title="Audience segments and campaigns" icon="bullhorn" href="/commerce/campaigns">
+    Segments used for sending offer templates, and broadcast campaigns.
+  </Card>
+  <Card title="News and customer communication" icon="bell" href="/commerce/referrals-communication">
+    The full rules of the fortune wheel, polls, and daily games.
+  </Card>
+  <Card title="Advertising measurement" icon="chart-line" href="/operations/advertising-measurement">
+    Counters, click identifiers, the channel report, and `/start` campaigns.
+  </Card>
+  <Card title="Referrals and partners" icon="users" href="/features/referrals-and-partners">
+    Invite rewards, commission, withdrawals, contests, and partners.
+  </Card>
+</CardGroup>

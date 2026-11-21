@@ -1947,7 +1947,7 @@ under Panel and customer experience.
       is using each subscription they produced.
 - [x] A recorded decision on customer password sign-in — decided against, and
       written down as
-      [`decision-0007-no-customer-password`](./docs/architecture/decision-0007-no-customer-password.mdx).
+      [`decision-0007-no-customer-password`](./docs/architecture/decisions.mdx).
       The reason that settles it is not preference: there is no e-mail transport
       in this installation at all, so a password would be a credential whose
       reset path cannot reach the one person who needs it. The record states the

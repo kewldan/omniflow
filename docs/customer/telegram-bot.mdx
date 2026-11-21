@@ -46,14 +46,21 @@ Every message the bot sends is marked protect-content and has link previews
 disabled. This applies to all messages, not only account ones, so a screenshot
 is the only way to move a screen out of the chat.
 
-### Russian and English
+### Languages
 
-The interface exists in two languages. The bot follows the Telegram client's
-locale by default: any locale code beginning with `ru` gets Russian, everything
-else gets English. Open `/settings` and tap `● Auto`, `RU`, or `EN` to override
-it — the current choice is marked `●` and the others `○`.
+The bot speaks Russian and English by default. Ukrainian (`uk`), Chinese
+(`zh`), and Persian (`fa`) are added when the operator lists them in the bot
+section's `languages` — see
+[Installation settings](/operations/installation-settings#languages). The bot
+follows the Telegram client's locale: a code beginning with `ru`, `en`, `uk`
+(or `ua`), `zh`, or `fa` gets that language when it is offered, and anything
+else gets the installation's fallback — Russian when the default locale is
+Russian, otherwise English. Open `/settings` and tap `● Auto` or one of the
+offered codes (`RU`, `EN`, and any extra ones) to override it — the current
+choice is marked `●` and the others `○`. With a single language offered the
+switch disappears and every message is in that language.
 
-Dates always render in UTC in both languages, in the form
+Dates always render in UTC in every language, in the form
 `02 Jan 2026, 15:04 UTC`. A missing date renders as `—`. Telegram Stars render
 as `⭐ 250`; every other currency uses its own minor-unit exponent and drops the
 fraction when it is zero. Russian durations use proper plural forms.
@@ -843,8 +850,8 @@ they will not be present for. Nothing here is on by default.
 When no configured provider supports recurring charges for the settlement
 currency, the screen says so and offers nothing else: "No configured payment
 method supports recurring charges. We will remind you before expiry instead."
-Today YooKassa is the only adapter that advertises recurring support, so
-auto-renew requires YooKassa to be configured.
+YooKassa and HOT Pay are the only adapters that advertise recurring support,
+so auto-renew requires one of them to be configured.
 
 Auto-renew is a setting **of one subscription**, not of the account. On a
 single-subscription installation the screen is that subscription's and the
@@ -869,9 +876,10 @@ provider's own failure code is deliberately not shown — "insufficient funds" a
 The funding row offers `Wallet` always and `Saved card` only when a method is
 actually saved. With none, the screen says so instead — "No card is saved — the
 charge can only come from your wallet balance" — rather than rendering a button
-whose only outcome is a refusal. Today no code path saves a payment method, so
-on every installation the wallet is the only source a customer can pick; the
-saved-card controls exist for the day one is.
+whose only outcome is a refusal. A card is saved only when the customer pays
+with YooKassa or HOT Pay through the method's *save the card for auto-renew*
+button, which appears once the operator enabled recurring for that provider —
+see [Recurring payments](/commerce/recurring-payments#how-a-card-is-saved).
 
 `💳 Payment methods` lists each saved method with its provider label, which one
 is the default, and its status, under the notice:
@@ -891,7 +899,9 @@ the same as asking for a card to be forgotten. See
 `🎁 Invite` shows your referral code, the number of people invited, and the
 sentence "Rewards are configured by the service administrator." `📨 Share invite`
 opens Telegram's share sheet with a `t.me/<bot>?start=ref_<code>` link, and the
-second button copies the full link rather than the bare code.
+second button copies the full link rather than the bare code. `📷 QR code` sends
+the same link as a QR code photo, with the link in the caption; the code is drawn
+inside the installation, so the link never reaches an outside QR service.
 
 Attribution is recorded the moment the invitee sends `/start ref_<code>`, before
 anything is rendered, and it is first-write-wins and permanent: the invited
@@ -901,7 +911,7 @@ apply: the referral programme has to be switched on, and the invitee has to be
 new — a customer with a paid order on record is not attributed, because a
 referral rewards bringing a customer in and a paying customer was not brought
 in by the link they tapped today. A code is minted once and stays stable. If Omniflow could not resolve the bot's own username at
-startup, the share and copy buttons are omitted rather than pointing at a link
+startup, the share, copy, and QR buttons are omitted rather than pointing at a link
 that cannot work.
 
 <Note>

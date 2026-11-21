@@ -127,7 +127,7 @@ description: Пробы, которые отдаёт каждый процесс
 
 | Метрика | Состояние |
 | --- | --- |
-| `omniflow_outbox_pending_events` | Никогда не вызывается `Set`. У outbox нет диспетчера — см. [Задачи и очереди](/ru/operations/jobs-and-queues) |
+| `omniflow_outbox_pending_events` | Никогда не вызывается `Set`, хотя проход вебхуков в воркере outbox рассылает — см. [Задачи и очереди](/ru/operations/jobs-and-queues) |
 | `omniflow_remnawave_requests_total` | Никогда не инкрементируется; клиент Remnawave не инструментирован |
 | `omniflow_remnawave_errors_total` | Никогда не инкрементируется |
 | `omniflow_telegram_sends_total` | Никогда не инкрементируется; считаются только входящие обновления |

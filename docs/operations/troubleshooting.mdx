@@ -240,15 +240,15 @@ and its attempt count is given back, so a maintenance hold costs no retry budget
 
 ## The pending outbox count only goes up
 
-It always will. `outbox_events` rows are written on `order.paid`, `wallet.credited`, and
-`addon.purchased`, and nothing in the product marks them published. `GET /v1/admin/outbox`
-and the panel's outbox tab therefore report a number that grows for the life of the
-installation, and `APP_RETENTION_OUTBOX_DAYS` — which only deletes rows that have been
-published — removes nothing.
-
-It is not a backlog, it is not a stalled dispatcher, and no action clears it. Do not alert
-on it. The declared `omniflow_outbox_pending_events` gauge is never written either, so
-there is nothing to scrape.
+`outbox_events` rows are written on `order.paid`, `wallet.credited`, and `addon.purchased`,
+and the worker's `webhooks` pass marks them published every fifteen seconds, whether or not
+any outgoing webhook subscribes to them. A count on `GET /v1/admin/outbox` or the panel's
+outbox tab that only grows means that pass is not running: no worker is up, or the worker
+lacks a 32-byte `APP_DATA_ENCRYPTION_KEY`, which the pass needs to unseal webhook secrets.
+Until it runs, `APP_RETENTION_OUTBOX_DAYS` — which only deletes published rows — removes
+nothing. Give the worker the same key as the api and restart it; the backlog drains 200
+events per pass. The declared `omniflow_outbox_pending_events` gauge is never written, so
+watch the admin route instead.
 
 ## Backups are failing
 

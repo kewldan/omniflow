@@ -161,7 +161,7 @@ sign-in method is configured yet. Contact support."
 There is no password field, and there is no configuration that adds one. That is
 a decision rather than an omission, with a stated cost and a stated condition for
 reversing it:
-[0007 — Customers do not sign in with a password](/architecture/decision-0007-no-customer-password).
+[0007 — Customers do not sign in with a password](/architecture/decisions#no-customer-password).
 
 ### Telegram
 
@@ -464,9 +464,11 @@ suspended account both clear the cookie on the way out, so a browser holding an
 unusable session stops presenting it on every subsequent request.
 
 <Note>
-  There is no single "sign out" button. A customer ends a session from
-  `/account/security` — **End** on a specific row, or **End all sessions**, which
-  deliberately includes the current one.
+  **Sign out** at the foot of the navigation, under the account ID, ends the
+  current session (`POST /v1/account/auth/logout`), clears the cookie even if the
+  server-side revocation fails, and returns to the sign-in page. Other sessions
+  are ended from `/account/security` — **End** on a specific row, or **End all
+  sessions**, which deliberately includes the current one.
 </Note>
 
 ## The subscription screens
@@ -1201,7 +1203,7 @@ customer's messages the same way through the operator panel's stream. The stream
 itself within a minute and the browser reconnects through the session check, handing back
 the versions it last saw, so a change made while it reconnected is still picked up. Why it
 is SSE rather than WebSocket is recorded in
-[decision 0015](/architecture/decision-0015-live-updates-over-sse).
+[decision 0015](/architecture/decisions#live-updates-over-sse).
 
 ## Installing the panel as an app
 

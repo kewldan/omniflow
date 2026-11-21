@@ -52,7 +52,7 @@ happened — it simply has nobody to tell.
 | 👛 Wallet top-ups | `topup` | Credited top-ups, including over- and underpayments | Top-up settlement |
 | ↩️ Refunds | `refund` | Recorded refunds | Refund recording |
 | ⚠️ Fulfillment failures | `fulfillment_failure` | Provisioning runs that stopped being a blip, digital-goods delivery failures, and add-ons that settled with no live entitlement | Fulfillment worker, goods worker, settlement |
-| 🚨 Incidents | `incident` | Payments that need a look: a duplicate, under- or overpayment, currency mismatch, or wallet shortfall that left money at the provider with the order open, and a payment that settled an order the customer had cancelled; and every maintenance transition, automatic or manual | Payment settlement, the api's maintenance controller |
+| 🚨 Incidents | `incident` | Payments that need a look: a duplicate, under- or overpayment, currency mismatch, or wallet shortfall that left money at the provider with the order open, and a payment that settled an order the customer had cancelled; a chargeback, a refund whose outcome at the provider is unknown, and a refunded top-up the wallet no longer holds; a digital-goods provider out of balance, and a goods delivery that arrived after an operator had already resolved the order; and every maintenance transition, automatic or manual | Payment settlement, refunds and reversals, the goods delivery worker, the api's maintenance controller |
 | 💾 Backups | `backup` | Backup outcomes — completed with its size, or failed with the error code — and restore outcomes | The process that took or restored the backup |
 | 🔐 Admin security | `security` | Operator sign-ins from a new address, password changes and resets, two-factor removal, and owner grants | Operator identity service |
 | 💬 Support tickets | `support` | Every new support ticket, and every later customer message in a ticket (`event: customer_reply`), from the bot or the web panel, as ticket and queue identifiers — never the subject or the message, which are customer text | Database triggers on `support_tickets` and `support_messages` |
@@ -72,10 +72,12 @@ happened — it simply has nobody to tell.
 
 The two preview kinds (`campaign_test`, `notice_test`) carry something the others deliberately do not: a rendered message body. Everything else here is a set of allowlisted, non-personal fields, and a preview is by definition the copy itself. Both say plainly that nobody else received them — a preview mistaken for a real send is somebody reaching for the pause button. See [Campaigns](/commerce/campaigns) and [Message wording](/operations/message-wording).
 
-The incidents topic carries payment anomalies and nothing else today. Each notice names the
+Payment anomalies are most of what the incidents topic carries. Each notice names the
 order, the provider, the operation, the classification, the currency and amount, and the
 order's state at the time, and is deduplicated per payment intent and classification — a
-replayed webhook adds nothing. What each classification means and how it is resolved is in
+replayed webhook adds nothing. Refund, chargeback, and goods-delivery incidents are
+deduplicated the same way, per refund, per reported reversal, per order, or per provider
+and hour. What each classification means and how it is resolved is in
 [Orders and payments](/commerce/orders-payments#when-a-payment-does-not-settle).
 Maintenance is detected in the `api` process, which has no Telegram client, so the api
 writes each transition into the same `operator_notifications` queue the bot drains; one

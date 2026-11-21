@@ -1,0 +1,187 @@
+---
+title: Analytics and reporting
+description: See what sold, whether the money arrived, which advertising paid off, which node is filling up, and what Omniflow itself reports to the project
+---
+
+Omniflow gives you several views of the business, each answering one question and each built
+so that two people reading it reach the same conclusion. The dashboard shows the state of things
+right now. Sales reporting shows what was sold over any period and whether payments are
+healthy. Advertising measurement connects an advertisement to the order it produced. Traffic
+reporting shows which node is filling up and who uses the most. Anomaly detection points at
+customers worth a second look. Scheduled summaries bring the main figures to your Telegram chat.
+
+Separately, Omniflow sends one anonymous heartbeat a day to the project. That is covered at the
+end of this page, with how to switch it off.
+
+## Rules that apply to every figure
+
+- **Provider money and wallet credit are never added together.** Money taken through a payment
+  provider, wallet balance spent, and refunds are separate figures everywhere. A wallet balance
+  was already counted when it was topped up, so a single "revenue" number would count it twice.
+- **A sale belongs to the moment it was paid**, and that moment never moves. Recording a refund
+  in March does not move a February sale into March.
+- **Refunds are reported on the day they were issued**, not against the sale they reverse.
+- **Money is reported per currency.** Nothing converts one currency into another to make a total.
+
+## The dashboard
+
+`/admin` is the operations overview: customers, entitlements, payments in flight, support and
+fulfillment queues, and a fixed thirty-day revenue chart per currency. The window is fixed on
+purpose, so two visits a week apart can be compared. Every tile states what it counts — "active
+customers" means customer records that are neither suspended nor deleted, not people with a live
+subscription — and every tile with a list behind it opens that list.
+
+The **needs action** list is built from the same figures as the tiles and links to the screen
+that resolves each item. Times are UTC.
+
+## Sales and payment health
+
+`/admin/reports` is where the period moves: 7, 30, 90, or 365 days, or any range up to two years.
+Days are counted in your browser's timezone, so "sales on the third" means your third. Reading it
+needs `finance.read`.
+
+| Tab | What it answers |
+| --- | --- |
+| **Sales** | Trial conversion; sales by kind (new, renewal, extension, upgrade, add-on, top-up, gift, digital goods); sales by plan and billing period; provider money by day; refunds issued |
+| **Payment health** | Whether the money arrived: settlement rate, completion rate, payments still in flight, time to settle, and webhook intake per provider |
+| **Channels** | Where paying customers came from — see below |
+
+Payment health separates two rates on purpose. **Settlement** is the provider's own success rate
+on payments it was asked to take. **Completion** also counts customers who abandoned checkout. A
+falling settlement rate is a provider problem; a falling completion rate may be just a campaign
+reaching people who were never going to buy. A rate with no decided payments is shown as absent,
+not as 0%, and every rate carries its sample size.
+
+Trial conversion is a cohort figure: of trials claimed in the period, how many of those customers
+have paid since. A period ending today therefore reads low, because yesterday's trials have had
+one day to convert.
+
+**Export CSV** downloads the whole sales report as one file with a `section` column. Amounts are
+in minor units, exactly as stored — divide by your currency's own factor.
+
+## Advertising measurement
+
+A counter on your website sees the visit but never the sale, because payment happens on the
+backend, often days later. Omniflow closes that gap by carrying the advertising click identifier
+(`gclid`, `yclid`, `fbclid`, and others) and `utm_*` tags from the landing visit to the order the
+visitor eventually pays for.
+
+<Steps>
+  <Step title="Add your counters">
+    In `/admin/settings/analytics`, enter a Yandex Metrica counter number or a Google Analytics 4
+    measurement ID. You supply an identifier, never a script, so nobody with panel access can run
+    arbitrary code in customers' browsers. Site-verification tags for Google, Yandex, Bing,
+    Facebook, and Antilopay's Apple Pay check go on the same screen.
+  </Step>
+  <Step title="Turn measurement on">
+    Counters and click capture run only for visitors who agree to them, through a banner with equal
+    accept and decline buttons. With no counter configured, no banner is shown.
+  </Step>
+  <Step title="Read the Channels tab">
+    `/admin/reports` → **Channels** lists settled orders per channel with revenue and refunds. The
+    **Uploadable** column counts orders that carry the platform's own click identifier; if it is
+    much lower than **Orders**, a redirect is probably stripping the query string from your links.
+  </Step>
+  <Step title="Upload conversions yourself">
+    **Export for upload** downloads a CSV in the shape offline-conversion imports expect, refunds
+    included. Omniflow never sends anything to an advertising network on its own.
+  </Step>
+</Steps>
+
+### Campaigns inside Telegram
+
+A post in a channel or a broadcast from another bot has no web visit to carry a tag. For those,
+**Marketing → Advertising campaigns (/start)** creates a code and a link
+`t.me/<bot>?start=c_<code>`. A new customer arriving through it is credited to the campaign once,
+and can receive a sign-up bonus: wallet credit, VPN days, the trial, or days of a chosen plan.
+Each campaign shows sign-ups, trials, paying customers, conversion, and revenue net of refunds,
+and **Report** opens daily charts for the last 7 to 365 days.
+
+UTM tags and click identifiers also travel through `/start`: `?start=utm_<source>__<medium>__<campaign>`,
+`?start=yclid_<id>`, or `?start=gclid_<id>`. Orders from those customers count in the Channels tab
+and the export like web orders.
+
+## Traffic
+
+`/admin/traffic` reads Remnawave live on every request; nothing is stored in Omniflow, so there is
+no history.
+
+- **Nodes**, sorted by how close each is to its traffic limit. A node with no limit shows no
+  saturation figure rather than 0%.
+- **Heaviest users**: the top fifty in the current cycle, with lifetime use beside it, each linked
+  to the customer who holds the subscription. When the scan stops before the end, the screen says
+  how many users it covered.
+- **Devices**: platforms and client applications, from Remnawave's own census.
+- **Subscription requests**: when, from which address, and by which application one user's
+  subscription was fetched — the way to spot a link being used where it should not be.
+
+Both lists export as CSV with byte counts unscaled. Reading the screen needs `customers.read`.
+
+Optional worker passes can watch for sudden growth — users whose traffic grew by more than a
+threshold in a short interval or in a day — and for users with more devices than their limit,
+and post them to the **Usage monitoring** topic. They need `APP_VALKEY_URL` and are off until you
+set a threshold; the `APP_TRAFFIC_MONITOR_*` settings are on
+[Traffic reporting](/operations/traffic-reporting).
+
+## Anomaly detection
+
+Under **Risk**, four metrics can be watched per customer: paid order value, refunded value,
+qualified referrals, and observed traffic. Each rule has a window, a warning threshold, an alert
+threshold, and a minimum sample, so a new installation does not alert on its first three orders.
+The worker evaluates rules every fifteen minutes, and a condition that persists is one signal per
+window, not one per run.
+
+A signal is evidence for an operator, never an automatic sanction: nothing in this area suspends,
+refunds, or blocks anybody. Signals go to the **Anomalies** topic without naming the customer; the
+panel is where somebody with `risk.read` looks the subject up.
+
+## Summaries in Telegram
+
+The **Scheduled reports** section in `/admin/settings/operations` sends daily, weekly (Mondays),
+and monthly (on the 1st) summaries to the **Reports** topic at a local time you choose: new
+customers, trials, paid orders, top-ups, revenue per currency, tickets opened and waiting, and
+active subscriptions. Nothing is sent until you choose the periods. Individual purchases, renewals,
+top-ups, and refunds have their own topics; see [Operator notifications](/operations/operator-notifications).
+
+## Telemetry
+
+Once a day the API sends one HTTPS request to the project's collector. It carries an anonymous
+installation identifier, the build version, the service name (`api`), the operating system, and
+the CPU architecture — nothing else. No customer, amount, domain, IP address, traffic figure, or
+row count is ever included. It exists so maintainers know which platforms and versions are in use.
+
+Telemetry is **on by default**. To switch it off, set `APP_TELEMETRY_ENABLED=false` on the API and
+restart it. Spell it `false`: an unrecognised value falls back to the default, which is on.
+
+<Warning>
+  The telemetry card in `/admin/settings/operations` can show "disabled" while heartbeats are being
+  sent, because it reads a stored settings document rather than the running configuration. The
+  API start-up log is the authoritative answer: it prints either `anonymous telemetry enabled` or
+  `anonymous telemetry disabled`.
+</Warning>
+
+Telemetry is the project's, not yours, and it is unrelated to advertising measurement: your
+counters and channel reports are never reported to the project.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Sales and payment reporting" icon="chart-column" href="/operations/sales-reporting">
+    Every section of the report and the export format.
+  </Card>
+  <Card title="Advertising measurement" icon="bullhorn" href="/operations/advertising-measurement">
+    Consent, click identifiers, the conversion export, and /start campaigns.
+  </Card>
+  <Card title="Traffic reporting" icon="server" href="/operations/traffic-reporting">
+    Nodes, heaviest users, and the usage monitoring passes.
+  </Card>
+  <Card title="Risk controls" icon="shield-halved" href="/operations/risk-controls">
+    Anomaly rules, blocklists, and why neither punishes anybody.
+  </Card>
+  <Card title="Anonymous telemetry" icon="satellite-dish" href="/operations/telemetry">
+    The exact payload, field by field.
+  </Card>
+  <Card title="Admin operations" icon="gauge" href="/operations/admin-operations">
+    The dashboard and the rest of the day-to-day panel.
+  </Card>
+</CardGroup>

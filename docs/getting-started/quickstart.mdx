@@ -278,26 +278,23 @@ digital-goods-provider health that the HTTP probe does not cover.
 These are current facts about `main`, not configuration mistakes. Read them before you conclude that
 your installation is broken.
 
-- **The durable job queue has no schema.** Omniflow enqueues background work with River, but no
-  committed migration creates River's own tables and nothing in the stack runs River's migrator. On
-  a database migrated only by `docker compose up migrate`, `worker` therefore exits at startup
-  logging `start River`, and any settlement — which inserts a fulfillment job in the same
-  transaction as the money — rolls back. A purchase cannot complete until that migration exists. See
-  [Your first sale](/getting-started/first-sale) for exactly where a test purchase stops, and
-  [Jobs and queues](/operations/jobs-and-queues) for what the queue is meant to do.
-- **The transactional outbox is written and never published.** Three topics are inserted, nothing
-  ever sets `published_at`, and no dispatcher exists. The outbox counters on the dashboard and at
-  `GET /v1/admin/outbox` therefore grow permanently, `APP_RETENTION_OUTBOX_DAYS` deletes nothing,
-  and the "outbox lag" attention item on `/admin` is expected rather than diagnostic.
+- **The outbox drains only with a keyed worker.** The worker's webhook pass marks outbox events
+  published, and it runs only when the worker has a 32-byte `APP_DATA_ENCRYPTION_KEY`. Without it
+  the outbox counters on the dashboard and at `GET /v1/admin/outbox` grow and
+  `APP_RETENTION_OUTBOX_DAYS` deletes nothing — see
+  [Jobs and queues](/operations/jobs-and-queues#the-transactional-outbox).
 - **There is no tracer provider.** The code opens spans across HTTP, Telegram updates, jobs, and
   SQL, but no exporter is installed and no `OTEL_*` variable is read anywhere in the repository.
   Setting the standard OpenTelemetry variables changes nothing; the global provider stays a no-op.
   Metrics and logs are what an installation actually emits — see [Observability](/operations/observability).
-- **Every binary reports `"version":"dev"`.** Nothing stamps a version at build time, including the
-  released images, so `/livez`, the diagnostics bundle, and the telemetry heartbeat all say `dev`.
-- **The panel's settings sections do not configure the runtime.** Saving a section stores a
-  document; the Remnawave connection, the bot, the operator group, maintenance policy, telemetry,
-  backups, and the payment adapters all come from environment variables read at startup. See
+- **A locally built binary reports `"version":"dev"`.** The release workflow stamps the version
+  into the published images, but `compose.yaml` builds from source without a `VERSION` build
+  argument, so a fresh clone's processes, its diagnostics bundle, and its telemetry heartbeat say
+  `dev`.
+- **Credentials and addresses stay in the environment.** Most settings sections are read by the
+  running processes within a minute of a save, but the Remnawave address and token, the bot token
+  and webhook, the public URL, the backup key and directory, and payment adapter credentials are
+  read from environment variables at startup. See
   [Installation settings](/operations/installation-settings).
 - **Nothing restarts a crashed process.** No core Compose service declares a `restart:` policy, so a
   process that exits stays down until somebody notices. Add one for anything long-lived.

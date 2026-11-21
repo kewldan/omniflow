@@ -20,7 +20,7 @@ description: "Что хранит экран настроек, что из эт�
 | Раздел | Что держит |
 | --- | --- |
 | `/admin/settings/commerce` | Валюта, лимиты пополнения, политика подписок, платёжные провайдеры |
-| `/admin/settings/integrations` | Remnawave, бот Telegram, операторская группа, обязательные каналы |
+| `/admin/settings/integrations` | Remnawave, бот Telegram, операторская группа, поддержка, регистрация, модерация |
 | `/admin/settings/operations` | Обслуживание, уведомления, резервные копии, телеметрия — плюс предпросмотр телеметрии и история копий |
 | `/admin/settings/brand` | Брендинг, [оформление](/ru/operations/branding) и раздел безопасности |
 | `/admin/settings/connect` | [Инструкции по подключению](/ru/operations/connection-catalogue): платформы и приложения, которые предлагается установить клиентам |
@@ -57,7 +57,7 @@ description: "Что хранит экран настроек, что из эт�
 | Брендинг | `serviceName` | обе веб-панели | Название в шапке, заголовке страницы и на экране входа | `Omniflow` |
 | Брендинг | `supportContact` | бот | Куда ведут все кнопки «написать в поддержку» | `APP_SUPPORT_URL` |
 | Брендинг | `termsUrl` | бот | Кнопка условий у тарифа и команда `/terms` | `APP_TERMS_URL` |
-| Брендинг | `defaultLocale` | бот | Язык клиента, у которого язык Telegram ни русский, ни английский (`ru` или `en`) | английский |
+| Брендинг | `defaultLocale` | бот | Язык клиента, чей язык Telegram бот не предлагает: русский, если значение `ru`, иначе английский | английский |
 | Брендинг | `timezone` | воркер, бот | Часовой пояс IANA, в котором считаются тихие часы, время бэкапа и плановые отчёты | `UTC` |
 | Remnawave | `reconcileIntervalMinutes` | воркер | Как часто каждая подписка перечитывается из Remnawave | 15 минут |
 | Telegram-бот | `languages` | бот, веб | Языки для клиентов: `ru`, `en`, `uk` (украинский), `zh` (китайский), `fa` (персидский). С одним языком все сообщения бота на нём, а переключатель языка пропадает из настроек бота; выбор языка в веб-кабинете показывает только эти. См. [Языки](#языки) | `ru` и `en` |
@@ -71,6 +71,9 @@ description: "Что хранит экран настроек, что из эт�
 | Группа операторов | `notificationCap`, `windowMinutes` | бот | Лимит на тип уведомлений и его окно; `0` снимает лимит | `APP_OPERATOR_NOTIFICATION_CAP`, `APP_OPERATOR_NOTIFICATION_WINDOW_MINUTES` |
 | Группа операторов | `disabledKinds` | бот | Выключенные потоки. Их уведомления закрываются как `suppressed` с `error_code = disabled` | нет |
 | Регистрация | `mode`, `allowReferrals`, `allowedCampaigns`, `inviteCodes` | бот, api | `open` (по умолчанию), `invite` или `closed`. По приглашению новый Telegram-аккаунт становится клиентом только по `/start` с реферальной ссылкой (если не выключен `allowReferrals`), разрешённой кампанией (`c_…`; пустой список разрешает все) или кодом приглашения (`inv_<код>`); остальным сообщается, что регистрация по приглашению, и ничего не создаётся. Вход в веб-кабинет тогда пускает только существующих клиентов (`403 signup_closed`), потому что у веба нет ссылки-приглашения. Существующих клиентов и операторов это не касается | `open` |
+| Поддержка | `mode`, `introRu`, `introEn` | бот | Экран поддержки в боте: `both` (обращения и ссылка для связи, по умолчанию), только `tickets` или только `contact`, с необязательным вступлением на каждом языке над ним | `both`, без вступления |
+| Поддержка | `notifyNewTicket`, `notifyCustomerReply` | бот | Узнаёт ли группа операторов о новом обращении и об ответе клиента | включено |
+| Поддержка | `notifySlaBreach` | воркер | Объявляется ли обращение, на которое просрочен первый ответ | включено |
 | Модерация | `filterDisplayNames`, `blockedNamePatterns` | бот | Не обслуживать аккаунты, чьё имя выдаёт себя за сотрудника или содержит ссылку; см. [Операции в админке](/ru/operations/admin-operations) | выключено |
 | Плановые отчёты | `periods`, `time` | воркер | Ежедневная, еженедельная (по понедельникам) и ежемесячная (1-го числа) сводка в топик «Отчёты» в заданное местное время | не отправляются |
 | Обслуживание | `autoEnable`, `failureThreshold` | api | Включают ли сбои зависимостей режим обслуживания и после скольких неудачных проверок подряд | `APP_MAINTENANCE_AUTO_DETECT`, `APP_MAINTENANCE_FAILURE_STREAK` |
@@ -97,9 +100,10 @@ description: "Что хранит экран настроек, что из эт�
 из которого строятся подписанные ссылки, ключ и каталог бэкапов, адрес телеметрии. Два
 ответа на вопрос «какой токен используем» — на один больше, чем нужно, а копия, которую
 процессы не читают, была ловушкой. Документы разделов сохраняют ранее записанные значения;
-их никто не читает. Перепроверка подписки и отсрочка для обязательных каналов
-настраиваются на экране [Обязательные каналы](/ru/operations/required-channels) — его и
-читает бот.
+их никто не читает. У обязательных каналов в этой сборке нет ни экрана, ни маршрута панели:
+каналы — это строки `required_channels`, а отсрочка и интервал перепроверки подписки — столбцы
+`channel_grace_seconds` и `channel_recheck_seconds` таблицы `commerce_settings`, которые и
+читает бот, — см. [Обязательные каналы](/ru/operations/required-channels).
 
 Полный список переменных — в [Конфигурации](/ru/getting-started/configuration).
 
@@ -169,6 +173,7 @@ description: "Что хранит экран настроек, что из эт�
 | `branding` | `serviceName`, `supportContact`, `termsUrl`, `defaultLocale`, `timezone` | — |
 | `remnawave` | `reconcileIntervalMinutes` | — |
 | `bot` | `languages`, `miniAppUrl`, `cabinetOnly`, `miniAppFullscreen`, `miniAppLite`, `hiddenMenu`, `buttons`, `texts`, `menuLayout` | — |
+| `support` | `mode`, `introRu`, `introEn`, `notifyNewTicket`, `notifyCustomerReply`, `notifySlaBreach` | — |
 | `operator_group` | `chatId`, `createTopics`, `notificationCap`, `windowMinutes`, `disabledKinds` | — |
 | `reports` | `periods`, `time` | — |
 | `maintenance` | `autoEnable`, `failureThreshold`, `noticeEn`, `noticeRu`, `broadcastCustomers`, `broadcastEmail` | — |

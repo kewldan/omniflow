@@ -1,0 +1,266 @@
+---
+title: Plans and subscriptions
+description: What you can sell, how a customer buys and changes it, and which switches turn each part on — plans, periods, traffic, devices, servers, trials, add-ons, grace, pausing, and renewal
+---
+
+Everything a customer pays for in Omniflow is a **plan**, and everything they hold afterwards is a
+**subscription**: one Remnawave user with an expiry, a traffic allowance, a device limit, and a set
+of squads (servers). This page walks through what you can sell and how each capability is switched
+on. It is a guide, not a reference: every section ends with a link to the page that has the exact
+rules and refusals.
+
+Two places hold almost all of it. The plan catalogue is at `/admin/catalog`. Installation-wide rules
+— upgrades, downgrades, resets, trial guards, limited access — are at `/admin/settings/commerce` →
+**Plan changes and resets**. A few limits are environment variables, read at start-up; they are
+named where they apply.
+
+## Plans and immutable versions
+
+A plan is the product the customer sees: a code, a name and description in Russian and English, a
+kind, a visibility switch, and a sort order. What it costs and what it gives live on a **plan
+version**: duration, billing period, traffic, device limit, squads, grace period, upgrade and
+downgrade policies, and one price per currency.
+
+A version is never edited. To change a price or a limit, open the plan in `/admin/catalog`, press
+**New version** (the editor is pre-filled from the current one), change what you need, type a reason,
+and press **Publish version**. New purchases use the new version; every order already placed keeps
+the version it was bought at, so publishing never changes what anyone already paid.
+
+<Warning>
+  Two things have no control in `/admin` and are done through the operator-token API: **creating a
+  plan** (`POST /v1/admin/plans`, which creates the plan and its first version) and **writing its
+  Russian and English copy**. A plan with no copy in a customer's language is not shown to that
+  customer, and a plan with no price in `APP_DEFAULT_CURRENCY` is left out of the catalogue
+  entirely. Check both first when a plan does not appear.
+</Warning>
+
+**Best deal** badges a plan in the bot and on the web store without changing its price. Hiding a
+plan uses the **Visible** switch; archiving it stops new purchases without touching anyone who
+already holds it. An installation that sells exactly one thing can turn on **Simple subscription**
+on the catalogue page, which replaces the plan list in the bot and on the web with one offer and one
+**Buy** button.
+
+## Periods: months, custom days, and daily plans
+
+A version has its own duration and price. Under **More periods and custom days** in the version
+editor you can sell the same version for other periods — each row is a number of days, a price per
+currency, and two flags: **Purchases** (offered on a first purchase or a plan change) and
+**Renewals** (offered on an extension and on automatic renewal). **Custom days from / up to** with a
+**Price per day** lets the customer type any number of days in that range.
+
+The web checkout shows a **Period** picker when the version sells more than its own period. The bot
+sells the version's own period only.
+
+A **daily plan** bills one day at a time from the wallet. Turn on **Bill daily from the balance** on
+a version with the **Day** billing period, a one-day duration, and no other periods. The first day is
+bought like any plan; after that the worker charges the wallet ten minutes before each day ends.
+When the balance will not cover the next day, the customer is warned once, access stops with the
+paid day, and a top-up within 30 days resumes it. Daily plans are the one case where the customer
+can **Pause** and **Resume** billing themselves, on the web subscription page and in the bot.
+
+## Traffic: fixed allowances, packages, and per-GB volumes
+
+**How traffic is sold**, under **Traffic** in the version editor, is set per version:
+
+| Mode | What the customer gets |
+| --- | --- |
+| Fixed | The version's own allowance. No traffic add-ons are sold for it |
+| Fixed, with top-ups | The version's own allowance, which traffic add-ons can top up later. The default |
+| Chosen at checkout | The customer picks a **package** you define, or a **custom volume** priced per gigabyte, at checkout |
+
+A package is a volume in GB and what it adds to the price. A custom volume is bounded by **From, GB**
+and **Up to, GB** and priced with a **Price per GB** per currency; both are priced for the version's
+own duration and scaled for other periods. An empty traffic field on the version means unlimited.
+**Traffic counter resets** passes Remnawave's own reset strategy (none, daily, weekly, monthly) to
+the user.
+
+## Device limits
+
+Each version sets a device limit; empty means unlimited. Customers manage their connected devices
+from `/account/devices` on the web and from the subscription screen in the bot. On top of the plan's
+limit you can sell extra device slots as add-ons (below), capped installation-wide by **Most devices
+per subscription** under **Plan changes and resets**. **Remove devices on renewal** in the same card
+clears every registered device when a subscription is renewed; it is off by default.
+
+## Servers and choosing them at checkout
+
+A version always assigns its own squads to every subscription, picked by name from the live
+Remnawave list. It can also offer squads for the customer to choose: set **Squad selection** to
+`optional` or `required`, set the minimum and maximum, and add a row per squad with a Russian and an
+English label. The web checkout then shows a **Servers** fieldset, and the bot opens a squad
+configurator after the payment method is chosen.
+
+**Servers** on the catalogue page lets you describe and limit each Remnawave squad without managing
+it — the nodes stay in Remnawave:
+
+| Field | Effect |
+| --- | --- |
+| Name in each language, Country | The label and flag customers see wherever they choose squads |
+| Customer limit | The most customers a sale may put on the squad. A full squad is refused to new customers; renewals and customers already on it are never refused |
+| Price for choosing it | What choosing the squad adds to the plan price, scaled to the period bought |
+| Trials may use it | Whether a trial order keeps this squad |
+
+A new version reaches new purchases only. **Move live subscriptions onto the newest squads** under a
+plan's **Plan settings** pushes the newest version's squads to everyone already on the plan.
+
+## Trials and trial abuse controls
+
+A trial is a plan whose kind is `trial`, with a trial rule on each version: `new_customer` (the
+default), `never_trialled`, or `any`. Each customer can claim one trial per installation, ever — a
+second subscription never brings a second trial. The claim is written inside the order, so a double
+tap cannot mint two.
+
+The guards you control:
+
+- `APP_TRIAL_MINIMUM_ACCOUNT_AGE_HOURS` (default `0`) refuses a trial to an account younger than this.
+- **No trial for accounts that sign in only with** — Telegram, an e-mail link, or OpenID Connect —
+  refuses customers whose every sign-in method is in the list.
+- A trial is also refused while the customer has a running subscription, and when a new account
+  reuses an identity that already used a trial.
+- **Trials may use it** on each server limits which squads a trial reaches.
+
+A refused trial is still listed, with the reason shown in the customer's language, so nobody wonders
+where the free plan went. **Warn before a trial ends** sends one extra reminder a set number of hours
+before the trial ends, and **Time left on a trial** decides whether the remaining trial time is
+carried into the first paid period.
+
+## Add-ons and mid-period changes
+
+An add-on adds traffic, device slots, or squads. Create one in `/admin/catalog` → **Add-ons** →
+**New add-on**, then tick it in each plan version that should offer it. A customer can buy it with
+the plan at checkout, or later against a live subscription: in the bot under the subscription's
+**Add-ons**, on the web under **Add to this subscription**. A mid-period purchase is priced by the
+add-on's rule — full price, the share of the period left, or a daily rate. A traffic pack can be
+given a lifetime in days.
+
+During a period a customer can also:
+
+| Change | Where | Money |
+| --- | --- | --- |
+| Switch the traffic package up or down | **Traffic package** | Charges the new package for the time left, credits the unused part of the old one |
+| Give back bought device slots | **Device limit** (web), **Fewer devices** (bot) | Credits the unused part to the wallet; refused while too many devices are connected |
+| Remove a server add-on | **Server add-ons** | Credits the unused part to the wallet |
+| Reset traffic for a fee | **Reset traffic** | Charged as a percentage of the plan price, set in **Paid traffic reset (% of the price)** on the version |
+
+None of these moves the period's end. All of them are paid from the wallet first and through a
+provider for the rest, and all reach Remnawave through the same queued, retried fulfillment as a
+purchase.
+
+## Plan changes and crediting the unused remainder
+
+Upgrades and downgrades follow each version's policy: an upgrade either **replaces** the current
+period (starting a fresh one now) or **extends** it (adding the new period on top); a downgrade
+happens **immediately** or **at expiry**; either can be **forbidden**. **Allow upgrades** and **Allow
+downgrades** turn them off for the whole installation. **Reset traffic on renewal** and **Reset
+traffic on upgrade** are on by default.
+
+By default an upgrade charges the full price of the new plan and a `replace` upgrade discards the time
+left. Turn on **Credit the unused remainder on a plan change** to hand that time back as money: a
+`replace` upgrade or an `immediate` downgrade credits what is left of the current period, prorated by
+time at what the customer actually paid. The checkout shows the credit as **Unused time on your
+current plan**, and any amount above the new price goes to the wallet. Time from a gift, a trial, a
+code, or an operator's grant paid nothing and credits nothing. The switch is off by default.
+
+## Grace periods and limited access
+
+**Grace period (days)** on a version keeps access alive after the paid end, and Omniflow pushes the
+end plus the grace to Remnawave, so the promise is real. Zero, the default, means expiry is
+immediate. During grace the customer sees how long they have left to renew.
+
+**Limited access** keeps a lapsed customer reachable instead of cutting them off entirely. Under
+**Plan changes and resets** turn on **Limited access after expiry**, **Limited access when traffic
+runs out**, or both, and set the **Limited access squad** (typically one that reaches Telegram
+only), **Limited access traffic (GB)**, and **Limited access days**. The period is free, opens at
+most once per subscription per trigger, and ends by itself. Any payment on the subscription restores
+the full plan at once.
+
+## Temporary squad access for N hours
+
+To let a customer try a country, or to work around an outage, open a squad on one subscription for a
+few hours. On the customer's card in `/admin/customers`, each subscription's actions panel has
+**Temporary server access**: pick the squad, enter 1–720 hours, type a reason, and **Grant**. Active
+grants are listed with **Revoke**. A `squad_access` promo code grants the same thing to whoever
+redeems it. A paused or unprovisioned subscription cannot take a grant.
+
+## Pausing
+
+An operator can pause a subscription on request — "I am away for six weeks". On the subscription's
+actions panel in the customer card, **Pause** disables the Remnawave user and stops the clock;
+**Resume** moves the end forward by exactly the time paused and switches access back on. Both need a
+reason, which is audited. The customer's screens say the subscription is paused and the remaining
+days are kept.
+
+There is no customer-facing pause except on daily plans, deliberately: a pause the holder controls
+would turn a dated subscription into an indefinite one. Automatic renewal skips a paused
+subscription, add-ons cannot be bought for one, and buying a renewal or a plan change while paused
+builds on the days the pause preserved.
+
+## Several subscriptions per customer
+
+By default each customer holds one subscription. To let a customer hold several — a household with
+separate device pools, two regions — set the environment and restart the API, bot, and worker:
+
+```env
+APP_MULTI_SUBSCRIPTION_ENABLED=true
+APP_MAX_SUBSCRIPTIONS_PER_CUSTOMER=3
+```
+
+<Warning>
+  The **Subscriptions** card in `/admin/settings` does not change the limit that is enforced; it only
+  decides whether the web dashboard shows a subscription switcher. The limit comes from the two
+  variables above.
+</Warning>
+
+A plan can narrow the limit further with its own per-customer cap, set through the API. With several
+subscriptions the customer gets a switcher, every purchase and add-on names its target, each
+subscription can be renamed, and reminders name the subscription they are about. Wallet, trial,
+promotions, and referrals stay per customer. A customer can close any subscription except the first
+from its web page; the time left is given up and nothing is refunded. Turning the switch off later
+closes nothing.
+
+## Automatic renewal
+
+Auto-renewal is off until the customer turns it on for a subscription — in the bot's **Auto-renew** screen,
+or on the web at `/account/renewal`. They choose the funding source (the wallet, or a
+saved card where the provider supports it), how many days before expiry to charge (1, 3, or 7), and,
+when the plan sells several renewal periods, which one. A failed charge is retried on a fixed
+schedule and the customer is told when it matters. Operators cannot turn auto-renewal on for a
+customer. [Payments and wallet](/features/payments-and-wallet) covers which providers can charge a
+saved card.
+
+## Reminders
+
+The bot sends, per subscription, without any setup:
+
+- expiry reminders 7, 3, 1, and 0 days before the end;
+- traffic warnings at 80% and 100% of a limited allowance;
+- a grace notice while the grace window runs;
+- a recovery message with a one-tap button to buy the same plan again, for `APP_RECOVERY_WINDOW_HOURS`
+  after grace ends (default 14 days);
+- a notice when access is set up or setting it up failed.
+
+These respect each customer's notification preferences and quiet hours, and are not counted against
+marketing limits. The recovery message is Telegram-only.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Catalog and promotions" icon="tags" href="/commerce/catalog-promotions">
+    The version editor field by field, trials, and what publishing refuses.
+  </Card>
+  <Card title="Subscriptions and entitlements" icon="repeat" href="/commerce/subscriptions">
+    Change arithmetic, grace, limited access, pausing, daily plans, and concurrency.
+  </Card>
+  <Card title="Add-ons and the configurator" icon="puzzle-piece" href="/commerce/addons-configurator">
+    Squad selection, the server catalogue, add-ons, and proration.
+  </Card>
+  <Card title="Fulfillment" icon="tower-broadcast" href="/commerce/fulfillment">
+    How changes reach Remnawave, temporary squad access, and operator actions.
+  </Card>
+  <Card title="Recurring payments" icon="arrows-rotate" href="/commerce/recurring-payments">
+    Auto-renew consent, lead time, and the retry schedule.
+  </Card>
+  <Card title="Payments and wallet" icon="wallet" href="/features/payments-and-wallet">
+    How customers pay for all of the above.
+  </Card>
+</CardGroup>

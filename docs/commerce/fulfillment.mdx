@@ -398,8 +398,8 @@ Its refusals are worth knowing:
 - The idempotency key includes the request identifier, so a double-submitted form reuses the first
   operation instead of queueing a second Remnawave change.
 
-`set_squads` is accepted by the API but has no control in the panel form; the panel offers enable,
-disable, reset traffic, extend, and set limits.
+The panel form offers all six: enable, disable, reset traffic, extend, set limits, and — with the
+squads picked by name from the panel's list — **Set squads**, which queues `set_squads`.
 
 ### Temporary squad access
 
@@ -446,7 +446,7 @@ so a repeated confirmation reuses them; each writes the audit event
 `GET` and `POST /v1/panel/customers/{customerID}/subscriptions/{subscriptionID}/sync`. Press **Check
 again** after the worker has run to see the result. Remnawave stays authoritative for usage and
 devices; the sync only pushes what Omniflow owns (see
-[decision 0004](/architecture/decision-0004-remnawave-boundary)).
+[decision 0004](/architecture/decisions#remnawave-boundary)).
 
 For many subscriptions at once, use the bulk operations described in
 [Admin operations](/operations/admin-operations); they enqueue the same operations with a

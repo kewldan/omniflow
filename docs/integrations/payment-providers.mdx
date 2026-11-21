@@ -114,7 +114,7 @@ result is cut to 128 characters; an unset template keeps the default.
 | Lava | `lava` | Yes | No | No |
 | Overpay | `overpay` | Yes | No | No |
 | ParityPay | `paritypay` | Yes | No | No |
-| HOT Pay | `payhot` | Yes | No | Declared (no mandate enrolment yet) |
+| HOT Pay | `payhot` | Yes | No | Declared; a mandate is enrolled on the customer's consent |
 | CisPay | `cispay` | Yes | No | No |
 | Antilopay | `antilopay` | Yes | No | No |
 | Anore | `anore` | Yes | No | No |
@@ -1200,9 +1200,11 @@ refund does not. The event ID is the notification's `event_id`. Recorded notific
 - **Connection test.** None.
 
 <Warning>
-  No code path in Omniflow enrolls a mandate: a checkout never requests recurring consent, so no
-  mandate ID is saved. Recurring charging is declared and wired but cannot be armed yet.
-  [Recurring payments](/commerce/recurring-payments) states which parts work.
+  A mandate is enrolled only when the customer asked to save the method at checkout: the payment is
+  created with `recurring_enrollment` and the customer's own ID, and the mandate ID is bound once the
+  enrolment is `active`. The option is offered only after recurring was enabled for `payhot` with a
+  passing capability test. [Recurring payments](/commerce/recurring-payments#how-a-card-is-saved)
+  describes the flow.
 </Warning>
 
 ### Testing

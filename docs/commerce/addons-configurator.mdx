@@ -48,7 +48,7 @@ The database backs the bounds up: `min_selectable_squads` at least 0, `max_selec
 
 ### The server catalogue
 
-**Servers** on the catalogue page is how Omniflow labels and limits the sale of each Remnawave internal squad, as Bedolaga's server list does — without managing the squad or its nodes, which Remnawave keeps ([decision 0004](/architecture/decision-0004-remnawave-boundary)). It lists the panel's internal squads with their member count, read live and never stored, beside each one's catalogue entry (`GET /v1/panel/catalog/servers`, `catalog.read`). An entry (`PUT`/`DELETE /v1/panel/catalog/servers/{squadID}`, `catalog.write`, audit `panel.server.saved` and `panel.server.deleted`) holds:
+**Servers** on the catalogue page is how Omniflow labels and limits the sale of each Remnawave internal squad, as Bedolaga's server list does — without managing the squad or its nodes, which Remnawave keeps ([decision 0004](/architecture/decisions#remnawave-boundary)). It lists the panel's internal squads with their member count, read live and never stored, beside each one's catalogue entry (`GET /v1/panel/catalog/servers`, `catalog.read`). An entry (`PUT`/`DELETE /v1/panel/catalog/servers/{squadID}`, `catalog.write`, audit `panel.server.saved` and `panel.server.deleted`) holds:
 
 | Field | What it does |
 | --- | --- |
