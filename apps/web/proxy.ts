@@ -99,6 +99,120 @@ export function signedOutRedirect(
   return null;
 }
 
+/**
+ * Old cabinet addresses and where they live now.
+ *
+ * A migrated installation inherits links to the previous bot's cabinet — in
+ * e-mails, pinned messages, and bookmarks — on the same host. Each is a key
+ * matched as the whole path or a path prefix; the target is a route of the
+ * customer panel. The query string is carried, so `/login?ref=CODE` keeps
+ * its code.
+ */
+const LEGACY_PATHS: Record<string, string> = {
+  "/login": "/account/sign-in",
+  "/auth": "/account/sign-in",
+  "/register": "/account/sign-in",
+  "/subscription": "/account/subscriptions",
+  "/subscriptions": "/account/subscriptions",
+  "/referral": "/account/referrals",
+  "/referrals": "/account/referrals",
+  "/balance": "/account/wallet",
+  "/wallet": "/account/wallet",
+  "/support": "/account/support",
+  "/profile": "/account/profile",
+  "/settings": "/account/preferences",
+  "/devices": "/account/devices",
+  "/buy": "/account/store",
+};
+
+/**
+ * The first path segments Omniflow itself serves. A path outside them is
+ * nothing of Omniflow's, so on a migrated host it is an old cabinet address,
+ * and it goes to the account rather than to a 404.
+ */
+const OWN_SEGMENTS = new Set([
+  "",
+  "account",
+  "admin",
+  "guest",
+  "open",
+  "pages",
+  "status",
+  "unsubscribe",
+  "v1",
+  "_next",
+  ".well-known",
+]);
+
+function legacyTable(): Record<string, string> {
+  const configured = process.env.LEGACY_PATH_REDIRECTS;
+  if (!configured) {
+    return LEGACY_PATHS;
+  }
+  try {
+    const parsed = JSON.parse(configured) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return { ...LEGACY_PATHS, ...(parsed as Record<string, string>) };
+    }
+  } catch {
+    // A malformed table is ignored rather than taking every page down.
+  }
+  return LEGACY_PATHS;
+}
+
+/** Only a path on this host may be a target: never another origin. */
+function localTarget(target: unknown): target is string {
+  return (
+    typeof target === "string" &&
+    target.startsWith("/") &&
+    !target.startsWith("//") &&
+    !target.includes("\\")
+  );
+}
+
+/**
+ * Where an old cabinet address goes, or null for a path Omniflow serves.
+ *
+ * Exported for the unit test; the proxy is the only caller. `table` and
+ * `fallback` default to the built-in table merged with LEGACY_PATH_REDIRECTS,
+ * and to LEGACY_PATH_FALLBACK (`/account` unless set; `off` disables it).
+ */
+export function legacyRedirect(
+  pathname: string,
+  search: string,
+  table: Record<string, string> = legacyTable(),
+  fallback: string = process.env.LEGACY_PATH_FALLBACK ?? "/account",
+): string | null {
+  const segments = pathname.split("/");
+  const first = segments[1] ?? "";
+  // The previous cabinet's gift links carried the code in the path; the
+  // wallet's redeem form reads it from the query.
+  if (
+    (first === "buy" && segments[2] === "gift" && segments[3]) ||
+    (first === "gift" && segments[2])
+  ) {
+    const code = first === "gift" ? segments[2] : segments[3];
+    const query = new URLSearchParams(search);
+    query.set("code", decodeURIComponent(code ?? ""));
+    return `/account/wallet?${query}`;
+  }
+  const keys = Object.keys(table).sort((left, right) => right.length - left.length);
+  for (const key of keys) {
+    if (within(pathname, key) && localTarget(table[key])) {
+      return table[key] + search;
+    }
+  }
+  if (
+    OWN_SEGMENTS.has(first) ||
+    pathname.includes(".") ||
+    fallback === "off" ||
+    !localTarget(fallback)
+  ) {
+    return null;
+  }
+  return fallback + search;
+}
+
 export function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
@@ -120,6 +234,11 @@ export function proxy(request: NextRequest) {
       );
     }
     return NextResponse.rewrite(new URL(`${origin}${pathname}${search}`));
+  }
+
+  const legacy = legacyRedirect(pathname, search);
+  if (legacy) {
+    return NextResponse.redirect(new URL(legacy, request.url));
   }
 
   const redirect = signedOutRedirect(pathname, search, {

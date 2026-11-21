@@ -483,6 +483,8 @@ The Next.js app in `apps/web` reads its own variables. They are set on the `web`
 | --- | --- | --- | --- | --- | --- |
 | `NEXT_PUBLIC_API_URL` | — (compose sets `http://api:8080`) | web | no | no | Fallback base URL for the server-side panel session check |
 | `API_INTERNAL_URL` | — | web | no | no | Where the web application reaches the API: the server-side session fetch, and the `/v1` requests the browser makes same-origin, which `proxy.ts` forwards there when no reverse proxy answers them first. Falls back to `NEXT_PUBLIC_API_URL` and then to an empty string, in which case `/v1` answers 502 with a problem document naming this variable. Absent from `.env.example` |
+| `LEGACY_PATH_REDIRECTS` | — | web | no | no | Extra old-address redirects, as a JSON object of path → panel route, for example `{"/news":"/account/news"}`. A key matches the whole path or a prefix; the target must be a path on this host. It extends the built-in table, which sends a previous bot's cabinet addresses — `/login`, `/subscription`, `/referral`, `/balance`, `/support`, `/buy/gift/<code>` and others — to the matching `/account` route; see [migrating from Bedolaga](/operations/migrate-from-bedolaga#cutover). A malformed value is ignored |
+| `LEGACY_PATH_FALLBACK` | `/account` | web | no | no | Where a path Omniflow does not serve goes instead of a 404; `off` keeps the 404 |
 | `PLAYWRIGHT_BASE_URL` | — | end-to-end tests only | no | no | Target of the Playwright suite |
 | `CI` | — | end-to-end tests only | no | no | Switches the Playwright config to its CI settings |
 

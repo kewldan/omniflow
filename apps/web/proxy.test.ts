@@ -1,7 +1,7 @@
 /// <reference types="bun" />
 import { describe, expect, test } from "bun:test";
 
-import { signedOutRedirect } from "./proxy";
+import { legacyRedirect, signedOutRedirect } from "./proxy";
 
 const none = { account: false, admin: false };
 
@@ -52,5 +52,49 @@ describe("signedOutRedirect", () => {
   test("does not mistake a lookalike prefix for a panel", () => {
     expect(signedOutRedirect("/accounting", "", none)).toBeNull();
     expect(signedOutRedirect("/administrator", "", none)).toBeNull();
+  });
+});
+
+describe("legacyRedirect", () => {
+  test("sends the previous cabinet's paths to the account", () => {
+    expect(legacyRedirect("/login", "?ref=ABC")).toBe("/account/sign-in?ref=ABC");
+    expect(legacyRedirect("/subscription", "")).toBe("/account/subscriptions");
+    expect(legacyRedirect("/referral", "")).toBe("/account/referrals");
+    expect(legacyRedirect("/subscription/123", "")).toBe("/account/subscriptions");
+  });
+
+  test("carries a gift code into the wallet's redeem form", () => {
+    expect(legacyRedirect("/buy/gift/GIFT-42", "")).toBe("/account/wallet?code=GIFT-42");
+    expect(legacyRedirect("/gift/abc", "?utm=x")).toBe("/account/wallet?utm=x&code=abc");
+  });
+
+  test("an unknown old path goes to the account, not to a 404", () => {
+    expect(legacyRedirect("/cabinet/whatever", "")).toBe("/account");
+  });
+
+  test("leaves Omniflow's own paths and files alone", () => {
+    for (const path of [
+      "/",
+      "/account/wallet",
+      "/admin/login",
+      "/guest/x",
+      "/pages/terms",
+      "/status",
+    ]) {
+      expect(legacyRedirect(path, "")).toBeNull();
+    }
+    expect(legacyRedirect("/manifest.webmanifest", "")).toBeNull();
+    expect(legacyRedirect("/apay-meta-file.txt", "")).toBeNull();
+    expect(legacyRedirect("/accounting", "")).toBe("/account");
+  });
+
+  test("an operator's table extends the built-in one, and the fallback can be turned off", () => {
+    expect(legacyRedirect("/old-news", "", { "/old-news": "/account/news" })).toBe("/account/news");
+    expect(legacyRedirect("/elsewhere", "", {}, "off")).toBeNull();
+  });
+
+  test("never redirects to another origin", () => {
+    expect(legacyRedirect("/evil", "", { "/evil": "//attacker.example" }, "off")).toBeNull();
+    expect(legacyRedirect("/evil", "", { "/evil": "https://attacker.example" }, "off")).toBeNull();
   });
 });
