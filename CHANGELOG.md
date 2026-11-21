@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.4.1](https://github.com/kewldan/omniflow/compare/omniflow-v1.4.0...omniflow-v1.4.1) (2026-11-21)
+
+
+### Features
+
+* **admin:** menu counts, a dashboard period, and a clearer subscription panel ([531340b](https://github.com/kewldan/omniflow/commit/531340bd5f9fc358f24daaed4456799fd774c8a3))
+* **admin:** name customers by Telegram, hover cards on charts, and tidier controls ([722955a](https://github.com/kewldan/omniflow/commit/722955a5130541013ec1b45400700e12872d344e))
+* draw QR codes with rounded corners ([a3ae92f](https://github.com/kewldan/omniflow/commit/a3ae92fc78b53f3ae6673d8c53281cb3f6a16c9c))
+* **operator:** readable notices in the operator group ([81fc278](https://github.com/kewldan/omniflow/commit/81fc27867d55b4930ab689b559af687012cdf2fa))
+* **web:** sign in as the Telegram user in the Mini App, and straight to the account ([8704a20](https://github.com/kewldan/omniflow/commit/8704a20eacbfd1313d05003a74cbb28735974749))
+
+
+### Bug Fixes
+
+* **admin:** keep the panel signed in across a session token rotation ([ad735b1](https://github.com/kewldan/omniflow/commit/ad735b1810e65cc1ca753155aef2f9bb71083b38))
+* **auth:** send passkey options under publicKey ([c366b23](https://github.com/kewldan/omniflow/commit/c366b23a473545711359eac07270951a229118c6))
+* **customers:** complete the account merge and close sign-in linking gaps ([363f41b](https://github.com/kewldan/omniflow/commit/363f41bd51744946c01e548b7f013be25be9e469))
+
+
+### Miscellaneous Chores
+
+* release 1.4.1 ([e8afa4b](https://github.com/kewldan/omniflow/commit/e8afa4b51e9c36550bd0b29c91f5d44f5f0e03ac))
+
 ## [1.4.0](https://github.com/kewldan/omniflow/compare/omniflow-v1.3.0...omniflow-v1.4.0) (2026-11-21)
 
 
