@@ -42,21 +42,66 @@ func (store *PostgresStore) EnsureCustomer(ctx context.Context, telegramID int64
 	if _, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended('omniflow:telegram:' || $1, 0))`, subject); err != nil {
 		return Customer{}, err
 	}
-	customer, err := scanCustomer(tx.QueryRow(ctx, `SELECT u.id::text, u.locale, u.status, u.timezone, u.created_at,
-		COALESCE(r.remnawave_id, 0)
-		FROM identities i
-		JOIN users u ON u.id = i.user_id
-		LEFT JOIN remnawave_users r ON r.user_id = u.id
-		WHERE i.provider = 'telegram' AND i.provider_subject = $1 AND i.status = 'active'`, subject))
-	if errors.Is(err, pgx.ErrNoRows) {
-		// A v0.2 installation linked Telegram accounts through the Remnawave
-		// mapping only. Adopt that mapping instead of creating a second customer.
-		customer, err = scanCustomer(tx.QueryRow(ctx, `SELECT u.id::text, u.locale, u.status, u.timezone, u.created_at, r.remnawave_id
-			FROM remnawave_users r JOIN users u ON u.id = r.user_id WHERE r.telegram_id = $1`, telegramID))
+	// The identity row whatever its status, as the web sign-in reads it. A
+	// revoked row the customer unlinked and did not replace relinks, exactly as
+	// the widget does; a freed one (unlinked by an operator, or replaced by
+	// another Telegram account on its customer) is a new person's. Reading only
+	// active rows made every tap after an unlink create yet another empty
+	// customer, because the revoked row kept the unique key and the identity
+	// insert below silently did nothing.
+	var (
+		identityID, ownerID, identityStatus string
+		freed                               bool
+	)
+	err = tx.QueryRow(ctx, `SELECT i.id::text, i.user_id::text, i.status,
+		(i.status = 'revoked' AND (
+			COALESCE(i.metadata->>'revoked_by', '') = 'operator'
+			OR u.status = 'merged'
+			OR EXISTS (SELECT 1 FROM identities other WHERE other.user_id = i.user_id
+				AND other.provider = i.provider AND other.status = 'active' AND other.id <> i.id)))
+		FROM identities i JOIN users u ON u.id = i.user_id
+		WHERE i.provider = 'telegram' AND i.provider_subject = $1`, subject).Scan(&identityID, &ownerID, &identityStatus, &freed)
+	haveRow := err == nil
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return Customer{}, fmt.Errorf("resolve Telegram identity: %w", err)
 	}
-	if errors.Is(err, pgx.ErrNoRows) {
-		customer, err = scanCustomer(tx.QueryRow(ctx, `INSERT INTO users (locale) VALUES ($1)
-			RETURNING id::text, locale, status, timezone, created_at, 0::bigint`, string(localeFrom(telegramLocale))))
+	byID := func(id string) (Customer, error) {
+		return scanCustomer(tx.QueryRow(ctx, `SELECT u.id::text, u.locale, u.status, u.timezone, u.created_at,
+			COALESCE(r.remnawave_id, 0)
+			FROM users u LEFT JOIN remnawave_users r ON r.user_id = u.id WHERE u.id = $1::uuid`, id))
+	}
+	var customer Customer
+	switch {
+	case haveRow && identityStatus == "active":
+		customer, err = byID(ownerID)
+	case haveRow && !freed:
+		if _, err = tx.Exec(ctx, `UPDATE identities i SET status = 'active', revoked_at = NULL,
+			verified_at = COALESCE(i.verified_at, now()), metadata = i.metadata - 'revoked_by'
+			WHERE i.id = $1::uuid AND i.status <> 'active'`, identityID); err != nil {
+			return Customer{}, fmt.Errorf("relink Telegram identity: %w", err)
+		}
+		customer, err = byID(ownerID)
+	default:
+		// A v0.2 installation linked Telegram accounts through the Remnawave
+		// mapping only. Adopt that mapping instead of creating a second
+		// customer — unless it names a customer who signs in with another
+		// Telegram account now, or the old owner of a freed row.
+		customer, err = scanCustomer(tx.QueryRow(ctx, `SELECT u.id::text, u.locale, u.status, u.timezone, u.created_at, r.remnawave_id
+			FROM remnawave_users r JOIN users u ON u.id = r.user_id
+			WHERE r.telegram_id = $1 AND u.id::text <> $2
+			  AND NOT EXISTS (SELECT 1 FROM identities held WHERE held.user_id = u.id
+				AND held.provider = 'telegram' AND held.status = 'active' AND held.provider_subject <> $3)`,
+			telegramID, ownerID, subject))
+		if errors.Is(err, pgx.ErrNoRows) {
+			customer, err = scanCustomer(tx.QueryRow(ctx, `INSERT INTO users (locale) VALUES ($1)
+				RETURNING id::text, locale, status, timezone, created_at, 0::bigint`, string(localeFrom(telegramLocale))))
+		}
+		if err == nil && haveRow {
+			// The freed row is handed over rather than left holding the key.
+			_, err = tx.Exec(ctx, `UPDATE identities i SET user_id = $2::uuid, status = 'active',
+				revoked_at = NULL, verified_at = now(), metadata = i.metadata - 'revoked_by'
+				WHERE i.id = $1::uuid AND i.status = 'revoked'`, identityID, customer.ID)
+		}
 	}
 	if err != nil {
 		return Customer{}, fmt.Errorf("resolve Telegram customer: %w", err)

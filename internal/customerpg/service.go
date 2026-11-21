@@ -11,10 +11,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omniflow/omniflow/internal/customer"
@@ -55,6 +57,12 @@ func (service *Service) UpdateProfile(ctx context.Context, customerID, locale, t
 	return dbgen.New(service.pool).UpdateCustomerPreferences(ctx, dbgen.UpdateCustomerPreferencesParams{UserID: id, Locale: locale, Timezone: timezone})
 }
 
+// LinkIdentity attaches a sign-in identity to a customer on an operator's word.
+//
+// The same rules as the customer's own link: another customer's identity is
+// refused, never moved; the customer's own unlinked row comes back; a row that
+// is freed — unlinked by an operator, or replaced on its customer — is taken
+// over. An account that is not active gains nothing.
 func (service *Service) LinkIdentity(ctx context.Context, customerID, provider, subject string, verifiedAt time.Time, metadata map[string]any) (dbgen.Identity, error) {
 	id, err := parseUUID(customerID)
 	if err != nil {
@@ -64,13 +72,81 @@ func (service *Service) LinkIdentity(ctx context.Context, customerID, provider, 
 		return dbgen.Identity{}, errors.New("verified identity is required")
 	}
 	encoded, _ := json.Marshal(metadata)
-	identity, err := dbgen.New(service.pool).LinkCustomerIdentity(ctx, dbgen.LinkCustomerIdentityParams{UserID: id, Provider: provider, ProviderSubject: subject, VerifiedAt: pgtype.Timestamptz{Time: verifiedAt, Valid: true}, Metadata: encoded})
-	if errors.Is(err, pgx.ErrNoRows) {
-		return dbgen.Identity{}, customer.ErrIdentityConflict
-	}
+	verified := pgtype.Timestamptz{Time: verifiedAt, Valid: true}
+	var identity dbgen.Identity
+	err = service.inTx(ctx, func(queries *dbgen.Queries) error {
+		if provider == "telegram" {
+			// The lock the bot and the web sign-in take, so a first /start
+			// cannot create a second customer for this account meanwhile.
+			if err := queries.LockTelegramSubject(ctx, subject); err != nil {
+				return err
+			}
+		}
+		if err := queries.LockCustomerSignInMethods(ctx, id); err != nil {
+			return err
+		}
+		active, err := queries.CustomerIsActive(ctx, id)
+		if err != nil {
+			return err
+		}
+		if !active {
+			return customer.ErrIdentityConflict
+		}
+		existing, err := queries.GetIdentityBySubjectAnyStatus(ctx, dbgen.GetIdentityBySubjectAnyStatusParams{
+			Provider: provider, ProviderSubject: subject,
+		})
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+			identity, err = queries.LinkCustomerIdentity(ctx, dbgen.LinkCustomerIdentityParams{
+				UserID: id, Provider: provider, ProviderSubject: subject, VerifiedAt: verified, Metadata: encoded,
+			})
+		case err != nil:
+			return err
+		case existing.UserID == id && existing.Status == "active":
+			identity = identityFromLookup(existing)
+		case existing.UserID == id:
+			identity, err = queries.ReactivateCustomerIdentity(ctx, dbgen.ReactivateCustomerIdentityParams{
+				IdentityID: existing.ID, UserID: id, VerifiedAt: verified,
+			})
+		case existing.Freed:
+			identity, err = queries.ClaimFreedIdentity(ctx, dbgen.ClaimFreedIdentityParams{
+				UserID: id, IdentityID: existing.ID, VerifiedAt: verified, OidcIssuer: existing.OidcIssuer,
+			})
+		default:
+			return customer.ErrIdentityConflict
+		}
+		if errors.Is(err, pgx.ErrNoRows) || isUniqueViolation(err) {
+			// Another customer's row, or a second active identity of one
+			// provider on this customer, which the schema allows only once.
+			return customer.ErrIdentityConflict
+		}
+		if err != nil {
+			return err
+		}
+		if provider == "telegram" {
+			if telegramID, parseErr := strconv.ParseInt(subject, 10, 64); parseErr == nil {
+				mapping := pgtype.Int8{Int64: telegramID, Valid: true}
+				if err := queries.BackfillTelegramMapping(ctx, dbgen.BackfillTelegramMappingParams{
+					TelegramID: mapping, UserID: id,
+				}); err != nil {
+					return err
+				}
+				return queries.ReplaceTelegramMapping(ctx, dbgen.ReplaceTelegramMappingParams{
+					TelegramID: mapping, UserID: id,
+				})
+			}
+		}
+		return nil
+	})
 	return identity, err
 }
 
+// UnlinkIdentity removes a sign-in identity on an operator's word.
+//
+// Unlike the customer's own unlink, an operator's frees the identity: the
+// next sign-in with that account does not relink it here. That is what an
+// operator unlinking a Telegram account attached to the wrong person needs;
+// before, the next widget sign-in or bot tap put it straight back.
 func (service *Service) UnlinkIdentity(ctx context.Context, customerID, identityID string) (dbgen.Identity, error) {
 	userID, err := parseUUID(customerID)
 	if err != nil {
@@ -80,19 +156,63 @@ func (service *Service) UnlinkIdentity(ctx context.Context, customerID, identity
 	if err != nil {
 		return dbgen.Identity{}, err
 	}
-	queries := dbgen.New(service.pool)
-	rows, err := queries.ListCustomerIdentities(ctx, userID)
+	var removed dbgen.Identity
+	err = service.inTx(ctx, func(queries *dbgen.Queries) error {
+		// The count and the removal under one lock, so two operators removing
+		// two different identities at once cannot both see one left over.
+		if err := queries.LockCustomerSignInMethods(ctx, userID); err != nil {
+			return err
+		}
+		rows, err := queries.ListCustomerIdentities(ctx, userID)
+		if err != nil {
+			return err
+		}
+		identities := make([]customer.Identity, 0, len(rows))
+		for _, row := range rows {
+			identities = append(identities, customer.Identity{ID: uuidString(row.ID), Active: row.Status == "active", Verified: row.VerifiedAt.Valid})
+		}
+		if err := customer.CanUnlink(identities, identityID); err != nil {
+			return err
+		}
+		removed, err = queries.RevokeCustomerIdentityByOperator(ctx, dbgen.RevokeCustomerIdentityByOperatorParams{IdentityID: targetID, UserID: userID})
+		if err != nil {
+			return err
+		}
+		if removed.Provider == "telegram" {
+			if telegramID, parseErr := strconv.ParseInt(removed.ProviderSubject, 10, 64); parseErr == nil {
+				return queries.ClearTelegramMapping(ctx, dbgen.ClearTelegramMappingParams{
+					UserID: userID, TelegramID: pgtype.Int8{Int64: telegramID, Valid: true},
+				})
+			}
+		}
+		return nil
+	})
+	return removed, err
+}
+
+func (service *Service) inTx(ctx context.Context, body func(*dbgen.Queries) error) error {
+	tx, err := service.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
-		return dbgen.Identity{}, err
+		return err
 	}
-	identities := make([]customer.Identity, 0, len(rows))
-	for _, row := range rows {
-		identities = append(identities, customer.Identity{ID: uuidString(row.ID), Active: row.Status == "active", Verified: row.VerifiedAt.Valid})
+	defer func() { _ = tx.Rollback(ctx) }()
+	if err = body(dbgen.New(tx)); err != nil {
+		return err
 	}
-	if err := customer.CanUnlink(identities, identityID); err != nil {
-		return dbgen.Identity{}, err
+	return tx.Commit(ctx)
+}
+
+func identityFromLookup(row dbgen.GetIdentityBySubjectAnyStatusRow) dbgen.Identity {
+	return dbgen.Identity{
+		ID: row.ID, UserID: row.UserID, Provider: row.Provider, ProviderSubject: row.ProviderSubject,
+		VerifiedAt: row.VerifiedAt, CreatedAt: row.CreatedAt, Status: row.Status, RevokedAt: row.RevokedAt,
+		Metadata: row.Metadata, OidcIssuer: row.OidcIssuer,
 	}
-	return queries.RevokeCustomerIdentity(ctx, dbgen.RevokeCustomerIdentityParams{IdentityID: targetID, UserID: userID})
+}
+
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 
 func (service *Service) SetContact(ctx context.Context, customerID, kind, value string, verifiedAt *time.Time, transactional, marketing bool) (dbgen.ContactChannel, error) {

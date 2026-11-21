@@ -53,8 +53,13 @@ func (service *Service) LinkTelegramIdentity(
 		existing, lookupErr := queries.GetIdentityBySubjectAnyStatus(ctx, dbgen.GetIdentityBySubjectAnyStatusParams{
 			Provider: customerauth.ProviderTelegram, ProviderSubject: subject,
 		})
+		// Another customer's row is refused unless it is freed: unlinked by an
+		// operator, or replaced by a different Telegram account on that
+		// customer. A freed row is nobody's, and proving the Telegram account
+		// here is what makes it this customer's.
+		claim := lookupErr == nil && existing.UserID != userID && existing.Freed
 		switch {
-		case lookupErr == nil && existing.UserID != userID:
+		case lookupErr == nil && existing.UserID != userID && !claim:
 			return customerauth.ErrIdentityTaken
 		case lookupErr == nil && existing.Status == "active":
 			// Already this customer's: linking again is a harmless no-op.
@@ -67,7 +72,7 @@ func (service *Service) LinkTelegramIdentity(
 		// whoever holds it; it is not this customer's to take.
 		mapped, mapErr := queries.GetCustomerByTelegramMapping(ctx, pgtype.Int8{Int64: identity.ID, Valid: true})
 		switch {
-		case mapErr == nil && mapped.ID != userID:
+		case mapErr == nil && mapped.ID != userID && !(claim && mapped.ID == existing.UserID):
 			return customerauth.ErrIdentityTaken
 		case mapErr != nil && !errors.Is(mapErr, pgx.ErrNoRows):
 			return mapErr
@@ -84,7 +89,16 @@ func (service *Service) LinkTelegramIdentity(
 		}
 
 		verifiedAt := pgtype.Timestamptz{Time: service.now(), Valid: true}
-		if lookupErr == nil {
+		if claim {
+			if _, err := queries.ClaimFreedIdentity(ctx, dbgen.ClaimFreedIdentityParams{
+				UserID: userID, IdentityID: existing.ID, VerifiedAt: verifiedAt,
+			}); err != nil {
+				if errors.Is(err, pgx.ErrNoRows) {
+					return customerauth.ErrIdentityTaken
+				}
+				return err
+			}
+		} else if lookupErr == nil {
 			// This customer's own unlinked row comes back rather than a new
 			// one being written beside it.
 			if _, err := queries.ReactivateCustomerIdentity(ctx, dbgen.ReactivateCustomerIdentityParams{
@@ -110,6 +124,11 @@ func (service *Service) LinkTelegramIdentity(
 			return err
 		}
 		if err := queries.BackfillTelegramMapping(ctx, dbgen.BackfillTelegramMappingParams{
+			TelegramID: pgtype.Int8{Int64: identity.ID, Valid: true}, UserID: userID,
+		}); err != nil {
+			return err
+		}
+		if err := queries.ReplaceTelegramMapping(ctx, dbgen.ReplaceTelegramMappingParams{
 			TelegramID: pgtype.Int8{Int64: identity.ID, Valid: true}, UserID: userID,
 		}); err != nil {
 			return err

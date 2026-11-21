@@ -2235,7 +2235,7 @@ CREATE TABLE public.customer_sessions (
     CONSTRAINT customer_sessions_csrf_secret_check CHECK ((octet_length(csrf_secret) = 32)),
     CONSTRAINT customer_sessions_provider_present_for_oidc CHECK (((auth_method = 'oidc'::text) = (auth_provider IS NOT NULL))),
     CONSTRAINT customer_sessions_revocation_complete CHECK (((revoked_at IS NULL) = (revoked_reason IS NULL))),
-    CONSTRAINT customer_sessions_revoked_reason_known CHECK (((revoked_reason IS NULL) OR (revoked_reason = ANY (ARRAY['logout'::text, 'logout_all'::text, 'session_revoked'::text, 'identity_unlinked'::text, 'provider_disabled'::text, 'account_suspended'::text, 'account_deleted'::text, 'expired'::text, 'reauthenticated'::text])))),
+    CONSTRAINT customer_sessions_revoked_reason_known CHECK (((revoked_reason IS NULL) OR (revoked_reason = ANY (ARRAY['logout'::text, 'logout_all'::text, 'session_revoked'::text, 'identity_unlinked'::text, 'provider_disabled'::text, 'account_suspended'::text, 'account_deleted'::text, 'expired'::text, 'reauthenticated'::text, 'account_merged'::text])))),
     CONSTRAINT customer_sessions_token_hash_check CHECK ((octet_length(token_hash) = 32)),
     CONSTRAINT customer_sessions_user_agent_check CHECK (((user_agent IS NULL) OR (char_length(user_agent) <= 400)))
 );
@@ -4498,7 +4498,7 @@ CREATE TABLE public.referral_code_aliases (
     source text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT referral_code_aliases_code_shape CHECK ((code ~ '^[A-Z0-9_-]{3,32}$'::text)),
-    CONSTRAINT referral_code_aliases_source_known CHECK ((source = 'bedolaga'::text))
+    CONSTRAINT referral_code_aliases_source_known CHECK ((source = ANY (ARRAY['bedolaga'::text, 'merge'::text])))
 );
 
 

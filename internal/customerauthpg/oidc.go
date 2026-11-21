@@ -277,6 +277,38 @@ func (service *Service) CompleteOIDCSignIn(
 				Timezone: existing.UserTimezone,
 			}
 		case errors.Is(lookupErr, pgx.ErrNoRows):
+			// An unlinked row. The customer's own unlink, not replaced by
+			// another account of this provider, relinks on the next sign-in
+			// exactly as Telegram does; a freed row is a new person's.
+			unlinked, unlinkedErr := queries.GetIdentityBySubjectAnyStatus(ctx, dbgen.GetIdentityBySubjectAnyStatusParams{
+				Provider: provider, ProviderSubject: claims.Subject,
+			})
+			haveUnlinked := unlinkedErr == nil
+			if unlinkedErr != nil && !errors.Is(unlinkedErr, pgx.ErrNoRows) {
+				return unlinkedErr
+			}
+			if haveUnlinked && !customerauth.BindingMatchesIssuer(unlinked.OidcIssuer.String, claims.Issuer) {
+				return ErrSignInRejected
+			}
+			if haveUnlinked && !unlinked.Freed {
+				if unlinked.Status != "revoked" {
+					return ErrSignInRejected
+				}
+				if unlinked.UserStatus != "active" {
+					return ErrAccountInactive
+				}
+				if _, reactivateErr := queries.ReactivateCustomerIdentity(ctx, dbgen.ReactivateCustomerIdentityParams{
+					IdentityID: unlinked.ID, UserID: unlinked.UserID,
+					VerifiedAt: pgtype.Timestamptz{Time: service.now(), Valid: true},
+				}); reactivateErr != nil {
+					return reactivateErr
+				}
+				result.Customer = Customer{
+					ID: uuidString(unlinked.UserID), Status: unlinked.UserStatus,
+					Locale: unlinked.UserLocale, Timezone: unlinked.UserTimezone,
+				}
+				break
+			}
 			// A subject nobody has linked never adopts an existing customer by
 			// matching its email address. Doing so would let anyone who can make
 			// a provider assert an address take over that customer's account, and
@@ -295,11 +327,20 @@ func (service *Service) CompleteOIDCSignIn(
 			if createErr != nil {
 				return createErr
 			}
-			if _, createErr = queries.LinkCustomerOIDCIdentity(ctx, dbgen.LinkCustomerOIDCIdentityParams{
-				UserID: created.ID, Provider: provider, ProviderSubject: claims.Subject,
-				VerifiedAt: pgtype.Timestamptz{Time: service.now(), Valid: true},
-				OidcIssuer: pgtype.Text{String: claims.Issuer, Valid: true},
-			}); createErr != nil {
+			if haveUnlinked {
+				_, createErr = queries.ClaimFreedIdentity(ctx, dbgen.ClaimFreedIdentityParams{
+					UserID: created.ID, IdentityID: unlinked.ID,
+					VerifiedAt: pgtype.Timestamptz{Time: service.now(), Valid: true},
+					OidcIssuer: pgtype.Text{String: claims.Issuer, Valid: true},
+				})
+			} else {
+				_, createErr = queries.LinkCustomerOIDCIdentity(ctx, dbgen.LinkCustomerOIDCIdentityParams{
+					UserID: created.ID, Provider: provider, ProviderSubject: claims.Subject,
+					VerifiedAt: pgtype.Timestamptz{Time: service.now(), Valid: true},
+					OidcIssuer: pgtype.Text{String: claims.Issuer, Valid: true},
+				})
+			}
+			if createErr != nil {
 				return createErr
 			}
 			result.Customer = customerFromUser(created)
@@ -365,11 +406,52 @@ func (service *Service) LinkOIDCIdentity(
 			return lookupErr
 		}
 
-		if _, linkErr := queries.LinkCustomerOIDCIdentity(ctx, dbgen.LinkCustomerOIDCIdentityParams{
-			UserID: userID, Provider: provider, ProviderSubject: claims.Subject,
-			VerifiedAt: pgtype.Timestamptz{Time: service.now(), Valid: true},
-			OidcIssuer: pgtype.Text{String: claims.Issuer, Valid: true},
-		}); linkErr != nil {
+		// The flow cookie names the customer, and the callback can arrive up
+		// to the flow's lifetime later: the account may have been suspended or
+		// merged away in between, and then nothing is linked to it.
+		if lockErr := queries.LockCustomerSignInMethods(ctx, userID); lockErr != nil {
+			return lockErr
+		}
+		if active, statusErr := queries.CustomerIsActive(ctx, userID); statusErr != nil || !active {
+			if statusErr != nil && !errors.Is(statusErr, pgx.ErrNoRows) {
+				return statusErr
+			}
+			return ErrAccountInactive
+		}
+
+		// An unlinked row: this customer's own comes back, a freed one is
+		// taken over, and anybody else's is refused rather than moved.
+		verifiedAt := pgtype.Timestamptz{Time: service.now(), Valid: true}
+		unlinked, unlinkedErr := queries.GetIdentityBySubjectAnyStatus(ctx, dbgen.GetIdentityBySubjectAnyStatusParams{
+			Provider: provider, ProviderSubject: claims.Subject,
+		})
+		var linkErr error
+		switch {
+		case errors.Is(unlinkedErr, pgx.ErrNoRows):
+			_, linkErr = queries.LinkCustomerOIDCIdentity(ctx, dbgen.LinkCustomerOIDCIdentityParams{
+				UserID: userID, Provider: provider, ProviderSubject: claims.Subject,
+				VerifiedAt: verifiedAt, OidcIssuer: pgtype.Text{String: claims.Issuer, Valid: true},
+			})
+		case unlinkedErr != nil:
+			return unlinkedErr
+		case !customerauth.BindingMatchesIssuer(unlinked.OidcIssuer.String, claims.Issuer):
+			return customerauth.ErrIdentityTaken
+		case unlinked.UserID == userID:
+			_, linkErr = queries.ReactivateCustomerIdentity(ctx, dbgen.ReactivateCustomerIdentityParams{
+				IdentityID: unlinked.ID, UserID: userID, VerifiedAt: verifiedAt,
+			})
+		case unlinked.Freed:
+			_, linkErr = queries.ClaimFreedIdentity(ctx, dbgen.ClaimFreedIdentityParams{
+				UserID: userID, IdentityID: unlinked.ID, VerifiedAt: verifiedAt,
+				OidcIssuer: pgtype.Text{String: claims.Issuer, Valid: true},
+			})
+		default:
+			return customerauth.ErrIdentityTaken
+		}
+		if errors.Is(linkErr, pgx.ErrNoRows) {
+			return customerauth.ErrIdentityTaken
+		}
+		if linkErr != nil {
 			return linkErr
 		}
 		return service.appendSecurityEvent(ctx, queries, customerID, "identity_linked", request,

@@ -11,6 +11,43 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const adoptMergedRemnawaveUser = `-- name: AdoptMergedRemnawaveUser :exec
+INSERT INTO subscriptions (user_id, slot, label, remnawave_user_id, reconciled_at)
+SELECT $1, 1, 'Subscription 1', m.remnawave_id, now()
+FROM remnawave_users m
+WHERE m.user_id = $1
+  AND NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.user_id = $1)
+  AND NOT EXISTS (SELECT 1 FROM subscriptions other WHERE other.remnawave_user_id = m.remnawave_id)
+`
+
+// A source imported from Remnawave that never bought anything holds a VPN user
+// through the mapping alone. It becomes a subscription of its own, the way the
+// bot adopts an imported user, so the survivor keeps it as a separate link
+// instead of the mapping being left behind on a closed account.
+func (q *Queries) AdoptMergedRemnawaveUser(ctx context.Context, source pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, adoptMergedRemnawaveUser, source)
+	return err
+}
+
+const aliasMergedReferralCode = `-- name: AliasMergedReferralCode :exec
+WITH gone AS (
+  DELETE FROM referral_codes WHERE referral_codes.user_id = $2 RETURNING code
+)
+INSERT INTO referral_code_aliases (code, user_id, source)
+SELECT code, $1, 'merge' FROM gone
+ON CONFLICT (code) DO NOTHING
+`
+
+type AliasMergedReferralCodeParams struct {
+	Target pgtype.UUID `json:"target"`
+	Source pgtype.UUID `json:"source"`
+}
+
+func (q *Queries) AliasMergedReferralCode(ctx context.Context, arg AliasMergedReferralCodeParams) error {
+	_, err := q.db.Exec(ctx, aliasMergedReferralCode, arg.Target, arg.Source)
+	return err
+}
+
 const cancelMergedCustomerCart = `-- name: CancelMergedCustomerCart :exec
 UPDATE carts SET status = 'cancelled', updated_at = now()
 WHERE user_id = $1 AND status = 'open'
@@ -25,6 +62,45 @@ WHERE user_id = $1 AND status = 'open'
 // target's to make room would not be.
 func (q *Queries) CancelMergedCustomerCart(ctx context.Context, source pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, cancelMergedCustomerCart, source)
+	return err
+}
+
+const carryMergedPrimaryRemnawaveUser = `-- name: CarryMergedPrimaryRemnawaveUser :exec
+UPDATE subscriptions s
+SET remnawave_user_id = m.remnawave_id, updated_at = now()
+FROM remnawave_users m
+WHERE s.user_id = $1 AND s.slot = 1 AND s.remnawave_user_id IS NULL
+  AND m.user_id = $1
+  AND NOT EXISTS (SELECT 1 FROM subscriptions other WHERE other.remnawave_user_id = m.remnawave_id)
+`
+
+// The source's primary subscription takes the Remnawave user the customer-level
+// mapping names, before it is renumbered onto the survivor.
+//
+// Fulfillment reads the mapping only for slot 1. A subscription that relied on
+// it and arrives on the survivor in slot 2 would otherwise look unprovisioned,
+// and the next renewal would create a second VPN user with a new link while
+// the one the customer has configured keeps running out.
+func (q *Queries) CarryMergedPrimaryRemnawaveUser(ctx context.Context, source pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, carryMergedPrimaryRemnawaveUser, source)
+	return err
+}
+
+const carryMergedTelegramMapping = `-- name: CarryMergedTelegramMapping :exec
+UPDATE remnawave_users SET telegram_id = $1
+WHERE remnawave_users.user_id = $2 AND telegram_id IS NULL
+  AND NOT EXISTS (SELECT 1 FROM remnawave_users other WHERE other.telegram_id = $1)
+`
+
+type CarryMergedTelegramMappingParams struct {
+	TelegramID pgtype.Int8 `json:"telegram_id"`
+	Target     pgtype.UUID `json:"target"`
+}
+
+// The Telegram ID the source's mapping gave up, on the survivor's mapping when
+// that has none.
+func (q *Queries) CarryMergedTelegramMapping(ctx context.Context, arg CarryMergedTelegramMappingParams) error {
+	_, err := q.db.Exec(ctx, carryMergedTelegramMapping, arg.TelegramID, arg.Target)
 	return err
 }
 
@@ -69,6 +145,29 @@ func (q *Queries) CloseMergedAccount(ctx context.Context, arg CloseMergedAccount
 	return i, err
 }
 
+const dropAbandonedTrialClaim = `-- name: DropAbandonedTrialClaim :exec
+DELETE FROM trial_claims t
+WHERE t.user_id = $1
+  AND EXISTS (SELECT 1 FROM trial_claims s WHERE s.user_id = $2)
+  AND EXISTS (
+    SELECT 1 FROM orders closed
+    WHERE closed.id = t.order_id AND closed.state IN ('cancelled', 'expired')
+  )
+`
+
+type DropAbandonedTrialClaimParams struct {
+	Target pgtype.UUID `json:"target"`
+	Source pgtype.UUID `json:"source"`
+}
+
+// A trial claim on the survivor whose order closed unpaid is a claim that never
+// happened, and ClaimTrial would let it be taken over. When the source has a
+// claim that stands, that one is what the person has used.
+func (q *Queries) DropAbandonedTrialClaim(ctx context.Context, arg DropAbandonedTrialClaimParams) error {
+	_, err := q.db.Exec(ctx, dropAbandonedTrialClaim, arg.Target, arg.Source)
+	return err
+}
+
 const dropDuplicateNewsReads = `-- name: DropDuplicateNewsReads :exec
 DELETE FROM news_reads WHERE user_id = $1
 `
@@ -106,6 +205,48 @@ func (q *Queries) ListSubscriptionsToMove(ctx context.Context, userID pgtype.UUI
 			&i.Label,
 			&i.Status,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockMergeAccounts = `-- name: LockMergeAccounts :many
+SELECT id, status FROM users
+WHERE id = ANY($1::uuid[])
+ORDER BY id
+FOR UPDATE
+`
+
+type LockMergeAccountsRow struct {
+	ID     pgtype.UUID `json:"id"`
+	Status string      `json:"status"`
+}
+
+// Both accounts, locked for the rest of the merge, in identifier order so two
+// merges of the same pair in opposite directions queue instead of deadlocking.
+//
+// The lock is FOR UPDATE rather than FOR NO KEY UPDATE on purpose. Every row
+// that names a customer — a session, a ledger entry, an identity, an order —
+// takes a key-share lock on that customer while it is written, and only a full
+// row lock conflicts with it. A sign-in minting a session, a payment crediting
+// the wallet, or a bot tap linking an identity therefore either finishes before
+// the merge reads anything or waits until the merge has committed, and never
+// lands on the absorbed account after its balance was read.
+func (q *Queries) LockMergeAccounts(ctx context.Context, ids []pgtype.UUID) ([]LockMergeAccountsRow, error) {
+	rows, err := q.db.Query(ctx, lockMergeAccounts, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []LockMergeAccountsRow{}
+	for rows.Next() {
+		var i LockMergeAccountsRow
+		if err := rows.Scan(&i.ID, &i.Status); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -178,6 +319,122 @@ func (q *Queries) MergeCandidate(ctx context.Context, id pgtype.UUID) (MergeCand
 	return i, err
 }
 
+const mergeExpiringCredits = `-- name: MergeExpiringCredits :many
+SELECT e.currency, e.expires_at,
+  sum(GREATEST(
+    LEAST(
+      e.amount_minor,
+      (SELECT COALESCE(sum(balance_entry.amount_minor), 0)
+       FROM ledger_entries balance_entry
+       WHERE balance_entry.account_type = 'customer_wallet'
+         AND balance_entry.user_id = e.user_id
+         AND balance_entry.currency = e.currency)
+      - (SELECT COALESCE(sum(later_credit.amount_minor), 0)
+         FROM ledger_entries later_credit
+         WHERE later_credit.account_type = 'customer_wallet'
+           AND later_credit.user_id = e.user_id
+           AND later_credit.currency = e.currency
+           AND later_credit.amount_minor > 0
+           AND (later_credit.created_at, later_credit.id) > (e.created_at, e.id))
+    ),
+    0
+  ))::bigint AS remaining_minor
+FROM ledger_entries e
+WHERE e.account_type = 'customer_wallet' AND e.user_id = $1
+  AND e.amount_minor > 0 AND e.expires_at > now()
+GROUP BY e.currency, e.expires_at
+ORDER BY e.currency, e.expires_at
+`
+
+type MergeExpiringCreditsRow struct {
+	Currency       string             `json:"currency"`
+	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
+	RemainingMinor int64              `json:"remaining_minor"`
+}
+
+// What part of the source's wallet is still due to expire, and when.
+//
+// The same arithmetic the expiry job uses: a credit's unspent part is whatever
+// of it the balance still holds once the credits that came after it are set
+// aside. Moving the balance as one plain credit would turn a bonus with an end
+// date into money that never expires.
+func (q *Queries) MergeExpiringCredits(ctx context.Context, source pgtype.UUID) ([]MergeExpiringCreditsRow, error) {
+	rows, err := q.db.Query(ctx, mergeExpiringCredits, source)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []MergeExpiringCreditsRow{}
+	for rows.Next() {
+		var i MergeExpiringCreditsRow
+		if err := rows.Scan(&i.Currency, &i.ExpiresAt, &i.RemainingMinor); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const mergeIdentityConflicts = `-- name: MergeIdentityConflicts :many
+SELECT DISTINCT s.provider
+FROM identities s
+JOIN identities t ON t.provider = s.provider AND t.status = 'active'
+WHERE s.user_id = $1 AND s.status = 'active'
+  AND t.user_id = $2
+ORDER BY s.provider
+`
+
+type MergeIdentityConflictsParams struct {
+	Source pgtype.UUID `json:"source"`
+	Target pgtype.UUID `json:"target"`
+}
+
+// Providers both accounts hold an active sign-in through.
+//
+// A customer holds one active sign-in per provider, so two different Telegram
+// accounts — or two different Google accounts — cannot both land on the
+// survivor. Which one should stay is the operator's call, made by unlinking the
+// other first, and not something a merge guesses.
+func (q *Queries) MergeIdentityConflicts(ctx context.Context, arg MergeIdentityConflictsParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, mergeIdentityConflicts, arg.Source, arg.Target)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var provider string
+		if err := rows.Scan(&provider); err != nil {
+			return nil, err
+		}
+		items = append(items, provider)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const mergeOpenWithdrawals = `-- name: MergeOpenWithdrawals :one
+SELECT count(*)::bigint FROM referral_withdrawals
+WHERE user_id = $1 AND status IN ('pending', 'approved')
+`
+
+// A referral payout the source has asked for and nobody has paid or refused.
+//
+// The payout holds part of the source's wallet, and a refusal releases it back
+// to the account that asked. After a merge that account is closed and the
+// release would land where nobody can spend it.
+func (q *Queries) MergeOpenWithdrawals(ctx context.Context, source pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, mergeOpenWithdrawals, source)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const mergeReferralBetween = `-- name: MergeReferralBetween :one
 SELECT count(*)::bigint AS between_them
 FROM referral_attributions
@@ -200,6 +457,17 @@ func (q *Queries) MergeReferralBetween(ctx context.Context, arg MergeReferralBet
 	var between_them int64
 	err := row.Scan(&between_them)
 	return between_them, err
+}
+
+const mergeSourceTelegramMapping = `-- name: MergeSourceTelegramMapping :one
+SELECT COALESCE(telegram_id, 0)::bigint FROM remnawave_users WHERE user_id = $1
+`
+
+func (q *Queries) MergeSourceTelegramMapping(ctx context.Context, source pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, mergeSourceTelegramMapping, source)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const mergeWalletBalances = `-- name: MergeWalletBalances :many
@@ -239,6 +507,76 @@ func (q *Queries) MergeWalletBalances(ctx context.Context, userID pgtype.UUID) (
 		return nil, err
 	}
 	return items, nil
+}
+
+const moveCustomerAttribution = `-- name: MoveCustomerAttribution :exec
+WITH campaign AS (
+  UPDATE customer_campaign_attributions SET user_id = $1
+  WHERE customer_campaign_attributions.user_id = $2
+    AND NOT EXISTS (SELECT 1 FROM customer_campaign_attributions t WHERE t.user_id = $1)
+  RETURNING 1 AS done
+)
+UPDATE customer_start_attributions SET user_id = $1
+WHERE customer_start_attributions.user_id = $2
+  AND NOT EXISTS (SELECT 1 FROM customer_start_attributions t WHERE t.user_id = $1)
+`
+
+type MoveCustomerAttributionParams struct {
+	Target pgtype.UUID `json:"target"`
+	Source pgtype.UUID `json:"source"`
+}
+
+// One acquisition record per customer, campaign and first visit alike. The
+// survivor's own stands; the source's moves only when the survivor has none,
+// carrying whether its campaign bonus was already paid.
+func (q *Queries) MoveCustomerAttribution(ctx context.Context, arg MoveCustomerAttributionParams) error {
+	_, err := q.db.Exec(ctx, moveCustomerAttribution, arg.Target, arg.Source)
+	return err
+}
+
+const moveCustomerAutoRenew = `-- name: MoveCustomerAutoRenew :exec
+WITH moved AS (
+  UPDATE auto_renew_settings a SET user_id = $2, updated_at = now()
+  WHERE a.user_id = $1
+    AND NOT EXISTS (
+      SELECT 1 FROM auto_renew_settings t
+      WHERE t.user_id = $2 AND t.subscription_id IS NOT DISTINCT FROM a.subscription_id
+    )
+  RETURNING a.subscription_id
+)
+UPDATE auto_renew_settings SET enabled = false, state = 'idle', cancelled_at = now(), updated_at = now()
+WHERE auto_renew_settings.user_id = $1 AND enabled
+  AND subscription_id IS NOT DISTINCT FROM NULL
+  AND NOT EXISTS (SELECT 1 FROM moved WHERE moved.subscription_id IS NULL)
+`
+
+type MoveCustomerAutoRenewParams struct {
+	Source pgtype.UUID `json:"source"`
+	Target pgtype.UUID `json:"target"`
+}
+
+// Auto-renewal of a moved subscription moves with it, so the renewal charges
+// the wallet the balance moved to. A customer-wide setting moves when the
+// survivor has none; otherwise the source's is switched off rather than left
+// to charge a closed account.
+func (q *Queries) MoveCustomerAutoRenew(ctx context.Context, arg MoveCustomerAutoRenewParams) error {
+	_, err := q.db.Exec(ctx, moveCustomerAutoRenew, arg.Source, arg.Target)
+	return err
+}
+
+const moveCustomerBedolagaPaymentClaims = `-- name: MoveCustomerBedolagaPaymentClaims :exec
+UPDATE bedolaga_payment_claims SET user_id = $1
+WHERE bedolaga_payment_claims.user_id = $2
+`
+
+type MoveCustomerBedolagaPaymentClaimsParams struct {
+	Target pgtype.UUID `json:"target"`
+	Source pgtype.UUID `json:"source"`
+}
+
+func (q *Queries) MoveCustomerBedolagaPaymentClaims(ctx context.Context, arg MoveCustomerBedolagaPaymentClaimsParams) error {
+	_, err := q.db.Exec(ctx, moveCustomerBedolagaPaymentClaims, arg.Target, arg.Source)
+	return err
 }
 
 const moveCustomerConsents = `-- name: MoveCustomerConsents :exec
@@ -292,6 +630,32 @@ type MoveCustomerEntitlementsParams struct {
 // without anybody making one.
 func (q *Queries) MoveCustomerEntitlements(ctx context.Context, arg MoveCustomerEntitlementsParams) error {
 	_, err := q.db.Exec(ctx, moveCustomerEntitlements, arg.Target, arg.Source)
+	return err
+}
+
+const moveCustomerGifts = `-- name: MoveCustomerGifts :exec
+WITH sent AS (
+  UPDATE gifts SET sender_user_id = $1, updated_at = now()
+  WHERE sender_user_id = $2
+  RETURNING 1 AS done
+), received AS (
+  UPDATE gifts SET recipient_user_id = $1, updated_at = now()
+  WHERE recipient_user_id = $2
+  RETURNING 1 AS done
+)
+UPDATE gift_recipients SET recipient_user_id = $1
+WHERE gift_recipients.recipient_user_id = $2
+`
+
+type MoveCustomerGiftsParams struct {
+	Target pgtype.UUID `json:"target"`
+	Source pgtype.UUID `json:"source"`
+}
+
+// Gifts the source sent are refunded to the sender if nobody claims them, and
+// gifts it claimed are part of its history.
+func (q *Queries) MoveCustomerGifts(ctx context.Context, arg MoveCustomerGiftsParams) error {
+	_, err := q.db.Exec(ctx, moveCustomerGifts, arg.Target, arg.Source)
 	return err
 }
 
@@ -349,6 +713,21 @@ func (q *Queries) MoveCustomerLegacyDiscount(ctx context.Context, arg MoveCustom
 	return err
 }
 
+const moveCustomerLegacyGoodsOrders = `-- name: MoveCustomerLegacyGoodsOrders :exec
+UPDATE legacy_goods_orders SET user_id = $1
+WHERE legacy_goods_orders.user_id = $2
+`
+
+type MoveCustomerLegacyGoodsOrdersParams struct {
+	Target pgtype.UUID `json:"target"`
+	Source pgtype.UUID `json:"source"`
+}
+
+func (q *Queries) MoveCustomerLegacyGoodsOrders(ctx context.Context, arg MoveCustomerLegacyGoodsOrdersParams) error {
+	_, err := q.db.Exec(ctx, moveCustomerLegacyGoodsOrders, arg.Target, arg.Source)
+	return err
+}
+
 const moveCustomerLegacyPayments = `-- name: MoveCustomerLegacyPayments :exec
 UPDATE legacy_payments SET user_id = $1
 WHERE user_id = $2
@@ -381,6 +760,21 @@ func (q *Queries) MoveCustomerLegacyPeriods(ctx context.Context, arg MoveCustome
 	return err
 }
 
+const moveCustomerLevel2Rewards = `-- name: MoveCustomerLevel2Rewards :exec
+UPDATE referral_level2_rewards SET beneficiary_user_id = $1
+WHERE beneficiary_user_id = $2
+`
+
+type MoveCustomerLevel2RewardsParams struct {
+	Target pgtype.UUID `json:"target"`
+	Source pgtype.UUID `json:"source"`
+}
+
+func (q *Queries) MoveCustomerLevel2Rewards(ctx context.Context, arg MoveCustomerLevel2RewardsParams) error {
+	_, err := q.db.Exec(ctx, moveCustomerLevel2Rewards, arg.Target, arg.Source)
+	return err
+}
+
 const moveCustomerLifecycleEvents = `-- name: MoveCustomerLifecycleEvents :exec
 UPDATE customer_lifecycle_events SET user_id = $1
 WHERE user_id = $2
@@ -393,6 +787,37 @@ type MoveCustomerLifecycleEventsParams struct {
 
 func (q *Queries) MoveCustomerLifecycleEvents(ctx context.Context, arg MoveCustomerLifecycleEventsParams) error {
 	_, err := q.db.Exec(ctx, moveCustomerLifecycleEvents, arg.Target, arg.Source)
+	return err
+}
+
+const moveCustomerLoyalty = `-- name: MoveCustomerLoyalty :exec
+WITH standing AS (
+  UPDATE loyalty_standings SET user_id = $1, updated_at = now()
+  WHERE loyalty_standings.user_id = $2
+    AND NOT EXISTS (SELECT 1 FROM loyalty_standings t WHERE t.user_id = $1)
+  RETURNING 1 AS done
+), history AS (
+  UPDATE loyalty_standing_history SET user_id = $1
+  WHERE loyalty_standing_history.user_id = $2
+  RETURNING 1 AS done
+)
+UPDATE loyalty_memberships m SET user_id = $1
+WHERE m.user_id = $2
+  AND NOT EXISTS (
+    SELECT 1 FROM loyalty_memberships t WHERE t.user_id = $1 AND t.tier_code = m.tier_code
+  )
+`
+
+type MoveCustomerLoyaltyParams struct {
+	Target pgtype.UUID `json:"target"`
+	Source pgtype.UUID `json:"source"`
+}
+
+// Tier standing is recomputed from spend, which the merge has just moved, so
+// the source's standing only fills an empty slot. Tiers an operator or a promo
+// code granted are kept where the survivor does not already hold the same one.
+func (q *Queries) MoveCustomerLoyalty(ctx context.Context, arg MoveCustomerLoyaltyParams) error {
+	_, err := q.db.Exec(ctx, moveCustomerLoyalty, arg.Target, arg.Source)
 	return err
 }
 
@@ -455,6 +880,74 @@ func (q *Queries) MoveCustomerPaymentMethods(ctx context.Context, arg MoveCustom
 	return err
 }
 
+const moveCustomerPersonalOffers = `-- name: MoveCustomerPersonalOffers :exec
+UPDATE personal_offers p SET user_id = $1
+WHERE p.user_id = $2
+  AND (p.status <> 'active' OR NOT EXISTS (
+    SELECT 1 FROM personal_offers t
+    WHERE t.user_id = $1 AND t.promotion_id = p.promotion_id AND t.status = 'active'
+  ))
+`
+
+type MoveCustomerPersonalOffersParams struct {
+	Target pgtype.UUID `json:"target"`
+	Source pgtype.UUID `json:"source"`
+}
+
+// A live offer for a promotion the survivor already has a live offer for stays
+// behind: one live offer per promotion per customer.
+func (q *Queries) MoveCustomerPersonalOffers(ctx context.Context, arg MoveCustomerPersonalOffersParams) error {
+	_, err := q.db.Exec(ctx, moveCustomerPersonalOffers, arg.Target, arg.Source)
+	return err
+}
+
+const moveCustomerProfileRows = `-- name: MoveCustomerProfileRows :exec
+WITH preferences AS (
+  UPDATE bot_preferences SET user_id = $2
+  WHERE bot_preferences.user_id = $1
+    AND NOT EXISTS (SELECT 1 FROM bot_preferences t WHERE t.user_id = $2)
+  RETURNING 1 AS done
+), username AS (
+  UPDATE telegram_usernames SET user_id = $2
+  WHERE telegram_usernames.user_id = $1
+    AND NOT EXISTS (SELECT 1 FROM telegram_usernames t WHERE t.user_id = $2)
+  RETURNING 1 AS done
+)
+DELETE FROM telegram_usernames
+WHERE telegram_usernames.user_id = $1 AND NOT EXISTS (SELECT 1 FROM username)
+`
+
+type MoveCustomerProfileRowsParams struct {
+	Source pgtype.UUID `json:"source"`
+	Target pgtype.UUID `json:"target"`
+}
+
+// The bot's preferences and the last Telegram username seen fill the
+// survivor's only where it has none; a username is unique, so a duplicate the
+// survivor does not take is dropped rather than left to be found on the closed
+// account.
+func (q *Queries) MoveCustomerProfileRows(ctx context.Context, arg MoveCustomerProfileRowsParams) error {
+	_, err := q.db.Exec(ctx, moveCustomerProfileRows, arg.Source, arg.Target)
+	return err
+}
+
+const moveCustomerPromoRedemptions = `-- name: MoveCustomerPromoRedemptions :exec
+UPDATE promo_redemptions SET user_id = $1
+WHERE promo_redemptions.user_id = $2
+`
+
+type MoveCustomerPromoRedemptionsParams struct {
+	Target pgtype.UUID `json:"target"`
+	Source pgtype.UUID `json:"source"`
+}
+
+// Redemptions count against a promotion's per-customer limit. Left behind,
+// they would let the person use a once-per-customer code a second time.
+func (q *Queries) MoveCustomerPromoRedemptions(ctx context.Context, arg MoveCustomerPromoRedemptionsParams) error {
+	_, err := q.db.Exec(ctx, moveCustomerPromoRedemptions, arg.Target, arg.Source)
+	return err
+}
+
 const moveCustomerReferralAliases = `-- name: MoveCustomerReferralAliases :exec
 UPDATE referral_code_aliases SET user_id = $1
 WHERE user_id = $2
@@ -469,6 +962,176 @@ type MoveCustomerReferralAliasesParams struct {
 // person, now the merged account.
 func (q *Queries) MoveCustomerReferralAliases(ctx context.Context, arg MoveCustomerReferralAliasesParams) error {
 	_, err := q.db.Exec(ctx, moveCustomerReferralAliases, arg.Target, arg.Source)
+	return err
+}
+
+const moveCustomerReferralAttribution = `-- name: MoveCustomerReferralAttribution :exec
+WITH moved AS (
+  UPDATE referral_attributions SET referred_user_id = $1
+  WHERE referred_user_id = $2
+    AND referrer_user_id <> $1
+    AND NOT EXISTS (SELECT 1 FROM referral_attributions t WHERE t.referred_user_id = $1)
+  RETURNING referred_user_id
+)
+UPDATE referral_rewards r SET referred_user_id = $1
+WHERE r.referred_user_id = $2
+  AND EXISTS (SELECT 1 FROM moved)
+  AND (r.role = 'commission' OR NOT EXISTS (
+    SELECT 1 FROM referral_rewards t WHERE t.referred_user_id = $1 AND t.role = r.role
+  ))
+`
+
+type MoveCustomerReferralAttributionParams struct {
+	Target pgtype.UUID `json:"target"`
+	Source pgtype.UUID `json:"source"`
+}
+
+// Who invited the source follows the person when the survivor was not invited
+// by anybody, with the rewards already paid for it, so a first-payment reward
+// is not paid a second time for the same signup. A survivor with an inviter of
+// its own keeps that one; the source's stays where it was, and nothing more is
+// paid on it because the closed account buys nothing.
+func (q *Queries) MoveCustomerReferralAttribution(ctx context.Context, arg MoveCustomerReferralAttributionParams) error {
+	_, err := q.db.Exec(ctx, moveCustomerReferralAttribution, arg.Target, arg.Source)
+	return err
+}
+
+const moveCustomerReferralBeneficiary = `-- name: MoveCustomerReferralBeneficiary :exec
+UPDATE referral_rewards SET beneficiary_user_id = $1
+WHERE beneficiary_user_id = $2
+`
+
+type MoveCustomerReferralBeneficiaryParams struct {
+	Target pgtype.UUID `json:"target"`
+	Source pgtype.UUID `json:"source"`
+}
+
+// Rewards the source earned point at the survivor, so a reversal after a
+// refund debits the wallet the reward now sits in.
+func (q *Queries) MoveCustomerReferralBeneficiary(ctx context.Context, arg MoveCustomerReferralBeneficiaryParams) error {
+	_, err := q.db.Exec(ctx, moveCustomerReferralBeneficiary, arg.Target, arg.Source)
+	return err
+}
+
+const moveCustomerReferralCode = `-- name: MoveCustomerReferralCode :exec
+UPDATE referral_codes SET user_id = $1
+WHERE referral_codes.user_id = $2
+  AND NOT EXISTS (SELECT 1 FROM referral_codes t WHERE t.user_id = $1)
+`
+
+type MoveCustomerReferralCodeParams struct {
+	Target pgtype.UUID `json:"target"`
+	Source pgtype.UUID `json:"source"`
+}
+
+// The source's invite code keeps working for the person. A survivor without a
+// code takes it over; one with a code of its own gets it as an alias.
+func (q *Queries) MoveCustomerReferralCode(ctx context.Context, arg MoveCustomerReferralCodeParams) error {
+	_, err := q.db.Exec(ctx, moveCustomerReferralCode, arg.Target, arg.Source)
+	return err
+}
+
+const moveCustomerReferralTerms = `-- name: MoveCustomerReferralTerms :exec
+WITH terms AS (
+  UPDATE referral_inviter_terms SET user_id = $1
+  WHERE referral_inviter_terms.user_id = $2
+    AND NOT EXISTS (SELECT 1 FROM referral_inviter_terms t WHERE t.user_id = $1)
+  RETURNING 1 AS done
+)
+UPDATE referral_reward_preferences SET user_id = $1
+WHERE referral_reward_preferences.user_id = $2
+  AND NOT EXISTS (SELECT 1 FROM referral_reward_preferences t WHERE t.user_id = $1)
+`
+
+type MoveCustomerReferralTermsParams struct {
+	Target pgtype.UUID `json:"target"`
+	Source pgtype.UUID `json:"source"`
+}
+
+// Individual partner terms and the reward preference follow the person unless
+// the survivor already has its own.
+func (q *Queries) MoveCustomerReferralTerms(ctx context.Context, arg MoveCustomerReferralTermsParams) error {
+	_, err := q.db.Exec(ctx, moveCustomerReferralTerms, arg.Target, arg.Source)
+	return err
+}
+
+const moveCustomerReferralsMade = `-- name: MoveCustomerReferralsMade :exec
+UPDATE referral_attributions SET referrer_user_id = $1
+WHERE referrer_user_id = $2 AND referred_user_id <> $1
+`
+
+type MoveCustomerReferralsMadeParams struct {
+	Target pgtype.UUID `json:"target"`
+	Source pgtype.UUID `json:"source"`
+}
+
+// The people the source invited stay invited by the person. Their commissions
+// would otherwise keep landing in the wallet of a closed account.
+func (q *Queries) MoveCustomerReferralsMade(ctx context.Context, arg MoveCustomerReferralsMadeParams) error {
+	_, err := q.db.Exec(ctx, moveCustomerReferralsMade, arg.Target, arg.Source)
+	return err
+}
+
+const moveCustomerRemnawaveMapping = `-- name: MoveCustomerRemnawaveMapping :exec
+WITH survivor AS (
+  SELECT 1 AS present FROM remnawave_users mine WHERE mine.user_id = $2
+), moved AS (
+  UPDATE remnawave_users SET user_id = $2
+  WHERE remnawave_users.user_id = $1 AND NOT EXISTS (SELECT 1 FROM survivor)
+  RETURNING 1 AS done
+)
+UPDATE remnawave_users SET telegram_id = NULL
+WHERE remnawave_users.user_id = $1 AND EXISTS (SELECT 1 FROM survivor)
+`
+
+type MoveCustomerRemnawaveMappingParams struct {
+	Source pgtype.UUID `json:"source"`
+	Target pgtype.UUID `json:"target"`
+}
+
+// The customer-level mapping moves when the survivor has none. When it has its
+// own, the source's stays behind — every Remnawave user it named now belongs
+// to a subscription — but gives up its Telegram ID, so the bot and the
+// notification queries that find a customer by Telegram ID reach the survivor.
+func (q *Queries) MoveCustomerRemnawaveMapping(ctx context.Context, arg MoveCustomerRemnawaveMappingParams) error {
+	_, err := q.db.Exec(ctx, moveCustomerRemnawaveMapping, arg.Source, arg.Target)
+	return err
+}
+
+const moveCustomerRestrictions = `-- name: MoveCustomerRestrictions :exec
+WITH restrictions AS (
+  UPDATE customer_restrictions r SET user_id = $1
+  WHERE r.user_id = $2
+    AND NOT EXISTS (
+      SELECT 1 FROM customer_restrictions t WHERE t.user_id = $1 AND t.kind = r.kind
+    )
+  RETURNING 1 AS done
+), suppressions AS (
+  UPDATE communication_suppressions SET user_id = $1
+  WHERE communication_suppressions.user_id = $2
+    AND NOT EXISTS (SELECT 1 FROM communication_suppressions t WHERE t.user_id = $1)
+  RETURNING 1 AS done
+), exemptions AS (
+  UPDATE channel_exemptions SET user_id = $1
+  WHERE channel_exemptions.user_id = $2
+    AND NOT EXISTS (SELECT 1 FROM channel_exemptions t WHERE t.user_id = $1)
+  RETURNING 1 AS done
+)
+UPDATE blocklist_allowlist SET user_id = $1
+WHERE blocklist_allowlist.user_id = $2
+  AND NOT EXISTS (SELECT 1 FROM blocklist_allowlist t WHERE t.user_id = $1)
+`
+
+type MoveCustomerRestrictionsParams struct {
+	Target pgtype.UUID `json:"target"`
+	Source pgtype.UUID `json:"source"`
+}
+
+// Restrictions and communication opt-outs follow the person. A merge must not
+// be a way to shed a purchase ban, and a customer who asked not to be written
+// to has not changed their mind by gaining a second account.
+func (q *Queries) MoveCustomerRestrictions(ctx context.Context, arg MoveCustomerRestrictionsParams) error {
+	_, err := q.db.Exec(ctx, moveCustomerRestrictions, arg.Target, arg.Source)
 	return err
 }
 
@@ -517,6 +1180,24 @@ func (q *Queries) MoveCustomerTopUps(ctx context.Context, arg MoveCustomerTopUps
 	return err
 }
 
+const moveCustomerTrialClaim = `-- name: MoveCustomerTrialClaim :exec
+UPDATE trial_claims SET user_id = $1
+WHERE trial_claims.user_id = $2
+  AND NOT EXISTS (SELECT 1 FROM trial_claims t WHERE t.user_id = $1)
+`
+
+type MoveCustomerTrialClaimParams struct {
+	Target pgtype.UUID `json:"target"`
+	Source pgtype.UUID `json:"source"`
+}
+
+// One trial per person. A trial the source took counts against the survivor,
+// or a merge would hand out a second one.
+func (q *Queries) MoveCustomerTrialClaim(ctx context.Context, arg MoveCustomerTrialClaimParams) error {
+	_, err := q.db.Exec(ctx, moveCustomerTrialClaim, arg.Target, arg.Source)
+	return err
+}
+
 const moveSubscription = `-- name: MoveSubscription :exec
 UPDATE subscriptions SET user_id = $1, slot = $2, updated_at = now()
 WHERE id = $3
@@ -545,4 +1226,33 @@ func (q *Queries) NextSubscriptionSlot(ctx context.Context, userID pgtype.UUID) 
 	var next_slot int32
 	err := row.Scan(&next_slot)
 	return next_slot, err
+}
+
+const revokeMergedCustomerSessions = `-- name: RevokeMergedCustomerSessions :many
+UPDATE customer_sessions
+SET revoked_at = now(), revoked_reason = 'account_merged'
+WHERE user_id = $1 AND revoked_at IS NULL
+RETURNING 1 AS done
+`
+
+// Every session of the absorbed account ends. The person signs in again and
+// lands on the survivor, which now holds their sign-in methods.
+func (q *Queries) RevokeMergedCustomerSessions(ctx context.Context, source pgtype.UUID) ([]int32, error) {
+	rows, err := q.db.Query(ctx, revokeMergedCustomerSessions, source)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int32{}
+	for rows.Next() {
+		var done int32
+		if err := rows.Scan(&done); err != nil {
+			return nil, err
+		}
+		items = append(items, done)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

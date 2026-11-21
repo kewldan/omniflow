@@ -3,8 +3,10 @@ package customerauthpg
 import (
 	"context"
 	"errors"
+	"strconv"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/omniflow/omniflow/internal/customerauth"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 )
@@ -84,6 +86,9 @@ func (service *Service) UnlinkIdentity(
 	}
 
 	return service.inTx(ctx, func(queries *dbgen.Queries) error {
+		if lockErr := queries.LockCustomerSignInMethods(ctx, userID); lockErr != nil {
+			return lockErr
+		}
 		rows, listErr := queries.ListCustomerSignInIdentities(ctx, userID)
 		if listErr != nil {
 			return listErr
@@ -109,6 +114,16 @@ func (service *Service) UnlinkIdentity(
 		}
 		if revokeErr != nil {
 			return revokeErr
+		}
+
+		if removed.Provider == customerauth.ProviderTelegram {
+			if telegramID, parseErr := strconv.ParseInt(removed.ProviderSubject, 10, 64); parseErr == nil {
+				if clearErr := queries.ClearTelegramMapping(ctx, dbgen.ClearTelegramMappingParams{
+					UserID: userID, TelegramID: pgtype.Int8{Int64: telegramID, Valid: true},
+				}); clearErr != nil {
+					return clearErr
+				}
+			}
 		}
 
 		metadata := map[string]any{"provider": removed.Provider}

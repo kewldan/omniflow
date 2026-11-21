@@ -184,15 +184,40 @@ WHERE email_fingerprint = sqlc.arg(email_fingerprint)
   AND created_at > now() - sqlc.arg(lookback)::interval;
 
 -- name: GetCustomerByEmailFingerprint :one
--- The customer holding a live e-mail contact with this fingerprint.
+-- The customer holding a live, verified e-mail contact with this fingerprint.
+--
+-- Verified is the point. An address a customer typed in and never confirmed
+-- proves nothing about who reads that mailbox: a typo, or somebody else's
+-- address entered on purpose, would otherwise let the mailbox owner sign in to
+-- that customer's account, subscription and wallet included.
 SELECT u.*
 FROM contact_channels c
 JOIN users u ON u.id = c.user_id
-WHERE c.kind = 'email' AND c.value_fingerprint = sqlc.arg(email_fingerprint) AND c.revoked_at IS NULL
+WHERE c.kind = 'email' AND c.value_fingerprint = sqlc.arg(email_fingerprint)
+  AND c.revoked_at IS NULL AND c.verified_at IS NOT NULL
 LIMIT 1;
 
--- name: CreateVerifiedEmailContact :exec
+-- name: LockEmailFingerprint :exec
+-- Serialises sign-ins that would create a customer for one address, so two
+-- links for it redeemed at once arrive at one account rather than two.
+SELECT pg_advisory_xact_lock(hashtextextended('omniflow:email:' || encode(sqlc.arg(email_fingerprint)::bytea, 'hex'), 0));
+
+-- name: ReleaseUnprovenEmailContact :exec
+-- An address somebody has just proved they control stops being held by a row
+-- that never proved it: an unconfirmed contact on another account, or one its
+-- customer removed. The row stays in that customer's history, revoked and with
+-- its fingerprint retired, and the unique key is free for the prover.
+UPDATE contact_channels
+SET revoked_at = COALESCE(revoked_at, now()),
+    value_fingerprint = digest(id::text || ':released', 'sha256'),
+    transactional_enabled = false, marketing_enabled = false
+WHERE kind = 'email' AND value_fingerprint = sqlc.arg(value_fingerprint)
+  AND (verified_at IS NULL OR revoked_at IS NOT NULL);
+
+-- name: CreateVerifiedEmailContact :execrows
 -- Records the address a customer just proved they control by redeeming a link.
+-- No row means a verified contact holds the address after all, and the caller
+-- refuses rather than leaving a new customer with no address.
 INSERT INTO contact_channels (user_id, kind, value_ciphertext, value_fingerprint, verified_at, transactional_enabled, marketing_enabled)
 VALUES (sqlc.arg(user_id), 'email', sqlc.arg(value_ciphertext), sqlc.arg(value_fingerprint), now(), true, false)
 ON CONFLICT (kind, value_fingerprint) DO NOTHING;

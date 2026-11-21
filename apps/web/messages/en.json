@@ -1247,7 +1247,10 @@
         "already_merged": "This account has already been merged into another one.",
         "target_merged": "The other account is itself a merged account, which would leave everything two hops from where anybody looks.",
         "account_deleted": "One of the accounts is in the retention workflow. Merging would move records out from under a deletion somebody asked for.",
-        "referral_between": "One of these accounts referred the other. Merging would make a customer their own referrer, and a reward was paid for that signup."
+        "referral_between": "One of these accounts referred the other. Merging would make a customer their own referrer, and a reward was paid for that signup.",
+        "source_suspended": "The account being absorbed is suspended. Merging would move its subscriptions and sign-in methods onto an active account. Reactivate it first if that is really meant.",
+        "identity_conflict": "Both accounts sign in through the same provider with different accounts, such as two Telegram accounts. A customer holds one per provider: unlink the one that should not stay, then merge.",
+        "withdrawal_open": "The account being absorbed has a referral payout that is neither paid nor refused. Settle it first: a refusal would return the money to a closed account."
       },
       "note": {
         "wallet_moves": "The wallet balance moves as ledger entries — the source debited, the target credited — rather than by rewriting financial history.",

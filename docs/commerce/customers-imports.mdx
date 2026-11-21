@@ -310,6 +310,13 @@ The blockers are recomputed when the merge is applied rather than trusted from
 the preview. The two are separate requests, and a merge authorised by a stale
 screen is the kind of thing that only goes wrong once.
 
+The apply step locks both accounts before it reads anything. A sign-in, a
+payment, or a bot tap already writing to the absorbed account finishes first
+and is then carried over — its session ends, its money moves — and one that
+starts later waits until the merge has committed. Two operators merging the
+same pair in opposite directions get one survivor, not two accounts pointing at
+each other.
+
 | Refused when | Why |
 | --- | --- |
 | An account is merged into itself | Nothing would happen, and it would look like something had |
@@ -317,11 +324,15 @@ screen is the kind of thing that only goes wrong once.
 | The target is itself a merged account | Everything would end up two hops from where anybody looks |
 | Either account is deleted | Merging would move records out from under a deletion somebody asked for |
 | One account referred the other | A customer would become their own referrer, and a reward was paid for that signup |
+| The source is suspended | Its subscriptions and sign-in methods would arrive on an active account — a way out of the suspension. Reactivate it first if that is meant; merging *into* a suspended account is allowed and the survivor stays suspended |
+| Both accounts sign in through the same provider with different accounts (two Telegram accounts, two Google accounts) | A customer holds one per provider. Unlink the one that should not stay, then merge |
+| The source has a referral payout that is neither paid nor refused | A refusal releases the held amount to the account that asked, which would be closed |
 
 ### What is not a plain reassignment
 
-Forty-six tables reference `users`. Most are a change of owner. Five are a
-decision, and they are why this is not a loop over the foreign-key catalogue:
+Close to eighty foreign keys reference `users`. Most are a change of owner.
+Several are a decision, and they are why this is not a loop over the
+foreign-key catalogue:
 
 - **Subscription slots** are unique per customer, so moved subscriptions are
   renumbered onto the first free slots on the target.
@@ -339,8 +350,43 @@ decision, and they are why this is not a loop over the foreign-key catalogue:
   and invite codes are reassigned; of two carried "last discount" dates the later one survives.
 - **Saved payment methods** move but arrive as non-default. One default per
   customer is a unique index, and the survivor's is the method they last chose.
+- **A bonus due to expire** keeps its end date. The part of the source's balance
+  that is still an unspent expiring credit arrives on the survivor as a credit
+  with the same `expires_at`; only the rest arrives as plain money.
+- **The trial** counts for the person, not the account: the source's claim moves
+  to the survivor, so a merge never hands out a second trial. A survivor claim
+  behind an order that closed unpaid gives way to the source's claim that stands.
+- **Referrals, both ways.** The people the source invited are now invited by the
+  survivor, so their commissions do not land in a closed wallet. Who invited the
+  source follows the person when the survivor had no inviter, together with the
+  rewards already paid for it, so a first-purchase reward is not paid twice. The
+  source's invite code keeps working: the survivor takes it over, or gets it as
+  an alias when it has a code of its own. Rewards the source earned point at the
+  survivor, so a reversal debits the wallet the reward now sits in.
+- **Promo redemptions** move, so a once-per-customer code stays used.
+- **One-per-customer records** — the trial, campaign and first-visit
+  attribution, loyalty standing, a restriction of each kind, the bot's
+  preferences, the last Telegram username, individual referral terms — move only
+  where the survivor has none; the survivor's own stands. Restrictions and
+  communication opt-outs follow the person, so a merge is not a way to shed a
+  purchase ban.
+- **Remnawave users.** Every VPN user stays a subscription of the survivor, each
+  with its own link: two accounts that both had an active subscription end with
+  two subscriptions. A source subscription that relied on the customer-level
+  mapping is given that Remnawave user before it is renumbered, so the next
+  renewal extends it instead of creating a second user; a source imported from
+  Remnawave that never bought anything gets a subscription for its user. The
+  mapping moves when the survivor has none; otherwise the source's gives up its
+  Telegram ID to the survivor's.
+- **Auto-renewal** of a moved subscription moves with it and charges the
+  survivor's wallet.
 
 ### After it happens
+
+Every session of the source ends with the reason `account_merged`; the person
+signs in again with any method and lands on the survivor, which now holds those
+methods — including the bot, which finds the survivor by the same Telegram
+account.
 
 The source keeps its rows and its history and is marked `merged`, pointing at
 the target. It is not deleted: the record of what happened is worth more than

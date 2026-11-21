@@ -33,6 +33,77 @@ GROUP BY currency
 HAVING COALESCE(sum(amount_minor), 0) <> 0
 ORDER BY currency;
 
+-- name: LockMergeAccounts :many
+-- Both accounts, locked for the rest of the merge, in identifier order so two
+-- merges of the same pair in opposite directions queue instead of deadlocking.
+--
+-- The lock is FOR UPDATE rather than FOR NO KEY UPDATE on purpose. Every row
+-- that names a customer — a session, a ledger entry, an identity, an order —
+-- takes a key-share lock on that customer while it is written, and only a full
+-- row lock conflicts with it. A sign-in minting a session, a payment crediting
+-- the wallet, or a bot tap linking an identity therefore either finishes before
+-- the merge reads anything or waits until the merge has committed, and never
+-- lands on the absorbed account after its balance was read.
+SELECT id, status FROM users
+WHERE id = ANY(sqlc.arg(ids)::uuid[])
+ORDER BY id
+FOR UPDATE;
+
+-- name: MergeIdentityConflicts :many
+-- Providers both accounts hold an active sign-in through.
+--
+-- A customer holds one active sign-in per provider, so two different Telegram
+-- accounts — or two different Google accounts — cannot both land on the
+-- survivor. Which one should stay is the operator's call, made by unlinking the
+-- other first, and not something a merge guesses.
+SELECT DISTINCT s.provider
+FROM identities s
+JOIN identities t ON t.provider = s.provider AND t.status = 'active'
+WHERE s.user_id = sqlc.arg(source) AND s.status = 'active'
+  AND t.user_id = sqlc.arg(target)
+ORDER BY s.provider;
+
+-- name: MergeOpenWithdrawals :one
+-- A referral payout the source has asked for and nobody has paid or refused.
+--
+-- The payout holds part of the source's wallet, and a refusal releases it back
+-- to the account that asked. After a merge that account is closed and the
+-- release would land where nobody can spend it.
+SELECT count(*)::bigint FROM referral_withdrawals
+WHERE user_id = sqlc.arg(source) AND status IN ('pending', 'approved');
+
+-- name: MergeExpiringCredits :many
+-- What part of the source's wallet is still due to expire, and when.
+--
+-- The same arithmetic the expiry job uses: a credit's unspent part is whatever
+-- of it the balance still holds once the credits that came after it are set
+-- aside. Moving the balance as one plain credit would turn a bonus with an end
+-- date into money that never expires.
+SELECT e.currency, e.expires_at,
+  sum(GREATEST(
+    LEAST(
+      e.amount_minor,
+      (SELECT COALESCE(sum(balance_entry.amount_minor), 0)
+       FROM ledger_entries balance_entry
+       WHERE balance_entry.account_type = 'customer_wallet'
+         AND balance_entry.user_id = e.user_id
+         AND balance_entry.currency = e.currency)
+      - (SELECT COALESCE(sum(later_credit.amount_minor), 0)
+         FROM ledger_entries later_credit
+         WHERE later_credit.account_type = 'customer_wallet'
+           AND later_credit.user_id = e.user_id
+           AND later_credit.currency = e.currency
+           AND later_credit.amount_minor > 0
+           AND (later_credit.created_at, later_credit.id) > (e.created_at, e.id))
+    ),
+    0
+  ))::bigint AS remaining_minor
+FROM ledger_entries e
+WHERE e.account_type = 'customer_wallet' AND e.user_id = sqlc.arg(source)
+  AND e.amount_minor > 0 AND e.expires_at > now()
+GROUP BY e.currency, e.expires_at
+ORDER BY e.currency, e.expires_at;
+
 -- name: MergeReferralBetween :one
 -- Whether either account referred the other.
 --
@@ -172,6 +243,286 @@ SELECT sqlc.arg(target)::uuid, moved.origin, moved.last_discount_at FROM moved
 ON CONFLICT (user_id) DO UPDATE
 SET last_discount_at = GREATEST(legacy_customer_discounts.last_discount_at, EXCLUDED.last_discount_at),
     updated_at = now();
+
+-- name: CarryMergedPrimaryRemnawaveUser :exec
+-- The source's primary subscription takes the Remnawave user the customer-level
+-- mapping names, before it is renumbered onto the survivor.
+--
+-- Fulfillment reads the mapping only for slot 1. A subscription that relied on
+-- it and arrives on the survivor in slot 2 would otherwise look unprovisioned,
+-- and the next renewal would create a second VPN user with a new link while
+-- the one the customer has configured keeps running out.
+UPDATE subscriptions s
+SET remnawave_user_id = m.remnawave_id, updated_at = now()
+FROM remnawave_users m
+WHERE s.user_id = sqlc.arg(source) AND s.slot = 1 AND s.remnawave_user_id IS NULL
+  AND m.user_id = sqlc.arg(source)
+  AND NOT EXISTS (SELECT 1 FROM subscriptions other WHERE other.remnawave_user_id = m.remnawave_id);
+
+-- name: AdoptMergedRemnawaveUser :exec
+-- A source imported from Remnawave that never bought anything holds a VPN user
+-- through the mapping alone. It becomes a subscription of its own, the way the
+-- bot adopts an imported user, so the survivor keeps it as a separate link
+-- instead of the mapping being left behind on a closed account.
+INSERT INTO subscriptions (user_id, slot, label, remnawave_user_id, reconciled_at)
+SELECT sqlc.arg(source), 1, 'Subscription 1', m.remnawave_id, now()
+FROM remnawave_users m
+WHERE m.user_id = sqlc.arg(source)
+  AND NOT EXISTS (SELECT 1 FROM subscriptions s WHERE s.user_id = sqlc.arg(source))
+  AND NOT EXISTS (SELECT 1 FROM subscriptions other WHERE other.remnawave_user_id = m.remnawave_id);
+
+-- name: MoveCustomerRemnawaveMapping :exec
+-- The customer-level mapping moves when the survivor has none. When it has its
+-- own, the source's stays behind — every Remnawave user it named now belongs
+-- to a subscription — but gives up its Telegram ID, so the bot and the
+-- notification queries that find a customer by Telegram ID reach the survivor.
+WITH survivor AS (
+  SELECT 1 AS present FROM remnawave_users mine WHERE mine.user_id = sqlc.arg(target)
+), moved AS (
+  UPDATE remnawave_users SET user_id = sqlc.arg(target)
+  WHERE remnawave_users.user_id = sqlc.arg(source) AND NOT EXISTS (SELECT 1 FROM survivor)
+  RETURNING 1 AS done
+)
+UPDATE remnawave_users SET telegram_id = NULL
+WHERE remnawave_users.user_id = sqlc.arg(source) AND EXISTS (SELECT 1 FROM survivor);
+
+-- name: CarryMergedTelegramMapping :exec
+-- The Telegram ID the source's mapping gave up, on the survivor's mapping when
+-- that has none.
+UPDATE remnawave_users SET telegram_id = sqlc.arg(telegram_id)
+WHERE remnawave_users.user_id = sqlc.arg(target) AND telegram_id IS NULL
+  AND NOT EXISTS (SELECT 1 FROM remnawave_users other WHERE other.telegram_id = sqlc.arg(telegram_id));
+
+-- name: MergeSourceTelegramMapping :one
+SELECT COALESCE(telegram_id, 0)::bigint FROM remnawave_users WHERE user_id = sqlc.arg(source);
+
+-- name: RevokeMergedCustomerSessions :many
+-- Every session of the absorbed account ends. The person signs in again and
+-- lands on the survivor, which now holds their sign-in methods.
+UPDATE customer_sessions
+SET revoked_at = now(), revoked_reason = 'account_merged'
+WHERE user_id = sqlc.arg(source) AND revoked_at IS NULL
+RETURNING 1 AS done;
+
+-- name: DropAbandonedTrialClaim :exec
+-- A trial claim on the survivor whose order closed unpaid is a claim that never
+-- happened, and ClaimTrial would let it be taken over. When the source has a
+-- claim that stands, that one is what the person has used.
+DELETE FROM trial_claims t
+WHERE t.user_id = sqlc.arg(target)
+  AND EXISTS (SELECT 1 FROM trial_claims s WHERE s.user_id = sqlc.arg(source))
+  AND EXISTS (
+    SELECT 1 FROM orders closed
+    WHERE closed.id = t.order_id AND closed.state IN ('cancelled', 'expired')
+  );
+
+-- name: MoveCustomerTrialClaim :exec
+-- One trial per person. A trial the source took counts against the survivor,
+-- or a merge would hand out a second one.
+UPDATE trial_claims SET user_id = sqlc.arg(target)
+WHERE trial_claims.user_id = sqlc.arg(source)
+  AND NOT EXISTS (SELECT 1 FROM trial_claims t WHERE t.user_id = sqlc.arg(target));
+
+-- name: MoveCustomerReferralsMade :exec
+-- The people the source invited stay invited by the person. Their commissions
+-- would otherwise keep landing in the wallet of a closed account.
+UPDATE referral_attributions SET referrer_user_id = sqlc.arg(target)
+WHERE referrer_user_id = sqlc.arg(source) AND referred_user_id <> sqlc.arg(target);
+
+-- name: MoveCustomerReferralAttribution :exec
+-- Who invited the source follows the person when the survivor was not invited
+-- by anybody, with the rewards already paid for it, so a first-payment reward
+-- is not paid a second time for the same signup. A survivor with an inviter of
+-- its own keeps that one; the source's stays where it was, and nothing more is
+-- paid on it because the closed account buys nothing.
+WITH moved AS (
+  UPDATE referral_attributions SET referred_user_id = sqlc.arg(target)
+  WHERE referred_user_id = sqlc.arg(source)
+    AND referrer_user_id <> sqlc.arg(target)
+    AND NOT EXISTS (SELECT 1 FROM referral_attributions t WHERE t.referred_user_id = sqlc.arg(target))
+  RETURNING referred_user_id
+)
+UPDATE referral_rewards r SET referred_user_id = sqlc.arg(target)
+WHERE r.referred_user_id = sqlc.arg(source)
+  AND EXISTS (SELECT 1 FROM moved)
+  AND (r.role = 'commission' OR NOT EXISTS (
+    SELECT 1 FROM referral_rewards t WHERE t.referred_user_id = sqlc.arg(target) AND t.role = r.role
+  ));
+
+-- name: MoveCustomerReferralBeneficiary :exec
+-- Rewards the source earned point at the survivor, so a reversal after a
+-- refund debits the wallet the reward now sits in.
+UPDATE referral_rewards SET beneficiary_user_id = sqlc.arg(target)
+WHERE beneficiary_user_id = sqlc.arg(source);
+
+-- name: MoveCustomerLevel2Rewards :exec
+UPDATE referral_level2_rewards SET beneficiary_user_id = sqlc.arg(target)
+WHERE beneficiary_user_id = sqlc.arg(source);
+
+-- name: MoveCustomerReferralCode :exec
+-- The source's invite code keeps working for the person. A survivor without a
+-- code takes it over; one with a code of its own gets it as an alias.
+UPDATE referral_codes SET user_id = sqlc.arg(target)
+WHERE referral_codes.user_id = sqlc.arg(source)
+  AND NOT EXISTS (SELECT 1 FROM referral_codes t WHERE t.user_id = sqlc.arg(target));
+
+-- name: AliasMergedReferralCode :exec
+WITH gone AS (
+  DELETE FROM referral_codes WHERE referral_codes.user_id = sqlc.arg(source) RETURNING code
+)
+INSERT INTO referral_code_aliases (code, user_id, source)
+SELECT code, sqlc.arg(target), 'merge' FROM gone
+ON CONFLICT (code) DO NOTHING;
+
+-- name: MoveCustomerReferralTerms :exec
+-- Individual partner terms and the reward preference follow the person unless
+-- the survivor already has its own.
+WITH terms AS (
+  UPDATE referral_inviter_terms SET user_id = sqlc.arg(target)
+  WHERE referral_inviter_terms.user_id = sqlc.arg(source)
+    AND NOT EXISTS (SELECT 1 FROM referral_inviter_terms t WHERE t.user_id = sqlc.arg(target))
+  RETURNING 1 AS done
+)
+UPDATE referral_reward_preferences SET user_id = sqlc.arg(target)
+WHERE referral_reward_preferences.user_id = sqlc.arg(source)
+  AND NOT EXISTS (SELECT 1 FROM referral_reward_preferences t WHERE t.user_id = sqlc.arg(target));
+
+-- name: MoveCustomerPromoRedemptions :exec
+-- Redemptions count against a promotion's per-customer limit. Left behind,
+-- they would let the person use a once-per-customer code a second time.
+UPDATE promo_redemptions SET user_id = sqlc.arg(target)
+WHERE promo_redemptions.user_id = sqlc.arg(source);
+
+-- name: MoveCustomerPersonalOffers :exec
+-- A live offer for a promotion the survivor already has a live offer for stays
+-- behind: one live offer per promotion per customer.
+UPDATE personal_offers p SET user_id = sqlc.arg(target)
+WHERE p.user_id = sqlc.arg(source)
+  AND (p.status <> 'active' OR NOT EXISTS (
+    SELECT 1 FROM personal_offers t
+    WHERE t.user_id = sqlc.arg(target) AND t.promotion_id = p.promotion_id AND t.status = 'active'
+  ));
+
+-- name: MoveCustomerGifts :exec
+-- Gifts the source sent are refunded to the sender if nobody claims them, and
+-- gifts it claimed are part of its history.
+WITH sent AS (
+  UPDATE gifts SET sender_user_id = sqlc.arg(target), updated_at = now()
+  WHERE sender_user_id = sqlc.arg(source)
+  RETURNING 1 AS done
+), received AS (
+  UPDATE gifts SET recipient_user_id = sqlc.arg(target), updated_at = now()
+  WHERE recipient_user_id = sqlc.arg(source)
+  RETURNING 1 AS done
+)
+UPDATE gift_recipients SET recipient_user_id = sqlc.arg(target)
+WHERE gift_recipients.recipient_user_id = sqlc.arg(source);
+
+-- name: MoveCustomerLegacyGoodsOrders :exec
+UPDATE legacy_goods_orders SET user_id = sqlc.arg(target)
+WHERE legacy_goods_orders.user_id = sqlc.arg(source);
+
+-- name: MoveCustomerBedolagaPaymentClaims :exec
+UPDATE bedolaga_payment_claims SET user_id = sqlc.arg(target)
+WHERE bedolaga_payment_claims.user_id = sqlc.arg(source);
+
+-- name: MoveCustomerAttribution :exec
+-- One acquisition record per customer, campaign and first visit alike. The
+-- survivor's own stands; the source's moves only when the survivor has none,
+-- carrying whether its campaign bonus was already paid.
+WITH campaign AS (
+  UPDATE customer_campaign_attributions SET user_id = sqlc.arg(target)
+  WHERE customer_campaign_attributions.user_id = sqlc.arg(source)
+    AND NOT EXISTS (SELECT 1 FROM customer_campaign_attributions t WHERE t.user_id = sqlc.arg(target))
+  RETURNING 1 AS done
+)
+UPDATE customer_start_attributions SET user_id = sqlc.arg(target)
+WHERE customer_start_attributions.user_id = sqlc.arg(source)
+  AND NOT EXISTS (SELECT 1 FROM customer_start_attributions t WHERE t.user_id = sqlc.arg(target));
+
+-- name: MoveCustomerLoyalty :exec
+-- Tier standing is recomputed from spend, which the merge has just moved, so
+-- the source's standing only fills an empty slot. Tiers an operator or a promo
+-- code granted are kept where the survivor does not already hold the same one.
+WITH standing AS (
+  UPDATE loyalty_standings SET user_id = sqlc.arg(target), updated_at = now()
+  WHERE loyalty_standings.user_id = sqlc.arg(source)
+    AND NOT EXISTS (SELECT 1 FROM loyalty_standings t WHERE t.user_id = sqlc.arg(target))
+  RETURNING 1 AS done
+), history AS (
+  UPDATE loyalty_standing_history SET user_id = sqlc.arg(target)
+  WHERE loyalty_standing_history.user_id = sqlc.arg(source)
+  RETURNING 1 AS done
+)
+UPDATE loyalty_memberships m SET user_id = sqlc.arg(target)
+WHERE m.user_id = sqlc.arg(source)
+  AND NOT EXISTS (
+    SELECT 1 FROM loyalty_memberships t WHERE t.user_id = sqlc.arg(target) AND t.tier_code = m.tier_code
+  );
+
+-- name: MoveCustomerRestrictions :exec
+-- Restrictions and communication opt-outs follow the person. A merge must not
+-- be a way to shed a purchase ban, and a customer who asked not to be written
+-- to has not changed their mind by gaining a second account.
+WITH restrictions AS (
+  UPDATE customer_restrictions r SET user_id = sqlc.arg(target)
+  WHERE r.user_id = sqlc.arg(source)
+    AND NOT EXISTS (
+      SELECT 1 FROM customer_restrictions t WHERE t.user_id = sqlc.arg(target) AND t.kind = r.kind
+    )
+  RETURNING 1 AS done
+), suppressions AS (
+  UPDATE communication_suppressions SET user_id = sqlc.arg(target)
+  WHERE communication_suppressions.user_id = sqlc.arg(source)
+    AND NOT EXISTS (SELECT 1 FROM communication_suppressions t WHERE t.user_id = sqlc.arg(target))
+  RETURNING 1 AS done
+), exemptions AS (
+  UPDATE channel_exemptions SET user_id = sqlc.arg(target)
+  WHERE channel_exemptions.user_id = sqlc.arg(source)
+    AND NOT EXISTS (SELECT 1 FROM channel_exemptions t WHERE t.user_id = sqlc.arg(target))
+  RETURNING 1 AS done
+)
+UPDATE blocklist_allowlist SET user_id = sqlc.arg(target)
+WHERE blocklist_allowlist.user_id = sqlc.arg(source)
+  AND NOT EXISTS (SELECT 1 FROM blocklist_allowlist t WHERE t.user_id = sqlc.arg(target));
+
+-- name: MoveCustomerAutoRenew :exec
+-- Auto-renewal of a moved subscription moves with it, so the renewal charges
+-- the wallet the balance moved to. A customer-wide setting moves when the
+-- survivor has none; otherwise the source's is switched off rather than left
+-- to charge a closed account.
+WITH moved AS (
+  UPDATE auto_renew_settings a SET user_id = sqlc.arg(target), updated_at = now()
+  WHERE a.user_id = sqlc.arg(source)
+    AND NOT EXISTS (
+      SELECT 1 FROM auto_renew_settings t
+      WHERE t.user_id = sqlc.arg(target) AND t.subscription_id IS NOT DISTINCT FROM a.subscription_id
+    )
+  RETURNING a.subscription_id
+)
+UPDATE auto_renew_settings SET enabled = false, state = 'idle', cancelled_at = now(), updated_at = now()
+WHERE auto_renew_settings.user_id = sqlc.arg(source) AND enabled
+  AND subscription_id IS NOT DISTINCT FROM NULL
+  AND NOT EXISTS (SELECT 1 FROM moved WHERE moved.subscription_id IS NULL);
+
+-- name: MoveCustomerProfileRows :exec
+-- The bot's preferences and the last Telegram username seen fill the
+-- survivor's only where it has none; a username is unique, so a duplicate the
+-- survivor does not take is dropped rather than left to be found on the closed
+-- account.
+WITH preferences AS (
+  UPDATE bot_preferences SET user_id = sqlc.arg(target)
+  WHERE bot_preferences.user_id = sqlc.arg(source)
+    AND NOT EXISTS (SELECT 1 FROM bot_preferences t WHERE t.user_id = sqlc.arg(target))
+  RETURNING 1 AS done
+), username AS (
+  UPDATE telegram_usernames SET user_id = sqlc.arg(target)
+  WHERE telegram_usernames.user_id = sqlc.arg(source)
+    AND NOT EXISTS (SELECT 1 FROM telegram_usernames t WHERE t.user_id = sqlc.arg(target))
+  RETURNING 1 AS done
+)
+DELETE FROM telegram_usernames
+WHERE telegram_usernames.user_id = sqlc.arg(source) AND NOT EXISTS (SELECT 1 FROM username);
 
 -- name: CloseMergedAccount :one
 -- Marks the source and points it at the target.

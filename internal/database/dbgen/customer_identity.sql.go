@@ -34,6 +34,91 @@ func (q *Queries) BackfillTelegramMapping(ctx context.Context, arg BackfillTeleg
 	return err
 }
 
+const claimFreedIdentity = `-- name: ClaimFreedIdentity :one
+UPDATE identities i
+SET user_id = $1, status = 'active', revoked_at = NULL,
+    verified_at = $2, oidc_issuer = $3,
+    metadata = i.metadata - 'revoked_by'
+WHERE i.id = $4 AND i.status = 'revoked'
+  AND (
+    COALESCE(i.metadata->>'revoked_by', '') = 'operator'
+    OR EXISTS (SELECT 1 FROM users owner WHERE owner.id = i.user_id AND owner.status = 'merged')
+    OR EXISTS (
+      SELECT 1 FROM identities other
+      WHERE other.user_id = i.user_id AND other.provider = i.provider
+        AND other.status = 'active' AND other.id <> i.id
+    )
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM identities mine
+    WHERE mine.user_id = $1 AND mine.provider = i.provider AND mine.status = 'active'
+  )
+RETURNING id, user_id, provider, provider_subject, verified_at, created_at, status, revoked_at, metadata, oidc_issuer
+`
+
+type ClaimFreedIdentityParams struct {
+	UserID     pgtype.UUID        `json:"user_id"`
+	VerifiedAt pgtype.Timestamptz `json:"verified_at"`
+	OidcIssuer pgtype.Text        `json:"oidc_issuer"`
+	IdentityID pgtype.UUID        `json:"identity_id"`
+}
+
+// Hands a freed row to the customer now signing in or linking with it. The
+// predicate is GetIdentityBySubjectAnyStatus's `freed`, repeated so a row that
+// stopped being free between the read and this write is not taken.
+func (q *Queries) ClaimFreedIdentity(ctx context.Context, arg ClaimFreedIdentityParams) (Identity, error) {
+	row := q.db.QueryRow(ctx, claimFreedIdentity,
+		arg.UserID,
+		arg.VerifiedAt,
+		arg.OidcIssuer,
+		arg.IdentityID,
+	)
+	var i Identity
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Provider,
+		&i.ProviderSubject,
+		&i.VerifiedAt,
+		&i.CreatedAt,
+		&i.Status,
+		&i.RevokedAt,
+		&i.Metadata,
+		&i.OidcIssuer,
+	)
+	return i, err
+}
+
+const clearTelegramMapping = `-- name: ClearTelegramMapping :exec
+UPDATE remnawave_users SET telegram_id = NULL
+WHERE user_id = $1 AND telegram_id = $2
+`
+
+type ClearTelegramMappingParams struct {
+	UserID     pgtype.UUID `json:"user_id"`
+	TelegramID pgtype.Int8 `json:"telegram_id"`
+}
+
+// An unlinked Telegram account stops being the address the customer-level
+// mapping gives notifications and the bot's adoption rule. Left in place, the
+// bot kept serving the account through a Telegram account it no longer had,
+// and a later sign-in adopted the customer by the mapping alone.
+func (q *Queries) ClearTelegramMapping(ctx context.Context, arg ClearTelegramMappingParams) error {
+	_, err := q.db.Exec(ctx, clearTelegramMapping, arg.UserID, arg.TelegramID)
+	return err
+}
+
+const customerIsActive = `-- name: CustomerIsActive :one
+SELECT status = 'active' FROM users WHERE id = $1
+`
+
+func (q *Queries) CustomerIsActive(ctx context.Context, userID pgtype.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, customerIsActive, userID)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const ensureBotPreferences = `-- name: EnsureBotPreferences :exec
 INSERT INTO bot_preferences (user_id, locale)
 VALUES ($1, $2)
@@ -58,12 +143,20 @@ SELECT u.id, u.status, u.locale, u.created_at, u.updated_at, u.timezone, u.suspe
 FROM remnawave_users r
 JOIN users u ON u.id = r.user_id
 WHERE r.telegram_id = $1
+  AND NOT EXISTS (
+    SELECT 1 FROM identities held
+    WHERE held.user_id = u.id AND held.provider = 'telegram' AND held.status = 'active'
+      AND held.provider_subject <> $1::bigint::text
+  )
 `
 
 // The adoption rule, as the bot applies it: a customer imported from
 // Remnawave carries their Telegram ID on the mapping row before they ever hold
 // an identity row. A widget sign-in must land on that customer rather than
 // provision an empty second one.
+//
+// A customer who already signs in with a different Telegram account is not
+// adopted: the mapping is stale, and the customer can hold only one.
 func (q *Queries) GetCustomerByTelegramMapping(ctx context.Context, telegramID pgtype.Int8) (User, error) {
 	row := q.db.QueryRow(ctx, getCustomerByTelegramMapping, telegramID)
 	var i User
@@ -87,7 +180,16 @@ func (q *Queries) GetCustomerByTelegramMapping(ctx context.Context, telegramID p
 }
 
 const getIdentityBySubjectAnyStatus = `-- name: GetIdentityBySubjectAnyStatus :one
-SELECT i.id, i.user_id, i.provider, i.provider_subject, i.verified_at, i.created_at, i.status, i.revoked_at, i.metadata, i.oidc_issuer, u.status AS user_status, u.locale AS user_locale, u.timezone AS user_timezone
+SELECT i.id, i.user_id, i.provider, i.provider_subject, i.verified_at, i.created_at, i.status, i.revoked_at, i.metadata, i.oidc_issuer, u.status AS user_status, u.locale AS user_locale, u.timezone AS user_timezone,
+       (i.status = 'revoked' AND (
+          COALESCE(i.metadata->>'revoked_by', '') = 'operator'
+          OR u.status = 'merged'
+          OR EXISTS (
+            SELECT 1 FROM identities other
+            WHERE other.user_id = i.user_id AND other.provider = i.provider
+              AND other.status = 'active' AND other.id <> i.id
+          )
+       ))::boolean AS freed
 FROM identities i
 JOIN users u ON u.id = i.user_id
 WHERE i.provider = $1 AND i.provider_subject = $2
@@ -112,10 +214,19 @@ type GetIdentityBySubjectAnyStatusRow struct {
 	UserStatus      string             `json:"user_status"`
 	UserLocale      string             `json:"user_locale"`
 	UserTimezone    string             `json:"user_timezone"`
+	Freed           bool               `json:"freed"`
 }
 
 // The (provider, subject) row whatever its status, with the account behind it.
 // The unique constraint guarantees at most one.
+//
+// `freed` says an unlinked row no longer belongs to the customer it names. An
+// operator unlinked it — usually because it was linked to the wrong person — or
+// the customer has since linked another account of the same provider, which
+// they can hold only one of. A freed row is not brought back for its old owner;
+// the next sign-in with it is a new person's, and ClaimFreedIdentity hands the
+// row over. A row the customer unlinked themselves and did not replace is not
+// freed: the next sign-in with it relinks it.
 func (q *Queries) GetIdentityBySubjectAnyStatus(ctx context.Context, arg GetIdentityBySubjectAnyStatusParams) (GetIdentityBySubjectAnyStatusRow, error) {
 	row := q.db.QueryRow(ctx, getIdentityBySubjectAnyStatus, arg.Provider, arg.ProviderSubject)
 	var i GetIdentityBySubjectAnyStatusRow
@@ -133,8 +244,22 @@ func (q *Queries) GetIdentityBySubjectAnyStatus(ctx context.Context, arg GetIden
 		&i.UserStatus,
 		&i.UserLocale,
 		&i.UserTimezone,
+		&i.Freed,
 	)
 	return i, err
+}
+
+const lockCustomerSignInMethods = `-- name: LockCustomerSignInMethods :exec
+SELECT 1 FROM users WHERE id = $1 FOR NO KEY UPDATE
+`
+
+// Serialises changes to one customer's sign-in methods. The last-method guard
+// counts what remains and then removes one; under Read Committed two removals
+// of two different methods would each count two and both succeed, leaving
+// none. The row lock makes the second wait and count again.
+func (q *Queries) LockCustomerSignInMethods(ctx context.Context, userID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, lockCustomerSignInMethods, userID)
+	return err
 }
 
 const lockTelegramSubject = `-- name: LockTelegramSubject :exec
@@ -158,11 +283,17 @@ func (q *Queries) LockTelegramSubject(ctx context.Context, subject string) error
 }
 
 const reactivateCustomerIdentity = `-- name: ReactivateCustomerIdentity :one
-UPDATE identities
+UPDATE identities i
 SET status = 'active',
     revoked_at = NULL,
-    verified_at = COALESCE(verified_at, $1)
-WHERE id = $2 AND user_id = $3 AND status = 'revoked'
+    verified_at = COALESCE(i.verified_at, $1),
+    metadata = i.metadata - 'revoked_by'
+WHERE i.id = $2 AND i.user_id = $3 AND i.status = 'revoked'
+  AND NOT EXISTS (
+    SELECT 1 FROM identities other
+    WHERE other.user_id = i.user_id AND other.provider = i.provider
+      AND other.status = 'active' AND other.id <> i.id
+  )
 RETURNING id, user_id, provider, provider_subject, verified_at, created_at, status, revoked_at, metadata, oidc_issuer
 `
 
@@ -175,8 +306,72 @@ type ReactivateCustomerIdentityParams struct {
 // Brings an unlinked identity back for the customer it always belonged to.
 // Scoped by user_id so it can never move a row between accounts: a caller that
 // wants another customer's revoked row gets zero rows and must refuse.
+//
+// A customer who has since linked another account of the same provider holds
+// that one; this one is freed and does not come back, which is also what keeps
+// the one-per-provider index from failing the sign-in.
 func (q *Queries) ReactivateCustomerIdentity(ctx context.Context, arg ReactivateCustomerIdentityParams) (Identity, error) {
 	row := q.db.QueryRow(ctx, reactivateCustomerIdentity, arg.VerifiedAt, arg.IdentityID, arg.UserID)
+	var i Identity
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Provider,
+		&i.ProviderSubject,
+		&i.VerifiedAt,
+		&i.CreatedAt,
+		&i.Status,
+		&i.RevokedAt,
+		&i.Metadata,
+		&i.OidcIssuer,
+	)
+	return i, err
+}
+
+const replaceTelegramMapping = `-- name: ReplaceTelegramMapping :exec
+UPDATE remnawave_users AS mapping
+SET telegram_id = $1
+WHERE mapping.user_id = $2
+  AND mapping.telegram_id IS DISTINCT FROM $1
+  AND NOT EXISTS (
+    SELECT 1 FROM identities held
+    WHERE held.user_id = mapping.user_id AND held.provider = 'telegram' AND held.status = 'active'
+      AND held.provider_subject = mapping.telegram_id::text
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM remnawave_users other WHERE other.telegram_id = $1
+  )
+`
+
+type ReplaceTelegramMappingParams struct {
+	TelegramID pgtype.Int8 `json:"telegram_id"`
+	UserID     pgtype.UUID `json:"user_id"`
+}
+
+// Linking a Telegram account to a customer whose mapping still names one they
+// no longer hold points the mapping at the new one.
+func (q *Queries) ReplaceTelegramMapping(ctx context.Context, arg ReplaceTelegramMappingParams) error {
+	_, err := q.db.Exec(ctx, replaceTelegramMapping, arg.TelegramID, arg.UserID)
+	return err
+}
+
+const revokeCustomerIdentityByOperator = `-- name: RevokeCustomerIdentityByOperator :one
+UPDATE identities
+SET status = 'revoked', revoked_at = now(),
+    metadata = metadata || '{"revoked_by": "operator"}'::jsonb
+WHERE id = $1 AND user_id = $2 AND status = 'active'
+RETURNING id, user_id, provider, provider_subject, verified_at, created_at, status, revoked_at, metadata, oidc_issuer
+`
+
+type RevokeCustomerIdentityByOperatorParams struct {
+	IdentityID pgtype.UUID `json:"identity_id"`
+	UserID     pgtype.UUID `json:"user_id"`
+}
+
+// An operator's unlink. The row is marked, which is what frees it: the next
+// sign-in with that account does not relink it to this customer.
+func (q *Queries) RevokeCustomerIdentityByOperator(ctx context.Context, arg RevokeCustomerIdentityByOperatorParams) (Identity, error) {
+	row := q.db.QueryRow(ctx, revokeCustomerIdentityByOperator, arg.IdentityID, arg.UserID)
 	var i Identity
 	err := row.Scan(
 		&i.ID,

@@ -58,7 +58,8 @@ func TestEmailSignInFindsOrCreatesTheCustomer(t *testing.T) {
 
 	// A customer imported from Bedolaga with a verified address.
 	existing := harness.customer(ctx, t)
-	if _, err := contacts.SetContact(ctx, existing, "email", "Client@Example.com", nil, true, false); err != nil {
+	verifiedAt := time.Now()
+	if _, err := contacts.SetContact(ctx, existing, "email", "Client@Example.com", &verifiedAt, true, false); err != nil {
 		t.Fatal(err)
 	}
 	if err := service.RequestEmailSignIn(ctx, "client@example.com", "", request); err != nil {

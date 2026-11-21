@@ -3120,6 +3120,9 @@ export const PanelMergePreviewBlockersItem = {
   target_merged: "target_merged",
   account_deleted: "account_deleted",
   referral_between: "referral_between",
+  source_suspended: "source_suspended",
+  identity_conflict: "identity_conflict",
+  withdrawal_open: "withdrawal_open",
 } as const;
 
 export type PanelMergePreviewNotesItem =

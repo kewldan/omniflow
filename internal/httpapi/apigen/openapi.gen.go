@@ -2836,11 +2836,14 @@ func (e PanelInfoPageLocaleLocale) Valid() bool {
 
 // Defines values for PanelMergePreviewBlockers.
 const (
-	AccountDeleted  PanelMergePreviewBlockers = "account_deleted"
-	AlreadyMerged   PanelMergePreviewBlockers = "already_merged"
-	ReferralBetween PanelMergePreviewBlockers = "referral_between"
-	SameAccount     PanelMergePreviewBlockers = "same_account"
-	TargetMerged    PanelMergePreviewBlockers = "target_merged"
+	AccountDeleted   PanelMergePreviewBlockers = "account_deleted"
+	AlreadyMerged    PanelMergePreviewBlockers = "already_merged"
+	IdentityConflict PanelMergePreviewBlockers = "identity_conflict"
+	ReferralBetween  PanelMergePreviewBlockers = "referral_between"
+	SameAccount      PanelMergePreviewBlockers = "same_account"
+	SourceSuspended  PanelMergePreviewBlockers = "source_suspended"
+	TargetMerged     PanelMergePreviewBlockers = "target_merged"
+	WithdrawalOpen   PanelMergePreviewBlockers = "withdrawal_open"
 )
 
 // Valid indicates whether the value is a known member of the PanelMergePreviewBlockers enum.
@@ -2850,11 +2853,17 @@ func (e PanelMergePreviewBlockers) Valid() bool {
 		return true
 	case AlreadyMerged:
 		return true
+	case IdentityConflict:
+		return true
 	case ReferralBetween:
 		return true
 	case SameAccount:
 		return true
+	case SourceSuspended:
+		return true
 	case TargetMerged:
+		return true
+	case WithdrawalOpen:
 		return true
 	default:
 		return false

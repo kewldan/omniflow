@@ -5741,6 +5741,9 @@ export const PreviewPanelCustomerMergeResponse = zod.object({
         "target_merged",
         "account_deleted",
         "referral_between",
+        "source_suspended",
+        "identity_conflict",
+        "withdrawal_open",
       ]),
     )
     .describe("Empty when the merge can proceed."),

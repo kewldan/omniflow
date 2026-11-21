@@ -129,6 +129,9 @@ func (service *Service) emailLinkCustomer(
 		}
 		return user, err
 	}
+	if err := queries.LockEmailFingerprint(ctx, link.EmailFingerprint); err != nil {
+		return dbgen.User{}, err
+	}
 	// Somebody may have taken the address since the link was sent.
 	if existing, err := queries.GetCustomerByEmailFingerprint(ctx, link.EmailFingerprint); err == nil {
 		return existing, nil
@@ -143,8 +146,17 @@ func (service *Service) emailLinkCustomer(
 	if err = queries.EnsureBotPreferences(ctx, dbgen.EnsureBotPreferencesParams{UserID: created.ID, Locale: locale}); err != nil {
 		return dbgen.User{}, err
 	}
-	err = queries.CreateVerifiedEmailContact(ctx, dbgen.CreateVerifiedEmailContactParams{
+	// Before this, an unconfirmed or removed contact holding the address kept
+	// the unique key, the insert below did nothing, and every later sign-in
+	// with the address created yet another empty customer.
+	if err = queries.ReleaseUnprovenEmailContact(ctx, link.EmailFingerprint); err != nil {
+		return dbgen.User{}, err
+	}
+	inserted, err := queries.CreateVerifiedEmailContact(ctx, dbgen.CreateVerifiedEmailContactParams{
 		UserID: created.ID, ValueCiphertext: link.EmailCiphertext, ValueFingerprint: link.EmailFingerprint,
 	})
+	if err == nil && inserted == 0 {
+		err = ErrSignInRejected
+	}
 	return created, err
 }

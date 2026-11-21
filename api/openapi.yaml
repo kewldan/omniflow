@@ -8213,7 +8213,7 @@ components:
           description: "Empty when the merge can proceed."
           items:
             type: string
-            enum: [same_account, already_merged, target_merged, account_deleted, referral_between]
+            enum: [same_account, already_merged, target_merged, account_deleted, referral_between, source_suspended, identity_conflict, withdrawal_open]
         notes:
           type: array
           description: "Consequences worth knowing rather than reasons to stop."

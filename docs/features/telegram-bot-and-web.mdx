@@ -106,10 +106,16 @@ account that already belongs to another customer is refused rather than merged; 
 accounts is an operator action, described in [Customers and imports](/commerce/customers-imports).
 
 <Warning>
-  Unlinking Telegram from the security page does not lock that Telegram account out. The next
-  Telegram sign-in with it relinks it and signs straight in. To stop a Telegram account reaching a
-  customer record, suspend the customer from the admin panel.
+  Unlinking Telegram or a provider account from the security page does not lock that account out.
+  The next sign-in with it — or, for Telegram, the next tap in the bot — relinks it and signs straight
+  in. To stop an account reaching a customer record, unlink it from the customer card in the admin
+  panel: an operator's unlink frees the account, and its next sign-in is treated as a new person's.
+  Suspending the customer also works. A customer who replaces their Telegram account with another
+  frees the old one the same way.
 </Warning>
+
+E-mail sign-in signs in only through an address the customer has confirmed. An address somebody
+typed in and never confirmed is not a way into that account.
 
 ### What the cabinet offers
 

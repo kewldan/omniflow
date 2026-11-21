@@ -225,9 +225,21 @@ and a first sign-in in a browser cannot race into two accounts:
      account — widget or Mini App — silently relinks it and signs straight in.
      The unlink removes a method from the list; it does not revoke the Telegram
      account's claim to the customer, because that account is still the one the
-     bot knows the customer by. To stop a Telegram account reaching a customer
-     record, an operator suspends the customer.
+     bot knows the customer by. The bot follows the same rule: a tap after the
+     unlink relinks too, rather than creating a new customer. To stop a Telegram
+     account reaching a customer record, an operator unlinks it from the
+     customer card — see below — or suspends the customer.
    </Warning>
+
+   An unlinked row is **freed**, and no longer relinks to its old customer, in
+   two cases: an operator unlinked it, or the customer has since linked a
+   different Telegram account (a customer holds one). Signing in with a freed
+   account is a new person's sign-in — steps 2 and 4 decide where it lands, and
+   the row is handed over. Before, the second case failed on the
+   one-per-provider index and answered 500. Unlinking also clears the Telegram
+   ID from the customer's Remnawave mapping, and linking a new account points
+   the mapping at it, so notifications stop going to an account the customer
+   gave up.
 4. Otherwise a new customer is created — with a `bot_preferences` row and a
    language taken from the Mini App's `language_code` when there is one, else
    from the browser's `Accept-Language`, else English — written to both
@@ -312,9 +324,16 @@ With `APP_RESEND_API_KEY` and `APP_EMAIL_FROM` set, the sign-in screen offers an
 customer types an address and receives a one-time link that lands on the same confirmation page as a
 bot link, works once, and expires after ten minutes.
 
-- An address held by a customer, for example one imported from Bedolaga, signs that customer in.
-- An address nobody holds creates a new customer, with that address as a verified contact, only
-  when the link is redeemed. Typing somebody else's address creates nothing.
+- An address a customer holds **as a verified contact**, for example one imported from Bedolaga,
+  signs that customer in. An address a customer only typed in and never confirmed does not: a typo
+  or somebody else's address entered on purpose would otherwise hand the mailbox owner that
+  customer's account.
+- An address nobody holds verified creates a new customer, with that address as a verified contact,
+  only when the link is redeemed. Typing somebody else's address creates nothing. An unconfirmed or
+  removed contact holding the same address on another account is retired at that moment — it stays
+  in that account's history, revoked — so the address now belongs to whoever proved it, and the
+  next sign-in lands on the same customer instead of creating another one.
+- Two links for one new address redeemed at the same time create one customer, not two.
 - The screen answers "check your inbox" either way, so the form cannot tell a stranger who has an
   account. Requests are limited to five per address and ten per client address an hour.
 
@@ -354,6 +373,13 @@ Two rules govern how an external identity maps to a customer:
   Matching on an address would let anyone who can make a provider assert somebody
   else's address take over their account. An unlinked subject either provisions a
   fresh customer, when the provider allows it, or is refused.
+- **An unlinked account relinks like Telegram does.** A provider account the
+  customer unlinked themselves, and did not replace with another account of the
+  same provider, signs in to the same customer again and is relinked; linking it
+  again from the security page brings it back too. Before, the unlinked row held
+  the subject for good and every later sign-in or link failed. An account an
+  operator unlinked, or one its customer replaced, is freed: it provisions a new
+  customer when the provider allows it, or can be linked by whoever proves it.
 - **Linking happens from inside a session.** The link flow starts at
   `GET /v1/account/sign-in-methods/oidc/{slug}/start`, and the target account is
   sealed into the flow cookie rather than read from the session at the callback,

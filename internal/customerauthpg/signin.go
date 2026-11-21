@@ -106,6 +106,11 @@ func (service *Service) signInWithTelegramIdentity(
 //  4. Otherwise a new customer, with the preferences row and the language both
 //     surfaces read.
 //
+// A revoked row that is freed — an operator unlinked it, or the customer has
+// since linked a different Telegram account — does not relink to its old owner.
+// It is treated as no row at all, and the customer steps 2 or 4 arrive at takes
+// it over.
+//
 // Steps 2 and 3 can disagree, when the mapping names one customer and the
 // revoked row another. Neither may be silently chosen: moving the identity
 // would move a Telegram account between two people's orders and wallets, so it
@@ -124,6 +129,10 @@ func (service *Service) resolveTelegramCustomer(
 		return Customer{}, err
 	}
 	haveRow := err == nil
+	freed := haveRow && existing.Freed
+	if freed {
+		haveRow = false
+	}
 
 	if haveRow && existing.Status == "active" {
 		if existing.UserStatus != "active" {
@@ -141,7 +150,11 @@ func (service *Service) resolveTelegramCustomer(
 	mapped, err := queries.GetCustomerByTelegramMapping(ctx, pgtype.Int8{Int64: identity.ID, Valid: true})
 	switch {
 	case err == nil:
-		owner, haveOwner = mapped, true
+		// A freed row's old owner is not adopted back through a mapping the
+		// unlink did not clear.
+		if !freed || mapped.ID != existing.UserID {
+			owner, haveOwner = mapped, true
+		}
 	case !errors.Is(err, pgx.ErrNoRows):
 		return Customer{}, err
 	}
@@ -187,6 +200,23 @@ func (service *Service) resolveTelegramCustomer(
 	}
 	if owner.Status != "active" {
 		return Customer{}, ErrAccountInactive
+	}
+	if freed {
+		if _, err = queries.ClaimFreedIdentity(ctx, dbgen.ClaimFreedIdentityParams{
+			UserID: owner.ID, IdentityID: existing.ID,
+			VerifiedAt: pgtype.Timestamptz{Time: service.now(), Valid: true},
+		}); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return Customer{}, customerauth.ErrIdentityTaken
+			}
+			return Customer{}, err
+		}
+		if err = queries.BackfillTelegramMapping(ctx, dbgen.BackfillTelegramMappingParams{
+			TelegramID: pgtype.Int8{Int64: identity.ID, Valid: true}, UserID: owner.ID,
+		}); err != nil {
+			return Customer{}, err
+		}
+		return customerFromUser(owner), nil
 	}
 	if _, err = queries.LinkCustomerIdentity(ctx, dbgen.LinkCustomerIdentityParams{
 		UserID:          owner.ID,

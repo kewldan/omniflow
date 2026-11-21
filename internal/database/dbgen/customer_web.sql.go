@@ -302,7 +302,7 @@ func (q *Queries) CreateCustomerSession(ctx context.Context, arg CreateCustomerS
 	return i, err
 }
 
-const createVerifiedEmailContact = `-- name: CreateVerifiedEmailContact :exec
+const createVerifiedEmailContact = `-- name: CreateVerifiedEmailContact :execrows
 INSERT INTO contact_channels (user_id, kind, value_ciphertext, value_fingerprint, verified_at, transactional_enabled, marketing_enabled)
 VALUES ($1, 'email', $2, $3, now(), true, false)
 ON CONFLICT (kind, value_fingerprint) DO NOTHING
@@ -315,9 +315,14 @@ type CreateVerifiedEmailContactParams struct {
 }
 
 // Records the address a customer just proved they control by redeeming a link.
-func (q *Queries) CreateVerifiedEmailContact(ctx context.Context, arg CreateVerifiedEmailContactParams) error {
-	_, err := q.db.Exec(ctx, createVerifiedEmailContact, arg.UserID, arg.ValueCiphertext, arg.ValueFingerprint)
-	return err
+// No row means a verified contact holds the address after all, and the caller
+// refuses rather than leaving a new customer with no address.
+func (q *Queries) CreateVerifiedEmailContact(ctx context.Context, arg CreateVerifiedEmailContactParams) (int64, error) {
+	result, err := q.db.Exec(ctx, createVerifiedEmailContact, arg.UserID, arg.ValueCiphertext, arg.ValueFingerprint)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const deleteCustomerOIDCProvider = `-- name: DeleteCustomerOIDCProvider :execrows
@@ -434,11 +439,17 @@ const getCustomerByEmailFingerprint = `-- name: GetCustomerByEmailFingerprint :o
 SELECT u.id, u.status, u.locale, u.created_at, u.updated_at, u.timezone, u.suspended_at, u.deleted_at, u.anonymized_at, u.retention_until, u.merged_into, u.merged_at, u.last_activity_at, u.dormant_at
 FROM contact_channels c
 JOIN users u ON u.id = c.user_id
-WHERE c.kind = 'email' AND c.value_fingerprint = $1 AND c.revoked_at IS NULL
+WHERE c.kind = 'email' AND c.value_fingerprint = $1
+  AND c.revoked_at IS NULL AND c.verified_at IS NOT NULL
 LIMIT 1
 `
 
-// The customer holding a live e-mail contact with this fingerprint.
+// The customer holding a live, verified e-mail contact with this fingerprint.
+//
+// Verified is the point. An address a customer typed in and never confirmed
+// proves nothing about who reads that mailbox: a typo, or somebody else's
+// address entered on purpose, would otherwise let the mailbox owner sign in to
+// that customer's account, subscription and wallet included.
 func (q *Queries) GetCustomerByEmailFingerprint(ctx context.Context, emailFingerprint []byte) (User, error) {
 	row := q.db.QueryRow(ctx, getCustomerByEmailFingerprint, emailFingerprint)
 	var i User
@@ -986,6 +997,17 @@ func (q *Queries) LockCustomerOIDCProvider(ctx context.Context, slug string) (Cu
 	return i, err
 }
 
+const lockEmailFingerprint = `-- name: LockEmailFingerprint :exec
+SELECT pg_advisory_xact_lock(hashtextextended('omniflow:email:' || encode($1::bytea, 'hex'), 0))
+`
+
+// Serialises sign-ins that would create a customer for one address, so two
+// links for it redeemed at once arrive at one account rather than two.
+func (q *Queries) LockEmailFingerprint(ctx context.Context, emailFingerprint []byte) error {
+	_, err := q.db.Exec(ctx, lockEmailFingerprint, emailFingerprint)
+	return err
+}
+
 const markEmailContactVerified = `-- name: MarkEmailContactVerified :exec
 UPDATE contact_channels SET verified_at = COALESCE(verified_at, now())
 WHERE user_id = $1 AND kind = 'email' AND value_fingerprint = $2
@@ -999,6 +1021,24 @@ type MarkEmailContactVerifiedParams struct {
 
 func (q *Queries) MarkEmailContactVerified(ctx context.Context, arg MarkEmailContactVerifiedParams) error {
 	_, err := q.db.Exec(ctx, markEmailContactVerified, arg.UserID, arg.ValueFingerprint)
+	return err
+}
+
+const releaseUnprovenEmailContact = `-- name: ReleaseUnprovenEmailContact :exec
+UPDATE contact_channels
+SET revoked_at = COALESCE(revoked_at, now()),
+    value_fingerprint = digest(id::text || ':released', 'sha256'),
+    transactional_enabled = false, marketing_enabled = false
+WHERE kind = 'email' AND value_fingerprint = $1
+  AND (verified_at IS NULL OR revoked_at IS NOT NULL)
+`
+
+// An address somebody has just proved they control stops being held by a row
+// that never proved it: an unconfirmed contact on another account, or one its
+// customer removed. The row stays in that customer's history, revoked and with
+// its fingerprint retired, and the unique key is free for the prover.
+func (q *Queries) ReleaseUnprovenEmailContact(ctx context.Context, valueFingerprint []byte) error {
+	_, err := q.db.Exec(ctx, releaseUnprovenEmailContact, valueFingerprint)
 	return err
 }
 

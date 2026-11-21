@@ -326,6 +326,14 @@ func (handlers *AccountHandlers) startOIDCLink(writer http.ResponseWriter, reque
 		writeProblem(writer, request, http.StatusUnauthorized, "unauthenticated", "Sign-in is required")
 		return
 	}
+	// Adding a way in needs a recent sign-in, as linking Telegram and
+	// unlinking anything do. This route is a browser navigation rather than a
+	// fetch, so the refusal is a redirect back to the screen, not a problem
+	// document the browser would show raw.
+	if principal.ReauthenticationRequired {
+		http.Redirect(writer, request, "/account/security?error=reauthentication_required", http.StatusFound)
+		return
+	}
 	handlers.beginOIDCFlow(writer, request, principal.Customer.ID)
 }
 

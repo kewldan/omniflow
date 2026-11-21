@@ -2,9 +2,11 @@ package panelpg
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 )
@@ -69,6 +71,20 @@ const (
 	// would make a customer their own referrer, which is a reward that was paid
 	// for a signup that turns out to be the same person.
 	BlockerReferralBetween MergeBlocker = "referral_between"
+	// BlockerSourceSuspended is a suspended account being absorbed. Its
+	// subscriptions and sign-in methods would arrive on an active account, which
+	// is a way out of a suspension rather than a merge. Reactivate it first if
+	// that is really what is meant; merging into a suspended account is allowed.
+	BlockerSourceSuspended MergeBlocker = "source_suspended"
+	// BlockerIdentityConflict is both accounts signing in through the same
+	// provider with different accounts — two Telegram accounts, say. A customer
+	// holds one per provider, and which one stays is the operator's decision:
+	// unlink the other first.
+	BlockerIdentityConflict MergeBlocker = "identity_conflict"
+	// BlockerWithdrawalOpen is a referral payout the source asked for that is
+	// neither paid nor refused. A refusal releases the held amount back to the
+	// account that asked, which after a merge is closed.
+	BlockerWithdrawalOpen MergeBlocker = "withdrawal_open"
 )
 
 // MergePreview is what an operator is shown before deciding.
@@ -147,27 +163,33 @@ func (service *Service) MergePreview(
 func (service *Service) mergeSides(
 	ctx context.Context, sourceID, targetID string,
 ) (MergeSide, MergeSide, error) {
-	source, err := service.mergeSide(ctx, sourceID)
+	return mergeSidesWith(ctx, service.queries(), sourceID, targetID)
+}
+
+func mergeSidesWith(
+	ctx context.Context, queries *dbgen.Queries, sourceID, targetID string,
+) (MergeSide, MergeSide, error) {
+	source, err := mergeSide(ctx, queries, sourceID)
 	if err != nil {
 		return MergeSide{}, MergeSide{}, err
 	}
-	target, err := service.mergeSide(ctx, targetID)
+	target, err := mergeSide(ctx, queries, targetID)
 	if err != nil {
 		return MergeSide{}, MergeSide{}, err
 	}
 	return source, target, nil
 }
 
-func (service *Service) mergeSide(ctx context.Context, customerID string) (MergeSide, error) {
+func mergeSide(ctx context.Context, queries *dbgen.Queries, customerID string) (MergeSide, error) {
 	id, err := parseUUID(customerID)
 	if err != nil {
 		return MergeSide{}, ErrValidaton
 	}
-	row, err := service.queries().MergeCandidate(ctx, id)
+	row, err := queries.MergeCandidate(ctx, id)
 	if err != nil {
 		return MergeSide{}, notFound(err)
 	}
-	balances, err := service.queries().MergeWalletBalances(ctx, id)
+	balances, err := queries.MergeWalletBalances(ctx, id)
 	if err != nil {
 		return MergeSide{}, err
 	}
@@ -210,6 +232,9 @@ func (service *Service) mergeBlockers(
 	if source.Status == "deleted" || target.Status == "deleted" {
 		blockers = append(blockers, BlockerDeleted)
 	}
+	if source.Status == "suspended" {
+		blockers = append(blockers, BlockerSourceSuspended)
+	}
 
 	sourceID, err := parseUUID(source.ID)
 	if err != nil {
@@ -228,6 +253,22 @@ func (service *Service) mergeBlockers(
 	if between > 0 {
 		blockers = append(blockers, BlockerReferralBetween)
 	}
+	conflicts, err := queries.MergeIdentityConflicts(ctx, dbgen.MergeIdentityConflictsParams{
+		Source: sourceID, Target: targetID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(conflicts) > 0 {
+		blockers = append(blockers, BlockerIdentityConflict)
+	}
+	withdrawals, err := queries.MergeOpenWithdrawals(ctx, sourceID)
+	if err != nil {
+		return nil, err
+	}
+	if withdrawals > 0 {
+		blockers = append(blockers, BlockerWithdrawalOpen)
+	}
 	return blockers, nil
 }
 
@@ -236,6 +277,11 @@ func (service *Service) mergeBlockers(
 // One transaction, and idempotent: the closing update only matches an account
 // that has not already been merged, so a resubmitted form reports the earlier
 // merge and moves nothing.
+//
+// Both accounts are locked before anything is read, and the sides, the
+// refusals, and the wallet are read again under that lock. What the operator
+// previewed is a screen; what moves is what the accounts hold at the moment
+// they stop changing.
 func (service *Service) MergeCustomers(
 	ctx context.Context, sourceID, targetID string, actor Actor,
 ) (MergeResult, error) {
@@ -244,39 +290,55 @@ func (service *Service) MergeCustomers(
 		// the first question anybody asks about one afterwards.
 		return MergeResult{}, wrapValidation(fmt.Errorf("a merge needs a reason"))
 	}
-	source, target, err := service.mergeSides(ctx, sourceID, targetID)
-	if err != nil {
-		return MergeResult{}, err
-	}
-
-	// An already-merged source pointing at this same target is the resubmitted
-	// form, and it is a success rather than a refusal.
-	if source.MergedInto == target.ID {
-		return MergeResult{
-			Source: source.ID, Target: target.ID, AlreadyMerged: true,
-		}, nil
-	}
-
-	blockers, err := service.mergeBlockers(ctx, service.queries(), source, target)
-	if err != nil {
-		return MergeResult{}, err
-	}
-	if len(blockers) > 0 {
-		return MergeResult{}, wrapValidation(fmt.Errorf(
-			"the accounts cannot be merged: %s", blockers[0]))
-	}
-
-	sourceUUID, err := parseUUID(source.ID)
+	sourceUUID, err := parseUUID(sourceID)
 	if err != nil {
 		return MergeResult{}, ErrValidaton
 	}
-	targetUUID, err := parseUUID(target.ID)
+	targetUUID, err := parseUUID(targetID)
 	if err != nil {
 		return MergeResult{}, ErrValidaton
 	}
 
-	result := MergeResult{Source: source.ID, Target: target.ID, Moved: source, Wallet: source.Wallet}
+	var result MergeResult
 	err = service.inTx(ctx, func(queries *dbgen.Queries) error {
+		locked, err := queries.LockMergeAccounts(ctx, []pgtype.UUID{sourceUUID, targetUUID})
+		if err != nil {
+			return err
+		}
+		if len(locked) == 0 || (sourceID != targetID && len(locked) < 2) {
+			return ErrNotFound
+		}
+		source, target, err := mergeSidesWith(ctx, queries, sourceID, targetID)
+		if err != nil {
+			return err
+		}
+
+		// An already-merged source pointing at this same target is the
+		// resubmitted form, and it is a success rather than a refusal.
+		if source.MergedInto != "" && source.MergedInto == target.ID {
+			result = MergeResult{Source: source.ID, Target: target.ID, AlreadyMerged: true}
+			return nil
+		}
+		blockers, err := service.mergeBlockers(ctx, queries, source, target)
+		if err != nil {
+			return err
+		}
+		if len(blockers) > 0 {
+			return wrapValidation(fmt.Errorf("the accounts cannot be merged: %s", blockers[0]))
+		}
+		pair := mergePair{source: sourceUUID, target: targetUUID}
+
+		// The Remnawave users the source holds through the customer-level
+		// mapping are given to subscriptions before those are renumbered, so
+		// none of them is left on the closed account or re-created on the next
+		// renewal.
+		if err := queries.CarryMergedPrimaryRemnawaveUser(ctx, sourceUUID); err != nil {
+			return err
+		}
+		if err := queries.AdoptMergedRemnawaveUser(ctx, sourceUUID); err != nil {
+			return err
+		}
+
 		// Subscriptions first, because they are the only rows that need a new
 		// identifier rather than a new owner: the slot is unique per customer.
 		subscriptions, err := queries.ListSubscriptionsToMove(ctx, sourceUUID)
@@ -296,151 +358,37 @@ func (service *Service) MergeCustomers(
 			slot++
 		}
 
-		// Everything else is a plain reassignment. Each generated call takes its
-		// own parameter type, so they are listed rather than looped: the compiler
-		// then refuses a table that was added to the query file and forgotten here,
-		// which a map of closures over a shared type would not.
-		move := []func() error{
-			func() error {
-				return queries.MoveCustomerEntitlements(ctx, dbgen.MoveCustomerEntitlementsParams{
-					Source: sourceUUID, Target: targetUUID,
-				})
-			},
-			func() error {
-				return queries.MoveCustomerOrders(ctx, dbgen.MoveCustomerOrdersParams{
-					Source: sourceUUID, Target: targetUUID,
-				})
-			},
-			func() error {
-				return queries.MoveCustomerTickets(ctx, dbgen.MoveCustomerTicketsParams{
-					Source: sourceUUID, Target: targetUUID,
-				})
-			},
-			func() error {
-				return queries.MoveCustomerIdentities(ctx, dbgen.MoveCustomerIdentitiesParams{
-					Source: sourceUUID, Target: targetUUID,
-				})
-			},
-			func() error {
-				return queries.MoveCustomerContacts(ctx, dbgen.MoveCustomerContactsParams{
-					Source: sourceUUID, Target: targetUUID,
-				})
-			},
-			func() error {
-				return queries.MoveCustomerConsents(ctx, dbgen.MoveCustomerConsentsParams{
-					Source: sourceUUID, Target: targetUUID,
-				})
-			},
-			func() error {
-				return queries.MoveCustomerTopUps(ctx, dbgen.MoveCustomerTopUpsParams{
-					Source: sourceUUID, Target: targetUUID,
-				})
-			},
-			func() error {
-				return queries.MoveCustomerGoodsOrders(ctx, dbgen.MoveCustomerGoodsOrdersParams{
-					Source: sourceUUID, Target: targetUUID,
-				})
-			},
-			func() error {
-				return queries.MoveCustomerPaymentMethods(ctx, dbgen.MoveCustomerPaymentMethodsParams{
-					Source: sourceUUID, Target: targetUUID,
-				})
-			},
-			func() error {
-				return queries.MoveCustomerLifecycleEvents(ctx, dbgen.MoveCustomerLifecycleEventsParams{
-					Source: sourceUUID, Target: targetUUID,
-				})
-			},
-			func() error {
-				return queries.MoveCustomerNewsReads(ctx, dbgen.MoveCustomerNewsReadsParams{
-					Source: sourceUUID, Target: targetUUID,
-				})
-			},
-			func() error {
-				return queries.MoveCustomerSecurityEvents(ctx, dbgen.MoveCustomerSecurityEventsParams{
-					Source: sourceUUID, Target: targetUUID,
-				})
-			},
-			func() error {
-				return queries.MoveCustomerLegacyPayments(ctx, dbgen.MoveCustomerLegacyPaymentsParams{
-					Source: sourceUUID, Target: targetUUID,
-				})
-			},
-			func() error {
-				return queries.MoveCustomerReferralAliases(ctx, dbgen.MoveCustomerReferralAliasesParams{
-					Source: sourceUUID, Target: targetUUID,
-				})
-			},
-			func() error {
-				return queries.MoveCustomerLegacyDiscount(ctx, dbgen.MoveCustomerLegacyDiscountParams{
-					Source: sourceUUID, Target: targetUUID,
-				})
-			},
-			func() error {
-				return queries.MoveCustomerLegacyPeriods(ctx, dbgen.MoveCustomerLegacyPeriodsParams{
-					Source: sourceUUID, Target: targetUUID,
-				})
-			},
-			// The duplicates the read-marker move deliberately left behind.
-			func() error { return queries.DropDuplicateNewsReads(ctx, sourceUUID) },
-			func() error { return queries.CancelMergedCustomerCart(ctx, sourceUUID) },
+		telegramID, err := queries.MergeSourceTelegramMapping(ctx, sourceUUID)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
 		}
-
-		for _, step := range move {
-			if err := step(); err != nil {
+		if err := pair.move(ctx, queries); err != nil {
+			return err
+		}
+		if telegramID != 0 {
+			if err := queries.CarryMergedTelegramMapping(ctx, dbgen.CarryMergedTelegramMappingParams{
+				Target: targetUUID, TelegramID: pgtype.Int8{Int64: telegramID, Valid: true},
+			}); err != nil {
 				return err
 			}
 		}
 
-		// The wallet moves as entries rather than by reassigning history.
-		//
-		// `ledger_entries` is append-only, so rewriting `user_id` on a customer's
-		// financial record is not available and should not be: the entries are
-		// the evidence for every balance this installation has ever reported.
-		// A compensating pair — the source debited to zero, the target credited
-		// the same — leaves both accounts' histories intact and arrives at the
-		// right balance by addition, which is the only way a ledger is allowed
-		// to change.
-		for _, balance := range source.Wallet {
-			if balance.BalanceMinor == 0 {
-				continue
-			}
-			transaction, err := queries.CreateLedgerTransaction(
-				ctx, dbgen.CreateLedgerTransactionParams{
-					Type: "correction", ReferenceType: "customer_merge",
-					ReferenceID: source.ID + ":" + balance.Currency,
-					// Derived from the two accounts and the currency, so a
-					// resubmitted merge reuses the transaction rather than
-					// moving the balance twice.
-					IdempotencyKey: "merge:" + source.ID + ":" + target.ID + ":" + balance.Currency,
-					Reason:         optionalText(actor.Reason),
-					ActorID:        optionalText(actor.AdminID),
-				},
-			)
-			if err != nil {
-				return err
-			}
-			for _, entry := range []struct {
-				user   pgtype.UUID
-				amount int64
-			}{
-				{sourceUUID, -balance.BalanceMinor},
-				{targetUUID, balance.BalanceMinor},
-			} {
-				if _, err := queries.InsertLedgerEntry(ctx, dbgen.InsertLedgerEntryParams{
-					TransactionID: transaction.ID, AccountType: "customer_wallet",
-					UserID: entry.user, Currency: balance.Currency,
-					AmountMinor: entry.amount,
-				}); err != nil {
-					return err
-				}
-			}
+		// The balance is read now, after the orders and top-ups moved and
+		// under the lock, so a payment that settled a moment ago is part of
+		// it rather than stranded on the closed account.
+		wallet, err := moveMergedWallet(ctx, queries, pair, source.ID, target.ID, actor)
+		if err != nil {
+			return err
 		}
 
 		if _, err := queries.CloseMergedAccount(ctx, dbgen.CloseMergedAccountParams{
 			Source: sourceUUID, Target: targetUUID,
 		}); err != nil {
 			return notFound(err)
+		}
+		sessions, err := queries.RevokeMergedCustomerSessions(ctx, sourceUUID)
+		if err != nil {
+			return err
 		}
 
 		// Both sides get a lifecycle event, so the merge is readable from
@@ -463,11 +411,13 @@ func (service *Service) MergeCustomers(
 			}
 		}
 
+		result = MergeResult{Source: source.ID, Target: target.ID, Moved: source, Wallet: wallet}
 		return appendAudit(ctx, queries, actor.audit(
 			"customer.merged", "customer", "customer", source.ID,
 			map[string]any{
 				"into": target.ID, "subscriptions": len(subscriptions),
 				"orders": source.Orders, "identities": source.Identities,
+				"sessionsEnded": len(sessions), "wallet": wallet,
 			},
 		))
 	})
@@ -475,4 +425,228 @@ func (service *Service) MergeCustomers(
 		return MergeResult{}, err
 	}
 	return result, nil
+}
+
+// mergePair is the two accounts every reassignment statement takes.
+type mergePair struct{ source, target pgtype.UUID }
+
+type mergeParams struct{ Source, Target pgtype.UUID }
+
+func (pair mergePair) params() mergeParams {
+	return mergeParams{Source: pair.source, Target: pair.target}
+}
+
+// move runs the plain reassignments and the per-table decisions, in order.
+//
+// Each generated call takes its own parameter type, so they are listed rather
+// than looped: the compiler then refuses a table that was added to the query
+// file and forgotten here, which a map of closures over a shared type would not.
+func (pair mergePair) move(ctx context.Context, queries *dbgen.Queries) error {
+	p := pair.params()
+	steps := []func() error{
+		func() error {
+			return queries.MoveCustomerEntitlements(ctx, dbgen.MoveCustomerEntitlementsParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerOrders(ctx, dbgen.MoveCustomerOrdersParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerTickets(ctx, dbgen.MoveCustomerTicketsParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerIdentities(ctx, dbgen.MoveCustomerIdentitiesParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerContacts(ctx, dbgen.MoveCustomerContactsParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerConsents(ctx, dbgen.MoveCustomerConsentsParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerTopUps(ctx, dbgen.MoveCustomerTopUpsParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerGoodsOrders(ctx, dbgen.MoveCustomerGoodsOrdersParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerPaymentMethods(ctx, dbgen.MoveCustomerPaymentMethodsParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerLifecycleEvents(ctx, dbgen.MoveCustomerLifecycleEventsParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerNewsReads(ctx, dbgen.MoveCustomerNewsReadsParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerSecurityEvents(ctx, dbgen.MoveCustomerSecurityEventsParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerLegacyPayments(ctx, dbgen.MoveCustomerLegacyPaymentsParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerReferralAliases(ctx, dbgen.MoveCustomerReferralAliasesParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerLegacyDiscount(ctx, dbgen.MoveCustomerLegacyDiscountParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerLegacyPeriods(ctx, dbgen.MoveCustomerLegacyPeriodsParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerLegacyGoodsOrders(ctx, dbgen.MoveCustomerLegacyGoodsOrdersParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerBedolagaPaymentClaims(ctx, dbgen.MoveCustomerBedolagaPaymentClaimsParams{Source: p.Source, Target: p.Target})
+		},
+		// One trial per person: a target claim whose order closed unpaid gives
+		// way to a source claim that stands, then the source's moves.
+		func() error {
+			return queries.DropAbandonedTrialClaim(ctx, dbgen.DropAbandonedTrialClaimParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerTrialClaim(ctx, dbgen.MoveCustomerTrialClaimParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerReferralsMade(ctx, dbgen.MoveCustomerReferralsMadeParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerReferralAttribution(ctx, dbgen.MoveCustomerReferralAttributionParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerReferralBeneficiary(ctx, dbgen.MoveCustomerReferralBeneficiaryParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerLevel2Rewards(ctx, dbgen.MoveCustomerLevel2RewardsParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerReferralCode(ctx, dbgen.MoveCustomerReferralCodeParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.AliasMergedReferralCode(ctx, dbgen.AliasMergedReferralCodeParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerReferralTerms(ctx, dbgen.MoveCustomerReferralTermsParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerPromoRedemptions(ctx, dbgen.MoveCustomerPromoRedemptionsParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerPersonalOffers(ctx, dbgen.MoveCustomerPersonalOffersParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerGifts(ctx, dbgen.MoveCustomerGiftsParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerAttribution(ctx, dbgen.MoveCustomerAttributionParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerLoyalty(ctx, dbgen.MoveCustomerLoyaltyParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerRestrictions(ctx, dbgen.MoveCustomerRestrictionsParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerAutoRenew(ctx, dbgen.MoveCustomerAutoRenewParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerProfileRows(ctx, dbgen.MoveCustomerProfileRowsParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
+			return queries.MoveCustomerRemnawaveMapping(ctx, dbgen.MoveCustomerRemnawaveMappingParams{Source: p.Source, Target: p.Target})
+		},
+		// The duplicates the read-marker move deliberately left behind.
+		func() error { return queries.DropDuplicateNewsReads(ctx, pair.source) },
+		func() error { return queries.CancelMergedCustomerCart(ctx, pair.source) },
+	}
+	for _, step := range steps {
+		if err := step(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// moveMergedWallet moves the source's balance as entries rather than by
+// reassigning history.
+//
+// `ledger_entries` is append-only, so rewriting `user_id` on a customer's
+// financial record is not available and should not be: the entries are the
+// evidence for every balance this installation has ever reported. A
+// compensating pair — the source debited to zero, the target credited the
+// same — leaves both histories intact and arrives at the right balance by
+// addition, which is the only way a ledger is allowed to change.
+//
+// The part of the balance that is a credit due to expire arrives as a credit
+// with the same end date, one transaction per date, so a bonus that was going
+// to lapse still lapses on the survivor.
+func moveMergedWallet(
+	ctx context.Context, queries *dbgen.Queries, pair mergePair,
+	sourceID, targetID string, actor Actor,
+) ([]MergeBalance, error) {
+	balances, err := queries.MergeWalletBalances(ctx, pair.source)
+	if err != nil {
+		return nil, err
+	}
+	expiring, err := queries.MergeExpiringCredits(ctx, pair.source)
+	if err != nil {
+		return nil, err
+	}
+	wallet := make([]MergeBalance, 0, len(balances))
+	for _, balance := range balances {
+		wallet = append(wallet, MergeBalance{Currency: balance.Currency, BalanceMinor: balance.BalanceMinor})
+		key := "merge:" + sourceID + ":" + targetID + ":" + balance.Currency
+		transaction, err := queries.CreateLedgerTransaction(ctx, dbgen.CreateLedgerTransactionParams{
+			Type: "correction", ReferenceType: "customer_merge",
+			ReferenceID: sourceID + ":" + balance.Currency,
+			// Derived from the two accounts and the currency, so a resubmitted
+			// merge reuses the transaction rather than moving the balance twice.
+			IdempotencyKey: key,
+			Reason:         optionalText(actor.Reason),
+			ActorID:        optionalText(actor.AdminID),
+		})
+		if err != nil {
+			return nil, err
+		}
+		if _, err := queries.InsertLedgerEntry(ctx, dbgen.InsertLedgerEntryParams{
+			TransactionID: transaction.ID, AccountType: "customer_wallet",
+			UserID: pair.source, Currency: balance.Currency, AmountMinor: -balance.BalanceMinor,
+		}); err != nil {
+			return nil, err
+		}
+
+		plain := balance.BalanceMinor
+		for _, credit := range expiring {
+			if credit.Currency != balance.Currency || credit.RemainingMinor <= 0 || plain <= 0 {
+				continue
+			}
+			amount := min(credit.RemainingMinor, plain)
+			plain -= amount
+			dated, err := queries.CreateLedgerTransaction(ctx, dbgen.CreateLedgerTransactionParams{
+				Type: "correction", ReferenceType: "customer_merge",
+				ReferenceID:    sourceID + ":" + balance.Currency + ":" + credit.ExpiresAt.Time.UTC().Format(time.RFC3339Nano),
+				IdempotencyKey: key + ":" + credit.ExpiresAt.Time.UTC().Format(time.RFC3339Nano),
+				Reason:         optionalText(actor.Reason),
+				ActorID:        optionalText(actor.AdminID),
+			})
+			if err != nil {
+				return nil, err
+			}
+			if _, err := queries.InsertLedgerEntry(ctx, dbgen.InsertLedgerEntryParams{
+				TransactionID: dated.ID, AccountType: "customer_wallet",
+				UserID: pair.target, Currency: balance.Currency, AmountMinor: amount,
+				ExpiresAt: credit.ExpiresAt,
+			}); err != nil {
+				return nil, err
+			}
+		}
+		if plain != 0 {
+			if _, err := queries.InsertLedgerEntry(ctx, dbgen.InsertLedgerEntryParams{
+				TransactionID: transaction.ID, AccountType: "customer_wallet",
+				UserID: pair.target, Currency: balance.Currency, AmountMinor: plain,
+			}); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return wallet, nil
 }

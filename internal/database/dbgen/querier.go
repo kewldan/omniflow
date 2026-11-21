@@ -35,6 +35,12 @@ type Querier interface {
 	AddAccountContact(ctx context.Context, arg AddAccountContactParams) (AddAccountContactRow, error)
 	AddBlocklistAllowlistEntry(ctx context.Context, arg AddBlocklistAllowlistEntryParams) (BlocklistAllowlist, error)
 	AddPromotionPlan(ctx context.Context, arg AddPromotionPlanParams) error
+	// A source imported from Remnawave that never bought anything holds a VPN user
+	// through the mapping alone. It becomes a subscription of its own, the way the
+	// bot adopts an imported user, so the survivor keeps it as a separate link
+	// instead of the mapping being left behind on a closed account.
+	AdoptMergedRemnawaveUser(ctx context.Context, source pgtype.UUID) error
+	AliasMergedReferralCode(ctx context.Context, arg AliasMergedReferralCodeParams) error
 	AnonymizeCustomerData(ctx context.Context, targetUserID pgtype.UUID) error
 	AppealBlocklistMatch(ctx context.Context, arg AppealBlocklistMatchParams) (BlocklistMatch, error)
 	// The insert is conditional on the ticket not being merged. An absorbed ticket
@@ -141,6 +147,17 @@ type Querier interface {
 	// target's to make room would not be.
 	CancelMergedCustomerCart(ctx context.Context, source pgtype.UUID) error
 	CancelOrder(ctx context.Context, arg CancelOrderParams) (Order, error)
+	// The source's primary subscription takes the Remnawave user the customer-level
+	// mapping names, before it is renumbered onto the survivor.
+	//
+	// Fulfillment reads the mapping only for slot 1. A subscription that relied on
+	// it and arrives on the survivor in slot 2 would otherwise look unprovisioned,
+	// and the next renewal would create a second VPN user with a new link while
+	// the one the customer has configured keeps running out.
+	CarryMergedPrimaryRemnawaveUser(ctx context.Context, source pgtype.UUID) error
+	// The Telegram ID the source's mapping gave up, on the survivor's mapping when
+	// that has none.
+	CarryMergedTelegramMapping(ctx context.Context, arg CarryMergedTelegramMappingParams) error
 	ChannelGateSettings(ctx context.Context) (ChannelGateSettingsRow, error)
 	// Whether a link is still redeemable, without spending it. The GET a chat link
 	// lands on only checks; the session is opened by a POST from the confirmation
@@ -166,6 +183,10 @@ type Querier interface {
 	ClaimAdminTOTPStep(ctx context.Context, arg ClaimAdminTOTPStepParams) (pgtype.UUID, error)
 	ClaimBackupRequest(ctx context.Context) (BackupRequest, error)
 	ClaimBlockerScan(ctx context.Context) (BlockerScan, error)
+	// Hands a freed row to the customer now signing in or linking with it. The
+	// predicate is GetIdentityBySubjectAnyStatus's `freed`, repeated so a row that
+	// stopped being free between the read and this write is not taken.
+	ClaimFreedIdentity(ctx context.Context, arg ClaimFreedIdentityParams) (Identity, error)
 	// Single redemption by construction: the predicate only matches a deliverable,
 	// unexpired gift, so a second claim of the same code updates no row.
 	ClaimGift(ctx context.Context, arg ClaimGiftParams) (Gift, error)
@@ -182,6 +203,11 @@ type Querier interface {
 	ClaimTrial(ctx context.Context, arg ClaimTrialParams) (int64, error)
 	ClearCartGoods(ctx context.Context, cartID pgtype.UUID) error
 	ClearDefaultPaymentMethod(ctx context.Context, userID pgtype.UUID) error
+	// An unlinked Telegram account stops being the address the customer-level
+	// mapping gives notifications and the bot's adoption rule. Left in place, the
+	// bot kept serving the account through a Telegram account it no longer had,
+	// and a later sign-in adopted the customer by the mapping alone.
+	ClearTelegramMapping(ctx context.Context, arg ClearTelegramMappingParams) error
 	// Closes every open or pending ticket, of one queue or of all.
 	CloseAllSupportTickets(ctx context.Context, queueID pgtype.UUID) (int64, error)
 	// Marks the source and points it at the target.
@@ -422,7 +448,9 @@ type Querier interface {
 	CreateRefund(ctx context.Context, arg CreateRefundParams) (Refund, error)
 	CreateSubscription(ctx context.Context, arg CreateSubscriptionParams) (Subscription, error)
 	// Records the address a customer just proved they control by redeeming a link.
-	CreateVerifiedEmailContact(ctx context.Context, arg CreateVerifiedEmailContactParams) error
+	// No row means a verified contact holds the address after all, and the caller
+	// refuses rather than leaving a new customer with no address.
+	CreateVerifiedEmailContact(ctx context.Context, arg CreateVerifiedEmailContactParams) (int64, error)
 	// ---------------------------------------------------------------------------
 	// Wallet top-up
 	// ---------------------------------------------------------------------------
@@ -431,6 +459,7 @@ type Querier interface {
 	CreditWalletTopup(ctx context.Context, arg CreditWalletTopupParams) (WalletTopup, error)
 	CustomerForTelegramSubject(ctx context.Context, subject string) (pgtype.UUID, error)
 	CustomerHoldsSquad(ctx context.Context, arg CustomerHoldsSquadParams) (bool, error)
+	CustomerIsActive(ctx context.Context, userID pgtype.UUID) (bool, error)
 	CustomerLastActivity(ctx context.Context, userID pgtype.UUID) (pgtype.Timestamptz, error)
 	// The metric a standing is evaluated on, computed from facts Omniflow already
 	// records. Nothing new is tracked to support loyalty.
@@ -594,6 +623,10 @@ type Querier interface {
 	DisableAdminTOTP(ctx context.Context, adminUserID pgtype.UUID) (AdminUser, error)
 	DismissPersonalOffer(ctx context.Context, arg DismissPersonalOfferParams) (PersonalOffer, error)
 	DismissReminder(ctx context.Context, arg DismissReminderParams) error
+	// A trial claim on the survivor whose order closed unpaid is a claim that never
+	// happened, and ClaimTrial would let it be taken over. When the source has a
+	// claim that stands, that one is what the person has used.
+	DropAbandonedTrialClaim(ctx context.Context, arg DropAbandonedTrialClaimParams) error
 	// Whatever the move above left behind, which is exactly the duplicates.
 	DropDuplicateNewsReads(ctx context.Context, source pgtype.UUID) error
 	DueWebhookDeliveries(ctx context.Context) ([]DueWebhookDeliveriesRow, error)
@@ -756,12 +789,20 @@ type Querier interface {
 	GetCommerceSettings(ctx context.Context) (CommerceSetting, error)
 	GetCustomer(ctx context.Context, id pgtype.UUID) (User, error)
 	GetCustomerAutoRenew(ctx context.Context, userID pgtype.UUID) (GetCustomerAutoRenewRow, error)
-	// The customer holding a live e-mail contact with this fingerprint.
+	// The customer holding a live, verified e-mail contact with this fingerprint.
+	//
+	// Verified is the point. An address a customer typed in and never confirmed
+	// proves nothing about who reads that mailbox: a typo, or somebody else's
+	// address entered on purpose, would otherwise let the mailbox owner sign in to
+	// that customer's account, subscription and wallet included.
 	GetCustomerByEmailFingerprint(ctx context.Context, emailFingerprint []byte) (User, error)
 	// The adoption rule, as the bot applies it: a customer imported from
 	// Remnawave carries their Telegram ID on the mapping row before they ever hold
 	// an identity row. A widget sign-in must land on that customer rather than
 	// provision an empty second one.
+	//
+	// A customer who already signs in with a different Telegram account is not
+	// adopted: the mapping is stale, and the customer can hold only one.
 	GetCustomerByTelegramMapping(ctx context.Context, telegramID pgtype.Int8) (User, error)
 	GetCustomerIdentityForUnlink(ctx context.Context, arg GetCustomerIdentityForUnlinkParams) (Identity, error)
 	GetCustomerImport(ctx context.Context, id pgtype.UUID) (CustomerImport, error)
@@ -819,6 +860,14 @@ type Querier interface {
 	GetHeldPlanKind(ctx context.Context, subscriptionID pgtype.UUID) (string, error)
 	// The (provider, subject) row whatever its status, with the account behind it.
 	// The unique constraint guarantees at most one.
+	//
+	// `freed` says an unlinked row no longer belongs to the customer it names. An
+	// operator unlinked it — usually because it was linked to the wrong person — or
+	// the customer has since linked another account of the same provider, which
+	// they can hold only one of. A freed row is not brought back for its old owner;
+	// the next sign-in with it is a new person's, and ClaimFreedIdentity hands the
+	// row over. A row the customer unlinked themselves and did not replace is not
+	// freed: the next sign-in with it relinks it.
 	GetIdentityBySubjectAnyStatus(ctx context.Context, arg GetIdentityBySubjectAnyStatusParams) (GetIdentityBySubjectAnyStatusRow, error)
 	GetInfoPage(ctx context.Context, slug string) (InfoPage, error)
 	GetInfoPageLocalizations(ctx context.Context, pageSlug string) ([]GetInfoPageLocalizationsRow, error)
@@ -1660,11 +1709,19 @@ type Querier interface {
 	// discovery URL, and client against the submitted ones before deciding whether
 	// the change is allowed and whether the stored secret may be kept.
 	LockCustomerOIDCProvider(ctx context.Context, slug string) (CustomerOidcProvider, error)
+	// Serialises changes to one customer's sign-in methods. The last-method guard
+	// counts what remains and then removes one; under Read Committed two removals
+	// of two different methods would each count two and both succeed, leaving
+	// none. The row lock makes the second wait and count again.
+	LockCustomerSignInMethods(ctx context.Context, userID pgtype.UUID) error
 	// Serialises concurrent purchases for one customer so two taps cannot both
 	// observe a stale count and both pass a concurrency limit check. It is a
 	// statement of its own rather than a CTE, because a planner is free not to
 	// evaluate a CTE whose rows are never needed.
 	LockCustomerSubscriptions(ctx context.Context, dollar_1 string) error
+	// Serialises sign-ins that would create a customer for one address, so two
+	// links for it redeemed at once arrive at one account rather than two.
+	LockEmailFingerprint(ctx context.Context, emailFingerprint []byte) error
 	LockEntitlementByOrder(ctx context.Context, orderID pgtype.UUID) (Entitlement, error)
 	LockFulfillmentOperation(ctx context.Context, id pgtype.UUID) (FulfillmentOperation, error)
 	// Serialises claim, revoke, and expiry against one another. Without it two
@@ -1673,6 +1730,17 @@ type Querier interface {
 	// Taken before every provider submission. Two workers racing on one order
 	// serialise here, and the loser re-reads a row that is already submitted.
 	LockGoodsDelivery(ctx context.Context, orderID pgtype.UUID) (GoodsDelivery, error)
+	// Both accounts, locked for the rest of the merge, in identifier order so two
+	// merges of the same pair in opposite directions queue instead of deadlocking.
+	//
+	// The lock is FOR UPDATE rather than FOR NO KEY UPDATE on purpose. Every row
+	// that names a customer — a session, a ledger entry, an identity, an order —
+	// takes a key-share lock on that customer while it is written, and only a full
+	// row lock conflicts with it. A sign-in minting a session, a payment crediting
+	// the wallet, or a bot tap linking an identity therefore either finishes before
+	// the merge reads anything or waits until the merge has committed, and never
+	// lands on the absorbed account after its balance was read.
+	LockMergeAccounts(ctx context.Context, ids []pgtype.UUID) ([]LockMergeAccountsRow, error)
 	LockOpenCart(ctx context.Context, userID pgtype.UUID) (Cart, error)
 	LockOrder(ctx context.Context, id pgtype.UUID) (Order, error)
 	LockOrderCredit(ctx context.Context, orderID pgtype.UUID) (OrderCredit, error)
@@ -1758,12 +1826,33 @@ type Querier interface {
 	// operator cannot be shown one number and have another happen.
 	// What one side of a merge holds.
 	MergeCandidate(ctx context.Context, id pgtype.UUID) (MergeCandidateRow, error)
+	// What part of the source's wallet is still due to expire, and when.
+	//
+	// The same arithmetic the expiry job uses: a credit's unspent part is whatever
+	// of it the balance still holds once the credits that came after it are set
+	// aside. Moving the balance as one plain credit would turn a bonus with an end
+	// date into money that never expires.
+	MergeExpiringCredits(ctx context.Context, source pgtype.UUID) ([]MergeExpiringCreditsRow, error)
+	// Providers both accounts hold an active sign-in through.
+	//
+	// A customer holds one active sign-in per provider, so two different Telegram
+	// accounts — or two different Google accounts — cannot both land on the
+	// survivor. Which one should stay is the operator's call, made by unlinking the
+	// other first, and not something a merge guesses.
+	MergeIdentityConflicts(ctx context.Context, arg MergeIdentityConflictsParams) ([]string, error)
+	// A referral payout the source has asked for and nobody has paid or refused.
+	//
+	// The payout holds part of the source's wallet, and a refusal releases it back
+	// to the account that asked. After a merge that account is closed and the
+	// release would land where nobody can spend it.
+	MergeOpenWithdrawals(ctx context.Context, source pgtype.UUID) (int64, error)
 	// Whether either account referred the other.
 	//
 	// Merging them would make a customer their own referrer, which is a reward
 	// somebody paid for a signup that turns out to be the same person. It is a
 	// refusal rather than something to clean up silently.
 	MergeReferralBetween(ctx context.Context, arg MergeReferralBetweenParams) (int64, error)
+	MergeSourceTelegramMapping(ctx context.Context, source pgtype.UUID) (int64, error)
 	// The absorbed ticket keeps its row and its messages and points at its
 	// survivor. Deleting it would lose the customer's own words and the trail that
 	// explains where they went.
@@ -1774,6 +1863,16 @@ type Querier interface {
 	// implies it: only a customer wallet entry carries a user. Naming it means this
 	// query still reads correctly if another account type ever gains one.
 	MergeWalletBalances(ctx context.Context, userID pgtype.UUID) ([]MergeWalletBalancesRow, error)
+	// One acquisition record per customer, campaign and first visit alike. The
+	// survivor's own stands; the source's moves only when the survivor has none,
+	// carrying whether its campaign bonus was already paid.
+	MoveCustomerAttribution(ctx context.Context, arg MoveCustomerAttributionParams) error
+	// Auto-renewal of a moved subscription moves with it, so the renewal charges
+	// the wallet the balance moved to. A customer-wide setting moves when the
+	// survivor has none; otherwise the source's is switched off rather than left
+	// to charge a closed account.
+	MoveCustomerAutoRenew(ctx context.Context, arg MoveCustomerAutoRenewParams) error
+	MoveCustomerBedolagaPaymentClaims(ctx context.Context, arg MoveCustomerBedolagaPaymentClaimsParams) error
 	MoveCustomerConsents(ctx context.Context, arg MoveCustomerConsentsParams) error
 	MoveCustomerContacts(ctx context.Context, arg MoveCustomerContactsParams) error
 	// Everything below is a plain reassignment: one statement per table, called in
@@ -1785,16 +1884,25 @@ type Querier interface {
 	// decision; a loop over every key referencing `users` would have moved them
 	// without anybody making one.
 	MoveCustomerEntitlements(ctx context.Context, arg MoveCustomerEntitlementsParams) error
+	// Gifts the source sent are refunded to the sender if nobody claims them, and
+	// gifts it claimed are part of its history.
+	MoveCustomerGifts(ctx context.Context, arg MoveCustomerGiftsParams) error
 	MoveCustomerGoodsOrders(ctx context.Context, arg MoveCustomerGoodsOrdersParams) error
 	MoveCustomerIdentities(ctx context.Context, arg MoveCustomerIdentitiesParams) error
 	// The later of the two customers' carried discount dates survives, so the
 	// merged account is no easier to discount than either was.
 	MoveCustomerLegacyDiscount(ctx context.Context, arg MoveCustomerLegacyDiscountParams) error
+	MoveCustomerLegacyGoodsOrders(ctx context.Context, arg MoveCustomerLegacyGoodsOrdersParams) error
 	// Payments carried over from the previous bot follow the customer, as orders
 	// do, so the merged account keeps the spend its segments and tiers read.
 	MoveCustomerLegacyPayments(ctx context.Context, arg MoveCustomerLegacyPaymentsParams) error
 	MoveCustomerLegacyPeriods(ctx context.Context, arg MoveCustomerLegacyPeriodsParams) error
+	MoveCustomerLevel2Rewards(ctx context.Context, arg MoveCustomerLevel2RewardsParams) error
 	MoveCustomerLifecycleEvents(ctx context.Context, arg MoveCustomerLifecycleEventsParams) error
+	// Tier standing is recomputed from spend, which the merge has just moved, so
+	// the source's standing only fills an empty slot. Tiers an operator or a promo
+	// code granted are kept where the survivor does not already hold the same one.
+	MoveCustomerLoyalty(ctx context.Context, arg MoveCustomerLoyaltyParams) error
 	// Read markers move only where the target has not read the same post.
 	//
 	// The pair is the primary key, so moving a duplicate would fail the whole
@@ -1808,12 +1916,53 @@ type Querier interface {
 	// merge. The target keeps theirs, which is also the right answer: it is the
 	// method they last chose, on the account that is surviving.
 	MoveCustomerPaymentMethods(ctx context.Context, arg MoveCustomerPaymentMethodsParams) error
+	// A live offer for a promotion the survivor already has a live offer for stays
+	// behind: one live offer per promotion per customer.
+	MoveCustomerPersonalOffers(ctx context.Context, arg MoveCustomerPersonalOffersParams) error
+	// The bot's preferences and the last Telegram username seen fill the
+	// survivor's only where it has none; a username is unique, so a duplicate the
+	// survivor does not take is dropped rather than left to be found on the closed
+	// account.
+	MoveCustomerProfileRows(ctx context.Context, arg MoveCustomerProfileRowsParams) error
+	// Redemptions count against a promotion's per-customer limit. Left behind,
+	// they would let the person use a once-per-customer code a second time.
+	MoveCustomerPromoRedemptions(ctx context.Context, arg MoveCustomerPromoRedemptionsParams) error
 	// Invite links the source handed out in the previous bot keep crediting the
 	// person, now the merged account.
 	MoveCustomerReferralAliases(ctx context.Context, arg MoveCustomerReferralAliasesParams) error
+	// Who invited the source follows the person when the survivor was not invited
+	// by anybody, with the rewards already paid for it, so a first-payment reward
+	// is not paid a second time for the same signup. A survivor with an inviter of
+	// its own keeps that one; the source's stays where it was, and nothing more is
+	// paid on it because the closed account buys nothing.
+	MoveCustomerReferralAttribution(ctx context.Context, arg MoveCustomerReferralAttributionParams) error
+	// Rewards the source earned point at the survivor, so a reversal after a
+	// refund debits the wallet the reward now sits in.
+	MoveCustomerReferralBeneficiary(ctx context.Context, arg MoveCustomerReferralBeneficiaryParams) error
+	// The source's invite code keeps working for the person. A survivor without a
+	// code takes it over; one with a code of its own gets it as an alias.
+	MoveCustomerReferralCode(ctx context.Context, arg MoveCustomerReferralCodeParams) error
+	// Individual partner terms and the reward preference follow the person unless
+	// the survivor already has its own.
+	MoveCustomerReferralTerms(ctx context.Context, arg MoveCustomerReferralTermsParams) error
+	// The people the source invited stay invited by the person. Their commissions
+	// would otherwise keep landing in the wallet of a closed account.
+	MoveCustomerReferralsMade(ctx context.Context, arg MoveCustomerReferralsMadeParams) error
+	// The customer-level mapping moves when the survivor has none. When it has its
+	// own, the source's stays behind — every Remnawave user it named now belongs
+	// to a subscription — but gives up its Telegram ID, so the bot and the
+	// notification queries that find a customer by Telegram ID reach the survivor.
+	MoveCustomerRemnawaveMapping(ctx context.Context, arg MoveCustomerRemnawaveMappingParams) error
+	// Restrictions and communication opt-outs follow the person. A merge must not
+	// be a way to shed a purchase ban, and a customer who asked not to be written
+	// to has not changed their mind by gaining a second account.
+	MoveCustomerRestrictions(ctx context.Context, arg MoveCustomerRestrictionsParams) error
 	MoveCustomerSecurityEvents(ctx context.Context, arg MoveCustomerSecurityEventsParams) error
 	MoveCustomerTickets(ctx context.Context, arg MoveCustomerTicketsParams) error
 	MoveCustomerTopUps(ctx context.Context, arg MoveCustomerTopUpsParams) error
+	// One trial per person. A trial the source took counts against the survivor,
+	// or a merge would hand out a second one.
+	MoveCustomerTrialClaim(ctx context.Context, arg MoveCustomerTrialClaimParams) error
 	MoveSubscription(ctx context.Context, arg MoveSubscriptionParams) error
 	// Moves the absorbed ticket's messages onto the survivor so the conversation
 	// reads as one thread.
@@ -1965,6 +2114,10 @@ type Querier interface {
 	// Brings an unlinked identity back for the customer it always belonged to.
 	// Scoped by user_id so it can never move a row between accounts: a caller that
 	// wants another customer's revoked row gets zero rows and must refuse.
+	//
+	// A customer who has since linked another account of the same provider holds
+	// that one; this one is freed and does not come back, which is also what keeps
+	// the one-per-provider index from failing the sign-in.
 	ReactivateCustomerIdentity(ctx context.Context, arg ReactivateCustomerIdentityParams) (Identity, error)
 	// ---------------------------------------------------------------------------
 	// Maintenance mode
@@ -2073,6 +2226,11 @@ type Querier interface {
 	ReleaseEntitlementAddonSlots(ctx context.Context, arg ReleaseEntitlementAddonSlotsParams) (ReleaseEntitlementAddonSlotsRow, error)
 	ReleasePaymentMutationLock(ctx context.Context, hashtextextended string) error
 	ReleaseRetentionHold(ctx context.Context, arg ReleaseRetentionHoldParams) (AiRetentionHold, error)
+	// An address somebody has just proved they control stops being held by a row
+	// that never proved it: an unconfirmed contact on another account, or one its
+	// customer removed. The row stays in that customer's history, revoked and with
+	// its fingerprint retired, and the unique key is free for the prover.
+	ReleaseUnprovenEmailContact(ctx context.Context, valueFingerprint []byte) error
 	RemoveBlocklistAllowlistEntry(ctx context.Context, userID pgtype.UUID) error
 	RemovePromotionPlan(ctx context.Context, arg RemovePromotionPlanParams) error
 	// The label is what every screen and notification uses to name a subscription,
@@ -2080,6 +2238,9 @@ type Querier interface {
 	RenameAccountSubscription(ctx context.Context, arg RenameAccountSubscriptionParams) (Subscription, error)
 	RenameAdminPasskey(ctx context.Context, arg RenameAdminPasskeyParams) (AdminPasskey, error)
 	RenameSubscription(ctx context.Context, arg RenameSubscriptionParams) (Subscription, error)
+	// Linking a Telegram account to a customer whose mapping still names one they
+	// no longer hold points the mapping at the new one.
+	ReplaceTelegramMapping(ctx context.Context, arg ReplaceTelegramMappingParams) error
 	RequestBlockerScan(ctx context.Context, requestedBy pgtype.UUID) (BlockerScan, error)
 	RequestLoyaltyRecalculation(ctx context.Context) (LoyaltyProgram, error)
 	// An operator retry only ever moves a terminal-looking row back into the queue.
@@ -2173,6 +2334,9 @@ type Querier interface {
 	// A deleted role leaves nobody holding it, and no invitation offering it.
 	RevokeCustomRoleGrants(ctx context.Context, role string) error
 	RevokeCustomerIdentity(ctx context.Context, arg RevokeCustomerIdentityParams) (Identity, error)
+	// An operator's unlink. The row is marked, which is what frees it: the next
+	// sign-in with that account does not relink it to this customer.
+	RevokeCustomerIdentityByOperator(ctx context.Context, arg RevokeCustomerIdentityByOperatorParams) (Identity, error)
 	// Guarded by `user_id` as well as `id`, so a customer can only ever end one of
 	// their own sessions even if they learn another session's identifier.
 	RevokeCustomerSession(ctx context.Context, arg RevokeCustomerSessionParams) (CustomerSession, error)
@@ -2187,12 +2351,18 @@ type Querier interface {
 	// deliberately not revocable: the recipient already holds what it bought, and
 	// taking it back is a refund decision with its own record.
 	RevokeGift(ctx context.Context, arg RevokeGiftParams) (Gift, error)
+	// Every session of the absorbed account ends. The person signs in again and
+	// lands on the survivor, which now holds their sign-in methods.
+	RevokeMergedCustomerSessions(ctx context.Context, source pgtype.UUID) ([]int32, error)
 	// Revocation is what a customer removing a card does. The row is kept so a
 	// historical charge still resolves to the method that made it.
 	RevokePaymentMethod(ctx context.Context, arg RevokePaymentMethodParams) (PaymentMethod, error)
 	RevokePersonalOffer(ctx context.Context, offerID pgtype.UUID) (PersonalOffer, error)
 	// An operator takes a grant back before its hours are up.
 	RevokeSquadAccessGrant(ctx context.Context, arg RevokeSquadAccessGrantParams) (SquadAccessGrant, error)
+	// A compare-and-set on the current digest: of several concurrent requests due
+	// to rotate, exactly one does, and keeps the old digest for the grace minute;
+	// the rest find no row and carry on with the token they came with.
 	RotateAdminSessionToken(ctx context.Context, arg RotateAdminSessionTokenParams) (AdminSession, error)
 	// Swapping the token behind a live session shortens the window in which one
 	// captured from a log or a proxy stays replayable. The unique index on
