@@ -495,9 +495,9 @@ older Omniflow release is answered the same way.
 If the web panel takes over the previous cabinet's host, its addresses keep working: `/login` goes
 to sign-in, `/subscription` to subscriptions, `/referral` to referrals, `/balance` to the wallet,
 `/support` to support, `/buy/gift/<code>` to the wallet with the code filled in, and `/?ref=<code>`
-to sign-in with the invite code held. Any other path the panel does not serve goes to `/account`
-rather than to a 404. `LEGACY_PATH_REDIRECTS` adds or changes entries and `LEGACY_PATH_FALLBACK`
-changes or turns off the fallback; see [Configuration](/getting-started/configuration).
+to sign-in with the invite code held. Set `LEGACY_PATH_FALLBACK=/account` on the web service and
+any other path the panel does not serve goes to `/account` rather than to a 404 (off by default).
+`LEGACY_PATH_REDIRECTS` adds or changes entries; see [Configuration](/getting-started/configuration).
 
 ### Payments in flight at the cutover
 

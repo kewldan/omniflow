@@ -68,8 +68,9 @@ describe("legacyRedirect", () => {
     expect(legacyRedirect("/gift/abc", "?utm=x")).toBe("/account/wallet?utm=x&code=abc");
   });
 
-  test("an unknown old path goes to the account, not to a 404", () => {
-    expect(legacyRedirect("/cabinet/whatever", "")).toBe("/account");
+  test("an unknown path stays a 404 unless a fallback is set", () => {
+    expect(legacyRedirect("/cabinet/whatever", "")).toBeNull();
+    expect(legacyRedirect("/cabinet/whatever", "", {}, "/account")).toBe("/account");
   });
 
   test("leaves Omniflow's own paths and files alone", () => {
@@ -85,7 +86,8 @@ describe("legacyRedirect", () => {
     }
     expect(legacyRedirect("/manifest.webmanifest", "")).toBeNull();
     expect(legacyRedirect("/apay-meta-file.txt", "")).toBeNull();
-    expect(legacyRedirect("/accounting", "")).toBe("/account");
+    expect(legacyRedirect("/accounting", "", {}, "/account")).toBe("/account");
+    expect(legacyRedirect("/account/wallet", "", {}, "/account")).toBeNull();
   });
 
   test("an operator's table extends the built-in one, and the fallback can be turned off", () => {

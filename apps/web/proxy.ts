@@ -127,8 +127,9 @@ const LEGACY_PATHS: Record<string, string> = {
 
 /**
  * The first path segments Omniflow itself serves. A path outside them is
- * nothing of Omniflow's, so on a migrated host it is an old cabinet address,
- * and it goes to the account rather than to a 404.
+ * nothing of Omniflow's; on a host that took over a previous cabinet it is an
+ * old address, and LEGACY_PATH_FALLBACK can send it to the account rather
+ * than to a 404. Off by default: elsewhere an unknown address is a 404.
  */
 const OWN_SEGMENTS = new Set([
   "",
@@ -175,13 +176,13 @@ function localTarget(target: unknown): target is string {
  *
  * Exported for the unit test; the proxy is the only caller. `table` and
  * `fallback` default to the built-in table merged with LEGACY_PATH_REDIRECTS,
- * and to LEGACY_PATH_FALLBACK (`/account` unless set; `off` disables it).
+ * and to LEGACY_PATH_FALLBACK (unset or `off` keeps the 404).
  */
 export function legacyRedirect(
   pathname: string,
   search: string,
   table: Record<string, string> = legacyTable(),
-  fallback: string = process.env.LEGACY_PATH_FALLBACK ?? "/account",
+  fallback: string = process.env.LEGACY_PATH_FALLBACK ?? "off",
 ): string | null {
   const segments = pathname.split("/");
   const first = segments[1] ?? "";
