@@ -183,23 +183,8 @@ jobs:
           path: apps/web/playwright-report
           retention-days: 7
 
-  integration:
-    name: Integration (Testcontainers)
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
-        with:
-          go-version: 1.27.4
-          cache: true
-      - run: go mod download
-      # Testcontainers starts PostgreSQL itself, applies the committed
-      # migrations, and exercises the repositories, the outbox, the durable-job
-      # enqueue, and the concurrency limits against a real database. Each test
-      # starts its own database, and under -race the whole suite takes longer
-      # than twenty minutes now that it covers every Bedolaga surface.
-      - run: go test -tags=integration -race -timeout=50m ./internal/integrationtest/...
+  # The Testcontainers suite runs in integration.yml — nightly and on demand,
+  # not on every push.
 
   migrations:
     name: Atlas migrations

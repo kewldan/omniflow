@@ -70,6 +70,9 @@ exists:
   the committed `.env.example`, so the documented starting point still starts;
 - the docs job validated both language trees and their links.
 
+The integration suite is the exception: it runs nightly and on demand rather
+than in `CI`, so it is run by hand before a release, below.
+
 ## Cutting a release
 
 <Steps>
@@ -83,6 +86,13 @@ exists:
     Read the changelog as a user would. A `feat:` whose description says nothing
     an operator can act on is worth fixing in the commit history's next entry
     rather than by editing the generated file.
+  </Step>
+  <Step title="Run the integration suite">
+    `gh workflow run integration.yml --ref main`, and wait for it to pass on the
+    commit the release pull request is built on. A pull request release-please
+    opens starts no workflow of its own — GitHub runs none for events the
+    default `GITHUB_TOKEN` caused — so nothing runs the suite for it unless you
+    do. A green nightly run on the same commit counts.
   </Step>
   <Step title="Merge it">
     Merging the release pull request creates the `omniflow-vX.Y.Z` tag and the

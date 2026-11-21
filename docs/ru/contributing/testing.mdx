@@ -14,8 +14,10 @@ description: Что выполняется по умолчанию, чему н�
 Тесты в `internal/integrationtest` несут build-тег `integration` и поднимают PostgreSQL через Testcontainers:
 
 ```bash
-go test -tags=integration -race -timeout=20m ./internal/integrationtest/...
+go test -tags=integration -race -timeout=50m ./internal/integrationtest/...
 ```
+
+CI не запускает его на каждый push: `.github/workflows/integration.yml` прогоняет его каждую ночь на `main` и по запросу (`gh workflow run integration.yml --ref main`), а процесс выпуска запускает его перед вливанием пул-реквеста выпуска. Перед push изменения бэкенда прогоните затронутые им тесты — `-run` с именами тестов укладывает это в секунды.
 
 Обвязка применяет закоммиченные файлы миграций по порядку, а не дамп схемы, поэтому набор является заслоном не только для репозиториев, но и для миграций. Он покрывает:
 

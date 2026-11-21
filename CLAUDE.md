@@ -54,8 +54,11 @@ tooling.
 - Migrations: write the file, `atlas migrate hash --dir file://database/migrations`,
   apply to a real PostgreSQL, then `sh tools/schema-snapshot.sh`. Never write
   `atlas.sum` yourself.
-- The integration suite takes 12–13 minutes locally with Docker; CI runs it with
-  `-timeout=50m`. A newer push cancels the running CI.
+- The integration suite takes 12–13 minutes locally with Docker. It is not in
+  `CI`: `.github/workflows/integration.yml` runs it nightly and by
+  `gh workflow run integration.yml --ref main`, which the release process
+  requires before merging a release PR. Run the affected tests locally before
+  pushing a backend change. A newer push cancels the running CI.
 - The web bundle budget (`bun run build && bun run perf:budget`) caps admin
   routes at 1300 kB and account routes at 1075 kB; heavy panel cards are loaded
   with `next/dynamic`.

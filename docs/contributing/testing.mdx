@@ -14,8 +14,10 @@ Alongside it CI runs TypeScript checking, frontend builds, Biome, Atlas validati
 Tests under `internal/integrationtest` carry the `integration` build tag and start PostgreSQL through Testcontainers:
 
 ```bash
-go test -tags=integration -race -timeout=20m ./internal/integrationtest/...
+go test -tags=integration -race -timeout=50m ./internal/integrationtest/...
 ```
+
+CI does not run it on every push: `.github/workflows/integration.yml` runs it nightly against `main` and on demand (`gh workflow run integration.yml --ref main`), and the release process runs it before a release pull request is merged. Run the tests a backend change touches before you push it — `-run` with the test names keeps that to seconds.
 
 The harness applies the committed migration files in order rather than a schema dump, so the suite is a migration gate as well as a repository gate. It covers:
 

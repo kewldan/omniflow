@@ -71,10 +71,12 @@ renaming a field in a `/v1/admin` response. The full process is documented in
 ## Testing policy
 
 CI runs Go unit tests with the race detector, the frontend type-check and lint,
-a production frontend build, Playwright, Testcontainers integration suites
-against a real PostgreSQL, every supported migration upgrade path, Compose and
-reverse-proxy validation, and the documentation checks for both language trees.
-All of it must be green before a merge.
+a production frontend build, Playwright, every supported migration upgrade
+path, Compose and reverse-proxy validation, and the documentation checks for
+both language trees. All of it must be green before a merge. The Testcontainers
+integration suite against a real PostgreSQL runs nightly and on demand
+(`.github/workflows/integration.yml`); run it before merging a release pull
+request.
 
 Run the narrowest relevant tests while iterating and the full available checks
 before handing over. Report what actually ran: a check you could not run locally

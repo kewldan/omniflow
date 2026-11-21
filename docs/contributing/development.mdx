@@ -220,7 +220,7 @@ The default Go suite runs with no Docker daemon and no network, which is the pro
 actually being run. Everything that needs infrastructure lives behind the `integration` build tag:
 
 ```bash
-go test -tags=integration -race -timeout=20m ./internal/integrationtest/...
+go test -tags=integration -race -timeout=50m ./internal/integrationtest/...
 ```
 
 That suite starts PostgreSQL through Testcontainers and applies the committed migration files in
@@ -253,11 +253,24 @@ runs cancelled per ref.
 | Go | Regenerates oapi-codegen and sqlc output, then `gofmt -w . && git diff --exit-code`, `go vet ./...`, `go test -race -coverprofile=coverage.out ./...`, `go tool govulncheck ./...` |
 | Web | `bun ci`, `bun run generate:api`, `git diff --exit-code`, `bun run check`, `bun run build` |
 | End-to-end (Playwright) | Builds, installs Chromium and WebKit, runs the suite; uploads the report as an artefact on failure |
-| Integration (Testcontainers) | `go test -tags=integration -race -timeout=20m ./internal/integrationtest/...` |
 | Atlas migrations | `atlas migrate validate`, then per baseline: apply the baseline, upgrade to head, apply head again to prove it is a no-op |
 | Compose and reverse proxies | Copies `.env.example` to `.env`, validates the base compose file and the Traefik overlay, validates the Caddyfile, and builds the `api`, `bot`, and `worker` images |
 | Mintlify docs | `mint validate` and `mint broken-links --check-anchors` |
 | Conventional PR title | The pull request title must be a Conventional Commit |
+
+The Testcontainers integration suite is not part of `CI`: it takes over twenty minutes under
+`-race`, and holding every push for it, documentation included, cost more than it caught.
+`.github/workflows/integration.yml` runs `go test -tags=integration -race -timeout=50m
+./internal/integrationtest/...` every night against `main` and on demand — before a release pull
+request is merged, and whenever a change touches the database, payments, imports, or provisioning
+and is worth checking right away:
+
+```bash
+gh workflow run integration.yml --ref main
+```
+
+Run the relevant part locally before you push such a change (see [Testing](/contributing/testing));
+a failure the nightly run finds is a failure on `main`.
 
 A weekly security workflow adds gitleaks, a Trivy filesystem scan reporting CRITICAL and HIGH
 findings to code scanning, and dependency review.

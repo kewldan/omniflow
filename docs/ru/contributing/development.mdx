@@ -226,7 +226,7 @@ make go-test    # go test -race -cover ./...
 `integration`:
 
 ```bash
-go test -tags=integration -race -timeout=20m ./internal/integrationtest/...
+go test -tags=integration -race -timeout=50m ./internal/integrationtest/...
 ```
 
 Этот набор поднимает PostgreSQL через Testcontainers и применяет закоммиченные файлы миграций по
@@ -260,11 +260,24 @@ make security   # go tool govulncheck ./... and gitleaks detect --source .
 | Go | Перегенерирует вывод oapi-codegen и sqlc, затем `gofmt -w . && git diff --exit-code`, `go vet ./...`, `go test -race -coverprofile=coverage.out ./...`, `go tool govulncheck ./...` |
 | Web | `bun ci`, `bun run generate:api`, `git diff --exit-code`, `bun run check`, `bun run build` |
 | Сквозные тесты (Playwright) | Собирает, устанавливает Chromium и WebKit, прогоняет набор; при падении выкладывает отчёт как артефакт |
-| Интеграционные тесты (Testcontainers) | `go test -tags=integration -race -timeout=20m ./internal/integrationtest/...` |
 | Миграции Atlas | `atlas migrate validate`, затем для каждой базовой точки: применить базовую точку, обновиться до head, применить head ещё раз, чтобы доказать, что это no-op |
 | Compose и обратные прокси | Копирует `.env.example` в `.env`, проверяет базовый файл compose и оверлей Traefik, проверяет Caddyfile и собирает образы `api`, `bot` и `worker` |
 | Документация Mintlify | `mint validate` и `mint broken-links --check-anchors` |
 | Заголовок PR в стиле Conventional | Заголовок pull request должен быть Conventional Commit |
+
+Интеграционный набор на Testcontainers в `CI` не входит: под `-race` он идёт больше двадцати минут, и
+держать ради него каждый push, включая документацию, обходилось дороже, чем он ловил.
+`.github/workflows/integration.yml` запускает `go test -tags=integration -race -timeout=50m
+./internal/integrationtest/...` каждую ночь на `main` и по запросу — перед вливанием пул-реквеста
+выпуска и всякий раз, когда изменение затрагивает базу, платежи, импорт или выдачу доступа и его
+стоит проверить сразу:
+
+```bash
+gh workflow run integration.yml --ref main
+```
+
+Перед push такого изменения прогоните нужную часть локально (см. [Тестирование](/ru/contributing/testing)):
+падение, которое найдёт ночной запуск, — это падение на `main`.
 
 Еженедельный workflow безопасности добавляет gitleaks, сканирование файловой системы Trivy с
 отправкой находок уровня CRITICAL и HIGH в code scanning, а также dependency review.
