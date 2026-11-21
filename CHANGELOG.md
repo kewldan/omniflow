@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.3.0](https://github.com/kewldan/omniflow/compare/omniflow-v1.2.1...omniflow-v1.3.0) (2026-11-21)
+
+
+### Features
+
+* automation API, scoped tokens, MCP server, and Bedolaga campaigns and Stars history ([04495b8](https://github.com/kewldan/omniflow/commit/04495b835bbf83d5ae75cf3d6ed6ddd7f56b6a07))
+* **migration:** VPN spend history, bot-blocked customers, and payments paid after the cutover ([aa39e46](https://github.com/kewldan/omniflow/commit/aa39e46fd1e961bd942ac8def6129b6c6f78ea59))
+* **web:** redirect the previous cabinet's addresses to the account ([7df818e](https://github.com/kewldan/omniflow/commit/7df818e2b6bb042bb43c58b7524bb71b273880ae))
+
+
+### Bug Fixes
+
+* **bot:** answer an earlier bot's buttons with the main menu ([3755357](https://github.com/kewldan/omniflow/commit/3755357818364e060b68eeba7491bf39b42ca569))
+* **release:** commit the migrate image's Dockerfile ([8c1df6d](https://github.com/kewldan/omniflow/commit/8c1df6d35ee3f90f1ce7714221307e1338b19597))
+* **web:** keep the 404 for unknown paths unless a fallback is set ([4db4a2e](https://github.com/kewldan/omniflow/commit/4db4a2eeeeed749a5b2db4dfd8a90a3a17898ae5))
+
 ## [1.2.1](https://github.com/kewldan/omniflow/compare/omniflow-v1.2.0...omniflow-v1.2.1) (2026-11-21)
 
 
