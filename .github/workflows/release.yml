@@ -113,14 +113,23 @@ jobs:
           - image: api
             dockerfile: build/go.Dockerfile
             build_args: TARGET=api
+          # The bot and the worker take and restore backups with pg_dump and
+          # pg_restore, so they are built on the PostgreSQL runtime, as
+          # compose.yaml builds them. Without it a published bot or worker
+          # failed every backup with a command error.
           - image: bot
             dockerfile: build/go.Dockerfile
-            build_args: TARGET=bot
+            build_args: "TARGET=bot\nRUNTIME=postgres"
           - image: worker
             dockerfile: build/go.Dockerfile
-            build_args: TARGET=worker
+            build_args: "TARGET=worker\nRUNTIME=postgres"
           - image: web
             dockerfile: build/web.Dockerfile
+            build_args: ""
+          # The committed migrations on the Atlas image, which
+          # compose.release.yaml runs before the processes start.
+          - image: migrate
+            dockerfile: build/migrate.Dockerfile
             build_args: ""
     steps:
       - uses: actions/checkout@v7
@@ -146,7 +155,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: sigstore/cosign-installer@v4
+      - uses: sigstore/cosign-installer@v4.1.3
       - uses: docker/metadata-action@v6
         id: metadata
         with:
