@@ -221,6 +221,11 @@ WHERE user_id = sqlc.arg(source);
 UPDATE legacy_payments SET user_id = sqlc.arg(target)
 WHERE user_id = sqlc.arg(source);
 
+-- name: MoveCustomerLegacyRecords :exec
+-- The previous bot's history follows the customer too.
+UPDATE legacy_records SET user_id = sqlc.arg(target)
+WHERE user_id = sqlc.arg(source);
+
 -- name: MoveCustomerLegacyPeriods :exec
 UPDATE legacy_subscription_periods SET user_id = sqlc.arg(target), updated_at = now()
 WHERE user_id = sqlc.arg(source);

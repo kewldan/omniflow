@@ -11,6 +11,21 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countLoyaltyPrograms = `-- name: CountLoyaltyPrograms :one
+
+SELECT count(*)::bigint FROM loyalty_programs
+`
+
+// ---------------------------------------------------------------------------
+// Loyalty and the history archive
+// ---------------------------------------------------------------------------
+func (q *Queries) CountLoyaltyPrograms(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countLoyaltyPrograms)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createBedolagaImportRun = `-- name: CreateBedolagaImportRun :one
 
 
@@ -155,6 +170,37 @@ func (q *Queries) ImportedCustomerForBedolagaUser(ctx context.Context, sourceID 
 	var user_id pgtype.UUID
 	err := row.Scan(&user_id)
 	return user_id, err
+}
+
+const insertBedolagaArchive = `-- name: InsertBedolagaArchive :execrows
+INSERT INTO legacy_records (source, kind, source_id, user_id, occurred_at, data)
+SELECT 'bedolaga', unnest($1::text[]), unnest($2::text[]),
+       unnest($3::uuid[]), unnest($4::timestamptz[]),
+       unnest($5::jsonb[])
+ON CONFLICT (source, kind, source_id) DO NOTHING
+`
+
+type InsertBedolagaArchiveParams struct {
+	Kinds       []string             `json:"kinds"`
+	SourceIds   []string             `json:"source_ids"`
+	UserIds     []pgtype.UUID        `json:"user_ids"`
+	OccurredAts []pgtype.Timestamptz `json:"occurred_ats"`
+	Datas       [][]byte             `json:"datas"`
+}
+
+// One batch of archived rows. A row archived before is left as it was.
+func (q *Queries) InsertBedolagaArchive(ctx context.Context, arg InsertBedolagaArchiveParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertBedolagaArchive,
+		arg.Kinds,
+		arg.SourceIds,
+		arg.UserIds,
+		arg.OccurredAts,
+		arg.Datas,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const insertBedolagaPaymentClaim = `-- name: InsertBedolagaPaymentClaim :one
@@ -885,6 +931,35 @@ func (q *Queries) ListAdCampaignCodes(ctx context.Context) ([]string, error) {
 	return items, nil
 }
 
+const listBedolagaArchiveKeys = `-- name: ListBedolagaArchiveKeys :many
+SELECT kind, source_id FROM legacy_records WHERE source = 'bedolaga'
+`
+
+type ListBedolagaArchiveKeysRow struct {
+	Kind     string `json:"kind"`
+	SourceID string `json:"source_id"`
+}
+
+func (q *Queries) ListBedolagaArchiveKeys(ctx context.Context) ([]ListBedolagaArchiveKeysRow, error) {
+	rows, err := q.db.Query(ctx, listBedolagaArchiveKeys)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListBedolagaArchiveKeysRow{}
+	for rows.Next() {
+		var i ListBedolagaArchiveKeysRow
+		if err := rows.Scan(&i.Kind, &i.SourceID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listBedolagaImportItems = `-- name: ListBedolagaImportItems :many
 SELECT kind, source_id, status, codes, user_id, subscription_id, entitlement_id, fingerprint, last_run_id, created_at, updated_at, applied_at FROM bedolaga_import_items ORDER BY kind, source_id
 `
@@ -1208,6 +1283,30 @@ func (q *Queries) ListCampaignAttributionCodes(ctx context.Context) ([]ListCampa
 	return items, nil
 }
 
+const listEnabledLoyaltyTierCodes = `-- name: ListEnabledLoyaltyTierCodes :many
+SELECT t.code FROM loyalty_tiers t JOIN loyalty_programs p ON p.id = t.program_id WHERE p.enabled
+`
+
+func (q *Queries) ListEnabledLoyaltyTierCodes(ctx context.Context) ([]string, error) {
+	rows, err := q.db.Query(ctx, listEnabledLoyaltyTierCodes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var code string
+		if err := rows.Scan(&code); err != nil {
+			return nil, err
+		}
+		items = append(items, code)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listImportedCustomersForVerify = `-- name: ListImportedCustomersForVerify :many
 
 SELECT i.source_id, i.user_id, u.status,
@@ -1421,6 +1520,35 @@ func (q *Queries) ListLinkedRemnawaveUsers(ctx context.Context) ([]ListLinkedRem
 	for rows.Next() {
 		var i ListLinkedRemnawaveUsersRow
 		if err := rows.Scan(&i.RemnawaveID, &i.UserID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLoyaltyMembershipKeys = `-- name: ListLoyaltyMembershipKeys :many
+SELECT user_id, tier_code FROM loyalty_memberships
+`
+
+type ListLoyaltyMembershipKeysRow struct {
+	UserID   pgtype.UUID `json:"user_id"`
+	TierCode string      `json:"tier_code"`
+}
+
+func (q *Queries) ListLoyaltyMembershipKeys(ctx context.Context) ([]ListLoyaltyMembershipKeysRow, error) {
+	rows, err := q.db.Query(ctx, listLoyaltyMembershipKeys)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLoyaltyMembershipKeysRow{}
+	for rows.Next() {
+		var i ListLoyaltyMembershipKeysRow
+		if err := rows.Scan(&i.UserID, &i.TierCode); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

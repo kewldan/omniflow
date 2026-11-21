@@ -760,6 +760,22 @@ func (q *Queries) MoveCustomerLegacyPeriods(ctx context.Context, arg MoveCustome
 	return err
 }
 
+const moveCustomerLegacyRecords = `-- name: MoveCustomerLegacyRecords :exec
+UPDATE legacy_records SET user_id = $1
+WHERE user_id = $2
+`
+
+type MoveCustomerLegacyRecordsParams struct {
+	Target pgtype.UUID `json:"target"`
+	Source pgtype.UUID `json:"source"`
+}
+
+// The previous bot's history follows the customer too.
+func (q *Queries) MoveCustomerLegacyRecords(ctx context.Context, arg MoveCustomerLegacyRecordsParams) error {
+	_, err := q.db.Exec(ctx, moveCustomerLegacyRecords, arg.Target, arg.Source)
+	return err
+}
+
 const moveCustomerLevel2Rewards = `-- name: MoveCustomerLevel2Rewards :exec
 UPDATE referral_level2_rewards SET beneficiary_user_id = $1
 WHERE beneficiary_user_id = $2

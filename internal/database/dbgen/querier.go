@@ -290,9 +290,14 @@ type Querier interface {
 	CountBatchRedemptionsByCustomer(ctx context.Context, arg CountBatchRedemptionsByCustomerParams) (int64, error)
 	CountBlockedCustomers(ctx context.Context) (int64, error)
 	CountCannedResponseUse(ctx context.Context, responseID pgtype.UUID) error
+	CountCustomerLegacyRecords(ctx context.Context, userID pgtype.UUID) ([]CountCustomerLegacyRecordsRow, error)
 	CountDormantCustomers(ctx context.Context) (int64, error)
 	CountDunningAttemptsForCycle(ctx context.Context, cycleKey string) (int64, error)
 	CountGiftsByStatus(ctx context.Context) ([]CountGiftsByStatusRow, error)
+	// ---------------------------------------------------------------------------
+	// Loyalty and the history archive
+	// ---------------------------------------------------------------------------
+	CountLoyaltyPrograms(ctx context.Context) (int64, error)
 	CountNewsReads(ctx context.Context, postID pgtype.UUID) (int64, error)
 	CountNotificationDeliveries(ctx context.Context, arg CountNotificationDeliveriesParams) (int64, error)
 	CountOpenAnomalySignals(ctx context.Context) (int64, error)
@@ -1021,6 +1026,8 @@ type Querier interface {
 	// axes the admin panel filters and exports on, so every caller classifies its
 	// event rather than letting it fall into an untyped bucket.
 	InsertAuditEvent(ctx context.Context, arg InsertAuditEventParams) (AuditEvent, error)
+	// One batch of archived rows. A row archived before is left as it was.
+	InsertBedolagaArchive(ctx context.Context, arg InsertBedolagaArchiveParams) (int64, error)
 	// First write wins: a notification delivered twice records the payment once,
 	// and the second caller learns it was already handled.
 	InsertBedolagaPaymentClaim(ctx context.Context, arg InsertBedolagaPaymentClaimParams) (BedolagaPaymentClaim, error)
@@ -1279,6 +1286,7 @@ type Querier interface {
 	// The hints and statuses of one batch's codes. Never the codes themselves:
 	// there is nothing in this table that could produce one.
 	ListBatchCodes(ctx context.Context, batchID pgtype.UUID) ([]ListBatchCodesRow, error)
+	ListBedolagaArchiveKeys(ctx context.Context) ([]ListBedolagaArchiveKeysRow, error)
 	ListBedolagaImportItems(ctx context.Context) ([]BedolagaImportItem, error)
 	ListBedolagaImportRuns(ctx context.Context, pageSize int32) ([]BedolagaImportRun, error)
 	ListBedolagaLegacyConsents(ctx context.Context) ([]int64, error)
@@ -1356,6 +1364,8 @@ type Querier interface {
 	// almost always about the run that just happened.
 	ListCustomerImports(ctx context.Context, pageSize int32) ([]CustomerImport, error)
 	ListCustomerLedgerEntries(ctx context.Context, arg ListCustomerLedgerEntriesParams) ([]ListCustomerLedgerEntriesRow, error)
+	// The previous bot's rows about one customer, newest first.
+	ListCustomerLegacyRecords(ctx context.Context, arg ListCustomerLegacyRecordsParams) ([]ListCustomerLegacyRecordsRow, error)
 	ListCustomerMemberships(ctx context.Context, userID pgtype.UUID) ([]ChannelMembership, error)
 	// ---------------------------------------------------------------------------
 	// Customer OIDC providers
@@ -1423,6 +1433,7 @@ type Querier interface {
 	// operator came to the screen to re-enable.
 	ListEnabledConnectPlatforms(ctx context.Context) ([]ListEnabledConnectPlatformsRow, error)
 	ListEnabledCustomerOIDCProviders(ctx context.Context) ([]CustomerOidcProvider, error)
+	ListEnabledLoyaltyTierCodes(ctx context.Context) ([]string, error)
 	// What an installation actually exposes: enabled tools on enabled servers whose
 	// schema this build can enforce.
 	ListEnabledMCPTools(ctx context.Context) ([]McpTool, error)
@@ -1494,6 +1505,7 @@ type Querier interface {
 	// recalculation — everybody. Keyset-paged on the customer identifier.
 	ListLoyaltyEvaluationCandidates(ctx context.Context, arg ListLoyaltyEvaluationCandidatesParams) ([]pgtype.UUID, error)
 	ListLoyaltyHistory(ctx context.Context, arg ListLoyaltyHistoryParams) ([]ListLoyaltyHistoryRow, error)
+	ListLoyaltyMembershipKeys(ctx context.Context) ([]ListLoyaltyMembershipKeysRow, error)
 	ListLoyaltyMemberships(ctx context.Context, userID pgtype.UUID) ([]LoyaltyMembership, error)
 	// ---------------------------------------------------------------------------
 	// Loyalty
@@ -1929,6 +1941,8 @@ type Querier interface {
 	// do, so the merged account keeps the spend its segments and tiers read.
 	MoveCustomerLegacyPayments(ctx context.Context, arg MoveCustomerLegacyPaymentsParams) error
 	MoveCustomerLegacyPeriods(ctx context.Context, arg MoveCustomerLegacyPeriodsParams) error
+	// The previous bot's history follows the customer too.
+	MoveCustomerLegacyRecords(ctx context.Context, arg MoveCustomerLegacyRecordsParams) error
 	MoveCustomerLevel2Rewards(ctx context.Context, arg MoveCustomerLevel2RewardsParams) error
 	MoveCustomerLifecycleEvents(ctx context.Context, arg MoveCustomerLifecycleEventsParams) error
 	// Tier standing is recomputed from spend, which the merge has just moved, so

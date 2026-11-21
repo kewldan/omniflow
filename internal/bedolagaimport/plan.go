@@ -146,6 +146,14 @@ type Target struct {
 	// already carried, by ID.
 	LegacyTickets  map[int64]bool
 	LegacyConsents map[int64]bool
+	// LoyaltyProgramCount is how many loyalty programmes Omniflow has;
+	// LoyaltyTierCodes are the tiers of the enabled one; LoyaltyMembers holds
+	// every "customer:tier" membership.
+	LoyaltyProgramCount int
+	LoyaltyTierCodes    map[string]bool
+	LoyaltyMembers      map[string]bool
+	// ArchivedRecords holds every "table:source id" already archived.
+	ArchivedRecords map[string]bool
 }
 
 // ItemKey is the map key of Target.Items.
@@ -244,6 +252,9 @@ type Plan struct {
 	Pages         []PageDecision
 	Tickets       []TicketDecision
 	Consents      []ConsentDecision
+	Loyalty       *LoyaltyDecision
+	Memberships   []MembershipDecision
+	Archive       []ArchiveDecision
 	Report        Report
 }
 
@@ -321,6 +332,8 @@ func BuildPlan(source Source, remote map[int64]RemoteUser, target Target, mappin
 	decidePages(&plan, source, target)
 	decideTickets(&plan, source, target, userIndex)
 	decideConsents(&plan, source, target, userIndex)
+	decideLoyalty(&plan, source, target, userIndex)
+	decideArchive(&plan, source, target, userIndex)
 	plan.Report = buildReport(plan, source, tariffs, mapping, now)
 	for _, version := range target.PlanVersions {
 		plan.Report.Available = append(plan.Report.Available, version)

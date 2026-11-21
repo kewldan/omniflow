@@ -70,6 +70,8 @@ cutover.
 | `privacy_policies`, `public_offers`, `service_rules`, `faq_pages` | `info_pages`, `info_page_localizations` | The policy, the offer, the rules, and the FAQ as the pages `privacy`, `offer`, `terms`, and `faq`, see [documents](#documents-tickets-and-consents) |
 | `tickets`, `ticket_messages` | `support_tickets`, `support_messages` | Every ticket with its whole conversation and dates, see [documents](#documents-tickets-and-consents) |
 | `legal_consents` | `consent_records` | Who accepted the policy and the offer, and when |
+| `promo_groups`, `user_promo_groups` | `loyalty_programs`, `loyalty_tiers`, `loyalty_memberships` | A spend programme with a tier per group and every member kept in theirs, see [loyalty](#loyalty-and-the-history-archive) |
+| Every other table | `legacy_records` | Row by row, without secret columns, as history on the customer card, see [the archive](#loyalty-and-the-history-archive) |
 | `tariffs` | — | Mapped to plan versions by your [mapping file](#the-mapping-file) |
 
 The importer's own bookkeeping is two tables. `bedolaga_import_items` holds one row per Bedolaga
@@ -244,15 +246,34 @@ same transaction. A file attached in Bedolaga is carried as a line such as `📎
 file itself stays in the previous bot's chat. Accepted documents become consent records with the
 policy version `bedolaga`, so a terms gate that asks for a newer version still asks.
 
+### Loyalty and the history archive
+
+Promo groups become a loyalty programme, made only when Omniflow has none: the metric is spend over
+ten years (Bedolaga counted total spend, and the spend includes the carried payments), a tier per
+group with its discounts and its auto-assign threshold, the default group as the bottom tier at
+zero, and a group without a threshold as a tier only an operator grants. It is published and every
+customer's standing is evaluated. Every member of a group is also kept in its tier as a membership
+noted `Bedolaga`, so nobody's discount lapses while the first evaluation runs. Per-period discounts
+are not carried (warning `period_discounts_dropped`). A programme an operator built is never laid
+over (`loyalty_program_exists`).
+
+Every other row of every other table moves into `legacy_records`, as it was: wallet transactions,
+referral earnings, subscription events, promo codes and their uses, coupons, offers, notifications
+sent, wheel spins, payments by provider, button presses, operator actions, errors. Columns that held
+secrets — passwords, tokens, hashes, VPN credentials, subscription links, IP addresses — are dropped
+before a row is read, and `system_settings` (the bot's keys) and the token tables are never read. A
+row of a user who is not carried is left behind. The customer card shows a customer's rows under
+**Activity → From the previous bot**; a merge moves them and anonymising erases them. Nothing in
+Omniflow acts on them.
+
 ## What does not move
 
 | Stays in Bedolaga | Why, and what to do |
 | --- | --- |
-| Every `transactions` row other than a completed top-up, and the per-provider payment tables | Omniflow's ledger records money Omniflow moved. Completed top-ups are carried as [payment history](#history-trials-periods-and-payments); purchases from the balance, refunds, and credits are not. The snapshot from `01-snapshot-bedolaga.sh` is the archive; keep it |
 | Telegram Stars shop orders that were not delivered | Paid, failed, refunded, or in-review orders are not stars anybody received. The plan counts them by status and sum; they stay in the archive. Delivered ones are carried as [history](#stars-shop-orders) |
 | Files attached to support messages | The message says a file was attached; the file stays in the previous bot's chat |
-| Promo codes and promo groups | Their discount rules do not map onto Omniflow's promotions one to one. The plan counts active codes by type and groups by members; recreate what you still want in the panel |
-| Referral earnings history and partner withdrawal requests | The earned money is already part of the balance that moves. Settle pending withdrawals in Bedolaga first |
+| Promo codes as codes customers can still enter | All of the previous bot's codes are in the archive; recreate one you still want in the panel |
+| Pending partner withdrawal requests | They are in the archive as history; settle pending ones in Bedolaga first |
 | Saved payment methods and auto-payment agreements | Provider tokens belong to Bedolaga's merchant setup; customers turn auto-renewal on again in Omniflow |
 | Cabinet passwords | Omniflow has no customer passwords. Customers sign in with Telegram, an e-mailed link (`APP_RESEND_API_KEY`), or a provider. Google, Yandex, Discord, and VK ID links **are** carried as identities bound to the preset issuers, so enable those providers under the preset slugs `google`, `yandex`, `discord`, `vk`. A customer with neither a Telegram ID nor a verified e-mail is imported with the warning `no_sign_in_identity` |
 | Deleted users | Skipped with `deleted_in_source` |

@@ -152,6 +152,9 @@ type Report struct {
 	Pages           Section             `json:"pages"`
 	Tickets         TicketSection       `json:"tickets"`
 	Consents        Section             `json:"consents"`
+	Loyalty         Section             `json:"loyalty"`
+	Memberships     Section             `json:"loyaltyMemberships"`
+	History         []HistoryTable      `json:"history"`
 	UnmappedTariffs []UnmappedTariff    `json:"unmappedTariffs"`
 	PlanVersions    []PlanVersionUse    `json:"planVersions"`
 	// Available lists every Omniflow plan version a mapping may name.
@@ -159,6 +162,14 @@ type Report struct {
 	Problems    []Problem     `json:"problems"`
 	Archive     Archive       `json:"archive"`
 	NotMigrated []string      `json:"notMigrated"`
+}
+
+// HistoryTable is what the archive does with one Bedolaga table.
+type HistoryTable struct {
+	Table   string `json:"table"`
+	Create  int    `json:"create"`
+	Already int    `json:"unchanged"`
+	Skipped int    `json:"skip"`
 }
 
 // TicketSection is the support tickets carried as history.
@@ -182,7 +193,7 @@ var NotMigrated = []string{
 	"advertising campaign bonuses already given: a carried registration is attributed with its date and is not given the bonus again",
 	"gifts paid for and not yet received: counted here with their IDs; hand them over or refund them in Bedolaga before cutover",
 	"files attached to support messages: the message says a file was attached; the file stays in the previous bot's chat",
-	"promo codes, promo groups and their discounts: recreate the ones you still want in the panel",
+	"promo codes: they become history; recreate a code you still want in the panel",
 	"referral earnings history and partner withdrawal requests: the earned money is already in the balance",
 	"saved payment methods and recurring payment agreements: customers pay again once in Omniflow",
 	"cabinet passwords: customers sign in with Telegram, an e-mailed link, or a carried Google, Yandex, Discord, or VK ID link",
@@ -266,6 +277,17 @@ func (plan Plan) Pending() int {
 			count++
 		}
 	}
+	if plan.Loyalty != nil && plan.Loyalty.Action == ActionCreate {
+		count++
+	}
+	for _, decision := range plan.Memberships {
+		if decision.Action == ActionCreate {
+			count++
+		}
+	}
+	for _, decision := range plan.Archive {
+		count += len(decision.Create)
+	}
 	return count
 }
 
@@ -282,6 +304,7 @@ func buildReport(plan Plan, source Source, tariffs map[int64]Tariff, mapping Map
 		Gifts:         GiftSection{ByStatus: map[string]int{}},
 		Campaigns:     newSection(), Attributions: newSection(), Goods: GoodsSection{Section: newSection()},
 		Pages: newSection(), Tickets: TicketSection{Section: newSection()}, Consents: newSection(),
+		Loyalty: newSection(), Memberships: newSection(),
 		UnmappedTariffs: []UnmappedTariff{}, PlanVersions: []PlanVersionUse{}, Problems: []Problem{},
 		Archive: source.Archive, NotMigrated: NotMigrated,
 	}
@@ -464,6 +487,18 @@ func buildReport(plan Plan, source Source, tariffs map[int64]Tariff, mapping Map
 	for _, decision := range plan.Consents {
 		report.Consents.add(decision.Action, decision.Codes, nil)
 	}
+	if plan.Loyalty != nil {
+		report.Loyalty.add(plan.Loyalty.Action, plan.Loyalty.Codes, plan.Loyalty.Warnings)
+	}
+	for _, decision := range plan.Memberships {
+		report.Memberships.add(decision.Action, decision.Codes, nil)
+	}
+	report.History = []HistoryTable{}
+	for _, decision := range plan.Archive {
+		report.History = append(report.History, HistoryTable{
+			Table: decision.Table, Create: len(decision.Create), Already: decision.Already, Skipped: decision.Skipped,
+		})
+	}
 	for _, entry := range unmapped {
 		report.UnmappedTariffs = append(report.UnmappedTariffs, *entry)
 	}
@@ -536,6 +571,14 @@ func (report Report) WriteText(writer io.Writer) {
 	writeSection(writer, "Tickets", report.Tickets.Section)
 	fmt.Fprintf(writer, "  messages carried with them: %d\n", report.Tickets.Messages)
 	writeSection(writer, "Consents", report.Consents)
+	writeSection(writer, "Loyalty", report.Loyalty)
+	writeSection(writer, "Loyalty members", report.Memberships)
+	if len(report.History) > 0 {
+		fmt.Fprintln(writer, "History archive (create / unchanged / skip):")
+		for _, table := range report.History {
+			fmt.Fprintf(writer, "  %-36s %6d %6d %6d\n", table.Table, table.Create, table.Already, table.Skipped)
+		}
+	}
 	if report.Gifts.Unclaimed > 0 {
 		fmt.Fprintf(writer, "Unclaimed gifts: %d paid, not received, %s %s — not carried; hand them over or refund them in Bedolaga first\n",
 			report.Gifts.Unclaimed, FormatMinor(report.Gifts.SumMinor), report.Currency)

@@ -47,6 +47,39 @@ func (q *Queries) ButtonClickStats(ctx context.Context, since pgtype.Timestamptz
 	return items, nil
 }
 
+const countCustomerLegacyRecords = `-- name: CountCustomerLegacyRecords :many
+SELECT kind, count(*)::bigint AS count
+FROM legacy_records
+WHERE user_id = $1
+GROUP BY kind
+ORDER BY kind
+`
+
+type CountCustomerLegacyRecordsRow struct {
+	Kind  string `json:"kind"`
+	Count int64  `json:"count"`
+}
+
+func (q *Queries) CountCustomerLegacyRecords(ctx context.Context, userID pgtype.UUID) ([]CountCustomerLegacyRecordsRow, error) {
+	rows, err := q.db.Query(ctx, countCustomerLegacyRecords, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CountCustomerLegacyRecordsRow{}
+	for rows.Next() {
+		var i CountCustomerLegacyRecordsRow
+		if err := rows.Scan(&i.Kind, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const customerLastActivity = `-- name: CustomerLastActivity :one
 SELECT last_activity_at FROM users WHERE id = $1
 `
@@ -166,6 +199,60 @@ func (q *Queries) ListCustomerActivity(ctx context.Context, arg ListCustomerActi
 	for rows.Next() {
 		var i ListCustomerActivityRow
 		if err := rows.Scan(&i.Surface, &i.Action, &i.OccurredAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCustomerLegacyRecords = `-- name: ListCustomerLegacyRecords :many
+SELECT kind, source_id, occurred_at, data
+FROM legacy_records
+WHERE user_id = $1
+  AND ($2::text IS NULL OR kind = $2::text)
+ORDER BY occurred_at DESC NULLS LAST, kind, source_id
+LIMIT $4 OFFSET $3
+`
+
+type ListCustomerLegacyRecordsParams struct {
+	UserID   pgtype.UUID `json:"user_id"`
+	Kind     pgtype.Text `json:"kind"`
+	Skip     int32       `json:"skip"`
+	PageSize int32       `json:"page_size"`
+}
+
+type ListCustomerLegacyRecordsRow struct {
+	Kind       string             `json:"kind"`
+	SourceID   string             `json:"source_id"`
+	OccurredAt pgtype.Timestamptz `json:"occurred_at"`
+	Data       []byte             `json:"data"`
+}
+
+// The previous bot's rows about one customer, newest first.
+func (q *Queries) ListCustomerLegacyRecords(ctx context.Context, arg ListCustomerLegacyRecordsParams) ([]ListCustomerLegacyRecordsRow, error) {
+	rows, err := q.db.Query(ctx, listCustomerLegacyRecords,
+		arg.UserID,
+		arg.Kind,
+		arg.Skip,
+		arg.PageSize,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListCustomerLegacyRecordsRow{}
+	for rows.Next() {
+		var i ListCustomerLegacyRecordsRow
+		if err := rows.Scan(
+			&i.Kind,
+			&i.SourceID,
+			&i.OccurredAt,
+			&i.Data,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

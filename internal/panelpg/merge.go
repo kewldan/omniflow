@@ -484,6 +484,9 @@ func (pair mergePair) move(ctx context.Context, queries *dbgen.Queries) error {
 			return queries.MoveCustomerLegacyPayments(ctx, dbgen.MoveCustomerLegacyPaymentsParams{Source: p.Source, Target: p.Target})
 		},
 		func() error {
+			return queries.MoveCustomerLegacyRecords(ctx, dbgen.MoveCustomerLegacyRecordsParams{Source: p.Source, Target: p.Target})
+		},
+		func() error {
 			return queries.MoveCustomerReferralAliases(ctx, dbgen.MoveCustomerReferralAliasesParams{Source: p.Source, Target: p.Target})
 		},
 		func() error {

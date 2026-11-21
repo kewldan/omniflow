@@ -287,6 +287,33 @@ func (service *Service) loadTarget(ctx context.Context) (bedolagaimport.Target, 
 	for _, sourceID := range consents {
 		target.LegacyConsents[sourceID] = true
 	}
+	programs, err := queries.CountLoyaltyPrograms(ctx)
+	if err != nil {
+		return target, nil, fmt.Errorf("read loyalty programmes: %w", err)
+	}
+	target.LoyaltyProgramCount = int(programs)
+	target.LoyaltyTierCodes, target.LoyaltyMembers, target.ArchivedRecords = map[string]bool{}, map[string]bool{}, map[string]bool{}
+	tierCodes, err := queries.ListEnabledLoyaltyTierCodes(ctx)
+	if err != nil {
+		return target, nil, fmt.Errorf("read loyalty tiers: %w", err)
+	}
+	for _, code := range tierCodes {
+		target.LoyaltyTierCodes[code] = true
+	}
+	memberships, err := queries.ListLoyaltyMembershipKeys(ctx)
+	if err != nil {
+		return target, nil, fmt.Errorf("read loyalty memberships: %w", err)
+	}
+	for _, membership := range memberships {
+		target.LoyaltyMembers[uuidString(membership.UserID)+":"+membership.TierCode] = true
+	}
+	archived, err := queries.ListBedolagaArchiveKeys(ctx)
+	if err != nil {
+		return target, nil, fmt.Errorf("read the history archive: %w", err)
+	}
+	for _, key := range archived {
+		target.ArchivedRecords[bedolagaimport.ArchiveKey(key.Kind, key.SourceID)] = true
+	}
 	return target, versions, nil
 }
 

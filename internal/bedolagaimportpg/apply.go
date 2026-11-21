@@ -192,6 +192,22 @@ func (runner *applier) run(ctx context.Context, plan bedolagaimport.Plan) error 
 			return err
 		}
 	}
+	// The programme before the memberships that name its tiers.
+	if plan.Loyalty != nil {
+		if err := runner.loyalty(ctx, *plan.Loyalty); err != nil {
+			return err
+		}
+	}
+	for _, decision := range plan.Memberships {
+		if err := runner.membership(ctx, decision); err != nil {
+			return err
+		}
+	}
+	for _, decision := range plan.Archive {
+		if err := runner.archive(ctx, decision); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -415,6 +431,118 @@ func (runner *applier) consent(ctx context.Context, decision bedolagaimport.Cons
 		return runner.fail(ctx, "consent", decision.Source.ID, [32]byte{}, err)
 	}
 	runner.result.Written["consent"]++
+	return nil
+}
+
+// ---------------------------------------------------------------------------
+// Loyalty and the history archive
+// ---------------------------------------------------------------------------
+
+// loyalty creates the programme the promo groups become and publishes it, in
+// one transaction, then asks for every customer's standing to be evaluated.
+func (runner *applier) loyalty(ctx context.Context, decision bedolagaimport.LoyaltyDecision) error {
+	if decision.Action != bedolagaimport.ActionCreate {
+		return nil
+	}
+	if err := runner.step(); err != nil {
+		return err
+	}
+	err := runner.inTx(ctx, func(_ pgx.Tx, queries *dbgen.Queries) error {
+		version, err := queries.NextLoyaltyVersion(ctx)
+		if err != nil {
+			return err
+		}
+		program, err := queries.CreateLoyaltyProgram(ctx, dbgen.CreateLoyaltyProgramParams{
+			Version: version, Metric: "spend", Currency: runner.mapping.Currency,
+			WindowDays: decision.WindowDays, GraceDays: 30,
+		})
+		if err != nil {
+			return err
+		}
+		for _, tier := range decision.Tiers {
+			if _, err := queries.CreateLoyaltyTier(ctx, dbgen.CreateLoyaltyTierParams{
+				ProgramID: program.ID, Code: tier.Code, NameEn: tier.Name, NameRu: tier.Name,
+				Threshold: tier.Threshold, DiscountBps: tier.DiscountBPS, SortOrder: tier.SortOrder,
+				TrafficDiscountBps: tier.TrafficDiscountBPS, DeviceDiscountBps: tier.DeviceDiscountBPS,
+				PeriodDiscounts: []byte("{}"), Priority: tier.Priority, ManualOnly: tier.ManualOnly,
+				AllowedPlanIds: []pgtype.UUID{}, AllowedSquadIds: []pgtype.UUID{}, AllowedProviders: []string{},
+			}); err != nil {
+				return err
+			}
+		}
+		if _, err := queries.PublishLoyaltyProgram(ctx, program.ID); err != nil {
+			return err
+		}
+		_, err = queries.RequestLoyaltyRecalculation(ctx)
+		return err
+	})
+	if err != nil {
+		return runner.fail(ctx, "loyalty", 0, [32]byte{}, err)
+	}
+	runner.result.Written["loyalty"]++
+	return nil
+}
+
+// membership keeps a customer in the tier their promo group became.
+func (runner *applier) membership(ctx context.Context, decision bedolagaimport.MembershipDecision) error {
+	if decision.Action != bedolagaimport.ActionCreate {
+		return nil
+	}
+	customerID := runner.customers[decision.Source.UserID]
+	if customerID == "" {
+		customerID = decision.CustomerID
+	}
+	if customerID == "" {
+		return nil
+	}
+	if err := runner.step(); err != nil {
+		return err
+	}
+	if _, err := dbgen.New(runner.service.pool).UpsertLoyaltyMembership(ctx, dbgen.UpsertLoyaltyMembershipParams{
+		UserID: optionalUUID(customerID), TierCode: decision.TierCode, Source: "operator", Note: decision.Note,
+	}); err != nil {
+		return runner.fail(ctx, "loyalty_member", decision.Source.UserID, [32]byte{}, err)
+	}
+	runner.result.Written["loyalty_member"]++
+	return nil
+}
+
+// archiveBatch is how many rows one archive insert carries.
+const archiveBatch = 500
+
+// archive writes one table's rows into the history archive, in batches. A
+// batch that fails is reported and the next one still runs.
+func (runner *applier) archive(ctx context.Context, decision bedolagaimport.ArchiveDecision) error {
+	for start := 0; start < len(decision.Create); start += archiveBatch {
+		if err := runner.step(); err != nil {
+			return err
+		}
+		batch := decision.Create[start:min(start+archiveBatch, len(decision.Create))]
+		params := dbgen.InsertBedolagaArchiveParams{}
+		for _, record := range batch {
+			var customer pgtype.UUID
+			if record.UserID != nil {
+				customer = optionalUUID(runner.customers[*record.UserID])
+			}
+			var occurred pgtype.Timestamptz
+			if record.OccurredAt != nil {
+				occurred = timestamp(*record.OccurredAt)
+			}
+			params.Kinds = append(params.Kinds, strings.ToLower(record.Table))
+			params.SourceIds = append(params.SourceIds, record.SourceID)
+			params.UserIds = append(params.UserIds, customer)
+			params.OccurredAts = append(params.OccurredAts, occurred)
+			params.Datas = append(params.Datas, record.Data)
+		}
+		written, err := dbgen.New(runner.service.pool).InsertBedolagaArchive(ctx, params)
+		if err != nil {
+			if failErr := runner.fail(ctx, "archive", int64(start), [32]byte{}, fmt.Errorf("%s: %w", decision.Table, err)); failErr != nil {
+				return failErr
+			}
+			continue
+		}
+		runner.result.Written["archive"] += int(written)
+	}
 	return nil
 }
 

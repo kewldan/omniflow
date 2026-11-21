@@ -11,6 +11,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -91,6 +92,12 @@ func Read(ctx context.Context, connection *pgx.Conn) (bedolagaimport.Source, err
 		return bedolagaimport.Source{}, err
 	}
 	if source.Consents, err = readConsents(ctx, tx, columns); err != nil {
+		return bedolagaimport.Source{}, err
+	}
+	if source.PromoGroups, source.PromoMembers, err = readPromoGroups(ctx, tx, columns); err != nil {
+		return bedolagaimport.Source{}, err
+	}
+	if source.ArchiveRecords, err = readArchiveRecords(ctx, tx, columns); err != nil {
 		return bedolagaimport.Source{}, err
 	}
 	if source.Archive, err = readArchive(ctx, tx, columns); err != nil {
@@ -321,6 +328,146 @@ func readConsents(ctx context.Context, tx pgx.Tx, columns map[string]map[string]
 		return nil, fmt.Errorf("read legal consents: %w", err)
 	}
 	return consents, nil
+}
+
+// readPromoGroups reads the promo groups and who is in each.
+func readPromoGroups(ctx context.Context, tx pgx.Tx, columns map[string]map[string]bool) (
+	[]bedolagaimport.PromoGroup, []bedolagaimport.PromoMember, error,
+) {
+	if !hasColumns(columns, "promo_groups", "id", "name") {
+		return nil, nil, nil
+	}
+	column := func(name, fallback string) string {
+		if columns["promo_groups"][name] {
+			return name
+		}
+		return fallback
+	}
+	rows, err := tx.Query(ctx, `SELECT id::bigint, name, COALESCE(`+column("priority", "0")+`, 0)::bigint,
+		COALESCE(`+column("server_discount_percent", "0")+`, 0)::bigint,
+		COALESCE(`+column("traffic_discount_percent", "0")+`, 0)::bigint,
+		COALESCE(`+column("device_discount_percent", "0")+`, 0)::bigint,
+		COALESCE(`+column("period_discounts", "NULL")+`::text, 'null') NOT IN ('null', '{}', '[]'),
+		`+column("auto_assign_total_spent_kopeks", "NULL")+`::bigint,
+		COALESCE(`+column("is_default", "false")+`, false)
+		FROM promo_groups ORDER BY id`)
+	if err != nil {
+		return nil, nil, fmt.Errorf("read promo groups: %w", err)
+	}
+	groups, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (bedolagaimport.PromoGroup, error) {
+		var group bedolagaimport.PromoGroup
+		err := row.Scan(&group.ID, &group.Name, &group.Priority, &group.ServerPercent, &group.TrafficPercent,
+			&group.DevicePercent, &group.HasPeriodRules, &group.AutoSpentKopeks, &group.IsDefault)
+		return group, err
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("read promo groups: %w", err)
+	}
+	var members []bedolagaimport.PromoMember
+	switch {
+	case hasColumns(columns, "user_promo_groups", "user_id", "promo_group_id"):
+		assignedAt, assignedBy := "now()", "''"
+		if columns["user_promo_groups"]["assigned_at"] {
+			assignedAt = "COALESCE(assigned_at, now())"
+		}
+		if columns["user_promo_groups"]["assigned_by"] {
+			assignedBy = "COALESCE(assigned_by, '')"
+		}
+		rows, err = tx.Query(ctx, `SELECT user_id::bigint, promo_group_id::bigint, `+assignedAt+`, `+assignedBy+`
+			FROM user_promo_groups ORDER BY user_id, promo_group_id`)
+	case hasColumns(columns, "users", "promo_group_id"):
+		// An older Bedolaga keeps one group on the user.
+		rows, err = tx.Query(ctx, `SELECT id::bigint, promo_group_id::bigint, now(), ''
+			FROM users WHERE promo_group_id IS NOT NULL ORDER BY id`)
+	default:
+		return groups, nil, nil
+	}
+	if err != nil {
+		return nil, nil, fmt.Errorf("read promo group members: %w", err)
+	}
+	members, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (bedolagaimport.PromoMember, error) {
+		var member bedolagaimport.PromoMember
+		err := row.Scan(&member.UserID, &member.GroupID, &member.AssignedAt, &member.AssignedBy)
+		member.AssignedAt = member.AssignedAt.UTC()
+		return member, err
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("read promo group members: %w", err)
+	}
+	return groups, members, nil
+}
+
+// readArchiveRecords reads every row of every Bedolaga table, without the
+// columns that hold secrets, for the history archive. Each row keeps the user
+// it belongs to and when it happened, where the table says.
+func readArchiveRecords(ctx context.Context, tx pgx.Tx, columns map[string]map[string]bool) ([]bedolagaimport.ArchiveRecord, error) {
+	tables := make([]string, 0, len(columns))
+	for table := range columns {
+		if !bedolagaimport.ArchiveSkippedTables.MatchString(table) {
+			tables = append(tables, table)
+		}
+	}
+	sort.Strings(tables)
+	records := []bedolagaimport.ArchiveRecord{}
+	for _, table := range tables {
+		names := columns[table]
+		secret := []string{}
+		for name := range names {
+			if bedolagaimport.ArchiveSecretColumns.MatchString(name) {
+				secret = append(secret, name)
+			}
+		}
+		sort.Strings(secret)
+		quoted := pgx.Identifier{table}.Sanitize()
+		data := "to_jsonb(t)"
+		for _, name := range secret {
+			data += " - " + quoteLiteral(name)
+		}
+		id := "md5(to_jsonb(t)::text)"
+		if names["id"] {
+			id = "t.id::text"
+		}
+		user := "NULL::bigint"
+		if table == "users" {
+			user = "t.id::bigint"
+		} else if !bedolagaimport.ArchiveActorTables[table] {
+			for _, name := range bedolagaimport.ArchiveUserColumns {
+				if names[name] {
+					user = "t." + pgx.Identifier{name}.Sanitize() + "::bigint"
+					break
+				}
+			}
+		}
+		when := "NULL::timestamptz"
+		for _, name := range bedolagaimport.ArchiveTimeColumns {
+			if names[name] {
+				when = "t." + pgx.Identifier{name}.Sanitize() + "::timestamptz"
+				break
+			}
+		}
+		rows, err := tx.Query(ctx, `SELECT `+id+`, `+user+`, `+when+`, `+data+` FROM `+quoted+` t`)
+		if err != nil {
+			return nil, fmt.Errorf("archive %s: %w", table, err)
+		}
+		read, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (bedolagaimport.ArchiveRecord, error) {
+			record := bedolagaimport.ArchiveRecord{Table: table}
+			err := row.Scan(&record.SourceID, &record.UserID, &record.OccurredAt, &record.Data)
+			if record.OccurredAt != nil {
+				at := record.OccurredAt.UTC()
+				record.OccurredAt = &at
+			}
+			return record, err
+		})
+		if err != nil {
+			return nil, fmt.Errorf("archive %s: %w", table, err)
+		}
+		records = append(records, read...)
+	}
+	return records, nil
+}
+
+func quoteLiteral(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "''") + "'"
 }
 
 func loadColumns(ctx context.Context, tx pgx.Tx) (map[string]map[string]bool, error) {

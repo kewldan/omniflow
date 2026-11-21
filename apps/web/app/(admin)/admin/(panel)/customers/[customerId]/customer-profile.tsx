@@ -35,6 +35,7 @@ import { useSession } from "@/lib/session";
 import { MessageCustomerCard, WalletAdjustmentCard } from "./customer-actions";
 import { ActivityPanel, CustomerControlsPanel } from "./customer-controls";
 import { AuditTimeline, ReferralPanel, SupportPanel } from "./customer-history";
+import { LegacyRecords } from "./legacy-records";
 import { LoyaltyPanel } from "./loyalty-panel";
 import { MergePanel } from "./merge-panel";
 import { NotificationsPanel } from "./notifications-panel";
@@ -230,7 +231,10 @@ export function CustomerProfileView({ customerId }: { customerId: string }) {
           <CustomerControlsPanel customerId={customerId} />
         </TabsContent>
         <TabsContent value="activity">
-          <ActivityPanel active={tab === "activity"} customerId={customerId} />
+          <div className="flex flex-col gap-4">
+            <ActivityPanel active={tab === "activity"} customerId={customerId} />
+            <LegacyRecords active={tab === "activity"} customerId={customerId} />
+          </div>
         </TabsContent>
         {can("risk.read") && (
           <TabsContent value="risk">

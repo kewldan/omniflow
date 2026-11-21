@@ -1538,6 +1538,16 @@ type LegacyPayment struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
+type LegacyRecord struct {
+	Source     string             `json:"source"`
+	Kind       string             `json:"kind"`
+	SourceID   string             `json:"source_id"`
+	UserID     pgtype.UUID        `json:"user_id"`
+	OccurredAt pgtype.Timestamptz `json:"occurred_at"`
+	Data       []byte             `json:"data"`
+	ImportedAt pgtype.Timestamptz `json:"imported_at"`
+}
+
 type LegacySubscriptionPeriod struct {
 	ID        pgtype.UUID        `json:"id"`
 	UserID    pgtype.UUID        `json:"user_id"`

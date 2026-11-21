@@ -123,3 +123,19 @@ JOIN plan_prices pr ON pr.plan_version_id = v.id
 WHERE v.plan_id = sqlc.arg(plan_id) AND v.retired_at IS NULL
 ORDER BY v.version DESC, pr.currency
 LIMIT 1;
+
+-- name: ListCustomerLegacyRecords :many
+-- The previous bot's rows about one customer, newest first.
+SELECT kind, source_id, occurred_at, data
+FROM legacy_records
+WHERE user_id = sqlc.arg(user_id)
+  AND (sqlc.narg(kind)::text IS NULL OR kind = sqlc.narg(kind)::text)
+ORDER BY occurred_at DESC NULLS LAST, kind, source_id
+LIMIT sqlc.arg(page_size) OFFSET sqlc.arg(skip);
+
+-- name: CountCustomerLegacyRecords :many
+SELECT kind, count(*)::bigint AS count
+FROM legacy_records
+WHERE user_id = sqlc.arg(user_id)
+GROUP BY kind
+ORDER BY kind;

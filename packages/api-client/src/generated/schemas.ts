@@ -2645,6 +2645,42 @@ export const ListPanelCustomerConsentsResponse = zod.object({
 });
 
 /**
+ * Requires customers.read. What the previous bot recorded about the customer and Omniflow has no table of its own for — wallet transactions, referral earnings, subscription events, promo code uses, notifications — newest first, as it was, without the columns that held secrets.
+ */
+export const ListPanelCustomerLegacyRecordsParams = zod.object({
+  customerID: zod.uuid(),
+});
+
+export const listPanelCustomerLegacyRecordsQueryBeforeMin = 0;
+
+export const ListPanelCustomerLegacyRecordsQueryParams = zod.object({
+  kind: zod.string().optional().describe("One table of the previous bot."),
+  before: zod
+    .int()
+    .min(listPanelCustomerLegacyRecordsQueryBeforeMin)
+    .optional()
+    .describe("Rows to skip."),
+});
+
+export const ListPanelCustomerLegacyRecordsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      kind: zod.string().describe("The previous bot's table."),
+      sourceId: zod.string(),
+      occurredAt: zod.iso.datetime({ offset: true }).optional(),
+      data: zod.record(zod.string(), zod.unknown()),
+    }),
+  ),
+  kinds: zod.array(
+    zod.object({
+      kind: zod.string(),
+      count: zod.int(),
+    }),
+  ),
+  total: zod.int().describe("Rows for the kind asked for, or for every kind."),
+});
+
+/**
  * Requires finance.read rather than customer access: a support operator can see that a customer has a balance without reading every movement that produced it. The ledger is append-only and exposes reads only.
  */
 export const ListPanelCustomerWalletParams = zod.object({

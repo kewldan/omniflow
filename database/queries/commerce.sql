@@ -40,6 +40,9 @@ WITH revoked_identities AS (
 ), redacted_support AS (
   UPDATE support_messages SET body = '[anonymized]', telegram_message_id = NULL
   WHERE support_messages.ticket_id IN (SELECT support_tickets.id FROM support_tickets WHERE support_tickets.user_id = sqlc.arg(target_user_id))
+), erased_history AS (
+  -- The previous bot's rows about this customer are their data verbatim.
+  DELETE FROM legacy_records WHERE legacy_records.user_id = sqlc.arg(target_user_id)
 )
 DELETE FROM referral_codes WHERE referral_codes.user_id = sqlc.arg(target_user_id);
 

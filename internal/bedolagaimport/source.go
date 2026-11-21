@@ -195,5 +195,12 @@ type Source struct {
 	Pages    []Page
 	Tickets  []Ticket
 	Consents []Consent
-	Archive  Archive
+	// PromoGroups and PromoMembers become a loyalty programme and its
+	// memberships.
+	PromoGroups  []PromoGroup
+	PromoMembers []PromoMember
+	// ArchiveRecords are every row of every other Bedolaga table, kept as
+	// history.
+	ArchiveRecords []ArchiveRecord
+	Archive        Archive
 }

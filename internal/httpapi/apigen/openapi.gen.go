@@ -9126,6 +9126,28 @@ type PanelLegacyPeriodPayments struct {
 	Payments    int64  `json:"payments"`
 }
 
+// PanelLegacyRecord defines model for PanelLegacyRecord.
+type PanelLegacyRecord struct {
+	Data map[string]interface{} `json:"data"`
+
+	// Kind The previous bot's table.
+	Kind       string     `json:"kind"`
+	OccurredAt *time.Time `json:"occurredAt,omitempty"`
+	SourceId   string     `json:"sourceId"`
+}
+
+// PanelLegacyRecordList defines model for PanelLegacyRecordList.
+type PanelLegacyRecordList struct {
+	Items []PanelLegacyRecord `json:"items"`
+	Kinds []struct {
+		Count int64  `json:"count"`
+		Kind  string `json:"kind"`
+	} `json:"kinds"`
+
+	// Total Rows for the kind asked for, or for every kind.
+	Total int64 `json:"total"`
+}
+
 // PanelLocalization defines model for PanelLocalization.
 type PanelLocalization struct {
 	Description *string `json:"description,omitempty"`
@@ -12608,6 +12630,15 @@ type ListPanelCustomerChargesParams struct {
 	PageSize *PageSize `form:"pageSize,omitempty" json:"pageSize,omitempty"`
 }
 
+// ListPanelCustomerLegacyRecordsParams defines parameters for ListPanelCustomerLegacyRecords.
+type ListPanelCustomerLegacyRecordsParams struct {
+	// Kind One table of the previous bot.
+	Kind *string `form:"kind,omitempty" json:"kind,omitempty"`
+
+	// Before Rows to skip.
+	Before *int32 `form:"before,omitempty" json:"before,omitempty"`
+}
+
 // MergePanelCustomerJSONBody defines parameters for MergePanelCustomer.
 type MergePanelCustomerJSONBody struct {
 	Into openapi_types.UUID `json:"into"`
@@ -14949,6 +14980,9 @@ type ServerInterface interface {
 	// (GET /v1/panel/customers/{customerID}/consents)
 	ListPanelCustomerConsents(w http.ResponseWriter, r *http.Request, customerID CustomerID)
 
+	// (GET /v1/panel/customers/{customerID}/legacy-records)
+	ListPanelCustomerLegacyRecords(w http.ResponseWriter, r *http.Request, customerID CustomerID, params ListPanelCustomerLegacyRecordsParams)
+
 	// (POST /v1/panel/customers/{customerID}/merge)
 	MergePanelCustomer(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID, params MergePanelCustomerParams)
 
@@ -16696,6 +16730,11 @@ func (_ Unimplemented) ListPanelCustomerCharges(w http.ResponseWriter, r *http.R
 
 // (GET /v1/panel/customers/{customerID}/consents)
 func (_ Unimplemented) ListPanelCustomerConsents(w http.ResponseWriter, r *http.Request, customerID CustomerID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/customers/{customerID}/legacy-records)
+func (_ Unimplemented) ListPanelCustomerLegacyRecords(w http.ResponseWriter, r *http.Request, customerID CustomerID, params ListPanelCustomerLegacyRecordsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -27608,6 +27647,61 @@ func (siw *ServerInterfaceWrapper) ListPanelCustomerConsents(w http.ResponseWrit
 	handler.ServeHTTP(w, r)
 }
 
+// ListPanelCustomerLegacyRecords operation middleware
+func (siw *ServerInterfaceWrapper) ListPanelCustomerLegacyRecords(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerID" -------------
+	var customerID CustomerID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerID", chi.URLParam(r, "customerID"), &customerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPanelCustomerLegacyRecordsParams
+
+	// ------------- Optional query parameter "kind" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", r.URL.Query(), &params.Kind, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "kind"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "before" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "before", r.URL.Query(), &params.Before, runtime.BindQueryParameterOptions{Type: "integer", Format: "int32"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "before"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "before", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPanelCustomerLegacyRecords(w, r, customerID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // MergePanelCustomer operation middleware
 func (siw *ServerInterfaceWrapper) MergePanelCustomer(w http.ResponseWriter, r *http.Request) {
 
@@ -35288,6 +35382,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/customers/{customerID}/consents", wrapper.ListPanelCustomerConsents)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/customers/{customerID}/legacy-records", wrapper.ListPanelCustomerLegacyRecords)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/customers/{customerID}/wallet", wrapper.ListPanelCustomerWallet)
@@ -47363,6 +47460,45 @@ func (response ListPanelCustomerConsents403ApplicationProblemPlusJSONResponse) V
 	return err
 }
 
+type ListPanelCustomerLegacyRecordsRequestObject struct {
+	CustomerID CustomerID `json:"customerID"`
+	Params     ListPanelCustomerLegacyRecordsParams
+}
+
+type ListPanelCustomerLegacyRecordsResponseObject interface {
+	VisitListPanelCustomerLegacyRecordsResponse(w http.ResponseWriter) error
+}
+
+type ListPanelCustomerLegacyRecords200JSONResponse PanelLegacyRecordList
+
+func (response ListPanelCustomerLegacyRecords200JSONResponse) VisitListPanelCustomerLegacyRecordsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelCustomerLegacyRecords403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListPanelCustomerLegacyRecords403ApplicationProblemPlusJSONResponse) VisitListPanelCustomerLegacyRecordsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type MergePanelCustomerRequestObject struct {
 	CustomerID openapi_types.UUID `json:"customerID"`
 	Params     MergePanelCustomerParams
@@ -55989,6 +56125,9 @@ type StrictServerInterface interface {
 	// (GET /v1/panel/customers/{customerID}/consents)
 	ListPanelCustomerConsents(ctx context.Context, request ListPanelCustomerConsentsRequestObject) (ListPanelCustomerConsentsResponseObject, error)
 
+	// (GET /v1/panel/customers/{customerID}/legacy-records)
+	ListPanelCustomerLegacyRecords(ctx context.Context, request ListPanelCustomerLegacyRecordsRequestObject) (ListPanelCustomerLegacyRecordsResponseObject, error)
+
 	// (POST /v1/panel/customers/{customerID}/merge)
 	MergePanelCustomer(ctx context.Context, request MergePanelCustomerRequestObject) (MergePanelCustomerResponseObject, error)
 
@@ -63767,6 +63906,33 @@ func (sh *strictHandler) ListPanelCustomerConsents(w http.ResponseWriter, r *htt
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListPanelCustomerConsentsResponseObject); ok {
 		if err := validResponse.VisitListPanelCustomerConsentsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPanelCustomerLegacyRecords operation middleware
+func (sh *strictHandler) ListPanelCustomerLegacyRecords(w http.ResponseWriter, r *http.Request, customerID CustomerID, params ListPanelCustomerLegacyRecordsParams) {
+	var request ListPanelCustomerLegacyRecordsRequestObject
+
+	request.CustomerID = customerID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPanelCustomerLegacyRecords(ctx, request.(ListPanelCustomerLegacyRecordsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPanelCustomerLegacyRecords")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPanelCustomerLegacyRecordsResponseObject); ok {
+		if err := validResponse.VisitListPanelCustomerLegacyRecordsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

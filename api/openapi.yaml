@@ -1082,6 +1082,21 @@ paths:
       responses:
         "200": {description: Consent records, content: {application/json: {schema: {$ref: "#/components/schemas/PanelConsentList"}}}}
         "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/customers/{customerID}/legacy-records:
+    get:
+      operationId: listPanelCustomerLegacyRecords
+      tags: [panel]
+      description: >-
+        Requires customers.read. What the previous bot recorded about the customer and Omniflow has no
+        table of its own for — wallet transactions, referral earnings, subscription events, promo code
+        uses, notifications — newest first, as it was, without the columns that held secrets.
+      parameters:
+        - {$ref: "#/components/parameters/CustomerID"}
+        - {name: kind, in: query, schema: {type: string}, description: "One table of the previous bot."}
+        - {name: before, in: query, schema: {type: integer, format: int32, minimum: 0}, description: "Rows to skip."}
+      responses:
+        "200": {description: Archived rows, content: {application/json: {schema: {$ref: "#/components/schemas/PanelLegacyRecordList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
   /v1/panel/customers/{customerID}/wallet:
     get:
       operationId: listPanelCustomerWallet
@@ -7036,6 +7051,21 @@ components:
           nullable: true
           description: "What customers hold on their wallets now, per currency. Null for an operator without finance.read."
           items: {$ref: "#/components/schemas/PanelWalletBalance"}
+    PanelLegacyRecord:
+      type: object
+      required: [kind, sourceId, data]
+      properties:
+        kind: {type: string, description: "The previous bot's table."}
+        sourceId: {type: string}
+        occurredAt: {type: string, format: date-time}
+        data: {type: object, additionalProperties: true}
+    PanelLegacyRecordList:
+      type: object
+      required: [items, kinds, total]
+      properties:
+        items: {type: array, items: {$ref: "#/components/schemas/PanelLegacyRecord"}}
+        kinds: {type: array, items: {type: object, required: [kind, count], properties: {kind: {type: string}, count: {type: integer, format: int64}}}}
+        total: {type: integer, format: int64, description: "Rows for the kind asked for, or for every kind."}
     PanelWalletBalance:
       type: object
       required: [currency, totalMinor, holders]

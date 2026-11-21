@@ -3056,6 +3056,24 @@ CREATE TABLE public.legacy_payments (
 
 
 --
+-- Name: legacy_records; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.legacy_records (
+    source text NOT NULL,
+    kind text NOT NULL,
+    source_id text NOT NULL,
+    user_id uuid,
+    occurred_at timestamp with time zone,
+    data jsonb NOT NULL,
+    imported_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT legacy_records_data_object CHECK ((jsonb_typeof(data) = 'object'::text)),
+    CONSTRAINT legacy_records_kind_shape CHECK ((kind ~ '^[a-z][a-z0-9_]{0,62}$'::text)),
+    CONSTRAINT legacy_records_source_known CHECK ((source = 'bedolaga'::text))
+);
+
+
+--
 -- Name: legacy_subscription_periods; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -7002,6 +7020,14 @@ ALTER TABLE ONLY public.legacy_payments
 
 
 --
+-- Name: legacy_records legacy_records_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.legacy_records
+    ADD CONSTRAINT legacy_records_pkey PRIMARY KEY (source, kind, source_id);
+
+
+--
 -- Name: legacy_subscription_periods legacy_subscription_periods_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9017,6 +9043,13 @@ CREATE INDEX legacy_payments_paid_idx ON public.legacy_payments USING btree (pai
 --
 
 CREATE INDEX legacy_payments_user_paid_idx ON public.legacy_payments USING btree (user_id, paid_at);
+
+
+--
+-- Name: legacy_records_user_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX legacy_records_user_idx ON public.legacy_records USING btree (user_id, occurred_at DESC NULLS LAST) WHERE (user_id IS NOT NULL);
 
 
 --
@@ -11208,6 +11241,14 @@ ALTER TABLE ONLY public.legacy_goods_orders
 
 ALTER TABLE ONLY public.legacy_payments
     ADD CONSTRAINT legacy_payments_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: legacy_records legacy_records_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.legacy_records
+    ADD CONSTRAINT legacy_records_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --

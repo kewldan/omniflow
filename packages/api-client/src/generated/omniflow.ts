@@ -1293,6 +1293,28 @@ export interface PanelDashboard {
   walletBalances?: PanelWalletBalance[] | null;
 }
 
+export type PanelLegacyRecordData = { [key: string]: unknown };
+
+export interface PanelLegacyRecord {
+  /** The previous bot's table. */
+  kind: string;
+  sourceId: string;
+  occurredAt?: string;
+  data: PanelLegacyRecordData;
+}
+
+export type PanelLegacyRecordListKindsItem = {
+  kind: string;
+  count: number;
+};
+
+export interface PanelLegacyRecordList {
+  items: PanelLegacyRecord[];
+  kinds: PanelLegacyRecordListKindsItem[];
+  /** Rows for the kind asked for, or for every kind. */
+  total: number;
+}
+
 export type PanelIncidentAction = (typeof PanelIncidentAction)[keyof typeof PanelIncidentAction];
 
 export const PanelIncidentAction = {
@@ -6838,6 +6860,16 @@ export type ListPanelCustomerTicketsParams = {
    * @maximum 500
    */
   pageSize?: PageSizeParameter;
+};
+
+export type ListPanelCustomerLegacyRecordsParams = {
+  /** One table of the previous bot. */
+  kind?: string;
+  /**
+   * Rows to skip.
+   * @minimum 0
+   */
+  before?: number;
 };
 
 export type ListPanelCustomerWalletParams = {
@@ -15821,6 +15853,108 @@ export const useListPanelCustomerConsents = <TError = Promise<ProblemResponse>>(
   const swrKey =
     swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelCustomerConsentsKey(customerID) : null));
   const swrFn = () => listPanelCustomerConsents(customerID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelCustomerLegacyRecordsResponse200 = {
+  data: PanelLegacyRecordList;
+  status: 200;
+};
+
+export type listPanelCustomerLegacyRecordsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelCustomerLegacyRecordsResponseSuccess =
+  listPanelCustomerLegacyRecordsResponse200 & {
+    headers: Headers;
+  };
+export type listPanelCustomerLegacyRecordsResponseError =
+  listPanelCustomerLegacyRecordsResponse403 & {
+    headers: Headers;
+  };
+
+export type listPanelCustomerLegacyRecordsResponse =
+  | listPanelCustomerLegacyRecordsResponseSuccess
+  | listPanelCustomerLegacyRecordsResponseError;
+
+export const getListPanelCustomerLegacyRecordsUrl = (
+  customerID: string,
+  params?: ListPanelCustomerLegacyRecordsParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/customers/${customerID}/legacy-records?${stringifiedParams}`
+    : `/v1/panel/customers/${customerID}/legacy-records`;
+};
+
+/**
+ * Requires customers.read. What the previous bot recorded about the customer and Omniflow has no table of its own for — wallet transactions, referral earnings, subscription events, promo code uses, notifications — newest first, as it was, without the columns that held secrets.
+ */
+export const listPanelCustomerLegacyRecords = async (
+  customerID: string,
+  params?: ListPanelCustomerLegacyRecordsParams,
+  options?: RequestInit,
+): Promise<listPanelCustomerLegacyRecordsResponse> => {
+  const res = await fetch(getListPanelCustomerLegacyRecordsUrl(customerID, params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelCustomerLegacyRecordsResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as listPanelCustomerLegacyRecordsResponse;
+};
+
+export const getListPanelCustomerLegacyRecordsKey = (
+  customerID: string,
+  params?: ListPanelCustomerLegacyRecordsParams,
+) => [`/v1/panel/customers/${customerID}/legacy-records`, ...(params ? [params] : [])] as const;
+
+export type ListPanelCustomerLegacyRecordsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelCustomerLegacyRecords>>
+>;
+
+export const useListPanelCustomerLegacyRecords = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  params?: ListPanelCustomerLegacyRecordsParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelCustomerLegacyRecords>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && customerID !== null && customerID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ??
+    (() => (isEnabled ? getListPanelCustomerLegacyRecordsKey(customerID, params) : null));
+  const swrFn = () => listPanelCustomerLegacyRecords(customerID, params, fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 

@@ -471,3 +471,27 @@ WHERE kind = 'support' AND payload->>'ticketId' = sqlc.arg(ticket_id)::text;
 INSERT INTO consent_records (user_id, purpose, granted, policy_version, source, occurred_at, request_id)
 VALUES (sqlc.arg(user_id), sqlc.arg(purpose), true, 'bedolaga', sqlc.arg(source), sqlc.arg(occurred_at),
         sqlc.arg(request_id));
+
+-- ---------------------------------------------------------------------------
+-- Loyalty and the history archive
+-- ---------------------------------------------------------------------------
+
+-- name: CountLoyaltyPrograms :one
+SELECT count(*)::bigint FROM loyalty_programs;
+
+-- name: ListEnabledLoyaltyTierCodes :many
+SELECT t.code FROM loyalty_tiers t JOIN loyalty_programs p ON p.id = t.program_id WHERE p.enabled;
+
+-- name: ListLoyaltyMembershipKeys :many
+SELECT user_id, tier_code FROM loyalty_memberships;
+
+-- name: ListBedolagaArchiveKeys :many
+SELECT kind, source_id FROM legacy_records WHERE source = 'bedolaga';
+
+-- name: InsertBedolagaArchive :execrows
+-- One batch of archived rows. A row archived before is left as it was.
+INSERT INTO legacy_records (source, kind, source_id, user_id, occurred_at, data)
+SELECT 'bedolaga', unnest(sqlc.arg(kinds)::text[]), unnest(sqlc.arg(source_ids)::text[]),
+       unnest(sqlc.arg(user_ids)::uuid[]), unnest(sqlc.arg(occurred_ats)::timestamptz[]),
+       unnest(sqlc.arg(datas)::jsonb[])
+ON CONFLICT (source, kind, source_id) DO NOTHING;

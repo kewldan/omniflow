@@ -2,6 +2,7 @@ package panelpg
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"slices"
 	"strings"
@@ -241,4 +242,61 @@ func (service *Service) SearchCustomersAdvanced(ctx context.Context, filter Adva
 		customers = append(customers, customer)
 	}
 	return customers, nil
+}
+
+// LegacyRecord is one row the previous bot kept about a customer.
+type LegacyRecord struct {
+	Kind       string          `json:"kind"`
+	SourceID   string          `json:"sourceId"`
+	OccurredAt *time.Time      `json:"occurredAt,omitempty"`
+	Data       json.RawMessage `json:"data"`
+}
+
+// LegacyKindCount is how many rows of one kind a customer has.
+type LegacyKindCount struct {
+	Kind  string `json:"kind"`
+	Count int64  `json:"count"`
+}
+
+// legacyPage is how many archived rows one page carries.
+const legacyPage = 50
+
+// CustomerLegacyRecords reads a page of the previous bot's history about a
+// customer, optionally of one kind, with the count of every kind.
+func (service *Service) CustomerLegacyRecords(
+	ctx context.Context, customerID, kind string, skip int32,
+) ([]LegacyRecord, []LegacyKindCount, int64, error) {
+	id, err := parseUUID(customerID)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	queries := service.queries()
+	counts, err := queries.CountCustomerLegacyRecords(ctx, id)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	kinds := make([]LegacyKindCount, 0, len(counts))
+	total := int64(0)
+	for _, row := range counts {
+		kinds = append(kinds, LegacyKindCount{Kind: row.Kind, Count: row.Count})
+		if kind == "" || row.Kind == kind {
+			total += row.Count
+		}
+	}
+	rows, err := queries.ListCustomerLegacyRecords(ctx, dbgen.ListCustomerLegacyRecordsParams{
+		UserID: id, Kind: optionalText(kind), PageSize: legacyPage, Skip: max(skip, 0),
+	})
+	if err != nil {
+		return nil, nil, 0, err
+	}
+	records := make([]LegacyRecord, 0, len(rows))
+	for _, row := range rows {
+		record := LegacyRecord{Kind: row.Kind, SourceID: row.SourceID, Data: json.RawMessage(row.Data)}
+		if row.OccurredAt.Valid {
+			at := row.OccurredAt.Time.UTC()
+			record.OccurredAt = &at
+		}
+		records = append(records, record)
+	}
+	return records, kinds, total, nil
 }

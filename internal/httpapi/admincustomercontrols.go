@@ -23,6 +23,7 @@ func (handlers *AdminHandlers) mountCustomerControls(secure chi.Router) {
 		read.Get("/customers/advanced", handlers.searchCustomersAdvanced)
 		read.Get("/customers/{customerID}/controls", handlers.customerControls)
 		read.Get("/customers/{customerID}/activity", handlers.customerActivity)
+		read.Get("/customers/{customerID}/legacy-records", handlers.customerLegacyRecords)
 	})
 	secure.With(handlers.requirePermission(rbac.PermissionMarketingRead)).
 		Get("/reports/bot-buttons", handlers.botButtonStats)
@@ -51,6 +52,12 @@ func (handlers *AdminHandlers) customerControls(writer http.ResponseWriter, requ
 func (handlers *AdminHandlers) customerActivity(writer http.ResponseWriter, request *http.Request) {
 	items, err := handlers.operations.CustomerActivityLog(request.Context(), chi.URLParam(request, "customerID"))
 	handlers.respond(writer, request, map[string]any{"items": items}, err)
+}
+
+func (handlers *AdminHandlers) customerLegacyRecords(writer http.ResponseWriter, request *http.Request) {
+	records, kinds, total, err := handlers.operations.CustomerLegacyRecords(request.Context(),
+		chi.URLParam(request, "customerID"), request.URL.Query().Get("kind"), int32(queryInt(request, "before")))
+	handlers.respond(writer, request, map[string]any{"items": records, "kinds": kinds, "total": total}, err)
 }
 
 func (handlers *AdminHandlers) botButtonStats(writer http.ResponseWriter, request *http.Request) {
