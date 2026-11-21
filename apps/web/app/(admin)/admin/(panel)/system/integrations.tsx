@@ -3,6 +3,7 @@
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
+import { Checkbox } from "@omniflow/ui/checkbox";
 import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { Switch } from "@omniflow/ui/switch";
@@ -16,6 +17,8 @@ import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 import { useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 
+import type { RbacCatalog } from "../operators/roles";
+
 type Token = {
   id: string;
   name: string;
@@ -23,6 +26,8 @@ type Token = {
   createdAt: string;
   lastUsedAt?: string;
   revokedAt?: string;
+  fullAccess: boolean;
+  permissions?: string[] | null;
 };
 type TokenRequest = { method: string; route: string; status: number; occurredAt: string };
 type Webhook = {
@@ -63,6 +68,13 @@ export function IntegrationsCard() {
   const { run, pending } = useOperatorAction();
   const ids = { token: useId(), hookName: useId(), hookUrl: useId() };
   const [tokenName, setTokenName] = useState("");
+  const [tokenPermissions, setTokenPermissions] = useState<string[]>([]);
+  const [fullAccess, setFullAccess] = useState(false);
+  const translatePermission = useTranslations("admin.permissions");
+  const { data: catalog } = useSWR<RbacCatalog, ApiError>(
+    writable ? "/v1/panel/rbac/catalog" : null,
+    fetcher,
+  );
   const [hookName, setHookName] = useState("");
   const [hookUrl, setHookUrl] = useState("https://");
   const [hookEvents, setHookEvents] = useState<string[]>([]);
@@ -121,6 +133,15 @@ export function IntegrationsCard() {
                 <span className="font-medium">{token.name}</span>
                 <code className="text-muted-foreground text-xs">{token.prefix}…</code>
                 {token.revokedAt ? <Badge variant="danger">{translate("revoked")}</Badge> : null}
+                {token.fullAccess ? (
+                  <Badge variant="warning">{translate("fullAccess")}</Badge>
+                ) : (
+                  (token.permissions ?? []).map((permission) => (
+                    <Badge key={permission} variant="outline">
+                      {permission}
+                    </Badge>
+                  ))
+                )}
                 {token.lastUsedAt ? (
                   <span className="text-muted-foreground text-xs">
                     {translate("lastUsed")} <Timestamp value={token.lastUsedAt} />
@@ -163,7 +184,7 @@ export function IntegrationsCard() {
             </div>
           ))}
           {writable ? (
-            <div className="flex flex-wrap items-end gap-2">
+            <div className="flex flex-col gap-3 rounded-md border p-3">
               <div className="flex flex-col gap-1">
                 <Label htmlFor={ids.token}>{translate("tokenName")}</Label>
                 <Input
@@ -172,15 +193,60 @@ export function IntegrationsCard() {
                   value={tokenName}
                 />
               </div>
+              <fieldset className="flex flex-col gap-2">
+                <legend className="mb-1 font-medium text-sm">
+                  {translate("tokenPermissions")}
+                </legend>
+                <p className="text-muted-foreground text-xs">{translate("tokenPermissionsHint")}</p>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {(catalog?.permissions ?? []).map((permission) => {
+                    const checkboxId = `${ids.token}-${permission}`;
+                    return (
+                      <div className="flex items-center gap-2" key={permission}>
+                        <Checkbox
+                          checked={fullAccess || tokenPermissions.includes(permission)}
+                          disabled={fullAccess}
+                          id={checkboxId}
+                          onCheckedChange={(checked) =>
+                            setTokenPermissions(
+                              checked
+                                ? [...tokenPermissions, permission]
+                                : tokenPermissions.filter((item) => item !== permission),
+                            )
+                          }
+                        />
+                        <Label htmlFor={checkboxId}>
+                          {translatePermission.has(permission)
+                            ? translatePermission(permission)
+                            : permission}
+                        </Label>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={fullAccess}
+                    id={`${ids.token}-full`}
+                    onCheckedChange={setFullAccess}
+                  />
+                  <Label htmlFor={`${ids.token}-full`}>{translate("fullAccessSwitch")}</Label>
+                </div>
+              </fieldset>
               <Button
-                disabled={!tokenName.trim()}
+                className="self-start"
+                disabled={!tokenName.trim() || (!fullAccess && tokenPermissions.length === 0)}
                 onClick={async () => {
                   const created = await create<{ token: string }>("/v1/panel/integrations/tokens", {
                     name: tokenName,
+                    permissions: fullAccess ? [] : tokenPermissions,
+                    fullAccess,
                   });
                   if (created) {
                     setSecret(created.token);
                     setTokenName("");
+                    setTokenPermissions([]);
+                    setFullAccess(false);
                     await refreshTokens();
                   }
                 }}

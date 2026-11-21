@@ -37,7 +37,7 @@ month that had closed.
 | Section | What it answers |
 | --- | --- |
 | Trial conversion | Of the trials claimed in this period, how many of those customers have since paid for anything. |
-| Returning payers | Of the customers who paid in this period, how many had paid before it, and what customers spent on VPN in a previous bot in the period. |
+| Returning payers | Of the customers who paid in this period, how many had paid before it, what customers spent on VPN in a previous bot in the period, and what that bot's shop delivered. |
 | By kind of sale | New purchases, automatic renewals, extensions, upgrades, downgrades, add-ons, wallet top-ups, gifts, and digital goods, per currency. |
 | By plan | Which plan version sold, at which billing period, and what it was worth at list price. |
 | Provider money by day | One chart per currency, with the same figures as a table beside it. |
@@ -59,7 +59,10 @@ wallet already was. "Had paid before" counts any such payment before the period
 began, so the months right after a migration still tell a returning customer
 from a new one. What customers spent on VPN in the previous bot inside the period is shown on the
 same card, per currency, and is never added to the sales figures: it is history
-to compare against, not revenue Omniflow settled.
+to compare against, not revenue Omniflow settled. So is what the previous bot's
+Stars shop delivered in the period — orders, stars, and what customers paid for
+them from the balance — when a [migration](/operations/migrate-from-bedolaga#stars-shop-orders)
+carried its orders.
 
 Trial conversion leaves out the claims a migration carried for customers who
 subscribed in the previous bot without a trial: those block a trial without
@@ -129,9 +132,22 @@ worth seeing.
 
 `GET /v1/panel/reports/sales/export` takes the same four parameters and returns
 one CSV with a `section` column — `operation`, `plan`, `day`, `refund`, `trial`,
-`payers`, `legacy` — rather than separate files, because the breakdowns are views
-of one period. `payers` has a `paid` and a `returning` row; `legacy` has one row
-per currency with the count in `orders` and the amount in `paid_minor`.
+`payers`, `legacy`, `legacy_goods` — rather than separate files, because the
+breakdowns are views of one period. `payers` has a `paid` and a `returning` row;
+`legacy` has one row per currency with the count in `orders` and the amount in
+`paid_minor`; `legacy_goods` has one row per currency with `telegram_stars` as the
+key, the stars in `detail`, the count in `orders`, and the amount in `paid_minor`.
+
+### Payments by customer
+
+`GET /v1/panel/reports/customer-payments` (`since`, `until`, `currency`, and
+`format=csv` for a file) lists every customer who paid in the period, one row per
+customer and currency: the count and amount of Omniflow's payments and of a
+previous bot's apart, and the first and last payment ever. A payment is the same
+as for returning payers. It is what a cohort or a repeat-payment figure is
+computed from outside Omniflow, and a [named API
+token](/integrations/api#panel-routes-for-named-tokens) with `finance.read` reads
+it under `/v1/admin`. At most 100000 rows.
 
 Amounts are exported in **minor units, unscaled**, exactly as they are stored.
 Dividing by a hundred is wrong for every zero-decimal currency, and it is

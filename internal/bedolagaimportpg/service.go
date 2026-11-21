@@ -243,6 +243,28 @@ func (service *Service) loadTarget(ctx context.Context) (bedolagaimport.Target, 
 	for _, discount := range discounts {
 		target.LegacyDiscounts[uuidString(discount.UserID)] = discount.LastDiscountAt.Time.UTC()
 	}
+	target.AdCampaigns, target.CampaignAttributions, target.LegacyGoods = map[string]bool{}, map[string]string{}, map[int64]bool{}
+	codes, err := queries.ListAdCampaignCodes(ctx)
+	if err != nil {
+		return target, nil, fmt.Errorf("read advertising campaigns: %w", err)
+	}
+	for _, code := range codes {
+		target.AdCampaigns[code] = true
+	}
+	attributions, err := queries.ListCampaignAttributionCodes(ctx)
+	if err != nil {
+		return target, nil, fmt.Errorf("read campaign attributions: %w", err)
+	}
+	for _, attribution := range attributions {
+		target.CampaignAttributions[uuidString(attribution.UserID)] = attribution.Code
+	}
+	goods, err := queries.ListBedolagaLegacyGoods(ctx)
+	if err != nil {
+		return target, nil, fmt.Errorf("read carried-over stars orders: %w", err)
+	}
+	for _, sourceID := range goods {
+		target.LegacyGoods[sourceID] = true
+	}
 	return target, versions, nil
 }
 

@@ -133,6 +133,13 @@ type Target struct {
 	// ReferralAliases maps an upper-cased carried referral code to the
 	// customer it belongs to.
 	ReferralAliases map[string]string
+	// AdCampaigns holds the codes of Omniflow's advertising campaigns.
+	AdCampaigns map[string]bool
+	// CampaignAttributions maps a customer to the code of the campaign they
+	// are attributed to.
+	CampaignAttributions map[string]string
+	// LegacyGoods holds the Bedolaga Stars orders already carried, by ID.
+	LegacyGoods map[int64]bool
 }
 
 // ItemKey is the map key of Target.Items.
@@ -225,6 +232,9 @@ type Plan struct {
 	Payments      []PaymentDecision
 	Discounts     []DiscountDecision
 	Aliases       []AliasDecision
+	Campaigns     []CampaignDecision
+	Attributions  []AttributionDecision
+	Goods         []GoodsDecision
 	Report        Report
 }
 
@@ -297,6 +307,8 @@ func BuildPlan(source Source, remote map[int64]RemoteUser, target Target, mappin
 		plan.Referrals = append(plan.Referrals, decideReferral(user, plan.Users, userIndex, target))
 	}
 	decideHistory(&plan, source, target, mapping, userIndex)
+	decideCampaigns(&plan, source, target, userIndex)
+	decideGoods(&plan, source, target, mapping, userIndex)
 	plan.Report = buildReport(plan, source, tariffs, mapping, now)
 	for _, version := range target.PlanVersions {
 		plan.Report.Available = append(plan.Report.Available, version)

@@ -337,6 +337,13 @@ function PayersCard({ locale, report }: { locale: string; report: SalesReport })
             value={formatMoney(line.amountMinor, line.currency, locale)}
           />
         ))}
+        {(report.legacyGoods ?? []).map((line) => (
+          <Figure
+            key={`goods-${line.currency}`}
+            label={translate("payers.legacyGoods", { count: line.orders, stars: line.quantity })}
+            value={formatMoney(line.amountMinor, line.currency, locale)}
+          />
+        ))}
       </CardContent>
     </Card>
   );

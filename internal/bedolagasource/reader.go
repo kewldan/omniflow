@@ -78,10 +78,100 @@ func Read(ctx context.Context, connection *pgx.Conn) (bedolagaimport.Source, err
 	if source.Discounts, err = readDiscounts(ctx, tx, columns); err != nil {
 		return bedolagaimport.Source{}, err
 	}
+	if source.Campaigns, source.CampaignRegistrations, err = readCampaigns(ctx, tx, columns); err != nil {
+		return bedolagaimport.Source{}, err
+	}
+	if source.StarsOrders, err = readStarsOrders(ctx, tx, columns); err != nil {
+		return bedolagaimport.Source{}, err
+	}
 	if source.Archive, err = readArchive(ctx, tx, columns); err != nil {
 		return bedolagaimport.Source{}, err
 	}
 	return source, nil
+}
+
+func hasColumns(columns map[string]map[string]bool, table string, names ...string) bool {
+	for _, name := range names {
+		if !columns[table][name] {
+			return false
+		}
+	}
+	return true
+}
+
+// readCampaigns reads the advertising campaigns and who registered through
+// them. A Bedolaga without the tables has none.
+func readCampaigns(ctx context.Context, tx pgx.Tx, columns map[string]map[string]bool) (
+	[]bedolagaimport.Campaign, []bedolagaimport.CampaignRegistration, error,
+) {
+	if !hasColumns(columns, "advertising_campaigns", "id", "name", "start_parameter", "bonus_type",
+		"balance_bonus_kopeks", "subscription_duration_days", "is_active") ||
+		!hasColumns(columns, "advertising_campaign_registrations", "id", "campaign_id", "user_id", "created_at") {
+		return nil, nil, nil
+	}
+	tariffDays := "0"
+	if columns["advertising_campaigns"]["tariff_duration_days"] {
+		tariffDays = "COALESCE(tariff_duration_days, 0)"
+	}
+	rows, err := tx.Query(ctx, `SELECT id::bigint, name, start_parameter, bonus_type,
+		COALESCE(balance_bonus_kopeks, 0)::bigint, COALESCE(subscription_duration_days, 0)::bigint,
+		`+tariffDays+`::bigint, COALESCE(is_active, false)
+		FROM advertising_campaigns ORDER BY id`)
+	if err != nil {
+		return nil, nil, fmt.Errorf("read advertising campaigns: %w", err)
+	}
+	campaigns, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (bedolagaimport.Campaign, error) {
+		var campaign bedolagaimport.Campaign
+		err := row.Scan(&campaign.ID, &campaign.Name, &campaign.StartParameter, &campaign.BonusType,
+			&campaign.BalanceBonusKopeks, &campaign.SubscriptionDays, &campaign.TariffDays, &campaign.Active)
+		return campaign, err
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("read advertising campaigns: %w", err)
+	}
+	rows, err = tx.Query(ctx, `SELECT id::bigint, campaign_id::bigint, user_id::bigint, created_at
+		FROM advertising_campaign_registrations WHERE created_at IS NOT NULL ORDER BY id`)
+	if err != nil {
+		return nil, nil, fmt.Errorf("read campaign registrations: %w", err)
+	}
+	registrations, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (bedolagaimport.CampaignRegistration, error) {
+		var registration bedolagaimport.CampaignRegistration
+		err := row.Scan(&registration.ID, &registration.CampaignID, &registration.UserID, &registration.CreatedAt)
+		registration.CreatedAt = registration.CreatedAt.UTC()
+		return registration, err
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("read campaign registrations: %w", err)
+	}
+	return campaigns, registrations, nil
+}
+
+// readStarsOrders reads the shop's delivered Telegram Stars orders. Every
+// other status — paid and waiting, failed, refunded, in review — is money
+// that did not become stars and stays in the archive's count.
+func readStarsOrders(ctx context.Context, tx pgx.Tx, columns map[string]map[string]bool) ([]bedolagaimport.StarsOrder, error) {
+	if !hasColumns(columns, "stars_orders", "id", "user_id", "quantity", "amount_kopeks", "status", "created_at") {
+		return nil, nil
+	}
+	delivered := "created_at"
+	if columns["stars_orders"]["completed_at"] {
+		delivered = "COALESCE(completed_at, created_at)"
+	}
+	rows, err := tx.Query(ctx, `SELECT id::bigint, user_id::bigint, quantity::bigint, amount_kopeks::bigint, `+delivered+`
+		FROM stars_orders WHERE status = 'completed' AND user_id IS NOT NULL ORDER BY id`)
+	if err != nil {
+		return nil, fmt.Errorf("read stars orders: %w", err)
+	}
+	orders, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (bedolagaimport.StarsOrder, error) {
+		var order bedolagaimport.StarsOrder
+		err := row.Scan(&order.ID, &order.UserID, &order.Quantity, &order.AmountKopeks, &order.DeliveredAt)
+		order.DeliveredAt = order.DeliveredAt.UTC()
+		return order, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("read stars orders: %w", err)
+	}
+	return orders, nil
 }
 
 func loadColumns(ctx context.Context, tx pgx.Tx) (map[string]map[string]bool, error) {
@@ -346,7 +436,9 @@ var archiveQueries = []struct {
 	query string
 	set   func(*bedolagaimport.Archive, []bedolagaimport.CountSum)
 }{
-	{"transactions", `SELECT COALESCE(type, ''), count(*), COALESCE(sum(amount_kopeks), 0)::bigint
+	// Bedolaga writes some debits negative and some positive; the archive
+	// counts what moved, so each row is taken by its size.
+	{"transactions", `SELECT COALESCE(type, ''), count(*), COALESCE(sum(abs(amount_kopeks)), 0)::bigint
 		FROM transactions GROUP BY 1 ORDER BY 1`,
 		func(archive *bedolagaimport.Archive, rows []bedolagaimport.CountSum) { archive.Transactions = rows }},
 	{"transactions", `SELECT COALESCE(payment_method, 'unknown'), count(*), COALESCE(sum(amount_kopeks), 0)::bigint

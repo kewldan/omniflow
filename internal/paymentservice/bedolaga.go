@@ -201,6 +201,16 @@ func (service *Service) recordBedolagaClaim(
 		VALUES ('topup', $1, $2) ON CONFLICT DO NOTHING`, "bedolaga-payment:"+row.Provider+":"+row.ProviderReference, payload); err != nil {
 		return "", false, err
 	}
+	if row.Status == "credited" {
+		// The customer is told the money arrived, through the bot's ordinary
+		// event notices: preferences, quiet hours, and delivery are theirs.
+		params, _ := json.Marshal(map[string]any{"amountMinor": row.AmountMinor, "currency": row.Currency})
+		if _, err = service.pool.Exec(ctx, `INSERT INTO customer_event_notices (user_id, kind, params, dedupe_key)
+			VALUES ($1, 'wallet_credited', $2, $3) ON CONFLICT (dedupe_key) DO NOTHING`,
+			row.UserID, params, "bedolaga-payment:"+row.Provider+":"+row.ProviderReference); err != nil {
+			return "", false, err
+		}
+	}
 	return outcome, true, nil
 }
 

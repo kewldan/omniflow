@@ -192,6 +192,64 @@ func (q *Queries) InsertBedolagaPaymentClaim(ctx context.Context, arg InsertBedo
 	return i, err
 }
 
+const insertImportedAdCampaign = `-- name: InsertImportedAdCampaign :execrows
+INSERT INTO ad_campaigns (code, name, bonus_kind, bonus_value, currency, active)
+VALUES ($1, $2, $3, $4,
+        $5, $6)
+ON CONFLICT (code) DO NOTHING
+`
+
+type InsertImportedAdCampaignParams struct {
+	Code       string `json:"code"`
+	Name       string `json:"name"`
+	BonusKind  string `json:"bonus_kind"`
+	BonusValue int64  `json:"bonus_value"`
+	Currency   string `json:"currency"`
+	Active     bool   `json:"active"`
+}
+
+// A Bedolaga campaign under its /start code. An Omniflow campaign that has
+// the code already is the same link, and is left as the operator set it.
+func (q *Queries) InsertImportedAdCampaign(ctx context.Context, arg InsertImportedAdCampaignParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertImportedAdCampaign,
+		arg.Code,
+		arg.Name,
+		arg.BonusKind,
+		arg.BonusValue,
+		arg.Currency,
+		arg.Active,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const insertImportedCampaignAttribution = `-- name: InsertImportedCampaignAttribution :execrows
+INSERT INTO customer_campaign_attributions (user_id, campaign_id, attributed_at, bonus_granted_at)
+SELECT $1, c.id, $2, $2
+FROM ad_campaigns c WHERE c.code = $3
+ON CONFLICT (user_id) DO NOTHING
+`
+
+type InsertImportedCampaignAttributionParams struct {
+	UserID       pgtype.UUID        `json:"user_id"`
+	AttributedAt pgtype.Timestamptz `json:"attributed_at"`
+	Code         string             `json:"code"`
+}
+
+// A carried customer attributed to the campaign that first brought them, on
+// the original date. The bonus was given in Bedolaga, so it is recorded as
+// granted then and is never given again. A customer already attributed
+// keeps their attribution.
+func (q *Queries) InsertImportedCampaignAttribution(ctx context.Context, arg InsertImportedCampaignAttributionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertImportedCampaignAttribution, arg.UserID, arg.AttributedAt, arg.Code)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const insertImportedCustomer = `-- name: InsertImportedCustomer :one
 
 INSERT INTO users (status, locale, created_at, updated_at, suspended_at)
@@ -522,6 +580,37 @@ func (q *Queries) InsertImportedTrialClaim(ctx context.Context, arg InsertImport
 	return result.RowsAffected(), nil
 }
 
+const insertLegacyGoodsOrder = `-- name: InsertLegacyGoodsOrder :execrows
+INSERT INTO legacy_goods_orders (user_id, source, source_id, kind, quantity, amount_minor, currency, delivered_at)
+VALUES ($1, 'bedolaga', $2, 'telegram_stars', $3,
+        $4, $5, $6)
+ON CONFLICT (source, source_id) DO NOTHING
+`
+
+type InsertLegacyGoodsOrderParams struct {
+	UserID      pgtype.UUID        `json:"user_id"`
+	SourceID    int64              `json:"source_id"`
+	Quantity    int64              `json:"quantity"`
+	AmountMinor int64              `json:"amount_minor"`
+	Currency    string             `json:"currency"`
+	DeliveredAt pgtype.Timestamptz `json:"delivered_at"`
+}
+
+func (q *Queries) InsertLegacyGoodsOrder(ctx context.Context, arg InsertLegacyGoodsOrderParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertLegacyGoodsOrder,
+		arg.UserID,
+		arg.SourceID,
+		arg.Quantity,
+		arg.AmountMinor,
+		arg.Currency,
+		arg.DeliveredAt,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const insertLegacyPayment = `-- name: InsertLegacyPayment :execrows
 INSERT INTO legacy_payments (user_id, source, source_id, method, amount_minor, currency, paid_at)
 VALUES ($1, $2, $3, $4,
@@ -597,6 +686,31 @@ func (q *Queries) LatestBedolagaImport(ctx context.Context) (pgtype.Timestamptz,
 	return finished_at, err
 }
 
+const listAdCampaignCodes = `-- name: ListAdCampaignCodes :many
+SELECT code FROM ad_campaigns
+`
+
+// The advertising campaigns a Bedolaga campaign can be matched to by code.
+func (q *Queries) ListAdCampaignCodes(ctx context.Context) ([]string, error) {
+	rows, err := q.db.Query(ctx, listAdCampaignCodes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var code string
+		if err := rows.Scan(&code); err != nil {
+			return nil, err
+		}
+		items = append(items, code)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listBedolagaImportItems = `-- name: ListBedolagaImportItems :many
 SELECT kind, source_id, status, codes, user_id, subscription_id, entitlement_id, fingerprint, last_run_id, created_at, updated_at, applied_at FROM bedolaga_import_items ORDER BY kind, source_id
 `
@@ -658,6 +772,30 @@ func (q *Queries) ListBedolagaImportRuns(ctx context.Context, pageSize int32) ([
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listBedolagaLegacyGoods = `-- name: ListBedolagaLegacyGoods :many
+SELECT source_id FROM legacy_goods_orders WHERE source = 'bedolaga'
+`
+
+func (q *Queries) ListBedolagaLegacyGoods(ctx context.Context) ([]int64, error) {
+	rows, err := q.db.Query(ctx, listBedolagaLegacyGoods)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []int64{}
+	for rows.Next() {
+		var source_id int64
+		if err := rows.Scan(&source_id); err != nil {
+			return nil, err
+		}
+		items = append(items, source_id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -801,6 +939,37 @@ func (q *Queries) ListBedolagaReferralAliases(ctx context.Context) ([]ListBedola
 	for rows.Next() {
 		var i ListBedolagaReferralAliasesRow
 		if err := rows.Scan(&i.Code, &i.UserID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCampaignAttributionCodes = `-- name: ListCampaignAttributionCodes :many
+SELECT ca.user_id, c.code FROM customer_campaign_attributions ca
+JOIN ad_campaigns c ON c.id = ca.campaign_id
+`
+
+type ListCampaignAttributionCodesRow struct {
+	UserID pgtype.UUID `json:"user_id"`
+	Code   string      `json:"code"`
+}
+
+// Who is already attributed to a campaign, and to which.
+func (q *Queries) ListCampaignAttributionCodes(ctx context.Context) ([]ListCampaignAttributionCodesRow, error) {
+	rows, err := q.db.Query(ctx, listCampaignAttributionCodes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListCampaignAttributionCodesRow{}
+	for rows.Next() {
+		var i ListCampaignAttributionCodesRow
+		if err := rows.Scan(&i.UserID, &i.Code); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1192,7 +1361,7 @@ func (q *Queries) LockBedolagaImportItem(ctx context.Context, arg LockBedolagaIm
 
 const markImportedBotBlocked = `-- name: MarkImportedBotBlocked :exec
 INSERT INTO bot_delivery_state (user_id, status, last_error_code, consecutive_failures)
-VALUES ($1, 'blocked', 'bot_blocked', 0)
+VALUES ($1, 'blocked', 'imported_from_bedolaga', 0)
 ON CONFLICT (user_id) DO NOTHING
 `
 

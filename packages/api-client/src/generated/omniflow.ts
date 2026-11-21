@@ -2744,6 +2744,15 @@ export interface PanelLegacyPeriodPayments {
   amountMinor: number;
 }
 
+export interface PanelLegacyPeriodGoods {
+  currency: string;
+  orders: number;
+  /** Telegram Stars delivered */
+  quantity: number;
+  /** What the previous bot's shop took for them, from customers' balances. History, never part of Omniflow's sales. */
+  amountMinor: number;
+}
+
 export type PanelBedolagaPaymentStatus =
   (typeof PanelBedolagaPaymentStatus)[keyof typeof PanelBedolagaPaymentStatus];
 
@@ -2797,6 +2806,7 @@ export interface PanelSalesReport {
   trials: PanelTrialConversion;
   payers: PanelReturningPayers;
   legacy: PanelLegacyPeriodPayments[];
+  legacyGoods: PanelLegacyPeriodGoods[];
   generatedAt: string;
 }
 
@@ -2838,6 +2848,17 @@ export interface PanelWebhookHealthLine {
   rejected: number;
   failed: number;
   processed: number;
+}
+
+export interface PanelCustomerPayments {
+  customerId: string;
+  currency: string;
+  payments: number;
+  amountMinor: number;
+  legacyPayments: number;
+  legacyAmountMinor: number;
+  firstPaidAt: string;
+  lastPaidAt: string;
 }
 
 export interface PanelPaymentHealth {
@@ -7266,6 +7287,28 @@ export type GetPanelPaymentHealthParams = {
   until?: ReportUntilParameter;
   /** The zone the day boundaries are computed in. "Sales on the third" means the operator's third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day. */
   timezone?: ReportTimezoneParameter;
+};
+
+export type GetPanelCustomerPaymentsParams = {
+  /** Start of the period, inclusive. Defaults to thirty days before `until`. */
+  since?: ReportSinceParameter;
+  /** End of the period, exclusive. Defaults to now. */
+  until?: ReportUntilParameter;
+  /** ISO currency to restrict the report to. Omit for every currency. */
+  currency?: ReportCurrencyParameter;
+  format?: GetPanelCustomerPaymentsFormat;
+};
+
+export type GetPanelCustomerPaymentsFormat =
+  (typeof GetPanelCustomerPaymentsFormat)[keyof typeof GetPanelCustomerPaymentsFormat];
+
+export const GetPanelCustomerPaymentsFormat = {
+  json: "json",
+  csv: "csv",
+} as const;
+
+export type GetPanelCustomerPayments200One = {
+  customers: PanelCustomerPayments[];
 };
 
 export type GetPanelDeviceReport200ByPlatformItemByAppItem = {
@@ -23966,6 +24009,114 @@ export const useGetPanelPaymentHealth = <TError = Promise<ProblemResponse>>(
   const swrKey =
     swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelPaymentHealthKey(params) : null));
   const swrFn = () => getPanelPaymentHealth(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelCustomerPaymentsResponse200ApplicationJson = {
+  data: GetPanelCustomerPayments200One;
+  status: 200;
+};
+
+export type getPanelCustomerPaymentsResponse200TextCsv = {
+  data: string;
+  status: 200;
+};
+
+export type getPanelCustomerPaymentsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelCustomerPaymentsResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type getPanelCustomerPaymentsResponseSuccess = (
+  | getPanelCustomerPaymentsResponse200ApplicationJson
+  | getPanelCustomerPaymentsResponse200TextCsv
+) & {
+  headers: Headers;
+};
+export type getPanelCustomerPaymentsResponseError = (
+  | getPanelCustomerPaymentsResponse403
+  | getPanelCustomerPaymentsResponse422
+) & {
+  headers: Headers;
+};
+
+export type getPanelCustomerPaymentsResponse =
+  | getPanelCustomerPaymentsResponseSuccess
+  | getPanelCustomerPaymentsResponseError;
+
+export const getGetPanelCustomerPaymentsUrl = (params?: GetPanelCustomerPaymentsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/reports/customer-payments?${stringifiedParams}`
+    : `/v1/panel/reports/customer-payments`;
+};
+
+/**
+ * Requires finance.read. Every customer who paid in the period, one row per customer and currency: Omniflow's payments and the previous bot's apart, and the first and last payment ever, which is what a cohort or a repeat-payment figure is computed from. A payment is a provider-settled order for a non-zero amount or a payment a previous bot recorded, as in the returning-payers figure. With `format=csv` the same rows as a file with a stable header. Also served under /v1/admin to a named API token. At most 100000 rows.
+ */
+export const getPanelCustomerPayments = async (
+  params?: GetPanelCustomerPaymentsParams,
+  options?: RequestInit,
+): Promise<getPanelCustomerPaymentsResponse> => {
+  const res = await fetch(getGetPanelCustomerPaymentsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const contentType = (res.headers.get("content-type") ?? "").toLowerCase();
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelCustomerPaymentsResponse["data"] = body
+    ? contentType.includes("json")
+      ? JSON.parse(body)
+      : body
+    : {};
+  return { data, status: res.status, headers: res.headers } as getPanelCustomerPaymentsResponse;
+};
+
+export const getGetPanelCustomerPaymentsKey = (params?: GetPanelCustomerPaymentsParams) =>
+  [`/v1/panel/reports/customer-payments`, ...(params ? [params] : [])] as const;
+
+export type GetPanelCustomerPaymentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelCustomerPayments>>
+>;
+
+export const useGetPanelCustomerPayments = <TError = Promise<ProblemResponse>>(
+  params?: GetPanelCustomerPaymentsParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelCustomerPayments>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelCustomerPaymentsKey(params) : null));
+  const swrFn = () => getPanelCustomerPayments(params, fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 

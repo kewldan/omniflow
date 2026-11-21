@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/omniflow/omniflow/internal/panelpg"
 	"github.com/omniflow/omniflow/internal/paymentservice"
 	"github.com/omniflow/omniflow/internal/platform"
+	"github.com/omniflow/omniflow/internal/rbac"
 )
 
 const maxJSONBody = 1 << 20
@@ -40,6 +42,25 @@ type CommerceHandlers struct {
 	promoLimiter  *platform.RateLimiter
 	operatorToken string
 	operations    *operations
+	// machine mounts the panel's own handlers under /v1/admin for named
+	// tokens; nil leaves them out, as a build without the panel has them.
+	machine func(chi.Router)
+	// mcp is Omniflow's own MCP server, served at /v1/mcp to named tokens.
+	mcp http.Handler
+}
+
+// WithMCP serves an MCP server at /v1/mcp behind the /v1/admin token check
+// and request log.
+func (handlers *CommerceHandlers) WithMCP(server http.Handler) *CommerceHandlers {
+	handlers.mcp = server
+	return handlers
+}
+
+// WithMachineRoutes adds routes the panel serves to /v1/admin, behind the
+// same token check and request log as the rest of the prefix.
+func (handlers *CommerceHandlers) WithMachineRoutes(mount func(chi.Router)) *CommerceHandlers {
+	handlers.machine = mount
+	return handlers
 }
 
 func NewCommerceHandlers(queries *dbgen.Queries, catalogService *catalogpg.Service, commerceStore *commercepg.Store, paymentService *paymentservice.Service, customerService *customerpg.Service, importService *importservice.Service, fulfillmentService *fulfillment.Service, promoLimiter *platform.RateLimiter, operatorToken string) *CommerceHandlers {
@@ -49,32 +70,38 @@ func NewCommerceHandlers(queries *dbgen.Queries, catalogService *catalogpg.Servi
 func (handlers *CommerceHandlers) Mount(router chi.Router) {
 	router.Get("/v1/catalog/plans", handlers.listPlans)
 	router.Post("/v1/payments/webhooks/{provider}", handlers.paymentWebhook)
+	if handlers.mcp != nil {
+		router.With(handlers.operatorAuth).Handle("/v1/mcp", handlers.mcp)
+	}
 	router.Route("/v1/admin", func(admin chi.Router) {
 		admin.Use(handlers.operatorAuth)
 		admin.Use(handlers.auditOperatorToken)
-		admin.Post("/plans", handlers.createPlan)
-		admin.Post("/plans/{planID}/versions", handlers.createPlanVersion)
-		admin.Post("/promotions", handlers.createPromotion)
-		admin.Patch("/customers/{customerID}", handlers.updateCustomer)
-		admin.Post("/customers/{customerID}/identities", handlers.linkIdentity)
-		admin.Delete("/customers/{customerID}/identities/{identityID}", handlers.unlinkIdentity)
-		admin.Post("/customers/{customerID}/contacts", handlers.createContact)
-		admin.Post("/customers/{customerID}/consents", handlers.recordConsent)
-		admin.Post("/customers/{customerID}/lifecycle", handlers.customerLifecycle)
-		admin.Post("/imports/remnawave/preview", handlers.previewImport)
-		admin.Post("/imports/remnawave/{importID}/resume", handlers.resumeImport)
-		admin.Post("/imports/remnawave/{importID}/apply", handlers.applyImport)
-		admin.Post("/orders", handlers.createOrder)
-		admin.Get("/orders/{orderID}", handlers.getOrder)
-		admin.Post("/orders/{orderID}/cancel", handlers.cancelOrder)
-		admin.Post("/orders/{orderID}/payments", handlers.createPayment)
-		admin.Post("/payments/{paymentID}/reconcile", handlers.reconcilePayment)
-		admin.Post("/payments/{paymentID}/refunds", handlers.refundPayment)
-		admin.Post("/payments/{paymentID}/manual-decision", handlers.manualDecision)
-		admin.Post("/customers/{customerID}/wallet-adjustments", handlers.adjustWallet)
-		admin.Get("/fulfillment/drifts", handlers.listFulfillmentDrifts)
-		admin.Post("/entitlements/{entitlementID}/operations", handlers.enqueueFulfillmentOperation)
+		admin.With(handlers.tokenPermission(rbac.PermissionCatalogWrite)).Post("/plans", handlers.createPlan)
+		admin.With(handlers.tokenPermission(rbac.PermissionCatalogWrite)).Post("/plans/{planID}/versions", handlers.createPlanVersion)
+		admin.With(handlers.tokenPermission(rbac.PermissionCatalogWrite)).Post("/promotions", handlers.createPromotion)
+		admin.With(handlers.tokenPermission(rbac.PermissionCustomersWrite)).Patch("/customers/{customerID}", handlers.updateCustomer)
+		admin.With(handlers.tokenPermission(rbac.PermissionCustomersWrite)).Post("/customers/{customerID}/identities", handlers.linkIdentity)
+		admin.With(handlers.tokenPermission(rbac.PermissionCustomersWrite)).Delete("/customers/{customerID}/identities/{identityID}", handlers.unlinkIdentity)
+		admin.With(handlers.tokenPermission(rbac.PermissionCustomersWrite)).Post("/customers/{customerID}/contacts", handlers.createContact)
+		admin.With(handlers.tokenPermission(rbac.PermissionCustomersWrite)).Post("/customers/{customerID}/consents", handlers.recordConsent)
+		admin.With(handlers.tokenPermission(rbac.PermissionCustomersWrite)).Post("/customers/{customerID}/lifecycle", handlers.customerLifecycle)
+		admin.With(handlers.tokenPermission(rbac.PermissionCustomersWrite)).Post("/imports/remnawave/preview", handlers.previewImport)
+		admin.With(handlers.tokenPermission(rbac.PermissionCustomersWrite)).Post("/imports/remnawave/{importID}/resume", handlers.resumeImport)
+		admin.With(handlers.tokenPermission(rbac.PermissionCustomersWrite)).Post("/imports/remnawave/{importID}/apply", handlers.applyImport)
+		admin.With(handlers.tokenPermission(rbac.PermissionFinanceWrite)).Post("/orders", handlers.createOrder)
+		admin.With(handlers.tokenPermission(rbac.PermissionFinanceRead)).Get("/orders/{orderID}", handlers.getOrder)
+		admin.With(handlers.tokenPermission(rbac.PermissionFinanceWrite)).Post("/orders/{orderID}/cancel", handlers.cancelOrder)
+		admin.With(handlers.tokenPermission(rbac.PermissionFinanceWrite)).Post("/orders/{orderID}/payments", handlers.createPayment)
+		admin.With(handlers.tokenPermission(rbac.PermissionFinanceWrite)).Post("/payments/{paymentID}/reconcile", handlers.reconcilePayment)
+		admin.With(handlers.tokenPermission(rbac.PermissionFinanceWrite)).Post("/payments/{paymentID}/refunds", handlers.refundPayment)
+		admin.With(handlers.tokenPermission(rbac.PermissionFinanceWrite)).Post("/payments/{paymentID}/manual-decision", handlers.manualDecision)
+		admin.With(handlers.tokenPermission(rbac.PermissionFinanceWrite)).Post("/customers/{customerID}/wallet-adjustments", handlers.adjustWallet)
+		admin.With(handlers.tokenPermission(rbac.PermissionSystemRead)).Get("/fulfillment/drifts", handlers.listFulfillmentDrifts)
+		admin.With(handlers.tokenPermission(rbac.PermissionSubscriptionsWrite)).Post("/entitlements/{entitlementID}/operations", handlers.enqueueFulfillmentOperation)
 		handlers.mountOperations(admin)
+		if handlers.machine != nil {
+			handlers.machine(admin)
+		}
 	})
 }
 
@@ -212,7 +239,10 @@ func (handlers *CommerceHandlers) operatorAuth(next http.Handler) http.Handler {
 			token, err := handlers.queries.ResolveAPIToken(request.Context(), panelpg.HashAPIToken(provided))
 			if err == nil {
 				recorder := &statusRecorder{ResponseWriter: writer, status: http.StatusOK}
-				ctx := context.WithValue(request.Context(), apiTokenContextKey{}, apiTokenIdentity{id: token.ID, name: token.Name})
+				ctx := context.WithValue(request.Context(), apiTokenContextKey{}, apiTokenIdentity{
+					id: token.ID, name: token.Name, permissions: token.Permissions, scoped: token.Permissions != nil,
+					createdBy: uuidString(token.CreatedBy),
+				})
 				next.ServeHTTP(recorder, request.WithContext(ctx))
 				route := request.URL.Path
 				if pattern := chi.RouteContext(request.Context()).RoutePattern(); pattern != "" {
@@ -235,6 +265,44 @@ type apiTokenContextKey struct{}
 type apiTokenIdentity struct {
 	id   pgtype.UUID
 	name string
+	// scoped is a token with a permission list; permissions is the list. A
+	// token without one, and the shared APP_OPERATOR_TOKEN, may call every
+	// route.
+	scoped      bool
+	permissions []string
+	// createdBy is the operator who made the token; the panel's handlers act
+	// as them, within the token's permissions. Empty once they are deleted.
+	createdBy string
+}
+
+// APITokenFrom reports the named token a /v1/admin request carries: its
+// name, the operator who made it, its permissions, and whether it has full
+// access. ok is false for the shared APP_OPERATOR_TOKEN.
+func APITokenFrom(ctx context.Context) (name, createdBy string, permissions []string, fullAccess, ok bool) {
+	identity, ok := ctx.Value(apiTokenContextKey{}).(apiTokenIdentity)
+	if !ok {
+		return "", "", nil, false, false
+	}
+	return identity.name, identity.createdBy, identity.permissions, !identity.scoped, true
+}
+
+// tokenPermission refuses a /v1/admin route to a named token whose
+// permission list does not include it. The permissions are the operators'
+// own catalogue, so a token is granted what an operator would need to do the
+// same thing in the panel. The refusal is a 403 the token's request log
+// records like any other call.
+func (handlers *CommerceHandlers) tokenPermission(permission rbac.Permission) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+			identity, ok := request.Context().Value(apiTokenContextKey{}).(apiTokenIdentity)
+			if ok && identity.scoped && !slices.Contains(identity.permissions, string(permission)) {
+				writeProblem(writer, request, http.StatusForbidden, "token_permission_denied",
+					"This token lacks the "+string(permission)+" permission")
+				return
+			}
+			next.ServeHTTP(writer, request)
+		})
+	}
 }
 
 // operatorActorFor names who did a /v1/admin request in the audit trail: the

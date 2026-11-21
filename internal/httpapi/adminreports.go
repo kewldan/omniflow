@@ -24,6 +24,7 @@ func (handlers *AdminHandlers) mountReports(secure chi.Router) {
 		read.Get("/reports/sales", handlers.salesReport)
 		read.Get("/reports/sales/export", handlers.exportSalesReport)
 		read.Get("/reports/payments", handlers.paymentHealth)
+		read.Get("/reports/customer-payments", handlers.customerPayments)
 	})
 }
 
@@ -127,5 +128,9 @@ func (handlers *AdminHandlers) exportSalesReport(writer http.ResponseWriter, req
 	for _, line := range report.Legacy {
 		write("legacy", "payments", "", line.Currency, strconv.FormatInt(line.Payments, 10), "", "",
 			strconv.FormatInt(line.AmountMinor, 10), "")
+	}
+	for _, line := range report.LegacyGoods {
+		write("legacy_goods", "telegram_stars", strconv.FormatInt(line.Quantity, 10), line.Currency,
+			strconv.FormatInt(line.Orders, 10), "", "", strconv.FormatInt(line.AmountMinor, 10), "")
 	}
 }

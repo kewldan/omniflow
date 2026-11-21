@@ -185,5 +185,10 @@ type Source struct {
 	Payments      []Payment
 	Discounts     []Discount
 	Gifts         []Gift
-	Archive       Archive
+	// Campaigns and CampaignRegistrations are the advertising campaigns and
+	// who arrived through them; StarsOrders are the delivered shop orders.
+	Campaigns             []Campaign
+	CampaignRegistrations []CampaignRegistration
+	StarsOrders           []StarsOrder
+	Archive               Archive
 }

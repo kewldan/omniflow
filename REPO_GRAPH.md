@@ -107,7 +107,7 @@ without the suffix (`commerce` → `commercepg`, `customerauth` →
 **Transport**
 - `httpapi` — every HTTP route, middleware (sessions, CSRF, RBAC, rate limits, request IDs), webhooks, SSE.
 - `botapp` — the Telegram bot: menus, purchase flows, gifts, shop, referrals, support, operator commands.
-- `mcpserver` — Omniflow's admin capabilities over MCP (not wired into a process yet).
+- `mcpserver` — Omniflow's admin capabilities over MCP, served read-only by the API at `/v1/mcp` to named API tokens.
 
 **Commerce core**
 - `commerce` (rules: pricing, quotes, promotions, delivery policy), `commercepg` (orders, settlement, offers, credits).

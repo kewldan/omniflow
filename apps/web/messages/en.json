@@ -1375,7 +1375,8 @@
         "paid": "Paid in the period",
         "returning": "Had paid before",
         "rate": "Returning share",
-        "legacy": "Previous bot, payments: {count}"
+        "legacy": "Previous bot, payments: {count}",
+        "legacyGoods": "Previous bot's shop: {count} orders, {stars} stars"
       },
       "operations": {
         "title": "By kind of sale",
@@ -3546,7 +3547,8 @@
           "loyaltyTier": "Loyalty tier code",
           "planCode": "Plan code",
           "adCampaign": "Ad campaign code",
-          "customerIds": "Selected customers"
+          "customerIds": "Selected customers",
+          "goods": "Bought in the shop"
         },
         "values": {
           "active": "active",
@@ -3565,10 +3567,14 @@
           "telegram": "Telegram",
           "email": "verified e-mail",
           "vkid": "VK ID",
-          "oidc": "external provider"
+          "oidc": "external provider",
+          "goods_stars": "Telegram Stars",
+          "goods_premium": "Telegram Premium",
+          "goods_any": "anything"
         },
         "rangeFrom": "From, days",
-        "rangeTo": "To, days"
+        "rangeTo": "To, days",
+        "goodsWithinDays": "Within, days (optional)"
       },
       "pinned": {
         "title": "Pinned message",
@@ -4549,7 +4555,11 @@
       "delete": "Delete",
       "hookName": "Name",
       "hookUrl": "https:// address",
-      "createWebhook": "Create webhook"
+      "createWebhook": "Create webhook",
+      "fullAccess": "Full access",
+      "tokenPermissions": "What the token may do",
+      "tokenPermissionsHint": "The same permissions operators have. A /v1/admin route outside them answers 403, and the refusal is in the token's log.",
+      "fullAccessSwitch": "Full access to every /v1/admin route"
     },
     "buttonStats": {
       "title": "Bot button statistics",

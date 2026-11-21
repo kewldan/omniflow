@@ -14,7 +14,7 @@ import { useOperatorAction } from "@/lib/operations";
 /** The segment vocabulary and how each value is entered; mirrors internal/audience. */
 const FILTERS: Record<
   string,
-  { kind: "choice" | "number" | "range" | "text" | "ids"; options?: string[] }
+  { kind: "choice" | "number" | "range" | "text" | "ids" | "goods"; options?: string[] }
 > = {
   status: { kind: "choice", options: ["active", "suspended", "deleted"] },
   locale: { kind: "choice", options: ["ru", "en"] },
@@ -34,6 +34,7 @@ const FILTERS: Record<
   loyaltyTier: { kind: "text" },
   planCode: { kind: "text" },
   adCampaign: { kind: "text" },
+  goods: { kind: "goods", options: ["stars", "premium", "any"] },
   customerIds: { kind: "ids" },
 };
 
@@ -59,6 +60,14 @@ function encode(row: Row): unknown {
       bounds.max = Number(row.upper);
     }
     return bounds;
+  }
+  if (spec.kind === "goods") {
+    // The window is optional: an empty one means "ever bought".
+    const goods: Record<string, string | number> = { kind: row.value };
+    if (row.upper.trim() !== "") {
+      goods.withinDays = Number(row.upper);
+    }
+    return goods;
   }
   if (row.filter === "zeroBalance") {
     return row.value === "true";
@@ -197,6 +206,28 @@ export function SegmentEditorCard({ onSaved }: { onSaved: () => void }) {
                       inputMode="numeric"
                       onChange={(event) => setRow(index, { upper: event.target.value })}
                       placeholder={translate("rangeTo")}
+                      value={row.upper}
+                    />
+                  </div>
+                ) : spec?.kind === "goods" ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Select onValueChange={(value) => setRow(index, { value })} value={row.value}>
+                      <SelectTrigger aria-label={translate("value")}>
+                        <SelectValue placeholder={translate("pick")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(spec.options ?? []).map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {translate(`values.goods_${option}`)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      aria-label={translate("goodsWithinDays")}
+                      inputMode="numeric"
+                      onChange={(event) => setRow(index, { upper: event.target.value })}
+                      placeholder={translate("goodsWithinDays")}
                       value={row.upper}
                     />
                   </div>

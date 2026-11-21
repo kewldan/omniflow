@@ -1370,7 +1370,8 @@
         "paid": "本期付款",
         "returning": "此前付过款",
         "rate": "回头比例",
-        "legacy": "旧机器人付款：{count} 笔"
+        "legacy": "旧机器人付款：{count} 笔",
+        "legacyGoods": "旧机器人商店：{count} 个订单，{stars} 颗星"
       },
       "operations": {
         "title": "按销售类型",
@@ -3454,7 +3455,8 @@
           "loyaltyTier": "会员等级代码",
           "planCode": "套餐代码",
           "adCampaign": "广告活动代码",
-          "customerIds": "指定用户"
+          "customerIds": "指定用户",
+          "goods": "在商店购买过"
         },
         "values": {
           "active": "正常",
@@ -3473,10 +3475,14 @@
           "telegram": "Telegram",
           "email": "已验证邮箱",
           "vkid": "VK ID",
-          "oidc": "外部身份提供方"
+          "oidc": "外部身份提供方",
+          "goods_stars": "Telegram Stars",
+          "goods_premium": "Telegram Premium",
+          "goods_any": "任何商品"
         },
         "rangeFrom": "从（天）",
-        "rangeTo": "到（天）"
+        "rangeTo": "到（天）",
+        "goodsWithinDays": "最近天数（可选）"
       },
       "pinned": {
         "title": "置顶消息",
@@ -4457,7 +4463,11 @@
       "delete": "删除",
       "hookName": "名称",
       "hookUrl": "https:// 地址",
-      "createWebhook": "创建 webhook"
+      "createWebhook": "创建 webhook",
+      "fullAccess": "完全访问",
+      "tokenPermissions": "令牌的权限",
+      "tokenPermissionsHint": "与操作员相同的权限。不在列表中的 /v1/admin 路由返回 403，拒绝记录在令牌日志中。",
+      "fullAccessSwitch": "完全访问所有 /v1/admin 路由"
     },
     "buttonStats": {
       "title": "机器人按钮统计",

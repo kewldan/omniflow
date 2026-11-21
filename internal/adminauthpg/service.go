@@ -472,3 +472,44 @@ func timePointer(value pgtype.Timestamptz) *time.Time {
 	at := value.Time.UTC()
 	return &at
 }
+
+// ErrTokenOwnerInactive refuses a named token whose minting operator is no
+// longer an active operator: a token acts for a person, and does not outlive
+// their access.
+var ErrTokenOwnerInactive = errors.New("the operator who minted this token is not active")
+
+// PrincipalForAPIToken is the principal a named /v1/admin token acts as on the
+// routes it shares with the panel: the operator who minted it, with their
+// current grant narrowed to the token's permissions. A full-access token
+// carries the operator's whole grant. There is no session and no CSRF: the
+// token is the credential.
+func (service *Service) PrincipalForAPIToken(ctx context.Context, adminID string, permissions []string, fullAccess bool) (Principal, error) {
+	id, err := parseUUID(adminID)
+	if err != nil {
+		return Principal{}, ErrTokenOwnerInactive
+	}
+	queries := dbgen.New(service.pool)
+	row, err := queries.GetAdminUser(ctx, id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return Principal{}, ErrTokenOwnerInactive
+	}
+	if err != nil {
+		return Principal{}, err
+	}
+	if row.Status != "active" {
+		return Principal{}, ErrTokenOwnerInactive
+	}
+	roles, err := loadRoles(ctx, queries, row.ID)
+	if err != nil {
+		return Principal{}, err
+	}
+	grant := rbac.NewGrant(roles...)
+	if !fullAccess {
+		scoped := make([]rbac.Permission, 0, len(permissions))
+		for _, permission := range permissions {
+			scoped = append(scoped, rbac.Permission(permission))
+		}
+		grant = grant.Restrict(scoped)
+	}
+	return Principal{Account: service.accountFrom(row, roles), Grant: grant}, nil
+}

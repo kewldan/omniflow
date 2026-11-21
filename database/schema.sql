@@ -1082,7 +1082,9 @@ CREATE TABLE public.api_tokens (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     last_used_at timestamp with time zone,
     revoked_at timestamp with time zone,
-    CONSTRAINT api_tokens_name_length CHECK (((char_length(name) >= 1) AND (char_length(name) <= 80)))
+    permissions text[],
+    CONSTRAINT api_tokens_name_length CHECK (((char_length(name) >= 1) AND (char_length(name) <= 80))),
+    CONSTRAINT api_tokens_permissions_bounded CHECK (((permissions IS NULL) OR (cardinality(permissions) <= 64)))
 );
 
 
@@ -2055,7 +2057,7 @@ CREATE TABLE public.customer_event_notices (
     params jsonb DEFAULT '{}'::jsonb NOT NULL,
     dedupe_key text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT customer_event_notices_kind_known CHECK ((kind = ANY (ARRAY['referral_joined'::text, 'referral_welcome'::text, 'referral_reward'::text, 'loyalty_tier'::text, 'renewal_low_balance'::text, 'daily_low_balance'::text, 'daily_suspended'::text]))),
+    CONSTRAINT customer_event_notices_kind_known CHECK ((kind = ANY (ARRAY['referral_joined'::text, 'referral_welcome'::text, 'referral_reward'::text, 'loyalty_tier'::text, 'renewal_low_balance'::text, 'daily_low_balance'::text, 'daily_suspended'::text, 'wallet_credited'::text]))),
     CONSTRAINT customer_event_notices_params_object CHECK ((jsonb_typeof(params) = 'object'::text))
 );
 
@@ -3004,6 +3006,29 @@ CREATE TABLE public.legacy_customer_discounts (
     last_discount_at timestamp with time zone NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT legacy_customer_discounts_source_known CHECK ((source = 'bedolaga'::text))
+);
+
+
+--
+-- Name: legacy_goods_orders; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.legacy_goods_orders (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    source text NOT NULL,
+    source_id bigint NOT NULL,
+    kind text NOT NULL,
+    quantity bigint NOT NULL,
+    amount_minor bigint NOT NULL,
+    currency text NOT NULL,
+    delivered_at timestamp with time zone NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT legacy_goods_orders_amount_positive CHECK ((amount_minor > 0)),
+    CONSTRAINT legacy_goods_orders_currency_code CHECK ((currency ~ '^[A-Z]{3}$'::text)),
+    CONSTRAINT legacy_goods_orders_kind_known CHECK ((kind = ANY (ARRAY['telegram_stars'::text, 'telegram_premium'::text]))),
+    CONSTRAINT legacy_goods_orders_quantity_positive CHECK ((quantity > 0)),
+    CONSTRAINT legacy_goods_orders_source_known CHECK ((source = 'bedolaga'::text))
 );
 
 
@@ -6942,6 +6967,22 @@ ALTER TABLE ONLY public.legacy_customer_discounts
 
 
 --
+-- Name: legacy_goods_orders legacy_goods_orders_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.legacy_goods_orders
+    ADD CONSTRAINT legacy_goods_orders_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: legacy_goods_orders legacy_goods_orders_source_row; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.legacy_goods_orders
+    ADD CONSTRAINT legacy_goods_orders_source_row UNIQUE (source, source_id);
+
+
+--
 -- Name: legacy_payments legacy_payments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8931,6 +8972,20 @@ CREATE INDEX info_pages_published_idx ON public.info_pages USING btree (sort_ord
 --
 
 CREATE INDEX ledger_entries_balance_idx ON public.ledger_entries USING btree (user_id, currency, created_at) WHERE (account_type = 'customer_wallet'::text);
+
+
+--
+-- Name: legacy_goods_orders_delivered; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX legacy_goods_orders_delivered ON public.legacy_goods_orders USING btree (delivered_at);
+
+
+--
+-- Name: legacy_goods_orders_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX legacy_goods_orders_user ON public.legacy_goods_orders USING btree (user_id, delivered_at);
 
 
 --
@@ -11113,6 +11168,14 @@ ALTER TABLE ONLY public.ledger_entries
 
 ALTER TABLE ONLY public.legacy_customer_discounts
     ADD CONSTRAINT legacy_customer_discounts_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: legacy_goods_orders legacy_goods_orders_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.legacy_goods_orders
+    ADD CONSTRAINT legacy_goods_orders_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --

@@ -58,6 +58,7 @@ description: Опишите проверяемую аудиторию, собе�
 | `activeWithinDays` | Дни | Заходил в веб-кабинет, платил в Omniflow или в прежнем боте за это время | «заходил в кабинет или платил за 30 дней» |
 | `referrals` | `inviter`, `invitee` | Кого-то пригласил или был приглашён | «кого-то пригласил» |
 | `adCampaign` | Код кампании `/start` | Пришёл по рекламной кампании в Telegram | «пришёл по кампании stars_elite» |
+| `goods` | `{"kind": "stars" \| "premium" \| "any", "withinDays": 90}`, `withinDays` необязателен | Есть выданный заказ магазина этого вида — в Omniflow или в магазине прежнего бота — в пределах окна, если оно задано | «bought Telegram Stars in the shop within 90 days» |
 | `signInMethod` | `telegram`, `email`, `vkid`, `oidc` | Есть такой способ входа; `email` — подтверждённый адрес | «входит через Telegram» |
 | `zeroBalance` | `true`, `false` | Баланс пуст или на нём есть деньги | «пустой баланс» |
 | `customerIds` | До 1000 ID клиентов | Ровно эти клиенты | «один из 12 выбранных клиентов» |

@@ -1,8 +1,8 @@
 -- Named API tokens and outgoing webhooks.
 
 -- name: CreateAPIToken :one
-INSERT INTO api_tokens (name, token_hash, prefix, created_by)
-VALUES (sqlc.arg(name), sqlc.arg(token_hash), sqlc.arg(prefix), sqlc.narg(created_by))
+INSERT INTO api_tokens (name, token_hash, prefix, created_by, permissions)
+VALUES (sqlc.arg(name), sqlc.arg(token_hash), sqlc.arg(prefix), sqlc.narg(created_by), sqlc.narg(permissions)::text[])
 RETURNING *;
 
 -- name: ListAPITokens :many
@@ -14,7 +14,7 @@ UPDATE api_tokens SET revoked_at = now() WHERE id = sqlc.arg(token_id) AND revok
 -- name: ResolveAPIToken :one
 UPDATE api_tokens SET last_used_at = now()
 WHERE token_hash = sqlc.arg(token_hash) AND revoked_at IS NULL
-RETURNING id, name;
+RETURNING id, name, permissions, created_by;
 
 -- name: LogAPITokenRequest :exec
 INSERT INTO api_token_requests (token_id, method, route, status)

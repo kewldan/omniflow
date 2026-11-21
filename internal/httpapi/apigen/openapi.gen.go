@@ -5596,16 +5596,34 @@ func (e GetPanelConversionsParamsSource) Valid() bool {
 
 // Defines values for GetPanelConversionsParamsFormat.
 const (
-	Csv  GetPanelConversionsParamsFormat = "csv"
-	Json GetPanelConversionsParamsFormat = "json"
+	GetPanelConversionsParamsFormatCsv  GetPanelConversionsParamsFormat = "csv"
+	GetPanelConversionsParamsFormatJson GetPanelConversionsParamsFormat = "json"
 )
 
 // Valid indicates whether the value is a known member of the GetPanelConversionsParamsFormat enum.
 func (e GetPanelConversionsParamsFormat) Valid() bool {
 	switch e {
-	case Csv:
+	case GetPanelConversionsParamsFormatCsv:
 		return true
-	case Json:
+	case GetPanelConversionsParamsFormatJson:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetPanelCustomerPaymentsParamsFormat.
+const (
+	GetPanelCustomerPaymentsParamsFormatCsv  GetPanelCustomerPaymentsParamsFormat = "csv"
+	GetPanelCustomerPaymentsParamsFormatJson GetPanelCustomerPaymentsParamsFormat = "json"
+)
+
+// Valid indicates whether the value is a known member of the GetPanelCustomerPaymentsParamsFormat enum.
+func (e GetPanelCustomerPaymentsParamsFormat) Valid() bool {
+	switch e {
+	case GetPanelCustomerPaymentsParamsFormatCsv:
+		return true
+	case GetPanelCustomerPaymentsParamsFormatJson:
 		return true
 	default:
 		return false
@@ -8503,6 +8521,18 @@ type PanelCustomerPage struct {
 	NextCursor *string                 `json:"nextCursor,omitempty"`
 }
 
+// PanelCustomerPayments defines model for PanelCustomerPayments.
+type PanelCustomerPayments struct {
+	AmountMinor       int64              `json:"amountMinor"`
+	Currency          string             `json:"currency"`
+	CustomerId        openapi_types.UUID `json:"customerId"`
+	FirstPaidAt       time.Time          `json:"firstPaidAt"`
+	LastPaidAt        time.Time          `json:"lastPaidAt"`
+	LegacyAmountMinor int64              `json:"legacyAmountMinor"`
+	LegacyPayments    int64              `json:"legacyPayments"`
+	Payments          int64              `json:"payments"`
+}
+
 // PanelCustomerProfile defines model for PanelCustomerProfile.
 type PanelCustomerProfile struct {
 	ActiveSubscriptions int64      `json:"activeSubscriptions"`
@@ -9060,6 +9090,17 @@ type PanelLedgerLine struct {
 // PanelLedgerList defines model for PanelLedgerList.
 type PanelLedgerList struct {
 	Items *[]PanelLedgerLine `json:"items"`
+}
+
+// PanelLegacyPeriodGoods defines model for PanelLegacyPeriodGoods.
+type PanelLegacyPeriodGoods struct {
+	// AmountMinor What the previous bot's shop took for them, from customers' balances. History, never part of Omniflow's sales.
+	AmountMinor int64  `json:"amountMinor"`
+	Currency    string `json:"currency"`
+	Orders      int64  `json:"orders"`
+
+	// Quantity Telegram Stars delivered
+	Quantity int64 `json:"quantity"`
 }
 
 // PanelLegacyPeriodPayments defines model for PanelLegacyPeriodPayments.
@@ -9909,6 +9950,7 @@ type PanelSalesReport struct {
 	Currency    *string                     `json:"currency,omitempty"`
 	GeneratedAt time.Time                   `json:"generatedAt"`
 	Legacy      []PanelLegacyPeriodPayments `json:"legacy"`
+	LegacyGoods []PanelLegacyPeriodGoods    `json:"legacyGoods"`
 	Payers      PanelReturningPayers        `json:"payers"`
 	Refunds     []PanelPeriodRefunds        `json:"refunds"`
 	Since       time.Time                   `json:"since"`
@@ -13004,6 +13046,22 @@ type GetPanelConversionsParamsSource string
 // GetPanelConversionsParamsFormat defines parameters for GetPanelConversions.
 type GetPanelConversionsParamsFormat string
 
+// GetPanelCustomerPaymentsParams defines parameters for GetPanelCustomerPayments.
+type GetPanelCustomerPaymentsParams struct {
+	// Since Start of the period, inclusive. Defaults to thirty days before `until`.
+	Since *ReportSince `form:"since,omitempty" json:"since,omitempty"`
+
+	// Until End of the period, exclusive. Defaults to now.
+	Until *ReportUntil `form:"until,omitempty" json:"until,omitempty"`
+
+	// Currency ISO currency to restrict the report to. Omit for every currency.
+	Currency *ReportCurrency                       `form:"currency,omitempty" json:"currency,omitempty"`
+	Format   *GetPanelCustomerPaymentsParamsFormat `form:"format,omitempty" json:"format,omitempty"`
+}
+
+// GetPanelCustomerPaymentsParamsFormat defines parameters for GetPanelCustomerPayments.
+type GetPanelCustomerPaymentsParamsFormat string
+
 // GetPanelPaymentHealthParams defines parameters for GetPanelPaymentHealth.
 type GetPanelPaymentHealthParams struct {
 	// Since Start of the period, inclusive. Defaults to thirty days before `until`.
@@ -15080,6 +15138,9 @@ type ServerInterface interface {
 	// (GET /v1/panel/reports/conversions)
 	GetPanelConversions(w http.ResponseWriter, r *http.Request, params GetPanelConversionsParams)
 
+	// (GET /v1/panel/reports/customer-payments)
+	GetPanelCustomerPayments(w http.ResponseWriter, r *http.Request, params GetPanelCustomerPaymentsParams)
+
 	// (GET /v1/panel/reports/devices)
 	GetPanelDeviceReport(w http.ResponseWriter, r *http.Request)
 
@@ -16968,6 +17029,11 @@ func (_ Unimplemented) GetPanelChannelReport(w http.ResponseWriter, r *http.Requ
 
 // (GET /v1/panel/reports/conversions)
 func (_ Unimplemented) GetPanelConversions(w http.ResponseWriter, r *http.Request, params GetPanelConversionsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/reports/customer-payments)
+func (_ Unimplemented) GetPanelCustomerPayments(w http.ResponseWriter, r *http.Request, params GetPanelCustomerPaymentsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -31134,6 +31200,78 @@ func (siw *ServerInterfaceWrapper) GetPanelConversions(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// GetPanelCustomerPayments operation middleware
+func (siw *ServerInterfaceWrapper) GetPanelCustomerPayments(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPanelCustomerPaymentsParams
+
+	// ------------- Optional query parameter "since" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "since", r.URL.Query(), &params.Since, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "since"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "since", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "until" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "until", r.URL.Query(), &params.Until, runtime.BindQueryParameterOptions{Type: "string", Format: "date-time"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "until"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "until", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "currency" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "currency", r.URL.Query(), &params.Currency, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "currency"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "currency", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "format" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "format", r.URL.Query(), &params.Format, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "format"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPanelCustomerPayments(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetPanelDeviceReport operation middleware
 func (siw *ServerInterfaceWrapper) GetPanelDeviceReport(w http.ResponseWriter, r *http.Request) {
 
@@ -35399,6 +35537,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/reports/payments", wrapper.GetPanelPaymentHealth)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/reports/customer-payments", wrapper.GetPanelCustomerPayments)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/reports/traffic", wrapper.GetPanelTrafficReport)
@@ -50805,6 +50946,80 @@ func (response GetPanelConversions403ApplicationProblemPlusJSONResponse) VisitGe
 	return err
 }
 
+type GetPanelCustomerPaymentsRequestObject struct {
+	Params GetPanelCustomerPaymentsParams
+}
+
+type GetPanelCustomerPaymentsResponseObject interface {
+	VisitGetPanelCustomerPaymentsResponse(w http.ResponseWriter) error
+}
+
+type GetPanelCustomerPayments200JSONResponse struct {
+	Customers []PanelCustomerPayments `json:"customers"`
+}
+
+func (response GetPanelCustomerPayments200JSONResponse) VisitGetPanelCustomerPaymentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelCustomerPayments200TextcsvResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response GetPanelCustomerPayments200TextcsvResponse) VisitGetPanelCustomerPaymentsResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "text/csv")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type GetPanelCustomerPayments403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetPanelCustomerPayments403ApplicationProblemPlusJSONResponse) VisitGetPanelCustomerPaymentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelCustomerPayments422ApplicationProblemPlusJSONResponse Problem
+
+func (response GetPanelCustomerPayments422ApplicationProblemPlusJSONResponse) VisitGetPanelCustomerPaymentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetPanelDeviceReportRequestObject struct {
 }
 
@@ -55958,6 +56173,9 @@ type StrictServerInterface interface {
 
 	// (GET /v1/panel/reports/conversions)
 	GetPanelConversions(ctx context.Context, request GetPanelConversionsRequestObject) (GetPanelConversionsResponseObject, error)
+
+	// (GET /v1/panel/reports/customer-payments)
+	GetPanelCustomerPayments(ctx context.Context, request GetPanelCustomerPaymentsRequestObject) (GetPanelCustomerPaymentsResponseObject, error)
 
 	// (GET /v1/panel/reports/devices)
 	GetPanelDeviceReport(ctx context.Context, request GetPanelDeviceReportRequestObject) (GetPanelDeviceReportResponseObject, error)
@@ -65563,6 +65781,32 @@ func (sh *strictHandler) GetPanelConversions(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetPanelConversionsResponseObject); ok {
 		if err := validResponse.VisitGetPanelConversionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPanelCustomerPayments operation middleware
+func (sh *strictHandler) GetPanelCustomerPayments(w http.ResponseWriter, r *http.Request, params GetPanelCustomerPaymentsParams) {
+	var request GetPanelCustomerPaymentsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPanelCustomerPayments(ctx, request.(GetPanelCustomerPaymentsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPanelCustomerPayments")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPanelCustomerPaymentsResponseObject); ok {
+		if err := validResponse.VisitGetPanelCustomerPaymentsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

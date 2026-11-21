@@ -165,9 +165,9 @@ func (runner *Runner) queueBatch(
 	// An e-mail campaign reaches customers with a verified address; the
 	// worker's mail pass delivers it. A Telegram one reaches the bot's
 	// recipients, as before.
-	reachable, unreachableReason := reachableByTelegram, "no_telegram"
+	reachable, unreachableReason, blocked := reachableByTelegram, "no_telegram", telegramChatClosed
 	if channel == "email" {
-		reachable, unreachableReason = reachableByEmail, "no_email"
+		reachable, unreachableReason, blocked = reachableByEmail, "no_email", "false"
 	}
 	// The segment's own arguments come first and the campaign identifier last.
 	//
@@ -183,7 +183,8 @@ func (runner *Runner) queueBatch(
 	rows, err := runner.pool.Query(ctx, `
 		SELECT u.id,
 		       EXISTS (SELECT 1 FROM communication_suppressions s WHERE s.user_id = u.id),
-		       `+reachable+`
+		       `+reachable+`,
+		       `+blocked+`
 		FROM users u
 		WHERE u.status = 'active'
 		  AND (`+query.Where+`)
@@ -202,11 +203,12 @@ func (runner *Runner) queueBatch(
 		id         pgtype.UUID
 		suppressed bool
 		reachable  bool
+		blocked    bool
 	}
 	candidates := make([]candidate, 0, expansionBatch)
 	for rows.Next() {
 		var found candidate
-		if err := rows.Scan(&found.id, &found.suppressed, &found.reachable); err != nil {
+		if err := rows.Scan(&found.id, &found.suppressed, &found.reachable, &found.blocked); err != nil {
 			return 0, err
 		}
 		candidates = append(candidates, found)
@@ -221,7 +223,14 @@ func (runner *Runner) queueBatch(
 		}); err != nil {
 			return 0, err
 		}
-		if reason := expansionSuppression(found.suppressed, found.reachable, unreachableReason); reason != "" {
+		reason := expansionSuppression(found.suppressed, found.reachable, unreachableReason)
+		if reason == "" && found.blocked {
+			// A chat known to be closed — blocked in Omniflow, or carried as
+			// blocked from the previous bot — is not tried, so the campaign's
+			// delivery figures count only blocks this send discovered.
+			reason = "delivery_blocked"
+		}
+		if reason != "" {
 			if err = queries.ResolveCampaignRecipient(ctx, dbgen.ResolveCampaignRecipientParams{
 				CampaignID: campaignID, UserID: found.id, Status: "suppressed",
 				SuppressionReason: pgtype.Text{String: reason, Valid: true},
@@ -240,6 +249,12 @@ const reachableByTelegram = `(EXISTS (SELECT 1 FROM identities i
 		WHERE i.user_id = u.id AND i.provider = 'telegram' AND i.status = 'active')
 	OR EXISTS (SELECT 1 FROM remnawave_users m
 		WHERE m.user_id = u.id AND m.telegram_id IS NOT NULL))`
+
+// telegramChatClosed is true for a customer whose chat the bot knows to be
+// closed: they blocked it, the account is gone, or it was never started.
+// TelegramChatClosed is the same condition for other packages to count with.
+const telegramChatClosed = `EXISTS (SELECT 1 FROM bot_delivery_state d
+		WHERE d.user_id = u.id AND d.status IN ('blocked', 'deactivated', 'not_started'))`
 
 // reachableByEmail is true for a customer with a verified, unrevoked e-mail
 // address. Consent is decided at delivery, as it is for Telegram.

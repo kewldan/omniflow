@@ -1370,7 +1370,8 @@
         "paid": "Заплатили за період",
         "returning": "Платили раніше",
         "rate": "Частка тих, що повернулися",
-        "legacy": "Попередній бот, оплат: {count}"
+        "legacy": "Попередній бот, оплат: {count}",
+        "legacyGoods": "Магазин старого бота: {count} замовлень, {stars} зірок"
       },
       "operations": {
         "title": "За видом продажу",
@@ -3454,7 +3455,8 @@
           "loyaltyTier": "Код рівня лояльності",
           "planCode": "Код тарифу",
           "adCampaign": "Код рекламної кампанії",
-          "customerIds": "Вибрані клієнти"
+          "customerIds": "Вибрані клієнти",
+          "goods": "Купував у магазині"
         },
         "values": {
           "active": "активний",
@@ -3473,10 +3475,14 @@
           "telegram": "Telegram",
           "email": "підтверджена пошта",
           "vkid": "VK ID",
-          "oidc": "зовнішній провайдер"
+          "oidc": "зовнішній провайдер",
+          "goods_stars": "Telegram Stars",
+          "goods_premium": "Telegram Premium",
+          "goods_any": "будь-що"
         },
         "rangeFrom": "Від, днів",
-        "rangeTo": "До, днів"
+        "rangeTo": "До, днів",
+        "goodsWithinDays": "За останні, днів (необовʼязково)"
       },
       "pinned": {
         "title": "Закріплене повідомлення",
@@ -4457,7 +4463,11 @@
       "delete": "Видалити",
       "hookName": "Назва",
       "hookUrl": "Адреса https://",
-      "createWebhook": "Створити вебхук"
+      "createWebhook": "Створити вебхук",
+      "fullAccess": "Повний доступ",
+      "tokenPermissions": "Що може токен",
+      "tokenPermissionsHint": "Ті самі права, що в операторів. Маршрут /v1/admin поза цим списком відповідає 403, і відмову видно в журналі токена.",
+      "fullAccessSwitch": "Повний доступ до всіх маршрутів /v1/admin"
     },
     "buttonStats": {
       "title": "Статистика кнопок бота",

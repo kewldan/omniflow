@@ -56,6 +56,7 @@ reading a table it has no business reading.
 | `activeWithinDays` | Days | Used the web panel, paid for something, or paid in a previous bot in that window | "used the web panel or paid within 30 days" |
 | `referrals` | `inviter`, `invitee` | Invited somebody, or was invited | "has invited somebody" |
 | `adCampaign` | A `/start` campaign code | A Telegram advertising campaign brought them | "came from the stars_elite campaign" |
+| `goods` | `{"kind": "stars" \| "premium" \| "any", "withinDays": 90}`, `withinDays` optional | Has a delivered shop order of that kind — Omniflow's, or one a previous bot's shop delivered — within the window if one is given | "bought Telegram Stars in the shop within 90 days" |
 | `signInMethod` | `telegram`, `email`, `vkid`, `oidc` | Has that sign-in method; `email` is a verified address | "signs in with Telegram" |
 | `zeroBalance` | `true`, `false` | The wallet is empty, or holds money | "has an empty wallet" |
 | `customerIds` | Up to 1000 customer IDs | Exactly those customers | "is one of 12 selected customers" |

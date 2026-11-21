@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -160,6 +161,87 @@ func (runner *applier) run(ctx context.Context, plan bedolagaimport.Plan) error 
 			return err
 		}
 	}
+	// Campaigns before the registrations that name them.
+	for _, decision := range plan.Campaigns {
+		if err := runner.campaign(ctx, decision); err != nil {
+			return err
+		}
+	}
+	for _, decision := range plan.Attributions {
+		if err := runner.attribution(ctx, decision); err != nil {
+			return err
+		}
+	}
+	for _, decision := range plan.Goods {
+		if err := runner.goods(ctx, decision); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (runner *applier) campaign(ctx context.Context, decision bedolagaimport.CampaignDecision) error {
+	if decision.Action != bedolagaimport.ActionCreate {
+		return nil
+	}
+	if err := runner.step(); err != nil {
+		return err
+	}
+	name := strings.TrimSpace(decision.Source.Name)
+	if name == "" {
+		name = decision.Code
+	}
+	if runes := []rune(name); len(runes) > 120 {
+		name = string(runes[:120])
+	}
+	if _, err := dbgen.New(runner.service.pool).InsertImportedAdCampaign(ctx, dbgen.InsertImportedAdCampaignParams{
+		Code: decision.Code, Name: name, BonusKind: decision.BonusKind, BonusValue: decision.BonusValue,
+		Currency: runner.mapping.Currency, Active: decision.Source.Active,
+	}); err != nil {
+		return runner.fail(ctx, "campaign", decision.Source.ID, [32]byte{}, err)
+	}
+	runner.result.Written["campaign"]++
+	return nil
+}
+
+func (runner *applier) attribution(ctx context.Context, decision bedolagaimport.AttributionDecision) error {
+	if decision.Action != bedolagaimport.ActionCreate {
+		return nil
+	}
+	customerID := runner.customers[decision.Source.UserID]
+	if customerID == "" {
+		return nil
+	}
+	if err := runner.step(); err != nil {
+		return err
+	}
+	if _, err := dbgen.New(runner.service.pool).InsertImportedCampaignAttribution(ctx, dbgen.InsertImportedCampaignAttributionParams{
+		UserID: optionalUUID(customerID), AttributedAt: timestamp(decision.Source.CreatedAt), Code: decision.Code,
+	}); err != nil {
+		return runner.fail(ctx, "campaign_registration", decision.Source.ID, [32]byte{}, err)
+	}
+	runner.result.Written["campaign_registration"]++
+	return nil
+}
+
+func (runner *applier) goods(ctx context.Context, decision bedolagaimport.GoodsDecision) error {
+	if decision.Action != bedolagaimport.ActionCreate {
+		return nil
+	}
+	customerID := runner.customers[decision.Source.UserID]
+	if customerID == "" {
+		return nil
+	}
+	if err := runner.step(); err != nil {
+		return err
+	}
+	if _, err := dbgen.New(runner.service.pool).InsertLegacyGoodsOrder(ctx, dbgen.InsertLegacyGoodsOrderParams{
+		UserID: optionalUUID(customerID), SourceID: decision.Source.ID, Quantity: decision.Source.Quantity,
+		AmountMinor: decision.Source.AmountKopeks, Currency: decision.Currency, DeliveredAt: timestamp(decision.Source.DeliveredAt),
+	}); err != nil {
+		return runner.fail(ctx, "stars_order", decision.Source.ID, [32]byte{}, err)
+	}
+	runner.result.Written["stars_order"]++
 	return nil
 }
 

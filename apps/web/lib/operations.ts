@@ -628,6 +628,8 @@ export type SalesReport = {
   payers: { payers: number; returning: number };
   /** What the previous bot took in the period; never part of the sales above. */
   legacy: { currency: string; payments: number; amountMinor: number }[];
+  /** What the previous bot's shop delivered in the period; history, never sales. */
+  legacyGoods?: { currency: string; orders: number; quantity: number; amountMinor: number }[];
   generatedAt: string;
 };
 

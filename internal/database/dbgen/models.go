@@ -396,14 +396,15 @@ type AnomalySignal struct {
 }
 
 type ApiToken struct {
-	ID         pgtype.UUID        `json:"id"`
-	Name       string             `json:"name"`
-	TokenHash  []byte             `json:"token_hash"`
-	Prefix     string             `json:"prefix"`
-	CreatedBy  pgtype.UUID        `json:"created_by"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	LastUsedAt pgtype.Timestamptz `json:"last_used_at"`
-	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
+	ID          pgtype.UUID        `json:"id"`
+	Name        string             `json:"name"`
+	TokenHash   []byte             `json:"token_hash"`
+	Prefix      string             `json:"prefix"`
+	CreatedBy   pgtype.UUID        `json:"created_by"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	LastUsedAt  pgtype.Timestamptz `json:"last_used_at"`
+	RevokedAt   pgtype.Timestamptz `json:"revoked_at"`
+	Permissions []string           `json:"permissions"`
 }
 
 type ApiTokenRequest struct {
@@ -1509,6 +1510,19 @@ type LegacyCustomerDiscount struct {
 	Source         string             `json:"source"`
 	LastDiscountAt pgtype.Timestamptz `json:"last_discount_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type LegacyGoodsOrder struct {
+	ID          pgtype.UUID        `json:"id"`
+	UserID      pgtype.UUID        `json:"user_id"`
+	Source      string             `json:"source"`
+	SourceID    int64              `json:"source_id"`
+	Kind        string             `json:"kind"`
+	Quantity    int64              `json:"quantity"`
+	AmountMinor int64              `json:"amount_minor"`
+	Currency    string             `json:"currency"`
+	DeliveredAt pgtype.Timestamptz `json:"delivered_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
 type LegacyPayment struct {

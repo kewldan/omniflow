@@ -64,6 +64,9 @@ cutover.
 | Last use of a `discount` promo code, last claimed discount offer (`discount_offers`) | `legacy_customer_discounts` | The date a promotion's [`discountCooldownDays`](/commerce/catalog-promotions#eligibility) reads |
 | `users.referral_code` | `referral_code_aliases` | Upper-cased beside the new Omniflow code, so invite links already handed out keep attributing; see [referrals](#referrals) |
 | `users.referred_by_id` | `referral_attributions` | Same referrer; qualified when the referee had paid, see [referrals](#referrals) |
+| `advertising_campaigns` | `ad_campaigns` | By `/start` code, lower-cased; an Omniflow campaign with the code already is matched and left as it is, see [campaigns](#advertising-campaigns) |
+| `advertising_campaign_registrations` | `customer_campaign_attributions` | The first campaign a customer arrived through, on its original date, with the bonus recorded as given |
+| `stars_orders` with status `completed` | `legacy_goods_orders` | Stars, amount, and delivery date, so segments find stars buyers and the sales report shows the old shop apart, see [Stars orders](#stars-shop-orders) |
 | `tariffs` | — | Mapped to plan versions by your [mapping file](#the-mapping-file) |
 
 The importer's own bookkeeping is two tables. `bedolaga_import_items` holds one row per Bedolaga
@@ -164,6 +167,7 @@ for them, and Omniflow's own sales figures do not include them. What reads them:
 
 | Reader | What it counts |
 | --- | --- |
+| Segment filter `goods` | Carried Stars orders beside Omniflow's delivered goods orders |
 | Segment filter `subscription` | `expired` and `none` count carried periods as subscriptions had |
 | Segment filter `expiredDaysAgo` | The end of the last carried period or entitlement |
 | Segment filters `minimumSpendMinor`, `inactiveForDays`, `activeWithinDays` | Carried payments as spend and as activity |
@@ -187,12 +191,45 @@ arrives with `qualified_at` set and no qualifying order. Its inviter was rewarde
 attribution like that never pays again in Omniflow; a referee who never paid qualifies on their first
 Omniflow order as usual, subject to the programme's validity window.
 
+### Advertising campaigns
+
+Each Bedolaga campaign is carried under its `/start` parameter, lower-cased, as an Omniflow
+campaign code, so a link already in an ad keeps attributing the newcomers it brings. The bonus is
+mapped: `balance` becomes wallet credit of the same amount in the mapping's currency, `subscription`
+becomes that many days on the trial plan, `tariff` becomes its days on the trial plan with the warning
+`tariff_bonus_as_days` (Omniflow's plans are not Bedolaga's tariffs), and `none` stays none. Days
+outside 1–365 drop the bonus with the warning `campaign_bonus_dropped`, and the campaign is carried for
+tracking. The campaign is active or not as it was. A code Omniflow cannot hold (it allows `a–z`,
+`0–9`, and `_`, two to forty characters) is skipped with `invalid_campaign_code`; two Bedolaga codes
+that differ only in case are both a conflict (`duplicate_campaign_code`). A campaign whose code an
+Omniflow campaign already has is matched: the operator's bonus and name stand.
+
+Each registration whose customer is imported becomes the customer's campaign attribution, on the
+registration's date, with the bonus recorded as given then — the customer had it in Bedolaga, and it
+is not given again. A customer is attributed to one campaign, the first that brought them; a later
+registration is skipped with `earlier_campaign_registration`, and a customer Omniflow already
+attributed elsewhere keeps that attribution (`already_in_campaign`). The `adCampaign` segment filter
+and the campaign statistics on `/admin/marketing` then count the carried customers. A repeated run
+carries nothing twice.
+
+### Stars shop orders
+
+A Telegram Stars order the fork's shop delivered (`stars_orders.status = 'completed'`) is carried
+into `legacy_goods_orders`: the customer, the stars, the amount in kopeks, and the delivery date
+(`completed_at`, or `created_at` where the column is absent). Paid, failed, refunded, and in-review
+orders are money that did not become stars and stay in the archive's count. The segment filter
+`goods` — `{"kind": "stars", "withinDays": 90}` — finds a stars buyer among Omniflow's delivered goods
+orders and the carried ones, so "stars buyers without a VPN" is `goods` with `subscription: none`. The
+[sales report](/operations/sales-reporting) shows what the old shop delivered in the period apart from
+Omniflow's sales and from the previous bot's VPN payments. A carried order is history: no ledger
+entry, goods order, or delivery is written for it.
+
 ## What does not move
 
 | Stays in Bedolaga | Why, and what to do |
 | --- | --- |
 | Every `transactions` row other than a completed top-up, and the per-provider payment tables | Omniflow's ledger records money Omniflow moved. Completed top-ups are carried as [payment history](#history-trials-periods-and-payments); purchases from the balance, refunds, and credits are not. The snapshot from `01-snapshot-bedolaga.sh` is the archive; keep it |
-| Telegram Stars shop orders (`stars_orders`) | An Omniflow goods order needs a real order and quote behind it. The plan counts them by status and sum; they stay in the archive |
+| Telegram Stars shop orders that were not delivered | Paid, failed, refunded, or in-review orders are not stars anybody received. The plan counts them by status and sum; they stay in the archive. Delivered ones are carried as [history](#stars-shop-orders) |
 | Support tickets and messages | Close or answer them in Bedolaga before the cutover; the plan counts them |
 | Promo codes and promo groups | Their discount rules do not map onto Omniflow's promotions one to one. The plan counts active codes by type and groups by members; recreate what you still want in the panel |
 | Referral earnings history and partner withdrawal requests | The earned money is already part of the balance that moves. Settle pending withdrawals in Bedolaga first |
@@ -277,7 +314,7 @@ policies:
 
 | Policy | The customer arrives | Use it when |
 | --- | --- | --- |
-| `bot_blocked` | Active, with `bot_delivery_state` set to `blocked` (`bot_blocked`) | Most blocked users are customers who blocked the bot. Every delivery pass skips them, so the first broadcast does not go into closed chats and its blocked share is not inflated; the bot clears the state the moment they write to it again. A user without a Telegram ID is just active |
+| `bot_blocked` | Active, with `bot_delivery_state` set to `blocked` (`imported_from_bedolaga`) | Most blocked users are customers who blocked the bot. Every delivery pass skips them, so the first broadcast does not go into closed chats and its blocked share is not inflated; the bot clears the state the moment they write to it again. A user without a Telegram ID is just active |
 | `suspend` | Suspended, with a lifecycle event | Most blocked users were banned by an operator |
 | `active` | Active, as if never blocked | You will re-check them yourself |
 
@@ -401,12 +438,15 @@ A conflict is not imported and is re-evaluated on the next run, so fixing the da
 | `unmapped_tariff`, `unknown_plan_version` | Fix the mapping file |
 | `user_not_imported`, `referrer_not_imported`, `referee_not_imported` | Follows from a conflict on the user |
 | `entitlement_owned_by_omniflow` | A refresh refused because Omniflow already acted on that entitlement |
+| `duplicate_campaign_code` | Two Bedolaga campaigns whose codes differ only in case; neither is carried |
 
 Warnings never block: `expiry_differs_from_panel`, `telegram_differs_from_panel`,
 `panel_status_differs`, `plan_kind_mismatch`, `plan_version_retired`, `language_defaulted`,
 `no_sign_in_identity`, `several_subscriptions` (enable `APP_MULTI_SUBSCRIPTION_ENABLED` and set
-`APP_MAX_SUBSCRIPTIONS_PER_CUSTOMER` if customers hold several), `balance_decreased`, and
-`changed_since_apply`.
+`APP_MAX_SUBSCRIPTIONS_PER_CUSTOMER` if customers hold several), `balance_decreased`,
+`changed_since_apply`, `tariff_bonus_as_days`, and `campaign_bonus_dropped`. Skips that need no
+action: `invalid_campaign_code`, `campaign_not_carried`, `earlier_campaign_registration`, and
+`already_in_campaign`.
 
 ## How long the cutover takes
 
@@ -443,6 +483,21 @@ step that changes something prints the command and waits for a typed phrase.
    set the script checks one before and after.
 8. **Worker.** Starts Omniflow's worker last; from now on Omniflow reconciles imported entitlements.
    After fifteen minutes, **/admin → System → Drift** should show nothing unexpected.
+
+### Old buttons and old cabinet addresses
+
+Customers' chats keep the previous bot's messages with their inline buttons. A tap on one sends
+callback data Omniflow does not speak, such as `menu_buy`: the bot answers it, removes the dead
+keyboard, and sends its main menu as a new message — the old message may be a photo, which cannot
+be edited into a text screen. It is logged at `Info`, not as an error. An action button from an
+older Omniflow release is answered the same way.
+
+If the web panel takes over the previous cabinet's host, its addresses keep working: `/login` goes
+to sign-in, `/subscription` to subscriptions, `/referral` to referrals, `/balance` to the wallet,
+`/support` to support, `/buy/gift/<code>` to the wallet with the code filled in, and `/?ref=<code>`
+to sign-in with the invite code held. Any other path the panel does not serve goes to `/account`
+rather than to a 404. `LEGACY_PATH_REDIRECTS` adds or changes entries and `LEGACY_PATH_FALLBACK`
+changes or turns off the fallback; see [Configuration](/getting-started/configuration).
 
 ### Payments in flight at the cutover
 

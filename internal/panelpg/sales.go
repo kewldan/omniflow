@@ -108,6 +108,16 @@ type LegacyPeriodPayments struct {
 	AmountMinor int64  `json:"amountMinor"`
 }
 
+// LegacyPeriodGoods is what the previous bot's shop delivered in the period:
+// Telegram Stars bought from the balance. Like LegacyPeriodPayments it is
+// history, apart from Omniflow's sales and from the previous bot's VPN money.
+type LegacyPeriodGoods struct {
+	Currency    string `json:"currency"`
+	Orders      int64  `json:"orders"`
+	Quantity    int64  `json:"quantity"`
+	AmountMinor int64  `json:"amountMinor"`
+}
+
 // SalesReport is the whole screen in one read.
 type SalesReport struct {
 	Since    time.Time `json:"since"`
@@ -123,8 +133,10 @@ type SalesReport struct {
 	Trials      TrialConversion `json:"trials"`
 	Payers      ReturningPayers `json:"payers"`
 	// Legacy is what the previous bot took in the period, per currency.
-	Legacy      []LegacyPeriodPayments `json:"legacy"`
-	GeneratedAt time.Time              `json:"generatedAt"`
+	Legacy []LegacyPeriodPayments `json:"legacy"`
+	// LegacyGoods is what the previous bot's shop delivered in the period.
+	LegacyGoods []LegacyPeriodGoods `json:"legacyGoods"`
+	GeneratedAt time.Time           `json:"generatedAt"`
 }
 
 // MaxSalesReportWindow bounds a single report.
@@ -166,7 +178,7 @@ func (service *Service) SalesReport(
 		Since: since.UTC(), Until: until.UTC(), Timezone: timezone, Currency: currency,
 		ByOperation: []SalesLine{}, ByPlan: []PlanSales{}, ByDay: []DaySales{},
 		Refunds: []PeriodRefunds{}, Trials: TrialConversion{Cohort: true},
-		Legacy: []LegacyPeriodPayments{}, GeneratedAt: time.Now().UTC(),
+		Legacy: []LegacyPeriodPayments{}, LegacyGoods: []LegacyPeriodGoods{}, GeneratedAt: time.Now().UTC(),
 	}
 
 	operations, err := queries.SalesByOperation(ctx, dbgen.SalesByOperationParams{
@@ -251,6 +263,17 @@ func (service *Service) SalesReport(
 	for _, row := range legacy {
 		report.Legacy = append(report.Legacy, LegacyPeriodPayments{
 			Currency: row.Currency, Payments: row.PaymentCount, AmountMinor: row.AmountMinor,
+		})
+	}
+	goods, err := queries.LegacyGoodsInPeriod(ctx, dbgen.LegacyGoodsInPeriodParams{
+		Since: timestamp(since), Until: timestamp(until), Currency: optionalText(currency),
+	})
+	if err != nil {
+		return SalesReport{}, err
+	}
+	for _, row := range goods {
+		report.LegacyGoods = append(report.LegacyGoods, LegacyPeriodGoods{
+			Currency: row.Currency, Orders: row.OrderCount, Quantity: row.Quantity, AmountMinor: row.AmountMinor,
 		})
 	}
 	return report, nil

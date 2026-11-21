@@ -13,16 +13,17 @@ import (
 
 const createAPIToken = `-- name: CreateAPIToken :one
 
-INSERT INTO api_tokens (name, token_hash, prefix, created_by)
-VALUES ($1, $2, $3, $4)
-RETURNING id, name, token_hash, prefix, created_by, created_at, last_used_at, revoked_at
+INSERT INTO api_tokens (name, token_hash, prefix, created_by, permissions)
+VALUES ($1, $2, $3, $4, $5::text[])
+RETURNING id, name, token_hash, prefix, created_by, created_at, last_used_at, revoked_at, permissions
 `
 
 type CreateAPITokenParams struct {
-	Name      string      `json:"name"`
-	TokenHash []byte      `json:"token_hash"`
-	Prefix    string      `json:"prefix"`
-	CreatedBy pgtype.UUID `json:"created_by"`
+	Name        string      `json:"name"`
+	TokenHash   []byte      `json:"token_hash"`
+	Prefix      string      `json:"prefix"`
+	CreatedBy   pgtype.UUID `json:"created_by"`
+	Permissions []string    `json:"permissions"`
 }
 
 // Named API tokens and outgoing webhooks.
@@ -32,6 +33,7 @@ func (q *Queries) CreateAPIToken(ctx context.Context, arg CreateAPITokenParams) 
 		arg.TokenHash,
 		arg.Prefix,
 		arg.CreatedBy,
+		arg.Permissions,
 	)
 	var i ApiToken
 	err := row.Scan(
@@ -43,6 +45,7 @@ func (q *Queries) CreateAPIToken(ctx context.Context, arg CreateAPITokenParams) 
 		&i.CreatedAt,
 		&i.LastUsedAt,
 		&i.RevokedAt,
+		&i.Permissions,
 	)
 	return i, err
 }
@@ -202,7 +205,7 @@ func (q *Queries) ListAPITokenRequests(ctx context.Context, tokenID pgtype.UUID)
 }
 
 const listAPITokens = `-- name: ListAPITokens :many
-SELECT id, name, token_hash, prefix, created_by, created_at, last_used_at, revoked_at FROM api_tokens ORDER BY created_at DESC
+SELECT id, name, token_hash, prefix, created_by, created_at, last_used_at, revoked_at, permissions FROM api_tokens ORDER BY created_at DESC
 `
 
 func (q *Queries) ListAPITokens(ctx context.Context) ([]ApiToken, error) {
@@ -223,6 +226,7 @@ func (q *Queries) ListAPITokens(ctx context.Context) ([]ApiToken, error) {
 			&i.CreatedAt,
 			&i.LastUsedAt,
 			&i.RevokedAt,
+			&i.Permissions,
 		); err != nil {
 			return nil, err
 		}
@@ -381,18 +385,25 @@ func (q *Queries) RecordWebhookAttempt(ctx context.Context, arg RecordWebhookAtt
 const resolveAPIToken = `-- name: ResolveAPIToken :one
 UPDATE api_tokens SET last_used_at = now()
 WHERE token_hash = $1 AND revoked_at IS NULL
-RETURNING id, name
+RETURNING id, name, permissions, created_by
 `
 
 type ResolveAPITokenRow struct {
-	ID   pgtype.UUID `json:"id"`
-	Name string      `json:"name"`
+	ID          pgtype.UUID `json:"id"`
+	Name        string      `json:"name"`
+	Permissions []string    `json:"permissions"`
+	CreatedBy   pgtype.UUID `json:"created_by"`
 }
 
 func (q *Queries) ResolveAPIToken(ctx context.Context, tokenHash []byte) (ResolveAPITokenRow, error) {
 	row := q.db.QueryRow(ctx, resolveAPIToken, tokenHash)
 	var i ResolveAPITokenRow
-	err := row.Scan(&i.ID, &i.Name)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Permissions,
+		&i.CreatedBy,
+	)
 	return i, err
 }
 

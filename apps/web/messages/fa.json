@@ -1370,7 +1370,8 @@
         "paid": "پرداخت در این بازه",
         "returning": "پیش‌تر پرداخت کرده",
         "rate": "سهم بازگشتی",
-        "legacy": "ربات قبلی، پرداخت‌ها: {count}"
+        "legacy": "ربات قبلی، پرداخت‌ها: {count}",
+        "legacyGoods": "فروشگاه ربات قبلی: {count} سفارش، {stars} ستاره"
       },
       "operations": {
         "title": "به تفکیک نوع فروش",
@@ -3454,7 +3455,8 @@
           "loyaltyTier": "کد سطح وفاداری",
           "planCode": "کد طرح",
           "adCampaign": "کد کمپین تبلیغاتی",
-          "customerIds": "مشتریان انتخاب‌شده"
+          "customerIds": "مشتریان انتخاب‌شده",
+          "goods": "از فروشگاه خریده است"
         },
         "values": {
           "active": "فعال",
@@ -3473,10 +3475,14 @@
           "telegram": "Telegram",
           "email": "ایمیل تأییدشده",
           "vkid": "VK ID",
-          "oidc": "ارائه‌دهنده خارجی"
+          "oidc": "ارائه‌دهنده خارجی",
+          "goods_stars": "Telegram Stars",
+          "goods_premium": "Telegram Premium",
+          "goods_any": "هر چیزی"
         },
         "rangeFrom": "از (روز)",
-        "rangeTo": "تا (روز)"
+        "rangeTo": "تا (روز)",
+        "goodsWithinDays": "در این تعداد روز (اختیاری)"
       },
       "pinned": {
         "title": "پیام سنجاق‌شده",
@@ -4457,7 +4463,11 @@
       "delete": "حذف",
       "hookName": "نام",
       "hookUrl": "نشانی https://",
-      "createWebhook": "ایجاد webhook"
+      "createWebhook": "ایجاد webhook",
+      "fullAccess": "دسترسی کامل",
+      "tokenPermissions": "توکن چه کاری می‌تواند بکند",
+      "tokenPermissionsHint": "همان مجوزهای اپراتورها. مسیر /v1/admin خارج از این فهرست پاسخ 403 می‌دهد و رد شدن در گزارش توکن ثبت می‌شود.",
+      "fullAccessSwitch": "دسترسی کامل به همه مسیرهای /v1/admin"
     },
     "buttonStats": {
       "title": "آمار دکمه‌های ربات",

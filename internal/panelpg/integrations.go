@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 	"github.com/omniflow/omniflow/internal/egress"
+	"github.com/omniflow/omniflow/internal/rbac"
 )
 
 // WebhookTopics are the events an outgoing webhook can subscribe to: the
@@ -32,6 +34,10 @@ type APIToken struct {
 	CreatedAt  time.Time  `json:"createdAt"`
 	LastUsedAt *time.Time `json:"lastUsedAt,omitempty"`
 	RevokedAt  *time.Time `json:"revokedAt,omitempty"`
+	// FullAccess is a token with no permission list: every /v1/admin route.
+	// Permissions is the list otherwise.
+	FullAccess  bool     `json:"fullAccess"`
+	Permissions []string `json:"permissions"`
 	// Token is set once, in the answer to its creation, and never again.
 	Token string `json:"token,omitempty"`
 }
@@ -44,10 +50,32 @@ func HashAPIToken(token string) []byte {
 
 // CreateAPIToken mints a named token. Its value is in the answer and nowhere
 // else; only its hash is stored.
-func (service *Service) CreateAPIToken(ctx context.Context, name string, actor Actor) (APIToken, error) {
+//
+// A token is scoped to permissions from the operators' catalogue, or asks for
+// full access explicitly; a token with neither could do nothing and is
+// refused.
+func (service *Service) CreateAPIToken(ctx context.Context, name string, permissions []string, fullAccess bool, actor Actor) (APIToken, error) {
 	name = strings.TrimSpace(name)
 	if name == "" || len([]rune(name)) > 80 {
 		return APIToken{}, ErrValidaton
+	}
+	var scoped []string
+	if !fullAccess {
+		if len(permissions) == 0 || len(permissions) > 64 {
+			return APIToken{}, ErrValidaton
+		}
+		seen := map[string]bool{}
+		for _, permission := range permissions {
+			permission = strings.TrimSpace(permission)
+			if !rbac.Known(rbac.Permission(permission)) {
+				return APIToken{}, ErrValidaton
+			}
+			if !seen[permission] {
+				seen[permission] = true
+				scoped = append(scoped, permission)
+			}
+		}
+		sort.Strings(scoped)
 	}
 	raw := make([]byte, 32)
 	if _, err := rand.Read(raw); err != nil {
@@ -62,6 +90,7 @@ func (service *Service) CreateAPIToken(ctx context.Context, name string, actor A
 	err := service.inTx(ctx, func(queries *dbgen.Queries) error {
 		row, err := queries.CreateAPIToken(ctx, dbgen.CreateAPITokenParams{
 			Name: name, TokenHash: HashAPIToken(token), Prefix: token[:10], CreatedBy: createdBy,
+			Permissions: scoped,
 		})
 		if err != nil {
 			return err
@@ -69,7 +98,7 @@ func (service *Service) CreateAPIToken(ctx context.Context, name string, actor A
 		created = apiTokenFrom(row)
 		created.Token = token
 		return appendAudit(ctx, queries, actor.audit("system.api_token.created", "system", "api_token", created.ID,
-			map[string]any{"name": name}))
+			map[string]any{"name": name, "fullAccess": scoped == nil, "permissions": scoped}))
 	})
 	return created, err
 }
@@ -134,6 +163,7 @@ func apiTokenFrom(row dbgen.ApiToken) APIToken {
 	return APIToken{
 		ID: uuidString(row.ID), Name: row.Name, Prefix: row.Prefix, CreatedAt: row.CreatedAt.Time,
 		LastUsedAt: timePointer(row.LastUsedAt), RevokedAt: timePointer(row.RevokedAt),
+		FullAccess: row.Permissions == nil, Permissions: row.Permissions,
 	}
 }
 

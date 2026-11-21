@@ -62,6 +62,57 @@ func (q *Queries) CustomersByRemnawaveIDs(ctx context.Context, remnawaveIds []in
 	return items, nil
 }
 
+const legacyGoodsInPeriod = `-- name: LegacyGoodsInPeriod :many
+SELECT lg.currency, count(*)::bigint AS order_count,
+       COALESCE(sum(lg.quantity), 0)::bigint AS quantity,
+       COALESCE(sum(lg.amount_minor), 0)::bigint AS amount_minor
+FROM legacy_goods_orders lg
+WHERE lg.delivered_at >= $1 AND lg.delivered_at < $2
+  AND ($3::text IS NULL OR lg.currency = $3::text)
+GROUP BY lg.currency
+ORDER BY lg.currency
+`
+
+type LegacyGoodsInPeriodParams struct {
+	Since    pgtype.Timestamptz `json:"since"`
+	Until    pgtype.Timestamptz `json:"until"`
+	Currency pgtype.Text        `json:"currency"`
+}
+
+type LegacyGoodsInPeriodRow struct {
+	Currency    string `json:"currency"`
+	OrderCount  int64  `json:"order_count"`
+	Quantity    int64  `json:"quantity"`
+	AmountMinor int64  `json:"amount_minor"`
+}
+
+// What the previous bot's shop delivered in the period, kept apart from
+// Omniflow's goods sales and from the previous bot's VPN payments.
+func (q *Queries) LegacyGoodsInPeriod(ctx context.Context, arg LegacyGoodsInPeriodParams) ([]LegacyGoodsInPeriodRow, error) {
+	rows, err := q.db.Query(ctx, legacyGoodsInPeriod, arg.Since, arg.Until, arg.Currency)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []LegacyGoodsInPeriodRow{}
+	for rows.Next() {
+		var i LegacyGoodsInPeriodRow
+		if err := rows.Scan(
+			&i.Currency,
+			&i.OrderCount,
+			&i.Quantity,
+			&i.AmountMinor,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const legacyPaymentsInPeriod = `-- name: LegacyPaymentsInPeriod :many
 SELECT lp.currency, count(*)::bigint AS payment_count,
        COALESCE(sum(lp.amount_minor), 0)::bigint AS amount_minor

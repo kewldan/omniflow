@@ -2653,6 +2653,38 @@ paths:
         "200": {description: Payment health, content: {application/json: {schema: {$ref: "#/components/schemas/PanelPaymentHealth"}}}}
         "403": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/reports/customer-payments:
+    get:
+      operationId: getPanelCustomerPayments
+      tags: [panel]
+      description: >-
+        Requires finance.read. Every customer who paid in the period, one row
+        per customer and currency: Omniflow's payments and the previous bot's
+        apart, and the first and last payment ever, which is what a cohort or
+        a repeat-payment figure is computed from. A payment is a
+        provider-settled order for a non-zero amount or a payment a previous
+        bot recorded, as in the returning-payers figure. With `format=csv` the
+        same rows as a file with a stable header. Also served under /v1/admin
+        to a named API token. At most 100000 rows.
+      parameters:
+        - {$ref: "#/components/parameters/ReportSince"}
+        - {$ref: "#/components/parameters/ReportUntil"}
+        - {$ref: "#/components/parameters/ReportCurrency"}
+        - {in: query, name: format, schema: {type: string, enum: [json, csv]}}
+      responses:
+        "200":
+          description: Customer payments
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [customers]
+                properties:
+                  customers: {type: array, items: {$ref: "#/components/schemas/PanelCustomerPayments"}}
+            text/csv:
+              schema: {type: string}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
   /v1/panel/reports/traffic:
     get:
       operationId: getPanelTrafficReport
@@ -7876,6 +7908,14 @@ components:
         currency: {type: string}
         payments: {type: integer, format: int64}
         amountMinor: {type: integer, format: int64, description: "What the previous bot took in the period. History to compare against, never part of Omniflow's sales."}
+    PanelLegacyPeriodGoods:
+      type: object
+      required: [currency, orders, quantity, amountMinor]
+      properties:
+        currency: {type: string}
+        orders: {type: integer, format: int64}
+        quantity: {type: integer, format: int64, description: Telegram Stars delivered}
+        amountMinor: {type: integer, format: int64, description: "What the previous bot's shop took for them, from customers' balances. History, never part of Omniflow's sales."}
     PanelBedolagaPayment:
       type: object
       required: [id, provider, providerReference, amountMinor, currency, status, createdAt]
@@ -7899,7 +7939,7 @@ components:
       properties: {items: {type: array, items: {$ref: "#/components/schemas/PanelBedolagaPayment"}}}
     PanelSalesReport:
       type: object
-      required: [since, until, timezone, byOperation, byPlan, byDay, refunds, trials, payers, legacy, generatedAt]
+      required: [since, until, timezone, byOperation, byPlan, byDay, refunds, trials, payers, legacy, legacyGoods, generatedAt]
       properties:
         since: {type: string, format: date-time}
         until: {type: string, format: date-time}
@@ -7912,6 +7952,7 @@ components:
         trials: {$ref: "#/components/schemas/PanelTrialConversion"}
         payers: {$ref: "#/components/schemas/PanelReturningPayers"}
         legacy: {type: array, items: {$ref: "#/components/schemas/PanelLegacyPeriodPayments"}}
+        legacyGoods: {type: array, items: {$ref: "#/components/schemas/PanelLegacyPeriodGoods"}}
         generatedAt: {type: string, format: date-time}
     PanelProviderHealthLine:
       type: object
@@ -7948,6 +7989,18 @@ components:
         rejected: {type: integer, format: int64, description: "Failed signature verification."}
         failed: {type: integer, format: int64}
         processed: {type: integer, format: int64}
+    PanelCustomerPayments:
+      type: object
+      required: [customerId, currency, payments, amountMinor, legacyPayments, legacyAmountMinor, firstPaidAt, lastPaidAt]
+      properties:
+        customerId: {type: string, format: uuid}
+        currency: {type: string}
+        payments: {type: integer, format: int64}
+        amountMinor: {type: integer, format: int64}
+        legacyPayments: {type: integer, format: int64}
+        legacyAmountMinor: {type: integer, format: int64}
+        firstPaidAt: {type: string, format: date-time}
+        lastPaidAt: {type: string, format: date-time}
     PanelPaymentHealth:
       type: object
       required: [since, until, timezone, providers, byDay, webhooks, generatedAt]

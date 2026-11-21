@@ -292,6 +292,20 @@ func (grant Grant) AllowsAll(permissions ...Permission) bool {
 	return true
 }
 
+// Restrict narrows the grant to the listed permissions: what a named API token
+// minted by this operator may do is what the operator may do and the token
+// was given, never more than either. Roles are kept, so a decision about
+// identity still sees who minted it.
+func (grant Grant) Restrict(permissions []Permission) Grant {
+	restricted := Grant{roles: slices.Clone(grant.roles), permissions: make(map[Permission]struct{}, len(permissions))}
+	for _, permission := range permissions {
+		if grant.Allows(permission) {
+			restricted.permissions[permission] = struct{}{}
+		}
+	}
+	return restricted
+}
+
 // HasRole reports whether the operator holds a specific role. Reserved for the
 // few decisions that are genuinely about identity rather than capability, such
 // as "only an owner may grant the owner role".

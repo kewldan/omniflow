@@ -158,6 +158,18 @@ WHERE lp.paid_at >= sqlc.arg(since) AND lp.paid_at < sqlc.arg(until)
 GROUP BY lp.currency
 ORDER BY lp.currency;
 
+-- name: LegacyGoodsInPeriod :many
+-- What the previous bot's shop delivered in the period, kept apart from
+-- Omniflow's goods sales and from the previous bot's VPN payments.
+SELECT lg.currency, count(*)::bigint AS order_count,
+       COALESCE(sum(lg.quantity), 0)::bigint AS quantity,
+       COALESCE(sum(lg.amount_minor), 0)::bigint AS amount_minor
+FROM legacy_goods_orders lg
+WHERE lg.delivered_at >= sqlc.arg(since) AND lg.delivered_at < sqlc.arg(until)
+  AND (sqlc.narg(currency)::text IS NULL OR lg.currency = sqlc.narg(currency)::text)
+GROUP BY lg.currency
+ORDER BY lg.currency;
+
 -- Payment health per provider.
 --
 -- The question is "has an acquirer started failing", and answering it needs two

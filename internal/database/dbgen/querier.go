@@ -977,6 +977,14 @@ type Querier interface {
 	InsertEntitlementDrift(ctx context.Context, arg InsertEntitlementDriftParams) (EntitlementDrift, error)
 	InsertFulfillmentHistory(ctx context.Context, arg InsertFulfillmentHistoryParams) (FulfillmentHistory, error)
 	InsertGoodsDeliveryAttempt(ctx context.Context, arg InsertGoodsDeliveryAttemptParams) (GoodsDeliveryAttempt, error)
+	// A Bedolaga campaign under its /start code. An Omniflow campaign that has
+	// the code already is the same link, and is left as the operator set it.
+	InsertImportedAdCampaign(ctx context.Context, arg InsertImportedAdCampaignParams) (int64, error)
+	// A carried customer attributed to the campaign that first brought them, on
+	// the original date. The bonus was given in Bedolaga, so it is recorded as
+	// granted then and is never given again. A customer already attributed
+	// keeps their attribution.
+	InsertImportedCampaignAttribution(ctx context.Context, arg InsertImportedCampaignAttributionParams) (int64, error)
 	// ---------------------------------------------------------------------------
 	// Writes
 	// ---------------------------------------------------------------------------
@@ -1005,6 +1013,7 @@ type Querier interface {
 	// A claim the customer already holds is left alone.
 	InsertImportedTrialClaim(ctx context.Context, arg InsertImportedTrialClaimParams) (int64, error)
 	InsertLedgerEntry(ctx context.Context, arg InsertLedgerEntryParams) (LedgerEntry, error)
+	InsertLegacyGoodsOrder(ctx context.Context, arg InsertLegacyGoodsOrderParams) (int64, error)
 	// A payment the previous bot took. Inserted once per source row; a repeated
 	// run inserts nothing.
 	InsertLegacyPayment(ctx context.Context, arg InsertLegacyPaymentParams) (int64, error)
@@ -1072,6 +1081,9 @@ type Querier interface {
 	LatestBlockerScan(ctx context.Context) (BlockerScan, error)
 	// The plan version an operator means when they pick a plan by name.
 	LatestLivePlanVersion(ctx context.Context, planID pgtype.UUID) (LatestLivePlanVersionRow, error)
+	// What the previous bot's shop delivered in the period, kept apart from
+	// Omniflow's goods sales and from the previous bot's VPN payments.
+	LegacyGoodsInPeriod(ctx context.Context, arg LegacyGoodsInPeriodParams) ([]LegacyGoodsInPeriodRow, error)
 	// What the previous bot took in the period, kept apart from Omniflow's own
 	// sales: it is history the operator compares against, not revenue Omniflow
 	// settled.
@@ -1146,6 +1158,8 @@ type Querier interface {
 	ListActiveRetentionHolds(ctx context.Context) ([]AiRetentionHold, error)
 	// The temporary squads in force on a subscription now.
 	ListActiveSquadGrants(ctx context.Context, subscriptionID pgtype.UUID) ([]SquadAccessGrant, error)
+	// The advertising campaigns a Bedolaga campaign can be matched to by code.
+	ListAdCampaignCodes(ctx context.Context) ([]string, error)
 	ListAddonPrices(ctx context.Context, addonVersionID pgtype.UUID) ([]AddonPrice, error)
 	ListAddonVersions(ctx context.Context, addonID pgtype.UUID) ([]AddonVersion, error)
 	ListAddonsAdmin(ctx context.Context) ([]ListAddonsAdminRow, error)
@@ -1196,6 +1210,7 @@ type Querier interface {
 	ListBatchCodes(ctx context.Context, batchID pgtype.UUID) ([]ListBatchCodesRow, error)
 	ListBedolagaImportItems(ctx context.Context) ([]BedolagaImportItem, error)
 	ListBedolagaImportRuns(ctx context.Context, pageSize int32) ([]BedolagaImportRun, error)
+	ListBedolagaLegacyGoods(ctx context.Context) ([]int64, error)
 	// The source rows already carried over, so a repeated run plans only the
 	// payments taken since.
 	ListBedolagaLegacyPayments(ctx context.Context) ([]ListBedolagaLegacyPaymentsRow, error)
@@ -1229,6 +1244,8 @@ type Querier interface {
 	// The cabinet cards one customer sees: active reminders shown in the cabinet
 	// whose segment holds the customer now and which they have not dismissed.
 	ListCabinetReminders(ctx context.Context, userID pgtype.UUID) ([]ListCabinetRemindersRow, error)
+	// Who is already attributed to a campaign, and to which.
+	ListCampaignAttributionCodes(ctx context.Context) ([]ListCampaignAttributionCodesRow, error)
 	ListCampaignTestSends(ctx context.Context, arg ListCampaignTestSendsParams) ([]CampaignTestSend, error)
 	// ---------------------------------------------------------------------------
 	// Campaigns

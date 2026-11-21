@@ -204,3 +204,39 @@ func TestCarriedHistoryIsRead(t *testing.T) {
 		}
 	}
 }
+
+// A shop buyer is found among Omniflow's delivered goods orders and the
+// previous bot's, by kind and, optionally, by how recently.
+func TestGoodsBuyers(t *testing.T) {
+	query, err := Compile(map[string]any{
+		FilterGoods:  map[string]any{"kind": "stars", "withinDays": float64(90)},
+		FilterStatus: "active",
+	}, testClock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(query.Where, "legacy_goods_orders") || !strings.Contains(query.Where, "goods_deliveries") {
+		t.Fatalf("goods reads both histories:\n%s", query.Where)
+	}
+	if len(query.Args) != 3 || query.Explain[0] != "bought Telegram Stars in the shop within 90 days" {
+		t.Fatalf("args %v, explain %v", query.Args, query.Explain)
+	}
+	if !strings.Contains(query.Where, "$3") || strings.Contains(query.Where, "$4") {
+		t.Fatalf("placeholders:\n%s", query.Where)
+	}
+	anyKind, err := Compile(map[string]any{FilterGoods: map[string]any{"kind": "any"}}, testClock)
+	if err != nil || anyKind.Explain[0] != "bought anything in the shop" || strings.Contains(anyKind.Where, "make_interval") {
+		t.Fatalf("any kind, no window: %v %v\n%s", err, anyKind.Explain, anyKind.Where)
+	}
+	for _, bad := range []any{
+		"stars",
+		map[string]any{},
+		map[string]any{"kind": "vpn"},
+		map[string]any{"kind": "stars", "withinDays": float64(0)},
+		map[string]any{"kind": "stars", "days": float64(5)},
+	} {
+		if _, err := Compile(map[string]any{FilterGoods: bad}, testClock); err == nil {
+			t.Fatalf("%v is accepted", bad)
+		}
+	}
+}

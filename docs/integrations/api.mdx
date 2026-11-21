@@ -5,13 +5,13 @@ description: "How a script or another service drives Omniflow through /v1/admin:
 
 Omniflow's HTTP API is split into three prefixes that never share a router, a
 credential, or a middleware stack. This page is about `/v1/admin` — the surface
-an installation automates against with a shared bearer token, from a script, a
-CI job, or another service.
+an installation automates against with a bearer token, from a script, a CI job,
+or another service.
 
 | Prefix | Credential | Extra gates | Who it is for |
 | --- | --- | --- | --- |
 | `/v1/panel` | `__Host-omniflow_admin` session cookie (`omniflow_admin` without TLS) | `X-CSRF-Token` on unsafe methods, an RBAC permission per route, TOTP challenge state | A human operator in the `/admin` browser workspace |
-| `/v1/admin` | `Authorization: Bearer <APP_OPERATOR_TOKEN>` | none — no CSRF, no RBAC; each mutation is audited as `operator-token` | A machine acting as the installation |
+| `/v1/admin` | `Authorization: Bearer <APP_OPERATOR_TOKEN>` or a named `oft_…` token | no CSRF; a named token is limited to its permission list; each mutation is audited as `operator-token` or `api-token:<name>` | A machine acting as the installation |
 | `/v1/account` | `__Host-omniflow_account` session cookie (`omniflow_account` without TLS) | `X-CSRF-Token`, step-up re-authentication on four routes | A customer in the `/account` browser panel |
 
 Merging any two of these would mean one silently inherits the other's
@@ -29,19 +29,19 @@ the only scripted way to create orders, take payments, record refunds, adjust a
 wallet, drive the Remnawave import, and enqueue a fulfillment operation.
 
 Use `/v1/panel` when the caller is a person, or when you need something
-`/v1/admin` does not expose — the support desk, marketing campaigns, the
-catalogue editor, installation settings, the audit trail, risk review. It is
-also the only surface with per-capability authorization: an integration that
-should be able to read but not refund belongs behind an operator account with a
-narrow role, not behind the shared token.
+`/v1/admin` does not expose — the catalogue editor, installation settings, the
+audit trail, risk review. A set of the panel's own routes — tickets, reports,
+segments and broadcasts, bulk actions — is also served under `/v1/admin` to a
+named token; see [Panel routes for named tokens](#panel-routes-for-named-tokens).
 
 <Warning>
-  `APP_OPERATOR_TOKEN` reaches **every** `/v1/admin` endpoint, including
-  `POST /v1/admin/payments/{paymentID}/refunds` and
-  `POST /v1/admin/customers/{customerID}/wallet-adjustments`. There is no
-  per-capability scoping and no role on this prefix. Handing the token to a
-  third party hands them the whole surface. Treat it as an installation-level
-  credential and rotate it by editing the environment and restarting the API.
+  `APP_OPERATOR_TOKEN` reaches **every** `/v1/admin` endpoint it has always had,
+  including `POST /v1/admin/payments/{paymentID}/refunds` and
+  `POST /v1/admin/customers/{customerID}/wallet-adjustments`. It has no
+  permission list. Handing it to a third party hands them the whole surface.
+  Give an integration a [named token](#named-api-tokens) with only the
+  permissions it needs instead, and rotate the shared token by editing the
+  environment and restarting the API.
 </Warning>
 
 Every state-changing request on this prefix — anything but `GET`, `HEAD`, and
@@ -87,11 +87,90 @@ authentication.
 
 Beside `APP_OPERATOR_TOKEN`, operators holding `system.write` create **named tokens** on
 `/admin/system` (`POST /v1/panel/integrations/tokens`). A token starts with `oft_`, is shown
-once, and is stored only as its SHA-256; it authenticates `/v1/admin` exactly like the shared
-token. Each named token has its own request log — method, route pattern, status, time —
-read at `GET /v1/panel/integrations/tokens/{id}/requests` (`system.read`) and kept ninety
-days, and the audit trail names it as `api-token:<name>` rather than the shared token.
-Revoking one (`POST …/tokens/{id}/revoke`) ends it at once.
+once, and is stored only as its SHA-256. Each named token has its own request log — method,
+route pattern, status, time — read at `GET /v1/panel/integrations/tokens/{id}/requests`
+(`system.read`) and kept ninety days, and the audit trail names it as `api-token:<name>`
+rather than the shared token. Revoking one (`POST …/tokens/{id}/revoke`) ends it at once.
+
+### Permissions
+
+A named token carries a **permission list** from the operators' own catalogue
+(`GET /v1/panel/rbac/catalog`), or full access:
+
+```json
+{"name": "support-drafts", "permissions": ["support.read", "support.write"]}
+{"name": "owner-script", "fullAccess": true}
+```
+
+One or the other is required; a permission outside the catalogue is refused. A
+`/v1/admin` route outside the list answers `403 token_permission_denied`, and the
+refusal is in the token's request log. Tokens made before permissions existed
+have full access and are marked so on `/admin/system`; replace them with scoped
+ones.
+
+| Routes | Permission |
+| --- | --- |
+| Plans, plan versions, promotions | `catalog.write` |
+| Customer changes, identities, contacts, consents, lifecycle, the Remnawave import | `customers.write` |
+| `GET /orders/{orderID}` | `finance.read` |
+| Orders, payments, refunds, manual decisions, wallet adjustments | `finance.write` |
+| Fulfillment drifts, jobs, webhooks, outbox, backups, `GET /maintenance` | `system.read` |
+| Job retry and cancel, `PUT /maintenance` | `system.write` |
+| Entitlement operations | `subscriptions.write` |
+
+## Panel routes for named tokens
+
+A named token also reaches a set of the panel's own handlers under `/v1/admin`,
+so an automation can do what an operator does in the panel without a browser
+session. The request acts as **the operator who made the token**, with that
+operator's roles narrowed to the token's permissions: a permission the token
+lists but its maker does not hold is not granted. The handlers, request and
+response shapes are the panel's — the `/v1/panel` routes of the same path are
+documented in the API reference — and every state change is audited under the
+maker's name as well as in the token's log.
+
+| Route | Permission |
+| --- | --- |
+| `GET /support/tickets` (`status`, `queueId`, `customerId`, `tag`, `updatedSince`, `cursor`, `pageSize`) | `support.read` |
+| `GET /support/tickets/{ticketID}` — the ticket with its messages and notes | `support.read` |
+| `POST /support/tickets/{ticketID}/notes`, `POST /support/tickets/{ticketID}/status` | `support.write` |
+| `GET /reports/sales`, `GET /reports/sales/export` (CSV), `GET /reports/payments` | `finance.read` |
+| `GET /reports/customer-payments` (`since`, `until`, `currency`, `format=csv`) | `finance.read` |
+| `GET /marketing/segments`, `GET /marketing/templates`, `GET /marketing/campaigns` | `marketing.read` |
+| `POST /marketing/audience/preview` — `{"filters": {…}}` | `marketing.read` |
+| `PUT /marketing/segments`, `POST /marketing/campaigns`, `POST /marketing/campaigns/{campaignID}/state` | `marketing.write` |
+| `GET /bulk`, `GET /bulk/{operationID}/items` | `customers.read` |
+| `POST /bulk`, `POST /bulk/{operationID}/start`, `POST /bulk/{operationID}/cancel` | `customers.write` |
+
+- The shared `APP_OPERATOR_TOKEN` names no operator and gets
+  `403 named_token_required` here.
+- A token whose maker is suspended, disabled, or deleted gets
+  `403 token_owner_inactive`; make a new token.
+- A change that needs a reason in the panel needs one here too: send
+  `X-Operator-Reason`, as on `/v1/panel`. Bulk actions take an
+  `Idempotency-Key` header.
+- `POST /marketing/audience/preview` compiles a filter set without saving it and
+  answers `size`, `chatClosed` (customers whose Telegram chat is closed),
+  `explain`, and up to 1000 `customerIds` in identifier order, with `truncated`
+  when there are more — the input of a bulk action.
+- `GET /reports/customer-payments` lists every customer who paid in the period,
+  one row per customer and currency: Omniflow's payments and a previous bot's
+  apart, and the first and last payment ever — what a cohort or repeat-payment
+  figure is built from. At most 100000 rows.
+
+Drafting answers to tickets without sending them is a support token with
+`support.read` and `support.write`: read with `updatedSince`, put the draft as an
+internal note. A compensation run — a day for every active customer — is
+`POST /marketing/audience/preview` with the filters, then `POST /bulk` with the
+returned IDs, then `POST /bulk/{operationID}/start`.
+
+## MCP
+
+The same named tokens authenticate Omniflow's own MCP server at `POST /v1/mcp`
+(Streamable HTTP, JSON responses). Its tools only read — ticket search and
+detail, the sales report, payment health, segments, an audience preview — and a
+token sees the tools its permissions allow. See
+[MCP connections](/operations/mcp#omniflow-as-a-server).
 
 ## Outgoing webhooks
 
@@ -223,6 +302,9 @@ Codes worth handling explicitly:
 | Code | Status | Meaning |
 | --- | --- | --- |
 | `unauthorized` | 401 | Missing or wrong bearer token |
+| `token_permission_denied` | 403 | The named token's permission list does not include the route |
+| `named_token_required` | 403 | A panel route reached with the shared token |
+| `token_owner_inactive` | 403 | The operator who made the token is no longer active |
 | `invalid_request` | 400 | Malformed JSON, an unknown field, or more than one JSON value |
 | `missing_idempotency_key` | 400 | Mutation without a valid 8–128 character key |
 | `missing_operator` | 400 | `operatorId` absent from a maintenance change |
@@ -372,7 +454,8 @@ creates a second order.
 
 ## What `/v1/admin` covers
 
-Thirty endpoints, grouped by what they do.
+Thirty endpoints of its own, grouped by what they do, beside the
+[panel routes for named tokens](#panel-routes-for-named-tokens).
 
 | Area | Endpoints |
 | --- | --- |
@@ -451,7 +534,8 @@ Know these gaps before you generate a client from it:
   scheme.** The schemes are defined and there is no root-level `security`, so in
   OpenAPI terms every `/v1/panel` and `/v1/account` operation reads as
   unauthenticated. Only the 30 `/v1/admin` operations carry
-  `security: [{operatorToken: []}]`. A generated client will not know the panel
+  `security: [{operatorToken: []}]`; the panel routes a named token reaches
+  under `/v1/admin` are documented once, under `/v1/panel`. A generated client will not know the panel
   calls need credentials.
 - **Required permissions appear only in prose descriptions**, so no tooling can
   surface them. The authoritative answer is the `requirePermission(...)` at each

@@ -79,8 +79,12 @@ type PaymentSection struct {
 	// operator can see what excludedPaymentMethods removed.
 	ExcludedByMethod map[string]int `json:"excludedByMethod"`
 	// ByKind counts the carried payments by where Bedolaga recorded them:
-	// topup, direct, gift.
+	// subscription, gift_balance, gift.
 	ByKind map[string]int `json:"byKind"`
+	// StarsMinor is what the balance paid for Telegram Stars (stars_payment):
+	// top-ups that went to Stars, which is why they are not VPN spend.
+	StarsMinor int64 `json:"starsMinor"`
+	StarsCount int64 `json:"starsCount"`
 }
 
 // BalanceSection adds the money totals to the balance decisions.
@@ -142,6 +146,9 @@ type Report struct {
 	Discounts       Section             `json:"discounts"`
 	ReferralCodes   Section             `json:"referralCodes"`
 	Gifts           GiftSection         `json:"gifts"`
+	Campaigns       Section             `json:"campaigns"`
+	Attributions    Section             `json:"campaignRegistrations"`
+	Goods           GoodsSection        `json:"starsOrders"`
 	UnmappedTariffs []UnmappedTariff    `json:"unmappedTariffs"`
 	PlanVersions    []PlanVersionUse    `json:"planVersions"`
 	// Available lists every Omniflow plan version a mapping may name.
@@ -151,10 +158,19 @@ type Report struct {
 	NotMigrated []string      `json:"notMigrated"`
 }
 
+// GoodsSection is the delivered Stars orders carried as shop history.
+type GoodsSection struct {
+	Section
+	CarriedStars int64 `json:"carriedStars"`
+	CarriedMinor int64 `json:"carriedMinor"`
+	Buyers       int   `json:"buyers"`
+}
+
 // NotMigrated lists what the importer deliberately leaves in Bedolaga.
 var NotMigrated = []string{
 	"transactions other than completed top-ups (purchases from the balance, refunds, credits) and per-provider payment tables: stay in the archived dump; completed top-ups are carried as payment history",
-	"Telegram Stars shop orders (stars_orders): counted here, stays in the archived dump",
+	"Telegram Stars shop orders not delivered (paid, failed, refunded, in review): counted here, stay in the archived dump; delivered orders are carried as shop history",
+	"advertising campaign bonuses already given: a carried registration is attributed with its date and is not given the bonus again",
 	"gifts paid for and not yet received: counted here with their IDs; hand them over or refund them in Bedolaga before cutover",
 	"support tickets and their messages: close them in Bedolaga before cutover",
 	"promo codes, promo groups and their discounts: recreate the ones you still want in the panel",
@@ -211,20 +227,36 @@ func (plan Plan) Pending() int {
 			count++
 		}
 	}
+	for _, decision := range plan.Campaigns {
+		if decision.Action == ActionCreate {
+			count++
+		}
+	}
+	for _, decision := range plan.Attributions {
+		if decision.Action == ActionCreate {
+			count++
+		}
+	}
+	for _, decision := range plan.Goods {
+		if decision.Action == ActionCreate {
+			count++
+		}
+	}
 	return count
 }
 
 func buildReport(plan Plan, source Source, tariffs map[int64]Tariff, mapping Mapping, now time.Time) Report {
 	report := Report{
 		GeneratedAt: now, Currency: mapping.Currency, Users: newSection(), Referrals: newSection(),
-		Balances:        BalanceSection{Section: newSection()},
-		Subscriptions:   SubscriptionSection{Section: newSection()},
-		Trials:          TrialSection{Section: newSection(), ByOrigin: map[string]int{}},
-		Periods:         PeriodSection{Section: newSection()},
-		Payments:        PaymentSection{Section: newSection(), ExcludedByMethod: map[string]int{}, ByKind: map[string]int{}},
-		Discounts:       newSection(),
-		ReferralCodes:   newSection(),
-		Gifts:           GiftSection{ByStatus: map[string]int{}},
+		Balances:      BalanceSection{Section: newSection()},
+		Subscriptions: SubscriptionSection{Section: newSection()},
+		Trials:        TrialSection{Section: newSection(), ByOrigin: map[string]int{}},
+		Periods:       PeriodSection{Section: newSection()},
+		Payments:      PaymentSection{Section: newSection(), ExcludedByMethod: map[string]int{}, ByKind: map[string]int{}},
+		Discounts:     newSection(),
+		ReferralCodes: newSection(),
+		Gifts:         GiftSection{ByStatus: map[string]int{}},
+		Campaigns:     newSection(), Attributions: newSection(), Goods: GoodsSection{Section: newSection()},
 		UnmappedTariffs: []UnmappedTariff{}, PlanVersions: []PlanVersionUse{}, Problems: []Problem{},
 		Archive: source.Archive, NotMigrated: NotMigrated,
 	}
@@ -352,6 +384,11 @@ func buildReport(plan Plan, source Source, tariffs map[int64]Tariff, mapping Map
 		}
 	}
 	report.Payments.Payers = len(payers)
+	for _, bucket := range source.Archive.Transactions {
+		if bucket.Key == "stars_payment" {
+			report.Payments.StarsCount, report.Payments.StarsMinor = bucket.Count, bucket.SumMinor
+		}
+	}
 	for _, decision := range plan.Discounts {
 		report.Discounts.add(decision.Action, decision.Codes, nil)
 	}
@@ -371,6 +408,25 @@ func buildReport(plan Plan, source Source, tariffs map[int64]Tariff, mapping Map
 		report.Gifts.ByStatus[status]++
 		report.Problems = append(report.Problems, Problem{Kind: "gift", SourceID: gift.ID, Action: ActionSkip, Codes: []string{CodeGiftUnclaimed}})
 	}
+	for _, decision := range plan.Campaigns {
+		report.Campaigns.add(decision.Action, decision.Codes, decision.Warnings)
+		if decision.Action == ActionConflict {
+			report.Problems = append(report.Problems, Problem{Kind: "campaign", SourceID: decision.Source.ID, Action: decision.Action, Codes: decision.Codes})
+		}
+	}
+	for _, decision := range plan.Attributions {
+		report.Attributions.add(decision.Action, decision.Codes, nil)
+	}
+	buyers := map[int64]bool{}
+	for _, decision := range plan.Goods {
+		report.Goods.add(decision.Action, decision.Codes, nil)
+		if decision.Action == ActionCreate || decision.Action == ActionUnchanged {
+			report.Goods.CarriedStars += decision.Source.Quantity
+			report.Goods.CarriedMinor += decision.Source.AmountKopeks
+			buyers[decision.Source.UserID] = true
+		}
+	}
+	report.Goods.Buyers = len(buyers)
 	for _, entry := range unmapped {
 		report.UnmappedTariffs = append(report.UnmappedTariffs, *entry)
 	}
@@ -426,9 +482,19 @@ func (report Report) WriteText(writer io.Writer) {
 		FormatMinor(report.Payments.CarriedMinor), report.Currency, report.Payments.Payers,
 		report.Source.Payments, FormatMinor(report.Source.PaymentsMinor))
 	writeCounts(writer, "carried by kind", report.Payments.ByKind)
+	if report.Payments.StarsCount > 0 {
+		fmt.Fprintf(writer, "  top-ups that went to Telegram Stars: %d purchases, %s %s — not VPN spend, not carried\n",
+			report.Payments.StarsCount, FormatMinor(report.Payments.StarsMinor), report.Currency)
+	}
 	writeCounts(writer, "left out by method", report.Payments.ExcludedByMethod)
 	writeSection(writer, "Discounts", report.Discounts)
 	writeSection(writer, "Referral codes", report.ReferralCodes)
+	writeSection(writer, "Campaigns", report.Campaigns)
+	writeSection(writer, "Campaign regs", report.Attributions)
+	writeSection(writer, "Stars orders", report.Goods.Section)
+	fmt.Fprintf(writer, "  delivered orders carried: %d, %d stars, %s %s, from %d buyers\n",
+		report.Goods.Actions[ActionCreate]+report.Goods.Actions[ActionUnchanged], report.Goods.CarriedStars,
+		FormatMinor(report.Goods.CarriedMinor), report.Currency, report.Goods.Buyers)
 	if report.Gifts.Unclaimed > 0 {
 		fmt.Fprintf(writer, "Unclaimed gifts: %d paid, not received, %s %s — not carried; hand them over or refund them in Bedolaga first\n",
 			report.Gifts.Unclaimed, FormatMinor(report.Gifts.SumMinor), report.Currency)

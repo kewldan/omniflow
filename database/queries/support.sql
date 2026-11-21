@@ -112,6 +112,8 @@ WHERE (sqlc.narg(queue_id)::uuid IS NULL OR t.queue_id = sqlc.narg(queue_id)::uu
     JOIN support_tags g ON g.id = tt.tag_id
     WHERE tt.ticket_id = t.id AND g.code = sqlc.narg(tag)::text
   ))
+  -- A poller asks for what moved since its last pass.
+  AND (sqlc.narg(updated_since)::timestamptz IS NULL OR t.updated_at >= sqlc.narg(updated_since)::timestamptz)
   AND (
     sqlc.narg(cursor_last_message_at)::timestamptz IS NULL
     OR (t.last_message_at, t.id) > (sqlc.narg(cursor_last_message_at)::timestamptz, sqlc.narg(cursor_id)::uuid)

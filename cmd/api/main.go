@@ -245,6 +245,15 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 			return runtimeServices{}, nil, adminErr
 		}
 		services.admin = adminHandlers
+		// Named API tokens reach a set of the panel's handlers under
+		// /v1/admin, acting as the operator who made the token.
+		handlers.WithMachineRoutes(adminHandlers.MountMachine)
+		mcpServer, mcpErr := adminHandlers.MCPHandler()
+		if mcpErr != nil {
+			closeAll()
+			return runtimeServices{}, nil, mcpErr
+		}
+		handlers.WithMCP(mcpServer)
 	}
 	if cfg.CustomerPanel.Enabled {
 		accountHandlers, identity, accountErr := buildCustomerPanel(

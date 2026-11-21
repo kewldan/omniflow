@@ -12,6 +12,7 @@ import (
 	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 	"github.com/omniflow/omniflow/internal/platform"
+	"github.com/omniflow/omniflow/internal/rbac"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/rivertype"
 )
@@ -37,14 +38,14 @@ func (handlers *CommerceHandlers) mountOperations(admin chi.Router) {
 	if handlers.operations == nil {
 		return
 	}
-	admin.Get("/jobs", handlers.listJobs)
-	admin.Post("/jobs/{jobID}/retry", handlers.retryJob)
-	admin.Post("/jobs/{jobID}/cancel", handlers.cancelJob)
-	admin.Get("/webhooks", handlers.listWebhookEvents)
-	admin.Get("/outbox", handlers.outboxStatus)
-	admin.Get("/backups", handlers.listBackups)
-	admin.Get("/maintenance", handlers.getMaintenance)
-	admin.Put("/maintenance", handlers.setMaintenance)
+	admin.With(handlers.tokenPermission(rbac.PermissionSystemRead)).Get("/jobs", handlers.listJobs)
+	admin.With(handlers.tokenPermission(rbac.PermissionSystemWrite)).Post("/jobs/{jobID}/retry", handlers.retryJob)
+	admin.With(handlers.tokenPermission(rbac.PermissionSystemWrite)).Post("/jobs/{jobID}/cancel", handlers.cancelJob)
+	admin.With(handlers.tokenPermission(rbac.PermissionSystemRead)).Get("/webhooks", handlers.listWebhookEvents)
+	admin.With(handlers.tokenPermission(rbac.PermissionSystemRead)).Get("/outbox", handlers.outboxStatus)
+	admin.With(handlers.tokenPermission(rbac.PermissionSystemRead)).Get("/backups", handlers.listBackups)
+	admin.With(handlers.tokenPermission(rbac.PermissionSystemRead)).Get("/maintenance", handlers.getMaintenance)
+	admin.With(handlers.tokenPermission(rbac.PermissionSystemWrite)).Put("/maintenance", handlers.setMaintenance)
 }
 
 // jobStates maps the query filter onto River states. "dead_letter" is the

@@ -18,14 +18,13 @@ threat model is inverted between the two, and the conclusions are not symmetric.
 </Note>
 
 <Warning>
-  **Neither side is mounted in this build.** The registry, the allowlists, the
-  schema validation, the limits, and the audit surface are real and are what a
-  connection will be driven through, and the client and server packages are
-  implemented and unit-tested — but no process serves the first-party MCP server
-  and no feature calls a registered tool, because the AI features that would do
-  so are not mounted either. See
-  [AI providers and local models](/operations/ai-providers) for the same account
-  of the model side.
+  **The server side is served; the client side is not used yet.** The API
+  serves Omniflow's own MCP server at `/v1/mcp`, with read-only tools, to named
+  API tokens. The client side — the registry, the allowlists, the schema
+  validation, the limits, and the audit surface — is real and unit-tested, but
+  no feature calls a registered tool, because the AI features that would do so
+  are not mounted. See [AI providers and local models](/operations/ai-providers)
+  for the same account of the model side.
 </Warning>
 
 ## Omniflow as a client
@@ -140,21 +139,40 @@ for correctly refusing a bad argument.
 
 ## Omniflow as a server
 
-The first-party server exposes permission-scoped admin tools, resources, and
-operational documentation.
+The API serves the first-party server at `POST /v1/mcp` over Streamable HTTP,
+answering in JSON. A client connects with a [named API
+token](/integrations/api#named-api-tokens) as its bearer credential; the shared
+`APP_OPERATOR_TOKEN` names no operator and is refused with `401`. Every request
+is in the token's request log, like a `/v1/admin` call.
 
-**Every call is authorised as a person.** A connection carries a token that
-resolves to an operator, and a tool that operator could not use in the panel is a
-tool they cannot use here. There is no service identity with its own permissions;
-one would be a way around RBAC with a nicer interface.
+| Tool | Permission | What it answers |
+| --- | --- | --- |
+| `support_tickets_search` | `support.read` | Tickets by status, queue, customer, or `updatedSince`, with a cursor |
+| `support_ticket_get` | `support.read` | One ticket with its messages and internal notes |
+| `sales_report` | `finance.read` | The sales report for a period |
+| `payment_health` | `finance.read` | Payment success and failure by provider for a period |
+| `audience_segments` | `marketing.read` | Saved segments with their size |
+| `audience_preview` | `marketing.read` | What a filter set selects, without saving it |
+
+Every tool reads. Nothing an assistant does through this server changes
+Omniflow; writes go through `/v1/admin`, where the caller states each one. The
+server publishes no resources or prompts yet.
+
+**Every call is authorised as a person.** A token resolves to the operator who
+made it, with that operator's roles narrowed to the token's permissions, and a
+tool that operator could not use in the panel is a tool they cannot use here.
+There is no service identity with its own permissions; one would be a way around
+RBAC with a nicer interface. Every call, refusals included, is in the audit trail
+as `mcp.tool_call` under that operator.
 
 **Tools an operator cannot use are not listed.** A listing that advertises what
 somebody cannot have teaches an assistant to keep asking.
 
-**Read-only unless you say otherwise, twice.** Mutating tools need
-`AllowMutations` *and* the specific tool named in the allowlist. "Connect an
-assistant to your admin panel" should not be one switch that also means "and let
-it issue refunds".
+**Read-only unless you say otherwise, twice.** The server package refuses a
+mutating tool unless mutations are enabled *and* the specific tool is named in
+the allowlist; this build registers no mutating tool, so there is nothing to
+enable. "Connect an assistant to your admin panel" should not be one switch that
+also means "and let it issue refunds".
 
 **Every mutation is idempotent by key.** A mutating tool requires an idempotency
 key, and a repeat with the same key returns the first result without running

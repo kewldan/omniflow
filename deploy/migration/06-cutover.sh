@@ -17,6 +17,8 @@
 #   APP_PUBLIC_URL             Omniflow's public origin, for payment webhook URLs
 #   BEDOLAGA_BOT_CONTAINER     default remnawave_bot
 #   BEDOLAGA_EXTRA_CONTAINERS  other Bedolaga containers to stop (space-separated), e.g. the cabinet
+#   BEDOLAGA_DB_CONTAINER      default remnawave_bot_db; read for unpaid payments at the stop
+#   BEDOLAGA_DB_NAME, BEDOLAGA_DB_USER  as in 01-snapshot-bedolaga.sh
 #   OMNIFLOW_BOT_CONTAINER     optional; started by this script when set
 #   OMNIFLOW_WORKER_CONTAINER  optional; started by this script when set
 #   OMNIFLOW_TELEGRAM_MODE     webhook (default) or polling
@@ -68,6 +70,23 @@ docker stop "$bedolaga_bot" ${BEDOLAGA_EXTRA_CONTAINERS:-} >/dev/null
 date -u +%Y-%m-%dT%H:%M:%SZ >"$MIGRATION_DIR/cutover-at"
 say "Bedolaga stopped at $(cat "$MIGRATION_DIR/cutover-at")"
 say "If a payment provider still delivers a webhook to Bedolaga now, it is retried later; nothing is lost yet."
+
+# Payments Bedolaga opened that nobody has paid yet. Any of them paid after the
+# cutover reaches Omniflow, which credits the customer's wallet (YooKassa) or
+# queues it under /admin → Finance → Previous bot. The list is shown so the
+# operator knows what to expect; it holds no customer data.
+bedolaga_db="${BEDOLAGA_DB_CONTAINER:-remnawave_bot_db}"
+if docker exec "$bedolaga_db" psql -U "${BEDOLAGA_DB_USER:-remnawave_user}" -d "${BEDOLAGA_DB_NAME:-remnawave_bot}" -Atc \
+  "SELECT to_regclass('yookassa_payments') IS NOT NULL" 2>/dev/null | grep -qx t; then
+  pending=$(docker exec "$bedolaga_db" psql -U "${BEDOLAGA_DB_USER:-remnawave_user}" -d "${BEDOLAGA_DB_NAME:-remnawave_bot}" -Atc \
+    "SELECT count(*) || ' payments, ' || COALESCE(sum(amount_kopeks), 0) / 100 || ' RUB'
+     FROM yookassa_payments WHERE NOT COALESCE(is_paid, false) AND status IN ('pending', 'waiting_for_capture')
+       AND created_at > now() - interval '2 days'")
+  say "YooKassa payments opened in Bedolaga and still unpaid: $pending."
+  say "Any of these paid from now on is credited in Omniflow or queued under /admin → Finance → Previous bot."
+else
+  warn "could not read Bedolaga's yookassa_payments (container $bedolaga_db); check unpaid payments in the YooKassa dashboard"
+fi
 
 step "3. Final snapshot"
 "$here/01-snapshot-bedolaga.sh"

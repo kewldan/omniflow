@@ -2009,12 +2009,14 @@ WHERE ($1::uuid IS NULL OR t.queue_id = $1::uuid)
     JOIN support_tags g ON g.id = tt.tag_id
     WHERE tt.ticket_id = t.id AND g.code = $7::text
   ))
+  -- A poller asks for what moved since its last pass.
+  AND ($8::timestamptz IS NULL OR t.updated_at >= $8::timestamptz)
   AND (
-    $8::timestamptz IS NULL
-    OR (t.last_message_at, t.id) > ($8::timestamptz, $9::uuid)
+    $9::timestamptz IS NULL
+    OR (t.last_message_at, t.id) > ($9::timestamptz, $10::uuid)
   )
 ORDER BY t.last_message_at, t.id
-LIMIT $10
+LIMIT $11
 `
 
 type SearchSupportTicketsParams struct {
@@ -2025,6 +2027,7 @@ type SearchSupportTicketsParams struct {
 	UnassignedOnly      bool               `json:"unassigned_only"`
 	CustomerID          pgtype.UUID        `json:"customer_id"`
 	Tag                 pgtype.Text        `json:"tag"`
+	UpdatedSince        pgtype.Timestamptz `json:"updated_since"`
 	CursorLastMessageAt pgtype.Timestamptz `json:"cursor_last_message_at"`
 	CursorID            pgtype.UUID        `json:"cursor_id"`
 	PageSize            int32              `json:"page_size"`
@@ -2058,6 +2061,7 @@ func (q *Queries) SearchSupportTickets(ctx context.Context, arg SearchSupportTic
 		arg.UnassignedOnly,
 		arg.CustomerID,
 		arg.Tag,
+		arg.UpdatedSince,
 		arg.CursorLastMessageAt,
 		arg.CursorID,
 		arg.PageSize,

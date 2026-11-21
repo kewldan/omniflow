@@ -4,6 +4,7 @@ package integrationtest
 
 import (
 	"context"
+	"log/slog"
 	"strconv"
 	"testing"
 	"time"
@@ -13,7 +14,10 @@ import (
 	"github.com/omniflow/omniflow/internal/audience"
 	"github.com/omniflow/omniflow/internal/bedolagaimport"
 	"github.com/omniflow/omniflow/internal/bedolagaimportpg"
+	"github.com/omniflow/omniflow/internal/botapp"
+	"github.com/omniflow/omniflow/internal/campaigns"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
+	"github.com/omniflow/omniflow/internal/panelpg"
 )
 
 // The history that keeps a migrated base workable: everybody who ever
@@ -71,9 +75,39 @@ func TestBedolagaImportCarriesHistory(t *testing.T) {
 	fixture.exec(ctx, t, `INSERT INTO discount_offers (user_id, discount_percent, expires_at, claimed_at)
 		VALUES (30, 15, $1, $1)`, now.AddDate(0, -3, 0))
 
+	// The spec's two cases: Ivan topped up 360 ₽ and spent it on Stars; Kate
+	// topped up 499 ₽ and bought 90 days with it.
+	fixture.exec(ctx, t, `INSERT INTO users (id, telegram_id, username, status, created_at) VALUES
+		(31, 5031, 'ivan', 'active', $1), (32, 5032, 'kate', 'active', $1)`, now.AddDate(0, -2, 0))
+	fixture.exec(ctx, t, `INSERT INTO transactions (user_id, type, amount_kopeks, payment_method, is_completed, created_at) VALUES
+		(31, 'deposit', 36000, 'yookassa', true, $1), (31, 'stars_payment', -36000, 'balance', true, $1),
+		(32, 'deposit', 49900, 'yookassa', true, $1), (32, 'subscription_payment', -49900, 'balance', true, $1)`, now.AddDate(0, 0, -10))
+
+	// Advertising campaigns: stars_elite brought Hana and then Ivan; Ivan
+	// also registered through a later one, which does not move him. A
+	// campaign whose code Omniflow cannot hold is reported and left. An
+	// Omniflow campaign already has the code "summer".
+	fixture.exec(ctx, t, `INSERT INTO advertising_campaigns (id, name, start_parameter, bonus_type, balance_bonus_kopeks,
+		subscription_duration_days, tariff_duration_days, is_active) VALUES
+		(1, 'Stars Elite', 'Stars_Elite', 'balance', 5000, NULL, NULL, true),
+		(2, 'Summer', 'summer', 'subscription', 0, 7, NULL, false),
+		(3, 'Bad code', 'x-y', 'none', 0, NULL, NULL, true),
+		(4, 'Tariff', 'tariff_promo', 'tariff', 0, NULL, 14, true)`)
+	fixture.exec(ctx, t, `INSERT INTO advertising_campaign_registrations (campaign_id, user_id, bonus_type, created_at) VALUES
+		(1, 30, 'balance', $1), (1, 31, 'balance', $2), (2, 31, 'subscription', $3), (3, 32, 'none', $3)`,
+		now.AddDate(-1, 0, -5), now.AddDate(0, -2, 0), now.AddDate(0, -1, 0))
+	if _, err := fixture.harness.pool.Exec(ctx, `INSERT INTO ad_campaigns (code, name, bonus_kind, bonus_value) VALUES ('summer', 'Summer here', 'days', 3)`); err != nil {
+		t.Fatal(err)
+	}
+	// Stars: Ivan's 360 ₽ became 200 delivered stars; a refunded order is
+	// not history.
+	fixture.exec(ctx, t, `INSERT INTO stars_orders (user_id, recipient_username, quantity, amount_kopeks, status, idempotency_key, created_at)
+		VALUES (31, 'ivan_tg', 200, 36000, 'completed', 'ivan-1', $1), (31, 'ivan_tg', 50, 9000, 'refunded', 'ivan-2', $1)`,
+		now.AddDate(0, 0, -10))
+
 	source := fixture.read(ctx, t)
-	// Alice's -5000 month and Hana's five purchases.
-	if len(source.Payments) != 6 || len(source.Gifts) != 1 || len(source.Discounts) != 1 ||
+	// Alice's -5000 month, Hana's five purchases, and Kate's 90 days.
+	if len(source.Payments) != 7 || len(source.Gifts) != 1 || len(source.Discounts) != 1 ||
 		!source.Discounts[0].At.Equal(lastDiscount) {
 		t.Fatalf("read %d payments, %d unclaimed gifts, discounts %+v", len(source.Payments), len(source.Gifts), source.Discounts)
 	}
@@ -84,8 +118,9 @@ func TestBedolagaImportCarriesHistory(t *testing.T) {
 	if len(result.Failures) != 0 || result.Remaining != 0 {
 		t.Fatalf("apply: failures %+v, remaining %d", result.Failures, result.Remaining)
 	}
-	if result.Written["payment"] != 6 || result.Plan.Payments.ByKind[bedolagaimport.PaymentGift] != 1 ||
-		result.Plan.Payments.ByKind[bedolagaimport.PaymentGiftBalance] != 1 || result.Plan.Payments.ByKind[bedolagaimport.PaymentSubscription] != 4 {
+	if result.Written["payment"] != 7 || result.Plan.Payments.ByKind[bedolagaimport.PaymentGift] != 1 ||
+		result.Plan.Payments.ByKind[bedolagaimport.PaymentGiftBalance] != 1 || result.Plan.Payments.ByKind[bedolagaimport.PaymentSubscription] != 5 ||
+		result.Plan.Payments.StarsMinor != 86000 {
 		t.Fatalf("payments: written %d, plan %+v", result.Written["payment"], result.Plan.Payments)
 	}
 	if result.Written["discount"] != 1 || result.Plan.Gifts.Unclaimed != 1 || result.Plan.Gifts.SumMinor != 30000 {
@@ -168,6 +203,15 @@ func TestBedolagaImportCarriesHistory(t *testing.T) {
 	if segment(map[string]any{audience.FilterExpiredDaysAgo: map[string]any{"max": float64(14)}})[hana] {
 		t.Fatal("hana ended 45 days ago, outside the last fortnight")
 	}
+	ivan, kate := fixture.customerOf(ctx, t, 31), fixture.customerOf(ctx, t, 32)
+	spenders := segment(map[string]any{audience.FilterMinimumSpendMinor: float64(1)})
+	if spenders[ivan] || !spenders[kate] {
+		t.Fatalf("Stars are not VPN spend: ivan %t, kate %t", spenders[ivan], spenders[kate])
+	}
+	if fixture.count(ctx, t, `SELECT COALESCE(sum(amount_minor), 0)::int FROM legacy_payments WHERE user_id = $1::uuid`, kate) != 49900 ||
+		fixture.count(ctx, t, `SELECT count(*) FROM legacy_payments WHERE user_id = $1::uuid`, ivan) != 0 {
+		t.Fatal("kate spent 499 ₽ on VPN, ivan nothing")
+	}
 	if !segment(map[string]any{audience.FilterMinimumSpendMinor: float64(125700)})[hana] {
 		t.Fatal("carried payments count as spend")
 	}
@@ -247,13 +291,53 @@ func TestBedolagaImportCarriesHistory(t *testing.T) {
 		t.Fatal("the newcomer is attributed to alice")
 	}
 
+	// Campaigns by code: stars_elite and tariff_promo are created with their
+	// bonuses mapped, summer is matched to Omniflow's own and left as the
+	// operator set it, x-y is skipped. Hana and Ivan are attributed to
+	// stars_elite on their original dates, with the bonus recorded as given.
+	if result.Written["campaign"] != 2 || result.Plan.Campaigns.Codes[bedolagaimport.CodeInvalidCampaignCode] != 1 ||
+		result.Plan.Campaigns.Warnings[bedolagaimport.CodeTariffBonusAsDays] != 1 {
+		t.Fatalf("campaigns: written %d, report %+v", result.Written["campaign"], result.Plan.Campaigns)
+	}
+	if fixture.count(ctx, t, `SELECT count(*) FROM ad_campaigns WHERE code = 'stars_elite' AND bonus_kind = 'wallet' AND bonus_value = 5000 AND active`) != 1 ||
+		fixture.count(ctx, t, `SELECT count(*) FROM ad_campaigns WHERE code = 'tariff_promo' AND bonus_kind = 'days' AND bonus_value = 14`) != 1 ||
+		fixture.count(ctx, t, `SELECT count(*) FROM ad_campaigns WHERE code = 'summer' AND name = 'Summer here' AND bonus_value = 3`) != 1 {
+		t.Fatal("campaigns are carried by code, and an existing one is left alone")
+	}
+	if result.Written["campaign_registration"] != 2 ||
+		fixture.count(ctx, t, `SELECT count(*) FROM customer_campaign_attributions ca JOIN ad_campaigns c ON c.id = ca.campaign_id
+			WHERE c.code = 'stars_elite' AND ca.user_id = ANY($1::uuid[]) AND ca.bonus_granted_at = ca.attributed_at
+			AND ca.attributed_at < now() - interval '50 days'`, []string{hana, ivan}) != 2 {
+		t.Fatalf("attributions: %+v", result.Written)
+	}
+	starsSegment, err := audience.Compile(map[string]any{"adCampaign": "stars_elite", "goods": map[string]any{"kind": "stars", "withinDays": float64(30)}}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var buyers int
+	if err = fixture.harness.pool.QueryRow(ctx, "SELECT count(*) FROM users u WHERE "+starsSegment.Where, starsSegment.Args...).Scan(&buyers); err != nil || buyers != 1 {
+		t.Fatalf("stars buyers from stars_elite: %d %v", buyers, err)
+	}
+	// Ivan's order, and Alice's from the base fixture; Ivan's refund is not.
+	if result.Written["stars_order"] != 2 || result.Plan.Goods.CarriedStars != 300 ||
+		fixture.count(ctx, t, `SELECT count(*) FROM legacy_goods_orders WHERE user_id = $1::uuid AND quantity = 200 AND amount_minor = 36000`, ivan) != 1 {
+		t.Fatalf("stars orders: %+v %+v", result.Written, result.Plan.Goods)
+	}
+	sales, err := newOperations(t, fixture.harness).SalesReport(ctx, now.AddDate(0, 0, -30), now.Add(time.Hour), "UTC", "")
+	inWindow := int64(fixture.count(ctx, t, `SELECT COALESCE(sum(quantity), 0)::int FROM legacy_goods_orders
+		WHERE delivered_at >= $1 AND delivered_at < $2`, now.AddDate(0, 0, -30), now.Add(time.Hour)))
+	if err != nil || len(sales.LegacyGoods) != 1 || inWindow < 200 || sales.LegacyGoods[0].Quantity != inWindow {
+		t.Fatalf("the sales report shows the old shop apart: %+v %v", sales.LegacyGoods, err)
+	}
+
 	// A repeated run carries nothing twice, and verification holds.
 	again, err := service.Apply(ctx, fixture.read(ctx, t), fixture.mapping, bedolagaimportpg.ApplyOptions{})
 	if err != nil {
 		t.Fatalf("second apply: %v", err)
 	}
 	if again.Written["payment"] != 0 || again.Written["trial"] != 0 || again.Written["period"] != 0 ||
-		again.Written["discount"] != 0 || again.Written["referral_code"] != 0 {
+		again.Written["discount"] != 0 || again.Written["referral_code"] != 0 || again.Written["campaign"] != 0 ||
+		again.Written["campaign_registration"] != 0 || again.Written["stars_order"] != 0 {
 		t.Fatalf("second apply wrote history again: %+v", again.Written)
 	}
 	report, err := service.Verify(ctx, fixture.read(ctx, t), fixture.mapping)
@@ -276,7 +360,7 @@ func TestBedolagaBotBlockedPolicy(t *testing.T) {
 	dave := fixture.customerOf(ctx, t, 4)
 	if fixture.count(ctx, t, `SELECT count(*) FROM users WHERE id = $1::uuid AND status = 'active'`, dave) != 1 ||
 		fixture.count(ctx, t, `SELECT count(*) FROM bot_delivery_state WHERE user_id = $1::uuid
-			AND status = 'blocked' AND last_error_code = 'bot_blocked'`, dave) != 1 {
+			AND status = 'blocked' AND last_error_code = 'imported_from_bedolaga'`, dave) != 1 {
 		t.Fatal("dave arrives active, with the bot marked blocked for him")
 	}
 	if fixture.count(ctx, t, `SELECT count(*) FROM bot_delivery_state WHERE status = 'blocked'`) != 1 {
@@ -284,5 +368,49 @@ func TestBedolagaBotBlockedPolicy(t *testing.T) {
 	}
 	if fixture.count(ctx, t, `SELECT count(*) FROM customer_lifecycle_events WHERE user_id = $1::uuid`, dave) != 0 {
 		t.Fatal("nobody was suspended")
+	}
+
+	// A Telegram campaign to everybody is estimated without him, and his
+	// recipient row says why he was not tried.
+	operations := newOperations(t, fixture.harness)
+	actor := fixture.harness.operator(ctx, t, "blocked@omniflow.test")
+	segment, err := operations.SaveSegment(ctx, panelpg.AudienceSegment{
+		Code: "everyone", NameEN: "Everyone", NameRU: "Все", Filters: map[string]any{},
+	}, actor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if segment.ChatClosed != 1 {
+		t.Fatalf("segment chatClosed = %d, want 1", segment.ChatClosed)
+	}
+	template, err := operations.SaveTemplate(ctx, panelpg.MessageTemplate{
+		Code: "hello", Class: "marketing", SubjectEN: "Hi", SubjectRU: "Привет", BodyEN: "Hi", BodyRU: "Привет", Variables: []string{},
+	}, actor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	campaign, err := operations.CreateCampaignOn(ctx, "telegram", "Hello", template.ID, segment.ID, actor)
+	if err != nil || int64(campaign.Estimated) != segment.Size-1 {
+		t.Fatalf("campaign estimate %d of %d: %v", campaign.Estimated, segment.Size, err)
+	}
+	if _, err = operations.SetCampaignState(ctx, campaign.ID, "running", nil, actor); err != nil {
+		t.Fatal(err)
+	}
+	campaigns.New(fixture.harness.pool, slog.New(slog.DiscardHandler), campaigns.Config{}).RunOnce(ctx)
+	if fixture.count(ctx, t, `SELECT count(*) FROM campaign_recipients WHERE user_id = $1::uuid
+		AND status = 'suppressed' AND suppression_reason = 'delivery_blocked'`, dave) != 1 {
+		t.Fatal("the closed chat is suppressed as delivery_blocked, not tried")
+	}
+
+	// He writes to the bot again: delivery comes back.
+	store, err := botapp.NewPostgresStoreWithPool(fixture.harness.pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = store.RecordReachable(ctx, 5004); err != nil {
+		t.Fatal(err)
+	}
+	if fixture.count(ctx, t, `SELECT count(*) FROM bot_delivery_state WHERE user_id = $1::uuid AND status = 'active'`, dave) != 1 {
+		t.Fatal("a /start clears the carried block")
 	}
 }

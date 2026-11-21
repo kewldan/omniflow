@@ -171,6 +171,36 @@ CREATE TABLE stars_orders (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+CREATE TABLE advertising_campaigns (
+  id serial PRIMARY KEY,
+  name varchar(255) NOT NULL,
+  start_parameter varchar(64) NOT NULL UNIQUE,
+  bonus_type varchar(20) NOT NULL,
+  balance_bonus_kopeks integer DEFAULT 0,
+  subscription_duration_days integer,
+  subscription_traffic_gb integer,
+  subscription_device_limit integer,
+  subscription_squads json,
+  tariff_id integer,
+  tariff_duration_days integer,
+  is_active boolean DEFAULT true,
+  partner_user_id integer,
+  created_by integer,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+CREATE TABLE advertising_campaign_registrations (
+  id serial PRIMARY KEY,
+  campaign_id integer NOT NULL REFERENCES advertising_campaigns(id) ON DELETE CASCADE,
+  user_id integer NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  bonus_type varchar(20) NOT NULL,
+  balance_bonus_kopeks integer DEFAULT 0,
+  subscription_duration_days integer,
+  tariff_id integer,
+  tariff_duration_days integer,
+  created_at timestamptz DEFAULT now(),
+  CONSTRAINT uq_campaign_user UNIQUE (campaign_id, user_id)
+);
 `
 
 // fakePanel is a Remnawave that can only list users, which is all the

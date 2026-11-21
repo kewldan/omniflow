@@ -66,6 +66,11 @@ const (
 	FilterReferrals = "referrals"
 	// FilterAdCampaign selects customers a /start advertising campaign brought.
 	FilterAdCampaign = "adCampaign"
+	// FilterGoods selects customers who bought from the shop: {"kind":
+	// "stars" | "premium" | "any", "withinDays": n}, withinDays optional.
+	// Delivered Omniflow goods orders count, and so do the delivered orders a
+	// previous bot's shop recorded.
+	FilterGoods = "goods"
 	// FilterSignInMethod selects by a linked sign-in method: telegram, email,
 	// vkid, or oidc.
 	FilterSignInMethod = "signInMethod"
@@ -380,6 +385,30 @@ func compileOne(
 			JOIN ad_campaigns c ON c.id = ca.campaign_id WHERE ca.user_id = u.id AND c.code = %s)`, next()),
 			"came from the " + code + " campaign", args, nil
 
+	case FilterGoods:
+		kinds, window, err := goodsFilter(value)
+		if err != nil {
+			return "", "", nil, err
+		}
+		args = append(args, kinds)
+		kindArg := next()
+		ownWindow, legacyWindow := "", ""
+		explain = "bought " + goodsExplain[fmt.Sprint(len(kinds), kinds[0])] + " in the shop"
+		if window > 0 {
+			args = append(args, window)
+			ownWindow = fmt.Sprintf(" AND d.delivered_at > now() - make_interval(days => %s::int)", next())
+			legacyWindow = fmt.Sprintf(" AND lg.delivered_at > now() - make_interval(days => %s::int)", next())
+			explain += fmt.Sprintf(" within %d days", window)
+		}
+		return fmt.Sprintf(`(EXISTS (SELECT 1 FROM goods_orders g
+				JOIN goods_products p ON p.id = g.product_id
+				JOIN goods_deliveries d ON d.order_id = g.order_id
+				WHERE g.user_id = u.id AND g.status = 'delivered' AND d.delivered_at IS NOT NULL
+				AND p.kind = ANY(%[1]s::text[])%[2]s)
+			OR EXISTS (SELECT 1 FROM legacy_goods_orders lg
+				WHERE lg.user_id = u.id AND lg.kind = ANY(%[1]s::text[])%[3]s))`, kindArg, ownWindow, legacyWindow),
+			explain, args, nil
+
 	case FilterSignInMethod:
 		method, ok := value.(string)
 		if !ok {
@@ -475,6 +504,46 @@ func dayRange(value any) (low, high *int64, err error) {
 		return nil, nil, ErrInvalidValue
 	}
 	return low, high, nil
+}
+
+var goodsExplain = map[string]string{
+	"1telegram_stars": "Telegram Stars", "1telegram_premium": "Telegram Premium", "2telegram_stars": "anything",
+}
+
+// goodsFilter reads {"kind": ..., "withinDays": n}. Unknown keys are
+// refused, as in dayRange.
+func goodsFilter(value any) (kinds []string, window int64, err error) {
+	fields, ok := value.(map[string]any)
+	if !ok {
+		return nil, 0, ErrInvalidValue
+	}
+	for key, raw := range fields {
+		switch key {
+		case "kind":
+			switch raw {
+			case "stars":
+				kinds = []string{"telegram_stars"}
+			case "premium":
+				kinds = []string{"telegram_premium"}
+			case "any":
+				kinds = []string{"telegram_stars", "telegram_premium"}
+			default:
+				return nil, 0, ErrInvalidValue
+			}
+		case "withinDays":
+			days, numberErr := wholeNumber(raw)
+			if numberErr != nil || days < 1 || days > 36500 {
+				return nil, 0, ErrInvalidValue
+			}
+			window = days
+		default:
+			return nil, 0, ErrInvalidValue
+		}
+	}
+	if kinds == nil {
+		return nil, 0, ErrInvalidValue
+	}
+	return kinds, window, nil
 }
 
 // wholeNumber accepts the several shapes a JSON number arrives in.

@@ -111,6 +111,7 @@ var zhFullCatalog = map[string]string{
 	"error.payment":                    "⚠️ <b>无法发起支付</b>\n\n支付渠道不可用。请稍后再试或选择其他方式。",
 	"event.loyaltyDiscount":            "您的套餐折扣：%s。",
 	"event.loyaltyDown":                "ℹ️ <b>您的会员等级现为 %s</b>",
+	"event.walletCredited":             "💳 您在旧机器人中发起的付款已到账：余额已入账 %s，可用于购买订阅。",
 	"event.loyaltyUp":                  "⭐ <b>新会员等级：%s</b>",
 	"event.referralCommission":         "💸 <b>好友付款佣金</b>\n\n已存入您的余额：%s。",
 	"event.referralJoined":             "🎉 <b>有人通过您的链接加入了</b>\n\n对方购买订阅后，您将获得奖励。",

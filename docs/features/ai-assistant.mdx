@@ -16,8 +16,9 @@ sends, refunds, suspends, or launches.
   **What works in this build.** The configuration is real: you can register providers, store keys,
   route each feature to a model, set budgets and limits, and run **Test connection**, which sends
   one real request. The AI features themselves — reply drafts, summaries, marketing drafts, the
-  copilot, and both sides of MCP — are implemented and unit-tested but **not yet available**: no
-  screen calls them, and apart from a connection test nothing is sent to any provider. The rest of
+  copilot, and the MCP client — are implemented and unit-tested but **not yet available**: no
+  screen calls them, and apart from a connection test nothing is sent to any provider. Omniflow's
+  own MCP server is served, read-only, at `/v1/mcp` to named API tokens. The rest of
   this page describes what you configure now and how the features behave once they are switched on.
 </Warning>
 
@@ -130,16 +131,18 @@ These are constraints of the product, not settings:
 
 ## MCP
 
-Omniflow sits on both sides of the Model Context Protocol, and both are configured under
-**Settings → AI and MCP**.
+Omniflow sits on both sides of the Model Context Protocol. The client side is configured under
+**Settings → AI and MCP**; the server side is reached with a named API token made on
+**System** (`/admin/system`).
 
 - **As a client**, Omniflow can connect to MCP servers you register. Nothing a server advertises
   becomes callable until you allowlist the tool and map it to an Omniflow permission; the check runs
   against the asking operator's own grant. Tools you mark as writes need confirmation and a reason on
   every call, and everything a server returns is treated as data, never as instructions.
-- **As a server**, Omniflow exposes admin tools to an assistant your operators connect. Every call
-  is authorised as the operator behind the token, so a tool they cannot use in the panel is a tool
-  they cannot use here. It is read-only unless you enable mutations and name each mutating tool.
+- **As a server**, Omniflow exposes admin tools at `/v1/mcp` to an assistant connected with a named
+  API token: ticket search and detail, the sales report, payment health, segments, and an audience
+  preview. Every call is authorised as the operator who made the token, within its permissions, so a
+  tool they cannot use in the panel is a tool they cannot use here. Every tool only reads.
 
 Credentials are write-only, connections are checked against private addresses before every
 request, and every call, confirmation, and refusal is recorded.

@@ -42,12 +42,14 @@ func (handlers *AdminHandlers) apiTokenRequests(writer http.ResponseWriter, requ
 
 func (handlers *AdminHandlers) createAPIToken(writer http.ResponseWriter, request *http.Request) {
 	var body struct {
-		Name string `json:"name"`
+		Name        string   `json:"name"`
+		Permissions []string `json:"permissions"`
+		FullAccess  bool     `json:"fullAccess"`
 	}
 	if !decodeJSON(writer, request, &body) {
 		return
 	}
-	token, err := handlers.operations.CreateAPIToken(request.Context(), body.Name, actorFrom(request))
+	token, err := handlers.operations.CreateAPIToken(request.Context(), body.Name, body.Permissions, body.FullAccess, actorFrom(request))
 	handlers.respond(writer, request, token, err)
 }
 

@@ -43,7 +43,7 @@ func eventNoticeKind(kind string) string {
 	switch kind {
 	case "loyalty_tier":
 		return "loyalty"
-	case "renewal_low_balance", "daily_low_balance", "daily_suspended":
+	case "renewal_low_balance", "daily_low_balance", "daily_suspended", "wallet_credited":
 		return "payment"
 	}
 	return "referral"
@@ -61,7 +61,7 @@ func (store *PostgresStore) pendingEventNotices(ctx context.Context, limit int) 
 			SELECT 1 FROM notification_deliveries d
 			WHERE d.user_id = n.user_id AND d.subscription_id IS NULL
 			  AND d.kind = CASE WHEN n.kind = 'loyalty_tier' THEN 'loyalty'
-				WHEN n.kind IN ('renewal_low_balance', 'daily_low_balance', 'daily_suspended') THEN 'payment'
+				WHEN n.kind IN ('renewal_low_balance', 'daily_low_balance', 'daily_suspended', 'wallet_credited') THEN 'payment'
 				ELSE 'referral' END
 			  AND d.dedupe_key = 'event:' || n.id::text
 			  AND NOT `+reclaimableDelivery+`
@@ -185,6 +185,12 @@ func (notifier *Notifier) eventNoticeView(ctx context.Context, locale Locale, no
 		return View{
 			Text:     text(locale, "event.dailySuspended", formatMoney(params.PriceMinor, params.Currency)),
 			Keyboard: keyboard(row(callbackButton(text(locale, "menu.topup"), routeTopUp))),
+		}, true
+	case "wallet_credited":
+		// A payment started in the previous bot and paid after the migration.
+		return View{
+			Text:     text(locale, "event.walletCredited", formatMoney(params.AmountMinor, params.Currency)),
+			Keyboard: keyboard(row(callbackButton(text(locale, "menu.plans"), routePlans))),
 		}, true
 	default:
 		return View{}, false

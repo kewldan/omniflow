@@ -75,6 +75,7 @@ func (handlers *AdminHandlers) searchTickets(writer http.ResponseWriter, request
 		UnassignedOnly: query(request, "unassigned") == "true",
 		CustomerID:     query(request, "customerId"),
 		Tag:            query(request, "tag"),
+		UpdatedSince:   queryTime(request, "updatedSince"),
 		Cursor:         query(request, "cursor"),
 		PageSize:       int32(queryInt(request, "pageSize")),
 	})

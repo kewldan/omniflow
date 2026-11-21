@@ -32,9 +32,9 @@ tooling.
 - Targets: Remnawave 3.4.x API, PostgreSQL 19, Valkey 9, Go with River jobs,
   Next.js 16 with next-intl.
 - Exists in code but not reachable from any screen yet — say so instead of
-  documenting it as working: AI drafting, copilot, and the MCP server
-  (`internal/mcpserver` is not started by any process; only the provider
-  connection test reaches a provider); a panel screen for required channels;
+  documenting it as working: AI drafting, copilot, and the MCP client (only the
+  provider connection test reaches a provider; the first-party MCP server is
+  served read-only at `/v1/mcp` to named tokens); a panel screen for required channels;
   creating plans and editing plan texts (API only); provider credentials
   (environment only).
 - Web catalogues: `en` and `ru` are complete; `uk`, `zh`, `fa` trail them by

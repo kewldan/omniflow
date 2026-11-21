@@ -112,6 +112,12 @@ func TestBedolagaPaymentAfterCutover(t *testing.T) {
 	if balance := harness.walletBalance(ctx, t, customer); balance != 50000 {
 		t.Fatalf("wallet = %d, want 50000", balance)
 	}
+	var told int
+	_ = harness.pool.QueryRow(ctx, `SELECT count(*) FROM customer_event_notices WHERE user_id = $1::uuid
+		AND kind = 'wallet_credited' AND (params->>'amountMinor')::bigint = 50000`, customer).Scan(&told)
+	if told != 1 {
+		t.Fatal("the customer is told the payment arrived")
+	}
 	// The same payment again, under a fresh notification: credited once.
 	body, _ := json.Marshal(map[string]any{"id": "yk-topup", "status": "succeeded", "metadata": map[string]string{"user_id": "501"}, "again": true})
 	if outcome, err := service.HandleWebhook(ctx, "yookassa", http.Header{}, body); err != nil || outcome != paymentservice.RescueDuplicate {

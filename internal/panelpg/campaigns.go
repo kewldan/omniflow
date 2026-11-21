@@ -30,6 +30,10 @@ type AudienceSegment struct {
 	// Size is how many customers match right now. It moves between reviews, and
 	// showing it beside the definition is the whole point of a review step.
 	Size int64 `json:"size"`
+	// ChatClosed is how many of them the bot knows it cannot message: they
+	// blocked it, in Omniflow or in a previous bot, deleted the account, or
+	// never started it. A Telegram campaign does not count them as reach.
+	ChatClosed int64 `json:"chatClosed"`
 }
 
 // Segments lists the saved segments with a live count for each.
@@ -69,9 +73,11 @@ func (service *Service) describeSegment(
 	// statement the send will walk, so the estimate and the reality cannot come
 	// from different definitions.
 	if err = service.pool.QueryRow(ctx,
-		"SELECT count(*) FROM users u WHERE u.status = 'active' AND ("+query.Where+")",
+		`SELECT count(*), count(*) FILTER (WHERE EXISTS (SELECT 1 FROM bot_delivery_state d
+			WHERE d.user_id = u.id AND d.status IN ('blocked', 'deactivated', 'not_started')))
+		FROM users u WHERE u.status = 'active' AND (`+query.Where+")",
 		query.Args...,
-	).Scan(&segment.Size); err != nil {
+	).Scan(&segment.Size, &segment.ChatClosed); err != nil {
 		return AudienceSegment{}, err
 	}
 	return segment, nil
@@ -298,6 +304,15 @@ func (service *Service) Campaigns(ctx context.Context, limit int32) ([]Campaign,
 	return campaigns, nil
 }
 
+// estimatedReach is the audience a campaign is estimated at: a Telegram send
+// leaves out the customers whose chat is known to be closed.
+func estimatedReach(channel string, segment AudienceSegment) int64 {
+	if channel == "telegram" {
+		return segment.Size - segment.ChatClosed
+	}
+	return segment.Size
+}
+
 // CreateCampaign records a send in the draft state.
 //
 // The audience is estimated now and stored, and nothing is queued: a campaign
@@ -342,7 +357,7 @@ func (service *Service) CreateCampaignOn(
 	err = service.inTxRaw(ctx, func(tx pgx.Tx, queries *dbgen.Queries) error {
 		row, txErr := queries.CreateCampaign(ctx, dbgen.CreateCampaignParams{
 			Name: name, TemplateID: template, SegmentID: segmentUUID,
-			EstimatedAudience: int32(described.Size), CreatedBy: optionalUUID(actor.AdminID),
+			EstimatedAudience: int32(estimatedReach(channel, described)), CreatedBy: optionalUUID(actor.AdminID),
 		})
 		if txErr != nil {
 			return txErr
@@ -358,7 +373,7 @@ func (service *Service) CreateCampaignOn(
 			"panel.campaign.created", "marketing", "campaign", campaign.ID,
 			map[string]any{
 				"name": name, "segment": described.Code, "channel": channel,
-				"estimatedAudience": described.Size, "explain": described.Explain,
+				"estimatedAudience": estimatedReach(channel, described), "explain": described.Explain,
 			},
 		))
 	})

@@ -278,6 +278,7 @@ var catalog = map[string]phrase{
 	"daily.resumedDone":     {ru: "▶️ Подписка возобновлена. Доступ вернётся в течение минуты, списания продолжатся.", en: "▶️ The subscription is resumed. Access returns within a minute and the daily charges continue."},
 	"daily.refused":         {ru: "Сейчас это сделать нельзя: подписка не в том состоянии.", en: "That cannot be done right now: the subscription is not in a state it applies to."},
 	"event.dailyLowBalance": {ru: "⚠️ Завтрашний день посуточного тарифа стоит %s, а баланса не хватает на %s. Пополните баланс, иначе доступ приостановится.", en: "⚠️ Tomorrow's day of your daily plan costs %s and your balance is %s short. Top up, or access will be suspended."},
+	"event.walletCredited":  {ru: "💳 Оплата, которую вы начали в прежнем боте, дошла: на баланс зачислено %s. Им можно оплатить подписку.", en: "💳 The payment you started in our previous bot arrived: %s is on your balance. You can pay for a subscription with it."},
 	"event.dailySuspended":  {ru: "⛔ Посуточный тариф приостановлен: баланса не хватило на следующий день (%s). Пополните баланс — подписка возобновится сама.", en: "⛔ Your daily plan is suspended: the balance did not cover the next day (%s). Top up and it resumes on its own."},
 	"traffic.current":       {ru: "Сейчас: <b>%s</b>", en: "Selected: <b>%s</b>"},
 	"traffic.perGb":         {ru: "Свой объём: %s за ГБ, от %d до %d ГБ.", en: "Your own volume: %s per GB, from %d to %d GB."},

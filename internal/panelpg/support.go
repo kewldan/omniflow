@@ -150,8 +150,11 @@ type TicketFilter struct {
 	UnassignedOnly bool
 	CustomerID     string
 	Tag            string
-	Cursor         string
-	PageSize       int32
+	// UpdatedSince keeps only tickets that changed at or after it, for a
+	// poller that reads what moved since its last pass.
+	UpdatedSince *time.Time
+	Cursor       string
+	PageSize     int32
 }
 
 // TicketPage is one page of the queue.
@@ -248,6 +251,7 @@ func (service *Service) SearchTickets(
 		UnassignedOnly:      filter.UnassignedOnly,
 		CustomerID:          optionalUUID(filter.CustomerID),
 		Tag:                 optionalText(filter.Tag),
+		UpdatedSince:        optionalTimestamp(filter.UpdatedSince),
 		CursorLastMessageAt: cursor.timestamp(),
 		CursorID:            cursor.uuid(),
 		PageSize:            size + 1,

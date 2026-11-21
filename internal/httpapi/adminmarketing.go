@@ -25,6 +25,7 @@ func (handlers *AdminHandlers) mountMarketing(secure chi.Router) {
 	secure.With(handlers.requirePermission(rbac.PermissionMarketingRead)).Group(func(read chi.Router) {
 		read.Get("/marketing/segments", handlers.audienceSegments)
 		read.Get("/marketing/templates", handlers.messageTemplates)
+		read.Post("/marketing/audience/preview", handlers.previewAudience)
 		read.Get("/marketing/campaigns", handlers.campaigns)
 		read.Get("/marketing/campaigns/{campaignID}/tests", handlers.campaignTests)
 		read.Get("/marketing/suppressions", handlers.suppressions)

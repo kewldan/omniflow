@@ -26,7 +26,7 @@ func TestAPITokensAndWebhooks(t *testing.T) {
 	}
 	actor := harness.operator(ctx, t, "integrations@example.test")
 
-	token, err := service.CreateAPIToken(ctx, "CRM", actor)
+	token, err := service.CreateAPIToken(ctx, "CRM", nil, true, actor)
 	if err != nil || len(token.Token) < 20 {
 		t.Fatalf("token = %+v, %v", token, err)
 	}

@@ -1375,7 +1375,8 @@
         "paid": "Заплатили за период",
         "returning": "Платили раньше",
         "rate": "Доля вернувшихся",
-        "legacy": "Прежний бот, оплат: {count}"
+        "legacy": "Прежний бот, оплат: {count}",
+        "legacyGoods": "Магазин старого бота: {count} заказов, {stars} звёзд"
       },
       "operations": {
         "title": "По виду продажи",
@@ -3546,7 +3547,8 @@
           "loyaltyTier": "Код уровня лояльности",
           "planCode": "Код тарифа",
           "adCampaign": "Код рекламной кампании",
-          "customerIds": "Выбранные клиенты"
+          "customerIds": "Выбранные клиенты",
+          "goods": "Покупал в магазине"
         },
         "values": {
           "active": "активный",
@@ -3565,10 +3567,14 @@
           "telegram": "Telegram",
           "email": "подтверждённая почта",
           "vkid": "VK ID",
-          "oidc": "внешний провайдер"
+          "oidc": "внешний провайдер",
+          "goods_stars": "Telegram Stars",
+          "goods_premium": "Telegram Premium",
+          "goods_any": "что угодно"
         },
         "rangeFrom": "От, дней",
-        "rangeTo": "До, дней"
+        "rangeTo": "До, дней",
+        "goodsWithinDays": "За последние, дней (необязательно)"
       },
       "pinned": {
         "title": "Закреплённое сообщение",
@@ -4549,7 +4555,11 @@
       "delete": "Удалить",
       "hookName": "Название",
       "hookUrl": "Адрес https://",
-      "createWebhook": "Создать вебхук"
+      "createWebhook": "Создать вебхук",
+      "fullAccess": "Полный доступ",
+      "tokenPermissions": "Что может токен",
+      "tokenPermissionsHint": "Те же права, что у операторов. Маршрут /v1/admin вне этого списка отвечает 403, и отказ виден в журнале токена.",
+      "fullAccessSwitch": "Полный доступ ко всем маршрутам /v1/admin"
     },
     "buttonStats": {
       "title": "Статистика кнопок бота",

@@ -6401,6 +6401,18 @@ export const GetPanelSalesReportResponse = zod.object({
         ),
     }),
   ),
+  legacyGoods: zod.array(
+    zod.object({
+      currency: zod.string(),
+      orders: zod.int(),
+      quantity: zod.int().describe("Telegram Stars delivered"),
+      amountMinor: zod
+        .int()
+        .describe(
+          "What the previous bot's shop took for them, from customers' balances. History, never part of Omniflow's sales.",
+        ),
+    }),
+  ),
   generatedAt: zod.iso.datetime({ offset: true }),
 });
 
@@ -6508,6 +6520,40 @@ export const GetPanelPaymentHealthResponse = zod.object({
     }),
   ),
   generatedAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * Requires finance.read. Every customer who paid in the period, one row per customer and currency: Omniflow's payments and the previous bot's apart, and the first and last payment ever, which is what a cohort or a repeat-payment figure is computed from. A payment is a provider-settled order for a non-zero amount or a payment a previous bot recorded, as in the returning-payers figure. With `format=csv` the same rows as a file with a stable header. Also served under /v1/admin to a named API token. At most 100000 rows.
+ */
+export const GetPanelCustomerPaymentsQueryParams = zod.object({
+  since: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("Start of the period, inclusive. Defaults to thirty days before `until`."),
+  until: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("End of the period, exclusive. Defaults to now."),
+  currency: zod
+    .string()
+    .optional()
+    .describe("ISO currency to restrict the report to. Omit for every currency."),
+  format: zod.enum(["json", "csv"]).optional(),
+});
+
+export const GetPanelCustomerPaymentsResponse = zod.object({
+  customers: zod.array(
+    zod.object({
+      customerId: zod.uuid(),
+      currency: zod.string(),
+      payments: zod.int(),
+      amountMinor: zod.int(),
+      legacyPayments: zod.int(),
+      legacyAmountMinor: zod.int(),
+      firstPaidAt: zod.iso.datetime({ offset: true }),
+      lastPaidAt: zod.iso.datetime({ offset: true }),
+    }),
+  ),
 });
 
 /**

@@ -228,7 +228,7 @@ RETURNING *;
 -- migration does not go into chats that are closed. The bot clears it the
 -- moment the customer writes to it again.
 INSERT INTO bot_delivery_state (user_id, status, last_error_code, consecutive_failures)
-VALUES (sqlc.arg(user_id), 'blocked', 'bot_blocked', 0)
+VALUES (sqlc.arg(user_id), 'blocked', 'imported_from_bedolaga', 0)
 ON CONFLICT (user_id) DO NOTHING;
 
 -- name: InsertImportedTrialClaim :execrows
@@ -358,3 +358,39 @@ SET status = 'resolved', resolved_at = now(), resolved_by = sqlc.arg(resolved_by
     resolution_note = sqlc.arg(note)
 WHERE id = sqlc.arg(claim_id) AND status = 'needs_review'
 RETURNING *;
+
+-- name: ListAdCampaignCodes :many
+-- The advertising campaigns a Bedolaga campaign can be matched to by code.
+SELECT code FROM ad_campaigns;
+
+-- name: ListCampaignAttributionCodes :many
+-- Who is already attributed to a campaign, and to which.
+SELECT ca.user_id, c.code FROM customer_campaign_attributions ca
+JOIN ad_campaigns c ON c.id = ca.campaign_id;
+
+-- name: ListBedolagaLegacyGoods :many
+SELECT source_id FROM legacy_goods_orders WHERE source = 'bedolaga';
+
+-- name: InsertImportedAdCampaign :execrows
+-- A Bedolaga campaign under its /start code. An Omniflow campaign that has
+-- the code already is the same link, and is left as the operator set it.
+INSERT INTO ad_campaigns (code, name, bonus_kind, bonus_value, currency, active)
+VALUES (sqlc.arg(code), sqlc.arg(name), sqlc.arg(bonus_kind), sqlc.arg(bonus_value),
+        sqlc.arg(currency), sqlc.arg(active))
+ON CONFLICT (code) DO NOTHING;
+
+-- name: InsertImportedCampaignAttribution :execrows
+-- A carried customer attributed to the campaign that first brought them, on
+-- the original date. The bonus was given in Bedolaga, so it is recorded as
+-- granted then and is never given again. A customer already attributed
+-- keeps their attribution.
+INSERT INTO customer_campaign_attributions (user_id, campaign_id, attributed_at, bonus_granted_at)
+SELECT sqlc.arg(user_id), c.id, sqlc.arg(attributed_at), sqlc.arg(attributed_at)
+FROM ad_campaigns c WHERE c.code = sqlc.arg(code)
+ON CONFLICT (user_id) DO NOTHING;
+
+-- name: InsertLegacyGoodsOrder :execrows
+INSERT INTO legacy_goods_orders (user_id, source, source_id, kind, quantity, amount_minor, currency, delivered_at)
+VALUES (sqlc.arg(user_id), 'bedolaga', sqlc.arg(source_id), 'telegram_stars', sqlc.arg(quantity),
+        sqlc.arg(amount_minor), sqlc.arg(currency), sqlc.arg(delivered_at))
+ON CONFLICT (source, source_id) DO NOTHING;
