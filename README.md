@@ -37,7 +37,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/admin-dashboard.png" width="900" alt="Operator dashboard: 14,480 active customers, 9,326 live subscriptions, and payment health for the last 30 days">
+  <img src="docs/screenshots/admin-dashboard.png" width="900" alt="Operator dashboard: 14,480 active customers and 1,777 new in the last 30 days, with the change against the previous 30 days and a daily trend line">
 </p>
 
 > [!NOTE]
