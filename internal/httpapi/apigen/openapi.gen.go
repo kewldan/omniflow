@@ -44546,7 +44546,9 @@ type BeginPanelPasskeyLoginResponseObject interface {
 	VisitBeginPanelPasskeyLoginResponse(w http.ResponseWriter) error
 }
 
-type BeginPanelPasskeyLogin200JSONResponse map[string]interface{}
+type BeginPanelPasskeyLogin200JSONResponse struct {
+	PublicKey map[string]interface{} `json:"publicKey"`
+}
 
 func (response BeginPanelPasskeyLogin200JSONResponse) VisitBeginPanelPasskeyLoginResponse(w http.ResponseWriter) error {
 
@@ -44685,7 +44687,9 @@ type BeginPanelPasskeyRegistrationResponseObject interface {
 	VisitBeginPanelPasskeyRegistrationResponse(w http.ResponseWriter) error
 }
 
-type BeginPanelPasskeyRegistration200JSONResponse map[string]interface{}
+type BeginPanelPasskeyRegistration200JSONResponse struct {
+	PublicKey map[string]interface{} `json:"publicKey"`
+}
 
 func (response BeginPanelPasskeyRegistration200JSONResponse) VisitBeginPanelPasskeyRegistrationResponse(w http.ResponseWriter) error {
 

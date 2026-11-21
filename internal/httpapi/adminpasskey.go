@@ -88,7 +88,7 @@ func (handlers *AdminHandlers) beginPasskeyLogin(writer http.ResponseWriter, req
 	if !handlers.setPasskeyFlow(writer, request, challenge.State) {
 		return
 	}
-	writeJSON(writer, http.StatusOK, challenge.Options)
+	writePasskeyOptions(writer, challenge.Options)
 }
 
 func (handlers *AdminHandlers) finishPasskeyLogin(writer http.ResponseWriter, request *http.Request) {
@@ -175,7 +175,7 @@ func (handlers *AdminHandlers) beginPasskeyRegistration(writer http.ResponseWrit
 	if !handlers.setPasskeyFlow(writer, request, challenge.State) {
 		return
 	}
-	writeJSON(writer, http.StatusOK, challenge.Options)
+	writePasskeyOptions(writer, challenge.Options)
 }
 
 func (handlers *AdminHandlers) finishPasskeyRegistration(writer http.ResponseWriter, request *http.Request) {
@@ -320,4 +320,13 @@ func (handlers *AdminHandlers) clearPasskeyFlow(writer http.ResponseWriter) {
 		Name: handlers.passkeyFlowCookie(), Value: "", Path: "/", MaxAge: -1,
 		HttpOnly: true, Secure: handlers.cookieSecure, SameSite: http.SameSiteStrictMode,
 	})
+}
+
+// writePasskeyOptions answers a ceremony's begin with its options under
+// `publicKey`, the shape navigator.credentials.create and get take and the
+// shape the panel's passkey code reads. The options alone, at the top level,
+// left the browser call reading an undefined challenge, so a passkey could be
+// neither added nor used, and nothing said why.
+func writePasskeyOptions(writer http.ResponseWriter, options any) {
+	writeJSON(writer, http.StatusOK, map[string]any{"publicKey": options})
 }

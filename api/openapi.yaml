@@ -703,7 +703,7 @@ paths:
         to the browser and also sealed into a short-lived cookie, so the second
         step answers the challenge this step issued.
       responses:
-        "200": {description: Assertion options, content: {application/json: {schema: {type: object, additionalProperties: true}}}}
+        "200": {description: "Assertion options under publicKey, the shape navigator.credentials.get takes", content: {application/json: {schema: {type: object, required: [publicKey], properties: {publicKey: {type: object, additionalProperties: true}}}}}}
         "429": {$ref: "#/components/responses/Problem"}
         "503": {$ref: "#/components/responses/Problem"}
   /v1/panel/auth/passkey/login/finish:
@@ -736,7 +736,7 @@ paths:
         Issues a WebAuthn creation challenge for a discoverable credential with
         user verification required, which is what lets the key sign in alone.
       responses:
-        "200": {description: Creation options, content: {application/json: {schema: {type: object, additionalProperties: true}}}}
+        "200": {description: "Creation options under publicKey, the shape navigator.credentials.create takes", content: {application/json: {schema: {type: object, required: [publicKey], properties: {publicKey: {type: object, additionalProperties: true}}}}}}
         "503": {$ref: "#/components/responses/Problem"}
   /v1/panel/auth/passkeys/register/finish:
     post:

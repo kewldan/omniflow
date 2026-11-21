@@ -1581,7 +1581,9 @@ export const PanelPasskeyAvailabilityResponse = zod.object({
 /**
  * Issues a WebAuthn assertion challenge. Public by necessity: the assertion is what proves who the operator is. The challenge is returned to the browser and also sealed into a short-lived cookie, so the second step answers the challenge this step issued.
  */
-export const BeginPanelPasskeyLoginResponse = zod.record(zod.string(), zod.unknown());
+export const BeginPanelPasskeyLoginResponse = zod.object({
+  publicKey: zod.record(zod.string(), zod.unknown()),
+});
 
 /**
  * Verifies the assertion and starts a complete session. challengeRequired is always false: the authenticator proved possession and verified the person, so no second factor remains to ask for.
@@ -1652,7 +1654,9 @@ export const BeginPanelPasskeyRegistrationHeader = zod.object({
     .describe("Echoes the token from the current session. Required on every unsafe method."),
 });
 
-export const BeginPanelPasskeyRegistrationResponse = zod.record(zod.string(), zod.unknown());
+export const BeginPanelPasskeyRegistrationResponse = zod.object({
+  publicKey: zod.record(zod.string(), zod.unknown()),
+});
 
 /**
  * Stores the new credential. The label travels in the query because the body is the credential and has a shape fixed by WebAuthn.

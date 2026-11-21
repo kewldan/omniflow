@@ -6696,11 +6696,19 @@ export type PanelLogoutAll200 = {
   revokedSessions: number;
 };
 
-export type BeginPanelPasskeyLogin200 = { [key: string]: unknown };
+export type BeginPanelPasskeyLogin200PublicKey = { [key: string]: unknown };
+
+export type BeginPanelPasskeyLogin200 = {
+  publicKey: BeginPanelPasskeyLogin200PublicKey;
+};
 
 export type FinishPanelPasskeyLoginBody = { [key: string]: unknown };
 
-export type BeginPanelPasskeyRegistration200 = { [key: string]: unknown };
+export type BeginPanelPasskeyRegistration200PublicKey = { [key: string]: unknown };
+
+export type BeginPanelPasskeyRegistration200 = {
+  publicKey: BeginPanelPasskeyRegistration200PublicKey;
+};
 
 export type FinishPanelPasskeyRegistrationParams = {
   /** @maxLength 60 */

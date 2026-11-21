@@ -13,14 +13,19 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/fxamacker/cbor/v2"
+	"github.com/go-chi/chi/v5"
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/omniflow/omniflow/internal/adminauth"
 	"github.com/omniflow/omniflow/internal/adminauthpg"
+	apihttp "github.com/omniflow/omniflow/internal/httpapi"
 	"github.com/omniflow/omniflow/internal/rbac"
 )
 
@@ -489,5 +494,33 @@ func TestPasskeysAreOffWithoutAPublicURL(t *testing.T) {
 		ctx, "00000000-0000-0000-0000-000000000000",
 	); !errors.Is(err, adminauthpg.ErrPasskeysUnavailable) {
 		t.Fatalf("begin registration gave %v, want ErrPasskeysUnavailable", err)
+	}
+}
+
+// The browser half reads a ceremony's options under `publicKey`, the shape
+// navigator.credentials takes. Answering them at the top level left the panel
+// reading an undefined challenge, so no passkey could be added or used.
+func TestPasskeyOptionsReachTheBrowserUnderPublicKey(t *testing.T) {
+	harness := newHarness(t)
+	handlers := apihttp.NewAdminHandlers(apihttp.AdminOptions{
+		Service: newPasskeyService(t, harness), Logger: slog.New(slog.DiscardHandler),
+	})
+	router := chi.NewRouter()
+	handlers.Mount(router)
+	request := httptest.NewRequest(http.MethodPost, "/v1/panel/auth/passkey/login/begin", nil)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("begin answered %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var body struct {
+		PublicKey struct {
+			Challenge string `json:"challenge"`
+			RPID      string `json:"rpId"`
+		} `json:"publicKey"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil || body.PublicKey.Challenge == "" ||
+		body.PublicKey.RPID != passkeyRPID {
+		t.Fatalf("options are not under publicKey: %v %s", err, recorder.Body.String())
 	}
 }
