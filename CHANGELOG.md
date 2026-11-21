@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.0](https://github.com/kewldan/omniflow/compare/omniflow-v1.3.0...omniflow-v1.4.0) (2026-11-21)
+
+
+### Features
+
+* **bot:** choose the billing period in the bot, and highlight one ([d760d65](https://github.com/kewldan/omniflow/commit/d760d655c5b8dd05ac8aaee1a6de741065916a54))
+* **marketing:** a send permission, and a blocked-bot scan before the first broadcast ([4dcda7b](https://github.com/kewldan/omniflow/commit/4dcda7b2965a67e4805393af4dc23849a91b24ae))
+
 ## [1.3.0](https://github.com/kewldan/omniflow/compare/omniflow-v1.2.1...omniflow-v1.3.0) (2026-11-21)
 
 
