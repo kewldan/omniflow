@@ -20,6 +20,7 @@ export type PeriodValues = {
     amount: string;
     forPurchase: boolean;
     forRenewal: boolean;
+    highlighted: boolean;
   }[];
   customMin: string;
   customMax: string;
@@ -41,6 +42,7 @@ export function periodDefaults(current?: PlanVersion): PeriodValues {
       days: String(period.days),
       forPurchase: period.forPurchase,
       forRenewal: period.forRenewal,
+      highlighted: period.highlighted ?? false,
     })),
   };
 }
@@ -58,6 +60,7 @@ export function readPeriods(values: PeriodValues) {
         days: Number(row.days.trim()),
         forPurchase: row.forPurchase,
         forRenewal: row.forRenewal,
+        highlighted: row.highlighted,
       };
     });
   const bounded = values.customMin.trim() !== "" && values.customMax.trim() !== "";
@@ -94,9 +97,10 @@ export function PeriodsEditor() {
     <fieldset className="flex flex-col gap-3 rounded-lg border border-border p-3">
       <legend className="px-1 font-medium text-sm">{translate("title")}</legend>
       <p className="text-muted-foreground text-xs">{translate("hint")}</p>
+      <p className="text-muted-foreground text-xs">{translate("highlightedHint")}</p>
       {periods.fields.map((row, index) => (
         <div
-          className="grid items-end gap-2 sm:grid-cols-[1fr_1fr_1fr_auto_auto_auto]"
+          className="grid items-end gap-2 sm:grid-cols-[1fr_1fr_1fr_auto_auto_auto_auto]"
           key={row.id}
         >
           <FormField label={translate("days")}>
@@ -116,6 +120,7 @@ export function PeriodsEditor() {
           </FormField>
           <Flag index={index} label={translate("forPurchase")} name="forPurchase" />
           <Flag index={index} label={translate("forRenewal")} name="forRenewal" />
+          <Flag index={index} label={translate("highlighted")} name="highlighted" />
           <Button onClick={() => periods.remove(index)} size="sm" type="button" variant="ghost">
             {translate("remove")}
           </Button>
@@ -130,6 +135,7 @@ export function PeriodsEditor() {
             days: "",
             forPurchase: true,
             forRenewal: true,
+            highlighted: false,
           })
         }
         size="sm"
@@ -184,7 +190,7 @@ function Flag({
 }: {
   index: number;
   label: string;
-  name: "forPurchase" | "forRenewal";
+  name: "forPurchase" | "forRenewal" | "highlighted";
 }) {
   const { control } = useFormContext<PeriodValues>();
   const id = useId();

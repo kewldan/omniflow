@@ -8,8 +8,9 @@ func periodPayload(offer accountcheckout.PeriodOffer) map[string]any {
 	choices := make([]map[string]any, 0, len(offer.Choices))
 	for _, choice := range offer.Choices {
 		choices = append(choices, map[string]any{
-			"days":  choice.Days,
-			"price": map[string]any{"amountMinor": choice.AmountMinor, "currency": offer.Currency},
+			"days":        choice.Days,
+			"highlighted": choice.Highlighted,
+			"price":       map[string]any{"amountMinor": choice.AmountMinor, "currency": offer.Currency},
 		})
 	}
 	payload := map[string]any{"choices": choices}

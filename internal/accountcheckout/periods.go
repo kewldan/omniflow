@@ -12,6 +12,8 @@ import (
 type PeriodChoice struct {
 	Days        int
 	AmountMinor int64
+	// Highlighted is the period the operator recommends.
+	Highlighted bool
 }
 
 // PeriodOffer is what a version is sold for beside its own duration, in one
@@ -28,7 +30,7 @@ type PeriodOffer struct {
 // renewal-only period is offered on an extension and not on a purchase.
 func (store *Store) PlanPeriods(ctx context.Context, planVersionID, currency, operation string) (PeriodOffer, error) {
 	offer := PeriodOffer{Currency: currency, Choices: []PeriodChoice{}}
-	rows, err := store.pool.Query(ctx, `SELECT days, amount_minor, for_purchase, for_renewal
+	rows, err := store.pool.Query(ctx, `SELECT days, amount_minor, for_purchase, for_renewal, highlighted
 		FROM plan_version_periods WHERE plan_version_id = $1::uuid AND currency = $2
 		ORDER BY days`, planVersionID, currency)
 	if err != nil {
@@ -42,7 +44,7 @@ func (store *Store) PlanPeriods(ctx context.Context, planVersionID, currency, op
 			days                    int32
 			forPurchase, forRenewal bool
 		)
-		if err = rows.Scan(&days, &choice.AmountMinor, &forPurchase, &forRenewal); err != nil {
+		if err = rows.Scan(&days, &choice.AmountMinor, &forPurchase, &forRenewal, &choice.Highlighted); err != nil {
 			return PeriodOffer{}, err
 		}
 		if renewal && forRenewal || !renewal && forPurchase {
@@ -68,4 +70,32 @@ func (store *Store) PlanPeriods(ctx context.Context, planVersionID, currency, op
 		offer.MinDays, offer.MaxDays, offer.PricePerDayMinor = int(*minDays), int(*maxDays), *perDay
 	}
 	return offer, nil
+}
+
+// PeriodPrices is what one listed period of a version costs in each currency
+// it is priced in, for an operation. A currency without the period is absent,
+// so a payment method that settles only there is not offered for it.
+func (store *Store) PeriodPrices(ctx context.Context, planVersionID string, days int, operation string) (map[string]int64, error) {
+	column := "for_purchase"
+	if commerce.RenewsPeriod(operation) {
+		column = "for_renewal"
+	}
+	rows, err := store.pool.Query(ctx, `SELECT currency, amount_minor FROM plan_version_periods
+		WHERE plan_version_id = $1::uuid AND days = $2 AND `+column+` ORDER BY currency`, planVersionID, days)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	prices := map[string]int64{}
+	for rows.Next() {
+		var (
+			currency string
+			amount   int64
+		)
+		if err = rows.Scan(&currency, &amount); err != nil {
+			return nil, err
+		}
+		prices[currency] = amount
+	}
+	return prices, rows.Err()
 }

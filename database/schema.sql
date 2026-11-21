@@ -4188,6 +4188,7 @@ CREATE TABLE public.plan_version_periods (
     amount_minor bigint NOT NULL,
     for_purchase boolean DEFAULT true NOT NULL,
     for_renewal boolean DEFAULT true NOT NULL,
+    highlighted boolean DEFAULT false NOT NULL,
     CONSTRAINT plan_version_periods_amount_nonnegative CHECK ((amount_minor >= 0)),
     CONSTRAINT plan_version_periods_currency_shape CHECK ((currency ~ '^[A-Z]{3}$'::text)),
     CONSTRAINT plan_version_periods_days_range CHECK (((days >= 1) AND (days <= 3650))),
@@ -9294,6 +9295,13 @@ CREATE INDEX pinned_message_deliveries_to_unpin ON public.pinned_message_deliver
 --
 
 CREATE UNIQUE INDEX pinned_messages_one_active ON public.pinned_messages USING btree ((true)) WHERE (status = 'active'::text);
+
+
+--
+-- Name: plan_version_periods_one_highlighted; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX plan_version_periods_one_highlighted ON public.plan_version_periods USING btree (plan_version_id, currency) WHERE highlighted;
 
 
 --

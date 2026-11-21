@@ -2229,6 +2229,7 @@ type PlanVersionPeriod struct {
 	AmountMinor   int64       `json:"amount_minor"`
 	ForPurchase   bool        `json:"for_purchase"`
 	ForRenewal    bool        `json:"for_renewal"`
+	Highlighted   bool        `json:"highlighted"`
 }
 
 type PlanVersionSquad struct {

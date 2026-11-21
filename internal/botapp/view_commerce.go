@@ -193,7 +193,7 @@ func checkoutView(locale Locale, plan Plan, session CheckoutSession, quote comme
 		text(locale, "checkout.title"),
 		"",
 		text(locale, "checkout.plan", html.EscapeString(plan.Name)),
-		text(locale, "checkout.period", formatDuration(locale, plan.Duration)),
+		text(locale, "checkout.period", formatDuration(locale, checkoutDuration(plan, session))),
 		text(locale, "checkout.method", providerLabel(locale, session.Provider)),
 		"",
 		text(locale, "checkout.subtotal", formatMoney(quote.Subtotal.Amount, quote.Subtotal.Currency)),

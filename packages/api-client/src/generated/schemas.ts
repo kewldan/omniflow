@@ -3027,6 +3027,12 @@ export const GetPanelPlanResponse = zod.object({
               amountMinor: zod.int().min(getPanelPlanResponseVersionsItemPeriodsItemAmountMinorMin),
               forPurchase: zod.boolean(),
               forRenewal: zod.boolean(),
+              highlighted: zod
+                .boolean()
+                .optional()
+                .describe(
+                  "The period the bot and the checkout recommend; at most one per currency",
+                ),
             }),
           )
           .nullish(),
@@ -3236,6 +3242,10 @@ export const CreatePanelPlanVersionBody = zod.object({
         amountMinor: zod.int().min(createPanelPlanVersionBodyPeriodsItemAmountMinorMin),
         forPurchase: zod.boolean(),
         forRenewal: zod.boolean(),
+        highlighted: zod
+          .boolean()
+          .optional()
+          .describe("The period the bot and the checkout recommend; at most one per currency"),
       }),
     )
     .optional()
@@ -3339,6 +3349,10 @@ export const CreatePanelPlanVersionResponse = zod.object({
         amountMinor: zod.int().min(createPanelPlanVersionResponsePeriodsItemAmountMinorMin),
         forPurchase: zod.boolean(),
         forRenewal: zod.boolean(),
+        highlighted: zod
+          .boolean()
+          .optional()
+          .describe("The period the bot and the checkout recommend; at most one per currency"),
       }),
     )
     .nullish(),

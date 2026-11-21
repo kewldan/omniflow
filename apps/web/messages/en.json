@@ -2053,7 +2053,9 @@
         "customMax": "Custom days up to",
         "customHint": "Let the customer type a number of days in this range. Leave both empty to sell none.",
         "dayPrice": "Price per day",
-        "addDayPrice": "Add a day price"
+        "addDayPrice": "Add a day price",
+        "highlighted": "Highlight",
+        "highlightedHint": "Highlight marks the period the bot and the checkout recommend, at most one per currency."
       },
       "promotionCreator": {
         "title": "New promotion",
@@ -3170,7 +3172,10 @@
         "channels": {
           "telegram": "Telegram",
           "email": "E-mail"
-        }
+        },
+        "blockerScanRequired": "Run Moderation → Scan now first: after the migration the bot does not yet know who blocked it, and the first broadcast would go into closed chats.",
+        "sendForbidden": "Starting or scheduling a broadcast needs the marketing.send permission.",
+        "moveFailed": "The campaign could not be moved."
       },
       "segments": {
         "title": "Audience segments",
@@ -6388,7 +6393,8 @@
       "custom": "Choose the number of days",
       "days": "Days ({min}–{max})",
       "perDay": "{price} a day",
-      "apply": "Apply"
+      "apply": "Apply",
+      "best": "best price"
     },
     "terms": {
       "title": "Terms of service",

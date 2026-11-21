@@ -212,3 +212,38 @@ func uuidText(value pgtype.UUID) string { return accountcheckout.UUIDText(value)
 func preferredCurrency(option commerce.PaymentOption, available []string, preferred string) string {
 	return accountcheckout.PreferredCurrency(option, available, preferred)
 }
+
+// PlanPeriods lists a version's other billing periods in one currency for an
+// operation: what the bot offers beside the version's own period.
+func (service *Commerce) PlanPeriods(ctx context.Context, planVersionID, currency, operation string) (accountcheckout.PeriodOffer, error) {
+	return service.store.checkout().PlanPeriods(ctx, planVersionID, currency, operation)
+}
+
+// ChoosePeriod records the period the customer picked on the open checkout:
+// zero for the version's own, or one of its listed periods for this kind of
+// order. Anything else is refused rather than priced at a guess.
+func (service *Commerce) ChoosePeriod(ctx context.Context, session CheckoutSession, days int) (CheckoutSession, error) {
+	if days < 0 {
+		return CheckoutSession{}, commerce.ErrPeriodUnavailable
+	}
+	if days > 0 {
+		offer, err := service.PlanPeriods(ctx, session.PlanVersionID, service.settings.Currency, session.Operation)
+		if err != nil {
+			return CheckoutSession{}, err
+		}
+		listed := false
+		for _, choice := range offer.Choices {
+			listed = listed || choice.Days == days
+		}
+		if !listed {
+			return CheckoutSession{}, commerce.ErrPeriodUnavailable
+		}
+	}
+	return service.store.checkout().SetCheckoutPeriod(ctx, session.ID, days)
+}
+
+// CheckoutPaymentChoices lists the methods that can settle the open checkout
+// at its chosen period.
+func (service *Commerce) CheckoutPaymentChoices(ctx context.Context, session CheckoutSession) ([]PaymentChoice, error) {
+	return service.checkout.SessionPaymentChoices(ctx, session)
+}

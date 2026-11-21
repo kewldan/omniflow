@@ -2045,7 +2045,9 @@
         "customMax": "自定义天数最多",
         "customHint": "允许用户在此范围内输入天数。两项都留空则不提供。",
         "dayPrice": "每日价格",
-        "addDayPrice": "添加每日价格"
+        "addDayPrice": "添加每日价格",
+        "highlighted": "突出显示",
+        "highlightedHint": "“突出显示”标记机器人和结账页推荐的时长，每种货币最多一个。"
       },
       "promotionCreator": {
         "title": "新建促销",
@@ -3078,7 +3080,10 @@
         "channels": {
           "telegram": "Telegram",
           "email": "电子邮件"
-        }
+        },
+        "blockerScanRequired": "请先运行“审核 → 立即扫描”：迁移后机器人还不知道谁屏蔽了它，第一次群发会发进已关闭的对话。",
+        "sendForbidden": "启动或排期群发需要 marketing.send 权限。",
+        "moveFailed": "无法更改活动状态。"
       },
       "segments": {
         "title": "受众分群",
@@ -6283,7 +6288,8 @@
       "custom": "自选天数",
       "days": "天数（{min}–{max}）",
       "perDay": "每天 {price}",
-      "apply": "应用"
+      "apply": "应用",
+      "best": "最优价格"
     },
     "terms": {
       "title": "服务条款",

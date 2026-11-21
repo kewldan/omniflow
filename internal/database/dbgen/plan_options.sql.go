@@ -266,9 +266,9 @@ func (q *Queries) InsertPlanVersionGBPrice(ctx context.Context, arg InsertPlanVe
 }
 
 const insertPlanVersionPeriod = `-- name: InsertPlanVersionPeriod :exec
-INSERT INTO plan_version_periods (plan_version_id, days, currency, amount_minor, for_purchase, for_renewal)
+INSERT INTO plan_version_periods (plan_version_id, days, currency, amount_minor, for_purchase, for_renewal, highlighted)
 VALUES ($1, $2, $3, $4,
-        $5, $6)
+        $5, $6, $7)
 `
 
 type InsertPlanVersionPeriodParams struct {
@@ -278,6 +278,7 @@ type InsertPlanVersionPeriodParams struct {
 	AmountMinor   int64       `json:"amount_minor"`
 	ForPurchase   bool        `json:"for_purchase"`
 	ForRenewal    bool        `json:"for_renewal"`
+	Highlighted   bool        `json:"highlighted"`
 }
 
 func (q *Queries) InsertPlanVersionPeriod(ctx context.Context, arg InsertPlanVersionPeriodParams) error {
@@ -288,6 +289,7 @@ func (q *Queries) InsertPlanVersionPeriod(ctx context.Context, arg InsertPlanVer
 		arg.AmountMinor,
 		arg.ForPurchase,
 		arg.ForRenewal,
+		arg.Highlighted,
 	)
 	return err
 }
@@ -481,7 +483,7 @@ func (q *Queries) ListPlanVersionGBPrices(ctx context.Context, planVersionID pgt
 }
 
 const listPlanVersionPeriods = `-- name: ListPlanVersionPeriods :many
-SELECT plan_version_id, days, currency, amount_minor, for_purchase, for_renewal FROM plan_version_periods WHERE plan_version_id = $1 ORDER BY days, currency
+SELECT plan_version_id, days, currency, amount_minor, for_purchase, for_renewal, highlighted FROM plan_version_periods WHERE plan_version_id = $1 ORDER BY days, currency
 `
 
 func (q *Queries) ListPlanVersionPeriods(ctx context.Context, planVersionID pgtype.UUID) ([]PlanVersionPeriod, error) {
@@ -500,6 +502,7 @@ func (q *Queries) ListPlanVersionPeriods(ctx context.Context, planVersionID pgty
 			&i.AmountMinor,
 			&i.ForPurchase,
 			&i.ForRenewal,
+			&i.Highlighted,
 		); err != nil {
 			return nil, err
 		}

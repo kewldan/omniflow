@@ -898,7 +898,7 @@ func (app *App) paymentMethodsForCheckout(ctx context.Context, session commerceC
 			return squadConfiguratorView(session.Locale, policy, checkout.SelectedSquadIDs)
 		}
 	}
-	choices, err := app.commerce.PaymentChoices(ctx, checkout.PlanVersionID)
+	choices, err := app.commerce.CheckoutPaymentChoices(ctx, checkout)
 	if err != nil {
 		app.logger.Error("payment method lookup failed", "error", err)
 		return app.errorView(session.Locale, routePlans)

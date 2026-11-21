@@ -420,7 +420,7 @@ export type TopUpResult = {
 
 /** A plan version's further billing periods in one currency. */
 export type PeriodOffer = {
-  choices: { days: number; price: Money }[];
+  choices: { days: number; price: Money; highlighted?: boolean }[];
   custom?: { minDays: number; maxDays: number; pricePerDay: Money };
 };
 

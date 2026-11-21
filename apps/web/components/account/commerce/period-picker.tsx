@@ -72,6 +72,7 @@ export function PeriodPicker({
                 days: choice.days,
                 price: money(choice.price.amountMinor, choice.price.currency),
               })}
+              {choice.highlighted ? ` · ${translate("best")}` : ""}
             </SelectItem>
           ))}
           {custom && <SelectItem value={CUSTOM}>{translate("custom")}</SelectItem>}

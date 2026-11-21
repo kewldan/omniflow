@@ -182,9 +182,9 @@ WHERE id = sqlc.arg(plan_version_id);
 SELECT * FROM plan_version_periods WHERE plan_version_id = $1 ORDER BY days, currency;
 
 -- name: InsertPlanVersionPeriod :exec
-INSERT INTO plan_version_periods (plan_version_id, days, currency, amount_minor, for_purchase, for_renewal)
+INSERT INTO plan_version_periods (plan_version_id, days, currency, amount_minor, for_purchase, for_renewal, highlighted)
 VALUES (sqlc.arg(plan_version_id), sqlc.arg(days), sqlc.arg(currency), sqlc.arg(amount_minor),
-        sqlc.arg(for_purchase), sqlc.arg(for_renewal));
+        sqlc.arg(for_purchase), sqlc.arg(for_renewal), sqlc.arg(highlighted));
 
 -- name: ListPlanVersionDayPrices :many
 SELECT * FROM plan_version_day_prices WHERE plan_version_id = $1 ORDER BY currency;

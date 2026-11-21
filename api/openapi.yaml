@@ -7393,6 +7393,7 @@ components:
         amountMinor: {type: integer, format: int64, minimum: 0}
         forPurchase: {type: boolean}
         forRenewal: {type: boolean}
+        highlighted: {type: boolean, description: The period the bot and the checkout recommend; at most one per currency}
     PanelOfferedSquad:
       type: object
       required: [squadId, labelRu, labelEn]

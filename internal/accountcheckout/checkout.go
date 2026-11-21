@@ -68,6 +68,20 @@ func (service *Service) PaymentChoices(ctx context.Context, planVersionID string
 	return service.choicesFor(prices), nil
 }
 
+// SessionPaymentChoices lists the methods that can settle an open checkout at
+// the period it has chosen: the version's own prices for its own period, the
+// chosen period's prices otherwise.
+func (service *Service) SessionPaymentChoices(ctx context.Context, session Session) ([]PaymentChoice, error) {
+	if session.PeriodDays <= 0 {
+		return service.PaymentChoices(ctx, session.PlanVersionID)
+	}
+	prices, err := service.store.PeriodPrices(ctx, session.PlanVersionID, session.PeriodDays, session.Operation)
+	if err != nil {
+		return nil, err
+	}
+	return service.choicesFor(prices), nil
+}
+
 func (service *Service) choicesFor(prices map[string]int64) []PaymentChoice {
 	currencies := make([]string, 0, len(prices))
 	for currency := range prices {

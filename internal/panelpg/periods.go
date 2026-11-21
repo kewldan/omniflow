@@ -18,6 +18,9 @@ type PlanPeriod struct {
 	AmountMinor int64  `json:"amountMinor"`
 	ForPurchase bool   `json:"forPurchase"`
 	ForRenewal  bool   `json:"forRenewal"`
+	// Highlighted is the period the bot and the checkout recommend: at most
+	// one per currency.
+	Highlighted bool `json:"highlighted"`
 }
 
 // validatePeriods refuses periods the database would and combinations that
@@ -25,7 +28,15 @@ type PlanPeriod struct {
 // currency, and custom days without both bounds and a day price.
 func validatePeriods(input PlanVersionInput) error {
 	seen := map[string]bool{}
+	highlighted := map[string]bool{}
 	for _, period := range input.Periods {
+		if period.Highlighted {
+			currency := strings.ToUpper(period.Currency)
+			if highlighted[currency] {
+				return ErrValidaton
+			}
+			highlighted[currency] = true
+		}
 		key := fmt.Sprintf("%s:%d", strings.ToUpper(period.Currency), period.Days)
 		if period.Days < 1 || period.Days > 3650 || period.AmountMinor < 0 ||
 			!currencyShape(period.Currency) || !period.ForPurchase && !period.ForRenewal || seen[key] {
@@ -72,6 +83,7 @@ func writePeriods(ctx context.Context, queries *dbgen.Queries, versionID pgtype.
 		if err := queries.InsertPlanVersionPeriod(ctx, dbgen.InsertPlanVersionPeriodParams{
 			PlanVersionID: versionID, Days: period.Days, Currency: strings.ToUpper(period.Currency),
 			AmountMinor: period.AmountMinor, ForPurchase: period.ForPurchase, ForRenewal: period.ForRenewal,
+			Highlighted: period.Highlighted,
 		}); err != nil {
 			return err
 		}
@@ -105,7 +117,7 @@ func versionPeriods(ctx context.Context, queries *dbgen.Queries, version dbgen.P
 	for _, row := range rows {
 		periods = append(periods, PlanPeriod{
 			Days: row.Days, Currency: row.Currency, AmountMinor: row.AmountMinor,
-			ForPurchase: row.ForPurchase, ForRenewal: row.ForRenewal,
+			ForPurchase: row.ForPurchase, ForRenewal: row.ForRenewal, Highlighted: row.Highlighted,
 		})
 	}
 	prices, err := queries.ListPlanVersionDayPrices(ctx, version.ID)

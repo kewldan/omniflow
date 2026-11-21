@@ -9471,6 +9471,9 @@ type PanelPlanPeriod struct {
 	Days        int    `json:"days"`
 	ForPurchase bool   `json:"forPurchase"`
 	ForRenewal  bool   `json:"forRenewal"`
+
+	// Highlighted The period the bot and the checkout recommend; at most one per currency
+	Highlighted *bool `json:"highlighted,omitempty"`
 }
 
 // PanelPlanPresentation defines model for PanelPlanPresentation.

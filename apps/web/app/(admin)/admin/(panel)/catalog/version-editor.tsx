@@ -103,6 +103,7 @@ const schema = z.object({
       days: z.string(),
       forPurchase: z.boolean(),
       forRenewal: z.boolean(),
+      highlighted: z.boolean(),
     }),
   ),
   // A traffic volume the customer chooses; see traffic-editor.tsx.

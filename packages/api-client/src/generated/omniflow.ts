@@ -1711,6 +1711,8 @@ export interface PanelPlanPeriod {
   amountMinor: number;
   forPurchase: boolean;
   forRenewal: boolean;
+  /** The period the bot and the checkout recommend; at most one per currency */
+  highlighted?: boolean;
 }
 
 export interface PanelTrafficPackage {

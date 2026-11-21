@@ -275,19 +275,13 @@ func (app *App) paymentMethodScreen(ctx context.Context, session commerceContext
 		app.logger.Error("checkout could not be opened", "error", err)
 		return app.errorView(session.Locale, routePlans)
 	}
+	// A version sold for more than its own period asks which one first, for
+	// a purchase and a renewal alike.
+	if offer := app.periodOffer(ctx, checkout); len(offer.Choices) > 0 {
+		return periodPickerView(session.Locale, plan, offer, -1, "plan:"+plan.PlanVersionID)
+	}
 	// A plan that lets the customer choose squads asks before it asks for money.
-	if policy, policyErr := app.customers.PlanSquads(ctx, planVersionID, session.Locale); policyErr == nil && policy.Configurable() {
-		return squadConfiguratorView(session.Locale, policy, checkout.SelectedSquadIDs)
-	}
-	choices, err := app.commerce.PaymentChoices(ctx, planVersionID)
-	if err == nil {
-		choices, err = accountcheckout.LoyaltyChoices(ctx, app.commerce.orders, session.Customer.ID, choices)
-	}
-	if err != nil {
-		app.logger.Error("payment method lookup failed", "error", err)
-		return app.errorView(session.Locale, routePlans)
-	}
-	return paymentMethodView(session.Locale, plan, choices, "plan:"+plan.PlanVersionID)
+	return app.checkoutPaymentMethods(ctx, session, checkout, plan, "plan:"+plan.PlanVersionID)
 }
 
 // checkoutTarget resolves which subscription a checkout changes, and with it
@@ -376,7 +370,14 @@ func (app *App) checkoutScreen(ctx context.Context, session commerceContext) Vie
 	if err != nil {
 		app.logger.Warn("add-on lookup failed", "error", err)
 	}
-	return withTrafficChoice(checkoutView(session.Locale, plan, checkout, quote, len(addons) > 0), session.Locale, app.checkoutTraffic(ctx, checkout), checkout)
+	view := withTrafficChoice(checkoutView(session.Locale, plan, checkout, quote, len(addons) > 0), session.Locale, app.checkoutTraffic(ctx, checkout), checkout)
+	if offer := app.periodOffer(ctx, checkout); len(offer.Choices) > 0 && view.Keyboard != nil {
+		rows := view.Keyboard.InlineKeyboard
+		at := min(1, len(rows))
+		button := row(actionButton(text(session.Locale, "period.change"), "period-menu"))
+		view.Keyboard.InlineKeyboard = append(rows[:at], append([][]models.InlineKeyboardButton{button}, rows[at:]...)...)
+	}
+	return view
 }
 
 // confirmCheckout creates the order and immediately starts the payment. Both
@@ -451,7 +452,7 @@ func (app *App) confirmCheckout(ctx context.Context, session commerceContext) Vi
 	if order.ExternalMinor == 0 {
 		return orderStatusView(session.Locale, order, nil)
 	}
-	description := plan.Name + " · " + formatDuration(session.Locale, plan.Duration)
+	description := plan.Name + " · " + formatDuration(session.Locale, checkoutDuration(plan, checkout))
 	if _, err = app.commerce.StartPayment(ctx, order, payments.OptionKey(checkout.Provider, checkout.Method), session.TelegramID, description); err != nil {
 		app.logger.Error("payment intent creation failed", "provider", checkout.Provider, "error", err)
 		// The order exists and holds its wallet reservation; only the provider
@@ -963,6 +964,10 @@ func (app *App) handleCommerceAction(ctx context.Context, session commerceContex
 		return app.selectProvider(ctx, session, parts[1], parts[2]), true
 	case "checkout":
 		return app.checkoutScreen(ctx, session), true
+	case "period":
+		return app.choosePeriod(ctx, session, argument), true
+	case "period-menu":
+		return app.periodMenu(ctx, session), true
 	case "confirm":
 		return app.confirmCheckout(ctx, session), true
 	case "traffic":
@@ -1054,7 +1059,7 @@ func (app *App) selectProvider(ctx context.Context, session commerceContext, pro
 	if err != nil || !found {
 		return View{Text: text(session.Locale, "checkout.expired"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "menu.plans"), routePlans)))}
 	}
-	choices, err := app.commerce.PaymentChoices(ctx, checkout.PlanVersionID)
+	choices, err := app.commerce.CheckoutPaymentChoices(ctx, checkout)
 	if err != nil {
 		app.logger.Error("payment method lookup failed", "error", err)
 		return app.errorView(session.Locale, routePlans)
@@ -1429,7 +1434,7 @@ var commerceActions = func() map[string]bool {
 		"method-default": true, "method-remove": true,
 		"quiet": true, "quiet-menu": true, "tz-menu": true, "tz": true, "invoice": true,
 		"ref-qr": true, "traffic": true, "traffic-set": true, "traffic-enter": true,
-		"simple": true, "simple-buy": true,
+		"simple": true, "simple-buy": true, "period": true, "period-menu": true,
 	}
 	for _, owned := range []map[string]bool{expansionActions, giftActions, shopActions, starsActions, offerActions, termsActions, welcomeActions, partnerActions, gameActions} {
 		for action := range owned {

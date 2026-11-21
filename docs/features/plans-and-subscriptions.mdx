@@ -48,8 +48,10 @@ currency, and two flags: **Purchases** (offered on a first purchase or a plan ch
 **Renewals** (offered on an extension and on automatic renewal). **Custom days from / up to** with a
 **Price per day** lets the customer type any number of days in that range.
 
-The web checkout shows a **Period** picker when the version sells more than its own period. The bot
-sells the version's own period only.
+When the version sells more than its own period, both the web checkout and the bot ask which one: the
+bot shows a button per period with its price between the plan and the payment method, on a purchase
+and on a renewal, and the payment methods then show the chosen period's price. Tick **Highlight** on
+one period per currency to mark it as the recommended one — the bot labels it "best price".
 
 A **daily plan** bills one day at a time from the wallet. Turn on **Bill daily from the balance** on
 a version with the **Day** billing period, a one-day duration, and no other periods. The first day is
