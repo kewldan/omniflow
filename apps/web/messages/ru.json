@@ -163,7 +163,8 @@
         "settings": "Настройки",
         "aiSettings": "ИИ и MCP",
         "payouts": "Выплаты"
-      }
+      },
+      "waiting": "{count, plural, one {# ждёт} few {# ждут} many {# ждут} other {# ждут}}"
     },
     "commandMenu": {
       "trigger": "Поиск…",
@@ -815,6 +816,14 @@
         "above": "Последние {days} дн.: на {shift} выше обычного темпа",
         "below": "Последние {days} дн.: на {shift} ниже обычного темпа",
         "upcoming": "{soon} в ближайшие {days} дн. · больше всего {date}: {busiest}"
+      },
+      "period": "Период",
+      "periods": {
+        "1": "24 ч",
+        "7": "7 дней",
+        "30": "30 дней",
+        "90": "90 дней",
+        "365": "Год"
       }
     },
     "customers": {
@@ -918,7 +927,21 @@
         "squadAccessHours": "Часов",
         "squadAccessGrant": "Открыть",
         "squadAccessUntil": "до {until}",
-        "squadAccessRevoke": "Отозвать"
+        "squadAccessRevoke": "Отозвать",
+        "tabs": {
+          "term": "Срок",
+          "limits": "Лимиты",
+          "servers": "Серверы",
+          "access": "Временный доступ"
+        },
+        "currentEnd": "Действует до",
+        "extendBy": "+{days, plural, one {# день} few {# дня} many {# дней} other {# дня}}",
+        "trafficGb": "Лимит трафика",
+        "gb": "ГБ",
+        "limitsHint": "Пустое поле оставляет значение как есть.",
+        "reasonTitle": "Причина",
+        "cancel": "Отмена",
+        "confirm": "Применить"
       },
       "empty": {
         "subscriptions": "Подписок нет",

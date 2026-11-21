@@ -6,7 +6,9 @@ import { ScrollArea } from "@omniflow/ui/scroll-area";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import useSWR from "swr";
 
+import { fetcher } from "@/lib/api";
 import { NAVIGATION, NAVIGATION_ITEMS } from "@/lib/navigation";
 import { useSession } from "@/lib/session";
 
@@ -21,6 +23,13 @@ export function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const translate = useTranslations("admin");
   const { can } = useSession();
+  // What waits on an operator in each area, beside its entry. Refreshed every
+  // minute and on returning to the tab, so a new ticket shows without a reload.
+  const { data: counts } = useSWR<Record<string, number>>(
+    "/v1/panel/overview/navigation-counts",
+    fetcher,
+    { refreshInterval: 60_000, revalidateOnFocus: true },
+  );
 
   // Only the deepest matching entry is current. Without this, a nested route
   // like /admin/settings/ai would highlight its parent as well, and two
@@ -84,6 +93,21 @@ export function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
                         >
                           <Icon aria-hidden="true" className="size-4 shrink-0" />
                           <span className="truncate">{label}</span>
+                          {(counts?.[item.key] ?? 0) > 0 && (
+                            <>
+                              <span
+                                aria-hidden="true"
+                                className="ml-auto flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary px-1.5 font-medium text-[11px] text-primary-foreground tabular-nums"
+                              >
+                                {(counts?.[item.key] ?? 0) > 99 ? "99+" : counts?.[item.key]}
+                              </span>
+                              <span className="sr-only">
+                                {translate("navigation.waiting", {
+                                  count: counts?.[item.key] ?? 0,
+                                })}
+                              </span>
+                            </>
+                          )}
                         </Link>
                       </li>
                     );

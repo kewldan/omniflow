@@ -163,7 +163,8 @@
         "settings": "设置",
         "aiSettings": "AI 与 MCP",
         "payouts": "付款"
-      }
+      },
+      "waiting": "{count} 个待处理"
     },
     "commandMenu": {
       "trigger": "搜索…",
@@ -815,6 +816,14 @@
         "above": "最近 {days} 天：比平常高 {shift}",
         "below": "最近 {days} 天：比平常低 {shift}",
         "upcoming": "未来 {days} 天内 {soon} 个 · 最多在 {date}：{busiest}"
+      },
+      "period": "时间段",
+      "periods": {
+        "1": "24 小时",
+        "7": "7 天",
+        "30": "30 天",
+        "90": "90 天",
+        "365": "一年"
       }
     },
     "customers": {
@@ -913,7 +922,21 @@
           "failed": "消息发送失败。"
         },
         "squads": "分组(squad)",
-        "setSquads": "设置分组"
+        "setSquads": "设置分组",
+        "tabs": {
+          "term": "期限",
+          "limits": "限额",
+          "servers": "服务器",
+          "access": "临时访问"
+        },
+        "currentEnd": "到期",
+        "extendBy": "+{days} 天",
+        "trafficGb": "流量限额",
+        "gb": "GB",
+        "limitsHint": "留空表示保持不变。",
+        "reasonTitle": "原因",
+        "cancel": "取消",
+        "confirm": "应用"
       },
       "empty": {
         "subscriptions": "暂无订阅",

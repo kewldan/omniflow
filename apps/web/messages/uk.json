@@ -163,7 +163,8 @@
         "settings": "Налаштування",
         "aiSettings": "ШІ та MCP",
         "payouts": "Виплати"
-      }
+      },
+      "waiting": "{count, plural, one {# чекає} few {# чекають} many {# чекають} other {# чекають}}"
     },
     "commandMenu": {
       "trigger": "Пошук…",
@@ -815,6 +816,14 @@
         "above": "Останні {days} дн.: на {shift} вище звичайного темпу",
         "below": "Останні {days} дн.: на {shift} нижче звичайного темпу",
         "upcoming": "{soon} у найближчі {days} дн. · найбільше {date}: {busiest}"
+      },
+      "period": "Період",
+      "periods": {
+        "1": "24 год",
+        "7": "7 днів",
+        "30": "30 днів",
+        "90": "90 днів",
+        "365": "Рік"
       }
     },
     "customers": {
@@ -913,7 +922,21 @@
           "failed": "Не вдалося надіслати повідомлення."
         },
         "squads": "Сквади",
-        "setSquads": "Задати сквади"
+        "setSquads": "Задати сквади",
+        "tabs": {
+          "term": "Строк",
+          "limits": "Ліміти",
+          "servers": "Сервери",
+          "access": "Тимчасовий доступ"
+        },
+        "currentEnd": "Діє до",
+        "extendBy": "+{days, plural, one {# день} few {# дні} many {# днів} other {# дня}}",
+        "trafficGb": "Ліміт трафіку",
+        "gb": "ГБ",
+        "limitsHint": "Порожнє поле залишає значення як є.",
+        "reasonTitle": "Причина",
+        "cancel": "Скасувати",
+        "confirm": "Застосувати"
       },
       "empty": {
         "subscriptions": "Підписок немає",

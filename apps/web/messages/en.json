@@ -163,7 +163,8 @@
         "settings": "Settings",
         "aiSettings": "AI and MCP",
         "payouts": "Payouts"
-      }
+      },
+      "waiting": "{count, plural, one {# waiting} other {# waiting}}"
     },
     "commandMenu": {
       "trigger": "Search…",
@@ -815,6 +816,14 @@
         "above": "Last {days} days: {shift} above the usual pace",
         "below": "Last {days} days: {shift} below the usual pace",
         "upcoming": "{soon} in the next {days} days · busiest {date}: {busiest}"
+      },
+      "period": "Period",
+      "periods": {
+        "1": "24 h",
+        "7": "7 days",
+        "30": "30 days",
+        "90": "90 days",
+        "365": "Year"
       }
     },
     "customers": {
@@ -918,7 +927,21 @@
         "squadAccessHours": "Hours",
         "squadAccessGrant": "Grant",
         "squadAccessUntil": "until {until}",
-        "squadAccessRevoke": "Revoke"
+        "squadAccessRevoke": "Revoke",
+        "tabs": {
+          "term": "Term",
+          "limits": "Limits",
+          "servers": "Servers",
+          "access": "Temporary access"
+        },
+        "currentEnd": "Ends",
+        "extendBy": "+{days, plural, one {# day} other {# days}}",
+        "trafficGb": "Traffic allowance",
+        "gb": "GB",
+        "limitsHint": "Leave a field empty to keep it as it is.",
+        "reasonTitle": "Reason",
+        "cancel": "Cancel",
+        "confirm": "Apply"
       },
       "empty": {
         "subscriptions": "No subscriptions",

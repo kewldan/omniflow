@@ -35,6 +35,9 @@ func (handlers *AdminHandlers) mountOperations(secure chi.Router) {
 	}
 
 	// -- Overview ------------------------------------------------------------
+	// Any signed-in operator: each count is included only under the
+	// permission that reads its area.
+	secure.Get("/overview/navigation-counts", handlers.navigationCounts)
 	secure.With(handlers.requirePermission(rbac.PermissionSystemRead)).
 		Get("/overview/dashboard", handlers.dashboard)
 	secure.With(handlers.requirePermission(rbac.PermissionSystemRead)).
@@ -357,7 +360,7 @@ func queryBool(request *http.Request, name string) *bool {
 // ---------------------------------------------------------------------------
 
 func (handlers *AdminHandlers) dashboard(writer http.ResponseWriter, request *http.Request) {
-	dashboard, err := handlers.operations.Dashboard(request.Context())
+	dashboard, err := handlers.operations.Dashboard(request.Context(), panelpg.DashboardWindow(int(queryInt(request, "days"))))
 	if err != nil {
 		handlers.operationsError(writer, request, err)
 		return
@@ -376,6 +379,31 @@ func (handlers *AdminHandlers) dashboard(writer http.ResponseWriter, request *ht
 		"operations":    dashboard.Operations,
 		"attention":     dashboard.Attention,
 	})
+}
+
+// navigationAreas maps each counted menu entry to the permission that reads
+// it, the same one the entry itself needs.
+var navigationAreas = map[string]rbac.Permission{
+	"support": rbac.PermissionSupportRead,
+	"shop":    rbac.PermissionGoodsRead,
+	"payouts": rbac.PermissionFinanceRead,
+	"finance": rbac.PermissionFinanceRead,
+	"risk":    rbac.PermissionRiskRead,
+	"system":  rbac.PermissionSystemRead,
+}
+
+// navigationCounts answers the numbers beside the menu: what waits on an
+// operator in each area they may read.
+func (handlers *AdminHandlers) navigationCounts(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := PrincipalFrom(request.Context())
+	areas := make([]string, 0, len(navigationAreas))
+	for area, permission := range navigationAreas {
+		if principal.Grant.Allows(permission) {
+			areas = append(areas, area)
+		}
+	}
+	counts, err := handlers.operations.NavigationCounts(request.Context(), areas)
+	handlers.respond(writer, request, counts, err)
 }
 
 func (handlers *AdminHandlers) recentIncidents(writer http.ResponseWriter, request *http.Request) {

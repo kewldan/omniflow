@@ -146,11 +146,26 @@ type AttentionItem struct {
 	Href string `json:"href"`
 }
 
-// Dashboard windows. They are constants rather than parameters because a
-// dashboard whose window moves under the operator is a dashboard whose numbers
-// cannot be compared between two visits.
+// DashboardWindows are the periods an operator can read the dashboard over,
+// in days. The choice is a fixed set rather than any number, so two visits
+// that picked the same period compare like with like.
+var DashboardWindows = []int{1, 7, 30, 90, 365}
+
+// DefaultDashboardDays is the period the dashboard opens with.
+const DefaultDashboardDays = 30
+
+// DashboardWindow resolves a requested period in days to one of
+// DashboardWindows, the default for anything else.
+func DashboardWindow(days int) time.Duration {
+	for _, allowed := range DashboardWindows {
+		if days == allowed {
+			return time.Duration(days) * 24 * time.Hour
+		}
+	}
+	return DefaultDashboardDays * 24 * time.Hour
+}
+
 const (
-	dashboardWindow = 30 * 24 * time.Hour
 	// A payment intent that has not moved in this long is stuck rather than in
 	// flight: every supported provider either settles or fails well inside it.
 	stuckPaymentAfter = 2 * time.Hour
@@ -162,8 +177,6 @@ const (
 	// Outbox lag beyond this is a publisher that has stopped rather than a
 	// queue that is busy.
 	outboxLagAlert = 5 * time.Minute
-	// dashboardDays is the window in 24-hour buckets, one per series point.
-	dashboardDays = int(dashboardWindow / seriesBucket)
 )
 
 // Dashboard reads the operations overview.
@@ -172,9 +185,11 @@ const (
 // touch unrelated tables with unrelated indexes, and joining them would produce
 // a plan whose cost is the product of the parts for no gain — the panel renders
 // them as separate tiles regardless.
-func (service *Service) Dashboard(ctx context.Context) (Dashboard, error) {
+func (service *Service) Dashboard(ctx context.Context, dashboardWindow time.Duration) (Dashboard, error) {
 	queries := service.queries()
 	window := interval(dashboardWindow)
+	// The window in 24-hour buckets, one per series point.
+	dashboardDays := max(int(dashboardWindow/seriesBucket), 1)
 
 	customers, err := queries.DashboardCustomerTotals(ctx, dbgen.DashboardCustomerTotalsParams{
 		Lookback: window, Shift: interval(0),

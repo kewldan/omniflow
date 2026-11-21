@@ -46,7 +46,7 @@ func TestDashboardSeriesAddUpToTheirTiles(t *testing.T) {
 	seedIntent(ctx, t, harness, orderID, "manual", "succeeded", 1000, now.Add(-3*time.Hour))
 	seedIntent(ctx, t, harness, orderID, "manual", "failed", 1000, now.Add(-50*time.Hour))
 
-	dashboard, err := operations.Dashboard(ctx)
+	dashboard, err := operations.Dashboard(ctx, panelpg.DashboardWindow(30))
 	if err != nil {
 		t.Fatalf("dashboard: %v", err)
 	}

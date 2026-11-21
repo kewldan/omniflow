@@ -4,9 +4,11 @@ import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
 import { Skeleton } from "@omniflow/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@omniflow/ui/tabs";
 import { ArrowRight } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import useSWR from "swr";
@@ -101,13 +103,23 @@ const METRIC_LINKS: Record<string, string> = {
  * something else. And the "needs action" list is derived from the same figures
  * the tiles show, so an alert can never contradict the tile beside it.
  */
+/** The periods the dashboard reads, in days; the API accepts these and no other. */
+const DASHBOARD_PERIODS = [1, 7, 30, 90, 365];
+
 export default function AdminHome() {
   const translate = useTranslations("admin");
   const format = useFormatter();
   const { session, can } = useSession();
+  // The period lives in the address, so a reload or a shared link reads the
+  // same window.
+  const search = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const requested = Number(search.get("days"));
+  const days = DASHBOARD_PERIODS.includes(requested) ? requested : 30;
 
   const { data, error, isLoading, mutate } = useSWR<Dashboard, ApiError>(
-    can("system.read") ? "/v1/panel/overview/dashboard" : null,
+    can("system.read") ? `/v1/panel/overview/dashboard?days=${days}` : null,
     fetcher,
     // A dashboard that silently ages is worse than one that is obviously stale,
     // so it refreshes when the operator returns to the tab.
@@ -117,6 +129,26 @@ export default function AdminHome() {
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
+        actions={
+          can("system.read") ? (
+            <Tabs
+              onValueChange={(value) =>
+                router.replace(value === "30" ? pathname : `${pathname}?days=${value}`, {
+                  scroll: false,
+                })
+              }
+              value={String(days)}
+            >
+              <TabsList aria-label={translate("dashboard.period")}>
+                {DASHBOARD_PERIODS.map((period) => (
+                  <TabsTrigger key={period} value={String(period)}>
+                    {translate(`dashboard.periods.${period}`)}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          ) : undefined
+        }
         description={translate("home.description")}
         eyebrow={translate("home.eyebrow")}
         title={translate("home.greeting", { name: session?.account.displayName ?? "" })}

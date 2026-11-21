@@ -4,11 +4,31 @@ import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { Card } from "@omniflow/ui/card";
 import { DateTimeField } from "@omniflow/ui/date-time-field";
-import { Input } from "@omniflow/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@omniflow/ui/dialog";
+import { Input, Textarea } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { Skeleton } from "@omniflow/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@omniflow/ui/tabs";
+import {
+  CalendarClock,
+  Clock,
+  Gauge,
+  Pause,
+  Play,
+  Power,
+  PowerOff,
+  RotateCcw,
+  Server,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { type ReactNode, useId, useState } from "react";
 import useSWR from "swr";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
@@ -24,19 +44,43 @@ type PanelDevice = {
   lastSeenAt: string;
 };
 
+/** An action waiting for its reason: what it is called, and what runs once one is given. */
+type PendingAction = {
+  title: string;
+  description?: string;
+  perform: (reason: string) => Promise<boolean>;
+};
+
+/** The subscription as it stands, for the defaults and the "+N days" buttons. */
+type CurrentState = {
+  endsAt?: string;
+  trafficAllowanceBytes?: number;
+  deviceLimit?: number;
+};
+
+const GIB = 1024 ** 3;
+const EXTEND_STEPS = [7, 30, 90, 365];
+
 /**
  * Lifecycle actions for one subscription.
+ *
+ * One-tap actions sit in a row with their icons; changes that take a value are
+ * grouped by what they change. Every action asks for its reason in a dialog at
+ * the moment it is taken, rather than a reason field that greys out the whole
+ * panel until something is typed into it.
  *
  * Every action goes through the fulfillment pipeline rather than writing to
  * Remnawave directly, so an operator change carries the same idempotency key,
  * retry policy, drift detection, and history as one a purchase produced. That
- * is why the buttons report "queued" rather than "done": the worker applies it.
+ * is why the panel reports "queued" rather than "done": the worker applies it.
  */
 export function SubscriptionActions({
+  current = {},
   customerId,
   subscriptionId,
   hasEntitlement,
 }: {
+  current?: CurrentState;
   customerId: string;
   subscriptionId: string;
   hasEntitlement: boolean;
@@ -46,184 +90,262 @@ export function SubscriptionActions({
   const endsAtId = useId();
   const trafficId = useId();
   const deviceLimitId = useId();
-  const reasonId = useId();
+  const squadsId = useId();
 
-  const [reason, setReason] = useState("");
   const [endsAt, setEndsAt] = useState("");
-  const [traffic, setTraffic] = useState("");
+  const [trafficGb, setTrafficGb] = useState("");
   const [deviceLimit, setDeviceLimit] = useState("");
   const [squads, setSquads] = useState<string[]>([]);
   const [queued, setQueued] = useState("");
+  const [asking, setAsking] = useState<PendingAction | null>(null);
   const { run, pending, error } = useOperatorAction();
 
   if (!can("subscriptions.write")) {
     return null;
   }
 
-  async function enqueue(operation: string, body: Record<string, unknown> = {}) {
-    setQueued("");
-    const ok = await run(
-      `/v1/panel/customers/${customerId}/subscriptions/${subscriptionId}/operations`,
-      { body: { operation, ...body }, method: "POST", reason: reason.trim() },
-    );
-    if (ok) {
-      setQueued(operation);
-      setReason("");
-    }
+  const base = `/v1/panel/customers/${customerId}/subscriptions/${subscriptionId}`;
+
+  /** Queues a fulfillment operation once its reason is given. */
+  function operation(title: string, name: string, body: Record<string, unknown> = {}) {
+    setAsking({
+      perform: async (reason) => {
+        const ok = await run(`${base}/operations`, {
+          body: { operation: name, ...body },
+          method: "POST",
+          reason,
+        });
+        if (ok) {
+          setQueued(title);
+        }
+        return ok;
+      },
+      title,
+    });
   }
 
   /**
-   * Pause and resume have their own routes rather than being two more values on
-   * the operations endpoint.
-   *
-   * Everything above is a Remnawave change described by parameters. These two
-   * are a Remnawave change *and* a change to the entitlement's own clock, and
-   * the two commit together — otherwise a customer pays for time they cannot
-   * use, or keeps connecting on time nobody is counting.
+   * Pause and resume have their own routes rather than being two more values
+   * on the operations endpoint: they change Remnawave *and* the entitlement's
+   * own clock, and the two commit together.
    */
-  async function transition(kind: "pause" | "resume") {
-    setQueued("");
-    const ok = await run(
-      `/v1/panel/customers/${customerId}/subscriptions/${subscriptionId}/${kind}`,
-      { method: "POST", reason: reason.trim() },
-    );
-    if (ok) {
-      setQueued(kind);
-      setReason("");
-    }
+  function transition(kind: "pause" | "resume") {
+    const title = translate(`pause.${kind}`);
+    setAsking({
+      description: translate(kind === "pause" ? "pause.pauseWarning" : "pause.resumeWarning"),
+      perform: async (reason) => {
+        const ok = await run(`${base}/${kind}`, { method: "POST", reason });
+        if (ok) {
+          setQueued(title);
+        }
+        return ok;
+      },
+      title,
+    });
   }
 
-  const ready = reason.trim().length > 0 && hasEntitlement && !pending;
-  const squadsId = `${reasonId}-squads`;
+  // "+N days" counts from the current expiry, or from now for one that has
+  // already run out, which is what extending a lapsed subscription means.
+  const extendFrom = Math.max(Date.now(), current.endsAt ? Date.parse(current.endsAt) : 0);
+  const disabled = !hasEntitlement || pending;
 
   return (
-    <Card className="mt-3 flex flex-col gap-3 p-3">
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor={reasonId}>{translate("actions.reason")}</Label>
-        <Input
-          id={reasonId}
-          onChange={(event) => setReason(event.target.value)}
-          placeholder={translate("actions.reasonPlaceholder")}
-          value={reason}
-        />
-      </div>
-
+    <div className="mt-3 flex flex-col gap-3 rounded-lg border border-border p-3">
       {!hasEntitlement && (
         // A slot that has never been provisioned has nothing to change.
         <p className="text-muted-foreground text-xs">{translate("actions.notProvisioned")}</p>
       )}
 
       <div className="flex flex-wrap gap-2">
-        <Button disabled={!ready} onClick={() => enqueue("enable")} size="sm" variant="outline">
-          {translate("actions.enable")}
-        </Button>
-        <Button disabled={!ready} onClick={() => enqueue("disable")} size="sm" variant="outline">
-          {translate("actions.disable")}
-        </Button>
-        <Button
-          disabled={!ready}
-          onClick={() => enqueue("reset_traffic")}
-          size="sm"
-          variant="outline"
-        >
-          {translate("actions.resetTraffic")}
-        </Button>
+        <QuickAction
+          disabled={disabled}
+          icon={<Power className="size-4" />}
+          label={translate("actions.enable")}
+          onClick={() => operation(translate("actions.enable"), "enable")}
+        />
+        <QuickAction
+          disabled={disabled}
+          icon={<PowerOff className="size-4" />}
+          label={translate("actions.disable")}
+          onClick={() => operation(translate("actions.disable"), "disable")}
+        />
+        <QuickAction
+          disabled={disabled}
+          icon={<RotateCcw className="size-4" />}
+          label={translate("actions.resetTraffic")}
+          onClick={() => operation(translate("actions.resetTraffic"), "reset_traffic")}
+        />
         {/* Pausing suspends access without spending the remaining days, which
-            is what "disable" does not do: a disabled subscription keeps running
-            out while the customer cannot use it. Both buttons are offered
-            unconditionally and the API refuses the one that does not apply,
-            because the panel would otherwise have to guess the entitlement's
-            state from a list that may be a minute old. */}
-        <Button disabled={!ready} onClick={() => transition("pause")} size="sm" variant="outline">
-          {translate("pause.pause")}
-        </Button>
-        <Button disabled={!ready} onClick={() => transition("resume")} size="sm" variant="outline">
-          {translate("pause.resume")}
-        </Button>
+            is what "disable" does not do. Both are offered and the API refuses
+            the one that does not apply. */}
+        <QuickAction
+          disabled={disabled}
+          icon={<Pause className="size-4" />}
+          label={translate("pause.pause")}
+          onClick={() => transition("pause")}
+        />
+        <QuickAction
+          disabled={disabled}
+          icon={<Play className="size-4" />}
+          label={translate("pause.resume")}
+          onClick={() => transition("resume")}
+        />
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={endsAtId}>{translate("actions.endsAt")}</Label>
-          <DateTimeField
-            hourLabel={translate("actions.hour")}
-            id={endsAtId}
-            minuteLabel={translate("actions.minute")}
-            onChange={setEndsAt}
-            placeholder={translate("actions.pickMoment")}
-            value={endsAt}
-          />
-          <Button
-            disabled={!ready || endsAt === ""}
-            onClick={() => enqueue("extend", { endsAt: new Date(endsAt).toISOString() })}
-            size="sm"
-            variant="outline"
-          >
-            {translate("actions.extend")}
-          </Button>
-        </div>
+      <Tabs defaultValue="term">
+        <TabsList className="flex-wrap">
+          <TabsTrigger className="gap-1.5" value="term">
+            <CalendarClock aria-hidden className="size-3.5" />
+            {translate("actions.tabs.term")}
+          </TabsTrigger>
+          <TabsTrigger className="gap-1.5" value="limits">
+            <Gauge aria-hidden className="size-3.5" />
+            {translate("actions.tabs.limits")}
+          </TabsTrigger>
+          <TabsTrigger className="gap-1.5" value="servers">
+            <Server aria-hidden className="size-3.5" />
+            {translate("actions.tabs.servers")}
+          </TabsTrigger>
+          <TabsTrigger className="gap-1.5" value="access">
+            <Clock aria-hidden className="size-3.5" />
+            {translate("actions.tabs.access")}
+          </TabsTrigger>
+        </TabsList>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={trafficId}>{translate("actions.trafficBytes")}</Label>
-          <Input
-            id={trafficId}
-            inputMode="numeric"
-            onChange={(event) => setTraffic(event.target.value)}
-            value={traffic}
-          />
-        </div>
+        <TabsContent className="flex flex-col gap-3 pt-3" value="term">
+          {current.endsAt && (
+            <p className="text-muted-foreground text-xs">
+              {translate("actions.currentEnd")} <Timestamp value={current.endsAt} />
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {EXTEND_STEPS.map((days) => (
+              <Button
+                disabled={disabled}
+                key={days}
+                onClick={() =>
+                  operation(translate("actions.extendBy", { days }), "extend", {
+                    endsAt: new Date(extendFrom + days * 86_400_000).toISOString(),
+                  })
+                }
+                size="sm"
+                variant="secondary"
+              >
+                {translate("actions.extendBy", { days })}
+              </Button>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="flex min-w-56 flex-col gap-1.5">
+              <Label htmlFor={endsAtId}>{translate("actions.endsAt")}</Label>
+              <DateTimeField
+                hourLabel={translate("actions.hour")}
+                id={endsAtId}
+                minuteLabel={translate("actions.minute")}
+                onChange={setEndsAt}
+                placeholder={translate("actions.pickMoment")}
+                value={endsAt}
+              />
+            </div>
+            <Button
+              disabled={disabled || endsAt === ""}
+              onClick={() =>
+                operation(translate("actions.extend"), "extend", {
+                  endsAt: new Date(endsAt).toISOString(),
+                })
+              }
+              size="sm"
+            >
+              {translate("actions.extend")}
+            </Button>
+          </div>
+        </TabsContent>
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={deviceLimitId}>{translate("actions.deviceLimit")}</Label>
-          <Input
-            id={deviceLimitId}
-            inputMode="numeric"
-            onChange={(event) => setDeviceLimit(event.target.value)}
-            value={deviceLimit}
-          />
+        <TabsContent className="flex flex-col gap-3 pt-3" value="limits">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={trafficId}>{translate("actions.trafficGb")}</Label>
+              <div className="relative">
+                <Input
+                  className="pr-10"
+                  id={trafficId}
+                  inputMode="decimal"
+                  onChange={(event) => setTrafficGb(event.target.value)}
+                  placeholder={
+                    current.trafficAllowanceBytes
+                      ? String(Math.round(current.trafficAllowanceBytes / GIB))
+                      : translate("subscription.unlimited")
+                  }
+                  value={trafficGb}
+                />
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-muted-foreground text-xs">
+                  {translate("actions.gb")}
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={deviceLimitId}>{translate("actions.deviceLimit")}</Label>
+              <Input
+                id={deviceLimitId}
+                inputMode="numeric"
+                onChange={(event) => setDeviceLimit(event.target.value)}
+                placeholder={current.deviceLimit ? String(current.deviceLimit) : "—"}
+                value={deviceLimit}
+              />
+            </div>
+          </div>
+          <p className="text-muted-foreground text-xs">{translate("actions.limitsHint")}</p>
           <Button
-            disabled={!ready || (traffic === "" && deviceLimit === "")}
+            className="self-start"
+            disabled={disabled || (trafficGb.trim() === "" && deviceLimit.trim() === "")}
             onClick={() =>
-              enqueue("set_limits", {
-                deviceLimit: deviceLimit === "" ? null : Number(deviceLimit),
-                trafficAllowanceBytes: traffic === "" ? null : Number(traffic),
+              operation(translate("actions.setLimits"), "set_limits", {
+                deviceLimit: deviceLimit.trim() === "" ? null : Number(deviceLimit),
+                trafficAllowanceBytes:
+                  trafficGb.trim() === ""
+                    ? null
+                    : Math.round(Number(trafficGb.replace(",", ".")) * GIB),
               })
             }
             size="sm"
-            variant="outline"
           >
             {translate("actions.setLimits")}
           </Button>
-        </div>
-      </div>
+        </TabsContent>
 
-      {/* Squads are picked by name from the panel's list; the change goes
-          through the same fulfillment pipeline as every other one. */}
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor={squadsId}>{translate("actions.squads")}</Label>
-        <SquadPicker
-          control={{ id: squadsId, "aria-invalid": false }}
-          multiple
-          onChange={setSquads}
-          value={squads}
-        />
-        <Button
-          className="self-start"
-          disabled={!ready || squads.length === 0}
-          onClick={() => enqueue("set_squads", { squadIds: squads })}
-          size="sm"
-          variant="outline"
-        >
-          {translate("actions.setSquads")}
-        </Button>
-      </div>
+        {/* Squads are picked by name from the panel's list; the change goes
+            through the same fulfillment pipeline as every other one. */}
+        <TabsContent className="flex flex-col gap-3 pt-3" value="servers">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={squadsId}>{translate("actions.squads")}</Label>
+            <SquadPicker
+              control={{ id: squadsId, "aria-invalid": false }}
+              multiple
+              onChange={setSquads}
+              value={squads}
+            />
+          </div>
+          <Button
+            className="self-start"
+            disabled={disabled || squads.length === 0}
+            onClick={() =>
+              operation(translate("actions.setSquads"), "set_squads", { squadIds: squads })
+            }
+            size="sm"
+          >
+            {translate("actions.setSquads")}
+          </Button>
+        </TabsContent>
 
-      <TemporarySquadAccess
-        customerId={customerId}
-        ready={ready}
-        reason={reason.trim()}
-        subscriptionId={subscriptionId}
-      />
+        <TabsContent className="pt-3" value="access">
+          <TemporarySquadAccess
+            ask={setAsking}
+            customerId={customerId}
+            disabled={disabled}
+            subscriptionId={subscriptionId}
+          />
+        </TabsContent>
+      </Tabs>
 
       {error && <p className="text-danger-foreground text-sm">{error.message}</p>}
       {queued && (
@@ -232,7 +354,106 @@ export function SubscriptionActions({
           {translate("actions.queued", { operation: queued })}
         </p>
       )}
-    </Card>
+
+      <ReasonDialog
+        action={asking}
+        onClose={() => setAsking(null)}
+        pending={pending}
+        title={translate("actions.reasonTitle")}
+      />
+    </div>
+  );
+}
+
+function QuickAction({
+  disabled,
+  icon,
+  label,
+  onClick,
+}: {
+  disabled: boolean;
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <Button className="gap-1.5" disabled={disabled} onClick={onClick} size="sm" variant="outline">
+      <span aria-hidden className="text-muted-foreground">
+        {icon}
+      </span>
+      {label}
+    </Button>
+  );
+}
+
+/**
+ * Asks for the reason of one action, and takes it. The reason is required:
+ * it is what the audit trail and the customer's history say about the change.
+ */
+function ReasonDialog({
+  action,
+  onClose,
+  pending,
+  title,
+}: {
+  action: PendingAction | null;
+  onClose: () => void;
+  pending: boolean;
+  title: string;
+}) {
+  const translate = useTranslations("admin.customers");
+  const reasonId = useId();
+  const [reason, setReason] = useState("");
+  return (
+    <Dialog
+      onOpenChange={(open) => {
+        if (!open) {
+          setReason("");
+          onClose();
+        }
+      }}
+      open={action !== null}
+    >
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{action?.title ?? title}</DialogTitle>
+          {action?.description && <DialogDescription>{action.description}</DialogDescription>}
+        </DialogHeader>
+        <form
+          className="flex flex-col gap-3"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            if (!action || reason.trim() === "") {
+              return;
+            }
+            if (await action.perform(reason.trim())) {
+              setReason("");
+              onClose();
+            }
+          }}
+        >
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={reasonId}>{translate("actions.reason")}</Label>
+            <Textarea
+              autoFocus
+              id={reasonId}
+              onChange={(event) => setReason(event.target.value)}
+              placeholder={translate("actions.reasonPlaceholder")}
+              rows={2}
+              value={reason}
+            />
+          </div>
+          <DialogFooter>
+            <Button onClick={onClose} type="button" variant="outline">
+              {translate("actions.cancel")}
+            </Button>
+            <Button disabled={pending || reason.trim() === ""} type="submit">
+              {translate("actions.confirm")}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -250,14 +471,14 @@ type SquadGrant = {
  * change, and the worker takes it back when the hours are up.
  */
 function TemporarySquadAccess({
+  ask,
   customerId,
-  ready,
-  reason,
+  disabled,
   subscriptionId,
 }: {
+  ask: (action: PendingAction) => void;
   customerId: string;
-  ready: boolean;
-  reason: string;
+  disabled: boolean;
   subscriptionId: string;
 }) {
   const translate = useTranslations("admin.customers");
@@ -267,51 +488,56 @@ function TemporarySquadAccess({
   const [hours, setHours] = useState("24");
   const key = `/v1/panel/customers/${customerId}/subscriptions/${subscriptionId}/squad-access`;
   const { data, mutate } = useSWR<{ items: SquadGrant[] }, ApiError>(key, fetcher);
-  const { run, pending, error } = useOperatorAction();
+  const { run, error } = useOperatorAction();
   const parsedHours = Number.parseInt(hours, 10);
   const active = (data?.items ?? []).filter((grant) => grant.status === "active");
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor={squadId}>{translate("actions.squadAccess")}</Label>
-      <SquadPicker
-        control={{ id: squadId, "aria-invalid": false }}
-        multiple={false}
-        onChange={setSquad}
-        value={squad}
-      />
-      <div className="flex items-end gap-2">
-        <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-3">
+      <div className="grid gap-3 sm:grid-cols-[1fr_8rem]">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={squadId}>{translate("actions.squadAccess")}</Label>
+          <SquadPicker
+            control={{ id: squadId, "aria-invalid": false }}
+            multiple={false}
+            onChange={setSquad}
+            value={squad}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5">
           <Label htmlFor={hoursId}>{translate("actions.squadAccessHours")}</Label>
           <Input
-            className="w-24"
             id={hoursId}
             inputMode="numeric"
             onChange={(event) => setHours(event.target.value)}
             value={hours}
           />
         </div>
-        <Button
-          disabled={
-            !ready || pending || squad.length === 0 || !(parsedHours >= 1 && parsedHours <= 720)
-          }
-          onClick={async () => {
-            const ok = await run(key, {
-              body: { hours: parsedHours, squadId: squad[0] },
-              method: "POST",
-              reason,
-            });
-            if (ok) {
-              setSquad([]);
-              void mutate();
-            }
-          }}
-          size="sm"
-          variant="outline"
-        >
-          {translate("actions.squadAccessGrant")}
-        </Button>
       </div>
+      <Button
+        className="self-start"
+        disabled={disabled || squad.length === 0 || !(parsedHours >= 1 && parsedHours <= 720)}
+        onClick={() =>
+          ask({
+            perform: async (reason) => {
+              const ok = await run(key, {
+                body: { hours: parsedHours, squadId: squad[0] },
+                method: "POST",
+                reason,
+              });
+              if (ok) {
+                setSquad([]);
+                void mutate();
+              }
+              return ok;
+            },
+            title: translate("actions.squadAccess"),
+          })
+        }
+        size="sm"
+      >
+        {translate("actions.squadAccessGrant")}
+      </Button>
       {active.length > 0 && (
         <ul className="flex flex-col gap-1 text-xs">
           {active.map((grant) => (
@@ -323,12 +549,19 @@ function TemporarySquadAccess({
                 })}
               </span>
               <Button
-                disabled={!ready || pending}
-                onClick={async () => {
-                  if (await run(`${key}/${grant.id}`, { method: "DELETE", reason })) {
-                    void mutate();
-                  }
-                }}
+                disabled={disabled}
+                onClick={() =>
+                  ask({
+                    perform: async (reason) => {
+                      const ok = await run(`${key}/${grant.id}`, { method: "DELETE", reason });
+                      if (ok) {
+                        void mutate();
+                      }
+                      return ok;
+                    },
+                    title: translate("actions.squadAccessRevoke"),
+                  })
+                }
                 size="sm"
                 variant="ghost"
               >

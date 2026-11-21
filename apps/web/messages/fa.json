@@ -163,7 +163,8 @@
         "settings": "تنظیمات",
         "aiSettings": "هوش مصنوعی و MCP",
         "payouts": "تسویه‌ها"
-      }
+      },
+      "waiting": "{count} در انتظار"
     },
     "commandMenu": {
       "trigger": "جستجو…",
@@ -815,6 +816,14 @@
         "above": "{days} روز اخیر: {shift} بالاتر از روند معمول",
         "below": "{days} روز اخیر: {shift} پایین‌تر از روند معمول",
         "upcoming": "{soon} مورد در {days} روز آینده · بیشترین در {date}: {busiest}"
+      },
+      "period": "بازه",
+      "periods": {
+        "1": "۲۴ ساعت",
+        "7": "۷ روز",
+        "30": "۳۰ روز",
+        "90": "۹۰ روز",
+        "365": "یک سال"
       }
     },
     "customers": {
@@ -913,7 +922,21 @@
           "failed": "ارسال پیام ممکن نشد."
         },
         "squads": "اسکوادها",
-        "setSquads": "تنظیم اسکوادها"
+        "setSquads": "تنظیم اسکوادها",
+        "tabs": {
+          "term": "مدت",
+          "limits": "محدودیت‌ها",
+          "servers": "سرورها",
+          "access": "دسترسی موقت"
+        },
+        "currentEnd": "پایان",
+        "extendBy": "+{days} روز",
+        "trafficGb": "سقف ترافیک",
+        "gb": "GB",
+        "limitsHint": "فیلد خالی مقدار را تغییر نمی‌دهد.",
+        "reasonTitle": "دلیل",
+        "cancel": "لغو",
+        "confirm": "اعمال"
       },
       "empty": {
         "subscriptions": "اشتراکی وجود ندارد",

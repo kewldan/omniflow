@@ -376,6 +376,11 @@ function SubscriptionList({
 
           <SubscriptionDevices customerId={customerId} subscriptionId={subscription.id} />
           <SubscriptionActions
+            current={{
+              deviceLimit: subscription.deviceLimit,
+              endsAt: subscription.endsAt,
+              trafficAllowanceBytes: subscription.trafficAllowanceBytes,
+            }}
             customerId={customerId}
             hasEntitlement={Boolean(subscription.entitlementId)}
             subscriptionId={subscription.id}

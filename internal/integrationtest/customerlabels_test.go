@@ -51,3 +51,25 @@ func TestCustomersAreNamedByTheirTelegramProfile(t *testing.T) {
 		}
 	}
 }
+
+// Every count beside the menu runs against the real schema, and an area the
+// caller did not ask for is not counted.
+func TestNavigationCountsRun(t *testing.T) {
+	ctx := context.Background()
+	harness := newHarness(t)
+	operations := newOperations(t, harness)
+	counts, err := operations.NavigationCounts(ctx, []string{"support", "shop", "payouts", "finance", "risk", "system", "unknown"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(counts) != 6 {
+		t.Fatalf("counts %v", counts)
+	}
+	if _, err = harness.pool.Exec(ctx, `INSERT INTO app_errors (fingerprint, process, message, source) VALUES ('f', 'api', 'boom', 'x')`); err != nil {
+		t.Fatal(err)
+	}
+	counts, err = operations.NavigationCounts(ctx, []string{"system"})
+	if err != nil || counts["system"] != 1 || len(counts) != 1 {
+		t.Fatalf("system counts %v %v", counts, err)
+	}
+}
