@@ -3905,6 +3905,22 @@ CREATE TABLE public.payment_provider_settings (
 
 
 --
+-- Name: payment_quotes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.payment_quotes (
+    payment_intent_id uuid NOT NULL,
+    amount_minor bigint NOT NULL,
+    currency text NOT NULL,
+    charged_minor bigint NOT NULL,
+    charged_currency text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT payment_quotes_amount_positive CHECK (((amount_minor > 0) AND (charged_minor > 0))),
+    CONSTRAINT payment_quotes_currencies CHECK (((currency ~ '^[A-Z]{3}$'::text) AND (charged_currency ~ '^[A-Z]{3}$'::text) AND (currency <> charged_currency)))
+);
+
+
+--
 -- Name: periodic_task_runs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -7250,6 +7266,14 @@ ALTER TABLE ONLY public.payment_methods
 
 ALTER TABLE ONLY public.payment_provider_settings
     ADD CONSTRAINT payment_provider_settings_pkey PRIMARY KEY (provider, merchant_id);
+
+
+--
+-- Name: payment_quotes payment_quotes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.payment_quotes
+    ADD CONSTRAINT payment_quotes_pkey PRIMARY KEY (payment_intent_id);
 
 
 --
@@ -11309,6 +11333,14 @@ ALTER TABLE ONLY public.payment_methods
 
 ALTER TABLE ONLY public.payment_provider_settings
     ADD CONSTRAINT payment_provider_settings_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES public.admin_users(id);
+
+
+--
+-- Name: payment_quotes payment_quotes_payment_intent_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.payment_quotes
+    ADD CONSTRAINT payment_quotes_payment_intent_id_fkey FOREIGN KEY (payment_intent_id) REFERENCES public.payment_intents(id);
 
 
 --

@@ -233,6 +233,9 @@ func (service *Service) CreateIntent(ctx context.Context, input CreateIntentInpu
 	if err != nil {
 		return dbgen.PaymentIntent{}, err
 	}
+	if err = recordQuote(ctx, queries, intent, created); err != nil {
+		return dbgen.PaymentIntent{}, err
+	}
 	if created.Status != "succeeded" {
 		return queries.UpdatePaymentIntentStatus(ctx, dbgen.UpdatePaymentIntentStatusParams{PaymentIntentID: intent.ID, Status: payments.IntentStatus(created.Status), ProviderReference: optionalText(created.ProviderReference), CheckoutUrl: optionalText(created.CheckoutURL)})
 	}
@@ -250,6 +253,9 @@ func (service *Service) CreateIntent(ctx context.Context, input CreateIntentInpu
 	settlementAmount := created.Amount
 	if settlementAmount.Amount == 0 && settlementAmount.Currency == "" {
 		settlementAmount = amount
+	}
+	if settlementAmount, err = inOrderCurrency(ctx, queries, intent, settlementAmount); err != nil {
+		return dbgen.PaymentIntent{}, err
 	}
 	_, classification, err := service.commerce.RecordProviderPayment(ctx, uuidString(intent.ID), SynchronousEventID(created.ProviderReference, uuidString(intent.ID)), settlementAmount, late)
 	service.observePayment(provider.Name(), order.Operation, classification)
@@ -439,7 +445,11 @@ func (service *Service) Reconcile(ctx context.Context, paymentIntentID string) (
 		return dbgen.PaymentIntent{}, err
 	}
 	if remote.Status == "succeeded" {
-		_, _, err = service.commerce.RecordProviderPayment(ctx, paymentIntentID, "reconcile:"+remote.ProviderReference, remote.Amount, false)
+		received, convertErr := inOrderCurrency(ctx, queries, intent, remote.Amount)
+		if convertErr != nil {
+			return dbgen.PaymentIntent{}, convertErr
+		}
+		_, _, err = service.commerce.RecordProviderPayment(ctx, paymentIntentID, "reconcile:"+remote.ProviderReference, received, false)
 		if err != nil {
 			return dbgen.PaymentIntent{}, err
 		}
@@ -520,6 +530,9 @@ func (service *Service) HandleWebhook(ctx context.Context, providerName string, 
 		return "", err
 	}
 	late := order.ExpiresAt.Valid && service.clock().After(order.ExpiresAt.Time)
+	if event.Amount, err = inOrderCurrency(ctx, queries, intent, event.Amount); err != nil {
+		return "", err
+	}
 	_, classification, err := service.commerce.RecordProviderPayment(ctx, uuidString(intent.ID), event.ID, event.Amount, late)
 	service.observePayment(providerName, order.Operation, classification)
 	service.observeWebhook(providerName, classification)

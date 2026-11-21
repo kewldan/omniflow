@@ -226,3 +226,118 @@ func TestOverpayRefusalsAndRefunds(t *testing.T) {
 		t.Fatalf("expected unsupported refund, got %v", err)
 	}
 }
+
+func overpayInternationalEnv(server string, extra map[string]string) Settings {
+	values := map[string]string{
+		"APP_OVERPAY_USERNAME": "merchant", "APP_OVERPAY_PASSWORD": "secret",
+		"APP_OVERPAY_PROJECT_ID": "project-1", "APP_OVERPAY_API_URL": server,
+		"APP_OVERPAY_INT_PROJECT_ID": "project-int", "APP_OVERPAY_INT_RATE": "98.50",
+	}
+	for key, value := range extra {
+		values[key] = value
+	}
+	return overpayEnv(values)
+}
+
+func TestOverpayInternationalConfiguration(t *testing.T) {
+	provider, err := buildOverpay(overpayInternationalEnv("https://api.example", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	overpay := provider.(*Overpay)
+	if strings.Join(ProviderMethods(provider), ",") != ",intl" {
+		t.Fatalf("methods = %q, want the default and intl", ProviderMethods(provider))
+	}
+	if overpay.international.currency != "EUR" || overpay.international.rate != 9850 {
+		t.Fatalf("international = %+v", overpay.international)
+	}
+
+	// Without the foreign-card terminal there is one button, as before.
+	plain, err := buildOverpay(overpayEnv(map[string]string{"APP_OVERPAY_USERNAME": "u", "APP_OVERPAY_PASSWORD": "p", "APP_OVERPAY_PROJECT_ID": "proj"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if methods := ProviderMethods(plain); len(methods) != 1 || methods[0] != "" {
+		t.Fatalf("plain methods = %q", methods)
+	}
+
+	for name, extra := range map[string]map[string]string{
+		"terminal without a rate": {"APP_OVERPAY_INT_RATE": ""},
+		"rate without a terminal": {"APP_OVERPAY_INT_PROJECT_ID": ""},
+		"zero rate":               {"APP_OVERPAY_INT_RATE": "0"},
+		"not a number":            {"APP_OVERPAY_INT_RATE": "ninety"},
+		"the shop's own currency": {"APP_OVERPAY_INT_CURRENCY": "RUB"},
+		"unknown currency":        {"APP_OVERPAY_INT_CURRENCY": "ZZZ"},
+	} {
+		if _, err := buildOverpay(overpayInternationalEnv("https://api.example", extra)); err == nil {
+			t.Errorf("%s: the build must fail", name)
+		}
+	}
+}
+
+func TestOverpayInternationalChargesTheConvertedAmount(t *testing.T) {
+	var body map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		raw, _ := io.ReadAll(request.Body)
+		_ = json.Unmarshal(raw, &body)
+		_, _ = writer.Write([]byte(`{"id":"ord-77","resultUrl":"https://pay.example/77"}`))
+	}))
+	t.Cleanup(server.Close)
+	provider, err := buildOverpay(overpayInternationalEnv(server.URL, map[string]string{"APP_OVERPAY_INT_MINIMUM": "5"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// 299.00 RUB at 98.50 a euro is 3.0355… EUR, which rounds up to 3.04:
+	// rounding down would leave the payment a cent short of the order.
+	intent, err := provider.Create(t.Context(), CreateRequest{
+		OrderID: overpayTestOrder, Amount: commerce.Money{Amount: 29900, Currency: "RUB"}, Method: "intl",
+	})
+	if !errors.Is(err, ErrBelowProviderMinimum) {
+		t.Fatalf("3.04 EUR is under the 5 EUR minimum, got %v %+v", err, intent)
+	}
+
+	intent, err = provider.Create(t.Context(), CreateRequest{
+		OrderID: overpayTestOrder, Amount: commerce.Money{Amount: 59900, Currency: "RUB"}, Method: "intl",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// 599.00 / 98.50 = 6.0812… → 6.09 EUR.
+	if body["amount"] != "6.09" || body["currency"] != "EUR" || body["projectId"] != "project-int" {
+		t.Fatalf("request body = %v", body)
+	}
+	if methods, _ := body["paymentMethods"].([]any); len(methods) != 1 || methods[0] != "card" {
+		t.Fatalf("the international terminal takes cards only: %v", body["paymentMethods"])
+	}
+	if intent.Charged == nil || *intent.Charged != (commerce.Money{Amount: 609, Currency: "EUR"}) {
+		t.Fatalf("charged = %+v", intent.Charged)
+	}
+	if intent.Amount != (commerce.Money{Amount: 59900, Currency: "RUB"}) {
+		t.Fatalf("the intent still prices the order in rubles, got %+v", intent.Amount)
+	}
+
+	// The default button keeps the ruble terminal and reports no conversion.
+	intent, err = provider.Create(t.Context(), CreateRequest{
+		OrderID: overpayTestOrder, Amount: commerce.Money{Amount: 59900, Currency: "RUB"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if body["currency"] != "RUB" || body["projectId"] != "project-1" || intent.Charged != nil {
+		t.Fatalf("default checkout body = %v, charged = %+v", body, intent.Charged)
+	}
+}
+
+func TestOverpayInternationalPollReportsEuros(t *testing.T) {
+	provider := overpayAt(t, func(writer http.ResponseWriter, _ *http.Request) {
+		_, _ = writer.Write([]byte(`{"id":"ord-77","status":"charged","amount":"6.09","currency":"EUR"}`))
+	})
+	intent, err := provider.Poll(t.Context(), "ord-77")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if intent.Status != "succeeded" || intent.Amount != (commerce.Money{Amount: 609, Currency: "EUR"}) {
+		t.Fatalf("poll = %+v", intent)
+	}
+}

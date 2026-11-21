@@ -1034,8 +1034,8 @@ Hosted-checkout orders through the Overpay API (`https://api.overpay.io`) with H
 authentication and, when the merchant was issued one, a TLS client certificate. Omniflow creates an
 order with `POST /orders/`, and the customer pays on the Overpay page it links to.
 
-**Currencies.** One: the currency the project settles in, `RUB` unless `APP_OVERPAY_CURRENCY` says
-otherwise.
+**Currencies.** The currency the project settles in, `RUB` unless `APP_OVERPAY_CURRENCY` says
+otherwise — and, with the foreign-card terminal below, euros for a ruble price.
 
 ### Configuration
 
@@ -1056,6 +1056,32 @@ key are both set or both empty. Overpay issues the certificate as a P12 file; co
 example with `openssl pkcs12 -in overpay.p12 -clcerts -nokeys` for the certificate and
 `openssl pkcs12 -in overpay.p12 -nocerts -nodes` for the key. A PEM value written on one line with
 literal `\n` sequences is accepted.
+
+### Foreign cards
+
+Overpay runs a separate terminal for cards issued abroad, which takes euros. With it configured,
+Overpay shows two buttons: the usual one, and **Overpay · foreign card**, which opens the order on the
+euro terminal for cards only.
+
+| Variable | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `APP_OVERPAY_INT_PROJECT_ID` | With the rate | — | Project (terminal) for foreign cards. |
+| `APP_OVERPAY_INT_RATE` | With the project | — | The price of one euro in your shop currency, such as `98.50`. |
+| `APP_OVERPAY_INT_CURRENCY` | No | `EUR` | The currency that terminal takes. It must differ from the shop's. |
+| `APP_OVERPAY_INT_MINIMUM` | No | none | The smallest charge the terminal accepts, in its currency, such as `5`. |
+
+The rate is yours to set: Overpay does not convert, and a rate Omniflow fetched by itself could move
+between checkout and payment. The ruble price is divided by it and **rounded up to the cent**, so a
+customer never pays a fraction less than the order costs. A checkout under the minimum is refused
+before anything is sent to Overpay; you can also set a minimum on the button under **Payment buttons**.
+
+The euro amount is fixed when the checkout opens, as a quote kept with the payment. When Overpay
+reports the order charged, the euros are mapped back onto the order through that quote: the exact
+amount pays the exact ruble price, whatever the rate is by then. Any other amount is converted at the
+quote's own ratio and treated like any short or long payment — an underpayment does not fulfil the
+order. Changing `APP_OVERPAY_INT_RATE` affects only checkouts opened after the restart.
+
+Setting the project without the rate, or the rate without the project, fails startup.
 
 ### Notifications
 

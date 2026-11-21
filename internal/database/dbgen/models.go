@@ -2022,6 +2022,15 @@ type PaymentProviderSetting struct {
 	UpdatedBy               pgtype.UUID        `json:"updated_by"`
 }
 
+type PaymentQuote struct {
+	PaymentIntentID pgtype.UUID        `json:"payment_intent_id"`
+	AmountMinor     int64              `json:"amount_minor"`
+	Currency        string             `json:"currency"`
+	ChargedMinor    int64              `json:"charged_minor"`
+	ChargedCurrency string             `json:"charged_currency"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
 type PeriodicTaskRun struct {
 	Name          string             `json:"name"`
 	LastStartedAt pgtype.Timestamptz `json:"last_started_at"`

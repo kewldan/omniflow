@@ -850,6 +850,7 @@ type Querier interface {
 	GetPaymentIntentByProviderReference(ctx context.Context, arg GetPaymentIntentByProviderReferenceParams) (PaymentIntent, error)
 	GetPaymentMethod(ctx context.Context, id pgtype.UUID) (PaymentMethod, error)
 	GetPaymentProviderSettings(ctx context.Context, arg GetPaymentProviderSettingsParams) (PaymentProviderSetting, error)
+	GetPaymentQuote(ctx context.Context, paymentIntentID pgtype.UUID) (PaymentQuote, error)
 	GetPersonalOffer(ctx context.Context, id pgtype.UUID) (PersonalOffer, error)
 	GetPlanAdmin(ctx context.Context, id pgtype.UUID) (Plan, error)
 	// Any currency the version is priced in, to read it through GetPlanVersionForOrder.
@@ -986,6 +987,9 @@ type Querier interface {
 	InsertOrderLine(ctx context.Context, arg InsertOrderLineParams) (OrderLine, error)
 	InsertOutboxEvent(ctx context.Context, arg InsertOutboxEventParams) (OutboxEvent, error)
 	InsertPaymentEvent(ctx context.Context, arg InsertPaymentEventParams) (PaymentEvent, error)
+	// The quote is written once, when the provider confirmed the checkout. A
+	// retried create finds it already there and leaves it as it was.
+	InsertPaymentQuote(ctx context.Context, arg InsertPaymentQuoteParams) error
 	InsertPlanVersionDayPrice(ctx context.Context, arg InsertPlanVersionDayPriceParams) error
 	InsertPlanVersionGBPrice(ctx context.Context, arg InsertPlanVersionGBPriceParams) error
 	InsertPlanVersionPeriod(ctx context.Context, arg InsertPlanVersionPeriodParams) error

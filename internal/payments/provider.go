@@ -63,6 +63,11 @@ type Intent struct {
 	// RefundedMinor is the cumulative amount the provider reports returned
 	// on a settled payment, from an authenticated read.
 	RefundedMinor int64
+	// Charged is what the provider was asked to collect when it is not the
+	// requested amount in the requested currency — a ruble order taken in
+	// euros. Only Create sets it; the payment service keeps it as the quote
+	// that later maps the money received back onto the order.
+	Charged *commerce.Money
 }
 
 type RefundRequest struct {
