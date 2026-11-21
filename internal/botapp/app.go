@@ -1027,6 +1027,10 @@ func (app *App) HandleCallback(ctx context.Context, client *telegram.Bot, update
 		return
 	}
 	_, _ = client.AnswerCallbackQuery(ctx, &telegram.AnswerCallbackQueryParams{CallbackQueryID: query.ID})
+	if !strings.HasPrefix(query.Data, callbackPrefix) {
+		app.foreignCallback(ctx, client, query, message, locale, update)
+		return
+	}
 	route := strings.TrimPrefix(query.Data, callbackPrefix)
 	if !knownRoute(route) {
 		route = routeHome
@@ -1037,6 +1041,31 @@ func (app *App) HandleCallback(ctx context.Context, client *telegram.Bot, update
 	view := app.loadView(ctx, query.From.ID, locale, route)
 	if _, err := client.EditMessageText(ctx, editParams(message.Chat.ID, message.ID, view)); err != nil {
 		app.withCorrelation(update).Error("telegram view edit failed", "view", route, "error", err)
+	}
+}
+
+// foreignCallback answers a button this bot did not draw: one left in the
+// chat by the bot that ran here before, whose callback data Omniflow does not
+// speak. It is not a failure. The old message keeps a dead keyboard and may
+// be a photo, which cannot be edited into a text screen, so its buttons are
+// removed and the main menu is sent as a new message.
+func (app *App) foreignCallback(
+	ctx context.Context, client *telegram.Bot, query *models.CallbackQuery, message *models.Message, locale Locale,
+	update *models.Update,
+) {
+	data := query.Data
+	if len(data) > 64 {
+		data = data[:64]
+	}
+	app.withCorrelation(update).Info("button from an earlier bot; showing the main menu", "callback", data)
+	if _, err := client.EditMessageReplyMarkup(ctx, &telegram.EditMessageReplyMarkupParams{
+		ChatID: message.Chat.ID, MessageID: message.ID,
+	}); err != nil {
+		app.logger.Debug("old keyboard could not be removed", "error", err)
+	}
+	view := app.loadView(ctx, query.From.ID, locale, routeHome)
+	if _, err := client.SendMessage(ctx, sendParams(message.Chat.ID, view)); err != nil {
+		app.withCorrelation(update).Warn("main menu after an earlier bot's button not sent", "error", err)
 	}
 }
 
@@ -1102,7 +1131,11 @@ func (app *App) handleAction(ctx context.Context, client *telegram.Bot, query *m
 		}
 		view = app.loadView(ctx, query.From.ID, locale, routeSubscription)
 	default:
-		err = errors.New("unknown action")
+		// An action this build does not have — a button from an older
+		// release, or one crafted by hand — is not a failure of anything:
+		// the customer gets the main menu.
+		app.withCorrelation(update).Info("unknown bot action; showing the main menu", "action", parts[0])
+		view = app.loadView(ctx, query.From.ID, locale, routeHome)
 	}
 	if err != nil {
 		app.logger.Error("telegram action failed", "action", parts[0], "error", err)

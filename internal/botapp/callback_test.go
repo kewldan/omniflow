@@ -93,3 +93,51 @@ func TestAGroupCallbackDoesNothing(t *testing.T) {
 		}
 	}
 }
+
+// levelCounter counts the records logged at Error or above.
+type levelCounter struct {
+	mutex  sync.Mutex
+	errors int
+}
+
+func (counter *levelCounter) Enabled(context.Context, slog.Level) bool { return true }
+func (counter *levelCounter) Handle(_ context.Context, record slog.Record) error {
+	if record.Level >= slog.LevelError {
+		counter.mutex.Lock()
+		counter.errors++
+		counter.mutex.Unlock()
+	}
+	return nil
+}
+func (counter *levelCounter) WithAttrs([]slog.Attr) slog.Handler { return counter }
+func (counter *levelCounter) WithGroup(string) slog.Handler      { return counter }
+
+// A button the previous bot left in the chat opens the main menu as a new
+// message — the old one may be a photo — and is not an error.
+func TestAnEarlierBotsButtonOpensTheMainMenu(t *testing.T) {
+	t.Parallel()
+	client, calls := telegramStub(t)
+	counter := &levelCounter{}
+	store := &cancellingStore{fakeIdentityStore: fakeIdentityStore{lookupID: 44}}
+	app := New(slog.New(counter), store, &fakeRemnawave{telegramUser: remnawave.User{ID: 44, Username: "linked", Status: "ACTIVE"}}, "")
+
+	app.HandleDefault(context.Background(), client, callbackUpdate("menu_buy"))
+	seen := map[string]int{}
+	for _, call := range *calls {
+		seen[call]++
+	}
+	if seen["/bottest-token/answerCallbackQuery"] != 1 || seen["/bottest-token/sendMessage"] != 1 ||
+		seen["/bottest-token/editMessageReplyMarkup"] != 1 || seen["/bottest-token/editMessageText"] != 0 {
+		t.Fatalf("calls %v", *calls)
+	}
+	if counter.errors != 0 {
+		t.Fatalf("an earlier bot's button logged %d errors", counter.errors)
+	}
+
+	// An action this build does not have shows the main menu in place.
+	*calls = nil
+	app.HandleCallback(context.Background(), client, callbackUpdate(actionPrefix+"no-such-action"))
+	if counter.errors != 0 {
+		t.Fatalf("an unknown action logged %d errors", counter.errors)
+	}
+}
