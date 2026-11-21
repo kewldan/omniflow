@@ -6,7 +6,7 @@ description: How Omniflow differs from Bedolaga Bot, Bedolaga Cabinet, and Remna
 Omniflow is not the only open-source way to sell Remnawave subscriptions. This page compares it with the projects operators most often evaluate alongside it, using each project's own public documentation.
 
 <Note>
-Bedolaga Bot and RemnaCore were compared on 11 August 2026 against their public `main` branches and have not been re-checked since. The Bedolaga Cabinet rows were re-checked on 14 August 2026 against its published 1.61.0 feature list, which is more detailed than the README the first pass used and is why several rows below are new. Omniflow's own column tracks this repository and was last updated on 20 November 2026, against the status of every item in the Bedolaga gap review of 19 November 2026. Feature sets move quickly. Verify against the upstream repository before making a decision, and open an issue if anything here is out of date or unfair.
+Bedolaga Bot and RemnaCore were compared on 11 August 2026 against their public `main` branches and have not been re-checked since. The Bedolaga Cabinet rows were re-checked on 14 August 2026 against its published 1.61.0 feature list, which is more detailed than the README the first pass used and is why several rows below are new. Omniflow's own column tracks this repository and was last updated on 21 November 2026, against the status of every item in the Bedolaga gap review of 19 November 2026. Feature sets move quickly. Verify against the upstream repository before making a decision, and open an issue if anything here is out of date or unfair.
 </Note>
 
 ## The projects
@@ -53,9 +53,12 @@ Omniflow's shipped surface today is v0.1–v0.10: the complete backend commerce 
 | One customer holding several concurrent subscriptions | ✅ (opt-in) | — | ✅ |
 | Pausing a subscription with the remaining days preserved | ✅ | ✅ | — |
 | Several billing periods and custom days in one plan | ✅ | ✅ | — |
-| Plan switch with a prorated remainder | 🔭 | ✅ | — |
-| Daily plans with daily charging and a customer pause | 🔭 | ✅ | — |
-| Limited grace access after expiry | 🔭 | ✅ | — |
+| Plan switch with a prorated remainder | ✅ (opt-in) | ✅ | — |
+| Daily plans with daily charging and a customer pause | ✅ | ✅ | — |
+| Limited grace access after expiry | ✅ | ✅ | — |
+| Traffic volume chosen at checkout, priced per GB | ✅ | ✅ | — |
+| Traffic, device, and server changes mid-period with a prorated charge or credit | ✅ | ✅ | — |
+| Server catalogue with names, flags, prices, and capacity | ✅ | ✅ | — |
 
 ## Payments and money handling
 
@@ -94,7 +97,7 @@ Omniflow's counterweight is the financial model. Every order and payment mutatio
 | Personal targeted offers | ✅ | ✅ | — |
 | Referral program with immutable attribution | ✅ | ✅ | ✅ |
 | Referral balance withdrawal | ✅ (risk-scored, reviewed by an operator) | ✅ | — |
-| Partner / affiliate program | 🔭 (percentage commissions and personal rates exist; per-partner applications do not) | ✅ | ✅ (reseller) |
+| Partner / affiliate program | ✅ (applications with a personal rate) | ✅ | ✅ (reseller) |
 | Multi-level referral network reporting | ✅ (two levels, referral contests) | ✅ | ✅ |
 | Gift subscriptions | ✅ | ✅ | — |
 | Mandatory channel subscription with auto-disable | ✅ | ✅ | — |
@@ -200,7 +203,7 @@ RemnaCore also reaches into node health monitoring, smart routing, and speed tes
 
 ## Choosing between them
 
-**Choose Bedolaga Bot** if you want to administer everything from Telegram without deploying a web panel, take payments inside the bot by QR code, or need what Omniflow still lacks: daily plans, plan switches with a prorated remainder, limited grace access, and custom landing pages. If you sell through paid advertising, note that both now carry a click identifier into the order; the difference is what happens next, and it is a real choice. Bedolaga calls the platform's conversion API for you. Omniflow gives you a file to upload, because it makes no request to an advertising network on your behalf.
+**Choose Bedolaga Bot** if you want to administer everything from Telegram without deploying a web panel, take payments inside the bot by QR code, or need custom landing pages, which Omniflow deliberately does not build. If you sell through paid advertising, note that both now carry a click identifier into the order; the difference is what happens next, and it is a real choice. Bedolaga calls the platform's conversion API for you. Omniflow gives you a file to upload, because it makes no request to an advertising network on your behalf.
 
 **Choose RemnaCore** if you need white-label reseller capability with commission tracking, or are already running Kubernetes and want a plugin runtime and event bus as first-class infrastructure. Note its stated development status before committing production traffic.
 
@@ -213,5 +216,5 @@ Both panels are complete as of v0.10: the operator panel since v0.8, and the cus
 
 The v1.0 gate is release engineering rather than product surface, and one item in it remains: an independent security review of authentication, authorization, payments, and secret handling. That one names an external reviewer engagement rather than a change to this repository. The compatibility matrix, signed artifacts, and the reliability and documentation gates are done.
 
-Complete is not the same as at parity, but the distance is now short. A line-by-line review of Bedolaga Bot on 19 November 2026 listed about 240 gaps; as of 20 November 2026, 189 are closed, 22 are partial, 25 are open, and 8 are deliberately not done because they cross the Remnawave boundary or the privacy position. The [gap list](https://github.com/kewldan/omniflow/blob/main/bedolaga-bot-gaps.md) marks every one of them, and moving an installation from Bedolaga is a documented procedure: see [Migrating from Bedolaga](/operations/migrate-from-bedolaga).
+Complete is not the same as at parity, but the distance is now small. A line-by-line review of Bedolaga Bot on 19 November 2026 listed about 240 gaps; as of 21 November 2026, 226 are closed, none is partial, 10 are open, and 8 are deliberately not done because they cross the Remnawave boundary or the privacy position. The open ten are paying inside the bot by QR code, Overpay's foreign-card terminal and certificate upload, embedded CloudPayments and MulenPay forms, an external ban system and abuse API, time- and address-based operator policies, an application log viewer, and button styles and a live menu in the bot. The [gap list](https://github.com/kewldan/omniflow/blob/main/bedolaga-bot-gaps.md) marks every one of them, and moving an installation from Bedolaga is a documented procedure: see [Migrating from Bedolaga](/operations/migrate-from-bedolaga).
 </Note>

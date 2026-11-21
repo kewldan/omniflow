@@ -50,7 +50,7 @@
 - 💳 **29 payment providers.** YooKassa with 54-FZ receipts, Telegram Stars, CryptoBot, and 25 regional collectors carried over from Bedolaga. Each method can be its own button, with its own limits and visibility rules. Saved cards and mandates renew subscriptions automatically, and only with the customer's explicit consent.
 - ⭐ **A Stars shop on your own wallet.** Customers buy Telegram Stars and Premium, and Omniflow delivers them through Fragment from your own TON wallet. The wallet's secrets live only in environment variables.
 - 🧮 **Money handled like money.** Every order and payment mutation is idempotent, provider webhooks are replay-safe, and wallet balances come from an append-only double-entry ledger. Refunds and chargebacks reported by a provider take back what they paid for.
-- 📈 **Growth tools.** Campaigns with `/start` links and UTM attribution, percentage referral commissions, a second referral level and referral contests, loyalty groups, personal offers, win-back waves with a discount, a fortune wheel and polls, and broadcasts by Telegram and e-mail.
+- 📈 **Growth tools.** Campaigns with `/start` links and UTM attribution, percentage referral commissions, a second referral level and referral contests, loyalty groups, personal offers, win-back waves with a discount, a fortune wheel, polls, and seven daily games, partner applications with personal rates, and broadcasts by Telegram and e-mail.
 - 🎫 **A real support desk.** Queues, assignment, SLA timers, internal notes, canned replies, customer topics and urgency, and an operator Telegram group with auto-created topics.
 - 🔗 **Remnawave-native.** Omniflow uses Remnawave's public API only. It receives the panel's signed webhooks, encrypts Happ and INCY links, and reads devices and traffic live. Remnawave stays the owner of users, nodes, and traffic.
 - 🔐 **Operator security.** Argon2id passwords, passkeys, TOTP, optional OIDC, custom roles, and an append-only audit trail. Every adverse action needs a reason, and secrets are write-only by construction.
@@ -227,8 +227,8 @@ The exact payload is shown in the operator panel before anything is sent; see [A
 
 ## 🗺️ Known limitations
 
-- 📅 No daily plans with daily charging, and no plan switch that credits the unused remainder yet.
-- 💸 Payments always open the provider's page; paying by SBP QR code inside the bot is not supported yet.
+- 💸 Payments always open the provider's page; paying by SBP QR code inside the bot, Overpay's foreign-card terminal, and embedded CloudPayments or MulenPay forms are not supported yet.
+- 🛡️ No integration with an external ban system or abuse API, no time- or address-based operator policies, and no log viewer in the panel yet.
 - 🍏 Apple In-App Purchase waits for a native app ([decision 0014](./docs/architecture/decision-0014-apple-iap-native-only.mdx)).
 - 🧭 Node management, per-node traffic limits, and Omniflow's own traffic accounting are deliberately left to Remnawave.
 
