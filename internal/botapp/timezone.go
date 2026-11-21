@@ -150,7 +150,7 @@ func timezoneView(locale Locale, current, suggestion string, now time.Time) View
 func (app *App) timezoneScreen(ctx context.Context, session commerceContext) View {
 	preferences, err := app.customers.CustomerPreferences(ctx, session.Customer.ID)
 	if err != nil {
-		app.logger.Error("preferences lookup failed", "error", err)
+		app.logError(ctx, "preferences lookup failed", "error", err)
 		return app.errorView(session.Locale, routeSettings)
 	}
 	return timezoneView(session.Locale, preferences.Timezone,
@@ -165,7 +165,7 @@ func (app *App) setTimezone(ctx context.Context, session commerceContext, zone s
 		return app.timezoneScreen(ctx, session)
 	}
 	if err := app.customers.SetTimezone(ctx, session.Customer.ID, zone); err != nil {
-		app.logger.Error("timezone update failed", "error", err)
+		app.logError(ctx, "timezone update failed", "error", err)
 		return app.errorView(session.Locale, routeSettings)
 	}
 	return app.quietHoursScreen(ctx, session)
@@ -176,7 +176,7 @@ func (app *App) setTimezone(ctx context.Context, session commerceContext, zone s
 func (app *App) quietHoursScreen(ctx context.Context, session commerceContext) View {
 	preferences, err := app.customers.CustomerPreferences(ctx, session.Customer.ID)
 	if err != nil {
-		app.logger.Error("preferences lookup failed", "error", err)
+		app.logError(ctx, "preferences lookup failed", "error", err)
 		return app.errorView(session.Locale, routeSettings)
 	}
 	return quietHoursView(session.Locale, preferences, time.Now())

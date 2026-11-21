@@ -247,8 +247,8 @@ outbox tab that only grows means that pass is not running: no worker is up, or t
 lacks a 32-byte `APP_DATA_ENCRYPTION_KEY`, which the pass needs to unseal webhook secrets.
 Until it runs, `APP_RETENTION_OUTBOX_DAYS` — which only deletes published rows — removes
 nothing. Give the worker the same key as the api and restart it; the backlog drains 200
-events per pass. The declared `omniflow_outbox_pending_events` gauge is never written, so
-watch the admin route instead.
+events per pass. The worker samples the backlog into `omniflow_outbox_pending_events` every
+15 seconds, and the bundled `OmniflowOutboxBacklog` rule fires when it stays above 500.
 
 ## Backups are failing
 

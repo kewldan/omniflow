@@ -117,7 +117,7 @@ func (app *App) checkoutPaymentMethods(ctx context.Context, session commerceCont
 		choices, err = accountcheckout.LoyaltyChoices(ctx, app.commerce.orders, session.Customer.ID, choices)
 	}
 	if err != nil {
-		app.logger.Error("payment method lookup failed", "error", err)
+		app.logError(ctx, "payment method lookup failed", "error", err)
 		return app.errorView(session.Locale, routePlans)
 	}
 	return paymentMethodView(session.Locale, plan, choices, back)

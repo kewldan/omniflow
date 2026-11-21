@@ -1077,10 +1077,11 @@ one. Without the commerce surface `/faq` keeps linking to the web pages.
 ## Health and metrics
 
 The bot process exposes `/healthz`, `/livez`, `/readyz`, and `/metrics` on a
-separate listener, which stays off unless an operator sets its address — and
-refuses to share the webhook address, so internals are never published on an
-internet-facing host. Each update is counted by kind, and the kinds form a closed
-set so the metric label cannot grow without limit. No Telegram account, message
-body, or callback data ever becomes a metric label. Update spans are created but
-no tracer provider is installed anywhere in Omniflow, so nothing is exported —
-see [Observability](/operations/observability).
+separate listener (`:8083` in the reference compose file), which stays off unless
+an operator sets its address — and refuses to share the webhook address, so
+internals are never published on an internet-facing host. Each update is counted
+by kind and by whether its handler succeeded, failed, or panicked, and every Bot
+API call is counted by method and outcome; both label sets are closed, so they
+cannot grow without limit. No Telegram account, message body, or callback data
+ever becomes a metric label. Update spans are exported when
+`OTEL_EXPORTER_OTLP_ENDPOINT` is set — see [Observability](/operations/observability).

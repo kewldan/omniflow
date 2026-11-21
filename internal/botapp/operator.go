@@ -59,7 +59,7 @@ func (app *App) HandleOps(ctx context.Context, client *telegram.Bot, update *mod
 	}
 	view := app.operatorPanel(ctx)
 	if _, err := client.SendMessage(ctx, sendParams(message.Chat.ID, view)); err != nil {
-		app.logger.Error("operator panel delivery failed", "error", err)
+		app.logError(ctx, "operator panel delivery failed", "error", err)
 	}
 }
 
@@ -74,7 +74,7 @@ func (app *App) operatorPanel(ctx context.Context) View {
 	}
 	records, err := app.operators.backups.List(ctx, 5)
 	if err != nil {
-		app.logger.Error("backup list failed", "error", err)
+		app.logError(ctx, "backup list failed", "error", err)
 		return View{Text: "💾 <b>Backups</b>\n\nBackup status is unavailable right now."}
 	}
 	builder := &strings.Builder{}
@@ -122,7 +122,7 @@ func (app *App) handleOperatorAction(ctx context.Context, telegramID int64, part
 			return View{Text: "💾 A backup is already running. Try again once it finishes.", Keyboard: keyboard(row(actionButton("🔄 Refresh", "ops")))}, true
 		}
 		if err != nil {
-			app.logger.Error("manual backup failed", "error", err)
+			app.logError(ctx, "manual backup failed", "error", err)
 			return View{Text: "⚠️ The backup did not complete. Check the worker logs for the classified error code.", Keyboard: keyboard(row(actionButton("🔄 Refresh", "ops")))}, true
 		}
 		app.recordOperatorAudit(ctx, telegramID, "backup.created", uuidText(record.ID), "manual backup from Telegram")
@@ -146,7 +146,7 @@ func (app *App) handleOperatorAction(ctx context.Context, telegramID int64, part
 		app.recordOperatorAudit(ctx, telegramID, "backup.restore_requested", parts[1], reason)
 		restore, err := app.operators.backups.Restore(ctx, parts[1], fmt.Sprintf("telegram:%d", telegramID), reason)
 		if err != nil {
-			app.logger.Error("restore failed", "error", err)
+			app.logError(ctx, "restore failed", "error", err)
 			return View{Text: "⚠️ The restore did not complete. The database was left as it was found; check the worker logs.", Keyboard: keyboard(row(actionButton("🔄 Refresh", "ops")))}, true
 		}
 		app.recordOperatorAudit(ctx, telegramID, "backup.restored", parts[1], "restore completed with status "+restore.Status)
@@ -163,6 +163,6 @@ func (app *App) recordOperatorAudit(ctx context.Context, telegramID int64, actio
 		return
 	}
 	if err := app.customers.RecordAuditEvent(ctx, fmt.Sprintf("telegram:%d", telegramID), action, "backup", targetID, reason); err != nil {
-		app.logger.Error("operator audit event could not be recorded", "action", action, "error", err)
+		app.logError(ctx, "operator audit event could not be recorded", "action", action, "error", err)
 	}
 }

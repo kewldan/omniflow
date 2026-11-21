@@ -87,7 +87,7 @@ The `goods_deliveries` row, not the queue, is the source of truth about what is 
 This worker exists only when `APP_DATA_ENCRYPTION_KEY` is set on the worker, since a provider credential cannot be unsealed without it. Without the key the worker logs `digital goods delivery disabled` and runs everything else.
 
 <Note>
-  Digital-goods delivery is uninstrumented: it opens no trace span and records no job metric, so `omniflow_jobs_total{kind="goods_delivery"}` never appears. Watch it through the panel's shop views rather than through Prometheus. See [Health, metrics, and logs](/operations/observability#what-is-declared-but-never-written).
+  Digital-goods delivery is observed like every other job kind: `omniflow_jobs_total{kind="goods_delivery"}` and its duration series, a `river.job` span, and the bundled `OmniflowGoodsDeliveryFailing` alert. See [Health, metrics, and logs](/operations/observability#what-is-written).
 </Note>
 
 ## The dead-letter queue, retries and cancellation
@@ -224,7 +224,7 @@ The worker's `webhooks` pass dispatches the outbox every fifteen seconds. It tak
   The pass runs only in a worker that has a 32-byte `APP_DATA_ENCRYPTION_KEY`, because the same service unseals the endpoints' signing secrets. A worker without the key, or an installation running no worker, never marks an event published: the pending count then grows for the life of the installation, and the retention step, which deletes only published rows, removes nothing. A pending count that keeps rising is that signal.
 </Warning>
 
-`omniflow_outbox_pending_events` is declared but never set, so the gauge is not an alternative view of this. Read the count from the admin route or the panel tab if you want to track the table's size.
+Every worker replica samples the same count into `omniflow_outbox_pending_events` every 15 seconds, so the backlog can be graphed and alerted on (`OmniflowOutboxBacklog`) as well as read from the admin route or the panel tab.
 
 ## Related
 

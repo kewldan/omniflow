@@ -5,8 +5,13 @@
   "schemaVersion": 39,
   "version": 1,
   "editable": true,
-  "tags": ["omniflow"],
-  "time": { "from": "now-6h", "to": "now" },
+  "tags": [
+    "omniflow"
+  ],
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
   "templating": {
     "list": [
       {
@@ -22,8 +27,16 @@
       "id": 1,
       "title": "HTTP request rate by status",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
       "targets": [
         {
           "expr": "sum(rate(omniflow_http_requests_total{service=\"api\"}[5m])) by (status)",
@@ -35,8 +48,16 @@
       "id": 2,
       "title": "API 5xx rate",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
       "targets": [
         {
           "expr": "sum(rate(omniflow_http_requests_total{service=\"api\",status=\"5xx\"}[5m]))",
@@ -48,8 +69,16 @@
       "id": 3,
       "title": "API request duration (p95)",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
       "targets": [
         {
           "expr": "histogram_quantile(0.95, sum(rate(omniflow_http_request_duration_seconds_bucket[5m])) by (le, route))",
@@ -61,8 +90,16 @@
       "id": 4,
       "title": "Fulfillment job outcomes",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
       "targets": [
         {
           "expr": "sum(rate(omniflow_jobs_total{kind=\"fulfillment\"}[5m])) by (outcome)",
@@ -74,8 +111,16 @@
       "id": 5,
       "title": "Fulfillment job duration (p95)",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
       "targets": [
         {
           "expr": "histogram_quantile(0.95, sum(rate(omniflow_job_duration_seconds_bucket{kind=\"fulfillment\"}[5m])) by (le))",
@@ -87,8 +132,16 @@
       "id": 6,
       "title": "Payment settlement classifications",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
       "targets": [
         {
           "expr": "sum(rate(omniflow_payments_total[15m])) by (classification)",
@@ -100,8 +153,16 @@
       "id": 7,
       "title": "Webhook signature rejections",
       "type": "timeseries",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
       "targets": [
         {
           "expr": "sum(rate(omniflow_provider_webhooks_total{outcome=\"signature_invalid\"}[15m])) by (provider)",
@@ -113,8 +174,16 @@
       "id": 8,
       "title": "Dependency health",
       "type": "state-timeline",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
       "targets": [
         {
           "expr": "omniflow_dependency_up",
@@ -126,12 +195,272 @@
       "id": 9,
       "title": "Maintenance mode",
       "type": "state-timeline",
-      "datasource": { "type": "prometheus", "uid": "${datasource}" },
-      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 32 },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      },
       "targets": [
         {
           "expr": "omniflow_maintenance_mode",
           "legendFormat": "maintenance"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Worker pass outcomes",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 38
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(omniflow_periodic_pass_runs_total[15m])) by (pass, outcome)",
+          "legendFormat": "{{pass}} {{outcome}}"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "title": "Seconds since pass last succeeded",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 38
+      },
+      "targets": [
+        {
+          "expr": "time() - omniflow_periodic_pass_last_success_timestamp_seconds",
+          "legendFormat": "{{pass}}"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "title": "Queue jobs by state",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 46
+      },
+      "targets": [
+        {
+          "expr": "sum(omniflow_queue_jobs) by (queue, state)",
+          "legendFormat": "{{queue}} {{state}}"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "title": "Oldest waiting job (s)",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 46
+      },
+      "targets": [
+        {
+          "expr": "omniflow_queue_oldest_available_seconds",
+          "legendFormat": "{{queue}}"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "title": "Job outcomes by kind",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 54
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(omniflow_jobs_total[15m])) by (kind, outcome)",
+          "legendFormat": "{{kind}} {{outcome}}"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "title": "Outbox pending events",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 54
+      },
+      "targets": [
+        {
+          "expr": "omniflow_outbox_pending_events",
+          "legendFormat": ""
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "title": "Remnawave calls by outcome",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 62
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(omniflow_remnawave_requests_total[5m])) by (outcome)",
+          "legendFormat": "{{outcome}}"
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "title": "Remnawave p95 by operation",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 62
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(omniflow_remnawave_request_duration_seconds_bucket[10m])) by (le, operation))",
+          "legendFormat": "{{operation}}"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "title": "Bot API calls by outcome",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 70
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(omniflow_telegram_sends_total[5m])) by (outcome)",
+          "legendFormat": "{{outcome}}"
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "title": "Bot updates by outcome",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 70
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(omniflow_telegram_updates_total[5m])) by (outcome)",
+          "legendFormat": "{{outcome}}"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "title": "Hours since last backup",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 78
+      },
+      "targets": [
+        {
+          "expr": "(time() - omniflow_backup_last_success_timestamp_seconds) / 3600 and omniflow_backup_last_success_timestamp_seconds > 0",
+          "legendFormat": ""
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "title": "Running versions",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 78
+      },
+      "targets": [
+        {
+          "expr": "omniflow_build_info",
+          "legendFormat": "{{service}} {{version}}"
         }
       ]
     }

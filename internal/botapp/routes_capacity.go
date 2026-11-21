@@ -126,7 +126,7 @@ func (app *App) trafficPackagesScreen(ctx context.Context, session commerceConte
 	}
 	packages, err := app.commerce.TrafficPackages(ctx, session.Customer.ID, subscription.ID, session.Locale)
 	if err != nil {
-		app.logger.Error("traffic packages lookup failed", "error", err)
+		app.logError(ctx, "traffic packages lookup failed", "error", err)
 		return app.errorView(session.Locale, routeSubscriptions)
 	}
 	if !packages.Available {
@@ -142,7 +142,7 @@ func (app *App) trafficPackageConfirmScreen(ctx context.Context, session commerc
 	}
 	packages, err := app.commerce.TrafficPackages(ctx, session.Customer.ID, subscription.ID, session.Locale)
 	if err != nil {
-		app.logger.Error("traffic packages lookup failed", "error", err)
+		app.logError(ctx, "traffic packages lookup failed", "error", err)
 		return app.errorView(session.Locale, routeSubscriptions)
 	}
 	for _, option := range packages.Options {
@@ -191,7 +191,7 @@ func (app *App) changeTrafficPackage(ctx context.Context, session commerceContex
 		return capacityUnavailableView(session.Locale, subscription.ID, "capacity.trafficUnavailable")
 	}
 	if err != nil {
-		app.logger.Error("traffic change order failed", "error", err)
+		app.logError(ctx, "traffic change order failed", "error", err)
 		return app.errorView(session.Locale, routeSubscriptions)
 	}
 	return app.capacityOrderView(ctx, session, uuidText(order.ID))
@@ -202,7 +202,7 @@ func (app *App) changeTrafficPackage(ctx context.Context, session commerceContex
 func (app *App) capacityOrderView(ctx context.Context, session commerceContext, orderID string) View {
 	summary, err := app.customers.Order(ctx, session.Customer.ID, orderID, session.Locale)
 	if err != nil {
-		app.logger.Error("capacity change order lookup failed", "error", err)
+		app.logError(ctx, "capacity change order lookup failed", "error", err)
 		return app.errorView(session.Locale, routeOrders)
 	}
 	if summary.ExternalMinor == 0 {
@@ -290,7 +290,7 @@ func (app *App) connectedDevices(ctx context.Context, subscription SubscriptionS
 	}
 	devices, err := app.remnawave.Devices(ctx, subscription.RemnawaveID)
 	if err != nil {
-		app.logger.Error("Remnawave device lookup failed", "error", err)
+		app.logError(ctx, "Remnawave device lookup failed", "error", err)
 		return nil, false
 	}
 	listed := append([]remnawave.Device(nil), devices.Devices...)
@@ -305,7 +305,7 @@ func (app *App) deviceLimitsScreen(ctx context.Context, session commerceContext,
 	}
 	current, minimum, available, err := app.commerce.orders.DeviceLimitRange(ctx, session.Customer.ID, subscription.ID)
 	if err != nil {
-		app.logger.Error("device limit lookup failed", "error", err)
+		app.logError(ctx, "device limit lookup failed", "error", err)
 		return app.errorView(session.Locale, routeSubscriptions)
 	}
 	if !available {
@@ -363,7 +363,7 @@ func (app *App) reduceDeviceLimit(ctx context.Context, session commerceContext, 
 		return capacityUnavailableView(session.Locale, subscription.ID, "capacity.devicesUnavailable")
 	}
 	if err != nil {
-		app.logger.Error("device reduction order failed", "error", err)
+		app.logError(ctx, "device reduction order failed", "error", err)
 		return app.errorView(session.Locale, routeSubscriptions)
 	}
 	return app.capacityOrderView(ctx, session, uuidText(order.ID))
@@ -419,7 +419,7 @@ func (app *App) squadAddonsScreen(ctx context.Context, session commerceContext, 
 	}
 	options, err := app.commerce.SquadAddonRemovals(ctx, session.Customer.ID, subscription.ID, session.Locale)
 	if err != nil {
-		app.logger.Error("squad add-on lookup failed", "error", err)
+		app.logError(ctx, "squad add-on lookup failed", "error", err)
 		return app.errorView(session.Locale, routeSubscriptions)
 	}
 	if len(options) == 0 {
@@ -443,7 +443,7 @@ func (app *App) squadAddonConfirmScreen(ctx context.Context, session commerceCon
 	}
 	options, err := app.commerce.SquadAddonRemovals(ctx, session.Customer.ID, subscription.ID, session.Locale)
 	if err != nil {
-		app.logger.Error("squad add-on lookup failed", "error", err)
+		app.logError(ctx, "squad add-on lookup failed", "error", err)
 		return app.errorView(session.Locale, routeSubscriptions)
 	}
 	for _, option := range options {
@@ -476,7 +476,7 @@ func (app *App) removeSquadAddon(ctx context.Context, session commerceContext, s
 		return capacityUnavailableView(session.Locale, subscription.ID, "capacity.squadsUnavailable")
 	}
 	if err != nil {
-		app.logger.Error("squad removal order failed", "error", err)
+		app.logError(ctx, "squad removal order failed", "error", err)
 		return app.errorView(session.Locale, routeSubscriptions)
 	}
 	return app.capacityOrderView(ctx, session, uuidText(order.ID))

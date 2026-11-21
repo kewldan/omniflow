@@ -2,6 +2,10 @@ package botapp
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
+	"runtime/debug"
+	"sync/atomic"
 	"time"
 
 	telegram "github.com/go-telegram/bot"
@@ -27,12 +31,34 @@ func ObservabilityMiddleware(metrics *platform.Metrics) telegram.Middleware {
 			}
 			ctx, span := platform.StartSpan(ctx, "telegram.update", platform.TelegramUpdateAttributes(updateID, kind)...)
 			defer span.End()
+			outcome := &updateOutcome{}
+			ctx = context.WithValue(ctx, updateOutcomeKey{}, outcome)
 			started := time.Now()
-			next(ctx, client, update)
-			span.SetStatus(codes.Ok, "")
+			result := "handled"
+			func() {
+				// The Telegram library runs handlers without a recover, so a
+				// panicking handler would take the whole bot down with it.
+				defer func() {
+					if recovered := recover(); recovered != nil {
+						result = "panicked"
+						slog.ErrorContext(ctx, "telegram handler panicked",
+							"kind", kind, "update_id", updateID, "panic", platform.Redact(fmt.Sprint(recovered)), "stack", string(debug.Stack()))
+					}
+				}()
+				next(ctx, client, update)
+			}()
+			if result == "handled" && outcome.failed.Load() {
+				result = "failed"
+			}
+			if result == "handled" {
+				span.SetStatus(codes.Ok, "")
+			} else {
+				span.SetStatus(codes.Error, result)
+			}
 			if metrics != nil {
-				metrics.TelegramUpdates.WithLabelValues(kind, "handled").Inc()
+				metrics.ObserveTelegramUpdate(kind, result)
 				metrics.JobDuration.WithLabelValues("telegram.update").Observe(time.Since(started).Seconds())
+				metrics.Jobs.WithLabelValues("telegram.update", result).Inc()
 			}
 		}
 	}
@@ -59,4 +85,24 @@ func UpdateKind(update *models.Update) string {
 	default:
 		return "other"
 	}
+}
+
+// updateOutcomeKey carries the current update's outcome through its context.
+type updateOutcomeKey struct{}
+
+type updateOutcome struct{ failed atomic.Bool }
+
+// markUpdateFailed records that the update being handled ended in an error.
+// Outside an update (a background send, a test) it does nothing.
+func markUpdateFailed(ctx context.Context) {
+	if outcome, ok := ctx.Value(updateOutcomeKey{}).(*updateOutcome); ok {
+		outcome.failed.Store(true)
+	}
+}
+
+// logError logs a handler failure and marks the update as failed, so the
+// update counter and the span tell a failing handler apart from a handled one.
+func (app *App) logError(ctx context.Context, msg string, args ...any) {
+	markUpdateFailed(ctx)
+	app.logger.ErrorContext(ctx, msg, args...)
 }

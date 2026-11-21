@@ -91,7 +91,7 @@ func (app *App) shopReviewOf(ctx context.Context, session commerceContext, parts
 		review, err := app.customers.ShopReviewFor(ctx, session.Customer.ID, parts[1])
 		if err != nil {
 			if !errors.Is(err, ErrShopReviewGone) {
-				app.logger.Error("shop review lookup failed", "error", err)
+				app.logError(ctx, "shop review lookup failed", "error", err)
 			}
 			return ShopReview{}, false
 		}
@@ -106,7 +106,7 @@ func (app *App) shopReviewOf(ctx context.Context, session commerceContext, parts
 func (app *App) shopScreen(ctx context.Context, session commerceContext) View {
 	products, err := app.customers.ShopProducts(ctx, session.Locale)
 	if err != nil {
-		app.logger.Error("shop catalog lookup failed", "error", err)
+		app.logError(ctx, "shop catalog lookup failed", "error", err)
 		return app.errorView(session.Locale, routeHome)
 	}
 	return shopCatalogView(session.Locale, products)
@@ -120,7 +120,7 @@ func (app *App) shopScreen(ctx context.Context, session commerceContext) View {
 func (app *App) shopItemScreen(ctx context.Context, session commerceContext, productID string) View {
 	product, found, err := app.customers.ShopProduct(ctx, session.Locale, productID)
 	if err != nil {
-		app.logger.Error("shop product lookup failed", "error", err)
+		app.logError(ctx, "shop product lookup failed", "error", err)
 		return app.errorView(session.Locale, routeShop)
 	}
 	if !found {
@@ -157,7 +157,7 @@ func (app *App) shopAskRecipient(ctx context.Context, session commerceContext, p
 	if err := app.customers.BeginSessionState(
 		ctx, session.TelegramID, "goods_recipient", map[string]any{"productId": productID},
 	); err != nil {
-		app.logger.Error("shop recipient prompt failed", "error", err)
+		app.logError(ctx, "shop recipient prompt failed", "error", err)
 		return app.errorView(session.Locale, routeShop)
 	}
 	return shopRecipientPromptView(session.Locale)
@@ -192,7 +192,7 @@ func (app *App) shopReview(
 	}
 	reviewID, err := app.customers.OpenShopReview(ctx, session.Customer.ID, product.ID, recipient)
 	if err != nil {
-		app.logger.Error("shop review could not be recorded", "error", err)
+		app.logError(ctx, "shop review could not be recorded", "error", err)
 		return app.errorView(session.Locale, routeShop)
 	}
 	return shopConfirmView(session.Locale, product, quote, recipient, isSelf,
@@ -230,14 +230,14 @@ func (app *App) shopAskPromo(
 	ctx context.Context, session commerceContext, productID, recipient string,
 ) View {
 	if _, err := app.saveShopCart(ctx, session, productID, recipient); err != nil {
-		app.logger.Error("shop cart save failed", "error", err)
+		app.logError(ctx, "shop cart save failed", "error", err)
 		return app.errorView(session.Locale, routeShop)
 	}
 	if err := app.customers.BeginSessionState(
 		ctx, session.TelegramID, "goods_promo",
 		map[string]any{"productId": productID, "recipient": recipient},
 	); err != nil {
-		app.logger.Error("shop promo prompt failed", "error", err)
+		app.logError(ctx, "shop promo prompt failed", "error", err)
 		return app.errorView(session.Locale, routeShop)
 	}
 	return promoPromptView(session.Locale)
@@ -276,7 +276,7 @@ func (app *App) shopSaveForLater(
 ) View {
 	product, err := app.saveShopCart(ctx, session, productID, recipient)
 	if err != nil {
-		app.logger.Error("shop cart save failed", "error", err)
+		app.logError(ctx, "shop cart save failed", "error", err)
 		return app.errorView(session.Locale, routeShop)
 	}
 	return shopSavedView(session.Locale, product)
@@ -365,7 +365,7 @@ func (app *App) shopPurchase(
 		// without the discount, rather than failing the whole thing.
 		return app.shopReview(ctx, session, productID, recipient, isSelf)
 	case err != nil:
-		app.logger.Error("shop order creation failed", "error", err)
+		app.logError(ctx, "shop order creation failed", "error", err)
 		return View{
 			Text:     text(session.Locale, "error.order"),
 			Keyboard: keyboard(row(callbackButton(text(session.Locale, "action.back"), routeShop))),
@@ -396,7 +396,7 @@ func (app *App) shopPurchase(
 	if _, err = app.commerce.StartPayment(
 		ctx, order, choices[0].Provider, session.TelegramID, product.Name,
 	); err != nil {
-		app.logger.Error("shop payment intent failed", "error", err)
+		app.logError(ctx, "shop payment intent failed", "error", err)
 		return View{
 			Text:     text(session.Locale, "error.payment"),
 			Keyboard: keyboard(row(actionButton(text(session.Locale, "action.retry"), "order:"+order.ID))),
@@ -404,7 +404,7 @@ func (app *App) shopPurchase(
 	}
 	refreshed, err := app.customers.Order(ctx, session.Customer.ID, order.ID, session.Locale)
 	if err != nil {
-		app.logger.Error("order lookup failed", "error", err)
+		app.logError(ctx, "order lookup failed", "error", err)
 		return app.errorView(session.Locale, routeOrders)
 	}
 	return orderStatusView(session.Locale, refreshed, nil)
@@ -413,7 +413,7 @@ func (app *App) shopPurchase(
 func (app *App) shopOrdersScreen(ctx context.Context, session commerceContext) View {
 	orders, err := app.customers.ShopOrders(ctx, session.Customer.ID, session.Locale, shopHistoryLimit)
 	if err != nil {
-		app.logger.Error("shop history lookup failed", "error", err)
+		app.logError(ctx, "shop history lookup failed", "error", err)
 		return app.errorView(session.Locale, routeShop)
 	}
 	return shopOrdersView(session.Locale, orders)
@@ -422,7 +422,7 @@ func (app *App) shopOrdersScreen(ctx context.Context, session commerceContext) V
 func (app *App) shopOrderScreen(ctx context.Context, session commerceContext, orderID string) View {
 	order, found, err := app.customers.ShopOrderFor(ctx, session.Customer.ID, orderID, session.Locale)
 	if err != nil {
-		app.logger.Error("shop order lookup failed", "error", err)
+		app.logError(ctx, "shop order lookup failed", "error", err)
 		return app.errorView(session.Locale, routeShopOrders)
 	}
 	if !found {

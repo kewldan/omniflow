@@ -38,6 +38,8 @@ func main() {
 	defer stop()
 	errorLog := errorlog.New(slog.NewJSONHandler(os.Stdout, nil), "bot")
 	logger := slog.New(errorLog)
+	shutdownTracing := platform.SetupTracing(ctx, logger, os.Getenv, "bot", version)
+	defer func() { _ = shutdownTracing(context.Background()) }()
 
 	if os.Getenv("APP_TELEGRAM_TOKEN") == "" {
 		logger.Info("telegram bot disabled because APP_TELEGRAM_TOKEN is empty")
@@ -69,9 +71,11 @@ func main() {
 		logger.Error("Remnawave client initialization failed", "error", err)
 		os.Exit(1)
 	}
+	metrics := platform.NewMetrics("bot")
+	metrics.SetBuild(version)
+	remnawaveClient.WithObserver(metrics.ObserveRemnawave)
 	application := botapp.New(logger, identities, remnawaveClient, cfg.SupportURL)
 	application.UseInstallationSettings(installation)
-	metrics := platform.NewMetrics("bot")
 	options := []telegram.Option{
 		telegram.WithDefaultHandler(application.HandleDefault),
 		telegram.WithMiddlewares(botapp.ObservabilityMiddleware(metrics), application.SettingsMiddleware(), application.NameFilterMiddleware(), application.AccessMiddleware(), application.ActivityMiddleware()),
@@ -79,7 +83,7 @@ func main() {
 	if cfg.Webhook.Enabled {
 		options = append(options, telegram.WithWebhookSecretToken(cfg.Webhook.SecretToken))
 	}
-	options = append(options, app.TelegramOptions(cfg.TelegramTransport)...)
+	options = append(options, app.TelegramOptions(cfg.TelegramTransport, metrics.ObserveTelegramSend)...)
 	client, err := telegram.New(cfg.TelegramToken, options...)
 	if err != nil {
 		logger.Error("telegram client initialization failed", "error", err)

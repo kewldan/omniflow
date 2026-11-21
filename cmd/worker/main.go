@@ -52,6 +52,8 @@ func main() {
 	defer stop()
 	errorLog := errorlog.New(slog.NewJSONHandler(os.Stderr, nil), "worker")
 	logger := slog.New(errorLog)
+	shutdownTracing := platform.SetupTracing(ctx, logger, os.Getenv, "worker", version)
+	defer func() { _ = shutdownTracing(context.Background()) }()
 	// Disaster recovery must not depend on the rest of the stack being able to
 	// start, so decryption is available as a plain filter over stdin.
 	if len(os.Args) > 1 && os.Args[1] == "--decrypt-backup" {
@@ -82,6 +84,8 @@ func main() {
 	var metrics *platform.Metrics
 	if cfg.MetricsEnabled {
 		metrics = platform.NewMetrics("worker")
+		metrics.SetBuild(version)
+		remnawaveClient.WithObserver(metrics.ObserveRemnawave)
 	}
 
 	// Jobs that the worker's own passes create — a renewal settling, a saved
@@ -153,9 +157,20 @@ func main() {
 		logger.Error("initialize periodic tasks", "error", err)
 		os.Exit(1)
 	}
+	if metrics != nil {
+		periodicWorker.WithObserver(metrics.ObservePass)
+	}
 	river.AddWorker(workers, periodicWorker)
 
-	client, err := jobs.NewWorkerClient(pool, workers, schedule)
+	// Every other job kind is observed and traced by middleware. The periodic
+	// kind is observed per pass above, and fulfillment reports and traces
+	// itself.
+	var observeJob jobs.JobObserver
+	if metrics != nil {
+		observeJob = metrics.ObserveJob
+	}
+	client, err := jobs.NewWorkerClient(pool, workers, schedule,
+		jobs.ObserveMiddleware(observeJob, jobs.PeriodicArgs{}.Kind(), fulfillment.JobArgs{}.Kind()))
 	if err != nil {
 		logger.Error("initialize River", "error", err)
 		os.Exit(1)
@@ -166,6 +181,7 @@ func main() {
 	}
 
 	metricsServer := startOperationalServer(logger, cfg, pool, metrics)
+	go sampleQueues(ctx, logger, pool, metrics)
 
 	logger.Info("worker started", "queue_backend", "river", "periodic_tasks", len(tasks),
 		"backups_available", backupService.Enabled(), "database_max_conns", cfg.DatabaseMaxConns,

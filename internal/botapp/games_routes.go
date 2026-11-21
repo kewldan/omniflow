@@ -72,7 +72,7 @@ func (app *App) gamesEnabled(ctx context.Context) bool {
 func (app *App) loadGames(ctx context.Context, session commerceContext) ([]engagement.GameState, bool) {
 	states, _, err := app.games.CustomerGames(ctx, session.Customer.ID)
 	if err != nil {
-		app.logger.Error("daily games lookup failed", "error", err)
+		app.logError(ctx, "daily games lookup failed", "error", err)
 		return nil, false
 	}
 	return states, true
@@ -208,7 +208,7 @@ func (app *App) playGame(ctx context.Context, session commerceContext, code stri
 		errors.Is(err, engagement.ErrQuestionChanged), errors.Is(err, engagement.ErrNoQuestion), errors.Is(err, engagement.ErrInvalid):
 		return app.gameScreen(ctx, session, code, "")
 	default:
-		app.logger.Error("daily game play failed", "error", err, "game", code)
+		app.logError(ctx, "daily game play failed", "error", err, "game", code)
 		return app.errorView(locale, routeReferral)
 	}
 }

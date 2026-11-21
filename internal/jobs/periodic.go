@@ -59,8 +59,20 @@ var periodicUniqueStates = []rivertype.JobState{
 // PeriodicWorker runs registered tasks by name.
 type PeriodicWorker struct {
 	river.WorkerDefaults[PeriodicArgs]
-	tasks  map[string]Task
-	logger *slog.Logger
+	tasks    map[string]Task
+	logger   *slog.Logger
+	observer PassObserver
+}
+
+// PassObserver is told how every pass run ended. The worker wires it to its
+// Prometheus registry, so a pass that silently stopped succeeding shows up as
+// a last-success timestamp that stopped moving.
+type PassObserver func(name string, err error, elapsed time.Duration)
+
+// WithObserver installs the observer and returns the worker.
+func (worker *PeriodicWorker) WithObserver(observer PassObserver) *PeriodicWorker {
+	worker.observer = observer
+	return worker
 }
 
 // NewPeriodic validates the tasks and returns the worker that runs them and the
@@ -129,7 +141,11 @@ func (worker *PeriodicWorker) Work(ctx context.Context, job *river.Job[PeriodicA
 		return river.JobCancel(fmt.Errorf("unknown periodic task %q", job.Args.Task))
 	}
 	started := time.Now()
-	if err := task.Run(ctx); err != nil {
+	err := task.Run(ctx)
+	if worker.observer != nil {
+		worker.observer(task.Name, err, time.Since(started))
+	}
+	if err != nil {
 		worker.logger.Error("periodic task failed", "task", task.Name, "error", err)
 		return err
 	}

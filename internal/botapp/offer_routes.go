@@ -100,7 +100,7 @@ func (app *App) handleOfferAction(
 	case "offer-dismiss":
 		if err := app.customers.DismissOffer(ctx, session.Customer.ID, argument); err != nil &&
 			!errors.Is(err, pgx.ErrNoRows) {
-			app.logger.Error("offer dismissal failed", "error", err)
+			app.logError(ctx, "offer dismissal failed", "error", err)
 		}
 		return app.offersScreen(ctx, session), true
 	case "offer-take":
@@ -113,7 +113,7 @@ func (app *App) handleOfferAction(
 func (app *App) offersScreen(ctx context.Context, session commerceContext) View {
 	offers, err := app.customers.ActiveOffers(ctx, session.Customer.ID, session.Locale, 5)
 	if err != nil {
-		app.logger.Error("offer lookup failed", "error", err)
+		app.logError(ctx, "offer lookup failed", "error", err)
 		return app.errorView(session.Locale, routeHome)
 	}
 	return offersView(session.Locale, offers, time.Now().UTC())
@@ -130,11 +130,11 @@ func (app *App) takeOffer(ctx context.Context, session commerceContext, offerID 
 	// balance bonus, if it carries one, is paid once.
 	activation, activateErr := app.commerce.orders.ActivatePersonalOffer(ctx, session.Customer.ID, offerID)
 	if activateErr != nil && !errors.Is(activateErr, commercepg.ErrOfferUnavailable) {
-		app.logger.Error("offer activation failed", "error", activateErr)
+		app.logError(ctx, "offer activation failed", "error", activateErr)
 	}
 	offers, err := app.customers.ActiveOffers(ctx, session.Customer.ID, session.Locale, 5)
 	if err != nil {
-		app.logger.Error("offer lookup failed", "error", err)
+		app.logError(ctx, "offer lookup failed", "error", err)
 		return app.errorView(session.Locale, routeHome)
 	}
 	for _, offer := range offers {

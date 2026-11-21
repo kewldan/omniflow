@@ -63,6 +63,8 @@ func main() {
 
 	errorLog := errorlog.New(slog.NewJSONHandler(os.Stdout, nil), "api")
 	logger := slog.New(errorLog)
+	shutdownTracing := platform.SetupTracing(ctx, logger, os.Getenv, "api", version)
+	defer func() { _ = shutdownTracing(context.Background()) }()
 	cfg, err := config.Load()
 	if err != nil {
 		logger.Error("invalid configuration", "error", err)
@@ -84,6 +86,7 @@ func main() {
 	var metrics *platform.Metrics
 	if cfg.MetricsEnabled {
 		metrics = platform.NewMetrics("api")
+		metrics.SetBuild(version)
 		if cfg.MetricsToken == "" {
 			logger.Warn("GET /metrics on the API listener is unauthenticated; " +
 				"set APP_METRICS_TOKEN or block the route at the reverse proxy")
@@ -194,6 +197,9 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 	if err != nil {
 		closeAll()
 		return runtimeServices{}, nil, err
+	}
+	if metrics != nil {
+		remnawaveClient.WithObserver(metrics.ObserveRemnawave)
 	}
 	// Orders refuse squads the panel no longer has before anything is charged.
 	commerceStore.SetSquadLister(app.SquadLister(remnawaveClient))

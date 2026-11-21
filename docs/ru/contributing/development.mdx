@@ -77,9 +77,9 @@ Remnawave авторитетна для всего, что выдаёт Omniflow
     ```bash
     curl http://localhost:8080/healthz
     ```
-    Здоровый API отвечает `{"status":"ok","version":"dev"}`. Строка версии всегда `dev`: сборка
-    контейнера не передаёт `-ldflags="-X main.version=…"`, поэтому номер релиза в бинарный файл
-    ничем не проставляется.
+    Здоровый API отвечает `{"status":"ok","version":"dev"}`. Локальная сборка сообщает `dev`;
+    релизный workflow передаёт `VERSION` в `build/go.Dockerfile`, и тот вшивает номер релиза в
+    бинарный файл через `-ldflags="-X main.version=…"`.
   </Step>
   <Step title="Добавьте веб-приложение">
     ```bash

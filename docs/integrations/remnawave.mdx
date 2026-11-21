@@ -370,12 +370,12 @@ purchases pause and outbound provisioning is held rather than failed; the worker
 the operation stays pending. See [maintenance mode](/operations/maintenance-mode).
 
 <Note>
-  `omniflow_remnawave_requests_total` is declared in the metrics registry but no code path ever
-  increments it, and a Prometheus counter emits no series until first use. The only Remnawave signal
-  actually on `/metrics` is `omniflow_dependency_up{dependency="remnawave"}`. Adapter calls are
-  traced as child spans through `otelhttp`, but no tracer provider is installed anywhere in
-  Omniflow and no `OTEL_*` variable is read, so those spans go nowhere unless you add an exporter
-  yourself. [Observability](/operations/observability) covers what exists.
+  Every adapter call from the api, the bot, and the worker is counted in
+  `omniflow_remnawave_requests_total` and timed in `omniflow_remnawave_request_duration_seconds`,
+  labelled by an operation template such as `POST /api/users/:id/actions/enable`; failures are
+  broken down by code in `omniflow_remnawave_errors_total`. Calls are also traced as child spans
+  through `otelhttp`, exported when `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
+  [Observability](/operations/observability) covers both.
 </Note>
 
 ## Importing the customers you already have

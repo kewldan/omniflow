@@ -63,7 +63,7 @@ func (app *App) handleGiftAction(ctx context.Context, session commerceContext, p
 func (app *App) giftsScreen(ctx context.Context, session commerceContext) View {
 	sent, err := app.customers.GiftsSent(ctx, session.Customer.ID, giftHistoryLimit)
 	if err != nil {
-		app.logger.Error("gift history lookup failed", "error", err)
+		app.logError(ctx, "gift history lookup failed", "error", err)
 		return app.errorView(session.Locale, routeHome)
 	}
 	return giftsView(session.Locale, sent)
@@ -77,7 +77,7 @@ func (app *App) giftsScreen(ctx context.Context, session commerceContext) View {
 func (app *App) giftPlanScreen(ctx context.Context, session commerceContext) View {
 	plans, err := app.customers.Plans(ctx, session.Locale, app.settings.Currency)
 	if err != nil {
-		app.logger.Error("plan catalog lookup failed", "error", err)
+		app.logError(ctx, "plan catalog lookup failed", "error", err)
 		return app.errorView(session.Locale, routeGifts)
 	}
 	return giftPlansView(session.Locale, plans, app.settings.Currency)
@@ -148,7 +148,7 @@ func (app *App) giftPurchase(
 ) View {
 	key, err := keyOrNew(session.TapKey)
 	if err != nil {
-		app.logger.Error("gift key could not be minted", "error", err)
+		app.logError(ctx, "gift key could not be minted", "error", err)
 		return app.errorView(session.Locale, routeGifts)
 	}
 	return app.buyGift(ctx, session, kind, payload, "", key, commercepg.GiftRecipient{})
@@ -193,7 +193,7 @@ func (app *App) buyGift(
 	case errors.Is(err, commercepg.ErrMaintenance):
 		return app.maintenanceScreen(ctx, session)
 	case err != nil:
-		app.logger.Error("gift order creation failed", "error", err)
+		app.logError(ctx, "gift order creation failed", "error", err)
 		return View{
 			Text:     text(session.Locale, "error.order"),
 			Keyboard: keyboard(row(callbackButton(text(session.Locale, "action.back"), routeGifts))),
@@ -202,7 +202,7 @@ func (app *App) buyGift(
 
 	order, err := app.customers.Order(ctx, session.Customer.ID, purchase.OrderID, session.Locale)
 	if err != nil {
-		app.logger.Error("order lookup failed", "error", err)
+		app.logError(ctx, "order lookup failed", "error", err)
 		return app.errorView(session.Locale, routeOrders)
 	}
 	// The code is shown now in either case: it exists only in this response.
@@ -231,7 +231,7 @@ func (app *App) buyGift(
 // giftAskCode opens the redemption prompt.
 func (app *App) giftAskCode(ctx context.Context, session commerceContext) View {
 	if err := app.customers.BeginSessionState(ctx, session.TelegramID, "gift_claim", nil); err != nil {
-		app.logger.Error("gift claim prompt failed", "error", err)
+		app.logError(ctx, "gift claim prompt failed", "error", err)
 		return app.errorView(session.Locale, routeGifts)
 	}
 	return giftClaimPromptView(session.Locale)

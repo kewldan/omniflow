@@ -55,7 +55,7 @@ func (app *App) setDailyPause(ctx context.Context, session commerceContext, subs
 	case errors.Is(err, commercepg.ErrNotDaily), errors.Is(err, commercepg.ErrNotPausable), errors.Is(err, commercepg.ErrSubscriptionUnknown):
 		return View{Text: text(session.Locale, "daily.refused"), Keyboard: back}
 	case err != nil:
-		app.logger.Error("daily pause failed", "pause", pause, "error", err)
+		app.logError(ctx, "daily pause failed", "pause", pause, "error", err)
 		return app.errorView(session.Locale, routeSubscriptions)
 	case pause:
 		return View{Text: text(session.Locale, "daily.pausedDone"), Keyboard: back}

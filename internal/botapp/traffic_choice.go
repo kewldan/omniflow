@@ -140,7 +140,7 @@ func (app *App) setTraffic(ctx context.Context, session commerceContext, argumen
 			view.Text = text(session.Locale, "traffic.refused") + "\n\n" + view.Text
 			return view
 		}
-		app.logger.Error("traffic choice failed", "error", err)
+		app.logError(ctx, "traffic choice failed", "error", err)
 		return app.errorView(session.Locale, routePlans)
 	}
 	return app.checkoutScreen(ctx, session)
@@ -149,7 +149,7 @@ func (app *App) setTraffic(ctx context.Context, session commerceContext, argumen
 // beginTrafficEntry asks the customer to type a volume.
 func (app *App) beginTrafficEntry(ctx context.Context, session commerceContext) View {
 	if err := app.customers.BeginSessionState(ctx, session.TelegramID, trafficStateGB, nil); err != nil {
-		app.logger.Error("traffic prompt failed", "error", err)
+		app.logError(ctx, "traffic prompt failed", "error", err)
 		return app.errorView(session.Locale, routePlans)
 	}
 	return View{Text: text(session.Locale, "traffic.prompt"), Keyboard: keyboard(row(actionButton(text(session.Locale, "action.cancel"), "traffic")))}

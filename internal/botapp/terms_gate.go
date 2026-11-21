@@ -65,7 +65,7 @@ func (app *App) termsMiddleware(next telegram.HandlerFunc) telegram.HandlerFunc 
 		if query != nil && query.Data == actionPrefix+termsAcceptAction {
 			_, _ = client.AnswerCallbackQuery(ctx, &telegram.AnswerCallbackQueryParams{CallbackQueryID: query.ID})
 			if err := app.terms.Accept(ctx, session.Customer.ID, policy.Version, "telegram_bot", ""); err != nil {
-				app.logger.Error("terms acceptance could not be recorded", "error", err)
+				app.logError(ctx, "terms acceptance could not be recorded", "error", err)
 				return
 			}
 			view := app.loadView(ctx, from.ID, locale, routeHome)

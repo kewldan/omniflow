@@ -313,11 +313,24 @@ func hasCode(err error, code string) bool {
 }
 
 type Client struct {
-	baseURL *url.URL
-	token   string
-	http    *http.Client
-	options Options
-	limiter *limiter
+	baseURL  *url.URL
+	token    string
+	http     *http.Client
+	options  Options
+	limiter  *limiter
+	observer Observer
+}
+
+// Observer is told about every panel call: a bounded operation name built
+// from the method and the path template, an outcome of "succeeded",
+// "not_found", or "failed", a classified code for a failure, and the time the
+// call took. Nothing that identifies a user ever reaches it.
+type Observer func(operation, outcome, code string, elapsed time.Duration)
+
+// WithObserver installs the observer and returns the client.
+func (client *Client) WithObserver(observer Observer) *Client {
+	client.observer = observer
+	return client
 }
 
 // NewClient builds the adapter. At most one Options value may follow the
@@ -606,6 +619,68 @@ func (client *Client) post(ctx context.Context, path string, body any) error {
 }
 
 func (client *Client) do(ctx context.Context, method, path string, body any, target any) error {
+	if client.observer == nil {
+		return client.call(ctx, method, path, body, target)
+	}
+	started := time.Now()
+	err := client.call(ctx, method, path, body, target)
+	outcome, code := classifyCall(err)
+	client.observer(OperationName(method, path), outcome, code, time.Since(started))
+	return err
+}
+
+// classifyCall turns a call's error into the observer's outcome and code.
+func classifyCall(err error) (outcome, code string) {
+	var apiError *APIError
+	switch {
+	case err == nil:
+		return "succeeded", ""
+	case errors.Is(err, ErrNotFound):
+		return "not_found", ""
+	case errors.As(err, &apiError):
+		return "failed", fmt.Sprintf("remnawave_http_%d", apiError.StatusCode)
+	case errors.Is(err, context.DeadlineExceeded):
+		return "failed", "timeout"
+	default:
+		return "failed", "remnawave_unavailable"
+	}
+}
+
+// OperationName is the bounded label for a panel call: the method and the
+// path with every identifier replaced by ":id". A segment is an identifier
+// when it is numeric, a UUID or other long hex run, or follows a "by-…"
+// segment (by-username, by-telegram-id, by-short-uuid), so neither a user
+// number nor a username can become a metric label.
+func OperationName(method, path string) string {
+	if index := strings.IndexAny(path, "?#"); index >= 0 {
+		path = path[:index]
+	}
+	segments := strings.Split(strings.Trim(path, "/"), "/")
+	for index, segment := range segments {
+		if index > 0 && strings.HasPrefix(segments[index-1], "by-") || isIdentifier(segment) {
+			segments[index] = ":id"
+		}
+	}
+	return method + " /" + strings.Join(segments, "/")
+}
+
+func isIdentifier(segment string) bool {
+	if segment == "" {
+		return false
+	}
+	digits, hex := true, true
+	for _, r := range segment {
+		if r < '0' || r > '9' {
+			digits = false
+		}
+		if !(r >= '0' && r <= '9' || r >= 'a' && r <= 'f' || r >= 'A' && r <= 'F' || r == '-') {
+			hex = false
+		}
+	}
+	return digits || hex && len(segment) >= 8
+}
+
+func (client *Client) call(ctx context.Context, method, path string, body any, target any) error {
 	pathURL, err := url.Parse(path)
 	if err != nil {
 		return fmt.Errorf("parse Remnawave path: %w", err)

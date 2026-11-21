@@ -214,7 +214,7 @@ func (app *App) claimCallback(ctx context.Context, query *models.CallbackQuery, 
 	}
 	claimed, err := app.limiter.Once(ctx, "callback", query.ID, replayRetention)
 	if err != nil {
-		app.logger.Error("callback replay protection unavailable", "error", err)
+		app.logError(ctx, "callback replay protection unavailable", "error", err)
 		return false
 	}
 	if !claimed {
@@ -222,7 +222,7 @@ func (app *App) claimCallback(ctx context.Context, query *models.CallbackQuery, 
 	}
 	claimed, err = app.limiter.Once(ctx, "callback-tap", tapFingerprint(chatID, messageID, query.Data), tapClaimWindow)
 	if err != nil {
-		app.logger.Error("callback double-tap protection unavailable", "error", err)
+		app.logError(ctx, "callback double-tap protection unavailable", "error", err)
 		return false
 	}
 	return claimed
@@ -607,7 +607,7 @@ func (app *App) HandleDefault(ctx context.Context, client *telegram.Bot, update 
 	}
 	state, err := app.store.Session(ctx, message.From.ID)
 	if err != nil {
-		app.logger.Error("telegram session lookup failed", "error", err)
+		app.logError(ctx, "telegram session lookup failed", "error", err)
 	}
 	if state == "support_message" {
 		locale := app.locale(ctx, message.From.ID, message.From.LanguageCode)
@@ -699,7 +699,7 @@ func (app *App) continueRecentTicket(ctx context.Context, client *telegram.Bot, 
 		return false
 	}
 	if err != nil {
-		app.logger.Error("support message could not be stored", "error", err)
+		app.logError(ctx, "support message could not be stored", "error", err)
 		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{Text: text(session.Locale, "support.unavailable")}))
 		return true
 	}
@@ -720,7 +720,7 @@ func (app *App) handleFlowMessage(ctx context.Context, client *telegram.Bot, upd
 	message := update.Message
 	state, flowContext, err := app.customers.SessionState(ctx, message.From.ID)
 	if err != nil {
-		app.logger.Error("bot session lookup failed", "error", err)
+		app.logError(ctx, "bot session lookup failed", "error", err)
 		return false
 	}
 	switch state {
@@ -731,7 +731,7 @@ func (app *App) handleFlowMessage(ctx context.Context, client *telegram.Bot, upd
 	}
 	session, err := app.commerceContext(ctx, message.From.ID, message.From.LanguageCode, message.From.Username)
 	if err != nil {
-		app.logger.Error("customer resolution failed", "error", err)
+		app.logError(ctx, "customer resolution failed", "error", err)
 		return false
 	}
 	if !accountActive(session.Customer) && state != "support_reply" {
@@ -824,7 +824,7 @@ func (app *App) completePromoEntry(ctx context.Context, client *telegram.Bot, se
 	}
 	updated, err := app.commerce.ApplyPromo(ctx, checkout, message.Text)
 	if err != nil {
-		app.logger.Error("promo validation failed", "error", err)
+		app.logError(ctx, "promo validation failed", "error", err)
 		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{Text: text(session.Locale, "error.generic")}))
 		return
 	}
@@ -866,7 +866,7 @@ func (app *App) completeSupportMessage(ctx context.Context, client *telegram.Bot
 		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{Text: attachmentErrorText(session.Locale, err)}))
 		return
 	case err != nil:
-		app.logger.Error("support message could not be stored", "error", err)
+		app.logError(ctx, "support message could not be stored", "error", err)
 		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID, View{Text: text(session.Locale, "support.unavailable")}))
 		return
 	}
@@ -1138,11 +1138,11 @@ func (app *App) handleAction(ctx context.Context, client *telegram.Bot, query *m
 		view = app.loadView(ctx, query.From.ID, locale, routeHome)
 	}
 	if err != nil {
-		app.logger.Error("telegram action failed", "action", parts[0], "error", err)
+		app.logError(ctx, "telegram action failed", "action", parts[0], "error", err)
 		view = actionErrorView(locale)
 	}
 	if _, editErr := client.EditMessageText(ctx, editParams(chatID, messageID, view)); editErr != nil {
-		app.logger.Error("telegram action view edit failed", "error", editErr)
+		app.logError(ctx, "telegram action view edit failed", "error", editErr)
 	}
 }
 
@@ -1235,7 +1235,7 @@ func (app *App) loadView(ctx context.Context, telegramID int64, locale Locale, r
 func (app *App) loadCustomerView(ctx context.Context, telegramID int64, locale Locale, route string) View {
 	session, err := app.commerceContext(ctx, telegramID, string(locale))
 	if err != nil {
-		app.logger.Error("customer resolution failed", "error", err)
+		app.logError(ctx, "customer resolution failed", "error", err)
 		return app.errorView(locale, route)
 	}
 	// A suspended or deleted customer keeps the support desk and nothing else.
@@ -1251,7 +1251,7 @@ func (app *App) loadCustomerView(ctx context.Context, telegramID int64, locale L
 	if route == routeConnect {
 		subscription, subscriptionErr := app.subscriptionFor(ctx, session)
 		if subscriptionErr != nil {
-			app.logger.Error("Remnawave subscription lookup failed", "error", subscriptionErr)
+			app.logError(ctx, "Remnawave subscription lookup failed", "error", subscriptionErr)
 			return app.errorView(session.Locale, routeConnect)
 		}
 		return app.connectPlatformsScreen(ctx, session.Locale, subscription)
@@ -1295,7 +1295,7 @@ func (app *App) linkRemnawaveByTelegramID(ctx context.Context, session commerceC
 		return 0, false
 	}
 	if err := app.customers.LinkRemnawaveUser(ctx, session.Customer.ID, session.TelegramID, user.ID); err != nil {
-		app.logger.Error("Telegram identity link failed", "error", err)
+		app.logError(ctx, "Telegram identity link failed", "error", err)
 		return 0, false
 	}
 	app.logger.Info("Remnawave user linked by Telegram ID", "customer_id", session.Customer.ID)
@@ -1307,7 +1307,7 @@ func (app *App) linkRemnawaveByTelegramID(ctx context.Context, session commerceC
 func (app *App) referralScreen(ctx context.Context, session commerceContext) View {
 	summary, err := app.customers.ReferralSummary(ctx, session.Customer.ID)
 	if err != nil {
-		app.logger.Error("referral lookup failed", "error", err)
+		app.logError(ctx, "referral lookup failed", "error", err)
 		return app.errorView(session.Locale, routeReferral)
 	}
 	return app.withReferralExtras(referralView(session.Locale, app.identity.get(ctx), summary.Code, summary.Invited),
@@ -1319,7 +1319,7 @@ func (app *App) referralScreen(ctx context.Context, session commerceContext) Vie
 func (app *App) noSubscriptionView(ctx context.Context, session commerceContext, route string, menu MenuState) View {
 	entitlement, err := app.customers.Entitlement(ctx, session.Customer.ID, session.Locale, app.settings.Currency)
 	if err != nil {
-		app.logger.Error("entitlement lookup failed", "error", err)
+		app.logError(ctx, "entitlement lookup failed", "error", err)
 		return app.errorView(session.Locale, route)
 	}
 	notice := text(session.Locale, "life.none")
@@ -1344,17 +1344,17 @@ func (app *App) loadRemnawaveView(ctx context.Context, telegramID int64, locale 
 			return notLinkedView(locale, app.supportLink())
 		}
 		if lookupErr != nil {
-			app.logger.Error("Remnawave Telegram identity lookup failed", "error", lookupErr)
+			app.logError(ctx, "Remnawave Telegram identity lookup failed", "error", lookupErr)
 			return errorView(locale, route)
 		}
 		userID, err = app.store.Link(ctx, telegramID, user.ID)
 		if err != nil {
-			app.logger.Error("Telegram identity link failed", "error", err)
+			app.logError(ctx, "Telegram identity link failed", "error", err)
 			return errorView(locale, route)
 		}
 	}
 	if err != nil {
-		app.logger.Error("telegram identity lookup failed", "error", err)
+		app.logError(ctx, "telegram identity lookup failed", "error", err)
 		return errorView(locale, route)
 	}
 
@@ -1374,7 +1374,7 @@ func (app *App) loadRemnawaveView(ctx context.Context, telegramID int64, locale 
 	case routeSubscription, routeConnect:
 		subscription, err := app.remnawave.Subscription(ctx, userID)
 		if err != nil {
-			app.logger.Error("Remnawave subscription lookup failed", "error", err)
+			app.logError(ctx, "Remnawave subscription lookup failed", "error", err)
 			return errorView(locale, route)
 		}
 		if route == routeConnect {
@@ -1384,19 +1384,19 @@ func (app *App) loadRemnawaveView(ctx context.Context, telegramID int64, locale 
 	case routeDevices:
 		user, err := app.remnawave.User(ctx, userID)
 		if err != nil {
-			app.logger.Error("Remnawave user lookup failed", "error", err)
+			app.logError(ctx, "Remnawave user lookup failed", "error", err)
 			return errorView(locale, route)
 		}
 		devices, err := app.remnawave.Devices(ctx, userID)
 		if err != nil {
-			app.logger.Error("Remnawave device lookup failed", "error", err)
+			app.logError(ctx, "Remnawave device lookup failed", "error", err)
 			return errorView(locale, route)
 		}
 		return devicesView(locale, devices, user.HWIDDeviceLimit)
 	default:
 		user, err := app.remnawave.User(ctx, userID)
 		if err != nil {
-			app.logger.Error("Remnawave user lookup failed", "error", err)
+			app.logError(ctx, "Remnawave user lookup failed", "error", err)
 			return errorView(locale, routeHome)
 		}
 		return homeMenuView(locale, user, menu, app.lifecycleNoticeFor(ctx, telegramID, locale, user))

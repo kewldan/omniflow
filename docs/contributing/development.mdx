@@ -76,9 +76,9 @@ from the same contract.
     ```bash
     curl http://localhost:8080/healthz
     ```
-    A healthy API answers `{"status":"ok","version":"dev"}`. The version string is always `dev`:
-    the container build passes no `-ldflags="-X main.version=…"`, so nothing stamps a release
-    number into the binary.
+    A healthy API answers `{"status":"ok","version":"dev"}`. A local build reports `dev`; the
+    release workflow passes `VERSION` to `build/go.Dockerfile`, which stamps the release number
+    into the binary with `-ldflags="-X main.version=…"`.
   </Step>
   <Step title="Add the web application">
     ```bash

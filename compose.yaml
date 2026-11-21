@@ -75,6 +75,10 @@ services:
         # needs the matching PostgreSQL client tools.
         RUNTIME: postgres
     env_file: [.env]
+    environment:
+      # Probes and /metrics on the internal network only; nothing publishes
+      # this port. Set APP_BOT_METRICS_ADDR= in .env to keep the bot off HTTP.
+      APP_BOT_METRICS_ADDR: ${APP_BOT_METRICS_ADDR-:8083}
     depends_on:
       migrate:
         condition: service_completed_successfully

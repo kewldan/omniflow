@@ -76,7 +76,7 @@ func (app *App) buySimple(ctx context.Context, session commerceContext) View {
 	}
 	plan, err := app.customers.Plan(ctx, view.PlanVersionID, session.Locale, app.settings.Currency)
 	if err != nil {
-		app.logger.Error("plan lookup failed", "error", err)
+		app.logError(ctx, "plan lookup failed", "error", err)
 		return app.errorView(session.Locale, routePlans)
 	}
 	choices, err := app.commerce.PaymentChoices(ctx, view.PlanVersionID)
@@ -84,7 +84,7 @@ func (app *App) buySimple(ctx context.Context, session commerceContext) View {
 		choices, err = accountcheckout.LoyaltyChoices(ctx, app.commerce.orders, session.Customer.ID, choices)
 	}
 	if err != nil {
-		app.logger.Error("payment method lookup failed", "error", err)
+		app.logError(ctx, "payment method lookup failed", "error", err)
 		return app.errorView(session.Locale, routePlans)
 	}
 	return paymentMethodView(session.Locale, plan, choices, "simple")

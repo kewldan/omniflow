@@ -131,7 +131,7 @@ func (app *App) handleWelcomeAction(ctx context.Context, session commerceContext
 		return View{}, false
 	}
 	if err := app.customers.BeginSessionState(ctx, session.TelegramID, "referral_code", nil); err != nil {
-		app.logger.Error("invite code prompt failed", "error", err)
+		app.logError(ctx, "invite code prompt failed", "error", err)
 		return app.errorView(session.Locale, routeHome), true
 	}
 	return View{

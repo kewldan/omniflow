@@ -88,3 +88,186 @@ groups:
           description: >
             Sustained 5xx on the api service for 5 minutes or more. Check the
             api process logs and /readyz.
+
+  - name: omniflow.processes
+    rules:
+      # omniflow_build_info is written once at start-up by every process, so
+      # its absence means the scrape target is gone, whatever the job is called.
+      - alert: OmniflowProcessMissing
+        expr: |
+          absent_over_time(omniflow_build_info{service="api"}[5m])
+            or absent_over_time(omniflow_build_info{service="worker"}[5m])
+            or absent_over_time(omniflow_build_info{service="bot"}[5m])
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "An Omniflow process has not been scraped for 5 minutes"
+          description: >
+            The api, worker, or bot stopped exposing /metrics. The bot needs
+            APP_BOT_METRICS_ADDR for this to work at all.
+
+  - name: omniflow.worker
+    rules:
+      - alert: OmniflowPeriodicPassFailing
+        expr: |
+          sum by (pass) (increase(omniflow_periodic_pass_runs_total{outcome!="succeeded"}[30m])) > 0
+            unless sum by (pass) (increase(omniflow_periodic_pass_runs_total{outcome="succeeded"}[30m])) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Worker pass {{ $labels.pass }} has not succeeded for 30 minutes"
+          description: >
+            Every run of the pass in the last half hour failed or timed out.
+            Read the worker log for "periodic task failed" with this task.
+
+      - alert: OmniflowMoneyPassStale
+        expr: |
+          time() - omniflow_periodic_pass_last_success_timestamp_seconds{pass=~"renewal|daily_billing|payment_reconcile|commerce_maintenance"} > 900
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Worker pass {{ $labels.pass }} last succeeded over 15 minutes ago"
+          description: >
+            These passes run every minute and move money: renewals, payment
+            re-polling, and expiring orders. A stale one means customers are
+            not being charged or paid orders are not being picked up.
+
+      - alert: OmniflowBackupStale
+        expr: |
+          omniflow_backup_last_success_timestamp_seconds > 0
+            and time() - omniflow_backup_last_success_timestamp_seconds > 2 * 86400
+        for: 30m
+        labels:
+          severity: critical
+        annotations:
+          summary: "The newest Omniflow backup is more than two days old"
+          description: >
+            Check /admin System → Backups for the failure code. Tune the
+            threshold to your APP_BACKUP_INTERVAL.
+
+      - alert: OmniflowNoBackup
+        expr: omniflow_backup_last_success_timestamp_seconds == 0
+        for: 2d
+        labels:
+          severity: warning
+        annotations:
+          summary: "Omniflow has no completed backup"
+          description: >
+            Either backups are disabled (APP_BACKUP_ENCRYPTION_KEY is unset) or
+            every one has failed.
+
+      - alert: OmniflowCriticalQueueBacklog
+        expr: omniflow_queue_oldest_available_seconds{queue="critical"} > 300
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "A paid job has waited more than 5 minutes to start"
+          description: >
+            The critical queue runs fulfillment and digital-goods delivery.
+            Its oldest waiting job is {{ $value | humanizeDuration }} old.
+
+      - alert: OmniflowJobsDiscarded
+        expr: sum by (queue) (delta(omniflow_queue_jobs{state="discarded"}[1h])) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "River jobs exhausted their retries in the last hour"
+          description: >
+            See /admin System → Jobs for the dead-letter list.
+
+      - alert: OmniflowGoodsDeliveryFailing
+        expr: rate(omniflow_jobs_total{kind="goods_delivery",outcome="failed"}[15m]) > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Digital-goods deliveries are failing"
+          description: >
+            A customer paid for Stars or Premium that is not arriving. Check
+            the shop's delivery view and the Fragment wallet balance.
+
+      - alert: OmniflowOutboxBacklog
+        expr: min_over_time(omniflow_outbox_pending_events[15m]) > 500
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Outgoing webhook events are piling up"
+          description: >
+            More than 500 outbox events have been waiting for 15 minutes. See
+            docs/operations/jobs-and-queues.mdx before deciding what it means.
+
+  - name: omniflow.remnawave
+    rules:
+      - alert: OmniflowRemnawaveErrorRate
+        expr: |
+          sum(rate(omniflow_remnawave_requests_total{outcome="failed"}[5m]))
+            / sum(rate(omniflow_remnawave_requests_total[5m])) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "More than 10% of Remnawave calls are failing"
+          description: >
+            Break it down with omniflow_remnawave_errors_total by code.
+
+      - alert: OmniflowRemnawaveSlow
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(omniflow_remnawave_request_duration_seconds_bucket[10m]))) > 3
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Remnawave p95 latency is above 3 seconds"
+
+  - name: omniflow.telegram
+    rules:
+      - alert: OmniflowTelegramRateLimited
+        expr: sum(rate(omniflow_telegram_sends_total{outcome="rate_limited"}[5m])) > 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Telegram is rate-limiting the bot"
+          description: >
+            Usually a broadcast going out faster than the bot's pacing allows.
+            Messages are being deferred, not lost.
+
+      - alert: OmniflowTelegramUnreachable
+        expr: |
+          sum(rate(omniflow_telegram_sends_total{outcome=~"unavailable|telegram_error"}[5m]))
+            / sum(rate(omniflow_telegram_sends_total[5m])) > 0.2
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "More than 20% of Bot API calls fail at the transport"
+          description: >
+            Check APP_TELEGRAM_PROXY_URL and the host's network path to the
+            Bot API.
+
+      - alert: OmniflowBotHandlerPanics
+        expr: increase(omniflow_telegram_updates_total{outcome="panicked"}[15m]) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "A bot handler panicked"
+          description: >
+            The bot recovered and kept serving. Search the bot log for
+            "telegram handler panicked" for the stack.
+
+      - alert: OmniflowBotHandlerFailureRate
+        expr: |
+          sum(rate(omniflow_telegram_updates_total{outcome="failed"}[10m]))
+            / sum(rate(omniflow_telegram_updates_total[10m])) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "More than 10% of bot updates end in an error"

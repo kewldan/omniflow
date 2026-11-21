@@ -82,7 +82,7 @@ func (app *App) handleStarsAction(ctx context.Context, session commerceContext, 
 	review, err := app.customers.ShopReviewFor(ctx, session.Customer.ID, argument(1))
 	if err != nil {
 		if !errors.Is(err, ErrShopReviewGone) {
-			app.logger.Error("stars review lookup failed", "error", err)
+			app.logError(ctx, "stars review lookup failed", "error", err)
 		}
 		return app.starsExpired(session), true
 	}
@@ -103,7 +103,7 @@ func (app *App) handleStarsAction(ctx context.Context, session commerceContext, 
 func (app *App) starsScreen(ctx context.Context, session commerceContext) View {
 	product, found, err := app.starsProduct(ctx, session.Locale)
 	if err != nil {
-		app.logger.Error("stars product lookup failed", "error", err)
+		app.logError(ctx, "stars product lookup failed", "error", err)
 		return app.errorView(session.Locale, routeHome)
 	}
 	if !found {
@@ -154,7 +154,7 @@ func (app *App) starsAskRecipient(ctx context.Context, session commerceContext) 
 	}
 	if err := app.customers.BeginSessionState(ctx, session.TelegramID, "goods_recipient",
 		map[string]any{"productId": product.ID, "flow": "stars"}); err != nil {
-		app.logger.Error("stars recipient prompt failed", "error", err)
+		app.logError(ctx, "stars recipient prompt failed", "error", err)
 		return app.errorView(session.Locale, routeStars)
 	}
 	return View{
@@ -186,7 +186,7 @@ func (app *App) starsWithRecipient(ctx context.Context, session commerceContext,
 	}
 	reviewID, err := app.customers.OpenShopReview(ctx, session.Customer.ID, product.ID, recipient)
 	if err != nil {
-		app.logger.Error("stars review could not be recorded", "error", err)
+		app.logError(ctx, "stars review could not be recorded", "error", err)
 		return app.errorView(session.Locale, routeStars)
 	}
 	return app.starsAmountScreen(ctx, session, ShopReview{ID: reviewID, ProductID: product.ID, Recipient: recipient})
@@ -231,7 +231,7 @@ func (app *App) starsAskAmount(ctx context.Context, session commerceContext, rev
 	}
 	if err := app.customers.BeginSessionState(ctx, session.TelegramID, "goods_stars_amount",
 		map[string]any{"reviewId": review.ID}); err != nil {
-		app.logger.Error("stars amount prompt failed", "error", err)
+		app.logError(ctx, "stars amount prompt failed", "error", err)
 		return app.errorView(session.Locale, routeStars)
 	}
 	return View{
@@ -281,7 +281,7 @@ func (app *App) starsConfirmScreen(
 	}
 	balance, err := app.commerce.AvailableBalance(ctx, session.Customer.ID, quote.Currency)
 	if err != nil {
-		app.logger.Error("wallet balance lookup failed", "error", err)
+		app.logError(ctx, "wallet balance lookup failed", "error", err)
 		return app.errorView(session.Locale, routeStars)
 	}
 	body := &strings.Builder{}
@@ -319,7 +319,7 @@ func (app *App) starsBuy(ctx context.Context, session commerceContext, review Sh
 	isSelf := strings.EqualFold(review.Recipient, session.Username)
 	balance, err := app.commerce.AvailableBalance(ctx, session.Customer.ID, quote.Currency)
 	if err != nil {
-		app.logger.Error("wallet balance lookup failed", "error", err)
+		app.logError(ctx, "wallet balance lookup failed", "error", err)
 		return app.errorView(session.Locale, routeStars)
 	}
 
@@ -340,7 +340,7 @@ func (app *App) starsBuy(ctx context.Context, session commerceContext, review Sh
 		// Another purchase spent the balance between the check and the order.
 		return app.starsCheckout(ctx, session, product, review, stars, isSelf, quote, 0)
 	case err != nil:
-		app.logger.Error("stars order creation failed", "error", err)
+		app.logError(ctx, "stars order creation failed", "error", err)
 		return View{
 			Text:     text(session.Locale, "error.order"),
 			Keyboard: keyboard(row(callbackButton(text(session.Locale, "action.back"), routeStars))),
@@ -382,7 +382,7 @@ func (app *App) starsCheckout(
 	}
 	if err := app.commerce.SaveStarsForTopUp(ctx, session.Customer.ID, product, stars,
 		review.Recipient, isSelf, quote); err != nil {
-		app.logger.Error("stars cart save failed", "error", err)
+		app.logError(ctx, "stars cart save failed", "error", err)
 		return app.errorView(session.Locale, routeStars)
 	}
 	missing := quote.PriceMinor - balance
@@ -426,7 +426,7 @@ func (app *App) starsPayRemainder(
 	case errors.Is(err, commercepg.ErrQuoteExpired), errors.Is(err, commercepg.ErrPriceChanged):
 		return app.starsConfirmScreen(ctx, session, review, stars, text(session.Locale, "stars.priceChanged"))
 	case err != nil:
-		app.logger.Error("stars order creation failed", "error", err)
+		app.logError(ctx, "stars order creation failed", "error", err)
 		return View{
 			Text:     text(session.Locale, "error.order"),
 			Keyboard: keyboard(row(callbackButton(text(session.Locale, "action.back"), routeStars))),
@@ -436,7 +436,7 @@ func (app *App) starsPayRemainder(
 		return app.shopOrderScreen(ctx, session, order.ID)
 	}
 	if _, err = app.commerce.StartPayment(ctx, order, provider, session.TelegramID, product.Name); err != nil {
-		app.logger.Error("stars payment intent failed", "error", err)
+		app.logError(ctx, "stars payment intent failed", "error", err)
 		return View{
 			Text:     text(session.Locale, "error.payment"),
 			Keyboard: keyboard(row(actionButton(text(session.Locale, "action.retry"), "order:"+order.ID))),
@@ -444,7 +444,7 @@ func (app *App) starsPayRemainder(
 	}
 	refreshed, err := app.customers.Order(ctx, session.Customer.ID, order.ID, session.Locale)
 	if err != nil {
-		app.logger.Error("order lookup failed", "error", err)
+		app.logError(ctx, "order lookup failed", "error", err)
 		return app.errorView(session.Locale, routeOrders)
 	}
 	return orderStatusView(session.Locale, refreshed, nil)

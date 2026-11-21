@@ -41,13 +41,13 @@ func (app *App) giftAskRecipient(ctx context.Context, session commerceContext, t
 	}
 	key, err := newIdempotencyKey()
 	if err != nil {
-		app.logger.Error("gift key could not be minted", "error", err)
+		app.logError(ctx, "gift key could not be minted", "error", err)
 		return app.errorView(session.Locale, routeGifts)
 	}
 	if err := app.customers.BeginSessionState(
 		ctx, session.TelegramID, "gift_recipient", map[string]any{"gift": token, "key": key},
 	); err != nil {
-		app.logger.Error("gift recipient prompt failed", "error", err)
+		app.logError(ctx, "gift recipient prompt failed", "error", err)
 		return app.errorView(session.Locale, routeGifts)
 	}
 	return giftRecipientPromptView(session.Locale, app.giftEmail != nil)
@@ -88,7 +88,7 @@ func (app *App) SubmitGiftRecipient(ctx context.Context, session commerceContext
 		if err := app.customers.BeginSessionState(
 			ctx, session.TelegramID, "gift_recipient", map[string]any{"gift": token, "key": key},
 		); err != nil {
-			app.logger.Error("gift recipient prompt failed", "error", err)
+			app.logError(ctx, "gift recipient prompt failed", "error", err)
 			return app.errorView(session.Locale, routeGifts)
 		}
 		view := giftRecipientPromptView(session.Locale, app.giftEmail != nil)
@@ -106,7 +106,7 @@ func (app *App) SubmitGiftRecipient(ctx context.Context, session commerceContext
 		}
 		known, err := app.commerce.orders.TelegramUsernameKnown(ctx, username)
 		if err != nil {
-			app.logger.Error("gift recipient lookup failed", "error", err)
+			app.logError(ctx, "gift recipient lookup failed", "error", err)
 			return app.errorView(session.Locale, routeGifts)
 		}
 		flow["recipientUsername"] = username
@@ -120,7 +120,7 @@ func (app *App) SubmitGiftRecipient(ctx context.Context, session commerceContext
 	}
 	ciphertext, fingerprint, err := app.giftEmail.SealContact("email", email)
 	if err != nil {
-		app.logger.Error("gift recipient could not be sealed", "error", err)
+		app.logError(ctx, "gift recipient could not be sealed", "error", err)
 		return app.errorView(session.Locale, routeGifts)
 	}
 	// The address travels sealed: the flow's context holds no readable
@@ -133,7 +133,7 @@ func (app *App) SubmitGiftRecipient(ctx context.Context, session commerceContext
 // giftAskNote opens the note prompt with the flow so far.
 func (app *App) giftAskNote(ctx context.Context, session commerceContext, flow map[string]any) View {
 	if err := app.customers.BeginSessionState(ctx, session.TelegramID, "gift_message", flow); err != nil {
-		app.logger.Error("gift message prompt failed", "error", err)
+		app.logError(ctx, "gift message prompt failed", "error", err)
 		return app.errorView(session.Locale, routeGifts)
 	}
 	view := giftMessagePromptView(session.Locale, "")

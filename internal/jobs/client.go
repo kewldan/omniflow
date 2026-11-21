@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
+	"github.com/riverqueue/river/rivertype"
 )
 
 // Queue names. Fulfillment and digital-goods delivery run on critical, because
@@ -68,6 +69,7 @@ func NewInsertOnlyClient(pool *pgxpool.Pool) (*Client, error) {
 // runs once per interval however many worker replicas are up.
 func NewWorkerClient(
 	pool *pgxpool.Pool, workers *river.Workers, periodic []*river.PeriodicJob,
+	middleware ...rivertype.Middleware,
 ) (*Client, error) {
 	if pool == nil {
 		return nil, errors.New("jobs: a database pool is required")
@@ -79,5 +81,6 @@ func NewWorkerClient(
 		Queues:       queues,
 		Workers:      workers,
 		PeriodicJobs: periodic,
+		Middleware:   middleware,
 	})
 }

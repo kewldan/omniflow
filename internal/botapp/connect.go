@@ -37,7 +37,7 @@ func (app *App) connectGuideScreen(
 ) View {
 	platforms, err := app.store.ConnectPlatforms(ctx, string(locale))
 	if err != nil {
-		app.logger.Error("connect catalogue read failed", "error", err)
+		app.logError(ctx, "connect catalogue read failed", "error", err)
 	}
 	return connectPlatformsView(locale, subscription, platforms)
 }
@@ -50,11 +50,11 @@ func (app *App) connectPlatformScreen(
 	}
 	platforms, err := app.store.ConnectPlatforms(ctx, string(locale))
 	if err != nil {
-		app.logger.Error("connect catalogue read failed", "error", err)
+		app.logError(ctx, "connect catalogue read failed", "error", err)
 	}
 	clients, err := app.store.ConnectClients(ctx, platform, string(locale))
 	if err != nil {
-		app.logger.Error("connect catalogue read failed", "error", err)
+		app.logError(ctx, "connect catalogue read failed", "error", err)
 	}
 	return connectPlatformView(
 		locale, platform, subscription, platformLabel(platforms, platform), clients, platforms,

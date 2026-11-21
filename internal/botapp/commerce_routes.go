@@ -201,7 +201,7 @@ func (app *App) plansScreen(ctx context.Context, session commerceContext, forNew
 	}
 	plans, err := app.customers.Plans(ctx, session.Locale, app.settings.Currency)
 	if err != nil {
-		app.logger.Error("plan catalog lookup failed", "error", err)
+		app.logError(ctx, "plan catalog lookup failed", "error", err)
 		return app.errorView(session.Locale, routePlans)
 	}
 	// A loyalty group that restricts plans shows its members only those.
@@ -223,19 +223,19 @@ func (app *App) planScreen(ctx context.Context, session commerceContext, planVer
 		return View{Text: text(session.Locale, "plan.gone"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "action.back"), routePlans)))}
 	}
 	if err != nil {
-		app.logger.Error("plan lookup failed", "error", err)
+		app.logError(ctx, "plan lookup failed", "error", err)
 		return app.errorView(session.Locale, routePlans)
 	}
 	entitlement, err := app.customers.Entitlement(ctx, session.Customer.ID, session.Locale, app.settings.Currency)
 	if err != nil {
-		app.logger.Error("entitlement lookup failed", "error", err)
+		app.logError(ctx, "entitlement lookup failed", "error", err)
 		return app.errorView(session.Locale, routePlans)
 	}
 	trialReason := ""
 	if plan.Kind == "trial" {
 		request, trialErr := app.customers.TrialContext(ctx, session.Customer.ID)
 		if trialErr != nil {
-			app.logger.Error("trial eligibility lookup failed", "error", trialErr)
+			app.logError(ctx, "trial eligibility lookup failed", "error", trialErr)
 			return app.errorView(session.Locale, routePlans)
 		}
 		request.PlanKind, request.Rule = plan.Kind, plan.TrialRule
@@ -255,7 +255,7 @@ func (app *App) paymentMethodScreen(ctx context.Context, session commerceContext
 		return View{Text: text(session.Locale, "plan.gone"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "action.back"), routePlans)))}
 	}
 	if err != nil {
-		app.logger.Error("plan lookup failed", "error", err)
+		app.logError(ctx, "plan lookup failed", "error", err)
 		return app.errorView(session.Locale, routePlans)
 	}
 	normalized, err := commerce.NormalizeOperation(operation)
@@ -267,12 +267,12 @@ func (app *App) paymentMethodScreen(ctx context.Context, session commerceContext
 	// so buying again renews it instead of silently opening a second one.
 	target, normalized, err := app.checkoutTarget(ctx, session, plan, normalized, subscriptionID, forceNew)
 	if err != nil {
-		app.logger.Error("subscription target lookup failed", "error", err)
+		app.logError(ctx, "subscription target lookup failed", "error", err)
 		return app.errorView(session.Locale, routePlans)
 	}
 	checkout, err := app.customers.OpenCheckout(ctx, session.Customer.ID, planVersionID, normalized, app.settings.Currency, target, nil)
 	if err != nil {
-		app.logger.Error("checkout could not be opened", "error", err)
+		app.logError(ctx, "checkout could not be opened", "error", err)
 		return app.errorView(session.Locale, routePlans)
 	}
 	// A version sold for more than its own period asks which one first, for
@@ -347,7 +347,7 @@ func expiredSubscriptionOfPlan(subscriptions []SubscriptionSummary, planID strin
 func (app *App) checkoutScreen(ctx context.Context, session commerceContext) View {
 	checkout, found, err := app.customers.Checkout(ctx, session.Customer.ID)
 	if err != nil {
-		app.logger.Error("checkout lookup failed", "error", err)
+		app.logError(ctx, "checkout lookup failed", "error", err)
 		return app.errorView(session.Locale, routePlans)
 	}
 	if !found {
@@ -358,12 +358,12 @@ func (app *App) checkoutScreen(ctx context.Context, session commerceContext) Vie
 		return View{Text: text(session.Locale, "plan.gone"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "action.back"), routePlans)))}
 	}
 	if err != nil {
-		app.logger.Error("plan lookup failed", "error", err)
+		app.logError(ctx, "plan lookup failed", "error", err)
 		return app.errorView(session.Locale, routePlans)
 	}
 	quote, err := app.commerce.Quote(ctx, checkout)
 	if err != nil {
-		app.logger.Error("checkout quote failed", "error", err)
+		app.logError(ctx, "checkout quote failed", "error", err)
 		return app.errorView(session.Locale, routePlans)
 	}
 	addons, err := app.customers.PlanAddons(ctx, checkout.PlanVersionID, session.Locale, checkout.Currency)
@@ -385,7 +385,7 @@ func (app *App) checkoutScreen(ctx context.Context, session commerceContext) Vie
 func (app *App) confirmCheckout(ctx context.Context, session commerceContext) View {
 	checkout, found, err := app.customers.Checkout(ctx, session.Customer.ID)
 	if err != nil {
-		app.logger.Error("checkout lookup failed", "error", err)
+		app.logError(ctx, "checkout lookup failed", "error", err)
 		return app.errorView(session.Locale, routePlans)
 	}
 	if !found {
@@ -440,12 +440,12 @@ func (app *App) confirmCheckout(ctx context.Context, session commerceContext) Vi
 	case errors.Is(err, commercepg.ErrOperationForbidden):
 		return View{Text: text(session.Locale, "error.forbidden"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "menu.plans"), routePlans)))}
 	case err != nil:
-		app.logger.Error("order creation failed", "error", err)
+		app.logError(ctx, "order creation failed", "error", err)
 		return View{Text: text(session.Locale, "error.order"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "menu.plans"), routePlans)))}
 	}
 	order, err := app.customers.Order(ctx, session.Customer.ID, orderID, session.Locale)
 	if err != nil {
-		app.logger.Error("order lookup failed", "error", err)
+		app.logError(ctx, "order lookup failed", "error", err)
 		return app.errorView(session.Locale, routeOrders)
 	}
 	// A fully wallet-funded order is already settled and needs no provider.
@@ -454,7 +454,7 @@ func (app *App) confirmCheckout(ctx context.Context, session commerceContext) Vi
 	}
 	description := plan.Name + " · " + formatDuration(session.Locale, checkoutDuration(plan, checkout))
 	if _, err = app.commerce.StartPayment(ctx, order, payments.OptionKey(checkout.Provider, checkout.Method), session.TelegramID, description); err != nil {
-		app.logger.Error("payment intent creation failed", "provider", checkout.Provider, "error", err)
+		app.logError(ctx, "payment intent creation failed", "provider", checkout.Provider, "error", err)
 		// The order exists and holds its wallet reservation; only the provider
 		// payment is missing. "Try again" starts that payment rather than
 		// reopening the order screen, which would have nothing to pay with.
@@ -462,7 +462,7 @@ func (app *App) confirmCheckout(ctx context.Context, session commerceContext) Vi
 	}
 	order, err = app.customers.Order(ctx, session.Customer.ID, orderID, session.Locale)
 	if err != nil {
-		app.logger.Error("order lookup failed", "error", err)
+		app.logError(ctx, "order lookup failed", "error", err)
 		return app.errorView(session.Locale, routeOrders)
 	}
 	return orderStatusView(session.Locale, order, nil)
@@ -483,14 +483,14 @@ func (app *App) orderScreen(ctx context.Context, session commerceContext, orderI
 		return View{Text: text(session.Locale, "error.notFound"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "menu.orders"), routeOrders)))}
 	}
 	if err != nil {
-		app.logger.Error("order lookup failed", "error", err)
+		app.logError(ctx, "order lookup failed", "error", err)
 		return app.errorView(session.Locale, routeOrders)
 	}
 	// Refreshing a pending order re-reads the provider so a customer who came
 	// back before the webhook still sees the settled state.
 	app.commerce.Refresh(ctx, order)
 	if order, err = app.customers.Order(ctx, session.Customer.ID, orderID, session.Locale); err != nil {
-		app.logger.Error("order lookup failed", "error", err)
+		app.logError(ctx, "order lookup failed", "error", err)
 		return app.errorView(session.Locale, routeOrders)
 	}
 	refunds, err := app.customers.Refunds(ctx, session.Customer.ID, orderID)
@@ -546,7 +546,7 @@ func (app *App) payOrder(ctx context.Context, session commerceContext, orderID s
 		return View{Text: text(session.Locale, "error.notFound"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "menu.orders"), routeOrders)))}
 	}
 	if err != nil {
-		app.logger.Error("order lookup failed", "error", err)
+		app.logError(ctx, "order lookup failed", "error", err)
 		return app.errorView(session.Locale, routeOrders)
 	}
 	if !orderAwaitsPayment(order) {
@@ -574,7 +574,7 @@ func (app *App) selectOrderProvider(ctx context.Context, session commerceContext
 		return View{Text: text(session.Locale, "error.notFound"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "menu.orders"), routeOrders)))}
 	}
 	if err != nil {
-		app.logger.Error("order lookup failed", "error", err)
+		app.logError(ctx, "order lookup failed", "error", err)
 		return app.errorView(session.Locale, routeOrders)
 	}
 	if !orderAwaitsPayment(order) {
@@ -598,7 +598,7 @@ func (app *App) saveableChoices(ctx context.Context, choices []PaymentChoice) []
 
 func (app *App) startOrderPayment(ctx context.Context, session commerceContext, order OrderSummary, provider string, saveMethod bool) View {
 	if _, err := app.commerce.StartPaymentWith(ctx, order, provider, session.TelegramID, order.PlanName, saveMethod); err != nil {
-		app.logger.Error("payment intent creation failed", "provider", provider, "error", err)
+		app.logError(ctx, "payment intent creation failed", "provider", provider, "error", err)
 		return paymentStartFailedView(session.Locale, order.ID)
 	}
 	return app.orderScreen(ctx, session, order.ID)
@@ -662,7 +662,7 @@ func paymentChoiceOffered(choices []PaymentChoice, key, currency string) bool {
 func (app *App) ordersScreen(ctx context.Context, session commerceContext) View {
 	orders, err := app.customers.Orders(ctx, session.Customer.ID, session.Locale, 10)
 	if err != nil {
-		app.logger.Error("order history lookup failed", "error", err)
+		app.logError(ctx, "order history lookup failed", "error", err)
 		return app.errorView(session.Locale, routeOrders)
 	}
 	return ordersView(session.Locale, orders)
@@ -671,17 +671,17 @@ func (app *App) ordersScreen(ctx context.Context, session commerceContext) View 
 func (app *App) walletScreen(ctx context.Context, session commerceContext) View {
 	balance, err := app.customers.WalletBalance(ctx, session.Customer.ID, app.settings.Currency)
 	if err != nil {
-		app.logger.Error("wallet balance lookup failed", "error", err)
+		app.logError(ctx, "wallet balance lookup failed", "error", err)
 		return app.errorView(session.Locale, routeWallet)
 	}
 	reserved, err := app.customers.WalletReserved(ctx, session.Customer.ID, app.settings.Currency)
 	if err != nil {
-		app.logger.Error("wallet reservation lookup failed", "error", err)
+		app.logError(ctx, "wallet reservation lookup failed", "error", err)
 		return app.errorView(session.Locale, routeWallet)
 	}
 	entries, err := app.customers.WalletHistory(ctx, session.Customer.ID, app.settings.Currency, 10)
 	if err != nil {
-		app.logger.Error("wallet history lookup failed", "error", err)
+		app.logError(ctx, "wallet history lookup failed", "error", err)
 		return app.errorView(session.Locale, routeWallet)
 	}
 	guidance, err := app.commerce.checkout.Store().PaymentGuidance(ctx, string(session.Locale))
@@ -702,7 +702,7 @@ func (app *App) walletScreen(ctx context.Context, session commerceContext) View 
 func (app *App) newsScreen(ctx context.Context, session commerceContext) View {
 	items, err := app.customers.News(ctx, session.Customer.ID, session.Locale, 10)
 	if err != nil {
-		app.logger.Error("news lookup failed", "error", err)
+		app.logError(ctx, "news lookup failed", "error", err)
 		return app.errorView(session.Locale, routeNews)
 	}
 	return newsListView(session.Locale, items)
@@ -714,7 +714,7 @@ func (app *App) newsItemScreen(ctx context.Context, session commerceContext, pos
 		return View{Text: text(session.Locale, "news.gone"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "action.back"), routeNews)))}
 	}
 	if err != nil {
-		app.logger.Error("news lookup failed", "error", err)
+		app.logError(ctx, "news lookup failed", "error", err)
 		return app.errorView(session.Locale, routeNews)
 	}
 	if err = app.customers.MarkNewsRead(ctx, session.Customer.ID, postID); err != nil {
@@ -726,7 +726,7 @@ func (app *App) newsItemScreen(ctx context.Context, session commerceContext, pos
 func (app *App) supportScreen(ctx context.Context, session commerceContext) View {
 	tickets, err := app.customers.Tickets(ctx, session.Customer.ID, 10)
 	if err != nil {
-		app.logger.Error("support ticket lookup failed", "error", err)
+		app.logError(ctx, "support ticket lookup failed", "error", err)
 		return app.errorView(session.Locale, routeSupport)
 	}
 	return app.supportModeView(session.Locale, tickets)
@@ -738,7 +738,7 @@ func (app *App) ticketScreen(ctx context.Context, session commerceContext, ticke
 		return View{Text: text(session.Locale, "support.notFound"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "menu.support"), routeSupport)))}
 	}
 	if err != nil {
-		app.logger.Error("support ticket lookup failed", "error", err)
+		app.logError(ctx, "support ticket lookup failed", "error", err)
 		return app.errorView(session.Locale, routeSupport)
 	}
 	if err = app.customers.MarkTicketRead(ctx, session.Customer.ID, ticketID); err != nil {
@@ -757,7 +757,7 @@ func (app *App) autoRenewScreen(ctx context.Context, session commerceContext) Vi
 	}
 	subscriptions, err := app.customers.Subscriptions(ctx, session.Customer.ID, session.Locale)
 	if err != nil {
-		app.logger.Error("subscription lookup failed", "error", err)
+		app.logError(ctx, "subscription lookup failed", "error", err)
 		return app.errorView(session.Locale, routeSettings)
 	}
 	if len(subscriptions) > 1 {
@@ -792,24 +792,24 @@ func (app *App) autoRenewScreenFor(ctx context.Context, session commerceContext,
 	supported := commerce.SupportsAutoRenew(app.commerce.payments.Options(), app.settings.Currency)
 	target, err := app.renewalTarget(ctx, session, subscriptionID)
 	if err != nil {
-		app.logger.Error("subscription lookup failed", "error", err)
+		app.logError(ctx, "subscription lookup failed", "error", err)
 		return app.errorView(session.Locale, routeSettings)
 	}
 	settings, err := app.customers.RenewalSettings(ctx, session.Customer.ID, target.ID)
 	if err != nil {
-		app.logger.Error("auto-renew lookup failed", "error", err)
+		app.logError(ctx, "auto-renew lookup failed", "error", err)
 		return app.errorView(session.Locale, routeSettings)
 	}
 	methods, err := app.customers.SavedMethods(ctx, session.Customer.ID)
 	if err != nil {
-		app.logger.Error("saved payment method lookup failed", "error", err)
+		app.logError(ctx, "saved payment method lookup failed", "error", err)
 		return app.errorView(session.Locale, routeSettings)
 	}
 	screen := autoRenewScreen{Settings: settings, Methods: methods, Supported: supported, BackRoute: routeSettings}
 	if settings.Enabled {
 		periods, periodErr := app.customers.RenewalPeriods(ctx, settings.PlanVersionID, settings.Currency)
 		if periodErr != nil {
-			app.logger.Error("renewal period lookup failed", "error", periodErr)
+			app.logError(ctx, "renewal period lookup failed", "error", periodErr)
 			return app.errorView(session.Locale, routeSettings)
 		}
 		screen.Periods = periods
@@ -817,7 +817,7 @@ func (app *App) autoRenewScreenFor(ctx context.Context, session commerceContext,
 	if target.ID != "" {
 		entitlement, entitlementErr := app.customers.EntitlementForSubscription(ctx, session.Customer.ID, target.ID, session.Locale, app.settings.Currency)
 		if entitlementErr != nil {
-			app.logger.Error("entitlement lookup failed", "error", entitlementErr)
+			app.logError(ctx, "entitlement lookup failed", "error", entitlementErr)
 			return app.errorView(session.Locale, routeSettings)
 		}
 		screen.PlanName = entitlement.PlanName
@@ -832,7 +832,7 @@ func (app *App) autoRenewScreenFor(ctx context.Context, session commerceContext,
 func (app *App) savedMethodsScreen(ctx context.Context, session commerceContext) View {
 	methods, err := app.customers.SavedMethods(ctx, session.Customer.ID)
 	if err != nil {
-		app.logger.Error("saved payment method lookup failed", "error", err)
+		app.logError(ctx, "saved payment method lookup failed", "error", err)
 		return app.errorView(session.Locale, routeSettings)
 	}
 	return savedMethodsView(session.Locale, methods)
@@ -845,7 +845,7 @@ func (app *App) savedMethodsScreen(ctx context.Context, session commerceContext)
 func (app *App) setRenewalFunding(ctx context.Context, session commerceContext, funding, subscriptionID string) View {
 	target, err := app.renewalTarget(ctx, session, subscriptionID)
 	if err != nil {
-		app.logger.Error("subscription lookup failed", "error", err)
+		app.logError(ctx, "subscription lookup failed", "error", err)
 		return app.errorView(session.Locale, routeSettings)
 	}
 	err = app.customers.SetRenewalFunding(ctx, session.Customer.ID, target.ID, funding)
@@ -856,7 +856,7 @@ func (app *App) setRenewalFunding(ctx context.Context, session commerceContext, 
 		}
 	}
 	if err != nil {
-		app.logger.Error("renewal funding update failed", "error", err)
+		app.logError(ctx, "renewal funding update failed", "error", err)
 		return app.errorView(session.Locale, routeSettings)
 	}
 	return app.autoRenewScreenFor(ctx, session, target.ID)
@@ -865,7 +865,7 @@ func (app *App) setRenewalFunding(ctx context.Context, session commerceContext, 
 func (app *App) setRenewalLeadTime(ctx context.Context, session commerceContext, days, subscriptionID string) View {
 	target, err := app.renewalTarget(ctx, session, subscriptionID)
 	if err != nil {
-		app.logger.Error("subscription lookup failed", "error", err)
+		app.logError(ctx, "subscription lookup failed", "error", err)
 		return app.errorView(session.Locale, routeSettings)
 	}
 	parsed, err := strconv.Atoi(days)
@@ -875,7 +875,7 @@ func (app *App) setRenewalLeadTime(ctx context.Context, session commerceContext,
 	if err := app.customers.SetRenewalLeadTime(
 		ctx, session.Customer.ID, target.ID, time.Duration(parsed)*24*time.Hour,
 	); err != nil {
-		app.logger.Error("renewal lead time update failed", "error", err)
+		app.logError(ctx, "renewal lead time update failed", "error", err)
 		return app.errorView(session.Locale, routeSettings)
 	}
 	return app.autoRenewScreenFor(ctx, session, target.ID)
@@ -886,7 +886,7 @@ func (app *App) setRenewalLeadTime(ctx context.Context, session commerceContext,
 func (app *App) setRenewalPeriod(ctx context.Context, session commerceContext, days, subscriptionID string) View {
 	target, err := app.renewalTarget(ctx, session, subscriptionID)
 	if err != nil {
-		app.logger.Error("subscription lookup failed", "error", err)
+		app.logError(ctx, "subscription lookup failed", "error", err)
 		return app.errorView(session.Locale, routeSettings)
 	}
 	parsed, err := strconv.Atoi(days)
@@ -895,7 +895,7 @@ func (app *App) setRenewalPeriod(ctx context.Context, session commerceContext, d
 	}
 	err = app.customers.SetRenewalPeriod(ctx, session.Customer.ID, target.ID, parsed)
 	if err != nil && !errors.Is(err, errPeriodUnavailable) {
-		app.logger.Error("renewal period update failed", "error", err)
+		app.logError(ctx, "renewal period update failed", "error", err)
 		return app.errorView(session.Locale, routeSettings)
 	}
 	return app.autoRenewScreenFor(ctx, session, target.ID)
@@ -1061,7 +1061,7 @@ func (app *App) selectProvider(ctx context.Context, session commerceContext, pro
 	}
 	choices, err := app.commerce.CheckoutPaymentChoices(ctx, checkout)
 	if err != nil {
-		app.logger.Error("payment method lookup failed", "error", err)
+		app.logError(ctx, "payment method lookup failed", "error", err)
 		return app.errorView(session.Locale, routePlans)
 	}
 	// The chosen method must still be one of the offered ones: callback data is
@@ -1077,7 +1077,7 @@ func (app *App) selectProvider(ctx context.Context, session commerceContext, pro
 		return View{Text: text(session.Locale, "pay.none"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "menu.plans"), routePlans)))}
 	}
 	if _, err = app.customers.SetCheckoutProvider(ctx, checkout.ID, provider, currency); err != nil {
-		app.logger.Error("checkout provider selection failed", "error", err)
+		app.logError(ctx, "checkout provider selection failed", "error", err)
 		return app.errorView(session.Locale, routePlans)
 	}
 	return app.checkoutScreen(ctx, session)
@@ -1085,7 +1085,7 @@ func (app *App) selectProvider(ctx context.Context, session commerceContext, pro
 
 func (app *App) beginPromo(ctx context.Context, session commerceContext) View {
 	if err := app.customers.BeginSessionState(ctx, session.TelegramID, "promo_code", nil); err != nil {
-		app.logger.Error("promo prompt failed", "error", err)
+		app.logError(ctx, "promo prompt failed", "error", err)
 		return app.errorView(session.Locale, routePlans)
 	}
 	return promoPromptView(session.Locale)
@@ -1097,7 +1097,7 @@ func (app *App) clearPromo(ctx context.Context, session commerceContext) View {
 		return View{Text: text(session.Locale, "checkout.expired"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "menu.plans"), routePlans)))}
 	}
 	if _, err = app.customers.SetCheckoutPromo(ctx, checkout.ID, "", ""); err != nil {
-		app.logger.Error("promo removal failed", "error", err)
+		app.logError(ctx, "promo removal failed", "error", err)
 		return app.errorView(session.Locale, routePlans)
 	}
 	return app.checkoutScreen(ctx, session)
@@ -1109,7 +1109,7 @@ func (app *App) toggleWallet(ctx context.Context, session commerceContext) View 
 		return View{Text: text(session.Locale, "checkout.expired"), Keyboard: keyboard(row(callbackButton(text(session.Locale, "menu.plans"), routePlans)))}
 	}
 	if _, err = app.customers.SetCheckoutWallet(ctx, checkout.ID, !checkout.ApplyWallet); err != nil {
-		app.logger.Error("wallet preference update failed", "error", err)
+		app.logError(ctx, "wallet preference update failed", "error", err)
 		return app.errorView(session.Locale, routePlans)
 	}
 	return app.checkoutScreen(ctx, session)
@@ -1128,7 +1128,7 @@ func (app *App) beginTicketReply(ctx context.Context, session commerceContext, t
 		context["ticketId"] = ticketID
 	}
 	if err := app.customers.BeginSessionState(ctx, session.TelegramID, "support_reply", context); err != nil {
-		app.logger.Error("support compose failed", "error", err)
+		app.logError(ctx, "support compose failed", "error", err)
 		return app.errorView(session.Locale, routeSupport)
 	}
 	return supportComposeTicketView(session.Locale, ticketID)
@@ -1142,7 +1142,7 @@ func (app *App) setTicketStatus(ctx context.Context, session commerceContext, ti
 		return view
 	}
 	if err != nil && !errors.Is(err, ErrTicketNotFound) {
-		app.logger.Error("support ticket status update failed", "error", err)
+		app.logError(ctx, "support ticket status update failed", "error", err)
 		return app.errorView(session.Locale, routeSupport)
 	}
 	return app.ticketScreen(ctx, session, ticketID)
@@ -1163,7 +1163,7 @@ func (app *App) connectPlatform(ctx context.Context, session commerceContext, pl
 func (app *App) setAutoRenew(ctx context.Context, session commerceContext, enabled bool, subscriptionID string) View {
 	target, err := app.renewalTarget(ctx, session, subscriptionID)
 	if err != nil {
-		app.logger.Error("subscription lookup failed", "error", err)
+		app.logError(ctx, "subscription lookup failed", "error", err)
 		return app.errorView(session.Locale, routeSettings)
 	}
 	setting := AutoRenew{Enabled: enabled, SubscriptionID: target.ID}
@@ -1177,7 +1177,7 @@ func (app *App) setAutoRenew(ctx context.Context, session commerceContext, enabl
 		}
 		choices, err := app.commerce.PaymentChoices(ctx, entitlement.PlanVersionID)
 		if err != nil {
-			app.logger.Error("payment method lookup failed", "error", err)
+			app.logError(ctx, "payment method lookup failed", "error", err)
 			return app.errorView(session.Locale, routeSettings)
 		}
 		for _, choice := range choices {
@@ -1191,7 +1191,7 @@ func (app *App) setAutoRenew(ctx context.Context, session commerceContext, enabl
 		}
 	}
 	if err := app.customers.SetAutoRenew(ctx, session.Customer.ID, setting); err != nil {
-		app.logger.Error("auto-renew update failed", "error", err)
+		app.logError(ctx, "auto-renew update failed", "error", err)
 		return app.errorView(session.Locale, routeSettings)
 	}
 	return app.autoRenewScreenFor(ctx, session, target.ID)
@@ -1203,7 +1203,7 @@ func (app *App) setQuietHours(ctx context.Context, session commerceContext, wind
 		return app.errorView(session.Locale, routeSettings)
 	}
 	if err = app.customers.SetQuietHours(ctx, session.Customer.ID, start, end); err != nil {
-		app.logger.Error("quiet hours update failed", "error", err)
+		app.logError(ctx, "quiet hours update failed", "error", err)
 		return app.errorView(session.Locale, routeSettings)
 	}
 	return app.settingsScreen(ctx, session)
@@ -1227,7 +1227,7 @@ func parseQuietWindow(window string) (int, int, error) {
 func (app *App) settingsScreen(ctx context.Context, session commerceContext) View {
 	preferences, err := app.customers.CustomerPreferences(ctx, session.Customer.ID)
 	if err != nil {
-		app.logger.Error("preferences lookup failed", "error", err)
+		app.logError(ctx, "preferences lookup failed", "error", err)
 		return app.errorView(session.Locale, routeSettings)
 	}
 	return customerSettingsView(session.Locale, preferences, app.settings.MarketingFrequencyCap, app.marketingLongLimit(), time.Now())
@@ -1304,7 +1304,7 @@ func (app *App) HandlePreCheckout(ctx context.Context, client *telegram.Bot, que
 		message = text(locale, "payment.precheckoutStale")
 	}
 	if _, err := client.AnswerPreCheckoutQuery(ctx, &telegram.AnswerPreCheckoutQueryParams{PreCheckoutQueryID: query.ID, OK: approve, ErrorMessage: message}); err != nil {
-		app.logger.Error("pre-checkout answer failed", "error", err)
+		app.logError(ctx, "pre-checkout answer failed", "error", err)
 	}
 }
 

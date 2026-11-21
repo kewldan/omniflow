@@ -384,13 +384,11 @@ curl -s localhost:8080/readyz
 ожидании. См. [режим обслуживания](/ru/operations/maintenance-mode).
 
 <Note>
-  `omniflow_remnawave_requests_total` объявлена в реестре метрик, но ни один путь в коде её не
-  увеличивает, а счётчик Prometheus не выдаёт ни одной серии до первого использования. Единственный
-  сигнал по Remnawave, реально присутствующий на `/metrics`, — это
-  `omniflow_dependency_up{dependency="remnawave"}`. Вызовы адаптера трассируются как дочерние спаны
-  через `otelhttp`, но провайдер трассировки нигде в Omniflow не установлен и ни одна переменная
-  `OTEL_*` не читается, поэтому эти спаны никуда не уходят, пока вы сами не добавите экспортёр.
-  [Наблюдаемость](/ru/operations/observability) описывает то, что существует.
+  Каждый вызов адаптера из api, бота и воркера считается в `omniflow_remnawave_requests_total`
+  и измеряется в `omniflow_remnawave_request_duration_seconds` с меткой шаблона операции, например
+  `POST /api/users/:id/actions/enable`; сбои разбиты по кодам в `omniflow_remnawave_errors_total`.
+  Вызовы также трассируются как дочерние спаны через `otelhttp` и экспортируются, если задана
+  `OTEL_EXPORTER_OTLP_ENDPOINT`. [Наблюдаемость](/ru/operations/observability) описывает и то, и другое.
 </Note>
 
 ## Импорт клиентов, которые у вас уже есть

@@ -29,7 +29,7 @@ func (app *App) handlePartnerAction(ctx context.Context, session commerceContext
 		case errors.Is(err, referralplus.ErrPartnerPending), errors.Is(err, referralplus.ErrAlreadyPartner):
 			return app.partnerScreen(ctx, session, ""), true
 		default:
-			app.logger.Error("partner application failed", "error", err)
+			app.logError(ctx, "partner application failed", "error", err)
 			return app.errorView(session.Locale, routeReferral), true
 		}
 	default:
@@ -44,7 +44,7 @@ func (app *App) handlePartnerAction(ctx context.Context, session commerceContext
 func (app *App) partnerScreen(ctx context.Context, session commerceContext, notice string) View {
 	state, err := app.partners.PartnerStatus(ctx, session.Customer.ID)
 	if err != nil {
-		app.logger.Error("partner status failed", "error", err)
+		app.logError(ctx, "partner status failed", "error", err)
 		return app.errorView(session.Locale, routeReferral)
 	}
 	locale := session.Locale
