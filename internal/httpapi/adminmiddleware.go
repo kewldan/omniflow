@@ -218,30 +218,39 @@ func (handlers *AdminHandlers) requireCSRF(next http.Handler) http.Handler {
 func (handlers *AdminHandlers) requirePermission(permissions ...rbac.Permission) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-			principal, ok := PrincipalFrom(request.Context())
-			if !ok {
-				writeProblem(writer, request, http.StatusUnauthorized, "unauthenticated", "Sign-in is required")
-				return
+			if handlers.allowed(writer, request, permissions...) {
+				next.ServeHTTP(writer, request)
 			}
-			if !principal.Grant.AllowsAll(permissions...) {
-				required := make([]string, 0, len(permissions))
-				for _, permission := range permissions {
-					required = append(required, string(permission))
-				}
-				_ = handlers.service.AppendAudit(request.Context(), adminauthpg.AuditEntry{
-					ActorType: "admin", ActorID: principal.Account.ID,
-					Action: "admin.authorization.denied", Category: "authorization", Outcome: "denied",
-					TargetType: "endpoint", TargetID: request.Method + " " + request.URL.Path,
-					RequestID: middleware.GetReqID(request.Context()),
-					Metadata:  map[string]any{"required": required},
-				})
-				writeProblem(
-					writer, request, http.StatusForbidden,
-					"forbidden", "This account does not have permission for that action",
-				)
-				return
-			}
-			next.ServeHTTP(writer, request)
 		})
 	}
+}
+
+// allowed checks permissions inside a handler, for a route whose requirement
+// depends on what the request asks for. A refusal is written and audited
+// exactly as requirePermission writes it.
+func (handlers *AdminHandlers) allowed(writer http.ResponseWriter, request *http.Request, permissions ...rbac.Permission) bool {
+	principal, ok := PrincipalFrom(request.Context())
+	if !ok {
+		writeProblem(writer, request, http.StatusUnauthorized, "unauthenticated", "Sign-in is required")
+		return false
+	}
+	if principal.Grant.AllowsAll(permissions...) {
+		return true
+	}
+	required := make([]string, 0, len(permissions))
+	for _, permission := range permissions {
+		required = append(required, string(permission))
+	}
+	_ = handlers.service.AppendAudit(request.Context(), adminauthpg.AuditEntry{
+		ActorType: "admin", ActorID: principal.Account.ID,
+		Action: "admin.authorization.denied", Category: "authorization", Outcome: "denied",
+		TargetType: "endpoint", TargetID: request.Method + " " + request.URL.Path,
+		RequestID: middleware.GetReqID(request.Context()),
+		Metadata:  map[string]any{"required": required},
+	})
+	writeProblem(
+		writer, request, http.StatusForbidden,
+		"forbidden", "This account does not have permission for that action",
+	)
+	return false
 }

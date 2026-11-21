@@ -235,6 +235,13 @@ existing code replaces that template.
     is 422: "send immediately" and "somebody forgot the date" must not be the
     same request.
   </Step>
+  <Step title="After a migration, scan for blocked chats first">
+    A previous bot rarely records who blocked it, so a migrated base arrives with its closed
+    chats unknown. Until **Moderation → Scan now** has completed after the last Bedolaga import,
+    starting or scheduling a Telegram campaign answers `409 blocker_scan_required`. Otherwise the
+    first broadcast would go into closed chats and its blocked share would mean nothing about the
+    message. E-mail campaigns are not affected.
+  </Step>
   <Step title="Watch it, and stop it if it is wrong">
     The worker moves the campaign to `running` at the appointed time and expands
     the audience. **Pause** or **Cancel** from the same control.
@@ -455,7 +462,8 @@ There is no expiry column, so a suppression stands until an operator removes it.
 | Action | Permission |
 | --- | --- |
 | Read segments, templates, campaigns, and suppressions | `marketing.read` |
-| Save a segment or template, create or move a campaign, add or remove a suppression | `marketing.write` |
+| Save a segment or template, create a campaign, pause or cancel one, add or remove a suppression | `marketing.write` |
+| Start or schedule a campaign | `marketing.write` and `marketing.send` |
 | Change what the referral programme pays | `settings.write` |
 
 Every write here is audited: `panel.segment.saved`, `panel.template.saved`,

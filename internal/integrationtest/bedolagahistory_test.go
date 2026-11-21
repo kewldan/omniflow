@@ -4,6 +4,7 @@ package integrationtest
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strconv"
 	"testing"
@@ -392,6 +393,19 @@ func TestBedolagaBotBlockedPolicy(t *testing.T) {
 	campaign, err := operations.CreateCampaignOn(ctx, "telegram", "Hello", template.ID, segment.ID, actor)
 	if err != nil || int64(campaign.Estimated) != segment.Size-1 {
 		t.Fatalf("campaign estimate %d of %d: %v", campaign.Estimated, segment.Size, err)
+	}
+	// After an import the first Telegram send waits for a blocked-bot scan:
+	// a scan from before the import does not count, one after it does.
+	if _, err = fixture.harness.pool.Exec(ctx, `INSERT INTO blocker_scans (status, checked, blocked, requested_at, finished_at)
+		VALUES ('completed', 10, 1, now() - interval '400 days', now() - interval '399 days')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = operations.SetCampaignState(ctx, campaign.ID, "running", nil, actor); !errors.Is(err, panelpg.ErrBlockerScanRequired) {
+		t.Fatalf("a send before the scan: %v", err)
+	}
+	if _, err = fixture.harness.pool.Exec(ctx, `INSERT INTO blocker_scans (status, checked, blocked, finished_at)
+		VALUES ('completed', 10, 1, now())`); err != nil {
+		t.Fatal(err)
 	}
 	if _, err = operations.SetCampaignState(ctx, campaign.ID, "running", nil, actor); err != nil {
 		t.Fatal(err)

@@ -148,6 +148,12 @@ func (handlers *AdminHandlers) setCampaignState(writer http.ResponseWriter, requ
 	if !decodeJSON(writer, request, &body) {
 		return
 	}
+	// Drafting and sending are separate decisions: starting or scheduling a
+	// broadcast needs marketing.send on top of the route's marketing.write.
+	if (body.State == "running" || body.State == "scheduled") &&
+		!handlers.allowed(writer, request, rbac.PermissionMarketingSend) {
+		return
+	}
 	campaign, err := handlers.operations.SetCampaignState(
 		request.Context(), chi.URLParam(request, "campaignID"),
 		body.State, body.ScheduledFor, actorFrom(request))

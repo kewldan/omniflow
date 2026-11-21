@@ -189,7 +189,7 @@ function CampaignCard({ editable }: { editable: boolean }) {
     "/v1/panel/marketing/templates",
     fetcher,
   );
-  const { run, pending } = useOperatorAction();
+  const { run, pending, error } = useOperatorAction();
 
   const [form, setForm] = useState({
     channel: "telegram",
@@ -473,6 +473,15 @@ function CampaignCard({ editable }: { editable: boolean }) {
             </TableBody>
           </Table>
         )}
+        {error ? (
+          <p className="text-destructive text-sm" role="alert">
+            {error.code === "blocker_scan_required"
+              ? translate("campaigns.blockerScanRequired")
+              : error.status === 403
+                ? translate("campaigns.sendForbidden")
+                : translate("campaigns.moveFailed")}
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   );

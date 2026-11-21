@@ -393,6 +393,26 @@ var campaignTransitions = map[string][]string{
 	"completed": {"running"},
 }
 
+// ErrBlockerScanRequired refuses the first Telegram send after a migration
+// until the bot has looked for customers who blocked it.
+//
+// A previous bot rarely records who blocked it, so a migrated base arrives
+// with its closed chats unknown. The first broadcast would then be sent into
+// them, count each as a failure, and trip any stop rule on the blocked share
+// for a reason that has nothing to do with the message. A completed scan after
+// the last import is what makes the estimate and the result honest.
+var ErrBlockerScanRequired = errors.New("a blocked-bot scan is required after the migration")
+
+// blockerScanPending reports whether a Bedolaga import finished after the last
+// completed blocked-bot scan, or with none at all.
+func (service *Service) blockerScanPending(ctx context.Context) (bool, error) {
+	var pending bool
+	err := service.pool.QueryRow(ctx, `SELECT EXISTS (
+			SELECT 1 FROM bedolaga_import_runs r WHERE r.status = 'completed' AND r.finished_at IS NOT NULL
+			AND NOT EXISTS (SELECT 1 FROM blocker_scans s WHERE s.status = 'completed' AND s.finished_at > r.finished_at))`).Scan(&pending)
+	return pending, err
+}
+
 // SetCampaignState moves a campaign, refusing a transition that is not allowed.
 func (service *Service) SetCampaignState(
 	ctx context.Context, campaignID, status string, scheduledFor *time.Time, actor Actor,
@@ -407,6 +427,22 @@ func (service *Service) SetCampaignState(
 	id, err := parseUUID(campaignID)
 	if err != nil {
 		return Campaign{}, err
+	}
+
+	if status == "running" || status == "scheduled" {
+		var channel string
+		if err = service.pool.QueryRow(ctx, `SELECT channel FROM campaigns WHERE id = $1`, id).Scan(&channel); err != nil {
+			return Campaign{}, notFound(err)
+		}
+		if channel == "telegram" {
+			pending, scanErr := service.blockerScanPending(ctx)
+			if scanErr != nil {
+				return Campaign{}, scanErr
+			}
+			if pending {
+				return Campaign{}, ErrBlockerScanRequired
+			}
+		}
 	}
 
 	var campaign Campaign

@@ -61,6 +61,9 @@ const (
 	// Campaigns, news, and referral programme configuration.
 	PermissionMarketingRead  Permission = "marketing.read"
 	PermissionMarketingWrite Permission = "marketing.write"
+	// Starting or scheduling a broadcast. Separate from marketing.write so a
+	// token or an operator can draft campaigns that only somebody else sends.
+	PermissionMarketingSend Permission = "marketing.send"
 
 	// Installation settings, including authentication policy and OIDC.
 	PermissionSettingsRead  Permission = "settings.read"
@@ -113,7 +116,7 @@ var AllPermissions = []Permission{
 	PermissionFinanceRead, PermissionFinanceWrite,
 	PermissionCatalogRead, PermissionCatalogWrite,
 	PermissionSupportRead, PermissionSupportWrite,
-	PermissionMarketingRead, PermissionMarketingWrite,
+	PermissionMarketingRead, PermissionMarketingWrite, PermissionMarketingSend,
 	PermissionSettingsRead, PermissionSettingsWrite,
 	PermissionSystemRead, PermissionSystemWrite,
 	PermissionRiskRead, PermissionRiskWrite,
@@ -182,7 +185,7 @@ var rolePermissions = map[Role][]Permission{
 		PermissionFinanceRead, PermissionFinanceWrite,
 		PermissionCatalogRead, PermissionCatalogWrite,
 		PermissionSupportRead, PermissionSupportWrite,
-		PermissionMarketingRead, PermissionMarketingWrite,
+		PermissionMarketingRead, PermissionMarketingWrite, PermissionMarketingSend,
 		PermissionSettingsRead, PermissionSettingsWrite,
 		PermissionSystemRead, PermissionSystemWrite,
 		PermissionRiskRead, PermissionRiskWrite,
@@ -221,7 +224,7 @@ var rolePermissions = map[Role][]Permission{
 		PermissionAuditRead,
 		PermissionCustomersRead,
 		PermissionCatalogRead,
-		PermissionMarketingRead, PermissionMarketingWrite,
+		PermissionMarketingRead, PermissionMarketingWrite, PermissionMarketingSend,
 	},
 
 	RoleAuditor: append(slices.Clone(readOnlyPermissions), PermissionAuditExport),

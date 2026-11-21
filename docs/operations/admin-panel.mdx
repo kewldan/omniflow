@@ -42,7 +42,7 @@ database records only which roles an operator holds.
 | `administrator` | All day-to-day operations and settings; cannot manage operator accounts |
 | `support` | Customers, subscriptions, and the support desk; reads risk, gifts, and the shop |
 | `finance` | Orders, payments, refunds, wallet adjustments, and audit export; revokes and refunds unredeemed gifts |
-| `marketing` | Campaigns, news, referral configuration, and personal offers |
+| `marketing` | Campaigns, news, referral configuration, and personal offers; starts broadcasts (`marketing.send`, which the administrator holds too) |
 | `auditor` | Read-only across every surface, plus audit export (not the customer export) |
 
 Only an owner may create or invite an operator, change role grants, or grant

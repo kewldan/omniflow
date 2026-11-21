@@ -139,7 +139,7 @@ API **требует** `APP_OPERATOR_TOKEN`, чтобы вообще собра�
 | `GET /reports/customer-payments` (`since`, `until`, `currency`, `format=csv`) | `finance.read` |
 | `GET /marketing/segments`, `GET /marketing/templates`, `GET /marketing/campaigns` | `marketing.read` |
 | `POST /marketing/audience/preview` — `{"filters": {…}}` | `marketing.read` |
-| `PUT /marketing/segments`, `POST /marketing/campaigns`, `POST /marketing/campaigns/{campaignID}/state` | `marketing.write` |
+| `PUT /marketing/segments`, `POST /marketing/campaigns`, `POST /marketing/campaigns/{campaignID}/state` | `marketing.write`; запуск или планирование — ещё `marketing.send` |
 | `GET /bulk`, `GET /bulk/{operationID}/items` | `customers.read` |
 | `POST /bulk`, `POST /bulk/{operationID}/start`, `POST /bulk/{operationID}/cancel` | `customers.write` |
 
@@ -158,6 +158,10 @@ API **требует** `APP_OPERATOR_TOKEN`, чтобы вообще собра�
   период, по строке на клиента и валюту: платежи Omniflow и предыдущего бота
   отдельно, а также первый и последний платёж за всё время — из этого строятся
   когорты и доля повторных оплат. Не больше 100000 строк.
+
+Токен, который готовит рассылки на одобрение владельца, получает `marketing.read` и
+`marketing.write` без `marketing.send`: он создаёт черновик кампании и может приостановить или
+отменить её, а запуск или планирование отвечает `403 forbidden`.
 
 Черновики ответов на тикеты без отправки — это токен поддержки с `support.read`
 и `support.write`: читать с `updatedSince`, класть черновик внутренней заметкой.

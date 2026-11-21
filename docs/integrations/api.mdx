@@ -138,7 +138,7 @@ maker's name as well as in the token's log.
 | `GET /reports/customer-payments` (`since`, `until`, `currency`, `format=csv`) | `finance.read` |
 | `GET /marketing/segments`, `GET /marketing/templates`, `GET /marketing/campaigns` | `marketing.read` |
 | `POST /marketing/audience/preview` — `{"filters": {…}}` | `marketing.read` |
-| `PUT /marketing/segments`, `POST /marketing/campaigns`, `POST /marketing/campaigns/{campaignID}/state` | `marketing.write` |
+| `PUT /marketing/segments`, `POST /marketing/campaigns`, `POST /marketing/campaigns/{campaignID}/state` | `marketing.write`; starting or scheduling also `marketing.send` |
 | `GET /bulk`, `GET /bulk/{operationID}/items` | `customers.read` |
 | `POST /bulk`, `POST /bulk/{operationID}/start`, `POST /bulk/{operationID}/cancel` | `customers.write` |
 
@@ -157,6 +157,10 @@ maker's name as well as in the token's log.
   one row per customer and currency: Omniflow's payments and a previous bot's
   apart, and the first and last payment ever — what a cohort or repeat-payment
   figure is built from. At most 100000 rows.
+
+A token that prepares broadcasts for the owner to approve gets `marketing.read` and
+`marketing.write` without `marketing.send`: it drafts a campaign and can pause or cancel one,
+and starting or scheduling it answers `403 forbidden`.
 
 Drafting answers to tickets without sending them is a support token with
 `support.read` and `support.write`: read with `updatedSince`, put the draft as an

@@ -484,6 +484,16 @@ step that changes something prints the command and waits for a typed phrase.
 8. **Worker.** Starts Omniflow's worker last; from now on Omniflow reconciles imported entitlements.
    After fifteen minutes, **/admin → System → Drift** should show nothing unexpected.
 
+### Before the first broadcast
+
+Bedolaga marks a user `blocked` only when one of its own broadcasts found the chat closed, and
+many installations never ran one, so `blockedUsers: bot_blocked` usually carries few closed chats.
+Run **Moderation → Scan now** once the final import is applied and let it finish: it asks Telegram
+about every customer and marks the chats that are closed, which the campaign estimate and the
+delivery passes then skip. Until a scan has completed after the last import, Omniflow refuses to
+start or schedule a Telegram campaign (`blocker_scan_required`), so the first broadcast's blocked
+share measures the message rather than the migration.
+
 ### Old buttons and old cabinet addresses
 
 Customers' chats keep the previous bot's messages with their inline buttons. A tap on one sends

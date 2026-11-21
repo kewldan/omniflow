@@ -273,6 +273,9 @@ func (handlers *AdminHandlers) operationsError(
 		writeProblem(writer, request, http.StatusNotFound, "not_found", "That record does not exist")
 	case errors.Is(err, panelpg.ErrConflict):
 		writeProblem(writer, request, http.StatusConflict, "conflict", "That record already exists")
+	case errors.Is(err, panelpg.ErrBlockerScanRequired):
+		writeProblem(writer, request, http.StatusConflict, "blocker_scan_required",
+			"Run Moderation → Scan now before the first Telegram broadcast after the migration")
 	case errors.Is(err, panelpg.ErrRejected):
 		writeProblem(
 			writer, request, http.StatusConflict,

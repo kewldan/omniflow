@@ -174,6 +174,21 @@ func TestScopedAPITokenPermissions(t *testing.T) {
 		t.Fatalf("the shared token names no operator: %d %s", code, body)
 	}
 
+	// A token that drafts campaigns cannot send them: starting or scheduling
+	// needs marketing.send. Pausing and cancelling stay marketing.write.
+	drafts, err := panel.CreateAPIToken(ctx, "drafts", []string{"marketing.read", "marketing.write"}, false, actor)
+	if err != nil {
+		t.Fatal(err)
+	}
+	campaignID := seedCampaign(ctx, t, harness, panel, actor)
+	state := "/v1/admin/marketing/campaigns/" + campaignID + "/state"
+	if code, body := call(http.MethodPost, state, drafts.Token, `{"state":"running"}`); code != http.StatusForbidden {
+		t.Fatalf("a drafts token started a campaign: %d %s", code, body)
+	}
+	if code, body := call(http.MethodPost, state, drafts.Token, `{"state":"cancelled"}`); code != http.StatusOK {
+		t.Fatalf("a drafts token cancels a draft: %d %s", code, body)
+	}
+
 	// The MCP server: the same token, the same permissions, read-only tools.
 	code, body := call(http.MethodPost, "/v1/mcp", scoped.Token, `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`)
 	if code != http.StatusOK || !strings.Contains(body, "support_tickets_search") || !strings.Contains(body, "sales_report") ||
