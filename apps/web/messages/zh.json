@@ -1236,7 +1236,8 @@
       "tabs": {
         "orders": "订单",
         "stuck": "卡住的付款",
-        "charges": "失败的扣款"
+        "charges": "失败的扣款",
+        "bedolaga": "旧机器人"
       },
       "filters": {
         "state": "状态",
@@ -1266,7 +1267,9 @@
         "stuck": "没有卡住的付款",
         "stuckDescription": "所有进行中的付款都仍在预期时间范围内。",
         "charges": "没有失败的扣款",
-        "chargesDescription": "近期所有自动续费均已成功。"
+        "chargesDescription": "近期所有自动续费均已成功。",
+        "bedolaga": "没有旧机器人的付款",
+        "bedolagaDescription": "在旧机器人中创建、迁移后才支付的付款会显示在这里：已记入其指定的客户，或因无法匹配而等待你处理。"
       },
       "funding": {
         "wallet": "钱包",
@@ -1311,7 +1314,22 @@
         "reconciled": "已对账"
       },
       "openOrder": "打开订单",
-      "copyId": "订单 ID"
+      "copyId": "订单 ID",
+      "bedolaga": {
+        "status": {
+          "credited": "已入账",
+          "needs_review": "需要审核",
+          "resolved": "已关闭"
+        },
+        "reason": {
+          "guest_purchase": "落地页购买或礼物",
+          "customer_not_found": "客户未迁移",
+          "telegram_mismatch": "Telegram ID 不匹配",
+          "customer_inactive": "账户已关闭"
+        },
+        "note": "处理方式",
+        "resolve": "关闭"
+      }
     },
     "reports": {
       "title": "销售",

@@ -429,6 +429,7 @@ type Querier interface {
 	CreateWalletTopup(ctx context.Context, arg CreateWalletTopupParams) (WalletTopup, error)
 	CreateWebhookEndpoint(ctx context.Context, arg CreateWebhookEndpointParams) (WebhookEndpoint, error)
 	CreditWalletTopup(ctx context.Context, arg CreditWalletTopupParams) (WalletTopup, error)
+	CustomerForTelegramSubject(ctx context.Context, subject string) (pgtype.UUID, error)
 	CustomerHoldsSquad(ctx context.Context, arg CustomerHoldsSquadParams) (bool, error)
 	CustomerLastActivity(ctx context.Context, userID pgtype.UUID) (pgtype.Timestamptz, error)
 	// The metric a standing is evaluated on, computed from facts Omniflow already
@@ -446,6 +447,8 @@ type Querier interface {
 	// A customer who re-issued their own link has just seen the result; the
 	// panel's echo of it is not news to them.
 	CustomerRotatedLinkRecently(ctx context.Context, userID pgtype.UUID) (bool, error)
+	CustomerStatus(ctx context.Context, userID pgtype.UUID) (string, error)
+	CustomerTelegramSubjects(ctx context.Context, userID pgtype.UUID) ([]string, error)
 	// Resolves Remnawave user identifiers back to Omniflow customers for the traffic
 	// report.
 	//
@@ -950,12 +953,17 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	GrantAdminRole(ctx context.Context, arg GrantAdminRoleParams) error
 	GrantChannelExemption(ctx context.Context, arg GrantChannelExemptionParams) (ChannelExemption, error)
+	// The customer a Bedolaga user became, followed through a merge.
+	ImportedCustomerForBedolagaUser(ctx context.Context, sourceID int64) (pgtype.UUID, error)
 	InsertAccessCode(ctx context.Context, arg InsertAccessCodeParams) error
 	InsertAdminRecoveryCode(ctx context.Context, arg InsertAdminRecoveryCodeParams) error
 	// The single writer for the audit trail. `category` and `outcome` are the two
 	// axes the admin panel filters and exports on, so every caller classifies its
 	// event rather than letting it fall into an untyped bucket.
 	InsertAuditEvent(ctx context.Context, arg InsertAuditEventParams) (AuditEvent, error)
+	// First write wins: a notification delivered twice records the payment once,
+	// and the second caller learns it was already handled.
+	InsertBedolagaPaymentClaim(ctx context.Context, arg InsertBedolagaPaymentClaimParams) (BedolagaPaymentClaim, error)
 	InsertBlocklistEntry(ctx context.Context, arg InsertBlocklistEntryParams) error
 	InsertBulkOperationItem(ctx context.Context, arg InsertBulkOperationItemParams) error
 	InsertConsentRecord(ctx context.Context, arg InsertConsentRecordParams) (ConsentRecord, error)
@@ -1054,6 +1062,13 @@ type Querier interface {
 	// The traffic the subscription's latest settled subscription order bought,
 	// which an automatic renewal repeats when the version still sells it.
 	LastOrderTraffic(ctx context.Context, subscriptionID pgtype.UUID) (pgtype.Int4, error)
+	// ---------------------------------------------------------------------------
+	// Payments the previous bot opened that settled after the cutover
+	// ---------------------------------------------------------------------------
+	// When the last successful apply run finished. A previous bot's payment is
+	// looked at only within a window after it: long after the migration, a
+	// notification for a payment nobody here opened is not a late Bedolaga one.
+	LatestBedolagaImport(ctx context.Context) (pgtype.Timestamptz, error)
 	LatestBlockerScan(ctx context.Context) (BlockerScan, error)
 	// The plan version an operator means when they pick a plan by name.
 	LatestLivePlanVersion(ctx context.Context, planID pgtype.UUID) (LatestLivePlanVersionRow, error)
@@ -1185,6 +1200,7 @@ type Querier interface {
 	// payments taken since.
 	ListBedolagaLegacyPayments(ctx context.Context) ([]ListBedolagaLegacyPaymentsRow, error)
 	ListBedolagaLegacyPeriods(ctx context.Context) ([]ListBedolagaLegacyPeriodsRow, error)
+	ListBedolagaPaymentClaims(ctx context.Context, arg ListBedolagaPaymentClaimsParams) ([]BedolagaPaymentClaim, error)
 	ListBedolagaReferralAliases(ctx context.Context) ([]ListBedolagaReferralAliasesRow, error)
 	ListBlocklistMatchesForCustomer(ctx context.Context, userID pgtype.UUID) ([]ListBlocklistMatchesForCustomerRow, error)
 	// The Telegram identifiers a blocklist screen checks, one page of customers at a
@@ -1691,6 +1707,11 @@ type Querier interface {
 	// refunded the delivery a moment earlier makes this match nothing — and the
 	// adapter, told the marker did not commit, sends nothing.
 	MarkGoodsDeliveryBroadcasting(ctx context.Context, arg MarkGoodsDeliveryBroadcastingParams) (GoodsDelivery, error)
+	// A customer Bedolaga marked blocked, carried under the bot_blocked policy:
+	// every delivery pass skips a blocked chat, so the first broadcast after the
+	// migration does not go into chats that are closed. The bot clears it the
+	// moment the customer writes to it again.
+	MarkImportedBotBlocked(ctx context.Context, userID pgtype.UUID) error
 	MarkLoyaltyRecalculated(ctx context.Context, arg MarkLoyaltyRecalculatedParams) error
 	// The predicate makes a replayed settlement match nothing, so a credit line is
 	// posted once.
@@ -2061,6 +2082,7 @@ type Querier interface {
 	ResolveAPIToken(ctx context.Context, tokenHash []byte) (ResolveAPITokenRow, error)
 	ResolveAllAppErrors(ctx context.Context) (int64, error)
 	ResolveAppError(ctx context.Context, errorID pgtype.UUID) (AppError, error)
+	ResolveBedolagaPaymentClaim(ctx context.Context, arg ResolveBedolagaPaymentClaimParams) (BedolagaPaymentClaim, error)
 	ResolveCampaignRecipient(ctx context.Context, arg ResolveCampaignRecipientParams) error
 	// Moderation: bans by list, the bot-blocker scan, and cleaning blockers up.
 	ResolveCustomerByTelegramID(ctx context.Context, telegramID int64) (pgtype.UUID, error)

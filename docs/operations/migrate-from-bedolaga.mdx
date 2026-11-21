@@ -53,14 +53,14 @@ cutover.
 | `users` row | `users` | Status, locale (`ru` or `en`; anything else becomes `ru`), and the original `created_at` |
 | `users.telegram_id`, `username`, `first_name`, `last_name` | `identities` | An active, verified `telegram` identity; the names go in its `metadata` as `username`, `firstName`, `lastName` |
 | `users.email` when `email_verified` | `contact_channels` | Kind `email`, sealed with `APP_DATA_ENCRYPTION_KEY`, verified, transactional on, marketing off. An unverified address is not carried |
-| `users.status = 'blocked'` | `users.status = 'suspended'` | Only when the mapping says `blockedUsers: suspend`; a `suspended` lifecycle event records why |
+| `users.status = 'blocked'` | `users.status = 'suspended'`, or `active` with the bot marked blocked | `blockedUsers: suspend` suspends with a lifecycle event saying why; `blockedUsers: bot_blocked` keeps the customer active and writes `bot_delivery_state` as `blocked`, see [the mapping file](#the-mapping-file) |
 | `users.balance_kopeks` | `ledger_transactions` + `ledger_entries` | One audited wallet adjustment per customer, see [below](#balances) |
 | `users.remnawave_id`, or the first active subscription's panel user | `remnawave_users` | The customer-level mapping the bot reads |
 | Active `subscriptions` row | `subscriptions` + `orders` + `order_lines` + `entitlements` | See [subscriptions](#subscriptions) |
 | Expired `subscriptions` row whose panel user still exists | `subscriptions` | Linked to that panel user, no entitlement |
 | Any subscription, ended or not, or `has_had_paid_subscription` | `trial_claims` | The customer's one trial is spent, see [history](#history-trials-periods-and-payments) |
 | Every `subscriptions` row except `pending` | `legacy_subscription_periods` | Start, end, and the trial flag, so segments find customers whose subscription ran out before the migration |
-| Completed `transactions` of type `deposit`, completed `subscription_payment` paid through a provider, and gifts bought through a provider (`guest_purchases`) | `legacy_payments` | Amount, date, and method, so segments, loyalty, and reports count what customers paid before the migration |
+| Completed `transactions` of type `subscription_payment` and `gift_payment`, and gifts bought through a provider (`guest_purchases`) | `legacy_payments` | Amount, date, and method, so segments, loyalty, and reports count what customers spent on VPN before the migration |
 | Last use of a `discount` promo code, last claimed discount offer (`discount_offers`) | `legacy_customer_discounts` | The date a promotion's [`discountCooldownDays`](/commerce/catalog-promotions#eligibility) reads |
 | `users.referral_code` | `referral_code_aliases` | Upper-cased beside the new Omniflow code, so invite links already handed out keep attributing; see [referrals](#referrals) |
 | `users.referred_by_id` | `referral_attributions` | Same referrer; qualified when the referee had paid, see [referrals](#referrals) |
@@ -130,19 +130,20 @@ about thousands of trials taken today.
 is gone. A subscription still running also became an entitlement; the period sits beside it. A
 repeated run before the cutover moves a period's dates when Bedolaga renewed or cut the subscription.
 
-**Payments.** Bedolaga sells most things from the balance, so the moment money usually arrived is a
-completed top-up: a `transactions` row of type `deposit` with `is_completed`. Two kinds of payment
-bypass the balance and are carried too: a completed `subscription_payment` whose `payment_method` is
-a provider (a landing-page purchase; one paid from the `balance` is not money arriving), and a gift
-bought in the web cabinet through a provider (a `guest_purchases` row with `is_gift`, a buyer, and
-`paid_at`, stored under the source `bedolaga_gift`). Each becomes a row of `legacy_payments` with its
-amount in kopeks, its date (`completed_at`, or `created_at` where Bedolaga did not record one; a
-gift's `paid_at`), and `payment_method`. Stars shop orders are paid from the balance and so are
-already counted through the top-ups. A deposit with no method is the bot's own credit and is
-never carried; the methods in the mapping's `excludedPaymentMethods` — `manual` and `balance` unless
-you say otherwise — are left out too, and the plan counts what each excluded method removed. Check
-the plan's "completed deposits by method" against that list before applying. A payment is carried
-once: a repeated run writes only the top-ups taken since.
+**Payments.** The history is what customers spent on VPN, not what they paid into the balance: in
+the Omniflow fork of Bedolaga the balance also buys Telegram Stars, so a top-up (`deposit`) says
+nothing about where the money went. What is carried is every completed VPN purchase: a
+`subscription_payment` — a subscription, renewal, or add-on, from the balance or through a provider
+on a landing page — a `gift_payment`, a gift paid from the balance, and a gift bought in the web
+cabinet through a provider (a `guest_purchases` row with `is_gift`, a buyer, and `paid_at`, stored
+under the source `bedolaga_gift`, because no transaction records it). Stars purchases
+(`stars_payment`) are not. Each becomes a row of `legacy_payments` with its amount in kopeks (Bedolaga
+writes some purchases as negative debits; the absolute amount is carried), its date (`completed_at`,
+or `created_at` where Bedolaga did not record one; a gift's `paid_at`), and `payment_method`. A
+zero-amount purchase is an operator's tariff switch and is not carried. The mapping's
+`excludedPaymentMethods` leaves out purchases by the methods it lists (nothing by default), and the
+plan counts what each excluded method removed. A payment is carried once: a repeated run writes
+only the purchases made since.
 
 **Last discount.** For each customer the importer takes the latest moment Bedolaga gave them a
 one-off discount — a use of a promo code of type `discount`, or a discount offer they claimed with a
@@ -168,7 +169,7 @@ for them, and Omniflow's own sales figures do not include them. What reads them:
 | Segment filters `minimumSpendMinor`, `inactiveForDays`, `activeWithinDays` | Carried payments as spend and as activity |
 | Segment filter `trial` | A carried trial period as a trial had |
 | [Loyalty](/commerce/referrals-loyalty) | Carried payments in the programme's currency and window as spend and as orders; the first carried period as the start of tenure |
-| [Sales report](/operations/sales-reporting) | Carried payments as earlier payments for returning payers, and the previous bot's takings in the period apart from the sales |
+| [Sales report](/operations/sales-reporting) | Carried payments as earlier payments for returning payers, and what customers spent on VPN in the previous bot in the period, apart from the sales |
 
 ### Referrals
 
@@ -245,7 +246,7 @@ so a typo cannot silently leave a tariff unmapped.
 
 ```yaml
 currency: RUB
-blockedUsers: suspend          # or: active. Required when Bedolaga has blocked users
+blockedUsers: bot_blocked      # or: suspend, active. Required when Bedolaga has blocked users
 walletReason: "Balance carried over from the previous bot"
 plans:
   - tariffId: 1
@@ -257,20 +258,32 @@ plans:
     planVersionId: 9a40…       # every trial
   - noTariff: true
     planVersionId: 77f2…       # subscriptions sold without a tariff
-excludedPaymentMethods: [manual, balance]   # the default; top-ups by these are not payment history
+excludedPaymentMethods: []    # the default; purchases by listed methods are not payment history
 ```
 
 More specific rules win: a tariff with `periodDays` over the tariff alone, a tariff rule over a
 tariff-less trial rule. `periodDays` matches a subscription whose start-to-end length rounds to that
 many days. `plan` lists every Omniflow plan version you can name and every tariff still unmapped.
 
-`excludedPaymentMethods` lists the Bedolaga payment methods whose completed top-ups are not money a
-customer paid in. Left out, it is `[manual, balance]`; an empty list `[]` carries every top-up that
-names a method. Methods are matched without regard to case.
+`excludedPaymentMethods` lists the Bedolaga payment methods whose purchases are not carried as VPN
+spend. Left out, nothing is excluded: a purchase from the `balance` is VPN spend like one through a
+provider, and a purchase with no method on record is always carried. Methods are matched without
+regard to case.
 
 `blockedUsers` has no default on purpose. Bedolaga writes `blocked` both when an operator bans
 somebody and when a broadcast finds that the customer blocked the bot; the data cannot tell the two
-apart, so until you choose, every blocked user is the conflict `blocked_policy_missing`.
+apart, so until you choose, every blocked user is the conflict `blocked_policy_missing`. The three
+policies:
+
+| Policy | The customer arrives | Use it when |
+| --- | --- | --- |
+| `bot_blocked` | Active, with `bot_delivery_state` set to `blocked` (`bot_blocked`) | Most blocked users are customers who blocked the bot. Every delivery pass skips them, so the first broadcast does not go into closed chats and its blocked share is not inflated; the bot clears the state the moment they write to it again. A user without a Telegram ID is just active |
+| `suspend` | Suspended, with a lifecycle event | Most blocked users were banned by an operator |
+| `active` | Active, as if never blocked | You will re-check them yourself |
+
+`bot_blocked` does not switch anyone's subscription off. That happens only if you also turn on
+**Settings → Marketing → disable subscriptions of customers who blocked the bot**, which is off by
+default.
 
 ## Environment variables, Bedolaga → Omniflow
 
@@ -430,6 +443,30 @@ step that changes something prints the command and waits for a typed phrase.
    set the script checks one before and after.
 8. **Worker.** Starts Omniflow's worker last; from now on Omniflow reconciles imported entitlements.
    After fifteen minutes, **/admin → System → Drift** should show nothing unexpected.
+
+### Payments in flight at the cutover
+
+A customer who opened a payment in Bedolaga a minute before step 2 and pays a minute after sends
+the provider's notification to Omniflow, which never opened that payment. For YooKassa — the
+previous bot's revenue — Omniflow does not refuse it. When the notification's metadata has
+Bedolaga's shape (a `user_id`, or a guest `purchase_token`) and the last successful import run
+finished less than 30 days ago, Omniflow fetches the payment through YooKassa's authenticated API and
+acts on that answer, never on the notification:
+
+- **A customer the import carried over** — the metadata's `user_id` is a Bedolaga user (or, in older
+  payments, a Telegram ID), the `user_telegram_id` matches, and the account is open — is credited the
+  amount to their wallet, the way Bedolaga would have topped up the balance. The wallet entry is an
+  audited credit referenced `bedolaga-yookassa:<payment ID>` and is made once however often the
+  notification arrives.
+- **Anything else** — a landing or gift purchase, a user the import did not carry, a Telegram ID
+  that does not match, a closed account — is queued, not dropped.
+
+Either way the operator group's top-up topic gets a notice with the YooKassa payment ID, and the
+payment appears in **/admin → Finance → Previous bot**. A queued payment stays there until an operator
+deals with it — credits the right customer from their card, or refunds it in the YooKassa dashboard —
+and resolves it with a note (`finance.write`). A payment that is not paid yet is ignored until its
+`succeeded` notification arrives. Other providers' late payments are still refused; check their
+dashboards for payments made in the first hours after the cutover.
 
 A renewal made in Bedolaga between an earlier run and the final one is picked up by the final run:
 an imported entitlement that Omniflow has not acted on yet moves to the new end date, and a balance

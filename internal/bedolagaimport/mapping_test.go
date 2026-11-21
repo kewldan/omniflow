@@ -114,7 +114,7 @@ func TestExampleMappingParses(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the example mapping does not parse: %v", err)
 	}
-	if !mapping.PaymentMethodExcluded("manual") || mapping.PaymentMethodExcluded("yookassa") {
-		t.Fatalf("example excludedPaymentMethods: %v", mapping.ExcludedPaymentMethods)
+	if mapping.PaymentMethodExcluded("balance") || mapping.PaymentMethodExcluded("yookassa") {
+		t.Fatalf("the example carries every VPN purchase: %v", mapping.ExcludedPaymentMethods)
 	}
 }

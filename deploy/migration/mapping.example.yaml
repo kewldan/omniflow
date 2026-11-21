@@ -31,9 +31,9 @@ plans:
   # - noTariff: true
   #   planVersionId: 00000000-0000-0000-0000-000000000000
 
-# Completed top-ups by these Bedolaga payment methods are not money a customer
-# paid in, so they are not carried as payment history. A top-up with no method
-# is never carried. Check the plan's "completed deposits by method" line
-# against this list before applying. Left out, it is [manual, balance];
-# [] carries every top-up that names a method.
-excludedPaymentMethods: [manual, balance]
+# Payment history is what customers spent on VPN: subscription purchases and
+# gifts, from the balance or through a provider. Purchases by the methods
+# listed here are left out of it; a purchase with no method on record is
+# always carried. Left out, nothing is excluded. Check the plan's "Payments"
+# line before applying.
+excludedPaymentMethods: []

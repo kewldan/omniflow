@@ -562,6 +562,9 @@ var notificationFields = []string{
 	"fromTier", "toTier",
 	// Self-employed receipts.
 	"receiptUrl",
+	// A previous bot's payment that settled after the migration: the
+	// provider's own payment ID, to look it up in the provider's dashboard.
+	"providerReference",
 }
 
 // MaintenanceChanged posts an incident notice whenever maintenance mode moves.

@@ -2003,6 +2003,51 @@ func (e PanelBatchCodeStatus) Valid() bool {
 	}
 }
 
+// Defines values for PanelBedolagaPaymentReason.
+const (
+	PanelBedolagaPaymentReasonCustomerInactive PanelBedolagaPaymentReason = "customer_inactive"
+	PanelBedolagaPaymentReasonCustomerNotFound PanelBedolagaPaymentReason = "customer_not_found"
+	PanelBedolagaPaymentReasonGuestPurchase    PanelBedolagaPaymentReason = "guest_purchase"
+	PanelBedolagaPaymentReasonTelegramMismatch PanelBedolagaPaymentReason = "telegram_mismatch"
+)
+
+// Valid indicates whether the value is a known member of the PanelBedolagaPaymentReason enum.
+func (e PanelBedolagaPaymentReason) Valid() bool {
+	switch e {
+	case PanelBedolagaPaymentReasonCustomerInactive:
+		return true
+	case PanelBedolagaPaymentReasonCustomerNotFound:
+		return true
+	case PanelBedolagaPaymentReasonGuestPurchase:
+		return true
+	case PanelBedolagaPaymentReasonTelegramMismatch:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelBedolagaPaymentStatus.
+const (
+	PanelBedolagaPaymentStatusCredited    PanelBedolagaPaymentStatus = "credited"
+	PanelBedolagaPaymentStatusNeedsReview PanelBedolagaPaymentStatus = "needs_review"
+	PanelBedolagaPaymentStatusResolved    PanelBedolagaPaymentStatus = "resolved"
+)
+
+// Valid indicates whether the value is a known member of the PanelBedolagaPaymentStatus enum.
+func (e PanelBedolagaPaymentStatus) Valid() bool {
+	switch e {
+	case PanelBedolagaPaymentStatusCredited:
+		return true
+	case PanelBedolagaPaymentStatusNeedsReview:
+		return true
+	case PanelBedolagaPaymentStatusResolved:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PanelBlocklistMatchStatus.
 const (
 	PanelBlocklistMatchStatusAllowed  PanelBlocklistMatchStatus = "allowed"
@@ -5342,6 +5387,27 @@ func (e SetPanelCustomerStatusJSONBodyStatus) Valid() bool {
 	}
 }
 
+// Defines values for ListPanelBedolagaPaymentsParamsStatus.
+const (
+	ListPanelBedolagaPaymentsParamsStatusCredited    ListPanelBedolagaPaymentsParamsStatus = "credited"
+	ListPanelBedolagaPaymentsParamsStatusNeedsReview ListPanelBedolagaPaymentsParamsStatus = "needs_review"
+	ListPanelBedolagaPaymentsParamsStatusResolved    ListPanelBedolagaPaymentsParamsStatus = "resolved"
+)
+
+// Valid indicates whether the value is a known member of the ListPanelBedolagaPaymentsParamsStatus enum.
+func (e ListPanelBedolagaPaymentsParamsStatus) Valid() bool {
+	switch e {
+	case ListPanelBedolagaPaymentsParamsStatusCredited:
+		return true
+	case ListPanelBedolagaPaymentsParamsStatusNeedsReview:
+		return true
+	case ListPanelBedolagaPaymentsParamsStatusResolved:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SearchPanelGiftsParamsKind.
 const (
 	SearchPanelGiftsParamsKindAddon        SearchPanelGiftsParamsKind = "addon"
@@ -8086,6 +8152,38 @@ type PanelBatchCodeStatus string
 // PanelBatchCodeList defines model for PanelBatchCodeList.
 type PanelBatchCodeList struct {
 	Items []PanelBatchCode `json:"items"`
+}
+
+// PanelBedolagaPayment defines model for PanelBedolagaPayment.
+type PanelBedolagaPayment struct {
+	AmountMinor    int64               `json:"amountMinor"`
+	BedolagaUserId *int64              `json:"bedolagaUserId,omitempty"`
+	CreatedAt      time.Time           `json:"createdAt"`
+	Currency       string              `json:"currency"`
+	CustomerId     *openapi_types.UUID `json:"customerId,omitempty"`
+	Id             openapi_types.UUID  `json:"id"`
+
+	// PaymentType What the previous bot said the payment was for.
+	PaymentType *string `json:"paymentType,omitempty"`
+	Provider    string  `json:"provider"`
+
+	// ProviderReference The provider's own payment ID.
+	ProviderReference string                      `json:"providerReference"`
+	Reason            *PanelBedolagaPaymentReason `json:"reason,omitempty"`
+	ResolutionNote    *string                     `json:"resolutionNote,omitempty"`
+	ResolvedAt        *time.Time                  `json:"resolvedAt,omitempty"`
+	Status            PanelBedolagaPaymentStatus  `json:"status"`
+}
+
+// PanelBedolagaPaymentReason defines model for PanelBedolagaPayment.Reason.
+type PanelBedolagaPaymentReason string
+
+// PanelBedolagaPaymentStatus defines model for PanelBedolagaPayment.Status.
+type PanelBedolagaPaymentStatus string
+
+// PanelBedolagaPaymentList defines model for PanelBedolagaPaymentList.
+type PanelBedolagaPaymentList struct {
+	Items []PanelBedolagaPayment `json:"items"`
 }
 
 // PanelBlocklistMatch defines model for PanelBlocklistMatch.
@@ -12573,6 +12671,20 @@ type ListPanelCustomerWalletParams struct {
 	PageSize *PageSize `form:"pageSize,omitempty" json:"pageSize,omitempty"`
 }
 
+// ListPanelBedolagaPaymentsParams defines parameters for ListPanelBedolagaPayments.
+type ListPanelBedolagaPaymentsParams struct {
+	Status   *ListPanelBedolagaPaymentsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+	PageSize *PageSize                              `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+}
+
+// ListPanelBedolagaPaymentsParamsStatus defines parameters for ListPanelBedolagaPayments.
+type ListPanelBedolagaPaymentsParamsStatus string
+
+// ResolvePanelBedolagaPaymentJSONBody defines parameters for ResolvePanelBedolagaPayment.
+type ResolvePanelBedolagaPaymentJSONBody struct {
+	Note string `json:"note"`
+}
+
 // ExportPanelFinanceParams defines parameters for ExportPanelFinance.
 type ExportPanelFinanceParams struct {
 	State *string    `form:"state,omitempty" json:"state,omitempty"`
@@ -13681,6 +13793,9 @@ type RenamePanelSubscriptionJSONRequestBody RenamePanelSubscriptionJSONBody
 
 // GrantPanelSquadAccessJSONRequestBody defines body for GrantPanelSquadAccess for application/json ContentType.
 type GrantPanelSquadAccessJSONRequestBody GrantPanelSquadAccessJSONBody
+
+// ResolvePanelBedolagaPaymentJSONRequestBody defines body for ResolvePanelBedolagaPayment for application/json ContentType.
+type ResolvePanelBedolagaPaymentJSONRequestBody ResolvePanelBedolagaPaymentJSONBody
 
 // RecordPanelRefundJSONRequestBody defines body for RecordPanelRefund for application/json ContentType.
 type RecordPanelRefundJSONRequestBody = PanelRefundRecord
@@ -14811,6 +14926,12 @@ type ServerInterface interface {
 
 	// (GET /v1/panel/customers/{customerID}/wallet)
 	ListPanelCustomerWallet(w http.ResponseWriter, r *http.Request, customerID CustomerID, params ListPanelCustomerWalletParams)
+
+	// (GET /v1/panel/finance/bedolaga-payments)
+	ListPanelBedolagaPayments(w http.ResponseWriter, r *http.Request, params ListPanelBedolagaPaymentsParams)
+
+	// (POST /v1/panel/finance/bedolaga-payments/{claimID}/resolve)
+	ResolvePanelBedolagaPayment(w http.ResponseWriter, r *http.Request, claimID openapi_types.UUID)
 
 	// (GET /v1/panel/finance/export)
 	ExportPanelFinance(w http.ResponseWriter, r *http.Request, params ExportPanelFinanceParams)
@@ -16592,6 +16713,16 @@ func (_ Unimplemented) ListPanelCustomerTickets(w http.ResponseWriter, r *http.R
 
 // (GET /v1/panel/customers/{customerID}/wallet)
 func (_ Unimplemented) ListPanelCustomerWallet(w http.ResponseWriter, r *http.Request, customerID CustomerID, params ListPanelCustomerWalletParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/finance/bedolaga-payments)
+func (_ Unimplemented) ListPanelBedolagaPayments(w http.ResponseWriter, r *http.Request, params ListPanelBedolagaPaymentsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/finance/bedolaga-payments/{claimID}/resolve)
+func (_ Unimplemented) ResolvePanelBedolagaPayment(w http.ResponseWriter, r *http.Request, claimID openapi_types.UUID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -28534,6 +28665,78 @@ func (siw *ServerInterfaceWrapper) ListPanelCustomerWallet(w http.ResponseWriter
 	handler.ServeHTTP(w, r)
 }
 
+// ListPanelBedolagaPayments operation middleware
+func (siw *ServerInterfaceWrapper) ListPanelBedolagaPayments(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPanelBedolagaPaymentsParams
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "pageSize" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "pageSize", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "pageSize"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pageSize", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPanelBedolagaPayments(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ResolvePanelBedolagaPayment operation middleware
+func (siw *ServerInterfaceWrapper) ResolvePanelBedolagaPayment(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "claimID" -------------
+	var claimID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "claimID", chi.URLParam(r, "claimID"), &claimID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "claimID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ResolvePanelBedolagaPayment(w, r, claimID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ExportPanelFinance operation middleware
 func (siw *ServerInterfaceWrapper) ExportPanelFinance(w http.ResponseWriter, r *http.Request) {
 
@@ -35040,6 +35243,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/finance/failed-charges", wrapper.ListPanelFailedCharges)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/finance/bedolaga-payments", wrapper.ListPanelBedolagaPayments)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/finance/bedolaga-payments/{claimID}/resolve", wrapper.ResolvePanelBedolagaPayment)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/finance/export", wrapper.ExportPanelFinance)
@@ -48138,6 +48347,125 @@ func (response ListPanelCustomerWallet403ApplicationProblemPlusJSONResponse) Vis
 	return err
 }
 
+type ListPanelBedolagaPaymentsRequestObject struct {
+	Params ListPanelBedolagaPaymentsParams
+}
+
+type ListPanelBedolagaPaymentsResponseObject interface {
+	VisitListPanelBedolagaPaymentsResponse(w http.ResponseWriter) error
+}
+
+type ListPanelBedolagaPayments200JSONResponse PanelBedolagaPaymentList
+
+func (response ListPanelBedolagaPayments200JSONResponse) VisitListPanelBedolagaPaymentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelBedolagaPayments403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListPanelBedolagaPayments403ApplicationProblemPlusJSONResponse) VisitListPanelBedolagaPaymentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelBedolagaPayments422ApplicationProblemPlusJSONResponse Problem
+
+func (response ListPanelBedolagaPayments422ApplicationProblemPlusJSONResponse) VisitListPanelBedolagaPaymentsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ResolvePanelBedolagaPaymentRequestObject struct {
+	ClaimID openapi_types.UUID `json:"claimID"`
+	Body    *ResolvePanelBedolagaPaymentJSONRequestBody
+}
+
+type ResolvePanelBedolagaPaymentResponseObject interface {
+	VisitResolvePanelBedolagaPaymentResponse(w http.ResponseWriter) error
+}
+
+type ResolvePanelBedolagaPayment200JSONResponse PanelBedolagaPayment
+
+func (response ResolvePanelBedolagaPayment200JSONResponse) VisitResolvePanelBedolagaPaymentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ResolvePanelBedolagaPayment403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ResolvePanelBedolagaPayment403ApplicationProblemPlusJSONResponse) VisitResolvePanelBedolagaPaymentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ResolvePanelBedolagaPayment409ApplicationProblemPlusJSONResponse Problem
+
+func (response ResolvePanelBedolagaPayment409ApplicationProblemPlusJSONResponse) VisitResolvePanelBedolagaPaymentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ResolvePanelBedolagaPayment422ApplicationProblemPlusJSONResponse Problem
+
+func (response ResolvePanelBedolagaPayment422ApplicationProblemPlusJSONResponse) VisitResolvePanelBedolagaPaymentResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ExportPanelFinanceRequestObject struct {
 	Params ExportPanelFinanceParams
 }
@@ -55477,6 +55805,12 @@ type StrictServerInterface interface {
 
 	// (GET /v1/panel/customers/{customerID}/wallet)
 	ListPanelCustomerWallet(ctx context.Context, request ListPanelCustomerWalletRequestObject) (ListPanelCustomerWalletResponseObject, error)
+
+	// (GET /v1/panel/finance/bedolaga-payments)
+	ListPanelBedolagaPayments(ctx context.Context, request ListPanelBedolagaPaymentsRequestObject) (ListPanelBedolagaPaymentsResponseObject, error)
+
+	// (POST /v1/panel/finance/bedolaga-payments/{claimID}/resolve)
+	ResolvePanelBedolagaPayment(ctx context.Context, request ResolvePanelBedolagaPaymentRequestObject) (ResolvePanelBedolagaPaymentResponseObject, error)
 
 	// (GET /v1/panel/finance/export)
 	ExportPanelFinance(ctx context.Context, request ExportPanelFinanceRequestObject) (ExportPanelFinanceResponseObject, error)
@@ -63783,6 +64117,65 @@ func (sh *strictHandler) ListPanelCustomerWallet(w http.ResponseWriter, r *http.
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListPanelCustomerWalletResponseObject); ok {
 		if err := validResponse.VisitListPanelCustomerWalletResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPanelBedolagaPayments operation middleware
+func (sh *strictHandler) ListPanelBedolagaPayments(w http.ResponseWriter, r *http.Request, params ListPanelBedolagaPaymentsParams) {
+	var request ListPanelBedolagaPaymentsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPanelBedolagaPayments(ctx, request.(ListPanelBedolagaPaymentsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPanelBedolagaPayments")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPanelBedolagaPaymentsResponseObject); ok {
+		if err := validResponse.VisitListPanelBedolagaPaymentsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ResolvePanelBedolagaPayment operation middleware
+func (sh *strictHandler) ResolvePanelBedolagaPayment(w http.ResponseWriter, r *http.Request, claimID openapi_types.UUID) {
+	var request ResolvePanelBedolagaPaymentRequestObject
+
+	request.ClaimID = claimID
+
+	var body ResolvePanelBedolagaPaymentJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ResolvePanelBedolagaPayment(ctx, request.(ResolvePanelBedolagaPaymentRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ResolvePanelBedolagaPayment")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ResolvePanelBedolagaPaymentResponseObject); ok {
+		if err := validResponse.VisitResolvePanelBedolagaPaymentResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

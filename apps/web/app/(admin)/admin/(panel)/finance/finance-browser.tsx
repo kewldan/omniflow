@@ -97,6 +97,7 @@ export function FinanceBrowser() {
           <TabsTrigger value="orders">{translate("tabs.orders")}</TabsTrigger>
           <TabsTrigger value="stuck">{translate("tabs.stuck")}</TabsTrigger>
           <TabsTrigger value="charges">{translate("tabs.charges")}</TabsTrigger>
+          <TabsTrigger value="bedolaga">{translate("tabs.bedolaga")}</TabsTrigger>
         </TabsList>
         <TabsContent value="orders">
           <OrderSearch />
@@ -106,6 +107,9 @@ export function FinanceBrowser() {
         </TabsContent>
         <TabsContent value="charges">
           <FailedCharges active={tab === "charges"} />
+        </TabsContent>
+        <TabsContent value="bedolaga">
+          <BedolagaPayments active={tab === "bedolaga"} />
         </TabsContent>
       </Tabs>
     </div>
@@ -429,6 +433,163 @@ function ReconcilePayment({ intentId, onDone }: { intentId: string; onDone: () =
     >
       {translate("detail.reconcile")}
     </Button>
+  );
+}
+
+type BedolagaPayment = {
+  id: string;
+  provider: string;
+  providerReference: string;
+  bedolagaUserId?: number;
+  customerId?: string;
+  amountMinor: number;
+  currency: string;
+  paymentType?: string;
+  status: "credited" | "needs_review" | "resolved";
+  reason?: string;
+  createdAt: string;
+  resolutionNote?: string;
+};
+
+/**
+ * Payments the previous bot opened that settled after the migration.
+ *
+ * A customer who started a top-up in Bedolaga and paid after the cutover is
+ * credited automatically to the customer the payment named. The ones that
+ * could not be attributed wait here, oldest decision first, until an operator
+ * deals with them — credits the right customer from their card, or refunds the
+ * payment in the provider's dashboard — and resolves them with a note.
+ */
+function BedolagaPayments({ active }: { active: boolean }) {
+  const translate = useTranslations("admin.finance");
+  const locale = useLocale();
+  const { can } = useSession();
+  const { data, isLoading, mutate } = useSWR<Listing<BedolagaPayment>, ApiError>(
+    active ? "/v1/panel/finance/bedolaga-payments" : null,
+    fetcher,
+  );
+
+  if (isLoading) {
+    return <Skeleton className="h-32 w-full" />;
+  }
+  const items = data?.items ?? [];
+  if (items.length === 0) {
+    return (
+      <StateNotice
+        description={translate("empty.bedolagaDescription")}
+        title={translate("empty.bedolaga")}
+        variant="empty"
+      />
+    );
+  }
+
+  return (
+    <Card className="overflow-x-auto">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>{translate("columns.createdAt")}</TableHead>
+            <TableHead>{translate("columns.provider")}</TableHead>
+            <TableHead>{translate("columns.amount")}</TableHead>
+            <TableHead>{translate("columns.state")}</TableHead>
+            <TableHead>{translate("columns.customer")}</TableHead>
+            <TableHead />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items.map((claim) => (
+            <TableRow key={claim.id}>
+              <TableCell className="whitespace-nowrap font-mono text-[11px]" data-numeric>
+                <Timestamp value={claim.createdAt} />
+              </TableCell>
+              <TableCell>
+                {claim.provider}
+                <div className="font-mono text-[11px] text-muted-foreground">
+                  {claim.providerReference}
+                </div>
+              </TableCell>
+              <TableCell data-numeric>
+                {formatMoney(claim.amountMinor, claim.currency, locale)}
+              </TableCell>
+              <TableCell>
+                <Badge
+                  variant={
+                    claim.status === "needs_review"
+                      ? "warning"
+                      : claim.status === "credited"
+                        ? "success"
+                        : "neutral"
+                  }
+                >
+                  {translate(`bedolaga.status.${claim.status}`)}
+                </Badge>
+                {claim.reason && (
+                  <div className="text-muted-foreground text-xs">
+                    {translate(`bedolaga.reason.${claim.reason}`)}
+                  </div>
+                )}
+                {claim.resolutionNote && (
+                  <div className="text-muted-foreground text-xs">{claim.resolutionNote}</div>
+                )}
+              </TableCell>
+              <TableCell className="font-mono text-[11px]">
+                {claim.customerId ? (
+                  <Link
+                    className="underline-offset-2 hover:underline"
+                    href={`/admin/customers/${claim.customerId}`}
+                  >
+                    {claim.customerId.slice(0, 8)}
+                  </Link>
+                ) : claim.bedolagaUserId ? (
+                  `Bedolaga #${claim.bedolagaUserId}`
+                ) : (
+                  "—"
+                )}
+              </TableCell>
+              <TableCell>
+                {claim.status === "needs_review" && can("finance.write") && (
+                  <ResolveBedolagaPayment claimId={claim.id} onDone={() => mutate()} />
+                )}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </Card>
+  );
+}
+
+function ResolveBedolagaPayment({ claimId, onDone }: { claimId: string; onDone: () => void }) {
+  const translate = useTranslations("admin.finance");
+  const { run, pending } = useOperatorAction();
+  const [note, setNote] = useState("");
+  return (
+    <form
+      className="flex items-center gap-2"
+      onSubmit={async (event) => {
+        event.preventDefault();
+        const ok = await run(`/v1/panel/finance/bedolaga-payments/${claimId}/resolve`, {
+          body: { note: note.trim() },
+          method: "POST",
+        });
+        if (ok) {
+          setNote("");
+          onDone();
+        }
+      }}
+    >
+      <Input
+        aria-label={translate("bedolaga.note")}
+        className="h-8 w-56"
+        maxLength={500}
+        onChange={(event) => setNote(event.target.value)}
+        placeholder={translate("bedolaga.note")}
+        value={note}
+      />
+      <Button disabled={pending || !note.trim()} size="sm" type="submit" variant="outline">
+        {translate("bedolaga.resolve")}
+      </Button>
+    </form>
   );
 }
 

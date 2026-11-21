@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -86,6 +87,29 @@ type yooPayment struct {
 	// PaymentID is set on a refund object: the payment it returned money
 	// from. A refund notification is routed to that payment.
 	PaymentID string `json:"payment_id"`
+	// Metadata is what the creator of the payment attached: `order_id` for an
+	// Omniflow payment, the previous bot's own keys for one it created.
+	Metadata map[string]any `json:"metadata"`
+}
+
+// stringMetadata flattens YooKassa metadata, whose values are strings in
+// practice but arrive as JSON values.
+func stringMetadata(raw map[string]any) map[string]string {
+	if len(raw) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(raw))
+	for key, value := range raw {
+		switch typed := value.(type) {
+		case string:
+			out[key] = typed
+		case float64:
+			out[key] = strconv.FormatFloat(typed, 'f', -1, 64)
+		case bool:
+			out[key] = strconv.FormatBool(typed)
+		}
+	}
+	return out
 }
 
 // yooPaymentMethod is the instrument a payment used. `saved` is true only when
@@ -217,7 +241,7 @@ func (provider *YooKassa) VerifyWebhook(_ http.Header, body []byte) (WebhookEven
 		// payment. The poll that follows reads the payment's refunded total.
 		reference = notification.Object.PaymentID
 	}
-	return WebhookEvent{ID: notification.Event + ":" + notification.Object.ID + ":" + hex.EncodeToString(digest[:8]), Type: notification.Event, ProviderReference: reference, Status: normalizeYooStatus(notification.Object.Status), Amount: commerce.Money{Amount: amount, Currency: notification.Object.Amount.Currency}, OccurredAt: provider.clock().UTC()}, nil
+	return WebhookEvent{ID: notification.Event + ":" + notification.Object.ID + ":" + hex.EncodeToString(digest[:8]), Type: notification.Event, ProviderReference: reference, Status: normalizeYooStatus(notification.Object.Status), Amount: commerce.Money{Amount: amount, Currency: notification.Object.Amount.Currency}, OccurredAt: provider.clock().UTC(), Metadata: stringMetadata(notification.Object.Metadata)}, nil
 }
 
 func (provider *YooKassa) do(ctx context.Context, method, path, idempotencyKey string, body, target any) error {
@@ -238,7 +262,7 @@ func (provider *YooKassa) intent(payment yooPayment) (Intent, error) {
 	if err != nil {
 		return Intent{}, err
 	}
-	intent := Intent{ProviderReference: payment.ID, Status: normalizeYooStatus(payment.Status), CheckoutURL: payment.Confirmation.URL, Amount: commerce.Money{Amount: amount, Currency: payment.Amount.Currency}}
+	intent := Intent{ProviderReference: payment.ID, Status: normalizeYooStatus(payment.Status), CheckoutURL: payment.Confirmation.URL, Amount: commerce.Money{Amount: amount, Currency: payment.Amount.Currency}, Metadata: stringMetadata(payment.Metadata)}
 	if payment.Test && !provider.testMode && intent.Status == "succeeded" {
 		// A payment made against a test shop moved no money. Outside test
 		// mode it is reported failed so it can never buy anything.

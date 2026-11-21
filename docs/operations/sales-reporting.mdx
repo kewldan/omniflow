@@ -37,7 +37,7 @@ month that had closed.
 | Section | What it answers |
 | --- | --- |
 | Trial conversion | Of the trials claimed in this period, how many of those customers have since paid for anything. |
-| Returning payers | Of the customers who paid in this period, how many had paid before it, and what a previous bot took in the period. |
+| Returning payers | Of the customers who paid in this period, how many had paid before it, and what customers spent on VPN in a previous bot in the period. |
 | By kind of sale | New purchases, automatic renewals, extensions, upgrades, downgrades, add-ons, wallet top-ups, gifts, and digital goods, per currency. |
 | By plan | Which plan version sold, at which billing period, and what it was worth at list price. |
 | Provider money by day | One chart per currency, with the same figures as a table beside it. |
@@ -52,12 +52,12 @@ month that had closed.
 </Note>
 
 **Returning payers** is the retention figure. A payment here is money arriving
-from outside: an order a provider settled for a non-zero amount, or a payment a
-previous bot took before a [migration](/operations/migrate-from-bedolaga#history-trials-periods-and-payments).
+from outside: an order a provider settled for a non-zero amount, or a VPN
+purchase a previous bot recorded before a [migration](/operations/migrate-from-bedolaga#history-trials-periods-and-payments).
 An order paid from the wallet is not one, because the top-up that funded the
 wallet already was. "Had paid before" counts any such payment before the period
 began, so the months right after a migration still tell a returning customer
-from a new one. What the previous bot took inside the period is shown on the
+from a new one. What customers spent on VPN in the previous bot inside the period is shown on the
 same card, per currency, and is never added to the sales figures: it is history
 to compare against, not revenue Omniflow settled.
 

@@ -4213,6 +4213,77 @@ export const ListPanelFailedChargesResponse = zod.object({
 });
 
 /**
+ * Requires finance.read. Payments the previous bot opened that settled after the migration: credited to the customer their metadata named, or queued for an operator because they could not be attributed.
+ */
+export const listPanelBedolagaPaymentsQueryPageSizeDefault = 100;
+export const listPanelBedolagaPaymentsQueryPageSizeMax = 500;
+
+export const ListPanelBedolagaPaymentsQueryParams = zod.object({
+  status: zod.enum(["credited", "needs_review", "resolved"]).optional(),
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(listPanelBedolagaPaymentsQueryPageSizeMax)
+    .default(listPanelBedolagaPaymentsQueryPageSizeDefault),
+});
+
+export const ListPanelBedolagaPaymentsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      provider: zod.string(),
+      providerReference: zod.string().describe("The provider's own payment ID."),
+      bedolagaUserId: zod.int().optional(),
+      customerId: zod.uuid().optional(),
+      amountMinor: zod.int(),
+      currency: zod.string(),
+      paymentType: zod
+        .string()
+        .optional()
+        .describe("What the previous bot said the payment was for."),
+      status: zod.enum(["credited", "needs_review", "resolved"]),
+      reason: zod
+        .enum(["guest_purchase", "customer_not_found", "telegram_mismatch", "customer_inactive"])
+        .optional(),
+      createdAt: zod.iso.datetime({ offset: true }),
+      resolvedAt: zod.iso.datetime({ offset: true }).optional(),
+      resolutionNote: zod.string().optional(),
+    }),
+  ),
+});
+
+/**
+ * Requires finance.write. Closes a queued payment with a note saying how it was dealt with. Only a queued payment can be resolved.
+ */
+export const ResolvePanelBedolagaPaymentParams = zod.object({
+  claimID: zod.uuid(),
+});
+
+export const resolvePanelBedolagaPaymentBodyNoteMax = 500;
+
+export const ResolvePanelBedolagaPaymentBody = zod.object({
+  note: zod.string().min(1).max(resolvePanelBedolagaPaymentBodyNoteMax),
+});
+
+export const ResolvePanelBedolagaPaymentResponse = zod.object({
+  id: zod.uuid(),
+  provider: zod.string(),
+  providerReference: zod.string().describe("The provider's own payment ID."),
+  bedolagaUserId: zod.int().optional(),
+  customerId: zod.uuid().optional(),
+  amountMinor: zod.int(),
+  currency: zod.string(),
+  paymentType: zod.string().optional().describe("What the previous bot said the payment was for."),
+  status: zod.enum(["credited", "needs_review", "resolved"]),
+  reason: zod
+    .enum(["guest_purchase", "customer_not_found", "telegram_mismatch", "customer_inactive"])
+    .optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+  resolvedAt: zod.iso.datetime({ offset: true }).optional(),
+  resolutionNote: zod.string().optional(),
+});
+
+/**
  * Requires finance.read. Streams the filtered orders as CSV. The schema is stable — a later version appends a column and never inserts one. Amounts are integers in the currency's minor unit and every timestamp is UTC.
  */
 export const ExportPanelFinanceQueryParams = zod.object({

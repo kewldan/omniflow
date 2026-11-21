@@ -1287,6 +1287,33 @@ CREATE TABLE public.bedolaga_import_runs (
 
 
 --
+-- Name: bedolaga_payment_claims; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.bedolaga_payment_claims (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    provider text NOT NULL,
+    provider_reference text NOT NULL,
+    bedolaga_user_id bigint,
+    user_id uuid,
+    amount_minor bigint NOT NULL,
+    currency text NOT NULL,
+    payment_type text DEFAULT ''::text NOT NULL,
+    status text NOT NULL,
+    reason text DEFAULT ''::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    resolved_at timestamp with time zone,
+    resolved_by uuid,
+    resolution_note text,
+    CONSTRAINT bedolaga_payment_claims_amount_nonnegative CHECK ((amount_minor >= 0)),
+    CONSTRAINT bedolaga_payment_claims_credited_customer CHECK (((status <> 'credited'::text) OR (user_id IS NOT NULL))),
+    CONSTRAINT bedolaga_payment_claims_currency_code CHECK ((currency ~ '^[A-Z]{3}$'::text)),
+    CONSTRAINT bedolaga_payment_claims_resolution CHECK ((((status = 'resolved'::text) = (resolved_at IS NOT NULL)) AND ((resolution_note IS NULL) OR (char_length(resolution_note) <= 500)))),
+    CONSTRAINT bedolaga_payment_claims_status_known CHECK ((status = ANY (ARRAY['credited'::text, 'needs_review'::text, 'resolved'::text])))
+);
+
+
+--
 -- Name: blocked_bot_disables; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -6075,6 +6102,22 @@ ALTER TABLE ONLY public.bedolaga_import_runs
 
 
 --
+-- Name: bedolaga_payment_claims bedolaga_payment_claims_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bedolaga_payment_claims
+    ADD CONSTRAINT bedolaga_payment_claims_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: bedolaga_payment_claims bedolaga_payment_claims_provider_payment; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bedolaga_payment_claims
+    ADD CONSTRAINT bedolaga_payment_claims_provider_payment UNIQUE (provider, provider_reference);
+
+
+--
 -- Name: blocked_bot_disables blocked_bot_disables_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8394,6 +8437,13 @@ CREATE INDEX bedolaga_import_items_user_idx ON public.bedolaga_import_items USIN
 
 
 --
+-- Name: bedolaga_payment_claims_review_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX bedolaga_payment_claims_review_idx ON public.bedolaga_payment_claims USING btree (created_at) WHERE (status = 'needs_review'::text);
+
+
+--
 -- Name: blocked_bot_disables_open_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -10039,6 +10089,22 @@ ALTER TABLE ONLY public.bedolaga_import_items
 
 ALTER TABLE ONLY public.bedolaga_import_items
     ADD CONSTRAINT bedolaga_import_items_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id);
+
+
+--
+-- Name: bedolaga_payment_claims bedolaga_payment_claims_resolved_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bedolaga_payment_claims
+    ADD CONSTRAINT bedolaga_payment_claims_resolved_by_fkey FOREIGN KEY (resolved_by) REFERENCES public.admin_users(id);
+
+
+--
+-- Name: bedolaga_payment_claims bedolaga_payment_claims_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.bedolaga_payment_claims
+    ADD CONSTRAINT bedolaga_payment_claims_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE SET NULL;
 
 
 --

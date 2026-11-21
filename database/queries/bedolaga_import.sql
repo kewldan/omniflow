@@ -222,6 +222,15 @@ VALUES (
 ON CONFLICT (referred_user_id) DO NOTHING
 RETURNING *;
 
+-- name: MarkImportedBotBlocked :exec
+-- A customer Bedolaga marked blocked, carried under the bot_blocked policy:
+-- every delivery pass skips a blocked chat, so the first broadcast after the
+-- migration does not go into chats that are closed. The bot clears it the
+-- moment the customer writes to it again.
+INSERT INTO bot_delivery_state (user_id, status, last_error_code, consecutive_failures)
+VALUES (sqlc.arg(user_id), 'blocked', 'bot_blocked', 0)
+ON CONFLICT (user_id) DO NOTHING;
+
 -- name: InsertImportedTrialClaim :execrows
 -- The trial a customer already had, or could no longer have had, in the
 -- previous bot. It is dated when that happened rather than now, so trial
@@ -292,3 +301,60 @@ SELECT i.source_id, i.user_id, a.referrer_user_id
 FROM bedolaga_import_items i
 LEFT JOIN referral_attributions a ON a.referred_user_id = i.user_id
 WHERE i.kind = 'referral' AND i.status = 'applied';
+
+-- ---------------------------------------------------------------------------
+-- Payments the previous bot opened that settled after the cutover
+-- ---------------------------------------------------------------------------
+
+-- name: LatestBedolagaImport :one
+-- When the last successful apply run finished. A previous bot's payment is
+-- looked at only within a window after it: long after the migration, a
+-- notification for a payment nobody here opened is not a late Bedolaga one.
+SELECT COALESCE(max(finished_at), 'epoch'::timestamptz)::timestamptz AS finished_at
+FROM bedolaga_import_runs WHERE status = 'completed';
+
+-- name: ImportedCustomerForBedolagaUser :one
+-- The customer a Bedolaga user became, followed through a merge.
+SELECT COALESCE(u.merged_into, u.id) AS user_id
+FROM bedolaga_import_items i
+JOIN users u ON u.id = i.user_id
+WHERE i.kind = 'user' AND i.status = 'applied' AND i.source_id = sqlc.arg(source_id);
+
+-- name: CustomerForTelegramSubject :one
+SELECT user_id FROM identities
+WHERE provider = 'telegram' AND status = 'active' AND provider_subject = sqlc.arg(subject)
+LIMIT 1;
+
+-- name: CustomerTelegramSubjects :many
+SELECT provider_subject FROM identities
+WHERE user_id = sqlc.arg(user_id) AND provider = 'telegram' AND status = 'active';
+
+-- name: CustomerStatus :one
+SELECT status FROM users WHERE id = sqlc.arg(user_id);
+
+-- name: InsertBedolagaPaymentClaim :one
+-- First write wins: a notification delivered twice records the payment once,
+-- and the second caller learns it was already handled.
+INSERT INTO bedolaga_payment_claims (
+  provider, provider_reference, bedolaga_user_id, user_id, amount_minor,
+  currency, payment_type, status, reason
+) VALUES (
+  sqlc.arg(provider), sqlc.arg(provider_reference), sqlc.narg(bedolaga_user_id),
+  sqlc.narg(user_id), sqlc.arg(amount_minor), sqlc.arg(currency),
+  sqlc.arg(payment_type), sqlc.arg(status), sqlc.arg(reason)
+)
+ON CONFLICT (provider, provider_reference) DO NOTHING
+RETURNING *;
+
+-- name: ListBedolagaPaymentClaims :many
+SELECT * FROM bedolaga_payment_claims
+WHERE (sqlc.arg(status)::text = '' OR status = sqlc.arg(status)::text)
+ORDER BY created_at DESC
+LIMIT sqlc.arg(page_size);
+
+-- name: ResolveBedolagaPaymentClaim :one
+UPDATE bedolaga_payment_claims
+SET status = 'resolved', resolved_at = now(), resolved_by = sqlc.arg(resolved_by),
+    resolution_note = sqlc.arg(note)
+WHERE id = sqlc.arg(claim_id) AND status = 'needs_review'
+RETURNING *;

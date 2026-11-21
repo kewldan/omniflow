@@ -42,6 +42,55 @@ func (q *Queries) CreateBedolagaImportRun(ctx context.Context, actor string) (Be
 	return i, err
 }
 
+const customerForTelegramSubject = `-- name: CustomerForTelegramSubject :one
+SELECT user_id FROM identities
+WHERE provider = 'telegram' AND status = 'active' AND provider_subject = $1
+LIMIT 1
+`
+
+func (q *Queries) CustomerForTelegramSubject(ctx context.Context, subject string) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, customerForTelegramSubject, subject)
+	var user_id pgtype.UUID
+	err := row.Scan(&user_id)
+	return user_id, err
+}
+
+const customerStatus = `-- name: CustomerStatus :one
+SELECT status FROM users WHERE id = $1
+`
+
+func (q *Queries) CustomerStatus(ctx context.Context, userID pgtype.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, customerStatus, userID)
+	var status string
+	err := row.Scan(&status)
+	return status, err
+}
+
+const customerTelegramSubjects = `-- name: CustomerTelegramSubjects :many
+SELECT provider_subject FROM identities
+WHERE user_id = $1 AND provider = 'telegram' AND status = 'active'
+`
+
+func (q *Queries) CustomerTelegramSubjects(ctx context.Context, userID pgtype.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, customerTelegramSubjects, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var provider_subject string
+		if err := rows.Scan(&provider_subject); err != nil {
+			return nil, err
+		}
+		items = append(items, provider_subject)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const finishBedolagaImportRun = `-- name: FinishBedolagaImportRun :one
 UPDATE bedolaga_import_runs
 SET status = $1, report = $2, finished_at = now()
@@ -65,6 +114,80 @@ func (q *Queries) FinishBedolagaImportRun(ctx context.Context, arg FinishBedolag
 		&i.Report,
 		&i.StartedAt,
 		&i.FinishedAt,
+	)
+	return i, err
+}
+
+const importedCustomerForBedolagaUser = `-- name: ImportedCustomerForBedolagaUser :one
+SELECT COALESCE(u.merged_into, u.id) AS user_id
+FROM bedolaga_import_items i
+JOIN users u ON u.id = i.user_id
+WHERE i.kind = 'user' AND i.status = 'applied' AND i.source_id = $1
+`
+
+// The customer a Bedolaga user became, followed through a merge.
+func (q *Queries) ImportedCustomerForBedolagaUser(ctx context.Context, sourceID int64) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, importedCustomerForBedolagaUser, sourceID)
+	var user_id pgtype.UUID
+	err := row.Scan(&user_id)
+	return user_id, err
+}
+
+const insertBedolagaPaymentClaim = `-- name: InsertBedolagaPaymentClaim :one
+INSERT INTO bedolaga_payment_claims (
+  provider, provider_reference, bedolaga_user_id, user_id, amount_minor,
+  currency, payment_type, status, reason
+) VALUES (
+  $1, $2, $3,
+  $4, $5, $6,
+  $7, $8, $9
+)
+ON CONFLICT (provider, provider_reference) DO NOTHING
+RETURNING id, provider, provider_reference, bedolaga_user_id, user_id, amount_minor, currency, payment_type, status, reason, created_at, resolved_at, resolved_by, resolution_note
+`
+
+type InsertBedolagaPaymentClaimParams struct {
+	Provider          string      `json:"provider"`
+	ProviderReference string      `json:"provider_reference"`
+	BedolagaUserID    pgtype.Int8 `json:"bedolaga_user_id"`
+	UserID            pgtype.UUID `json:"user_id"`
+	AmountMinor       int64       `json:"amount_minor"`
+	Currency          string      `json:"currency"`
+	PaymentType       string      `json:"payment_type"`
+	Status            string      `json:"status"`
+	Reason            string      `json:"reason"`
+}
+
+// First write wins: a notification delivered twice records the payment once,
+// and the second caller learns it was already handled.
+func (q *Queries) InsertBedolagaPaymentClaim(ctx context.Context, arg InsertBedolagaPaymentClaimParams) (BedolagaPaymentClaim, error) {
+	row := q.db.QueryRow(ctx, insertBedolagaPaymentClaim,
+		arg.Provider,
+		arg.ProviderReference,
+		arg.BedolagaUserID,
+		arg.UserID,
+		arg.AmountMinor,
+		arg.Currency,
+		arg.PaymentType,
+		arg.Status,
+		arg.Reason,
+	)
+	var i BedolagaPaymentClaim
+	err := row.Scan(
+		&i.ID,
+		&i.Provider,
+		&i.ProviderReference,
+		&i.BedolagaUserID,
+		&i.UserID,
+		&i.AmountMinor,
+		&i.Currency,
+		&i.PaymentType,
+		&i.Status,
+		&i.Reason,
+		&i.CreatedAt,
+		&i.ResolvedAt,
+		&i.ResolvedBy,
+		&i.ResolutionNote,
 	)
 	return i, err
 }
@@ -455,6 +578,25 @@ func (q *Queries) InsertReferralAlias(ctx context.Context, arg InsertReferralAli
 	return result.RowsAffected(), nil
 }
 
+const latestBedolagaImport = `-- name: LatestBedolagaImport :one
+
+SELECT COALESCE(max(finished_at), 'epoch'::timestamptz)::timestamptz AS finished_at
+FROM bedolaga_import_runs WHERE status = 'completed'
+`
+
+// ---------------------------------------------------------------------------
+// Payments the previous bot opened that settled after the cutover
+// ---------------------------------------------------------------------------
+// When the last successful apply run finished. A previous bot's payment is
+// looked at only within a window after it: long after the migration, a
+// notification for a payment nobody here opened is not a late Bedolaga one.
+func (q *Queries) LatestBedolagaImport(ctx context.Context) (pgtype.Timestamptz, error) {
+	row := q.db.QueryRow(ctx, latestBedolagaImport)
+	var finished_at pgtype.Timestamptz
+	err := row.Scan(&finished_at)
+	return finished_at, err
+}
+
 const listBedolagaImportItems = `-- name: ListBedolagaImportItems :many
 SELECT kind, source_id, status, codes, user_id, subscription_id, entitlement_id, fingerprint, last_run_id, created_at, updated_at, applied_at FROM bedolaga_import_items ORDER BY kind, source_id
 `
@@ -582,6 +724,53 @@ func (q *Queries) ListBedolagaLegacyPeriods(ctx context.Context) ([]ListBedolaga
 			&i.IsTrial,
 			&i.StartsAt,
 			&i.EndsAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listBedolagaPaymentClaims = `-- name: ListBedolagaPaymentClaims :many
+SELECT id, provider, provider_reference, bedolaga_user_id, user_id, amount_minor, currency, payment_type, status, reason, created_at, resolved_at, resolved_by, resolution_note FROM bedolaga_payment_claims
+WHERE ($1::text = '' OR status = $1::text)
+ORDER BY created_at DESC
+LIMIT $2
+`
+
+type ListBedolagaPaymentClaimsParams struct {
+	Status   string `json:"status"`
+	PageSize int32  `json:"page_size"`
+}
+
+func (q *Queries) ListBedolagaPaymentClaims(ctx context.Context, arg ListBedolagaPaymentClaimsParams) ([]BedolagaPaymentClaim, error) {
+	rows, err := q.db.Query(ctx, listBedolagaPaymentClaims, arg.Status, arg.PageSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []BedolagaPaymentClaim{}
+	for rows.Next() {
+		var i BedolagaPaymentClaim
+		if err := rows.Scan(
+			&i.ID,
+			&i.Provider,
+			&i.ProviderReference,
+			&i.BedolagaUserID,
+			&i.UserID,
+			&i.AmountMinor,
+			&i.Currency,
+			&i.PaymentType,
+			&i.Status,
+			&i.Reason,
+			&i.CreatedAt,
+			&i.ResolvedAt,
+			&i.ResolvedBy,
+			&i.ResolutionNote,
 		); err != nil {
 			return nil, err
 		}
@@ -1001,6 +1190,21 @@ func (q *Queries) LockBedolagaImportItem(ctx context.Context, arg LockBedolagaIm
 	return i, err
 }
 
+const markImportedBotBlocked = `-- name: MarkImportedBotBlocked :exec
+INSERT INTO bot_delivery_state (user_id, status, last_error_code, consecutive_failures)
+VALUES ($1, 'blocked', 'bot_blocked', 0)
+ON CONFLICT (user_id) DO NOTHING
+`
+
+// A customer Bedolaga marked blocked, carried under the bot_blocked policy:
+// every delivery pass skips a blocked chat, so the first broadcast after the
+// migration does not go into chats that are closed. The bot clears it the
+// moment the customer writes to it again.
+func (q *Queries) MarkImportedBotBlocked(ctx context.Context, userID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, markImportedBotBlocked, userID)
+	return err
+}
+
 const refreshImportedEntitlement = `-- name: RefreshImportedEntitlement :one
 UPDATE entitlements
 SET status = $1, ends_at = $2,
@@ -1057,6 +1261,42 @@ func (q *Queries) RefreshImportedEntitlement(ctx context.Context, arg RefreshImp
 		&i.SubscriptionID,
 		&i.PausedAt,
 		&i.PausedSeconds,
+	)
+	return i, err
+}
+
+const resolveBedolagaPaymentClaim = `-- name: ResolveBedolagaPaymentClaim :one
+UPDATE bedolaga_payment_claims
+SET status = 'resolved', resolved_at = now(), resolved_by = $1,
+    resolution_note = $2
+WHERE id = $3 AND status = 'needs_review'
+RETURNING id, provider, provider_reference, bedolaga_user_id, user_id, amount_minor, currency, payment_type, status, reason, created_at, resolved_at, resolved_by, resolution_note
+`
+
+type ResolveBedolagaPaymentClaimParams struct {
+	ResolvedBy pgtype.UUID `json:"resolved_by"`
+	Note       pgtype.Text `json:"note"`
+	ClaimID    pgtype.UUID `json:"claim_id"`
+}
+
+func (q *Queries) ResolveBedolagaPaymentClaim(ctx context.Context, arg ResolveBedolagaPaymentClaimParams) (BedolagaPaymentClaim, error) {
+	row := q.db.QueryRow(ctx, resolveBedolagaPaymentClaim, arg.ResolvedBy, arg.Note, arg.ClaimID)
+	var i BedolagaPaymentClaim
+	err := row.Scan(
+		&i.ID,
+		&i.Provider,
+		&i.ProviderReference,
+		&i.BedolagaUserID,
+		&i.UserID,
+		&i.AmountMinor,
+		&i.Currency,
+		&i.PaymentType,
+		&i.Status,
+		&i.Reason,
+		&i.CreatedAt,
+		&i.ResolvedAt,
+		&i.ResolvedBy,
+		&i.ResolutionNote,
 	)
 	return i, err
 }

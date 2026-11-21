@@ -1241,7 +1241,8 @@
       "tabs": {
         "orders": "Orders",
         "stuck": "Stuck payments",
-        "charges": "Failed charges"
+        "charges": "Failed charges",
+        "bedolaga": "Previous bot"
       },
       "filters": {
         "state": "State",
@@ -1271,7 +1272,9 @@
         "stuck": "Nothing stuck",
         "stuckDescription": "Every payment in flight is still inside the expected window.",
         "charges": "No failed charges",
-        "chargesDescription": "Every automatic renewal in the recent history went through."
+        "chargesDescription": "Every automatic renewal in the recent history went through.",
+        "bedolaga": "No previous-bot payments",
+        "bedolagaDescription": "A payment opened in the previous bot that is paid after the migration appears here: credited to the customer it named, or waiting for you when it could not be attributed."
       },
       "funding": {
         "wallet": "Wallet",
@@ -1316,7 +1319,22 @@
         "reconciled": "Reconciled"
       },
       "openOrder": "Open the order",
-      "copyId": "order ID"
+      "copyId": "order ID",
+      "bedolaga": {
+        "status": {
+          "credited": "Credited",
+          "needs_review": "Needs review",
+          "resolved": "Resolved"
+        },
+        "reason": {
+          "guest_purchase": "Landing or gift purchase",
+          "customer_not_found": "No carried customer",
+          "telegram_mismatch": "Telegram ID does not match",
+          "customer_inactive": "Customer closed"
+        },
+        "note": "How it was handled",
+        "resolve": "Resolve"
+      }
     },
     "reports": {
       "title": "Sales",

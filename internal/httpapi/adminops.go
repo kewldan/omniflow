@@ -126,11 +126,13 @@ func (handlers *AdminHandlers) mountOperations(secure chi.Router) {
 		read.Get("/finance/orders/{orderID}", handlers.orderDetail)
 		read.Get("/finance/stuck-payments", handlers.stuckPayments)
 		read.Get("/finance/failed-charges", handlers.failedCharges)
+		read.Get("/finance/bedolaga-payments", handlers.bedolagaPayments)
 		read.Get("/finance/export", handlers.exportFinance)
 	})
 	secure.With(handlers.requirePermission(rbac.PermissionFinanceWrite)).Group(func(write chi.Router) {
 		write.Post("/finance/payments/{paymentIntentID}/reconcile", handlers.reconcilePayment)
 		write.Post("/finance/orders/{orderID}/refund", handlers.recordRefund)
+		write.Post("/finance/bedolaga-payments/{claimID}/resolve", handlers.resolveBedolagaPayment)
 	})
 
 	// -- Fulfillment and jobs -------------------------------------------------
@@ -908,6 +910,26 @@ func (handlers *AdminHandlers) reconcilePayment(writer http.ResponseWriter, requ
 		return
 	}
 	writer.WriteHeader(http.StatusAccepted)
+}
+
+// bedolagaPayments lists the previous bot's payments that settled after the
+// migration: credited automatically, or queued for an operator.
+func (handlers *AdminHandlers) bedolagaPayments(writer http.ResponseWriter, request *http.Request) {
+	items, err := handlers.operations.BedolagaPaymentClaims(request.Context(), query(request, "status"), queryInt(request, "pageSize"))
+	handlers.respond(writer, request, map[string]any{"items": items}, err)
+}
+
+func (handlers *AdminHandlers) resolveBedolagaPayment(writer http.ResponseWriter, request *http.Request) {
+	var body struct {
+		Note string `json:"note"`
+	}
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	claim, err := handlers.operations.ResolveBedolagaPaymentClaim(
+		request.Context(), chi.URLParam(request, "claimID"), body.Note, actorFrom(request),
+	)
+	handlers.respond(writer, request, claim, err)
 }
 
 func (handlers *AdminHandlers) recordRefund(writer http.ResponseWriter, request *http.Request) {

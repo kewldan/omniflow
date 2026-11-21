@@ -38,26 +38,30 @@ func TestBedolagaImportCarriesHistory(t *testing.T) {
 	paidEnd := now.AddDate(0, 0, -45)
 	fixture.exec(ctx, t, `INSERT INTO subscriptions (id, user_id, status, is_trial, tariff_id, start_date, end_date, created_at)
 		VALUES (31, 30, 'expired', false, $1, $2, $3, $2)`, fixture.tariffs["Безлимит"], paidEnd.AddDate(0, -1, 0), paidEnd)
-	// Her two payments, an operator's manual credit that is not one, and a
-	// top-up that never completed.
+	// Her VPN purchases: a month from the balance, written as a debit; a
+	// landing-page purchase through a provider; an older month from the
+	// balance. Not VPN spend: the top-up that funded the balance, Telegram
+	// Stars bought from it, an operator's free tariff switch, and a purchase
+	// that never completed.
 	fixture.exec(ctx, t, `INSERT INTO transactions (user_id, type, amount_kopeks, payment_method, is_completed, created_at, completed_at) VALUES
-		(30, 'deposit', 22900, 'yookassa', true, $1, $1),
-		(30, 'deposit', 22900, 'cryptobot', true, $2, NULL),
-		(30, 'deposit', 50000, 'manual', true, $2, NULL),
-		(30, 'deposit', 99900, 'yookassa', false, $2, NULL)`, paidEnd.AddDate(0, -1, 0), paidEnd.AddDate(0, 0, -40))
-
-	// A landing purchase paid through a provider, and one paid from the
-	// balance, which is not a payment of its own.
-	fixture.exec(ctx, t, `INSERT INTO transactions (user_id, type, amount_kopeks, payment_method, is_completed, created_at) VALUES
-		(30, 'subscription_payment', 19900, 'platega', true, $1),
-		(30, 'subscription_payment', 19900, 'balance', true, $1)`, paidEnd.AddDate(0, 0, -60))
+		(30, 'subscription_payment', -22900, 'balance', true, $1, $1),
+		(30, 'subscription_payment', 22900, 'yookassa', true, $2, NULL),
+		(30, 'subscription_payment', 19900, 'balance', true, $3, NULL),
+		(30, 'deposit', 120000, 'yookassa', true, $3, NULL),
+		(30, 'stars_payment', 50000, 'balance', true, $2, NULL),
+		(30, 'subscription_payment', 0, NULL, true, $2, NULL),
+		(30, 'subscription_payment', 99900, 'yookassa', false, $2, NULL)`,
+		paidEnd.AddDate(0, -1, 0), paidEnd.AddDate(0, 0, -40), paidEnd.AddDate(0, 0, -60))
 	// Gifts: one Hana bought through a provider that its recipient is still
-	// to claim, one she paid from the balance and was delivered.
+	// to claim, one she paid from the balance (a gift_payment) that was
+	// delivered.
 	fixture.exec(ctx, t, `INSERT INTO guest_purchases (token, contact_type, contact_value, is_gift, buyer_user_id,
 		period_days, amount_kopeks, payment_method, status, paid_at) VALUES
 		('g1', 'telegram', '@friend', true, 30, 30, 30000, 'yookassa', 'pending_activation', $1),
 		('g2', 'telegram', '@other', true, 30, 30, 30000, 'balance', 'delivered', $1),
 		('g3', 'telegram', '@nobody', true, NULL, 30, 30000, 'yookassa', 'pending', NULL)`, paidEnd)
+	fixture.exec(ctx, t, `INSERT INTO transactions (user_id, type, amount_kopeks, payment_method, is_completed, created_at)
+		VALUES (30, 'gift_payment', 30000, 'balance', true, $1)`, paidEnd)
 	// Her last discount: a discount code twenty days ago, after an older offer.
 	fixture.exec(ctx, t, `INSERT INTO promocodes (code, type) VALUES ('SALE20', 'discount'), ('BONUS', 'balance')`)
 	lastDiscount := now.AddDate(0, 0, -20)
@@ -68,7 +72,8 @@ func TestBedolagaImportCarriesHistory(t *testing.T) {
 		VALUES (30, 15, $1, $1)`, now.AddDate(0, -3, 0))
 
 	source := fixture.read(ctx, t)
-	if len(source.Payments) != 7 || len(source.Gifts) != 1 || len(source.Discounts) != 1 ||
+	// Alice's -5000 month and Hana's five purchases.
+	if len(source.Payments) != 6 || len(source.Gifts) != 1 || len(source.Discounts) != 1 ||
 		!source.Discounts[0].At.Equal(lastDiscount) {
 		t.Fatalf("read %d payments, %d unclaimed gifts, discounts %+v", len(source.Payments), len(source.Gifts), source.Discounts)
 	}
@@ -79,8 +84,8 @@ func TestBedolagaImportCarriesHistory(t *testing.T) {
 	if len(result.Failures) != 0 || result.Remaining != 0 {
 		t.Fatalf("apply: failures %+v, remaining %d", result.Failures, result.Remaining)
 	}
-	if result.Written["payment"] != 6 || result.Plan.Payments.Codes[bedolagaimport.CodePaymentMethodExcluded] != 1 ||
-		result.Plan.Payments.ByKind[bedolagaimport.PaymentGift] != 1 || result.Plan.Payments.ByKind[bedolagaimport.PaymentDirect] != 1 {
+	if result.Written["payment"] != 6 || result.Plan.Payments.ByKind[bedolagaimport.PaymentGift] != 1 ||
+		result.Plan.Payments.ByKind[bedolagaimport.PaymentGiftBalance] != 1 || result.Plan.Payments.ByKind[bedolagaimport.PaymentSubscription] != 4 {
 		t.Fatalf("payments: written %d, plan %+v", result.Written["payment"], result.Plan.Payments)
 	}
 	if result.Written["discount"] != 1 || result.Plan.Gifts.Unclaimed != 1 || result.Plan.Gifts.SumMinor != 30000 {
@@ -123,10 +128,10 @@ func TestBedolagaImportCarriesHistory(t *testing.T) {
 		t.Fatal("a customer whose Bedolaga trial expired cannot take another")
 	}
 
-	if fixture.count(ctx, t, `SELECT count(*) FROM legacy_payments WHERE user_id = $1::uuid`, hana) != 4 ||
+	if fixture.count(ctx, t, `SELECT count(*) FROM legacy_payments WHERE user_id = $1::uuid`, hana) != 5 ||
 		fixture.count(ctx, t, `SELECT count(*) FROM legacy_payments WHERE user_id = $1::uuid AND source = 'bedolaga_gift'`, hana) != 1 ||
 		fixture.count(ctx, t, `SELECT count(*) FROM legacy_subscription_periods WHERE user_id = $1::uuid AND ends_at < now()`, hana) != 2 {
-		t.Fatal("hana's top-ups, landing purchase, and gift are carried, and her two periods")
+		t.Fatal("hana's five VPN purchases are carried, and her two periods")
 	}
 
 	segment := func(filters map[string]any) map[string]bool {
@@ -163,7 +168,7 @@ func TestBedolagaImportCarriesHistory(t *testing.T) {
 	if segment(map[string]any{audience.FilterExpiredDaysAgo: map[string]any{"max": float64(14)}})[hana] {
 		t.Fatal("hana ended 45 days ago, outside the last fortnight")
 	}
-	if !segment(map[string]any{audience.FilterMinimumSpendMinor: float64(95700)})[hana] {
+	if !segment(map[string]any{audience.FilterMinimumSpendMinor: float64(125700)})[hana] {
 		t.Fatal("carried payments count as spend")
 	}
 	if !segment(map[string]any{audience.FilterInactiveForDays: float64(30)})[hana] ||
@@ -183,7 +188,7 @@ func TestBedolagaImportCarriesHistory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("loyalty metric: %v", err)
 	}
-	if metric.SpendMinor != 95700 || metric.OrderCount != 4 || metric.TenureDays < 364 {
+	if metric.SpendMinor != 125700 || metric.OrderCount != 5 || metric.TenureDays < 364 {
 		t.Fatalf("loyalty reads the carried history: %+v", metric)
 	}
 
@@ -215,9 +220,10 @@ func TestBedolagaImportCarriesHistory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("returning payers: %v", err)
 	}
-	// Alice and Frank topped up today in Bedolaga's fixture; Hana paid today
-	// in Omniflow after paying before. Only she was a payer before the window.
-	if payers.Payers != 3 || payers.Returning != 1 {
+	// Alice bought a month today in Bedolaga's fixture; Hana paid today in
+	// Omniflow after paying before. Only she was a payer before the window,
+	// and Frank's top-up is not a VPN purchase at all.
+	if payers.Payers != 2 || payers.Returning != 1 {
 		t.Fatalf("returning payers: %+v", payers)
 	}
 
@@ -253,5 +259,30 @@ func TestBedolagaImportCarriesHistory(t *testing.T) {
 	report, err := service.Verify(ctx, fixture.read(ctx, t), fixture.mapping)
 	if err != nil || !report.OK {
 		t.Fatalf("verify: %v %+v", err, report)
+	}
+}
+
+// Under the bot_blocked policy a Bedolaga `blocked` user arrives active with
+// the bot marked unreachable for them, so no delivery pass writes into the
+// closed chat and the first broadcast's blocked share is not inflated.
+func TestBedolagaBotBlockedPolicy(t *testing.T) {
+	fixture := newBedolagaFixture(t)
+	ctx := context.Background()
+	fixture.mapping.BlockedUsers = bedolagaimport.BlockedBotBlocked
+	result, err := fixture.service(t, nil).Apply(ctx, fixture.read(ctx, t), fixture.mapping, bedolagaimportpg.ApplyOptions{})
+	if err != nil || len(result.Failures) != 0 {
+		t.Fatalf("apply: %v %+v", err, result.Failures)
+	}
+	dave := fixture.customerOf(ctx, t, 4)
+	if fixture.count(ctx, t, `SELECT count(*) FROM users WHERE id = $1::uuid AND status = 'active'`, dave) != 1 ||
+		fixture.count(ctx, t, `SELECT count(*) FROM bot_delivery_state WHERE user_id = $1::uuid
+			AND status = 'blocked' AND last_error_code = 'bot_blocked'`, dave) != 1 {
+		t.Fatal("dave arrives active, with the bot marked blocked for him")
+	}
+	if fixture.count(ctx, t, `SELECT count(*) FROM bot_delivery_state WHERE status = 'blocked'`) != 1 {
+		t.Fatal("only the blocked user is marked")
+	}
+	if fixture.count(ctx, t, `SELECT count(*) FROM customer_lifecycle_events WHERE user_id = $1::uuid`, dave) != 0 {
+		t.Fatal("nobody was suspended")
 	}
 }

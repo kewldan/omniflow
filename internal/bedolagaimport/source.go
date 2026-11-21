@@ -67,25 +67,29 @@ type Subscription struct {
 	CreatedAt   time.Time
 }
 
-// Payment kinds: where in Bedolaga the money arrived.
+// Payment kinds: where in Bedolaga a VPN purchase is recorded.
+//
+// The history is what customers spent on VPN, not what they paid into the
+// balance. In the Omniflow fork of Bedolaga the balance also buys Telegram
+// Stars, so a top-up says nothing about whether the money went to VPN; the
+// purchase does. Stars purchases (`stars_payment`) are left out.
 const (
-	// PaymentTopUp is a completed `deposit` transaction: money paid into the
-	// balance, which everything bought in the bot is then paid from.
-	PaymentTopUp = "topup"
-	// PaymentDirect is a completed `subscription_payment` transaction paid
-	// through a provider rather than from the balance: a landing-page purchase.
-	PaymentDirect = "direct"
-	// PaymentGift is a gift bought in the web cabinet through a provider, a
-	// `guest_purchases` row the buyer paid for.
+	// PaymentSubscription is a completed `subscription_payment` transaction:
+	// a subscription, renewal, or add-on, paid from the balance or straight
+	// through a provider (a landing-page purchase).
+	PaymentSubscription = "subscription"
+	// PaymentGiftBalance is a completed `gift_payment` transaction: a VPN gift
+	// paid from the balance.
+	PaymentGiftBalance = "gift_balance"
+	// PaymentGift is a VPN gift bought in the web cabinet through a provider,
+	// a `guest_purchases` row the buyer paid for, which no transaction records.
 	PaymentGift = "gift"
 )
 
-// Payment is money a customer paid in, from one of the places Bedolaga
-// records it. A purchase paid from the balance is not one: the top-up that
-// funded the balance already was.
+// Payment is one VPN purchase, from one of the places Bedolaga records it.
 type Payment struct {
-	// Kind says which table ID belongs to: transactions for PaymentTopUp and
-	// PaymentDirect, guest_purchases for PaymentGift.
+	// Kind says which table ID belongs to: transactions for PaymentSubscription
+	// and PaymentGiftBalance, guest_purchases for PaymentGift.
 	Kind         string
 	ID           int64
 	UserID       int64

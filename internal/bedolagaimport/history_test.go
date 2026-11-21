@@ -137,22 +137,24 @@ func TestSubscriptionsBecomePeriods(t *testing.T) {
 	}
 }
 
-// Completed top-ups become payment history once each. A deposit with no
-// method, or an excluded one, is not money a customer paid in.
-func TestTopUpsBecomePaymentHistory(t *testing.T) {
+// VPN purchases become payment history once each, from the balance as well
+// as through a provider; a method the mapping excludes is left out.
+func TestPurchasesBecomePaymentHistory(t *testing.T) {
 	source, remote := fixtureSource()
 	paid := planNow.AddDate(0, -2, 0)
 	source.Payments = []Payment{
-		{ID: 1, UserID: 1, AmountKopeks: 22900, Method: "yookassa", PaidAt: paid},
-		{ID: 2, UserID: 1, AmountKopeks: 5000, Method: "Manual", PaidAt: paid},
-		{ID: 3, UserID: 2, AmountKopeks: 10000, Method: "", PaidAt: paid},
-		{ID: 4, UserID: 6, AmountKopeks: 10000, Method: "cryptobot", PaidAt: paid},
-		{ID: 5, UserID: 2, AmountKopeks: 0, Method: "cryptobot", PaidAt: paid},
-		{ID: 6, UserID: 2, AmountKopeks: 15000, Method: "telegram_stars", PaidAt: paid},
+		{Kind: PaymentSubscription, ID: 1, UserID: 1, AmountKopeks: 22900, Method: "yookassa", PaidAt: paid},
+		{Kind: PaymentSubscription, ID: 2, UserID: 1, AmountKopeks: 5000, Method: "Manual", PaidAt: paid},
+		{Kind: PaymentSubscription, ID: 3, UserID: 2, AmountKopeks: 10000, Method: "", PaidAt: paid},
+		{Kind: PaymentSubscription, ID: 4, UserID: 6, AmountKopeks: 10000, Method: "balance", PaidAt: paid},
+		{Kind: PaymentSubscription, ID: 5, UserID: 2, AmountKopeks: 0, Method: "balance", PaidAt: paid},
+		{Kind: PaymentGiftBalance, ID: 6, UserID: 2, AmountKopeks: 15000, Method: "balance", PaidAt: paid},
 	}
-	plan := BuildPlan(source, remote, fixtureTarget(), fixtureMapping(), planNow)
+	mapping := fixtureMapping()
+	mapping.ExcludedPaymentMethods = []string{"manual"}
+	plan := BuildPlan(source, remote, fixtureTarget(), mapping, planNow)
 	want := map[int64]string{
-		1: "", 2: CodePaymentMethodExcluded, 3: CodePaymentMethodExcluded,
+		1: "", 2: CodePaymentMethodExcluded, 3: "",
 		4: CodeUserNotImported, 5: CodeNonPositiveAmount, 6: "",
 	}
 	for _, decision := range plan.Payments {
@@ -165,25 +167,24 @@ func TestTopUpsBecomePaymentHistory(t *testing.T) {
 		}
 	}
 	section := plan.Report.Payments
-	if section.CarriedMinor != 37900 || section.Payers != 2 || section.ExcludedByMethod["manual"] != 1 || section.ExcludedByMethod["none"] != 1 {
+	if section.CarriedMinor != 47900 || section.Payers != 2 || section.ExcludedByMethod["manual"] != 1 ||
+		section.ByKind[PaymentSubscription] != 2 || section.ByKind[PaymentGiftBalance] != 1 {
 		t.Fatalf("payment section: %+v", section)
 	}
 	if plan.Report.Source.Payments != 6 {
-		t.Fatalf("source counts every top-up: %+v", plan.Report.Source)
+		t.Fatalf("source counts every purchase: %+v", plan.Report.Source)
 	}
 
-	// An explicit empty list carries every method; the repeat run nothing.
-	mapping := fixtureMapping()
-	mapping.ExcludedPaymentMethods = []string{}
-	plan = BuildPlan(source, remote, fixtureTarget(), mapping, planNow)
-	target := fixtureTarget()
+	// Left out, nothing is excluded; a repeat run carries nothing twice.
+	plan = BuildPlan(source, remote, fixtureTarget(), fixtureMapping(), planNow)
 	for _, decision := range plan.Payments {
 		if decision.Source.ID == 2 && decision.Action != ActionCreate {
-			t.Fatalf("with nothing excluded a manual top-up is carried: %+v", decision)
+			t.Fatalf("with no exclusions a manual purchase is carried: %+v", decision)
 		}
 	}
+	target := fixtureTarget()
 	applyHistory(&target, plan)
-	for _, decision := range BuildPlan(source, remote, target, mapping, planNow).Payments {
+	for _, decision := range BuildPlan(source, remote, target, fixtureMapping(), planNow).Payments {
 		if decision.Action == ActionCreate {
 			t.Fatalf("a carried payment is not carried twice: %+v", decision)
 		}
@@ -198,15 +199,15 @@ func TestExcludedPaymentMethodsAreValidated(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	if !mapping.PaymentMethodExcluded("MANUAL") || mapping.PaymentMethodExcluded("balance") {
-		t.Fatalf("the list replaces the default and matches case-insensitively: %+v", mapping.ExcludedPaymentMethods)
+	if !mapping.PaymentMethodExcluded("MANUAL") || mapping.PaymentMethodExcluded("balance") || mapping.PaymentMethodExcluded("") {
+		t.Fatalf("the list matches case-insensitively and never a missing method: %+v", mapping.ExcludedPaymentMethods)
 	}
 	defaults, err := ParseMapping(strings.NewReader(""))
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	if !defaults.PaymentMethodExcluded("balance") || defaults.PaymentMethodExcluded("yookassa") {
-		t.Fatal("left out, the default list applies")
+	if defaults.PaymentMethodExcluded("balance") || defaults.PaymentMethodExcluded("yookassa") {
+		t.Fatal("left out, nothing is excluded")
 	}
 }
 
@@ -241,8 +242,8 @@ func TestGiftsAndDirectPurchases(t *testing.T) {
 	source, remote := fixtureSource()
 	paid := planNow.AddDate(0, -1, 0)
 	source.Payments = []Payment{
-		{Kind: PaymentTopUp, ID: 7, UserID: 1, AmountKopeks: 10000, Method: "yookassa", PaidAt: paid},
-		{Kind: PaymentDirect, ID: 8, UserID: 2, AmountKopeks: 22900, Method: "platega", PaidAt: paid},
+		{Kind: PaymentSubscription, ID: 7, UserID: 1, AmountKopeks: 10000, Method: "yookassa", PaidAt: paid},
+		{Kind: PaymentSubscription, ID: 8, UserID: 2, AmountKopeks: 22900, Method: "platega", PaidAt: paid},
 		{Kind: PaymentGift, ID: 7, UserID: 1, AmountKopeks: 30000, Method: "yookassa", PaidAt: paid},
 	}
 	source.Gifts = []Gift{{ID: 7, Status: "pending_activation", AmountKopeks: 30000, PaidAt: paid}, {ID: 9, Status: "paid", AmountKopeks: 1000, PaidAt: paid}}
@@ -256,7 +257,7 @@ func TestGiftsAndDirectPurchases(t *testing.T) {
 		t.Fatal("a gift and a transaction with the same row number are different payments")
 	}
 	payments := plan.Report.Payments
-	if payments.ByKind[PaymentGift] != 1 || payments.ByKind[PaymentDirect] != 1 || payments.CarriedMinor != 62900 {
+	if payments.ByKind[PaymentGift] != 1 || payments.ByKind[PaymentSubscription] != 2 || payments.CarriedMinor != 62900 {
 		t.Fatalf("payment section: %+v", payments)
 	}
 	gifts := plan.Report.Gifts

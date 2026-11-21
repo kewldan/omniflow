@@ -1593,6 +1593,44 @@ paths:
       responses:
         "200": {description: Failed charges, content: {application/json: {schema: {$ref: "#/components/schemas/PanelDunningPage"}}}}
         "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/finance/bedolaga-payments:
+    get:
+      operationId: listPanelBedolagaPayments
+      tags: [panel]
+      description: >-
+        Requires finance.read. Payments the previous bot opened that settled
+        after the migration: credited to the customer their metadata named, or
+        queued for an operator because they could not be attributed.
+      parameters:
+        - {name: status, in: query, schema: {type: string, enum: [credited, needs_review, resolved]}}
+        - {$ref: "#/components/parameters/PageSize"}
+      responses:
+        "200": {description: "Claims, newest first", content: {application/json: {schema: {$ref: "#/components/schemas/PanelBedolagaPaymentList"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/finance/bedolaga-payments/{claimID}/resolve:
+    post:
+      operationId: resolvePanelBedolagaPayment
+      tags: [panel]
+      description: >-
+        Requires finance.write. Closes a queued payment with a note saying how
+        it was dealt with. Only a queued payment can be resolved.
+      parameters:
+        - {name: claimID, in: path, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [note]
+              properties:
+                note: {type: string, minLength: 1, maxLength: 500}
+      responses:
+        "200": {description: Resolved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelBedolagaPayment"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
   /v1/panel/finance/export:
     get:
       operationId: exportPanelFinance
@@ -7838,6 +7876,27 @@ components:
         currency: {type: string}
         payments: {type: integer, format: int64}
         amountMinor: {type: integer, format: int64, description: "What the previous bot took in the period. History to compare against, never part of Omniflow's sales."}
+    PanelBedolagaPayment:
+      type: object
+      required: [id, provider, providerReference, amountMinor, currency, status, createdAt]
+      properties:
+        id: {type: string, format: uuid}
+        provider: {type: string}
+        providerReference: {type: string, description: "The provider's own payment ID."}
+        bedolagaUserId: {type: integer, format: int64}
+        customerId: {type: string, format: uuid}
+        amountMinor: {type: integer, format: int64}
+        currency: {type: string}
+        paymentType: {type: string, description: "What the previous bot said the payment was for."}
+        status: {type: string, enum: [credited, needs_review, resolved]}
+        reason: {type: string, enum: [guest_purchase, customer_not_found, telegram_mismatch, customer_inactive]}
+        createdAt: {type: string, format: date-time}
+        resolvedAt: {type: string, format: date-time}
+        resolutionNote: {type: string}
+    PanelBedolagaPaymentList:
+      type: object
+      required: [items]
+      properties: {items: {type: array, items: {$ref: "#/components/schemas/PanelBedolagaPayment"}}}
     PanelSalesReport:
       type: object
       required: [since, until, timezone, byOperation, byPlan, byDay, refunds, trials, payers, legacy, generatedAt]

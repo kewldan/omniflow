@@ -166,6 +166,28 @@ func TestBuildPlanClassifiesUsers(t *testing.T) {
 		t.Fatalf("a blocked user without a policy must wait for the operator: %+v", decision)
 	}
 
+	// Under bot_blocked the customer arrives active, with the bot marked
+	// unreachable for them; a suspended or active policy marks nothing.
+	botBlocked := fixtureMapping()
+	botBlocked.BlockedUsers = BlockedBotBlocked
+	carried := BuildPlan(source, remote, fixtureTarget(), botBlocked, planNow)
+	if decision := userDecision(t, carried, 4); decision.Action != ActionCreate || decision.Status != "active" ||
+		!decision.BotBlocked || !hasCode(decision.Warnings, WarnBotBlocked) {
+		t.Fatalf("a blocked user under bot_blocked arrives active and unreachable: %+v", decision)
+	}
+	if carried.Report.Users.Warnings[WarnBotBlocked] != 1 {
+		t.Fatalf("the report counts them: %+v", carried.Report.Users)
+	}
+	if decision := userDecision(t, plan, 4); decision.BotBlocked {
+		t.Fatalf("the suspend policy marks no delivery state: %+v", decision)
+	}
+	if _, err := ParseMapping(strings.NewReader("blockedUsers: bot_blocked\n")); err != nil {
+		t.Fatalf("bot_blocked is a policy: %v", err)
+	}
+	if _, err := ParseMapping(strings.NewReader("blockedUsers: ban\n")); err == nil {
+		t.Fatal("an unknown policy is refused")
+	}
+
 	target := fixtureTarget()
 	target.TelegramOwners[1001] = "already-here"
 	linked := BuildPlan(source, remote, target, fixtureMapping(), planNow)

@@ -2744,6 +2744,47 @@ export interface PanelLegacyPeriodPayments {
   amountMinor: number;
 }
 
+export type PanelBedolagaPaymentStatus =
+  (typeof PanelBedolagaPaymentStatus)[keyof typeof PanelBedolagaPaymentStatus];
+
+export const PanelBedolagaPaymentStatus = {
+  credited: "credited",
+  needs_review: "needs_review",
+  resolved: "resolved",
+} as const;
+
+export type PanelBedolagaPaymentReason =
+  (typeof PanelBedolagaPaymentReason)[keyof typeof PanelBedolagaPaymentReason];
+
+export const PanelBedolagaPaymentReason = {
+  guest_purchase: "guest_purchase",
+  customer_not_found: "customer_not_found",
+  telegram_mismatch: "telegram_mismatch",
+  customer_inactive: "customer_inactive",
+} as const;
+
+export interface PanelBedolagaPayment {
+  id: string;
+  provider: string;
+  /** The provider's own payment ID. */
+  providerReference: string;
+  bedolagaUserId?: number;
+  customerId?: string;
+  amountMinor: number;
+  currency: string;
+  /** What the previous bot said the payment was for. */
+  paymentType?: string;
+  status: PanelBedolagaPaymentStatus;
+  reason?: PanelBedolagaPaymentReason;
+  createdAt: string;
+  resolvedAt?: string;
+  resolutionNote?: string;
+}
+
+export interface PanelBedolagaPaymentList {
+  items: PanelBedolagaPayment[];
+}
+
 export interface PanelSalesReport {
   since: string;
   until: string;
@@ -6876,6 +6917,32 @@ export type ListPanelFailedChargesParams = {
    * @maximum 500
    */
   pageSize?: PageSizeParameter;
+};
+
+export type ListPanelBedolagaPaymentsParams = {
+  status?: ListPanelBedolagaPaymentsStatus;
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  pageSize?: PageSizeParameter;
+};
+
+export type ListPanelBedolagaPaymentsStatus =
+  (typeof ListPanelBedolagaPaymentsStatus)[keyof typeof ListPanelBedolagaPaymentsStatus];
+
+export const ListPanelBedolagaPaymentsStatus = {
+  credited: "credited",
+  needs_review: "needs_review",
+  resolved: "resolved",
+} as const;
+
+export type ResolvePanelBedolagaPaymentBody = {
+  /**
+   * @minLength 1
+   * @maxLength 500
+   */
+  note: string;
 };
 
 export type ExportPanelFinanceParams = {
@@ -19130,6 +19197,202 @@ export const useListPanelFailedCharges = <TError = Promise<ProblemResponse>>(
   const swrFn = () => listPanelFailedCharges(params, fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelBedolagaPaymentsResponse200 = {
+  data: PanelBedolagaPaymentList;
+  status: 200;
+};
+
+export type listPanelBedolagaPaymentsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelBedolagaPaymentsResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type listPanelBedolagaPaymentsResponseSuccess = listPanelBedolagaPaymentsResponse200 & {
+  headers: Headers;
+};
+export type listPanelBedolagaPaymentsResponseError = (
+  | listPanelBedolagaPaymentsResponse403
+  | listPanelBedolagaPaymentsResponse422
+) & {
+  headers: Headers;
+};
+
+export type listPanelBedolagaPaymentsResponse =
+  | listPanelBedolagaPaymentsResponseSuccess
+  | listPanelBedolagaPaymentsResponseError;
+
+export const getListPanelBedolagaPaymentsUrl = (params?: ListPanelBedolagaPaymentsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/finance/bedolaga-payments?${stringifiedParams}`
+    : `/v1/panel/finance/bedolaga-payments`;
+};
+
+/**
+ * Requires finance.read. Payments the previous bot opened that settled after the migration: credited to the customer their metadata named, or queued for an operator because they could not be attributed.
+ */
+export const listPanelBedolagaPayments = async (
+  params?: ListPanelBedolagaPaymentsParams,
+  options?: RequestInit,
+): Promise<listPanelBedolagaPaymentsResponse> => {
+  const res = await fetch(getListPanelBedolagaPaymentsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelBedolagaPaymentsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelBedolagaPaymentsResponse;
+};
+
+export const getListPanelBedolagaPaymentsKey = (params?: ListPanelBedolagaPaymentsParams) =>
+  [`/v1/panel/finance/bedolaga-payments`, ...(params ? [params] : [])] as const;
+
+export type ListPanelBedolagaPaymentsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelBedolagaPayments>>
+>;
+
+export const useListPanelBedolagaPayments = <TError = Promise<ProblemResponse>>(
+  params?: ListPanelBedolagaPaymentsParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelBedolagaPayments>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelBedolagaPaymentsKey(params) : null));
+  const swrFn = () => listPanelBedolagaPayments(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type resolvePanelBedolagaPaymentResponse200 = {
+  data: PanelBedolagaPayment;
+  status: 200;
+};
+
+export type resolvePanelBedolagaPaymentResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type resolvePanelBedolagaPaymentResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type resolvePanelBedolagaPaymentResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type resolvePanelBedolagaPaymentResponseSuccess = resolvePanelBedolagaPaymentResponse200 & {
+  headers: Headers;
+};
+export type resolvePanelBedolagaPaymentResponseError = (
+  | resolvePanelBedolagaPaymentResponse403
+  | resolvePanelBedolagaPaymentResponse409
+  | resolvePanelBedolagaPaymentResponse422
+) & {
+  headers: Headers;
+};
+
+export type resolvePanelBedolagaPaymentResponse =
+  | resolvePanelBedolagaPaymentResponseSuccess
+  | resolvePanelBedolagaPaymentResponseError;
+
+export const getResolvePanelBedolagaPaymentUrl = (claimID: string) => {
+  return `/v1/panel/finance/bedolaga-payments/${claimID}/resolve`;
+};
+
+/**
+ * Requires finance.write. Closes a queued payment with a note saying how it was dealt with. Only a queued payment can be resolved.
+ */
+export const resolvePanelBedolagaPayment = async (
+  claimID: string,
+  resolvePanelBedolagaPaymentBody: ResolvePanelBedolagaPaymentBody,
+  options?: RequestInit,
+): Promise<resolvePanelBedolagaPaymentResponse> => {
+  const res = await fetch(getResolvePanelBedolagaPaymentUrl(claimID), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(resolvePanelBedolagaPaymentBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: resolvePanelBedolagaPaymentResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as resolvePanelBedolagaPaymentResponse;
+};
+
+export const getResolvePanelBedolagaPaymentMutationFetcher = (
+  claimID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: ResolvePanelBedolagaPaymentBody }) => {
+    return resolvePanelBedolagaPayment(claimID, arg, options);
+  };
+};
+export const getResolvePanelBedolagaPaymentMutationKey = (claimID: string) =>
+  [`/v1/panel/finance/bedolaga-payments/${claimID}/resolve`] as const;
+
+export type ResolvePanelBedolagaPaymentMutationResult = NonNullable<
+  Awaited<ReturnType<typeof resolvePanelBedolagaPayment>>
+>;
+
+export const useResolvePanelBedolagaPayment = <TError = Promise<ProblemResponse>>(
+  claimID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof resolvePanelBedolagaPayment>>,
+      TError,
+      Key,
+      ResolvePanelBedolagaPaymentBody,
+      Awaited<ReturnType<typeof resolvePanelBedolagaPayment>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getResolvePanelBedolagaPaymentMutationKey(claimID);
+  const swrFn = getResolvePanelBedolagaPaymentMutationFetcher(claimID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,

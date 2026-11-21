@@ -500,6 +500,24 @@ func (service *Service) HandleWebhook(ctx context.Context, providerName string, 
 	// rate limit — for every well-formed body they post.
 	if payments.NeedsWebhookPolling(provider) {
 		if _, lookupErr := service.webhookIntent(ctx, queries, providerName, event); lookupErr != nil {
+			if errors.Is(lookupErr, pgx.ErrNoRows) {
+				// Not a payment this installation opened. One the previous bot
+				// opened before the cutover is credited or queued instead.
+				classification, handled, rescueErr := service.rescueBedolagaPayment(ctx, queries, providerName, provider, event)
+				if rescueErr != nil {
+					_, _ = queries.CompleteWebhookEvent(ctx, dbgen.CompleteWebhookEventParams{WebhookEventID: stored.ID, Status: "failed", ErrorCode: optionalText("bedolaga_rescue_failed")})
+					return "", rescueErr
+				}
+				if handled {
+					status := "processed"
+					if classification == RescueNotPaid || classification == RescueDuplicate {
+						status = "ignored"
+					}
+					service.observeWebhook(providerName, classification)
+					_, err = queries.CompleteWebhookEvent(ctx, dbgen.CompleteWebhookEventParams{WebhookEventID: stored.ID, Status: status})
+					return classification, err
+				}
+			}
 			_, _ = queries.CompleteWebhookEvent(ctx, dbgen.CompleteWebhookEventParams{WebhookEventID: stored.ID, Status: "failed", ErrorCode: optionalText("payment_not_found")})
 			service.observeWebhook(providerName, "payment_not_found")
 			return "", rejectNotFound(lookupErr)

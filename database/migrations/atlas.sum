@@ -1,4 +1,4 @@
-h1:KtPirGdZIxvNOYaYXPs1j7ZilB2dhiX0l3dFIRXue1E=
+h1:DDitlF0qxg5e3691L8GdZL+UWYce9Nad15qXt4PtNUk=
 20261120000000_baseline.sql h1:xcYk9mdv44B3O0TRxq3RP+hXxJ2VeeOilGnwKO251mQ=
 20261120010000_river_schema_v8.sql h1:AfdQpxaviEf8asJ5gyLmMVZr+zMYaWEw+o/vE8CMj7A=
 20261120020000_customer_email_signin.sql h1:PrCKaTaDm5ggof8aqRooMbqOXEHML5fwq1TF877zQa8=
@@ -80,3 +80,4 @@ h1:KtPirGdZIxvNOYaYXPs1j7ZilB2dhiX0l3dFIRXue1E=
 20261122580000_support_reply_email.sql h1:feLuydT+KlVpLr3NqeLS8aMLyQ/vlFYrATlI6OVMw84=
 20261122590000_discount_cooldown_and_gift_history.sql h1:rqeyEWzEVoGRaf+llNMq7gDdOo6O5+D8Ta7MjaCRaJo=
 20261122600000_referral_code_aliases.sql h1:LQlyXoZoqkAULscEMHYE+SKV5rJ8s/GJsyMf6y4CHQA=
+20261122610000_bedolaga_payment_claims.sql h1:Dx3Cr+lW368iszgoN0en6Mtmv0VJlTB+WxLe4mkioc4=

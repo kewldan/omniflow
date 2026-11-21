@@ -154,6 +154,11 @@ triggers a low-balance warning `APP_RENEWAL_LOW_BALANCE_WARNING_HOURS` (default 
 charge. Failed charges are listed for review under **Finance → Failed charges**; nothing there
 charges anyone again.
 
+After a Bedolaga migration, **Finance → Previous bot** lists the YooKassa payments customers opened in
+Bedolaga and paid after the cutover: credited to the customer's wallet automatically, or queued for
+you when they could not be attributed, until you resolve them with a note. See
+[Payments in flight at the cutover](/operations/migrate-from-bedolaga#payments-in-flight-at-the-cutover).
+
 <Note>
   Providers that run their own subscription billing — Platega, Lava, Cashera, CisPay — are used for
   one-off payments only, because Omniflow cannot decide when they charge.

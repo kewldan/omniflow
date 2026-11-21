@@ -218,9 +218,10 @@ func readTariffs(ctx context.Context, tx pgx.Tx) ([]bedolagaimport.Tariff, error
 	})
 }
 
-// readPayments loads every completed top-up, and every completed
-// subscription payment made through a provider rather than from the balance —
-// a landing-page purchase. A Bedolaga without a transactions table has no
+// readPayments loads every completed VPN purchase Bedolaga recorded as a
+// transaction: subscription payments, from the balance or through a provider,
+// and gifts paid from the balance. Top-ups are not read: in the Omniflow fork
+// the balance buys Telegram Stars too, so a top-up is not VPN spend. A Bedolaga without a transactions table has no
 // payment history to carry; the archive reports the table as missing. The
 // moment a payment completed is completed_at where this Bedolaga records it,
 // and its creation otherwise.
@@ -241,19 +242,16 @@ func readPayments(ctx context.Context, tx pgx.Tx, columns map[string]map[string]
 	if table["completed_at"] {
 		paidAt = "COALESCE(completed_at, created_at)"
 	}
-	// A top-up with no date at all cannot be placed in any window, so it is
-	// not history anything could read.
-	kind := "'" + bedolagaimport.PaymentTopUp + "'"
-	direct := "false"
-	if table["payment_method"] {
-		// A purchase paid from the balance, or with no method on record, is
-		// not money arriving: the top-up behind it is.
-		kind = "CASE WHEN type = 'deposit' THEN '" + bedolagaimport.PaymentTopUp + "' ELSE '" + bedolagaimport.PaymentDirect + "' END"
-		direct = "(type = 'subscription_payment' AND COALESCE(payment_method, '') NOT IN ('', 'balance'))"
-	}
-	rows, err := tx.Query(ctx, `SELECT `+kind+`, id::bigint, user_id::bigint, amount_kopeks::bigint, `+method+`, `+paidAt+`
+	// Bedolaga stores some purchase amounts negative, as a debit of the
+	// balance, and reads them back with abs(); so does this. A zero-amount
+	// purchase is an operator's tariff switch, not a purchase, and a row with
+	// no date cannot be placed in any window.
+	rows, err := tx.Query(ctx, `SELECT CASE WHEN type = 'gift_payment' THEN '`+bedolagaimport.PaymentGiftBalance+`'
+			ELSE '`+bedolagaimport.PaymentSubscription+`' END,
+		id::bigint, user_id::bigint, abs(amount_kopeks)::bigint, `+method+`, `+paidAt+`
 		FROM transactions
-		WHERE (type = 'deposit' OR `+direct+`) AND `+completed+` AND user_id IS NOT NULL AND created_at IS NOT NULL
+		WHERE type IN ('subscription_payment', 'gift_payment') AND `+completed+`
+		  AND amount_kopeks <> 0 AND user_id IS NOT NULL AND created_at IS NOT NULL
 		ORDER BY id`)
 	if err != nil {
 		return nil, fmt.Errorf("read payments: %w", err)
@@ -267,9 +265,9 @@ func readPayments(ctx context.Context, tx pgx.Tx, columns map[string]map[string]
 }
 
 // readGifts loads the gifts bought through a provider in the web cabinet —
-// payments of their buyers that no transaction records — and the paid gifts
+// purchases of their buyers that no transaction records — and the paid gifts
 // whose recipient has not received them yet. A gift paid from the balance is
-// not a payment of its own: the top-up behind it is.
+// a `gift_payment` transaction, which readPayments reads.
 func readGifts(ctx context.Context, tx pgx.Tx, columns map[string]map[string]bool) ([]bedolagaimport.Payment, []bedolagaimport.Gift, error) {
 	table := columns["guest_purchases"]
 	for _, name := range []string{"id", "is_gift", "status", "amount_kopeks", "payment_method", "paid_at", "buyer_user_id"} {

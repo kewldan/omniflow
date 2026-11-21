@@ -75,6 +75,7 @@ const (
 	WarnPlanKindMismatch         = "plan_kind_mismatch"
 	WarnBalanceDecreased         = "balance_decreased"
 	WarnSeveralSubscriptions     = "several_subscriptions"
+	WarnBotBlocked               = "bot_blocked"
 )
 
 // Item is one row of bedolaga_import_items as the target holds it.
@@ -152,7 +153,10 @@ type UserDecision struct {
 	// PrimaryRemnawaveID is the Remnawave user the customer-level mapping
 	// carries, which the bot reads to tell a provisioned customer apart.
 	PrimaryRemnawaveID int64
-	Fingerprint        [32]byte
+	// BotBlocked records that the customer blocked the bot, so delivery
+	// passes skip their chat until they write to the bot again.
+	BotBlocked  bool
+	Fingerprint [32]byte
 }
 
 // Importable reports whether the user exists, or will, in Omniflow.
@@ -343,6 +347,12 @@ func decideUser(user User, telegramCount map[int64]int, target Target, mapping M
 		case BlockedSuspend:
 			decision.Status = "suspended"
 		case BlockedActive:
+		case BlockedBotBlocked:
+			// Only a Telegram account can have blocked the bot.
+			if user.TelegramID != nil {
+				decision.BotBlocked = true
+				decision.Warnings = append(decision.Warnings, WarnBotBlocked)
+			}
 		default:
 			decision.Codes = append(decision.Codes, CodeBlockedPolicyMissing)
 		}

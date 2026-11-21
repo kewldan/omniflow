@@ -91,6 +91,11 @@ type WebhookEvent struct {
 	Status            string
 	Amount            commerce.Money
 	OccurredAt        time.Time
+	// Metadata is the notification's own metadata, untrusted like the rest of
+	// an unsigned notification. It only decides whether a payment nobody here
+	// opened is worth an authenticated look; the looked-up payment's metadata
+	// is what anything acts on.
+	Metadata map[string]string
 	// PayerTelegramID is set by providers whose notification identifies the
 	// payer instead of the order (Tribute donations). The payment service then
 	// matches the payer's open intent for exactly this amount.

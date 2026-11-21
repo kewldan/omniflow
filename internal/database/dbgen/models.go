@@ -536,6 +536,23 @@ type BedolagaImportRun struct {
 	FinishedAt pgtype.Timestamptz `json:"finished_at"`
 }
 
+type BedolagaPaymentClaim struct {
+	ID                pgtype.UUID        `json:"id"`
+	Provider          string             `json:"provider"`
+	ProviderReference string             `json:"provider_reference"`
+	BedolagaUserID    pgtype.Int8        `json:"bedolaga_user_id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	AmountMinor       int64              `json:"amount_minor"`
+	Currency          string             `json:"currency"`
+	PaymentType       string             `json:"payment_type"`
+	Status            string             `json:"status"`
+	Reason            string             `json:"reason"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	ResolvedAt        pgtype.Timestamptz `json:"resolved_at"`
+	ResolvedBy        pgtype.UUID        `json:"resolved_by"`
+	ResolutionNote    pgtype.Text        `json:"resolution_note"`
+}
+
 type BlockedBotDisable struct {
 	EntitlementID pgtype.UUID        `json:"entitlement_id"`
 	UserID        pgtype.UUID        `json:"user_id"`

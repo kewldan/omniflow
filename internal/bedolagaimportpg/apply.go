@@ -366,6 +366,11 @@ func (runner *applier) createCustomer(ctx context.Context, queries *dbgen.Querie
 			return "", err
 		}
 	}
+	if decision.BotBlocked {
+		if err = queries.MarkImportedBotBlocked(ctx, customer.ID); err != nil {
+			return "", err
+		}
+	}
 	if decision.Status == "suspended" {
 		if _, err = queries.InsertCustomerLifecycleEvent(ctx, dbgen.InsertCustomerLifecycleEventParams{
 			UserID: customer.ID, Action: "suspended", Reason: "Blocked in Bedolaga before the migration",
