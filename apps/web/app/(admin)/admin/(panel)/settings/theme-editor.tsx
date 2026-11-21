@@ -266,7 +266,7 @@ function ThemeForm({
               ))}
             </TabsList>
             {MODES.map((mode) => (
-              <TabsContent className="pt-4" key={mode} value={mode}>
+              <TabsContent key={mode} value={mode}>
                 <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
                   <div className="grid gap-3 sm:grid-cols-2">
                     {settings.themable.map((token) => (

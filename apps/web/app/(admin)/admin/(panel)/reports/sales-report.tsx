@@ -181,7 +181,7 @@ export function SalesReportScreen() {
           <TabsTrigger value="channels">{translate("tabs.channels")}</TabsTrigger>
         </TabsList>
 
-        <TabsContent className="flex flex-col gap-5 pt-4" value="sales">
+        <TabsContent className="flex flex-col gap-5" value="sales">
           {isLoading || !data ? (
             <Skeleton className="h-96 w-full" />
           ) : (
@@ -204,11 +204,11 @@ export function SalesReportScreen() {
         {/* Where the revenue came from, over the same period. Sharing the
             controls above matters here too: "we sold this much" and "this
             channel brought it" must never describe different weeks. */}
-        <TabsContent className="flex flex-col gap-5 pt-4" value="channels">
+        <TabsContent className="flex flex-col gap-5" value="channels">
           <ChannelReport query={query} />
         </TabsContent>
 
-        <TabsContent className="flex flex-col gap-5 pt-4" value="payments">
+        <TabsContent className="flex flex-col gap-5" value="payments">
           <PaymentHealthScreen query={query} />
         </TabsContent>
       </Tabs>

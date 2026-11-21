@@ -5,7 +5,17 @@ import type { ComponentProps } from "react";
 
 import { cn } from "./lib/utils";
 
-export const Tabs = TabsPrimitive.Root;
+export function Tabs({ className, ...props }: ComponentProps<typeof TabsPrimitive.Root>) {
+  return (
+    <TabsPrimitive.Root
+      // The gap separates the tab row from the panel below it, so no screen
+      // has to remember to add one and a bordered panel never touches the row.
+      className={cn("flex flex-col gap-4", className)}
+      data-slot="tabs"
+      {...props}
+    />
+  );
+}
 
 export function TabsList({ className, ...props }: ComponentProps<typeof TabsPrimitive.List>) {
   return (

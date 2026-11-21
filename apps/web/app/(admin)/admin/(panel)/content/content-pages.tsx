@@ -325,7 +325,7 @@ function PageEditor({
             ))}
           </TabsList>
           {LOCALES.map((locale) => (
-            <TabsContent className="flex flex-col gap-3 pt-4" key={locale} value={locale}>
+            <TabsContent className="flex flex-col gap-3" key={locale} value={locale}>
               <LocaleFields
                 body={localeValue(locale, "body")}
                 onBody={(value) => setLocale(locale, "body", value)}
