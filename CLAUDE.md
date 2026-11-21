@@ -22,11 +22,13 @@ tooling.
 - Omniflow replaces a Bedolaga fork that runs a live VPN business. Migration
   tooling: `cmd/migrate-bedolaga`, `deploy/migration/00…07-*.sh`, and
   `docs/operations/migrate-from-bedolaga.mdx`.
-- Parity with Bedolaga is tracked in `bedolaga-bot-gaps.md`: 226 closed, none
-  partial, 10 open, 8 declined. The open ten are listed in `BACKLOG.md` under
-  «Остаток паритета с Bedolaga»: QR payment in the bot, Overpay INT, Overpay
-  `.p12` upload, embedded payment forms, ban-system, Abuse API, ABAC, a log
-  viewer, bot button styles, a live menu editor. Do not start one unasked.
+- Parity with Bedolaga is tracked in `bedolaga-bot-gaps.md`: 228 closed, none
+  partial, 8 open, 8 declined. The open eight are listed in `BACKLOG.md` under
+  «Остаток паритета с Bedolaga»: QR payment in the bot, Overpay `.p12` upload,
+  embedded payment forms, ban-system, Abuse API, ABAC, a log viewer, a live
+  menu editor. Do not start one unasked. The `.p12` upload stays open on
+  purpose: it would store a payment secret in the database, against the rule
+  below; the owner chose to leave it rather than change the rule.
 - Targets: Remnawave 3.4.x API, PostgreSQL 19, Valkey 9, Go with River jobs,
   Next.js 16 with next-intl.
 - Exists in code but not reachable from any screen yet — say so instead of

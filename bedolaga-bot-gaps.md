@@ -1,6 +1,6 @@
 # Bedolaga Bot → Omniflow: разрыв и его закрытие
 
-> **Статус на 21.11.2026: 226 ✅, 10 ⏸, 8 ⛔, частичных нет.** ✅ — сделано в Omniflow;
+> **Статус на 21.11.2026: 228 ✅, 8 ⏸, 8 ⛔, частичных нет.** ✅ — сделано в Omniflow;
 > ⏸ — не сделано, открыто; ⛔ — сознательно не делаем (граница с Remnawave, ADR или позиция по
 > приватности). Ни один ⏸ не блокирует переезд: всё, что использует
 > прод на форке (ЮKassa с чеками, магазин звёзд, рефералка, промокоды, волны возврата, e-mail-вход,
@@ -60,7 +60,7 @@
 - ⛔ **Apple IAP** — пополнение покупками в iOS-приложении, App Store-уведомления, возвраты, сверка — `B: app/services/apple_iap*.py`, `APPLE_IAP_*` — нет [роадмап: native apps] — L
 - ✅ **Несколько способов одного провайдера отдельными кнопками** (СБП, карта, SberPay, СБП-QR, крипта) — `B: FREEKASSA_SBP/CARD_*`, `KASSA_AI_*`, `CISPAY_CARD/SBP/CRYPTO_*`, `PLATEGA_ACTIVE_METHODS`, `PaymentMethodConfig.sub_options` — частично: один способ из env (`APP_KASSA_AI_PAYMENT_SYSTEM_ID` и т.п.) — M
 - ⏸ **Оплата прямо в боте** (QR СБП / реквизиты без перехода) — `B: CASHERA_H2H_ENABLED`, `OVERPAY_SBP_DIRECT_QR` — нет — M
-- ⏸ **Overpay INT** — терминал для иностранных карт в EUR с пересчётом — `B: OVERPAY_INT_*`, `OVERPAY_RUB_PER_EUR` — нет — S
+- ✅ **Overpay INT** — терминал для иностранных карт в EUR с пересчётом — `B: OVERPAY_INT_*`, `OVERPAY_RUB_PER_EUR` — нет — S
 - ⏸ **Загрузка сертификата Overpay (.p12) из админки** — `B: overpay_certificate_service.py` — частично: только PEM в env — S
 - ⏸ **Встроенные формы** (виджет CloudPayments, iframe MulenPay) — `B: CLOUDPAYMENTS_SKIN`, `MULENPAY_IFRAME_EXPECTED_ORIGIN` — нет — S/M
 - ✅ **YooKassa: СБП и тестовый режим** — `B: YOOKASSA_SBP_ENABLED`, `YOOKASSA_TEST_MODE` — нет — S
@@ -354,7 +354,7 @@
 ### 4.7. UX бота
 - ✅ **Редактор раскладки главного меню** — `B: services/menu_layout/` — нет — M
 - ✅ **Свои кнопки меню** (URL, Mini App, видимость) — `B: main_menu_button_service.py` — нет — S/M
-- ⏸ **Стили кнопок** — нет — S
+- ✅ **Стили кнопок** — нет — S
 - ⏸ **Rich/live-меню** — `B: live_menu_service.py` — нет — M
 - ✅ **Переопределение любого текста бота** — частично: 9 уведомлений — M
 - ✅ **Статистика нажатий кнопок** — `B: button_stats.py` — нет — S
