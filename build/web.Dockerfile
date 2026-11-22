@@ -27,5 +27,8 @@ RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 COPY --from=build /src/apps/web/.next/standalone ./
 COPY --from=build /src/apps/web/.next/static ./apps/web/.next/static
+# The standalone output leaves public/ out, as it does .next/static; without
+# this copy the sidebar's animations answer 404 and the icons stay still.
+COPY --from=build /src/apps/web/public ./apps/web/public
 EXPOSE 3000
 CMD ["node", "apps/web/server.js"]
