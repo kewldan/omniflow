@@ -175,9 +175,22 @@ DECLARE
   previous_threshold bigint;
   next_tier loyalty_tiers%ROWTYPE;
   previous_code text;
+  published timestamptz;
 BEGIN
   SELECT * INTO next_tier FROM loyalty_tiers WHERE id = NEW.to_tier_id;
   SELECT threshold, code INTO previous_threshold, previous_code FROM loyalty_tiers WHERE id = NEW.from_tier_id;
+  SELECT published_at INTO published FROM loyalty_programs WHERE id = next_tier.program_id;
+
+  IF next_tier.discount_bps = 0 AND next_tier.traffic_discount_bps = 0
+     AND next_tier.device_discount_bps = 0 AND next_tier.squad_discount_bps = 0
+     AND next_tier.period_discounts = '{}'::jsonb THEN
+    RETURN NEW;
+  END IF;
+  IF NEW.from_tier_id IS NULL AND NEW.reason = 'evaluation'
+     AND published IS NOT NULL AND published > now() - interval '1 day' THEN
+    RETURN NEW;
+  END IF;
+
   INSERT INTO customer_event_notices (user_id, kind, params, dedupe_key)
   VALUES (NEW.user_id, 'loyalty_tier',
           jsonb_build_object('tierCode', next_tier.code, 'nameEn', next_tier.name_en,

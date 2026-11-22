@@ -112,9 +112,11 @@ func TestLoyaltyGroupsPlaceDiscountAndRestrict(t *testing.T) {
 	if allowed, err := store.ProviderAllowed(ctx, customer, "manual"); err != nil || !allowed {
 		t.Fatalf("manual allowed=%v (%v), want allowed", allowed, err)
 	}
+	// The first sweep placed the customer at the programme's launch, which
+	// stays quiet; the operator's grant is announced.
 	var operatorNotices int
-	if err := harness.pool.QueryRow(ctx, `SELECT count(*) FROM operator_notifications WHERE kind = 'marketing'`).Scan(&operatorNotices); err != nil || operatorNotices < 2 {
-		t.Fatalf("operator notices = %d (%v), want placement and grant", operatorNotices, err)
+	if err := harness.pool.QueryRow(ctx, `SELECT count(*) FROM operator_notifications WHERE kind = 'marketing'`).Scan(&operatorNotices); err != nil || operatorNotices != 1 {
+		t.Fatalf("operator notices = %d (%v), want the grant alone", operatorNotices, err)
 	}
 
 	if err := panel.RemoveLoyaltyGroup(ctx, customer, "vip", actor); err != nil {

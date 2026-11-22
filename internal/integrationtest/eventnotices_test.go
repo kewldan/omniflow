@@ -130,6 +130,9 @@ func TestLoyaltyChangeNotifiesCustomerAndOperators(t *testing.T) {
 	harness := newHarness(t)
 	flow := newBotFlow(ctx, t, harness)
 	goldID := harness.loyaltyProgram(ctx, t, 1, 1000)
+	// Published days ago: a first placement then is a customer reaching the
+	// tier, not the programme placing everybody at its launch.
+	harness.exec(ctx, t, `UPDATE loyalty_programs SET published_at = now() - interval '2 days'`)
 	customer := flow.customerOf(ctx, t, 710101)
 	harness.standIn(ctx, t, customer, goldID)
 	if _, err := harness.pool.Exec(ctx, `INSERT INTO loyalty_standing_history (user_id, to_tier_id, evaluated_metric, reason)
@@ -153,5 +156,50 @@ func TestLoyaltyChangeNotifiesCustomerAndOperators(t *testing.T) {
 	}
 	if !strings.Contains(payload, `"toTier": "gold"`) || !strings.Contains(payload, customer) {
 		t.Fatalf("operator payload %s", payload)
+	}
+}
+
+// A programme's launch places every customer at once, and a tier that grants
+// nothing has nothing to announce: neither tells the customer or the operators.
+// The Bedolaga promo groups carried over on 22 November told 1 946 customers
+// they had reached the base tier.
+func TestLoyaltyLaunchAndEmptyTiersStayQuiet(t *testing.T) {
+	ctx := context.Background()
+	harness := newHarness(t)
+	flow := newBotFlow(ctx, t, harness)
+	goldID := harness.loyaltyProgram(ctx, t, 1, 1000)
+	bronzeID := harness.text(ctx, t, `SELECT id::text FROM loyalty_tiers WHERE code = 'bronze'`)
+	launched := flow.customerOf(ctx, t, 710201)
+	based := flow.customerOf(ctx, t, 710202)
+
+	// Launch: a first placement in the freshly published programme, gold included.
+	harness.standIn(ctx, t, launched, goldID)
+	harness.exec(ctx, t, `INSERT INTO loyalty_standing_history (user_id, to_tier_id, evaluated_metric, reason)
+		VALUES ($1::uuid, $2::uuid, 100000, 'evaluation')`, launched, goldID)
+	// Later, the base tier with no discount.
+	harness.exec(ctx, t, `UPDATE loyalty_programs SET published_at = now() - interval '2 days'`)
+	harness.standIn(ctx, t, based, bronzeID)
+	harness.exec(ctx, t, `INSERT INTO loyalty_standing_history (user_id, to_tier_id, evaluated_metric, reason)
+		VALUES ($1::uuid, $2::uuid, 0, 'evaluation')`, based, bronzeID)
+
+	flow.notifier().RunOnce(ctx)
+	for _, customer := range []string{launched, based} {
+		if ids := eventNoticeIDs(ctx, t, harness, customer, "loyalty_tier"); len(ids) != 0 {
+			t.Fatalf("customer %s was told about a tier: %v", customer, ids)
+		}
+	}
+	var operators int
+	if err := harness.pool.QueryRow(ctx, `SELECT count(*) FROM operator_notifications WHERE kind = 'marketing'`).Scan(&operators); err != nil {
+		t.Fatal(err)
+	}
+	if operators != 0 {
+		t.Fatalf("%d operator notices for a launch and a base tier", operators)
+	}
+
+	// A promotion from the base tier to gold still notifies.
+	harness.exec(ctx, t, `INSERT INTO loyalty_standing_history (user_id, from_tier_id, to_tier_id, evaluated_metric, reason)
+		VALUES ($1::uuid, $2::uuid, $3::uuid, 100000, 'evaluation')`, based, bronzeID, goldID)
+	if ids := eventNoticeIDs(ctx, t, harness, based, "loyalty_tier"); len(ids) != 1 {
+		t.Fatalf("a promotion to gold queued %v, want one notice", ids)
 	}
 }

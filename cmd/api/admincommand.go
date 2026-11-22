@@ -281,7 +281,9 @@ func runHealth(ctx context.Context, stdout, stderr io.Writer) int {
 				WHERE status IN ('pending', 'requires_action') AND created_at < now() - interval '1 hour'
 				AND created_at > now() - interval '7 days'`},
 			{"support", `SELECT count(*) || ' waiting for a reply' FROM support_tickets WHERE status = 'open'`},
-			{"operators", `SELECT count(*) || ' notices undelivered' FROM operator_notifications WHERE delivered_at IS NULL`},
+			{"operators", `SELECT count(*) FILTER (WHERE status = 'pending') || ' notices waiting, ' ||
+				count(*) FILTER (WHERE status = 'failed' AND created_at > now() - interval '1 day') || ' failed today'
+				FROM operator_notifications`},
 		}
 		for _, fact := range facts {
 			var value string
