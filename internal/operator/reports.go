@@ -8,7 +8,6 @@ import (
 	"html"
 	"log/slog"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -166,34 +165,41 @@ func AnnounceRelease(ctx context.Context, pool *pgxpool.Pool, current, latest st
 		map[string]any{"event": "update_available", "version": latest, "previousVersion": current})
 }
 
-// renderReport formats a scheduled report. The payload is the report's own,
-// built from aggregate counts, so nothing in it identifies a customer.
-func renderReport(notification dbgen.OperatorNotification, payload map[string]any) string {
-	builder := &strings.Builder{}
-	titles := map[string]string{PeriodDay: "Daily report", PeriodWeek: "Weekly report", PeriodMonth: "Monthly report"}
+// renderReport formats a scheduled report: label and value lines under the
+// period, in the group's language. The payload is the report's own, built from
+// aggregate counts, so nothing in it identifies a customer.
+func renderReport(notification dbgen.OperatorNotification, payload map[string]any, config Config) string {
+	input := renderInput{Payload: payload, At: notification.CreatedAt.Time, Locale: config.Locale, Location: config.Location}
+	n := &notice{input: input}
+	titles := map[string]phrase{
+		PeriodDay:   {"📊 Daily report", "📊 Отчёт за день"},
+		PeriodWeek:  {"📊 Weekly report", "📊 Отчёт за неделю"},
+		PeriodMonth: {"📊 Monthly report", "📊 Отчёт за месяц"},
+	}
 	period, _ := payload["period"].(string)
-	fmt.Fprintf(builder, "<b>%s · %s</b>\n", html.EscapeString(topicNames["report"]), html.EscapeString(titles[period]))
-	fmt.Fprintf(builder, "%s — %s\n\n", html.EscapeString(fmt.Sprint(payload["from"])), html.EscapeString(fmt.Sprint(payload["to"])))
-	for _, line := range []struct{ key, label string }{
-		{"newCustomers", "New customers"}, {"trials", "Trials"}, {"paidOrders", "Paid orders"},
-		{"topups", "Top-ups"}, {"ticketsOpened", "Tickets opened"}, {"ticketsWaiting", "Tickets waiting now"},
-		{"activeEntitlements", "Active subscriptions now"},
-	} {
-		fmt.Fprintf(builder, "%s: <code>%v</code>\n", line.label, payload[line.key])
+	title, ok := titles[period]
+	if !ok {
+		title = titles[PeriodDay]
 	}
-	if revenue, ok := payload["revenue"].(map[string]any); ok && len(revenue) > 0 {
-		currencies := make([]string, 0, len(revenue))
-		for currency := range revenue {
-			currencies = append(currencies, currency)
-		}
-		slices.Sort(currencies)
-		builder.WriteString("Revenue:")
-		for _, currency := range currencies {
-			minor, _ := revenue[currency].(float64)
-			fmt.Fprintf(builder, " <code>%.2f %s</code>", minor/100, html.EscapeString(currency))
-		}
-		builder.WriteString("\n")
+	n.title = input.say(title)
+	from, to := input.str("from"), input.str("to")
+	if from == to {
+		n.subtitle = html.EscapeString(from)
+	} else {
+		n.subtitle = html.EscapeString(from) + " — " + html.EscapeString(to)
 	}
-	fmt.Fprintf(builder, "at: <code>%s</code>", notification.CreatedAt.Time.UTC().Format(time.RFC3339))
-	return builder.String()
+	count := func(key string) string {
+		value, _ := input.num(key)
+		return "<b>" + groupDigits(value) + "</b>"
+	}
+	n.field("👥", phrase{"New customers", "Новых клиентов"}, count("newCustomers"))
+	n.field("🎁", phrase{"Trials", "Пробных периодов"}, count("trials"))
+	n.field("💳", phrase{"Paid orders", "Оплаченных заказов"}, count("paidOrders"))
+	n.field("👛", phrase{"Top-ups", "Пополнений"}, count("topups"))
+	n.field("💰", phrase{"Revenue", "Выручка"}, "<b>"+moneyMap(payload["revenue"])+"</b>")
+	n.field("💬", phrase{"Tickets opened", "Обращений открыто"}, count("ticketsOpened"))
+	n.field("⏳", phrase{"Tickets waiting now", "Ждут ответа сейчас"}, count("ticketsWaiting"))
+	n.field("📶", phrase{"Active subscriptions now", "Активных подписок сейчас"}, count("activeEntitlements"))
+	text, _ := n.finish()
+	return text
 }

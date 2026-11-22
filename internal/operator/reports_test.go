@@ -78,7 +78,7 @@ func TestReportRendersAggregatesOnly(t *testing.T) {
 		Payload:   []byte(`{"period":"day","from":"2026-11-19","to":"2026-11-19","newCustomers":4,"trials":2,"paidOrders":3,"topups":1,"revenue":{"RUB":149900,"USD":500},"ticketsOpened":1,"ticketsWaiting":0,"activeEntitlements":12,"telegramId":12345}`),
 		CreatedAt: pgtype.Timestamptz{Time: time.Unix(0, 0), Valid: true},
 	})
-	for _, want := range []string{"Daily report", "New customers: <code>4</code>", "1499.00 RUB", "5.00 USD"} {
+	for _, want := range []string{"📊 DAILY REPORT", "<b>New customers:</b> <b>4</b>", "1 499 ₽", "5 $", "<b>Active subscriptions now:</b> <b>12</b>"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("report missing %q:\n%s", want, text)
 		}

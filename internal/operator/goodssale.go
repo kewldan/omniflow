@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"html"
 	"math"
+	"net/url"
+	"strconv"
 	"strings"
-	"time"
 
 	"github.com/go-telegram/bot/models"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
@@ -17,7 +18,7 @@ import (
 //
 // It is the fork's «Звёзды проданы» summary. It carries the recipient handle
 // and the buyer's Telegram identifier — both identifiers an operator looks up
-// in the panel — and never a name, a message, or anything the customer wrote.
+// in the panel — and never a message or anything the customer wrote.
 type goodsSale struct {
 	Event              string `json:"event"`
 	OrderID            string `json:"orderId"`
@@ -58,147 +59,109 @@ func decodeGoodsSale(notification dbgen.OperatorNotification) (goodsSale, bool) 
 	return sale, true
 }
 
-// renderGoodsSale writes the sale notice.
-func renderGoodsSale(sale goodsSale, at time.Time) string {
-	builder := &strings.Builder{}
-	title := "⭐ Stars sold"
+// renderGoodsSale writes the sale notice in the layout every notice uses:
+// who bought how many Stars for whom, what it earned, and what is left in the
+// wallet that paid for it, with the transaction, the order, the buyer, and
+// the wallet as buttons.
+func renderGoodsSale(sale goodsSale, input renderInput) (string, *models.InlineKeyboardMarkup) {
+	n := &notice{input: input}
+	n.title = input.say(phrase{"⭐ Stars sold", "⭐ Звёзды проданы"})
 	if sale.DryRun {
-		title += " (dry run)"
+		n.title += " " + input.say(phrase{"(dry run)", "(пробный прогон)"})
 	}
-	fmt.Fprintf(builder, "<b>%s</b>\n\n", title)
-
-	buyer := "—"
 	if sale.BuyerTelegramID != 0 {
-		buyer = fmt.Sprintf("Telegram <code>%d</code>", sale.BuyerTelegramID)
+		n.field("🆔", phrase{"Buyer's Telegram ID", "Telegram ID покупателя"}, code(strconv.FormatInt(sale.BuyerTelegramID, 10)))
 	}
-	fmt.Fprintf(builder, "👤 Buyer: %s · <code>%s</code>\n", buyer, html.EscapeString(sale.CustomerID))
 	recipient := "@" + html.EscapeString(sale.Recipient)
 	if sale.RecipientIsSelf {
-		recipient += " <i>(self)</i>"
+		recipient += " " + input.say(phrase{"(themselves)", "(себе)"})
 	}
-	fmt.Fprintf(builder, "🎯 Recipient: %s\n", recipient)
-
-	builder.WriteString("<blockquote>")
-	fmt.Fprintf(builder, "⭐ <b>%s</b> Stars · %s\n", groupDigits(sale.Stars), html.EscapeString(sourceLabel(sale.Source)))
-	paid := "💵 Paid: <b>" + money(sale.AmountMinor, sale.Currency) + "</b>"
+	n.field("🎯", phrase{"Recipient", "Получатель"}, recipient)
+	n.field("⭐", phrase{"Stars", "Звёзд"}, "<b>"+groupDigits(sale.Stars)+"</b> · "+input.say(sourceLabel(sale.Source)))
+	paid := "<b>" + formatMoney(sale.AmountMinor, sale.Currency) + "</b>"
 	if sale.PricePerStarMinor != nil {
-		paid += " (" + money(*sale.PricePerStarMinor, sale.Currency) + " per ⭐)"
+		paid += " (" + formatMoney(*sale.PricePerStarMinor, sale.Currency) + " " + input.say(phrase{"per ⭐", "за ⭐"}) + ")"
 	}
-	builder.WriteString(paid + "\n")
+	n.field("💵", phrase{"Paid", "Оплачено"}, paid)
 	if sale.CostNano != nil && *sale.CostNano > 0 {
-		line := "💎 Cost: " + ton(*sale.CostNano)
+		cost := ton(*sale.CostNano)
 		if sale.CostMinor != nil {
-			line += " ≈ " + money(*sale.CostMinor, sale.Currency)
+			cost += " ≈ " + formatMoney(*sale.CostMinor, sale.Currency)
 		}
-		builder.WriteString(line + "\n")
+		n.field("💎", phrase{"Cost", "Себестоимость"}, cost)
 	} else if sale.CostMinor != nil && !sale.DryRun {
-		builder.WriteString("💎 Cost: " + money(*sale.CostMinor, sale.Currency) + "\n")
+		n.field("💎", phrase{"Cost", "Себестоимость"}, formatMoney(*sale.CostMinor, sale.Currency))
 	}
 	if sale.MarginMinor != nil {
 		percent := 0.0
 		if sale.AmountMinor > 0 {
 			percent = float64(*sale.MarginMinor) / float64(sale.AmountMinor) * 100
 		}
-		fmt.Fprintf(builder, "📈 Margin: <b>%s</b> (%.1f%%)\n", signedMoney(*sale.MarginMinor, sale.Currency), percent)
+		margin := formatMoney(*sale.MarginMinor, sale.Currency)
+		if *sale.MarginMinor > 0 {
+			margin = "+" + margin
+		}
+		n.field("📈", phrase{"Margin", "Маржа"}, fmt.Sprintf("<b>%s</b> (%.1f%%)", margin, percent))
 	}
 	if sale.RateMinor != nil {
-		fmt.Fprintf(builder, "💱 TON rate: %s (%s)\n", money(*sale.RateMinor, sale.Currency), html.EscapeString(sale.RateSource))
+		n.field("💱", phrase{"TON rate", "Курс TON"}, formatMoney(*sale.RateMinor, sale.Currency)+" ("+html.EscapeString(sale.RateSource)+")")
 	}
-	builder.WriteString("</blockquote>\n")
-
-	var meta []string
 	if sale.DeliverySeconds != nil {
-		meta = append(meta, "delivered in "+duration(*sale.DeliverySeconds))
+		n.field("⚡", phrase{"Delivered in", "Доставлено за"}, duration(*sale.DeliverySeconds))
 	}
-	if sale.Attempt > 0 {
-		meta = append(meta, fmt.Sprintf("attempt %d", sale.Attempt))
-	}
-	if len(meta) > 0 {
-		builder.WriteString("⚡ " + strings.Join(meta, " · ") + "\n")
+	if sale.Attempt > 1 {
+		n.field("🔁", phrase{"Attempt", "Попытка"}, strconv.FormatInt(sale.Attempt, 10))
 	}
 	if sale.WalletBalanceNano != nil {
-		line := "👛 Wallet: <b>" + ton(*sale.WalletBalanceNano) + "</b>"
+		wallet := "<b>" + ton(*sale.WalletBalanceNano) + "</b>"
 		if sale.WalletBalanceMinor != nil {
-			line += " ≈ " + money(*sale.WalletBalanceMinor, sale.Currency)
+			wallet += " ≈ " + formatMoney(*sale.WalletBalanceMinor, sale.Currency)
 		}
-		builder.WriteString(line + "\n")
+		n.field("👛", phrase{"Wallet", "Кошелёк"}, wallet)
 		if sale.WalletStarsCovered != nil {
+			covers := groupDigits(*sale.WalletStarsCovered) + " ⭐"
 			if sale.WalletLow {
-				fmt.Fprintf(builder, "⚠️ Covers about %s ⭐ — <b>top the wallet up</b> (warning below %s)\n",
-					groupDigits(*sale.WalletStarsCovered), groupDigits(sale.WalletLowStars))
+				n.field("⚠️", phrase{"Covers about", "Хватит примерно на"}, covers+" — <b>"+
+					input.say(phrase{"top the wallet up", "пополните кошелёк"})+"</b> ("+
+					input.say(phrase{"warning below", "предупреждение ниже"})+" "+groupDigits(sale.WalletLowStars)+")")
 			} else {
-				fmt.Fprintf(builder, "🔋 Covers about %s ⭐\n", groupDigits(*sale.WalletStarsCovered))
+				n.field("🔋", phrase{"Covers about", "Хватит примерно на"}, covers)
 			}
 		}
 	}
 	if sale.ProviderConfirmed != nil && !*sale.ProviderConfirmed {
-		builder.WriteString("⚠️ Paid, but Fragment did not acknowledge the payment (confirmReq)\n")
+		n.line("⚠️", input.say(phrase{"Paid, but Fragment did not acknowledge the payment (confirmReq)",
+			"Оплачено, но Fragment не подтвердил платёж (confirmReq)"}))
 	}
 	if realTx(sale) {
-		fmt.Fprintf(builder, "🧾 <code>%s</code>\n", html.EscapeString(sale.TxHash))
+		n.field("🧾", phrase{"Transaction", "Транзакция"}, code(sale.TxHash))
+		n.link("🔎 Tonscan", "https://tonscan.org/tx/"+sale.TxHash)
+		n.link("🔎 Tonviewer", "https://tonviewer.com/transaction/"+sale.TxHash)
 	}
-	fmt.Fprintf(builder, "order: <code>%s</code>\n", html.EscapeString(sale.OrderID))
-	fmt.Fprintf(builder, "at: <code>%s</code>", at.UTC().Format(time.RFC3339))
-	return builder.String()
-}
-
-// goodsSaleMarkup links the transaction in two explorers, the order in the
-// panel, and the wallet.
-func goodsSaleMarkup(sale goodsSale, panelURL string) *models.InlineKeyboardMarkup {
-	var rows [][]models.InlineKeyboardButton
-	if realTx(sale) {
-		rows = append(rows, []models.InlineKeyboardButton{
-			{Text: "🔎 Tonscan", URL: "https://tonscan.org/tx/" + sale.TxHash},
-			{Text: "🔎 Tonviewer", URL: "https://tonviewer.com/transaction/" + sale.TxHash},
-		})
-	}
-	if base := strings.TrimSuffix(strings.TrimSpace(panelURL), "/"); strings.HasPrefix(base, "https://") {
-		rows = append(rows, []models.InlineKeyboardButton{
-			{Text: "⭐ Order", URL: base + "/admin/shop?order=" + sale.OrderID},
-			{Text: "👤 Buyer", URL: base + "/admin/customers/" + sale.CustomerID},
-		})
-	}
+	n.field("🛍", phrase{"Order", "Заказ"}, code(shortID(sale.OrderID)))
+	n.button(input.say(phrase{"⭐ Order", "⭐ Заказ"}), "/admin/shop?order="+url.QueryEscape(sale.OrderID))
+	n.button(input.say(phrase{"👤 Buyer", "👤 Покупатель"}), "/admin/customers/"+url.PathEscape(sale.CustomerID))
 	if sale.WalletAddress != "" {
-		rows = append(rows, []models.InlineKeyboardButton{
-			{Text: "👛 Wallet", URL: "https://tonscan.org/address/" + sale.WalletAddress},
-		})
+		n.link(input.say(phrase{"👛 Wallet", "👛 Кошелёк"}), "https://tonscan.org/address/"+sale.WalletAddress)
 	}
-	if len(rows) == 0 {
-		return nil
-	}
-	return &models.InlineKeyboardMarkup{InlineKeyboard: rows}
+	return n.finish()
 }
 
 func realTx(sale goodsSale) bool {
 	return sale.TxHash != "" && !sale.DryRun && !strings.HasPrefix(sale.TxHash, "dry-run")
 }
 
-func sourceLabel(source string) string {
+func sourceLabel(source string) phrase {
 	switch source {
 	case "bot":
-		return "bot"
+		return phrase{"bot", "бот"}
 	case "web":
-		return "web panel"
+		return phrase{"web panel", "веб-кабинет"}
 	case "auto_cart":
-		return "after a top-up"
+		return phrase{"after a top-up", "после пополнения"}
 	default:
-		return "unknown source"
+		return phrase{"unknown source", "источник неизвестен"}
 	}
-}
-
-func money(minor int64, currency string) string {
-	sign := ""
-	if minor < 0 {
-		sign, minor = "−", -minor
-	}
-	return fmt.Sprintf("%s%s.%02d %s", sign, groupDigits(minor/100), minor%100, currency)
-}
-
-func signedMoney(minor int64, currency string) string {
-	if minor > 0 {
-		return "+" + money(minor, currency)
-	}
-	return money(minor, currency)
 }
 
 func ton(nano int64) string {

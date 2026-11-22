@@ -532,8 +532,11 @@ func (notifier *Notifier) deliver(ctx context.Context, queries *dbgen.Queries, c
 		markup models.ReplyMarkup
 	)
 	if sale, ok := decodeGoodsSale(notification); ok {
-		text = renderGoodsSale(sale, notification.CreatedAt.Time)
-		if keyboard := goodsSaleMarkup(sale, notifier.config.PanelURL); keyboard != nil {
+		var keyboard *models.InlineKeyboardMarkup
+		text, keyboard = renderGoodsSale(sale, renderInput{
+			At: notification.CreatedAt.Time, Locale: config.Locale, Location: config.Location, PanelURL: config.PanelURL,
+		})
+		if keyboard != nil {
 			markup = keyboard
 		}
 	} else {
@@ -575,7 +578,7 @@ func (notifier *Notifier) render(ctx context.Context, config Config, notificatio
 	payload := map[string]any{}
 	_ = json.Unmarshal(notification.Payload, &payload)
 	if notification.Kind == "report" {
-		return renderReport(notification, payload), nil
+		return renderReport(notification, payload, config), nil
 	}
 	// The dedupe key names the record a few triggers did not put in the
 	// payload: the reply a customer-reply notice is about, the delivery

@@ -30,16 +30,21 @@ func TestASaleNoticeCarriesTheMarginAndTheWallet(t *testing.T) {
 	if !ok {
 		t.Fatal("a sale payload was not recognised")
 	}
-	text := renderGoodsSale(sale, notification.CreatedAt.Time)
+	text, markup := renderGoodsSale(sale, renderInput{
+		At: notification.CreatedAt.Time, Locale: "ru", PanelURL: "https://panel.example",
+	})
 	for _, want := range []string{
-		"@alice_stars", "250", "360.00 RUB", "1.44 RUB per ⭐", "1 TON", "300.00 RUB",
-		"+60.00 RUB", "16.7%", "tonapi", "after a top-up", "4 s", "2 TON", "500 ⭐", "top the wallet up", "ab12",
+		"⭐ ЗВЁЗДЫ ПРОДАНЫ", "<b>Получатель:</b> @alice_stars", "<b>Звёзд:</b> <b>250</b> · после пополнения",
+		"<b>Оплачено:</b> <b>360 ₽</b> (1.44 ₽ за ⭐)", "1 TON ≈ 300 ₽", "<b>+60 ₽</b> (16.7%)", "tonapi",
+		"4 s", "2 TON", "500 ⭐", "пополните кошелёк", "ab12", "<b>Telegram ID покупателя:</b> <code>42</code>",
 	} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("the notice lacks %q:\n%s", want, text)
 		}
 	}
-	markup := goodsSaleMarkup(sale, "https://panel.example")
+	if strings.Contains(text, "blockquote") {
+		t.Fatalf("the notice still quotes:\n%s", text)
+	}
 	if markup == nil || len(markup.InlineKeyboard) != 3 {
 		t.Fatalf("expected explorer, panel, and wallet rows: %+v", markup)
 	}
@@ -54,11 +59,11 @@ func TestADryRunSaleHasNoExplorerLinks(t *testing.T) {
 	sale, _ := decodeGoodsSale(saleNotification(`{"event":"goods_sale","orderId":"o","customerId":"c",
 		"recipient":"bob_stars","stars":50,"amountMinor":7000,"currency":"RUB","dryRun":true,
 		"txHash":"dry-run-tx-o","costNano":0,"costMinor":0,"marginMinor":7000}`))
-	text := renderGoodsSale(sale, time.Now())
-	if !strings.Contains(text, "dry run") || strings.Contains(text, "dry-run-tx") {
+	text, markup := renderGoodsSale(sale, renderInput{At: time.Now(), PanelURL: "http://insecure"})
+	if !strings.Contains(text, "DRY RUN") || strings.Contains(text, "dry-run-tx") {
 		t.Fatalf("dry run notice:\n%s", text)
 	}
-	if markup := goodsSaleMarkup(sale, "http://insecure"); markup != nil {
+	if markup != nil {
 		t.Fatalf("a dry run on a non-HTTPS panel has nothing to link: %+v", markup)
 	}
 }
