@@ -129,7 +129,7 @@ export function WithdrawalsCard({ editable }: { editable: boolean }) {
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
         {draft && (
-          <div className="grid gap-3 rounded-md border border-dashed p-4 sm:grid-cols-4">
+          <div className="grid gap-3 rounded-md border border-dashed bg-well p-4 sm:grid-cols-4">
             <div className="flex items-center gap-2">
               <Switch
                 checked={draft.enabled}

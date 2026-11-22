@@ -149,7 +149,7 @@ export function EngagementCard({ editable }: { editable: boolean }) {
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
         {settings && (
-          <div className="flex flex-col gap-3 rounded-md border border-dashed p-4">
+          <div className="flex flex-col gap-3 rounded-md border border-dashed bg-well p-4">
             <div className="flex items-center gap-2">
               <Switch
                 checked={settings.wheelEnabled}
@@ -353,7 +353,7 @@ export function EngagementCard({ editable }: { editable: boolean }) {
             </div>
           ))}
           {editable && (
-            <div className="grid gap-2 rounded-md border border-dashed p-4">
+            <div className="grid gap-2 rounded-md border border-dashed bg-well p-4">
               <Label htmlFor={ids.question}>{translate("question")}</Label>
               <Input
                 id={ids.question}

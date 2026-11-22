@@ -102,7 +102,7 @@ export function CurrencyCard({ editable }: { editable: boolean }) {
             ` · ${translate("starNow", { rate: formatMoney(data.starsRate.minor, data.starsRate.currency, locale) })}`}
         </p>
         {draft && (
-          <div className="grid gap-3 rounded-md border border-dashed p-4 sm:grid-cols-2">
+          <div className="grid gap-3 rounded-md border border-dashed bg-well p-4 sm:grid-cols-2">
             <div className="flex items-center gap-2 sm:col-span-2">
               <Switch
                 checked={draft.starsEnabled}

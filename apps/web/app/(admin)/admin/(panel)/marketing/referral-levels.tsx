@@ -201,7 +201,7 @@ export function ReferralLevelsCard({ editable, canPay }: { editable: boolean; ca
           </div>
         ))}
         {editable && (
-          <div className="grid gap-2 rounded-md border border-dashed p-4 sm:grid-cols-2">
+          <div className="grid gap-2 rounded-md border border-dashed bg-well p-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1">
               <Label htmlFor={ids.title}>{translate("titleRu")}</Label>
               <Input

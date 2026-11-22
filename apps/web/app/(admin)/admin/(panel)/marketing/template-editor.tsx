@@ -189,7 +189,7 @@ export function TemplateEditorCard({ onSaved }: { onSaved: () => void }) {
               />
             </div>
           </div>
-          <div className="flex flex-col gap-1 rounded-md border border-dashed p-3 text-sm">
+          <div className="flex flex-col gap-1 rounded-md border border-dashed bg-well p-3 text-sm">
             <div className="font-medium">{translate("variablesTitle")}</div>
             <p className="text-muted-foreground text-xs">{translate("variablesHint")}</p>
             <ul className="mt-1 grid gap-1 sm:grid-cols-2">

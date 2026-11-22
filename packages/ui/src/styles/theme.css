@@ -20,6 +20,8 @@
 
   --card: #ffffff;
   --card-foreground: #09090b;
+  /* A grouped block inside a card: a shade off the card, so its fields read as set into it. */
+  --well: #f7f7f8;
 
   --popover: #ffffff;
   --popover-foreground: #09090b;
@@ -123,6 +125,7 @@
 
   --card: #18181b;
   --card-foreground: #fafafa;
+  --well: #1f1f23;
 
   --popover: #18181b;
   --popover-foreground: #fafafa;
@@ -191,6 +194,7 @@
   --color-foreground: var(--foreground);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
+  --color-well: var(--well);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);

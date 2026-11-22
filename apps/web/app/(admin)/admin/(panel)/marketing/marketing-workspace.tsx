@@ -268,7 +268,7 @@ function CampaignCard({ editable }: { editable: boolean }) {
         {isLoading ? <Skeleton className="h-32 w-full" /> : null}
 
         {editable ? (
-          <div className="flex flex-col gap-3 rounded-md border border-dashed p-4">
+          <div className="flex flex-col gap-3 rounded-md border border-dashed bg-well p-4">
             <p className="font-medium text-sm">{translate("campaigns.newTitle")}</p>
             <div className="grid gap-3 sm:grid-cols-4">
               <div className="flex flex-col gap-1">

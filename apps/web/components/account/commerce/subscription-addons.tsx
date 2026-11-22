@@ -144,7 +144,7 @@ export function SubscriptionAddons({
         {translate("wallet", { amount: money(data.walletMinor, data.currency) })}
       </p>
       {saved && (
-        <div className="space-y-2 rounded-md border border-dashed border-border p-3">
+        <div className="space-y-2 rounded-md border border-dashed bg-well border-border p-3">
           <p className="font-medium text-[13.5px]">
             {translate("savedTitle", { name: savedName || translate("savedUnnamed") })}
           </p>
