@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.6.0](https://github.com/kewldan/omniflow/compare/omniflow-v1.5.0...omniflow-v1.6.0) (2026-11-22)
+
+
+### Features
+
+* **ui:** grouped form blocks sit on a well, a shade off the card ([874bb2b](https://github.com/kewldan/omniflow/commit/874bb2b247d9f2a754de2185a3697811b01668fe))
+
+
+### Bug Fixes
+
+* **admin:** audit a refused passkey sign-in, and say why it was refused ([f468bb9](https://github.com/kewldan/omniflow/commit/f468bb94d671088af5e6812a5f4ed8eeb13ae836))
+* **web:** ship public/ in the image, so the sidebar animations load ([954883e](https://github.com/kewldan/omniflow/commit/954883ee51a83bc6f0f26d3555f60dee00033b7f))
+
 ## [1.5.0](https://github.com/kewldan/omniflow/compare/omniflow-v1.4.1...omniflow-v1.5.0) (2026-11-22)
 
 
