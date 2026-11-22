@@ -568,7 +568,7 @@
           "lastPasskey": "Это последний passkey: сначала включите вход по паролю."
         },
         "passkeysOnly": "Входить только по passkey",
-        "passkeysOnlyHint": "Вход по паролю для вашей учётной записи выключается: даже верный пароль не пустит. Если passkey потеряется, доступ вернёт команда на сервере: docker exec omniflow-api /app admin password-login <почта> --for 1h.",
+        "passkeysOnlyHint": "Вход по паролю для вашей учётной записи выключается: даже верный пароль не пустит. Если passkey потеряется, доступ вернёт команда на сервере: docker exec omniflow-api /app admin password-login ПОЧТА --for 1h.",
         "passkeysOnlyNeedsUse": "Сначала войдите хотя бы раз по passkey — так видно, что ключ работает.",
         "passwordOff": "Вход по паролю выключен",
         "passwordOn": "Вход по паролю снова включён"

@@ -568,7 +568,7 @@
           "lastPasskey": "این آخرین passkey شماست: ابتدا ورود با رمز را روشن کنید."
         },
         "passkeysOnly": "ورود فقط با passkey",
-        "passkeysOnlyHint": "ورود با رمز برای حساب شما خاموش می‌شود: حتی رمز درست هم کسی را راه نمی‌دهد. اگر passkey گم شود، فرمانی روی سرور دسترسی را برمی‌گرداند: docker exec omniflow-api /app admin password-login <ایمیل> --for 1h.",
+        "passkeysOnlyHint": "ورود با رمز برای حساب شما خاموش می‌شود: حتی رمز درست هم کسی را راه نمی‌دهد. اگر passkey گم شود، فرمانی روی سرور دسترسی را برمی‌گرداند: docker exec omniflow-api /app admin password-login ایمیل --for 1h.",
         "passkeysOnlyNeedsUse": "ابتدا دست‌کم یک بار با passkey وارد شوید تا معلوم شود کار می‌کند.",
         "passwordOff": "ورود با رمز خاموش شد",
         "passwordOn": "ورود با رمز دوباره روشن شد"

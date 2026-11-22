@@ -568,7 +568,7 @@
           "lastPasskey": "This is your last passkey: turn password sign-in back on first."
         },
         "passkeysOnly": "Sign in with passkeys only",
-        "passkeysOnlyHint": "Password sign-in is turned off for your account: even a correct password will not let anyone in. If your passkey is lost, a command on the server brings access back: docker exec omniflow-api /app admin password-login <email> --for 1h.",
+        "passkeysOnlyHint": "Password sign-in is turned off for your account: even a correct password will not let anyone in. If your passkey is lost, a command on the server brings access back: docker exec omniflow-api /app admin password-login EMAIL --for 1h.",
         "passkeysOnlyNeedsUse": "Sign in with a passkey once first, so it is known to work.",
         "passwordOff": "Password sign-in is off",
         "passwordOn": "Password sign-in is on again"

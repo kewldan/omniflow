@@ -568,7 +568,7 @@
           "lastPasskey": "这是最后一个通行密钥：请先开启密码登录。"
         },
         "passkeysOnly": "仅使用通行密钥登录",
-        "passkeysOnlyHint": "您的账户将关闭密码登录：即使密码正确也无法进入。如果通行密钥丢失，可在服务器上用命令恢复访问：docker exec omniflow-api /app admin password-login <邮箱> --for 1h。",
+        "passkeysOnlyHint": "您的账户将关闭密码登录：即使密码正确也无法进入。如果通行密钥丢失，可在服务器上用命令恢复访问：docker exec omniflow-api /app admin password-login 邮箱 --for 1h。",
         "passkeysOnlyNeedsUse": "请先用通行密钥登录一次，以确认它可用。",
         "passwordOff": "已关闭密码登录",
         "passwordOn": "已重新开启密码登录"
