@@ -54,6 +54,7 @@ func (handlers *AdminHandlers) mountSettings(secure chi.Router) {
 		// The bot recreates the topics on its next pass and saves each new
 		// thread ID; this only marks them for it.
 		write.Post("/settings/operator-group/topics/recreate", handlers.recreateOperatorTopics)
+		write.Post("/settings/operator-group/topics/repair", handlers.repairOperatorTopics)
 
 		write.Put("/settings/ai/providers", handlers.saveAIProvider)
 		write.Delete("/settings/ai/providers/{slug}", handlers.deleteAIProvider)
@@ -127,6 +128,11 @@ func (handlers *AdminHandlers) operatorTopics(writer http.ResponseWriter, reques
 func (handlers *AdminHandlers) recreateOperatorTopics(writer http.ResponseWriter, request *http.Request) {
 	reset, err := handlers.operations.RecreateOperatorTopics(request.Context(), actorFrom(request))
 	handlers.respond(writer, request, map[string]any{"reset": reset}, err)
+}
+
+func (handlers *AdminHandlers) repairOperatorTopics(writer http.ResponseWriter, request *http.Request) {
+	marked, err := handlers.operations.RepairOperatorTopics(request.Context(), actorFrom(request))
+	handlers.respond(writer, request, map[string]any{"repairing": marked}, err)
 }
 
 func (handlers *AdminHandlers) aiProviders(writer http.ResponseWriter, request *http.Request) {

@@ -33,6 +33,15 @@ func TestOperatorTopicsCanBeRecreatedFromThePanel(t *testing.T) {
 	}
 
 	actor := harness.operator(ctx, t, "topics@example.test")
+	// Repair marks the bound topics for the bot to rename in place.
+	marked, err := panel.RepairOperatorTopics(ctx, actor)
+	if err != nil || marked != 1 {
+		t.Fatalf("repair = %d, %v", marked, err)
+	}
+	topics, _ = panel.OperatorTopics(ctx)
+	if !topics[0].Repairing || topics[1].Repairing {
+		t.Fatalf("only the bound topic is repaired: %+v", topics)
+	}
 	reset, err := panel.RecreateOperatorTopics(ctx, actor)
 	if err != nil || reset != 2 {
 		t.Fatalf("recreate = %d, %v", reset, err)

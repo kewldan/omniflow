@@ -5312,7 +5312,8 @@
       "statuses": {
         "bound": "Ready",
         "pending": "Being created",
-        "failed": "Failed"
+        "failed": "Failed",
+        "repairing": "Being repaired"
       },
       "errors": {
         "missing_manage_topics_permission": "The bot may not manage topics. Make it an administrator with the “Manage topics” right, then recreate the topics.",
@@ -5352,7 +5353,13 @@
         "marketing": "Loyalty and referrals",
         "receipt": "Self-employed receipts"
       },
-      "failed": "The request did not go through: {detail}"
+      "failed": "The request did not go through: {detail}",
+      "repair": "Repair names and icons",
+      "repairTitle": "Repair every topic?",
+      "repairWarning": "The bot renames each topic to its plain name in the notice language and sets its icon. Topics keep their threads and history. Telegram allows only a few edits at a time, so a whole group takes about a minute.",
+      "repairReason": "Repair the operator group's topic names and icons",
+      "repairRequested": "The bot is repairing the topics; it takes about a minute.",
+      "repairing": "the bot is repairing topics…"
     }
   },
   "account": {

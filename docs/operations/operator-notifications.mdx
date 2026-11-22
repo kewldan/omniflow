@@ -29,7 +29,7 @@ indefinitely".
     feature; a plain group cannot hold them.
   </Step>
   <Step title="Add the bot">
-    Add the bot and grant it **Manage Topics** and **Send Messages**.
+    Add the bot and grant it **Manage Topics**, **Send Messages**, and **Pin Messages** (for the status message).
   </Step>
   <Step title="Point the bot at it">
     Enter the group's ID in **Settings → Integrations → Operator group → Operator chat ID**
@@ -51,30 +51,34 @@ happened — it simply has nobody to tell.
 
 ## The topics
 
+Each topic has a plain name and its emoji as the topic's icon, set from Telegram's own list of
+forum icons (`getForumTopicIconStickers`). Names follow the notice language, English as below or
+Russian. The emoji in the first column below is the icon.
+
 | Topic | Kind | Carries | Written by |
 | --- | --- | --- | --- |
-| 💳 Purchases | `purchase` | Settled subscription orders | Order settlement |
-| ♻️ Renewals | `renewal` | Settled extensions and renewals | Order settlement |
-| 👛 Wallet top-ups | `topup` | Credited top-ups, including over- and underpayments | Top-up settlement |
-| ↩️ Refunds | `refund` | Recorded refunds | Refund recording |
-| ⚠️ Fulfillment failures | `fulfillment_failure` | Provisioning runs that stopped being a blip, digital-goods delivery failures, and add-ons that settled with no live entitlement | Fulfillment worker, goods worker, settlement |
-| 🚨 Incidents | `incident` | Payments that need a look: a duplicate, under- or overpayment, currency mismatch, or wallet shortfall that left money at the provider with the order open, and a payment that settled an order the customer had cancelled; a chargeback, a refund whose outcome at the provider is unknown, and a refunded top-up the wallet no longer holds; a digital-goods provider out of balance, and a goods delivery that arrived after an operator had already resolved the order; and every maintenance transition, automatic or manual | Payment settlement, refunds and reversals, the goods delivery worker, the api's maintenance controller |
-| 💾 Backups | `backup` | Backup outcomes — completed with its size, or failed with the error code — and restore outcomes | The process that took or restored the backup |
-| 🔐 Admin security | `security` | Operator sign-ins from a new address, password changes and resets, two-factor removal, and owner grants | Operator identity service |
+| 🛒 Purchases | `purchase` | Settled subscription orders | Order settlement |
+| 📆 Renewals | `renewal` | Settled extensions and renewals | Order settlement |
+| 💰 Wallet top-ups | `topup` | Credited top-ups, including over- and underpayments | Top-up settlement |
+| 💸 Refunds | `refund` | Recorded refunds | Refund recording |
+| ❗️ Fulfillment failures | `fulfillment_failure` | Provisioning runs that stopped being a blip, digital-goods delivery failures, and add-ons that settled with no live entitlement | Fulfillment worker, goods worker, settlement |
+| ‼️ Incidents | `incident` | Payments that need a look: a duplicate, under- or overpayment, currency mismatch, or wallet shortfall that left money at the provider with the order open, and a payment that settled an order the customer had cancelled; a chargeback, a refund whose outcome at the provider is unknown, and a refunded top-up the wallet no longer holds; a digital-goods provider out of balance, and a goods delivery that arrived after an operator had already resolved the order; and every maintenance transition, automatic or manual | Payment settlement, refunds and reversals, the goods delivery worker, the api's maintenance controller |
+| 📁 Backups | `backup` | Backup outcomes — completed with its size, or failed with the error code — and restore outcomes | The process that took or restored the backup |
+| 👮‍♂️ Admin security | `security` | Operator sign-ins from a new address, password changes and resets, two-factor removal, and owner grants | Operator identity service |
 | 💬 Support tickets | `support` | Every new support ticket, and every later customer message in a ticket (`event: customer_reply`), from the bot or the web panel. The notice shows the ticket's subject and the customer's message, read from the database when it is sent, unless the support section's **Show the ticket's subject and message in the group** is off | Database triggers on `support_tickets` and `support_messages` |
 | 📣 Campaign previews | `campaign_test` | One copy of a campaign's message, asked for before the audience is committed to | Campaign test send |
-| 🔔 Notice previews | `notice_test` | One rendered copy of a transactional notice an operator is rewording | Notice test send |
-| 🖥 Remnawave nodes | `node` | Remnawave's own node, panel-service, and infrastructure-billing webhook events, as the event name and the node's name | [Remnawave webhooks](/integrations/remnawave#webhooks) |
+| 📰 Notice previews | `notice_test` | One rendered copy of a transactional notice an operator is rewording | Notice test send |
+| 💻 Remnawave nodes | `node` | Remnawave's own node, panel-service, and infrastructure-billing webhook events, as the event name and the node's name | [Remnawave webhooks](/integrations/remnawave#webhooks) |
 | 📈 Usage monitoring | `monitoring` | Torrent-blocker reports, and the monitoring passes' findings | Remnawave webhooks, the worker's monitoring jobs |
-| 📈 Anomalies | `anomaly` | A raised anomaly signal: the metric, severity, observed value, and threshold — never the subject | The anomaly evaluator |
-| 🎁 Trials | `trial` | Every trial claimed, as its order | A trigger on `trial_claims` |
-| ➕ Add-ons | `addon` | Every add-on settled onto a subscription | A trigger on the `addon.purchased` outbox event |
-| 🏷 Promo codes | `promo` | Every promo code redeemed at checkout, with the discount | A trigger on `promo_redemptions` |
-| 🤝 Partners | `partner` | Every referral reward granted, with the role, amount, and currency | A trigger on `referral_rewards` |
-| 🐞 Errors | `error` | A new application error, and the 10th, 100th, 1000th recurrence of one: the process, a fingerprint, and the count — never the message | The error log in each process |
-| 🛠 Infrastructure | `infrastructure` | The bot's [startup report](#the-startup-report); a newer release on the update feed | The bot at start; the worker every six hours when `APP_UPDATE_FEED_URL` is set |
-| 📊 Reports | `report` | Scheduled daily, weekly, and monthly summaries: new customers, trials, paid orders, top-ups, revenue per currency, tickets opened and waiting, active subscriptions | The worker, per the reports section |
-| 🎯 Loyalty and referrals | `marketing` | Every loyalty tier change (`event: loyalty_tier`) with the customer identifier, the tier codes it moved from and to, and the reason — `evaluation` or `operator_override` | Database trigger on `loyalty_standing_history` |
+| 📉 Anomalies | `anomaly` | A raised anomaly signal: the metric, severity, observed value, and threshold — never the subject | The anomaly evaluator |
+| 🎟 Trials | `trial` | Every trial claimed, as its order | A trigger on `trial_claims` |
+| 🛍 Add-ons | `addon` | Every add-on settled onto a subscription | A trigger on the `addon.purchased` outbox event |
+| 🎉 Promo codes | `promo` | Every promo code redeemed at checkout, with the discount | A trigger on `promo_redemptions` |
+| 💼 Partners | `partner` | Every referral reward granted, with the role, amount, and currency | A trigger on `referral_rewards` |
+| 🦠 Errors | `error` | A new application error, and the 10th, 100th, 1000th recurrence of one: the process, a fingerprint, and the count — never the message | The error log in each process |
+| 🤖 Infrastructure | `infrastructure` | The bot's [startup report](#the-startup-report); a newer release on the update feed | The bot at start; the worker every six hours when `APP_UPDATE_FEED_URL` is set |
+| 📝 Reports | `report` | Scheduled daily, weekly, and monthly summaries: new customers, trials, paid orders, top-ups, revenue per currency, tickets opened and waiting, active subscriptions | The worker, per the reports section |
+| 🏆 Loyalty and referrals | `marketing` | Every loyalty tier change (`event: loyalty_tier`) with the customer identifier, the tier codes it moved from and to, and the reason — `evaluation` or `operator_override` | Database trigger on `loyalty_standing_history` |
 
 The two preview kinds (`campaign_test`, `notice_test`) carry something the others deliberately do not: a rendered message body. Everything else here is a set of allowlisted, non-personal fields, and a preview is by definition the copy itself. Both say plainly that nobody else received them — a preview mistaken for a real send is somebody reaching for the pause button. See [Campaigns](/commerce/campaigns) and [Message wording](/operations/message-wording).
 
@@ -130,7 +134,17 @@ because it can echo request content.
 | `bot_not_in_group` | Re-add the bot |
 | `telegram_error` | Anything else; read the bot log for context |
 
-The **Topics in the operator group** card shows the reason in words. Fix the cause and
+The **Topics in the operator group** card shows the reason in words.
+
+**Repair names and icons** fixes the existing topics in place: each is renamed to its plain name
+in the notice language and gets its icon, and keeps its thread and history. Telegram allows only
+about twenty topic edits before it answers "retry after", so the bot repairs three per pass and
+waits out any "retry after"; a whole group takes about a minute. Creating topics is paced the same
+way: a topic Telegram turned away for the rate stays `pending` and is created after the wait,
+rather than being marked `failed`. The request is audited as
+`panel.operator_topics.repair_requested`.
+
+When a topic cannot be repaired — it was deleted, or the bot lost a right — fix the cause and
 press **Recreate topics**: every topic goes back to `pending`, and the bot creates fresh
 ones on its next pass and saves their thread IDs. The old topics stay in the group with
 their history; close or delete them in Telegram. The request is audited as
@@ -311,7 +325,12 @@ it notices carry links only.
 
 ## The startup report
 
-When the bot starts it posts one summary to the infrastructure topic:
+When the bot starts it updates one status message in the infrastructure topic. Autodeploy
+restarts the bot after nearly every commit, so the report is not posted again each time: the bot
+keeps a single message, pinned in that topic, and edits it on every start. It posts (and pins) a
+new one only when there is none yet, when the old one was deleted, or when the topics were
+recreated. Pinning needs the bot's **Pin messages** right; without it the message is posted
+unpinned. The message reads:
 
 ```text
 🚀 Omniflow · v1.4.1
@@ -343,8 +362,9 @@ answer, failed deliveries in the last seven days, and maintenance mode; with non
 says all is well. The figures are counts and sums only, read once at start: active
 customers; active and limited subscriptions on paid plans and on trials; wallet top-ups
 paid in the last 24 hours and the total on customer balances, per currency. The Remnawave
-line is one timed request to the panel. **Sales** is the access section's mode. The report
-goes through the same volume cap and quiet hours as every other notice.
+line is one timed request to the panel. **Sales** is the access section's mode, and the time at
+the bottom is when the bot started. The message is skipped when the infrastructure stream is
+switched off.
 
 ## Fulfillment failure notices
 

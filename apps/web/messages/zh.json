@@ -5220,7 +5220,8 @@
       "statuses": {
         "bound": "就绪",
         "pending": "创建中",
-        "failed": "失败"
+        "failed": "失败",
+        "repairing": "修复中"
       },
       "errors": {
         "missing_manage_topics_permission": "机器人无权管理话题。请将其设为拥有“管理话题”权限的管理员，然后重新创建话题。",
@@ -5260,7 +5261,13 @@
         "marketing": "忠诚度与推荐",
         "receipt": "个体经营收据"
       },
-      "failed": "请求未成功：{detail}"
+      "failed": "请求未成功：{detail}",
+      "repair": "修复名称和图标",
+      "repairTitle": "修复所有话题？",
+      "repairWarning": "机器人会将每个话题重命名为通知语言下的纯文本名称并设置图标。话题保留其会话和历史。Telegram 每次只允许少量修改，因此整个群组大约需要一分钟。",
+      "repairReason": "修复运营群组话题的名称和图标",
+      "repairRequested": "机器人正在修复话题，大约需要一分钟。",
+      "repairing": "机器人正在修复话题…"
     }
   },
   "account": {
