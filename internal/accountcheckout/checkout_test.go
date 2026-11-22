@@ -198,13 +198,44 @@ func TestEligibilityExplainsWhyATrialIsRefused(t *testing.T) {
 	if !offered.Eligible || len(offered.Operations) != 1 {
 		t.Fatalf("an eligible trial was not offered: %+v", offered)
 	}
-	// A refused trial is still shown, carrying the reason. Hiding it would leave
-	// the customer wondering where the free period went.
+	// A refused trial carries the reason, for the plan page that explains it.
 	refused := applyEligibility(record, eligibility{
 		trial: commerce.TrialRequest{AlreadyClaimed: true},
 	})
 	if refused.Eligible || refused.IneligibleReason != "trial_already_used" {
 		t.Fatalf("a claimed trial reported %+v", refused)
+	}
+}
+
+func TestCatalogueLeavesOutATrialNobodyCanTake(t *testing.T) {
+	t.Parallel()
+	record := planRecord{offer: PlanOffer{Kind: "trial"}, trialRule: commerce.TrialNewCustomer}
+	for name, request := range map[string]commerce.TrialRequest{
+		"used":            {AlreadyClaimed: true},
+		"shared identity": {SharedIdentitySignal: true},
+		"paying customer": {ActiveEntitlement: true},
+		"bought before":   {CompletedOrders: 1},
+	} {
+		if offer := applyEligibility(record, eligibility{trial: request}); !trialOutOfReach(offer) {
+			t.Errorf("%s: the catalogue kept a trial that cannot be taken: %+v", name, offer)
+		}
+	}
+	// A refusal the customer can lift keeps its card and its reason.
+	for name, request := range map[string]commerce.TrialRequest{
+		"eligible":       {},
+		"sign-in method": {SignInMethodExcluded: true},
+		"account too new": {
+			AccountAge: time.Hour, MinimumAccountAge: 24 * time.Hour,
+		},
+	} {
+		if offer := applyEligibility(record, eligibility{trial: request}); trialOutOfReach(offer) {
+			t.Errorf("%s: the catalogue dropped a trial the customer can still reach: %+v", name, offer)
+		}
+	}
+	// A paid plan is never dropped by this rule.
+	paid := applyEligibility(planRecord{offer: PlanOffer{Kind: "standard"}}, eligibility{})
+	if trialOutOfReach(paid) {
+		t.Fatal("a paid plan was taken for a trial")
 	}
 }
 

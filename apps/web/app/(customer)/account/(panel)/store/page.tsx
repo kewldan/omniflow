@@ -21,7 +21,8 @@ import { type ApiError, fetcher } from "@/lib/api";
  * `GET /plans`, so this page sorts nothing, filters nothing, and hides nothing —
  * a plan the customer cannot start still appears, with the server's reason under
  * it, because a customer who was told about a plan and cannot find it assumes
- * the panel is broken rather than that they are ineligible.
+ * the panel is broken rather than that they are ineligible. The one thing the
+ * server leaves out is a trial the customer can never take again.
  *
  * An unfinished checkout is surfaced at the top rather than left to be
  * rediscovered. There is only ever one, and starting another replaces it, so a

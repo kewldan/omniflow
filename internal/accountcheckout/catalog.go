@@ -207,9 +207,33 @@ func (service *Service) Plans(ctx context.Context, customerID, locale string) ([
 		if held && !tier.AllowsPlan(record.offer.PlanID) {
 			continue
 		}
-		offers = append(offers, applyEligibility(record, state))
+		offer := applyEligibility(record, state)
+		if trialOutOfReach(offer) {
+			continue
+		}
+		offers = append(offers, offer)
 	}
 	return offers, nil
+}
+
+// trialOutOfReach reports a trial the customer cannot take by doing anything
+// the panel could suggest: it is used, another account with the same identity
+// used it, they have bought before, or they hold a running subscription. Such a
+// card sat at the top of the store under a free price with a refusal beneath
+// it, in front of the plan the customer actually pays for, so the catalogue
+// leaves it out. A refusal the customer can act on — a sign-in method to add,
+// an account that is still too new — keeps its card and its reason, and the
+// plan's own page still explains any refusal when it is opened by link.
+func trialOutOfReach(offer PlanOffer) bool {
+	if offer.Kind != "trial" || offer.Eligible {
+		return false
+	}
+	switch offer.IneligibleReason {
+	case "trial_already_used", "identity_already_trialled", "existing_customer", "subscription_active":
+		return true
+	default:
+		return false
+	}
 }
 
 // planRecord reads one plan version priced in a named currency.
