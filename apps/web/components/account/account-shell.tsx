@@ -174,7 +174,7 @@ export function AccountShell({ children }: { children: ReactNode }) {
   const showBack = isDetailRoute(pathname);
   const pageTitle = UNTITLED_SECTIONS[pathname];
   return (
-    <div className="min-h-dvh bg-background md:flex">
+    <div className="flex min-h-dvh flex-col bg-background md:flex-row">
       <LocaleSync preferred={session.customer.locale} />
       {/* Mounted only with a session: the stream answers 401 without one, and
           EventSource would retry it forever. */}
@@ -186,7 +186,7 @@ export function AccountShell({ children }: { children: ReactNode }) {
         tabs={tabs}
       />
 
-      <div className="flex min-h-dvh flex-1 flex-col md:min-h-0">
+      <div className="flex min-w-0 flex-1 flex-col">
         {/* A phone browser's title bar and way back. Inside Telegram neither is
             drawn: Telegram shows the Mini App's name itself, and its own back
             button (driven through tma.js) is the way back. */}
@@ -215,9 +215,10 @@ export function AccountShell({ children }: { children: ReactNode }) {
           </header>
         )}
 
-        {/* The bottom padding clears the floating tab bar on a phone. There is no
-            bar on desktop, so there is nothing to clear and the padding goes. */}
-        <main className="mx-auto w-full max-w-lg flex-1 px-4 pt-3 pb-32 md:max-w-3xl md:px-8 md:pt-8 md:pb-16">
+        {/* The page is a column on a phone — content, then the sticky tab bar,
+            which takes its own room at the end — so it is the screen's height
+            and no more, and the content needs only a little air above the bar. */}
+        <main className="mx-auto w-full max-w-lg flex-1 px-4 pt-3 pb-4 md:max-w-3xl md:px-8 md:pt-8 md:pb-16">
           {pageTitle ? (
             <h1 className="mb-4 font-semibold text-[19px] tracking-[-0.02em]">
               {translate(pageTitle)}
