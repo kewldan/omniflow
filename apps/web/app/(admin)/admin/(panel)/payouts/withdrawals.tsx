@@ -129,65 +129,69 @@ export function WithdrawalsCard({ editable }: { editable: boolean }) {
       </CardHeader>
       <CardContent className="flex flex-col gap-5">
         {draft && (
-          <div className="grid gap-3 rounded-md border border-dashed bg-well p-4 sm:grid-cols-4">
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={draft.enabled}
-                disabled={!editable}
-                id={ids.enabled}
-                onCheckedChange={(enabled) => setDraft({ ...draft, enabled })}
-              />
-              <Label htmlFor={ids.enabled}>{translate("enabled")}</Label>
+          <div className="flex flex-col gap-4 rounded-md border border-dashed bg-well p-4">
+            <div className="flex flex-wrap gap-x-8 gap-y-3">
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={draft.enabled}
+                  disabled={!editable}
+                  id={ids.enabled}
+                  onCheckedChange={(enabled) => setDraft({ ...draft, enabled })}
+                />
+                <Label htmlFor={ids.enabled}>{translate("enabled")}</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={draft.onlyReferralBalance}
+                  disabled={!editable}
+                  id={ids.only}
+                  onCheckedChange={(onlyReferralBalance) =>
+                    setDraft({ ...draft, onlyReferralBalance })
+                  }
+                />
+                <Label htmlFor={ids.only}>{translate("onlyReferral")}</Label>
+              </div>
             </div>
-            <div className="flex flex-col gap-1">
-              <Label htmlFor={ids.minimum}>
-                {translate("minimum", { currency: draft.currency })}
-              </Label>
-              <Input
-                disabled={!editable}
-                id={ids.minimum}
-                inputMode="decimal"
-                onChange={(event) =>
-                  setDraft({
-                    ...draft,
-                    minimumMinor: Math.round(Number(event.target.value) * 100) || 0,
-                  })
-                }
-                value={draft.minimumMinor / 100}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label htmlFor={ids.cooldown}>{translate("cooldown")}</Label>
-              <Input
-                disabled={!editable}
-                id={ids.cooldown}
-                inputMode="numeric"
-                onChange={(event) =>
-                  setDraft({ ...draft, cooldownDays: Number.parseInt(event.target.value, 10) || 0 })
-                }
-                value={draft.cooldownDays}
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={draft.onlyReferralBalance}
-                disabled={!editable}
-                id={ids.only}
-                onCheckedChange={(onlyReferralBalance) =>
-                  setDraft({ ...draft, onlyReferralBalance })
-                }
-              />
-              <Label htmlFor={ids.only}>{translate("onlyReferral")}</Label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor={ids.minimum}>
+                  {translate("minimum", { currency: draft.currency })}
+                </Label>
+                <Input
+                  disabled={!editable}
+                  id={ids.minimum}
+                  inputMode="decimal"
+                  onChange={(event) =>
+                    setDraft({
+                      ...draft,
+                      minimumMinor: Math.round(Number(event.target.value) * 100) || 0,
+                    })
+                  }
+                  value={draft.minimumMinor / 100}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor={ids.cooldown}>{translate("cooldown")}</Label>
+                <Input
+                  disabled={!editable}
+                  id={ids.cooldown}
+                  inputMode="numeric"
+                  onChange={(event) =>
+                    setDraft({
+                      ...draft,
+                      cooldownDays: Number.parseInt(event.target.value, 10) || 0,
+                    })
+                  }
+                  value={draft.cooldownDays}
+                />
+              </div>
             </div>
             {editable && (
-              <Button
-                className="self-start"
-                disabled={pending}
-                onClick={saveSettings}
-                type="button"
-              >
-                {translate("save")}
-              </Button>
+              <div>
+                <Button disabled={pending} onClick={saveSettings} type="button">
+                  {translate("save")}
+                </Button>
+              </div>
             )}
           </div>
         )}

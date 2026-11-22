@@ -250,7 +250,7 @@ export function ReferralLevelsCard({ editable, canPay }: { editable: boolean; ca
               />
             </div>
             <Button
-              className="self-start"
+              className="self-start justify-self-start"
               disabled={pending || !form.titleRu || !form.startsAt || !form.endsAt || !form.prizes}
               onClick={createContest}
               type="button"

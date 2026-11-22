@@ -270,7 +270,7 @@ function CampaignCard({ editable }: { editable: boolean }) {
         {editable ? (
           <div className="flex flex-col gap-3 rounded-md border border-dashed bg-well p-4">
             <p className="font-medium text-sm">{translate("campaigns.newTitle")}</p>
-            <div className="grid gap-3 sm:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-4 items-end">
               <div className="flex flex-col gap-1">
                 <Label htmlFor={`${nameId}-channel`}>{translate("campaigns.channel")}</Label>
                 <Select

@@ -296,7 +296,7 @@ function ProviderEditor({ existing, onSaved }: { existing: AiProvider[]; onSaved
   return (
     <div className="flex flex-col gap-3 rounded-md border border-dashed bg-well p-4">
       <p className="font-medium text-sm">{translate("providers.addTitle")}</p>
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-3 items-end">
         <div className="flex flex-col gap-1">
           <Label htmlFor={slugId}>{translate("providers.slug")}</Label>
           <Input

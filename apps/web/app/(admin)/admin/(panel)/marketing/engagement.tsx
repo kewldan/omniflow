@@ -162,7 +162,7 @@ export function EngagementCard({ editable }: { editable: boolean }) {
                 {translate("rtp", { rtp: Math.round(data?.rtpPercent ?? 0) })}
               </Badge>
             </div>
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-3 items-end">
               {NUMBER_FIELDS.map((field) => (
                 <div className="flex flex-col gap-1" key={field}>
                   <Label htmlFor={`${ids.enabled}-${field}`}>{translate(`fields.${field}`)}</Label>
@@ -392,7 +392,7 @@ export function EngagementCard({ editable }: { editable: boolean }) {
                 value={poll.endsAt}
               />
               <Button
-                className="self-start"
+                className="self-start justify-self-start"
                 disabled={pending || !poll.questionRu || !poll.endsAt}
                 onClick={createPoll}
                 type="button"
