@@ -137,6 +137,9 @@ function Composition({
           nameKey="label"
           outerRadius="86%"
           paddingAngle={2}
+          // Recharts makes a pie a tab stop of its own; inside the chart's
+          // aria-hidden region that is a focus stop announced as nothing.
+          rootTabIndex={-1}
           stroke="var(--background)"
           strokeWidth={2}
         >

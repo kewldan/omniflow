@@ -292,8 +292,10 @@ test.describe("Telegram sign-in as the browser receives it", () => {
   test("a Mini App launch signs the customer in from its initData", async ({ page }) => {
     // Telegram opens a Mini App with initData in the fragment. Opening the
     // panel itself sends a signed-out visitor through the edge gate to the
-    // sign-in screen, and the fragment survives that redirect.
+    // sign-in screen, and the fragment survives that redirect. The screen
+    // offers to sign in as the person Telegram names, and one press does.
     await page.goto(`/account#tgWebAppData=${encodeURIComponent(miniAppInitData())}`);
+    await page.getByRole("button", { name: /Mini App|Sign in as|Войти как/i }).click();
     await expect(page).toHaveURL(/\/account$/, { timeout: 15_000 });
     await expect(page.getByRole("navigation", { name: /sections|разделы/i })).toBeVisible();
   });

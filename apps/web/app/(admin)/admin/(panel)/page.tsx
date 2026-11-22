@@ -4,7 +4,6 @@ import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
 import { Skeleton } from "@omniflow/ui/skeleton";
-import { Tabs, TabsList, TabsTrigger } from "@omniflow/ui/tabs";
 import { ArrowRight } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -133,22 +132,36 @@ export default function AdminHome() {
       <PageHeader
         actions={
           can("system.read") ? (
-            <Tabs
-              onValueChange={(value) =>
-                router.replace(value === "30" ? pathname : `${pathname}?days=${value}`, {
-                  scroll: false,
-                })
-              }
-              value={String(days)}
+            // A set of toggle buttons rather than tabs: tabs promise panels to
+            // switch between, and an axe check rightly flags triggers that
+            // control none.
+            <div
+              aria-label={translate("dashboard.period")}
+              className="inline-flex items-center gap-0.5 rounded-lg bg-muted p-0.5"
+              role="group"
             >
-              <TabsList aria-label={translate("dashboard.period")}>
-                {DASHBOARD_PERIODS.map((period) => (
-                  <TabsTrigger key={period} value={String(period)}>
-                    {translate(`dashboard.periods.${period}`)}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
+              {DASHBOARD_PERIODS.map((period) => (
+                <Button
+                  aria-pressed={days === period}
+                  className={
+                    days === period
+                      ? "h-7 bg-background px-2.5 text-foreground shadow-sm hover:bg-background"
+                      : "h-7 px-2.5 text-muted-foreground"
+                  }
+                  key={period}
+                  onClick={() =>
+                    router.replace(period === 30 ? pathname : `${pathname}?days=${period}`, {
+                      scroll: false,
+                    })
+                  }
+                  size="sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  {translate(`dashboard.periods.${period}`)}
+                </Button>
+              ))}
+            </div>
           ) : undefined
         }
         description={translate("home.description")}
