@@ -198,6 +198,7 @@ type Querier interface {
 	// not a discount. Only settled orders count, so an abandoned checkout never
 	// locks a customer out.
 	CheckPromotionCustomerEligibility(ctx context.Context, arg CheckPromotionCustomerEligibilityParams) (pgtype.Bool, error)
+	ChurnReasons(ctx context.Context, arg ChurnReasonsParams) ([]ChurnReasonsRow, error)
 	// Accepts a TOTP code's time step exactly once. The predicate refuses the step
 	// already used and any earlier one, so a code observed in transit cannot be
 	// replayed within its validity window. A successful claim also clears the
@@ -453,6 +454,16 @@ type Querier interface {
 	CreateLedgerTransaction(ctx context.Context, arg CreateLedgerTransactionParams) (LedgerTransaction, error)
 	CreateLoyaltyProgram(ctx context.Context, arg CreateLoyaltyProgramParams) (LoyaltyProgram, error)
 	CreateLoyaltyTier(ctx context.Context, arg CreateLoyaltyTierParams) (LoyaltyTier, error)
+	// Unit economics, activation and usage, the movement of recurring revenue,
+	// the renewals ahead, why customers leave, and what each acquisition channel
+	// is worth.
+	//
+	// The rules of the sales report hold here too: provider money and wallet
+	// credit are never added together, money is reported per currency and never
+	// converted, and a sale belongs to the moment it was paid.
+	// A retried request with the same idempotency key returns the cost the first
+	// one recorded, and `inserted` tells the caller not to audit it twice.
+	CreateOperatingCost(ctx context.Context, arg CreateOperatingCostParams) (CreateOperatingCostRow, error)
 	// An order the wallet covers in full is born paid, and it is paid by the
 	// wallet amount at the instant it is created. Writing paid_minor and paid_at
 	// here rather than leaving them for the worker's `fulfilled` transition is
@@ -652,6 +663,8 @@ type Querier interface {
 	// silently frozen.
 	DeleteNoticeOverride(ctx context.Context, arg DeleteNoticeOverrideParams) (int64, error)
 	DeleteOldTelemetryEvents(ctx context.Context, retentionSeconds float64) (int64, error)
+	DeleteOperatingCost(ctx context.Context, id pgtype.UUID) (int64, error)
+	DeleteProviderFee(ctx context.Context, id pgtype.UUID) (int64, error)
 	DeletePublishedOutboxEvents(ctx context.Context, retentionSeconds float64) (int64, error)
 	DeleteReminder(ctx context.Context, id pgtype.UUID) (int64, error)
 	DeleteRequiredChannel(ctx context.Context, id pgtype.UUID) error
@@ -762,6 +775,9 @@ type Querier interface {
 	FreeAccessGranted(ctx context.Context, arg FreeAccessGrantedParams) ([]FreeAccessGrantedRow, error)
 	// The two recorded steps by the channel they were first reached on.
 	FunnelByChannel(ctx context.Context, arg FunnelByChannelParams) ([]FunnelByChannelRow, error)
+	// The funnel's two ends by the customer's interface language: of those who
+	// signed up in the window, how many claimed a trial and how many paid.
+	FunnelByLocale(ctx context.Context, arg FunnelByLocaleParams) ([]FunnelByLocaleRow, error)
 	// Customers who signed up in the window, and how far each got by now. It is a
 	// cohort measure, like trial conversion, and reads low for a window ending
 	// today.
@@ -1225,6 +1241,8 @@ type Querier interface {
 	LatestBlockerScan(ctx context.Context) (BlockerScan, error)
 	// The plan version an operator means when they pick a plan by name.
 	LatestLivePlanVersion(ctx context.Context, planID pgtype.UUID) (LatestLivePlanVersionRow, error)
+	// The name and country each node had in its latest traffic sample.
+	LatestNodeNames(ctx context.Context) ([]LatestNodeNamesRow, error)
 	// What the previous bot's shop delivered in the period, kept apart from
 	// Omniflow's goods sales and from the previous bot's VPN payments.
 	LegacyGoodsInPeriod(ctx context.Context, arg LegacyGoodsInPeriodParams) ([]LegacyGoodsInPeriodRow, error)
@@ -1621,6 +1639,8 @@ type Querier interface {
 	// A renewal must not be charged again while one of these is outstanding: the
 	// provider may still settle it, and a second charge would take the money twice.
 	ListOpenIntentsForOrder(ctx context.Context, orderID pgtype.UUID) ([]PaymentIntent, error)
+	// Every cost whose span touches the window.
+	ListOperatingCosts(ctx context.Context, arg ListOperatingCostsParams) ([]ListOperatingCostsRow, error)
 	ListOperatorTopics(ctx context.Context) ([]OperatorTopic, error)
 	ListOrderAddonLines(ctx context.Context, orderID pgtype.UUID) ([]OrderAddonLine, error)
 	ListOrderPaymentIntents(ctx context.Context, orderID pgtype.UUID) ([]PaymentIntent, error)
@@ -1690,6 +1710,7 @@ type Querier interface {
 	ListPlansAdmin(ctx context.Context) ([]ListPlansAdminRow, error)
 	ListPromoCodesForPromotion(ctx context.Context, promotionID pgtype.UUID) ([]ListPromoCodesForPromotionRow, error)
 	ListPromotionPlans(ctx context.Context, promotionID pgtype.UUID) ([]Plan, error)
+	ListProviderFees(ctx context.Context) ([]PaymentProviderFee, error)
 	// Information pages.
 	//
 	// The public reads select only published pages, so unpublishing removes an
@@ -1991,6 +2012,9 @@ type Querier interface {
 	// to charge a closed account.
 	MoveCustomerAutoRenew(ctx context.Context, arg MoveCustomerAutoRenewParams) error
 	MoveCustomerBedolagaPaymentClaims(ctx context.Context, arg MoveCustomerBedolagaPaymentClaimsParams) error
+	// A customer merge: the survivor keeps the absorbed account's answers. Where
+	// both answered for the same occasion on the same day, the survivor's stands.
+	MoveCustomerChurnFeedback(ctx context.Context, arg MoveCustomerChurnFeedbackParams) error
 	MoveCustomerConsents(ctx context.Context, arg MoveCustomerConsentsParams) error
 	MoveCustomerContacts(ctx context.Context, arg MoveCustomerContactsParams) error
 	// Everything below is a plain reassignment: one statement per table, called in
@@ -2102,6 +2126,12 @@ type Querier interface {
 	// The first free slot on the target, so moved subscriptions do not collide with
 	// the unique constraint on (user_id, slot).
 	NextSubscriptionSlot(ctx context.Context, userID pgtype.UUID) (int32, error)
+	// Paying customers by the node they last connected through, and how the paid
+	// periods that ended in the window fared for the customers of each node, with
+	// the support tickets those customers opened in the window. A node is where a
+	// customer was last seen, not where they always are; the figure is a pointer
+	// to a node worth a look, not a verdict on it.
+	NodeQuality(ctx context.Context, arg NodeQualityParams) ([]NodeQualityRow, error)
 	// Traffic each node carried per day, and its busiest hour.
 	//
 	// The node's counter is cumulative within its cycle and drops back when the
@@ -2145,6 +2175,10 @@ type Querier interface {
 	// A second pass racing for the same entitlement matches the unique keys and
 	// inserts nothing.
 	OpenLimitedAccess(ctx context.Context, arg OpenLimitedAccessParams) (LimitedAccessSession, error)
+	// The part of each cost that falls inside the window. A cost is spread evenly
+	// over the days it covers, so a monthly bill read for one week counts a
+	// quarter of itself. Rounded to the minor unit per group.
+	OperatingCostShares(ctx context.Context, arg OperatingCostSharesParams) ([]OperatingCostSharesRow, error)
 	// The numbers a scheduled report carries. Money is per currency, so revenue
 	// comes back as a JSON object keyed by currency.
 	OperatorReportFigures(ctx context.Context, arg OperatorReportFiguresParams) (OperatorReportFiguresRow, error)
@@ -2194,6 +2228,16 @@ type Querier interface {
 	// produce one pause and one "no rows", instead of a second pause that resets
 	// the instant the first one recorded and loses the days between them.
 	PauseEntitlement(ctx context.Context, entitlementID pgtype.UUID) (Entitlement, error)
+	// The customers who paid for the first time in the window, by the channel
+	// that brought them, with what they have paid since, per currency.
+	//
+	// The channel is the first touch Omniflow knows of, in this order: a /start
+	// campaign, an invitation, the `utm_source` of the first paid order, and
+	// otherwise organic. A customer is in one channel only, so the channels add up
+	// to the whole cohort. Months is the time each customer has had to pay since
+	// their first payment, at least one: lifetime value per month is what payback
+	// divides by.
+	PayerChannelValue(ctx context.Context, arg PayerChannelValueParams) ([]PayerChannelValueRow, error)
 	// Of each cohort, how many customers held a paid or imported entitlement at
 	// some point in each month since their first payment. Access, not payment:
 	// a customer on a yearly plan pays once and is retained for twelve months.
@@ -2208,6 +2252,11 @@ type Querier interface {
 	// timezone. A payment is money from outside: a settled order with a provider
 	// amount, or a payment the previous bot took.
 	PayerCohortSizes(ctx context.Context, arg PayerCohortSizesParams) ([]PayerCohortSizesRow, error)
+	// The customers holding a paid or imported period now, and how they use it:
+	// online in the last week or month, never connected, and how close they are
+	// to their device limit. A customer is online when any Remnawave user they
+	// hold was.
+	PayingBaseUsage(ctx context.Context) (PayingBaseUsageRow, error)
 	// The same outcomes per day, which is what turns "our settlement rate is 80%"
 	// into "it was 97% until Tuesday".
 	PaymentHealthByDay(ctx context.Context, arg PaymentHealthByDayParams) ([]PaymentHealthByDayRow, error)
@@ -2243,12 +2292,21 @@ type Querier interface {
 	// many other codes the customer redeemed in the last 24 hours on orders that
 	// did not close unpaid.
 	PromoDailyUsage(ctx context.Context, arg PromoDailyUsageParams) (PromoDailyUsageRow, error)
+	// Provider money taken in the window by the provider that took it, with what
+	// the provider keeps under the rate in force on the day of each payment. An
+	// order paid entirely from the wallet took no provider money and is not here.
+	// A payment with no rate entered for its provider and day is counted apart:
+	// its fee is unknown, not zero.
+	ProviderMoneyAndFees(ctx context.Context, arg ProviderMoneyAndFeesParams) ([]ProviderMoneyAndFeesRow, error)
 	PruneAPITokenRequests(ctx context.Context) (int64, error)
 	PruneCustomerActivity(ctx context.Context) (int64, error)
 	PruneNodeTrafficSamples(ctx context.Context, before pgtype.Timestamptz) (int64, error)
 	// Enabling one programme disables the rest, because the partial unique index
 	// allows exactly one and a customer can only stand in one definition at a time.
 	PublishLoyaltyProgram(ctx context.Context, programID pgtype.UUID) (LoyaltyProgram, error)
+	// Of the customers whose first payment fell in the window, how many have
+	// connected, and how many within a day of paying.
+	PurchaseActivation(ctx context.Context, arg PurchaseActivationParams) (PurchaseActivationRow, error)
 	PurgeAIUsageBefore(ctx context.Context, occurredAt pgtype.Timestamptz) (int64, error)
 	PurgeExpiredAdminSessions(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
 	PutCustomerRestriction(ctx context.Context, arg PutCustomerRestrictionParams) (CustomerRestriction, error)
@@ -2316,11 +2374,16 @@ type Querier interface {
 	RecordAppError(ctx context.Context, arg RecordAppErrorParams) (RecordAppErrorRow, error)
 	RecordBlocklistRefresh(ctx context.Context, arg RecordBlocklistRefreshParams) (BlocklistSource, error)
 	RecordCartFailure(ctx context.Context, arg RecordCartFailureParams) (Cart, error)
+	// The customer's answer for one occasion. A subscription that is not theirs is
+	// refused by writing nothing; answering again the same day replaces the answer.
+	RecordChurnFeedback(ctx context.Context, arg RecordChurnFeedbackParams) (int64, error)
 	RecordCustomerActivity(ctx context.Context, arg RecordCustomerActivityParams) error
 	// Discovery refreshes the description and schemas and leaves the owner's
 	// decisions alone. A rediscovery that re-enabled a tool an owner switched off
 	// would make discovery a privilege escalation.
 	RecordDiscoveredMCPTool(ctx context.Context, arg RecordDiscoveredMCPToolParams) (McpTool, error)
+	// Remnawave's own first-connection event, ahead of the next census.
+	RecordFirstConnection(ctx context.Context, arg RecordFirstConnectionParams) error
 	// The first time only: a customer who looks at the plans every day reached
 	// that step once.
 	RecordFunnelEvent(ctx context.Context, arg RecordFunnelEventParams) error
@@ -2367,6 +2430,15 @@ type Querier interface {
 	// worker cannot double-count an outcome it already recorded.
 	RecountBulkOperation(ctx context.Context, operationID pgtype.UUID) (BulkOperation, error)
 	RecountCampaign(ctx context.Context, campaignID pgtype.UUID) (Campaign, error)
+	// How recurring revenue moved between the start and the end of the window,
+	// per customer and currency: new, returning after a gap, grown, shrunk, and
+	// lost. Monthly revenue is valued as the daily snapshot values it — the price
+	// charged net of discount, normalised to thirty days, and an imported period
+	// at list price — so the two ends match the revenue trend above it.
+	//
+	// A customer counts as returning rather than new when they paid for anything
+	// before the window, here or in the previous bot.
+	RecurringRevenueMovement(ctx context.Context, arg RecurringRevenueMovementParams) ([]RecurringRevenueMovementRow, error)
 	// Single redemption as a property of the predicate rather than of timing.
 	//
 	// Only an `issued` code in a batch that is neither revoked nor expired matches,
@@ -2375,14 +2447,26 @@ type Querier interface {
 	// anybody has to remember to take.
 	RedeemAccessCode(ctx context.Context, arg RedeemAccessCodeParams) (RedeemAccessCodeRow, error)
 	RedeemPersonalOffer(ctx context.Context, arg RedeemPersonalOfferParams) (PersonalOffer, error)
+	// Customers invited in the window, how many qualified, and how many have paid
+	// since they were invited.
+	ReferralOutcomes(ctx context.Context, arg ReferralOutcomesParams) (ReferralOutcomesRow, error)
 	// What the programme has actually cost and produced, so an operator changing a
 	// reward can see what the current one did rather than guessing.
 	ReferralProgramSummary(ctx context.Context) (ReferralProgramSummaryRow, error)
+	// What the customers invited in the window have paid since, per currency.
+	ReferralRevenue(ctx context.Context, arg ReferralRevenueParams) ([]ReferralRevenueRow, error)
+	// What the referral programme gave in the window, by role, net of rewards
+	// already reversed: money credited to wallets, and days of access. Money is a
+	// cost when it is credited, not when it is withdrawn; a withdrawal only moves
+	// what was already earned.
+	ReferralRewardCosts(ctx context.Context, arg ReferralRewardCostsParams) ([]ReferralRewardCostsRow, error)
 	// Brings an imported entitlement up to date with the source during the
 	// delta run. It only touches an entitlement Omniflow has never acted on: once
 	// any fulfillment operation exists for it, Omniflow owns its state and the
 	// source no longer does, so zero rows come back and the caller reports it.
 	RefreshImportedEntitlement(ctx context.Context, arg RefreshImportedEntitlementParams) (Entitlement, error)
+	// Refunds issued in the window, on the day they were issued.
+	RefundsByCurrency(ctx context.Context, arg RefundsByCurrencyParams) ([]RefundsByCurrencyRow, error)
 	// Refunds by the date they were issued, which is the only date on which an
 	// operator can act.
 	RefundsInPeriod(ctx context.Context, arg RefundsInPeriodParams) ([]RefundsInPeriodRow, error)
@@ -2408,6 +2492,11 @@ type Querier interface {
 	RenameAccountSubscription(ctx context.Context, arg RenameAccountSubscriptionParams) (Subscription, error)
 	RenameAdminPasskey(ctx context.Context, arg RenameAdminPasskeyParams) (AdminPasskey, error)
 	RenameSubscription(ctx context.Context, arg RenameSubscriptionParams) (Subscription, error)
+	// The paid periods that end in the coming days and have no successor yet, by
+	// plan and currency: how many, how many will renew themselves, and what
+	// renewing them all would bring at today's price of the same plan version
+	// (what was paid, where that version has no price in the currency).
+	RenewalForecast(ctx context.Context, horizonDays int32) ([]RenewalForecastRow, error)
 	// Linking a Telegram account to a customer whose mapping still names one they
 	// no longer hold points the mapping at the new one.
 	ReplaceTelegramMapping(ctx context.Context, arg ReplaceTelegramMappingParams) error
@@ -2862,6 +2951,10 @@ type Querier interface {
 	// delivery mark — which does bump these — only runs for customers it can push
 	// to.
 	TouchSupportTicketActivity(ctx context.Context, ticketID pgtype.UUID) error
+	// Of the trials claimed in the window, how many customers connected, how soon,
+	// and how connecting relates to paying afterwards. A customer's connection is
+	// the earliest across every Remnawave user they hold.
+	TrialActivation(ctx context.Context, arg TrialActivationParams) (TrialActivationRow, error)
 	// Of the trials claimed in this period, how many of those customers have since
 	// paid for something.
 	//
@@ -2999,6 +3092,9 @@ type Querier interface {
 	// never quietly enable it without a passing test.
 	UpsertPaymentProviderSettings(ctx context.Context, arg UpsertPaymentProviderSettingsParams) (PaymentProviderSetting, error)
 	UpsertPlanLocalization(ctx context.Context, arg UpsertPlanLocalizationParams) (PlanLocalization, error)
+	// One rate per provider and date: entering a rate for a date that already has
+	// one corrects it.
+	UpsertProviderFee(ctx context.Context, arg UpsertProviderFeeParams) (PaymentProviderFee, error)
 	UpsertReminder(ctx context.Context, arg UpsertReminderParams) (Reminder, error)
 	UpsertRemnawaveMapping(ctx context.Context, arg UpsertRemnawaveMappingParams) (RemnawaveUser, error)
 	UpsertRequiredChannel(ctx context.Context, arg UpsertRequiredChannelParams) (RequiredChannel, error)
@@ -3006,6 +3102,13 @@ type Querier interface {
 	UpsertSupportQueue(ctx context.Context, arg UpsertSupportQueueParams) (SupportQueue, error)
 	UpsertSupportTag(ctx context.Context, arg UpsertSupportTagParams) (SupportTag, error)
 	UpsertTelegramAvatar(ctx context.Context, arg UpsertTelegramAvatarParams) error
+	// One page of what Remnawave reported. The first connection is the earliest
+	// ever seen, so a later reading never moves it forward; the rest is the
+	// latest reading, except that a user who has gone quiet keeps the last node
+	// and online moment they had.
+	UpsertVpnUsage(ctx context.Context, arg UpsertVpnUsageParams) error
+	// When the census last ran, or null before its first pass.
+	UsageObservedAt(ctx context.Context) (pgtype.Timestamptz, error)
 	// Webhook intake beside settlement, because the two fail independently: a
 	// gateway that takes the money and cannot deliver the notification looks
 	// healthy from the customer's side and produces a stuck queue on ours.

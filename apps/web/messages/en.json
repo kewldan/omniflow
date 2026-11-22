@@ -1524,7 +1524,9 @@
         "payments": "Payment health",
         "channels": "Channels",
         "subscriptions": "Subscriptions",
-        "acquisition": "Acquisition"
+        "acquisition": "Acquisition",
+        "economics": "Economics",
+        "usage": "Usage"
       },
       "channels": {
         "failed": "The channel report could not be loaded.",
@@ -5177,7 +5179,61 @@
         "offset": "M{offset}",
         "ltv": "Lifetime value"
       },
-      "showFigures": "Show the figures"
+      "showFigures": "Show the figures",
+      "movement": {
+        "title": "Movement of recurring revenue",
+        "description": "Monthly recurring revenue at the start and the end of the period, and what moved it, customer by customer. Returning customers paid for something before the period, here or in the previous bot.",
+        "empty": "No recurring revenue at either end of the period.",
+        "emptyTitle": "Nothing yet",
+        "nrr": "Net revenue retention {value}",
+        "grr": "Gross revenue retention {value}",
+        "step": "Change",
+        "customers": "Customers",
+        "mrr": "Monthly revenue",
+        "steps": {
+          "start": "At the start",
+          "new": "New customers",
+          "reactivated": "Returning customers",
+          "expansion": "Paying more",
+          "contraction": "Paying less",
+          "churned": "Lost",
+          "end": "At the end"
+        }
+      },
+      "forecast": {
+        "title": "Renewals in the next {days} days",
+        "description": "Paid periods that end soon with no successor yet, valued at today's price and weighted by each plan's renewal rate over the last {basis} days. Counted from today whatever the period.",
+        "empty": "No paid period ends in the coming days.",
+        "emptyTitle": "Nothing due",
+        "totalHint": "expected of {value} · {due} due, {auto} renew themselves",
+        "plan": "Plan",
+        "due": "Due",
+        "auto": "Auto-renew",
+        "rate": "Renewal rate",
+        "value": "If all renew",
+        "expected": "Expected"
+      },
+      "churnReasons": {
+        "title": "Why customers leave",
+        "description": "Answers given when switching auto-renew off or after being told the subscription expired. Answering is optional, so these are the customers who chose to say.",
+        "empty": "No answers in this period.",
+        "emptyTitle": "Nothing yet",
+        "reason": "Reason",
+        "occasions": {
+          "auto_renew_off": "Auto-renew off",
+          "lapsed": "After expiry"
+        },
+        "share": "Share",
+        "reasons": {
+          "price": "Too expensive",
+          "blocked": "Blocked on their network",
+          "speed": "Too slow",
+          "not_needed": "No longer needed",
+          "switched": "Switched to another service",
+          "technical": "Technical problems",
+          "other": "Other"
+        }
+      }
     },
     "acquisition": {
       "failed": "The acquisition report could not be loaded",
@@ -5257,6 +5313,58 @@
         "amount": "Amount",
         "days": "Days",
         "none": "Nothing in this period."
+      },
+      "channelValue": {
+        "title": "Value by channel",
+        "description": "Customers who paid for the first time in the period, by the first channel that brought them, with what they have paid since. Lifetime value is to date, so a recent period reads low and its payback long.",
+        "empty": "Nobody paid for the first time in this period.",
+        "emptyTitle": "Nothing yet",
+        "channel": "Channel",
+        "payers": "New payers",
+        "ltv": "Value to date",
+        "monthly": "Per month",
+        "cac": "CAC",
+        "ratio": "LTV : CAC",
+        "payback": "Payback",
+        "noSpend": "no cost entered",
+        "months": "{value} mo",
+        "kinds": {
+          "campaign": "Campaign",
+          "utm": "Source",
+          "referral": "Invitations",
+          "organic": "Organic"
+        }
+      },
+      "referrals": {
+        "title": "Referral programme",
+        "description": "Customers invited in the period and what they have paid since, against the rewards the programme granted in the period. Reversed rewards are left out.",
+        "invited": "Invited",
+        "qualified": "Qualified",
+        "rejected": "Rejected",
+        "payers": "Paid since",
+        "conversion": "Conversion",
+        "role": "Reward",
+        "rewards": "Granted",
+        "amount": "Wallet credit",
+        "days": "Days of access",
+        "none": "No rewards granted in this period.",
+        "roles": {
+          "inviter": "To the inviter",
+          "invitee": "To the invited",
+          "commission": "Commission"
+        },
+        "economics": "{revenue} brought for {spend} in rewards",
+        "cac": "per payer"
+      },
+      "locales": {
+        "title": "By language",
+        "description": "Customers who signed up in the period, by their interface language: how many claimed a trial and how many paid.",
+        "empty": "Nobody signed up in this period.",
+        "emptyTitle": "Nothing yet",
+        "language": "Language",
+        "signups": "Sign-ups",
+        "trial": "Trial",
+        "paid": "Paid"
       }
     },
     "trafficHistory": {
@@ -5364,6 +5472,144 @@
       "repairReason": "Repair the operator group's topic names and icons",
       "repairRequested": "The bot is repairing the topics; it takes about a minute.",
       "repairing": "the bot is repairing topics…"
+    },
+    "economics": {
+      "failed": "The economics report could not be loaded",
+      "empty": "Nothing yet",
+      "emptyDescription": "No provider money, refunds, or costs fall in this period.",
+      "providers": {
+        "title": "Payment providers",
+        "description": "Provider money by the provider that took it, and what each kept under the rate entered below for the day of each payment.",
+        "empty": "No provider money in this period.",
+        "provider": "Provider",
+        "payments": "Payments",
+        "paid": "Taken",
+        "fee": "Fee",
+        "rate": "Effective rate",
+        "withoutRate": "{count, plural, one {# payment without a rate} other {# payments without a rate}}"
+      },
+      "nodes": {
+        "title": "Cost of traffic",
+        "description": "What each node carried in the period, priced by the costs entered against it. Paying customers are those whose last connection went through the node.",
+        "total": "All nodes carried {traffic}",
+        "serverPerGib": "server costs per GiB: {cost}",
+        "empty": "No node samples or node costs in this period.",
+        "node": "Node",
+        "traffic": "Traffic",
+        "paying": "Paying customers",
+        "cost": "Cost",
+        "perGib": "Per GiB"
+      },
+      "profit": {
+        "title": "Profit and loss",
+        "description": "Everything in this currency only. Running costs are spread evenly over the days they cover.",
+        "margin": "Margin {value}",
+        "provider": "Provider money",
+        "refunds": "Refunds issued",
+        "fees": "Provider fees",
+        "net": "Net revenue",
+        "operating": "Running costs",
+        "acquisition": "Advertising",
+        "referral": "Referral rewards",
+        "contribution": "Contribution",
+        "feesMissing": "Some payments in this period have no provider rate entered; their fee is not counted. Enter the rates below.",
+        "estimate": "Fees are an estimate",
+        "subscribers": "Average paying subscriptions",
+        "revenuePerSubscriber": "Net revenue per subscription a month",
+        "costPerSubscriber": "Running costs per subscription a month",
+        "perSubscriberHint": "Per average paid or imported subscription, per thirty days of the period."
+      },
+      "costs": {
+        "title": "Running costs",
+        "description": "Server bills, software, staff, and anything else the service costs. Omniflow never sees these invoices, so they are entered by hand. A cost tied to a node prices that node's traffic.",
+        "category": "Category",
+        "categories": {
+          "servers": "Servers",
+          "software": "Software",
+          "staff": "Staff",
+          "other": "Other"
+        },
+        "node": "Node",
+        "noNode": "The whole service",
+        "amount": "Amount",
+        "currency": "Currency",
+        "from": "First day",
+        "to": "Last day",
+        "note": "Note",
+        "record": "Record cost",
+        "invalidAmount": "Enter a positive amount.",
+        "invalidSpan": "Choose the first and last day the cost covers.",
+        "span": "Covers",
+        "remove": "Remove cost",
+        "empty": "No costs cover this period."
+      },
+      "fees": {
+        "title": "Provider rates",
+        "description": "What each payment provider keeps of a payment, as your contract states it. A rate applies from its date until a later one, so a new rate never changes an earlier month.",
+        "provider": "Provider",
+        "providerPlaceholder": "Choose a provider",
+        "from": "From",
+        "percent": "Share, %",
+        "fixed": "Fixed per payment",
+        "fixedCurrency": "Currency of the fixed amount",
+        "save": "Save rate",
+        "invalid": "Choose a provider and a date, and enter a share from 0 to 100.",
+        "remove": "Remove rate",
+        "empty": "No rates entered yet."
+      }
+    },
+    "usage": {
+      "failed": "The usage report could not be loaded",
+      "pending": "Waiting for the first census",
+      "pendingDescription": "The worker reads every Remnawave user once an hour. These figures appear after its first pass.",
+      "observedAt": "Remnawave last read {moment}",
+      "empty": "Nothing yet",
+      "hours": "{value} h",
+      "tiles": {
+        "trialConnected": "Trials that connected",
+        "trialConnectedHint": "Of {count} trials claimed in the period",
+        "median": "Time to first connection",
+        "medianHint": "Median from claiming a trial to connecting",
+        "purchaseConnected": "New payers who connected",
+        "purchaseConnectedHint": "Of {count} customers who paid for the first time",
+        "active": "Paying customers active this week",
+        "activeHint": "Of {count} paying customers the census has seen"
+      },
+      "trials": {
+        "title": "Activation",
+        "description": "Whether connecting is what turns a trial into a sale. A cohort figure: a period ending today reads low.",
+        "connectedConversion": "Trials that connected, then paid",
+        "ofConnected": "{paid} of {total}",
+        "unconnectedConversion": "Trials that never connected, then paid",
+        "ofUnconnected": "{paid} of {total}",
+        "withinDay": "Trials connected within a day",
+        "withinDayDetail": "{count} trials",
+        "purchasesWithinDay": "New payers connected within a day",
+        "purchasesDetail": "{connected} of {total} connected at all"
+      },
+      "paying": {
+        "title": "Paying customers now",
+        "description": "Customers holding a paid or imported period today, and how they use it.",
+        "customers": "Paying customers",
+        "observed": "Seen by the census",
+        "onlineWeek": "Online in the last 7 days",
+        "onlineMonth": "Online in the last 30 days",
+        "neverConnected": "Never connected",
+        "atDeviceLimit": "At their device limit",
+        "overDeviceLimit": "Over their device limit",
+        "deviceHint": "A customer at the limit is the natural audience for more devices; one who never connected is worth a message before renewal."
+      },
+      "nodes": {
+        "title": "By node",
+        "description": "Customers by the node they last connected through, how their paid periods that ended in the period renewed, and the support tickets they opened. A pointer to a node worth a look, not a verdict on it.",
+        "empty": "No customer has a last node yet.",
+        "node": "Node",
+        "paying": "Paying customers",
+        "ended": "Periods ended",
+        "renewal": "Renewed",
+        "tickets": "Tickets",
+        "perHundred": "Per 100 customers"
+      }
     }
   },
   "account": {
@@ -7065,7 +7311,22 @@
         "removeDescription": "Renewals that use it switch to your next saved card, or pause if none is left.",
         "methodsNotice": "Only a reference from the payment provider is stored — never the card number or expiry.",
         "termsLink": "Terms of automatic payments",
-        "saved": "Saved"
+        "saved": "Saved",
+        "churn": {
+          "title": "Auto-renew is off",
+          "description": "Could you tell us why? Answering is optional, but it really helps us improve.",
+          "skip": "Skip",
+          "thanks": "Thank you for the answer",
+          "reasons": {
+            "price": "Too expensive",
+            "blocked": "Doesn't work on my network",
+            "speed": "Too slow",
+            "not_needed": "No longer needed",
+            "switched": "Switched to another service",
+            "technical": "Technical problems",
+            "other": "Other"
+          }
+        }
       }
     },
     "gifts": {

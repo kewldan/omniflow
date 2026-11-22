@@ -1,6 +1,6 @@
 ---
 title: Analytics and reporting
-description: See what sold, whether the money arrived, which advertising paid off, which node is filling up, and what Omniflow itself reports to the project
+description: See what sold, whether the money arrived, what is left after costs, which advertising paid off, whether customers use the service, which node is filling up, and what Omniflow itself reports to the project
 ---
 
 Omniflow gives you several views of the business, each answering one question and each built
@@ -85,8 +85,12 @@ subscriptions are paid, imported from the previous bot, on a trial, or free on e
 recurring revenue** per currency, with imported periods valued at list price and shown apart as an
 estimate; the latest day by plan; **renewals** of the paid periods that ended in the period, with the
 renewal rate and churn; **automatic renewal** by wallet or saved card, with what a retry recovered;
-**ARPU** and **ARPPU**; and twelve monthly **cohorts** of payers with the share retained each month and
-lifetime value so far.
+**ARPU** and **ARPPU**; twelve monthly **cohorts** of payers with the share retained each month and
+lifetime value so far; how recurring revenue **moved** between the period's start and end — new,
+returning, paying more, paying less, lost — with **net revenue retention**; the **renewals due** in the
+next thirty days and what to expect from them; and **why customers leave**, from the answers they give
+when switching auto-renew off in the bot or the web cabinet, or after the bot tells them their
+subscription expired.
 
 The base is recorded once an hour into a daily snapshot, and a new installation gets a year of
 history reconstructed over its first few hours. See
@@ -99,7 +103,29 @@ cost by hand against a /start campaign or a `utm_source`; the tab then shows per
 source the customers, revenue, **CAC**, and **ROI**, in the cost's own currency only. Beside them: what
 each promo code gave away and brought, wallet credit and free access given away, and the **purchase
 funnel** of the customers who signed up in the period — looked at plans, opened a checkout, claimed a
-trial, paid. See [Subscription and acquisition reporting](/operations/business-analytics#acquisition).
+trial, paid — and the same by interface language. **Value by channel** follows the customers who paid
+for the first time in the period by the channel that brought them — campaign, invitation, source, or
+organic — with lifetime value so far, CAC, LTV : CAC, and **payback** in months, and the **referral
+programme** is set out as a channel of its own: who it brought and what its rewards cost. See [Subscription and acquisition reporting](/operations/business-analytics#acquisition).
+
+## What is left after costs
+
+`/admin/reports` → **Economics** takes provider money per currency down to what is left: refunds,
+what each payment provider kept, running costs, advertising, and referral rewards, with the
+**margin**, and running costs and net revenue per paying subscription a month. Omniflow sees neither
+the server bill nor the provider's statement, so both are entered on the same tab: a **running cost**
+over the days it covers — a monthly bill once, spread over its month — optionally against one node,
+and each **provider's rate** from a date on. A node's costs price its traffic per GiB beside how many
+paying customers last connected through it. See
+[Unit economics](/operations/business-analytics#unit-economics).
+
+## Whether customers use the service
+
+`/admin/reports` → **Usage** reads an hourly census of Remnawave users: of the trials and first
+payments in the period, how many customers connected and how soon, and how much better those who
+connected convert; of the customers paying now, how many were online this week, never connected, or
+sit at their device limit; and, per node they last used, their renewals and support tickets. See
+[Usage and activation](/operations/business-analytics#usage-and-activation).
 
 ## Advertising measurement
 

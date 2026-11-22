@@ -1,13 +1,15 @@
 ---
-title: Subscription and acquisition reporting
-description: The paying base over time, recurring revenue, renewals and churn, automatic renewal, cohorts, what acquiring a customer cost, the purchase funnel, and support satisfaction
+title: Subscription, acquisition, and unit economics reporting
+description: The paying base over time, recurring revenue and how it moved, renewals, churn and why customers leave, cohorts, what acquiring a customer cost and returned, unit economics, activation and usage, and support satisfaction
 ---
 
-`/admin/reports` has two tabs beside sales, payment health, and channels. **Subscriptions** answers
-how the paying base moves: how many hold paid access, what that is worth every month, how much of it
-renews, and what each month's new payers became. **Acquisition** answers what bringing a customer in
-cost and returned, and how far new customers get before they pay. Both share the period controls at
-the top of the screen with the other tabs.
+`/admin/reports` has four tabs beside sales, payment health, and channels. **Subscriptions** answers
+how the paying base moves: how many hold paid access, what that is worth every month, how it moved,
+how much of it renews and will renew, why customers leave, and what each month's new payers became.
+**Acquisition** answers what bringing a customer in cost and returned, by channel and over time, and
+how far new customers get before they pay. **Economics** answers what the period earned after every
+cost Omniflow knows of. **Usage** answers whether customers use what they bought. All share the period
+controls at the top of the screen with the other tabs.
 
 The rules of the [sales report](/operations/sales-reporting) hold here too: provider money and wallet
 credit are never added together, money is reported per currency and never converted, and a rate with
@@ -15,13 +17,17 @@ nothing behind it is shown as absent rather than 0%.
 
 ## The history this needs
 
-Three things are recorded that no other table keeps:
+Seven things are recorded that no other table keeps:
 
 | Kept in | What | Written by |
 | --- | --- | --- |
 | `subscription_daily_snapshots` | The subscription base on each UTC day, by plan, billing period, kind, and currency, with its monthly recurring revenue | The worker's `subscription_snapshot` pass, hourly. It rewrites today's reading each time. On its first passes it reconstructs up to 365 past days from the entitlement history, about two months per pass |
 | `node_traffic_samples` | Each Remnawave node's own traffic counter and online count, once an hour | The worker's `node_traffic_sample` pass. Samples older than 400 days are pruned |
 | `funnel_events` | The first time a customer looked at the plans and opened a checkout, and on which channel | The bot and the customer panel, on the customer's own request; a failure to record never fails the request |
+| `vpn_usage_observations` | Per Remnawave user: when they first connected, when they were last online, the node they last used, and their devices active in the last 30 days against their limit | The worker's `usage_census` pass, hourly, which pages through every panel user and device; and Remnawave's `user.first_connected` webhook, which records the moment exactly. The first connection is kept once seen, so a period whose panel user was later deleted still says whether it was used. An observation for reporting, like the node samples: it decides nothing |
+| `operating_costs` | What running the service costs: servers, software, staff, other — each over a span of days, optionally against one node | An operator, by hand, under **Economics** |
+| `payment_provider_fees` | What each payment provider keeps of a payment, from a date on | An operator, by hand, under **Economics** |
+| `churn_feedback` | The reason a customer gave for leaving, from a closed list | The customer: in the bot when switching automatic renewal off or from the message that their subscription expired, and in the web cabinet when switching renewal off |
 
 A reconstructed day is exact except where a refund or a pause has since moved an entitlement's end —
 which is why the snapshot is kept rather than recomputed on every visit. Until the first passes have
@@ -72,6 +78,43 @@ window: succeeded on the first attempt, recovered by a retry, lost when the atte
 being retried, with the success rate over decided cycles. Below it, the most common failure codes, and
 how many customers have automatic renewal on now.
 
+### Movement of recurring revenue
+
+Monthly recurring revenue per customer at the window's first moment and at its last (or now, for a
+window that ends in the future), valued exactly as the snapshot values it. The difference is split
+customer by customer:
+
+| Line | Meaning |
+| --- | --- |
+| **New** | Nothing at the start, something at the end, and never paid before the window — here or in the previous bot |
+| **Returning** | Nothing at the start, something at the end, and paid for something before the window |
+| **Paying more** | More at the end than at the start |
+| **Paying less** | Less at the end, but not nothing |
+| **Lost** | Something at the start, nothing at the end |
+
+**Net revenue retention** is (start + paying more − paying less − lost) ÷ start: what the customers
+paying at the start pay at the end. Above 100% the growth among existing customers outweighs what was
+lost. **Gross revenue retention** leaves the growth out. A customer who switches currency appears as
+lost in one and new in the other: nothing is converted.
+
+### Renewals ahead
+
+The paid and imported periods that end in the next **30 days** and have no successor yet, by plan,
+billing period, and currency, counted from today whatever the window: how many, how many will renew
+themselves (automatic renewal is on), what renewing them all would bring at today's list price of the
+same plan version, and what to expect — that value weighted by the plan's renewal rate over the last
+**90 days**, or the overall rate when the plan has fewer than ten decided periods.
+
+### Why customers leave
+
+When a customer switches automatic renewal off — in the bot or the web cabinet — they are asked why,
+from a closed list: too expensive, blocked on their network, too slow, no longer needed, switched to
+another service, technical problems, other. The bot's message that a subscription expired carries a
+**Why didn't you renew?** button that asks the same. Answering is optional and never blocks anything;
+answering again the same day replaces the answer, and nothing a customer types is kept. The card shows
+the answers given in the window by reason and occasion. They are the customers who chose to answer,
+not every customer who left; read the shares, not the totals.
+
 ### Revenue per customer
 
 Per currency: provider money taken in the window, the customers it came from, **ARPPU** (money per
@@ -118,12 +161,91 @@ the discount given, and the provider money from the orders it was used on.
 `referral_reward`, `wheel_spin`, `gift`, `operator_adjustment`, and the rest), and free access created in
 the window by kind (`trial`, or the order operation that carried it) with the days it covered.
 
+### Value by channel
+
+The customers who paid for the **first time** in the window, by the channel that brought them: the
+first touch Omniflow knows of, in this order — a /start campaign, an invitation, the `utm_source` of
+their first paid order, otherwise organic. A customer is in one channel only, so the lines add up to
+every new payer. Per channel and currency: new payers, **value to date** (what they have paid since,
+net of refunds, per payer), revenue per payer per month since their first payment, **CAC** (the cost
+recorded for that campaign or source in the window, or the referral rewards granted in it, per new
+payer), **LTV : CAC**, and **payback** — the months of revenue that repay one payer's cost. Value is to
+date, not a forecast, so a recent window reads low and its payback long.
+
+### The referral programme
+
+Customers invited in the window, how many qualified, how many were rejected, and how many have paid
+since; the rewards granted in the window by role (to the inviter, to the invited, commission) as wallet
+credit or days of access, with reversed rewards left out; and per currency, the money rewards against
+what the invited customers paid. A reward is a cost when it is credited — withdrawing it later only
+moves what was earned.
+
+### By language
+
+Customers who signed up in the window, by their interface language: how many claimed a trial and how
+many paid.
+
 ### The purchase funnel
 
 Of the customers who signed up in the window: how many looked at the plans, opened a checkout, claimed
 a trial, and paid for a subscription — each step counted once per customer, whenever it happened. Below
 it, the two recorded steps by the channel they were first reached on (`bot` or `web`). Like trial
 conversion, it is a cohort figure and reads low for a window that ends today.
+
+## Unit economics
+
+**Economics** sets what the window earned against what it cost, per currency:
+
+| Line | From |
+| --- | --- |
+| Provider money | Settled orders in the window, as on the sales tab |
+| Refunds issued | Refunds on the day they were issued |
+| Provider fees | Each payment charged the rate entered for its provider on the day it was paid |
+| Net revenue | The three above |
+| Running costs | The costs entered, spread evenly over the days each covers |
+| Advertising | The advertising costs recorded for days in the window |
+| Referral rewards | Money the referral programme credited in the window, not reversed |
+| Contribution | What is left, with its **margin** over the money kept after refunds |
+
+Beside it: the average number of paid and imported subscriptions over the window, and net revenue and
+running costs per subscription per thirty days.
+
+**Provider rates** are entered because providers do not report their fee in a common shape: a share in
+basis points (350 is 3.5%) and an optional fixed amount per payment in one currency, from a date on. A
+rate applies until a later one, so entering a new rate never changes an earlier month; a rate for a
+date that already has one replaces it. A payment whose provider has no rate for its day is counted in
+**without a rate** and its fee is left out rather than taken as zero — the card then says the fees are
+an estimate.
+
+**Running costs** are entered over a span of days — a monthly server bill as one cost from the 1st to
+the 30th — and a report reads only the share that falls in its window. A cost tied to a node prices
+that node's traffic: per node, the traffic it carried in the window from the hourly samples, the paying
+customers whose last connection went through it, its cost, and the cost per GiB. The server costs over
+all traffic give the service's own cost per GiB.
+
+Entering and removing costs and rates needs `finance.write`; each change is audited, and a retried
+cost with the same `Idempotency-Key` is recorded once.
+
+## Usage and activation
+
+**Usage** reads the census above. Until its first pass it says so instead of showing figures.
+
+- **Activation of trials.** Of the trials claimed in the window: how many customers connected, how
+  many within a day, the median time from claim to first connection, and the conversion to a payment
+  of those who connected against those who never did. A cohort figure, low for a window ending today.
+- **Activation of purchases.** Of the customers who paid for the first time in the window, how many
+  connected, and how many within a day of paying.
+- **Paying customers now.** Customers holding a paid or imported period today: how many the census has
+  seen, online in the last 7 and 30 days, never connected, and at or over their device limit. A
+  customer at the limit is the natural audience for more devices; one who never connected is worth a
+  message before renewal.
+- **By node.** Customers by the node they last connected through: paying customers, the paid periods
+  of those customers that ended in the window and how many renewed, and the support tickets they
+  opened, per hundred paying customers. A node is where a customer was last seen, so this points at a
+  node worth a look rather than passing judgement on it.
+
+A customer's connection is the earliest across every Remnawave user they hold, and they are online
+when any of them was.
 
 ## Traffic history
 
@@ -156,10 +278,20 @@ bot does not ask again and the response rate never exceeds what was asked.
 | `GET /v1/panel/reports/acquisition/spend` | `finance.read` |
 | `POST /v1/panel/reports/acquisition/spend` | `finance.write` |
 | `DELETE /v1/panel/reports/acquisition/spend/{spendID}` | `finance.write` |
+| `GET /v1/panel/reports/economics` | `finance.read` |
+| `GET /v1/panel/reports/usage` | `finance.read` |
+| `GET /v1/panel/reports/costs` | `finance.read` |
+| `POST /v1/panel/reports/costs` | `finance.write` |
+| `DELETE /v1/panel/reports/costs/{costID}` | `finance.write` |
+| `GET /v1/panel/reports/provider-fees` | `finance.read` |
+| `POST /v1/panel/reports/provider-fees` | `finance.write` |
+| `DELETE /v1/panel/reports/provider-fees/{feeID}` | `finance.write` |
 | `GET /v1/panel/reports/traffic/history` | `customers.read` |
 | `GET /v1/panel/reports/support-satisfaction` | `support.read` |
 
 The period parameters are the sales report's: `since`, `until`, and `timezone`, at most two years.
+The customer answers why they are leaving through `POST /v1/account/churn-feedback` with their own
+session; the bot writes the same rows.
 
 ## Related
 

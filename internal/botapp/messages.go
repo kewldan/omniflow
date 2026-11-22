@@ -473,6 +473,21 @@ var catalog = map[string]phrase{
 	"renew.enable":  {ru: "Включить автопродление", en: "Turn auto-renew on"},
 	"renew.disable": {ru: "Выключить автопродление", en: "Turn auto-renew off"},
 
+	// Why a customer is leaving. Asked when renewal is switched off and offered
+	// on the notice that a subscription expired; never required.
+	"churn.renewOff":          {ru: "♻️ <b>Автопродление выключено</b>", en: "♻️ <b>Auto-renew is off</b>"},
+	"churn.ask":               {ru: "Подскажите, почему вы решили не продлевать? Ответ необязателен, но очень поможет нам стать лучше.", en: "Could you tell us why you decided not to renew? Answering is optional, but it really helps us improve."},
+	"churn.askButton":         {ru: "💬 Почему не продлили?", en: "💬 Why didn't you renew?"},
+	"churn.skip":              {ru: "Пропустить", en: "Skip"},
+	"churn.thanks":            {ru: "🙏 Спасибо! Мы учтём ваш ответ.", en: "🙏 Thank you! We'll take your answer into account."},
+	"churn.reason.price":      {ru: "💸 Дорого", en: "💸 Too expensive"},
+	"churn.reason.blocked":    {ru: "🚫 Не работает в моей сети", en: "🚫 Blocked on my network"},
+	"churn.reason.speed":      {ru: "🐢 Медленно", en: "🐢 Too slow"},
+	"churn.reason.not_needed": {ru: "🙅 Больше не нужен", en: "🙅 No longer needed"},
+	"churn.reason.switched":   {ru: "🔁 Перешёл к другому", en: "🔁 Switched to another"},
+	"churn.reason.technical":  {ru: "🛠 Технические проблемы", en: "🛠 Technical problems"},
+	"churn.reason.other":      {ru: "Другое", en: "Other"},
+
 	// What an automatic charge will be taken from, and when. Both are stated on
 	// the screen rather than left to a default the customer never sees, because
 	// this is money moving while they are not present.

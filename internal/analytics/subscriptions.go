@@ -16,6 +16,10 @@ const (
 	RenewalGrace = 7 * 24 * time.Hour
 	// CohortMonths is how many monthly cohorts the report follows.
 	CohortMonths = 12
+	// ForecastDays is how far ahead the renewal forecast looks, and
+	// ForecastBasis the trailing window whose renewal rates it applies.
+	ForecastDays  = 30
+	ForecastBasis = 90 * 24 * time.Hour
 )
 
 // BaseDay is the subscription base on one day, by kind.
@@ -136,6 +140,66 @@ type Cohort struct {
 	Revenue   []CohortRevenue   `json:"revenue"`
 }
 
+// MovementLine is how monthly recurring revenue in one currency moved
+// between the start and the end of the window, customer by customer.
+type MovementLine struct {
+	Currency             string `json:"currency"`
+	StartMrrMinor        int64  `json:"startMrrMinor"`
+	EndMrrMinor          int64  `json:"endMrrMinor"`
+	StartCustomers       int64  `json:"startCustomers"`
+	EndCustomers         int64  `json:"endCustomers"`
+	NewMrrMinor          int64  `json:"newMrrMinor"`
+	NewCustomers         int64  `json:"newCustomers"`
+	ReactivatedMrrMinor  int64  `json:"reactivatedMrrMinor"`
+	ReactivatedCustomers int64  `json:"reactivatedCustomers"`
+	ExpansionMrrMinor    int64  `json:"expansionMrrMinor"`
+	ExpansionCustomers   int64  `json:"expansionCustomers"`
+	ContractionMrrMinor  int64  `json:"contractionMrrMinor"`
+	ContractionCustomers int64  `json:"contractionCustomers"`
+	ChurnedMrrMinor      int64  `json:"churnedMrrMinor"`
+	ChurnedCustomers     int64  `json:"churnedCustomers"`
+	// NetRevenueRetention is what the customers paying at the start pay at
+	// the end, over what they paid at the start: above one when growth among
+	// them outweighs what was lost.
+	NetRevenueRetention *float64 `json:"netRevenueRetention,omitempty"`
+	// GrossRevenueRetention leaves growth out: the share of the starting
+	// revenue that was neither lost nor shrunk.
+	GrossRevenueRetention *float64 `json:"grossRevenueRetention,omitempty"`
+}
+
+// ForecastLine is the periods of one plan and currency that end in the
+// coming days with no successor yet.
+type ForecastLine struct {
+	PlanCode      string `json:"planCode"`
+	BillingPeriod string `json:"billingPeriod"`
+	Currency      string `json:"currency"`
+	Due           int64  `json:"due"`
+	AutoRenew     int64  `json:"autoRenew"`
+	// ValueMinor is what renewing every one of them would bring.
+	ValueMinor int64 `json:"valueMinor"`
+	// RenewalRate is the plan's own rate over the trailing basis, or the
+	// overall rate where the plan has too little history.
+	RenewalRate   *float64 `json:"renewalRate,omitempty"`
+	ExpectedMinor *int64   `json:"expectedMinor,omitempty"`
+}
+
+// ForecastTotal sums the forecast in one currency.
+type ForecastTotal struct {
+	Currency      string `json:"currency"`
+	Due           int64  `json:"due"`
+	AutoRenew     int64  `json:"autoRenew"`
+	ValueMinor    int64  `json:"valueMinor"`
+	ExpectedMinor *int64 `json:"expectedMinor,omitempty"`
+}
+
+// Forecast is the renewals ahead, counted from now whatever the window.
+type Forecast struct {
+	HorizonDays int             `json:"horizonDays"`
+	BasisDays   int             `json:"basisDays"`
+	Lines       []ForecastLine  `json:"lines"`
+	Totals      []ForecastTotal `json:"totals"`
+}
+
 // SubscriptionReport is the subscriptions tab in one read.
 type SubscriptionReport struct {
 	Since       time.Time             `json:"since"`
@@ -150,6 +214,11 @@ type SubscriptionReport struct {
 	AutoRenew   AutoRenew             `json:"autoRenew"`
 	PerCustomer []RevenuePerCustomer  `json:"perCustomer"`
 	Cohorts     []Cohort              `json:"cohorts"`
+	Movement    []MovementLine        `json:"movement"`
+	Forecast    Forecast              `json:"forecast"`
+	// ChurnReasons are the answers customers gave in the window when they
+	// switched renewal off or were told their subscription expired.
+	ChurnReasons []ChurnReasonLine `json:"churnReasons"`
 }
 
 // SubscriptionReport reads the base, its revenue, renewals, and cohorts.
@@ -162,6 +231,12 @@ func (service *Service) SubscriptionReport(ctx context.Context, period Period) (
 		Renewals:    Renewals{GraceDays: int(RenewalGrace.Hours() / 24), Lines: []RenewalLine{}},
 		AutoRenew:   AutoRenew{Lines: []AutoRenewLine{}, FailureCodes: []FailureCount{}},
 		PerCustomer: []RevenuePerCustomer{}, Cohorts: []Cohort{},
+		Movement: []MovementLine{},
+		Forecast: Forecast{
+			HorizonDays: ForecastDays, BasisDays: int(ForecastBasis.Hours() / 24),
+			Lines: []ForecastLine{}, Totals: []ForecastTotal{},
+		},
+		ChurnReasons: []ChurnReasonLine{},
 	}
 
 	// Snapshots are UTC days; the window's own days bound them.
@@ -202,7 +277,123 @@ func (service *Service) SubscriptionReport(ctx context.Context, period Period) (
 	if err := report.readCohorts(ctx, queries, period, service.now()); err != nil {
 		return report, err
 	}
+	if err := report.readMovement(ctx, queries, period); err != nil {
+		return report, err
+	}
+	if err := report.readForecast(ctx, queries, service.now()); err != nil {
+		return report, err
+	}
+	reasons, err := queries.ChurnReasons(ctx, dbgen.ChurnReasonsParams{
+		Since: timestamp(period.Since), Until: timestamp(period.Until),
+	})
+	if err != nil {
+		return report, err
+	}
+	for _, row := range reasons {
+		report.ChurnReasons = append(report.ChurnReasons,
+			ChurnReasonLine{Occasion: row.Occasion, Reason: row.Reason, Answers: row.Answers})
+	}
 	return report, nil
+}
+
+func (report *SubscriptionReport) readMovement(ctx context.Context, queries *dbgen.Queries, period Period) error {
+	rows, err := queries.RecurringRevenueMovement(ctx, dbgen.RecurringRevenueMovementParams{
+		Since: timestamp(period.Since), Until: timestamp(period.Until),
+	})
+	if err != nil {
+		return err
+	}
+	for _, row := range rows {
+		line := MovementLine{
+			Currency: row.Currency, StartMrrMinor: row.StartMrr, EndMrrMinor: row.EndMrr,
+			StartCustomers: row.StartCustomers, EndCustomers: row.EndCustomers,
+			NewMrrMinor: row.NewMrr, NewCustomers: row.NewCustomers,
+			ReactivatedMrrMinor: row.ReactivatedMrr, ReactivatedCustomers: row.ReactivatedCustomers,
+			ExpansionMrrMinor: row.ExpansionMrr, ExpansionCustomers: row.ExpansionCustomers,
+			ContractionMrrMinor: row.ContractionMrr, ContractionCustomers: row.ContractionCustomers,
+			ChurnedMrrMinor: row.ChurnedMrr, ChurnedCustomers: row.ChurnedCustomers,
+		}
+		if row.StartMrr > 0 {
+			net := float64(row.StartMrr+row.ExpansionMrr-row.ContractionMrr-row.ChurnedMrr) / float64(row.StartMrr)
+			gross := float64(row.StartMrr-row.ContractionMrr-row.ChurnedMrr) / float64(row.StartMrr)
+			line.NetRevenueRetention, line.GrossRevenueRetention = &net, &gross
+		}
+		report.Movement = append(report.Movement, line)
+	}
+	return nil
+}
+
+// forecastMinimum is how many decided periods a plan needs before its own
+// renewal rate is used instead of the overall one.
+const forecastMinimum = 10
+
+// readForecast lists the renewals due in the coming ForecastDays and weighs
+// each plan's value by how often that plan renewed over the trailing basis.
+func (report *SubscriptionReport) readForecast(ctx context.Context, queries *dbgen.Queries, now time.Time) error {
+	rows, err := queries.RenewalForecast(ctx, ForecastDays)
+	if err != nil {
+		return err
+	}
+	history, err := queries.SubscriptionRenewals(ctx, dbgen.SubscriptionRenewalsParams{
+		Since: timestamp(now.Add(-ForecastBasis)), Until: timestamp(now),
+		GraceSeconds: RenewalGrace.Seconds(),
+	})
+	if err != nil {
+		return err
+	}
+	type tally struct{ renewed, decided int64 }
+	plans := map[[2]string]*tally{}
+	var overall tally
+	for _, row := range history {
+		churned := row.Ended - row.Renewed - row.Pending
+		key := [2]string{row.PlanCode, row.BillingPeriod}
+		if plans[key] == nil {
+			plans[key] = &tally{}
+		}
+		plans[key].renewed += row.Renewed
+		plans[key].decided += row.Renewed + churned
+		overall.renewed += row.Renewed
+		overall.decided += row.Renewed + churned
+	}
+	totals := map[string]*ForecastTotal{}
+	var currencies []string
+	for _, row := range rows {
+		line := ForecastLine{
+			PlanCode: row.PlanCode, BillingPeriod: row.BillingPeriod, Currency: row.Currency,
+			Due: row.Due, AutoRenew: row.AutoRenew, ValueMinor: row.ValueMinor,
+		}
+		if plan := plans[[2]string{row.PlanCode, row.BillingPeriod}]; plan != nil && plan.decided >= forecastMinimum {
+			line.RenewalRate = rate(plan.renewed, plan.decided)
+		} else {
+			line.RenewalRate = rate(overall.renewed, overall.decided)
+		}
+		if line.RenewalRate != nil {
+			expected := int64(float64(row.ValueMinor) * *line.RenewalRate)
+			line.ExpectedMinor = &expected
+		}
+		report.Forecast.Lines = append(report.Forecast.Lines, line)
+		total, ok := totals[row.Currency]
+		if !ok {
+			total = &ForecastTotal{Currency: row.Currency}
+			totals[row.Currency] = total
+			currencies = append(currencies, row.Currency)
+		}
+		total.Due += row.Due
+		total.AutoRenew += row.AutoRenew
+		total.ValueMinor += row.ValueMinor
+		if line.ExpectedMinor != nil {
+			sum := *line.ExpectedMinor
+			if total.ExpectedMinor != nil {
+				sum += *total.ExpectedMinor
+			}
+			total.ExpectedMinor = &sum
+		}
+	}
+	sort.Strings(currencies)
+	for _, currency := range currencies {
+		report.Forecast.Totals = append(report.Forecast.Totals, *totals[currency])
+	}
+	return nil
 }
 
 // applySnapshots folds the snapshot rows into the trend, the revenue trend,

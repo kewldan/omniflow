@@ -25,6 +25,8 @@ import { StateNotice } from "@/components/admin/state-notice";
 import { type ApiError, fetcher } from "@/lib/api";
 import { formatMoney } from "@/lib/operations";
 
+import { ChurnReasonsCard, ForecastCard, MovementCard } from "./retention";
+
 /**
  * The subscription base over time: who holds access and why, what it is worth
  * every month, how much of it renews, and what each cohort of payers became.
@@ -305,6 +307,9 @@ export function SubscriptionReportScreen({ query }: { query: string }) {
         </CardContent>
       </Card>
 
+      <MovementCard lines={data.movement} locale={locale} />
+      <ForecastCard forecast={data.forecast} locale={locale} />
+      <ChurnReasonsCard lines={data.churnReasons} locale={locale} />
       <CohortCard cohorts={data.cohorts} locale={locale} />
     </>
   );

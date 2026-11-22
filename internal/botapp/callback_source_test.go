@@ -37,6 +37,9 @@ var boundedValues = map[string]int{
 	"enabled": 3, "state": 3, "action": 20, "label": 20,
 	"choice.Provider": 14, "choice.Currency": 3, "amount": integerWidth,
 	"option": 12,
+	// Why a customer is leaving: the occasion's letter and the reason's
+	// two-letter code.
+	"occasionCode": 1, "reasonCode": 2,
 	// Daily games: the longest game code, a guess (1–10), and the plays
 	// left today (at most 20).
 	"gameCode": 15, "number": 2, "playsLeft": 2,

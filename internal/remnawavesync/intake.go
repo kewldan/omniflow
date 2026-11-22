@@ -15,6 +15,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -148,6 +149,18 @@ func (intake *Intake) Accept(ctx context.Context, body []byte, signature string)
 	}
 	if err != nil {
 		return Outcome{}, err
+	}
+	// The first connection is also the activation figure business analytics
+	// reports. The hourly census would find it too; recording it here makes
+	// the figure exact to the moment and keeps it for a user the panel later
+	// deletes before the census reads it.
+	if event.Event == remnawave.EventFirstConnected && event.UserID > 0 {
+		if err = queries.RecordFirstConnection(ctx, dbgen.RecordFirstConnectionParams{
+			RemnawaveUserID: event.UserID,
+			ConnectedAt:     pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true},
+		}); err != nil {
+			return Outcome{}, err
+		}
 	}
 	if outcome.Operator {
 		kind := "node"

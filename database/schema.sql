@@ -1839,6 +1839,25 @@ CREATE TABLE public.channel_memberships (
 
 
 --
+-- Name: churn_feedback; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.churn_feedback (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    subscription_id uuid,
+    occasion text NOT NULL,
+    reason text NOT NULL,
+    surface text NOT NULL,
+    answered_on date DEFAULT ((now() AT TIME ZONE 'UTC'::text))::date NOT NULL,
+    answered_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT churn_feedback_occasion_known CHECK ((occasion = ANY (ARRAY['auto_renew_off'::text, 'lapsed'::text]))),
+    CONSTRAINT churn_feedback_reason_known CHECK ((reason = ANY (ARRAY['price'::text, 'blocked'::text, 'speed'::text, 'not_needed'::text, 'switched'::text, 'technical'::text, 'other'::text]))),
+    CONSTRAINT churn_feedback_surface_known CHECK ((surface = ANY (ARRAY['bot'::text, 'web'::text])))
+);
+
+
+--
 -- Name: code_batches; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -3731,6 +3750,33 @@ CREATE TABLE public.offer_templates (
 
 
 --
+-- Name: operating_costs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.operating_costs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    category text NOT NULL,
+    node_uuid text,
+    covers_from date NOT NULL,
+    covers_to date NOT NULL,
+    currency text NOT NULL,
+    amount_minor bigint NOT NULL,
+    note text DEFAULT ''::text NOT NULL,
+    created_by text NOT NULL,
+    idempotency_key text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT operating_costs_amount_positive CHECK ((amount_minor > 0)),
+    CONSTRAINT operating_costs_category_known CHECK ((category = ANY (ARRAY['servers'::text, 'software'::text, 'staff'::text, 'other'::text]))),
+    CONSTRAINT operating_costs_currency_shape CHECK ((currency ~ '^[A-Z]{3}$'::text)),
+    CONSTRAINT operating_costs_idempotency_key_length CHECK (((idempotency_key IS NULL) OR ((char_length(idempotency_key) >= 1) AND (char_length(idempotency_key) <= 128)))),
+    CONSTRAINT operating_costs_node_shape CHECK (((node_uuid IS NULL) OR (node_uuid ~ '^[0-9a-f-]{36}$'::text))),
+    CONSTRAINT operating_costs_note_length CHECK ((char_length(note) <= 200)),
+    CONSTRAINT operating_costs_span_bounded CHECK (((covers_to - covers_from) <= 731)),
+    CONSTRAINT operating_costs_span_ordered CHECK ((covers_to >= covers_from))
+);
+
+
+--
 -- Name: operator_notifications; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -4086,6 +4132,28 @@ CREATE TABLE public.payment_methods (
     CONSTRAINT payment_methods_provider_token_check CHECK (((char_length(provider_token) >= 1) AND (char_length(provider_token) <= 256))),
     CONSTRAINT payment_methods_revocation_complete CHECK (((status = 'revoked'::text) = (revoked_at IS NOT NULL))),
     CONSTRAINT payment_methods_status_check CHECK ((status = ANY (ARRAY['active'::text, 'expired'::text, 'revoked'::text, 'failed'::text])))
+);
+
+
+--
+-- Name: payment_provider_fees; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.payment_provider_fees (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    provider text NOT NULL,
+    effective_from date NOT NULL,
+    percent_bp integer DEFAULT 0 NOT NULL,
+    fixed_minor bigint DEFAULT 0 NOT NULL,
+    fixed_currency text,
+    note text DEFAULT ''::text NOT NULL,
+    created_by text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT payment_provider_fees_fixed_currency CHECK ((((fixed_minor = 0) AND (fixed_currency IS NULL)) OR ((fixed_minor > 0) AND (fixed_currency ~ '^[A-Z]{3}$'::text)))),
+    CONSTRAINT payment_provider_fees_fixed_range CHECK ((fixed_minor >= 0)),
+    CONSTRAINT payment_provider_fees_note_length CHECK ((char_length(note) <= 200)),
+    CONSTRAINT payment_provider_fees_percent_range CHECK (((percent_bp >= 0) AND (percent_bp <= 10000))),
+    CONSTRAINT payment_provider_fees_provider_shape CHECK ((provider ~ '^[a-z0-9_]{1,32}$'::text))
 );
 
 
@@ -5741,6 +5809,24 @@ COMMENT ON COLUMN public.users.dormant_at IS 'When the inactivity pass marked th
 
 
 --
+-- Name: vpn_usage_observations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.vpn_usage_observations (
+    remnawave_user_id bigint NOT NULL,
+    first_connected_at timestamp with time zone,
+    online_at timestamp with time zone,
+    last_node_uuid text,
+    active_devices integer DEFAULT 0 NOT NULL,
+    device_limit integer,
+    observed_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT vpn_usage_observations_device_limit_range CHECK (((device_limit IS NULL) OR (device_limit >= 0))),
+    CONSTRAINT vpn_usage_observations_devices_range CHECK ((active_devices >= 0)),
+    CONSTRAINT vpn_usage_observations_remnawave_user_id_positive CHECK ((remnawave_user_id > 0))
+);
+
+
+--
 -- Name: wallet_topups; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -6548,6 +6634,14 @@ ALTER TABLE ONLY public.channel_exemptions
 
 ALTER TABLE ONLY public.channel_memberships
     ADD CONSTRAINT channel_memberships_pkey PRIMARY KEY (user_id, channel_id);
+
+
+--
+-- Name: churn_feedback churn_feedback_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.churn_feedback
+    ADD CONSTRAINT churn_feedback_pkey PRIMARY KEY (id);
 
 
 --
@@ -7471,6 +7565,22 @@ ALTER TABLE ONLY public.offer_templates
 
 
 --
+-- Name: operating_costs operating_costs_idempotency_key_unique; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.operating_costs
+    ADD CONSTRAINT operating_costs_idempotency_key_unique UNIQUE (idempotency_key);
+
+
+--
+-- Name: operating_costs operating_costs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.operating_costs
+    ADD CONSTRAINT operating_costs_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: operator_notifications operator_notifications_kind_dedupe_key_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -7660,6 +7770,22 @@ ALTER TABLE ONLY public.payment_methods
 
 ALTER TABLE ONLY public.payment_methods
     ADD CONSTRAINT payment_methods_provider_merchant_id_provider_token_key UNIQUE (provider, merchant_id, provider_token);
+
+
+--
+-- Name: payment_provider_fees payment_provider_fees_one_per_day; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.payment_provider_fees
+    ADD CONSTRAINT payment_provider_fees_one_per_day UNIQUE (provider, effective_from);
+
+
+--
+-- Name: payment_provider_fees payment_provider_fees_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.payment_provider_fees
+    ADD CONSTRAINT payment_provider_fees_pkey PRIMARY KEY (id);
 
 
 --
@@ -8423,6 +8549,14 @@ ALTER TABLE ONLY public.users
 
 
 --
+-- Name: vpn_usage_observations vpn_usage_observations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.vpn_usage_observations
+    ADD CONSTRAINT vpn_usage_observations_pkey PRIMARY KEY (remnawave_user_id);
+
+
+--
 -- Name: wallet_topups wallet_topups_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8868,6 +9002,20 @@ CREATE INDEX channel_memberships_absent_idx ON public.channel_memberships USING 
 --
 
 CREATE INDEX channel_memberships_stale_idx ON public.channel_memberships USING btree (checked_at);
+
+
+--
+-- Name: churn_feedback_answered_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX churn_feedback_answered_at_idx ON public.churn_feedback USING btree (answered_at);
+
+
+--
+-- Name: churn_feedback_one_answer_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX churn_feedback_one_answer_idx ON public.churn_feedback USING btree (user_id, occasion, answered_on, COALESCE(subscription_id, '00000000-0000-0000-0000-000000000000'::uuid));
 
 
 --
@@ -9403,6 +9551,13 @@ CREATE INDEX notification_deliveries_pending_idx ON public.notification_deliveri
 
 
 --
+-- Name: operating_costs_span_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX operating_costs_span_idx ON public.operating_costs USING btree (covers_from, covers_to);
+
+
+--
 -- Name: operator_notifications_pending_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -9918,6 +10073,13 @@ CREATE INDEX users_merged_into_idx ON public.users USING btree (merged_into) WHE
 --
 
 CREATE INDEX users_status_created_idx ON public.users USING btree (status, created_at DESC);
+
+
+--
+-- Name: vpn_usage_observations_last_node_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX vpn_usage_observations_last_node_idx ON public.vpn_usage_observations USING btree (last_node_uuid);
 
 
 --
@@ -10800,6 +10962,22 @@ ALTER TABLE ONLY public.channel_memberships
 
 ALTER TABLE ONLY public.channel_memberships
     ADD CONSTRAINT channel_memberships_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: churn_feedback churn_feedback_subscription_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.churn_feedback
+    ADD CONSTRAINT churn_feedback_subscription_id_fkey FOREIGN KEY (subscription_id) REFERENCES public.subscriptions(id) ON DELETE SET NULL;
+
+
+--
+-- Name: churn_feedback churn_feedback_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.churn_feedback
+    ADD CONSTRAINT churn_feedback_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --

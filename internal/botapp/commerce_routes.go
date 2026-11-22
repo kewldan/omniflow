@@ -1023,6 +1023,10 @@ func (app *App) handleCommerceAction(ctx context.Context, session commerceContex
 		return app.setTicketStatus(ctx, session, argument, "open"), true
 	case "csat":
 		return app.rateTicket(ctx, session, argument, argumentAt(parts, 2)), true
+	case "churn":
+		return app.recordChurnReason(ctx, session, argument, argumentAt(parts, 2), argumentAt(parts, 3)), true
+	case "churn-ask":
+		return app.askChurnReason(session, argument, argumentAt(parts, 2)), true
 	case "pages":
 		return app.pagesScreen(ctx, session.Locale), true
 	case "page":
@@ -1200,6 +1204,13 @@ func (app *App) setAutoRenew(ctx context.Context, session commerceContext, enabl
 	if err := app.customers.SetAutoRenew(ctx, session.Customer.ID, setting); err != nil {
 		app.logError(ctx, "auto-renew update failed", "error", err)
 		return app.errorView(session.Locale, routeSettings)
+	}
+	// Switching renewal off is the moment to ask why: the answer is the most
+	// direct signal of churn the business gets. The question is skippable and
+	// leads back to the same settings screen.
+	if !enabled && app.analytics != nil {
+		return churnQuestionView(session.Locale, text(session.Locale, "churn.renewOff"), "o", target.ID,
+			actionButton(text(session.Locale, "churn.skip"), renewCallback("renew-settings", target.ID)))
 	}
 	return app.autoRenewScreenFor(ctx, session, target.ID)
 }
@@ -1435,6 +1446,7 @@ var commerceActions = func() map[string]bool {
 		"pay": true, "order-pm": true, "opms": true, "opm": true,
 		"order-cancel": true, "news": true, "ticket": true, "ticket-reply": true,
 		"ticket-close": true, "ticket-open": true, "support-new": true, "connect": true, "csat": true,
+		"churn": true, "churn-ask": true,
 		"pages": true, "page": true,
 		"autorenew": true, "renew-settings": true, "renew-funding": true, "renew-lead": true,
 		"renew-days":     true,

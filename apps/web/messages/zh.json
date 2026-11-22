@@ -1519,7 +1519,9 @@
         "payments": "支付健康度",
         "channels": "渠道",
         "subscriptions": "订阅",
-        "acquisition": "获客"
+        "acquisition": "获客",
+        "economics": "经济",
+        "usage": "使用情况"
       },
       "channels": {
         "failed": "无法加载渠道报表。",
@@ -5085,7 +5087,61 @@
         "offset": "第{offset}月",
         "ltv": "LTV"
       },
-      "showFigures": "显示数据"
+      "showFigures": "显示数据",
+      "movement": {
+        "title": "经常性收入变动",
+        "description": "期间开始和结束时的月度经常性收入，以及按客户逐一分析的变动原因。回流客户指在此期间之前（在此处或旧机器人中）付过款的客户。",
+        "empty": "期间开始和结束时都没有经常性收入。",
+        "emptyTitle": "暂无数据",
+        "nrr": "净收入留存 {value}",
+        "grr": "总收入留存 {value}",
+        "step": "变动",
+        "customers": "客户",
+        "mrr": "月收入",
+        "steps": {
+          "start": "期初",
+          "new": "新客户",
+          "reactivated": "回流客户",
+          "expansion": "付费增加",
+          "contraction": "付费减少",
+          "churned": "流失",
+          "end": "期末"
+        }
+      },
+      "forecast": {
+        "title": "未来 {days} 天的续费",
+        "description": "即将结束且尚未续费的付费期间，按今日价格并以每个套餐最近 {basis} 天的续费率加权。无论所选期间如何，均从今天起计算。",
+        "empty": "未来几天没有付费期间结束。",
+        "emptyTitle": "无到期",
+        "totalHint": "预计（总额 {value}）· 到期 {due}，自动续费 {auto}",
+        "plan": "套餐",
+        "due": "到期",
+        "auto": "自动续费",
+        "rate": "续费率",
+        "value": "若全部续费",
+        "expected": "预计"
+      },
+      "churnReasons": {
+        "title": "客户离开的原因",
+        "description": "关闭自动续费时以及收到订阅到期通知后的回答。回答是可选的，因此这里只包含选择回答的客户。",
+        "empty": "此期间没有回答。",
+        "emptyTitle": "暂无数据",
+        "reason": "原因",
+        "occasions": {
+          "auto_renew_off": "关闭自动续费",
+          "lapsed": "到期后"
+        },
+        "share": "占比",
+        "reasons": {
+          "price": "太贵",
+          "blocked": "在客户网络中被封锁",
+          "speed": "速度太慢",
+          "not_needed": "不再需要",
+          "switched": "换用其他服务",
+          "technical": "技术问题",
+          "other": "其他"
+        }
+      }
     },
     "acquisition": {
       "failed": "无法加载获客报表",
@@ -5165,6 +5221,58 @@
         "amount": "金额",
         "days": "天数",
         "none": "此期间没有。"
+      },
+      "channelValue": {
+        "title": "各渠道价值",
+        "description": "在此期间首次付款的客户，按带来他们的首个渠道划分，以及他们此后的付款。LTV 截至今日，因此近期的期间数值偏低、回本期偏长。",
+        "empty": "此期间没有首次付款的客户。",
+        "emptyTitle": "暂无数据",
+        "channel": "渠道",
+        "payers": "新付费客户",
+        "ltv": "截至今日 LTV",
+        "monthly": "每月",
+        "cac": "CAC",
+        "ratio": "LTV : CAC",
+        "payback": "回本期",
+        "noSpend": "未录入成本",
+        "months": "{value} 个月",
+        "kinds": {
+          "campaign": "活动",
+          "utm": "来源",
+          "referral": "邀请",
+          "organic": "自然"
+        }
+      },
+      "referrals": {
+        "title": "推荐计划",
+        "description": "此期间被邀请的客户及其此后的付款，对比该计划在此期间发放的奖励。已撤销的奖励不计入。",
+        "invited": "已邀请",
+        "qualified": "已认定",
+        "rejected": "已拒绝",
+        "payers": "已付款",
+        "conversion": "转化率",
+        "role": "奖励",
+        "rewards": "已发放",
+        "amount": "钱包余额",
+        "days": "访问天数",
+        "none": "此期间未发放奖励。",
+        "roles": {
+          "inviter": "给邀请人",
+          "invitee": "给被邀请人",
+          "commission": "佣金"
+        },
+        "economics": "奖励 {spend} 带来收入 {revenue}",
+        "cac": "每位付费客户"
+      },
+      "locales": {
+        "title": "按语言",
+        "description": "此期间注册的客户按界面语言划分：多少人领取了试用、多少人付款。",
+        "empty": "此期间没有人注册。",
+        "emptyTitle": "暂无数据",
+        "language": "语言",
+        "signups": "注册",
+        "trial": "试用",
+        "paid": "付款"
       }
     },
     "trafficHistory": {
@@ -5272,6 +5380,144 @@
       "repairReason": "修复运营群组话题的名称和图标",
       "repairRequested": "机器人正在修复话题，大约需要一分钟。",
       "repairing": "机器人正在修复话题…"
+    },
+    "economics": {
+      "failed": "无法加载经济报告",
+      "empty": "暂无数据",
+      "emptyDescription": "此期间没有支付渠道收入、退款或成本。",
+      "providers": {
+        "title": "支付渠道",
+        "description": "按收款渠道列出的渠道收入，以及按下方为付款当天录入的费率估算的渠道扣费。",
+        "empty": "此期间没有渠道收入。",
+        "provider": "渠道",
+        "payments": "笔数",
+        "paid": "收款",
+        "fee": "手续费",
+        "rate": "实际费率",
+        "withoutRate": "{count, plural, other {# 笔付款未录入费率}}"
+      },
+      "nodes": {
+        "title": "流量成本",
+        "description": "每个节点在此期间承载的流量，以及按绑定到该节点的成本计算的价格。付费客户指最后一次通过该节点连接的客户。",
+        "total": "所有节点共承载 {traffic}",
+        "serverPerGib": "每 GiB 服务器成本：{cost}",
+        "empty": "此期间没有节点采样或节点成本。",
+        "node": "节点",
+        "traffic": "流量",
+        "paying": "付费客户",
+        "cost": "成本",
+        "perGib": "每 GiB"
+      },
+      "profit": {
+        "title": "损益",
+        "description": "仅以此货币计算。固定成本按其覆盖的天数平均分摊。",
+        "margin": "利润率 {value}",
+        "provider": "渠道收入",
+        "refunds": "已退款",
+        "fees": "渠道手续费",
+        "net": "净收入",
+        "operating": "固定成本",
+        "acquisition": "广告",
+        "referral": "推荐奖励",
+        "contribution": "剩余",
+        "feesMissing": "此期间部分付款未录入渠道费率，其手续费未计入。请在下方录入费率。",
+        "estimate": "手续费为估算值",
+        "subscribers": "平均付费订阅数",
+        "revenuePerSubscriber": "每订阅每月净收入",
+        "costPerSubscriber": "每订阅每月固定成本",
+        "perSubscriberHint": "按平均付费或迁移订阅、每三十天计算。"
+      },
+      "costs": {
+        "title": "固定成本",
+        "description": "服务器账单、软件、人员以及服务的其他开销。Omniflow 看不到这些账单，因此需手动录入。绑定到节点的成本用于计算该节点的流量价格。",
+        "category": "类别",
+        "categories": {
+          "servers": "服务器",
+          "software": "软件",
+          "staff": "人员",
+          "other": "其他"
+        },
+        "node": "节点",
+        "noNode": "整个服务",
+        "amount": "金额",
+        "currency": "货币",
+        "from": "开始日期",
+        "to": "结束日期",
+        "note": "备注",
+        "record": "记录成本",
+        "invalidAmount": "请输入正数金额。",
+        "invalidSpan": "请选择成本覆盖的开始和结束日期。",
+        "span": "覆盖期间",
+        "remove": "删除成本",
+        "empty": "没有覆盖此期间的成本。"
+      },
+      "fees": {
+        "title": "渠道费率",
+        "description": "按合同约定，每个支付渠道从每笔付款中扣除的部分。费率自其日期起生效直到下一条，因此新费率不会改变以前的月份。",
+        "provider": "渠道",
+        "providerPlaceholder": "选择渠道",
+        "from": "生效日期",
+        "percent": "比例，%",
+        "fixed": "每笔固定金额",
+        "fixedCurrency": "固定金额的货币",
+        "save": "保存费率",
+        "invalid": "请选择渠道和日期，并输入 0 到 100 之间的比例。",
+        "remove": "删除费率",
+        "empty": "尚未录入费率。"
+      }
+    },
+    "usage": {
+      "failed": "无法加载使用情况报告",
+      "pending": "等待首次普查",
+      "pendingDescription": "后台任务每小时读取一次所有 Remnawave 用户。首次运行后将显示这些数据。",
+      "observedAt": "上次读取 Remnawave：{moment}",
+      "empty": "暂无数据",
+      "hours": "{value} 小时",
+      "tiles": {
+        "trialConnected": "已连接的试用",
+        "trialConnectedHint": "此期间 {count} 个试用中",
+        "median": "首次连接耗时",
+        "medianHint": "从领取试用到连接的中位数",
+        "purchaseConnected": "已连接的新付费客户",
+        "purchaseConnectedHint": "{count} 位首次付款客户中",
+        "active": "本周活跃的付费客户",
+        "activeHint": "普查看到的 {count} 位付费客户中"
+      },
+      "trials": {
+        "title": "激活",
+        "description": "连接是否让试用转化为购买。这是队列数据：截至今天的期间数值会偏低。",
+        "connectedConversion": "已连接并随后付款",
+        "ofConnected": "{total} 中的 {paid}",
+        "unconnectedConversion": "从未连接但付款",
+        "ofUnconnected": "{total} 中的 {paid}",
+        "withinDay": "一天内连接的试用",
+        "withinDayDetail": "{count} 个试用",
+        "purchasesWithinDay": "一天内连接的新付费客户",
+        "purchasesDetail": "{total} 中有 {connected} 位曾连接"
+      },
+      "paying": {
+        "title": "当前付费客户",
+        "description": "今天持有付费或迁移期间的客户及其使用方式。",
+        "customers": "付费客户",
+        "observed": "普查已覆盖",
+        "onlineWeek": "7 天内在线",
+        "onlineMonth": "30 天内在线",
+        "neverConnected": "从未连接",
+        "atDeviceLimit": "达到设备上限",
+        "overDeviceLimit": "超过设备上限",
+        "deviceHint": "达到上限的客户是购买更多设备的自然受众；从未连接的客户值得在续费前联系。"
+      },
+      "nodes": {
+        "title": "按节点",
+        "description": "按最后连接节点划分的客户、其在此期间结束的付费期间的续费情况以及提交的工单。这是值得关注某个节点的提示，而非定论。",
+        "empty": "尚无客户有最后连接节点。",
+        "node": "节点",
+        "paying": "付费客户",
+        "ended": "结束的期间",
+        "renewal": "已续费",
+        "tickets": "工单",
+        "perHundred": "每 100 位客户"
+      }
     }
   },
   "account": {
@@ -6960,7 +7206,22 @@
         "removeDescription": "使用此卡的续费将改用下一张已保存的卡；若没有其他卡，则会暂停。",
         "methodsNotice": "仅保存支付渠道提供的引用标识，绝不保存卡号或有效期。",
         "termsLink": "自动扣款条款",
-        "saved": "已保存"
+        "saved": "已保存",
+        "churn": {
+          "title": "自动续费已关闭",
+          "description": "能告诉我们原因吗？回答是可选的，但对我们改进非常有帮助。",
+          "skip": "跳过",
+          "thanks": "感谢您的回答",
+          "reasons": {
+            "price": "太贵",
+            "blocked": "在我的网络中无法使用",
+            "speed": "速度太慢",
+            "not_needed": "不再需要",
+            "switched": "换用了其他服务",
+            "technical": "技术问题",
+            "other": "其他"
+          }
+        }
       }
     },
     "gifts": {

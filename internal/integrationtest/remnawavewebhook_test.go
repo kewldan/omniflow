@@ -60,6 +60,13 @@ func TestRemnawaveWebhooksNotifyCustomersAndOperators(t *testing.T) {
 	if err := harness.pool.QueryRow(ctx, `SELECT details::text FROM remnawave_webhook_events WHERE event = 'user.first_connected'`).Scan(&stored); err != nil || stored != "{}" {
 		t.Fatalf("details = %q (%v); the access link must not be stored", stored, err)
 	}
+	// The first connection is also the activation figure business analytics
+	// reports, recorded once whatever the retries.
+	var firstConnections int
+	if err := harness.pool.QueryRow(ctx, `SELECT count(*) FROM vpn_usage_observations
+		WHERE remnawave_user_id = 555 AND first_connected_at IS NOT NULL`).Scan(&firstConnections); err != nil || firstConnections != 1 {
+		t.Fatalf("first connections recorded = %d (%v), want 1", firstConnections, err)
+	}
 
 	stranger := `{"event":"user.not_connected","data":{"id":999}}`
 	if _, err := intake.Accept(ctx, []byte(stranger), signRemnawave("panel-secret", stranger)); err != nil {

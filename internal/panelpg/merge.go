@@ -517,6 +517,12 @@ func (pair mergePair) move(ctx context.Context, queries *dbgen.Queries) error {
 		func() error {
 			return queries.MoveCustomerFunnelEvents(ctx, dbgen.MoveCustomerFunnelEventsParams{Source: p.Source, Target: p.Target})
 		},
+		// Why the person said they were leaving, so the answer is counted on
+		// the survivor; the absorbed account's rows that would repeat one the
+		// survivor gave the same day stay with it.
+		func() error {
+			return queries.MoveCustomerChurnFeedback(ctx, dbgen.MoveCustomerChurnFeedbackParams{Source: p.Source, Target: p.Target})
+		},
 		func() error {
 			return queries.MoveCustomerReferralAttribution(ctx, dbgen.MoveCustomerReferralAttributionParams{Source: p.Source, Target: p.Target})
 		},

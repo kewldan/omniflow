@@ -27,6 +27,8 @@ import { parseMajorToMinor } from "@/lib/money";
 import { formatMoney, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 
+import { ChannelValueCard, LocaleFunnelCard, ReferralCard } from "./channel-value";
+
 type AdCampaignOption = { id: string; code: string; name: string };
 
 /**
@@ -55,6 +57,9 @@ export function AcquisitionReportScreen({ query }: { query: string }) {
   return (
     <>
       <FunnelCard funnel={data.funnel} locale={locale} />
+      <ChannelValueCard lines={data.channelValue} locale={locale} />
+      <ReferralCard locale={locale} programme={data.referrals} />
+      <LocaleFunnelCard lines={data.byLocale} locale={locale} />
 
       <Card>
         <CardHeader>

@@ -127,3 +127,83 @@ func (store *PostgresStore) ratingRecipient(ctx context.Context, customerID stri
 	}
 	return telegramID, locale, err
 }
+
+// churnReasonCodes maps the short codes a churn button carries to the reasons
+// analytics records. Callback data is capped at 64 bytes and a subscription
+// identifier takes 36 of them, so the button carries two letters.
+var churnReasonCodes = []struct{ code, reason string }{
+	{"pr", "price"}, {"bl", "blocked"}, {"sp", "speed"}, {"nn", "not_needed"},
+	{"sw", "switched"}, {"te", "technical"}, {"ot", "other"},
+}
+
+// churnOccasionCodes are the occasions a churn button can name.
+var churnOccasionCodes = map[string]string{
+	"o": analytics.OccasionAutoRenewOff,
+	"l": analytics.OccasionLapsed,
+}
+
+// churnQuestionView asks why the customer is leaving, one button per reason
+// and a way past the question: answering is never required.
+func churnQuestionView(locale Locale, intro, occasionCode, subscriptionID string, skip models.InlineKeyboardButton) View {
+	rows := make([][]models.InlineKeyboardButton, 0, len(churnReasonCodes)/2+2)
+	var pair []models.InlineKeyboardButton
+	for _, entry := range churnReasonCodes {
+		reasonCode := entry.code
+		pair = append(pair, actionButton(text(locale, "churn.reason."+entry.reason),
+			churnAction(occasionCode, reasonCode, subscriptionID)))
+		if len(pair) == 2 {
+			rows = append(rows, row(pair...))
+			pair = nil
+		}
+	}
+	if len(pair) > 0 {
+		rows = append(rows, row(pair...))
+	}
+	rows = append(rows, row(skip))
+	body := text(locale, "churn.ask")
+	if intro != "" {
+		body = intro + "\n\n" + body
+	}
+	return View{Text: body, Keyboard: keyboard(rows...)}
+}
+
+// churnAction is the callback of one answer: the occasion's letter, the
+// reason's two letters, and the subscription when there is one.
+func churnAction(occasionCode, reasonCode, subscriptionID string) string {
+	if subscriptionID == "" {
+		return "churn:" + occasionCode + ":" + reasonCode
+	}
+	return "churn:" + occasionCode + ":" + reasonCode + ":" + subscriptionID
+}
+
+// askChurnReason opens the question from a message that only offered it, such
+// as the notice that a subscription expired.
+func (app *App) askChurnReason(session commerceContext, occasion, subscriptionID string) View {
+	if app.analytics == nil || churnOccasionCodes[occasion] == "" {
+		return app.errorView(session.Locale, routeHome)
+	}
+	return churnQuestionView(session.Locale, "", occasion, subscriptionID,
+		callbackButton(text(session.Locale, "action.menu"), routeHome))
+}
+
+// recordChurnReason stores the customer's answer and thanks them. An answer
+// that cannot be stored is not the customer's problem, and they are thanked
+// all the same; the failure is logged.
+func (app *App) recordChurnReason(ctx context.Context, session commerceContext, occasion, code, subscriptionID string) View {
+	back := keyboard(row(callbackButton(text(session.Locale, "action.menu"), routeHome)))
+	reason := ""
+	for _, entry := range churnReasonCodes {
+		if entry.code == code {
+			reason = entry.reason
+		}
+	}
+	occasionName := churnOccasionCodes[occasion]
+	if app.analytics == nil || reason == "" || occasionName == "" {
+		return app.errorView(session.Locale, routeHome)
+	}
+	err := app.analytics.RecordChurnReason(ctx, session.Customer.ID, subscriptionID, occasionName, reason, analytics.SurfaceBot)
+	if err != nil && !errors.Is(err, analytics.ErrNotFound) && !errors.Is(err, analytics.ErrInvalid) {
+		app.logError(ctx, "churn reason not recorded", "error", err)
+	}
+	return View{Text: text(session.Locale, "churn.thanks"), Keyboard: back}
+}

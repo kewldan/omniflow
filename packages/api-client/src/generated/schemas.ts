@@ -6806,7 +6806,7 @@ export const GetPanelCustomerPaymentsResponse = zod.object({
 });
 
 /**
- * Requires finance.read. The subscription base over the period from the daily snapshots (paid, imported, trial, free), monthly recurring revenue per currency, the latest day by plan, renewals of the paid periods that ended in the period, automatic renewal outcomes, revenue per paying customer and per subscriber, and the last twelve monthly cohorts of payers with retention and lifetime value.
+ * Requires finance.read. The subscription base over the period from the daily snapshots (paid, imported, trial, free), monthly recurring revenue per currency, the latest day by plan, renewals of the paid periods that ended in the period, automatic renewal outcomes, revenue per paying customer and per subscriber, the last twelve monthly cohorts of payers with retention and lifetime value, how recurring revenue moved between the period's start and end (new, returning, grown, shrunk, lost) with net and gross revenue retention, the renewals due in the next thirty days weighted by each plan's renewal rate over the last ninety, and the reasons customers gave for leaving.
  * Recurring revenue normalises the price charged to a thirty-day month. Imported periods carry no price and are valued at list price, reported apart as `estimatedMinor`. A rate with nothing behind it is absent, not zero. A period longer than two years is refused.
  */
 export const getPanelSubscriptionReportQueryTimezoneDefault = `UTC`;
@@ -6941,10 +6941,77 @@ export const GetPanelSubscriptionReportResponse = zod.object({
       ),
     }),
   ),
+  movement: zod.array(
+    zod.object({
+      currency: zod.string(),
+      startMrrMinor: zod.int(),
+      endMrrMinor: zod.int(),
+      startCustomers: zod.int(),
+      endCustomers: zod.int(),
+      newMrrMinor: zod.int(),
+      newCustomers: zod.int(),
+      reactivatedMrrMinor: zod.int(),
+      reactivatedCustomers: zod.int(),
+      expansionMrrMinor: zod.int(),
+      expansionCustomers: zod.int(),
+      contractionMrrMinor: zod.int(),
+      contractionCustomers: zod.int(),
+      churnedMrrMinor: zod.int(),
+      churnedCustomers: zod.int(),
+      netRevenueRetention: zod
+        .number()
+        .optional()
+        .describe("(start + expansion − contraction − churned) ÷ start."),
+      grossRevenueRetention: zod
+        .number()
+        .optional()
+        .describe("(start − contraction − churned) ÷ start."),
+    }),
+  ),
+  forecast: zod.object({
+    horizonDays: zod.int(),
+    basisDays: zod.int(),
+    lines: zod.array(
+      zod.object({
+        planCode: zod.string(),
+        billingPeriod: zod.string(),
+        currency: zod.string(),
+        due: zod.int(),
+        autoRenew: zod.int(),
+        valueMinor: zod.int(),
+        renewalRate: zod.number().optional(),
+        expectedMinor: zod.int().optional(),
+      }),
+    ),
+    totals: zod.array(
+      zod.object({
+        currency: zod.string(),
+        due: zod.int(),
+        autoRenew: zod.int(),
+        valueMinor: zod.int(),
+        expectedMinor: zod.int().optional(),
+      }),
+    ),
+  }),
+  churnReasons: zod.array(
+    zod.object({
+      occasion: zod.enum(["auto_renew_off", "lapsed"]),
+      reason: zod.enum([
+        "price",
+        "blocked",
+        "speed",
+        "not_needed",
+        "switched",
+        "technical",
+        "other",
+      ]),
+      answers: zod.int(),
+    }),
+  ),
 });
 
 /**
- * Requires finance.read. What acquiring customers cost and brought over the period: /start campaigns and `utm_source` channels with the costs recorded against them, customer acquisition cost and return on spend per currency, promo codes, wallet credit and free access given away, and the purchase funnel of the customers who signed up in the period.
+ * Requires finance.read. What acquiring customers cost and brought over the period: /start campaigns and `utm_source` channels with the costs recorded against them, customer acquisition cost and return on spend per currency, promo codes, wallet credit and free access given away, and the purchase funnel of the customers who signed up in the period, by channel and by interface language. `channelValue` follows the customers who paid for the first time in the period by the channel that brought them — campaign, invitation, `utm_source`, or organic — with lifetime value so far, acquisition cost, and payback; `referrals` sets the referral programme's rewards against what invited customers paid.
  * Cost and return are computed only where spend and revenue share a currency; nothing is converted.
  */
 export const getPanelAcquisitionReportQueryTimezoneDefault = `UTC`;
@@ -7044,6 +7111,57 @@ export const GetPanelAcquisitionReportResponse = zod.object({
       }),
     ),
   }),
+  channelValue: zod.array(
+    zod.object({
+      channel: zod
+        .string()
+        .describe("`campaign:<code>`, `referral`, `utm:<source>`, or `organic`."),
+      currency: zod.string(),
+      payers: zod.int(),
+      revenueMinor: zod.int(),
+      ltvMinor: zod.int().optional(),
+      monthlyRevenueMinor: zod.int().optional(),
+      spendMinor: zod.int(),
+      cacMinor: zod.int().optional(),
+      ltvToCac: zod.number().optional(),
+      paybackMonths: zod.number().optional(),
+    }),
+  ),
+  referrals: zod.object({
+    invited: zod.int(),
+    qualified: zod.int(),
+    rejected: zod.int(),
+    payers: zod.int(),
+    conversionRate: zod.number().optional(),
+    rewards: zod.array(
+      zod.object({
+        role: zod.enum(["inviter", "invitee", "commission"]),
+        currency: zod.string(),
+        rewards: zod.int(),
+        amountMinor: zod.int(),
+        days: zod.int(),
+      }),
+    ),
+    economics: zod.array(
+      zod.object({
+        currency: zod.string(),
+        spendMinor: zod.int(),
+        revenueMinor: zod.int(),
+        cacMinor: zod.int().optional(),
+        roi: zod.number().optional().describe("(revenue − spend) ÷ spend."),
+      }),
+    ),
+  }),
+  byLocale: zod.array(
+    zod.object({
+      locale: zod.string(),
+      signups: zod.int(),
+      trialClaimed: zod.int(),
+      paid: zod.int(),
+      trialRate: zod.number().optional(),
+      paidRate: zod.number().optional(),
+    }),
+  ),
 });
 
 /**
@@ -7139,6 +7257,333 @@ export const DeletePanelAcquisitionSpendParams = zod.object({
 });
 
 export const DeletePanelAcquisitionSpendResponse = zod.void();
+
+/**
+ * Requires finance.read. The period's unit economics per currency: provider money, refunds, what payment providers kept under the rates entered for them, running costs spread over the days they cover, advertising spend, and referral rewards, down to the contribution left and its margin; running costs and net revenue per average paying subscription per thirty days; provider money by provider; and each node's traffic priced by the costs entered against it.
+ * Nothing is converted between currencies. A provider fee is an estimate from the entered rate, and payments with no rate are counted in `withoutRate` rather than as a zero fee.
+ */
+export const getPanelEconomicsReportQueryTimezoneDefault = `UTC`;
+
+export const GetPanelEconomicsReportQueryParams = zod.object({
+  since: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("Start of the period, inclusive. Defaults to thirty days before `until`."),
+  until: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("End of the period, exclusive. Defaults to now."),
+  timezone: zod
+    .string()
+    .default(getPanelEconomicsReportQueryTimezoneDefault)
+    .describe(
+      'The zone the day boundaries are computed in. "Sales on the third" means the operator\'s third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day.',
+    ),
+});
+
+export const GetPanelEconomicsReportResponse = zod.object({
+  since: zod.iso.datetime({ offset: true }),
+  until: zod.iso.datetime({ offset: true }),
+  timezone: zod.string(),
+  generatedAt: zod.iso.datetime({ offset: true }),
+  months: zod.number(),
+  averageSubscribers: zod.number().optional(),
+  currencies: zod.array(
+    zod.object({
+      currency: zod.string(),
+      providerMinor: zod.int(),
+      refundsMinor: zod.int(),
+      feesMinor: zod.int(),
+      feesEstimated: zod
+        .boolean()
+        .describe("True while some payments in the period have no rate entered."),
+      netRevenueMinor: zod.int(),
+      operatingMinor: zod.int(),
+      acquisitionMinor: zod.int(),
+      referralMinor: zod.int(),
+      contributionMinor: zod.int(),
+      margin: zod.number().optional(),
+      costPerSubscriberMinor: zod.int().optional(),
+      revenuePerSubscriberMinor: zod.int().optional(),
+    }),
+  ),
+  providers: zod.array(
+    zod.object({
+      provider: zod.string(),
+      currency: zod.string(),
+      payments: zod.int(),
+      paidMinor: zod.int(),
+      feeMinor: zod.int(),
+      withoutRate: zod.int().describe("Payments with no rate entered for their provider and day."),
+      effectiveRate: zod.number().optional(),
+    }),
+  ),
+  costs: zod.array(
+    zod.object({
+      category: zod.enum(["servers", "software", "staff", "other"]),
+      currency: zod.string(),
+      amountMinor: zod.int(),
+    }),
+  ),
+  nodes: zod.array(
+    zod.object({
+      nodeUuid: zod.string(),
+      nodeName: zod.string(),
+      countryCode: zod.string(),
+      trafficBytes: zod.int(),
+      payingCustomers: zod.int(),
+      costs: zod.array(
+        zod.object({
+          currency: zod.string(),
+          amountMinor: zod.int(),
+        }),
+      ),
+      costPerGibibyte: zod.array(
+        zod.object({
+          currency: zod.string(),
+          amountMinor: zod.int(),
+        }),
+      ),
+    }),
+  ),
+  trafficBytes: zod.int(),
+  serverCostPerGibibyte: zod.array(
+    zod.object({
+      currency: zod.string(),
+      amountMinor: zod.int(),
+    }),
+  ),
+  referralDays: zod.int(),
+});
+
+/**
+ * Requires finance.read. Whether customers use what they bought, from the hourly census of Remnawave users: of the trials claimed and the first payments made in the period, how many customers connected and how soon, and how connecting relates to converting; of the customers paying now, how many were online in the last week and month, never connected, or hold as many devices as their limit allows; and per node they last connected through, their renewals and support tickets. Empty until the census has run once.
+ */
+export const getPanelUsageReportQueryTimezoneDefault = `UTC`;
+
+export const GetPanelUsageReportQueryParams = zod.object({
+  since: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("Start of the period, inclusive. Defaults to thirty days before `until`."),
+  until: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("End of the period, exclusive. Defaults to now."),
+  timezone: zod
+    .string()
+    .default(getPanelUsageReportQueryTimezoneDefault)
+    .describe(
+      'The zone the day boundaries are computed in. "Sales on the third" means the operator\'s third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day.',
+    ),
+});
+
+export const GetPanelUsageReportResponse = zod.object({
+  since: zod.iso.datetime({ offset: true }),
+  until: zod.iso.datetime({ offset: true }),
+  timezone: zod.string(),
+  generatedAt: zod.iso.datetime({ offset: true }),
+  observedAt: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("When the census last read Remnawave; absent before its first pass."),
+  trials: zod.object({
+    trials: zod.int(),
+    connected: zod.int(),
+    connectedWithinDay: zod.int(),
+    connectionRate: zod.number().optional(),
+    medianHoursToConnect: zod.number().optional(),
+    convertedConnected: zod.int(),
+    convertedUnconnected: zod.int(),
+    connectedConversionRate: zod.number().optional(),
+    unconnectedConversionRate: zod.number().optional(),
+  }),
+  purchases: zod.object({
+    payers: zod.int(),
+    connected: zod.int(),
+    connectedWithinDay: zod.int(),
+    connectionRate: zod.number().optional(),
+  }),
+  paying: zod.object({
+    customers: zod.int(),
+    observed: zod.int(),
+    onlineWeek: zod.int(),
+    onlineMonth: zod.int(),
+    neverConnected: zod.int(),
+    activeRate: zod.number().optional(),
+    atDeviceLimit: zod.int(),
+    overDeviceLimit: zod.int(),
+  }),
+  nodes: zod.array(
+    zod.object({
+      nodeUuid: zod.string(),
+      nodeName: zod.string(),
+      countryCode: zod.string(),
+      payingCustomers: zod.int(),
+      periodsEnded: zod.int(),
+      periodsRenewed: zod.int(),
+      renewalRate: zod.number().optional(),
+      tickets: zod.int(),
+      ticketsPerHundred: zod.number().optional(),
+    }),
+  ),
+});
+
+/**
+ * Requires finance.read. Running costs whose span touches the period, latest first.
+ */
+export const listPanelOperatingCostsQueryTimezoneDefault = `UTC`;
+
+export const ListPanelOperatingCostsQueryParams = zod.object({
+  since: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("Start of the period, inclusive. Defaults to thirty days before `until`."),
+  until: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("End of the period, exclusive. Defaults to now."),
+  timezone: zod
+    .string()
+    .default(listPanelOperatingCostsQueryTimezoneDefault)
+    .describe(
+      'The zone the day boundaries are computed in. "Sales on the third" means the operator\'s third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day.',
+    ),
+});
+
+export const ListPanelOperatingCostsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      category: zod.enum(["servers", "software", "staff", "other"]),
+      nodeUuid: zod.string().optional(),
+      coversFrom: zod.iso.date(),
+      coversTo: zod.iso.date(),
+      currency: zod.string(),
+      amountMinor: zod.int(),
+      note: zod.string(),
+      createdBy: zod.string(),
+      createdAt: zod.iso.datetime({ offset: true }),
+    }),
+  ),
+});
+
+/**
+ * Requires finance.write. Records a running cost — servers, software, staff, or other — covering a span of days, optionally against one Remnawave node. Reports spread it evenly over those days. The change is audited. A retry with the same `Idempotency-Key` returns the cost the first request recorded.
+ */
+export const createPanelOperatingCostHeaderIdempotencyKeyMin = 8;
+export const createPanelOperatingCostHeaderIdempotencyKeyMax = 128;
+
+export const CreatePanelOperatingCostHeader = zod.object({
+  "Idempotency-Key": zod
+    .string()
+    .min(createPanelOperatingCostHeaderIdempotencyKeyMin)
+    .max(createPanelOperatingCostHeaderIdempotencyKeyMax)
+    .optional()
+    .describe(
+      "Optional here. Supplying one makes a repeated submission resolve to the record already created instead of a second one.",
+    ),
+});
+
+export const createPanelOperatingCostBodyCurrencyRegExp = /^[A-Za-z]{3}$/;
+
+export const createPanelOperatingCostBodyNoteMax = 200;
+
+export const CreatePanelOperatingCostBody = zod.object({
+  category: zod.enum(["servers", "software", "staff", "other"]),
+  nodeUuid: zod.string().optional(),
+  coversFrom: zod.iso.date(),
+  coversTo: zod.iso.date(),
+  currency: zod.string().regex(createPanelOperatingCostBodyCurrencyRegExp),
+  amountMinor: zod.int().min(1),
+  note: zod.string().max(createPanelOperatingCostBodyNoteMax).optional(),
+});
+
+export const CreatePanelOperatingCostResponse = zod.object({
+  id: zod.uuid(),
+  category: zod.enum(["servers", "software", "staff", "other"]),
+  nodeUuid: zod.string().optional(),
+  coversFrom: zod.iso.date(),
+  coversTo: zod.iso.date(),
+  currency: zod.string(),
+  amountMinor: zod.int(),
+  note: zod.string(),
+  createdBy: zod.string(),
+  createdAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * Requires finance.write. Removes a cost entered by mistake. The audit trail keeps what it was.
+ */
+export const DeletePanelOperatingCostParams = zod.object({
+  costID: zod.uuid(),
+});
+
+export const DeletePanelOperatingCostResponse = zod.void();
+
+/**
+ * Requires finance.read. Every payment provider rate entered, newest first per provider.
+ */
+export const ListPanelProviderFeesResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      provider: zod.string(),
+      effectiveFrom: zod.iso.date(),
+      percentBp: zod.int().describe("Share in basis points; 350 is 3.5%."),
+      fixedMinor: zod.int(),
+      fixedCurrency: zod.string().optional(),
+      note: zod.string(),
+      createdBy: zod.string(),
+      createdAt: zod.iso.datetime({ offset: true }),
+    }),
+  ),
+});
+
+/**
+ * Requires finance.write. Records what a payment provider keeps of each payment from a date on: a share in basis points and an optional fixed amount in one currency. A rate for a date that already has one replaces it. Payments are charged the rate in force on the day they were paid, so a new rate never changes an earlier month. The change is audited.
+ */
+export const setPanelProviderFeeBodyProviderRegExp = /^[a-z0-9_]{1,32}$/;
+export const setPanelProviderFeeBodyPercentBpMin = 0;
+export const setPanelProviderFeeBodyPercentBpMax = 10000;
+
+export const setPanelProviderFeeBodyFixedMinorMin = 0;
+
+export const setPanelProviderFeeBodyFixedCurrencyRegExp = /^[A-Za-z]{3}$/;
+export const setPanelProviderFeeBodyNoteMax = 200;
+
+export const SetPanelProviderFeeBody = zod.object({
+  provider: zod.string().regex(setPanelProviderFeeBodyProviderRegExp),
+  effectiveFrom: zod.iso.date(),
+  percentBp: zod
+    .int()
+    .min(setPanelProviderFeeBodyPercentBpMin)
+    .max(setPanelProviderFeeBodyPercentBpMax),
+  fixedMinor: zod.int().min(setPanelProviderFeeBodyFixedMinorMin).optional(),
+  fixedCurrency: zod.string().regex(setPanelProviderFeeBodyFixedCurrencyRegExp).optional(),
+  note: zod.string().max(setPanelProviderFeeBodyNoteMax).optional(),
+});
+
+export const SetPanelProviderFeeResponse = zod.object({
+  id: zod.uuid(),
+  provider: zod.string(),
+  effectiveFrom: zod.iso.date(),
+  percentBp: zod.int().describe("Share in basis points; 350 is 3.5%."),
+  fixedMinor: zod.int(),
+  fixedCurrency: zod.string().optional(),
+  note: zod.string(),
+  createdBy: zod.string(),
+  createdAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * Requires finance.write. Removes a rate entered by mistake. The audit trail keeps what it was.
+ */
+export const DeletePanelProviderFeeParams = zod.object({
+  feeID: zod.uuid(),
+});
+
+export const DeletePanelProviderFeeResponse = zod.void();
 
 /**
  * Requires customers.read. Traffic each node carried per day and its busiest hour, from the hourly samples the worker records of Remnawave's node counters. Remnawave keeps the counters for now only; the samples are observations for reporting and decide nothing. A drop to less than half the previous reading is a reset and counts the new reading; a smaller drop is a wobble and counts as nothing.
@@ -14474,6 +14919,23 @@ export const UpdateAccountRenewalResponse = zod.object({
     }),
   ),
 });
+
+/**
+ * The customer's answer to "why are you leaving", chosen from a closed list, when they switch automatic renewal off or after their subscription expired. Optional for the customer and never required to complete either. Answering again for the same occasion on the same day replaces the answer. `404` for a subscription that is not the customer's own.
+ */
+export const RecordAccountChurnFeedbackHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const RecordAccountChurnFeedbackBody = zod.object({
+  subscriptionId: zod.uuid().optional(),
+  occasion: zod.enum(["auto_renew_off", "lapsed"]),
+  reason: zod.enum(["price", "blocked", "speed", "not_needed", "switched", "technical", "other"]),
+});
+
+export const RecordAccountChurnFeedbackResponse = zod.void();
 
 /**
  * Makes one saved method the one automatic renewal charges.

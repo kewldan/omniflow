@@ -72,6 +72,14 @@ const AcquisitionReportScreen = dynamic(
   () => import("./acquisition").then((module) => module.AcquisitionReportScreen),
   { loading: () => <Skeleton className="h-96 w-full" />, ssr: false },
 );
+const EconomicsReportScreen = dynamic(
+  () => import("./economics").then((module) => module.EconomicsReportScreen),
+  { loading: () => <Skeleton className="h-96 w-full" />, ssr: false },
+);
+const UsageReportScreen = dynamic(
+  () => import("./usage").then((module) => module.UsageReportScreen),
+  { loading: () => <Skeleton className="h-96 w-full" />, ssr: false },
+);
 
 /** The ranges an operator actually asks for, as offsets from now. */
 const PRESETS = [
@@ -192,6 +200,8 @@ export function SalesReportScreen() {
           <TabsTrigger value="channels">{translate("tabs.channels")}</TabsTrigger>
           <TabsTrigger value="subscriptions">{translate("tabs.subscriptions")}</TabsTrigger>
           <TabsTrigger value="acquisition">{translate("tabs.acquisition")}</TabsTrigger>
+          <TabsTrigger value="economics">{translate("tabs.economics")}</TabsTrigger>
+          <TabsTrigger value="usage">{translate("tabs.usage")}</TabsTrigger>
         </TabsList>
 
         <TabsContent className="flex flex-col gap-5" value="sales">
@@ -232,6 +242,17 @@ export function SalesReportScreen() {
 
         <TabsContent className="flex flex-col gap-5" value="acquisition">
           <AcquisitionReportScreen query={query} />
+        </TabsContent>
+
+        {/* What the period earned after every cost Omniflow knows of, and
+            whether customers use what they bought. Both share the period
+            above for the same reason the other tabs do. */}
+        <TabsContent className="flex flex-col gap-5" value="economics">
+          <EconomicsReportScreen query={query} />
+        </TabsContent>
+
+        <TabsContent className="flex flex-col gap-5" value="usage">
+          <UsageReportScreen query={query} />
         </TabsContent>
       </Tabs>
     </div>

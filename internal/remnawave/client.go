@@ -221,6 +221,9 @@ type UserTraffic struct {
 	UsedBytes     int64      `json:"usedTrafficBytes"`
 	LifetimeBytes int64      `json:"lifetimeUsedTrafficBytes"`
 	OnlineAt      *time.Time `json:"onlineAt"`
+	// FirstConnectedAt is when the user first connected through any node,
+	// or nil for a user who never has.
+	FirstConnectedAt *time.Time `json:"firstConnectedAt"`
 	// LastConnectedNodeUUID is the node the user last connected through.
 	LastConnectedNodeUUID string `json:"lastConnectedNodeUuid"`
 }

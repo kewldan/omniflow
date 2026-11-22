@@ -85,7 +85,7 @@ Worker periodic passes (names as registered): `fulfillment_reconcile`,
 `customer_activity_prune`, `api_token_log_prune`, `release_check`,
 `remnawave_auto_import`, `webhooks` (outbox fan-out), `email_delivery`,
 `guest_purchases`, `self_employed_receipts`, `subscription_snapshot`,
-`node_traffic_sample`.
+`node_traffic_sample`, `usage_census`.
 
 ## Layers inside `internal/`
 
@@ -143,7 +143,7 @@ without the suffix (`commerce` → `commercepg`, `customerauth` →
 - `adminauth`, `adminauthpg`, `rbac` — operator auth (password, TOTP, passkeys) and the compiled-in permission catalogue.
 - `operator` — Telegram notices to the operator group, backup file delivery.
 - `anomaly`, `blocklist`, `linkcheck` — risk signals.
-- `analytics` — business analytics: daily subscription snapshots, node traffic samples, funnel steps, support marks, and the subscription, acquisition, traffic-history, and satisfaction reports.
+- `analytics` — business analytics: daily subscription snapshots, node traffic samples, the hourly usage census, funnel steps, support marks, churn reasons, running costs and provider rates, and the subscription, acquisition, economics, usage, traffic-history, and satisfaction reports.
 - `installsettings`, `branding`, `notice`, `infopage`, `connectpg`, `maintenance` — operator-editable settings and content.
 - `importservice`, `bedolagaimport`, `bedolagaimportpg`, `bedolagasource` — imports.
 - `backup` — encrypted, verified PostgreSQL backups and restore.

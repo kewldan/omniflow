@@ -197,6 +197,7 @@ func (handlers *AccountHandlers) Mount(router chi.Router) {
 			// actually do rather than what the binary was compiled with.
 			handlers.mountCheckout(secure)
 			handlers.mountRenewal(secure)
+			handlers.mountChurnFeedback(secure)
 			handlers.mountShop(secure)
 			handlers.mountSupport(secure)
 			handlers.mountReferral(secure)

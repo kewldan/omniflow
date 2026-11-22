@@ -3037,6 +3037,80 @@ export interface PanelCohort {
   revenue: PanelCohortRevenueItem[];
 }
 
+export interface PanelMovementLine {
+  currency: string;
+  startMrrMinor: number;
+  endMrrMinor: number;
+  startCustomers: number;
+  endCustomers: number;
+  newMrrMinor: number;
+  newCustomers: number;
+  reactivatedMrrMinor: number;
+  reactivatedCustomers: number;
+  expansionMrrMinor: number;
+  expansionCustomers: number;
+  contractionMrrMinor: number;
+  contractionCustomers: number;
+  churnedMrrMinor: number;
+  churnedCustomers: number;
+  /** (start + expansion − contraction − churned) ÷ start. */
+  netRevenueRetention?: number;
+  /** (start − contraction − churned) ÷ start. */
+  grossRevenueRetention?: number;
+}
+
+export interface PanelForecastLine {
+  planCode: string;
+  billingPeriod: string;
+  currency: string;
+  due: number;
+  autoRenew: number;
+  valueMinor: number;
+  renewalRate?: number;
+  expectedMinor?: number;
+}
+
+export interface PanelForecastTotal {
+  currency: string;
+  due: number;
+  autoRenew: number;
+  valueMinor: number;
+  expectedMinor?: number;
+}
+
+export interface PanelRenewalForecast {
+  horizonDays: number;
+  basisDays: number;
+  lines: PanelForecastLine[];
+  totals: PanelForecastTotal[];
+}
+
+export type PanelChurnReasonLineOccasion =
+  (typeof PanelChurnReasonLineOccasion)[keyof typeof PanelChurnReasonLineOccasion];
+
+export const PanelChurnReasonLineOccasion = {
+  auto_renew_off: "auto_renew_off",
+  lapsed: "lapsed",
+} as const;
+
+export type ChurnReason = (typeof ChurnReason)[keyof typeof ChurnReason];
+
+export const ChurnReason = {
+  price: "price",
+  blocked: "blocked",
+  speed: "speed",
+  not_needed: "not_needed",
+  switched: "switched",
+  technical: "technical",
+  other: "other",
+} as const;
+
+export interface PanelChurnReasonLine {
+  occasion: PanelChurnReasonLineOccasion;
+  reason: ChurnReason;
+  answers: number;
+}
+
 export interface PanelSubscriptionReport {
   since: string;
   until: string;
@@ -3050,7 +3124,46 @@ export interface PanelSubscriptionReport {
   autoRenew: PanelAutoRenew;
   perCustomer: PanelRevenuePerCustomer[];
   cohorts: PanelCohort[];
+  movement: PanelMovementLine[];
+  forecast: PanelRenewalForecast;
+  churnReasons: PanelChurnReasonLine[];
 }
+
+export interface PanelMoney {
+  currency: string;
+  amountMinor: number;
+}
+
+export interface PanelChannelValueLine {
+  /** `campaign:<code>`, `referral`, `utm:<source>`, or `organic`. */
+  channel: string;
+  currency: string;
+  payers: number;
+  revenueMinor: number;
+  ltvMinor?: number;
+  monthlyRevenueMinor?: number;
+  spendMinor: number;
+  cacMinor?: number;
+  ltvToCac?: number;
+  paybackMonths?: number;
+}
+
+export type PanelReferralProgrammeRewardsItemRole =
+  (typeof PanelReferralProgrammeRewardsItemRole)[keyof typeof PanelReferralProgrammeRewardsItemRole];
+
+export const PanelReferralProgrammeRewardsItemRole = {
+  inviter: "inviter",
+  invitee: "invitee",
+  commission: "commission",
+} as const;
+
+export type PanelReferralProgrammeRewardsItem = {
+  role: PanelReferralProgrammeRewardsItemRole;
+  currency: string;
+  rewards: number;
+  amountMinor: number;
+  days: number;
+};
 
 export interface PanelAcquisitionEconomics {
   currency: string;
@@ -3059,6 +3172,226 @@ export interface PanelAcquisitionEconomics {
   cacMinor?: number;
   /** (revenue − spend) ÷ spend. */
   roi?: number;
+}
+
+export interface PanelReferralProgramme {
+  invited: number;
+  qualified: number;
+  rejected: number;
+  payers: number;
+  conversionRate?: number;
+  rewards: PanelReferralProgrammeRewardsItem[];
+  economics: PanelAcquisitionEconomics[];
+}
+
+export interface PanelLocaleFunnel {
+  locale: string;
+  signups: number;
+  trialClaimed: number;
+  paid: number;
+  trialRate?: number;
+  paidRate?: number;
+}
+
+export interface PanelProviderLine {
+  provider: string;
+  currency: string;
+  payments: number;
+  paidMinor: number;
+  feeMinor: number;
+  /** Payments with no rate entered for their provider and day. */
+  withoutRate: number;
+  effectiveRate?: number;
+}
+
+export interface PanelCurrencyEconomics {
+  currency: string;
+  providerMinor: number;
+  refundsMinor: number;
+  feesMinor: number;
+  /** True while some payments in the period have no rate entered. */
+  feesEstimated: boolean;
+  netRevenueMinor: number;
+  operatingMinor: number;
+  acquisitionMinor: number;
+  referralMinor: number;
+  contributionMinor: number;
+  margin?: number;
+  costPerSubscriberMinor?: number;
+  revenuePerSubscriberMinor?: number;
+}
+
+export interface PanelNodeEconomics {
+  nodeUuid: string;
+  nodeName: string;
+  countryCode: string;
+  trafficBytes: number;
+  payingCustomers: number;
+  costs: PanelMoney[];
+  costPerGibibyte: PanelMoney[];
+}
+
+export type PanelEconomicsReportCostsItemCategory =
+  (typeof PanelEconomicsReportCostsItemCategory)[keyof typeof PanelEconomicsReportCostsItemCategory];
+
+export const PanelEconomicsReportCostsItemCategory = {
+  servers: "servers",
+  software: "software",
+  staff: "staff",
+  other: "other",
+} as const;
+
+export type PanelEconomicsReportCostsItem = {
+  category: PanelEconomicsReportCostsItemCategory;
+  currency: string;
+  amountMinor: number;
+};
+
+export interface PanelEconomicsReport {
+  since: string;
+  until: string;
+  timezone: string;
+  generatedAt: string;
+  months: number;
+  averageSubscribers?: number;
+  currencies: PanelCurrencyEconomics[];
+  providers: PanelProviderLine[];
+  costs: PanelEconomicsReportCostsItem[];
+  nodes: PanelNodeEconomics[];
+  trafficBytes: number;
+  serverCostPerGibibyte: PanelMoney[];
+  referralDays: number;
+}
+
+export type PanelOperatingCostCategory =
+  (typeof PanelOperatingCostCategory)[keyof typeof PanelOperatingCostCategory];
+
+export const PanelOperatingCostCategory = {
+  servers: "servers",
+  software: "software",
+  staff: "staff",
+  other: "other",
+} as const;
+
+export interface PanelOperatingCost {
+  id: string;
+  category: PanelOperatingCostCategory;
+  nodeUuid?: string;
+  coversFrom: string;
+  coversTo: string;
+  currency: string;
+  amountMinor: number;
+  note: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+export type PanelOperatingCostInputCategory =
+  (typeof PanelOperatingCostInputCategory)[keyof typeof PanelOperatingCostInputCategory];
+
+export const PanelOperatingCostInputCategory = {
+  servers: "servers",
+  software: "software",
+  staff: "staff",
+  other: "other",
+} as const;
+
+export interface PanelOperatingCostInput {
+  category: PanelOperatingCostInputCategory;
+  nodeUuid?: string;
+  coversFrom: string;
+  coversTo: string;
+  /** @pattern ^[A-Za-z]{3}$ */
+  currency: string;
+  /** @minimum 1 */
+  amountMinor: number;
+  /** @maxLength 200 */
+  note?: string;
+}
+
+export interface PanelProviderFee {
+  id: string;
+  provider: string;
+  effectiveFrom: string;
+  /** Share in basis points; 350 is 3.5%. */
+  percentBp: number;
+  fixedMinor: number;
+  fixedCurrency?: string;
+  note: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface PanelProviderFeeInput {
+  /** @pattern ^[a-z0-9_]{1,32}$ */
+  provider: string;
+  effectiveFrom: string;
+  /**
+   * @minimum 0
+   * @maximum 10000
+   */
+  percentBp: number;
+  /** @minimum 0 */
+  fixedMinor?: number;
+  /** @pattern ^[A-Za-z]{3}$ */
+  fixedCurrency?: string;
+  /** @maxLength 200 */
+  note?: string;
+}
+
+export interface PanelTrialActivation {
+  trials: number;
+  connected: number;
+  connectedWithinDay: number;
+  connectionRate?: number;
+  medianHoursToConnect?: number;
+  convertedConnected: number;
+  convertedUnconnected: number;
+  connectedConversionRate?: number;
+  unconnectedConversionRate?: number;
+}
+
+export type PanelUsageReportPurchases = {
+  payers: number;
+  connected: number;
+  connectedWithinDay: number;
+  connectionRate?: number;
+};
+
+export type PanelUsageReportPaying = {
+  customers: number;
+  observed: number;
+  onlineWeek: number;
+  onlineMonth: number;
+  neverConnected: number;
+  activeRate?: number;
+  atDeviceLimit: number;
+  overDeviceLimit: number;
+};
+
+export type PanelUsageReportNodesItem = {
+  nodeUuid: string;
+  nodeName: string;
+  countryCode: string;
+  payingCustomers: number;
+  periodsEnded: number;
+  periodsRenewed: number;
+  renewalRate?: number;
+  tickets: number;
+  ticketsPerHundred?: number;
+};
+
+export interface PanelUsageReport {
+  since: string;
+  until: string;
+  timezone: string;
+  generatedAt: string;
+  /** When the census last read Remnawave; absent before its first pass. */
+  observedAt?: string;
+  trials: PanelTrialActivation;
+  purchases: PanelUsageReportPurchases;
+  paying: PanelUsageReportPaying;
+  nodes: PanelUsageReportNodesItem[];
 }
 
 export interface PanelAcquisitionCampaign {
@@ -3149,6 +3482,9 @@ export interface PanelAcquisitionReport {
   bonusCredit: PanelAcquisitionReportBonusCreditItem[];
   freeAccess: PanelAcquisitionReportFreeAccessItem[];
   funnel: PanelFunnel;
+  channelValue: PanelChannelValueLine[];
+  referrals: PanelReferralProgramme;
+  byLocale: PanelLocaleFunnel[];
 }
 
 export interface PanelAcquisitionSpend {
@@ -7748,6 +8084,41 @@ export type ListPanelAcquisitionSpend200 = {
   items: PanelAcquisitionSpend[];
 };
 
+export type GetPanelEconomicsReportParams = {
+  /** Start of the period, inclusive. Defaults to thirty days before `until`. */
+  since?: ReportSinceParameter;
+  /** End of the period, exclusive. Defaults to now. */
+  until?: ReportUntilParameter;
+  /** The zone the day boundaries are computed in. "Sales on the third" means the operator's third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day. */
+  timezone?: ReportTimezoneParameter;
+};
+
+export type GetPanelUsageReportParams = {
+  /** Start of the period, inclusive. Defaults to thirty days before `until`. */
+  since?: ReportSinceParameter;
+  /** End of the period, exclusive. Defaults to now. */
+  until?: ReportUntilParameter;
+  /** The zone the day boundaries are computed in. "Sales on the third" means the operator's third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day. */
+  timezone?: ReportTimezoneParameter;
+};
+
+export type ListPanelOperatingCostsParams = {
+  /** Start of the period, inclusive. Defaults to thirty days before `until`. */
+  since?: ReportSinceParameter;
+  /** End of the period, exclusive. Defaults to now. */
+  until?: ReportUntilParameter;
+  /** The zone the day boundaries are computed in. "Sales on the third" means the operator's third, and a report bucketed in UTC puts an evening sale several hours east on the wrong day. */
+  timezone?: ReportTimezoneParameter;
+};
+
+export type ListPanelOperatingCosts200 = {
+  items: PanelOperatingCost[];
+};
+
+export type ListPanelProviderFees200 = {
+  items: PanelProviderFee[];
+};
+
 export type GetPanelTrafficHistoryParams = {
   /** Start of the period, inclusive. Defaults to thirty days before `until`. */
   since?: ReportSinceParameter;
@@ -8428,6 +8799,20 @@ export type UpdateAccountRenewalBody = {
    * @maximum 3650
    */
   periodDays?: number;
+};
+
+export type RecordAccountChurnFeedbackBodyOccasion =
+  (typeof RecordAccountChurnFeedbackBodyOccasion)[keyof typeof RecordAccountChurnFeedbackBodyOccasion];
+
+export const RecordAccountChurnFeedbackBodyOccasion = {
+  auto_renew_off: "auto_renew_off",
+  lapsed: "lapsed",
+} as const;
+
+export type RecordAccountChurnFeedbackBody = {
+  subscriptionId?: string;
+  occasion: RecordAccountChurnFeedbackBodyOccasion;
+  reason: ChurnReason;
 };
 
 export type StartAccountTopUpBody = {
@@ -24915,7 +25300,7 @@ export const getGetPanelSubscriptionReportUrl = (params?: GetPanelSubscriptionRe
 };
 
 /**
- * Requires finance.read. The subscription base over the period from the daily snapshots (paid, imported, trial, free), monthly recurring revenue per currency, the latest day by plan, renewals of the paid periods that ended in the period, automatic renewal outcomes, revenue per paying customer and per subscriber, and the last twelve monthly cohorts of payers with retention and lifetime value.
+ * Requires finance.read. The subscription base over the period from the daily snapshots (paid, imported, trial, free), monthly recurring revenue per currency, the latest day by plan, renewals of the paid periods that ended in the period, automatic renewal outcomes, revenue per paying customer and per subscriber, the last twelve monthly cohorts of payers with retention and lifetime value, how recurring revenue moved between the period's start and end (new, returning, grown, shrunk, lost) with net and gross revenue retention, the renewals due in the next thirty days weighted by each plan's renewal rate over the last ninety, and the reasons customers gave for leaving.
  * Recurring revenue normalises the price charged to a thirty-day month. Imported periods carry no price and are valued at list price, reported apart as `estimatedMinor`. A rate with nothing behind it is absent, not zero. A period longer than two years is refused.
  */
 export const getPanelSubscriptionReport = async (
@@ -25011,7 +25396,7 @@ export const getGetPanelAcquisitionReportUrl = (params?: GetPanelAcquisitionRepo
 };
 
 /**
- * Requires finance.read. What acquiring customers cost and brought over the period: /start campaigns and `utm_source` channels with the costs recorded against them, customer acquisition cost and return on spend per currency, promo codes, wallet credit and free access given away, and the purchase funnel of the customers who signed up in the period.
+ * Requires finance.read. What acquiring customers cost and brought over the period: /start campaigns and `utm_source` channels with the costs recorded against them, customer acquisition cost and return on spend per currency, promo codes, wallet credit and free access given away, and the purchase funnel of the customers who signed up in the period, by channel and by interface language. `channelValue` follows the customers who paid for the first time in the period by the channel that brought them — campaign, invitation, `utm_source`, or organic — with lifetime value so far, acquisition cost, and payback; `referrals` sets the referral programme's rewards against what invited customers paid.
  * Cost and return are computed only where spend and revenue share a currency; nothing is converted.
  */
 export const getPanelAcquisitionReport = async (
@@ -25327,6 +25712,716 @@ export const useDeletePanelAcquisitionSpend = <TError = Promise<ProblemResponse>
 
   const swrKey = swrOptions?.swrKey ?? getDeletePanelAcquisitionSpendMutationKey(spendID);
   const swrFn = getDeletePanelAcquisitionSpendMutationFetcher(spendID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelEconomicsReportResponse200 = {
+  data: PanelEconomicsReport;
+  status: 200;
+};
+
+export type getPanelEconomicsReportResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelEconomicsReportResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type getPanelEconomicsReportResponseSuccess = getPanelEconomicsReportResponse200 & {
+  headers: Headers;
+};
+export type getPanelEconomicsReportResponseError = (
+  | getPanelEconomicsReportResponse403
+  | getPanelEconomicsReportResponse422
+) & {
+  headers: Headers;
+};
+
+export type getPanelEconomicsReportResponse =
+  | getPanelEconomicsReportResponseSuccess
+  | getPanelEconomicsReportResponseError;
+
+export const getGetPanelEconomicsReportUrl = (params?: GetPanelEconomicsReportParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/reports/economics?${stringifiedParams}`
+    : `/v1/panel/reports/economics`;
+};
+
+/**
+ * Requires finance.read. The period's unit economics per currency: provider money, refunds, what payment providers kept under the rates entered for them, running costs spread over the days they cover, advertising spend, and referral rewards, down to the contribution left and its margin; running costs and net revenue per average paying subscription per thirty days; provider money by provider; and each node's traffic priced by the costs entered against it.
+ * Nothing is converted between currencies. A provider fee is an estimate from the entered rate, and payments with no rate are counted in `withoutRate` rather than as a zero fee.
+ */
+export const getPanelEconomicsReport = async (
+  params?: GetPanelEconomicsReportParams,
+  options?: RequestInit,
+): Promise<getPanelEconomicsReportResponse> => {
+  const res = await fetch(getGetPanelEconomicsReportUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelEconomicsReportResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelEconomicsReportResponse;
+};
+
+export const getGetPanelEconomicsReportKey = (params?: GetPanelEconomicsReportParams) =>
+  [`/v1/panel/reports/economics`, ...(params ? [params] : [])] as const;
+
+export type GetPanelEconomicsReportQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelEconomicsReport>>
+>;
+
+export const useGetPanelEconomicsReport = <TError = Promise<ProblemResponse>>(
+  params?: GetPanelEconomicsReportParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelEconomicsReport>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelEconomicsReportKey(params) : null));
+  const swrFn = () => getPanelEconomicsReport(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelUsageReportResponse200 = {
+  data: PanelUsageReport;
+  status: 200;
+};
+
+export type getPanelUsageReportResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelUsageReportResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type getPanelUsageReportResponseSuccess = getPanelUsageReportResponse200 & {
+  headers: Headers;
+};
+export type getPanelUsageReportResponseError = (
+  | getPanelUsageReportResponse403
+  | getPanelUsageReportResponse422
+) & {
+  headers: Headers;
+};
+
+export type getPanelUsageReportResponse =
+  | getPanelUsageReportResponseSuccess
+  | getPanelUsageReportResponseError;
+
+export const getGetPanelUsageReportUrl = (params?: GetPanelUsageReportParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/reports/usage?${stringifiedParams}`
+    : `/v1/panel/reports/usage`;
+};
+
+/**
+ * Requires finance.read. Whether customers use what they bought, from the hourly census of Remnawave users: of the trials claimed and the first payments made in the period, how many customers connected and how soon, and how connecting relates to converting; of the customers paying now, how many were online in the last week and month, never connected, or hold as many devices as their limit allows; and per node they last connected through, their renewals and support tickets. Empty until the census has run once.
+ */
+export const getPanelUsageReport = async (
+  params?: GetPanelUsageReportParams,
+  options?: RequestInit,
+): Promise<getPanelUsageReportResponse> => {
+  const res = await fetch(getGetPanelUsageReportUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelUsageReportResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelUsageReportResponse;
+};
+
+export const getGetPanelUsageReportKey = (params?: GetPanelUsageReportParams) =>
+  [`/v1/panel/reports/usage`, ...(params ? [params] : [])] as const;
+
+export type GetPanelUsageReportQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelUsageReport>>
+>;
+
+export const useGetPanelUsageReport = <TError = Promise<ProblemResponse>>(
+  params?: GetPanelUsageReportParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelUsageReport>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelUsageReportKey(params) : null));
+  const swrFn = () => getPanelUsageReport(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelOperatingCostsResponse200 = {
+  data: ListPanelOperatingCosts200;
+  status: 200;
+};
+
+export type listPanelOperatingCostsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelOperatingCostsResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type listPanelOperatingCostsResponseSuccess = listPanelOperatingCostsResponse200 & {
+  headers: Headers;
+};
+export type listPanelOperatingCostsResponseError = (
+  | listPanelOperatingCostsResponse403
+  | listPanelOperatingCostsResponse422
+) & {
+  headers: Headers;
+};
+
+export type listPanelOperatingCostsResponse =
+  | listPanelOperatingCostsResponseSuccess
+  | listPanelOperatingCostsResponseError;
+
+export const getListPanelOperatingCostsUrl = (params?: ListPanelOperatingCostsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/reports/costs?${stringifiedParams}`
+    : `/v1/panel/reports/costs`;
+};
+
+/**
+ * Requires finance.read. Running costs whose span touches the period, latest first.
+ */
+export const listPanelOperatingCosts = async (
+  params?: ListPanelOperatingCostsParams,
+  options?: RequestInit,
+): Promise<listPanelOperatingCostsResponse> => {
+  const res = await fetch(getListPanelOperatingCostsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelOperatingCostsResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelOperatingCostsResponse;
+};
+
+export const getListPanelOperatingCostsKey = (params?: ListPanelOperatingCostsParams) =>
+  [`/v1/panel/reports/costs`, ...(params ? [params] : [])] as const;
+
+export type ListPanelOperatingCostsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelOperatingCosts>>
+>;
+
+export const useListPanelOperatingCosts = <TError = Promise<ProblemResponse>>(
+  params?: ListPanelOperatingCostsParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelOperatingCosts>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelOperatingCostsKey(params) : null));
+  const swrFn = () => listPanelOperatingCosts(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type createPanelOperatingCostResponse201 = {
+  data: PanelOperatingCost;
+  status: 201;
+};
+
+export type createPanelOperatingCostResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type createPanelOperatingCostResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type createPanelOperatingCostResponseSuccess = createPanelOperatingCostResponse201 & {
+  headers: Headers;
+};
+export type createPanelOperatingCostResponseError = (
+  | createPanelOperatingCostResponse403
+  | createPanelOperatingCostResponse422
+) & {
+  headers: Headers;
+};
+
+export type createPanelOperatingCostResponse =
+  | createPanelOperatingCostResponseSuccess
+  | createPanelOperatingCostResponseError;
+
+export const getCreatePanelOperatingCostUrl = () => {
+  return `/v1/panel/reports/costs`;
+};
+
+/**
+ * Requires finance.write. Records a running cost — servers, software, staff, or other — covering a span of days, optionally against one Remnawave node. Reports spread it evenly over those days. The change is audited. A retry with the same `Idempotency-Key` returns the cost the first request recorded.
+ */
+export const createPanelOperatingCost = async (
+  panelOperatingCostInput: PanelOperatingCostInput,
+  options?: RequestInit,
+): Promise<createPanelOperatingCostResponse> => {
+  const res = await fetch(getCreatePanelOperatingCostUrl(), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(panelOperatingCostInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: createPanelOperatingCostResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as createPanelOperatingCostResponse;
+};
+
+export const getCreatePanelOperatingCostMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PanelOperatingCostInput }) => {
+    return createPanelOperatingCost(arg, options);
+  };
+};
+export const getCreatePanelOperatingCostMutationKey = () => [`/v1/panel/reports/costs`] as const;
+
+export type CreatePanelOperatingCostMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createPanelOperatingCost>>
+>;
+
+export const useCreatePanelOperatingCost = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof createPanelOperatingCost>>,
+    TError,
+    Key,
+    PanelOperatingCostInput,
+    Awaited<ReturnType<typeof createPanelOperatingCost>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getCreatePanelOperatingCostMutationKey();
+  const swrFn = getCreatePanelOperatingCostMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type deletePanelOperatingCostResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type deletePanelOperatingCostResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type deletePanelOperatingCostResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type deletePanelOperatingCostResponseSuccess = deletePanelOperatingCostResponse204 & {
+  headers: Headers;
+};
+export type deletePanelOperatingCostResponseError = (
+  | deletePanelOperatingCostResponse403
+  | deletePanelOperatingCostResponse404
+) & {
+  headers: Headers;
+};
+
+export type deletePanelOperatingCostResponse =
+  | deletePanelOperatingCostResponseSuccess
+  | deletePanelOperatingCostResponseError;
+
+export const getDeletePanelOperatingCostUrl = (costID: string) => {
+  return `/v1/panel/reports/costs/${costID}`;
+};
+
+/**
+ * Requires finance.write. Removes a cost entered by mistake. The audit trail keeps what it was.
+ */
+export const deletePanelOperatingCost = async (
+  costID: string,
+  options?: RequestInit,
+): Promise<deletePanelOperatingCostResponse> => {
+  const res = await fetch(getDeletePanelOperatingCostUrl(costID), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: deletePanelOperatingCostResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as deletePanelOperatingCostResponse;
+};
+
+export const getDeletePanelOperatingCostMutationFetcher = (
+  costID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return deletePanelOperatingCost(costID, options);
+  };
+};
+export const getDeletePanelOperatingCostMutationKey = (costID: string) =>
+  [`/v1/panel/reports/costs/${costID}`] as const;
+
+export type DeletePanelOperatingCostMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deletePanelOperatingCost>>
+>;
+
+export const useDeletePanelOperatingCost = <TError = Promise<ProblemResponse>>(
+  costID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof deletePanelOperatingCost>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof deletePanelOperatingCost>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getDeletePanelOperatingCostMutationKey(costID);
+  const swrFn = getDeletePanelOperatingCostMutationFetcher(costID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelProviderFeesResponse200 = {
+  data: ListPanelProviderFees200;
+  status: 200;
+};
+
+export type listPanelProviderFeesResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelProviderFeesResponseSuccess = listPanelProviderFeesResponse200 & {
+  headers: Headers;
+};
+export type listPanelProviderFeesResponseError = listPanelProviderFeesResponse403 & {
+  headers: Headers;
+};
+
+export type listPanelProviderFeesResponse =
+  | listPanelProviderFeesResponseSuccess
+  | listPanelProviderFeesResponseError;
+
+export const getListPanelProviderFeesUrl = () => {
+  return `/v1/panel/reports/provider-fees`;
+};
+
+/**
+ * Requires finance.read. Every payment provider rate entered, newest first per provider.
+ */
+export const listPanelProviderFees = async (
+  options?: RequestInit,
+): Promise<listPanelProviderFeesResponse> => {
+  const res = await fetch(getListPanelProviderFeesUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelProviderFeesResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as listPanelProviderFeesResponse;
+};
+
+export const getListPanelProviderFeesKey = () => [`/v1/panel/reports/provider-fees`] as const;
+
+export type ListPanelProviderFeesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelProviderFees>>
+>;
+
+export const useListPanelProviderFees = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelProviderFees>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelProviderFeesKey() : null));
+  const swrFn = () => listPanelProviderFees(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type setPanelProviderFeeResponse200 = {
+  data: PanelProviderFee;
+  status: 200;
+};
+
+export type setPanelProviderFeeResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type setPanelProviderFeeResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type setPanelProviderFeeResponseSuccess = setPanelProviderFeeResponse200 & {
+  headers: Headers;
+};
+export type setPanelProviderFeeResponseError = (
+  | setPanelProviderFeeResponse403
+  | setPanelProviderFeeResponse422
+) & {
+  headers: Headers;
+};
+
+export type setPanelProviderFeeResponse =
+  | setPanelProviderFeeResponseSuccess
+  | setPanelProviderFeeResponseError;
+
+export const getSetPanelProviderFeeUrl = () => {
+  return `/v1/panel/reports/provider-fees`;
+};
+
+/**
+ * Requires finance.write. Records what a payment provider keeps of each payment from a date on: a share in basis points and an optional fixed amount in one currency. A rate for a date that already has one replaces it. Payments are charged the rate in force on the day they were paid, so a new rate never changes an earlier month. The change is audited.
+ */
+export const setPanelProviderFee = async (
+  panelProviderFeeInput: PanelProviderFeeInput,
+  options?: RequestInit,
+): Promise<setPanelProviderFeeResponse> => {
+  const res = await fetch(getSetPanelProviderFeeUrl(), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(panelProviderFeeInput),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: setPanelProviderFeeResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as setPanelProviderFeeResponse;
+};
+
+export const getSetPanelProviderFeeMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PanelProviderFeeInput }) => {
+    return setPanelProviderFee(arg, options);
+  };
+};
+export const getSetPanelProviderFeeMutationKey = () => [`/v1/panel/reports/provider-fees`] as const;
+
+export type SetPanelProviderFeeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setPanelProviderFee>>
+>;
+
+export const useSetPanelProviderFee = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof setPanelProviderFee>>,
+    TError,
+    Key,
+    PanelProviderFeeInput,
+    Awaited<ReturnType<typeof setPanelProviderFee>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSetPanelProviderFeeMutationKey();
+  const swrFn = getSetPanelProviderFeeMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type deletePanelProviderFeeResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type deletePanelProviderFeeResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type deletePanelProviderFeeResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type deletePanelProviderFeeResponseSuccess = deletePanelProviderFeeResponse204 & {
+  headers: Headers;
+};
+export type deletePanelProviderFeeResponseError = (
+  | deletePanelProviderFeeResponse403
+  | deletePanelProviderFeeResponse404
+) & {
+  headers: Headers;
+};
+
+export type deletePanelProviderFeeResponse =
+  | deletePanelProviderFeeResponseSuccess
+  | deletePanelProviderFeeResponseError;
+
+export const getDeletePanelProviderFeeUrl = (feeID: string) => {
+  return `/v1/panel/reports/provider-fees/${feeID}`;
+};
+
+/**
+ * Requires finance.write. Removes a rate entered by mistake. The audit trail keeps what it was.
+ */
+export const deletePanelProviderFee = async (
+  feeID: string,
+  options?: RequestInit,
+): Promise<deletePanelProviderFeeResponse> => {
+  const res = await fetch(getDeletePanelProviderFeeUrl(feeID), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: deletePanelProviderFeeResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as deletePanelProviderFeeResponse;
+};
+
+export const getDeletePanelProviderFeeMutationFetcher = (feeID: string, options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return deletePanelProviderFee(feeID, options);
+  };
+};
+export const getDeletePanelProviderFeeMutationKey = (feeID: string) =>
+  [`/v1/panel/reports/provider-fees/${feeID}`] as const;
+
+export type DeletePanelProviderFeeMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deletePanelProviderFee>>
+>;
+
+export const useDeletePanelProviderFee = <TError = Promise<ProblemResponse>>(
+  feeID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof deletePanelProviderFee>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof deletePanelProviderFee>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getDeletePanelProviderFeeMutationKey(feeID);
+  const swrFn = getDeletePanelProviderFeeMutationFetcher(feeID, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 
@@ -37686,6 +38781,94 @@ export const useUpdateAccountRenewal = <TError = Promise<ProblemResponse>>(
 
   const swrKey = swrOptions?.swrKey ?? getUpdateAccountRenewalMutationKey(subscriptionID);
   const swrFn = getUpdateAccountRenewalMutationFetcher(subscriptionID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type recordAccountChurnFeedbackResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type recordAccountChurnFeedbackResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type recordAccountChurnFeedbackResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type recordAccountChurnFeedbackResponseSuccess = recordAccountChurnFeedbackResponse204 & {
+  headers: Headers;
+};
+export type recordAccountChurnFeedbackResponseError = (
+  | recordAccountChurnFeedbackResponse404
+  | recordAccountChurnFeedbackResponse422
+) & {
+  headers: Headers;
+};
+
+export type recordAccountChurnFeedbackResponse =
+  | recordAccountChurnFeedbackResponseSuccess
+  | recordAccountChurnFeedbackResponseError;
+
+export const getRecordAccountChurnFeedbackUrl = () => {
+  return `/v1/account/churn-feedback`;
+};
+
+/**
+ * The customer's answer to "why are you leaving", chosen from a closed list, when they switch automatic renewal off or after their subscription expired. Optional for the customer and never required to complete either. Answering again for the same occasion on the same day replaces the answer. `404` for a subscription that is not the customer's own.
+ */
+export const recordAccountChurnFeedback = async (
+  recordAccountChurnFeedbackBody: RecordAccountChurnFeedbackBody,
+  options?: RequestInit,
+): Promise<recordAccountChurnFeedbackResponse> => {
+  const res = await fetch(getRecordAccountChurnFeedbackUrl(), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(recordAccountChurnFeedbackBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: recordAccountChurnFeedbackResponse["data"] = body ? JSON.parse(body) : undefined;
+  return { data, status: res.status, headers: res.headers } as recordAccountChurnFeedbackResponse;
+};
+
+export const getRecordAccountChurnFeedbackMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: RecordAccountChurnFeedbackBody }) => {
+    return recordAccountChurnFeedback(arg, options);
+  };
+};
+export const getRecordAccountChurnFeedbackMutationKey = () =>
+  [`/v1/account/churn-feedback`] as const;
+
+export type RecordAccountChurnFeedbackMutationResult = NonNullable<
+  Awaited<ReturnType<typeof recordAccountChurnFeedback>>
+>;
+
+export const useRecordAccountChurnFeedback = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof recordAccountChurnFeedback>>,
+    TError,
+    Key,
+    RecordAccountChurnFeedbackBody,
+    Awaited<ReturnType<typeof recordAccountChurnFeedback>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRecordAccountChurnFeedbackMutationKey();
+  const swrFn = getRecordAccountChurnFeedbackMutationFetcher(fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

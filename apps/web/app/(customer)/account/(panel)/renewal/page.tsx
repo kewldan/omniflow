@@ -3,6 +3,14 @@
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { ConfirmDialog } from "@omniflow/ui/confirm-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@omniflow/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
 import { Switch } from "@omniflow/ui/switch";
 import { toast } from "@omniflow/ui/toast";
@@ -54,6 +62,17 @@ type Renewal = {
   subscriptions: SubscriptionRenewal[];
 };
 
+/** The reasons a customer can give for switching renewal off, in display order. */
+const CHURN_REASONS = [
+  "price",
+  "blocked",
+  "speed",
+  "not_needed",
+  "switched",
+  "technical",
+  "other",
+] as const;
+
 /** Lead times a customer can pick, in hours before the period ends. */
 const LEAD_TIMES = [24, 48, 72, 120, 168];
 
@@ -74,25 +93,48 @@ export default function RenewalPage() {
   const { data, error, isLoading, mutate } = useSWR<Renewal>(ENDPOINT, fetcher);
   const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState<SavedMethod | null>(null);
+  // The subscription whose renewal was just switched off, while the customer
+  // is asked why. Answering is optional and never blocks the switch itself.
+  const [leaving, setLeaving] = useState<string | null>(null);
 
-  async function update(path: string, init: RequestInit) {
+  async function update(path: string, init: RequestInit): Promise<boolean> {
     setBusy(true);
     try {
       const next = await apiFetch<Renewal>(path, init);
       await mutate(next, { revalidate: false });
       toast.success(translate("saved"));
+      return true;
     } catch (failure) {
       toast.error(describeProblem(failure));
+      return false;
     } finally {
       setBusy(false);
     }
   }
 
-  function change(subscriptionId: string, body: Record<string, unknown>) {
-    return update(`${ENDPOINT}/${subscriptionId}`, {
+  async function change(subscriptionId: string, body: Record<string, unknown>) {
+    const saved = await update(`${ENDPOINT}/${subscriptionId}`, {
       body: JSON.stringify(body),
       method: "PUT",
     });
+    if (saved && body.enabled === false) {
+      setLeaving(subscriptionId);
+    }
+  }
+
+  async function answer(reason: (typeof CHURN_REASONS)[number]) {
+    const subscriptionId = leaving;
+    setLeaving(null);
+    try {
+      await apiFetch<void>("/v1/account/churn-feedback", {
+        body: JSON.stringify({ occasion: "auto_renew_off", reason, subscriptionId }),
+        method: "POST",
+      });
+      toast.success(translate("churn.thanks"));
+    } catch {
+      // The answer is a courtesy; a failure to store it is not the
+      // customer's problem and is not worth an error.
+    }
   }
 
   if (isLoading) {
@@ -292,6 +334,34 @@ export default function RenewalPage() {
           </Link>
         </p>
       </section>
+
+      <Dialog
+        onOpenChange={(open) => {
+          if (!open) {
+            setLeaving(null);
+          }
+        }}
+        open={leaving !== null}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{translate("churn.title")}</DialogTitle>
+            <DialogDescription>{translate("churn.description")}</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {CHURN_REASONS.map((reason) => (
+              <Button key={reason} onClick={() => void answer(reason)} variant="secondary">
+                {translate(`churn.reasons.${reason}`)}
+              </Button>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setLeaving(null)} variant="ghost">
+              {translate("churn.skip")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         cancelLabel={translate("cancel")}

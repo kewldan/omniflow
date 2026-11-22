@@ -847,6 +847,17 @@ type ChannelMembership struct {
 	LeftAt    pgtype.Timestamptz `json:"left_at"`
 }
 
+type ChurnFeedback struct {
+	ID             pgtype.UUID        `json:"id"`
+	UserID         pgtype.UUID        `json:"user_id"`
+	SubscriptionID pgtype.UUID        `json:"subscription_id"`
+	Occasion       string             `json:"occasion"`
+	Reason         string             `json:"reason"`
+	Surface        string             `json:"surface"`
+	AnsweredOn     pgtype.Date        `json:"answered_on"`
+	AnsweredAt     pgtype.Timestamptz `json:"answered_at"`
+}
+
 type CodeBatch struct {
 	ID             pgtype.UUID        `json:"id"`
 	Reference      string             `json:"reference"`
@@ -1911,6 +1922,20 @@ type OfferTemplate struct {
 	ArchivedAt      pgtype.Timestamptz `json:"archived_at"`
 }
 
+type OperatingCost struct {
+	ID             pgtype.UUID        `json:"id"`
+	Category       string             `json:"category"`
+	NodeUuid       pgtype.Text        `json:"node_uuid"`
+	CoversFrom     pgtype.Date        `json:"covers_from"`
+	CoversTo       pgtype.Date        `json:"covers_to"`
+	Currency       string             `json:"currency"`
+	AmountMinor    int64              `json:"amount_minor"`
+	Note           string             `json:"note"`
+	CreatedBy      string             `json:"created_by"`
+	IdempotencyKey pgtype.Text        `json:"idempotency_key"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
 type OperatorNotification struct {
 	ID        pgtype.UUID        `json:"id"`
 	Kind      string             `json:"kind"`
@@ -2118,6 +2143,18 @@ type PaymentMethodSetting struct {
 	OpenDirectly      bool               `json:"open_directly"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	UpdatedBy         pgtype.UUID        `json:"updated_by"`
+}
+
+type PaymentProviderFee struct {
+	ID            pgtype.UUID        `json:"id"`
+	Provider      string             `json:"provider"`
+	EffectiveFrom pgtype.Date        `json:"effective_from"`
+	PercentBp     int32              `json:"percent_bp"`
+	FixedMinor    int64              `json:"fixed_minor"`
+	FixedCurrency pgtype.Text        `json:"fixed_currency"`
+	Note          string             `json:"note"`
+	CreatedBy     string             `json:"created_by"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 }
 
 type PaymentProviderSetting struct {
@@ -3004,6 +3041,16 @@ type User struct {
 	LastActivityAt pgtype.Timestamptz `json:"last_activity_at"`
 	// When the inactivity pass marked the customer dormant. Cleared by any activity.
 	DormantAt pgtype.Timestamptz `json:"dormant_at"`
+}
+
+type VpnUsageObservation struct {
+	RemnawaveUserID  int64              `json:"remnawave_user_id"`
+	FirstConnectedAt pgtype.Timestamptz `json:"first_connected_at"`
+	OnlineAt         pgtype.Timestamptz `json:"online_at"`
+	LastNodeUuid     pgtype.Text        `json:"last_node_uuid"`
+	ActiveDevices    int32              `json:"active_devices"`
+	DeviceLimit      pgtype.Int4        `json:"device_limit"`
+	ObservedAt       pgtype.Timestamptz `json:"observed_at"`
 }
 
 type WalletTopup struct {

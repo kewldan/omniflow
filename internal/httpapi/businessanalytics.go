@@ -26,11 +26,13 @@ func (handlers *AccountHandlers) WithAnalytics(service *analytics.Service) *Acco
 	return handlers
 }
 
-// mountBusinessAnalytics registers the subscription, acquisition, traffic
-// history, and support satisfaction reports.
+// mountBusinessAnalytics registers the subscription, acquisition, unit
+// economics, usage, traffic history, and support satisfaction reports.
 //
 // Money sits behind `finance.read` like the sales report, and recording an
-// advertising cost behind `finance.write`. Traffic history names nodes only,
+// advertising cost, a running cost, or a provider's rate behind
+// `finance.write`. Usage reads beside the other reports on the same screen,
+// so it shares their `finance.read`. Traffic history names nodes only,
 // but it sits beside the traffic report and shares its `customers.read`.
 // Satisfaction is the support desk's figure and reads with `support.read`.
 func (handlers *AdminHandlers) mountBusinessAnalytics(secure chi.Router) {
@@ -41,10 +43,18 @@ func (handlers *AdminHandlers) mountBusinessAnalytics(secure chi.Router) {
 		read.Get("/reports/subscriptions", handlers.subscriptionReport)
 		read.Get("/reports/acquisition", handlers.acquisitionReport)
 		read.Get("/reports/acquisition/spend", handlers.listAcquisitionSpend)
+		read.Get("/reports/economics", handlers.economicsReport)
+		read.Get("/reports/usage", handlers.usageReport)
+		read.Get("/reports/costs", handlers.listOperatingCosts)
+		read.Get("/reports/provider-fees", handlers.listProviderFees)
 	})
 	secure.With(handlers.requirePermission(rbac.PermissionFinanceWrite)).Group(func(write chi.Router) {
 		write.Post("/reports/acquisition/spend", handlers.createAcquisitionSpend)
 		write.Delete("/reports/acquisition/spend/{spendID}", handlers.deleteAcquisitionSpend)
+		write.Post("/reports/costs", handlers.createOperatingCost)
+		write.Delete("/reports/costs/{costID}", handlers.deleteOperatingCost)
+		write.Post("/reports/provider-fees", handlers.setProviderFee)
+		write.Delete("/reports/provider-fees/{feeID}", handlers.deleteProviderFee)
 	})
 	secure.With(handlers.requirePermission(rbac.PermissionCustomersRead)).
 		Get("/reports/traffic/history", handlers.trafficHistory)
@@ -112,6 +122,89 @@ func (handlers *AdminHandlers) deleteAcquisitionSpend(writer http.ResponseWriter
 	writer.WriteHeader(http.StatusNoContent)
 }
 
+func (handlers *AdminHandlers) economicsReport(writer http.ResponseWriter, request *http.Request) {
+	period, err := analyticsPeriod(request)
+	if err != nil {
+		handlers.analyticsError(writer, request, err)
+		return
+	}
+	report, err := handlers.businessAnalytics.EconomicsReport(request.Context(), period)
+	handlers.analyticsRespond(writer, request, report, err)
+}
+
+func (handlers *AdminHandlers) usageReport(writer http.ResponseWriter, request *http.Request) {
+	period, err := analyticsPeriod(request)
+	if err != nil {
+		handlers.analyticsError(writer, request, err)
+		return
+	}
+	report, err := handlers.businessAnalytics.UsageReport(request.Context(), period)
+	handlers.analyticsRespond(writer, request, report, err)
+}
+
+func (handlers *AdminHandlers) listOperatingCosts(writer http.ResponseWriter, request *http.Request) {
+	period, err := analyticsPeriod(request)
+	if err != nil {
+		handlers.analyticsError(writer, request, err)
+		return
+	}
+	items, err := handlers.businessAnalytics.ListOperatingCosts(request.Context(), period)
+	handlers.analyticsRespond(writer, request, map[string]any{"items": items}, err)
+}
+
+func (handlers *AdminHandlers) createOperatingCost(writer http.ResponseWriter, request *http.Request) {
+	var body analytics.OperatingCostInput
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	actor := analyticsActor(request)
+	actor.IdempotencyKey = request.Header.Get("Idempotency-Key")
+	cost, err := handlers.businessAnalytics.CreateOperatingCost(request.Context(), actor, body)
+	if err != nil {
+		handlers.analyticsError(writer, request, err)
+		return
+	}
+	writeJSON(writer, http.StatusCreated, cost)
+}
+
+func (handlers *AdminHandlers) deleteOperatingCost(writer http.ResponseWriter, request *http.Request) {
+	err := handlers.businessAnalytics.DeleteOperatingCost(
+		request.Context(), analyticsActor(request), chi.URLParam(request, "costID"))
+	if err != nil {
+		handlers.analyticsError(writer, request, err)
+		return
+	}
+	writer.WriteHeader(http.StatusNoContent)
+}
+
+func (handlers *AdminHandlers) listProviderFees(writer http.ResponseWriter, request *http.Request) {
+	items, err := handlers.businessAnalytics.ListProviderFees(request.Context())
+	handlers.analyticsRespond(writer, request, map[string]any{"items": items}, err)
+}
+
+func (handlers *AdminHandlers) setProviderFee(writer http.ResponseWriter, request *http.Request) {
+	var body analytics.ProviderFeeInput
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	fee, err := handlers.businessAnalytics.SetProviderFee(request.Context(), analyticsActor(request), body)
+	if err != nil {
+		handlers.analyticsError(writer, request, err)
+		return
+	}
+	writeJSON(writer, http.StatusOK, fee)
+}
+
+func (handlers *AdminHandlers) deleteProviderFee(writer http.ResponseWriter, request *http.Request) {
+	err := handlers.businessAnalytics.DeleteProviderFee(
+		request.Context(), analyticsActor(request), chi.URLParam(request, "feeID"))
+	if err != nil {
+		handlers.analyticsError(writer, request, err)
+		return
+	}
+	writer.WriteHeader(http.StatusNoContent)
+}
+
 func (handlers *AdminHandlers) trafficHistory(writer http.ResponseWriter, request *http.Request) {
 	period, err := analyticsPeriod(request)
 	if err != nil {
@@ -155,6 +248,42 @@ func (handlers *AdminHandlers) analyticsError(writer http.ResponseWriter, reques
 		writeProblem(writer, request, http.StatusNotFound, "not_found", "That record does not exist")
 	default:
 		handlers.logger.Error("analytics request failed", "path", request.URL.Path, "error", err)
+		writeProblem(writer, request, http.StatusInternalServerError,
+			"operation_failed", "That operation could not be completed")
+	}
+}
+
+// mountChurnFeedback lets a signed-in customer say why they are leaving. It
+// is mounted only with analytics attached; without it there is nowhere to
+// keep the answer.
+func (handlers *AccountHandlers) mountChurnFeedback(router chi.Router) {
+	if handlers.businessAnalytics == nil {
+		return
+	}
+	router.Post("/churn-feedback", handlers.recordChurnFeedback)
+}
+
+func (handlers *AccountHandlers) recordChurnFeedback(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := CustomerFrom(request.Context())
+	var body struct {
+		SubscriptionID string `json:"subscriptionId"`
+		Occasion       string `json:"occasion"`
+		Reason         string `json:"reason"`
+	}
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	err := handlers.businessAnalytics.RecordChurnReason(request.Context(), principal.Customer.ID,
+		body.SubscriptionID, body.Occasion, body.Reason, analytics.SurfaceWeb)
+	switch {
+	case err == nil:
+		writer.WriteHeader(http.StatusNoContent)
+	case errors.Is(err, analytics.ErrInvalid):
+		writeProblem(writer, request, http.StatusUnprocessableEntity, "invalid_request", err.Error())
+	case errors.Is(err, analytics.ErrNotFound):
+		writeProblem(writer, request, http.StatusNotFound, "not_found", "That subscription does not exist")
+	default:
+		handlers.logger.Error("churn feedback not recorded", "error", err)
 		writeProblem(writer, request, http.StatusInternalServerError,
 			"operation_failed", "That operation could not be completed")
 	}

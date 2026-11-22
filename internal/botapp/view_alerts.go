@@ -99,9 +99,18 @@ func recoveryView(set notices, locale Locale, entitlement Entitlement) View {
 		Keyboard: keyboard(
 			row(actionButton(text(locale, "life.recover"), "buy:"+entitlement.PlanVersionID+":purchase")),
 			row(callbackButton(text(locale, "menu.plans"), routePlans)),
+			row(actionButton(text(locale, "churn.askButton"), churnAskAction(entitlement.SubscriptionID))),
 			row(callbackButton(text(locale, "action.menu"), routeHome)),
 		),
 	}
+}
+
+// churnAskAction opens the question why a subscription was not renewed.
+func churnAskAction(subscriptionID string) string {
+	if subscriptionID == "" {
+		return "churn-ask:l"
+	}
+	return "churn-ask:l:" + subscriptionID
 }
 
 // fulfillmentAlertView tells a customer that provisioning finished or needs
