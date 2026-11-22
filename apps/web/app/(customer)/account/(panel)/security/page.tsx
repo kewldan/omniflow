@@ -161,7 +161,7 @@ function Sessions() {
         body: JSON.stringify({ keepCurrent: false }),
         method: "POST",
       });
-      router.push("/account/sign-in");
+      router.push("/account/sign-in?signedOut=1");
     } catch (signOutError) {
       toast.error((signOutError as ApiError).message);
       setBusy(false);

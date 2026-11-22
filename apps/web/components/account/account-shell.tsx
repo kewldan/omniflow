@@ -359,7 +359,7 @@ function AccountFooter({ customerId }: { customerId: string }) {
           setFailed(false);
           try {
             await apiFetch("/v1/account/auth/logout", { method: "POST" });
-            router.replace("/account/sign-in");
+            router.replace("/account/sign-in?signedOut=1");
           } catch {
             // Reported in place rather than through the toaster: this component
             // is in every account route's bundle, and pulling the toast runtime

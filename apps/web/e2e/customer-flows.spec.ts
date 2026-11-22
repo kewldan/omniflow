@@ -293,10 +293,26 @@ test.describe("Telegram sign-in as the browser receives it", () => {
     // Telegram opens a Mini App with initData in the fragment. Opening the
     // panel itself sends a signed-out visitor through the edge gate to the
     // sign-in screen, and the fragment survives that redirect. The screen
-    // offers to sign in as the person Telegram names, and one press does.
+    // signs in the person Telegram names on its own, with no press.
     await page.goto(`/account#tgWebAppData=${encodeURIComponent(miniAppInitData())}`);
-    await page.getByRole("button", { name: /Mini App|Sign in as|Войти как/i }).click();
     await expect(page).toHaveURL(/\/account$/, { timeout: 15_000 });
     await expect(page.getByRole("navigation", { name: /sections|разделы/i })).toBeVisible();
+  });
+
+  test("a Mini App does not sign the customer back in right after they sign out", async ({
+    page,
+  }) => {
+    // Signing out lands on the sign-in screen marked signedOut; signing in
+    // again there would undo the sign-out before the customer saw it, so the
+    // screen waits for the press instead.
+    await page.goto(
+      `/account/sign-in?signedOut=1#tgWebAppData=${encodeURIComponent(miniAppInitData())}`,
+    );
+    const button = page.getByRole("button", { name: /Mini App|Sign in as|Войти как/i });
+    await expect(button).toBeVisible();
+    await page.waitForTimeout(1_000);
+    await expect(page).toHaveURL(/\/account\/sign-in/);
+    await button.click();
+    await expect(page).toHaveURL(/\/account$/, { timeout: 15_000 });
   });
 });

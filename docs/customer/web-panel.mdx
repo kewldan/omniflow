@@ -185,13 +185,17 @@ next restart. Telegram only renders the widget on a domain bound to the bot, so
 set that domain with `/setdomain` in BotFather before enabling it; while the
 username cannot be resolved the button is simply not rendered.
 
-Opened as a Telegram Mini App the screen shows one button, **Sign in as**, with
-the customer's Telegram name and picture (initials when Telegram has no picture),
-and none of the browser's methods. The surrounding client hands the page a signed
-`initData`; the name and picture are read from it for display only, and pressing
-the button sends the whole string to `POST /v1/account/auth/telegram/miniapp`,
-which verifies it the same way under a different key derivation. If it is refused
-the screen says so and offers the ordinary methods below the message.
+Opened as a Telegram Mini App the screen signs the customer in on its own: it
+shows **Sign in as** with the customer's Telegram name and picture (initials when
+Telegram has no picture) in its busy state, none of the browser's methods, and
+goes to the account when the session exists. The surrounding client hands the
+page a signed `initData`; the name and picture are read from it for display only,
+and the whole string goes to `POST /v1/account/auth/telegram/miniapp`, which
+verifies it the same way under a different key derivation. If it is refused the
+screen says so and offers the ordinary methods below the message. Right after the
+customer signs out — the account's sign-out and **Sign out everywhere** land on
+`/account/sign-in?signedOut=1` — and after a failed round trip that came back with
+a reason, the screen does not sign in on its own; the button does it.
 
 In a browser, when the sign-in link below is enabled, Telegram is offered as a
 plain **Sign in with Telegram** button that opens the bot; the widget is then not

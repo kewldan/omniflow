@@ -74,12 +74,28 @@ export default function SignInPage() {
   }, [search]);
 
   // Inside Telegram the client has already signed who the customer is, so
-  // the screen offers one button: sign in as that person. Outside Telegram
-  // the launch data is absent and the browser's methods are shown.
+  // the screen signs that person in on its own and shows who it is signing
+  // in; the button stays for a retry. Outside Telegram the launch data is
+  // absent and the browser's methods are shown.
   useEffect(() => {
     const initData = readMiniAppInitData();
     setOpened(initData ? { in: "miniapp", initData, user: miniAppUser(initData) } : { in: "web" });
   }, []);
+
+  // Once per visit, and not straight after the customer signed out: the Mini
+  // App would sign them back in before they could see they had left. A
+  // failed round trip coming back with a reason is not retried either.
+  const autoStarted = useRef(false);
+  const signedOut = search.get("signedOut") !== null;
+  // signInWithMiniApp is recreated each render and reads only stable values.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: run once per launch
+  useEffect(() => {
+    if (opened.in !== "miniapp" || autoStarted.current || signedOut || reason) {
+      return;
+    }
+    autoStarted.current = true;
+    signInWithMiniApp(opened.initData);
+  }, [opened, signedOut, reason]);
 
   function signInWithMiniApp(initData: string) {
     setBusy(true);
