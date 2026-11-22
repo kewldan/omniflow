@@ -319,7 +319,16 @@ function NewsForm({
           />
         </div>
       </div>
-      <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+      <div className="flex items-center gap-2">
+        <Switch
+          checked={featured}
+          disabled={!editable}
+          id={ids.featured}
+          onCheckedChange={setFeatured}
+        />
+        <Label htmlFor={ids.featured}>{translate("featuredLabel")}</Label>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
           <Label htmlFor={ids.tags}>{translate("tags")}</Label>
           <Input
@@ -341,15 +350,6 @@ function NewsForm({
             placeholder="https://"
             value={coverUrl}
           />
-        </div>
-        <div className="flex items-center gap-2 self-end pb-2">
-          <Switch
-            checked={featured}
-            disabled={!editable}
-            id={ids.featured}
-            onCheckedChange={setFeatured}
-          />
-          <Label htmlFor={ids.featured}>{translate("featuredLabel")}</Label>
         </div>
       </div>
       <p className="text-muted-foreground text-xs">{translate("extrasHint")}</p>

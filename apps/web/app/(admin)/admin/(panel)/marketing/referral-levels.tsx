@@ -126,7 +126,7 @@ export function ReferralLevelsCard({ editable, canPay }: { editable: boolean; ca
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {level2 && (
-          <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-4 rounded-md border border-dashed bg-well p-4">
             <div className="flex items-center gap-2">
               <Switch
                 checked={level2.enabled}
@@ -136,7 +136,7 @@ export function ReferralLevelsCard({ editable, canPay }: { editable: boolean; ca
               />
               <Label htmlFor={ids.enabled}>{translate("level2")}</Label>
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1.5">
               <Label htmlFor={ids.percent}>{translate("percent")}</Label>
               <Input
                 className="w-24"
@@ -150,7 +150,7 @@ export function ReferralLevelsCard({ editable, canPay }: { editable: boolean; ca
               />
             </div>
             {editable && (
-              <Button disabled={pending} onClick={saveLevel} type="button">
+              <Button className="self-start" disabled={pending} onClick={saveLevel} type="button">
                 {translate("save")}
               </Button>
             )}

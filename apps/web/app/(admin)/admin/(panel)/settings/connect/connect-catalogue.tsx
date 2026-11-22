@@ -250,41 +250,43 @@ function PlatformRow({
   const orderId = useId();
 
   return (
-    <div className="grid gap-3 rounded-lg border border-border p-3 sm:grid-cols-[10rem_1fr_1fr_5rem_auto]">
-      <Field
-        disabled={!editable || !isNew}
-        id={slugId}
-        label={translate("platforms.slug")}
-        onChange={(slug) => setForm({ ...form, slug })}
-        value={form.slug}
-      />
-      <Field
+    <div className="flex flex-col gap-3 rounded-lg border border-border p-3">
+      <EnabledSwitch
+        checked={form.enabled}
         disabled={!editable}
-        id={labelEnId}
-        label={translate("platforms.labelEn")}
-        onChange={(labelEn) => setForm({ ...form, labelEn })}
-        value={form.labelEn}
+        onChange={(enabled) => setForm({ ...form, enabled })}
       />
-      <Field
-        disabled={!editable}
-        id={labelRuId}
-        label={translate("platforms.labelRu")}
-        onChange={(labelRu) => setForm({ ...form, labelRu })}
-        value={form.labelRu}
-      />
-      <Field
-        disabled={!editable}
-        id={orderId}
-        label={translate("order")}
-        onChange={(value) => setForm({ ...form, sortOrder: Number(value) || 0 })}
-        value={String(form.sortOrder)}
-      />
-      <div className="flex items-end gap-2">
-        <EnabledSwitch
-          checked={form.enabled}
-          disabled={!editable}
-          onChange={(enabled) => setForm({ ...form, enabled })}
+      <div className="grid items-end gap-3 sm:grid-cols-[10rem_1fr_1fr_5rem]">
+        <Field
+          disabled={!editable || !isNew}
+          id={slugId}
+          label={translate("platforms.slug")}
+          onChange={(slug) => setForm({ ...form, slug })}
+          value={form.slug}
         />
+        <Field
+          disabled={!editable}
+          id={labelEnId}
+          label={translate("platforms.labelEn")}
+          onChange={(labelEn) => setForm({ ...form, labelEn })}
+          value={form.labelEn}
+        />
+        <Field
+          disabled={!editable}
+          id={labelRuId}
+          label={translate("platforms.labelRu")}
+          onChange={(labelRu) => setForm({ ...form, labelRu })}
+          value={form.labelRu}
+        />
+        <Field
+          disabled={!editable}
+          id={orderId}
+          label={translate("order")}
+          onChange={(value) => setForm({ ...form, sortOrder: Number(value) || 0 })}
+          value={String(form.sortOrder)}
+        />
+      </div>
+      <div className="flex items-center gap-2">
         {editable ? (
           <>
             <Button disabled={pending} onClick={() => onSave(form)} size="sm">

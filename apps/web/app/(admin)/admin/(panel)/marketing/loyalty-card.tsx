@@ -341,7 +341,11 @@ function LoyaltyEditor({
 
   return (
     <form className="flex flex-col gap-4 rounded-md border p-4" onSubmit={publish}>
-      <div className="grid gap-3 sm:grid-cols-5">
+      <div className="flex items-center gap-2">
+        <Switch checked={enable} id={ids.enable} onCheckedChange={setEnable} />
+        <Label htmlFor={ids.enable}>{translate("enable")}</Label>
+      </div>
+      <div className="grid items-end gap-3 sm:grid-cols-4">
         <div className="flex flex-col gap-1">
           <Label htmlFor={ids.metric}>{translate("metric")}</Label>
           <Select onValueChange={setMetric} value={metric}>
@@ -382,10 +386,6 @@ function LoyaltyEditor({
             onChange={(event) => setGraceDays(event.target.value)}
             value={graceDays}
           />
-        </div>
-        <div className="flex items-end gap-2 pb-2">
-          <Switch checked={enable} id={ids.enable} onCheckedChange={setEnable} />
-          <Label htmlFor={ids.enable}>{translate("enable")}</Label>
         </div>
       </div>
       <p className="text-muted-foreground text-xs">{translate(`thresholdHint.${metric}`)}</p>

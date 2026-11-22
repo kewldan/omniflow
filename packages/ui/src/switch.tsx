@@ -15,6 +15,7 @@ export function Switch({ className, ...props }: ComponentProps<typeof SwitchPrim
         // The off track is a mid grey rather than the surface tint: on a light
         // card the tint all but vanished, leaving a white pill on white.
         "data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/35",
+        "dark:data-[state=unchecked]:bg-muted-foreground/40",
         className,
       )}
       data-slot="switch"
@@ -23,6 +24,10 @@ export function Switch({ className, ...props }: ComponentProps<typeof SwitchPrim
       <SwitchPrimitive.Thumb
         className={cn(
           "pointer-events-none block size-4 rounded-full bg-background shadow-sm ring-0 transition-transform",
+          // In the dark theme the background is near black, and an off thumb
+          // of that colour disappears into a grouped block's fill; it is
+          // drawn light there, as the on thumb is drawn against light.
+          "dark:data-[state=unchecked]:bg-foreground",
           "data-[state=checked]:translate-x-[18px] data-[state=unchecked]:translate-x-0.5",
         )}
       />
