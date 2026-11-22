@@ -47,7 +47,7 @@ services:
 
   # The release's migrations, applied before the processes start.
   migrate:
-    image: ghcr.io/kewldan/omniflow/migrate:${OMNIFLOW_VERSION:-1.5.0} # x-release-please-version
+    image: ghcr.io/kewldan/omniflow/migrate:${OMNIFLOW_VERSION:-1.6.0} # x-release-please-version
     command: ["migrate", "apply", "--url", "postgres://omniflow:omniflow@postgres:5432/omniflow?sslmode=disable", "--dir", "file:///migrations"]
     depends_on:
       postgres:
@@ -55,7 +55,7 @@ services:
     networks: [internal]
 
   api:
-    image: ghcr.io/kewldan/omniflow/api:${OMNIFLOW_VERSION:-1.5.0} # x-release-please-version
+    image: ghcr.io/kewldan/omniflow/api:${OMNIFLOW_VERSION:-1.6.0} # x-release-please-version
     restart: unless-stopped
     env_file: [.env]
     environment:
@@ -72,7 +72,7 @@ services:
     networks: [internal]
 
   bot:
-    image: ghcr.io/kewldan/omniflow/bot:${OMNIFLOW_VERSION:-1.5.0} # x-release-please-version
+    image: ghcr.io/kewldan/omniflow/bot:${OMNIFLOW_VERSION:-1.6.0} # x-release-please-version
     restart: unless-stopped
     env_file: [.env]
     depends_on:
@@ -85,7 +85,7 @@ services:
     networks: [internal]
 
   worker:
-    image: ghcr.io/kewldan/omniflow/worker:${OMNIFLOW_VERSION:-1.5.0} # x-release-please-version
+    image: ghcr.io/kewldan/omniflow/worker:${OMNIFLOW_VERSION:-1.6.0} # x-release-please-version
     restart: unless-stopped
     env_file: [.env]
     depends_on:
@@ -99,7 +99,7 @@ services:
 
   web:
     profiles: [web]
-    image: ghcr.io/kewldan/omniflow/web:${OMNIFLOW_VERSION:-1.5.0} # x-release-please-version
+    image: ghcr.io/kewldan/omniflow/web:${OMNIFLOW_VERSION:-1.6.0} # x-release-please-version
     restart: unless-stopped
     environment:
       # Read by the server at runtime, so one published image serves every
