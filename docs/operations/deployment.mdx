@@ -141,6 +141,22 @@ Every release publishes five images to `ghcr.io/kewldan/omniflow/<name>` for `li
 
 The web image reads `API_INTERNAL_URL` and `NEXT_PUBLIC_API_URL` on the server at runtime, so one published image serves every installation.
 
+### Edge images
+
+Every commit on `main` that passes CI is also published, without waiting for a release, by
+`.github/workflows/edge.yml`: the same five images, tagged `sha-<commit>` (the first seven
+characters) for that exact commit, and `edge` for the newest. `edge` moves only after all five
+images of a commit are built, `api` last, so a host that watches `api:edge` never finds a commit
+whose other images are still missing. Each carries its commit in the
+`org.opencontainers.image.revision` label and reports the version `edge-<commit>`.
+
+Edge images are for an installation that chose to run `main` as it lands, while the project is
+moving fast. They are neither signed nor image-scanned, and they run only CI — the integration
+suite runs nightly and before a release, not per commit. Deploy one by setting
+`OMNIFLOW_VERSION=sha-<commit>` rather than `edge`: a pinned tag is what makes a rollback a
+matter of setting the previous one back. Migrations still apply forward only, so a commit that
+added one is rolled back by the previous images running on the newer schema, as with releases.
+
 ## Supported topology
 
 | Role | Replicas | Why |

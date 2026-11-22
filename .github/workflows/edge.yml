@@ -1,0 +1,102 @@
+name: Edge images
+
+# Every commit on main that passes CI is published as images an installation
+# can follow without waiting for a release: `sha-<commit>` for that exact
+# commit, and `edge` for the newest one. `edge` moves only after all five
+# images of a commit are built, api last, so a host that watches api:edge never
+# finds a commit whose other images are still missing.
+#
+# Releases are unchanged: release-please still cuts versions, and release.yml
+# still builds, signs and scans them. Edge images are neither signed nor
+# image-scanned; they are for a host that chose to run main as it lands.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  # A newer commit supersedes an older one still building; its `edge` would be
+  # moved past at once anyway.
+  group: edge
+  cancel-in-progress: true
+
+jobs:
+  images:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - image: api
+            dockerfile: build/go.Dockerfile
+            build_args: TARGET=api
+          - image: bot
+            dockerfile: build/go.Dockerfile
+            build_args: "TARGET=bot\nRUNTIME=postgres"
+          - image: worker
+            dockerfile: build/go.Dockerfile
+            build_args: "TARGET=worker\nRUNTIME=postgres"
+          - image: web
+            dockerfile: build/web.Dockerfile
+            build_args: ""
+          - image: migrate
+            dockerfile: build/migrate.Dockerfile
+            build_args: ""
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - name: Name the commit
+        id: commit
+        run: |
+          sha="${{ github.event.workflow_run.head_sha }}"
+          echo "short=${sha:0:7}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          build-args: |
+            ${{ matrix.build_args }}
+            VERSION=edge-${{ steps.commit.outputs.short }}
+          platforms: linux/amd64
+          # The release builds' layer cache, so an edge build rebuilds only
+          # what the commit changed.
+          cache-from: type=gha,scope=image-${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=image-${{ matrix.image }}
+          push: true
+          tags: ghcr.io/${{ github.repository }}/${{ matrix.image }}:sha-${{ steps.commit.outputs.short }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.event.workflow_run.head_sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+  edge:
+    needs: images
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Move edge to this commit, api last
+        run: |
+          sha="${{ github.event.workflow_run.head_sha }}"
+          short="${sha:0:7}"
+          base="ghcr.io/${{ github.repository }}"
+          for image in migrate worker bot web api; do
+            docker buildx imagetools create -t "$base/$image:edge" "$base/$image:sha-$short"
+          done
