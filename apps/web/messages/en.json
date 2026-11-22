@@ -2436,7 +2436,7 @@
         "notConfigured": "Not configured",
         "dryRun": "Dry run",
         "dryRunExplainer": "Dry run is on: orders pass through every state, but nothing is bought on Fragment and no TON leaves the wallet.",
-        "enabled": "Sell Stars through this provider",
+        "enabled": "Sell stars",
         "walletVersion": "Wallet",
         "tonApi": "TON API",
         "rate": "TON rate",
@@ -2511,7 +2511,8 @@
           "badBounds": "The minimum must be at least 50 (Fragment's floor) and not above the maximum.",
           "badPresets": "Every preset must lie between the minimum and the maximum.",
           "badPrice": "Enter a price per Star, such as 1.50."
-        }
+        },
+        "enabledHint": "Omniflow fulfils star orders itself: it buys them on fragment.com with your session and pays in TON from the wallet in APP_FRAGMENT_*. The alternative is “Fragment via a gateway”: a separate service of yours makes the purchase and Omniflow only hands it the order. While this is off, the bot and the account sell no stars. Turn it on once a Stars product exists in the shop and dry-run mode has been tried."
       },
       "productCreator": {
         "title": "New product",

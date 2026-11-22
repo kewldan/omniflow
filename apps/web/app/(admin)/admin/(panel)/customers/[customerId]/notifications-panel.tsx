@@ -128,7 +128,7 @@ export function NotificationsPanel({
 
       <div className="flex items-center gap-3">
         <Select onValueChange={setStatus} value={status}>
-          <SelectTrigger className="w-56">
+          <SelectTrigger className="w-auto min-w-56">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

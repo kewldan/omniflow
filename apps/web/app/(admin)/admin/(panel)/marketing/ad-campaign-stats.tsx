@@ -99,7 +99,7 @@ export function AdCampaignStatsPanel({
             {translate("period")}
           </label>
           <Select onValueChange={setDays} value={days}>
-            <SelectTrigger className="w-36" id={periodId}>
+            <SelectTrigger className="w-auto min-w-36" id={periodId}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

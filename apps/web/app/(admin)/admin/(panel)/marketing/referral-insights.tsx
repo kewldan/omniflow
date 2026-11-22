@@ -73,7 +73,7 @@ export function ReferralInsightsCard({
         <div className="flex items-center gap-2">
           <span className="text-sm">{translate("period")}</span>
           <Select onValueChange={setDays} value={days}>
-            <SelectTrigger aria-label={translate("period")} className="w-40">
+            <SelectTrigger aria-label={translate("period")} className="w-auto min-w-40">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

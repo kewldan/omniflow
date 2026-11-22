@@ -375,7 +375,7 @@ export function MenuLayoutEditor() {
           <div className="flex items-center justify-between gap-2">
             <span className="font-medium text-sm">{translate("preview")}</span>
             <Select onValueChange={(value) => setLocale(value as "ru" | "en")} value={locale}>
-              <SelectTrigger aria-label={translate("language")} className="w-36">
+              <SelectTrigger aria-label={translate("language")} className="w-auto min-w-36">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

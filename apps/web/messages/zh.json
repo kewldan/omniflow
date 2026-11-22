@@ -2356,7 +2356,7 @@
         "notConfigured": "未配置",
         "dryRun": "演练模式",
         "dryRunExplainer": "演练模式已开启：订单会经历所有状态，但不会在 Fragment 上实际购买，也不会有 TON 离开钱包。",
-        "enabled": "通过此供应商出售 Stars",
+        "enabled": "出售星星",
         "walletVersion": "钱包",
         "tonApi": "TON API",
         "rate": "TON 汇率",
@@ -2431,7 +2431,8 @@
           "badBounds": "最小值不得低于 50（Fragment 的下限），且不得超过最大值。",
           "badPresets": "每个预设值都必须介于最小值和最大值之间。",
           "badPrice": "请输入每个 Star 的价格，例如 1.50。"
-        }
+        },
+        "enabledHint": "Omniflow 自行完成星星订单：使用您的会话在 fragment.com 购买，并从 APP_FRAGMENT_* 中的钱包支付 TON。另一种方式是“通过网关的 Fragment”：由您单独的服务完成购买，Omniflow 只把订单交给它。关闭时，机器人和账户不出售星星。请在商店中创建“星星”商品并试过测试模式后再开启。"
       },
       "productCreator": {
         "title": "新建商品",

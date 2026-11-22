@@ -172,7 +172,10 @@ export function OfferTemplatesCard() {
                           }
                           value={targets[template.id] ?? ""}
                         >
-                          <SelectTrigger aria-label={translate("segment")} className="w-48">
+                          <SelectTrigger
+                            aria-label={translate("segment")}
+                            className="w-auto min-w-48"
+                          >
                             <SelectValue placeholder={translate("segment")} />
                           </SelectTrigger>
                           <SelectContent>

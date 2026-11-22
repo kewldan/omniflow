@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@omniflow/ui/dialog";
+import { InfoTip } from "@omniflow/ui/info-tip";
 import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
@@ -173,6 +174,7 @@ function StatusCard({ active }: { active: boolean }) {
           onCheckedChange={(next) => void toggle(next)}
         />
         <Label htmlFor={switchId}>{translate("enabled")}</Label>
+        <InfoTip>{translate("enabledHint")}</InfoTip>
       </div>
       {error && <p className="text-danger-foreground text-xs">{error.message}</p>}
       <dl className="grid grid-cols-2 gap-2 text-sm">
@@ -279,7 +281,7 @@ function StatsCard({ active }: { active: boolean }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="font-medium">{translate("statsTitle")}</span>
         <Select onValueChange={setDays} value={days}>
-          <SelectTrigger aria-label={translate("period")} className="w-40">
+          <SelectTrigger aria-label={translate("period")} className="w-auto min-w-40">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -518,7 +520,7 @@ function StarsOrders({ active, initialSearch }: { active: boolean; initialSearch
           value={search}
         />
         <Select onValueChange={setStatus} value={status}>
-          <SelectTrigger aria-label={translateStars("statusFilter")} className="w-44">
+          <SelectTrigger aria-label={translateStars("statusFilter")} className="w-auto min-w-44">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

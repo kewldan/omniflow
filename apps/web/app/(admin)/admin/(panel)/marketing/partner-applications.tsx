@@ -67,7 +67,7 @@ export function PartnerApplicationsCard({ editable }: { editable: boolean }) {
             onValueChange={(value) => setStatus(value as (typeof STATUSES)[number])}
             value={status}
           >
-            <SelectTrigger className="w-44" id={statusId}>
+            <SelectTrigger className="w-auto min-w-44" id={statusId}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

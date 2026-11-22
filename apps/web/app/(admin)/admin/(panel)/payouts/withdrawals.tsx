@@ -199,7 +199,7 @@ export function WithdrawalsCard({ editable }: { editable: boolean }) {
         <div className="flex items-center gap-2">
           <Label htmlFor={ids.status}>{translate("filter")}</Label>
           <Select onValueChange={setStatus} value={status}>
-            <SelectTrigger className="w-48" id={ids.status}>
+            <SelectTrigger className="w-auto min-w-48" id={ids.status}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

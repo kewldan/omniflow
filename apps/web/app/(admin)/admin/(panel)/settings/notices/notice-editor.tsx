@@ -210,7 +210,7 @@ function NoticeForm({
             <div className="flex flex-col gap-1.5">
               <Label>{translate("language")}</Label>
               <Select onValueChange={onLocale} value={locale}>
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="w-auto min-w-40">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

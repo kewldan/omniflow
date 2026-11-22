@@ -36,7 +36,7 @@ export function ButtonStats() {
             {translate("period")}
           </label>
           <Select onValueChange={setDays} value={days}>
-            <SelectTrigger className="w-40" id={daysId}>
+            <SelectTrigger className="w-auto min-w-40" id={daysId}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

@@ -166,7 +166,7 @@ export function TicketConversation({
       </header>
 
       <div
-        className="flex min-h-64 flex-1 flex-col gap-3 overflow-y-auto max-lg:max-h-[65dvh]"
+        className="flex min-h-64 flex-1 flex-col gap-3 overflow-y-auto max-lg:max-h-[65dvh] lg:min-h-24"
         ref={thread}
       >
         {timeline.map((entry) =>
@@ -574,7 +574,7 @@ function MergeTicket({
   return (
     <Popover onOpenChange={setOpen} open={open}>
       <PopoverTrigger asChild>
-        <Button disabled={pending} size="sm" variant="ghost">
+        <Button disabled={pending} size="sm" variant="outline">
           <GitMerge aria-hidden className="size-4" />
           {translate("merge")}
         </Button>
@@ -655,7 +655,7 @@ function ReplyBox({ onSent, ticketId }: { onSent: () => void; ticketId: string }
   );
 
   return (
-    <div className="flex flex-col gap-2 border-border border-t pt-3">
+    <div className="shrink-0 flex flex-col gap-2 border-border border-t pt-3">
       {error && <p className="text-danger-foreground text-sm">{error.message}</p>}
 
       <div className="flex flex-wrap items-center gap-2">
