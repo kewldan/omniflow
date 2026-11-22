@@ -73,6 +73,25 @@ var catalog = map[string]phrase{
 	"menu.rateLimit": {ru: "⏳ Слишком много запросов. Подождите немного и попробуйте снова.",
 		en: "⏳ Too many requests. Please wait a moment and try again."},
 	"menu.replay": {ru: "Это действие уже выполнено.", en: "This action has already been completed."},
+	// The operator group's notice buttons (operator_actions.go). The group
+	// speaks Russian or English, so these have no other translations.
+	"ops.notice.denied":              {ru: "Действовать из этой группы могут только операторы.", en: "Only operators can act from this group."},
+	"ops.notice.failed":              {ru: "Не получилось. Попробуйте из панели.", en: "That did not work. Try it from the panel."},
+	"ops.notice.ticketClosed":        {ru: "🔒 Закрыт", en: "🔒 Closed"},
+	"ops.notice.ticketClosedAnswer":  {ru: "Тикет закрыт, клиенту отправлено уведомление.", en: "The ticket is closed and the customer was told."},
+	"ops.notice.ticketAlreadyClosed": {ru: "Тикет уже закрыт.", en: "The ticket is already closed."},
+	"ops.notice.block":               {ru: "🚫 Заблокировать", en: "🚫 Block"},
+	"ops.notice.unblock":             {ru: "✅ Разблокировать", en: "✅ Unblock"},
+	"ops.notice.blockConfirm":        {ru: "✅ Да, заблокировать", en: "✅ Yes, block"},
+	"ops.notice.cancel":              {ru: "✖️ Отмена", en: "✖️ Cancel"},
+	"ops.notice.blocked":             {ru: "Клиент заблокирован.", en: "The customer is blocked."},
+	"ops.notice.unblocked":           {ru: "Клиент разблокирован.", en: "The customer is unblocked."},
+	"ops.notice.alreadyBlocked":      {ru: "Клиент уже заблокирован.", en: "The customer is already blocked."},
+	"ops.notice.alreadyUnblocked":    {ru: "Клиент не заблокирован.", en: "The customer is not blocked."},
+	"ops.notice.customerGone":        {ru: "Этого клиента больше нет: аккаунт удалён или объединён.", en: "This customer is gone: the account was deleted or merged."},
+	"ops.notice.retried":             {ru: "🔁 В очереди", en: "🔁 Queued"},
+	"ops.notice.retryQueued":         {ru: "Выдача поставлена в очередь.", en: "The delivery is queued."},
+	"ops.notice.nothingToRetry":      {ru: "Повторять нечего: выдача уже прошла или отменена.", en: "Nothing to retry: the delivery already went through or was cancelled."},
 
 	// Customer web sign-in. The link is a bearer credential for ten minutes, so
 	// the copy says so plainly rather than leaving the customer to guess whether

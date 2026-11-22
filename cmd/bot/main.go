@@ -28,6 +28,7 @@ import (
 	"github.com/omniflow/omniflow/internal/installsettings"
 	"github.com/omniflow/omniflow/internal/jobs"
 	"github.com/omniflow/omniflow/internal/operator"
+	"github.com/omniflow/omniflow/internal/panelpg"
 	"github.com/omniflow/omniflow/internal/platform"
 	"github.com/omniflow/omniflow/internal/remnawave"
 )
@@ -145,6 +146,20 @@ func main() {
 	})
 	application.EnableOperatorTools(backupService, cfg.Operator.OperatorIDs)
 
+	// The notice buttons in the operator group (close a ticket, block a
+	// customer, retry a delivery) act through the panel's service, which needs
+	// the data key; without it the notices carry links only.
+	deskActions := false
+	if len(cfg.DataEncryptionKey) == 32 {
+		panel, panelErr := panelpg.New(pool, cfg.DataEncryptionKey, panelpg.Options{})
+		if panelErr != nil {
+			logger.Error("operator desk initialization failed", "error", panelErr)
+			os.Exit(1)
+		}
+		application.EnableOperatorDesk(operatorDesk{pool: pool, panel: panel}, cfg.Operator.ChatID, cfg.Operator.OperatorIDs)
+		deskActions = true
+	}
+
 	// The web sign-in link is delivered through this chat, so the bot is what
 	// issues it. It stays off unless the operator enabled the fallback, and the
 	// /login command then reports the route as unavailable.
@@ -174,13 +189,11 @@ func main() {
 
 	notifier := operator.New(pool, client, logger, operator.Config{
 		ChatID: cfg.Operator.ChatID, NotificationCap: cfg.Operator.NotificationCap, Window: cfg.Operator.Window,
-		PanelURL: cfg.PublicURL,
+		PanelURL: cfg.PublicURL, Actions: deskActions,
 	}).WithSettings(installation)
 	go notifier.Run(ctx)
 	go botapp.NewBlockerScanner(pool, identities, client, logger).Run(ctx)
-	if err := operator.AnnounceStart(ctx, pool, "bot", version, time.Now()); err != nil {
-		logger.Warn("bot start notice could not be queued", "error", err)
-	}
+	go announceStart(ctx, logger, pool, client, installation, remnawaveClient)
 	customerNotifier := botapp.NewNotifier(logger, sender, identities, remnawaveClient, commerceService, settings).
 		WithAnalytics(businessAnalytics)
 	if me, getMeErr := client.GetMe(ctx); getMeErr == nil {
@@ -434,4 +447,22 @@ func configureCommands(ctx context.Context, logger *slog.Logger, client *telegra
 func trialWinback() botapp.WinbackWave {
 	wave, _ := botapp.TrialWinbackFromEnv()
 	return wave
+}
+
+// announceStart queues the startup report for the operator group: what needs
+// attention, customers, subscriptions, money, and whether Remnawave answers.
+// It runs beside startup, since the Remnawave probe may take seconds.
+func announceStart(
+	ctx context.Context, logger *slog.Logger, pool *pgxpool.Pool, client *telegram.Bot,
+	installation *installsettings.Reader, remnawaveClient *remnawave.Client,
+) {
+	report := operator.CollectStartReport(ctx, pool, remnawaveClient.Ping)
+	report.Version = version
+	report.SalesMode = installation.Section(ctx, "access").String("mode", "open")
+	if me, err := client.GetMe(ctx); err == nil && me != nil {
+		report.Name = me.FirstName
+	}
+	if err := operator.AnnounceStartReport(ctx, pool, report, time.Now()); err != nil {
+		logger.Warn("bot start report could not be queued", "error", err)
+	}
 }

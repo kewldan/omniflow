@@ -23,6 +23,7 @@ import (
 	databaseutil "github.com/omniflow/omniflow/internal/database"
 	"github.com/omniflow/omniflow/internal/engagement"
 	"github.com/omniflow/omniflow/internal/installsettings"
+	"github.com/omniflow/omniflow/internal/operator"
 	"github.com/omniflow/omniflow/internal/platform"
 	"github.com/omniflow/omniflow/internal/referralplus"
 	"github.com/omniflow/omniflow/internal/remnawave"
@@ -92,6 +93,10 @@ type App struct {
 	// operators is the Telegram backup/restore surface. It stays nil until an
 	// installation names its operator accounts.
 	operators *OperatorTools
+
+	// desk answers the operator group's notice buttons; see
+	// operator_actions.go. It stays nil until the bot wires it in.
+	desk *operatorDeskConfig
 
 	// membership answers channel questions at checkout. It stays nil until the
 	// process wires one in, and a nil verifier gates nothing — an installation
@@ -308,6 +313,9 @@ func (app *App) Register(client *telegram.Bot) {
 	client.RegisterHandler(telegram.HandlerTypeMessageText, "faq", telegram.MatchTypeCommandStartOnly, app.HandleFAQ, inbound)
 	client.RegisterHandler(telegram.HandlerTypeCallbackQueryData, callbackPrefix, telegram.MatchTypePrefix, app.HandleCallback, inbound, gated)
 	client.RegisterHandler(telegram.HandlerTypeCallbackQueryData, actionPrefix, telegram.MatchTypePrefix, app.HandleCallback, inbound, gated)
+	// The operator group's notice buttons: no customer middleware, since the
+	// person pressing is an operator in a group, not a customer in a chat.
+	client.RegisterHandler(telegram.HandlerTypeCallbackQueryData, operator.ActionPrefix, telegram.MatchTypePrefix, app.HandleOperatorNotice)
 }
 
 func (app *App) HandleStart(ctx context.Context, client *telegram.Bot, update *models.Update) {
