@@ -524,3 +524,31 @@ func TestPasskeyOptionsReachTheBrowserUnderPublicKey(t *testing.T) {
 		t.Fatalf("options are not under publicKey: %v %s", err, recorder.Body.String())
 	}
 }
+
+// TestPasskeyFromAnotherDeviceIsAudited pins the trail of a refused sign-in
+// by a key that was never registered — what a phone reached by QR offers when
+// it holds a passkey for the domain but not this one. The row is written as
+// an anonymous actor, which the audit constraint must accept.
+func TestPasskeyFromAnotherDeviceIsAudited(t *testing.T) {
+	harness := newHarness(t)
+	ctx := context.Background()
+	service := newPasskeyService(t, harness)
+	owner := bootstrapOwner(t, ctx, service)
+	stranger := newAuthenticator(t)
+	stranger.signCount = 1
+
+	_, err := signIn(t, ctx, service, stranger, accountHandle(t, owner.ID))
+	if !errors.Is(err, adminauthpg.ErrInvalidCredentials) {
+		t.Fatalf("an unregistered key gave %v, want ErrInvalidCredentials", err)
+	}
+	var actor, reason string
+	if err = harness.pool.QueryRow(ctx, `
+		SELECT actor_type, metadata->>'reason' FROM audit_events
+		WHERE action = 'admin.login' AND outcome = 'failure' AND request_id = 'passkey-login'`,
+	).Scan(&actor, &reason); err != nil {
+		t.Fatalf("the refused sign-in left no audit row: %v", err)
+	}
+	if actor != "anonymous" || reason != "unknown_credential" {
+		t.Fatalf("audit row is %s/%s, want anonymous/unknown_credential", actor, reason)
+	}
+}

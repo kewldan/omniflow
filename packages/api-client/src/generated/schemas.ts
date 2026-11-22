@@ -2086,7 +2086,7 @@ export const SearchPanelAuditResponse = zod.object({
     zod.object({
       id: zod.uuid(),
       occurredAt: zod.iso.datetime({ offset: true }),
-      actorType: zod.enum(["customer", "operator", "admin", "system", "provider"]),
+      actorType: zod.enum(["customer", "operator", "admin", "system", "provider", "anonymous"]),
       actorId: zod.string().optional(),
       action: zod.string(),
       category: zod.enum([

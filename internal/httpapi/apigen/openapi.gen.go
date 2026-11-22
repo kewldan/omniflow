@@ -1360,17 +1360,20 @@ func (e AuditCategory) Valid() bool {
 
 // Defines values for AuditEventActorType.
 const (
-	AuditEventActorTypeAdmin    AuditEventActorType = "admin"
-	AuditEventActorTypeCustomer AuditEventActorType = "customer"
-	AuditEventActorTypeOperator AuditEventActorType = "operator"
-	AuditEventActorTypeProvider AuditEventActorType = "provider"
-	AuditEventActorTypeSystem   AuditEventActorType = "system"
+	AuditEventActorTypeAdmin     AuditEventActorType = "admin"
+	AuditEventActorTypeAnonymous AuditEventActorType = "anonymous"
+	AuditEventActorTypeCustomer  AuditEventActorType = "customer"
+	AuditEventActorTypeOperator  AuditEventActorType = "operator"
+	AuditEventActorTypeProvider  AuditEventActorType = "provider"
+	AuditEventActorTypeSystem    AuditEventActorType = "system"
 )
 
 // Valid indicates whether the value is a known member of the AuditEventActorType enum.
 func (e AuditEventActorType) Valid() bool {
 	switch e {
 	case AuditEventActorTypeAdmin:
+		return true
+	case AuditEventActorTypeAnonymous:
 		return true
 	case AuditEventActorTypeCustomer:
 		return true

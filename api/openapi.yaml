@@ -7067,7 +7067,7 @@ components:
       properties:
         id: {type: string, format: uuid}
         occurredAt: {type: string, format: date-time}
-        actorType: {type: string, enum: [customer, operator, admin, system, provider]}
+        actorType: {type: string, enum: [customer, operator, admin, system, provider, anonymous]}
         actorId: {type: string}
         action: {type: string}
         category: {$ref: "#/components/schemas/AuditCategory"}

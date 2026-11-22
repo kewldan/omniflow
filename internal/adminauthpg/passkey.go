@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/go-webauthn/webauthn/protocol"
@@ -266,11 +267,19 @@ func (service *Service) FinishPasskeyLogin(
 
 	credential, err := service.webauthn.ValidateDiscoverableLogin(lookup, session, response)
 	if err != nil {
-		service.auditPasskeyFailure(ctx, request, "assertion_rejected")
+		// An unknown credential is told apart from a rejected one: a phone
+		// reached by QR offers every passkey it holds for this domain, and
+		// one that was never registered here is the usual reason a sign-in
+		// that worked on the laptop fails there.
+		reason := "assertion_rejected"
+		if !storedRow.ID.Valid {
+			reason = "unknown_credential"
+		}
+		service.auditPasskeyFailure(ctx, request, reason, passkeyErrorDetail(err))
 		return LoginResult{}, ErrInvalidCredentials
 	}
 	if !credential.Flags.UserVerified {
-		service.auditPasskeyFailure(ctx, request, "not_user_verified")
+		service.auditPasskeyFailure(ctx, request, "not_user_verified", "")
 		return LoginResult{}, adminauth.ErrPasskeyUnverified
 	}
 	// A counter that did not advance means two authenticators are answering for
@@ -279,7 +288,7 @@ func (service *Service) FinishPasskeyLogin(
 	if err = adminauth.CheckSignCount(
 		uint32(storedRow.SignCount), credential.Authenticator.SignCount,
 	); err != nil {
-		service.auditPasskeyFailure(ctx, request, "sign_count_regressed")
+		service.auditPasskeyFailure(ctx, request, "sign_count_regressed", "")
 		if notifyErr := service.notifyPasskeySecurity(
 			ctx, uuidString(account.ID), "admin.passkey.cloned",
 		); notifyErr != nil {
@@ -525,16 +534,40 @@ func (service *Service) notifyPasskeySecurity(ctx context.Context, adminUserID, 
 // who it came from, so attributing it would be a guess written into the trail.
 // The reason is a category rather than the library's message, which can echo
 // the payload back.
-func (service *Service) auditPasskeyFailure(ctx context.Context, request RequestContext, reason string) {
+func (service *Service) auditPasskeyFailure(ctx context.Context, request RequestContext, reason, detail string) {
 	queries := dbgen.New(service.pool)
+	metadata := map[string]any{"method": "passkey", "reason": reason}
+	if detail != "" {
+		metadata["detail"] = detail
+	}
 	if err := appendAudit(ctx, queries, AuditEntry{
 		ActorType: "anonymous",
 		Action:    "admin.login", Category: "authentication", Outcome: "failure",
 		TargetType: "admin_user", RequestID: request.RequestID,
-		Metadata: map[string]any{"method": "passkey", "reason": reason},
+		Metadata: metadata,
 	}); err != nil {
 		// The sign-in has already failed and the caller is about to say so.
 		// Losing the trail entry must not change the answer they get.
 		_ = err
 	}
+}
+
+// passkeyErrorDetail is what the WebAuthn library said about a rejected
+// assertion — "Error validating origin", "Unable to find the credential" — so
+// the audit trail can tell an origin mismatch from an unknown key. It names
+// no key material: the library's details describe the check that failed.
+func passkeyErrorDetail(err error) string {
+	var protocolErr *protocol.Error
+	if errors.As(err, &protocolErr) {
+		detail := strings.TrimSpace(protocolErr.Type + ": " + protocolErr.Details)
+		return truncateDetail(detail)
+	}
+	return truncateDetail(err.Error())
+}
+
+func truncateDetail(detail string) string {
+	if len(detail) > 200 {
+		return detail[:200]
+	}
+	return detail
 }

@@ -1103,6 +1103,7 @@ export const AuditEventActorType = {
   admin: "admin",
   system: "system",
   provider: "provider",
+  anonymous: "anonymous",
 } as const;
 
 /**

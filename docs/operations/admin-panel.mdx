@@ -145,6 +145,15 @@ password, so removing the last one locks nobody out. The button is absent when
 the installation has no `APP_PUBLIC_URL` to bind credentials to, or when the
 browser cannot run the ceremony. See [Security](/operations/security).
 
+A passkey is bound to the device's password manager, not to the person. A phone
+reached by the browser's QR code offers the keys *it* holds for the domain, and
+one registered on a laptop is there only if the two share a password manager
+(the same iCloud Keychain or Google account). A refused sign-in is written to the
+audit trail as `admin.login` with outcome `failure`, an anonymous actor, and a
+reason: `unknown_credential` when the key was never registered here — register
+the phone's own key from the laptop session — or `assertion_rejected` with the
+WebAuthn library's detail otherwise.
+
 The new-password field carries a strength meter. It estimates entropy over the
 alphabet the password actually uses and then subtracts for the patterns that
 make that alphabet a lie — too few distinct characters, a run from the keyboard

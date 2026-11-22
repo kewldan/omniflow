@@ -1171,7 +1171,7 @@ CREATE TABLE public.audit_events (
     occurred_at timestamp with time zone DEFAULT now() NOT NULL,
     category text DEFAULT 'system'::text NOT NULL,
     outcome text DEFAULT 'success'::text NOT NULL,
-    CONSTRAINT audit_events_actor_type_known CHECK ((actor_type = ANY (ARRAY['customer'::text, 'operator'::text, 'admin'::text, 'system'::text, 'provider'::text]))),
+    CONSTRAINT audit_events_actor_type_known CHECK ((actor_type = ANY (ARRAY['customer'::text, 'operator'::text, 'admin'::text, 'system'::text, 'provider'::text, 'anonymous'::text]))),
     CONSTRAINT audit_events_category_known CHECK ((category = ANY (ARRAY['authentication'::text, 'authorization'::text, 'configuration'::text, 'customer'::text, 'financial'::text, 'support'::text, 'marketing'::text, 'system'::text, 'risk'::text]))),
     CONSTRAINT audit_events_outcome_known CHECK ((outcome = ANY (ARRAY['success'::text, 'failure'::text, 'denied'::text])))
 );
