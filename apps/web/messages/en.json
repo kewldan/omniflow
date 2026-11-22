@@ -1355,7 +1355,8 @@
         "attempt": "Attempt",
         "funding": "Funding",
         "outcome": "Outcome",
-        "failureCode": "Failure"
+        "failureCode": "Failure",
+        "method": "Method"
       },
       "empty": {
         "stuck": "Nothing stuck",
@@ -1423,6 +1424,9 @@
         },
         "note": "How it was handled",
         "resolve": "Resolve"
+      },
+      "method": {
+        "wallet": "Wallet"
       }
     },
     "reports": {

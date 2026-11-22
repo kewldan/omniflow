@@ -2717,6 +2717,16 @@ export const ListPanelCustomerOrdersResponse = zod.object({
         subscriptionId: zod.uuid().optional(),
         createdAt: zod.iso.datetime({ offset: true }),
         updatedAt: zod.iso.datetime({ offset: true }),
+        paymentProvider: zod
+          .string()
+          .optional()
+          .describe(
+            "The provider of the succeeded payment, or of the newest attempt; absent for a wallet-only or unpaid order. Set by the finance search.",
+          ),
+        paymentMethod: zod
+          .string()
+          .optional()
+          .describe("The method within the provider (sbp, card, …), when it has one."),
       }),
     )
     .nullable(),
@@ -4217,6 +4227,16 @@ export const SearchPanelOrdersResponse = zod.object({
         subscriptionId: zod.uuid().optional(),
         createdAt: zod.iso.datetime({ offset: true }),
         updatedAt: zod.iso.datetime({ offset: true }),
+        paymentProvider: zod
+          .string()
+          .optional()
+          .describe(
+            "The provider of the succeeded payment, or of the newest attempt; absent for a wallet-only or unpaid order. Set by the finance search.",
+          ),
+        paymentMethod: zod
+          .string()
+          .optional()
+          .describe("The method within the provider (sbp, card, …), when it has one."),
       }),
     )
     .nullable(),
@@ -4247,6 +4267,16 @@ export const GetPanelOrderDetailResponse = zod.object({
     subscriptionId: zod.uuid().optional(),
     createdAt: zod.iso.datetime({ offset: true }),
     updatedAt: zod.iso.datetime({ offset: true }),
+    paymentProvider: zod
+      .string()
+      .optional()
+      .describe(
+        "The provider of the succeeded payment, or of the newest attempt; absent for a wallet-only or unpaid order. Set by the finance search.",
+      ),
+    paymentMethod: zod
+      .string()
+      .optional()
+      .describe("The method within the provider (sbp, card, …), when it has one."),
   }),
   intents: zod
     .array(

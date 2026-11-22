@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
-import useSWR from "swr";
+import useSWR, { mutate as revalidateKey } from "swr";
 
 import { CustomerChip } from "@/components/admin/customer-chip";
 import { StateNotice } from "@/components/admin/state-notice";
@@ -156,6 +156,7 @@ export function TicketConversation({
           <TicketControls
             onChanged={() => {
               void mutate();
+              refreshNavigationCounts();
               onChanged();
             }}
             queues={queues}
@@ -265,6 +266,7 @@ export function TicketConversation({
         <ReplyBox
           onSent={() => {
             void mutate();
+            refreshNavigationCounts();
             onChanged();
           }}
           ticketId={ticketId}
@@ -745,4 +747,13 @@ function ReplyBox({ onSent, ticketId }: { onSent: () => void; ticketId: string }
       </Button>
     </div>
   );
+}
+
+/**
+ * The sidebar counts tickets waiting on this operator. A reply, a status
+ * change or an assignment changes that number at once, so it is asked for
+ * again now rather than at the sidebar's next minute.
+ */
+function refreshNavigationCounts() {
+  void revalidateKey("/v1/panel/overview/navigation-counts");
 }

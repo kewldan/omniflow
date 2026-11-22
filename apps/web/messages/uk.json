@@ -1350,7 +1350,8 @@
         "attempt": "Спроба",
         "funding": "Джерело",
         "outcome": "Підсумок",
-        "failureCode": "Помилка"
+        "failureCode": "Помилка",
+        "method": "Метод"
       },
       "empty": {
         "stuck": "Завислих немає",
@@ -1418,6 +1419,9 @@
         },
         "note": "Як вирішено",
         "resolve": "Закрити"
+      },
+      "method": {
+        "wallet": "Баланс"
       }
     },
     "reports": {

@@ -9588,20 +9588,26 @@ type PanelOrderPage struct {
 
 // PanelOrderSummary defines model for PanelOrderSummary.
 type PanelOrderSummary struct {
-	CreatedAt      time.Time           `json:"createdAt"`
-	Currency       string              `json:"currency"`
-	CustomerId     openapi_types.UUID  `json:"customerId"`
-	DiscountMinor  int64               `json:"discountMinor"`
-	ExternalMinor  int64               `json:"externalMinor"`
-	Id             openapi_types.UUID  `json:"id"`
-	Operation      string              `json:"operation"`
-	PaidMinor      int64               `json:"paidMinor"`
-	RefundedMinor  int64               `json:"refundedMinor"`
-	State          string              `json:"state"`
-	SubscriptionId *openapi_types.UUID `json:"subscriptionId,omitempty"`
-	SubtotalMinor  int64               `json:"subtotalMinor"`
-	UpdatedAt      time.Time           `json:"updatedAt"`
-	WalletMinor    int64               `json:"walletMinor"`
+	CreatedAt     time.Time          `json:"createdAt"`
+	Currency      string             `json:"currency"`
+	CustomerId    openapi_types.UUID `json:"customerId"`
+	DiscountMinor int64              `json:"discountMinor"`
+	ExternalMinor int64              `json:"externalMinor"`
+	Id            openapi_types.UUID `json:"id"`
+	Operation     string             `json:"operation"`
+	PaidMinor     int64              `json:"paidMinor"`
+
+	// PaymentMethod The method within the provider (sbp, card, …), when it has one.
+	PaymentMethod *string `json:"paymentMethod,omitempty"`
+
+	// PaymentProvider The provider of the succeeded payment, or of the newest attempt; absent for a wallet-only or unpaid order. Set by the finance search.
+	PaymentProvider *string             `json:"paymentProvider,omitempty"`
+	RefundedMinor   int64               `json:"refundedMinor"`
+	State           string              `json:"state"`
+	SubscriptionId  *openapi_types.UUID `json:"subscriptionId,omitempty"`
+	SubtotalMinor   int64               `json:"subtotalMinor"`
+	UpdatedAt       time.Time           `json:"updatedAt"`
+	WalletMinor     int64               `json:"walletMinor"`
 }
 
 // PanelOutboxEntry defines model for PanelOutboxEntry.

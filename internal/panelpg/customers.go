@@ -251,6 +251,11 @@ type OrderSummary struct {
 	SubscriptionID string    `json:"subscriptionId,omitempty"`
 	CreatedAt      time.Time `json:"createdAt"`
 	UpdatedAt      time.Time `json:"updatedAt"`
+	// PaymentProvider and PaymentMethod name how an external payment was
+	// made: the succeeded attempt, or the newest one. Empty for an order paid
+	// from the wallet alone or not paid at all.
+	PaymentProvider string `json:"paymentProvider,omitempty"`
+	PaymentMethod   string `json:"paymentMethod,omitempty"`
 }
 
 // CustomerOrders lists a customer's order history, newest first.

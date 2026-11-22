@@ -1350,7 +1350,8 @@
         "attempt": "تلاش",
         "funding": "منبع پرداخت",
         "outcome": "نتیجه",
-        "failureCode": "خطا"
+        "failureCode": "خطا",
+        "method": "روش"
       },
       "empty": {
         "stuck": "هیچ پرداختی معلق نیست",
@@ -1418,6 +1419,9 @@
         },
         "note": "چگونه حل شد",
         "resolve": "بستن"
+      },
+      "method": {
+        "wallet": "موجودی"
       }
     },
     "reports": {

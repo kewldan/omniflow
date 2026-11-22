@@ -1355,7 +1355,8 @@
         "attempt": "Попытка",
         "funding": "Источник",
         "outcome": "Итог",
-        "failureCode": "Ошибка"
+        "failureCode": "Ошибка",
+        "method": "Метод"
       },
       "empty": {
         "stuck": "Зависших нет",
@@ -1423,6 +1424,9 @@
         },
         "note": "Как решено",
         "resolve": "Закрыть"
+      },
+      "method": {
+        "wallet": "Баланс"
       }
     },
     "reports": {

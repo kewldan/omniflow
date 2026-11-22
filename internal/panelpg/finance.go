@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 )
 
@@ -77,7 +78,39 @@ func (service *Service) SearchOrders(ctx context.Context, filter OrderFilter) (O
 		}
 		page.Items = append(page.Items, orderSummaryFrom(row))
 	}
+	if err = service.withPaymentMethods(ctx, page.Items); err != nil {
+		return OrderPage{}, err
+	}
 	return page, nil
+}
+
+// withPaymentMethods fills in how each order was paid, in one query for the page.
+func (service *Service) withPaymentMethods(ctx context.Context, orders []OrderSummary) error {
+	if len(orders) == 0 {
+		return nil
+	}
+	ids := make([]pgtype.UUID, 0, len(orders))
+	for _, order := range orders {
+		id, err := parseUUID(order.ID)
+		if err != nil {
+			return err
+		}
+		ids = append(ids, id)
+	}
+	rows, err := service.queries().OrderPaymentMethods(ctx, ids)
+	if err != nil {
+		return err
+	}
+	byOrder := make(map[string]dbgen.OrderPaymentMethodsRow, len(rows))
+	for _, row := range rows {
+		byOrder[uuidString(row.OrderID)] = row
+	}
+	for index := range orders {
+		if row, ok := byOrder[orders[index].ID]; ok {
+			orders[index].PaymentProvider, orders[index].PaymentMethod = row.Provider, row.Method
+		}
+	}
+	return nil
 }
 
 // PaymentIntentSummary is one payment attempt against an order.

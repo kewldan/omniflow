@@ -174,6 +174,9 @@ export type OrderSummary = {
   subscriptionId?: string;
   createdAt: string;
   updatedAt: string;
+  /** How an external payment was made; absent for wallet-only or unpaid orders. */
+  paymentProvider?: string;
+  paymentMethod?: string;
 };
 
 export type LedgerLine = {

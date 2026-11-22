@@ -1350,7 +1350,8 @@
         "attempt": "尝试次数",
         "funding": "资金来源",
         "outcome": "结果",
-        "failureCode": "失败原因"
+        "failureCode": "失败原因",
+        "method": "方式"
       },
       "empty": {
         "stuck": "没有卡住的付款",
@@ -1418,6 +1419,9 @@
         },
         "note": "处理方式",
         "resolve": "关闭"
+      },
+      "method": {
+        "wallet": "余额"
       }
     },
     "reports": {

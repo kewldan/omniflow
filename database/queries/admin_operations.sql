@@ -986,3 +986,11 @@ WHERE (sqlc.narg(status)::text IS NULL OR u.status = sqlc.narg(status)::text)
        OR (u.created_at, u.id) < (sqlc.narg(cursor_created_at)::timestamptz, sqlc.narg(cursor_id)::uuid))
 ORDER BY u.created_at DESC, u.id DESC
 LIMIT sqlc.arg(page_size);
+
+-- name: OrderPaymentMethods :many
+-- How each order on a finance page was paid: its succeeded payment, or else its
+-- newest attempt. One row per order that has any payment at all.
+SELECT DISTINCT ON (order_id) order_id, provider, method, status
+FROM payment_intents
+WHERE order_id = ANY(sqlc.arg(order_ids)::uuid[])
+ORDER BY order_id, (status = 'succeeded') DESC, created_at DESC;

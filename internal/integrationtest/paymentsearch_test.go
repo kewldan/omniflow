@@ -52,6 +52,21 @@ func TestFinanceSearchByProviderTextAndStateCounts(t *testing.T) {
 	if page, err = panel.SearchOrders(ctx, panelpg.OrderFilter{Search: "yk-777"}); err != nil || len(page.Items) != 1 || page.Items[0].ID != first {
 		t.Fatalf("reference search: %+v %v", page.Items, err)
 	}
+	// The method column: the order's payment provider and its method, the
+	// succeeded attempt winning over a newer failed one.
+	if _, err = harness.pool.Exec(ctx, `UPDATE payment_intents SET status = 'succeeded', method = 'sbp'
+		WHERE order_id = $1::uuid`, first); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = harness.pool.Exec(ctx, `INSERT INTO payment_intents
+		(order_id, provider, status, amount_minor, currency, idempotency_key, created_at)
+		VALUES ($1::uuid, 'cryptobot', 'failed', 100, 'RUB', 'search-a-retry', now() + interval '1 minute')`, first); err != nil {
+		t.Fatal(err)
+	}
+	if page, err = panel.SearchOrders(ctx, panelpg.OrderFilter{Search: "yk-777"}); err != nil || len(page.Items) != 1 ||
+		page.Items[0].PaymentProvider != "yookassa" || page.Items[0].PaymentMethod != "sbp" {
+		t.Fatalf("payment method: %+v %v", page.Items, err)
+	}
 	if page, err = panel.SearchOrders(ctx, panelpg.OrderFilter{Search: first[:8]}); err != nil || len(page.Items) != 1 {
 		t.Fatalf("ID prefix search: %+v %v", page.Items, err)
 	}

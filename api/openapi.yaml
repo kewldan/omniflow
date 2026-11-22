@@ -7385,6 +7385,8 @@ components:
         subscriptionId: {type: string, format: uuid}
         createdAt: {type: string, format: date-time}
         updatedAt: {type: string, format: date-time}
+        paymentProvider: {type: string, description: "The provider of the succeeded payment, or of the newest attempt; absent for a wallet-only or unpaid order. Set by the finance search."}
+        paymentMethod: {type: string, description: "The method within the provider (sbp, card, …), when it has one."}
     PanelOrderList:
       type: object
       required: [items]

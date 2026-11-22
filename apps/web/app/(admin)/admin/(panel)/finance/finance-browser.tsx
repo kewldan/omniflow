@@ -152,6 +152,20 @@ function OrderSearch() {
   );
   const counts = data?.stateCounts ?? {};
 
+  // How an order was paid: the wallet, a provider (with its method), or both.
+  const paidWith = (order: OrderSummary): string => {
+    const provider = order.paymentProvider
+      ? [
+          label("provider", order.paymentProvider),
+          order.paymentMethod ? label("paymentMethod", order.paymentMethod) : "",
+        ]
+          .filter(Boolean)
+          .join(" · ")
+      : "";
+    const wallet = order.walletMinor > 0 ? translate("method.wallet") : "";
+    return [wallet, provider].filter(Boolean).join(" + ") || "—";
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <Card className="p-4">
@@ -256,6 +270,7 @@ function OrderSearch() {
           translate("columns.createdAt"),
           translate("columns.customer"),
           translate("columns.operation"),
+          translate("columns.method"),
           translate("columns.state"),
           translate("columns.paid"),
           translate("columns.refunded"),
@@ -287,6 +302,7 @@ function OrderSearch() {
               <CustomerChip id={order.customerId} />
             </TableCell>
             <TableCell>{label("orderOperation", order.operation)}</TableCell>
+            <TableCell className="text-muted-foreground text-sm">{paidWith(order)}</TableCell>
             <TableCell>
               <Badge
                 variant={

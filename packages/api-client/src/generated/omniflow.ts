@@ -1447,6 +1447,10 @@ export interface PanelOrderSummary {
   subscriptionId?: string;
   createdAt: string;
   updatedAt: string;
+  /** The provider of the succeeded payment, or of the newest attempt; absent for a wallet-only or unpaid order. Set by the finance search. */
+  paymentProvider?: string;
+  /** The method within the provider (sbp, card, …), when it has one. */
+  paymentMethod?: string;
 }
 
 export interface PanelOrderList {

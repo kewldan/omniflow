@@ -2140,6 +2140,9 @@ type Querier interface {
 	// The numbers a scheduled report carries. Money is per currency, so revenue
 	// comes back as a JSON object keyed by currency.
 	OperatorReportFigures(ctx context.Context, arg OperatorReportFiguresParams) (OperatorReportFiguresRow, error)
+	// How each order on a finance page was paid: its succeeded payment, or else its
+	// newest attempt. One row per order that has any payment at all.
+	OrderPaymentMethods(ctx context.Context, orderIds []pgtype.UUID) ([]OrderPaymentMethodsRow, error)
 	PanelSearchAccessCodeByCodeHash(ctx context.Context, codeHash []byte) ([]PanelSearchAccessCodeByCodeHashRow, error)
 	// Exact match only. The address is stored encrypted beside a keyed
 	// fingerprint, and the fingerprint is the only thing compared.

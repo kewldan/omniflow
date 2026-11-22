@@ -2784,6 +2784,47 @@ func (q *Queries) OfferAddonWithPlanVersion(ctx context.Context, arg OfferAddonW
 	return err
 }
 
+const orderPaymentMethods = `-- name: OrderPaymentMethods :many
+SELECT DISTINCT ON (order_id) order_id, provider, method, status
+FROM payment_intents
+WHERE order_id = ANY($1::uuid[])
+ORDER BY order_id, (status = 'succeeded') DESC, created_at DESC
+`
+
+type OrderPaymentMethodsRow struct {
+	OrderID  pgtype.UUID `json:"order_id"`
+	Provider string      `json:"provider"`
+	Method   string      `json:"method"`
+	Status   string      `json:"status"`
+}
+
+// How each order on a finance page was paid: its succeeded payment, or else its
+// newest attempt. One row per order that has any payment at all.
+func (q *Queries) OrderPaymentMethods(ctx context.Context, orderIds []pgtype.UUID) ([]OrderPaymentMethodsRow, error) {
+	rows, err := q.db.Query(ctx, orderPaymentMethods, orderIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []OrderPaymentMethodsRow{}
+	for rows.Next() {
+		var i OrderPaymentMethodsRow
+		if err := rows.Scan(
+			&i.OrderID,
+			&i.Provider,
+			&i.Method,
+			&i.Status,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const recordProviderConnectionCheck = `-- name: RecordProviderConnectionCheck :one
 UPDATE payment_provider_settings
 SET connection_status = $1,
