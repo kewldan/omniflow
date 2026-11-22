@@ -51,6 +51,7 @@ retained.
 | Database backups | `APP_BACKUP_RETENTION_DAYS`, default 14 days | Yes — pruned after every scheduled backup |
 | AI prompts | Not kept by default | N/A — never written |
 | AI outputs | Per-feature, operator-configured | Yes, per feature's own setting |
+| Telegram profile photos (`telegram_avatars`) | Until anonymisation; refreshed daily | Deleted by anonymisation |
 | Audit events | Kept for the life of the installation | No — append-only by design, not a retention gap |
 | Operator sessions, customer sessions, magic links | Documented as 30 days | **No** |
 | Customer security events | Documented as 180 days | **No** |

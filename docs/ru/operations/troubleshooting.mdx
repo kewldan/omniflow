@@ -190,6 +190,12 @@ Valkey полностью блокирует вход операторов. Сн
 
 Настоящее ограничение отвечает `429 rate_limited`; заблокированная учётная запись отвечает
 `429 account_locked` после пяти неудач подряд, причём ожидание удваивается вплоть до часа.
+`docker compose exec api /app admin unlock <email>` снимает блокировку сразу.
+
+`403 password_login_disabled` значит, что аккаунт переведён на вход только по passkey и верный
+пароль отклоняется намеренно. Войдите по passkey; если все ключи потеряны,
+`docker compose exec api /app admin password-login <email> --for 1h` откроет вход по паролю на
+час. См. [Только passkey](/ru/operations/admin-panel#только-passkey).
 
 Учтите, что сбой Valkey **не** открывает режим обслуживания. Автоматическое обнаружение следит
 только за `postgres` и `remnawave`, поэтому `valkey` появляется в `/readyz` и сам по себе

@@ -54,8 +54,9 @@ customers from a campaign, recent activity, or heavy traffic use.
 
 Opening a customer shows:
 
-- **The header.** Their Telegram profile photo, fetched from the Bot API when the card opens and
-  never stored, or two letters of their ID when there is none; and a copy button for the ID.
+- **The header.** Their Telegram profile photo, fetched by the server through the Bot API, kept in
+  `telegram_avatars` and refreshed daily (a stored copy is served while Telegram is unreachable),
+  or two letters of their ID when there is none; and a copy button for the ID.
 - **The overview.** Status, Telegram ID, language, and counts of subscriptions, orders, open tickets,
   and referrals.
 - **Badges.** **N flagged for review** when risk controls matched something, **Allowlisted**, and

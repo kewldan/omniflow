@@ -81,7 +81,8 @@ being trusted.
   each further failure from a one-minute base and is capped at one hour, so a
   known operator cannot be locked out permanently. A locked account is not
   verified against at all, so guessing during a lockout cannot time the password
-  check.
+  check. `docker compose exec api /app admin unlock <email>` clears a lockout at
+  once.
 - **Rate limits.** 10 attempts per minute per normalised email address and 30
   per minute per client IP — one so a single account cannot be ground down, one
   so a spray across many accounts from a single origin is bounded too. The limit
@@ -103,7 +104,7 @@ whether or not the address matched an account and including when the rate limit
 (5 per hour per IP) fires, so the endpoint cannot be used to discover which
 addresses are registered. It **issues no token.** For an active account it
 writes the audit row `admin.password.reset_requested` and posts a notice to the
-**🔐 Admin security** topic — at most one per account per hour — so the owner
+**Admin security** topic — at most one per account per hour — so the owner
 learns that somebody asked.
 
 There is no channel in this build that reaches one operator and nobody else: no
@@ -123,7 +124,10 @@ trust; they redeem it with `POST /v1/panel/auth/password-reset/complete`
 (`{"token", "newPassword"}`). The token lives one hour, is single-use, and
 issuing a new one retires the previous one. Completing a reset revokes **all**
 sessions — a reset is the remedy for a suspected compromise, so nothing
-established beforehand may survive it.
+established beforehand may survive it. A reset does not reopen password sign-in
+on an account set to passkeys only: the new password is refused with
+`password_login_disabled` until `admin password-login <email>` opens it (see
+[Passkeys only](/operations/admin-panel#passkeys-only)).
 
 <Warning>
   Earlier builds wrote the reset token to the API log at warn level, which let
@@ -272,7 +276,10 @@ Passkeys are added alongside the password and its second factor, never in place
 of them. That is deliberate on both sides: it means the password remains the way
 back in when every key is lost, and therefore that **revoking a passkey is never
 an account-recovery event** — the last one can be removed without locking anybody
-out. Registering a key, renaming one, and revoking one each queue a security
+out. The exception is an account the operator has set to
+[passkeys only](/operations/admin-panel#passkeys-only): there the password is
+refused, so the last key cannot be removed, and the way back after losing every
+key is `admin password-login <email>` on the server. Registering a key, renaming one, and revoking one each queue a security
 notice, because registering a way into the account is exactly what somebody on a
 stolen session would do.
 

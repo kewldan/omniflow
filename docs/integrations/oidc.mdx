@@ -196,7 +196,7 @@ With auto-provisioning on, a subject whose address already belongs to an
 operator is still refused — the address is never used to adopt an account.
 An account created this way has **no password** at all (`password_hash` is null)
 and authenticates through the provider only; the creation writes the audit row
-`admin.oidc.auto_provisioned` and posts a notice to the **🔐 Admin security**
+`admin.oidc.auto_provisioned` and posts a notice to the **Admin security**
 topic in the operator Telegram group.
 
 ### Limits of the operator flow in this build

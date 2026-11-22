@@ -275,8 +275,9 @@ will only send over TLS. Setting either to `false` logs a warning naming the ris
 </Warning>
 
 The sign-in link is off by default because it is a second bearer credential travelling through a
-chat. Turn it on where the Telegram login widget cannot be used — typically because the domain
-cannot be bound in BotFather — and the bot's `/login` command starts working. Telegram sign-in
+chat. Turn it on: Telegram now shows a deprecation notice in place of its login widget, so the link
+is the working Telegram route in a browser. With it on, the bot's `/login` command starts working
+and **Sign in with Telegram** opens the bot. Telegram sign-in
 itself needs no variable of its own: it verifies the widget payload with `APP_TELEGRAM_TOKEN`.
 
 `APP_TRUSTED_PROXIES` is parsed once at startup and used by both the operator and the customer

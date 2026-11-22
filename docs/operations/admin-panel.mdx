@@ -208,7 +208,7 @@ second factor is exactly what an attacker on a hijacked session would attempt.
 
 <Note>
   There is no operator email transport, so the public reset request **issues no
-  token**: it records the request and posts a notice to the **🔐 Admin
+  token**: it records the request and posts a notice to the **Admin
   security** topic. A token is issued only on the server, by the API binary's
   `admin reset-password` command, which prints it to that terminal:
 
@@ -246,7 +246,7 @@ them in the API container (`docker compose exec api /app …`, or `docker exec o
 
 | Command | What it does |
 | --- | --- |
-| `health` | Checks PostgreSQL, Valkey and Remnawave as `/readyz` does, and prints the schema revision, retrying and failed fulfilment, retryable and discarded jobs, payments waiting over an hour, tickets waiting for a reply and undelivered operator notices. Exits non-zero when a dependency is down |
+| `health` | Checks PostgreSQL, Valkey and Remnawave as `/readyz` does, and prints the schema revision, retrying and failed fulfilment, retryable and discarded jobs, payments waiting over an hour, tickets waiting for a reply, and operator notices waiting to be sent and those that failed today. Exits non-zero when a dependency is down |
 | `version` | The build version |
 | `admin list` | Every operator: status, roles, whether password sign-in is on, off or reopened, two-factor, lockout and last sign-in |
 | `admin password-login <email> [--for 2h]` | Password sign-in again for an operator whose passkey is gone, for a while or for good |
@@ -258,7 +258,7 @@ Each change is audited with the actor `system` and the reason "server command li
 
 ## Security notifications
 
-Security-relevant events are posted to the **🔐 Admin security** topic in the
+Security-relevant events are posted to the **Admin security** topic in the
 operator Telegram group, alongside the purchase and incident streams:
 
 - a sign-in from an address the account has not used before

@@ -70,10 +70,14 @@ same errand.
 
 At `md` and above the bar is replaced by a sidebar. It carries the same five
 destinations plus the ones a phone keeps one level down under the account tab —
-orders, devices, invites, announcements, and security — because the constraint
-that justified hiding them is that five is all a thumb bar can hold, and a column
-with room to spare does not have it. The sidebar also carries the account
-identifier, which is what support asks for, and a sign-out control. Somebody
+orders, devices, invites, gifts, offers, renewal, announcements, and security —
+because the constraint that justified hiding them is that five is all a thumb bar
+can hold, and a column with room to spare does not have it. Every entry has an
+icon that plays a short animation on hover or tap; the phone's tab bar plays it
+on tap. The sidebar also carries the customer's Telegram photo, the account
+identifier, which is what support asks for, and a sign-out control. The
+identifier is shown by its ends — the first eight and last seven characters —
+and a tap copies all of it. Somebody
 opening the *web* panel rather than the bot is, by definition, the customer who
 is not on a phone.
 
@@ -165,7 +169,7 @@ reversing it:
 
 ### Telegram
 
-The primary route. Telegram's login widget signs its fields with HMAC-SHA256
+Telegram's login widget signs its fields with HMAC-SHA256
 under the bot token, so a payload that verifies is proof Telegram produced it for
 this bot. Omniflow additionally bounds `auth_date` to one minute: the hash never
 expires on its own, and without the bound a payload captured from a URL or a
@@ -189,8 +193,10 @@ Opened as a Telegram Mini App the screen signs the customer in on its own: it
 shows **Sign in as** with the customer's Telegram name and picture (initials when
 Telegram has no picture) in its busy state, none of the browser's methods, and
 goes to the account when the session exists. The surrounding client hands the
-page a signed `initData`; the name and picture are read from it for display only,
-and the whole string goes to `POST /v1/account/auth/telegram/miniapp`, which
+page a signed `initData`; the name is read from it for display only, the picture
+is fetched from the installation (`POST /v1/account/auth/telegram/miniapp/avatar`
+with the launch data in the body, never from Telegram's hosts), and the whole
+string goes to `POST /v1/account/auth/telegram/miniapp`, which
 verifies it the same way under a different key derivation. If it is refused the
 screen says so and offers the ordinary methods below the message. Right after the
 customer signs out — the account's sign-out and **Sign out everywhere** land on
@@ -200,7 +206,10 @@ a reason, the screen does not sign in on its own; the button does it.
 In a browser, when the sign-in link below is enabled, Telegram is offered as a
 plain **Sign in with Telegram** button that opens the bot; the widget is then not
 drawn, because two Telegram controls side by side read as two accounts. Without the
-sign-in link the widget is the Telegram route, as above.
+sign-in link the widget is the Telegram route, as above. Telegram now shows a
+deprecation notice in place of its login widget, so the recommended setup is the
+sign-in link (`APP_CUSTOMER_MAGIC_LINK_ENABLED=true`), with the widget left as
+the fallback.
 
 The site's front door (`/`) has no page of its own: it sends a signed-in customer
 to the dashboard and anyone else to this screen, and carries `?ref=` from the

@@ -442,7 +442,7 @@ It is deliberately not the marketing consent flag. Consent is a preference the
 customer toggles; a suppression is a standing instruction that survives them
 toggling it back on by accident.
 
-`/admin/marketing` → **Suppressions** lists customer id, reason, note, and a
+**Marketing → Audiences → Suppression list** (`/admin/marketing?section=audiences`) lists customer id, reason, note, and a
 **Remove** button for anyone with `marketing.write`. Adding one is API-only:
 `PUT /v1/panel/marketing/suppressions` with `{customerId, reason, note}`, upserted
 by customer, so re-suppressing overwrites the reason and note. Both write audit

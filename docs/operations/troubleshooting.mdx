@@ -186,6 +186,12 @@ Valkey outage blocks operator sign-in entirely. Check the `valkey` entry in the 
 
 A genuine limit answers `429 rate_limited`; a locked account answers `429 account_locked`
 after five consecutive failures, with the wait doubling up to one hour.
+`docker compose exec api /app admin unlock <email>` clears the lock at once.
+
+`403 password_login_disabled` means the account is set to sign in with passkeys only, and a
+correct password is refused on purpose. Sign in with a passkey; if every key is lost,
+`docker compose exec api /app admin password-login <email> --for 1h` opens password sign-in for
+an hour. See [Passkeys only](/operations/admin-panel#passkeys-only).
 
 Note that a Valkey outage does **not** open maintenance mode. Automatic detection watches
 `postgres` and `remnawave` only, so `valkey` appears in `/readyz` and never triggers a

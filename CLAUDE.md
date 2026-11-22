@@ -17,11 +17,23 @@ link the relevant documentation. This file only adds the current state of the
 project and the practical knowledge that keeps a session from tripping over the
 tooling.
 
-## Current state (21 November 2026)
+## Current state (22 November 2026)
 
-- Omniflow replaces a Bedolaga fork that runs a live VPN business. Migration
+- Omniflow replaced a Bedolaga fork running a live VPN business on 22 November;
+  Bedolaga's pages, tickets, consents, promo groups (as the loyalty programme)
+  and the rest of its history (`legacy_records`) are carried over. Migration
   tooling: `cmd/migrate-bedolaga`, `deploy/migration/00…07-*.sh`, and
   `docs/operations/migrate-from-bedolaga.mdx`.
+- Production runs `main`, not releases: every commit on `main` that passes CI
+  is built as `sha-<commit>` edge images (`.github/workflows/edge.yml`) and
+  rolled out within about ten minutes by the server's autodeploy timer, which
+  rolls back and alerts the operator group on a failed migration or readiness.
+  Keep `main` green and do not push half-finished behaviour; the integration
+  suite is not part of that gate, so run the affected tests before pushing.
+  Releases (release-please) still cut versions.
+- The customer panel talks to the Telegram Mini App through tma.js
+  (`apps/web/lib/tma.ts`), and Telegram avatars are stored in
+  `telegram_avatars` and served by the API, never loaded from Telegram's hosts.
 - Parity with Bedolaga is tracked in `bedolaga-bot-gaps.md`: 228 closed, none
   partial, 8 open, 8 declined. The open eight are listed in `BACKLOG.md` under
   «Остаток паритета с Bedolaga»: QR payment in the bot, Overpay `.p12` upload,

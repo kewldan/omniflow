@@ -151,7 +151,7 @@ as 401s at the proxy.
   <Step title="Register the Mini App, if you want one">
     BotFather's `/newapp` binds a web app URL to the bot. Omniflow's customer panel needs nothing
     extra: opened inside Telegram it detects `initData` and signs in automatically, and opened in a
-    normal browser it falls back to the widget.
+    normal browser it offers the bot's sign-in link, or the widget when the link is off.
   </Step>
   <Step title="Verify">
     `GET /v1/account/auth/methods` reports what this installation actually offers:
@@ -160,10 +160,11 @@ as 401s at the proxy.
   </Step>
 </Steps>
 
-A third, operator-enabled route exists for installations where the widget is not usable: the bot
-delivers a one-time sign-in link in response to `/login`. It stays off by default —
-`APP_CUSTOMER_MAGIC_LINK_ENABLED=false` — because it is a second bearer credential travelling
-through a chat. Enabling it requires `APP_PUBLIC_URL` and, on the bot, a 32-byte
+A third, operator-enabled route is the one to use in a browser: the bot delivers a one-time
+sign-in link in response to `/login`, and **Sign in with Telegram** opens the bot instead of
+drawing the widget. Telegram now shows a deprecation notice in place of its login widget, so turn
+this route on. It stays off by default — `APP_CUSTOMER_MAGIC_LINK_ENABLED=false` — because it is a
+second bearer credential travelling through a chat. Enabling it requires `APP_PUBLIC_URL` and, on the bot, a 32-byte
 `APP_DATA_ENCRYPTION_KEY`. [The web panel](/customer/web-panel) covers all three routes from the
 customer's side.
 
@@ -171,17 +172,8 @@ customer's side.
 
 Operator notifications go to one Telegram group with **Topics** enabled. The bot creates and binds
 one forum topic per event kind, and recreates one that was deleted; you supply only the group.
-
-| Topic | Kind |
-| --- | --- |
-| 💳 Purchases | `purchase` |
-| ♻️ Renewals | `renewal` |
-| 👛 Wallet top-ups | `topup` |
-| ↩️ Refunds | `refund` |
-| ⚠️ Fulfillment failures | `fulfillment_failure` |
-| 🚨 Incidents | `incident` |
-| 💾 Backups | `backup` |
-| 🔐 Admin security | `security` |
+Topic names are plain words; each kind's emoji is set as the topic's icon. The full list is in
+[Operator notifications](/operations/operator-notifications#the-topics).
 
 <Steps>
   <Step title="Create the group and enable Topics">

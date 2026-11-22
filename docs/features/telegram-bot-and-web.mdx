@@ -88,8 +88,8 @@ installation can actually serve:
 
 | Method | How to turn it on |
 | --- | --- |
-| Telegram | Set the bot token and bind the cabinet's domain with `/setdomain` in BotFather. Telegram renders its login button only on a bound domain |
-| Link from the bot | `APP_CUSTOMER_MAGIC_LINK_ENABLED=true` plus `APP_PUBLIC_URL`. The customer sends `/login` and gets a single-use link valid for ten minutes |
+| Telegram | Set the bot token and bind the cabinet's domain with `/setdomain` in BotFather. Telegram renders its login button only on a bound domain, and now shows a deprecation notice in its place, so turn on the link from the bot as well |
+| Link from the bot | `APP_CUSTOMER_MAGIC_LINK_ENABLED=true` plus `APP_PUBLIC_URL`. The customer sends `/login`, or taps **Sign in with Telegram**, and gets a single-use link valid for ten minutes. Recommended |
 | E-mail link | Configure mail (`APP_RESEND_API_KEY`, `APP_EMAIL_FROM`). The customer types an address and receives a one-time link |
 | OIDC providers | Add providers at `/admin/settings/sign-in`. Presets exist for Google, Yandex, Discord, and VK ID |
 

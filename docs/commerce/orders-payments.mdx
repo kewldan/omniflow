@@ -409,15 +409,17 @@ what an intent was.
 `APP_CRYPTOBOT_TOKEN` is set; `yookassa` when its shop ID and secret are both set. An empty
 credential leaves its adapter unregistered rather than registering a broken one.
 
-A method is offered to a customer only when the installation configured it **and** the plan carries
-a price in a currency that method settles. The display order is a fixed map — Telegram Stars,
-YooKassa, CryptoBot, then manual.
+A method is offered to a customer only when the installation configured it **and** enabled it,
+**and** the plan carries a price in a currency that method settles. The display order is the one
+saved on the **Payment providers** card at `/admin/settings/commerce`; a provider with no saved row
+keeps the compiled-in order — Telegram Stars, YooKassa, CryptoBot, then manual.
 
 <Warning>
-  Because the `manual` adapter is always registered and has no operator switch that hides it,
-  every installation offers "manual" as a payment method to every customer, including ones that
-  never intended to take bank transfers. Approving a manual payment is only possible through the
-  bearer-token API described under [Manual payments](#manual-payments); there is no screen for it.
+  The `manual` adapter is always registered, so until **Offer this provider at checkout** is
+  switched off for it on the **Payment providers** card, every installation offers "manual" as a
+  payment method to every customer, including ones that never intended to take bank transfers.
+  Approving a manual payment is only possible through the bearer-token API described under
+  [Manual payments](#manual-payments); there is no screen for it.
 </Warning>
 
 Per-provider setup, credentials and webhook URLs are on [Payment
@@ -785,8 +787,11 @@ expected, money stuck, money that did not arrive.
 - **Orders.** Filter by state, operation, and payment provider, and search by an order or customer
   ID prefix, a provider's payment reference, or an order idempotency key (`provider` and `q`);
   the state filter shows how many matching orders are in each state. Cursor-paginated, with a CSV
-  export of the same filter. Columns: created at, customer, operation, state badge, paid, refunded.
-  A row opens the order.
+  export of the same filter. Columns: created at, customer, operation, method, state badge, paid,
+  refunded. **Method** says how the order was paid: **Wallet**, the provider with its method
+  (`YooKassa · SBP`), or both joined by `+`; it is read from the succeeded payment, or else the
+  newest attempt, and the API returns it as `paymentProvider` and `paymentMethod`. A row opens
+  the order.
   `GET /v1/panel/finance/orders` — permission `finance.read`.
 - **Stuck.** The reconciliation queue described above.
 - **Charges.** Failed automatic renewal attempts with attempt number, funding source, outcome and
