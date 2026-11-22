@@ -629,6 +629,22 @@ paths:
         "204": {description: Password changed}
         "401": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/auth/password-login:
+    put:
+      operationId: setPanelPasswordLogin
+      tags: [panel]
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      description: >-
+        Turns password sign-in on or off for the operator's own account. Off
+        needs a passkey of theirs that has already signed in (409
+        no_working_passkey). The way back without a passkey is the api's
+        `admin password-login` command on the server. While it is off, a
+        correct password answers 403 password_login_disabled, and the last
+        passkey cannot be removed (409 last_passkey).
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [enabled], properties: {enabled: {type: boolean}}}}}}
+      responses:
+        "200": {description: The account, content: {application/json: {schema: {$ref: "#/components/schemas/AdminAccount"}}}}
+        "409": {$ref: "#/components/responses/Problem"}
   /v1/panel/auth/sessions:
     get:
       operationId: listPanelSessions
@@ -6892,6 +6908,8 @@ components:
         totpEnabled: {type: boolean}
         lastLoginAt: {type: string, format: date-time}
         createdAt: {type: string, format: date-time}
+        passwordLoginDisabled: {type: boolean, description: "The operator signs in with passkeys only."}
+        passwordLoginAllowedUntil: {type: string, format: date-time, description: "Until when the server's command line reopened password sign-in."}
     AdminAccountPage:
       type: object
       required: [items]

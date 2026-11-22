@@ -219,6 +219,43 @@ docker compose exec api /app admin reset-password owner@example.com
   See [Security](/operations/security#changing-and-resetting-a-password).
 </Note>
 
+### Passkeys only
+
+Once a passkey of theirs has signed in, an operator can turn password sign-in off for their own
+account on the security screen (**Sign in with passkeys only**, `PUT /v1/panel/auth/password-login`,
+audit `admin.password_login.disabled` / `.enabled`). From then on a correct password answers
+`password_login_disabled` and lets nobody in — the message is given only after the password
+matched, so it tells a guesser nothing — while a wrong one gets the usual refusal. The last
+passkey cannot be removed while the switch is on. The switch refuses (`no_working_passkey`) until
+a passkey has actually signed in, because a key that was registered and never worked is the one
+that would lock its owner out.
+
+The way back without a passkey is on the server, by the same binary:
+
+```bash
+docker compose exec api /app admin password-login owner@example.com --for 1h
+```
+
+`--for` reopens password sign-in for that long, after which it closes again on its own; without
+it the switch is turned back off for good. Either is audited as `admin.password_login.reopened`.
+
+### Server command line
+
+The API binary carries the few things that belong on the server rather than in the panel. Run
+them in the API container (`docker compose exec api /app …`, or `docker exec omniflow-api /app …`):
+
+| Command | What it does |
+| --- | --- |
+| `health` | Checks PostgreSQL, Valkey and Remnawave as `/readyz` does, and prints the schema revision, retrying and failed fulfilment, retryable and discarded jobs, payments waiting over an hour, tickets waiting for a reply and undelivered operator notices. Exits non-zero when a dependency is down |
+| `version` | The build version |
+| `admin list` | Every operator: status, roles, whether password sign-in is on, off or reopened, two-factor, lockout and last sign-in |
+| `admin password-login <email> [--for 2h]` | Password sign-in again for an operator whose passkey is gone, for a while or for good |
+| `admin unlock <email>` | Clears failed attempts and a lockout |
+| `admin revoke-sessions <email>` | Ends every session of the operator |
+| `admin reset-password <email>` | Prints a one-time password reset token to this terminal |
+
+Each change is audited with the actor `system` and the reason "server command line".
+
 ## Security notifications
 
 Security-relevant events are posted to the **🔐 Admin security** topic in the

@@ -5,6 +5,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/omniflow/omniflow/internal/adminauthpg"
 )
@@ -55,5 +56,20 @@ func TestUnknownCommandPrintsUsage(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "reset-password") {
 		t.Fatalf("usage not printed: %q", stderr.String())
+	}
+}
+
+func TestPasswordLoginDurationIsBounded(t *testing.T) {
+	var stderr bytes.Buffer
+	if duration, ok := parseFor(nil, &stderr); !ok || duration != 0 {
+		t.Fatalf("no --for must mean for good, got %v %v", duration, ok)
+	}
+	if duration, ok := parseFor([]string{"--for", "2h"}, &stderr); !ok || duration != 2*time.Hour {
+		t.Fatalf("--for 2h gave %v %v", duration, ok)
+	}
+	for _, bad := range [][]string{{"--for"}, {"--for", "forever"}, {"--for", "-1h"}, {"--for", "200h"}, {"2h"}} {
+		if _, ok := parseFor(bad, &stderr); ok {
+			t.Fatalf("%v was accepted", bad)
+		}
 	}
 }

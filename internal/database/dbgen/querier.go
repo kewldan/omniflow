@@ -43,6 +43,7 @@ type Querier interface {
 	// instead of the mapping being left behind on a closed account.
 	AdoptMergedRemnawaveUser(ctx context.Context, source pgtype.UUID) error
 	AliasMergedReferralCode(ctx context.Context, arg AliasMergedReferralCodeParams) error
+	AllowAdminPasswordLoginUntil(ctx context.Context, arg AllowAdminPasswordLoginUntilParams) (AdminUser, error)
 	AnonymizeCustomerData(ctx context.Context, targetUserID pgtype.UUID) error
 	AppealBlocklistMatch(ctx context.Context, arg AppealBlocklistMatchParams) (BlocklistMatch, error)
 	// The insert is conditional on the ticket not being merged. An absorbed ticket
@@ -348,6 +349,9 @@ type Querier interface {
 	CountSquadCustomers(ctx context.Context, arg CountSquadCustomersParams) (int32, error)
 	CountUnpublishedOutboxEvents(ctx context.Context) (CountUnpublishedOutboxEventsRow, error)
 	CountUnusedAdminRecoveryCodes(ctx context.Context, adminUserID pgtype.UUID) (int64, error)
+	// Passkeys of this operator that have signed in at least once: only a key
+	// shown to work may be the only way in.
+	CountUsedAdminPasskeys(ctx context.Context, adminUserID pgtype.UUID) (int64, error)
 	// Named API tokens and outgoing webhooks.
 	CreateAPIToken(ctx context.Context, arg CreateAPITokenParams) (ApiToken, error)
 	// A retried request with the same idempotency key returns the cost the first
@@ -2654,6 +2658,9 @@ type Querier interface {
 	SeedCommerceSettings(ctx context.Context, arg SeedCommerceSettingsParams) (CommerceSetting, error)
 	SetAIProviderCredentials(ctx context.Context, arg SetAIProviderCredentialsParams) error
 	SetAddonVersionLifetime(ctx context.Context, arg SetAddonVersionLifetimeParams) error
+	// Turning password sign-in off also ends any temporary reopening; turning it
+	// on clears both.
+	SetAdminPasswordLoginDisabled(ctx context.Context, arg SetAdminPasswordLoginDisabledParams) (AdminUser, error)
 	// Starts enrolment. `totp_confirmed_at` is deliberately cleared: a secret that
 	// has not been proven by a code cannot satisfy a login challenge. The replay
 	// watermark and failure count belong to the old secret and go with it.
@@ -2856,6 +2863,7 @@ type Querier interface {
 	// there without a trial blocks a trial without having been one, and is left
 	// out. A carried-over trial converts on a payment the previous bot took, too.
 	TrialConversion(ctx context.Context, arg TrialConversionParams) (TrialConversionRow, error)
+	UnlockAdminUser(ctx context.Context, adminUserID pgtype.UUID) (AdminUser, error)
 	UnsuppressCustomer(ctx context.Context, userID pgtype.UUID) error
 	UntagSupportTicket(ctx context.Context, arg UntagSupportTicketParams) error
 	// The customer's own locale and timezone. Both are validated in Go against the

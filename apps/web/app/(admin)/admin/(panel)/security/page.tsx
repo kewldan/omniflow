@@ -14,9 +14,11 @@ import {
   CardTitle,
 } from "@omniflow/ui/card";
 import { ConfirmDialog } from "@omniflow/ui/confirm-dialog";
+import { InfoTip } from "@omniflow/ui/info-tip";
 import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { Skeleton } from "@omniflow/ui/skeleton";
+import { Switch } from "@omniflow/ui/switch";
 import { toast } from "@omniflow/ui/toast";
 import {
   Fingerprint,
@@ -184,8 +186,12 @@ function PasskeysCard() {
       setRemoving(null);
       await mutate();
       toast.success(translate("removed"));
-    } catch {
-      toast.error(translate("errors.remove"));
+    } catch (removeError) {
+      toast.error(
+        (removeError as ApiError).code === "last_passkey"
+          ? translate("errors.lastPasskey")
+          : translate("errors.remove"),
+      );
     } finally {
       setBusy(false);
     }
@@ -326,6 +332,8 @@ function PasskeysCard() {
             <p className="text-muted-foreground text-xs">{translate("labelHint")}</p>
           </div>
         )}
+
+        {configured && <PasskeyOnlySwitch keys={keys} />}
       </CardContent>
 
       <ConfirmDialog
@@ -344,6 +352,59 @@ function PasskeysCard() {
         title={translate("removeTitle")}
       />
     </Card>
+  );
+}
+
+/**
+ * Passkeys only: password sign-in off for this account. It can be turned off
+ * only once a passkey of the account has signed in — a key that was registered
+ * and never worked is the one that would lock its owner out — and the way back
+ * without a passkey is the api's command on the server, which the hint names.
+ */
+function PasskeyOnlySwitch({ keys }: { keys: Passkey[] }) {
+  const translate = useTranslations("admin.security.passkeys");
+  const { session, refresh } = useSession();
+  const [busy, setBusy] = useState(false);
+  const id = useId();
+  const disabled = Boolean(session?.account.passwordLoginDisabled);
+  const working = keys.some((key) => Boolean(key.lastUsedAt));
+
+  async function toggle(passkeysOnly: boolean) {
+    setBusy(true);
+    try {
+      await apiFetch("/v1/panel/auth/password-login", {
+        body: JSON.stringify({ enabled: !passkeysOnly }),
+        method: "PUT",
+      });
+      await refresh();
+      toast.success(translate(passkeysOnly ? "passwordOff" : "passwordOn"));
+    } catch (toggleError) {
+      toast.error(
+        (toggleError as ApiError).code === "no_working_passkey"
+          ? translate("errors.noWorkingPasskey")
+          : translate("errors.passwordSwitch"),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-md border bg-well p-4">
+      <div className="flex items-center gap-2">
+        <Switch
+          checked={disabled}
+          disabled={busy || (!disabled && !working)}
+          id={id}
+          onCheckedChange={(next) => void toggle(next)}
+        />
+        <Label htmlFor={id}>{translate("passkeysOnly")}</Label>
+        <InfoTip>{translate("passkeysOnlyHint")}</InfoTip>
+      </div>
+      {!disabled && !working && (
+        <p className="text-muted-foreground text-xs">{translate("passkeysOnlyNeedsUse")}</p>
+      )}
+    </div>
   );
 }
 

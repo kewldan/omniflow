@@ -7447,10 +7447,16 @@ type AdminAccount struct {
 	Id          openapi_types.UUID  `json:"id"`
 	LastLoginAt *time.Time          `json:"lastLoginAt,omitempty"`
 	Locale      AdminLocale         `json:"locale"`
-	Roles       []AdminRole         `json:"roles"`
-	Status      AdminStatus         `json:"status"`
-	Timezone    string              `json:"timezone"`
-	TotpEnabled bool                `json:"totpEnabled"`
+
+	// PasswordLoginAllowedUntil Until when the server's command line reopened password sign-in.
+	PasswordLoginAllowedUntil *time.Time `json:"passwordLoginAllowedUntil,omitempty"`
+
+	// PasswordLoginDisabled The operator signs in with passkeys only.
+	PasswordLoginDisabled *bool       `json:"passwordLoginDisabled,omitempty"`
+	Roles                 []AdminRole `json:"roles"`
+	Status                AdminStatus `json:"status"`
+	Timezone              string      `json:"timezone"`
+	TotpEnabled           bool        `json:"totpEnabled"`
 }
 
 // AdminAccountInput defines model for AdminAccountInput.
@@ -12763,6 +12769,17 @@ type ChangePanelPasswordParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// SetPanelPasswordLoginJSONBody defines parameters for SetPanelPasswordLogin.
+type SetPanelPasswordLoginJSONBody struct {
+	Enabled bool `json:"enabled"`
+}
+
+// SetPanelPasswordLoginParams defines parameters for SetPanelPasswordLogin.
+type SetPanelPasswordLoginParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // UpdatePanelProfileParams defines parameters for UpdatePanelProfile.
 type UpdatePanelProfileParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
@@ -14312,6 +14329,9 @@ type RenamePanelPasskeyJSONRequestBody = PasskeyLabelInput
 // ChangePanelPasswordJSONRequestBody defines body for ChangePanelPassword for application/json ContentType.
 type ChangePanelPasswordJSONRequestBody = PasswordChangeInput
 
+// SetPanelPasswordLoginJSONRequestBody defines body for SetPanelPasswordLogin for application/json ContentType.
+type SetPanelPasswordLoginJSONRequestBody SetPanelPasswordLoginJSONBody
+
 // PanelRequestPasswordResetJSONRequestBody defines body for PanelRequestPasswordReset for application/json ContentType.
 type PanelRequestPasswordResetJSONRequestBody = PasswordResetRequestInput
 
@@ -15309,6 +15329,9 @@ type ServerInterface interface {
 
 	// (POST /v1/panel/auth/password)
 	ChangePanelPassword(w http.ResponseWriter, r *http.Request, params ChangePanelPasswordParams)
+
+	// (PUT /v1/panel/auth/password-login)
+	SetPanelPasswordLogin(w http.ResponseWriter, r *http.Request, params SetPanelPasswordLoginParams)
 
 	// (POST /v1/panel/auth/password-reset)
 	PanelRequestPasswordReset(w http.ResponseWriter, r *http.Request)
@@ -16989,6 +17012,11 @@ func (_ Unimplemented) RenamePanelPasskey(w http.ResponseWriter, r *http.Request
 
 // (POST /v1/panel/auth/password)
 func (_ Unimplemented) ChangePanelPassword(w http.ResponseWriter, r *http.Request, params ChangePanelPasswordParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /v1/panel/auth/password-login)
+func (_ Unimplemented) SetPanelPasswordLogin(w http.ResponseWriter, r *http.Request, params SetPanelPasswordLoginParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -26039,6 +26067,51 @@ func (siw *ServerInterfaceWrapper) ChangePanelPassword(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ChangePanelPassword(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetPanelPasswordLogin operation middleware
+func (siw *ServerInterfaceWrapper) SetPanelPasswordLogin(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SetPanelPasswordLoginParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetPanelPasswordLogin(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -36320,6 +36393,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/v1/panel/auth/password", wrapper.ChangePanelPassword)
 	})
 	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/v1/panel/auth/password-login", wrapper.SetPanelPasswordLogin)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/auth/sessions", wrapper.ListPanelSessions)
 	})
 	r.Group(func(r chi.Router) {
@@ -46331,6 +46407,45 @@ func (response ChangePanelPassword422ApplicationProblemPlusJSONResponse) VisitCh
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetPanelPasswordLoginRequestObject struct {
+	Params SetPanelPasswordLoginParams
+	Body   *SetPanelPasswordLoginJSONRequestBody
+}
+
+type SetPanelPasswordLoginResponseObject interface {
+	VisitSetPanelPasswordLoginResponse(w http.ResponseWriter) error
+}
+
+type SetPanelPasswordLogin200JSONResponse AdminAccount
+
+func (response SetPanelPasswordLogin200JSONResponse) VisitSetPanelPasswordLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetPanelPasswordLogin409ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SetPanelPasswordLogin409ApplicationProblemPlusJSONResponse) VisitSetPanelPasswordLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -57693,6 +57808,9 @@ type StrictServerInterface interface {
 	// (POST /v1/panel/auth/password)
 	ChangePanelPassword(ctx context.Context, request ChangePanelPasswordRequestObject) (ChangePanelPasswordResponseObject, error)
 
+	// (PUT /v1/panel/auth/password-login)
+	SetPanelPasswordLogin(ctx context.Context, request SetPanelPasswordLoginRequestObject) (SetPanelPasswordLoginResponseObject, error)
+
 	// (POST /v1/panel/auth/password-reset)
 	PanelRequestPasswordReset(ctx context.Context, request PanelRequestPasswordResetRequestObject) (PanelRequestPasswordResetResponseObject, error)
 
@@ -64168,6 +64286,39 @@ func (sh *strictHandler) ChangePanelPassword(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ChangePanelPasswordResponseObject); ok {
 		if err := validResponse.VisitChangePanelPasswordResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetPanelPasswordLogin operation middleware
+func (sh *strictHandler) SetPanelPasswordLogin(w http.ResponseWriter, r *http.Request, params SetPanelPasswordLoginParams) {
+	var request SetPanelPasswordLoginRequestObject
+
+	request.Params = params
+
+	var body SetPanelPasswordLoginJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetPanelPasswordLogin(ctx, request.(SetPanelPasswordLoginRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetPanelPasswordLogin")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetPanelPasswordLoginResponseObject); ok {
+		if err := validResponse.VisitSetPanelPasswordLoginResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -870,6 +870,10 @@ export interface AdminAccount {
   totpEnabled: boolean;
   lastLoginAt?: string;
   createdAt: string;
+  /** The operator signs in with passkeys only. */
+  passwordLoginDisabled?: boolean;
+  /** Until when the server's command line reopened password sign-in. */
+  passwordLoginAllowedUntil?: string;
 }
 
 export interface AdminAccountPage {
@@ -7060,6 +7064,10 @@ export type PanelLogoutAll200 = {
   revokedSessions: number;
 };
 
+export type SetPanelPasswordLoginBody = {
+  enabled: boolean;
+};
+
 export type BeginPanelPasskeyLogin200PublicKey = { [key: string]: unknown };
 
 export type BeginPanelPasskeyLogin200 = {
@@ -13175,6 +13183,85 @@ export const useChangePanelPassword = <TError = Promise<ProblemResponse>>(option
 
   const swrKey = swrOptions?.swrKey ?? getChangePanelPasswordMutationKey();
   const swrFn = getChangePanelPasswordMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type setPanelPasswordLoginResponse200 = {
+  data: AdminAccount;
+  status: 200;
+};
+
+export type setPanelPasswordLoginResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type setPanelPasswordLoginResponseSuccess = setPanelPasswordLoginResponse200 & {
+  headers: Headers;
+};
+export type setPanelPasswordLoginResponseError = setPanelPasswordLoginResponse409 & {
+  headers: Headers;
+};
+
+export type setPanelPasswordLoginResponse =
+  | setPanelPasswordLoginResponseSuccess
+  | setPanelPasswordLoginResponseError;
+
+export const getSetPanelPasswordLoginUrl = () => {
+  return `/v1/panel/auth/password-login`;
+};
+
+/**
+ * Turns password sign-in on or off for the operator's own account. Off needs a passkey of theirs that has already signed in (409 no_working_passkey). The way back without a passkey is the api's `admin password-login` command on the server. While it is off, a correct password answers 403 password_login_disabled, and the last passkey cannot be removed (409 last_passkey).
+ */
+export const setPanelPasswordLogin = async (
+  setPanelPasswordLoginBody: SetPanelPasswordLoginBody,
+  options?: RequestInit,
+): Promise<setPanelPasswordLoginResponse> => {
+  const res = await fetch(getSetPanelPasswordLoginUrl(), {
+    ...options,
+    method: "PUT",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(setPanelPasswordLoginBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: setPanelPasswordLoginResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as setPanelPasswordLoginResponse;
+};
+
+export const getSetPanelPasswordLoginMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: SetPanelPasswordLoginBody }) => {
+    return setPanelPasswordLogin(arg, options);
+  };
+};
+export const getSetPanelPasswordLoginMutationKey = () => [`/v1/panel/auth/password-login`] as const;
+
+export type SetPanelPasswordLoginMutationResult = NonNullable<
+  Awaited<ReturnType<typeof setPanelPasswordLogin>>
+>;
+
+export const useSetPanelPasswordLogin = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof setPanelPasswordLogin>>,
+    TError,
+    Key,
+    SetPanelPasswordLoginBody,
+    Awaited<ReturnType<typeof setPanelPasswordLogin>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSetPanelPasswordLoginMutationKey();
+  const swrFn = getSetPanelPasswordLoginMutationFetcher(fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

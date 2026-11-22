@@ -824,6 +824,8 @@ CREATE TABLE public.admin_users (
     disabled_at timestamp with time zone,
     totp_failed_count integer DEFAULT 0 NOT NULL,
     totp_last_used_step bigint,
+    password_login_disabled_at timestamp with time zone,
+    password_login_allowed_until timestamp with time zone,
     CONSTRAINT admin_users_display_name_check CHECK (((char_length(display_name) >= 1) AND (char_length(display_name) <= 80))),
     CONSTRAINT admin_users_email_check CHECK (((char_length(email) >= 3) AND (char_length(email) <= 254))),
     CONSTRAINT admin_users_email_normalized_check CHECK (((char_length(email_normalized) >= 3) AND (char_length(email_normalized) <= 254))),

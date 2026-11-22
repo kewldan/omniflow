@@ -569,3 +569,31 @@ RETURNING *;
 DELETE FROM admin_passkeys
 WHERE id = sqlc.arg(passkey_id) AND admin_user_id = sqlc.arg(admin_user_id)
 RETURNING *;
+
+-- name: SetAdminPasswordLoginDisabled :one
+-- Turning password sign-in off also ends any temporary reopening; turning it
+-- on clears both.
+UPDATE admin_users
+SET password_login_disabled_at = CASE WHEN sqlc.arg(disabled)::boolean THEN now() ELSE NULL END,
+    password_login_allowed_until = NULL,
+    updated_at = now()
+WHERE id = sqlc.arg(admin_user_id)
+RETURNING *;
+
+-- name: AllowAdminPasswordLoginUntil :one
+UPDATE admin_users
+SET password_login_allowed_until = sqlc.arg(allowed_until), updated_at = now()
+WHERE id = sqlc.arg(admin_user_id)
+RETURNING *;
+
+-- name: CountUsedAdminPasskeys :one
+-- Passkeys of this operator that have signed in at least once: only a key
+-- shown to work may be the only way in.
+SELECT count(*) FROM admin_passkeys
+WHERE admin_user_id = sqlc.arg(admin_user_id) AND last_used_at IS NOT NULL;
+
+-- name: UnlockAdminUser :one
+UPDATE admin_users
+SET failed_login_count = 0, locked_until = NULL, totp_failed_count = 0, updated_at = now()
+WHERE id = sqlc.arg(admin_user_id)
+RETURNING *;

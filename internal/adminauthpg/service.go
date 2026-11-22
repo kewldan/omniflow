@@ -47,6 +47,16 @@ var (
 	ErrForbidden          = errors.New("operation is not permitted")
 	ErrLastOwner          = errors.New("the installation must keep at least one active owner")
 	ErrBootstrapClosed    = errors.New("bootstrap is no longer available")
+	// ErrPasswordLoginDisabled answers a correct password on an account whose
+	// owner turned password sign-in off. It is returned only after the
+	// password matched, so it tells nothing to somebody guessing.
+	ErrPasswordLoginDisabled = errors.New("password sign-in is turned off for this account")
+	// ErrNoWorkingPasskey refuses to turn password sign-in off before a
+	// passkey of the account has signed in at least once.
+	ErrNoWorkingPasskey = errors.New("no passkey of this account has signed in yet")
+	// ErrLastPasskey refuses to remove the only passkey of an account that
+	// signs in with passkeys alone.
+	ErrLastPasskey = errors.New("the last passkey cannot be removed while password sign-in is off")
 )
 
 // Service is the operator identity adapter.
@@ -207,6 +217,10 @@ type Account struct {
 	LockedUntil  *time.Time
 	FailedLogins int
 	Preferences  Preferences
+	// PasswordLoginDisabled is the owner's switch; PasswordLoginAllowedUntil
+	// is a temporary reopening from the server's command line.
+	PasswordLoginDisabled     bool
+	PasswordLoginAllowedUntil *time.Time
 }
 
 // Principal is a resolved, fully authenticated request identity.
@@ -376,18 +390,20 @@ func (service *Service) openSecret(ciphertext []byte, associated string) (string
 
 func (service *Service) accountFrom(row dbgen.AdminUser, roles []rbac.Role) Account {
 	account := Account{
-		ID:           uuidString(row.ID),
-		Email:        row.Email,
-		DisplayName:  row.DisplayName,
-		Status:       row.Status,
-		Locale:       row.Locale,
-		Timezone:     row.Timezone,
-		Roles:        roles,
-		TOTPEnabled:  row.TotpConfirmedAt.Valid,
-		CreatedAt:    row.CreatedAt.Time,
-		PasswordSet:  row.PasswordHash.Valid,
-		FailedLogins: int(row.FailedLoginCount),
-		Preferences:  decodePreferences(row.Preferences),
+		ID:                        uuidString(row.ID),
+		Email:                     row.Email,
+		DisplayName:               row.DisplayName,
+		Status:                    row.Status,
+		Locale:                    row.Locale,
+		Timezone:                  row.Timezone,
+		Roles:                     roles,
+		TOTPEnabled:               row.TotpConfirmedAt.Valid,
+		CreatedAt:                 row.CreatedAt.Time,
+		PasswordSet:               row.PasswordHash.Valid,
+		FailedLogins:              int(row.FailedLoginCount),
+		PasswordLoginDisabled:     row.PasswordLoginDisabledAt.Valid,
+		PasswordLoginAllowedUntil: timePointer(row.PasswordLoginAllowedUntil),
+		Preferences:               decodePreferences(row.Preferences),
 	}
 	if row.LastLoginAt.Valid {
 		at := row.LastLoginAt.Time

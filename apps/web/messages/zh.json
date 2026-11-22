@@ -295,7 +295,8 @@
         "passkeyCloned": "该通行密钥被拒绝：另一台设备为其作出了响应。已通知该账户。",
         "passkeyUnavailable": "本实例未配置通行密钥。",
         "passkeyExpired": "操作超时，请重试。",
-        "challengeEnded": "错误验证码过多，本次登录已终止。请重新输入密码以获取新的验证码提示。"
+        "challengeEnded": "错误验证码过多，本次登录已终止。请重新输入密码以获取新的验证码提示。",
+        "passwordLoginDisabled": "此账户已关闭密码登录。请使用通行密钥登录。"
       },
       "submitting": "正在登录…",
       "verifying": "正在核验验证码…"
@@ -561,8 +562,16 @@
           "register": "无法添加该通行密钥。",
           "unverified": "该验证器未核验使用者身份，因此无法单独登录。请为其开启 PIN 码或指纹后重试。",
           "rename": "无法保存该名称。",
-          "remove": "无法移除该通行密钥。"
-        }
+          "remove": "无法移除该通行密钥。",
+          "noWorkingPasskey": "请先用通行密钥登录一次。",
+          "passwordSwitch": "无法切换密码登录。",
+          "lastPasskey": "这是最后一个通行密钥：请先开启密码登录。"
+        },
+        "passkeysOnly": "仅使用通行密钥登录",
+        "passkeysOnlyHint": "您的账户将关闭密码登录：即使密码正确也无法进入。如果通行密钥丢失，可在服务器上用命令恢复访问：docker exec omniflow-api /app admin password-login <邮箱> --for 1h。",
+        "passkeysOnlyNeedsUse": "请先用通行密钥登录一次，以确认它可用。",
+        "passwordOff": "已关闭密码登录",
+        "passwordOn": "已重新开启密码登录"
       },
       "twoFactor": {
         "title": "双重验证",

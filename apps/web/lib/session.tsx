@@ -15,6 +15,10 @@ export type PanelAccount = {
   timezone: string;
   roles: string[];
   totpEnabled: boolean;
+  /** The operator signs in with passkeys only. */
+  passwordLoginDisabled?: boolean;
+  /** Until when the server's command line reopened password sign-in. */
+  passwordLoginAllowedUntil?: string;
   /** Panel settings that follow the account between browsers. */
   preferences?: {
     pageSize?: number;

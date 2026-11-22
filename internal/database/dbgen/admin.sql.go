@@ -12,6 +12,48 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const allowAdminPasswordLoginUntil = `-- name: AllowAdminPasswordLoginUntil :one
+UPDATE admin_users
+SET password_login_allowed_until = $1, updated_at = now()
+WHERE id = $2
+RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step, password_login_disabled_at, password_login_allowed_until
+`
+
+type AllowAdminPasswordLoginUntilParams struct {
+	AllowedUntil pgtype.Timestamptz `json:"allowed_until"`
+	AdminUserID  pgtype.UUID        `json:"admin_user_id"`
+}
+
+func (q *Queries) AllowAdminPasswordLoginUntil(ctx context.Context, arg AllowAdminPasswordLoginUntilParams) (AdminUser, error) {
+	row := q.db.QueryRow(ctx, allowAdminPasswordLoginUntil, arg.AllowedUntil, arg.AdminUserID)
+	var i AdminUser
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.EmailNormalized,
+		&i.DisplayName,
+		&i.PasswordHash,
+		&i.Status,
+		&i.Locale,
+		&i.Timezone,
+		&i.Preferences,
+		&i.TotpSecretCiphertext,
+		&i.TotpConfirmedAt,
+		&i.FailedLoginCount,
+		&i.LockedUntil,
+		&i.PasswordChangedAt,
+		&i.LastLoginAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DisabledAt,
+		&i.TotpFailedCount,
+		&i.TotpLastUsedStep,
+		&i.PasswordLoginDisabledAt,
+		&i.PasswordLoginAllowedUntil,
+	)
+	return i, err
+}
+
 const claimAdminTOTPStep = `-- name: ClaimAdminTOTPStep :one
 UPDATE admin_users
 SET totp_last_used_step = $1, totp_failed_count = 0, updated_at = now()
@@ -92,7 +134,7 @@ const confirmAdminTOTP = `-- name: ConfirmAdminTOTP :one
 UPDATE admin_users
 SET totp_confirmed_at = now(), updated_at = now()
 WHERE id = $1 AND totp_secret_ciphertext IS NOT NULL
-RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step
+RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step, password_login_disabled_at, password_login_allowed_until
 `
 
 func (q *Queries) ConfirmAdminTOTP(ctx context.Context, adminUserID pgtype.UUID) (AdminUser, error) {
@@ -119,6 +161,8 @@ func (q *Queries) ConfirmAdminTOTP(ctx context.Context, adminUserID pgtype.UUID)
 		&i.DisabledAt,
 		&i.TotpFailedCount,
 		&i.TotpLastUsedStep,
+		&i.PasswordLoginDisabledAt,
+		&i.PasswordLoginAllowedUntil,
 	)
 	return i, err
 }
@@ -300,6 +344,20 @@ func (q *Queries) CountUnusedAdminRecoveryCodes(ctx context.Context, adminUserID
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const countUsedAdminPasskeys = `-- name: CountUsedAdminPasskeys :one
+SELECT count(*) FROM admin_passkeys
+WHERE admin_user_id = $1 AND last_used_at IS NOT NULL
+`
+
+// Passkeys of this operator that have signed in at least once: only a key
+// shown to work may be the only way in.
+func (q *Queries) CountUsedAdminPasskeys(ctx context.Context, adminUserID pgtype.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countUsedAdminPasskeys, adminUserID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }
 
 const createAdminPasskey = `-- name: CreateAdminPasskey :one
@@ -510,7 +568,7 @@ INSERT INTO admin_users (
   $4, $5, $6, $7
 )
 ON CONFLICT (email_normalized) DO NOTHING
-RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step
+RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step, password_login_disabled_at, password_login_allowed_until
 `
 
 type CreateAdminUserParams struct {
@@ -555,6 +613,8 @@ func (q *Queries) CreateAdminUser(ctx context.Context, arg CreateAdminUserParams
 		&i.DisabledAt,
 		&i.TotpFailedCount,
 		&i.TotpLastUsedStep,
+		&i.PasswordLoginDisabledAt,
+		&i.PasswordLoginAllowedUntil,
 	)
 	return i, err
 }
@@ -622,7 +682,7 @@ UPDATE admin_users
 SET totp_secret_ciphertext = NULL, totp_confirmed_at = NULL,
     totp_last_used_step = NULL, totp_failed_count = 0, updated_at = now()
 WHERE id = $1
-RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step
+RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step, password_login_disabled_at, password_login_allowed_until
 `
 
 func (q *Queries) DisableAdminTOTP(ctx context.Context, adminUserID pgtype.UUID) (AdminUser, error) {
@@ -649,6 +709,8 @@ func (q *Queries) DisableAdminTOTP(ctx context.Context, adminUserID pgtype.UUID)
 		&i.DisabledAt,
 		&i.TotpFailedCount,
 		&i.TotpLastUsedStep,
+		&i.PasswordLoginDisabledAt,
+		&i.PasswordLoginAllowedUntil,
 	)
 	return i, err
 }
@@ -672,7 +734,7 @@ func (q *Queries) ExpireAdminSetupTokens(ctx context.Context) (int64, error) {
 }
 
 const getAdminOIDCIdentity = `-- name: GetAdminOIDCIdentity :one
-SELECT i.id, i.admin_user_id, i.provider_id, i.subject, i.linked_at, i.last_login_at, i.issuer, u.id, u.email, u.email_normalized, u.display_name, u.password_hash, u.status, u.locale, u.timezone, u.preferences, u.totp_secret_ciphertext, u.totp_confirmed_at, u.failed_login_count, u.locked_until, u.password_changed_at, u.last_login_at, u.created_at, u.updated_at, u.disabled_at, u.totp_failed_count, u.totp_last_used_step
+SELECT i.id, i.admin_user_id, i.provider_id, i.subject, i.linked_at, i.last_login_at, i.issuer, u.id, u.email, u.email_normalized, u.display_name, u.password_hash, u.status, u.locale, u.timezone, u.preferences, u.totp_secret_ciphertext, u.totp_confirmed_at, u.failed_login_count, u.locked_until, u.password_changed_at, u.last_login_at, u.created_at, u.updated_at, u.disabled_at, u.totp_failed_count, u.totp_last_used_step, u.password_login_disabled_at, u.password_login_allowed_until
 FROM admin_oidc_identities i
 JOIN admin_users u ON u.id = i.admin_user_id
 WHERE i.provider_id = $1 AND i.subject = $2
@@ -719,6 +781,8 @@ func (q *Queries) GetAdminOIDCIdentity(ctx context.Context, arg GetAdminOIDCIden
 		&i.AdminUser.DisabledAt,
 		&i.AdminUser.TotpFailedCount,
 		&i.AdminUser.TotpLastUsedStep,
+		&i.AdminUser.PasswordLoginDisabledAt,
+		&i.AdminUser.PasswordLoginAllowedUntil,
 	)
 	return i, err
 }
@@ -780,7 +844,7 @@ func (q *Queries) GetAdminPasskeyByCredential(ctx context.Context, credentialID 
 }
 
 const getAdminPasswordReset = `-- name: GetAdminPasswordReset :one
-SELECT r.id, r.admin_user_id, r.token_hash, r.requested_ip, r.created_at, r.expires_at, r.used_at, u.id, u.email, u.email_normalized, u.display_name, u.password_hash, u.status, u.locale, u.timezone, u.preferences, u.totp_secret_ciphertext, u.totp_confirmed_at, u.failed_login_count, u.locked_until, u.password_changed_at, u.last_login_at, u.created_at, u.updated_at, u.disabled_at, u.totp_failed_count, u.totp_last_used_step
+SELECT r.id, r.admin_user_id, r.token_hash, r.requested_ip, r.created_at, r.expires_at, r.used_at, u.id, u.email, u.email_normalized, u.display_name, u.password_hash, u.status, u.locale, u.timezone, u.preferences, u.totp_secret_ciphertext, u.totp_confirmed_at, u.failed_login_count, u.locked_until, u.password_changed_at, u.last_login_at, u.created_at, u.updated_at, u.disabled_at, u.totp_failed_count, u.totp_last_used_step, u.password_login_disabled_at, u.password_login_allowed_until
 FROM admin_password_resets r
 JOIN admin_users u ON u.id = r.admin_user_id
 WHERE r.token_hash = $1
@@ -822,12 +886,14 @@ func (q *Queries) GetAdminPasswordReset(ctx context.Context, tokenHash []byte) (
 		&i.AdminUser.DisabledAt,
 		&i.AdminUser.TotpFailedCount,
 		&i.AdminUser.TotpLastUsedStep,
+		&i.AdminUser.PasswordLoginDisabledAt,
+		&i.AdminUser.PasswordLoginAllowedUntil,
 	)
 	return i, err
 }
 
 const getAdminSessionByToken = `-- name: GetAdminSessionByToken :one
-SELECT s.id, s.admin_user_id, s.token_hash, s.csrf_secret, s.pending_totp, s.auth_methods, s.ip, s.user_agent, s.created_at, s.last_seen_at, s.rotated_at, s.idle_expires_at, s.absolute_expires_at, s.revoked_at, s.revoked_reason, s.challenge_failures, s.previous_token_hash, u.id, u.email, u.email_normalized, u.display_name, u.password_hash, u.status, u.locale, u.timezone, u.preferences, u.totp_secret_ciphertext, u.totp_confirmed_at, u.failed_login_count, u.locked_until, u.password_changed_at, u.last_login_at, u.created_at, u.updated_at, u.disabled_at, u.totp_failed_count, u.totp_last_used_step
+SELECT s.id, s.admin_user_id, s.token_hash, s.csrf_secret, s.pending_totp, s.auth_methods, s.ip, s.user_agent, s.created_at, s.last_seen_at, s.rotated_at, s.idle_expires_at, s.absolute_expires_at, s.revoked_at, s.revoked_reason, s.challenge_failures, s.previous_token_hash, u.id, u.email, u.email_normalized, u.display_name, u.password_hash, u.status, u.locale, u.timezone, u.preferences, u.totp_secret_ciphertext, u.totp_confirmed_at, u.failed_login_count, u.locked_until, u.password_changed_at, u.last_login_at, u.created_at, u.updated_at, u.disabled_at, u.totp_failed_count, u.totp_last_used_step, u.password_login_disabled_at, u.password_login_allowed_until
 FROM admin_sessions s
 JOIN admin_users u ON u.id = s.admin_user_id
 WHERE s.token_hash = $1
@@ -885,6 +951,8 @@ func (q *Queries) GetAdminSessionByToken(ctx context.Context, tokenHash []byte) 
 		&i.AdminUser.DisabledAt,
 		&i.AdminUser.TotpFailedCount,
 		&i.AdminUser.TotpLastUsedStep,
+		&i.AdminUser.PasswordLoginDisabledAt,
+		&i.AdminUser.PasswordLoginAllowedUntil,
 	)
 	return i, err
 }
@@ -908,7 +976,7 @@ func (q *Queries) GetAdminSetupToken(ctx context.Context, tokenHash []byte) (Adm
 }
 
 const getAdminUser = `-- name: GetAdminUser :one
-SELECT id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step FROM admin_users WHERE id = $1
+SELECT id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step, password_login_disabled_at, password_login_allowed_until FROM admin_users WHERE id = $1
 `
 
 func (q *Queries) GetAdminUser(ctx context.Context, id pgtype.UUID) (AdminUser, error) {
@@ -935,12 +1003,14 @@ func (q *Queries) GetAdminUser(ctx context.Context, id pgtype.UUID) (AdminUser, 
 		&i.DisabledAt,
 		&i.TotpFailedCount,
 		&i.TotpLastUsedStep,
+		&i.PasswordLoginDisabledAt,
+		&i.PasswordLoginAllowedUntil,
 	)
 	return i, err
 }
 
 const getAdminUserByEmail = `-- name: GetAdminUserByEmail :one
-SELECT id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step FROM admin_users WHERE email_normalized = $1
+SELECT id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step, password_login_disabled_at, password_login_allowed_until FROM admin_users WHERE email_normalized = $1
 `
 
 func (q *Queries) GetAdminUserByEmail(ctx context.Context, emailNormalized string) (AdminUser, error) {
@@ -967,6 +1037,8 @@ func (q *Queries) GetAdminUserByEmail(ctx context.Context, emailNormalized strin
 		&i.DisabledAt,
 		&i.TotpFailedCount,
 		&i.TotpLastUsedStep,
+		&i.PasswordLoginDisabledAt,
+		&i.PasswordLoginAllowedUntil,
 	)
 	return i, err
 }
@@ -1257,7 +1329,7 @@ func (q *Queries) ListAdminSessions(ctx context.Context, arg ListAdminSessionsPa
 }
 
 const listAdminUsers = `-- name: ListAdminUsers :many
-SELECT id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step FROM admin_users
+SELECT id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step, password_login_disabled_at, password_login_allowed_until FROM admin_users
 WHERE (
     $1::timestamptz IS NULL
     OR (created_at, id) < ($1::timestamptz, $2::uuid)
@@ -1311,6 +1383,8 @@ func (q *Queries) ListAdminUsers(ctx context.Context, arg ListAdminUsersParams) 
 			&i.DisabledAt,
 			&i.TotpFailedCount,
 			&i.TotpLastUsedStep,
+			&i.PasswordLoginDisabledAt,
+			&i.PasswordLoginAllowedUntil,
 		); err != nil {
 			return nil, err
 		}
@@ -1483,7 +1557,7 @@ SET failed_login_count = failed_login_count + 1,
     locked_until = $1,
     updated_at = now()
 WHERE id = $2
-RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step
+RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step, password_login_disabled_at, password_login_allowed_until
 `
 
 type RecordAdminLoginFailureParams struct {
@@ -1517,6 +1591,8 @@ func (q *Queries) RecordAdminLoginFailure(ctx context.Context, arg RecordAdminLo
 		&i.DisabledAt,
 		&i.TotpFailedCount,
 		&i.TotpLastUsedStep,
+		&i.PasswordLoginDisabledAt,
+		&i.PasswordLoginAllowedUntil,
 	)
 	return i, err
 }
@@ -1525,7 +1601,7 @@ const recordAdminLoginSuccess = `-- name: RecordAdminLoginSuccess :one
 UPDATE admin_users
 SET failed_login_count = 0, locked_until = NULL, last_login_at = now(), updated_at = now()
 WHERE id = $1
-RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step
+RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step, password_login_disabled_at, password_login_allowed_until
 `
 
 func (q *Queries) RecordAdminLoginSuccess(ctx context.Context, adminUserID pgtype.UUID) (AdminUser, error) {
@@ -1552,6 +1628,8 @@ func (q *Queries) RecordAdminLoginSuccess(ctx context.Context, adminUserID pgtyp
 		&i.DisabledAt,
 		&i.TotpFailedCount,
 		&i.TotpLastUsedStep,
+		&i.PasswordLoginDisabledAt,
+		&i.PasswordLoginAllowedUntil,
 	)
 	return i, err
 }
@@ -1605,7 +1683,7 @@ SET totp_failed_count = totp_failed_count + 1,
     locked_until = COALESCE($1, locked_until),
     updated_at = now()
 WHERE id = $2
-RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step
+RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step, password_login_disabled_at, password_login_allowed_until
 `
 
 type RecordAdminTOTPFailureParams struct {
@@ -1641,6 +1719,8 @@ func (q *Queries) RecordAdminTOTPFailure(ctx context.Context, arg RecordAdminTOT
 		&i.DisabledAt,
 		&i.TotpFailedCount,
 		&i.TotpLastUsedStep,
+		&i.PasswordLoginDisabledAt,
+		&i.PasswordLoginAllowedUntil,
 	)
 	return i, err
 }
@@ -1995,6 +2075,52 @@ func (q *Queries) SearchAuditEventsAscending(ctx context.Context, arg SearchAudi
 	return items, nil
 }
 
+const setAdminPasswordLoginDisabled = `-- name: SetAdminPasswordLoginDisabled :one
+UPDATE admin_users
+SET password_login_disabled_at = CASE WHEN $1::boolean THEN now() ELSE NULL END,
+    password_login_allowed_until = NULL,
+    updated_at = now()
+WHERE id = $2
+RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step, password_login_disabled_at, password_login_allowed_until
+`
+
+type SetAdminPasswordLoginDisabledParams struct {
+	Disabled    bool        `json:"disabled"`
+	AdminUserID pgtype.UUID `json:"admin_user_id"`
+}
+
+// Turning password sign-in off also ends any temporary reopening; turning it
+// on clears both.
+func (q *Queries) SetAdminPasswordLoginDisabled(ctx context.Context, arg SetAdminPasswordLoginDisabledParams) (AdminUser, error) {
+	row := q.db.QueryRow(ctx, setAdminPasswordLoginDisabled, arg.Disabled, arg.AdminUserID)
+	var i AdminUser
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.EmailNormalized,
+		&i.DisplayName,
+		&i.PasswordHash,
+		&i.Status,
+		&i.Locale,
+		&i.Timezone,
+		&i.Preferences,
+		&i.TotpSecretCiphertext,
+		&i.TotpConfirmedAt,
+		&i.FailedLoginCount,
+		&i.LockedUntil,
+		&i.PasswordChangedAt,
+		&i.LastLoginAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DisabledAt,
+		&i.TotpFailedCount,
+		&i.TotpLastUsedStep,
+		&i.PasswordLoginDisabledAt,
+		&i.PasswordLoginAllowedUntil,
+	)
+	return i, err
+}
+
 const setAdminTOTPSecret = `-- name: SetAdminTOTPSecret :one
 UPDATE admin_users
 SET totp_secret_ciphertext = $1,
@@ -2003,7 +2129,7 @@ SET totp_secret_ciphertext = $1,
     totp_failed_count = 0,
     updated_at = now()
 WHERE id = $2
-RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step
+RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step, password_login_disabled_at, password_login_allowed_until
 `
 
 type SetAdminTOTPSecretParams struct {
@@ -2038,6 +2164,8 @@ func (q *Queries) SetAdminTOTPSecret(ctx context.Context, arg SetAdminTOTPSecret
 		&i.DisabledAt,
 		&i.TotpFailedCount,
 		&i.TotpLastUsedStep,
+		&i.PasswordLoginDisabledAt,
+		&i.PasswordLoginAllowedUntil,
 	)
 	return i, err
 }
@@ -2050,7 +2178,7 @@ SET password_hash = $1,
     locked_until = NULL,
     updated_at = now()
 WHERE id = $2
-RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step
+RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step, password_login_disabled_at, password_login_allowed_until
 `
 
 type SetAdminUserPasswordParams struct {
@@ -2082,6 +2210,8 @@ func (q *Queries) SetAdminUserPassword(ctx context.Context, arg SetAdminUserPass
 		&i.DisabledAt,
 		&i.TotpFailedCount,
 		&i.TotpLastUsedStep,
+		&i.PasswordLoginDisabledAt,
+		&i.PasswordLoginAllowedUntil,
 	)
 	return i, err
 }
@@ -2092,7 +2222,7 @@ SET status = $1,
     disabled_at = CASE WHEN $1 = 'active' THEN NULL ELSE now() END,
     updated_at = now()
 WHERE id = $2
-RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step
+RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step, password_login_disabled_at, password_login_allowed_until
 `
 
 type SetAdminUserStatusParams struct {
@@ -2124,6 +2254,8 @@ func (q *Queries) SetAdminUserStatus(ctx context.Context, arg SetAdminUserStatus
 		&i.DisabledAt,
 		&i.TotpFailedCount,
 		&i.TotpLastUsedStep,
+		&i.PasswordLoginDisabledAt,
+		&i.PasswordLoginAllowedUntil,
 	)
 	return i, err
 }
@@ -2167,12 +2299,49 @@ func (q *Queries) TouchAdminSession(ctx context.Context, arg TouchAdminSessionPa
 	return i, err
 }
 
+const unlockAdminUser = `-- name: UnlockAdminUser :one
+UPDATE admin_users
+SET failed_login_count = 0, locked_until = NULL, totp_failed_count = 0, updated_at = now()
+WHERE id = $1
+RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step, password_login_disabled_at, password_login_allowed_until
+`
+
+func (q *Queries) UnlockAdminUser(ctx context.Context, adminUserID pgtype.UUID) (AdminUser, error) {
+	row := q.db.QueryRow(ctx, unlockAdminUser, adminUserID)
+	var i AdminUser
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.EmailNormalized,
+		&i.DisplayName,
+		&i.PasswordHash,
+		&i.Status,
+		&i.Locale,
+		&i.Timezone,
+		&i.Preferences,
+		&i.TotpSecretCiphertext,
+		&i.TotpConfirmedAt,
+		&i.FailedLoginCount,
+		&i.LockedUntil,
+		&i.PasswordChangedAt,
+		&i.LastLoginAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DisabledAt,
+		&i.TotpFailedCount,
+		&i.TotpLastUsedStep,
+		&i.PasswordLoginDisabledAt,
+		&i.PasswordLoginAllowedUntil,
+	)
+	return i, err
+}
+
 const updateAdminUserPreferences = `-- name: UpdateAdminUserPreferences :one
 UPDATE admin_users
 SET preferences = preferences || $1::jsonb,
     updated_at = now()
 WHERE id = $2
-RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step
+RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step, password_login_disabled_at, password_login_allowed_until
 `
 
 type UpdateAdminUserPreferencesParams struct {
@@ -2206,6 +2375,8 @@ func (q *Queries) UpdateAdminUserPreferences(ctx context.Context, arg UpdateAdmi
 		&i.DisabledAt,
 		&i.TotpFailedCount,
 		&i.TotpLastUsedStep,
+		&i.PasswordLoginDisabledAt,
+		&i.PasswordLoginAllowedUntil,
 	)
 	return i, err
 }
@@ -2217,7 +2388,7 @@ SET display_name = $1,
     timezone = $3,
     updated_at = now()
 WHERE id = $4
-RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step
+RETURNING id, email, email_normalized, display_name, password_hash, status, locale, timezone, preferences, totp_secret_ciphertext, totp_confirmed_at, failed_login_count, locked_until, password_changed_at, last_login_at, created_at, updated_at, disabled_at, totp_failed_count, totp_last_used_step, password_login_disabled_at, password_login_allowed_until
 `
 
 type UpdateAdminUserProfileParams struct {
@@ -2256,6 +2427,8 @@ func (q *Queries) UpdateAdminUserProfile(ctx context.Context, arg UpdateAdminUse
 		&i.DisabledAt,
 		&i.TotpFailedCount,
 		&i.TotpLastUsedStep,
+		&i.PasswordLoginDisabledAt,
+		&i.PasswordLoginAllowedUntil,
 	)
 	return i, err
 }

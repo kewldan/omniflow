@@ -1290,6 +1290,14 @@ export const CompletePanelBootstrapResponse = zod.object({
   totpEnabled: zod.boolean(),
   lastLoginAt: zod.iso.datetime({ offset: true }).optional(),
   createdAt: zod.iso.datetime({ offset: true }),
+  passwordLoginDisabled: zod
+    .boolean()
+    .optional()
+    .describe("The operator signs in with passkeys only."),
+  passwordLoginAllowedUntil: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("Until when the server's command line reopened password sign-in."),
 });
 
 /**
@@ -1320,6 +1328,14 @@ export const PanelLoginResponse = zod.object({
     totpEnabled: zod.boolean(),
     lastLoginAt: zod.iso.datetime({ offset: true }).optional(),
     createdAt: zod.iso.datetime({ offset: true }),
+    passwordLoginDisabled: zod
+      .boolean()
+      .optional()
+      .describe("The operator signs in with passkeys only."),
+    passwordLoginAllowedUntil: zod.iso
+      .datetime({ offset: true })
+      .optional()
+      .describe("Until when the server's command line reopened password sign-in."),
   }),
 });
 
@@ -1350,6 +1366,14 @@ export const PanelVerifyChallengeResponse = zod.object({
     totpEnabled: zod.boolean(),
     lastLoginAt: zod.iso.datetime({ offset: true }).optional(),
     createdAt: zod.iso.datetime({ offset: true }),
+    passwordLoginDisabled: zod
+      .boolean()
+      .optional()
+      .describe("The operator signs in with passkeys only."),
+    passwordLoginAllowedUntil: zod.iso
+      .datetime({ offset: true })
+      .optional()
+      .describe("Until when the server's command line reopened password sign-in."),
   }),
 });
 
@@ -1394,6 +1418,14 @@ export const GetPanelSessionResponse = zod.object({
     totpEnabled: zod.boolean(),
     lastLoginAt: zod.iso.datetime({ offset: true }).optional(),
     createdAt: zod.iso.datetime({ offset: true }),
+    passwordLoginDisabled: zod
+      .boolean()
+      .optional()
+      .describe("The operator signs in with passkeys only."),
+    passwordLoginAllowedUntil: zod.iso
+      .datetime({ offset: true })
+      .optional()
+      .describe("Until when the server's command line reopened password sign-in."),
   }),
   permissions: zod
     .array(zod.string())
@@ -1457,6 +1489,14 @@ export const UpdatePanelProfileResponse = zod.object({
   totpEnabled: zod.boolean(),
   lastLoginAt: zod.iso.datetime({ offset: true }).optional(),
   createdAt: zod.iso.datetime({ offset: true }),
+  passwordLoginDisabled: zod
+    .boolean()
+    .optional()
+    .describe("The operator signs in with passkeys only."),
+  passwordLoginAllowedUntil: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("Until when the server's command line reopened password sign-in."),
 });
 
 /**
@@ -1480,6 +1520,42 @@ export const ChangePanelPasswordBody = zod.object({
 });
 
 export const ChangePanelPasswordResponse = zod.void();
+
+/**
+ * Turns password sign-in on or off for the operator's own account. Off needs a passkey of theirs that has already signed in (409 no_working_passkey). The way back without a passkey is the api's `admin password-login` command on the server. While it is off, a correct password answers 403 password_login_disabled, and the last passkey cannot be removed (409 last_passkey).
+ */
+export const SetPanelPasswordLoginHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const SetPanelPasswordLoginBody = zod.object({
+  enabled: zod.boolean(),
+});
+
+export const SetPanelPasswordLoginResponse = zod.object({
+  id: zod.uuid(),
+  email: zod.email(),
+  displayName: zod.string(),
+  status: zod.enum(["active", "suspended", "disabled"]),
+  locale: zod.enum(["en", "ru"]),
+  timezone: zod.string(),
+  roles: zod.array(
+    zod.enum(["owner", "administrator", "support", "finance", "marketing", "auditor"]),
+  ),
+  totpEnabled: zod.boolean(),
+  lastLoginAt: zod.iso.datetime({ offset: true }).optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+  passwordLoginDisabled: zod
+    .boolean()
+    .optional()
+    .describe("The operator signs in with passkeys only."),
+  passwordLoginAllowedUntil: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("Until when the server's command line reopened password sign-in."),
+});
 
 export const ListPanelSessionsResponse = zod.object({
   items: zod.array(
@@ -1610,6 +1686,14 @@ export const FinishPanelPasskeyLoginResponse = zod.object({
     totpEnabled: zod.boolean(),
     lastLoginAt: zod.iso.datetime({ offset: true }).optional(),
     createdAt: zod.iso.datetime({ offset: true }),
+    passwordLoginDisabled: zod
+      .boolean()
+      .optional()
+      .describe("The operator signs in with passkeys only."),
+    passwordLoginAllowedUntil: zod.iso
+      .datetime({ offset: true })
+      .optional()
+      .describe("Until when the server's command line reopened password sign-in."),
   }),
 });
 
@@ -1781,6 +1865,14 @@ export const ListPanelAdminsResponse = zod.object({
       totpEnabled: zod.boolean(),
       lastLoginAt: zod.iso.datetime({ offset: true }).optional(),
       createdAt: zod.iso.datetime({ offset: true }),
+      passwordLoginDisabled: zod
+        .boolean()
+        .optional()
+        .describe("The operator signs in with passkeys only."),
+      passwordLoginAllowedUntil: zod.iso
+        .datetime({ offset: true })
+        .optional()
+        .describe("Until when the server's command line reopened password sign-in."),
     }),
   ),
   nextCursor: zod.string().optional().describe("Empty when this is the last page."),
@@ -1824,6 +1916,14 @@ export const CreatePanelAdminResponse = zod.object({
   totpEnabled: zod.boolean(),
   lastLoginAt: zod.iso.datetime({ offset: true }).optional(),
   createdAt: zod.iso.datetime({ offset: true }),
+  passwordLoginDisabled: zod
+    .boolean()
+    .optional()
+    .describe("The operator signs in with passkeys only."),
+  passwordLoginAllowedUntil: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("Until when the server's command line reopened password sign-in."),
 });
 
 export const GetPanelAdminParams = zod.object({
@@ -1843,6 +1943,14 @@ export const GetPanelAdminResponse = zod.object({
   totpEnabled: zod.boolean(),
   lastLoginAt: zod.iso.datetime({ offset: true }).optional(),
   createdAt: zod.iso.datetime({ offset: true }),
+  passwordLoginDisabled: zod
+    .boolean()
+    .optional()
+    .describe("The operator signs in with passkeys only."),
+  passwordLoginAllowedUntil: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("Until when the server's command line reopened password sign-in."),
 });
 
 /**
@@ -1877,6 +1985,14 @@ export const SetPanelAdminRolesResponse = zod.object({
   totpEnabled: zod.boolean(),
   lastLoginAt: zod.iso.datetime({ offset: true }).optional(),
   createdAt: zod.iso.datetime({ offset: true }),
+  passwordLoginDisabled: zod
+    .boolean()
+    .optional()
+    .describe("The operator signs in with passkeys only."),
+  passwordLoginAllowedUntil: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("Until when the server's command line reopened password sign-in."),
 });
 
 /**
@@ -2011,6 +2127,14 @@ export const AcceptPanelInvitationResponse = zod.object({
     totpEnabled: zod.boolean(),
     lastLoginAt: zod.iso.datetime({ offset: true }).optional(),
     createdAt: zod.iso.datetime({ offset: true }),
+    passwordLoginDisabled: zod
+      .boolean()
+      .optional()
+      .describe("The operator signs in with passkeys only."),
+    passwordLoginAllowedUntil: zod.iso
+      .datetime({ offset: true })
+      .optional()
+      .describe("Until when the server's command line reopened password sign-in."),
   }),
 });
 
@@ -2044,6 +2168,14 @@ export const SetPanelAdminStatusResponse = zod.object({
   totpEnabled: zod.boolean(),
   lastLoginAt: zod.iso.datetime({ offset: true }).optional(),
   createdAt: zod.iso.datetime({ offset: true }),
+  passwordLoginDisabled: zod
+    .boolean()
+    .optional()
+    .describe("The operator signs in with passkeys only."),
+  passwordLoginAllowedUntil: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe("Until when the server's command line reopened password sign-in."),
 });
 
 /**

@@ -97,6 +97,8 @@ export default function LoginPage() {
           return translate("errors.invalidCredentials");
         case "account_locked":
           return translate("errors.locked");
+        case "password_login_disabled":
+          return translate("errors.passwordLoginDisabled");
         case "rate_limited":
           return translate("errors.rateLimited");
         case "invalid_code":

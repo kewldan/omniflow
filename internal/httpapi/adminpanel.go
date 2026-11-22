@@ -273,6 +273,7 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 			secure.Patch("/auth/profile", handlers.updateProfile)
 			secure.Put("/auth/preferences", handlers.savePreferences)
 			secure.Post("/auth/password", handlers.changePassword)
+			secure.Put("/auth/password-login", handlers.setPasswordLogin)
 
 			secure.Get("/auth/sessions", handlers.listSessions)
 			secure.Delete("/auth/sessions/{sessionID}", handlers.revokeSession)
@@ -449,6 +450,11 @@ func (handlers *AdminHandlers) login(writer http.ResponseWriter, request *http.R
 		// One shared response for wrong password, unknown address, and a
 		// disabled account, so none of them can be told apart.
 		writeProblem(writer, request, http.StatusUnauthorized, "invalid_credentials", "Those details are not correct")
+		return
+	case errors.Is(err, adminauthpg.ErrPasswordLoginDisabled):
+		// Said only after the password matched, so it tells a guesser nothing.
+		writeProblem(writer, request, http.StatusForbidden, "password_login_disabled",
+			"Password sign-in is turned off for this account. Sign in with a passkey")
 		return
 	case err != nil:
 		handlers.logger.Error("admin sign-in failed", "error", err)
@@ -1118,6 +1124,12 @@ func accountPayload(account adminauthpg.Account) map[string]any {
 		"totpEnabled": account.TOTPEnabled,
 		"createdAt":   account.CreatedAt.UTC(),
 		"preferences": account.Preferences,
+		// Whether password sign-in is off for this account, and until when a
+		// command-line reopening lets it in anyway.
+		"passwordLoginDisabled": account.PasswordLoginDisabled,
+	}
+	if account.PasswordLoginAllowedUntil != nil {
+		payload["passwordLoginAllowedUntil"] = account.PasswordLoginAllowedUntil.UTC()
 	}
 	if account.LastLoginAt != nil {
 		payload["lastLoginAt"] = account.LastLoginAt.UTC()

@@ -254,26 +254,28 @@ type AdminSetupToken struct {
 }
 
 type AdminUser struct {
-	ID                   pgtype.UUID        `json:"id"`
-	Email                string             `json:"email"`
-	EmailNormalized      string             `json:"email_normalized"`
-	DisplayName          string             `json:"display_name"`
-	PasswordHash         pgtype.Text        `json:"password_hash"`
-	Status               string             `json:"status"`
-	Locale               string             `json:"locale"`
-	Timezone             string             `json:"timezone"`
-	Preferences          []byte             `json:"preferences"`
-	TotpSecretCiphertext []byte             `json:"totp_secret_ciphertext"`
-	TotpConfirmedAt      pgtype.Timestamptz `json:"totp_confirmed_at"`
-	FailedLoginCount     int32              `json:"failed_login_count"`
-	LockedUntil          pgtype.Timestamptz `json:"locked_until"`
-	PasswordChangedAt    pgtype.Timestamptz `json:"password_changed_at"`
-	LastLoginAt          pgtype.Timestamptz `json:"last_login_at"`
-	CreatedAt            pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
-	DisabledAt           pgtype.Timestamptz `json:"disabled_at"`
-	TotpFailedCount      int32              `json:"totp_failed_count"`
-	TotpLastUsedStep     pgtype.Int8        `json:"totp_last_used_step"`
+	ID                        pgtype.UUID        `json:"id"`
+	Email                     string             `json:"email"`
+	EmailNormalized           string             `json:"email_normalized"`
+	DisplayName               string             `json:"display_name"`
+	PasswordHash              pgtype.Text        `json:"password_hash"`
+	Status                    string             `json:"status"`
+	Locale                    string             `json:"locale"`
+	Timezone                  string             `json:"timezone"`
+	Preferences               []byte             `json:"preferences"`
+	TotpSecretCiphertext      []byte             `json:"totp_secret_ciphertext"`
+	TotpConfirmedAt           pgtype.Timestamptz `json:"totp_confirmed_at"`
+	FailedLoginCount          int32              `json:"failed_login_count"`
+	LockedUntil               pgtype.Timestamptz `json:"locked_until"`
+	PasswordChangedAt         pgtype.Timestamptz `json:"password_changed_at"`
+	LastLoginAt               pgtype.Timestamptz `json:"last_login_at"`
+	CreatedAt                 pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                 pgtype.Timestamptz `json:"updated_at"`
+	DisabledAt                pgtype.Timestamptz `json:"disabled_at"`
+	TotpFailedCount           int32              `json:"totp_failed_count"`
+	TotpLastUsedStep          pgtype.Int8        `json:"totp_last_used_step"`
+	PasswordLoginDisabledAt   pgtype.Timestamptz `json:"password_login_disabled_at"`
+	PasswordLoginAllowedUntil pgtype.Timestamptz `json:"password_login_allowed_until"`
 }
 
 type AdminUserRole struct {

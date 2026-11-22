@@ -251,6 +251,11 @@ func (handlers *AdminHandlers) deletePasskey(writer http.ResponseWriter, request
 		writeProblem(writer, request, http.StatusNotFound, "not_found", "That passkey does not exist")
 		return
 	}
+	if errors.Is(err, adminauthpg.ErrLastPasskey) {
+		writeProblem(writer, request, http.StatusConflict, "last_passkey",
+			"Turn password sign-in back on before removing your last passkey")
+		return
+	}
 	if err != nil {
 		handlers.logger.Error("passkey revocation failed", "error", err)
 		writeProblem(writer, request, http.StatusInternalServerError, "unavailable", "That could not be removed")

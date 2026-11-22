@@ -74,6 +74,10 @@ func (service *Service) Authenticate(
 		}
 		return LoginResult{}, ErrInvalidCredentials
 	}
+	if passwordLoginClosed(row, now) {
+		_ = service.auditLoginFailure(ctx, row, "password_login_disabled", request)
+		return LoginResult{}, ErrPasswordLoginDisabled
+	}
 
 	return service.startSession(ctx, row, password, now, request)
 }

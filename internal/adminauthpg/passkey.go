@@ -366,6 +366,20 @@ func (service *Service) DeletePasskey(
 		return err
 	}
 	err = service.inTx(ctx, func(queries *dbgen.Queries) error {
+		// An account that signs in with passkeys alone keeps at least one.
+		user, userErr := queries.GetAdminUser(ctx, owner)
+		if userErr != nil {
+			return userErr
+		}
+		if user.PasswordLoginDisabledAt.Valid {
+			count, countErr := queries.CountAdminPasskeys(ctx, owner)
+			if countErr != nil {
+				return countErr
+			}
+			if count <= 1 {
+				return ErrLastPasskey
+			}
+		}
 		row, txErr := queries.DeleteAdminPasskey(ctx, dbgen.DeleteAdminPasskeyParams{
 			PasskeyID: key, AdminUserID: owner,
 		})
