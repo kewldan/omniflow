@@ -49,7 +49,10 @@ absent language — so it is refused rather than stored.
 
 **The language falls back rather than 404ing.** A page that exists in English
 only still answers at its address for a Russian reader, because the address is
-what somebody bookmarked and what a provider approved.
+what somebody bookmarked and what a provider approved. The list at `/pages`
+falls back the same way: a page is listed once, under its title in the
+reader's language when it has one and in another otherwise, so an installation
+that writes only Russian pages does not show an English reader an empty list.
 
 ## The body is never HTML
 
@@ -100,7 +103,9 @@ customers will read.
 Both are **server-rendered**, because the readers who matter most — a payment
 provider's reviewer, an application store's reviewer, a search engine — are not
 guaranteed to run JavaScript. A terms page that needs hydration to appear is a
-terms page that does not exist to the party requiring it.
+terms page that does not exist to the party requiring it. Opened from the
+Telegram Mini App, Telegram's back button leads from a page to the list and from
+the list back to the account.
 
 The customer panel links to the list from the account screen, under the same
 group as notification preferences and personal data.

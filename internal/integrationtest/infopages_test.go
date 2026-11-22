@@ -194,3 +194,50 @@ func TestAnUnlistedPageKeepsItsAddress(t *testing.T) {
 		t.Fatalf("read back %+v", page)
 	}
 }
+
+// A page written in one language is listed for a reader of another, once and
+// under the title it has, because its address answers them too.
+func TestThePageListFallsBackToAnotherLanguage(t *testing.T) {
+	ctx := context.Background()
+	harness := newHarness(t)
+	service := newOperations(t, harness)
+	actor := harness.operator(ctx, t, "pages-fallback@example.test")
+
+	for _, page := range []panelpg.InfoPage{
+		{Slug: "faq", Kind: "faq", Listed: true, Locales: []panelpg.InfoPageLocale{
+			{Locale: "ru", Title: "Частые вопросы", Body: "Ответы."},
+		}},
+		{Slug: "terms", Kind: "terms", Listed: true, Locales: []panelpg.InfoPageLocale{
+			{Locale: "ru", Title: "Правила", Body: "Правила."},
+			{Locale: "en", Title: "Terms", Body: "Terms."},
+		}},
+	} {
+		if _, err := service.SaveInfoPage(ctx, page, actor); err != nil {
+			t.Fatalf("save %s: %v", page.Slug, err)
+		}
+		if _, err := service.SetInfoPagePublication(ctx, page.Slug, true, actor); err != nil {
+			t.Fatalf("publish %s: %v", page.Slug, err)
+		}
+	}
+
+	titles := func(locale string) map[string]string {
+		listed, err := service.PublicInfoPages(ctx, locale)
+		if err != nil {
+			t.Fatalf("list %s: %v", locale, err)
+		}
+		found := map[string]string{}
+		for _, page := range listed {
+			if _, twice := found[page.Slug]; twice {
+				t.Fatalf("%s listed twice for %s: %+v", page.Slug, locale, listed)
+			}
+			found[page.Slug] = page.Title
+		}
+		return found
+	}
+	if got := titles("en"); got["faq"] != "Частые вопросы" || got["terms"] != "Terms" {
+		t.Fatalf("English list: %v", got)
+	}
+	if got := titles("ru"); got["faq"] != "Частые вопросы" || got["terms"] != "Правила" {
+		t.Fatalf("Russian list: %v", got)
+	}
+}

@@ -188,14 +188,17 @@ func (q *Queries) ListInfoPages(ctx context.Context) ([]ListInfoPagesRow, error)
 
 const listPublishedInfoPages = `-- name: ListPublishedInfoPages :many
 
-SELECT p.slug, p.kind, p.sort_order, p.updated_at,
-       l.locale, l.title
-FROM info_pages p
-JOIN info_page_localizations l ON l.page_slug = p.slug
-WHERE p.published_at IS NOT NULL
-  AND p.listed
-  AND l.locale = $1
-ORDER BY p.sort_order, p.slug
+SELECT slug, kind, sort_order, updated_at, locale, title
+FROM (
+  SELECT DISTINCT ON (p.slug)
+         p.slug, p.kind, p.sort_order, p.updated_at, l.locale, l.title
+  FROM info_pages p
+  JOIN info_page_localizations l ON l.page_slug = p.slug
+  WHERE p.published_at IS NOT NULL
+    AND p.listed
+  ORDER BY p.slug, (l.locale = $1) DESC, l.locale
+) pages
+ORDER BY sort_order, slug
 `
 
 type ListPublishedInfoPagesRow struct {
@@ -215,6 +218,11 @@ type ListPublishedInfoPagesRow struct {
 // What the customer panel lists. A page can be published without being listed:
 // a document that exists to satisfy a provider's review needs a stable address
 // and not necessarily a menu entry.
+//
+// Each page is listed once, in the reader's language when it has it and in
+// another otherwise, the way GetPublishedInfoPage answers at its address: an
+// installation that writes its pages in Russian only must not show an English
+// reader an empty list of pages that open for them.
 func (q *Queries) ListPublishedInfoPages(ctx context.Context, locale string) ([]ListPublishedInfoPagesRow, error) {
 	rows, err := q.db.Query(ctx, listPublishedInfoPages, locale)
 	if err != nil {
