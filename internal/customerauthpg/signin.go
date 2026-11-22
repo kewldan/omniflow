@@ -45,7 +45,7 @@ func (service *Service) SignInWithMiniApp(
 		return SignInResult{}, ErrTelegramUnset
 	}
 	identity, err := customerauth.VerifyMiniAppInitData(
-		initData, service.botToken, service.now(), customerauth.TelegramMaxAge,
+		initData, service.botToken, service.now(), customerauth.MiniAppMaxAge,
 	)
 	if err != nil {
 		return SignInResult{}, ErrSignInRejected

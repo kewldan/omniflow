@@ -35,6 +35,13 @@ var (
 // shorter than any window worth capturing for.
 const TelegramMaxAge = time.Minute
 
+// MiniAppMaxAge is how long a Mini App's launch data stays acceptable. Its
+// auth_date is when Telegram opened the Mini App, not when the page asks, and
+// a Mini App reopened from the background keeps the data it was launched
+// with, so the widget's minute would refuse a customer who came back to it.
+// The data lives only inside the Telegram client's web view.
+const MiniAppMaxAge = time.Hour
+
 // telegramClockSkew tolerates a client whose clock runs slightly ahead. Without
 // it, a user whose machine is a few seconds fast cannot sign in at all.
 const telegramClockSkew = 30 * time.Second
@@ -85,7 +92,7 @@ func VerifyLoginWidget(
 		return TelegramIdentity{}, ErrTelegramSignature
 	}
 	secret := sha256.Sum256([]byte(botToken))
-	if err := verifyTelegramHash(values, secret[:], values.Get("hash")); err != nil {
+	if err := verifyTelegramHash(values, secret[:], values.Get("hash"), true); err != nil {
 		return TelegramIdentity{}, err
 	}
 
@@ -131,8 +138,20 @@ func VerifyMiniAppInitData(
 
 	mac := hmac.New(sha256.New, []byte("WebAppData"))
 	mac.Write([]byte(botToken))
-	if err = verifyTelegramHash(values, mac.Sum(nil), values.Get("hash")); err != nil {
-		return TelegramIdentity{}, err
+	secret := mac.Sum(nil)
+	// Telegram's bot-token check covers every field but the hash — the
+	// Ed25519 `signature` included; only the third-party check leaves the
+	// signature out. Clients that send one sign over it, so leaving it out
+	// refused every current client. A payload whose hash was computed without
+	// it is still accepted: the key is the bot's either way, and the field is
+	// never read.
+	if err = verifyTelegramHash(values, secret, values.Get("hash"), true); err != nil {
+		if values.Get("signature") == "" || !errors.Is(err, ErrTelegramSignature) {
+			return TelegramIdentity{}, err
+		}
+		if err = verifyTelegramHash(values, secret, values.Get("hash"), false); err != nil {
+			return TelegramIdentity{}, err
+		}
 	}
 
 	// The user is a JSON document inside the signed payload rather than flat
@@ -167,9 +186,9 @@ func VerifyMiniAppInitData(
 // Every received field except the hash itself participates, which is the whole
 // point: a field Telegram adds later is covered automatically, and a field an
 // attacker appends invalidates the payload rather than riding along unchecked.
-// `signature` is the one other exclusion — it is Telegram's separate Ed25519
-// attestation for third parties and is not part of the HMAC check string.
-func verifyTelegramHash(values url.Values, secret []byte, provided string) error {
+// `signature` is Telegram's Ed25519 attestation for third parties; withSignature
+// says whether it is part of the check string (see VerifyMiniAppInitData).
+func verifyTelegramHash(values url.Values, secret []byte, provided string, withSignature bool) error {
 	if provided == "" {
 		return ErrTelegramMalformed
 	}
@@ -180,7 +199,7 @@ func verifyTelegramHash(values url.Values, secret []byte, provided string) error
 
 	pairs := make([]string, 0, len(values))
 	for key, entries := range values {
-		if key == "hash" || key == "signature" || len(entries) == 0 {
+		if key == "hash" || (key == "signature" && !withSignature) || len(entries) == 0 {
 			continue
 		}
 		pairs = append(pairs, key+"="+entries[0])

@@ -126,9 +126,16 @@ matters: the HMAC key is `HMAC-SHA256("WebAppData", botToken)` rather than a pla
 token. The two paths stay separate in code rather than sharing a helper that guesses which is which,
 because using the widget's key here would verify nothing.
 
-Both checks bound `auth_date` to **one minute** (with 30 seconds of tolerance for a fast client
-clock). The hash never expires on its own, so without that bound a payload captured once — from a
-browser history entry, a referrer, a screenshot of a URL — would authenticate forever.
+The check string is every received field except `hash`, sorted — the Ed25519 `signature` current
+clients add included, as Telegram's bot-token rule has it; only Telegram's third-party check leaves
+the signature out. A hash computed without the signature is accepted as well, since the key is the
+bot's either way and the field is never read.
+
+The widget bounds `auth_date` to **one minute** and the Mini App to **one hour** (each with 30
+seconds of tolerance for a fast client clock). The hash never expires on its own, so without a
+bound a payload captured once — from a browser history entry, a referrer, a screenshot of a URL —
+would authenticate forever. The Mini App's is longer because its `auth_date` is when Telegram
+opened it: a Mini App reopened from the background keeps the data it was launched with.
 
 <Steps>
   <Step title="Set the widget domain">

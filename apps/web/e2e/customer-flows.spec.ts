@@ -223,11 +223,16 @@ function widgetPayload(): Record<string, string | number> {
   return { ...fields, hash: createHmac("sha256", secret).update(check).digest("hex") };
 }
 
-/** Builds Mini App initData, signed under HMAC("WebAppData", token) as Telegram does. */
+/**
+ * Builds Mini App initData, signed under HMAC("WebAppData", token) as Telegram
+ * does: current clients add an Ed25519 `signature`, and the bot-token hash
+ * covers it like every other field but the hash.
+ */
 function miniAppInitData(): string {
   const fields: Record<string, string> = {
     auth_date: String(Math.floor(Date.now() / 1000)),
     query_id: "AAE2e",
+    signature: "c2lnbmF0dXJlLWZyb20tdGVsZWdyYW0",
     user: JSON.stringify({
       first_name: "Mini",
       id: TELEGRAM_ID + 1,

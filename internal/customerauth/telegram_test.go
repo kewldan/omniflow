@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"net/url"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -31,10 +32,16 @@ func signInitData(values url.Values, token string) string {
 	return values.Encode()
 }
 
+// macOver computes the check hash as Telegram does with the bot token: over
+// every field but the hash, the Ed25519 signature included.
 func macOver(values url.Values, secret []byte) []byte {
+	return macOverExcluding(values, secret, "hash")
+}
+
+func macOverExcluding(values url.Values, secret []byte, excluded ...string) []byte {
 	pairs := make([]string, 0, len(values))
 	for key, entries := range values {
-		if key == "hash" || key == "signature" {
+		if slices.Contains(excluded, key) {
 			continue
 		}
 		pairs = append(pairs, key+"="+entries[0])
@@ -215,5 +222,62 @@ func TestDisplayNameFallsBackWhenNamesAreAbsent(t *testing.T) {
 	}
 	if got := (TelegramIdentity{ID: 7}).DisplayName(); got != "7" {
 		t.Fatalf("display name = %q, want 7", got)
+	}
+}
+
+// TestVerifyMiniAppInitDataCoversTheSignature pins Telegram's rule for the
+// bot-token check: a client that sends the Ed25519 signature signs over it,
+// and launch data from such a client must be accepted. An earlier check left
+// the signature out and refused every current client.
+func TestVerifyMiniAppInitDataCoversTheSignature(t *testing.T) {
+	now := time.Now().UTC()
+	values := url.Values{
+		"user":      {`{"id":4820194,"first_name":"Alexey"}`},
+		"auth_date": {strconv.FormatInt(now.Unix(), 10)},
+		"query_id":  {"AAH"},
+		"signature": {"c2lnbmF0dXJl"},
+	}
+	initData := signInitData(values, testBotToken)
+	if _, err := VerifyMiniAppInitData(initData, testBotToken, now, MiniAppMaxAge); err != nil {
+		t.Fatalf("launch data signed over its signature was refused: %v", err)
+	}
+
+	// A hash computed without the signature is still the bot's, and accepted.
+	key := hmac.New(sha256.New, []byte("WebAppData"))
+	key.Write([]byte(testBotToken))
+	legacy := url.Values{}
+	for name, entries := range values {
+		if name != "hash" {
+			legacy[name] = entries
+		}
+	}
+	legacy.Set("hash", hex.EncodeToString(macOverExcluding(legacy, key.Sum(nil), "hash", "signature")))
+	if _, err := VerifyMiniAppInitData(legacy.Encode(), testBotToken, now, MiniAppMaxAge); err != nil {
+		t.Fatalf("launch data hashed without its signature was refused: %v", err)
+	}
+
+	// Changing the signature after signing breaks the hash.
+	tampered, _ := url.ParseQuery(initData)
+	tampered.Set("signature", "b3RoZXI")
+	if _, err := VerifyMiniAppInitData(tampered.Encode(), testBotToken, now, MiniAppMaxAge); err == nil {
+		t.Fatal("a signature changed after signing was accepted")
+	}
+}
+
+// TestMiniAppLaunchDataOutlivesTheWidgetMinute: a Mini App reopened from the
+// background keeps its launch data, so ten minutes later it still signs in,
+// and past the hour it does not.
+func TestMiniAppLaunchDataOutlivesTheWidgetMinute(t *testing.T) {
+	launched := time.Now().UTC().Add(-10 * time.Minute)
+	values := url.Values{
+		"user":      {`{"id":4820194,"first_name":"Alexey"}`},
+		"auth_date": {strconv.FormatInt(launched.Unix(), 10)},
+	}
+	initData := signInitData(values, testBotToken)
+	if _, err := VerifyMiniAppInitData(initData, testBotToken, time.Now().UTC(), MiniAppMaxAge); err != nil {
+		t.Fatalf("ten-minute-old launch data was refused: %v", err)
+	}
+	if _, err := VerifyMiniAppInitData(initData, testBotToken, launched.Add(2*time.Hour), MiniAppMaxAge); !errors.Is(err, ErrTelegramStale) {
+		t.Fatalf("two-hour-old launch data gave %v, want ErrTelegramStale", err)
 	}
 }
