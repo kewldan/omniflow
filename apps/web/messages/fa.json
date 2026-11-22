@@ -5292,7 +5292,9 @@
       "signOutFailed": "خروج انجام نشد. دوباره تلاش کنید.",
       "gifts": "هدیه‌ها",
       "renewal": "تمدید خودکار",
-      "offers": "پیشنهادها"
+      "offers": "پیشنهادها",
+      "copyAccountId": "کپی شناسه حساب",
+      "copied": "کپی شد"
     },
     "actions": {
       "cancel": "لغو",

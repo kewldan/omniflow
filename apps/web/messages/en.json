@@ -5384,7 +5384,9 @@
       "signOutFailed": "Could not sign out. Try again.",
       "gifts": "Gifts",
       "renewal": "Auto-renew",
-      "offers": "Offers"
+      "offers": "Offers",
+      "copyAccountId": "Copy the account ID",
+      "copied": "Copied"
     },
     "actions": {
       "cancel": "Cancel",

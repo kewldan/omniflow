@@ -3,12 +3,22 @@
 import { Button } from "@omniflow/ui/button";
 import { cn } from "@omniflow/ui/lib/utils";
 import {
+  Check,
   ChevronLeft,
+  Copy,
+  Gift,
   Layers,
   LifeBuoy,
   LogOut,
   type LucideIcon,
+  Megaphone,
+  ReceiptText,
+  RefreshCw,
+  ShieldCheck,
+  Smartphone,
   Store,
+  Tag,
+  UserPlus,
   UserRound,
   Wallet,
 } from "lucide-react";
@@ -63,15 +73,15 @@ const LITE_TABS = new Set(["subscriptions", "store", "support"]);
  * reason to make somebody open a settings page to find their own orders, so it
  * lists them directly.
  */
-const SECONDARY: { href: string; key: string }[] = [
-  { href: "/account/orders", key: "orders" },
-  { href: "/account/devices", key: "devices" },
-  { href: "/account/referrals", key: "referrals" },
-  { href: "/account/gifts", key: "gifts" },
-  { href: "/account/offers", key: "offers" },
-  { href: "/account/renewal", key: "renewal" },
-  { href: "/account/news", key: "news" },
-  { href: "/account/security", key: "security" },
+const SECONDARY: { href: string; icon: LucideIcon; key: string }[] = [
+  { href: "/account/orders", icon: ReceiptText, key: "orders" },
+  { href: "/account/devices", icon: Smartphone, key: "devices" },
+  { href: "/account/referrals", icon: UserPlus, key: "referrals" },
+  { href: "/account/gifts", icon: Gift, key: "gifts" },
+  { href: "/account/offers", icon: Tag, key: "offers" },
+  { href: "/account/renewal", icon: RefreshCw, key: "renewal" },
+  { href: "/account/news", icon: Megaphone, key: "news" },
+  { href: "/account/security", icon: ShieldCheck, key: "security" },
 ];
 
 /**
@@ -282,14 +292,11 @@ function DesktopSidebar({
             {translate("nav.more")}
           </p>
         )}
-        {/* The secondary group carries no icons. Five more glyphs would cost
-            every account route their bytes for a list whose labels already say
-            what each destination is — the shell is in every bundle, so what it
-            imports is charged to screens that never render it. */}
         <ul className="flex flex-col gap-0.5">
           {(lite ? [] : SECONDARY).map((item) => (
             <SidebarLink
               href={item.href}
+              icon={item.icon}
               key={item.href}
               label={translate(`nav.${item.key}`)}
               pathname={pathname}
@@ -339,26 +346,47 @@ function SidebarLink({
  * Who is signed in, and the way out.
  *
  * The identifier is here because it is the one thing support will ask for and
- * the panel never used to show. It is rendered whole rather than truncated: a
- * shortened reference that has to be expanded before it can be quoted is not an
- * identifier, it is a hint.
+ * the panel never used to show. It is shown by its ends, which are enough to
+ * recognise it, and a tap copies all of it, which is how it reaches support.
  */
 function AccountFooter({ customerId }: { customerId: string }) {
   const translate = useTranslations("account");
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   return (
     <div className="border-chrome-border border-t px-3 py-3">
       <div className="flex items-start gap-2.5 px-2 pb-2">
         <AccountPicture />
-        <div className="min-w-0">
+        <button
+          aria-label={translate("nav.copyAccountId")}
+          className="group min-w-0 rounded-md text-left focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+          onClick={() => {
+            void navigator.clipboard?.writeText(customerId).then(
+              () => {
+                setCopied(true);
+                window.setTimeout(() => setCopied(false), 2000);
+              },
+              () => undefined,
+            );
+          }}
+          title={customerId}
+          type="button"
+        >
           <p className="font-medium font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.14em]">
-            {translate("nav.accountId")}
+            {translate(copied ? "nav.copied" : "nav.accountId")}
           </p>
-          <p className="break-all font-mono text-[10.5px] text-muted-foreground">{customerId}</p>
-        </div>
+          <p className="flex items-center gap-1.5 font-mono text-[10.5px] text-muted-foreground group-hover:text-foreground">
+            {`${customerId.slice(0, 8)}…${customerId.slice(-7)}`}
+            {copied ? (
+              <Check aria-hidden className="size-3 text-success" />
+            ) : (
+              <Copy aria-hidden className="size-3 opacity-60" />
+            )}
+          </p>
+        </button>
       </div>
       <Button
         className="w-full justify-start gap-2.5 px-3 text-[13.5px] text-muted-foreground"
