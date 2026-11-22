@@ -30,10 +30,12 @@ test.describe("command palette", () => {
     const palette = page.getByRole("dialog");
     await expect(palette).toBeVisible();
 
-    // A Telegram handle is the one thing operators try first that Omniflow
-    // cannot find, and the palette must say why rather than "nothing matched".
+    // A Telegram handle nobody has on file is the miss operators hit first,
+    // and the palette must say why rather than "nothing matched".
     await palette.getByRole("combobox").fill("@somebody_here");
-    await expect(palette.getByText(/usernames are not stored|не хранятся/i)).toBeVisible();
+    await expect(
+      palette.getByText(/used the bot recently|недавно пользовались ботом/i),
+    ).toBeVisible();
 
     // Screens are still found by name.
     await palette.getByRole("combobox").fill("operators");
