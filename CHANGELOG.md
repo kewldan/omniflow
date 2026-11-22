@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.2](https://github.com/kewldan/omniflow/compare/omniflow-v1.6.1...omniflow-v1.6.2) (2026-11-22)
+
+
+### Bug Fixes
+
+* **admin:** the sidebar scrolls on its own ([43d5b43](https://github.com/kewldan/omniflow/commit/43d5b434beb7cd92677d5236295d48c740ffa441))
+
 ## [1.6.1](https://github.com/kewldan/omniflow/compare/omniflow-v1.6.0...omniflow-v1.6.1) (2026-11-22)
 
 
