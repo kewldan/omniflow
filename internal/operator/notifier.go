@@ -1,10 +1,12 @@
 // Package operator delivers operational notices to a Telegram group and lets an
 // operator run backup and restore actions from the bot.
 //
-// Everything it sends is deliberately content-free: an operator notice names the
-// event, the amounts, the plan, the customer's Telegram handle, and identifiers
-// an operator can open in the panel. It never carries customer text, a
-// subscription link, a token, or a payment payload.
+// An operator notice names the event, the amounts, the plan, the customer's
+// Telegram name and handle, and identifiers an operator can open in the panel.
+// The one piece of customer text it carries is a support ticket's subject and
+// message, read from the database when the notice is sent, because the group is
+// where the desk answers it; the support section can turn that off. It never
+// carries a subscription link, a token, or a payment payload.
 package operator
 
 import (
@@ -105,6 +107,13 @@ type Config struct {
 	Locale string
 	// Location is the installation's timezone, which notice times are in.
 	Location *time.Location
+	// Actions adds the buttons that act from the chat: close a ticket, block
+	// a customer, retry a delivery. The bot sets it, since the bot answers
+	// them.
+	Actions bool
+	// HideTicketText leaves a ticket's subject and message out of support
+	// notices; the support section's notifyIncludeText turns it on.
+	HideTicketText bool
 }
 
 // Notifier owns topic binding and delivery.
@@ -158,6 +167,7 @@ func (notifier *Notifier) effective(ctx context.Context) Config {
 	if !support.Bool("notifyCustomerReply", true) {
 		config.MutedSupport = append(config.MutedSupport, "customer_reply")
 	}
+	config.HideTicketText = !support.Bool("notifyIncludeText", !config.HideTicketText)
 	return config
 }
 
@@ -214,7 +224,9 @@ func (notifier *Notifier) Run(ctx context.Context) {
 	for {
 		config := notifier.effective(ctx)
 		switch {
-		case config.ChatID != 0 && config.ChatID != bound && !config.Flat:
+		case config.ChatID != 0 && !config.Flat && (config.ChatID != bound || notifier.topicsPending(ctx, config.ChatID)):
+			// A new group, or topics the panel asked to recreate: create
+			// whatever is missing and save each thread ID in the routing.
 			if err := notifier.EnsureTopics(ctx); err != nil {
 				notifier.logger.Error("operator topic binding failed", "error", err)
 			}
@@ -363,10 +375,29 @@ func (notifier *Notifier) EnsureTopics(ctx context.Context) error {
 	return nil
 }
 
+// topicsPending reports whether a topic of the group is waiting to be
+// created: a kind added since the topics were made, or a topic the panel
+// asked to recreate. A failed topic is not pending; it waits for the panel's
+// "recreate" or a new group, so a missing permission is not retried every
+// ten seconds.
+func (notifier *Notifier) topicsPending(ctx context.Context, chat int64) bool {
+	var bound, pending int
+	err := notifier.pool.QueryRow(ctx, `SELECT count(*) FILTER (WHERE status <> 'pending'),
+			count(*) FILTER (WHERE status = 'pending')
+		FROM operator_topics WHERE chat_id = $1`, chat).Scan(&bound, &pending)
+	if err != nil {
+		return false
+	}
+	return pending > 0 || bound+pending < len(Kinds)
+}
+
 // createTopic creates one forum topic and records the binding, or records why it
 // could not be created.
 func (notifier *Notifier) createTopic(ctx context.Context, queries *dbgen.Queries, kind string) (dbgen.OperatorTopic, error) {
-	created, err := notifier.client.CreateForumTopic(ctx, &telegram.CreateForumTopicParams{ChatID: notifier.effective(ctx).ChatID, Name: topicNames[kind]})
+	config := notifier.effective(ctx)
+	created, err := notifier.client.CreateForumTopic(ctx, &telegram.CreateForumTopicParams{
+		ChatID: config.ChatID, Name: topicTitle(kind, config.Locale),
+	})
 	if err != nil {
 		code := classifyTopicError(err)
 		if _, failErr := queries.FailOperatorTopic(ctx, dbgen.FailOperatorTopicParams{Kind: kind, LastErrorCode: pgtype.Text{String: code, Valid: true}}); failErr != nil {
@@ -546,6 +577,15 @@ func (notifier *Notifier) render(ctx context.Context, config Config, notificatio
 	if notification.Kind == "report" {
 		return renderReport(notification, payload), nil
 	}
+	// The dedupe key names the record a few triggers did not put in the
+	// payload: the reply a customer-reply notice is about, the delivery
+	// operation a failure notice is about.
+	if id, found := strings.CutPrefix(notification.DedupeKey, "reply:"); found && notification.Kind == "support" {
+		payload["messageId"] = id
+	}
+	if id, found := strings.CutPrefix(notification.DedupeKey, "operation:"); found && notification.Kind == "fulfillment_failure" {
+		payload["operationId"] = id
+	}
 	text, markup := RenderNotice(ctx, notifier.pool, notification.Kind, payload, notification.CreatedAt.Time, config)
 	if markup == nil {
 		return text, nil
@@ -563,6 +603,7 @@ func RenderNotice(
 	return renderNotice(renderInput{
 		Kind: kind, Payload: payload, Facts: lookupFacts(ctx, pool, payload, config.Locale),
 		At: at, Locale: config.Locale, Location: config.Location, PanelURL: config.PanelURL,
+		Actions: config.Actions, HideTicketText: config.HideTicketText,
 	})
 }
 

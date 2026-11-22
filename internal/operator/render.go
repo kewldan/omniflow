@@ -4,24 +4,31 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
-	"math"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/go-telegram/bot/models"
-	"github.com/omniflow/omniflow/internal/payments"
 )
 
 // Readable notices.
 //
-// A notice is read in a chat by somebody deciding whether to act, so it says
-// what happened in words, with the amount as money, the customer as the handle
-// an operator recognises, the time in the installation's own timezone, and a
-// button to the record. What it may say is unchanged: identifiers, amounts,
-// plan names, and the customer's Telegram handle — never anything a customer
-// wrote, an operator's address, a token, or a provider payload.
+// A notice is read in a chat by somebody deciding whether to act, so it is
+// laid out the way the previous bot laid it out: a short header in capitals,
+// then one line per fact with an emoji and a bold label, the time, and the
+// buttons that make sense for the event — the customer's Telegram, their card
+// in the panel, the order, and the few actions that are safe to take from a
+// chat. Plain HTML only: bold labels, emoji, and line breaks.
+//
+// What a notice may say: identifiers, amounts, plan names, the customer's
+// Telegram name and handle, and — for a support ticket, unless the support
+// section turns it off — the subject and the customer's message, because the
+// person reading the group is the person who will answer it. Never an
+// operator's address, a token, a subscription link, or a provider payload.
 
 // noticeFacts is what the dispatcher looked up in the database for a notice:
 // the order, the customer, and the ticket it names. Every part is optional; a
@@ -51,6 +58,10 @@ type customerFacts struct {
 	ID         string
 	TelegramID int64
 	Username   string
+	FirstName  string
+	LastName   string
+	// Status is the customer's account status: "active", "suspended", …
+	Status string
 	// Payments counts the provider-settled orders and a previous bot's
 	// payments, the current one included.
 	Payments int64
@@ -65,6 +76,11 @@ type ticketFacts struct {
 	Priority   string
 	Status     string
 	CustomerID string
+	Subject    string
+	CreatedAt  time.Time
+	// Message is the customer's message the notice is about: the opening one
+	// for a new ticket, the reply for a reply.
+	Message string
 }
 
 // renderInput is one notice to render.
@@ -76,6 +92,11 @@ type renderInput struct {
 	Locale   string
 	Location *time.Location
 	PanelURL string
+	// Actions adds the buttons that act from the chat (close a ticket, block
+	// a customer, retry a delivery). Only the bot, which answers them, sets it.
+	Actions bool
+	// HideTicketText leaves the ticket's subject and message out.
+	HideTicketText bool
 }
 
 // phrase is one string in the two languages the operator group speaks.
@@ -118,248 +139,189 @@ func (input renderInput) num(key string) (int64, bool) {
 
 // notice is a rendered message under construction.
 type notice struct {
-	input   renderInput
-	title   string
-	lines   []string
-	buttons []models.InlineKeyboardButton
+	input renderInput
+	// title is HTML-escaped text; finish writes it in capitals.
+	title string
+	// keepCase leaves the title as written, for a header that carries a
+	// product name and a version.
+	keepCase bool
+	// subtitle is a plain line under the title.
+	subtitle string
+	lines    []string
+	// stamp labels the time line; "Time" when empty.
+	stamp phrase
+	// at overrides the notice's time, e.g. with the ticket's creation time.
+	at time.Time
+	// links are URL buttons, two to a row; actions are callback buttons, one
+	// to a row, under the links.
+	links   []models.InlineKeyboardButton
+	actions []models.InlineKeyboardButton
 }
 
+// field writes "emoji <b>Label:</b> value". An empty value writes nothing.
+func (n *notice) field(emoji string, label phrase, value string) {
+	if strings.TrimSpace(value) == "" {
+		return
+	}
+	n.lines = append(n.lines, emoji+" <b>"+n.input.say(label)+":</b> "+value)
+}
+
+// block writes a label on its own line with the value under it, for text
+// longer than a line.
+func (n *notice) block(emoji string, label phrase, value string) {
+	if strings.TrimSpace(value) == "" {
+		return
+	}
+	n.lines = append(n.lines, emoji+" <b>"+n.input.say(label)+":</b>\n"+value)
+}
+
+// line writes an unlabelled line.
 func (n *notice) line(emoji, text string) {
 	if strings.TrimSpace(text) != "" {
 		n.lines = append(n.lines, emoji+" "+text)
 	}
 }
 
+// button links a page of the panel. It is left out when the panel has no
+// HTTPS address, since Telegram refuses anything else.
 func (n *notice) button(text, path string) {
 	base := strings.TrimSuffix(strings.TrimSpace(n.input.PanelURL), "/")
 	if !strings.HasPrefix(base, "https://") || path == "" {
 		return
 	}
-	for _, existing := range n.buttons {
-		if existing.URL == base+path {
+	n.link(text, base+path)
+}
+
+// link adds a URL button to any HTTPS address, once.
+func (n *notice) link(text, target string) {
+	if !strings.HasPrefix(target, "https://") {
+		return
+	}
+	for _, existing := range n.links {
+		if existing.URL == target {
 			return
 		}
 	}
-	n.buttons = append(n.buttons, models.InlineKeyboardButton{Text: text, URL: base + path})
+	n.links = append(n.links, models.InlineKeyboardButton{Text: text, URL: target})
 }
 
-func (n *notice) link(text, target string) {
-	if strings.HasPrefix(target, "https://") {
-		n.buttons = append(n.buttons, models.InlineKeyboardButton{Text: text, URL: target})
+// action adds a button the bot answers in the chat.
+func (n *notice) action(text, action, id string) {
+	if !n.input.Actions || id == "" {
+		return
 	}
+	n.actions = append(n.actions, models.InlineKeyboardButton{Text: text, CallbackData: ActionData(action, id)})
 }
 
 func (n *notice) finish() (string, *models.InlineKeyboardMarkup) {
 	builder := &strings.Builder{}
-	builder.WriteString("<b>" + n.title + "</b>\n\n")
+	title := n.title
+	if !n.keepCase {
+		title = upperText(title)
+	}
+	builder.WriteString("<b>" + title + "</b>\n")
+	if n.subtitle != "" {
+		builder.WriteString(n.subtitle + "\n")
+	}
+	builder.WriteString("\n")
 	for _, line := range n.lines {
 		builder.WriteString(line + "\n")
 	}
-	builder.WriteString("\n🕐 " + n.input.when())
-	var markup *models.InlineKeyboardMarkup
-	if len(n.buttons) > 0 {
-		rows := [][]models.InlineKeyboardButton{}
-		for start := 0; start < len(n.buttons); start += 2 {
-			rows = append(rows, n.buttons[start:min(start+2, len(n.buttons))])
-		}
-		markup = &models.InlineKeyboardMarkup{InlineKeyboard: rows}
+	stamp := n.stamp
+	if stamp.en == "" {
+		stamp = phrase{"Time", "Время"}
 	}
-	return builder.String(), markup
+	input := n.input
+	if !n.at.IsZero() {
+		input.At = n.at
+	}
+	builder.WriteString("📅 <b>" + n.input.say(stamp) + ":</b> " + input.when())
+	return builder.String(), noticeMarkup(n.links, n.actions)
 }
 
-var monthsRU = []string{"янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"}
-
-// when is the notice's time in the installation's timezone.
-func (input renderInput) when() string {
-	location := input.Location
-	if location == nil {
-		location = time.UTC
+// noticeMarkup lays the buttons out: links two to a row, then each action on
+// a row of its own, the way the previous bot's notices looked.
+func noticeMarkup(links, actions []models.InlineKeyboardButton) *models.InlineKeyboardMarkup {
+	if len(links) == 0 && len(actions) == 0 {
+		return nil
 	}
-	local := input.At.In(location)
-	zone, _ := local.Zone()
-	if input.Locale == "ru" {
-		return fmt.Sprintf("%d %s, %s %s", local.Day(), monthsRU[local.Month()-1], local.Format("15:04"), zone)
+	rows := [][]models.InlineKeyboardButton{}
+	for start := 0; start < len(links); start += 2 {
+		rows = append(rows, links[start:min(start+2, len(links))])
 	}
-	return local.Format("2 Jan, 15:04") + " " + zone
+	for _, action := range actions {
+		rows = append(rows, []models.InlineKeyboardButton{action})
+	}
+	return &models.InlineKeyboardMarkup{InlineKeyboard: rows}
 }
 
-var currencySymbols = map[string]string{"RUB": "₽", "USD": "$", "EUR": "€", "UAH": "₴", "KZT": "₸", "BYN": "Br", "GBP": "£"}
-
-// formatMoney renders minor units as an amount a person reads: "1 490 ₽",
-// "4.99 $", "⭐ 250".
-func formatMoney(minor int64, currency string) string {
-	currency = strings.ToUpper(currency)
-	sign := ""
-	if minor < 0 {
-		sign, minor = "−", -minor
-	}
-	if currency == "XTR" {
-		return sign + "⭐ " + groupDigits(minor)
-	}
-	exponent, err := payments.CurrencyExponent(currency)
-	if err != nil {
-		exponent = 2
-	}
-	scale := int64(math.Pow10(exponent))
-	amount := groupDigits(minor / scale)
-	if fraction := minor % scale; exponent > 0 && fraction != 0 {
-		amount += "." + fmt.Sprintf("%0*d", exponent, fraction)
-	}
-	symbol := currencySymbols[currency]
-	if symbol == "" {
-		symbol = currency
-	}
-	return sign + amount + " " + symbol
-}
-
-// period renders a duration in whole days, months, or years.
-func (input renderInput) period(seconds int64) string {
-	days := seconds / 86400
-	if days <= 0 {
-		return ""
-	}
-	if input.Locale == "ru" {
+// upperText capitalises escaped HTML text without touching its entities:
+// "&amp;" stays "&amp;", which Telegram would not read as "&AMP;".
+func upperText(text string) string {
+	builder := &strings.Builder{}
+	inEntity := false
+	for _, letter := range text {
 		switch {
-		case days%365 == 0:
-			return pluralRU(days/365, "год", "года", "лет")
-		case days%30 == 0:
-			return pluralRU(days/30, "месяц", "месяца", "месяцев")
-		default:
-			return pluralRU(days, "день", "дня", "дней")
+		case letter == '&':
+			inEntity = true
+		case inEntity && letter == ';':
+			inEntity = false
+		case !inEntity:
+			letter = unicode.ToUpper(letter)
 		}
+		builder.WriteRune(letter)
 	}
-	unit := func(count int64, one, many string) string {
-		if count == 1 {
-			return "1 " + one
-		}
-		return strconv.FormatInt(count, 10) + " " + many
-	}
-	switch {
-	case days%365 == 0:
-		return unit(days/365, "year", "years")
-	case days%30 == 0:
-		return unit(days/30, "month", "months")
-	default:
-		return unit(days, "day", "days")
-	}
+	return builder.String()
 }
 
-func pluralRU(count int64, one, few, many string) string {
-	form := many
-	switch remainder := count % 100; {
-	case remainder >= 11 && remainder <= 14:
-	case count%10 == 1:
-		form = one
-	case count%10 >= 2 && count%10 <= 4:
-		form = few
-	}
-	return strconv.FormatInt(count, 10) + " " + form
-}
+// telegramUsername is what Telegram accepts as a public username.
+var telegramUsername = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]{3,31}$`)
 
-// ordinal is "2nd payment" / "2-я оплата".
-func (input renderInput) paymentCount(count int64) string {
-	if count <= 1 {
-		return input.say(phrase{"🆕 first payment", "🆕 первая оплата"})
-	}
-	if input.Locale == "ru" {
-		return fmt.Sprintf("🔁 %d-я оплата", count)
-	}
-	suffix := "th"
-	if count%100 < 11 || count%100 > 13 {
-		switch count % 10 {
-		case 1:
-			suffix = "st"
-		case 2:
-			suffix = "nd"
-		case 3:
-			suffix = "rd"
-		}
-	}
-	return fmt.Sprintf("🔁 %d%s payment", count, suffix)
-}
-
-var providerNames = map[string]string{
-	"yookassa": "YooKassa", "cryptobot": "CryptoBot", "telegram_stars": "Telegram Stars", "stars": "Telegram Stars",
-	"heleket": "Heleket", "platega": "Platega", "mulenpay": "MulenPay", "pal24": "PayPalych", "wata": "WATA",
-	"freekassa": "FreeKassa", "tribute": "Tribute", "cloudpayments": "CloudPayments", "manual": "manual",
-	"stripe": "Stripe", "robokassa": "Robokassa", "lava": "Lava", "kassa_ai": "Kassa AI", "overpay": "Overpay",
-	"antilopay": "Antilopay", "riopay": "RioPay", "severpay": "SeverPay", "paypear": "PayPear", "rollypay": "RollyPay",
-	"aurapay": "AuraPay", "fragment_direct": "Fragment", "fragment": "Fragment", "wallet": "wallet",
-	"cashera": "Cashera", "paritypay": "ParityPay", "payhot": "PayHot", "cispay": "CISPay", "anore": "Anore",
-	"donut": "Donut", "etoplatezhi": "Это Платежи", "jupiter": "Jupiter", "tabpay": "TabPay",
-}
-
-var paymentMethodNames = map[string]phrase{
-	"sbp": {"SBP", "СБП"}, "card": {"card", "карта"}, "bank_card": {"card", "карта"},
-	"sberpay": {"SberPay", "SberPay"}, "sber_pay": {"SberPay", "SberPay"}, "tpay": {"T-Pay", "T-Pay"},
-	"tinkoff_pay": {"T-Pay", "T-Pay"}, "yoo_money": {"YooMoney", "ЮMoney"}, "yoomoney": {"YooMoney", "ЮMoney"},
-	"crypto": {"crypto", "криптовалюта"}, "usdt": {"USDT", "USDT"}, "ton": {"TON", "TON"}, "qr": {"QR", "QR"},
-}
-
-// via is "YooKassa · SBP": the provider and, when there is one, the method.
-func (input renderInput) via(provider, method string) string {
-	text := providerName(provider)
-	if method != "" {
-		if name, ok := paymentMethodNames[strings.ToLower(method)]; ok {
-			text += " · " + input.say(name)
-		} else {
-			text += " · " + method
-		}
-	}
-	return html.EscapeString(text)
-}
-
-func providerName(slug string) string {
-	if name := providerNames[strings.ToLower(slug)]; name != "" {
-		return name
-	}
-	return slug
-}
-
-// humanize turns an identifier like "payment_needs_attention" into words.
-func humanize(value string) string {
-	value = strings.NewReplacer("_", " ", ".", " ", "-", " ").Replace(value)
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return ""
-	}
-	return strings.ToUpper(value[:1]) + value[1:]
-}
-
-func code(value string) string { return "<code>" + html.EscapeString(value) + "</code>" }
-
-func shortID(id string) string {
-	if len(id) > 8 {
-		return id[:8]
-	}
-	return id
-}
-
-// customerLine names the customer: their Telegram handle and ID, or the
-// customer ID when the account has no Telegram.
+// customer writes who the notice is about — their Telegram name, ID, and
+// handle — and links their Telegram and their card in the panel.
 func (n *notice) customer(customerID string) {
 	facts := n.input.Facts.Customer
 	if facts != nil && facts.ID != "" {
 		customerID = facts.ID
 	}
-	parts := []string{}
+	if facts == nil && customerID == "" {
+		return
+	}
+	name := ""
 	if facts != nil {
-		if facts.Username != "" {
-			parts = append(parts, "@"+html.EscapeString(facts.Username))
-		}
-		if facts.TelegramID != 0 {
-			parts = append(parts, code(strconv.FormatInt(facts.TelegramID, 10)))
-		}
+		name = strings.TrimSpace(facts.FirstName + " " + facts.LastName)
 	}
-	if len(parts) == 0 && customerID != "" {
-		parts = append(parts, code(shortID(customerID)))
+	switch {
+	case name != "":
+		n.field("👤", phrase{"Customer", "Пользователь"}, html.EscapeString(name))
+	case facts == nil || facts.TelegramID == 0 && facts.Username == "":
+		n.field("👤", phrase{"Customer", "Пользователь"}, code(shortID(customerID)))
 	}
-	if len(parts) > 0 {
-		n.line("👤", strings.Join(parts, " · "))
+	if facts != nil && facts.TelegramID != 0 {
+		n.field("🆔", phrase{"Telegram ID", "Telegram ID"}, code(strconv.FormatInt(facts.TelegramID, 10)))
+	}
+	if facts != nil && facts.Username != "" {
+		n.field("📱", phrase{"Username", "Username"}, "@"+html.EscapeString(facts.Username))
+		if telegramUsername.MatchString(facts.Username) {
+			n.link(n.input.say(phrase{"✉️ DM", "✉️ ЛС"}), "https://t.me/"+facts.Username)
+		}
 	}
 	if customerID != "" {
-		n.button(n.input.say(phrase{"👤 Customer", "👤 Клиент"}), "/admin/customers/"+url.PathEscape(customerID))
+		n.button(n.input.say(phrase{"👤 Profile", "👤 Профиль"}), "/admin/customers/"+url.PathEscape(customerID))
 	}
+}
+
+// blockAction offers to block the customer, or to unblock one who is.
+func (n *notice) blockAction(customerID string) {
+	facts := n.input.Facts.Customer
+	if facts != nil && facts.ID != "" {
+		customerID = facts.ID
+	}
+	if facts != nil && facts.Status == "suspended" {
+		n.action(n.input.say(phrase{"✅ Unblock", "✅ Разблокировать"}), ActionUnblock, customerID)
+		return
+	}
+	n.action(n.input.say(phrase{"🚫 Block", "🚫 Заблокировать"}), ActionBlock, customerID)
 }
 
 func (n *notice) orderButton(orderID string) {
@@ -368,17 +330,20 @@ func (n *notice) orderButton(orderID string) {
 	}
 }
 
+func (n *notice) orderField(orderID string) {
+	if orderID != "" {
+		n.field("🧾", phrase{"Order", "Заказ"}, code(shortID(orderID)))
+	}
+}
+
 // orderLines writes what an order bought and how it was paid.
 func (n *notice) orderLines(order *orderFacts, amountMinor int64, currency string) {
 	if order != nil {
-		plan := html.EscapeString(order.PlanName)
-		if plan != "" {
+		if plan := html.EscapeString(order.PlanName); plan != "" {
 			if period := n.input.period(order.PeriodSeconds); period != "" {
-				plan = "<b>" + plan + "</b> · " + period
-			} else {
-				plan = "<b>" + plan + "</b>"
+				plan += " · " + period
 			}
-			n.line("📦", plan)
+			n.field("📦", phrase{"Plan", "Тариф"}, plan)
 		}
 		if currency == "" {
 			currency = order.Currency
@@ -388,37 +353,50 @@ func (n *notice) orderLines(order *orderFacts, amountMinor int64, currency strin
 		}
 	}
 	if amountMinor > 0 && currency != "" {
-		paid := n.input.say(phrase{"Paid", "Оплачено"}) + ": <b>" + formatMoney(amountMinor, currency) + "</b>"
-		if order != nil && order.Provider != "" {
-			paid += " " + n.input.say(phrase{"via", "через"}) + " " + n.input.via(order.Provider, order.Method)
-		}
-		n.line("💰", paid)
+		n.field("💰", phrase{"Paid", "Оплачено"}, "<b>"+formatMoney(amountMinor, currency)+"</b>")
 	}
 	if order == nil {
 		return
 	}
+	if order.Provider != "" {
+		n.field("💳", phrase{"Method", "Способ"}, n.input.via(order.Provider, order.Method))
+	}
 	if order.WalletMinor > 0 {
-		n.line("👛", n.input.say(phrase{"From the wallet", "С баланса"})+": "+formatMoney(order.WalletMinor, order.Currency))
+		n.field("👛", phrase{"From the wallet", "С баланса"}, formatMoney(order.WalletMinor, order.Currency))
 	}
 	if order.DiscountMinor > 0 {
-		discount := n.input.say(phrase{"Discount", "Скидка"}) + ": −" + formatMoney(order.DiscountMinor, order.Currency)
+		discount := "−" + formatMoney(order.DiscountMinor, order.Currency)
 		if order.PromoCode != "" {
 			discount += " · " + n.input.say(phrase{"promo", "промокод"}) + " " + code(order.PromoCode)
 		}
-		n.line("🏷", discount)
+		n.field("🏷", phrase{"Discount", "Скидка"}, discount)
 	}
 }
 
 func (n *notice) paymentNumber() {
 	if facts := n.input.Facts.Customer; facts != nil && facts.Payments > 0 {
-		n.lines = append(n.lines, n.input.paymentCount(facts.Payments))
+		emoji := "🔁"
+		if facts.Payments == 1 {
+			emoji = "🆕"
+		}
+		n.field(emoji, phrase{"Payment", "Оплата"}, n.input.paymentCount(facts.Payments))
 	}
 }
 
-func (n *notice) walletBalance() {
-	if facts := n.input.Facts.Customer; facts != nil && facts.WalletCurrency != "" {
-		n.line("💼", n.input.say(phrase{"Balance now", "Баланс теперь"})+": <b>"+formatMoney(facts.WalletMinor, facts.WalletCurrency)+"</b>")
+// walletBalance writes the balance after a credit: "250 ₽ → 750 ₽" when the
+// balance before can be told, the balance now otherwise.
+func (n *notice) walletBalance(credited int64, currency string) {
+	facts := n.input.Facts.Customer
+	if facts == nil || facts.WalletCurrency == "" {
+		return
 	}
+	now := "<b>" + formatMoney(facts.WalletMinor, facts.WalletCurrency) + "</b>"
+	before := facts.WalletMinor - credited
+	if credited > 0 && strings.EqualFold(currency, facts.WalletCurrency) && before >= 0 {
+		n.field("💼", phrase{"Balance", "Баланс"}, formatMoney(before, facts.WalletCurrency)+" → "+now)
+		return
+	}
+	n.field("💼", phrase{"Balance now", "Баланс сейчас"}, now)
 }
 
 // renderNotice renders any operator notice except the shop sale and the
@@ -431,6 +409,9 @@ func renderNotice(input renderInput) (string, *models.InlineKeyboardMarkup) {
 	customerID := input.str("customerId")
 	if customerID == "" && input.Facts.Ticket != nil {
 		customerID = input.Facts.Ticket.CustomerID
+	}
+	if customerID == "" && input.Facts.Customer != nil {
+		customerID = input.Facts.Customer.ID
 	}
 	amount, _ := input.num("amountMinor")
 	currency := input.str("currency")
@@ -458,20 +439,22 @@ func renderNotice(input renderInput) (string, *models.InlineKeyboardMarkup) {
 		n.title = input.say(phrase{"🎁 Trial started", "🎁 Взят пробный период"})
 		n.customer(customerID)
 		n.orderLines(input.Facts.Order, 0, "")
+		n.orderField(orderID)
 		n.orderButton(orderID)
 	case "promo":
 		n.title = input.say(phrase{"🏷 Promo code used", "🏷 Применён промокод"})
 		n.customer(customerID)
 		if order := input.Facts.Order; order != nil && order.PromoCode != "" {
-			n.line("🎟", code(order.PromoCode))
+			n.field("🎟", phrase{"Code", "Код"}, code(order.PromoCode))
 		}
 		if amount > 0 {
 			discountCurrency := currency
 			if discountCurrency == "" && input.Facts.Order != nil {
 				discountCurrency = input.Facts.Order.Currency
 			}
-			n.line("💸", input.say(phrase{"Discount", "Скидка"})+": <b>−"+formatMoney(amount, discountCurrency)+"</b>")
+			n.field("💸", phrase{"Discount", "Скидка"}, "<b>−"+formatMoney(amount, discountCurrency)+"</b>")
 		}
+		n.orderField(orderID)
 		n.orderButton(orderID)
 	case "partner":
 		n.renderPartner(event, orderID, customerID, amount, currency)
@@ -528,6 +511,7 @@ func (n *notice) renderSale(event, orderID, customerID string, amount int64, cur
 	n.customer(customerID)
 	n.orderLines(n.input.Facts.Order, amount, currency)
 	n.paymentNumber()
+	n.orderField(orderID)
 	n.orderButton(orderID)
 }
 
@@ -538,41 +522,41 @@ func (n *notice) renderTopUp(event, orderID, customerID, currency string) {
 	}
 	switch event {
 	case "bedolaga_payment_credited":
-		n.title = n.input.say(phrase{"👛 Old bot's payment credited", "👛 Зачислен платёж из старого бота"})
+		n.title = n.input.say(phrase{"💰 Old bot's payment credited", "💰 Зачислен платёж из старого бота"})
 	case "bedolaga_payment_needs_review":
 		n.title = n.input.say(phrase{"⚠️ Old bot's payment needs a decision", "⚠️ Платёж из старого бота ждёт решения"})
 	default:
 		switch n.input.str("classification") {
 		case "late":
-			n.title = n.input.say(phrase{"👛 Late top-up credited", "👛 Зачислено запоздавшее пополнение"})
+			n.title = n.input.say(phrase{"💰 Late top-up credited", "💰 Зачислено запоздавшее пополнение"})
 		case "reconciled":
-			n.title = n.input.say(phrase{"👛 Top-up found by reconciliation", "👛 Пополнение найдено сверкой"})
+			n.title = n.input.say(phrase{"💰 Top-up found by reconciliation", "💰 Пополнение найдено сверкой"})
 		default:
-			n.title = n.input.say(phrase{"👛 Wallet top-up", "👛 Пополнение баланса"})
+			n.title = n.input.say(phrase{"💰 Wallet top-up", "💰 Пополнение баланса"})
 		}
 	}
 	n.customer(customerID)
 	if credited != 0 && currency != "" {
-		line := "<b>+" + formatMoney(credited, currency) + "</b>"
-		if provider := n.input.str("provider"); provider != "" {
-			line += " " + n.input.say(phrase{"via", "через"}) + " " + html.EscapeString(providerName(provider))
-		} else if order := n.input.Facts.Order; order != nil && order.Provider != "" {
-			line += " " + n.input.say(phrase{"via", "через"}) + " " + n.input.via(order.Provider, order.Method)
-		}
-		n.line("💰", line)
+		n.field("💵", phrase{"Amount", "Сумма"}, "<b>+"+formatMoney(credited, currency)+"</b>")
+	}
+	if provider := n.input.str("provider"); provider != "" {
+		n.field("💳", phrase{"Method", "Способ"}, html.EscapeString(providerName(provider)))
+	} else if order := n.input.Facts.Order; order != nil && order.Provider != "" {
+		n.field("💳", phrase{"Method", "Способ"}, n.input.via(order.Provider, order.Method))
 	}
 	if event != "bedolaga_payment_needs_review" {
-		n.walletBalance()
+		n.walletBalance(credited, currency)
 	}
 	if reason := n.input.str("reason"); reason != "" {
-		n.line("❓", reasonText(n.input, reason))
+		n.field("❓", phrase{"Why", "Причина"}, reasonText(n.input, reason))
 	}
 	if reference := n.input.str("providerReference"); reference != "" {
-		n.line("🔖", code(reference))
+		n.field("🔖", phrase{"Payment ID", "ID платежа"}, code(reference))
 	}
 	if event == "" {
 		n.paymentNumber()
 	}
+	n.orderField(orderID)
 	n.orderButton(orderID)
 }
 
@@ -619,29 +603,30 @@ func (n *notice) renderRefund(status, orderID, customerID string, amount int64, 
 	}
 	n.customer(customerID)
 	if amount > 0 && currency != "" {
-		line := "<b>−" + formatMoney(amount, currency) + "</b>"
+		value := "<b>−" + formatMoney(amount, currency) + "</b>"
 		if state, ok := refundStates[status]; ok {
-			line += " · " + n.input.say(state)
+			value += " · " + n.input.say(state)
 		}
-		n.line("💸", line)
+		n.field("💸", phrase{"Amount", "Сумма"}, value)
 	}
 	if order := n.input.Facts.Order; order != nil && order.PlanName != "" {
-		n.line("📦", html.EscapeString(order.PlanName))
+		n.field("📦", phrase{"Plan", "Тариф"}, html.EscapeString(order.PlanName))
 	}
 	if operation := n.input.str("operation"); operation != "" {
 		if title, ok := saleTitles[operation]; ok {
-			n.line("🧾", n.input.say(title))
+			n.field("🧾", phrase{"For", "За"}, n.input.say(title))
 		}
 	}
 	if wallet := n.input.str("wallet"); wallet != "" {
-		n.line("👛", n.input.say(phrase{"Wallet", "Баланс"})+": "+html.EscapeString(humanize(wallet)))
+		n.field("👛", phrase{"Wallet", "Баланс"}, html.EscapeString(humanize(wallet)))
 	}
 	if reason := n.input.str("reason"); reason != "" {
-		n.line("❓", reasonText(n.input, reason))
+		n.field("❓", phrase{"Why", "Причина"}, reasonText(n.input, reason))
 	}
 	if errorCode := n.input.str("errorCode"); errorCode != "" {
-		n.line("🧩", code(errorCode))
+		n.field("🧩", phrase{"Error", "Ошибка"}, code(errorCode))
 	}
+	n.orderField(orderID)
 	n.orderButton(orderID)
 }
 
@@ -675,10 +660,10 @@ func (n *notice) renderIncident(status, orderID, customerID string, amount int64
 	}
 	if strings.HasPrefix(status, "maintenance_") {
 		if source := n.input.str("source"); source != "" {
-			n.line("⚙️", reasonText(n.input, source))
+			n.field("⚙️", phrase{"How", "Как"}, reasonText(n.input, source))
 		}
 		if reason := n.input.str("reason"); reason != "" {
-			n.line("📝", html.EscapeString(reason))
+			n.field("📝", phrase{"Reason", "Причина"}, html.EscapeString(reason))
 		}
 		return
 	}
@@ -686,27 +671,25 @@ func (n *notice) renderIncident(status, orderID, customerID string, amount int64
 		n.customer(customerID)
 	}
 	if amount > 0 && currency != "" {
-		line := "<b>" + formatMoney(amount, currency) + "</b>"
-		if provider := n.input.str("provider"); provider != "" {
-			line += " · " + html.EscapeString(providerName(provider))
-		}
-		n.line("💰", line)
-	} else if provider := n.input.str("provider"); provider != "" {
-		n.line("🏦", html.EscapeString(providerName(provider)))
+		n.field("💰", phrase{"Amount", "Сумма"}, "<b>"+formatMoney(amount, currency)+"</b>")
+	}
+	if provider := n.input.str("provider"); provider != "" {
+		n.field("🏦", phrase{"Provider", "Провайдер"}, html.EscapeString(providerName(provider)))
 	}
 	if classification := n.input.str("classification"); classification != "" {
 		if text, ok := classifications[classification]; ok {
-			n.line("🔎", n.input.say(text))
+			n.field("🔎", phrase{"What", "Что"}, n.input.say(text))
 		} else {
-			n.line("🔎", html.EscapeString(humanize(classification)))
+			n.field("🔎", phrase{"What", "Что"}, html.EscapeString(humanize(classification)))
 		}
 	}
 	if reason := n.input.str("reason"); reason != "" {
-		n.line("❓", reasonText(n.input, reason))
+		n.field("❓", phrase{"Why", "Причина"}, reasonText(n.input, reason))
 	}
 	if errorCode := n.input.str("errorCode"); errorCode != "" {
-		n.line("🧩", code(errorCode))
+		n.field("🧩", phrase{"Error", "Ошибка"}, code(errorCode))
 	}
+	n.orderField(orderID)
 	n.orderButton(orderID)
 }
 
@@ -738,27 +721,32 @@ func (n *notice) renderFulfillment(status, orderID, customerID string) {
 	}
 	if operation := n.input.str("operation"); operation != "" {
 		if text, ok := operationNames[operation]; ok {
-			n.line("🔧", n.input.say(text))
+			n.field("🔧", phrase{"Step", "Шаг"}, n.input.say(text))
 		} else {
-			n.line("🔧", html.EscapeString(humanize(operation)))
+			n.field("🔧", phrase{"Step", "Шаг"}, html.EscapeString(humanize(operation)))
 		}
 	}
 	if paid, ok := n.input.num("paidMinor"); ok && paid > 0 {
-		n.line("💰", formatMoney(paid, n.input.str("currency")))
+		n.field("💰", phrase{"Paid", "Оплачено"}, formatMoney(paid, n.input.str("currency")))
 	}
 	if provider := n.input.str("provider"); provider != "" {
-		n.line("🏦", html.EscapeString(providerName(provider)))
+		n.field("🏦", phrase{"Provider", "Провайдер"}, html.EscapeString(providerName(provider)))
 	}
 	if reason := n.input.str("reason"); reason != "" {
-		n.line("❓", reasonText(n.input, reason))
+		n.field("❓", phrase{"Why", "Причина"}, reasonText(n.input, reason))
 	}
 	if errorCode := n.input.str("errorCode"); errorCode != "" {
-		n.line("🧩", code(errorCode))
+		n.field("🧩", phrase{"Error", "Ошибка"}, code(errorCode))
 	}
 	if status == "retrying" {
-		n.line("🔁", n.input.say(phrase{"Retrying automatically", "Повторяется автоматически"}))
+		n.field("🔁", phrase{"Status", "Статус"}, n.input.say(phrase{"retrying automatically", "повторяется автоматически"}))
 	}
+	n.orderField(orderID)
 	n.orderButton(orderID)
+	n.button(n.input.say(phrase{"🛠 Deliveries", "🛠 Выдачи"}), "/admin/system")
+	if operation := n.input.str("operationId"); operation != "" && status == "retrying" {
+		n.action(n.input.say(phrase{"🔁 Retry now", "🔁 Повторить сейчас"}), ActionRetryFulfillment, operation)
+	}
 }
 
 func (n *notice) renderBackup(status string) {
@@ -773,14 +761,15 @@ func (n *notice) renderBackup(status string) {
 		n.title = "💾 " + n.input.say(phrase{"Backup", "Резервная копия"}) + ": " + html.EscapeString(humanize(status))
 	}
 	if file := n.input.str("fileName"); file != "" {
-		n.line("📄", code(file))
+		n.field("📄", phrase{"File", "Файл"}, code(file))
 	}
 	if size, ok := n.input.num("sizeBytes"); ok && size > 0 {
-		n.line("📦", bytesText(size))
+		n.field("📦", phrase{"Size", "Размер"}, bytesText(size))
 	}
 	if source := n.input.str("source"); source != "" {
-		n.line("⚙️", html.EscapeString(humanize(source)))
+		n.field("⚙️", phrase{"Source", "Источник"}, html.EscapeString(humanize(source)))
 	}
+	n.button(n.input.say(phrase{"💾 Backups", "💾 Копии"}), "/admin/settings/operations")
 }
 
 func bytesText(size int64) string {
@@ -830,53 +819,90 @@ func (n *notice) renderSecurity(event, customerID string) {
 	} else {
 		n.title = "🔐 " + html.EscapeString(humanize(strings.TrimPrefix(event, "admin.")))
 	}
+	if admin := n.input.str("adminUserId"); admin != "" {
+		n.field("👮", phrase{"Operator", "Оператор"}, code(shortID(admin)))
+		n.button(n.input.say(phrase{"👮 Operators", "👮 Операторы"}), "/admin/operators")
+	}
 	if method := n.input.str("method"); method != "" {
 		if text, ok := methodNames[method]; ok {
-			n.line("🧭", n.input.say(text))
+			n.field("🧭", phrase{"How", "Как"}, n.input.say(text))
 		} else {
-			n.line("🧭", html.EscapeString(humanize(method)))
+			n.field("🧭", phrase{"How", "Как"}, html.EscapeString(humanize(method)))
 		}
-	}
-	if admin := n.input.str("adminUserId"); admin != "" {
-		n.line("👮", n.input.say(phrase{"Operator", "Оператор"})+" "+code(shortID(admin)))
-		n.button(n.input.say(phrase{"👮 Operators", "👮 Операторы"}), "/admin/operators")
 	}
 	if event == "customer_deletion_requested" {
 		n.customer(customerID)
-		n.line("⏳", n.input.say(phrase{"Waiting for an operator", "Ждёт оператора"}))
+		n.field("⏳", phrase{"Status", "Статус"}, n.input.say(phrase{"waiting for an operator", "ждёт оператора"}))
 	}
+	n.button(n.input.say(phrase{"📜 Audit log", "📜 Журнал аудита"}), "/admin/audit")
 }
 
 var priorityNames = map[string]phrase{
 	"low": {"low", "низкий"}, "normal": {"normal", "обычный"}, "high": {"high", "высокий"}, "urgent": {"🔥 urgent", "🔥 срочный"},
 }
 
+// ticketTextLimit bounds the message a ticket notice quotes. The rest is one
+// tap away in the panel.
+const ticketTextLimit = 800
+
+func clip(text string, limit int) string {
+	text = strings.TrimSpace(text)
+	if utf8.RuneCountInString(text) <= limit {
+		return text
+	}
+	runes := []rune(text)
+	return strings.TrimSpace(string(runes[:limit])) + "…"
+}
+
 func (n *notice) renderSupport(event, customerID string) {
+	ticket := n.input.Facts.Ticket
 	switch event {
 	case "customer_reply":
-		n.title = n.input.say(phrase{"💬 The customer replied", "💬 Клиент ответил"})
+		n.title = n.input.say(phrase{"💬 Customer replied", "💬 Ответ в тикете"})
 	case "sla_breach":
 		n.title = n.input.say(phrase{"⏰ First reply is overdue", "⏰ Просрочен первый ответ"})
 	default:
-		n.title = n.input.say(phrase{"💬 New ticket", "💬 Новое обращение"})
+		n.title = n.input.say(phrase{"🎫 New ticket", "🎫 Новый тикет"})
+		n.stamp = phrase{"Created", "Создан"}
+		if ticket != nil && !ticket.CreatedAt.IsZero() {
+			n.at = ticket.CreatedAt
+		}
+	}
+	ticketID := n.input.str("ticketId")
+	if ticketID == "" && ticket != nil {
+		ticketID = ticket.ID
+	}
+	if ticketID != "" {
+		n.field("🆔", phrase{"ID", "ID"}, code(shortID(ticketID)))
 	}
 	n.customer(customerID)
-	ticket := n.input.Facts.Ticket
 	if ticket != nil && ticket.QueueName != "" {
-		n.line("📂", html.EscapeString(ticket.QueueName))
+		n.field("📂", phrase{"Queue", "Очередь"}, html.EscapeString(ticket.QueueName))
 	}
 	priority := n.input.str("priority")
 	if priority == "" && ticket != nil {
 		priority = ticket.Priority
 	}
 	if text, ok := priorityNames[priority]; ok && priority != "normal" {
-		n.line("⚡", n.input.say(phrase{"Priority", "Приоритет"})+": "+n.input.say(text))
+		n.field("⚡", phrase{"Priority", "Приоритет"}, n.input.say(text))
 	}
 	if overdue, ok := n.input.num("overdueMinutes"); ok && overdue > 0 {
-		n.line("⏱", n.input.say(phrase{"Overdue by", "Просрочено на"})+" <b>"+minutesText(n.input, overdue)+"</b>")
+		n.field("⏱", phrase{"Overdue by", "Просрочено на"}, "<b>"+minutesText(n.input, overdue)+"</b>")
 	}
-	if id := n.input.str("ticketId"); id != "" {
-		n.button(n.input.say(phrase{"💬 Open the ticket", "💬 Открыть обращение"}), "/admin/support?ticketId="+url.QueryEscape(id))
+	if ticket != nil && !n.input.HideTicketText {
+		n.field("📝", phrase{"Subject", "Заголовок"}, html.EscapeString(ticket.Subject))
+		if event != "sla_breach" {
+			n.block("📩", phrase{"Message", "Сообщение"}, html.EscapeString(clip(ticket.Message, ticketTextLimit)))
+		}
+	}
+	if ticketID != "" {
+		n.button(n.input.say(phrase{"💬 Open the ticket", "💬 Открыть тикет"}), "/admin/support?ticketId="+url.QueryEscape(ticketID))
+		if ticket == nil || ticket.Status != "closed" && ticket.Status != "resolved" && ticket.Status != "merged" {
+			n.action(n.input.say(phrase{"🔒 Close the ticket", "🔒 Закрыть тикет"}), ActionCloseTicket, ticketID)
+		}
+	}
+	if customerID != "" {
+		n.blockAction(customerID)
 	}
 }
 
@@ -903,16 +929,14 @@ func (n *notice) renderAnomaly() {
 		mark = "📈"
 	}
 	n.title = mark + " " + n.input.say(phrase{"Anomaly", "Аномалия"}) + ": " + html.EscapeString(humanize(metric))
-	observed, threshold := n.input.str("observed"), n.input.str("threshold")
-	if observed != "" {
-		line := n.input.say(phrase{"Observed", "Сейчас"}) + " <b>" + html.EscapeString(observed) + "</b>"
-		if threshold != "" {
-			line += " · " + n.input.say(phrase{"threshold", "порог"}) + " " + html.EscapeString(threshold)
-		}
-		n.line("📊", line)
+	if observed := n.input.str("observed"); observed != "" {
+		n.field("📊", phrase{"Observed", "Сейчас"}, "<b>"+html.EscapeString(observed)+"</b>")
+	}
+	if threshold := n.input.str("threshold"); threshold != "" {
+		n.field("📏", phrase{"Threshold", "Порог"}, html.EscapeString(threshold))
 	}
 	if subject := n.input.str("subjectType"); subject != "" {
-		n.line("🎯", html.EscapeString(humanize(subject)))
+		n.field("🎯", phrase{"Subject", "Объект"}, html.EscapeString(humanize(subject)))
 	}
 	n.button(n.input.say(phrase{"🛡 Risk review", "🛡 Риски"}), "/admin/risk")
 }
@@ -928,10 +952,10 @@ func (n *notice) renderPartner(event, orderID, customerID string, amount int64, 
 	}
 	n.customer(customerID)
 	if amount > 0 && currency != "" {
-		n.line("💰", "<b>+"+formatMoney(amount, currency)+"</b>")
+		n.field("💰", phrase{"Reward", "Награда"}, "<b>+"+formatMoney(amount, currency)+"</b>")
 	}
 	if order := n.input.Facts.Order; order != nil && order.PaidMinor > 0 {
-		n.line("🧾", n.input.say(phrase{"For an order of", "За заказ на"})+" "+formatMoney(order.PaidMinor, order.Currency))
+		n.field("🧾", phrase{"For an order of", "За заказ на"}, formatMoney(order.PaidMinor, order.Currency))
 	}
 	n.orderButton(orderID)
 }
@@ -947,9 +971,9 @@ func (n *notice) renderMarketing(event, customerID string) {
 	if from == "" {
 		from = "—"
 	}
-	n.line("🔀", code(from)+" → "+code(to))
+	n.field("🔀", phrase{"Tier", "Уровень"}, code(from)+" → "+code(to))
 	if reason := n.input.str("reason"); reason != "" {
-		n.line("❓", reasonText(n.input, reason))
+		n.field("❓", phrase{"Why", "Причина"}, reasonText(n.input, reason))
 	}
 }
 
@@ -978,13 +1002,14 @@ func (n *notice) renderNode(event string) {
 	if node != "" {
 		n.title += " " + html.EscapeString(node)
 	}
-	n.line("📡", html.EscapeString(humanize(strings.TrimPrefix(event, "node."))))
+	n.field("📡", phrase{"Event", "Событие"}, html.EscapeString(humanize(strings.TrimPrefix(event, "node."))))
 	if country := n.input.str("country"); country != "" {
-		n.line(firstNonEmpty(countryFlag(country), "🌍"), html.EscapeString(strings.ToUpper(country)))
+		n.field(firstNonEmpty(countryFlag(country), "🌍"), phrase{"Country", "Страна"}, html.EscapeString(strings.ToUpper(country)))
 	}
 	if provider := n.input.str("provider"); provider != "" {
-		n.line("🏢", html.EscapeString(provider))
+		n.field("🏢", phrase{"Hosting", "Хостинг"}, html.EscapeString(provider))
 	}
+	n.button(n.input.say(phrase{"🖥 System", "🖥 Система"}), "/admin/system")
 }
 
 func firstNonEmpty(values ...string) string {
@@ -1001,23 +1026,26 @@ func (n *notice) renderMonitoring(event, customerID string) {
 	case event == "devices_over_limit":
 		n.title = n.input.say(phrase{"📱 Devices over the limit", "📱 Устройств больше лимита"})
 		if users := n.input.str("users"); users != "" {
-			n.line("👥", n.input.say(phrase{"Customers", "Клиентов"})+": <b>"+html.EscapeString(users)+"</b>")
+			n.field("👥", phrase{"Customers", "Клиентов"}, "<b>"+html.EscapeString(users)+"</b>")
 		}
 		if devices := n.input.str("devices"); devices != "" {
-			n.line("📋", html.EscapeString(devices))
+			n.block("📋", phrase{"Who", "Кто"}, html.EscapeString(devices))
 		}
 	case strings.Contains(strings.ToLower(event), "torrent"):
 		n.title = n.input.say(phrase{"🏴‍☠️ Torrent traffic blocked", "🏴‍☠️ Заблокирован торрент-трафик"})
 		n.customer(customerID)
 		if node := n.input.str("node"); node != "" {
-			n.line("🖥", html.EscapeString(node))
+			n.field("🖥", phrase{"Node", "Нода"}, html.EscapeString(node))
+		}
+		if customerID != "" {
+			n.blockAction(customerID)
 		}
 	default:
 		n.title = "📈 " + html.EscapeString(humanize(event))
 		n.customer(customerID)
 	}
 	if user := n.input.str("remnawaveUserId"); user != "" {
-		n.line("🆔", "Remnawave "+code(user))
+		n.field("🆔", phrase{"Remnawave", "Remnawave"}, code(user))
 	}
 }
 
@@ -1026,13 +1054,13 @@ func (n *notice) renderError() {
 	n.title = "🐞 " + n.input.say(phrase{"Error in", "Ошибка в"}) + " " + html.EscapeString(firstNonEmpty(process, "?"))
 	if occurrences, ok := n.input.num("occurrences"); ok {
 		if occurrences <= 1 {
-			n.line("🆕", n.input.say(phrase{"First time", "Впервые"}))
+			n.field("🆕", phrase{"Seen", "Повторов"}, n.input.say(phrase{"first time", "впервые"}))
 		} else {
-			n.line("🔁", n.input.say(phrase{"Seen", "Повторилась"})+" <b>"+groupDigits(occurrences)+"</b> "+n.input.say(phrase{"times", "раз"}))
+			n.field("🔁", phrase{"Seen", "Повторов"}, "<b>"+groupDigits(occurrences)+"</b>")
 		}
 	}
 	if fingerprint := n.input.str("fingerprint"); fingerprint != "" {
-		n.line("🧬", code(fingerprint))
+		n.field("🧬", phrase{"Fingerprint", "Отпечаток"}, code(fingerprint))
 	}
 	n.button(n.input.say(phrase{"🛠 Error log", "🛠 Журнал ошибок"}), "/admin/system")
 }
@@ -1042,20 +1070,22 @@ func (n *notice) renderInfrastructure(event string) {
 	switch {
 	case event == "update_available":
 		n.title = n.input.say(phrase{"🆕 A new version is out", "🆕 Вышла новая версия"})
-		n.line("📦", code(n.input.str("previousVersion"))+" → <b>"+html.EscapeString(version)+"</b>")
+		n.field("📦", phrase{"Version", "Версия"}, code(n.input.str("previousVersion"))+" → <b>"+html.EscapeString(version)+"</b>")
 		if release := n.input.str("releaseUrl"); release != "" {
 			n.link(n.input.say(phrase{"📝 What changed", "📝 Что нового"}), release)
 		}
+	case event == "bot_started" && n.input.Payload["report"] != nil:
+		n.renderStartReport()
 	case strings.HasSuffix(event, "_started"):
 		process := strings.TrimSuffix(event, "_started")
 		n.title = "🚀 " + html.EscapeString(firstNonEmpty(process, n.input.str("process"))) + " " + n.input.say(phrase{"started", "запущен"})
 		if version != "" {
-			n.line("🏷", n.input.say(phrase{"Version", "Версия"})+" <b>"+html.EscapeString(version)+"</b>")
+			n.field("🏷", phrase{"Version", "Версия"}, "<b>"+html.EscapeString(version)+"</b>")
 		}
 	default:
 		n.title = "🛠 " + html.EscapeString(humanize(event))
 		if version != "" {
-			n.line("🏷", html.EscapeString(version))
+			n.field("🏷", phrase{"Version", "Версия"}, html.EscapeString(version))
 		}
 	}
 }
@@ -1072,11 +1102,12 @@ func (n *notice) renderReceipt(status, orderID string, amount int64, currency st
 		n.title = "🧾 " + n.input.say(phrase{"Receipt", "Чек"}) + ": " + html.EscapeString(humanize(status))
 	}
 	if amount > 0 {
-		n.line("💰", "<b>"+formatMoney(amount, firstNonEmpty(currency, "RUB"))+"</b>")
+		n.field("💰", phrase{"Amount", "Сумма"}, "<b>"+formatMoney(amount, firstNonEmpty(currency, "RUB"))+"</b>")
 	}
 	if receipt := n.input.str("receiptUrl"); receipt != "" {
 		n.link(n.input.say(phrase{"🧾 Receipt", "🧾 Чек"}), receipt)
 	}
+	n.orderField(orderID)
 	n.orderButton(orderID)
 }
 
@@ -1087,20 +1118,16 @@ func (n *notice) renderFields() {
 		n.title = html.EscapeString(topicTitle(n.input.Kind, n.input.Locale))
 	}
 	n.lines = nil
-	keys := []string{}
 	for _, field := range notificationFields {
 		if value := n.input.str(field); value != "" {
-			keys = append(keys, field)
+			n.field("▫️", phrase{fieldLabel(field), ""}, code(value))
 		}
-	}
-	for _, field := range keys {
-		n.line("▫️", html.EscapeString(fieldLabel(field))+": "+code(n.input.str(field)))
 	}
 	if id := n.input.str("orderId"); id != "" {
 		n.orderButton(id)
 	}
 	if id := n.input.str("customerId"); id != "" {
-		n.button(n.input.say(phrase{"👤 Customer", "👤 Клиент"}), "/admin/customers/"+url.PathEscape(id))
+		n.button(n.input.say(phrase{"👤 Profile", "👤 Профиль"}), "/admin/customers/"+url.PathEscape(id))
 	}
 }
 
@@ -1113,7 +1140,7 @@ func fieldLabel(field string) string {
 		}
 		builder.WriteRune(letter)
 	}
-	return humanize(strings.ToLower(builder.String()))
+	return html.EscapeString(humanize(strings.ToLower(builder.String())))
 }
 
 // topicTitles are the topic names in Russian. The forum topics keep the

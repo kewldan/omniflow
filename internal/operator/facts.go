@@ -37,8 +37,14 @@ func lookupFacts(ctx context.Context, pool *pgxpool.Pool, payload map[string]any
 			}
 		}
 	}
+	if customerID == "" {
+		if entitlementID := text("entitlementId"); entitlementID != "" {
+			_ = pool.QueryRow(ctx, `SELECT user_id::text FROM entitlements WHERE id = $1::uuid`, entitlementID).Scan(&customerID)
+		}
+	}
 	if ticketID := text("ticketId"); ticketID != "" {
-		if ticket, err := lookupTicket(ctx, pool, ticketID, locale); err == nil {
+		messageID, _ := payload["messageId"].(string)
+		if ticket, err := lookupTicket(ctx, pool, ticketID, messageID, locale); err == nil {
 			facts.Ticket = &ticket
 			if customerID == "" {
 				customerID = ticket.CustomerID
@@ -88,29 +94,44 @@ func lookupOrder(ctx context.Context, pool *pgxpool.Pool, orderID, locale string
 	return order, owner, err
 }
 
-func lookupTicket(ctx context.Context, pool *pgxpool.Pool, ticketID, locale string) (ticketFacts, error) {
+// lookupTicket reads a ticket and the customer message a notice is about:
+// the one named by messageID (a reply), or the ticket's first customer
+// message (a new ticket).
+func lookupTicket(ctx context.Context, pool *pgxpool.Pool, ticketID, messageID, locale string) (ticketFacts, error) {
 	var ticket ticketFacts
-	err := pool.QueryRow(ctx, `SELECT t.id::text, t.user_id::text, t.priority, t.status,
-			CASE WHEN $2 = 'ru' THEN q.name_ru ELSE q.name_en END
+	message, err := strconv.ParseInt(messageID, 10, 64)
+	if err != nil {
+		message = 0
+	}
+	err = pool.QueryRow(ctx, `SELECT t.id::text, t.user_id::text, t.priority, t.status,
+			CASE WHEN $2 = 'ru' THEN q.name_ru ELSE q.name_en END, t.subject, t.created_at,
+			COALESCE((SELECT m.body FROM support_messages m
+				WHERE m.ticket_id = t.id AND m.sender = 'customer' AND m.deleted_at IS NULL
+				  AND ($3::bigint = 0 OR m.id = $3::bigint)
+				ORDER BY m.id LIMIT 1), '')
 		FROM support_tickets t JOIN support_queues q ON q.id = t.queue_id
-		WHERE t.id = $1::uuid`, ticketID, locale).Scan(
-		&ticket.ID, &ticket.CustomerID, &ticket.Priority, &ticket.Status, &ticket.QueueName)
+		WHERE t.id = $1::uuid`, ticketID, locale, message).Scan(
+		&ticket.ID, &ticket.CustomerID, &ticket.Priority, &ticket.Status, &ticket.QueueName,
+		&ticket.Subject, &ticket.CreatedAt, &ticket.Message)
 	return ticket, err
 }
 
-// lookupCustomer reads the customer's Telegram handle, how many payments they
-// have made, and their wallet in the notice's currency.
+// lookupCustomer reads the customer's Telegram name and handle, their account
+// status, how many payments they have made, and their wallet in the notice's
+// currency.
 func lookupCustomer(ctx context.Context, pool *pgxpool.Pool, customerID, currency string) (customerFacts, error) {
 	customer := customerFacts{ID: customerID}
 	var telegram string
 	err := pool.QueryRow(ctx, `SELECT COALESCE(i.provider_subject, ''), COALESCE(i.metadata ->> 'username', ''),
+			COALESCE(i.metadata ->> 'firstName', ''), COALESCE(i.metadata ->> 'lastName', ''), u.status,
 			(SELECT count(*) FROM orders o WHERE o.user_id = u.id AND o.paid_at IS NOT NULL AND o.paid_minor > 0)
 			+ (SELECT count(*) FROM legacy_payments lp WHERE lp.user_id = u.id)
 		FROM users u
 		LEFT JOIN LATERAL (SELECT provider_subject, metadata FROM identities
 			WHERE user_id = u.id AND provider = 'telegram' AND status = 'active'
 			ORDER BY created_at LIMIT 1) i ON true
-		WHERE u.id = $1::uuid`, customerID).Scan(&telegram, &customer.Username, &customer.Payments)
+		WHERE u.id = $1::uuid`, customerID).Scan(&telegram, &customer.Username,
+		&customer.FirstName, &customer.LastName, &customer.Status, &customer.Payments)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return customerFacts{}, err
 	}
