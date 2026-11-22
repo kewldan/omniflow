@@ -68,7 +68,7 @@ export function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <nav aria-label={translate("navigation.label")} className="flex h-full flex-col">
-      <ScrollArea className="flex-1">
+      <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-6 p-3">
           {NAVIGATION.map((section) => {
             const visible = section.items.filter(

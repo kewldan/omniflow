@@ -78,9 +78,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-dvh bg-background">
       <LocaleSync preferred={session?.account.locale} />
-      {/* Persistent rail on desktop; a sheet on narrow screens. */}
-      <aside className="hidden w-60 shrink-0 border-border border-r lg:block">
-        <div className="flex h-14 items-center gap-2 border-border border-b px-4">
+      {/* Persistent rail on desktop; a sheet on narrow screens. The rail is
+          pinned to the viewport and scrolls its menu on its own, so a long
+          page does not carry the navigation away with it. */}
+      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col self-start border-border border-r lg:flex">
+        <div className="flex h-14 shrink-0 items-center gap-2 border-border border-b px-4">
           <Link className="font-semibold text-[15px] tracking-tight" href="/admin">
             Omniflow
           </Link>
@@ -88,7 +90,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
             {translate("panelBadge")}
           </span>
         </div>
-        <AdminSidebar />
+        <div className="min-h-0 flex-1">
+          <AdminSidebar />
+        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
