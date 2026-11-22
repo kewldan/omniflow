@@ -3799,6 +3799,13 @@
           "create": "Add",
           "invalid": "Check the question: both languages, two to six answers, and the right answer's number among them."
         }
+      },
+      "sections": {
+        "mailings": "Mailings",
+        "audiences": "Audiences",
+        "ads": "Advertising",
+        "referrals": "Referrals and loyalty",
+        "engagement": "Engagement"
       }
     },
     "installationSettings": {

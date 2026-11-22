@@ -11,8 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Switch } from "@omniflow/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@omniflow/ui/tabs";
 import { Mail } from "lucide-react";
 import dynamic from "next/dynamic";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR, { mutate as revalidate } from "swr";
@@ -24,6 +26,7 @@ import { type ApiError, fetcher } from "@/lib/api";
 import { localized } from "@/lib/localized";
 import { formatMoney, type Listing, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
+import { ButtonStats } from "./button-stats";
 import { ReferralCommissionFields } from "./referral-commission";
 import type {
   AudienceSegment,
@@ -131,33 +134,73 @@ const TemplateEditorCard = dynamic(
 export function MarketingWorkspace() {
   const translate = useTranslations("admin.marketing");
   const { can } = useSession();
+  const search = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const requested = search.get("section");
+  const section = (SECTIONS as readonly string[]).includes(requested ?? "")
+    ? (requested as Section)
+    : "mailings";
+
+  // The section lives in the address, so a link, a reload and the back button
+  // all land on the same part of the page. Only the open section is mounted,
+  // so the page no longer loads every card's data at once.
+  function open(next: string) {
+    const query = new URLSearchParams(search.toString());
+    query.set("section", next);
+    router.replace(`${pathname}?${query.toString()}`, { scroll: false });
+  }
 
   return (
     <div className="flex flex-col gap-5">
       <PageHeader description={translate("description")} title={translate("title")} />
-      <CampaignCard editable={can("marketing.write")} />
-      {can("marketing.write") && (
-        <TemplateEditorCard onSaved={() => void revalidate("/v1/panel/marketing/templates")} />
-      )}
-      <AdCampaignsCard editable={can("marketing.write")} />
-      <RemindersCard editable={can("marketing.write")} />
-      <PinnedMessageCard editable={can("marketing.write")} />
-      <SegmentCard />
-      {can("marketing.write") && (
-        <SegmentEditorCard onSaved={() => void revalidate("/v1/panel/marketing/segments")} />
-      )}
-      <SuppressionCard editable={can("marketing.write")} />
-      <ReferralCard editable={can("settings.write")} />
-      <LoyaltyCard editable={can("marketing.write")} />
-      <ReferralInsightsCard currency="RUB" editable={can("marketing.write")} />
-      {can("settings.read") && <EmailDeliveryCard editable={can("settings.write")} />}
-      <EngagementCard editable={can("marketing.write")} />
-      <DailyGamesCard editable={can("marketing.write")} />
-      <ReferralLevelsCard canPay={can("finance.write")} editable={can("marketing.write")} />
-      <PartnerApplicationsCard editable={can("marketing.write")} />
+      <Tabs onValueChange={open} value={section}>
+        <TabsList className="max-w-full justify-start overflow-x-auto">
+          {SECTIONS.map((key) => (
+            <TabsTrigger key={key} value={key}>
+              {translate(`sections.${key}`)}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        <TabsContent className="mt-4 flex flex-col gap-5" value="mailings">
+          <CampaignCard editable={can("marketing.write")} />
+          {can("marketing.write") && (
+            <TemplateEditorCard onSaved={() => void revalidate("/v1/panel/marketing/templates")} />
+          )}
+          <RemindersCard editable={can("marketing.write")} />
+          <PinnedMessageCard editable={can("marketing.write")} />
+          {can("settings.read") && <EmailDeliveryCard editable={can("settings.write")} />}
+        </TabsContent>
+        <TabsContent className="mt-4 flex flex-col gap-5" value="audiences">
+          <SegmentCard />
+          {can("marketing.write") && (
+            <SegmentEditorCard onSaved={() => void revalidate("/v1/panel/marketing/segments")} />
+          )}
+          <SuppressionCard editable={can("marketing.write")} />
+        </TabsContent>
+        <TabsContent className="mt-4 flex flex-col gap-5" value="ads">
+          <AdCampaignsCard editable={can("marketing.write")} />
+          <ButtonStats />
+        </TabsContent>
+        <TabsContent className="mt-4 flex flex-col gap-5" value="referrals">
+          <ReferralCard editable={can("settings.write")} />
+          <ReferralInsightsCard currency="RUB" editable={can("marketing.write")} />
+          <ReferralLevelsCard canPay={can("finance.write")} editable={can("marketing.write")} />
+          <PartnerApplicationsCard editable={can("marketing.write")} />
+          <LoyaltyCard editable={can("marketing.write")} />
+        </TabsContent>
+        <TabsContent className="mt-4 flex flex-col gap-5" value="engagement">
+          <EngagementCard editable={can("marketing.write")} />
+          <DailyGamesCard editable={can("marketing.write")} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
+
+/** The page's sections, in the order an operator works through them. */
+const SECTIONS = ["mailings", "audiences", "ads", "referrals", "engagement"] as const;
+type Section = (typeof SECTIONS)[number];
 
 /** The states an operator can move a campaign into, and from where. */
 const TRANSITIONS: Record<string, string[]> = {

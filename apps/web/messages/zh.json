@@ -3707,6 +3707,13 @@
           "create": "添加",
           "invalid": "请检查题目：需填写两种语言，提供二到六个答案，且正确答案序号在其范围内。"
         }
+      },
+      "sections": {
+        "mailings": "群发",
+        "audiences": "受众",
+        "ads": "广告",
+        "referrals": "推荐与忠诚度",
+        "engagement": "互动"
       }
     },
     "installationSettings": {

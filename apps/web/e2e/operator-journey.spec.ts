@@ -116,6 +116,11 @@ test.describe("operator journey", () => {
       "/admin/catalog",
       "/admin/support",
       "/admin/marketing",
+      // Each marketing section mounts only when it is open.
+      "/admin/marketing?section=audiences",
+      "/admin/marketing?section=ads",
+      "/admin/marketing?section=referrals",
+      "/admin/marketing?section=engagement",
       "/admin/system",
       // Every settings area, because each carries copy of its own and the
       // sweep is what catches a key nobody translated.
