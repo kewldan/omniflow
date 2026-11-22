@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.1](https://github.com/kewldan/omniflow/compare/omniflow-v1.6.0...omniflow-v1.6.1) (2026-11-22)
+
+
+### Bug Fixes
+
+* **admin:** line up the fields in grouped settings blocks ([904ca15](https://github.com/kewldan/omniflow/commit/904ca15a17f8ad164b12f460ce9ae1333fb66cac))
+* **admin:** switches above fields, and an off switch that shows on a well ([1f05d36](https://github.com/kewldan/omniflow/commit/1f05d36181e18186451f90f94cea4c3a5b149245))
+
 ## [1.6.0](https://github.com/kewldan/omniflow/compare/omniflow-v1.5.0...omniflow-v1.6.0) (2026-11-22)
 
 
