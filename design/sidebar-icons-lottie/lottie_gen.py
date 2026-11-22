@@ -415,10 +415,81 @@ def icons():
     return I
 
 
+def account_icons():
+    """The customer panel's navigation, in the same motion language. Shared
+    shapes reuse the operator sidebar's animations; the rest are its own."""
+    admin = icons()
+    I = {}
+
+    # Subscriptions — the layers lift one after another, top first
+    layers = ['<path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/>',
+              '<path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/>',
+              '<path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/>']
+    I["01-subscriptions"] = comp("subscriptions", [Part("layer%d" % n, svg, anchor=(12, 7 + 5 * n), pos=bob(n * STAGGER, -2))
+                                                   for n, svg in enumerate(layers)])
+
+    # Store — the front presses, the door redraws
+    I["02-store"] = comp("store", [
+        Part("front", '<path d="M17.774 10.31a1.12 1.12 0 0 0-1.549 0 2.5 2.5 0 0 1-3.451 0 1.12 1.12 0 0 0-1.548 0 2.5 2.5 0 0 1-3.452 0 1.12 1.12 0 0 0-1.549 0 2.5 2.5 0 0 1-3.77-3.248l2.889-4.184A2 2 0 0 1 7 2h10a2 2 0 0 1 1.653.873l2.895 4.192a2.5 2.5 0 0 1-3.774 3.244"/>'
+                      '<path d="M4 10.95V19a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8.05"/>'),
+        Part("door", '<path d="M15 21v-5a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v5"/>', trim=wipe(STAGGER * 2)),
+    ], parent={"anchor": (12, 21), "scale": pop(0)})
+
+    # Wallet, support, gifts, news, security — the operator sidebar's shapes
+    I["03-wallet"] = admin["04-payouts"]
+    I["04-support"] = admin["11-support"]
+
+    # Profile — head bobs, shoulders redraw
+    I["05-profile"] = comp("profile", [
+        Part("head", '<circle cx="12" cy="8" r="5"/>', anchor=(12, 8), pos=bob(0, -2)),
+        Part("shoulders", '<path d="M20 21a8 8 0 0 0-16 0"/>', trim=wipe(STAGGER)),
+    ])
+
+    # Orders — receipt presses, lines retype top to bottom
+    I["06-orders"] = comp("orders", [
+        Part("receipt", '<path d="M4 3a1 1 0 0 1 1-1 1.3 1.3 0 0 1 .7.2l.933.6a1.3 1.3 0 0 0 1.4 0l.934-.6a1.3 1.3 0 0 1 1.4 0l.933.6a1.3 1.3 0 0 0 1.4 0l.933-.6a1.3 1.3 0 0 1 1.4 0l.934.6a1.3 1.3 0 0 0 1.4 0l.933-.6A1.3 1.3 0 0 1 19 2a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1 1.3 1.3 0 0 1-.7-.2l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.934.6a1.3 1.3 0 0 1-1.4 0l-.933-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-1.4 0l-.934-.6a1.3 1.3 0 0 0-1.4 0l-.933.6a1.3 1.3 0 0 1-.7.2 1 1 0 0 1-1-1z"/>',
+             anchor=(12, 22), scale=pop(0, 92)),
+    ] + [Part("line%d" % n, svg, trim=wipe(STAGGER * (n + 1)))
+         for n, svg in enumerate(['<path d="M14 8H8"/>', '<path d="M16 12H8"/>', '<path d="M13 16H8"/>'])])
+
+    # Devices — the phone wiggles, the dot blinks
+    I["07-devices"] = comp("devices", [
+        Part("phone", '<rect width="14" height="20" x="5" y="2" rx="2" ry="2"/>'),
+        Part("dot", '<path d="M12 18h.01"/>', anchor=(12, 18), scale=dot(STAGGER * 2)),
+    ], parent={"anchor": (12, 22), "rot": shake(0, 8)})
+
+    # Invite a friend — the person nods, the plus turns in
+    I["08-referrals"] = comp("referrals", [
+        Part("body", '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>'),
+        Part("head", '<circle cx="9" cy="7" r="4"/>', anchor=(9, 7), pos=bob(0, -2)),
+        Part("plus", '<line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/>',
+             anchor=(19, 11), scale=dot(STAGGER), rot=scalar(0, STAGGER, [(7, 0, HOLD), (18, 90, E_BACK)])),
+    ])
+
+    I["09-gifts"] = admin["09-gifts"]
+
+    # Offers — the tag swings from its hole
+    I["10-offers"] = comp("offers", [
+        Part("tag", '<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/>'),
+        Part("hole", '<path d="M7.5 7.5h.01"/>', anchor=(7.5, 7.5), scale=dot(STAGGER * 2)),
+    ], parent={"anchor": (7.5, 7.5), "rot": shake(0, 12)})
+
+    # Auto-renewal — the arrows turn half a circle (the icon is the same after it)
+    I["11-renewal"] = comp("renewal", [Part("arrows",
+        '<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>'
+        '<path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>',
+        anchor=(12, 12), rot=spin(0, 180))])
+
+    I["12-news"] = admin["13-marketing"]
+    I["13-security"] = admin["20-security"]
+    return I
+
+
 if __name__ == "__main__":
     out = sys.argv[1]
     os.makedirs(out, exist_ok=True)
-    for key, data in icons().items():
+    chosen = account_icons() if len(sys.argv) > 2 and sys.argv[2] == "account" else icons()
+    for key, data in chosen.items():
         with open(os.path.join(out, key + ".json"), "w") as f:
             json.dump(data, f, separators=(",", ":"))
-    print("ok", len(icons()))
+    print("ok", len(chosen))

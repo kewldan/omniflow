@@ -1,6 +1,5 @@
 "use client";
 
-import { strFromU8, unzipSync } from "fflate";
 import type { AnimationItem, LottiePlayer } from "lottie-web";
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -32,14 +31,17 @@ const animations = new Map<string, Promise<unknown>>();
 function loadAnimation(key: string): Promise<unknown> {
   let pending = animations.get(key);
   if (!pending) {
-    pending = fetch(`/lottie/sidebar/${key}.lottie`)
+    pending = fetch(`/lottie/${key}.lottie`)
       .then((response) => {
         if (!response.ok) {
           throw new Error(`animation ${key}: ${response.status}`);
         }
         return response.arrayBuffer();
       })
-      .then((buffer) => {
+      // The unzipper loads with the first animation, like the player, so it
+      // costs nothing on a page until an icon is about to move.
+      .then(async (buffer) => {
+        const { strFromU8, unzipSync } = await import("fflate");
         const files = unzipSync(new Uint8Array(buffer));
         const manifest = JSON.parse(strFromU8(files["manifest.json"] ?? new Uint8Array())) as {
           animations?: { id: string }[];
@@ -62,14 +64,20 @@ function prefersReducedMotion(): boolean {
 
 export function NavIcon({
   animation,
+  className = "size-4",
   icon: Icon,
   play,
+  set = "sidebar",
 }: {
-  /** The .lottie under /lottie/sidebar; absent keeps the static icon. */
+  /** The .lottie under /lottie/<set>; absent keeps the static icon. */
   animation?: string;
+  /** The icon's size. */
+  className?: string;
   icon: LucideIcon;
-  /** Bumped on every hover; each change plays the animation once. */
+  /** Bumped on every hover or tap; each change plays the animation once. */
   play: number;
+  /** Which set of animations: the operator sidebar's or the customer panel's. */
+  set?: "sidebar" | "account";
 }) {
   const box = useRef<HTMLSpanElement>(null);
   const item = useRef<AnimationItem | null>(null);
@@ -82,7 +90,7 @@ export function NavIcon({
     let cancelled = false;
     let loaded: AnimationItem | null = null;
     const start = () => {
-      Promise.all([loadPlayer(), loadAnimation(animation)])
+      Promise.all([loadPlayer(), loadAnimation(`${set}/${animation}`)])
         .then(([lottie, data]) => {
           if (cancelled || !box.current) {
             return;
@@ -117,7 +125,7 @@ export function NavIcon({
       loaded?.destroy();
       item.current = null;
     };
-  }, [animation]);
+  }, [animation, set]);
 
   useEffect(() => {
     if (play > 0) {
@@ -126,8 +134,8 @@ export function NavIcon({
   }, [play]);
 
   return (
-    <span aria-hidden="true" className="nav-lottie relative size-4 shrink-0">
-      {!ready && <Icon className="size-4" />}
+    <span aria-hidden="true" className={`nav-lottie relative shrink-0 ${className}`}>
+      {!ready && <Icon className={className} />}
       <span className={ready ? "absolute inset-0" : "invisible absolute inset-0"} ref={box} />
     </span>
   );

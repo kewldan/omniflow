@@ -53,3 +53,21 @@ With `lottie-react` / `@lottiefiles/dotlottie-react`, keep autoplay off and play
 ## Rebuilding
 `source/lottie_gen.py` builds every file from the Lucide paths; timings and per-icon choreography sit at the top and in `icons()`.
 `pip install svgelements && python lottie_gen.py ./lottie`
+
+## Customer panel set
+
+`python3 lottie_gen.py <dir> account` writes the customer panel's navigation in the same
+language, packed to `apps/web/public/lottie/account/` and played on hover and tap in the
+cabinet's sidebar and its phone tab bar. Wallet, support, gifts, news and security reuse the
+shapes above; the rest:
+
+| Key | Motion |
+|---|---|
+| subscriptions | the layers lift one after another, top first |
+| store | the front presses, the door redraws |
+| profile | head bobs, shoulders redraw |
+| orders | receipt presses, lines retype |
+| devices | the phone wiggles, the dot blinks |
+| referrals | the person nods, the plus turns in |
+| offers | the tag swings from its hole |
+| renewal | the arrows turn half a circle |

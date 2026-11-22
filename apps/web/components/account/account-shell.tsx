@@ -30,6 +30,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { AccountLiveUpdates } from "@/components/account/live-updates";
 import { useMiniApp } from "@/components/account/miniapp";
 import { AccountNotice } from "@/components/account/state";
+import { NavIcon } from "@/components/admin/nav-icon";
 import { useBrandName } from "@/components/brand-name";
 import { LocaleSync } from "@/components/intl/locale-switch";
 import { useAccount } from "@/lib/account-session";
@@ -278,6 +279,7 @@ function DesktopSidebar({
         <ul className="flex flex-col gap-0.5">
           {tabs.map((tab) => (
             <SidebarLink
+              animation={tab.key}
               href={tab.href}
               icon={tab.icon}
               key={tab.href}
@@ -295,6 +297,7 @@ function DesktopSidebar({
         <ul className="flex flex-col gap-0.5">
           {(lite ? [] : SECONDARY).map((item) => (
             <SidebarLink
+              animation={item.key}
               href={item.href}
               icon={item.icon}
               key={item.href}
@@ -311,17 +314,21 @@ function DesktopSidebar({
 }
 
 function SidebarLink({
+  animation,
   href,
   icon: Icon,
   label,
   pathname,
 }: {
+  /** The entry's animation under /lottie/account, played on hover and tap. */
+  animation?: string;
   href: string;
   icon?: LucideIcon;
   label: string;
   pathname: string;
 }) {
   const active = isActive(pathname, href);
+  const [play, setPlay] = useState(0);
   return (
     <li>
       <Link
@@ -334,8 +341,14 @@ function SidebarLink({
             : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
         )}
         href={href}
+        onClick={() => setPlay((count) => count + 1)}
+        onMouseEnter={() => setPlay((count) => count + 1)}
       >
-        {Icon ? <Icon aria-hidden className="size-4" /> : <span aria-hidden className="size-4" />}
+        {Icon ? (
+          <NavIcon animation={animation} icon={Icon} play={play} set="account" />
+        ) : (
+          <span aria-hidden className="size-4" />
+        )}
         {label}
       </Link>
     </li>
@@ -422,6 +435,8 @@ function AccountFooter({ customerId }: { customerId: string }) {
 
 function TabBar({ pathname, tabs }: { pathname: string; tabs: typeof TABS }) {
   const translate = useTranslations("account");
+  // How many times each tab was tapped; every change plays its icon once.
+  const [plays, setPlays] = useState<Record<string, number>>({});
   // The active tab is the longest matching prefix, so a detail route under a tab
   // keeps that tab lit rather than falling back to the first one.
   const activeIndex = tabs.reduce((best, tab, index) => {
@@ -458,8 +473,15 @@ function TabBar({ pathname, tabs }: { pathname: string; tabs: typeof TABS }) {
               )}
               href={tab.href}
               key={tab.href}
+              onClick={() => setPlays((all) => ({ ...all, [tab.key]: (all[tab.key] ?? 0) + 1 }))}
             >
-              <Icon aria-hidden className="size-[19px]" />
+              <NavIcon
+                animation={tab.key}
+                className="size-[19px]"
+                icon={Icon}
+                play={plays[tab.key] ?? 0}
+                set="account"
+              />
               <span className="font-medium font-mono text-[9.5px]">
                 {translate(`nav.${tab.key}`)}
               </span>
