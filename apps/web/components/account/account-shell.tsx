@@ -374,7 +374,6 @@ function AccountFooter({ customerId }: { customerId: string }) {
       <div className="flex items-start gap-2.5 px-2 pb-2">
         <AccountPicture />
         <button
-          aria-label={translate("nav.copyAccountId")}
           className="group min-w-0 rounded-md text-left focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
           onClick={() => {
             void navigator.clipboard?.writeText(customerId).then(
@@ -399,6 +398,9 @@ function AccountFooter({ customerId }: { customerId: string }) {
               <Copy aria-hidden className="size-3 opacity-60" />
             )}
           </p>
+          {/* Said after the visible text, so the button's name starts with what
+              is on screen and still says what pressing it does. */}
+          <span className="sr-only">{translate("nav.copyAccountId")}</span>
         </button>
       </div>
       <Button
