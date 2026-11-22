@@ -135,10 +135,9 @@ export default function AdminHome() {
             // A set of toggle buttons rather than tabs: tabs promise panels to
             // switch between, and an axe check rightly flags triggers that
             // control none.
-            <div
+            <fieldset
               aria-label={translate("dashboard.period")}
-              className="inline-flex items-center gap-0.5 rounded-lg bg-muted p-0.5"
-              role="group"
+              className="m-0 inline-flex min-w-0 items-center gap-0.5 rounded-lg border-0 bg-muted p-0.5"
             >
               {DASHBOARD_PERIODS.map((period) => (
                 <Button
@@ -161,7 +160,7 @@ export default function AdminHome() {
                   {translate(`dashboard.periods.${period}`)}
                 </Button>
               ))}
-            </div>
+            </fieldset>
           ) : undefined
         }
         description={translate("home.description")}
