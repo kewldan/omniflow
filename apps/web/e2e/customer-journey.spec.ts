@@ -155,6 +155,12 @@ test.describe("customer journey", () => {
       );
       // The accessibility gate on the signed-in panel, not only on sign-in.
       await settle(page);
+      // Read from the end of the page. The phone's tab bar floats over the
+      // content scrolling beneath it, and axe counts a control half under it
+      // as too small a target — which one depends only on the viewport
+      // height. At the end, the bar sits in its own room after the content,
+      // and with no header above, nothing on the page is under anything.
+      await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
       violations.push(...(await seriousViolations(page, path)));
     }
     expect(violations, violations.join("\n")).toEqual([]);
