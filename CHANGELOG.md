@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.7.0](https://github.com/kewldan/omniflow/compare/omniflow-v1.6.2...omniflow-v1.7.0) (2026-11-22)
+
+
+### Features
+
+* **account:** sign in on its own inside the Telegram Mini App ([4b5eb6b](https://github.com/kewldan/omniflow/commit/4b5eb6b98d77ffcac4b96c3ca44ec7639b204355))
+* **account:** Telegram Mini App features through tma.js ([623bcce](https://github.com/kewldan/omniflow/commit/623bcce3ef0c5dd832a0042285a0ea1e218bda14))
+* serve Telegram avatars from the installation ([09a670f](https://github.com/kewldan/omniflow/commit/09a670ff9d8ee8ee822082d3c878b7508d617a9a))
+
+
+### Bug Fixes
+
+* **account:** accept Mini App launch data from current Telegram clients ([34f1b7d](https://github.com/kewldan/omniflow/commit/34f1b7de7a15ed691779d0ad19fecb844f2a9d4c))
+
 ## [1.6.2](https://github.com/kewldan/omniflow/compare/omniflow-v1.6.1...omniflow-v1.6.2) (2026-11-22)
 
 
