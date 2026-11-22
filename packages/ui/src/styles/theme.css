@@ -323,6 +323,51 @@
   }
 
   /*
+   * Everything that acts on a click shows the hand. Tailwind 4 leaves buttons
+   * on the default arrow, so this is said once here rather than on every
+   * component; a utility class (cursor-grab, cursor-text) still wins over it.
+   * A disabled control keeps the arrow it was given.
+   */
+  :where(
+    button,
+    a[href],
+    summary,
+    label[for],
+    select,
+    input[type="checkbox"],
+    input[type="radio"],
+    input[type="file"],
+    input[type="submit"],
+    input[type="button"],
+    input[type="reset"],
+    input[type="color"],
+    input[type="range"],
+    [role="button"],
+    [role="link"],
+    [role="tab"],
+    [role="switch"],
+    [role="checkbox"],
+    [role="radio"],
+    [role="option"],
+    [role="menuitem"],
+    [role="menuitemcheckbox"],
+    [role="menuitemradio"],
+    [role="combobox"],
+    [data-slot="select-trigger"],
+    [cmdk-item]
+  ):not(:disabled, [aria-disabled="true"], [data-disabled]) {
+    cursor: pointer;
+  }
+
+  :where(button, select, input, [role="button"], [role="option"], [role="menuitem"]):is(
+    :disabled,
+    [aria-disabled="true"],
+    [data-disabled]
+  ) {
+    cursor: not-allowed;
+  }
+
+  /*
    * Every entrance animation collapses when the visitor asks for less motion.
    * This is the one place `!important` is correct: the declarations it has to
    * beat are utility classes and Radix inline styles, which otherwise win on
