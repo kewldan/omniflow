@@ -89,6 +89,11 @@ does not need them and each one is another construct to get wrong.
   number is worse off than one with a paragraph that reads oddly.
 </Note>
 
+The editor shows the page beside its source, for the language being edited. A moment after
+typing stops the body goes to `POST /v1/panel/content/pages/preview` (`marketing.write`), which
+runs the same parser as the public page and stores nothing, so the preview is exactly what
+customers will read.
+
 ## The reader's side
 
 `/pages` lists the published, listed documents; `/pages/{slug}` is one of them.

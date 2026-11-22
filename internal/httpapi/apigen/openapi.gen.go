@@ -12978,6 +12978,17 @@ type SavePanelInfoPageParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// PreviewPanelInfoPageJSONBody defines parameters for PreviewPanelInfoPage.
+type PreviewPanelInfoPageJSONBody struct {
+	Body string `json:"body"`
+}
+
+// PreviewPanelInfoPageParams defines parameters for PreviewPanelInfoPage.
+type PreviewPanelInfoPageParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // DeletePanelInfoPageParams defines parameters for DeletePanelInfoPage.
 type DeletePanelInfoPageParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
@@ -14364,6 +14375,9 @@ type RevokePanelCodeBatchJSONRequestBody RevokePanelCodeBatchJSONBody
 // SavePanelInfoPageJSONRequestBody defines body for SavePanelInfoPage for application/json ContentType.
 type SavePanelInfoPageJSONRequestBody = PanelInfoPage
 
+// PreviewPanelInfoPageJSONRequestBody defines body for PreviewPanelInfoPage for application/json ContentType.
+type PreviewPanelInfoPageJSONRequestBody PreviewPanelInfoPageJSONBody
+
 // SetPanelInfoPagePublicationJSONRequestBody defines body for SetPanelInfoPagePublication for application/json ContentType.
 type SetPanelInfoPagePublicationJSONRequestBody SetPanelInfoPagePublicationJSONBody
 
@@ -15430,6 +15444,9 @@ type ServerInterface interface {
 
 	// (PUT /v1/panel/content/pages)
 	SavePanelInfoPage(w http.ResponseWriter, r *http.Request, params SavePanelInfoPageParams)
+
+	// (POST /v1/panel/content/pages/preview)
+	PreviewPanelInfoPage(w http.ResponseWriter, r *http.Request, params PreviewPanelInfoPageParams)
 
 	// (DELETE /v1/panel/content/pages/{slug})
 	DeletePanelInfoPage(w http.ResponseWriter, r *http.Request, slug string, params DeletePanelInfoPageParams)
@@ -17197,6 +17214,11 @@ func (_ Unimplemented) ListPanelInfoPages(w http.ResponseWriter, r *http.Request
 
 // (PUT /v1/panel/content/pages)
 func (_ Unimplemented) SavePanelInfoPage(w http.ResponseWriter, r *http.Request, params SavePanelInfoPageParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/content/pages/preview)
+func (_ Unimplemented) PreviewPanelInfoPage(w http.ResponseWriter, r *http.Request, params PreviewPanelInfoPageParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -27811,6 +27833,51 @@ func (siw *ServerInterfaceWrapper) SavePanelInfoPage(w http.ResponseWriter, r *h
 	handler.ServeHTTP(w, r)
 }
 
+// PreviewPanelInfoPage operation middleware
+func (siw *ServerInterfaceWrapper) PreviewPanelInfoPage(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PreviewPanelInfoPageParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PreviewPanelInfoPage(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // DeletePanelInfoPage operation middleware
 func (siw *ServerInterfaceWrapper) DeletePanelInfoPage(w http.ResponseWriter, r *http.Request) {
 
@@ -36545,6 +36612,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/v1/panel/content/pages", wrapper.SavePanelInfoPage)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/content/pages/preview", wrapper.PreviewPanelInfoPage)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/v1/panel/content/pages/{slug}", wrapper.DeletePanelInfoPage)
@@ -48232,6 +48302,61 @@ func (response SavePanelInfoPage422ApplicationProblemPlusJSONResponse) VisitSave
 	return err
 }
 
+type PreviewPanelInfoPageRequestObject struct {
+	Params PreviewPanelInfoPageParams
+	Body   *PreviewPanelInfoPageJSONRequestBody
+}
+
+type PreviewPanelInfoPageResponseObject interface {
+	VisitPreviewPanelInfoPageResponse(w http.ResponseWriter) error
+}
+
+type PreviewPanelInfoPage200JSONResponse struct {
+	Blocks []map[string]interface{} `json:"blocks"`
+}
+
+func (response PreviewPanelInfoPage200JSONResponse) VisitPreviewPanelInfoPageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewPanelInfoPage403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response PreviewPanelInfoPage403ApplicationProblemPlusJSONResponse) VisitPreviewPanelInfoPageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PreviewPanelInfoPage422ApplicationProblemPlusJSONResponse Problem
+
+func (response PreviewPanelInfoPage422ApplicationProblemPlusJSONResponse) VisitPreviewPanelInfoPageResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type DeletePanelInfoPageRequestObject struct {
 	Slug   string `json:"slug"`
 	Params DeletePanelInfoPageParams
@@ -57703,6 +57828,9 @@ type StrictServerInterface interface {
 	// (PUT /v1/panel/content/pages)
 	SavePanelInfoPage(ctx context.Context, request SavePanelInfoPageRequestObject) (SavePanelInfoPageResponseObject, error)
 
+	// (POST /v1/panel/content/pages/preview)
+	PreviewPanelInfoPage(ctx context.Context, request PreviewPanelInfoPageRequestObject) (PreviewPanelInfoPageResponseObject, error)
+
 	// (DELETE /v1/panel/content/pages/{slug})
 	DeletePanelInfoPage(ctx context.Context, request DeletePanelInfoPageRequestObject) (DeletePanelInfoPageResponseObject, error)
 
@@ -65352,6 +65480,39 @@ func (sh *strictHandler) SavePanelInfoPage(w http.ResponseWriter, r *http.Reques
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(SavePanelInfoPageResponseObject); ok {
 		if err := validResponse.VisitSavePanelInfoPageResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PreviewPanelInfoPage operation middleware
+func (sh *strictHandler) PreviewPanelInfoPage(w http.ResponseWriter, r *http.Request, params PreviewPanelInfoPageParams) {
+	var request PreviewPanelInfoPageRequestObject
+
+	request.Params = params
+
+	var body PreviewPanelInfoPageJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PreviewPanelInfoPage(ctx, request.(PreviewPanelInfoPageRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PreviewPanelInfoPage")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PreviewPanelInfoPageResponseObject); ok {
+		if err := validResponse.VisitPreviewPanelInfoPageResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

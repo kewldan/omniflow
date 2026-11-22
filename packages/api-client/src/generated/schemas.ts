@@ -5164,6 +5164,23 @@ export const SavePanelInfoPageResponse = zod.object({
 });
 
 /**
+ * Requires marketing.write. Renders an unsaved body through the parser the public page uses, so the editor's preview is what customers will see. Stores nothing.
+ */
+export const PreviewPanelInfoPageHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const PreviewPanelInfoPageBody = zod.object({
+  body: zod.string(),
+});
+
+export const PreviewPanelInfoPageResponse = zod.object({
+  blocks: zod.array(zod.record(zod.string(), zod.unknown())),
+});
+
+/**
  * Requires marketing.read. One page with every translation's source text, for the editor.
  */
 export const GetPanelInfoPageParams = zod.object({

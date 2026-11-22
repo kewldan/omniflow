@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/omniflow/omniflow/internal/infopage"
 	"github.com/omniflow/omniflow/internal/panelpg"
 	"github.com/omniflow/omniflow/internal/rbac"
 )
@@ -26,6 +27,7 @@ func (handlers *AdminHandlers) mountContent(secure chi.Router) {
 
 	secure.With(handlers.requirePermission(rbac.PermissionMarketingWrite)).Group(func(write chi.Router) {
 		write.Put("/content/pages", handlers.saveInfoPage)
+		write.Post("/content/pages/preview", handlers.previewInfoPage)
 		write.Post("/content/pages/{slug}/publication", handlers.setInfoPagePublication)
 		write.Delete("/content/pages/{slug}", handlers.deleteInfoPage)
 	})
@@ -126,4 +128,25 @@ func readerLocale(request *http.Request) string {
 		}
 	}
 	return "en"
+}
+
+// maxPreviewSource bounds a preview: a page far longer than any real terms of
+// service is not a page being written.
+const maxPreviewSource = 256 << 10
+
+// previewInfoPage renders an unsaved body exactly as the public page will,
+// through the same parser, so the editor's preview cannot disagree with what
+// customers are shown. It stores nothing.
+func (handlers *AdminHandlers) previewInfoPage(writer http.ResponseWriter, request *http.Request) {
+	var body struct {
+		Body string `json:"body"`
+	}
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	if len(body.Body) > maxPreviewSource {
+		writeProblem(writer, request, http.StatusUnprocessableEntity, "too_long", "The page is too long to preview")
+		return
+	}
+	writeJSON(writer, http.StatusOK, infopage.Parse(body.Body))
 }

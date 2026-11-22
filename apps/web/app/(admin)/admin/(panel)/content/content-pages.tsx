@@ -13,12 +13,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@omniflow/ui/tabs";
 import { toast } from "@omniflow/ui/toast";
 import { ExternalLink, Plus, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import useSWR from "swr";
 import { useLanguageLabel } from "@/components/admin/enum-label";
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
-import { type ApiError, fetcher } from "@/lib/api";
+import { type InfoDocument, InfoDocumentView } from "@/components/info-document";
+import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 import type { InfoPage, InfoPageList } from "@/lib/operations";
 import { useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
@@ -327,11 +328,21 @@ function PageEditor({
             ))}
           </TabsList>
           {LOCALES.map((locale) => (
-            <TabsContent className="flex flex-col gap-3" key={locale} value={locale}>
-              <LocaleFields
+            <TabsContent
+              className="grid items-start gap-4 lg:grid-cols-2"
+              key={locale}
+              value={locale}
+            >
+              <div className="flex flex-col gap-3">
+                <LocaleFields
+                  body={localeValue(locale, "body")}
+                  onBody={(value) => setLocale(locale, "body", value)}
+                  onTitle={(value) => setLocale(locale, "title", value)}
+                  title={localeValue(locale, "title")}
+                />
+              </div>
+              <PagePreview
                 body={localeValue(locale, "body")}
-                onBody={(value) => setLocale(locale, "body", value)}
-                onTitle={(value) => setLocale(locale, "title", value)}
                 title={localeValue(locale, "title")}
               />
             </TabsContent>
@@ -427,5 +438,62 @@ function LocaleFields({
         <p className="text-subtle-foreground text-xs">{translate("editor.bodyHint")}</p>
       </div>
     </>
+  );
+}
+
+/**
+ * The page as a customer will read it, beside its source. The body is parsed
+ * by the API's own parser (POST /v1/panel/content/pages/preview) a moment after
+ * typing stops, so the preview shows exactly the blocks the public page will —
+ * headings, lists, links — rather than a second parser's guess.
+ */
+function PagePreview({ body, title }: { body: string; title: string }) {
+  const translate = useTranslations("admin.content");
+  const [document, setDocument] = useState<InfoDocument | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      apiFetch<InfoDocument>("/v1/panel/content/pages/preview", {
+        body: JSON.stringify({ body }),
+        method: "POST",
+      })
+        .then((parsed) => {
+          if (!cancelled) {
+            setDocument(parsed);
+            setFailed(false);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setFailed(true);
+          }
+        });
+    }, 400);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [body]);
+
+  return (
+    <section
+      aria-label={translate("editor.preview")}
+      className="flex min-h-72 flex-col gap-3 rounded-md border bg-well p-4 lg:sticky lg:top-20 lg:max-h-[calc(100dvh-7rem)] lg:overflow-y-auto"
+    >
+      <p className="font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.14em]">
+        {translate("editor.preview")}
+      </p>
+      {title && <h1 className="font-bold text-2xl tracking-tight">{title}</h1>}
+      {failed ? (
+        <p className="text-muted-foreground text-sm">{translate("editor.previewFailed")}</p>
+      ) : document && document.blocks.length > 0 ? (
+        <div className="text-[15px] leading-relaxed">
+          <InfoDocumentView document={document} />
+        </div>
+      ) : (
+        <p className="text-muted-foreground text-sm">{translate("editor.previewEmpty")}</p>
+      )}
+    </section>
   );
 }

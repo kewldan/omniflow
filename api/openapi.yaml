@@ -1858,6 +1858,20 @@ paths:
         "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelInfoPage"}}}}
         "403": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/content/pages/preview:
+    post:
+      operationId: previewPanelInfoPage
+      tags: [panel]
+      description: >-
+        Requires marketing.write. Renders an unsaved body through the parser the
+        public page uses, so the editor's preview is what customers will see.
+        Stores nothing.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [body], properties: {body: {type: string}}}}}}
+      responses:
+        "200": {description: The parsed document, content: {application/json: {schema: {type: object, required: [blocks], properties: {blocks: {type: array, items: {type: object, additionalProperties: true}}}}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
   /v1/panel/content/pages/{slug}:
     get:
       operationId: getPanelInfoPage

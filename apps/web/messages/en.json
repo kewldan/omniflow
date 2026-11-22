@@ -1730,7 +1730,10 @@
         "pageTitle": "Title",
         "body": "Body",
         "syntax": "The body is plain text. `## ` starts a heading, `- ` a bullet, `1. ` a numbered item, a blank line ends a block, and [text](https://…) is a link. There is no bold, no image, and no HTML — what you type is rendered as text, so nothing here can become markup on the page.",
-        "bodyHint": "Up to 40 000 characters. Links must be https."
+        "bodyHint": "Up to 40 000 characters. Links must be https.",
+        "preview": "Preview",
+        "previewFailed": "The preview could not be built.",
+        "previewEmpty": "The page will appear here as customers will see it."
       }
     },
     "risk": {

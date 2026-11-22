@@ -7397,6 +7397,16 @@ export type ListPanelOutboxParams = {
   pageSize?: PageSizeParameter;
 };
 
+export type PreviewPanelInfoPageBody = {
+  body: string;
+};
+
+export type PreviewPanelInfoPage200BlocksItem = { [key: string]: unknown };
+
+export type PreviewPanelInfoPage200 = {
+  blocks: PreviewPanelInfoPage200BlocksItem[];
+};
+
 export type DeletePanelInfoPage200 = {
   removed?: boolean;
 };
@@ -21413,6 +21423,94 @@ export const useSavePanelInfoPage = <TError = Promise<ProblemResponse>>(options?
 
   const swrKey = swrOptions?.swrKey ?? getSavePanelInfoPageMutationKey();
   const swrFn = getSavePanelInfoPageMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type previewPanelInfoPageResponse200 = {
+  data: PreviewPanelInfoPage200;
+  status: 200;
+};
+
+export type previewPanelInfoPageResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type previewPanelInfoPageResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type previewPanelInfoPageResponseSuccess = previewPanelInfoPageResponse200 & {
+  headers: Headers;
+};
+export type previewPanelInfoPageResponseError = (
+  | previewPanelInfoPageResponse403
+  | previewPanelInfoPageResponse422
+) & {
+  headers: Headers;
+};
+
+export type previewPanelInfoPageResponse =
+  | previewPanelInfoPageResponseSuccess
+  | previewPanelInfoPageResponseError;
+
+export const getPreviewPanelInfoPageUrl = () => {
+  return `/v1/panel/content/pages/preview`;
+};
+
+/**
+ * Requires marketing.write. Renders an unsaved body through the parser the public page uses, so the editor's preview is what customers will see. Stores nothing.
+ */
+export const previewPanelInfoPage = async (
+  previewPanelInfoPageBody: PreviewPanelInfoPageBody,
+  options?: RequestInit,
+): Promise<previewPanelInfoPageResponse> => {
+  const res = await fetch(getPreviewPanelInfoPageUrl(), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(previewPanelInfoPageBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: previewPanelInfoPageResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as previewPanelInfoPageResponse;
+};
+
+export const getPreviewPanelInfoPageMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: PreviewPanelInfoPageBody }) => {
+    return previewPanelInfoPage(arg, options);
+  };
+};
+export const getPreviewPanelInfoPageMutationKey = () =>
+  [`/v1/panel/content/pages/preview`] as const;
+
+export type PreviewPanelInfoPageMutationResult = NonNullable<
+  Awaited<ReturnType<typeof previewPanelInfoPage>>
+>;
+
+export const usePreviewPanelInfoPage = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof previewPanelInfoPage>>,
+    TError,
+    Key,
+    PreviewPanelInfoPageBody,
+    Awaited<ReturnType<typeof previewPanelInfoPage>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getPreviewPanelInfoPageMutationKey();
+  const swrFn = getPreviewPanelInfoPageMutationFetcher(fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 
