@@ -28,6 +28,7 @@ func (service *Service) SignInWithTelegram(
 		values, service.botToken, service.now(), customerauth.TelegramMaxAge,
 	)
 	if err != nil {
+		service.auditSignInRejected(ctx, request, "telegram_widget", telegramRejection(err))
 		return SignInResult{}, ErrSignInRejected
 	}
 	return service.signInWithTelegramIdentity(ctx, identity, request)
@@ -49,6 +50,7 @@ func (service *Service) SignInWithMiniApp(
 		initData, service.botToken, service.now(), customerauth.MiniAppMaxAge,
 	)
 	if err != nil {
+		service.auditSignInRejected(ctx, request, "telegram_miniapp", telegramRejection(err))
 		return SignInResult{}, ErrSignInRejected
 	}
 	return service.signInWithTelegramIdentity(ctx, identity, request)

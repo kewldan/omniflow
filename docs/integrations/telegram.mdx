@@ -137,6 +137,12 @@ bound a payload captured once — from a browser history entry, a referrer, a sc
 would authenticate forever. The Mini App's is longer because its `auth_date` is when Telegram
 opened it: a Mini App reopened from the background keeps the data it was launched with.
 
+A refused Telegram sign-in — widget or Mini App — is written to the audit trail as
+`customer.login` with outcome `failure`, an anonymous actor, `method` (`telegram_widget` or
+`telegram_miniapp`) and a reason: `bad_signature`, `stale` or `malformed`. Nothing the browser
+sent is kept. A route that stops working therefore shows up in the panel's audit view, not only
+as 401s at the proxy.
+
 <Steps>
   <Step title="Set the widget domain">
     `/setdomain` in BotFather, with the host serving `/account`. This is what makes the Login Widget
