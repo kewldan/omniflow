@@ -313,6 +313,17 @@ func (worker *Worker) apply(ctx context.Context, claimed claim) (remnawave.User,
 			remote  remnawave.User
 			created bool
 		)
+		// An entitlement past its expiry has nothing left to push: Remnawave
+		// refuses an expiry in the past with a 400, and it has expired the
+		// user on its own. The reconcile reads the user instead, so the
+		// entitlement takes the status the panel gave it rather than retrying
+		// — and alerting operators — until the reconciliation horizon.
+		if operation == "reconcile" && remoteID != 0 && !desired.remoteExpireAt.After(worker.clock()) {
+			remote, err = worker.provisioner.User(ctx, remoteID)
+			if !errors.Is(err, remnawave.ErrNotFound) {
+				return remote, err
+			}
+		}
 		if remoteID == 0 {
 			remote, created, err = createOrRecover()
 		} else {

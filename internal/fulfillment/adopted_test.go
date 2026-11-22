@@ -77,3 +77,20 @@ func TestAdoptedRemoteUserIsPatchedUnderItsOwnName(t *testing.T) {
 
 func (provisioner *recordingProvisioner) DeleteAllDevices(context.Context, int64) error { return nil }
 func (provisioner *recordingProvisioner) DeleteUser(context.Context, int64) error       { return nil }
+
+// TestEndedEntitlementIsReadNotPushed pins the reconcile of an entitlement
+// past its expiry: Remnawave refuses an expiry in the past, so the user is
+// read and nothing is patched.
+func TestEndedEntitlementIsReadNotPushed(t *testing.T) {
+	provisioner := &recordingProvisioner{}
+	claimed := adoptedClaim("bedolaga_5001")
+	ended := time.Now().Add(-time.Hour)
+	claimed.desired.EndsAt, claimed.desired.remoteExpireAt = ended, ended
+	remote, err := NewWorker(nil, provisioner).apply(context.Background(), claimed)
+	if err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+	if len(provisioner.updates) != 0 || provisioner.created != 0 || remote.ID != 701 {
+		t.Fatalf("an ended entitlement must only be read: %+v, created %d, remote %+v", provisioner.updates, provisioner.created, remote)
+	}
+}

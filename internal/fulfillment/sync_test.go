@@ -59,3 +59,22 @@ func TestSyncFollowUp(t *testing.T) {
 		}
 	}
 }
+
+// TestExpiryComparesAtRemnawavePrecision: Remnawave keeps milliseconds, so a
+// stored microsecond expiry that comes back truncated is not drift.
+func TestExpiryComparesAtRemnawavePrecision(t *testing.T) {
+	stored := time.Date(2026, 11, 22, 9, 3, 19, 508415000, time.UTC)
+	desired := desiredState{remoteExpireAt: stored}
+	remote := remnawave.User{Status: "ACTIVE", ExpireAt: stored.Truncate(time.Millisecond)}
+	for _, field := range compareFields(desired, "active", remote) {
+		if field.Field == "expiry" && !field.Matches {
+			t.Fatalf("a millisecond-truncated expiry must match: %+v", field)
+		}
+	}
+	remote.ExpireAt = stored.Add(time.Millisecond)
+	for _, field := range compareFields(desired, "active", remote) {
+		if field.Field == "expiry" && field.Matches {
+			t.Fatalf("a millisecond difference is drift: %+v", field)
+		}
+	}
+}

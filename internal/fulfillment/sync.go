@@ -53,7 +53,7 @@ func compareFields(desired desiredState, entitlementStatus string, remote remnaw
 	return []SyncField{
 		{
 			Field: "expiry", Omniflow: desired.remoteExpireAt, Remnawave: remote.ExpireAt,
-			Matches: remote.ExpireAt.Equal(desired.remoteExpireAt),
+			Matches: sameInstant(remote.ExpireAt, desired.remoteExpireAt),
 		},
 		// A nil desired limit means unlimited, and unlimited is a value
 		// Remnawave can disagree with: a user still carrying the previous
@@ -75,6 +75,14 @@ func compareFields(desired desiredState, entitlementStatus string, remote remnaw
 			Matches: reconciled == entitlementStatus,
 		},
 	}
+}
+
+// sameInstant compares two expiries at the precision Remnawave keeps them.
+// PostgreSQL stores microseconds and Remnawave milliseconds, so an expiry
+// pushed as …19.508415 comes back as …19.508; compared exactly, every
+// reconcile would see drift and push the same value again.
+func sameInstant(left, right time.Time) bool {
+	return left.Truncate(time.Millisecond).Equal(right.Truncate(time.Millisecond))
 }
 
 // PreviewSync compares one entitlement's state with its Remnawave user without

@@ -275,6 +275,11 @@ surfaces read.
   every fifteen minutes, forever. Thirty days outlasts the grace and recovery windows, after which
   the row is history rather than state; a customer who returns later buys a new entitlement, which
   is provisioned by its own `create`.
+- Inside those thirty days a reconcile of an entitlement past its expiry pushes nothing: Remnawave
+  refuses an expiry in the past with a 400. The reconcile reads the user instead, and the
+  entitlement takes the status the panel gave it — usually `expired`.
+- The expiry is compared at Remnawave's precision, milliseconds. PostgreSQL keeps microseconds, and
+  an exact comparison would record `expiry` drift on every pass.
 - `reconciled_at` is stamped only after a successful apply, so a permanently failing entitlement is
   re-queued in every bucket and produces one new operation row per fifteen minutes, until it falls
   past the horizon.
