@@ -42,6 +42,7 @@ func (handlers *AdminHandlers) mountSettings(secure chi.Router) {
 
 		read.Get("/settings/telemetry/preview", handlers.telemetryPreview)
 		read.Get("/settings/backups", handlers.backupHistory)
+		read.Get("/settings/operator-group/topics", handlers.operatorTopics)
 
 		read.Get("/settings/mcp/servers", handlers.mcpServers)
 		read.Get("/settings/mcp/servers/{slug}/tools", handlers.mcpTools)
@@ -50,6 +51,9 @@ func (handlers *AdminHandlers) mountSettings(secure chi.Router) {
 
 	secure.With(handlers.requirePermission(rbac.PermissionSettingsWrite)).Group(func(write chi.Router) {
 		write.Put("/settings/{section}", handlers.saveSettingSection)
+		// The bot recreates the topics on its next pass and saves each new
+		// thread ID; this only marks them for it.
+		write.Post("/settings/operator-group/topics/recreate", handlers.recreateOperatorTopics)
 
 		write.Put("/settings/ai/providers", handlers.saveAIProvider)
 		write.Delete("/settings/ai/providers/{slug}", handlers.deleteAIProvider)
@@ -113,6 +117,16 @@ func (handlers *AdminHandlers) saveSettingSection(writer http.ResponseWriter, re
 		request.Context(), chi.URLParam(request, "section"),
 		body.Document, body.Version, body.Secrets, actorFrom(request))
 	handlers.respond(writer, request, section, err)
+}
+
+func (handlers *AdminHandlers) operatorTopics(writer http.ResponseWriter, request *http.Request) {
+	topics, err := handlers.operations.OperatorTopics(request.Context())
+	handlers.respond(writer, request, map[string]any{"items": topics}, err)
+}
+
+func (handlers *AdminHandlers) recreateOperatorTopics(writer http.ResponseWriter, request *http.Request) {
+	reset, err := handlers.operations.RecreateOperatorTopics(request.Context(), actorFrom(request))
+	handlers.respond(writer, request, map[string]any{"reset": reset}, err)
 }
 
 func (handlers *AdminHandlers) aiProviders(writer http.ResponseWriter, request *http.Request) {

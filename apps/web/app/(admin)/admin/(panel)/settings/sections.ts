@@ -158,6 +158,8 @@ export const SECTIONS: SectionSchema[] = [
     fields: [
       { name: "chatId", kind: "text", messageKey: "operatorChatId" },
       { name: "createTopics", kind: "boolean", messageKey: "createTopics", defaultValue: true },
+      // Who may press the action buttons on notices; read by internal/botapp.
+      { name: "actionTelegramIds", kind: "text", messageKey: "actionTelegramIds" },
       // The language notices are written in; read by internal/operator.
       { name: "locale", kind: "select", messageKey: "operatorLocale", options: ["en", "ru"] },
       { name: "notificationCap", kind: "number", messageKey: "notificationCap" },
@@ -234,6 +236,12 @@ export const SECTIONS: SectionSchema[] = [
         name: "notifySlaBreach",
         kind: "boolean",
         messageKey: "notifySlaBreach",
+        defaultValue: true,
+      },
+      {
+        name: "notifyIncludeText",
+        kind: "boolean",
+        messageKey: "notifyIncludeText",
         defaultValue: true,
       },
     ],

@@ -4028,7 +4028,9 @@
         "miniAppFullscreen": "Open the Mini App full screen (Telegram 8.0 and later; older clients expand it)",
         "miniAppLite": "Lite Mini App: only subscription, store, and support in its navigation",
         "importExcludedUsernames": "Never import these usernames (one per line)",
-        "importExcludedSquads": "Never import users in these squads (UUID or name, one per line)"
+        "importExcludedSquads": "Never import users in these squads (UUID or name, one per line)",
+        "actionTelegramIds": "Who may use notice buttons (Telegram IDs)",
+        "notifyIncludeText": "Show the ticket's subject and message in the group"
       },
       "telemetryPreview": {
         "title": "What telemetry would send",
@@ -5294,6 +5296,63 @@
           "definition": "Marks received over questions sent in the window"
         }
       }
+    },
+    "operatorTopics": {
+      "title": "Topics in the operator group",
+      "description": "The bot creates a topic for every notification stream in the group above and saves its thread ID by itself. Turn topics on in the group, add the bot as an administrator with the “Manage topics” right, and enter the group ID above.",
+      "noGroup": "No operator group yet. Enter its ID in the Operator group section above; the bot creates the topics within a few seconds of saving.",
+      "flat": "Topics are off: every notice goes to the group itself. Turn on “Create topics automatically” to give each stream its own topic.",
+      "summary": "Group {group}: {bound} of {total} topics ready",
+      "creating": "the bot is creating topics…",
+      "empty": "The bot has not created any topics yet.",
+      "stream": "Stream",
+      "status": "Status",
+      "thread": "Thread ID",
+      "updated": "Updated",
+      "statuses": {
+        "bound": "Ready",
+        "pending": "Being created",
+        "failed": "Failed"
+      },
+      "errors": {
+        "missing_manage_topics_permission": "The bot may not manage topics. Make it an administrator with the “Manage topics” right, then recreate the topics.",
+        "chat_not_found": "Telegram does not know this group. Check the ID: a supergroup's ID starts with -100.",
+        "forum_topics_disabled": "Topics are off in this group. Turn them on in the group's settings, then recreate the topics.",
+        "bot_not_in_group": "The bot is not in this group. Add it as an administrator, then recreate the topics.",
+        "other": "Telegram refused: {code}."
+      },
+      "recreate": "Recreate topics",
+      "recreateTitle": "Recreate every topic?",
+      "recreateWarning": "The bot makes a new topic for every stream and sends notices there from then on. The old topics stay in the group with their history; you can close or delete them in Telegram.",
+      "cancel": "Cancel",
+      "reason": "Recreate the operator group's topics",
+      "requested": "The bot will recreate the topics within a few seconds.",
+      "kinds": {
+        "purchase": "Purchases",
+        "renewal": "Renewals",
+        "topup": "Wallet top-ups",
+        "refund": "Refunds",
+        "fulfillment_failure": "Fulfillment failures",
+        "incident": "Incidents",
+        "backup": "Backups",
+        "security": "Admin security",
+        "support": "Support tickets",
+        "campaign_test": "Campaign previews",
+        "notice_test": "Notice previews",
+        "anomaly": "Anomalies",
+        "trial": "Trials",
+        "addon": "Add-ons",
+        "promo": "Promo codes",
+        "partner": "Partners",
+        "error": "Errors",
+        "infrastructure": "Infrastructure",
+        "report": "Reports",
+        "node": "Remnawave nodes",
+        "monitoring": "Usage monitoring",
+        "marketing": "Loyalty and referrals",
+        "receipt": "Self-employed receipts"
+      },
+      "failed": "The request did not go through: {detail}"
     }
   },
   "account": {
