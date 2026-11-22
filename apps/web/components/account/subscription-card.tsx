@@ -4,7 +4,7 @@ import { Button } from "@omniflow/ui/button";
 import { cn } from "@omniflow/ui/lib/utils";
 import { ArrowUpDown, KeyRound, Receipt, ShoppingBag } from "lucide-react";
 import Link from "next/link";
-import { useFormatter, useTranslations } from "next-intl";
+import { useFormatter, useNow, useTranslations } from "next-intl";
 
 /** Mirrors the AccountSubscription schema in api/openapi.yaml. */
 export type AccountSubscription = {
@@ -182,6 +182,9 @@ export function SubscriptionStatus({ subscription }: { subscription: AccountSubs
   const translate = useTranslations("account");
   const phaseLabel = usePhaseLabel();
   const format = useFormatter();
+  // An explicit clock, ticking each minute, so "last connected an hour ago"
+  // keeps up with a dashboard left open and next-intl has no fallback to warn about.
+  const now = useNow({ updateInterval: 60_000 });
   const tone = subscription.pendingOrderId ? "warn" : PHASE_TONE[subscription.phase];
 
   const status = phaseLabel(subscription);
@@ -206,7 +209,7 @@ export function SubscriptionStatus({ subscription }: { subscription: AccountSubs
             {subscription.online
               ? translate("subscription.onlineNow")
               : translate("subscription.lastOnline", {
-                  when: format.relativeTime(new Date(subscription.lastOnlineAt)),
+                  when: format.relativeTime(new Date(subscription.lastOnlineAt), now),
                 })}
           </p>
         ) : null}
@@ -235,7 +238,6 @@ export function SubscriptionCard({ subscription }: { subscription: AccountSubscr
   const tone = subscription.pendingOrderId ? "warn" : PHASE_TONE[subscription.phase];
 
   const status = phaseLabel(subscription);
-  const action = primaryAction(subscription);
 
   const devices = subscription.devices.unlimited
     ? translate("subscription.devicesUnlimited", { used: subscription.devices.used })
@@ -274,40 +276,52 @@ export function SubscriptionCard({ subscription }: { subscription: AccountSubscr
         <TrafficMeter traffic={subscription.traffic} />
       </div>
 
-      <div className="flex gap-2">
-        {action === "pay" && (
-          <Button asChild className="flex-1" size="lg">
-            <Link href={`/account/orders/${subscription.pendingOrderId}`}>
-              <Receipt aria-hidden />
-              {translate("subscription.openOrder")}
-            </Link>
-          </Button>
-        )}
-        {action === "connect" && (
-          <Button asChild className="flex-1" size="lg">
-            <Link href={`/account/subscriptions/${subscription.id}/connect`}>
-              <KeyRound aria-hidden />
-              {translate("subscription.connect")}
-            </Link>
-          </Button>
-        )}
-        {(action === "renew" || action === "browse") && (
-          <Button asChild className="flex-1" size="lg">
-            <Link href="/account/store">
-              <ShoppingBag aria-hidden />
-              {translate(action === "renew" ? "subscription.renew" : "subscription.browsePlans")}
-            </Link>
-          </Button>
-        )}
-        <Button asChild size="lg" variant="outline">
-          <Link
-            aria-label={translate("subscription.manage")}
-            href={`/account/subscriptions/${subscription.id}`}
-          >
-            <ArrowUpDown aria-hidden />
+      <SubscriptionActions subscription={subscription} />
+    </article>
+  );
+}
+
+/**
+ * The controls under a subscription: the one thing to do next — connect, pay,
+ * renew — and the way into its settings.
+ */
+export function SubscriptionActions({ subscription }: { subscription: AccountSubscription }) {
+  const translate = useTranslations("account");
+  const action = primaryAction(subscription);
+  return (
+    <div className="flex gap-2">
+      {action === "pay" && (
+        <Button asChild className="flex-1" size="lg">
+          <Link href={`/account/orders/${subscription.pendingOrderId}`}>
+            <Receipt aria-hidden />
+            {translate("subscription.openOrder")}
           </Link>
         </Button>
-      </div>
-    </article>
+      )}
+      {action === "connect" && (
+        <Button asChild className="flex-1" size="lg">
+          <Link href={`/account/subscriptions/${subscription.id}/connect`}>
+            <KeyRound aria-hidden />
+            {translate("subscription.connect")}
+          </Link>
+        </Button>
+      )}
+      {(action === "renew" || action === "browse") && (
+        <Button asChild className="flex-1" size="lg">
+          <Link href="/account/store">
+            <ShoppingBag aria-hidden />
+            {translate(action === "renew" ? "subscription.renew" : "subscription.browsePlans")}
+          </Link>
+        </Button>
+      )}
+      <Button asChild size="lg" variant="outline">
+        <Link
+          aria-label={translate("subscription.manage")}
+          href={`/account/subscriptions/${subscription.id}`}
+        >
+          <ArrowUpDown aria-hidden />
+        </Link>
+      </Button>
+    </div>
   );
 }

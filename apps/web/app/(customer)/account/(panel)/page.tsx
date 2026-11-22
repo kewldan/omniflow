@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR from "swr";
-
+import { DeviceList } from "@/components/account/device-list";
 import {
   AccountNotice,
   ListSkeleton,
@@ -14,7 +14,14 @@ import {
   ServiceNotice,
   StaleDataNotice,
 } from "@/components/account/state";
-import { type AccountSubscription, SubscriptionCard } from "@/components/account/subscription-card";
+import {
+  type AccountSubscription,
+  primaryAction,
+  SubscriptionActions,
+  SubscriptionCard,
+  SubscriptionStatus,
+  TrafficMeter,
+} from "@/components/account/subscription-card";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 
 type Overview = {
@@ -39,10 +46,15 @@ type Overview = {
  * One screen answers the question the customer came with: is my subscription
  * working, and how long is left. Everything else on the page is reachable from
  * here rather than competing with it.
+ *
+ * Most customers have exactly one subscription, so when one is on screen —
+ * the only one, or the one picked in the switcher — the dashboard opens it out:
+ * status, expiry, traffic, and its devices with removal, without a second
+ * screen. Several at once stay compact cards.
  */
 export default function AccountDashboard() {
   const translate = useTranslations("account");
-  const { data, error, isLoading, isValidating } = useSWR<Overview, ApiError>(
+  const { data, error, isLoading, isValidating, mutate } = useSWR<Overview, ApiError>(
     "/v1/account/overview",
     fetcher,
   );
@@ -126,10 +138,61 @@ export default function AccountDashboard() {
       {/* aria-busy lets assistive technology know a background refresh is in
           flight without interrupting whatever it is reading. */}
       <section aria-busy={isValidating} className="space-y-3">
-        {active.map((subscription) => (
-          <SubscriptionCard key={subscription.id} subscription={subscription} />
-        ))}
+        {active.length === 1 ? (
+          <SubscriptionHome
+            degraded={data.degraded}
+            onDevicesChanged={() => void mutate()}
+            subscription={active[0]}
+          />
+        ) : (
+          active.map((subscription) => (
+            <SubscriptionCard key={subscription.id} subscription={subscription} />
+          ))
+        )}
       </section>
+    </div>
+  );
+}
+
+/**
+ * A single subscription, opened out.
+ *
+ * The same status block and traffic meter as the subscription page, so the two
+ * cannot disagree, followed by its devices. The device list is shown only for
+ * a subscription that can be connected: an unpaid, lapsed, or unprovisioned one
+ * has no devices to manage, and its card already says what to do instead. It is
+ * left out while Remnawave is unreachable too — the stale-data notice above
+ * already says so, and a second notice in the list would repeat it.
+ */
+function SubscriptionHome({
+  degraded,
+  onDevicesChanged,
+  subscription,
+}: {
+  degraded: boolean;
+  onDevicesChanged: () => void;
+  subscription: AccountSubscription;
+}) {
+  return (
+    <div className="space-y-5">
+      <article className="animate-step-in space-y-4 rounded-lg border border-border bg-card p-4">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="truncate font-semibold text-[17px] tracking-[-0.01em]">
+            {subscription.label}
+          </h2>
+          {subscription.plan && (
+            <span className="shrink-0 font-mono text-[11px] text-subtle-foreground">
+              {subscription.plan}
+            </span>
+          )}
+        </div>
+        <SubscriptionStatus subscription={subscription} />
+        <TrafficMeter traffic={subscription.traffic} />
+        <SubscriptionActions subscription={subscription} />
+      </article>
+      {primaryAction(subscription) === "connect" && !degraded && (
+        <DeviceList embedded onChanged={onDevicesChanged} subscription={subscription} />
+      )}
     </div>
   );
 }
