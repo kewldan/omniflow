@@ -48,6 +48,10 @@ type Mapping struct {
 	// not carried as VPN spend. Left out, nothing is excluded: a purchase from
 	// the balance (`balance`) is VPN spend like one through a provider.
 	ExcludedPaymentMethods []string `yaml:"excludedPaymentMethods"`
+	// ReferralSettings are the `REFERRAL_*` lines of Bedolaga's `.env`. Only
+	// the database is read, and a key set in `.env` wins over the one saved
+	// from the admin panel, so the referral terms need them to be exact.
+	ReferralSettings map[string]string `yaml:"referralSettings"`
 }
 
 // PaymentMethodExcluded reports whether a purchase by this method is left out
@@ -153,6 +157,20 @@ func (mapping *Mapping) normalize() error {
 			methods = append(methods, method)
 		}
 		mapping.ExcludedPaymentMethods = methods
+	}
+	if mapping.ReferralSettings != nil {
+		settings := make(map[string]string, len(mapping.ReferralSettings))
+		for key, value := range mapping.ReferralSettings {
+			key = strings.ToUpper(strings.TrimSpace(key))
+			if !strings.HasPrefix(key, "REFERRAL_") || len(key) > 80 {
+				return fmt.Errorf("mapping file: referralSettings: %q is not a REFERRAL_* setting", key)
+			}
+			if len(value) > 200 {
+				return fmt.Errorf("mapping file: referralSettings: %s is too long", key)
+			}
+			settings[key] = strings.TrimSpace(value)
+		}
+		mapping.ReferralSettings = settings
 	}
 	seen := map[string]int{}
 	for index := range mapping.Plans {

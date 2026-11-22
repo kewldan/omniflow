@@ -314,7 +314,38 @@ func (service *Service) loadTarget(ctx context.Context) (bedolagaimport.Target, 
 	for _, key := range archived {
 		target.ArchivedRecords[bedolagaimport.ArchiveKey(key.Kind, key.SourceID)] = true
 	}
+	program, err := queries.GetReferralProgram(ctx)
+	switch {
+	case err == nil:
+		terms := referralTerms(program)
+		target.ReferralProgram = &terms
+	case !isNoRows(err):
+		return target, nil, fmt.Errorf("read the referral programme: %w", err)
+	}
 	return target, versions, nil
+}
+
+// referralTerms reads Omniflow's programme in the importer's terms.
+func referralTerms(program dbgen.ReferralProgram) bedolagaimport.ReferralProgramTerms {
+	optional := func(value pgtype.Int4) *int32 {
+		if !value.Valid {
+			return nil
+		}
+		return &value.Int32
+	}
+	terms := bedolagaimport.ReferralProgramTerms{
+		Enabled:            program.Enabled,
+		InviterRewardMinor: program.InviterRewardMinor, InviteeRewardMinor: program.InviteeRewardMinor,
+		InviterRewardDays: program.InviterRewardDays, InviteeRewardDays: program.InviteeRewardDays,
+		CommissionBPS:             program.CommissionBps,
+		FirstPaymentCommissionBPS: optional(program.FirstPaymentCommissionBps),
+		CommissionPaymentCap:      optional(program.CommissionPaymentCap),
+		CommissionTriggers:        program.CommissionTriggers,
+		CommissionTiers:           []bedolagaimport.ReferralCommission{},
+		AllowRewardChoice:         program.AllowRewardChoice,
+	}
+	_ = json.Unmarshal(program.CommissionTiers, &terms.CommissionTiers)
+	return terms
 }
 
 // Verify reconciles a fresh plan against the Omniflow tables.

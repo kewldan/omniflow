@@ -199,6 +199,8 @@ type Source struct {
 	// memberships.
 	PromoGroups  []PromoGroup
 	PromoMembers []PromoMember
+	// ReferralTerms are the referral programme's settings and reward levels.
+	ReferralTerms ReferralTerms
 	// ArchiveRecords are every row of every other Bedolaga table, kept as
 	// history.
 	ArchiveRecords []ArchiveRecord

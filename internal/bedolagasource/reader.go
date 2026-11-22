@@ -97,6 +97,9 @@ func Read(ctx context.Context, connection *pgx.Conn) (bedolagaimport.Source, err
 	if source.PromoGroups, source.PromoMembers, err = readPromoGroups(ctx, tx, columns); err != nil {
 		return bedolagaimport.Source{}, err
 	}
+	if source.ReferralTerms, err = readReferralTerms(ctx, tx, columns); err != nil {
+		return bedolagaimport.Source{}, err
+	}
 	if source.ArchiveRecords, err = readArchiveRecords(ctx, tx, columns); err != nil {
 		return bedolagaimport.Source{}, err
 	}
@@ -395,6 +398,68 @@ func readPromoGroups(ctx context.Context, tx pgx.Tx, columns map[string]map[stri
 		return nil, nil, fmt.Errorf("read promo group members: %w", err)
 	}
 	return groups, members, nil
+}
+
+// readReferralTerms reads what the referral programme paid: the REFERRAL_*
+// overrides saved from Bedolaga's admin panel, and the reward levels. Only
+// keys with that prefix are selected — the same table holds the bot's tokens
+// and payment secrets, which the importer never reads.
+func readReferralTerms(ctx context.Context, tx pgx.Tx, columns map[string]map[string]bool) (
+	bedolagaimport.ReferralTerms, error,
+) {
+	terms := bedolagaimport.ReferralTerms{Settings: map[string]string{}}
+	if !hasColumns(columns, "system_settings", "key", "value") {
+		return terms, nil
+	}
+	terms.Read = true
+	rows, err := tx.Query(ctx, `SELECT key, COALESCE(value, '') FROM system_settings
+		WHERE key LIKE 'REFERRAL\_%' ORDER BY key`)
+	if err != nil {
+		return terms, fmt.Errorf("read referral settings: %w", err)
+	}
+	for rows.Next() {
+		var key, value string
+		if err := rows.Scan(&key, &value); err != nil {
+			rows.Close()
+			return terms, fmt.Errorf("read referral settings: %w", err)
+		}
+		terms.Settings[key] = value
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return terms, fmt.Errorf("read referral settings: %w", err)
+	}
+	if !hasColumns(columns, "referral_reward_levels", "level", "is_active", "reward_mode", "trigger") {
+		return terms, nil
+	}
+	column := func(name, fallback string) string {
+		if columns["referral_reward_levels"][name] {
+			return name
+		}
+		return fallback
+	}
+	rows, err = tx.Query(ctx, `SELECT level::bigint, is_active, reward_mode, trigger,
+		`+column("referrer_percent", "NULL")+`::bigint, `+column("referrer_fixed_kopeks", "NULL")+`::bigint,
+		COALESCE(`+column("referrer_days", "0")+`, 0)::bigint, `+column("referee_fixed_kopeks", "NULL")+`::bigint,
+		COALESCE(`+column("referee_days", "0")+`, 0)::bigint, COALESCE(`+column("max_payments", "0")+`, 0)::bigint,
+		COALESCE(`+column("required_referrals", "0")+`, 0)::bigint,
+		`+column("referrer_tariff_id", "NULL")+` IS NOT NULL OR `+column("referee_tariff_id", "NULL")+` IS NOT NULL
+		FROM referral_reward_levels ORDER BY level`)
+	if err != nil {
+		return terms, fmt.Errorf("read referral reward levels: %w", err)
+	}
+	terms.Levels, err = pgx.CollectRows(rows, func(row pgx.CollectableRow) (bedolagaimport.ReferralLevel, error) {
+		var level bedolagaimport.ReferralLevel
+		err := row.Scan(&level.Level, &level.Active, &level.Mode, &level.Trigger, &level.ReferrerPercent,
+			&level.ReferrerFixedKopeks, &level.ReferrerDays, &level.RefereeFixedKopeks, &level.RefereeDays,
+			&level.MaxPayments, &level.RequiredReferrals, &level.TariffReward)
+		level.Mode, level.Trigger = strings.ToLower(level.Mode), strings.ToLower(level.Trigger)
+		return level, err
+	})
+	if err != nil {
+		return terms, fmt.Errorf("read referral reward levels: %w", err)
+	}
+	return terms, nil
 }
 
 // readArchiveRecords reads every row of every Bedolaga table, without the

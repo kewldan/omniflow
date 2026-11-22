@@ -64,6 +64,7 @@ cutover.
 | Last use of a `discount` promo code, last claimed discount offer (`discount_offers`) | `legacy_customer_discounts` | The date a promotion's [`discountCooldownDays`](/commerce/catalog-promotions#eligibility) reads |
 | `users.referral_code` | `referral_code_aliases` | Upper-cased beside the new Omniflow code, so invite links already handed out keep attributing; see [referrals](#referrals) |
 | `users.referred_by_id` | `referral_attributions` | Same referrer; qualified when the referee had paid, see [referrals](#referrals) |
+| `REFERRAL_*` keys of `system_settings`, `referral_reward_levels` | `referral_programs` | What an invite pays, switched on as it was, see [referral terms](#referral-terms) |
 | `advertising_campaigns` | `ad_campaigns` | By `/start` code, lower-cased; an Omniflow campaign with the code already is matched and left as it is, see [campaigns](#advertising-campaigns) |
 | `advertising_campaign_registrations` | `customer_campaign_attributions` | The first campaign a customer arrived through, on its original date, with the bonus recorded as given |
 | `stars_orders` with status `completed` | `legacy_goods_orders` | Stars, amount, and delivery date, so segments find stars buyers and the sales report shows the old shop apart, see [Stars orders](#stars-shop-orders) |
@@ -195,6 +196,41 @@ Every pair whose both sides are imported becomes an attribution with Bedolaga's 
 arrives with `qualified_at` set and no qualifying order. Its inviter was rewarded in Bedolaga, so an
 attribution like that never pays again in Omniflow; a referee who never paid qualifies on their first
 Omniflow order as usual, subject to the programme's validity window.
+
+### Referral terms
+
+What an invite paid becomes Omniflow's [referral programme](/commerce/referrals-loyalty), switched on or
+off as it was in Bedolaga, so invites do not go unrewarded from the morning after the cutover. The terms
+are resolved the way the bot resolved them: its compiled-in defaults, under the `REFERRAL_*` keys saved
+from its admin panel in `system_settings`, under the `REFERRAL_*` lines of its `.env` — a key set in
+`.env` is one the panel could no longer change. Only the database is read, and only keys with that
+prefix (the same table holds the bot's tokens), so copy the `REFERRAL_*` lines of `.env` into the
+mapping's `referralSettings`; without them the database and the defaults decide.
+
+| Bedolaga | Omniflow |
+| --- | --- |
+| `legacy` scheme: `REFERRAL_INVITER_BONUS_KOPEKS`, `REFERRAL_FIRST_TOPUP_BONUS_KOPEKS` | `inviterRewardMinor`, `inviteeRewardMinor` |
+| `REFERRAL_COMMISSION_PERCENT`, `REFERRAL_FIRST_PAYMENT_COMMISSION_PERCENT` | `commissionBps`, `firstPaymentCommissionBps` |
+| `REFERRAL_RECURRING_COMMISSION_TIERS` (`0:10,10:15`) | the `0:` rung as `commissionBps`, the rest as `commissionTiers` |
+| `REFERRAL_MAX_COMMISSION_PAYMENTS` | `commissionPaymentCap` (0 is none) |
+| `levels` scheme, level 1 paying once (`first_topup`, `registration`) | fixed sums as the one-off rewards, days as `inviterRewardDays` / `inviteeRewardDays`, a percent as the first payment's commission |
+| `levels` scheme, level 1 on `every_topup` | its percent as `commissionBps`, `max_payments` as the cap |
+| `REFERRAL_ALLOW_REWARD_KIND_CHOICE` | `allowRewardChoice` |
+| `REFERRAL_PROGRAM_ENABLED` | `enabled` |
+
+Commission counts subscription orders and top-ups alike, because money reached Bedolaga as top-ups
+and reaches Omniflow mostly as orders; only what a provider settled ever earns. `plan` prints the
+terms beside a warning for each thing Omniflow cannot say the same way:
+`referral_qualifies_on_first_paid_order` (Bedolaga paid on the first top-up, Omniflow on the first
+subscription order paid with outside money), `referral_minimum_topup_not_carried`,
+`referral_deeper_levels_not_carried`, `referral_required_referrals_not_carried`,
+`referral_tariff_reward_as_days` (days on the customer's own plan), `referral_recurring_fixed_reward_dropped`,
+`referral_days_clamped`, and `referral_program_disabled`.
+
+The programme is saved once, in one transaction with the audit row `referral.program.saved`. A
+programme Omniflow already has stands: one that pays exactly these terms is `unchanged`, any other is
+skipped as `referral_program_exists`. Terms that reward nobody are skipped as
+`referral_program_pays_nothing`.
 
 ### Advertising campaigns
 
@@ -337,6 +373,8 @@ plans:
   - noTariff: true
     planVersionId: 77f2…       # subscriptions sold without a tariff
 excludedPaymentMethods: []    # the default; purchases by listed methods are not payment history
+referralSettings:              # the REFERRAL_* lines of Bedolaga's .env, if any
+  REFERRAL_COMMISSION_PERCENT: "15"
 ```
 
 More specific rules win: a tariff with `periodDays` over the tariff alone, a tariff rule over a

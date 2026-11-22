@@ -2,6 +2,7 @@ package bedolagaimportpg
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -200,6 +201,11 @@ func (runner *applier) run(ctx context.Context, plan bedolagaimport.Plan) error 
 	}
 	for _, decision := range plan.Memberships {
 		if err := runner.membership(ctx, decision); err != nil {
+			return err
+		}
+	}
+	if plan.ReferralProgram != nil {
+		if err := runner.referralProgram(ctx, *plan.ReferralProgram); err != nil {
 			return err
 		}
 	}
@@ -480,6 +486,66 @@ func (runner *applier) loyalty(ctx context.Context, decision bedolagaimport.Loya
 		return runner.fail(ctx, "loyalty", 0, [32]byte{}, err)
 	}
 	runner.result.Written["loyalty"]++
+	return nil
+}
+
+// referralProgram saves the referral terms Bedolaga paid as Omniflow's
+// programme, both halves in one transaction, and audits it as the panel does.
+func (runner *applier) referralProgram(ctx context.Context, decision bedolagaimport.ReferralProgramDecision) error {
+	if decision.Action != bedolagaimport.ActionCreate {
+		return nil
+	}
+	if err := runner.step(); err != nil {
+		return err
+	}
+	terms := decision.Terms
+	optional := func(value *int32) pgtype.Int4 {
+		if value == nil {
+			return pgtype.Int4{}
+		}
+		return pgtype.Int4{Int32: *value, Valid: true}
+	}
+	err := runner.inTx(ctx, func(_ pgx.Tx, queries *dbgen.Queries) error {
+		if _, err := queries.SaveReferralProgram(ctx, dbgen.SaveReferralProgramParams{
+			Enabled: terms.Enabled, Currency: runner.mapping.Currency,
+			InviterRewardMinor: terms.InviterRewardMinor, InviteeRewardMinor: terms.InviteeRewardMinor,
+			InviterRewardDays: terms.InviterRewardDays, InviteeRewardDays: terms.InviteeRewardDays,
+			Qualification: "first_paid_order", AttributionValidityDays: 90,
+		}); err != nil {
+			return err
+		}
+		tiers, err := json.Marshal(terms.CommissionTiers)
+		if err != nil {
+			return err
+		}
+		if err := queries.SaveReferralCommission(ctx, dbgen.SaveReferralCommissionParams{
+			CommissionBps:             terms.CommissionBPS,
+			FirstPaymentCommissionBps: optional(terms.FirstPaymentCommissionBPS),
+			CommissionPaymentCap:      optional(terms.CommissionPaymentCap),
+			CommissionTriggers:        terms.CommissionTriggers, CommissionTiers: tiers,
+			AllowRewardChoice: terms.AllowRewardChoice,
+		}); err != nil {
+			return err
+		}
+		metadata, err := json.Marshal(map[string]any{
+			"source": "bedolaga", "scheme": decision.Scheme, "terms": terms, "warnings": decision.Warnings,
+		})
+		if err != nil {
+			return err
+		}
+		_, err = queries.InsertAuditEvent(ctx, dbgen.InsertAuditEventParams{
+			ActorType: "system", ActorID: pgtype.Text{String: runner.service.options.Actor, Valid: true},
+			Action: "referral.program.saved", Category: "marketing", Outcome: "success",
+			TargetType: "referral_program", TargetID: "singleton",
+			Reason:   pgtype.Text{String: "Referral terms carried over from Bedolaga", Valid: true},
+			Metadata: metadata,
+		})
+		return err
+	})
+	if err != nil {
+		return runner.fail(ctx, "referral_program", 0, [32]byte{}, err)
+	}
+	runner.result.Written["referral_program"]++
 	return nil
 }
 

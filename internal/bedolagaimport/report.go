@@ -3,6 +3,7 @@ package bedolagaimport
 import (
 	"fmt"
 	"io"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -133,30 +134,31 @@ type Problem struct {
 // `apply` run, and is safe to share: it carries counts, Bedolaga row IDs,
 // and tariff names only.
 type Report struct {
-	GeneratedAt     time.Time           `json:"generatedAt"`
-	Currency        string              `json:"currency"`
-	Source          SourceTotals        `json:"source"`
-	Users           Section             `json:"users"`
-	Balances        BalanceSection      `json:"balances"`
-	Subscriptions   SubscriptionSection `json:"subscriptions"`
-	Referrals       Section             `json:"referrals"`
-	Trials          TrialSection        `json:"trials"`
-	Periods         PeriodSection       `json:"periods"`
-	Payments        PaymentSection      `json:"payments"`
-	Discounts       Section             `json:"discounts"`
-	ReferralCodes   Section             `json:"referralCodes"`
-	Gifts           GiftSection         `json:"gifts"`
-	Campaigns       Section             `json:"campaigns"`
-	Attributions    Section             `json:"campaignRegistrations"`
-	Goods           GoodsSection        `json:"starsOrders"`
-	Pages           Section             `json:"pages"`
-	Tickets         TicketSection       `json:"tickets"`
-	Consents        Section             `json:"consents"`
-	Loyalty         Section             `json:"loyalty"`
-	Memberships     Section             `json:"loyaltyMemberships"`
-	History         []HistoryTable      `json:"history"`
-	UnmappedTariffs []UnmappedTariff    `json:"unmappedTariffs"`
-	PlanVersions    []PlanVersionUse    `json:"planVersions"`
+	GeneratedAt     time.Time                `json:"generatedAt"`
+	Currency        string                   `json:"currency"`
+	Source          SourceTotals             `json:"source"`
+	Users           Section                  `json:"users"`
+	Balances        BalanceSection           `json:"balances"`
+	Subscriptions   SubscriptionSection      `json:"subscriptions"`
+	Referrals       Section                  `json:"referrals"`
+	Trials          TrialSection             `json:"trials"`
+	Periods         PeriodSection            `json:"periods"`
+	Payments        PaymentSection           `json:"payments"`
+	Discounts       Section                  `json:"discounts"`
+	ReferralCodes   Section                  `json:"referralCodes"`
+	Gifts           GiftSection              `json:"gifts"`
+	Campaigns       Section                  `json:"campaigns"`
+	Attributions    Section                  `json:"campaignRegistrations"`
+	Goods           GoodsSection             `json:"starsOrders"`
+	Pages           Section                  `json:"pages"`
+	Tickets         TicketSection            `json:"tickets"`
+	Consents        Section                  `json:"consents"`
+	Loyalty         Section                  `json:"loyalty"`
+	Memberships     Section                  `json:"loyaltyMemberships"`
+	ReferralProgram *ReferralProgramDecision `json:"referralProgram,omitempty"`
+	History         []HistoryTable           `json:"history"`
+	UnmappedTariffs []UnmappedTariff         `json:"unmappedTariffs"`
+	PlanVersions    []PlanVersionUse         `json:"planVersions"`
 	// Available lists every Omniflow plan version a mapping may name.
 	Available   []PlanVersion `json:"availablePlanVersions"`
 	Problems    []Problem     `json:"problems"`
@@ -278,6 +280,9 @@ func (plan Plan) Pending() int {
 		}
 	}
 	if plan.Loyalty != nil && plan.Loyalty.Action == ActionCreate {
+		count++
+	}
+	if plan.ReferralProgram != nil && plan.ReferralProgram.Action == ActionCreate {
 		count++
 	}
 	for _, decision := range plan.Memberships {
@@ -493,6 +498,7 @@ func buildReport(plan Plan, source Source, tariffs map[int64]Tariff, mapping Map
 	for _, decision := range plan.Memberships {
 		report.Memberships.add(decision.Action, decision.Codes, nil)
 	}
+	report.ReferralProgram = plan.ReferralProgram
 	report.History = []HistoryTable{}
 	for _, decision := range plan.Archive {
 		report.History = append(report.History, HistoryTable{
@@ -573,6 +579,7 @@ func (report Report) WriteText(writer io.Writer) {
 	writeSection(writer, "Consents", report.Consents)
 	writeSection(writer, "Loyalty", report.Loyalty)
 	writeSection(writer, "Loyalty members", report.Memberships)
+	writeReferralProgram(writer, report.ReferralProgram)
 	if len(report.History) > 0 {
 		fmt.Fprintln(writer, "History archive (create / unchanged / skip):")
 		for _, table := range report.History {
@@ -681,4 +688,32 @@ func FormatMinor(amount int64) string {
 		sign, amount = "-", -amount
 	}
 	return fmt.Sprintf("%s%d.%02d", sign, amount/100, amount%100)
+}
+
+// writeReferralProgram prints the referral terms the run carries, so the
+// operator reads what customers will be paid before apply switches it on.
+func writeReferralProgram(writer io.Writer, decision *ReferralProgramDecision) {
+	if decision == nil {
+		return
+	}
+	terms := decision.Terms
+	fmt.Fprintf(writer, "%-14s %s (%s scheme)", "Referrals:", decision.Action, decision.Scheme)
+	if len(decision.Codes) > 0 {
+		fmt.Fprintf(writer, " — %s", strings.Join(decision.Codes, ", "))
+	}
+	fmt.Fprintln(writer)
+	if decision.Action == ActionSkip && slices.Contains(decision.Codes, CodeReferralProgramPaysNothing) {
+		return
+	}
+	first := "same"
+	if terms.FirstPaymentCommissionBPS != nil {
+		first = FormatMinor(int64(*terms.FirstPaymentCommissionBPS)) + "%"
+	}
+	fmt.Fprintf(writer, "  enabled %t; inviter %s + %d days, friend %s + %d days; commission %s%%, first payment %s, %d tiers\n",
+		terms.Enabled, FormatMinor(terms.InviterRewardMinor), terms.InviterRewardDays,
+		FormatMinor(terms.InviteeRewardMinor), terms.InviteeRewardDays,
+		FormatMinor(int64(terms.CommissionBPS)), first, len(terms.CommissionTiers))
+	if len(decision.Warnings) > 0 {
+		fmt.Fprintf(writer, "  warnings: %s\n", strings.Join(decision.Warnings, ", "))
+	}
 }

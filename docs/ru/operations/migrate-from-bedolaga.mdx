@@ -64,6 +64,7 @@ description: Перенос клиентов, балансов, подписок
 | Последнее использование промокода вида `discount`, последнее принятое скидочное предложение (`discount_offers`) | `legacy_customer_discounts` | Дата, которую читает [`discountCooldownDays`](/ru/commerce/catalog-promotions#условия-участия) акции |
 | `users.referral_code` | `referral_code_aliases` | В верхнем регистре рядом с новым кодом Omniflow — уже разосланные ссылки приглашений продолжают засчитываться; см. [рефералы](#рефералы) |
 | `users.referred_by_id` | `referral_attributions` | Тот же пригласивший; квалифицирована, если приглашённый платил, см. [рефералы](#рефералы) |
+| Ключи `REFERRAL_*` из `system_settings`, `referral_reward_levels` | `referral_programs` | Что платит приглашение, включено так же, как было, см. [условия программы](#условия-реферальной-программы) |
 | `advertising_campaigns` | `ad_campaigns` | По коду `/start` в нижнем регистре; кампания Omniflow с таким кодом сопоставляется и остаётся как есть, см. [кампании](#рекламные-кампании) |
 | `advertising_campaign_registrations` | `customer_campaign_attributions` | Первая кампания, через которую пришёл клиент, с исходной датой; бонус записан как выданный |
 | `stars_orders` со статусом `completed` | `legacy_goods_orders` | Звёзды, сумма и дата выдачи — сегменты находят покупателей звёзд, отчёт продаж показывает старый магазин отдельно, см. [заказы звёзд](#заказы-магазина-звёзд) |
@@ -197,6 +198,42 @@ Bedolaga для Omniflow баланс покупает ещё и звёзды Te
 Bedolaga, поэтому такая атрибуция в Omniflow больше не выплачивается; приглашённый, который не платил,
 квалифицируется своим первым заказом в Omniflow как обычно, с учётом срока действия атрибуции в
 программе.
+
+### Условия реферальной программы
+
+То, что платило приглашение, становится [реферальной программой](/ru/commerce/referrals-loyalty)
+Omniflow — включённой или выключенной, как в Bedolaga, чтобы приглашения не остались без наград с
+первого же утра после переезда. Условия собираются так же, как их собирал бот: встроенные значения по
+умолчанию, поверх них — ключи `REFERRAL_*`, сохранённые из его админки в `system_settings`, поверх
+них — строки `REFERRAL_*` из его `.env` (ключ, заданный в `.env`, админка изменить уже не могла).
+Читается только база, и только ключи с этим префиксом (в той же таблице лежат токены бота), поэтому
+перенесите строки `REFERRAL_*` из `.env` в `referralSettings` сопоставления; без них решают база и
+значения по умолчанию.
+
+| Bedolaga | Omniflow |
+| --- | --- |
+| Схема `legacy`: `REFERRAL_INVITER_BONUS_KOPEKS`, `REFERRAL_FIRST_TOPUP_BONUS_KOPEKS` | `inviterRewardMinor`, `inviteeRewardMinor` |
+| `REFERRAL_COMMISSION_PERCENT`, `REFERRAL_FIRST_PAYMENT_COMMISSION_PERCENT` | `commissionBps`, `firstPaymentCommissionBps` |
+| `REFERRAL_RECURRING_COMMISSION_TIERS` (`0:10,10:15`) | ступень `0:` — как `commissionBps`, остальные — как `commissionTiers` |
+| `REFERRAL_MAX_COMMISSION_PAYMENTS` | `commissionPaymentCap` (0 — без ограничения) |
+| Схема `levels`, уровень 1 с разовой наградой (`first_topup`, `registration`) | фиксированные суммы — разовые награды, дни — `inviterRewardDays` / `inviteeRewardDays`, процент — комиссия с первого платежа |
+| Схема `levels`, уровень 1 на `every_topup` | его процент — `commissionBps`, `max_payments` — ограничение |
+| `REFERRAL_ALLOW_REWARD_KIND_CHOICE` | `allowRewardChoice` |
+| `REFERRAL_PROGRAM_ENABLED` | `enabled` |
+
+Комиссия считается и с заказов подписок, и с пополнений: в Bedolaga деньги приходили пополнениями, а
+в Omniflow приходят в основном заказами; зарабатывает только то, что провёл провайдер. `plan` печатает
+условия и предупреждение на каждую вещь, которую Omniflow не может выразить так же:
+`referral_qualifies_on_first_paid_order` (Bedolaga платила за первое пополнение, Omniflow — за первый
+заказ подписки, оплаченный внешними деньгами), `referral_minimum_topup_not_carried`,
+`referral_deeper_levels_not_carried`, `referral_required_referrals_not_carried`,
+`referral_tariff_reward_as_days` (дни на тарифе самого клиента), `referral_recurring_fixed_reward_dropped`,
+`referral_days_clamped` и `referral_program_disabled`.
+
+Программа сохраняется один раз, в одной транзакции со строкой аудита `referral.program.saved`.
+Программа, которая в Omniflow уже есть, остаётся: если она платит ровно эти условия — `unchanged`,
+любая другая пропускается как `referral_program_exists`. Условия, которые никого не награждают,
+пропускаются как `referral_program_pays_nothing`.
 
 ### Рекламные кампании
 
@@ -341,6 +378,8 @@ plans:
   - noTariff: true
     planVersionId: 77f2…       # подписки, проданные без тарифа
 excludedPaymentMethods: []    # по умолчанию; покупки перечисленными способами — не история оплат
+referralSettings:              # строки REFERRAL_* из .env Bedolaga, если есть
+  REFERRAL_COMMISSION_PERCENT: "15"
 ```
 
 Побеждает более конкретное правило: тариф с `periodDays` — над тарифом без него, правило тарифа — над

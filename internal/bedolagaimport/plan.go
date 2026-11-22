@@ -152,6 +152,9 @@ type Target struct {
 	LoyaltyProgramCount int
 	LoyaltyTierCodes    map[string]bool
 	LoyaltyMembers      map[string]bool
+	// ReferralProgram is Omniflow's referral programme, nil when none was
+	// ever saved.
+	ReferralProgram *ReferralProgramTerms
 	// ArchivedRecords holds every "table:source id" already archived.
 	ArchivedRecords map[string]bool
 }
@@ -237,25 +240,26 @@ type ReferralDecision struct {
 
 // Plan is every decision of one run, and the report summarising them.
 type Plan struct {
-	Users         []UserDecision
-	Balances      []BalanceDecision
-	Subscriptions []SubscriptionDecision
-	Referrals     []ReferralDecision
-	Trials        []TrialDecision
-	Periods       []PeriodDecision
-	Payments      []PaymentDecision
-	Discounts     []DiscountDecision
-	Aliases       []AliasDecision
-	Campaigns     []CampaignDecision
-	Attributions  []AttributionDecision
-	Goods         []GoodsDecision
-	Pages         []PageDecision
-	Tickets       []TicketDecision
-	Consents      []ConsentDecision
-	Loyalty       *LoyaltyDecision
-	Memberships   []MembershipDecision
-	Archive       []ArchiveDecision
-	Report        Report
+	Users           []UserDecision
+	Balances        []BalanceDecision
+	Subscriptions   []SubscriptionDecision
+	Referrals       []ReferralDecision
+	Trials          []TrialDecision
+	Periods         []PeriodDecision
+	Payments        []PaymentDecision
+	Discounts       []DiscountDecision
+	Aliases         []AliasDecision
+	Campaigns       []CampaignDecision
+	Attributions    []AttributionDecision
+	Goods           []GoodsDecision
+	Pages           []PageDecision
+	Tickets         []TicketDecision
+	Consents        []ConsentDecision
+	Loyalty         *LoyaltyDecision
+	Memberships     []MembershipDecision
+	ReferralProgram *ReferralProgramDecision
+	Archive         []ArchiveDecision
+	Report          Report
 }
 
 // BuildPlan decides what to do with every record. It is deterministic for a
@@ -333,6 +337,7 @@ func BuildPlan(source Source, remote map[int64]RemoteUser, target Target, mappin
 	decideTickets(&plan, source, target, userIndex)
 	decideConsents(&plan, source, target, userIndex)
 	decideLoyalty(&plan, source, target, userIndex)
+	decideReferralProgram(&plan, source, target, mapping)
 	decideArchive(&plan, source, target, userIndex)
 	plan.Report = buildReport(plan, source, tariffs, mapping, now)
 	for _, version := range target.PlanVersions {
