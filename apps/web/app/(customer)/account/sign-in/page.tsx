@@ -154,6 +154,7 @@ export default function SignInPage() {
       {opened.in === "miniapp" && !miniAppFailed ? (
         <MiniAppSignIn
           busy={busy}
+          initData={opened.initData}
           onSignIn={() => signInWithMiniApp(opened.initData)}
           user={opened.user}
         />
@@ -251,15 +252,48 @@ export default function SignInPage() {
  */
 function MiniAppSignIn({
   busy,
+  initData,
   onSignIn,
   user,
 }: {
   busy: boolean;
+  initData: string;
   onSignIn: () => void;
   user: MiniAppUser | null;
 }) {
   const translate = useTranslations("account");
   const [pictureFailed, setPictureFailed] = useState(false);
+  // The picture comes from the installation, not from Telegram's picture
+  // hosts, which are not reachable from every network. The launch data goes
+  // in a POST body, never a URL, so the answer is shown as a blob.
+  const [picture, setPicture] = useState<string | null>(null);
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+    let revoked = false;
+    let objectUrl: string | null = null;
+    fetch("/v1/account/auth/telegram/miniapp/avatar", {
+      body: JSON.stringify({ initData }),
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      method: "POST",
+    })
+      .then((response) => (response.ok ? response.blob() : null))
+      .then((blob) => {
+        if (blob && !revoked) {
+          objectUrl = URL.createObjectURL(blob);
+          setPicture(objectUrl);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      revoked = true;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [initData, user]);
   const initials = (user?.name ?? "")
     .replace(/^@/, "")
     .split(/\s+/)
@@ -275,22 +309,21 @@ function MiniAppSignIn({
       size="lg"
     >
       {user ? (
-        user.photoUrl && !pictureFailed ? (
-          // biome-ignore lint/performance/noImgElement: Telegram's own picture URL, shown once on this screen
+        picture && !pictureFailed ? (
+          // biome-ignore lint/performance/noImgElement: a blob of the installation's own avatar answer
           <img
             alt=""
             className="size-9 shrink-0 rounded-full object-cover"
             height={36}
             onError={() => setPictureFailed(true)}
-            // Telegram answers a picture it does not have with a 1×1 image,
-            // which would draw an empty circle; initials read better.
+            // A picture too small to be a photo draws an empty circle;
+            // initials read better.
             onLoad={(event) => {
               if (event.currentTarget.naturalWidth < 2) {
                 setPictureFailed(true);
               }
             }}
-            referrerPolicy="no-referrer"
-            src={user.photoUrl}
+            src={picture}
             width={36}
           />
         ) : (

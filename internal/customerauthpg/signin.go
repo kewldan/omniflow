@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -503,4 +504,42 @@ func (service *Service) principalFromSession(row sessionRow) (Principal, error) 
 		ExpiresAt:                state.AbsoluteExpires,
 		ReauthenticationRequired: service.sessions.RequiresReauthentication(state, now),
 	}, nil
+}
+
+// CustomerTelegramID is the Telegram account a customer signs in with, for
+// their own profile photo. found is false for a customer without one.
+func (service *Service) CustomerTelegramID(ctx context.Context, customerID string) (int64, bool, error) {
+	id, err := parseUUID(customerID)
+	if err != nil {
+		return 0, false, err
+	}
+	identities, err := dbgen.New(service.pool).ListCustomerIdentities(ctx, id)
+	if err != nil {
+		return 0, false, err
+	}
+	for _, identity := range identities {
+		if identity.Provider != "telegram" || identity.Status != "active" {
+			continue
+		}
+		if telegramID, parseErr := strconv.ParseInt(identity.ProviderSubject, 10, 64); parseErr == nil && telegramID > 0 {
+			return telegramID, true, nil
+		}
+	}
+	return 0, false, nil
+}
+
+// MiniAppTelegramID verifies Mini App launch data as sign-in does and returns
+// the Telegram account it names, for the sign-in screen's picture of the
+// person it is about to sign in.
+func (service *Service) MiniAppTelegramID(initData string) (int64, error) {
+	if service.botToken == "" {
+		return 0, ErrTelegramUnset
+	}
+	identity, err := customerauth.VerifyMiniAppInitData(
+		initData, service.botToken, service.now(), customerauth.MiniAppMaxAge,
+	)
+	if err != nil {
+		return 0, ErrSignInRejected
+	}
+	return identity.ID, nil
 }

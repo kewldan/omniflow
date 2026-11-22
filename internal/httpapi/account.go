@@ -28,6 +28,7 @@ import (
 // guarantee that is for the two never to share a router.
 type AccountHandlers struct {
 	auth    *customerauthpg.Service
+	avatars AvatarSource
 	account *accountpg.Service
 	limiter *platform.RateLimiter
 	logger  *slog.Logger
@@ -67,6 +68,8 @@ type AccountOptions struct {
 	Limiter  *platform.RateLimiter
 	Logger   *slog.Logger
 	Proxies  *TrustedProxies
+	// Avatars serves customers' Telegram photos; nil without a bot.
+	Avatars AvatarSource
 	// CookieSecure must be true in production. It is separately configurable
 	// only so a plain-HTTP local development stack can sign in at all.
 	CookieSecure bool
@@ -99,7 +102,7 @@ func NewAccountHandlers(options AccountOptions) *AccountHandlers {
 		options.Checkout.SetBotUsername(options.Auth.BotUsername)
 	}
 	return &AccountHandlers{
-		auth: options.Auth, account: options.Account, limiter: options.Limiter,
+		auth: options.Auth, avatars: options.Avatars, account: options.Account, limiter: options.Limiter,
 		logger: logger, proxies: proxies,
 		checkout: options.Checkout, shop: options.Shop,
 		support: options.Support, referral: options.Referral,
@@ -127,6 +130,7 @@ func (handlers *AccountHandlers) Mount(router chi.Router) {
 		// visitor into an account the attacker controls.
 		account.With(requireSameOriginJSON).Post("/auth/telegram", handlers.signInWithTelegram)
 		account.With(requireSameOriginJSON).Post("/auth/telegram/miniapp", handlers.signInWithMiniApp)
+		account.With(requireSameOriginJSON).Post("/auth/telegram/miniapp/avatar", handlers.miniAppAvatar)
 		account.With(requireSameOriginJSON).Post("/auth/link", handlers.completeMagicLink)
 		account.With(requireSameOriginJSON).Post("/auth/email", handlers.requestEmailSignIn)
 		account.Get("/auth/link", handlers.checkMagicLink)
@@ -140,6 +144,7 @@ func (handlers *AccountHandlers) Mount(router chi.Router) {
 			secure.Use(handlers.requireCustomerCSRF)
 
 			secure.Get("/me", handlers.currentAccount)
+			secure.Get("/avatar", handlers.accountAvatar)
 			secure.Patch("/me", handlers.updateProfile)
 			secure.Post("/auth/logout", handlers.logout)
 			secure.Post("/auth/logout-all", handlers.logoutEverywhere)

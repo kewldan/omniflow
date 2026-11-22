@@ -1,4 +1,4 @@
-h1:/2DpulyxiPvES8zBfuQFjYC/s5F8df7K+KDA4MbecEE=
+h1:YcXEuz92/osy/tcJCWB+jxLxRUS4Grbd6+EEWfQgULg=
 20261120000000_baseline.sql h1:xcYk9mdv44B3O0TRxq3RP+hXxJ2VeeOilGnwKO251mQ=
 20261120010000_river_schema_v8.sql h1:AfdQpxaviEf8asJ5gyLmMVZr+zMYaWEw+o/vE8CMj7A=
 20261120020000_customer_email_signin.sql h1:PrCKaTaDm5ggof8aqRooMbqOXEHML5fwq1TF877zQa8=
@@ -91,3 +91,4 @@ h1:/2DpulyxiPvES8zBfuQFjYC/s5F8df7K+KDA4MbecEE=
 20261122690000_legacy_records.sql h1:fvPLaHrQVc0EHGf2ITyysCUxwz11w1iW/FOuMQlL+Hk=
 20261122700000_business_analytics.sql h1:97lvlzXgghXkL8OR5Cp/nVAP0JRrqXVjKfAzWsK43PI=
 20261122710000_audit_anonymous_actor.sql h1:M/FT8rOpmVv6byDlzzKQcwRHeVTwFWBiBDkE2Nr4JZE=
+20261122720000_telegram_avatars.sql h1:Yz6XElniZgSRPn4/D/yQ0JVHSGIrNbnSmRTfydW1jxI=

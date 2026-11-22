@@ -1036,6 +1036,7 @@ type Querier interface {
 	// One attachment, scoped to its ticket so a download route cannot be pointed at
 	// a file from another conversation by swapping identifiers.
 	GetSupportTicketAttachment(ctx context.Context, arg GetSupportTicketAttachmentParams) (GetSupportTicketAttachmentRow, error)
+	GetTelegramAvatar(ctx context.Context, telegramID int64) (TelegramAvatar, error)
 	GetTelemetryInstallationID(ctx context.Context) (pgtype.UUID, error)
 	// The newest version of a live trial plan, which a "trial" promo code grants.
 	GetTrialPlanVersionForReward(ctx context.Context) (GetTrialPlanVersionForRewardRow, error)
@@ -2985,6 +2986,7 @@ type Querier interface {
 	UpsertSubscriptionRemnawaveUser(ctx context.Context, arg UpsertSubscriptionRemnawaveUserParams) (Subscription, error)
 	UpsertSupportQueue(ctx context.Context, arg UpsertSupportQueueParams) (SupportQueue, error)
 	UpsertSupportTag(ctx context.Context, arg UpsertSupportTagParams) (SupportTag, error)
+	UpsertTelegramAvatar(ctx context.Context, arg UpsertTelegramAvatarParams) error
 	// Webhook intake beside settlement, because the two fail independently: a
 	// gateway that takes the money and cannot deliver the notification looks
 	// healthy from the customer's side and produces a stuck queue on ours.

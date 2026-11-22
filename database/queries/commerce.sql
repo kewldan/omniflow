@@ -43,6 +43,15 @@ WITH revoked_identities AS (
 ), erased_history AS (
   -- The previous bot's rows about this customer are their data verbatim.
   DELETE FROM legacy_records WHERE legacy_records.user_id = sqlc.arg(target_user_id)
+), erased_avatar AS (
+  -- The stored Telegram photo, found by the Telegram ID the identity held
+  -- before this statement rewrote it.
+  DELETE FROM telegram_avatars
+  WHERE telegram_avatars.telegram_id IN (
+    SELECT identities.provider_subject::bigint FROM identities
+    WHERE identities.user_id = sqlc.arg(target_user_id) AND identities.provider = 'telegram'
+      AND identities.provider_subject ~ '^[0-9]{1,18}$'
+  )
 )
 DELETE FROM referral_codes WHERE referral_codes.user_id = sqlc.arg(target_user_id);
 

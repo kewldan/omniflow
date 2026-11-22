@@ -1036,10 +1036,12 @@ paths:
       operationId: getPanelCustomerAvatar
       tags: [panel]
       description: >-
-        The customer's Telegram profile photo, read from the Bot API on demand
-        and never stored. Private and cacheable for an hour. 404 when the
-        customer has no Telegram account or the photo is hidden from the bot.
-        Mounted only when a bot token is configured. Requires customers.read.
+        The customer's Telegram profile photo, served from the installation:
+        read through the Bot API, stored in telegram_avatars and refreshed
+        daily, with the stored copy served when Telegram does not answer.
+        Private and cacheable for an hour. 404 when the customer has no
+        Telegram account or the photo is hidden from the bot. Mounted only when
+        a bot token is configured. Requires customers.read.
       parameters:
         - {in: path, name: customerID, required: true, schema: {type: string, format: uuid}}
       responses:
@@ -3899,6 +3901,23 @@ paths:
         "403": {$ref: "#/components/responses/Problem"}
         "404": {$ref: "#/components/responses/Problem"}
         "415": {$ref: "#/components/responses/Problem"}
+  /v1/account/auth/telegram/miniapp/avatar:
+    post:
+      operationId: accountMiniAppAvatar
+      tags: [account]
+      security: []
+      description: >-
+        The Telegram profile photo of the person a Mini App's initData names,
+        verified as sign-in verifies it, for the sign-in screen before a session
+        exists. Served from the installation, as the panel's avatar route is.
+        Requires Content-Type application/json and a same-origin request.
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [initData], properties: {initData: {type: string}}}}}}
+      responses:
+        "200": {description: The photo, content: {image/jpeg: {schema: {type: string, format: binary}}}}
+        "401": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "415": {$ref: "#/components/responses/Problem"}
+        "502": {$ref: "#/components/responses/Problem"}
   /v1/account/auth/link:
     get:
       operationId: accountCheckMagicLink
@@ -3986,6 +4005,19 @@ paths:
         - {in: query, name: error, schema: {type: string}}
       responses:
         "302": {description: "Signed in, or redirected back to sign-in with a reason"}
+  /v1/account/avatar:
+    get:
+      operationId: getAccountAvatar
+      tags: [account]
+      description: >-
+        The signed-in customer's own Telegram profile photo, served from the
+        installation (stored, refreshed daily). Private and cacheable for an
+        hour. 404 without a Telegram account or a photo the bot can see.
+      responses:
+        "200": {description: The photo, content: {image/jpeg: {schema: {type: string, format: binary}}}}
+        "401": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "502": {$ref: "#/components/responses/Problem"}
   /v1/account/me:
     get:
       operationId: getAccountSession

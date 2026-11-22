@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/omniflow/omniflow/internal/config"
 )
@@ -95,5 +96,84 @@ func TestNoTokenMeansNoSource(t *testing.T) {
 	source, err := New("", config.TelegramTransportConfig{})
 	if err != nil || source != nil {
 		t.Fatalf("New(\"\") = %v, %v; want nil, nil", source, err)
+	}
+}
+
+// memoryStore is a Store kept in a map, with the fetch time settable.
+type memoryStore struct {
+	photos  map[int64][]byte
+	fetched map[int64]time.Time
+	saves   int
+}
+
+func newMemoryStore() *memoryStore {
+	return &memoryStore{photos: map[int64][]byte{}, fetched: map[int64]time.Time{}}
+}
+
+func (store *memoryStore) Load(_ context.Context, id int64) ([]byte, time.Time, bool, error) {
+	at, ok := store.fetched[id]
+	return store.photos[id], at, ok, nil
+}
+
+func (store *memoryStore) Save(_ context.Context, id int64, photo []byte) error {
+	store.saves++
+	store.photos[id], store.fetched[id] = photo, time.Now()
+	return nil
+}
+
+// TestStoredPhotoIsServedWithoutTelegram: a fresh stored photo answers
+// without asking Telegram, and a fetched one is stored.
+func TestStoredPhotoIsServedWithoutTelegram(t *testing.T) {
+	var calls atomic.Int32
+	server := fakeBotAPI(t, &calls)
+	defer server.Close()
+	store := newMemoryStore()
+	source, err := New(testToken, config.TelegramTransportConfig{APIURL: server.URL})
+	if err != nil {
+		t.Fatalf("new: %v", err)
+	}
+	source.WithStore(store)
+
+	if _, err = source.Avatar(context.Background(), 1); err != nil || store.saves != 1 {
+		t.Fatalf("first read: err %v, saves %d", err, store.saves)
+	}
+	// A new process: no memory cache, the stored copy is fresh.
+	fresh, _ := New(testToken, config.TelegramTransportConfig{APIURL: server.URL})
+	fresh.WithStore(store)
+	before := calls.Load()
+	data, err := fresh.Avatar(context.Background(), 1)
+	if err != nil || string(data) != "\xff\xd8jpeg-bytes" || calls.Load() != before {
+		t.Fatalf("stored photo: %q, %v, %d new calls", data, err, calls.Load()-before)
+	}
+
+	// "No photo" is stored too, and answered as no photo.
+	if _, err = source.Avatar(context.Background(), 2); !errors.Is(err, ErrNoAvatar) {
+		t.Fatalf("user without photo gave %v", err)
+	}
+	if _, found := store.fetched[2]; !found || store.photos[2] != nil {
+		t.Fatal("the missing photo was not recorded")
+	}
+}
+
+// TestStalePhotoIsServedWhenTelegramFails: a day-old copy is refreshed, and
+// when Telegram does not answer the copy is served instead of an error.
+func TestStalePhotoIsServedWhenTelegramFails(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.WriteHeader(http.StatusBadGateway)
+	}))
+	defer server.Close()
+	store := newMemoryStore()
+	store.photos[1], store.fetched[1] = []byte("old-photo"), time.Now().Add(-48*time.Hour)
+	source, err := New(testToken, config.TelegramTransportConfig{APIURL: server.URL})
+	if err != nil {
+		t.Fatalf("new: %v", err)
+	}
+	source.WithStore(store)
+	data, err := source.Avatar(context.Background(), 1)
+	if err != nil || string(data) != "old-photo" {
+		t.Fatalf("stale copy: %q, %v", data, err)
+	}
+	if _, err = source.Avatar(context.Background(), 3); err == nil || errors.Is(err, ErrNoAvatar) {
+		t.Fatalf("with nothing stored a Telegram failure must surface, got %v", err)
 	}
 }

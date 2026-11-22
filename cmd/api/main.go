@@ -359,12 +359,7 @@ func buildAdminPanel(
 		logger.Warn("admin session cookie is not marked Secure; use this only for local development")
 	}
 	issueSetupTokenIfNeeded(logger, service)
-	var avatars apihttp.AvatarSource
-	if source, avatarErr := telegramavatar.New(cfg.TelegramToken, cfg.TelegramTransport); avatarErr != nil {
-		logger.Warn("telegram avatars are unavailable", "error", avatarErr)
-	} else if source != nil {
-		avatars = avatarAdapter{source}
-	}
+	avatars := newAvatarSource(logger, cfg, pool)
 	return apihttp.NewAdminHandlers(apihttp.AdminOptions{
 		Service: service, Limiter: limiter, Logger: logger, Proxies: proxies,
 		Operations: operations, Providers: paymentservice.Index(providers), Health: health,
@@ -541,6 +536,7 @@ func buildCustomerPanel(
 	return apihttp.NewAccountHandlers(apihttp.AccountOptions{
 		Auth: identity, Account: account, Limiter: limiter, Logger: logger, Proxies: proxies,
 		Checkout: checkout, Shop: shop, Support: support, Referral: referral,
+		Avatars:      newAvatarSource(logger, cfg, pool),
 		CookieSecure: cfg.CustomerPanel.CookieSecure,
 	}), identity, nil
 }
@@ -629,6 +625,20 @@ func issueSetupTokenIfNeeded(logger *slog.Logger, service *adminauthpg.Service) 
 		"token", token,
 		"expires_in", adminauthpg.SetupTokenTTL.String(),
 	)
+}
+
+// newAvatarSource builds the Telegram photo source both panels serve from,
+// backed by the database; nil without a bot token.
+func newAvatarSource(logger *slog.Logger, cfg config.Config, pool *pgxpool.Pool) apihttp.AvatarSource {
+	source, err := telegramavatar.New(cfg.TelegramToken, cfg.TelegramTransport)
+	if err != nil {
+		logger.Warn("telegram avatars are unavailable", "error", err)
+		return nil
+	}
+	if source == nil {
+		return nil
+	}
+	return avatarAdapter{source.WithStore(telegramavatar.NewPostgresStore(pool))}
 }
 
 // avatarAdapter maps the Telegram source's "no photo" onto the one the panel

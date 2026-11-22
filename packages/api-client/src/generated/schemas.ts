@@ -2509,7 +2509,7 @@ export const GetPanelCustomerResponse = zod
   );
 
 /**
- * The customer's Telegram profile photo, read from the Bot API on demand and never stored. Private and cacheable for an hour. 404 when the customer has no Telegram account or the photo is hidden from the bot. Mounted only when a bot token is configured. Requires customers.read.
+ * The customer's Telegram profile photo, served from the installation: read through the Bot API, stored in telegram_avatars and refreshed daily, with the stored copy served when Telegram does not answer. Private and cacheable for an hour. 404 when the customer has no Telegram account or the photo is hidden from the bot. Mounted only when a bot token is configured. Requires customers.read.
  */
 export const GetPanelCustomerAvatarParams = zod.object({
   customerID: zod.uuid(),
@@ -9666,6 +9666,15 @@ export const AccountSignInWithMiniAppResponse = zod.object({
 });
 
 /**
+ * The Telegram profile photo of the person a Mini App's initData names, verified as sign-in verifies it, for the sign-in screen before a session exists. Served from the installation, as the panel's avatar route is. Requires Content-Type application/json and a same-origin request.
+ */
+export const AccountMiniAppAvatarBody = zod.object({
+  initData: zod.string(),
+});
+
+export const AccountMiniAppAvatarResponse = zod.unknown();
+
+/**
  * Where a one-time link the bot delivered lands. It signs nobody in: a GET can be triggered by any page, so opening a session here would let a link requested for one account be planted in another person's browser. It checks the token without spending it and redirects to /account/sign-in/confirm#token=<token>; that page asks the customer to confirm and POSTs the token to this path. An unusable link redirects to /account/sign-in?error=link_invalid (or method_unavailable).
  */
 export const AccountCheckMagicLinkQueryParams = zod.object({
@@ -9728,6 +9737,11 @@ export const CompleteAccountOidcQueryParams = zod.object({
 });
 
 export const CompleteAccountOidcResponse = zod.void();
+
+/**
+ * The signed-in customer's own Telegram profile photo, served from the installation (stored, refreshed daily). Private and cacheable for an hour. 404 without a Telegram account or a photo the bot can see.
+ */
+export const GetAccountAvatarResponse = zod.unknown();
 
 /**
  * The signed-in customer, how they authenticated, and whether a sensitive action needs a fresh sign-in.

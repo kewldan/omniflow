@@ -2932,6 +2932,12 @@ type SupportTopicChoice struct {
 	ChosenAt pgtype.Timestamptz `json:"chosen_at"`
 }
 
+type TelegramAvatar struct {
+	TelegramID int64              `json:"telegram_id"`
+	Photo      []byte             `json:"photo"`
+	FetchedAt  pgtype.Timestamptz `json:"fetched_at"`
+}
+
 type TelegramUsername struct {
 	UserID   pgtype.UUID        `json:"user_id"`
 	Username string             `json:"username"`

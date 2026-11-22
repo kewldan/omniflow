@@ -167,12 +167,17 @@ view returns the first 200 rather than paging.
 ### Telegram photo
 
 The customer card shows the customer's Telegram profile photo beside their identifier
-(`GET /v1/panel/customers/{id}/avatar`, `customers.read`). It is read from the Bot API
-when the card opens and never stored: the api keeps it in memory for an hour (ten
-minutes for "no photo") and sends it as a private response the browser forgets within the
-hour. A customer without Telegram, or whose privacy settings hide the photo from the bot,
-shows two letters of their identifier instead. An installation without a bot token has no
-avatar route at all.
+(`GET /v1/panel/customers/{id}/avatar`, `customers.read`). Browsers never load it from
+Telegram — its picture hosts are not reachable from every network — but from the
+installation: the api reads the photo through the Bot API, keeps it in the
+`telegram_avatars` table and in memory for an hour, and asks Telegram again once the stored
+copy is a day old (an hour for "no photo"). When Telegram does not answer, the stored copy
+is served. Anonymising a customer erases their stored photo. The response is private and
+the browser forgets it within the hour. A customer without Telegram, or whose privacy
+settings hide the photo from the bot, shows two letters of their identifier instead; one
+who removes their photo loses it here at the next refresh. The customer panel serves the
+same photo to its owner (`GET /v1/account/avatar`) and to the Mini App's sign-in screen. An
+installation without a bot token has no avatar route at all.
 
 ### The Controls and Activity tabs
 

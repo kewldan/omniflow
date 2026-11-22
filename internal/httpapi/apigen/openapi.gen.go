@@ -11615,6 +11615,11 @@ type AccountSignInWithMiniAppJSONBody struct {
 	InitData string `json:"initData"`
 }
 
+// AccountMiniAppAvatarJSONBody defines parameters for AccountMiniAppAvatar.
+type AccountMiniAppAvatarJSONBody struct {
+	InitData string `json:"initData"`
+}
+
 // CancelAccountCheckoutParams defines parameters for CancelAccountCheckout.
 type CancelAccountCheckoutParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
@@ -14092,6 +14097,9 @@ type AccountSignInWithTelegramJSONRequestBody = TelegramLoginWidgetPayload
 // AccountSignInWithMiniAppJSONRequestBody defines body for AccountSignInWithMiniApp for application/json ContentType.
 type AccountSignInWithMiniAppJSONRequestBody AccountSignInWithMiniAppJSONBody
 
+// AccountMiniAppAvatarJSONRequestBody defines body for AccountMiniAppAvatar for application/json ContentType.
+type AccountMiniAppAvatarJSONRequestBody AccountMiniAppAvatarJSONBody
+
 // UpdateAccountCheckoutJSONRequestBody defines body for UpdateAccountCheckout for application/json ContentType.
 type UpdateAccountCheckoutJSONRequestBody UpdateAccountCheckoutJSONBody
 
@@ -14717,6 +14725,12 @@ type ServerInterface interface {
 
 	// (POST /v1/account/auth/telegram/miniapp)
 	AccountSignInWithMiniApp(w http.ResponseWriter, r *http.Request)
+
+	// (POST /v1/account/auth/telegram/miniapp/avatar)
+	AccountMiniAppAvatar(w http.ResponseWriter, r *http.Request)
+
+	// (GET /v1/account/avatar)
+	GetAccountAvatar(w http.ResponseWriter, r *http.Request)
 
 	// (DELETE /v1/account/checkout)
 	CancelAccountCheckout(w http.ResponseWriter, r *http.Request, params CancelAccountCheckoutParams)
@@ -16008,6 +16022,16 @@ func (_ Unimplemented) AccountSignInWithTelegram(w http.ResponseWriter, r *http.
 
 // (POST /v1/account/auth/telegram/miniapp)
 func (_ Unimplemented) AccountSignInWithMiniApp(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/auth/telegram/miniapp/avatar)
+func (_ Unimplemented) AccountMiniAppAvatar(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/avatar)
+func (_ Unimplemented) GetAccountAvatar(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -18400,6 +18424,34 @@ func (siw *ServerInterfaceWrapper) AccountSignInWithMiniApp(w http.ResponseWrite
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AccountSignInWithMiniApp(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// AccountMiniAppAvatar operation middleware
+func (siw *ServerInterfaceWrapper) AccountMiniAppAvatar(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.AccountMiniAppAvatar(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountAvatar operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountAvatar(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountAvatar(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -36822,6 +36874,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/v1/account/auth/telegram/miniapp", wrapper.AccountSignInWithMiniApp)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/auth/telegram/miniapp/avatar", wrapper.AccountMiniAppAvatar)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/account/auth/link", wrapper.AccountCheckMagicLink)
 	})
 	r.Group(func(r chi.Router) {
@@ -36835,6 +36890,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/account/auth/oidc/{slug}/callback", wrapper.CompleteAccountOidc)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/avatar", wrapper.GetAccountAvatar)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/account/me", wrapper.GetAccountSession)
@@ -37879,6 +37937,163 @@ func (response AccountSignInWithMiniApp415ApplicationProblemPlusJSONResponse) Vi
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(415)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountMiniAppAvatarRequestObject struct {
+	Body *AccountMiniAppAvatarJSONRequestBody
+}
+
+type AccountMiniAppAvatarResponseObject interface {
+	VisitAccountMiniAppAvatarResponse(w http.ResponseWriter) error
+}
+
+type AccountMiniAppAvatar200ImagejpegResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response AccountMiniAppAvatar200ImagejpegResponse) VisitAccountMiniAppAvatarResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "image/jpeg")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type AccountMiniAppAvatar401ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response AccountMiniAppAvatar401ApplicationProblemPlusJSONResponse) VisitAccountMiniAppAvatarResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountMiniAppAvatar404ApplicationProblemPlusJSONResponse Problem
+
+func (response AccountMiniAppAvatar404ApplicationProblemPlusJSONResponse) VisitAccountMiniAppAvatarResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountMiniAppAvatar415ApplicationProblemPlusJSONResponse Problem
+
+func (response AccountMiniAppAvatar415ApplicationProblemPlusJSONResponse) VisitAccountMiniAppAvatarResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(415)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type AccountMiniAppAvatar502ApplicationProblemPlusJSONResponse Problem
+
+func (response AccountMiniAppAvatar502ApplicationProblemPlusJSONResponse) VisitAccountMiniAppAvatarResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountAvatarRequestObject struct {
+}
+
+type GetAccountAvatarResponseObject interface {
+	VisitGetAccountAvatarResponse(w http.ResponseWriter) error
+}
+
+type GetAccountAvatar200ImagejpegResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response GetAccountAvatar200ImagejpegResponse) VisitGetAccountAvatarResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "image/jpeg")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type GetAccountAvatar401ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetAccountAvatar401ApplicationProblemPlusJSONResponse) VisitGetAccountAvatarResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountAvatar404ApplicationProblemPlusJSONResponse Problem
+
+func (response GetAccountAvatar404ApplicationProblemPlusJSONResponse) VisitGetAccountAvatarResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountAvatar502ApplicationProblemPlusJSONResponse Problem
+
+func (response GetAccountAvatar502ApplicationProblemPlusJSONResponse) VisitGetAccountAvatarResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -56783,6 +56998,12 @@ type StrictServerInterface interface {
 	// (POST /v1/account/auth/telegram/miniapp)
 	AccountSignInWithMiniApp(ctx context.Context, request AccountSignInWithMiniAppRequestObject) (AccountSignInWithMiniAppResponseObject, error)
 
+	// (POST /v1/account/auth/telegram/miniapp/avatar)
+	AccountMiniAppAvatar(ctx context.Context, request AccountMiniAppAvatarRequestObject) (AccountMiniAppAvatarResponseObject, error)
+
+	// (GET /v1/account/avatar)
+	GetAccountAvatar(ctx context.Context, request GetAccountAvatarRequestObject) (GetAccountAvatarResponseObject, error)
+
 	// (DELETE /v1/account/checkout)
 	CancelAccountCheckout(ctx context.Context, request CancelAccountCheckoutRequestObject) (CancelAccountCheckoutResponseObject, error)
 
@@ -58417,6 +58638,61 @@ func (sh *strictHandler) AccountSignInWithMiniApp(w http.ResponseWriter, r *http
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(AccountSignInWithMiniAppResponseObject); ok {
 		if err := validResponse.VisitAccountSignInWithMiniAppResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// AccountMiniAppAvatar operation middleware
+func (sh *strictHandler) AccountMiniAppAvatar(w http.ResponseWriter, r *http.Request) {
+	var request AccountMiniAppAvatarRequestObject
+
+	var body AccountMiniAppAvatarJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.AccountMiniAppAvatar(ctx, request.(AccountMiniAppAvatarRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "AccountMiniAppAvatar")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(AccountMiniAppAvatarResponseObject); ok {
+		if err := validResponse.VisitAccountMiniAppAvatarResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountAvatar operation middleware
+func (sh *strictHandler) GetAccountAvatar(w http.ResponseWriter, r *http.Request) {
+	var request GetAccountAvatarRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountAvatar(ctx, request.(GetAccountAvatarRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountAvatar")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountAvatarResponseObject); ok {
+		if err := validResponse.VisitGetAccountAvatarResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -5581,6 +5581,18 @@ CREATE TABLE public.support_topic_choices (
 
 
 --
+-- Name: telegram_avatars; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.telegram_avatars (
+    telegram_id bigint NOT NULL,
+    photo bytea,
+    fetched_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT telegram_avatars_photo_size CHECK (((photo IS NULL) OR (octet_length(photo) <= 524288)))
+);
+
+
+--
 -- Name: telegram_usernames; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -8317,6 +8329,14 @@ ALTER TABLE ONLY public.support_tickets
 
 ALTER TABLE ONLY public.support_topic_choices
     ADD CONSTRAINT support_topic_choices_pkey PRIMARY KEY (user_id);
+
+
+--
+-- Name: telegram_avatars telegram_avatars_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.telegram_avatars
+    ADD CONSTRAINT telegram_avatars_pkey PRIMARY KEY (telegram_id);
 
 
 --

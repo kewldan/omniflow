@@ -345,11 +345,14 @@ function AccountFooter({ customerId }: { customerId: string }) {
 
   return (
     <div className="border-chrome-border border-t px-3 py-3">
-      <div className="px-2 pb-2">
-        <p className="font-medium font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.14em]">
-          {translate("nav.accountId")}
-        </p>
-        <p className="break-all font-mono text-[10.5px] text-muted-foreground">{customerId}</p>
+      <div className="flex items-start gap-2.5 px-2 pb-2">
+        <AccountPicture />
+        <div className="min-w-0">
+          <p className="font-medium font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.14em]">
+            {translate("nav.accountId")}
+          </p>
+          <p className="break-all font-mono text-[10.5px] text-muted-foreground">{customerId}</p>
+        </div>
       </div>
       <Button
         className="w-full justify-start gap-2.5 px-3 text-[13.5px] text-muted-foreground"
@@ -464,5 +467,28 @@ function SignedOutNotice({
     <main className="mx-auto flex min-h-dvh max-w-lg items-center px-6">
       <AccountNotice action={action} description={description} title={title} variant="forbidden" />
     </main>
+  );
+}
+
+/**
+ * The customer's Telegram photo, served by the installation (Telegram's own
+ * picture hosts are not reachable everywhere). Nothing is drawn for a
+ * customer without one.
+ */
+function AccountPicture() {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return null;
+  }
+  return (
+    // biome-ignore lint/performance/noImgElement: a private, same-origin photo the API serves
+    <img
+      alt=""
+      className="mt-0.5 size-8 shrink-0 rounded-full object-cover"
+      height={32}
+      onError={() => setFailed(true)}
+      src="/v1/account/avatar"
+      width={32}
+    />
   );
 }

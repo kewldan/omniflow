@@ -1,12 +1,13 @@
-// Package telegramavatar fetches a customer's Telegram profile photo for the
-// operator panel.
+// Package telegramavatar fetches customers' Telegram profile photos and serves
+// them from the installation itself.
 //
-// The photo is personal data, so nothing here is written to the database or to
-// disk: it is read from the Bot API when an operator opens a customer card,
-// kept briefly in memory so a card that re-renders does not ask Telegram again,
-// and handed to the operator's browser as a private, short-lived response. A
-// customer who removes their photo in Telegram stops appearing with it within
-// the cache window.
+// Telegram's picture hosts (t.me and its CDN) are not reachable from every
+// network, so neither panel points a browser at them. The photo is read
+// through the Bot API by the server, kept in the database (telegram_avatars)
+// and refreshed once a day, and kept in memory for a short while on top of
+// that. When Telegram does not answer, the stored copy is served. A customer
+// who removes their photo stops appearing with it at the next refresh, and
+// anonymising a customer erases the stored photo with the rest of their data.
 package telegramavatar
 
 import (
@@ -36,7 +37,18 @@ const (
 	// seen sooner than one who removes one.
 	missTTL    = 10 * time.Minute
 	maxEntries = 512
+	// refreshAfter is how old a stored photo may be before Telegram is asked
+	// again; a stored "no photo" is asked about again sooner.
+	refreshAfter     = 24 * time.Hour
+	refreshMissAfter = time.Hour
 )
+
+// Store keeps photos between restarts and serves them when Telegram does not
+// answer. A nil photo records that the bot could see none.
+type Store interface {
+	Load(ctx context.Context, telegramID int64) (photo []byte, fetchedAt time.Time, found bool, err error)
+	Save(ctx context.Context, telegramID int64, photo []byte) error
+}
 
 // Source reads profile photos through the bot.
 type Source struct {
@@ -44,8 +56,18 @@ type Source struct {
 	client *http.Client
 	now    func() time.Time
 
+	store Store
+
 	mu      sync.Mutex
 	entries map[int64]entry
+}
+
+// WithStore keeps photos in store as well as in memory.
+func (source *Source) WithStore(store Store) *Source {
+	if source != nil {
+		source.store = store
+	}
+	return source
 }
 
 type entry struct {
@@ -81,16 +103,51 @@ func (source *Source) Avatar(ctx context.Context, telegramID int64) ([]byte, err
 		}
 		return cached, nil
 	}
+	var (
+		stored      []byte
+		storedFound bool
+	)
+	if source.store != nil {
+		photo, fetchedAt, found, loadErr := source.store.Load(ctx, telegramID)
+		if loadErr == nil && found {
+			stored, storedFound = photo, true
+			age := source.now().Sub(fetchedAt)
+			if (photo != nil && age < refreshAfter) || (photo == nil && age < refreshMissAfter) {
+				return source.remember(telegramID, photo)
+			}
+		}
+	}
 	data, err := source.fetch(ctx, telegramID)
 	switch {
 	case errors.Is(err, ErrNoAvatar):
-		source.store(telegramID, nil, missTTL)
-		return nil, err
+		source.save(ctx, telegramID, nil)
+		return source.remember(telegramID, nil)
 	case err != nil:
+		// Telegram did not answer: the copy kept from before still does.
+		if storedFound {
+			return source.remember(telegramID, stored)
+		}
 		return nil, err
 	}
-	source.store(telegramID, data, cacheTTL)
+	source.save(ctx, telegramID, data)
+	return source.remember(telegramID, data)
+}
+
+// remember caches an answer in memory and returns it as Avatar does.
+func (source *Source) remember(telegramID int64, data []byte) ([]byte, error) {
+	if data == nil {
+		source.storeEntry(telegramID, nil, missTTL)
+		return nil, ErrNoAvatar
+	}
+	source.storeEntry(telegramID, data, cacheTTL)
 	return data, nil
+}
+
+// save writes a fetched answer to the store. A failure only costs a refetch.
+func (source *Source) save(ctx context.Context, telegramID int64, data []byte) {
+	if source.store != nil {
+		_ = source.store.Save(ctx, telegramID, data)
+	}
 }
 
 func (source *Source) fetch(ctx context.Context, telegramID int64) ([]byte, error) {
@@ -145,7 +202,7 @@ func (source *Source) cached(telegramID int64) ([]byte, bool) {
 	return found.data, true
 }
 
-func (source *Source) store(telegramID int64, data []byte, ttl time.Duration) {
+func (source *Source) storeEntry(telegramID int64, data []byte, ttl time.Duration) {
 	source.mu.Lock()
 	defer source.mu.Unlock()
 	if len(source.entries) >= maxEntries {

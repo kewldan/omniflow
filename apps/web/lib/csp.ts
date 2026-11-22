@@ -99,10 +99,8 @@ export function buildCsp(options: { nonce: string; surface: CspSurface; dev?: bo
     img.push("https:");
   }
   if (signIn) {
-    // The Mini App's "Sign in as" button shows the customer's Telegram
-    // picture. Its URL is on t.me, which redirects to Telegram's CDN; a
-    // policy naming t.me alone blocked the redirect and broke the picture.
-    img.push("https://t.me", "https://*.telesco.pe");
+    // The Mini App's "Sign in as" picture comes from the installation's own
+    // API as a blob, not from Telegram's picture hosts.
     script.push(...TELEGRAM_WIDGET.script);
     connect.push(...TELEGRAM_WIDGET.connect);
     frame.push(...TELEGRAM_WIDGET.frame);

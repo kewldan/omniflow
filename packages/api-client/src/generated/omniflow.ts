@@ -7996,6 +7996,10 @@ export type AccountSignInWithMiniAppBody = {
   initData: string;
 };
 
+export type AccountMiniAppAvatarBody = {
+  initData: string;
+};
+
 export type AccountCheckMagicLinkParams = {
   token: string;
 };
@@ -15842,7 +15846,7 @@ export const getGetPanelCustomerAvatarUrl = (customerID: string) => {
 };
 
 /**
- * The customer's Telegram profile photo, read from the Bot API on demand and never stored. Private and cacheable for an hour. 404 when the customer has no Telegram account or the photo is hidden from the bot. Mounted only when a bot token is configured. Requires customers.read.
+ * The customer's Telegram profile photo, served from the installation: read through the Bot API, stored in telegram_avatars and refreshed daily, with the stored copy served when Telegram does not answer. Private and cacheable for an hour. 404 when the customer has no Telegram account or the photo is hidden from the bot. Mounted only when a bot token is configured. Requires customers.read.
  */
 export const getPanelCustomerAvatar = async (
   customerID: string,
@@ -31253,6 +31257,105 @@ export const useAccountSignInWithMiniApp = <TError = Promise<ProblemResponse>>(o
   };
 };
 
+export type accountMiniAppAvatarResponse200 = {
+  data: Blob;
+  status: 200;
+};
+
+export type accountMiniAppAvatarResponse401 = {
+  data: ProblemResponse;
+  status: 401;
+};
+
+export type accountMiniAppAvatarResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type accountMiniAppAvatarResponse415 = {
+  data: ProblemResponse;
+  status: 415;
+};
+
+export type accountMiniAppAvatarResponse502 = {
+  data: ProblemResponse;
+  status: 502;
+};
+
+export type accountMiniAppAvatarResponseSuccess = accountMiniAppAvatarResponse200 & {
+  headers: Headers;
+};
+export type accountMiniAppAvatarResponseError = (
+  | accountMiniAppAvatarResponse401
+  | accountMiniAppAvatarResponse404
+  | accountMiniAppAvatarResponse415
+  | accountMiniAppAvatarResponse502
+) & {
+  headers: Headers;
+};
+
+export type accountMiniAppAvatarResponse =
+  | accountMiniAppAvatarResponseSuccess
+  | accountMiniAppAvatarResponseError;
+
+export const getAccountMiniAppAvatarUrl = () => {
+  return `/v1/account/auth/telegram/miniapp/avatar`;
+};
+
+/**
+ * The Telegram profile photo of the person a Mini App's initData names, verified as sign-in verifies it, for the sign-in screen before a session exists. Served from the installation, as the panel's avatar route is. Requires Content-Type application/json and a same-origin request.
+ */
+export const accountMiniAppAvatar = async (
+  accountMiniAppAvatarBody: AccountMiniAppAvatarBody,
+  options?: RequestInit,
+): Promise<accountMiniAppAvatarResponse> => {
+  const res = await fetch(getAccountMiniAppAvatarUrl(), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(accountMiniAppAvatarBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.blob();
+  const data: accountMiniAppAvatarResponse["data"] = body as accountMiniAppAvatarResponse["data"];
+  return { data, status: res.status, headers: res.headers } as accountMiniAppAvatarResponse;
+};
+
+export const getAccountMiniAppAvatarMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: AccountMiniAppAvatarBody }) => {
+    return accountMiniAppAvatar(arg, options);
+  };
+};
+export const getAccountMiniAppAvatarMutationKey = () =>
+  [`/v1/account/auth/telegram/miniapp/avatar`] as const;
+
+export type AccountMiniAppAvatarMutationResult = NonNullable<
+  Awaited<ReturnType<typeof accountMiniAppAvatar>>
+>;
+
+export const useAccountMiniAppAvatar = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof accountMiniAppAvatar>>,
+    TError,
+    Key,
+    AccountMiniAppAvatarBody,
+    Awaited<ReturnType<typeof accountMiniAppAvatar>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getAccountMiniAppAvatarMutationKey();
+  const swrFn = getAccountMiniAppAvatarMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
 export type accountCheckMagicLinkResponse302 = {
   data: void;
   status: 302;
@@ -31692,6 +31795,86 @@ export const useCompleteAccountOidc = <TError = Promise<void>>(
   const swrKey =
     swrOptions?.swrKey ?? (() => (isEnabled ? getCompleteAccountOidcKey(slug, params) : null));
   const swrFn = () => completeAccountOidc(slug, params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountAvatarResponse200 = {
+  data: Blob;
+  status: 200;
+};
+
+export type getAccountAvatarResponse401 = {
+  data: ProblemResponse;
+  status: 401;
+};
+
+export type getAccountAvatarResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type getAccountAvatarResponse502 = {
+  data: ProblemResponse;
+  status: 502;
+};
+
+export type getAccountAvatarResponseSuccess = getAccountAvatarResponse200 & {
+  headers: Headers;
+};
+export type getAccountAvatarResponseError = (
+  | getAccountAvatarResponse401
+  | getAccountAvatarResponse404
+  | getAccountAvatarResponse502
+) & {
+  headers: Headers;
+};
+
+export type getAccountAvatarResponse =
+  | getAccountAvatarResponseSuccess
+  | getAccountAvatarResponseError;
+
+export const getGetAccountAvatarUrl = () => {
+  return `/v1/account/avatar`;
+};
+
+/**
+ * The signed-in customer's own Telegram profile photo, served from the installation (stored, refreshed daily). Private and cacheable for an hour. 404 without a Telegram account or a photo the bot can see.
+ */
+export const getAccountAvatar = async (
+  options?: RequestInit,
+): Promise<getAccountAvatarResponse> => {
+  const res = await fetch(getGetAccountAvatarUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.blob();
+  const data: getAccountAvatarResponse["data"] = body as getAccountAvatarResponse["data"];
+  return { data, status: res.status, headers: res.headers } as getAccountAvatarResponse;
+};
+
+export const getGetAccountAvatarKey = () => [`/v1/account/avatar`] as const;
+
+export type GetAccountAvatarQueryResult = NonNullable<Awaited<ReturnType<typeof getAccountAvatar>>>;
+
+export const useGetAccountAvatar = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountAvatar>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetAccountAvatarKey() : null));
+  const swrFn = () => getAccountAvatar(fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 
