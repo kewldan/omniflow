@@ -16,6 +16,7 @@ import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 import { rememberReferralCode } from "@/lib/referral";
 import { safeNext } from "@/lib/sign-in-path";
 import { type MiniAppUser, miniAppUser } from "@/lib/telegram-miniapp";
+import { telegramInitData } from "@/lib/tma";
 
 type SignInMethods = {
   telegram: boolean;
@@ -504,6 +505,12 @@ function TelegramButton({
  * kept across a redirect), so that is read when the global is absent.
  */
 function readMiniAppInitData(): string | null {
+  // tma.js keeps the launch data for the tab, so it is found after the first
+  // navigation has dropped the fragment as well.
+  const kept = telegramInitData();
+  if (kept) {
+    return kept;
+  }
   const telegram = (window as unknown as { Telegram?: { WebApp?: { initData?: string } } })
     .Telegram;
   const initData = telegram?.WebApp?.initData;

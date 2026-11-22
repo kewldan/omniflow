@@ -1,19 +1,12 @@
 /**
- * The customer panel inside Telegram, without Telegram's own script.
- *
- * The panel does not load `telegram-web-app.js` (it would be a third-party
- * script in every customer page, and the CSP keeps those out). What it needs
- * from the client is small — expand, go full screen — and both are messages of
- * the Mini Apps protocol, which this posts the same way that script does:
- * through `TelegramWebviewProxy` in the mobile and desktop apps, and through
- * `postMessage` to Telegram Web when the panel is framed by it.
+ * Recognising the customer panel inside Telegram, without Telegram's own
+ * script (a third-party script the CSP keeps out). Talking to Telegram —
+ * expanding, full screen, haptics, the back button — goes through tma.js in
+ * lib/tma.ts; this reads the launch fragment and Telegram's user.
  */
 
 /** sessionStorage key remembering that this tab was opened as a Mini App. */
 const MINI_APP_FLAG = "omniflow.miniapp";
-
-/** The Telegram Web origin a framed Mini App talks to. */
-const TELEGRAM_WEB_ORIGIN = "https://web.telegram.org";
 
 type TelegramWindow = Window & {
   TelegramWebviewProxy?: { postEvent: (eventType: string, eventData: string) => void };
@@ -51,42 +44,6 @@ export function isTelegramMiniApp(): boolean {
     return window.sessionStorage.getItem(MINI_APP_FLAG) === "1";
   } catch {
     return detected;
-  }
-}
-
-/**
- * Posts one Mini Apps protocol event. A client that does not know the event —
- * full screen arrived with Bot API 8.0 — ignores it, so nothing here checks
- * versions.
- */
-export function postMiniAppEvent(eventType: string, eventData: Record<string, unknown> = {}) {
-  if (typeof window === "undefined") {
-    return;
-  }
-  const telegram = window as TelegramWindow;
-  try {
-    if (telegram.TelegramWebviewProxy) {
-      telegram.TelegramWebviewProxy.postEvent(eventType, JSON.stringify(eventData));
-      return;
-    }
-    if (window.parent !== window) {
-      window.parent.postMessage(JSON.stringify({ eventType, eventData }), TELEGRAM_WEB_ORIGIN);
-    }
-  } catch {
-    // A client that refuses the message leaves the panel as it opened, which
-    // is a working panel.
-  }
-}
-
-/**
- * Tells Telegram the panel is ready and asks for the space it was configured
- * to take: always expanded, and full screen when the operator chose it.
- */
-export function prepareMiniApp(fullscreen: boolean) {
-  postMiniAppEvent("web_app_ready");
-  postMiniAppEvent("web_app_expand");
-  if (fullscreen) {
-    postMiniAppEvent("web_app_request_fullscreen");
   }
 }
 

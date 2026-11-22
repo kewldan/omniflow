@@ -1272,9 +1272,25 @@ Telegram neither changes anything:
   still in the bot, and a direct link still opens its page.
 
 The panel reads both from `GET /v1/account/miniapp`, which is public because the sign-in
-screen a Mini App opens on needs them. It talks to Telegram through the Mini Apps protocol
-directly rather than loading Telegram's script, and remembers for the tab that it was opened
-inside Telegram.
+screen a Mini App opens on needs them. It talks to Telegram through
+[tma.js](https://docs.telegram-mini-apps.com/packages/tma-js-sdk) (`@tma.js/sdk`) rather than
+loading Telegram's script — the SDK posts the same Mini Apps protocol messages and loads
+nothing from outside, so the CSP is unchanged — and keeps the launch data for the tab. Inside
+Telegram it also:
+
+- turns off closing by a vertical swipe, so scrolling a long page does not close the panel;
+- shows Telegram's own **back** button on every screen but the account's front page and the
+  sign-in screen; on the screen the panel opened on it goes to the front page;
+- answers a press with Telegram's haptics — a light tap for buttons and links, a selection
+  tick for tabs, switches and options — and a success, error or warning pulse when a toast
+  reports how something went;
+- paints Telegram's header, background and bottom bar in the panel's background colour, and
+  repaints them when the theme changes;
+- opens `t.me` links inside Telegram and other outside links in Telegram's browser, rather
+  than in place of the panel;
+- places the page below the safe areas Telegram reports in full screen.
+
+A client too old for one of these keeps the panel as it was for that feature.
 
 ## Related
 

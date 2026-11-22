@@ -16,6 +16,7 @@
     "@hookform/resolvers": "7.0.7",
     "@omniflow/api-client": "workspace:*",
     "@omniflow/ui": "workspace:*",
+    "@tma.js/sdk": "3.3.0",
     "@types/qrcode": "^1.5.6",
     "fflate": "^0.8.3",
     "geist": "^1.9.2",

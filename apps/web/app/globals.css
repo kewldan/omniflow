@@ -21,7 +21,13 @@
  * sticks there too.
  */
 html[data-miniapp="fullscreen"] {
-  --miniapp-top: calc(env(safe-area-inset-top, 0px) + 46px);
+  /* Telegram reports both insets through tma.js (--tg-viewport-*): the
+     device's own and the band its controls take. Before it has, the device
+     inset and the controls' usual height stand in. */
+  --miniapp-top: calc(
+    var(--tg-viewport-safe-area-inset-top, env(safe-area-inset-top, 0px)) +
+    var(--tg-viewport-content-safe-area-inset-top, 46px)
+  );
 }
 
 html[data-miniapp="fullscreen"] body {
