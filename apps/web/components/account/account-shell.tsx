@@ -126,7 +126,7 @@ export function AccountShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const search = useSearchParams();
   const router = useRouter();
-  const { lite } = useMiniApp();
+  const { inMiniApp, lite } = useMiniApp();
   const tabs = lite ? TABS.filter((tab) => LITE_TABS.has(tab.key)) : TABS;
 
   // Signing in is the only thing a signed-out visitor can do here, so the panel
@@ -187,28 +187,33 @@ export function AccountShell({ children }: { children: ReactNode }) {
       />
 
       <div className="flex min-h-dvh flex-1 flex-col md:min-h-0">
-        <header className="sticky top-[var(--miniapp-top,0px)] z-20 flex items-center gap-1 border-chrome-border border-b bg-chrome px-3 py-2 md:hidden">
-          {showBack ? (
-            <Button
-              className="-ml-1 h-8 gap-1 px-2"
-              onClick={() => router.back()}
-              size="sm"
-              variant="ghost"
-            >
-              <ChevronLeft aria-hidden />
-              {translate("nav.back")}
-            </Button>
-          ) : (
+        {/* A phone browser's title bar and way back. Inside Telegram neither is
+            drawn: Telegram shows the Mini App's name itself, and its own back
+            button (driven through tma.js) is the way back. */}
+        {!inMiniApp && (
+          <header className="sticky top-[var(--miniapp-top,0px)] z-20 flex items-center gap-1 border-chrome-border border-b bg-chrome px-3 py-2 md:hidden">
+            {showBack ? (
+              <Button
+                className="-ml-1 h-8 gap-1 px-2"
+                onClick={() => router.back()}
+                size="sm"
+                variant="ghost"
+              >
+                <ChevronLeft aria-hidden />
+                {translate("nav.back")}
+              </Button>
+            ) : (
+              <span className="w-8" />
+            )}
+            <div className="flex flex-1 flex-col items-center">
+              <span className="font-semibold text-[15px] tracking-[-0.01em]">{serviceName}</span>
+              <span className="font-mono text-[10.5px] text-subtle-foreground">
+                {translate("nav.subtitle")}
+              </span>
+            </div>
             <span className="w-8" />
-          )}
-          <div className="flex flex-1 flex-col items-center">
-            <span className="font-semibold text-[15px] tracking-[-0.01em]">{serviceName}</span>
-            <span className="font-mono text-[10.5px] text-subtle-foreground">
-              {translate("nav.subtitle")}
-            </span>
-          </div>
-          <span className="w-8" />
-        </header>
+          </header>
+        )}
 
         {/* The bottom padding clears the floating tab bar on a phone. There is no
             bar on desktop, so there is nothing to clear and the padding goes. */}
