@@ -4,7 +4,6 @@ import { Button } from "@omniflow/ui/button";
 import { cn } from "@omniflow/ui/lib/utils";
 import {
   Check,
-  ChevronLeft,
   Copy,
   Gift,
   Layers,
@@ -106,11 +105,6 @@ const UNTITLED_SECTIONS: Record<string, string> = {
   "/account/offers": "nav.offers",
 };
 
-/** Routes that are reached from a tab rather than being one, so they show a back control. */
-function isDetailRoute(pathname: string): boolean {
-  return !TABS.some((tab) => tab.href === pathname);
-}
-
 /** The longest matching prefix, so a detail route keeps its section lit. */
 function isActive(pathname: string, href: string): boolean {
   if (href === "/account") {
@@ -122,8 +116,8 @@ function isActive(pathname: string, href: string): boolean {
 /**
  * The customer panel's frame.
  *
- * Below `md` this is the phone layout it was built as: a sticky header, one
- * column, and a floating tab bar. At `md` and above it becomes a desktop
+ * Below `md` this is the phone layout it was built as: one column under the
+ * page heading, and a floating tab bar. At `md` and above it becomes a desktop
  * application — a persistent sidebar carrying every destination, and a content
  * column wide enough to use the screen. The earlier build served the phone
  * layout to every viewport, which put a 410px column and a thumb-sized tab bar
@@ -132,12 +126,11 @@ function isActive(pathname: string, href: string): boolean {
  */
 export function AccountShell({ children }: { children: ReactNode }) {
   const translate = useTranslations("account");
-  const serviceName = useBrandName(translate("nav.title"));
   const { error, loading, session, signedOut, unavailable } = useAccount();
   const pathname = usePathname();
   const search = useSearchParams();
   const router = useRouter();
-  const { inMiniApp, lite } = useMiniApp();
+  const { lite } = useMiniApp();
   const tabs = lite ? TABS.filter((tab) => LITE_TABS.has(tab.key)) : TABS;
 
   // Signing in is the only thing a signed-out visitor can do here, so the panel
@@ -182,7 +175,6 @@ export function AccountShell({ children }: { children: ReactNode }) {
     );
   }
 
-  const showBack = isDetailRoute(pathname);
   const pageTitle = UNTITLED_SECTIONS[pathname];
   return (
     <div className="flex min-h-dvh flex-col bg-background md:flex-row">
@@ -198,34 +190,11 @@ export function AccountShell({ children }: { children: ReactNode }) {
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* A phone browser's title bar and way back. Inside Telegram neither is
-            drawn: Telegram shows the Mini App's name itself, and its own back
-            button (driven through tma.js) is the way back. */}
-        {!inMiniApp && (
-          <header className="sticky top-[var(--miniapp-top,0px)] z-20 flex items-center gap-1 border-chrome-border border-b bg-chrome px-3 py-2 md:hidden">
-            {showBack ? (
-              <Button
-                className="-ml-1 h-8 gap-1 px-2"
-                onClick={() => router.back()}
-                size="sm"
-                variant="ghost"
-              >
-                <ChevronLeft aria-hidden />
-                {translate("nav.back")}
-              </Button>
-            ) : (
-              <span className="w-8" />
-            )}
-            <div className="flex flex-1 flex-col items-center">
-              <span className="font-semibold text-[15px] tracking-[-0.01em]">{serviceName}</span>
-              <span className="font-mono text-[10.5px] text-subtle-foreground">
-                {translate("nav.subtitle")}
-              </span>
-            </div>
-            <span className="w-8" />
-          </header>
-        )}
-
+        {/* No title bar on a phone. The heading below says where the
+            customer is, the tab bar gets them between sections, and the way
+            back from a deeper screen is the system's own — the back gesture or
+            button, or Telegram's inside the Mini App. A bar repeating the
+            service name cost the top of every screen for none of that. */}
         {/* The page is a column on a phone — content, then the sticky tab bar,
             which takes its own room at the end — so it is the screen's height
             and no more, and the content needs only a little air above the bar. */}
@@ -501,7 +470,6 @@ function ShellSkeleton() {
     <div className="min-h-dvh bg-background md:flex">
       <div className="hidden h-dvh w-64 shrink-0 border-chrome-border border-r bg-chrome md:block" />
       <div className="flex min-h-dvh flex-1 flex-col">
-        <div className="h-14 border-chrome-border border-b bg-chrome md:hidden" />
         <div className="mx-auto w-full max-w-lg flex-1 space-y-3 px-4 pt-4 md:max-w-3xl md:px-8 md:pt-8">
           <div className="h-16 animate-pulse rounded-lg bg-card" />
           <div className="h-40 animate-pulse rounded-lg bg-card" />

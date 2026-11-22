@@ -89,10 +89,11 @@ is not on a phone.
 | Support | `/account/support` | Tickets, News, notification preferences |
 | Account | `/account/profile` | Theme, language, and the hub |
 
-Anything that is not one of those five is a detail route and gets a **Back**
-control instead. Five tabs cannot also carry devices, sessions, invites,
-notification preferences, and personal data, so those live in a hub on
-`/account/profile`:
+Anything that is not one of those five is a detail route. A phone has no title
+bar: the page heading says where the customer is, and the way back is the
+system's own back gesture or button, or Telegram's inside the Mini App. Five
+tabs cannot also carry devices, sessions, invites, notification preferences, and
+personal data, so those live in a hub on `/account/profile`:
 
 | Hub entry | Route |
 | --- | --- |
@@ -1273,8 +1274,8 @@ Telegram neither changes anything:
 - **Open the Mini App full screen** (`miniAppFullscreen`, off by default). The panel tells
   Telegram it is ready, always asks to be expanded, and with this on asks for full screen —
   on Telegram clients with Bot API 8.0 and later; older clients just expand it. In full
-  screen Telegram draws its controls over the top of the page, so the panel starts, and its
-  header sticks, below the safe area plus room for them.
+  screen Telegram draws its controls over the top of the page, so the panel starts below the
+  safe area plus room for them.
 - **Lite Mini App** (`miniAppLite`, off by default). The navigation keeps only the
   subscription, store, and support destinations — the errands a customer opens the bot's
   Mini App for — and drops the wallet, profile, and the secondary list. Everything else is
