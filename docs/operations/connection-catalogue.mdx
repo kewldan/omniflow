@@ -135,6 +135,10 @@ so neither Omniflow nor a proxy log sees it. The page follows application scheme
 `https`, `javascript`, `data`, or `file` — so it cannot be used as an open redirect. Without an `https`
 public address the bot offers each link as text to copy, as before.
 
+Links customers still hold from Bedolaga, `/miniapp/redirect.html?url=<link>&lang=…`, keep working:
+that address answers with a redirect to `/open#<link>`, applying the same rule, and to the bare
+`/open` page for anything else.
+
 `APP_BOT_MENU_BUTTON_MINIAPP=true` replaces the commands list beside the message field with a button
 that opens `<APP_PUBLIC_URL>/account` as a Mini App, labelled with `APP_BOT_MENU_BUTTON_TEXT` (default
 «Кабинет»). It needs an `https` public address and is left alone when the setting is off, so a button
