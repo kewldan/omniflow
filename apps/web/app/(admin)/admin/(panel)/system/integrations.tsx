@@ -128,7 +128,10 @@ export function IntegrationsCard() {
         <section className="flex flex-col gap-2">
           <div className="font-medium text-sm">{translate("tokens")}</div>
           {(tokens?.items ?? []).map((token) => (
-            <div className="flex flex-col gap-1 rounded-md border p-2 text-sm" key={token.id}>
+            <div
+              className="flex flex-col gap-1 rounded-md border bg-well p-2 text-sm"
+              key={token.id}
+            >
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">{token.name}</span>
                 <code className="text-muted-foreground text-xs">{token.prefix}…</code>
@@ -184,7 +187,7 @@ export function IntegrationsCard() {
             </div>
           ))}
           {writable ? (
-            <div className="flex flex-col gap-3 rounded-md border p-3">
+            <div className="flex flex-col gap-3 rounded-md border bg-well p-3">
               <div className="flex flex-col gap-1">
                 <Label htmlFor={ids.token}>{translate("tokenName")}</Label>
                 <Input
@@ -257,7 +260,10 @@ export function IntegrationsCard() {
         <section className="flex flex-col gap-2">
           <div className="font-medium text-sm">{translate("webhooks")}</div>
           {(hooks?.items ?? []).map((hook) => (
-            <div className="flex flex-col gap-1 rounded-md border p-2 text-sm" key={hook.id}>
+            <div
+              className="flex flex-col gap-1 rounded-md border bg-well p-2 text-sm"
+              key={hook.id}
+            >
               <div className="flex flex-wrap items-center gap-2">
                 <Switch
                   aria-label={translate("enabled")}

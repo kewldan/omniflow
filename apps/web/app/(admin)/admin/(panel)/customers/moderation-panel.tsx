@@ -85,7 +85,7 @@ export function ModerationPanel() {
         <CardDescription>{translate("description")}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <div className="flex flex-col gap-2 rounded-md border p-3">
+        <div className="flex flex-col gap-2 rounded-md border bg-well p-3">
           <div className="font-medium text-sm">{translate("blockers.title")}</div>
           <p className="text-muted-foreground text-sm">
             {translate("blockers.count", { count: blockers?.blocked ?? 0 })}

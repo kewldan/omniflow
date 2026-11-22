@@ -94,7 +94,7 @@ export function PeriodsEditor() {
   const dayPrices = useFieldArray({ control, name: "dayPrices" });
 
   return (
-    <fieldset className="flex flex-col gap-3 rounded-lg border border-border p-3">
+    <fieldset className="flex flex-col gap-3 rounded-lg border bg-well border-border p-3">
       <legend className="px-1 font-medium text-sm">{translate("title")}</legend>
       <p className="text-muted-foreground text-xs">{translate("hint")}</p>
       <p className="text-muted-foreground text-xs">{translate("highlightedHint")}</p>

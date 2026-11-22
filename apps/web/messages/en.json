@@ -1129,7 +1129,7 @@
       },
       "advanced": {
         "title": "Filter and sort",
-        "description": "Expiring soon, with a balance, renewing automatically, restricted, trial only, from a campaign, active lately, or near their traffic limit. A sorted view shows the first 200.",
+        "description": "A sorted view shows the first 200.",
         "sort": "Sort by",
         "sorts": {
           "newest": "Newest",
@@ -1138,20 +1138,28 @@
           "expiry": "Expiring first",
           "activity": "Recently active"
         },
-        "expiringDays": "Expires within (days)",
-        "activeWithinDays": "Active within (days)",
-        "trafficPercent": "Traffic used at least (%)",
-        "campaign": "Campaign code",
+        "expiringDays": "Expires in, days",
+        "activeWithinDays": "Active in, days",
+        "trafficPercent": "Traffic from, %",
+        "campaign": "Campaign",
         "withBalance": "Has a balance",
-        "autoRenew": "Auto-renew on",
+        "autoRenew": "Auto-renew",
         "restricted": "Restricted",
-        "trialOnly": "Trial only, never paid",
+        "trialOnly": "Trial only",
         "search": "Show",
         "empty": "Nobody matches.",
         "customer": "Customer",
         "balance": "Balance",
         "endsAt": "Access until",
-        "lastActivity": "Last active"
+        "lastActivity": "Last active",
+        "hints": {
+          "expiringDays": "The subscription ends within the next N days.",
+          "activeWithinDays": "Used the bot or the account within the last N days.",
+          "trafficPercent": "Has used at least this share of the plan's traffic.",
+          "campaign": "The code of the ad campaign whose link brought the customer.",
+          "restricted": "The customer has a restriction: purchases blocked or another.",
+          "trialOnly": "Took the trial and never paid."
+        }
       },
       "referralAdmin": {
         "title": "Referral administration",

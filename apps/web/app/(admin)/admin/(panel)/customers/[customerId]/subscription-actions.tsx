@@ -149,7 +149,7 @@ export function SubscriptionActions({
   const disabled = !hasEntitlement || pending;
 
   return (
-    <div className="mt-3 flex flex-col gap-3 rounded-lg border border-border p-3">
+    <div className="mt-3 flex flex-col gap-3 rounded-lg border bg-well border-border p-3">
       {!hasEntitlement && (
         // A slot that has never been provisioned has nothing to change.
         <p className="text-muted-foreground text-xs">{translate("actions.notProvisioned")}</p>

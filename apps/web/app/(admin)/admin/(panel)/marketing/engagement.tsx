@@ -329,7 +329,7 @@ export function EngagementCard({ editable }: { editable: boolean }) {
         <div className="flex flex-col gap-3">
           <p className="font-medium text-sm">{translate("polls")}</p>
           {(data?.polls ?? []).map((item) => (
-            <div className="rounded-md border p-3 text-sm" key={item.id}>
+            <div className="rounded-md border bg-well p-3 text-sm" key={item.id}>
               <div className="flex items-center justify-between gap-2">
                 <span className="font-medium">{item.questionRu}</span>
                 {editable && !item.closedAt && (

@@ -144,7 +144,7 @@ function ProviderRow({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-4">
+    <div className="flex flex-col gap-3 rounded-md border bg-well p-4">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">{provider.displayName}</span>
         <Badge variant="outline">{label("aiProviderKind", provider.kind)}</Badge>
@@ -450,7 +450,7 @@ function FeatureRow({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-4">
+    <div className="flex flex-col gap-3 rounded-md border bg-well p-4">
       <div className="flex flex-wrap items-center gap-3">
         <Switch
           // A feature the server would refuse cannot be switched on here
@@ -800,7 +800,7 @@ function McpServerRow({
   const tools = data?.items ?? [];
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-4">
+    <div className="flex flex-col gap-3 rounded-md border bg-well p-4">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">{server.displayName}</span>
         <Badge variant="outline">{server.protocolVersion ?? translate("mcp.notDiscovered")}</Badge>

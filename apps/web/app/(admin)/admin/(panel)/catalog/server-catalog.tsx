@@ -77,7 +77,7 @@ export function ServerCatalog() {
         )}
         {data?.items.map((row) => (
           <div
-            className="flex flex-col gap-2 rounded-lg border border-border p-3"
+            className="flex flex-col gap-2 rounded-lg border bg-well border-border p-3"
             key={row.squadId}
           >
             <div className="flex flex-wrap items-center justify-between gap-2">

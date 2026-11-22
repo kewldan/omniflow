@@ -551,7 +551,7 @@ function AssetSlot({
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border p-3">
+    <div className="flex flex-col gap-2 rounded-lg border bg-well border-border p-3">
       <p className="font-medium text-sm">{translate(`assets.kind.${kind}`)}</p>
       {asset ? (
         <>

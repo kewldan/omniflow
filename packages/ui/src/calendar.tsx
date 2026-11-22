@@ -3,9 +3,14 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { ComponentProps } from "react";
 import { type ChevronProps, DayPicker } from "react-day-picker";
+import { enUS, faIR, ru, uk, zhCN } from "react-day-picker/locale";
 
 import { buttonVariants } from "./button";
 import { cn } from "./lib/utils";
+import { useUiLocale } from "./ui-labels";
+
+/** The application's languages, as date-fns spells them. */
+const LOCALES = { en: enUS, fa: faIR, ru, uk, zh: zhCN } as const;
 
 /**
  * The date picker.
@@ -25,19 +30,25 @@ export function Calendar({
   showOutsideDays = true,
   ...props
 }: ComponentProps<typeof DayPicker>) {
+  // Month and weekday names, and the first day of the week, follow the
+  // application's language rather than the browser's or English.
+  const language = (useUiLocale() ?? "en").slice(0, 2) as keyof typeof LOCALES;
   return (
     <DayPicker
       className={cn("p-1", className)}
+      locale={LOCALES[language] ?? enUS}
       classNames={{
+        // The arrows sit on the caption's row, either side of the month name.
+        nav: "pointer-events-none absolute inset-x-0 top-0 z-10 flex h-8 items-center justify-between",
         button_next: cn(
           buttonVariants({ size: "icon-sm", variant: "ghost" }),
-          "absolute right-1 top-0",
+          "pointer-events-auto",
         ),
         button_previous: cn(
           buttonVariants({ size: "icon-sm", variant: "ghost" }),
-          "absolute left-1 top-0",
+          "pointer-events-auto",
         ),
-        caption_label: "font-medium text-sm",
+        caption_label: "font-medium text-sm capitalize",
         day: "relative p-0 text-center",
         day_button: cn(
           buttonVariants({ size: "icon-sm", variant: "ghost" }),

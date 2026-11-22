@@ -3,7 +3,7 @@ import type { InputHTMLAttributes, TextareaHTMLAttributes } from "react";
 import { cn } from "./lib/utils";
 
 const field = cn(
-  "w-full rounded-md border border-input bg-card text-foreground transition-[color,border-color,box-shadow]",
+  "w-full rounded-md border border-input bg-field text-foreground transition-[color,border-color,box-shadow]",
   "placeholder:text-subtle-foreground",
   "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25 focus-visible:outline-none",
   "disabled:cursor-not-allowed disabled:opacity-50",

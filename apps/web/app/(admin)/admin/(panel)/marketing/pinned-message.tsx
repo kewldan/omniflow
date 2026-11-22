@@ -72,7 +72,7 @@ export function PinnedMessageCard({ editable }: { editable: boolean }) {
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {active ? (
-          <div className="flex flex-col gap-2 rounded-md border p-3 text-sm">
+          <div className="flex flex-col gap-2 rounded-md border bg-well p-3 text-sm">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="success">{translate("active")}</Badge>
               <Timestamp value={active.createdAt} />

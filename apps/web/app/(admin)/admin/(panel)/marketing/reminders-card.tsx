@@ -104,7 +104,7 @@ export function RemindersCard({ editable }: { editable: boolean }) {
         ) : (
           (data?.items ?? []).map((reminder) => (
             <div
-              className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border p-3"
+              className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-well border-border p-3"
               key={reminder.id}
             >
               <div className="min-w-0">
@@ -185,7 +185,7 @@ function ReminderForm({
 
   return (
     <form
-      className="grid gap-3 rounded-md border border-border p-3 sm:grid-cols-2"
+      className="grid gap-3 rounded-md border bg-well border-border p-3 sm:grid-cols-2"
       onSubmit={(event) => {
         event.preventDefault();
         onSave(form);

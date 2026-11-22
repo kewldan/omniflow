@@ -113,7 +113,7 @@ export function SubscriptionSync({
   }
 
   return (
-    <div className="mt-3 flex flex-col gap-2 rounded-md border border-border p-3">
+    <div className="mt-3 flex flex-col gap-2 rounded-md border bg-well border-border p-3">
       <div className="flex items-center justify-between gap-2">
         <p className="font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.12em]">
           {translate("title")}

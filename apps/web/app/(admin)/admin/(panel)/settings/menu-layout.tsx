@@ -258,7 +258,7 @@ export function MenuLayoutEditor() {
           <ol className="flex flex-col gap-2">
             {current.map((entries, row) => (
               <li
-                className="flex flex-col gap-1 rounded-md border border-border p-2"
+                className="flex flex-col gap-1 rounded-md border bg-well border-border p-2"
                 key={entries.join("|")}
               >
                 <span className="font-mono text-[10px] text-subtle-foreground uppercase">

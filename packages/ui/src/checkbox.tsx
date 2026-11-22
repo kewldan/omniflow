@@ -10,7 +10,7 @@ export function Checkbox({ className, ...props }: ComponentProps<typeof Checkbox
   return (
     <CheckboxPrimitive.Root
       className={cn(
-        "peer size-4 shrink-0 rounded-[4px] border border-muted-foreground/70 bg-card transition-colors hover:border-foreground/80",
+        "peer size-4 shrink-0 rounded-[4px] border border-muted-foreground/70 bg-field transition-colors hover:border-foreground/80",
         "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25 focus-visible:outline-none",
         "disabled:cursor-not-allowed disabled:opacity-50",
         "aria-invalid:border-destructive aria-invalid:ring-destructive/25",

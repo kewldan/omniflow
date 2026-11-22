@@ -340,7 +340,7 @@ function LoyaltyEditor({
   }
 
   return (
-    <form className="flex flex-col gap-4 rounded-md border p-4" onSubmit={publish}>
+    <form className="flex flex-col gap-4 rounded-md border bg-well p-4" onSubmit={publish}>
       <div className="flex items-center gap-2">
         <Switch checked={enable} id={ids.enable} onCheckedChange={setEnable} />
         <Label htmlFor={ids.enable}>{translate("enable")}</Label>
@@ -391,7 +391,7 @@ function LoyaltyEditor({
       <p className="text-muted-foreground text-xs">{translate(`thresholdHint.${metric}`)}</p>
 
       {tiers.map((tier, index) => (
-        <fieldset className="flex flex-col gap-3 rounded-md border p-3" key={tier.key}>
+        <fieldset className="flex flex-col gap-3 rounded-md border bg-well p-3" key={tier.key}>
           <legend className="px-1 font-medium text-sm">
             {translate("tierLegend", { number: index + 1 })}
           </legend>

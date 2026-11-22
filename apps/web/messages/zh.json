@@ -1124,7 +1124,7 @@
       },
       "advanced": {
         "title": "筛选与排序",
-        "description": "即将到期、有余额、自动续费、受限、仅试用、来自推广活动、近期活跃或接近流量上限。排序视图显示前 200 条。",
+        "description": "排序视图显示前 200 条。",
         "sort": "排序方式",
         "sorts": {
           "newest": "最新",
@@ -1133,20 +1133,28 @@
           "expiry": "最先到期",
           "activity": "最近活跃"
         },
-        "expiringDays": "到期天数内（天）",
-        "activeWithinDays": "活跃天数内（天）",
-        "trafficPercent": "已用流量至少（%）",
-        "campaign": "推广活动代码",
+        "expiringDays": "到期（天内）",
+        "activeWithinDays": "活跃（天内）",
+        "trafficPercent": "流量≥（%）",
+        "campaign": "推广活动",
         "withBalance": "有余额",
-        "autoRenew": "已开启自动续费",
+        "autoRenew": "自动续费",
         "restricted": "受限",
-        "trialOnly": "仅试用，从未付费",
+        "trialOnly": "仅试用",
         "search": "显示",
         "empty": "没有匹配的用户。",
         "customer": "用户",
         "balance": "余额",
         "endsAt": "有效期至",
-        "lastActivity": "最近活跃"
+        "lastActivity": "最近活跃",
+        "hints": {
+          "expiringDays": "订阅在接下来的 N 天内到期。",
+          "activeWithinDays": "最近 N 天内使用过机器人或账户。",
+          "trafficPercent": "已使用套餐流量的至少该比例。",
+          "campaign": "客户通过其链接到来的广告活动代码。",
+          "restricted": "客户有限制：禁止购买或其他限制。",
+          "trialOnly": "使用过试用且从未付费。"
+        }
       },
       "referralAdmin": {
         "title": "邀请管理",

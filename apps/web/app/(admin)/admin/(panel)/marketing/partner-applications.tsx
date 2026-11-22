@@ -193,7 +193,7 @@ function DecisionForm({ applicationId, onDone }: { applicationId: string; onDone
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border p-4">
+    <div className="flex flex-col gap-3 rounded-lg border bg-well p-4">
       <div className="grid gap-3 sm:grid-cols-[10rem_10rem_1fr]">
         <div className="flex flex-col gap-1">
           <Label htmlFor={ids.rate}>{translate("rate")}</Label>

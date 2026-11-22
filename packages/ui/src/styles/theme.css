@@ -22,6 +22,9 @@
   --card-foreground: #09090b;
   /* A grouped block inside a card: a shade off the card, so its fields read as set into it. */
   --well: #f7f7f8;
+  /* Controls (inputs, selects, outline buttons) on a card; inside a well they
+     take the card colour instead, so they read as set into it. */
+  --field: #ffffff;
 
   --popover: #ffffff;
   --popover-foreground: #09090b;
@@ -126,6 +129,7 @@
   --card: #18181b;
   --card-foreground: #fafafa;
   --well: #1f1f23;
+  --field: #232328;
 
   --popover: #18181b;
   --popover-foreground: #fafafa;
@@ -195,6 +199,7 @@
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-well: var(--well);
+  --color-field: var(--field);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
@@ -320,6 +325,12 @@
 
   [data-numeric] {
     font-variant-numeric: tabular-nums;
+  }
+
+  /* A grouped block's controls are set into it: darker than the block, the
+     card's colour, rather than lighter than the card as they are outside. */
+  .bg-well {
+    --field: var(--card);
   }
 
   /*

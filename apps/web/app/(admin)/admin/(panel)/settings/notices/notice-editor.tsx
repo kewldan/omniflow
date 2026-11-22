@@ -241,7 +241,7 @@ function NoticeForm({
           </div>
 
           {notice.variables && notice.variables.length > 0 ? (
-            <div className="rounded-lg border border-border p-3">
+            <div className="rounded-lg border bg-well border-border p-3">
               <p className="mb-2 font-medium text-sm">{translate("variables")}</p>
               <dl className="grid gap-1.5 text-sm sm:grid-cols-[auto_minmax(0,1fr)]">
                 {notice.variables.map((variable) => (

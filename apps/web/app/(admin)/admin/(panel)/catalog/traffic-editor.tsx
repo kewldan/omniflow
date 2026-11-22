@@ -94,7 +94,7 @@ export function TrafficEditor() {
   const prices = useFieldArray({ control, name: "gbPrices" });
 
   return (
-    <fieldset className="flex flex-col gap-3 rounded-lg border border-border p-3">
+    <fieldset className="flex flex-col gap-3 rounded-lg border bg-well border-border p-3">
       <legend className="px-1 font-medium text-sm">{translate("title")}</legend>
       <FormField hint={translate(`modeHint.${mode}`)} label={translate("mode")}>
         {(props) => (

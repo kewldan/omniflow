@@ -250,7 +250,7 @@ function PlatformRow({
   const orderId = useId();
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border p-3">
+    <div className="flex flex-col gap-3 rounded-lg border bg-well border-border p-3">
       <EnabledSwitch
         checked={form.enabled}
         disabled={!editable}
@@ -443,7 +443,7 @@ function ClientRow({
   const instructionsRuId = useId();
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border p-3">
+    <div className="flex flex-col gap-3 rounded-lg border bg-well border-border p-3">
       <div className="grid gap-3 sm:grid-cols-[1fr_1fr_5rem]">
         <Field
           disabled={!editable}

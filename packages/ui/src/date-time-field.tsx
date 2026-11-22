@@ -119,6 +119,8 @@ export function DateTimeField({
         <div className="flex flex-col gap-3">
           <Calendar
             autoFocus
+            // Open on the chosen day's month, not on today's.
+            defaultMonth={date}
             disabled={fromDate ? { before: fromDate } : undefined}
             mode="single"
             onSelect={(selected) => {

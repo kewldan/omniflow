@@ -2,6 +2,7 @@
 
 import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
+import { InfoTip } from "@omniflow/ui/info-tip";
 import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
@@ -71,61 +72,76 @@ export function AdvancedCustomerList() {
         <CardDescription>{translate("description")}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <div className="grid gap-3 sm:grid-cols-5">
-          <div className="flex flex-col gap-1">
-            <Label htmlFor={ids.sort}>{translate("sort")}</Label>
-            <Select onValueChange={setSort} value={sort}>
-              <SelectTrigger id={ids.sort}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SORTS.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {translate(`sorts.${value}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <div className="flex flex-col gap-4 rounded-md border border-dashed bg-well p-4">
+          <div className="flex flex-wrap gap-x-6 gap-y-3">
+            {SWITCHES.map((name) => (
+              <div className="flex items-center gap-2" key={name}>
+                <Switch
+                  checked={Boolean(flags[name])}
+                  id={`${ids.sort}-${name}`}
+                  onCheckedChange={(on) => setFlags({ ...flags, [name]: on })}
+                />
+                <Label htmlFor={`${ids.sort}-${name}`}>{translate(name)}</Label>
+                {translate.has(`hints.${name}`) && (
+                  <InfoTip>{translate(`hints.${name}` as never)}</InfoTip>
+                )}
+              </div>
+            ))}
           </div>
-          {[
-            [ids.expiring, "expiringDays", expiring, setExpiring],
-            [ids.active, "activeWithinDays", activeDays, setActiveDays],
-            [ids.traffic, "trafficPercent", traffic, setTraffic],
-          ].map(([id, key, value, set]) => (
-            <div className="flex flex-col gap-1" key={key as string}>
-              <Label htmlFor={id as string}>{translate(key as string)}</Label>
+          <div className="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor={ids.sort}>{translate("sort")}</Label>
+              <Select onValueChange={setSort} value={sort}>
+                <SelectTrigger id={ids.sort}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SORTS.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {translate(`sorts.${value}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {[
+              [ids.expiring, "expiringDays", expiring, setExpiring],
+              [ids.active, "activeWithinDays", activeDays, setActiveDays],
+              [ids.traffic, "trafficPercent", traffic, setTraffic],
+            ].map(([id, key, value, set]) => (
+              <div className="flex flex-col gap-1.5" key={key as string}>
+                <span className="flex items-center gap-1.5">
+                  <Label className="truncate" htmlFor={id as string}>
+                    {translate(key as string)}
+                  </Label>
+                  <InfoTip>{translate(`hints.${key as string}` as never)}</InfoTip>
+                </span>
+                <Input
+                  id={id as string}
+                  inputMode="numeric"
+                  onChange={(event) => (set as (next: string) => void)(event.target.value)}
+                  value={value as string}
+                />
+              </div>
+            ))}
+            <div className="flex flex-col gap-1.5">
+              <span className="flex items-center gap-1.5">
+                <Label className="truncate" htmlFor={ids.campaign}>
+                  {translate("campaign")}
+                </Label>
+                <InfoTip>{translate("hints.campaign")}</InfoTip>
+              </span>
               <Input
-                id={id as string}
-                inputMode="numeric"
-                onChange={(event) => (set as (next: string) => void)(event.target.value)}
-                value={value as string}
+                id={ids.campaign}
+                onChange={(event) => setCampaign(event.target.value)}
+                value={campaign}
               />
             </div>
-          ))}
-          <div className="flex flex-col gap-1">
-            <Label htmlFor={ids.campaign}>{translate("campaign")}</Label>
-            <Input
-              id={ids.campaign}
-              onChange={(event) => setCampaign(event.target.value)}
-              value={campaign}
-            />
           </div>
+          <Button className="self-start" disabled={isLoading} onClick={search} size="sm">
+            {translate("search")}
+          </Button>
         </div>
-        <div className="flex flex-wrap gap-4">
-          {SWITCHES.map((name) => (
-            <div className="flex items-center gap-2" key={name}>
-              <Switch
-                checked={Boolean(flags[name])}
-                id={`${ids.sort}-${name}`}
-                onCheckedChange={(on) => setFlags({ ...flags, [name]: on })}
-              />
-              <Label htmlFor={`${ids.sort}-${name}`}>{translate(name)}</Label>
-            </div>
-          ))}
-        </div>
-        <Button className="self-start" disabled={isLoading} onClick={search} size="sm">
-          {translate("search")}
-        </Button>
         {data && data.items.length === 0 ? (
           <p className="text-muted-foreground text-sm">{translate("empty")}</p>
         ) : null}

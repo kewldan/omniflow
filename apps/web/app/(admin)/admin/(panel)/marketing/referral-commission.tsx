@@ -41,7 +41,7 @@ export function ReferralCommissionFields({
   }
 
   return (
-    <fieldset className="flex flex-col gap-3 rounded-md border p-3">
+    <fieldset className="flex flex-col gap-3 rounded-md border bg-well p-3">
       <legend className="px-1 font-medium text-sm">{translate("title")}</legend>
       <p className="text-muted-foreground text-xs">{translate("hint")}</p>
       <div className="grid gap-3 sm:grid-cols-4">

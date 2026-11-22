@@ -521,7 +521,7 @@ function SegmentCard() {
       <CardContent className="flex flex-col gap-3">
         {isLoading ? <Skeleton className="h-24 w-full" /> : null}
         {segments.map((segment) => (
-          <div className="flex flex-col gap-1 rounded-md border p-4" key={segment.id}>
+          <div className="flex flex-col gap-1 rounded-md border bg-well p-4" key={segment.id}>
             <div className="flex items-center gap-2">
               <span className="font-medium">
                 {localized(locale, segment.nameEn, segment.nameRu, segment.code)}
@@ -764,7 +764,7 @@ function ReferralCard({ editable }: { editable: boolean }) {
 
         {/* What the current configuration actually produced, so a change is made
             against evidence rather than against a guess. */}
-        <div className="grid gap-3 rounded-md border p-4 text-sm sm:grid-cols-4">
+        <div className="grid gap-3 rounded-md border bg-well p-4 text-sm sm:grid-cols-4">
           <Figure label={translate("referrals.attributed")} value={program.record.attributed} />
           <Figure label={translate("referrals.qualified")} value={program.record.qualified} />
           <Figure label={translate("referrals.rejected")} value={program.record.rejected} />

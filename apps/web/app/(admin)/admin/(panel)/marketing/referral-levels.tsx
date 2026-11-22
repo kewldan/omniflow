@@ -159,7 +159,7 @@ export function ReferralLevelsCard({ editable, canPay }: { editable: boolean; ca
         {error && <p className="text-danger-foreground text-xs">{error.message}</p>}
         <p className="font-medium text-sm">{translate("contests")}</p>
         {(data?.contests ?? []).map((contest) => (
-          <div className="rounded-md border p-3 text-sm" key={contest.id}>
+          <div className="rounded-md border bg-well p-3 text-sm" key={contest.id}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="font-medium">
                 {locale === "ru" ? contest.titleRu : contest.titleEn}

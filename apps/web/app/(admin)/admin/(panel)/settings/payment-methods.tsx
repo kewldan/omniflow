@@ -72,7 +72,7 @@ export function PaymentMethodsCard() {
           <p className="text-muted-foreground text-sm">{translate("empty")}</p>
         ) : (
           items.map((item) => (
-            <div className="rounded-md border border-border p-3" key={item.key}>
+            <div className="rounded-md border bg-well border-border p-3" key={item.key}>
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[13px]">{paymentMethodName(label, item.key)}</span>
                 <Badge variant={item.enabled ? "success" : "neutral"}>

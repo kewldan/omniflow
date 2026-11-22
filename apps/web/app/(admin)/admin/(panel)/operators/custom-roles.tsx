@@ -72,7 +72,7 @@ export function CustomRoles() {
         ) : null}
         {custom.map((entry) => (
           <div
-            className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3"
+            className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-well p-3"
             key={entry.role}
           >
             <div className="flex flex-col gap-1">

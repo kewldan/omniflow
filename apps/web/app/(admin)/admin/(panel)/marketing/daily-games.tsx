@@ -157,7 +157,7 @@ function GameRow({
     setForm({ ...form, [key]: Number(event.target.value) || 0 });
 
   return (
-    <section className="flex flex-col gap-3 rounded-md border p-3">
+    <section className="flex flex-col gap-3 rounded-md border bg-well p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Switch
@@ -396,7 +396,7 @@ function QuestionsSection({
       ) : (
         questions.map((question) => (
           <div
-            className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm"
+            className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-well p-3 text-sm"
             key={question.id}
           >
             <div className="flex min-w-0 flex-col gap-1">
@@ -425,7 +425,7 @@ function QuestionsSection({
         ))
       )}
       {editable ? (
-        <div className="grid gap-3 rounded-md border p-3 sm:grid-cols-2">
+        <div className="grid gap-3 rounded-md border bg-well p-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1">
             <Label htmlFor={ids.game}>{translate("game")}</Label>
             <Select onValueChange={(game) => setForm({ ...form, game })} value={form.game}>

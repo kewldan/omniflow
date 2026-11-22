@@ -18,7 +18,7 @@ export function SelectTrigger({
   return (
     <SelectPrimitive.Trigger
       className={cn(
-        "flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-card px-3 py-1 text-sm",
+        "flex h-9 w-full items-center justify-between gap-2 rounded-md border border-input bg-field px-3 py-1 text-sm",
         "data-[placeholder]:text-subtle-foreground",
         "focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/25 focus-visible:outline-none",
         "disabled:cursor-not-allowed disabled:opacity-50",

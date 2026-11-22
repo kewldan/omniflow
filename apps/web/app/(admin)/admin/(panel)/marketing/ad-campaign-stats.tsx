@@ -90,7 +90,7 @@ export function AdCampaignStatsPanel({
   return (
     <section
       aria-label={translate("title", { name: data.campaign.name })}
-      className="flex flex-col gap-4 rounded-lg border p-4"
+      className="flex flex-col gap-4 rounded-lg border bg-well p-4"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="font-medium">{translate("title", { name: data.campaign.name })}</div>
@@ -118,7 +118,7 @@ export function AdCampaignStatsPanel({
 
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {tiles.map((tile) => (
-          <div className="rounded-md border p-3" key={tile.label}>
+          <div className="rounded-md border bg-well p-3" key={tile.label}>
             <dt className="text-muted-foreground text-xs">{tile.label}</dt>
             <dd className="font-medium tabular-nums">{tile.value}</dd>
           </div>

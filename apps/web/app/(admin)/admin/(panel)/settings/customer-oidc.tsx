@@ -319,7 +319,7 @@ function ProviderForm({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
+    <div className="flex flex-col gap-3 rounded-lg border bg-well border-border p-4">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium text-sm">{draft.displayName || translate("untitled")}</span>
         <Badge variant={draft.enabled ? "success" : "neutral"}>

@@ -127,7 +127,7 @@ export function NewsEditorCard() {
         ) : null}
         {(data?.items ?? []).map((post) => (
           <div
-            className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3"
+            className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-well p-3"
             key={post.id}
           >
             <div className="flex min-w-0 flex-col gap-1">
@@ -528,7 +528,7 @@ export function NewsCategoriesCard() {
         {isLoading ? <Skeleton className="h-16 w-full" /> : null}
         {(data?.items ?? []).map((category) => (
           <div
-            className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3"
+            className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-well p-3"
             key={category.code}
           >
             <span className="flex min-w-0 items-center gap-2">

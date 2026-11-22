@@ -175,7 +175,7 @@ export function MergePanel({ customerId }: { customerId: string }) {
 function SideCard({ label, locale, side }: { label: string; locale: string; side: MergeSide }) {
   const translate = useTranslations("admin.merge");
   return (
-    <div className="space-y-2 rounded-lg border border-border p-3">
+    <div className="space-y-2 rounded-lg border bg-well border-border p-3">
       <p className="font-mono text-[11px] text-subtle-foreground">{label}</p>
       <p className="truncate font-mono text-xs">{side.id}</p>
       <dl className="space-y-1 text-xs">
