@@ -58,7 +58,7 @@ export function QuoteCountdown({
 
   if (expired) {
     return (
-      <p className="flex items-center gap-1.5 font-mono text-[11px] text-warning" role="status">
+      <p className="flex items-center gap-1.5 text-[12.5px] text-warning" role="status">
         <TimerReset aria-hidden className="size-3.5" />
         {translate("quote.refreshing")}
       </p>
@@ -66,7 +66,7 @@ export function QuoteCountdown({
   }
 
   return (
-    <p className="flex items-center gap-1.5 font-mono text-[11px] text-subtle-foreground">
+    <p className="flex items-center gap-1.5 text-[12.5px] text-subtle-foreground">
       <TimerReset aria-hidden className="size-3.5" />
       <span aria-hidden>{translate("quote.holdFor", { time: clock(remaining) })}</span>
       <span className="sr-only">{translate("quote.holdNotice")}</span>
@@ -131,7 +131,7 @@ function Row({
       </dt>
       <dd
         className={cn(
-          "font-mono",
+          "",
           emphasis ? "font-semibold text-[15px]" : "text-[12.5px]",
           tone === "good" && "text-success",
         )}
@@ -182,18 +182,14 @@ export function PriceChangeNotice({
 
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-md border border-border bg-card px-3 py-2">
-          <p className="font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.14em]">
-            {translate("quote.changed.before")}
-          </p>
-          <p className="mt-1 font-mono text-[14px] line-through" data-numeric>
+          <p className="text-[13px] text-muted-foreground">{translate("quote.changed.before")}</p>
+          <p className="mt-1 text-[14px] line-through" data-numeric>
             {money(before.priceMinor, before.currency)}
           </p>
         </div>
         <div className="rounded-md border border-primary/40 bg-card px-3 py-2">
-          <p className="font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.14em]">
-            {translate("quote.changed.after")}
-          </p>
-          <p className="mt-1 font-mono font-semibold text-[14px]" data-numeric>
+          <p className="text-[13px] text-muted-foreground">{translate("quote.changed.after")}</p>
+          <p className="mt-1 font-semibold text-[14px]" data-numeric>
             {money(after.priceMinor, after.currency)}
           </p>
         </div>

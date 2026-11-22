@@ -3,7 +3,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@omniflow/ui/button";
 import { cn } from "@omniflow/ui/lib/utils";
-import { Radio } from "@omniflow/ui/radio";
 import { toast } from "@omniflow/ui/toast";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -17,6 +16,7 @@ import {
   splitChoiceKey,
   useChoiceCopy,
 } from "@/components/account/commerce/payment-choice";
+import { PaymentMethodOption } from "@/components/account/commerce/payment-method-option";
 import { useProblemCode, useProblemMessage } from "@/components/account/commerce/reasons";
 import { RedeemCode } from "@/components/account/commerce/redeem-code";
 import type {
@@ -188,7 +188,7 @@ function PendingTopUp({ order }: { order: OrderSummary }) {
           })}
         </p>
         <Link
-          className="font-mono text-[11px] text-subtle-foreground underline underline-offset-2"
+          className="text-[12.5px] text-subtle-foreground underline underline-offset-2"
           href={`/account/orders/${order.id}`}
         >
           {translate("wallet.pending.open")}
@@ -208,14 +208,12 @@ function PendingTopUp({ order }: { order: OrderSummary }) {
 /** One currency's holding, with the part of it that is already claimed. */
 function BalanceCard({ balance }: { balance: WalletBalance }) {
   const translate = useTranslations("account.commerce");
-  const money = useMoney();
+  const money = useMoney({ trimZeroFraction: true });
 
   return (
     <article className="animate-step-in space-y-3 rounded-lg border border-border bg-card p-4">
       <div className="flex items-baseline justify-between gap-3">
-        <span className="font-mono text-[10.5px] text-subtle-foreground uppercase tracking-[0.14em]">
-          {translate("wallet.available")}
-        </span>
+        <span className="text-[13px] text-muted-foreground">{translate("wallet.available")}</span>
         <span className="font-bold text-[26px] leading-none tracking-[-0.04em]" data-numeric>
           {money(balance.availableMinor, balance.currency)}
         </span>
@@ -269,7 +267,7 @@ function TopUpForm({
   policy: TopUpPolicy;
 }) {
   const translate = useTranslations("account.commerce");
-  const money = useMoney();
+  const money = useMoney({ trimZeroFraction: true });
   const describeProblem = useProblemMessage();
   const describeCode = useProblemCode();
   const submission = useSubmission();
@@ -446,7 +444,7 @@ function TopUpForm({
           aria-describedby={formState.errors.provider ? "top-up-provider-error" : undefined}
           className="space-y-2"
         >
-          <legend className="pb-2 font-medium font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.14em]">
+          <legend className="pb-2 font-semibold text-[13px] text-muted-foreground">
             {translate("checkout.provider.title")}
           </legend>
           {policy.providers.length === 0 ? (
@@ -455,32 +453,29 @@ function TopUpForm({
             </p>
           ) : (
             <div className="space-y-2">
-              {policy.providers.map((choice) => (
-                <label
-                  className={cn(
-                    "flex cursor-pointer items-center gap-3 rounded-md border border-border p-3",
-                    "has-[:checked]:border-primary",
-                  )}
+              {policy.providers.map((choice, index) => (
+                <PaymentMethodOption
+                  choice={choice}
+                  index={index}
                   key={choiceKey(choice)}
+                  value={choiceKey(choice)}
+                  {...register("provider")}
                 >
-                  <Radio value={choiceKey(choice)} {...register("provider")} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-medium text-[13.5px]">{copy(choice).label}</span>
-                    {copy(choice).description && (
-                      <span className="block text-[12px] text-muted-foreground">
-                        {copy(choice).description}
-                      </span>
-                    )}
-                    {(choice.minMinor || choice.maxMinor) && (
-                      <span className="block text-[12px] text-muted-foreground">
-                        {translate("checkout.provider.bounds", {
-                          maximum: choice.maxMinor ? money(choice.maxMinor, currency) : "—",
-                          minimum: choice.minMinor ? money(choice.minMinor, currency) : "—",
-                        })}
-                      </span>
-                    )}
-                  </span>
-                </label>
+                  <span className="block font-semibold text-[15px]">{copy(choice).label}</span>
+                  {copy(choice).description && (
+                    <span className="block text-[12.5px] text-muted-foreground">
+                      {copy(choice).description}
+                    </span>
+                  )}
+                  {(choice.minMinor || choice.maxMinor) && (
+                    <span className="block text-[12.5px] text-muted-foreground">
+                      {translate("checkout.provider.bounds", {
+                        maximum: choice.maxMinor ? money(choice.maxMinor, currency) : "—",
+                        minimum: choice.minMinor ? money(choice.minMinor, currency) : "—",
+                      })}
+                    </span>
+                  )}
+                </PaymentMethodOption>
               ))}
             </div>
           )}
@@ -523,7 +518,7 @@ function LedgerRow({ entry }: { entry: WalletEntry }) {
     <li className="flex animate-rise items-start justify-between gap-3 rounded-md border border-border bg-card p-3">
       <div className="min-w-0">
         <p className="font-medium text-[13px]">{translate(`wallet.entryType.${type}`)}</p>
-        <p className="mt-0.5 font-mono text-[11px] text-subtle-foreground">
+        <p className="mt-0.5 text-[12.5px] text-subtle-foreground">
           <Timestamp value={entry.occurredAt} />
         </p>
         {entry.reason && (

@@ -87,7 +87,7 @@ export function LoyaltyStanding() {
         <section className="space-y-3 rounded-xl border border-border bg-card p-4">
           <div className="flex items-baseline justify-between gap-3">
             <div className="min-w-0">
-              <p className="font-mono text-[11px] text-subtle-foreground">
+              <p className="text-[12.5px] text-subtle-foreground">
                 {translate("loyalty.currentTier")}
               </p>
               <p className="mt-1 truncate font-semibold text-[19px] tracking-[-0.01em]">
@@ -101,7 +101,7 @@ export function LoyaltyStanding() {
             )}
           </div>
 
-          <p className="font-mono text-[11px] text-muted-foreground">
+          <p className="text-[12.5px] text-muted-foreground">
             {translate("loyalty.measured", {
               value: metricValue(data.metric ?? 0, rules.metric, rules.currency),
             })}
@@ -140,7 +140,7 @@ export function LoyaltyStanding() {
           )}
 
           {data.evaluatedAt && (
-            <p className="font-mono text-[11px] text-subtle-foreground">
+            <p className="text-[12.5px] text-subtle-foreground">
               {translate("loyalty.evaluatedAt", {
                 date: format.dateTime(new Date(data.evaluatedAt), {
                   day: "numeric",
@@ -163,9 +163,7 @@ export function LoyaltyStanding() {
 
       {(data.groups ?? []).length > 0 && (
         <section className="space-y-2 rounded-xl border border-border bg-card p-4">
-          <p className="font-mono text-[11px] text-subtle-foreground">
-            {translate("loyalty.groups")}
-          </p>
+          <p className="text-[12.5px] text-subtle-foreground">{translate("loyalty.groups")}</p>
           <ul className="space-y-1.5">
             {(data.groups ?? []).map((group) => (
               <li className="flex items-center justify-between gap-3 text-[14px]" key={group.code}>
@@ -194,14 +192,14 @@ export function LoyaltyStanding() {
           >
             <span className="min-w-0 flex-1">
               <span className="block truncate font-medium text-[14px]">{tierName(tier)}</span>
-              <span className="mt-0.5 block font-mono text-[11px] text-subtle-foreground">
+              <span className="mt-0.5 block text-[12.5px] text-subtle-foreground">
                 {translate("loyalty.threshold", {
                   value: metricValue(tier.threshold, rules.metric, rules.currency),
                 })}
               </span>
             </span>
             {tier.discountBps > 0 && (
-              <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+              <span className="shrink-0 text-[12.5px] text-muted-foreground">
                 {discount(tier.discountBps)}
               </span>
             )}
@@ -236,7 +234,7 @@ function TierProgress({ label, percent }: { label: string; percent: number }) {
   const clamped = Math.min(100, Math.max(0, percent));
   return (
     <div className="space-y-2">
-      <p className="font-mono text-[11px] text-muted-foreground">{label}</p>
+      <p className="text-[12.5px] text-muted-foreground">{label}</p>
       <div aria-label={label} className="h-1 overflow-hidden rounded-full bg-muted" role="img">
         <div
           className="h-full rounded-full bg-primary transition-[width] duration-700 ease-emphasis motion-reduce:transition-none"

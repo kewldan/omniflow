@@ -61,7 +61,7 @@ export default function NewsInboxPage() {
           {translate("news.subtitle")}
         </p>
         {first && (
-          <p className="font-mono text-[11px] text-subtle-foreground" role="status">
+          <p className="text-[12.5px] text-subtle-foreground" role="status">
             {translate("news.unread", { count: first.unreadCount })}
           </p>
         )}
@@ -174,12 +174,10 @@ function NewsCard({ item, onRead }: { item: NewsItem; onRead: () => Promise<unkn
           <Badge variant="outline">{translate("news.class.marketing")}</Badge>
         )}
         {!item.read && (
-          <span className="font-medium font-mono text-[10px] text-primary uppercase tracking-[0.12em]">
-            {translate("news.new")}
-          </span>
+          <span className="font-semibold text-[13px] text-primary">{translate("news.new")}</span>
         )}
         <time
-          className="ml-auto shrink-0 font-mono text-[10.5px] text-subtle-foreground"
+          className="ml-auto shrink-0 text-[12px] text-subtle-foreground"
           dateTime={item.publishedAt}
         >
           <Timestamp value={item.publishedAt} />
@@ -193,7 +191,7 @@ function NewsCard({ item, onRead }: { item: NewsItem; onRead: () => Promise<unkn
       {item.tags.length > 0 && (
         <ul aria-label={translate("news.tags")} className="flex flex-wrap gap-1.5">
           {item.tags.map((tag) => (
-            <li className="font-mono text-[11px] text-muted-foreground" key={tag}>
+            <li className="text-[12.5px] text-muted-foreground" key={tag}>
               #{tag}
             </li>
           ))}
@@ -201,7 +199,7 @@ function NewsCard({ item, onRead }: { item: NewsItem; onRead: () => Promise<unkn
       )}
 
       {item.read ? (
-        <p className="font-mono text-[10.5px] text-subtle-foreground">{translate("news.read")}</p>
+        <p className="text-[12px] text-subtle-foreground">{translate("news.read")}</p>
       ) : (
         <Button disabled={busy} onClick={markRead} size="sm" variant="outline">
           {busy ? translate("news.marking") : translate("news.markRead")}

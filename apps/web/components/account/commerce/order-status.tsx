@@ -104,7 +104,7 @@ export function OrderProgress({ order }: { order: OrderSummary }) {
 
   return (
     <div className="space-y-2">
-      <p className="font-mono text-[11px] text-muted-foreground">{summary}</p>
+      <p className="text-[12.5px] text-muted-foreground">{summary}</p>
       <ol aria-label={summary} className="flex gap-1.5">
         {steps.map((step, index) => (
           <li className="flex-1 space-y-1" key={step}>
@@ -118,7 +118,7 @@ export function OrderProgress({ order }: { order: OrderSummary }) {
             />
             <span
               className={cn(
-                "block font-mono text-[9.5px]",
+                "block text-[9.5px]",
                 index < done ? "text-foreground" : "text-subtle-foreground",
               )}
             >
@@ -153,12 +153,12 @@ export function FulfillmentNote({ fulfillment }: { fulfillment: OrderFulfillment
         {translate(`order.fulfillment.status.${status}`)}
       </p>
       {fulfillment.attempts > 1 && (
-        <p className="font-mono text-[11px] text-subtle-foreground">
+        <p className="text-[12.5px] text-subtle-foreground">
           {translate("order.fulfillment.attempts", { count: fulfillment.attempts })}
         </p>
       )}
       {fulfillment.updatedAt && (
-        <p className="font-mono text-[11px] text-subtle-foreground">
+        <p className="text-[12.5px] text-subtle-foreground">
           {translate("order.fulfillment.updated", {
             time: format.dateTime(new Date(fulfillment.updatedAt), {
               day: "numeric",
@@ -314,7 +314,7 @@ export function RefundList({ refunds }: { refunds: OrderRefund[] }) {
               <p className="font-medium text-[12.5px]">
                 {translate(`order.refundStatus.${status}`)}
               </p>
-              <p className="font-mono text-[11px] text-subtle-foreground">
+              <p className="text-[12.5px] text-subtle-foreground">
                 <Timestamp value={refund.createdAt} />
               </p>
             </div>

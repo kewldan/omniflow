@@ -138,3 +138,11 @@ describe("minorToInput", () => {
     expect(toMajorUnits(1234, "VND")).toBe(1234);
   });
 });
+
+describe("formatMoney with trimZeroFraction", () => {
+  test("drops a zero fraction and keeps a real one", () => {
+    expect(formatMoney(22900, "RUB", "ru", { trimZeroFraction: true })).toBe("229\u00a0₽");
+    expect(formatMoney(22950, "RUB", "ru", { trimZeroFraction: true })).toBe("229,50\u00a0₽");
+    expect(formatMoney(22900, "RUB", "ru")).toBe("229,00\u00a0₽");
+  });
+});

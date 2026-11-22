@@ -62,7 +62,7 @@ export default function SubscriptionPage() {
       <section className="space-y-4 rounded-lg border border-border bg-card p-4">
         <div className="flex items-baseline justify-between gap-3">
           <h1 className="font-semibold text-[19px] tracking-[-0.02em]">{data.label}</h1>
-          <span className="font-mono text-[11px] text-subtle-foreground">{data.plan}</span>
+          <span className="text-[12.5px] text-subtle-foreground">{data.plan}</span>
         </div>
         <SubscriptionStatus subscription={data} />
         <TrafficMeter traffic={data.traffic} />

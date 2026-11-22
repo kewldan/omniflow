@@ -199,9 +199,7 @@ function SideLink({
       {icon}
       <span className="min-w-0 flex-1">
         <span className="block font-semibold text-[15px]">{label}</span>
-        <span className="mt-0.5 block font-mono text-[11px] text-subtle-foreground">
-          {description}
-        </span>
+        <span className="mt-0.5 block text-[12.5px] text-subtle-foreground">{description}</span>
       </span>
       <ChevronRight aria-hidden className="size-4 shrink-0 text-subtle-foreground" />
     </Link>

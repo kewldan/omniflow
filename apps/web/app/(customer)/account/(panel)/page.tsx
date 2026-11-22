@@ -17,10 +17,8 @@ import {
 import {
   type AccountSubscription,
   primaryAction,
-  SubscriptionActions,
   SubscriptionCard,
-  SubscriptionStatus,
-  TrafficMeter,
+  SubscriptionHero,
 } from "@/components/account/subscription-card";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 
@@ -128,12 +126,16 @@ export default function AccountDashboard() {
         />
       )}
 
-      <div className="flex items-baseline justify-between">
-        <SectionLabel>{translate("dashboard.subscriptions")}</SectionLabel>
-        <span className="font-medium font-mono text-[10px] text-subtle-foreground" data-numeric>
-          {data.subscriptions.length}
-        </span>
-      </div>
+      {/* With one subscription the page heading already says what this is;
+          the section label and its count of one only repeated it. */}
+      {data.subscriptions.length > 1 && (
+        <div className="flex items-baseline justify-between">
+          <SectionLabel>{translate("dashboard.subscriptions")}</SectionLabel>
+          <span className="font-medium text-[12px] text-subtle-foreground" data-numeric>
+            {data.subscriptions.length}
+          </span>
+        </div>
+      )}
 
       {/* aria-busy lets assistive technology know a background refresh is in
           flight without interrupting whatever it is reading. */}
@@ -157,8 +159,8 @@ export default function AccountDashboard() {
 /**
  * A single subscription, opened out.
  *
- * The same status block and traffic meter as the subscription page, so the two
- * cannot disagree, followed by its devices. The device list is shown only for
+ * The subscription as one card with its days left as the headline, followed by
+ * its devices. The device list is shown only for
  * a subscription that can be connected: an unpaid, lapsed, or unprovisioned one
  * has no devices to manage, and its card already says what to do instead. It is
  * left out while Remnawave is unreachable too — the stale-data notice above
@@ -175,21 +177,7 @@ function SubscriptionHome({
 }) {
   return (
     <div className="space-y-5">
-      <article className="animate-step-in space-y-4 rounded-lg border border-border bg-card p-4">
-        <div className="flex items-baseline justify-between gap-3">
-          <h2 className="truncate font-semibold text-[17px] tracking-[-0.01em]">
-            {subscription.label}
-          </h2>
-          {subscription.plan && (
-            <span className="shrink-0 font-mono text-[11px] text-subtle-foreground">
-              {subscription.plan}
-            </span>
-          )}
-        </div>
-        <SubscriptionStatus subscription={subscription} />
-        <TrafficMeter traffic={subscription.traffic} />
-        <SubscriptionActions subscription={subscription} />
-      </article>
+      <SubscriptionHero subscription={subscription} />
       {primaryAction(subscription) === "connect" && !degraded && (
         <DeviceList embedded onChanged={onDevicesChanged} subscription={subscription} />
       )}

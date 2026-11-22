@@ -154,7 +154,7 @@ export function TrafficMeter({ traffic }: { traffic: AccountSubscription["traffi
 
   return (
     <div className="space-y-2">
-      <p className="font-mono text-[11px] text-muted-foreground">{summary}</p>
+      <p className="text-[12.5px] text-muted-foreground">{summary}</p>
       {!traffic.unlimited && (
         <div aria-label={summary} className="h-1 overflow-hidden rounded-full bg-muted" role="img">
           <div
@@ -199,13 +199,13 @@ export function SubscriptionStatus({ subscription }: { subscription: AccountSubs
   return (
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0 space-y-1.5">
-        <p className={cn("flex items-center gap-2 font-mono text-[11.5px]", TONE_CLASS[tone])}>
+        <p className={cn("flex items-center gap-2 text-[13px]", TONE_CLASS[tone])}>
           <span aria-hidden className={cn("size-[7px] shrink-0 rounded-full", DOT_CLASS[tone])} />
           {status}
         </p>
-        <p className="font-mono text-[11px] text-subtle-foreground">{devices}</p>
+        <p className="text-[12.5px] text-subtle-foreground">{devices}</p>
         {subscription.lastOnlineAt ? (
-          <p className="font-mono text-[11px] text-subtle-foreground">
+          <p className="text-[12.5px] text-subtle-foreground">
             {subscription.online
               ? translate("subscription.onlineNow")
               : translate("subscription.lastOnline", {
@@ -218,11 +218,119 @@ export function SubscriptionStatus({ subscription }: { subscription: AccountSubs
         <div className="font-bold text-[26px] leading-none tracking-[-0.04em]" data-numeric>
           {subscription.daysLeft}
         </div>
-        <div className="mt-1 font-mono text-[10px] text-subtle-foreground">
+        <div className="mt-1 text-[12px] text-subtle-foreground">
           {translate("subscription.days")}
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * A single subscription, opened out on the dashboard.
+ *
+ * The days left are the headline, as large as the screen allows, because that
+ * is what the customer opened the page to learn; the status and its date sit
+ * right under it. Traffic and devices follow as two tiles, label over value,
+ * instead of the four lines of small print they used to be.
+ */
+export function SubscriptionHero({ subscription }: { subscription: AccountSubscription }) {
+  const translate = useTranslations("account");
+  const phaseLabel = usePhaseLabel();
+  const formatBytes = useByteFormatter();
+  const format = useFormatter();
+  const now = useNow({ updateInterval: 60_000 });
+  const tone = subscription.pendingOrderId ? "warn" : PHASE_TONE[subscription.phase];
+  const { devices, traffic } = subscription;
+
+  return (
+    <article className="animate-step-in space-y-5 rounded-xl border border-border bg-card p-5">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="truncate font-semibold text-[17px] tracking-[-0.01em]">
+          {subscription.label}
+        </h2>
+        {subscription.plan && (
+          <span className="shrink-0 rounded-full bg-accent px-2.5 py-1 font-medium text-[12px] text-accent-foreground">
+            {subscription.plan}
+          </span>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        <p className="flex items-baseline gap-2">
+          <span className="font-bold text-[48px] leading-none tracking-[-0.045em]" data-numeric>
+            {subscription.daysLeft}
+          </span>
+          <span className="text-[16px] text-muted-foreground">
+            {translate("subscription.days")}
+          </span>
+        </p>
+        <p className={cn("flex items-center gap-2 font-medium text-[14px]", TONE_CLASS[tone])}>
+          <span aria-hidden className={cn("size-2 shrink-0 rounded-full", DOT_CLASS[tone])} />
+          {phaseLabel(subscription)}
+        </p>
+        {subscription.lastOnlineAt ? (
+          <p className="pl-4 text-[13px] text-muted-foreground">
+            {subscription.online
+              ? translate("subscription.onlineNow")
+              : translate("subscription.lastOnline", {
+                  when: format.relativeTime(new Date(subscription.lastOnlineAt), now),
+                })}
+          </p>
+        ) : null}
+      </div>
+
+      <dl className="grid grid-cols-2 gap-2">
+        <div className="min-w-0 space-y-2 rounded-lg bg-well px-3.5 py-3">
+          <dt className="text-[12.5px] text-muted-foreground">
+            {translate("commerce.specs.traffic")}
+          </dt>
+          <dd className="space-y-2">
+            <span className="block font-semibold text-[16px] leading-tight" data-numeric>
+              {formatBytes(traffic.usedBytes)}
+              <span className="font-normal text-[13px] text-muted-foreground">
+                {traffic.unlimited ? "" : ` / ${formatBytes(traffic.limitBytes ?? 0)}`}
+              </span>
+            </span>
+            {traffic.unlimited ? (
+              <span className="block text-[12.5px] text-muted-foreground">
+                {translate("commerce.specs.unlimited")}
+              </span>
+            ) : (
+              <span className="block h-1.5 overflow-hidden rounded-full bg-muted" aria-hidden>
+                <span
+                  className={cn(
+                    "block h-full rounded-full transition-[width] duration-700 ease-emphasis motion-reduce:transition-none",
+                    traffic.percent >= 100 ? "bg-destructive" : "bg-primary",
+                  )}
+                  style={{ width: `${Math.min(100, traffic.percent)}%` }}
+                />
+              </span>
+            )}
+          </dd>
+        </div>
+        <div className="min-w-0 space-y-2 rounded-lg bg-well px-3.5 py-3">
+          <dt className="text-[12.5px] text-muted-foreground">
+            {translate("commerce.specs.devices")}
+          </dt>
+          <dd className="space-y-2">
+            <span className="block font-semibold text-[16px] leading-tight" data-numeric>
+              {devices.used}
+              <span className="font-normal text-[13px] text-muted-foreground">
+                {devices.unlimited ? "" : ` / ${devices.limit ?? 0}`}
+              </span>
+            </span>
+            {devices.unlimited ? (
+              <span className="block text-[12.5px] text-muted-foreground">
+                {translate("commerce.specs.unlimited")}
+              </span>
+            ) : null}
+          </dd>
+        </div>
+      </dl>
+
+      <SubscriptionActions subscription={subscription} />
+    </article>
   );
 }
 
@@ -256,23 +364,23 @@ export function SubscriptionCard({ subscription }: { subscription: AccountSubscr
               {subscription.label}
             </h3>
           </div>
-          <p className={cn("mt-1.5 font-mono text-[11.5px]", TONE_CLASS[tone])}>{status}</p>
+          <p className={cn("mt-1.5 text-[13px]", TONE_CLASS[tone])}>{status}</p>
           {subscription.plan && (
-            <p className="mt-1 font-mono text-[11px] text-subtle-foreground">{subscription.plan}</p>
+            <p className="mt-1 text-[12.5px] text-subtle-foreground">{subscription.plan}</p>
           )}
         </div>
         <div className="shrink-0 text-right">
           <div className="font-bold text-[26px] leading-none tracking-[-0.04em]" data-numeric>
             {subscription.daysLeft}
           </div>
-          <div className="mt-1 font-mono text-[10px] text-subtle-foreground">
+          <div className="mt-1 text-[12px] text-subtle-foreground">
             {translate("subscription.days")}
           </div>
         </div>
       </div>
 
       <div className="space-y-2">
-        <p className="font-mono text-[11px] text-muted-foreground">{devices}</p>
+        <p className="text-[12.5px] text-muted-foreground">{devices}</p>
         <TrafficMeter traffic={subscription.traffic} />
       </div>
 

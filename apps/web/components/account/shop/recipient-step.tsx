@@ -134,9 +134,7 @@ export function RecipientStep({
       {reviewed && (
         <div className="space-y-3 rounded-md border border-border bg-background p-3">
           <div>
-            <p className="font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.14em]">
-              {translate("recipient.reviewed")}
-            </p>
+            <p className="text-[13px] text-muted-foreground">{translate("recipient.reviewed")}</p>
             <p className="mt-1 break-all font-mono font-semibold text-[16px]">
               @{reviewed.recipient}
             </p>

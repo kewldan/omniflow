@@ -13,6 +13,7 @@ import { readAnalytics } from "@/lib/analytics";
 import { readBranding } from "@/lib/branding";
 import { type Locale, RTL_LOCALES } from "@/lib/locale";
 import { readNonce } from "@/lib/nonce";
+import { isCustomerSurface } from "@/lib/surface";
 import "./globals.css";
 
 /**
@@ -33,11 +34,12 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
-  const [locale, branding, analytics, nonce] = await Promise.all([
+  const [locale, branding, analytics, nonce, customer] = await Promise.all([
     getLocale(),
     readBranding(),
     readAnalytics(),
     readNonce(),
+    isCustomerSurface(),
   ]);
 
   return (
@@ -47,7 +49,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
      * client markup differ by design on this element only.
      */
     <html
-      className={`${GeistSans.variable} ${GeistMono.variable}`}
+      className={`${GeistSans.variable} ${GeistMono.variable}${customer ? " customer-ui" : ""}`}
       dir={RTL_LOCALES.includes(locale as Locale) ? "rtl" : "ltr"}
       lang={locale}
       suppressHydrationWarning

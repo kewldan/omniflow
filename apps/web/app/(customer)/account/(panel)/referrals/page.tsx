@@ -79,9 +79,7 @@ export default function ReferralsPage() {
           />
 
           <section className="rounded-xl border border-border bg-card p-4">
-            <p className="font-mono text-[11px] text-subtle-foreground">
-              {translate("referrals.earned")}
-            </p>
+            <p className="text-[12.5px] text-subtle-foreground">{translate("referrals.earned")}</p>
             <p className="mt-1 font-bold text-[30px] leading-none tracking-[-0.04em]" data-numeric>
               {money(data.rewardedMinor, data.currency)}
             </p>
@@ -198,7 +196,7 @@ function Stat({ label, value }: { label: string; value: number }) {
       <p className="font-bold text-[26px] leading-none tracking-[-0.04em]" data-numeric>
         {value}
       </p>
-      <p className="mt-1.5 font-mono text-[11px] text-subtle-foreground">{label}</p>
+      <p className="mt-1.5 text-[12.5px] text-subtle-foreground">{label}</p>
     </div>
   );
 }

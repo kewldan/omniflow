@@ -127,9 +127,7 @@ export function DataExport({ preview }: { preview: PrivacyOverview["export"] }) 
       </div>
 
       <div>
-        <p className="font-mono text-[11px] text-subtle-foreground">
-          {translate("export.includes")}
-        </p>
+        <p className="text-[12.5px] text-subtle-foreground">{translate("export.includes")}</p>
         <ul className="mt-1.5 flex flex-wrap gap-1.5">
           {preview.sections.map((section) => (
             <li
@@ -143,9 +141,7 @@ export function DataExport({ preview }: { preview: PrivacyOverview["export"] }) 
       </div>
 
       <div>
-        <p className="font-mono text-[11px] text-subtle-foreground">
-          {translate("export.excludes")}
-        </p>
+        <p className="text-[12.5px] text-subtle-foreground">{translate("export.excludes")}</p>
         <ul className="mt-1.5 space-y-1">
           {preview.redactions.map((redaction) => (
             <li className="text-[12.5px] text-muted-foreground leading-relaxed" key={redaction}>

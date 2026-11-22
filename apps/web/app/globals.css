@@ -42,3 +42,142 @@ html[data-miniapp="fullscreen"] body {
 .nav-lottie svg path[fill]:not([fill="none"]) {
   fill: currentColor;
 }
+
+/*
+ * The customer look.
+ *
+ * The shared tokens were drawn for an operator console: zinc greys, a black
+ * or white primary, tight corners. Customers read that as a terminal, so the
+ * customer surfaces — `customer-ui` on <html>, set by the root layout — get a
+ * cooler, lighter ground, one friendly accent for the things to press, and
+ * the "rounded" corner scale.
+ *
+ * The specificity is deliberate, because <html> carries `.dark`, the theme's
+ * own tokens, and the operator's branding all at once: light here is (0,1,0)
+ * and dark (0,3,0), and the operator's branding CSS writes the same element
+ * at (0,2,0) and (0,4,0) — see internal/branding — so a palette or corner
+ * scale an operator saved still wins in each mode, whatever order the
+ * stylesheets load in. Both blocks set the same tokens, so nothing from the
+ * light block leaks into dark.
+ *
+ * Every text pair clears 4.5:1: primary on its foreground 5.7:1 in light and
+ * 6.9:1 in dark, the quiet tones 4.6:1 or more on every surface they sit on.
+ */
+.customer-ui {
+  --radius-scale: 1.6;
+
+  --background: #f4f5f9;
+  --foreground: #10121c;
+  --card: #ffffff;
+  --card-foreground: #10121c;
+  --well: #f6f7fb;
+  --field: #ffffff;
+  --popover: #ffffff;
+  --popover-foreground: #10121c;
+  --primary: #4a52e8;
+  --primary-foreground: #ffffff;
+  --secondary: #eceef6;
+  --secondary-foreground: #1b1e2e;
+  --muted: #eef0f6;
+  --muted-foreground: #555a6b;
+  --accent: #eceefe;
+  --accent-foreground: #2d33a8;
+  --border: #e3e5ee;
+  --input: #e3e5ee;
+  --ring: #4a52e8;
+  --subtle-foreground: #62667a;
+  --chrome: #f4f5f9;
+  --chrome-border: #e3e5ee;
+  --glass: rgb(255 255 255 / 0.72);
+  --glass-border: rgb(16 18 28 / 0.08);
+  --glass-pill: rgb(74 82 232 / 0.12);
+}
+
+.dark.dark.customer-ui {
+  --radius-scale: 1.6;
+
+  --background: #0e1018;
+  --foreground: #f3f4f8;
+  --card: #181b26;
+  --card-foreground: #f3f4f8;
+  --well: #1e2130;
+  --field: #232636;
+  --popover: #181b26;
+  --popover-foreground: #f3f4f8;
+  --primary: #8b93ff;
+  --primary-foreground: #0e1022;
+  --secondary: #232636;
+  --secondary-foreground: #f3f4f8;
+  --muted: #232636;
+  --muted-foreground: #a5a9ba;
+  --accent: #252a4a;
+  --accent-foreground: #c7cbff;
+  --border: #262a38;
+  --input: #262a38;
+  --ring: #8b93ff;
+  --subtle-foreground: #8e92a5;
+  --chrome: #13151e;
+  --chrome-border: #23263a;
+  --glass: rgb(24 27 38 / 0.7);
+  --glass-border: rgb(255 255 255 / 0.1);
+  --glass-pill: rgb(139 147 255 / 0.2);
+}
+
+/*
+ * The light on a payment method row (components/account/commerce/
+ * payment-method-option.tsx): a soft spot that follows the pointer, and a
+ * sheen that passes down the list once every fifteen seconds. Both sit under
+ * the row's content and are dropped for reduced motion.
+ */
+.pay-option {
+  --mx: 50%;
+  --my: 0px;
+}
+.pay-option::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    circle at var(--mx) var(--my),
+    color-mix(in srgb, var(--foreground) 9%, transparent),
+    transparent 60%
+  );
+  transition: opacity 0.25s;
+}
+.pay-option:hover::after,
+.pay-option:active::after {
+  opacity: 1;
+}
+.pay-option-sheen {
+  position: absolute;
+  inset: -60% -40%;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 44%,
+    color-mix(in srgb, var(--foreground) 8%, transparent) 50%,
+    transparent 56%
+  );
+  transform: translateX(-70%);
+  animation: pay-sheen 15s ease-in-out infinite;
+  animation-delay: calc(4s + var(--sheen-delay, 0s));
+}
+@keyframes pay-sheen {
+  0%,
+  93% {
+    transform: translateX(-70%);
+  }
+  100% {
+    transform: translateX(70%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pay-option::after,
+  .pay-option-sheen {
+    display: none;
+  }
+}

@@ -82,7 +82,7 @@ export function ShareLink({
   return (
     <section className="space-y-3 rounded-xl border border-border bg-card p-4">
       <div>
-        <h2 className="font-medium font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.14em]">
+        <h2 className="font-semibold text-[13px] text-muted-foreground">
           {translate("referrals.code")}
         </h2>
         <p

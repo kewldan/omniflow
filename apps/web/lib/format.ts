@@ -19,12 +19,13 @@ export { currencyExponent, toMajorUnits };
 export type MoneyFormatter = (minor: number, currency: string) => string;
 
 /** Formats an integer minor-unit amount in the customer's own locale. */
-export function useMoney(): MoneyFormatter {
+export function useMoney(options: { trimZeroFraction?: boolean } = {}): MoneyFormatter {
   const locale = useLocale();
+  const { trimZeroFraction = false } = options;
   return useCallback(
     (minor: number, currency: string) =>
-      formatMoney(minor, currency, locale, { display: "narrowSymbol" }),
-    [locale],
+      formatMoney(minor, currency, locale, { display: "narrowSymbol", trimZeroFraction }),
+    [locale, trimZeroFraction],
   );
 }
 

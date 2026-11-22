@@ -111,16 +111,16 @@ function OrderRow({ order }: { order: OrderSummary }) {
       <span className="min-w-0 flex-1 space-y-1.5">
         <span className="flex items-center gap-2">
           <OrderPhaseBadge phase={order.phase} />
-          <span className="truncate font-mono text-[11px] text-subtle-foreground">
+          <span className="truncate text-[12.5px] text-subtle-foreground">
             {translate(`operationKinds.${operation}`)}
           </span>
         </span>
         <span className="block truncate font-semibold text-[15px]">{order.plan}</span>
-        <span className="block font-mono text-[11px] text-subtle-foreground">
+        <span className="block text-[12.5px] text-subtle-foreground">
           <Timestamp value={order.createdAt} />
         </span>
         {order.refundedMinor > 0 && (
-          <span className="block font-mono text-[11px] text-warning">
+          <span className="block text-[12.5px] text-warning">
             {translate("orders.refunded", {
               amount: money(order.refundedMinor, order.currency),
             })}
@@ -137,12 +137,12 @@ function OrderRow({ order }: { order: OrderSummary }) {
           {money(order.subtotalMinor, order.currency)}
         </span>
         {order.paidMinor > 0 && (
-          <span className="block font-mono text-[10px] text-subtle-foreground">
+          <span className="block text-[12px] text-subtle-foreground">
             {translate("orders.paid", { amount: money(order.paidMinor, order.currency) })}
           </span>
         )}
         {order.payment?.receiptUrl && (
-          <span className="block font-mono text-[10px] text-subtle-foreground">
+          <span className="block text-[12px] text-subtle-foreground">
             {translate("orders.hasReceipt")}
           </span>
         )}

@@ -46,7 +46,7 @@ export function SlowWaitNotice({
           {translate(stopped ? "stoppedDescription" : "description")}
         </p>
         {reference && (
-          <p className="flex items-center gap-1 font-mono text-[11px] text-subtle-foreground">
+          <p className="flex items-center gap-1 text-[12.5px] text-subtle-foreground">
             {translate("reference", { reference })}
             {/* Support asks for exactly this, so it is one tap to copy. */}
             <CopyButton label={translate("referenceLabel")} value={reference} />
@@ -112,7 +112,7 @@ export function ServiceNotice({
         {message?.trim() || translate("states.maintenanceDescription")}
       </p>
       {expectedReturnAt && (
-        <p className="font-mono text-[11px] text-muted-foreground">
+        <p className="text-[12.5px] text-muted-foreground">
           {translate("states.maintenanceReturn", {
             time: format.dateTime(new Date(expectedReturnAt), {
               day: "numeric",
@@ -142,7 +142,7 @@ export function ListSkeleton({ rows = 3 }: { rows?: number }) {
 /** The heading style the design uses above every group. */
 export function SectionLabel({ children }: { children: ReactNode }) {
   return (
-    <h2 className="px-1 font-medium font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.14em]">
+    <h2 className="px-1 font-semibold text-[15px] text-foreground tracking-[-0.01em]">
       {children}
     </h2>
   );

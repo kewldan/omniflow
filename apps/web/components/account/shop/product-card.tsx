@@ -40,7 +40,7 @@ export function ProductCard({ product }: { product: ShopProduct }) {
         <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-semibold text-[15px] tracking-[-0.01em]">{product.name}</h3>
-            {label && <span className="font-mono text-[11px] text-subtle-foreground">{label}</span>}
+            {label && <span className="text-[12.5px] text-subtle-foreground">{label}</span>}
           </div>
           {product.description && (
             <p className="line-clamp-2 text-[12.5px] text-muted-foreground leading-relaxed">
@@ -52,7 +52,7 @@ export function ProductCard({ product }: { product: ShopProduct }) {
               wrong thing this screen could say about money. */}
           <p
             className={cn(
-              "font-mono text-[12px]",
+              "text-[13px]",
               product.priceKnown ? "text-foreground" : "text-subtle-foreground",
             )}
           >

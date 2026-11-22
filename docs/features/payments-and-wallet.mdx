@@ -48,7 +48,9 @@ Once a provider is configured, **Settings → Commerce** in the panel controls h
 - **Payment buttons** — a name and description per button in both languages, minimum and maximum
   amounts, quick top-up amounts, and who sees it (by sign-in method, by first top-up, or by loyalty
   tier). Some providers can show SBP, card, and other methods as separate buttons through their
-  `APP_<SLUG>_PAYMENT_METHODS` variable.
+  `APP_<SLUG>_PAYMENT_METHODS` variable. In the cabinet each button carries the mark customers know
+  it by: the SBP mark on any provider's SBP method, ЮKassa's on ЮKassa, CryptoBot's with the coins it
+  takes, coins on other crypto methods, a star on Telegram Stars, and a plain card otherwise.
 
 What the provider shows as the payment purpose can be worded with `APP_PAYMENT_SERVICE_NAME` and
 the `APP_PAYMENT_ORDER_TEMPLATE`, `APP_PAYMENT_TOPUP_TEMPLATE`, and `APP_PAYMENT_RENEWAL_TEMPLATE`

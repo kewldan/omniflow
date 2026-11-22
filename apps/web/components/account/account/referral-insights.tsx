@@ -81,7 +81,7 @@ export function ReferralInsights({ currency, link }: { currency: string; link: s
               ] as const
             ).map(([period, amount]) => (
               <div className="rounded-xl border border-border bg-card p-3" key={period}>
-                <p className="font-mono text-[11px] text-subtle-foreground">
+                <p className="text-[12.5px] text-subtle-foreground">
                   {translate(`periods.${period}`)}
                 </p>
                 <p className="mt-1 font-semibold text-[15px]" data-numeric>

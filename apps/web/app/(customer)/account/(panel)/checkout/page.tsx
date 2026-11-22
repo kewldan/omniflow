@@ -18,6 +18,7 @@ import { useForm } from "react-hook-form";
 import useSWR from "swr";
 import * as z from "zod/mini";
 import { choiceKey, useChoiceCopy } from "@/components/account/commerce/payment-choice";
+import { PaymentMethodOption } from "@/components/account/commerce/payment-method-option";
 import { PeriodPicker } from "@/components/account/commerce/period-picker";
 import { OPERATIONS, usePeriodLabel } from "@/components/account/commerce/plan-card";
 import { QuoteBreakdown } from "@/components/account/commerce/quote-breakdown";
@@ -259,7 +260,7 @@ function Checkout({
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="font-semibold text-[19px] tracking-[-0.02em]">{checkout.plan.name}</h1>
-            <p className="mt-1 font-mono text-[11px] text-subtle-foreground">
+            <p className="mt-1 text-[12.5px] text-subtle-foreground">
               {period(checkout.plan.billingPeriod, checkout.plan.durationSeconds)}
             </p>
           </div>
@@ -470,7 +471,7 @@ function ExpiryNotice({ expiresAt }: { expiresAt?: string }) {
   }
   const { expired, minutes } = remaining(expiresAt);
   return (
-    <p className="font-mono text-[11px] text-subtle-foreground" role="status">
+    <p className="text-[12.5px] text-subtle-foreground" role="status">
       {expired ? translate("checkout.expired") : translate("checkout.expiresIn", { minutes })}
     </p>
   );
@@ -496,7 +497,7 @@ function TargetPicker({
       : checkout.subscriptions;
   return (
     <fieldset className="space-y-2">
-      <legend className="px-1 pb-2 font-medium font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.14em]">
+      <legend className="px-1 pb-2 font-semibold text-[13px] text-muted-foreground">
         {translate("checkout.target.title")}
       </legend>
       <div className="space-y-2">
@@ -524,7 +525,7 @@ function TargetPicker({
             />
             <span className="min-w-0">
               <span className="block font-medium text-[13.5px]">{subscription.label}</span>
-              <span className="block font-mono text-[11px] text-subtle-foreground">
+              <span className="block text-[12.5px] text-subtle-foreground">
                 {subscription.plan}
               </span>
             </span>
@@ -557,7 +558,7 @@ function SquadPicker({
 
   return (
     <fieldset className="space-y-2">
-      <legend className="px-1 pb-2 font-medium font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.14em]">
+      <legend className="px-1 pb-2 font-semibold text-[13px] text-muted-foreground">
         {translate("checkout.squads.title")}
       </legend>
       <p className="px-1 pb-1 text-[12px] text-muted-foreground leading-relaxed">
@@ -632,7 +633,7 @@ function AddonPicker({
                 <span className="min-w-0">
                   <span className="block font-medium text-[13.5px]">{addon.name}</span>
                   {addon.trafficBytes !== null && (
-                    <span className="mt-1 block font-mono text-[11px] text-subtle-foreground">
+                    <span className="mt-1 block text-[12.5px] text-subtle-foreground">
                       {translate("plan.addonTraffic", { amount: formatBytes(addon.trafficBytes) })}
                     </span>
                   )}
@@ -787,7 +788,7 @@ function ProviderPicker({
 
   return (
     <fieldset className="space-y-2">
-      <legend className="px-1 pb-2 font-medium font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.14em]">
+      <legend className="px-1 pb-2 font-semibold text-[13px] text-muted-foreground">
         {translate("checkout.provider.title")}
       </legend>
       {checkout.providers.length === 0 ? (
@@ -796,36 +797,35 @@ function ProviderPicker({
         </p>
       ) : (
         <div className="space-y-2">
-          {checkout.providers.map((choice) => (
-            <label
-              className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 has-[:checked]:border-primary"
+          {checkout.providers.map((choice, index) => (
+            <PaymentMethodOption
+              checked={checkout.provider === choiceKey(choice)}
+              choice={choice}
+              disabled={disabled}
+              index={index}
               key={choiceKey(choice)}
+              name="checkout-provider"
+              onChange={() => onChange({ provider: choiceKey(choice) })}
+              trailing={
+                choice.amountMinor !== undefined ? (
+                  <span className="font-medium text-[13px]" data-numeric>
+                    {money(choice.amountMinor, choice.currency)}
+                  </span>
+                ) : undefined
+              }
             >
-              <Radio
-                checked={checkout.provider === choiceKey(choice)}
-                disabled={disabled}
-                name="checkout-provider"
-                onChange={() => onChange({ provider: choiceKey(choice) })}
-              />
-              <span className="min-w-0 flex-1">
-                <span className="block font-medium text-[13.5px]">{copy(choice).label}</span>
-                {copy(choice).description && (
-                  <span className="block text-[12px] text-muted-foreground">
-                    {copy(choice).description}
-                  </span>
-                )}
-                {choice.recurring && (
-                  <span className="block font-mono text-[11px] text-subtle-foreground">
-                    {translate("checkout.provider.recurring")}
-                  </span>
-                )}
-              </span>
-              {choice.amountMinor !== undefined && (
-                <span className="shrink-0 font-medium text-[13px]" data-numeric>
-                  {money(choice.amountMinor, choice.currency)}
+              <span className="block font-semibold text-[15px]">{copy(choice).label}</span>
+              {copy(choice).description && (
+                <span className="block text-[12.5px] text-muted-foreground">
+                  {copy(choice).description}
                 </span>
               )}
-            </label>
+              {choice.recurring && (
+                <span className="block text-[12.5px] text-subtle-foreground">
+                  {translate("checkout.provider.recurring")}
+                </span>
+              )}
+            </PaymentMethodOption>
           ))}
         </div>
       )}

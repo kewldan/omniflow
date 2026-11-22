@@ -293,7 +293,7 @@ export function PurchaseForm({ productId }: { productId: string }) {
       <header className="space-y-2">
         <div className="flex flex-wrap items-baseline gap-2">
           <h1 className="font-semibold text-[19px] tracking-[-0.02em]">{data.name}</h1>
-          {label && <span className="font-mono text-[12px] text-subtle-foreground">{label}</span>}
+          {label && <span className="text-[13px] text-subtle-foreground">{label}</span>}
         </div>
         {data.description && (
           <p className="text-[13px] text-muted-foreground leading-relaxed">{data.description}</p>
@@ -333,7 +333,7 @@ export function PurchaseForm({ productId }: { productId: string }) {
               )}
               <div className="flex items-center gap-2">
                 <Input
-                  className="w-32 font-mono"
+                  className="w-32"
                   disabled={busy}
                   id={starsId}
                   inputMode="numeric"
@@ -373,7 +373,7 @@ export function PurchaseForm({ productId }: { productId: string }) {
                   <Minus aria-hidden />
                 </Button>
                 <Input
-                  className="w-16 text-center font-mono"
+                  className="w-16 text-center"
                   disabled={busy}
                   id={quantityId}
                   inputMode="numeric"

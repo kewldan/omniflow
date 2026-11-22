@@ -94,14 +94,14 @@ export default function ShopOrderPage() {
       <header className="space-y-1.5">
         <div className="flex flex-wrap items-baseline gap-2">
           <h1 className="font-semibold text-[19px] tracking-[-0.02em]">{data.productName}</h1>
-          {label && <span className="font-mono text-[12px] text-subtle-foreground">{label}</span>}
+          {label && <span className="text-[13px] text-subtle-foreground">{label}</span>}
           {data.quantity > 1 && (
-            <span className="font-mono text-[12px] text-subtle-foreground">
+            <span className="text-[13px] text-subtle-foreground">
               {translate("measure.quantity", { count: data.quantity })}
             </span>
           )}
         </div>
-        <p className="font-mono text-[10.5px] text-subtle-foreground">
+        <p className="text-[12px] text-subtle-foreground">
           {translate("order.placed", { date: timestamp(data.createdAt) })}
         </p>
       </header>
@@ -154,7 +154,7 @@ export default function ShopOrderPage() {
         <SectionLabel>{translate("order.recipientTitle")}</SectionLabel>
         <p className="break-all font-mono font-semibold text-[15px]">@{data.recipient}</p>
         {data.forSelf && (
-          <p className="font-mono text-[11px] text-subtle-foreground">{translate("orders.self")}</p>
+          <p className="text-[12.5px] text-subtle-foreground">{translate("orders.self")}</p>
         )}
       </section>
 
@@ -188,7 +188,7 @@ export default function ShopOrderPage() {
             value={money(data.amounts.paidMinor, data.currency)}
           />
         </dl>
-        <p className="font-mono text-[10.5px] text-subtle-foreground">
+        <p className="text-[12px] text-subtle-foreground">
           {translate("order.updated", { date: timestamp(data.updatedAt) })}
         </p>
       </section>
@@ -204,7 +204,7 @@ function Amount({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
       <dt className="text-[12.5px] text-muted-foreground">{label}</dt>
-      <dd className="font-mono text-[12.5px]" data-numeric>
+      <dd className="text-[13px]" data-numeric>
         {value}
       </dd>
     </div>

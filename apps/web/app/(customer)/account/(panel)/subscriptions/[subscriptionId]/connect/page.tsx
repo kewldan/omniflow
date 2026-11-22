@@ -236,7 +236,7 @@ function Steps({ instructions, name }: { instructions?: string; name: string }) 
         <li className="flex items-start gap-3" key={step}>
           <span
             aria-hidden
-            className="flex size-[21px] shrink-0 items-center justify-center rounded-full bg-muted font-mono font-semibold text-[10.5px] text-muted-foreground"
+            className="flex size-[21px] shrink-0 items-center justify-center rounded-full bg-muted font-semibold text-[12px] text-muted-foreground"
           >
             {step}
           </span>

@@ -171,7 +171,7 @@ export function DeviceList({
               <span className="font-bold text-[30px] leading-none tracking-[-0.04em]" data-numeric>
                 {devices.length}
               </span>
-              <span className="font-mono text-[11px] text-subtle-foreground">{usage}</span>
+              <span className="text-[12.5px] text-subtle-foreground">{usage}</span>
             </div>
           </div>
           <SectionLabel>{translate("devices.title")}</SectionLabel>
@@ -193,14 +193,13 @@ export function DeviceList({
           title={translate("devices.empty")}
         />
       ) : (
-        <ul className="space-y-3">
+        // One grouped card with rows, rather than a separate box per device:
+        // a stack of boxes read as a grid of squares.
+        <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
           {devices.map((device) => {
             const Icon = deviceIcon(device.platform);
             return (
-              <li
-                className="flex animate-rise items-center gap-3 rounded-md border border-border bg-card p-4"
-                key={device.handle}
-              >
+              <li className="flex animate-rise items-center gap-3 px-4 py-3" key={device.handle}>
                 <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted">
                   <Icon aria-hidden className="size-[19px] text-muted-foreground" />
                 </span>
@@ -237,17 +236,20 @@ export function DeviceList({
                       {device.alias || device.name || translate("devices.unknown")}
                     </button>
                   )}
-                  {device.alias && device.name ? (
-                    <p className="truncate text-[12px] text-muted-foreground">{device.name}</p>
-                  ) : null}
-                  {/* A date, not a timestamp: the customer needs to recognise
-                      their own device, not to be handed a movement log. */}
-                  <p className="mt-1 font-mono text-[11px] text-subtle-foreground">
-                    {format.dateTime(new Date(device.lastSeen), {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
+                  {/* The model, when a name of the customer's own replaced it,
+                      and the date, on one line. A date, not a timestamp: the
+                      customer needs to recognise their own device, not to be
+                      handed a movement log. */}
+                  <p className="mt-0.5 truncate text-[13px] text-muted-foreground">
+                    {[
+                      device.alias && device.name ? device.name : null,
+                      format.dateTime(new Date(device.lastSeen), {
+                        day: "numeric",
+                        month: "short",
+                      }),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </p>
                 </div>
                 <Button
@@ -267,12 +269,14 @@ export function DeviceList({
 
       {devices.length > 1 && needsReauth && <ReauthNotice />}
       {devices.length > 1 && (
+        // A quiet control: it is the rare, destructive one, and as a
+        // full-width outlined button it outweighed everything above it.
         <Button
-          className="w-full text-destructive"
+          className="mx-auto flex text-destructive"
           disabled={busy}
           onClick={() => setRemoveAllOpen(true)}
-          size="lg"
-          variant="outline"
+          size="sm"
+          variant="ghost"
         >
           {translate("devices.removeAll")}
         </Button>

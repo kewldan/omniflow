@@ -47,7 +47,7 @@ export function ConversationTurns({
               between them is real content and is read out in sequence, which is
               what tells a screen-reader user where the new turns begin. */}
           {firstUnreadId === message.id && (
-            <p className="flex items-center gap-3 font-medium font-mono text-[10px] text-primary uppercase tracking-[0.12em]">
+            <p className="flex items-center gap-3 font-semibold text-[13px] text-primary">
               <span aria-hidden className="h-px flex-1 bg-primary/40" />
               {translate("ticket.newDivider")}
               <span aria-hidden className="h-px flex-1 bg-primary/40" />
@@ -67,7 +67,7 @@ function ConversationTurn({ message }: { message: SupportMessage }) {
 
   if (system) {
     return (
-      <p className="px-6 py-1 text-center font-mono text-[11px] text-subtle-foreground leading-relaxed">
+      <p className="px-6 py-1 text-center text-[12.5px] text-subtle-foreground leading-relaxed">
         {message.body}
       </p>
     );
@@ -81,13 +81,10 @@ function ConversationTurn({ message }: { message: SupportMessage }) {
       )}
     >
       <header className="flex items-baseline justify-between gap-3">
-        <span className="font-medium font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.12em]">
+        <span className="font-semibold text-[13px] text-muted-foreground">
           {translate(`author.${message.author}`)}
         </span>
-        <time
-          className="shrink-0 font-mono text-[10.5px] text-subtle-foreground"
-          dateTime={message.createdAt}
-        >
+        <time className="shrink-0 text-[12px] text-subtle-foreground" dateTime={message.createdAt}>
           <Timestamp value={message.createdAt} />
         </time>
       </header>
@@ -133,9 +130,7 @@ function AttachmentRow({ attachment }: { attachment: SupportAttachment }) {
         <div className="min-w-0">
           <p className="truncate font-medium text-[12.5px]">{name}</p>
           <p className="mt-0.5 text-[11.5px] text-muted-foreground leading-relaxed">
-            <span className="font-mono text-subtle-foreground">
-              {translate("attachments.remote")}
-            </span>
+            <span className="text-subtle-foreground">{translate("attachments.remote")}</span>
             {" — "}
             {translate("attachments.remoteDescription")}
           </p>
@@ -168,7 +163,7 @@ function AttachmentRow({ attachment }: { attachment: SupportAttachment }) {
     >
       <Icon aria-hidden className="size-[13px] shrink-0 text-muted-foreground" />
       <span className="min-w-0 flex-1 truncate font-medium text-[12.5px]">{name}</span>
-      <span className="shrink-0 font-mono text-[10.5px] text-subtle-foreground">
+      <span className="shrink-0 text-[12px] text-subtle-foreground">
         {formatBytes(attachment.sizeBytes)}
       </span>
       <Download aria-hidden className="size-[13px] shrink-0 text-subtle-foreground" />

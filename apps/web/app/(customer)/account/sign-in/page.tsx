@@ -117,9 +117,7 @@ export default function SignInPage() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center gap-6 px-6 py-16">
       <header className="space-y-2">
-        <p className="font-medium font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.16em]">
-          {serviceName}
-        </p>
+        <p className="font-semibold text-[13px] text-muted-foreground">{serviceName}</p>
         <h1 className="font-bold text-[26px] tracking-[-0.035em]">{translate("signIn.title")}</h1>
         <p className="text-[14px] text-muted-foreground leading-relaxed">
           {translate("signIn.description")}

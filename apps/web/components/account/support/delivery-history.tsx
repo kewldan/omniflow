@@ -73,7 +73,7 @@ export function DeliveryHistory() {
             </span>
           </span>
           <time
-            className="font-mono text-[11px] text-muted-foreground"
+            className="text-[12.5px] text-muted-foreground"
             dateTime={delivery.sentAt ?? delivery.scheduledAt}
           >
             {format.dateTime(new Date(delivery.sentAt ?? delivery.scheduledAt), {

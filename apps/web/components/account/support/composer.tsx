@@ -77,11 +77,7 @@ export function CountedField({
           {invalid}
         </p>
       ) : (
-        <p
-          aria-live="polite"
-          className="font-mono text-[10.5px] text-subtle-foreground"
-          id={captionId}
-        >
+        <p aria-live="polite" className="text-[12px] text-subtle-foreground" id={captionId}>
           {translate("new.remaining", { count: remaining })}
         </p>
       )}
@@ -102,7 +98,7 @@ export function AttachmentLimits({ limits }: { limits: SupportLimits }) {
   const translate = useTranslations("account.support");
   const formatBytes = useBytes();
   return (
-    <p className="font-mono text-[11px] text-subtle-foreground leading-relaxed">
+    <p className="text-[12.5px] text-subtle-foreground leading-relaxed">
       {translate("attachments.hint", {
         size: formatBytes(limits.maxAttachmentBytes),
         types: describeMediaTypes(limits.allowedMediaTypes),

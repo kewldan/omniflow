@@ -98,7 +98,7 @@ export function RewardHistory({ firstPage }: { firstPage: ReferralRewardPage }) 
                   `referrals.role.${reward.role === "invitee" || reward.role === "commission" ? reward.role : "inviter"}`,
                 )}
               </p>
-              <p className="mt-0.5 font-mono text-[11px] text-subtle-foreground">
+              <p className="mt-0.5 text-[12.5px] text-subtle-foreground">
                 {format.dateTime(new Date(reward.grantedAt), {
                   day: "numeric",
                   month: "short",
@@ -106,7 +106,7 @@ export function RewardHistory({ firstPage }: { firstPage: ReferralRewardPage }) 
                 })}
               </p>
               {reward.reversedAt && (
-                <p className="mt-0.5 font-mono text-[11px] text-destructive">
+                <p className="mt-0.5 text-[12.5px] text-destructive">
                   {translate("referrals.reversedOn", {
                     date: format.dateTime(new Date(reward.reversedAt), {
                       day: "numeric",

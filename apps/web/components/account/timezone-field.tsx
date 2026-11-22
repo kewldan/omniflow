@@ -160,9 +160,7 @@ export function TimezoneField() {
           >
             <span className="truncate">
               {current}
-              <span className="ml-2 font-mono text-[11px] text-subtle-foreground">
-                {offsetOf(current)}
-              </span>
+              <span className="ml-2 text-[12.5px] text-subtle-foreground">{offsetOf(current)}</span>
             </span>
             <ChevronsUpDown aria-hidden className="size-4 shrink-0 opacity-60" />
           </Button>
@@ -176,7 +174,7 @@ export function TimezoneField() {
                 <CommandGroup heading={translate("detected")}>
                   <CommandItem onSelect={() => save(detected)} value={`detected ${detected}`}>
                     <span className="flex-1 truncate">{detected}</span>
-                    <span className="font-mono text-[11px] text-subtle-foreground">
+                    <span className="text-[12.5px] text-subtle-foreground">
                       {offsetOf(detected)}
                     </span>
                   </CommandItem>
@@ -190,9 +188,7 @@ export function TimezoneField() {
                       className={cn("size-4", zone === current ? "opacity-100" : "opacity-0")}
                     />
                     <span className="flex-1 truncate">{zone}</span>
-                    <span className="font-mono text-[11px] text-subtle-foreground">
-                      {offsetOf(zone)}
-                    </span>
+                    <span className="text-[12.5px] text-subtle-foreground">{offsetOf(zone)}</span>
                   </CommandItem>
                 ))}
               </CommandGroup>

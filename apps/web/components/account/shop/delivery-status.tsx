@@ -72,7 +72,7 @@ export function DeliveryStatus({ order }: { order: ShopOrder }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <DeliveryBadge state={order.delivery.state} />
         {order.delivery.updatedAt && (
-          <span className="font-mono text-[10.5px] text-subtle-foreground">
+          <span className="text-[12px] text-subtle-foreground">
             {translate("order.updated", { date: timestamp(order.delivery.updatedAt) })}
           </span>
         )}
@@ -89,7 +89,7 @@ export function DeliveryStatus({ order }: { order: ShopOrder }) {
         </p>
       )}
 
-      <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-[10.5px] text-subtle-foreground">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-subtle-foreground">
         {order.delivery.deliveredAt && (
           <span>
             {translate("order.deliveredAt", { date: timestamp(order.delivery.deliveredAt) })}
@@ -116,7 +116,7 @@ export function DeliveryStatus({ order }: { order: ShopOrder }) {
           <p className="font-semibold text-[13px]">{translate("order.support.title")}</p>
           <p className="text-[12.5px] leading-relaxed">{translate("order.support.noRetry")}</p>
           <div>
-            <p className="font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.14em]">
+            <p className="text-[13px] text-muted-foreground">
               {translate("order.support.reference")}
             </p>
             <p className="mt-1 break-all font-mono text-[12px]">

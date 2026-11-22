@@ -62,7 +62,7 @@ export default function StorePage() {
       <div className="flex items-baseline justify-between">
         <SectionLabel>{translate("store.plans")}</SectionLabel>
         <Link
-          className="font-medium font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.14em] underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+          className="font-semibold text-[13px] text-muted-foreground underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
           href="/account/orders"
         >
           {translate("store.orders")}

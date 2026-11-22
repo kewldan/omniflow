@@ -88,14 +88,14 @@ export function ConsentTrail({ consents }: { consents: PrivacyOverview["consents
                       purpose: purposeLabel(record.purpose),
                     })}
                   </p>
-                  <p className="mt-0.5 font-mono text-[10.5px] text-subtle-foreground">
+                  <p className="mt-0.5 text-[12px] text-subtle-foreground">
                     {translate("consents.provenance", {
                       source: record.source,
                       version: record.policyVersion,
                     })}
                   </p>
                 </div>
-                <span className="shrink-0 font-mono text-[11px] text-subtle-foreground">
+                <span className="shrink-0 text-[12.5px] text-subtle-foreground">
                   {format.dateTime(new Date(record.occurredAt), {
                     day: "numeric",
                     month: "short",

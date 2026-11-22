@@ -185,7 +185,7 @@ export function DeletionRequest({
       </div>
 
       {deletion.cancelledAt && (
-        <p className="font-mono text-[11px] text-subtle-foreground">
+        <p className="text-[12.5px] text-subtle-foreground">
           {translate("deletion.previouslyCancelled", { date: moment(deletion.cancelledAt) })}
         </p>
       )}

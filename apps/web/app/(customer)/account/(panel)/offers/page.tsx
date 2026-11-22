@@ -119,7 +119,7 @@ export default function OffersPage() {
                 <Badge variant="neutral">{translate("new")}</Badge>
               )}
             </div>
-            <div className="font-mono text-[11px] text-subtle-foreground">
+            <div className="text-[12.5px] text-subtle-foreground">
               {translate("until")} <Timestamp value={offer.expiresAt} />
             </div>
             <div className="flex flex-wrap gap-2">

@@ -3,7 +3,6 @@
 import { Button } from "@omniflow/ui/button";
 import { Checkbox } from "@omniflow/ui/checkbox";
 import { ConfirmDialog } from "@omniflow/ui/confirm-dialog";
-import { Radio } from "@omniflow/ui/radio";
 import { toast } from "@omniflow/ui/toast";
 import { RefreshCw } from "lucide-react";
 import Link from "next/link";
@@ -25,6 +24,7 @@ import {
   splitChoiceKey,
   useChoiceCopy,
 } from "@/components/account/commerce/payment-choice";
+import { PaymentMethodOption } from "@/components/account/commerce/payment-method-option";
 import { OPERATIONS } from "@/components/account/commerce/plan-card";
 import { useProblemMessage } from "@/components/account/commerce/reasons";
 import { TaxReceiptLink } from "@/components/account/commerce/tax-receipt-link";
@@ -223,7 +223,7 @@ export default function OrderPage() {
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h1 className="truncate font-semibold text-[19px] tracking-[-0.02em]">{data.plan}</h1>
-            <p className="mt-1 font-mono text-[11px] text-subtle-foreground">
+            <p className="mt-1 text-[12.5px] text-subtle-foreground">
               {translate(
                 `operationKinds.${OPERATIONS.includes(data.operation) ? data.operation : "unknown"}`,
               )}
@@ -410,31 +410,30 @@ function OrderMethodPicker({
   return (
     <fieldset className="space-y-2">
       <legend className="sr-only">{translate("checkout.provider.title")}</legend>
-      {choices.map((choice) => (
-        <label
-          className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card p-3 has-[:checked]:border-primary"
+      {choices.map((choice, index) => (
+        <PaymentMethodOption
+          checked={chosen === choiceKey(choice)}
+          choice={choice}
+          disabled={disabled}
+          index={index}
           key={choiceKey(choice)}
-        >
-          <Radio
-            checked={chosen === choiceKey(choice)}
-            disabled={disabled}
-            name="order-provider"
-            onChange={() => onChange(choiceKey(choice))}
-          />
-          <span className="min-w-0 flex-1">
-            <span className="block font-medium text-[13.5px]">{copy(choice).label}</span>
-            {copy(choice).description && (
-              <span className="block text-[12px] text-muted-foreground">
-                {copy(choice).description}
+          name="order-provider"
+          onChange={() => onChange(choiceKey(choice))}
+          trailing={
+            choice.amountMinor !== undefined ? (
+              <span className="font-medium text-[13px]" data-numeric>
+                {money(choice.amountMinor, choice.currency)}
               </span>
-            )}
-          </span>
-          {choice.amountMinor !== undefined && (
-            <span className="shrink-0 font-medium text-[13px]" data-numeric>
-              {money(choice.amountMinor, choice.currency)}
+            ) : undefined
+          }
+        >
+          <span className="block font-semibold text-[15px]">{copy(choice).label}</span>
+          {copy(choice).description && (
+            <span className="block text-[12.5px] text-muted-foreground">
+              {copy(choice).description}
             </span>
           )}
-        </label>
+        </PaymentMethodOption>
       ))}
     </fieldset>
   );

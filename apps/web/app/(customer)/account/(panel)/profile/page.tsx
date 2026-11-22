@@ -58,9 +58,7 @@ export default function ProfilePage() {
           to name the method and nothing else, which told a customer how they got
           in but not which account they got into. */}
       <section className="rounded-xl border border-border bg-card p-4">
-        <p className="font-mono text-[11px] text-subtle-foreground">
-          {translate("profile.signedIn")}
-        </p>
+        <p className="text-[12.5px] text-subtle-foreground">{translate("profile.signedIn")}</p>
         <p className="mt-1.5 font-semibold text-[15px]">
           {translate(`profile.method.${session?.session.authMethod ?? "telegram"}`, {
             provider: session?.session.authProvider ?? "",
@@ -68,7 +66,7 @@ export default function ProfilePage() {
         </p>
         {customer?.id && (
           <p className="mt-3 border-border border-t pt-3">
-            <span className="block font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.14em]">
+            <span className="block text-[13px] text-muted-foreground">
               {translate("nav.accountId")}
             </span>
             <span className="mt-1 block break-all font-mono text-[11.5px] text-muted-foreground">
@@ -321,7 +319,7 @@ function LanguageChoice({
           ))}
         </SelectContent>
       </Select>
-      <p className="font-mono text-[11px] text-subtle-foreground">
+      <p className="text-[12.5px] text-subtle-foreground">
         {translate("profile.languageHint", {
           current: translateLanguage(isLocale(locale) ? locale : "en"),
         })}

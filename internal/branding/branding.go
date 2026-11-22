@@ -387,6 +387,13 @@ func luminance(colour string) (float64, bool) {
 
 // CSS renders the overrides as a stylesheet the panels inline in their head.
 //
+// The selectors also reach the customer surfaces, which carry their own
+// defaults on <html> as `customer-ui` (apps/web/app/globals.css): light there
+// is (0,1,0) and dark (0,3,0), so the operator's light rule is raised to
+// (0,2,0) and the dark one to (0,4,0) for them. A saved palette or corner
+// scale then wins in its own mode on every surface, whatever order the
+// stylesheets load in.
+//
 // Only what the operator changed is emitted. An installation that has saved
 // nothing gets an empty string and no <style> element at all, which is what
 // keeps the shipped design the shipped design rather than a copy of itself
@@ -402,18 +409,24 @@ func (theme Theme) CSS() string {
 		root = append(root, fmt.Sprintf("--density-scale:%s", number(scale)))
 	}
 	if len(root) > 0 {
-		builder.WriteString(":root{")
+		builder.WriteString(customerLight + "{")
 		builder.WriteString(strings.Join(root, ";"))
 		builder.WriteString("}")
 	}
 
 	if dark := declarations(theme.Dark); len(dark) > 0 {
-		builder.WriteString(".dark{")
+		builder.WriteString(customerDark + "{")
 		builder.WriteString(strings.Join(dark, ";"))
 		builder.WriteString("}")
 	}
 	return builder.String()
 }
+
+// The selectors the operator's light and dark tokens are written under.
+const (
+	customerLight = ":root,.customer-ui.customer-ui"
+	customerDark  = ".dark,.dark.customer-ui.customer-ui.customer-ui"
+)
 
 func declarations(palette map[string]string) []string {
 	if len(palette) == 0 {

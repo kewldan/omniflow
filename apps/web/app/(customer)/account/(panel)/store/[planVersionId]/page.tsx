@@ -137,7 +137,7 @@ export default function PlanPage() {
             <div className="font-bold text-[22px] leading-none tracking-[-0.03em]" data-numeric>
               {money(data.price.amountMinor, data.price.currency)}
             </div>
-            <div className="mt-1 font-mono text-[10px] text-subtle-foreground">
+            <div className="mt-1 text-[12px] text-subtle-foreground">
               {period(data.billingPeriod, data.durationSeconds)}
             </div>
           </div>
@@ -237,7 +237,7 @@ export default function PlanPage() {
         <form className="space-y-4" onSubmit={start}>
           {offered.length > 1 && (
             <fieldset className="space-y-2">
-              <legend className="px-1 pb-2 font-medium font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.14em]">
+              <legend className="px-1 pb-2 font-semibold text-[13px] text-muted-foreground">
                 {translate("plan.operation")}
               </legend>
               <div className="flex flex-wrap gap-2">
@@ -267,7 +267,7 @@ export default function PlanPage() {
 
           {asksForTarget && !onlyNew && (
             <fieldset className="space-y-2">
-              <legend className="px-1 pb-2 font-medium font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.14em]">
+              <legend className="px-1 pb-2 font-semibold text-[13px] text-muted-foreground">
                 {translate("plan.target")}
               </legend>
               <p className="px-1 pb-1 text-[12px] text-muted-foreground leading-relaxed">
@@ -347,9 +347,7 @@ function AddonMeasures({ addon }: { addon: PlanDetail["addons"][number] }) {
   if (measures.length === 0) {
     return null;
   }
-  return (
-    <p className="mt-1 font-mono text-[11px] text-subtle-foreground">{measures.join(" · ")}</p>
-  );
+  return <p className="mt-1 text-[12.5px] text-subtle-foreground">{measures.join(" · ")}</p>;
 }
 
 /**
@@ -378,7 +376,7 @@ function TargetOption({
       <span className="min-w-0">
         <span className="block font-medium text-[13.5px]">{label}</span>
         {description && (
-          <span className="block font-mono text-[11px] text-subtle-foreground">{description}</span>
+          <span className="block text-[12.5px] text-subtle-foreground">{description}</span>
         )}
       </span>
     </label>

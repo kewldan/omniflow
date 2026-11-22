@@ -156,7 +156,7 @@ export function ContactChannels() {
                   <p className="truncate font-medium text-[14px]">
                     {contact.value || translate("contacts.valueUnavailable")}
                   </p>
-                  <p className="mt-0.5 font-mono text-[11px] text-subtle-foreground">
+                  <p className="mt-0.5 text-[12.5px] text-subtle-foreground">
                     {format.dateTime(new Date(contact.createdAt), {
                       day: "numeric",
                       month: "short",

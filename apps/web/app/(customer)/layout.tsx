@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { MiniAppProvider } from "@/components/account/miniapp";
 import { CustomerMeasurement } from "@/components/analytics/customer-measurement";
+import { SurfaceClass } from "@/components/surface-class";
 
 /**
  * The landing page and the customer panel.
@@ -14,6 +15,7 @@ import { CustomerMeasurement } from "@/components/analytics/customer-measurement
 export default function CustomerGroupLayout({ children }: { children: ReactNode }) {
   return (
     <MiniAppProvider>
+      <SurfaceClass />
       {children}
       <CustomerMeasurement />
     </MiniAppProvider>

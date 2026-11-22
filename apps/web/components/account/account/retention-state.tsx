@@ -48,7 +48,7 @@ export function RetentionState({ retention }: { retention: PrivacyOverview["rete
   return (
     <section className="space-y-3 rounded-xl border border-border bg-card p-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="min-w-0 font-mono text-[11px] text-subtle-foreground">
+        <p className="min-w-0 text-[12.5px] text-subtle-foreground">
           {translate("retention.status")}
         </p>
         <Badge variant={STATUS_TONE[status] ?? "neutral"}>
@@ -67,7 +67,7 @@ export function RetentionState({ retention }: { retention: PrivacyOverview["rete
               <dt className="text-[12.5px] text-muted-foreground">
                 {translate(`retention.${row.key}`)}
               </dt>
-              <dd className="shrink-0 font-mono text-[11px] text-foreground">{row.value}</dd>
+              <dd className="shrink-0 text-[12.5px] text-foreground">{row.value}</dd>
             </div>
           ))}
         </dl>

@@ -308,7 +308,7 @@ function QuietHours({
               </Select>
             </div>
           </div>
-          <p className="font-mono text-[11px] text-subtle-foreground" role="status">
+          <p className="text-[12.5px] text-subtle-foreground" role="status">
             {translate("preferences.quietHours.active", {
               end: translate("preferences.quietHours.hour", { hour: window.endHour }),
               start: translate("preferences.quietHours.hour", { hour: window.startHour }),
@@ -317,7 +317,7 @@ function QuietHours({
         </>
       )}
       {!window && (
-        <p className="font-mono text-[11px] text-subtle-foreground" role="status">
+        <p className="text-[12.5px] text-subtle-foreground" role="status">
           {translate("preferences.quietHours.inactive")}
         </p>
       )}
@@ -390,7 +390,7 @@ function Marketing({
         />
       </div>
 
-      <p className="font-mono text-[11px] text-subtle-foreground leading-relaxed">
+      <p className="text-[12.5px] text-subtle-foreground leading-relaxed">
         {marketing.decidedAt
           ? `${translate("preferences.marketing.decided", {
               date: format.dateTime(new Date(marketing.decidedAt), {
@@ -459,7 +459,7 @@ function Suppression({
         {translate.has(reasonKey) ? translate(reasonKey) : ""}{" "}
         {translate("preferences.suppression.note")}
       </p>
-      <p className="font-mono text-[11px] text-muted-foreground">
+      <p className="text-[12.5px] text-muted-foreground">
         {translate("preferences.suppression.since", {
           date: format.dateTime(new Date(suppression.createdAt), {
             day: "numeric",
@@ -501,7 +501,7 @@ function Contacts({ contacts }: { contacts: CommunicationPreferences["contacts"]
               <span className="font-semibold text-[14px]">
                 {translate(`preferences.contacts.kind.${contact.kind}`)}
               </span>
-              <span className="shrink-0 font-mono text-[10.5px] text-subtle-foreground">
+              <span className="shrink-0 text-[12px] text-subtle-foreground">
                 {translate("preferences.contacts.added", {
                   date: format.dateTime(new Date(contact.createdAt), {
                     day: "numeric",

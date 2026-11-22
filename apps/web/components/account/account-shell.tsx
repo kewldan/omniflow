@@ -239,9 +239,7 @@ function DesktopSidebar({
     <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-chrome-border border-r bg-chrome md:flex">
       <div className="flex flex-col gap-0.5 px-5 pt-6 pb-5">
         <span className="font-semibold text-[15px] tracking-[-0.01em]">{serviceName}</span>
-        <span className="font-mono text-[10.5px] text-subtle-foreground">
-          {translate("nav.subtitle")}
-        </span>
+        <span className="text-[12px] text-subtle-foreground">{translate("nav.subtitle")}</span>
       </div>
 
       <nav aria-label={translate("nav.tabs")} className="flex-1 overflow-y-auto px-3 pb-4">
@@ -259,7 +257,7 @@ function DesktopSidebar({
         </ul>
 
         {lite ? null : (
-          <p className="px-3 pt-5 pb-2 font-medium font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.14em]">
+          <p className="px-3 pt-5 pb-2 font-semibold text-[13px] text-muted-foreground">
             {translate("nav.more")}
           </p>
         )}
@@ -356,10 +354,10 @@ function AccountFooter({ customerId }: { customerId: string }) {
           title={customerId}
           type="button"
         >
-          <p className="font-medium font-mono text-[10px] text-subtle-foreground uppercase tracking-[0.14em]">
+          <p className="font-semibold text-[13px] text-muted-foreground">
             {translate(copied ? "nav.copied" : "nav.accountId")}
           </p>
-          <p className="flex items-center gap-1.5 font-mono text-[10.5px] text-muted-foreground group-hover:text-foreground">
+          <p className="flex items-center gap-1.5 text-[12px] text-muted-foreground group-hover:text-foreground">
             {`${customerId.slice(0, 8)}…${customerId.slice(-7)}`}
             {copied ? (
               <Check aria-hidden className="size-3 text-success" />
@@ -453,9 +451,7 @@ function TabBar({ pathname, tabs }: { pathname: string; tabs: typeof TABS }) {
                 play={plays[tab.key] ?? 0}
                 set="account"
               />
-              <span className="font-medium font-mono text-[9.5px]">
-                {translate(`nav.${tab.key}`)}
-              </span>
+              <span className="font-medium text-[9.5px]">{translate(`nav.${tab.key}`)}</span>
             </Link>
           );
         })}

@@ -4,12 +4,13 @@ import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { cn } from "@omniflow/ui/lib/utils";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useCallback } from "react";
 
 import { useIneligibility } from "@/components/account/commerce/reasons";
 import type { PlanOffer } from "@/components/account/commerce/types";
-import { useBytes, useMoney } from "@/lib/format";
+import { useBytes } from "@/lib/format";
+import { formatMoney } from "@/lib/money";
 
 /**
  * How a plan is described, and how a refusal is explained.
@@ -59,16 +60,25 @@ export function usePeriodLabel(): (billingPeriod: string, durationSeconds: numbe
  * The plan's measurable facts as a definition list.
  *
  * A definition list rather than a grid of divs so a screen reader reads "traffic,
- * 200 GB" as one pair instead of two loose strings, and so the same markup can
- * be scanned visually in two columns on a phone.
+ * 200 GB" as one pair instead of two loose strings. Each fact is a small tile,
+ * label over value, so a long value such as "unlimited" wraps inside its own
+ * tile instead of breaking the row beside it. The catalogue card leaves the
+ * period out: its price line already says it.
  */
-export function PlanSpecs({ plan }: { plan: PlanOffer }) {
+export function PlanSpecs({ plan, withPeriod = true }: { plan: PlanOffer; withPeriod?: boolean }) {
   const translate = useTranslations("account.commerce");
   const formatBytes = useBytes();
   const period = usePeriodLabel();
 
   const rows: { label: string; value: string }[] = [
-    { label: translate("specs.period"), value: period(plan.billingPeriod, plan.durationSeconds) },
+    ...(withPeriod
+      ? [
+          {
+            label: translate("specs.period"),
+            value: period(plan.billingPeriod, plan.durationSeconds),
+          },
+        ]
+      : []),
     {
       label: translate("specs.traffic"),
       value:
@@ -92,13 +102,11 @@ export function PlanSpecs({ plan }: { plan: PlanOffer }) {
   }
 
   return (
-    <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+    <dl className="grid grid-cols-2 gap-2">
       {rows.map((row) => (
-        <div className="flex items-baseline justify-between gap-2" key={row.label}>
-          <dt className="font-mono text-[10.5px] text-subtle-foreground uppercase tracking-[0.1em]">
-            {row.label}
-          </dt>
-          <dd className="text-right font-medium text-[12.5px]" data-numeric>
+        <div className="min-w-0 rounded-lg bg-well px-3 py-2.5" key={row.label}>
+          <dt className="text-[12px] text-muted-foreground">{row.label}</dt>
+          <dd className="mt-0.5 font-semibold text-[14px] leading-snug" data-numeric>
             {row.value}
           </dd>
         </div>
@@ -118,49 +126,55 @@ export function PlanSpecs({ plan }: { plan: PlanOffer }) {
  */
 export function PlanCard({ plan }: { plan: PlanOffer }) {
   const translate = useTranslations("account.commerce");
-  const money = useMoney();
+  const locale = useLocale();
   const period = usePeriodLabel();
   const explain = useIneligibility();
 
   return (
     <article
       className={cn(
-        "animate-step-in space-y-4 rounded-lg border border-border bg-card p-4",
+        "animate-step-in space-y-4 rounded-xl border border-border bg-card p-5",
         // The plan the customer is on is the one they are comparing everything
         // else against, so it is marked rather than left to be inferred from a
         // button label.
-        plan.held && "border-foreground/30 ring-1 ring-foreground/10",
+        plan.held && "border-primary/50 ring-1 ring-primary/20",
         !plan.eligible && "opacity-80",
       )}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <h3 className="truncate font-semibold text-[17px] tracking-[-0.01em]">{plan.name}</h3>
-          {plan.description && (
-            <p className="mt-1 text-[12.5px] text-muted-foreground leading-relaxed">
-              {plan.description}
-            </p>
-          )}
+      {/* Name and badges, then the price as the headline: it is the figure a
+          customer compares plans on, and it used to sit in a corner beside a
+          paragraph of description. */}
+      <div className="space-y-1.5">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+          <h3 className="font-semibold text-[17px] tracking-[-0.01em]">{plan.name}</h3>
+          {plan.held && <Badge variant="success">{translate("kind.current")}</Badge>}
+          {plan.highlighted && <Badge variant="warning">{translate("kind.highlighted")}</Badge>}
+          {plan.kind === "trial" && <Badge variant="info">{translate("kind.trial")}</Badge>}
         </div>
-        <div className="shrink-0 text-right">
-          <div className="font-bold text-[20px] leading-none tracking-[-0.03em]" data-numeric>
-            {money(plan.price.amountMinor, plan.price.currency)}
-          </div>
-          <div className="mt-1 font-mono text-[10px] text-subtle-foreground">
+        <p className="flex flex-wrap items-baseline gap-x-2">
+          <span className="font-bold text-[30px] leading-tight tracking-[-0.03em]" data-numeric>
+            {formatMoney(plan.price.amountMinor, plan.price.currency, locale, {
+              display: "narrowSymbol",
+              trimZeroFraction: true,
+            })}
+          </span>
+          <span className="text-[14px] text-muted-foreground">
             {period(plan.billingPeriod, plan.durationSeconds)}
-          </div>
+          </span>
+        </p>
+        {plan.description && (
+          <p className="text-[13.5px] text-muted-foreground leading-relaxed">{plan.description}</p>
+        )}
+      </div>
+
+      {(plan.recurringCapable || plan.configurableSquads) && (
+        <div className="flex flex-wrap gap-1.5">
+          {plan.recurringCapable && <Badge variant="outline">{translate("kind.recurring")}</Badge>}
+          {plan.configurableSquads && <Badge variant="outline">{translate("kind.squads")}</Badge>}
         </div>
-      </div>
+      )}
 
-      <div className="flex flex-wrap gap-1.5">
-        {plan.highlighted && <Badge variant="warning">{translate("kind.highlighted")}</Badge>}
-        {plan.held && <Badge variant="success">{translate("kind.current")}</Badge>}
-        {plan.kind === "trial" && <Badge variant="info">{translate("kind.trial")}</Badge>}
-        {plan.recurringCapable && <Badge variant="outline">{translate("kind.recurring")}</Badge>}
-        {plan.configurableSquads && <Badge variant="outline">{translate("kind.squads")}</Badge>}
-      </div>
-
-      <PlanSpecs plan={plan} />
+      <PlanSpecs plan={plan} withPeriod={false} />
 
       {plan.eligible ? (
         <div className="flex flex-wrap gap-2">

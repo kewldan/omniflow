@@ -131,6 +131,12 @@ export type MoneyFormatOptions = {
    * in one table.
    */
   display?: "symbol" | "narrowSymbol";
+  /**
+   * Drops a fraction of zero, so a price of 229 ₽ reads "229 ₽" rather than
+   * "229,00 ₽". For a headline price; a ledger keeps every column the same
+   * width and leaves this off.
+   */
+  trimZeroFraction?: boolean;
 };
 
 /**
@@ -149,9 +155,12 @@ export function formatMoney(
   const code = currency.toUpperCase();
   const exponent = currencyExponent(code);
   const amount = minor / 10 ** exponent;
+  const whole = options.trimZeroFraction && minor % 10 ** exponent === 0;
   const digits = options.compact
     ? { maximumFractionDigits: 1 }
-    : { maximumFractionDigits: exponent, minimumFractionDigits: exponent };
+    : whole
+      ? { maximumFractionDigits: 0, minimumFractionDigits: 0 }
+      : { maximumFractionDigits: exponent, minimumFractionDigits: exponent };
   if (!isTelegramStars(code)) {
     try {
       return new Intl.NumberFormat(locale, {

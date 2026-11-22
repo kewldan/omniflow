@@ -149,8 +149,8 @@ func TestCSSEmitsOnlyWhatChanged(t *testing.T) {
 	}
 	css := theme.CSS()
 	for _, want := range []string{
-		":root{--primary:#123456;--radius-scale:0}",
-		".dark{--primary:#abcdef}",
+		":root,.customer-ui.customer-ui{--primary:#123456;--radius-scale:0}",
+		".dark,.dark.customer-ui.customer-ui.customer-ui{--primary:#abcdef}",
 	} {
 		if !strings.Contains(css, want) {
 			t.Errorf("CSS %q does not contain %q", css, want)

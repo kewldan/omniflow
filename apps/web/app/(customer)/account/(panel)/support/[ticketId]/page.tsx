@@ -145,7 +145,7 @@ export default function SupportTicketPage() {
         </h1>
         <div className="flex flex-wrap items-center gap-2">
           <TicketStatusBadge status={ticket.status} />
-          <span className="font-mono text-[11px] text-subtle-foreground">
+          <span className="text-[12.5px] text-subtle-foreground">
             {translate("ticket.opened", {
               date: format.dateTime(new Date(ticket.createdAt), {
                 day: "numeric",
@@ -460,7 +460,7 @@ function AttachmentForm({
         </p>
       )}
       {file && (
-        <p className="font-mono text-[11px] text-subtle-foreground">
+        <p className="text-[12.5px] text-subtle-foreground">
           {translate("attachments.selected", { name: file.name, size: formatBytes(file.size) })}
         </p>
       )}

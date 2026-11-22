@@ -255,13 +255,17 @@ export function proxy(request: NextRequest) {
   // on its own scripts, and where the root layout reads it for the theme
   // script and the counters. See lib/csp.ts.
   const nonce = createNonce();
+  const surface = cspSurface(pathname);
   const policy = buildCsp({
     dev: process.env.NODE_ENV === "development",
     nonce,
-    surface: cspSurface(pathname),
+    surface,
   });
   const headers = new Headers(request.headers);
   headers.set("x-nonce", nonce);
+  // The root layout styles the customer surfaces apart from the operator
+  // panel from the first paint; see lib/surface.ts.
+  headers.set("x-surface", surface);
   headers.set("content-security-policy", policy);
   const response = NextResponse.next({ request: { headers } });
   response.headers.set("content-security-policy", policy);

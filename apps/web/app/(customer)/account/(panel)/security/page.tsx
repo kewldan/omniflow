@@ -199,13 +199,13 @@ function Sessions() {
                     provider: session.authProvider ?? "",
                   })}
                 </p>
-                <p className="mt-0.5 truncate font-mono text-[11px] text-subtle-foreground">
+                <p className="mt-0.5 truncate text-[12.5px] text-subtle-foreground">
                   {session.ip ? `${session.ip} · ` : ""}
                   <Timestamp value={session.lastSeenAt} />
                 </p>
               </div>
               {session.current ? (
-                <span className="font-mono text-[11px] text-subtle-foreground">
+                <span className="text-[12.5px] text-subtle-foreground">
                   {translate("security.current")}
                 </span>
               ) : (
@@ -335,7 +335,7 @@ function SignInMethods() {
           </li>
         ))}
       </ul>
-      <p className="px-1 font-mono text-[11px] text-subtle-foreground">
+      <p className="px-1 text-[12.5px] text-subtle-foreground">
         {translate("security.lastMethodHint")}
       </p>
       <AddSignInMethod
@@ -387,7 +387,7 @@ function Events() {
           <span className="font-medium text-[13.5px]">
             {translate(`security.event.${event.event}`)}
           </span>
-          <span className="shrink-0 font-mono text-[11px] text-subtle-foreground">
+          <span className="shrink-0 text-[12.5px] text-subtle-foreground">
             <Timestamp value={event.occurredAt} />
           </span>
         </li>

@@ -39,16 +39,14 @@ export function OrderCard({ order }: { order: ShopOrder }) {
           <div className="min-w-0 space-y-1">
             <div className="flex flex-wrap items-baseline gap-2">
               <h3 className="font-semibold text-[15px] tracking-[-0.01em]">{order.productName}</h3>
-              {label && (
-                <span className="font-mono text-[11px] text-subtle-foreground">{label}</span>
-              )}
+              {label && <span className="text-[12.5px] text-subtle-foreground">{label}</span>}
               {order.quantity > 1 && (
-                <span className="font-mono text-[11px] text-subtle-foreground">
+                <span className="text-[12.5px] text-subtle-foreground">
                   {translate("measure.quantity", { count: order.quantity })}
                 </span>
               )}
             </div>
-            <p className="truncate font-mono text-[11px] text-muted-foreground">
+            <p className="truncate text-[12.5px] text-muted-foreground">
               {order.forSelf
                 ? translate("orders.self")
                 : translate("orders.recipient", { handle: order.recipient })}
@@ -60,13 +58,13 @@ export function OrderCard({ order }: { order: ShopOrder }) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <DeliveryBadge state={order.delivery.state} />
           <div className="text-right">
-            <p className="font-mono font-semibold text-[13px]" data-numeric>
+            <p className="font-semibold text-[13px]" data-numeric>
               {money(
                 payableMinor(order.amounts.priceMinor, order.amounts.discountMinor),
                 order.currency,
               )}
             </p>
-            <p className="font-mono text-[10.5px] text-subtle-foreground">
+            <p className="text-[12px] text-subtle-foreground">
               <Timestamp value={order.createdAt} />
             </p>
           </div>
