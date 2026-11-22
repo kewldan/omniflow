@@ -306,6 +306,17 @@
     border-color: var(--border);
   }
 
+  /*
+   * The scrollbar's room is kept whether or not the page scrolls, so moving
+   * between a short page and a long one does not shift the sidebar, the tab
+   * bar, and everything centred by the width of a scrollbar. Not `100vw`
+   * widths: those include the scrollbar and overflow the window sideways.
+   * Overlay scrollbars — phones, macOS by default — take no room either way.
+   */
+  html {
+    scrollbar-gutter: stable;
+  }
+
   body {
     background-color: var(--background);
     color: var(--foreground);
