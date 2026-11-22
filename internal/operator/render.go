@@ -1115,7 +1115,7 @@ func (n *notice) renderReceipt(status, orderID string, amount int64, currency st
 // the title and its allowlisted fields in words.
 func (n *notice) renderFields() {
 	if n.title == "" {
-		n.title = html.EscapeString(topicTitle(n.input.Kind, n.input.Locale))
+		n.title = html.EscapeString(topicHeading(n.input.Kind, n.input.Locale))
 	}
 	n.lines = nil
 	for _, field := range notificationFields {
@@ -1141,28 +1141,4 @@ func fieldLabel(field string) string {
 		builder.WriteRune(letter)
 	}
 	return html.EscapeString(humanize(strings.ToLower(builder.String())))
-}
-
-// topicTitles are the topic names in Russian. The forum topics keep the
-// English names they were created with.
-var topicTitlesRU = map[string]string{
-	"purchase": "💳 Покупки", "renewal": "♻️ Продления", "topup": "👛 Пополнения", "refund": "↩️ Возвраты",
-	"fulfillment_failure": "⚠️ Сбои выдачи", "incident": "🚨 Инциденты", "backup": "💾 Резервные копии",
-	"security": "🔐 Безопасность", "support": "💬 Поддержка", "campaign_test": "📣 Превью рассылок",
-	"notice_test": "🔔 Превью уведомлений", "node": "🖥 Ноды Remnawave", "monitoring": "📈 Мониторинг",
-	"anomaly": "📈 Аномалии", "trial": "🎁 Пробные периоды", "addon": "➕ Дополнения", "promo": "🏷 Промокоды",
-	"partner": "🤝 Партнёры", "error": "🐞 Ошибки", "infrastructure": "🛠 Инфраструктура", "report": "📊 Отчёты",
-	"marketing": "🎯 Лояльность и рефералы", "receipt": "🧾 Чеки самозанятого",
-}
-
-func topicTitle(kind, locale string) string {
-	if locale == "ru" {
-		if title := topicTitlesRU[kind]; title != "" {
-			return title
-		}
-	}
-	if title := topicNames[kind]; title != "" {
-		return title
-	}
-	return humanize(kind)
 }

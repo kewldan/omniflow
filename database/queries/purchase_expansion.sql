@@ -388,7 +388,7 @@ SELECT * FROM operator_topics ORDER BY kind;
 
 -- name: BindOperatorTopic :one
 UPDATE operator_topics
-SET topic_id = sqlc.arg(topic_id), status = 'bound', last_error_code = NULL, updated_at = now()
+SET topic_id = sqlc.arg(topic_id), status = 'bound', last_error_code = NULL, needs_repair = false, updated_at = now()
 WHERE kind = sqlc.arg(kind)
 RETURNING *;
 

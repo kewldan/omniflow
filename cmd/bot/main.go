@@ -193,7 +193,7 @@ func main() {
 	}).WithSettings(installation)
 	go notifier.Run(ctx)
 	go botapp.NewBlockerScanner(pool, identities, client, logger).Run(ctx)
-	go announceStart(ctx, logger, pool, client, installation, remnawaveClient)
+	go announceStart(ctx, notifier, pool, client, installation, remnawaveClient)
 	customerNotifier := botapp.NewNotifier(logger, sender, identities, remnawaveClient, commerceService, settings).
 		WithAnalytics(businessAnalytics)
 	if me, getMeErr := client.GetMe(ctx); getMeErr == nil {
@@ -449,11 +449,13 @@ func trialWinback() botapp.WinbackWave {
 	return wave
 }
 
-// announceStart queues the startup report for the operator group: what needs
-// attention, customers, subscriptions, money, and whether Remnawave answers.
-// It runs beside startup, since the Remnawave probe may take seconds.
+// announceStart hands the notifier the startup report for the operator
+// group: what needs attention, customers, subscriptions, money, and whether
+// Remnawave answers. The notifier edits its one status message with it rather
+// than posting a new one. It runs beside startup, since the Remnawave probe
+// may take seconds.
 func announceStart(
-	ctx context.Context, logger *slog.Logger, pool *pgxpool.Pool, client *telegram.Bot,
+	ctx context.Context, notifier *operator.Notifier, pool *pgxpool.Pool, client *telegram.Bot,
 	installation *installsettings.Reader, remnawaveClient *remnawave.Client,
 ) {
 	report := operator.CollectStartReport(ctx, pool, remnawaveClient.Ping)
@@ -462,7 +464,5 @@ func announceStart(
 	if me, err := client.GetMe(ctx); err == nil && me != nil {
 		report.Name = me.FirstName
 	}
-	if err := operator.AnnounceStartReport(ctx, pool, report, time.Now()); err != nil {
-		logger.Warn("bot start report could not be queued", "error", err)
-	}
+	notifier.SetStartReport(report)
 }

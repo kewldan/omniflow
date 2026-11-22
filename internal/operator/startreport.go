@@ -2,7 +2,6 @@ package operator
 
 import (
 	"context"
-	"fmt"
 	"html"
 	"slices"
 	"strings"
@@ -16,9 +15,9 @@ import (
 // When the bot starts it posts one summary to the operator group, the way the
 // previous bot did: what needs attention, the customers, the subscriptions,
 // the money, and whether the Remnawave panel answers. It is figures only —
-// counts and sums, nothing that names a customer — read once at start and
-// queued as an infrastructure notice, so it lands in that topic and goes
-// through the same volume cap and quiet-hours rules as everything else.
+// counts and sums, nothing that names a customer — read once at start. It is
+// one status message in the infrastructure topic, edited on every start rather
+// than posted again; see status.go.
 
 // StartReport is what the startup summary says.
 type StartReport struct {
@@ -112,8 +111,8 @@ func sums(ctx context.Context, pool *pgxpool.Pool, into map[string]int64, query 
 	}
 }
 
-// payload is the report as the notice queue stores it. The keys stay clear
-// of the redaction patterns (no "pan…", "card", "token").
+// payload is the report as a notice payload. The keys stay clear of the
+// redaction patterns (no "pan…", "card", "token").
 func (report StartReport) payload() map[string]any {
 	return map[string]any{
 		"event": "bot_started", "process": "bot", "version": report.Version,
@@ -127,13 +126,6 @@ func (report StartReport) payload() map[string]any {
 			"remnawaveMs": report.RemnawaveLatency.Milliseconds(), "salesMode": report.SalesMode,
 		},
 	}
-}
-
-// AnnounceStartReport queues the bot's startup report. One per start: the
-// key carries the minute, like AnnounceStart's.
-func AnnounceStartReport(ctx context.Context, pool *pgxpool.Pool, report StartReport, now time.Time) error {
-	return Queue(ctx, pool, "infrastructure",
-		fmt.Sprintf("started:bot:%s:%d", report.Version, now.Unix()/60), report.payload())
 }
 
 var salesModes = map[string]phrase{
@@ -164,6 +156,7 @@ func (n *notice) renderStartReport() {
 	}
 	n.title, n.keepCase = title, true
 	n.subtitle = n.input.say(phrase{"Started and ready to work", "Запущен и готов к работе"})
+	n.stamp = phrase{"Started", "Запущен"}
 
 	attention := []string{}
 	if count := value("awaitingReply"); count > 0 {

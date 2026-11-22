@@ -103,7 +103,7 @@ func (notifier *Notifier) deliverNoticeTest(
 // markup instead of the message it produces.
 func renderNoticeTest(code, locale, body string) string {
 	builder := &strings.Builder{}
-	fmt.Fprintf(builder, "<b>%s</b>\n", html.EscapeString(topicNames[KindNoticeTest]))
+	fmt.Fprintf(builder, "<b>%s</b>\n", html.EscapeString(topicHeading(KindNoticeTest, "en")))
 	fmt.Fprintf(builder, "notice: <code>%s</code>\n", html.EscapeString(code))
 	fmt.Fprintf(builder, "locale: <code>%s</code>\n", html.EscapeString(locale))
 	builder.WriteString("This is a preview with sample values. No customer received it.\n\n")

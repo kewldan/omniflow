@@ -19,6 +19,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	telegram "github.com/go-telegram/bot"
@@ -55,34 +56,6 @@ var urgentKinds = map[string]bool{
 // one is a rendered message body. Its queue is `campaign_test_sends`, not
 // `operator_notifications`, for exactly that reason.
 const KindCampaignTest = "campaign_test"
-
-// topicNames are the forum topics the bot creates for the operator. The operator
-// supplies only a group; the bot owns every topic in it.
-var topicNames = map[string]string{
-	"purchase":            "💳 Purchases",
-	"renewal":             "♻️ Renewals",
-	"topup":               "👛 Wallet top-ups",
-	"refund":              "↩️ Refunds",
-	"fulfillment_failure": "⚠️ Fulfillment failures",
-	"incident":            "🚨 Incidents",
-	"backup":              "💾 Backups",
-	"security":            "🔐 Admin security",
-	"support":             "💬 Support tickets",
-	"campaign_test":       "📣 Campaign previews",
-	"notice_test":         "🔔 Notice previews",
-	"node":                "🖥 Remnawave nodes",
-	"monitoring":          "📈 Usage monitoring",
-	"anomaly":             "📈 Anomalies",
-	"trial":               "🎁 Trials",
-	"addon":               "➕ Add-ons",
-	"promo":               "🏷 Promo codes",
-	"partner":             "🤝 Partners",
-	"error":               "🐞 Errors",
-	"infrastructure":      "🛠 Infrastructure",
-	"report":              "📊 Reports",
-	"marketing":           "🎯 Loyalty and referrals",
-	"receipt":             "🧾 Self-employed receipts",
-}
 
 // Config binds the operator group and bounds notification volume.
 type Config struct {
@@ -124,6 +97,14 @@ type Notifier struct {
 	config   Config
 	clock    func() time.Time
 	settings *installsettings.Reader
+	// icons and telegramBackoff: see topics.go.
+	icons topicIcons
+	// telegramBackoff is when Telegram's last "retry after" ends; topic
+	// creation and repair wait for it.
+	telegramBackoff time.Time
+	// startReport waits to be posted as the group's status message; see
+	// status.go.
+	startReport atomic.Pointer[StartReport]
 }
 
 // WithSettings lets the operator group and notifications sections of the
@@ -235,7 +216,9 @@ func (notifier *Notifier) Run(ctx context.Context) {
 			bound = -1
 			notifier.logger.Info("operator notifications are waiting for a group to be configured")
 		}
+		notifier.RepairTopics(ctx)
 		notifier.Dispatch(ctx)
+		notifier.PostStatus(ctx)
 		notifier.DispatchCampaignTests(ctx)
 		notifier.DispatchNoticeTests(ctx)
 		select {
@@ -333,7 +316,7 @@ func (notifier *Notifier) deliverCampaignTest(
 // no customer will receive.
 func renderCampaignTest(campaign, locale, subject, body string) string {
 	builder := &strings.Builder{}
-	fmt.Fprintf(builder, "<b>%s</b>\n", html.EscapeString(topicNames[KindCampaignTest]))
+	fmt.Fprintf(builder, "<b>%s</b>\n", html.EscapeString(topicHeading(KindCampaignTest, "en")))
 	fmt.Fprintf(builder, "campaign: <code>%s</code>\n", html.EscapeString(campaign))
 	fmt.Fprintf(builder, "locale: <code>%s</code>\n", html.EscapeString(locale))
 	builder.WriteString("This is a preview. Nobody else received it.\n\n")
@@ -368,11 +351,68 @@ func (notifier *Notifier) EnsureTopics(ctx context.Context) error {
 		if topic.Status == "bound" && topic.TopicID.Valid {
 			continue
 		}
+		// Twenty-odd topics at once trip Telegram's rate limit; the rest
+		// stay pending and are created on a pass after the wait.
+		if notifier.waitingForTelegram() {
+			return nil
+		}
 		if _, err = notifier.createTopic(ctx, queries, kind); err != nil {
 			notifier.logger.Warn("operator topic could not be created", "kind", kind, "error", err)
 		}
 	}
 	return nil
+}
+
+// topicRepairsPerPass bounds the renames one pass makes, so a repair of
+// every topic stays under Telegram's limit on editForumTopic (about twenty
+// calls before "retry after").
+const topicRepairsPerPass = 3
+
+// RepairTopics renames the topics the panel asked to repair to their plain
+// name in the group's language and gives each its icon, in place: the topic
+// keeps its thread and history. A few per pass; a "retry after" ends the pass.
+func (notifier *Notifier) RepairTopics(ctx context.Context) {
+	config := notifier.effective(ctx)
+	if config.ChatID == 0 || config.Flat || notifier.waitingForTelegram() {
+		return
+	}
+	rows, err := notifier.pool.Query(ctx, `SELECT kind, topic_id FROM operator_topics
+		WHERE needs_repair AND status = 'bound' AND chat_id = $1 ORDER BY kind LIMIT $2`,
+		config.ChatID, topicRepairsPerPass)
+	if err != nil {
+		notifier.logger.Warn("operator topic repair lookup failed", "error", err)
+		return
+	}
+	type due struct {
+		kind  string
+		topic int64
+	}
+	var topics []due
+	for rows.Next() {
+		var item due
+		if rows.Scan(&item.kind, &item.topic) == nil {
+			topics = append(topics, item)
+		}
+	}
+	rows.Close()
+	for _, topic := range topics {
+		_, err = notifier.client.EditForumTopic(ctx, &telegram.EditForumTopicParams{
+			ChatID: config.ChatID, MessageThreadID: int(topic.topic),
+			Name: topicTitle(topic.kind, config.Locale), IconCustomEmojiID: notifier.iconFor(ctx, topic.kind),
+		})
+		if wait, limited := rateLimited(err); limited {
+			notifier.backOff(wait)
+			return
+		}
+		// "TOPIC_NOT_MODIFIED" means it already looks right.
+		if err != nil && !strings.Contains(strings.ToUpper(err.Error()), "NOT_MODIFIED") {
+			notifier.logger.Warn("operator topic could not be repaired", "kind", topic.kind, "code", classifyTopicError(err))
+		}
+		if _, err = notifier.pool.Exec(ctx, `UPDATE operator_topics SET needs_repair = false, updated_at = now()
+			WHERE kind = $1`, topic.kind); err != nil {
+			return
+		}
+	}
 }
 
 // topicsPending reports whether a topic of the group is waiting to be
@@ -397,7 +437,13 @@ func (notifier *Notifier) createTopic(ctx context.Context, queries *dbgen.Querie
 	config := notifier.effective(ctx)
 	created, err := notifier.client.CreateForumTopic(ctx, &telegram.CreateForumTopicParams{
 		ChatID: config.ChatID, Name: topicTitle(kind, config.Locale),
+		IconCustomEmojiID: notifier.iconFor(ctx, kind),
 	})
+	if wait, limited := rateLimited(err); limited {
+		// Not a failure of the topic: it stays pending for the next pass.
+		notifier.backOff(wait)
+		return dbgen.OperatorTopic{}, fmt.Errorf("create forum topic: rate limited for %s", wait)
+	}
 	if err != nil {
 		code := classifyTopicError(err)
 		if _, failErr := queries.FailOperatorTopic(ctx, dbgen.FailOperatorTopicParams{Kind: kind, LastErrorCode: pgtype.Text{String: code, Valid: true}}); failErr != nil {

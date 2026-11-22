@@ -3734,6 +3734,21 @@ CREATE TABLE public.operator_notifications (
 
 
 --
+-- Name: operator_status_messages; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.operator_status_messages (
+    chat_id bigint NOT NULL,
+    topic_id bigint DEFAULT 0 NOT NULL,
+    message_id bigint NOT NULL,
+    version text DEFAULT ''::text NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT operator_status_messages_message_id_check CHECK ((message_id > 0)),
+    CONSTRAINT operator_status_messages_topic_id_check CHECK ((topic_id >= 0))
+);
+
+
+--
 -- Name: operator_topics; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -3745,6 +3760,7 @@ CREATE TABLE public.operator_topics (
     last_error_code text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    needs_repair boolean DEFAULT false NOT NULL,
     CONSTRAINT operator_topics_check CHECK (((status = 'bound'::text) = (topic_id IS NOT NULL))),
     CONSTRAINT operator_topics_kind_known CHECK ((kind = ANY (ARRAY['purchase'::text, 'renewal'::text, 'topup'::text, 'refund'::text, 'fulfillment_failure'::text, 'incident'::text, 'backup'::text, 'security'::text, 'anomaly'::text, 'campaign_test'::text, 'notice_test'::text, 'support'::text, 'trial'::text, 'addon'::text, 'promo'::text, 'partner'::text, 'error'::text, 'infrastructure'::text, 'report'::text, 'node'::text, 'monitoring'::text, 'marketing'::text, 'receipt'::text]))),
     CONSTRAINT operator_topics_status_check CHECK ((status = ANY (ARRAY['pending'::text, 'bound'::text, 'failed'::text]))),
@@ -7453,6 +7469,14 @@ ALTER TABLE ONLY public.operator_notifications
 
 ALTER TABLE ONLY public.operator_notifications
     ADD CONSTRAINT operator_notifications_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: operator_status_messages operator_status_messages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.operator_status_messages
+    ADD CONSTRAINT operator_status_messages_pkey PRIMARY KEY (chat_id);
 
 
 --

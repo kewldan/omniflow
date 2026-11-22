@@ -181,7 +181,7 @@ func TestAnUnknownNoticeFallsBackToWords(t *testing.T) {
 		Kind: "marketing", Payload: payloadOf(t, `{"event":"something_new","customerId":"`+testCustomer+`","status":"queued"}`),
 		At: time.Unix(0, 0), Locale: "ru",
 	})
-	for _, want := range []string{"🎯 ЛОЯЛЬНОСТЬ И РЕФЕРАЛЫ", "Customer id", "Status"} {
+	for _, want := range []string{"🏆 ЛОЯЛЬНОСТЬ И РЕФЕРАЛЫ", "Customer id", "Status"} {
 		if !strings.Contains(text, want) {
 			t.Fatalf("fallback lacks %q:\n%s", want, text)
 		}

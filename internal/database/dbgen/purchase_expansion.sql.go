@@ -117,9 +117,9 @@ func (q *Queries) AttachOrderSubscription(ctx context.Context, arg AttachOrderSu
 
 const bindOperatorTopic = `-- name: BindOperatorTopic :one
 UPDATE operator_topics
-SET topic_id = $1, status = 'bound', last_error_code = NULL, updated_at = now()
+SET topic_id = $1, status = 'bound', last_error_code = NULL, needs_repair = false, updated_at = now()
 WHERE kind = $2
-RETURNING kind, chat_id, topic_id, status, last_error_code, created_at, updated_at
+RETURNING kind, chat_id, topic_id, status, last_error_code, created_at, updated_at, needs_repair
 `
 
 type BindOperatorTopicParams struct {
@@ -138,6 +138,7 @@ func (q *Queries) BindOperatorTopic(ctx context.Context, arg BindOperatorTopicPa
 		&i.LastErrorCode,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.NeedsRepair,
 	)
 	return i, err
 }
@@ -894,7 +895,7 @@ const failOperatorTopic = `-- name: FailOperatorTopic :one
 UPDATE operator_topics
 SET topic_id = NULL, status = 'failed', last_error_code = $1, updated_at = now()
 WHERE kind = $2
-RETURNING kind, chat_id, topic_id, status, last_error_code, created_at, updated_at
+RETURNING kind, chat_id, topic_id, status, last_error_code, created_at, updated_at, needs_repair
 `
 
 type FailOperatorTopicParams struct {
@@ -913,6 +914,7 @@ func (q *Queries) FailOperatorTopic(ctx context.Context, arg FailOperatorTopicPa
 		&i.LastErrorCode,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.NeedsRepair,
 	)
 	return i, err
 }
@@ -1155,7 +1157,7 @@ func (q *Queries) GetOpenCart(ctx context.Context, userID pgtype.UUID) (Cart, er
 }
 
 const getOperatorTopic = `-- name: GetOperatorTopic :one
-SELECT kind, chat_id, topic_id, status, last_error_code, created_at, updated_at FROM operator_topics WHERE kind = $1
+SELECT kind, chat_id, topic_id, status, last_error_code, created_at, updated_at, needs_repair FROM operator_topics WHERE kind = $1
 `
 
 func (q *Queries) GetOperatorTopic(ctx context.Context, kind string) (OperatorTopic, error) {
@@ -1169,6 +1171,7 @@ func (q *Queries) GetOperatorTopic(ctx context.Context, kind string) (OperatorTo
 		&i.LastErrorCode,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.NeedsRepair,
 	)
 	return i, err
 }
@@ -1588,7 +1591,7 @@ func (q *Queries) ListExpiredBackups(ctx context.Context, limit int32) ([]Backup
 }
 
 const listOperatorTopics = `-- name: ListOperatorTopics :many
-SELECT kind, chat_id, topic_id, status, last_error_code, created_at, updated_at FROM operator_topics ORDER BY kind
+SELECT kind, chat_id, topic_id, status, last_error_code, created_at, updated_at, needs_repair FROM operator_topics ORDER BY kind
 `
 
 func (q *Queries) ListOperatorTopics(ctx context.Context) ([]OperatorTopic, error) {
@@ -1608,6 +1611,7 @@ func (q *Queries) ListOperatorTopics(ctx context.Context) ([]OperatorTopic, erro
 			&i.LastErrorCode,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.NeedsRepair,
 		); err != nil {
 			return nil, err
 		}
@@ -2607,7 +2611,7 @@ SET chat_id = EXCLUDED.chat_id,
     topic_id = CASE WHEN operator_topics.chat_id = EXCLUDED.chat_id THEN operator_topics.topic_id ELSE NULL END,
     status = CASE WHEN operator_topics.chat_id = EXCLUDED.chat_id THEN operator_topics.status ELSE 'pending' END,
     updated_at = now()
-RETURNING kind, chat_id, topic_id, status, last_error_code, created_at, updated_at
+RETURNING kind, chat_id, topic_id, status, last_error_code, created_at, updated_at, needs_repair
 `
 
 type UpsertOperatorTopicParams struct {
@@ -2629,6 +2633,7 @@ func (q *Queries) UpsertOperatorTopic(ctx context.Context, arg UpsertOperatorTop
 		&i.LastErrorCode,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.NeedsRepair,
 	)
 	return i, err
 }

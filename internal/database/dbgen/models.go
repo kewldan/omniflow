@@ -1920,6 +1920,14 @@ type OperatorNotification struct {
 	SentAt    pgtype.Timestamptz `json:"sent_at"`
 }
 
+type OperatorStatusMessage struct {
+	ChatID    int64              `json:"chat_id"`
+	TopicID   int64              `json:"topic_id"`
+	MessageID int64              `json:"message_id"`
+	Version   string             `json:"version"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
 type OperatorTopic struct {
 	Kind          string             `json:"kind"`
 	ChatID        int64              `json:"chat_id"`
@@ -1928,6 +1936,7 @@ type OperatorTopic struct {
 	LastErrorCode pgtype.Text        `json:"last_error_code"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	NeedsRepair   bool               `json:"needs_repair"`
 }
 
 type Order struct {

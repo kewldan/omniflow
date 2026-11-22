@@ -127,13 +127,4 @@ func TestStartReportReadsTheDatabase(t *testing.T) {
 	if report.AwaitingReply != 1 || report.OpenTickets != 1 {
 		t.Fatalf("tickets: awaiting %d, open %d", report.AwaitingReply, report.OpenTickets)
 	}
-	report.Version, report.Name, report.SalesMode = "1.2.3", "Omniflow", "open"
-	if err := operator.AnnounceStartReport(ctx, harness.pool, report, time.Now()); err != nil {
-		t.Fatal(err)
-	}
-	var balance float64
-	if err := harness.pool.QueryRow(ctx, `SELECT (payload->'report'->'balances'->>'RUB')::float8
-		FROM operator_notifications WHERE kind = 'infrastructure' AND payload->>'event' = 'bot_started'`).Scan(&balance); err != nil || balance != 75000 {
-		t.Fatalf("queued report balance = %v, %v", balance, err)
-	}
 }
