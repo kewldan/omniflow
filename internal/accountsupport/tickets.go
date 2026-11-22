@@ -69,6 +69,12 @@ type Ticket struct {
 	// one into it. The customer's words moved there, so a bookmarked link has
 	// somewhere to send them rather than showing an empty thread.
 	MergedInto string
+	// Rating is the customer's mark from one to five, nil until given.
+	// CanRate is whether the panel offers the question: the conversation is
+	// resolved or closed and has no mark yet. A mark is given once, here or in
+	// the bot, whichever is first.
+	Rating  *int
+	CanRate bool
 }
 
 // TicketPage is one page of the inbox.
@@ -139,14 +145,16 @@ const ticketColumns = `t.id::text, t.subject, t.status, t.priority,
 	(SELECT count(*) FROM support_messages m
 	 WHERE m.ticket_id = t.id AND m.sender <> 'customer' AND m.read_at IS NULL),
 	COALESCE(t.merged_into_ticket_id::text, ''),
-	(SELECT count(*) FROM support_messages m WHERE m.ticket_id = t.id)`
+	(SELECT count(*) FROM support_messages m WHERE m.ticket_id = t.id),
+	t.rating`
 
 func scanTicket(row pgx.Row) (Ticket, error) {
 	var ticket Ticket
 	var unread, messageCount int64
+	var rating *int16
 	err := row.Scan(&ticket.ID, &ticket.Subject, &ticket.Status, &ticket.Priority,
 		&ticket.CreatedAt, &ticket.UpdatedAt, &ticket.LastMessageAt, &unread,
-		&ticket.MergedInto, &messageCount)
+		&ticket.MergedInto, &messageCount, &rating)
 	if err != nil {
 		return Ticket{}, err
 	}
@@ -157,7 +165,50 @@ func scanTicket(row pgx.Row) (Ticket, error) {
 	ticket.LastMessageAt = ticket.LastMessageAt.UTC()
 	ticket.Open = TicketIsOpen(ticket.Status)
 	ticket.CanReply = TicketAcceptsReply(ticket.Status)
+	if rating != nil {
+		mark := int(*rating)
+		ticket.Rating = &mark
+	}
+	ticket.CanRate = ticket.Rating == nil && TicketAcceptsRating(ticket.Status)
 	return ticket, nil
+}
+
+// TicketAcceptsRating reports whether a conversation can be given a mark:
+// once the operator or the customer has finished with it.
+func TicketAcceptsRating(status string) bool {
+	return status == StatusResolved || status == StatusClosed
+}
+
+// Rate stores the customer's mark from one to five for their own resolved or
+// closed conversation, once. The question the bot would ask is recorded as
+// asked, so a customer who answered in the browser is not asked again in
+// Telegram, and the response rate never counts a mark nobody was asked for.
+func (service *Service) Rate(ctx context.Context, customerID, ticketID string, rating int) (Ticket, error) {
+	if !looksLikeUUID(strings.TrimSpace(ticketID)) {
+		return Ticket{}, ErrNotFound
+	}
+	if rating < 1 || rating > 5 {
+		return Ticket{}, invalid("a mark is from 1 to 5")
+	}
+	ticket, err := service.ticket(ctx, customerID, ticketID)
+	if err != nil {
+		return Ticket{}, err
+	}
+	if !ticket.CanRate {
+		return Ticket{}, ErrRatingClosed
+	}
+	tag, err := service.pool.Exec(ctx, `UPDATE support_tickets
+		SET rating = $3::smallint, rated_at = now(),
+		    rating_requested_at = COALESCE(rating_requested_at, now())
+		WHERE id = $2::uuid AND user_id = $1::uuid AND rating IS NULL
+		  AND status IN ('resolved', 'closed')`, customerID, ticketID, rating)
+	if err != nil {
+		return Ticket{}, err
+	}
+	if tag.RowsAffected() == 0 {
+		return Ticket{}, ErrRatingClosed
+	}
+	return service.ticket(ctx, customerID, ticketID)
 }
 
 // TicketIsOpen reports whether a status occupies one of the customer's open

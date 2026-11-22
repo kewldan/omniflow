@@ -5580,6 +5580,32 @@ paths:
         "404": {$ref: "#/components/responses/Problem"}
         "409": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/account/support/tickets/{ticketID}/rating:
+    post:
+      operationId: rateAccountSupportTicket
+      tags: [account]
+      description: >-
+        The customer's mark from 1 to 5 for a resolved or closed conversation,
+        given once, here or in the bot. A conversation that is still open or
+        already has a mark answers 409 `rating_closed`; a mark outside 1 to 5
+        answers 422.
+      parameters:
+        - {$ref: "#/components/parameters/AccountTicketID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rating]
+              properties:
+                rating: {type: integer, minimum: 1, maximum: 5}
+      responses:
+        "200": {description: Rated, content: {application/json: {schema: {$ref: "#/components/schemas/AccountTicket"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
   /v1/account/support/tickets/{ticketID}/attachments:
     post:
       operationId: attachToAccountSupportTicket
@@ -10621,11 +10647,13 @@ components:
         maxMessageLength: {type: integer}
     AccountTicket:
       type: object
-      required: [id, subject, status, priority, open, canReply, unreadCount, messageCount, createdAt, updatedAt, lastMessageAt]
+      required: [id, subject, status, priority, open, canReply, canRate, unreadCount, messageCount, createdAt, updatedAt, lastMessageAt]
       properties:
         id: {type: string, format: uuid}
         subject: {type: string}
         status: {type: string, enum: [open, pending, resolved, closed, merged]}
+        canRate: {type: boolean, description: "Resolved or closed and not yet given a mark, here or in the bot."}
+        rating: {type: integer, minimum: 1, maximum: 5, description: "The customer's mark, once given."}
         priority: {type: string, enum: [low, normal, high, urgent]}
         open: {type: boolean, description: "Counts against the open-conversation quota."}
         canReply: {type: boolean}

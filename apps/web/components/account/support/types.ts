@@ -35,6 +35,10 @@ export type SupportTicket = {
   open: boolean;
   /** The composer is enabled from this and from nothing else. */
   canReply: boolean;
+  /** Resolved or closed and not yet given a mark, here or in the bot. */
+  canRate: boolean;
+  /** The customer's mark from 1 to 5, once given. */
+  rating?: number;
   unreadCount: number;
   messageCount: number;
   createdAt: string;

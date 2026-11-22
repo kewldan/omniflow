@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/omniflow/omniflow/internal/accountsupport"
 	"github.com/omniflow/omniflow/internal/analytics"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 	"github.com/omniflow/omniflow/internal/remnawave"
@@ -438,5 +439,46 @@ func TestAMergeKeepsTheEarliestFunnelStep(t *testing.T) {
 	}
 	if left != 0 || channel != "bot" || steps != 2 {
 		t.Fatalf("after the move: %d left on the source, plans_viewed on %q, %d steps on the target", left, channel, steps)
+	}
+}
+
+func TestTheCabinetTakesOneMarkForAFinishedTicket(t *testing.T) {
+	ctx := context.Background()
+	harness := newHarness(t)
+	support := newAccountSupport(t, harness)
+	customer := seedCustomer(ctx, t, harness, "cabinet-rating@example.test")
+	var open, resolved string
+	for _, row := range []struct {
+		status string
+		target *string
+	}{{"open", &open}, {"resolved", &resolved}} {
+		if err := harness.pool.QueryRow(ctx, `INSERT INTO support_tickets (user_id, queue_id, status, resolved_at)
+			SELECT $1, id, $2, CASE WHEN $2 = 'resolved' THEN now() - interval '1 hour' END FROM support_queues WHERE is_default LIMIT 1
+			RETURNING id`, customer, row.status).Scan(row.target); err != nil {
+			t.Fatalf("seed %s ticket: %v", row.status, err)
+		}
+	}
+
+	if _, err := support.Rate(ctx, customer, open, 5); !errors.Is(err, accountsupport.ErrRatingClosed) {
+		t.Fatalf("rating an open ticket = %v, want refused", err)
+	}
+	if _, err := support.Rate(ctx, customer, resolved, 6); err == nil {
+		t.Fatal("a mark of 6 was taken")
+	}
+	stranger := seedCustomer(ctx, t, harness, "cabinet-stranger@example.test")
+	if _, err := support.Rate(ctx, stranger, resolved, 1); !errors.Is(err, accountsupport.ErrNotFound) {
+		t.Fatalf("rating somebody else's ticket = %v, want not found", err)
+	}
+	ticket, err := support.Rate(ctx, customer, resolved, 4)
+	if err != nil || ticket.Rating == nil || *ticket.Rating != 4 || ticket.CanRate {
+		t.Fatalf("rate = %+v, %v", ticket, err)
+	}
+	if _, err := support.Rate(ctx, customer, resolved, 1); !errors.Is(err, accountsupport.ErrRatingClosed) {
+		t.Fatalf("a second mark = %v, want refused", err)
+	}
+	// Answered in the browser, so the bot does not ask again.
+	due, err := analytics.New(harness.pool).PendingRatingRequests(ctx, 10)
+	if err != nil || len(due) != 0 {
+		t.Fatalf("the bot would still ask: %+v, %v", due, err)
 	}
 }

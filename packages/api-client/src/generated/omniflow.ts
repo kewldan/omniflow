@@ -6204,6 +6204,14 @@ export interface AccountTicket {
   id: string;
   subject: string;
   status: AccountTicketStatus;
+  /** Resolved or closed and not yet given a mark, here or in the bot. */
+  canRate: boolean;
+  /**
+   * The customer's mark, once given.
+   * @minimum 1
+   * @maximum 5
+   */
+  rating?: number;
   priority: AccountTicketPriority;
   /** Counts against the open-conversation quota. */
   open: boolean;
@@ -8644,6 +8652,14 @@ export type CreateAccountSupportTicketBody = {
 export type ReplyToAccountSupportTicketBody = {
   /** @minLength 1 */
   message: string;
+};
+
+export type RateAccountSupportTicketBody = {
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  rating: number;
 };
 
 export type AttachToAccountSupportTicketBody = {
@@ -39911,6 +39927,107 @@ export const useReopenAccountSupportTicket = <TError = Promise<ProblemResponse>>
 
   const swrKey = swrOptions?.swrKey ?? getReopenAccountSupportTicketMutationKey(ticketID);
   const swrFn = getReopenAccountSupportTicketMutationFetcher(ticketID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type rateAccountSupportTicketResponse200 = {
+  data: AccountTicket;
+  status: 200;
+};
+
+export type rateAccountSupportTicketResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type rateAccountSupportTicketResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type rateAccountSupportTicketResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type rateAccountSupportTicketResponseSuccess = rateAccountSupportTicketResponse200 & {
+  headers: Headers;
+};
+export type rateAccountSupportTicketResponseError = (
+  | rateAccountSupportTicketResponse404
+  | rateAccountSupportTicketResponse409
+  | rateAccountSupportTicketResponse422
+) & {
+  headers: Headers;
+};
+
+export type rateAccountSupportTicketResponse =
+  | rateAccountSupportTicketResponseSuccess
+  | rateAccountSupportTicketResponseError;
+
+export const getRateAccountSupportTicketUrl = (ticketID: string) => {
+  return `/v1/account/support/tickets/${ticketID}/rating`;
+};
+
+/**
+ * The customer's mark from 1 to 5 for a resolved or closed conversation, given once, here or in the bot. A conversation that is still open or already has a mark answers 409 `rating_closed`; a mark outside 1 to 5 answers 422.
+ */
+export const rateAccountSupportTicket = async (
+  ticketID: string,
+  rateAccountSupportTicketBody: RateAccountSupportTicketBody,
+  options?: RequestInit,
+): Promise<rateAccountSupportTicketResponse> => {
+  const res = await fetch(getRateAccountSupportTicketUrl(ticketID), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(rateAccountSupportTicketBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: rateAccountSupportTicketResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as rateAccountSupportTicketResponse;
+};
+
+export const getRateAccountSupportTicketMutationFetcher = (
+  ticketID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: RateAccountSupportTicketBody }) => {
+    return rateAccountSupportTicket(ticketID, arg, options);
+  };
+};
+export const getRateAccountSupportTicketMutationKey = (ticketID: string) =>
+  [`/v1/account/support/tickets/${ticketID}/rating`] as const;
+
+export type RateAccountSupportTicketMutationResult = NonNullable<
+  Awaited<ReturnType<typeof rateAccountSupportTicket>>
+>;
+
+export const useRateAccountSupportTicket = <TError = Promise<ProblemResponse>>(
+  ticketID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof rateAccountSupportTicket>>,
+      TError,
+      Key,
+      RateAccountSupportTicketBody,
+      Awaited<ReturnType<typeof rateAccountSupportTicket>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getRateAccountSupportTicketMutationKey(ticketID);
+  const swrFn = getRateAccountSupportTicketMutationFetcher(ticketID, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

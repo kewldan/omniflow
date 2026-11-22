@@ -38,6 +38,7 @@ func (handlers *AccountHandlers) mountSupport(router chi.Router) {
 	router.Post("/support/tickets/{ticketID}/read", handlers.readSupportTicket)
 	router.Post("/support/tickets/{ticketID}/close", handlers.closeSupportTicket)
 	router.Post("/support/tickets/{ticketID}/reopen", handlers.reopenSupportTicket)
+	router.Post("/support/tickets/{ticketID}/rating", handlers.rateSupportTicket)
 	router.Post("/support/tickets/{ticketID}/attachments", handlers.uploadSupportAttachment)
 	router.Get("/support/attachments/{attachmentID}", handlers.downloadSupportAttachment)
 
@@ -147,6 +148,10 @@ func supportTicketPayload(ticket accountsupport.Ticket) map[string]any {
 	}
 	if ticket.MergedInto != "" {
 		payload["mergedIntoTicketId"] = ticket.MergedInto
+	}
+	payload["canRate"] = ticket.CanRate
+	if ticket.Rating != nil {
+		payload["rating"] = *ticket.Rating
 	}
 	return payload
 }
@@ -260,6 +265,26 @@ func (handlers *AccountHandlers) closeSupportTicket(
 	principal, _ := CustomerFrom(request.Context())
 	ticket, err := handlers.support.Close(
 		request.Context(), principal.Customer.ID, chi.URLParam(request, "ticketID"),
+	)
+	if handlers.writeSupportError(writer, request, err) {
+		return
+	}
+	writeJSON(writer, http.StatusOK, supportTicketPayload(ticket))
+}
+
+// rateSupportTicket takes the customer's mark for a finished conversation.
+func (handlers *AccountHandlers) rateSupportTicket(
+	writer http.ResponseWriter, request *http.Request,
+) {
+	principal, _ := CustomerFrom(request.Context())
+	var body struct {
+		Rating int `json:"rating"`
+	}
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	ticket, err := handlers.support.Rate(
+		request.Context(), principal.Customer.ID, chi.URLParam(request, "ticketID"), body.Rating,
 	)
 	if handlers.writeSupportError(writer, request, err) {
 		return
@@ -658,6 +683,9 @@ func (handlers *AccountHandlers) writeSupportError(
 		// "Not yours" and "does not exist" answer identically, so an identifier
 		// cannot be probed for existence by watching the status code.
 		writeProblem(writer, request, http.StatusNotFound, "not_found", "That was not found")
+	case errors.Is(err, accountsupport.ErrRatingClosed):
+		writeProblem(writer, request, http.StatusConflict, "rating_closed",
+			"This conversation is still open or already has a mark")
 	case errors.Is(err, accountsupport.ErrTicketClosed):
 		writeProblem(
 			writer, request, http.StatusConflict,

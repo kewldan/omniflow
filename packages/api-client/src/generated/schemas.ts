@@ -15365,12 +15365,23 @@ export const ListAccountSupportTicketsQueryParams = zod.object({
   limit: zod.int().min(1).max(listAccountSupportTicketsQueryLimitMax).optional(),
 });
 
+export const listAccountSupportTicketsResponseItemsItemRatingMax = 5;
+
 export const ListAccountSupportTicketsResponse = zod.object({
   items: zod.array(
     zod.object({
       id: zod.uuid(),
       subject: zod.string(),
       status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+      canRate: zod
+        .boolean()
+        .describe("Resolved or closed and not yet given a mark, here or in the bot."),
+      rating: zod
+        .int()
+        .min(1)
+        .max(listAccountSupportTicketsResponseItemsItemRatingMax)
+        .optional()
+        .describe("The customer's mark, once given."),
       priority: zod.enum(["low", "normal", "high", "urgent"]),
       open: zod.boolean().describe("Counts against the open-conversation quota."),
       canReply: zod.boolean(),
@@ -15420,11 +15431,22 @@ export const CreateAccountSupportTicketBody = zod.object({
   urgent: zod.boolean().optional().describe("Ask for high priority."),
 });
 
+export const createAccountSupportTicketResponseTicketRatingMax = 5;
+
 export const CreateAccountSupportTicketResponse = zod.object({
   ticket: zod.object({
     id: zod.uuid(),
     subject: zod.string(),
     status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+    canRate: zod
+      .boolean()
+      .describe("Resolved or closed and not yet given a mark, here or in the bot."),
+    rating: zod
+      .int()
+      .min(1)
+      .max(createAccountSupportTicketResponseTicketRatingMax)
+      .optional()
+      .describe("The customer's mark, once given."),
     priority: zod.enum(["low", "normal", "high", "urgent"]),
     open: zod.boolean().describe("Counts against the open-conversation quota."),
     canReply: zod.boolean(),
@@ -15470,11 +15492,22 @@ export const GetAccountSupportTicketParams = zod.object({
   ticketID: zod.uuid(),
 });
 
+export const getAccountSupportTicketResponseTicketRatingMax = 5;
+
 export const GetAccountSupportTicketResponse = zod.object({
   ticket: zod.object({
     id: zod.uuid(),
     subject: zod.string(),
     status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+    canRate: zod
+      .boolean()
+      .describe("Resolved or closed and not yet given a mark, here or in the bot."),
+    rating: zod
+      .int()
+      .min(1)
+      .max(getAccountSupportTicketResponseTicketRatingMax)
+      .optional()
+      .describe("The customer's mark, once given."),
     priority: zod.enum(["low", "normal", "high", "urgent"]),
     open: zod.boolean().describe("Counts against the open-conversation quota."),
     canReply: zod.boolean(),
@@ -15541,11 +15574,22 @@ export const ReplyToAccountSupportTicketBody = zod.object({
   message: zod.string().min(1),
 });
 
+export const replyToAccountSupportTicketResponseTicketRatingMax = 5;
+
 export const ReplyToAccountSupportTicketResponse = zod.object({
   ticket: zod.object({
     id: zod.uuid(),
     subject: zod.string(),
     status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+    canRate: zod
+      .boolean()
+      .describe("Resolved or closed and not yet given a mark, here or in the bot."),
+    rating: zod
+      .int()
+      .min(1)
+      .max(replyToAccountSupportTicketResponseTicketRatingMax)
+      .optional()
+      .describe("The customer's mark, once given."),
     priority: zod.enum(["low", "normal", "high", "urgent"]),
     open: zod.boolean().describe("Counts against the open-conversation quota."),
     canReply: zod.boolean(),
@@ -15597,10 +15641,21 @@ export const MarkAccountSupportTicketReadHeader = zod.object({
     .describe("Echoes the token from the current session. Required on every unsafe method."),
 });
 
+export const markAccountSupportTicketReadResponseRatingMax = 5;
+
 export const MarkAccountSupportTicketReadResponse = zod.object({
   id: zod.uuid(),
   subject: zod.string(),
   status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+  canRate: zod
+    .boolean()
+    .describe("Resolved or closed and not yet given a mark, here or in the bot."),
+  rating: zod
+    .int()
+    .min(1)
+    .max(markAccountSupportTicketReadResponseRatingMax)
+    .optional()
+    .describe("The customer's mark, once given."),
   priority: zod.enum(["low", "normal", "high", "urgent"]),
   open: zod.boolean().describe("Counts against the open-conversation quota."),
   canReply: zod.boolean(),
@@ -15622,10 +15677,21 @@ export const CloseAccountSupportTicketHeader = zod.object({
     .describe("Echoes the token from the current session. Required on every unsafe method."),
 });
 
+export const closeAccountSupportTicketResponseRatingMax = 5;
+
 export const CloseAccountSupportTicketResponse = zod.object({
   id: zod.uuid(),
   subject: zod.string(),
   status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+  canRate: zod
+    .boolean()
+    .describe("Resolved or closed and not yet given a mark, here or in the bot."),
+  rating: zod
+    .int()
+    .min(1)
+    .max(closeAccountSupportTicketResponseRatingMax)
+    .optional()
+    .describe("The customer's mark, once given."),
   priority: zod.enum(["low", "normal", "high", "urgent"]),
   open: zod.boolean().describe("Counts against the open-conversation quota."),
   canReply: zod.boolean(),
@@ -15650,10 +15716,66 @@ export const ReopenAccountSupportTicketHeader = zod.object({
     .describe("Echoes the token from the current session. Required on every unsafe method."),
 });
 
+export const reopenAccountSupportTicketResponseRatingMax = 5;
+
 export const ReopenAccountSupportTicketResponse = zod.object({
   id: zod.uuid(),
   subject: zod.string(),
   status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+  canRate: zod
+    .boolean()
+    .describe("Resolved or closed and not yet given a mark, here or in the bot."),
+  rating: zod
+    .int()
+    .min(1)
+    .max(reopenAccountSupportTicketResponseRatingMax)
+    .optional()
+    .describe("The customer's mark, once given."),
+  priority: zod.enum(["low", "normal", "high", "urgent"]),
+  open: zod.boolean().describe("Counts against the open-conversation quota."),
+  canReply: zod.boolean(),
+  unreadCount: zod.int(),
+  messageCount: zod.int(),
+  mergedIntoTicketId: zod.uuid().optional(),
+  createdAt: zod.iso.datetime({ offset: true }),
+  updatedAt: zod.iso.datetime({ offset: true }),
+  lastMessageAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * The customer's mark from 1 to 5 for a resolved or closed conversation, given once, here or in the bot. A conversation that is still open or already has a mark answers 409 `rating_closed`; a mark outside 1 to 5 answers 422.
+ */
+export const RateAccountSupportTicketParams = zod.object({
+  ticketID: zod.uuid(),
+});
+
+export const RateAccountSupportTicketHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const rateAccountSupportTicketBodyRatingMax = 5;
+
+export const RateAccountSupportTicketBody = zod.object({
+  rating: zod.int().min(1).max(rateAccountSupportTicketBodyRatingMax),
+});
+
+export const rateAccountSupportTicketResponseRatingMax = 5;
+
+export const RateAccountSupportTicketResponse = zod.object({
+  id: zod.uuid(),
+  subject: zod.string(),
+  status: zod.enum(["open", "pending", "resolved", "closed", "merged"]),
+  canRate: zod
+    .boolean()
+    .describe("Resolved or closed and not yet given a mark, here or in the bot."),
+  rating: zod
+    .int()
+    .min(1)
+    .max(rateAccountSupportTicketResponseRatingMax)
+    .optional()
+    .describe("The customer's mark, once given."),
   priority: zod.enum(["low", "normal", "high", "urgent"]),
   open: zod.boolean().describe("Counts against the open-conversation quota."),
   canReply: zod.boolean(),

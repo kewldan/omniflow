@@ -6295,7 +6295,8 @@
         "invalid_input": "表单中有内容未被接受。请检查各字段后重试。",
         "unknown": "操作未成功，请稍后重试。",
         "too_many_attachments": "此对话的文件数已达上限。如需发送更多文件，请发起新对话。",
-        "rate_limited": "短时间内发送的消息过多，请稍候再试。"
+        "rate_limited": "短时间内发送的消息过多，请稍候再试。",
+        "rating_closed": "此对话仍未结束或已评分。"
       },
       "history": {
         "title": "已发送的通知",
@@ -6342,6 +6343,13 @@
           "delivery_blocked": "未送达——发给您的 Telegram 消息被屏蔽",
           "classification_failed": "未发送——我方出现问题，您无需任何操作"
         }
+      },
+      "rating": {
+        "title": "支持服务帮到您了吗？",
+        "description": "请为回复打 1 到 5 分，这能帮助我们更好地回复。",
+        "mark": "评 {mark} 分（满分 5）",
+        "thanks": "感谢您的评分！",
+        "given": "您的评分：{rating} 分（满分 5）。谢谢！"
       }
     },
     "commerce": {

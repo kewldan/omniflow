@@ -188,6 +188,16 @@ export default function SupportTicketPage() {
         </p>
       )}
 
+      <RatingCard
+        canRate={ticket.canRate}
+        conversationKey={conversationKey}
+        onRated={async () => {
+          await mutate();
+          await mutateGlobal(isTicketListKey);
+        }}
+        rating={ticket.rating}
+      />
+
       {ticket.canReply ? (
         <div className="space-y-5">
           <ReplyForm conversationKey={conversationKey} onSent={mutate} />
@@ -471,5 +481,84 @@ function AttachmentForm({
         {busy ? translate("attachments.uploading") : translate("attachments.upload")}
       </Button>
     </form>
+  );
+}
+
+/**
+ * The customer's mark for a finished conversation, from 1 to 5, given once.
+ *
+ * The bot asks the same question in Telegram; whichever surface answers
+ * first holds the mark, and the server says so through `canRate`.
+ */
+function RatingCard({
+  canRate,
+  conversationKey,
+  onRated,
+  rating,
+}: {
+  canRate: boolean;
+  conversationKey: string;
+  onRated: () => Promise<void>;
+  rating?: number;
+}) {
+  const translate = useTranslations("account.support.rating");
+  const describeProblem = useSupportProblem();
+  const [busy, setBusy] = useState(false);
+
+  if (rating !== undefined) {
+    return (
+      <p className="rounded-lg border border-border bg-card px-4 py-3 text-[12.5px] text-muted-foreground">
+        {translate("given", { rating })}
+      </p>
+    );
+  }
+  if (!canRate) {
+    return null;
+  }
+
+  async function rate(mark: number) {
+    setBusy(true);
+    try {
+      await apiFetch(`${conversationKey}/rating`, {
+        method: "POST",
+        body: JSON.stringify({ rating: mark }),
+      });
+      await onRated();
+      toast.success(translate("thanks"));
+    } catch (rateError) {
+      toast.error(describeProblem(rateError));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section
+      aria-labelledby="ticket-rating-title"
+      className="space-y-3 rounded-lg border border-border bg-card px-4 py-3.5"
+    >
+      <div className="space-y-1">
+        <p className="font-semibold text-[13.5px]" id="ticket-rating-title">
+          {translate("title")}
+        </p>
+        <p className="text-[12.5px] text-muted-foreground leading-relaxed">
+          {translate("description")}
+        </p>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {[1, 2, 3, 4, 5].map((mark) => (
+          <Button
+            aria-label={translate("mark", { mark })}
+            disabled={busy}
+            key={mark}
+            onClick={() => void rate(mark)}
+            size="sm"
+            variant="outline"
+          >
+            {mark} ⭐
+          </Button>
+        ))}
+      </div>
+    </section>
   );
 }

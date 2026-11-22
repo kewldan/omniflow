@@ -6387,7 +6387,8 @@
         "invalid_input": "Something in the form was not accepted. Check the fields and try again.",
         "unknown": "That did not work. Try again in a moment.",
         "too_many_attachments": "This conversation already carries as many files as we keep. Start a new conversation for more.",
-        "rate_limited": "That was a lot of messages in a short time. Wait a little and try again."
+        "rate_limited": "That was a lot of messages in a short time. Wait a little and try again.",
+        "rating_closed": "This conversation is still open or already has a rating."
       },
       "history": {
         "title": "What we sent you",
@@ -6434,6 +6435,13 @@
           "delivery_blocked": "Not delivered — Telegram messages to you are blocked",
           "classification_failed": "Not sent — a problem on our side; nothing for you to do"
         }
+      },
+      "rating": {
+        "title": "How did support do?",
+        "description": "Rate the answer from 1 to 5. It helps us answer better.",
+        "mark": "Rate {mark} out of 5",
+        "thanks": "Thank you for the rating!",
+        "given": "Your rating: {rating} out of 5. Thank you!"
       }
     },
     "commerce": {

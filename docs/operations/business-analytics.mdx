@@ -142,7 +142,10 @@ a mark from 1 to 5. A tap records the mark on the ticket; a second tap, or a tap
 ticket, changes nothing. The **Support** desk's report shows, over the same 7, 30, or 90 days as the
 workload figures: **CSAT** (the share of fours and fives), the average mark, how many marks arrived, the
 response rate (marks over questions sent in the window), the distribution, and the same per operator the
-ticket was assigned to. Customers the bot cannot reach are not asked; the web cabinet does not ask yet.
+ticket was assigned to. Customers the bot cannot reach are not asked in Telegram. The web cabinet shows
+the same question under a resolved or closed conversation (`POST /v1/account/support/tickets/{ticketID}/rating`);
+the first answer, from either surface, is the mark, and a mark given in the browser counts as asked, so the
+bot does not ask again and the response rate never exceeds what was asked.
 
 ## Routes and permissions
 

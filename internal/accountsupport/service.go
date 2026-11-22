@@ -43,6 +43,9 @@ var (
 	// one. Reopening is a separate, explicit action, so a reply typed into a
 	// stale tab cannot silently revive a conversation both sides finished.
 	ErrTicketClosed = errors.New("this conversation is closed")
+	// ErrRatingClosed is a mark for a conversation that is still open or
+	// already has one.
+	ErrRatingClosed = errors.New("this conversation cannot be rated")
 	// ErrTooManyOpenTickets reports that the customer already holds as many open
 	// conversations as Limits.MaxOpenTickets allows. The bound exists so a loop
 	// in a client cannot fill the operator queue faster than people can empty it.

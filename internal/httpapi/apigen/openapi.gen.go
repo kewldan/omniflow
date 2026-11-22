@@ -7279,6 +7279,8 @@ type AccountTerms struct {
 
 // AccountTicket defines model for AccountTicket.
 type AccountTicket struct {
+	// CanRate Resolved or closed and not yet given a mark, here or in the bot.
+	CanRate            bool                `json:"canRate"`
 	CanReply           bool                `json:"canReply"`
 	CreatedAt          time.Time           `json:"createdAt"`
 	Id                 openapi_types.UUID  `json:"id"`
@@ -7287,12 +7289,15 @@ type AccountTicket struct {
 	MessageCount       int                 `json:"messageCount"`
 
 	// Open Counts against the open-conversation quota.
-	Open        bool                  `json:"open"`
-	Priority    AccountTicketPriority `json:"priority"`
-	Status      AccountTicketStatus   `json:"status"`
-	Subject     string                `json:"subject"`
-	UnreadCount int                   `json:"unreadCount"`
-	UpdatedAt   time.Time             `json:"updatedAt"`
+	Open     bool                  `json:"open"`
+	Priority AccountTicketPriority `json:"priority"`
+
+	// Rating The customer's mark, once given.
+	Rating      *int                `json:"rating,omitempty"`
+	Status      AccountTicketStatus `json:"status"`
+	Subject     string              `json:"subject"`
+	UnreadCount int                 `json:"unreadCount"`
+	UpdatedAt   time.Time           `json:"updatedAt"`
 }
 
 // AccountTicketPriority defines model for AccountTicket.Priority.
@@ -12450,6 +12455,17 @@ type ReplyToAccountSupportTicketParams struct {
 	IdempotencyKey *IdempotencyKeyOptional `json:"Idempotency-Key,omitempty"`
 }
 
+// RateAccountSupportTicketJSONBody defines parameters for RateAccountSupportTicket.
+type RateAccountSupportTicketJSONBody struct {
+	Rating int `json:"rating"`
+}
+
+// RateAccountSupportTicketParams defines parameters for RateAccountSupportTicket.
+type RateAccountSupportTicketParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // MarkAccountSupportTicketReadParams defines parameters for MarkAccountSupportTicketRead.
 type MarkAccountSupportTicketReadParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
@@ -14184,6 +14200,9 @@ type AttachToAccountSupportTicketMultipartRequestBody AttachToAccountSupportTick
 // ReplyToAccountSupportTicketJSONRequestBody defines body for ReplyToAccountSupportTicket for application/json ContentType.
 type ReplyToAccountSupportTicketJSONRequestBody ReplyToAccountSupportTicketJSONBody
 
+// RateAccountSupportTicketJSONRequestBody defines body for RateAccountSupportTicket for application/json ContentType.
+type RateAccountSupportTicketJSONRequestBody RateAccountSupportTicketJSONBody
+
 // AcceptAccountTermsJSONRequestBody defines body for AcceptAccountTerms for application/json ContentType.
 type AcceptAccountTermsJSONRequestBody AcceptAccountTermsJSONBody
 
@@ -15052,6 +15071,9 @@ type ServerInterface interface {
 
 	// (POST /v1/account/support/tickets/{ticketID}/messages)
 	ReplyToAccountSupportTicket(w http.ResponseWriter, r *http.Request, ticketID AccountTicketID, params ReplyToAccountSupportTicketParams)
+
+	// (POST /v1/account/support/tickets/{ticketID}/rating)
+	RateAccountSupportTicket(w http.ResponseWriter, r *http.Request, ticketID AccountTicketID, params RateAccountSupportTicketParams)
 
 	// (POST /v1/account/support/tickets/{ticketID}/read)
 	MarkAccountSupportTicketRead(w http.ResponseWriter, r *http.Request, ticketID AccountTicketID, params MarkAccountSupportTicketReadParams)
@@ -16578,6 +16600,11 @@ func (_ Unimplemented) CloseAccountSupportTicket(w http.ResponseWriter, r *http.
 
 // (POST /v1/account/support/tickets/{ticketID}/messages)
 func (_ Unimplemented) ReplyToAccountSupportTicket(w http.ResponseWriter, r *http.Request, ticketID AccountTicketID, params ReplyToAccountSupportTicketParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/support/tickets/{ticketID}/rating)
+func (_ Unimplemented) RateAccountSupportTicket(w http.ResponseWriter, r *http.Request, ticketID AccountTicketID, params RateAccountSupportTicketParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -23341,6 +23368,60 @@ func (siw *ServerInterfaceWrapper) ReplyToAccountSupportTicket(w http.ResponseWr
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ReplyToAccountSupportTicket(w, r, ticketID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RateAccountSupportTicket operation middleware
+func (siw *ServerInterfaceWrapper) RateAccountSupportTicket(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "ticketID" -------------
+	var ticketID AccountTicketID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "ticketID", chi.URLParam(r, "ticketID"), &ticketID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "ticketID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RateAccountSupportTicketParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RateAccountSupportTicket(w, r, ticketID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -37047,6 +37128,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/v1/account/support/tickets/{ticketID}/reopen", wrapper.ReopenAccountSupportTicket)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/support/tickets/{ticketID}/rating", wrapper.RateAccountSupportTicket)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/account/support/tickets/{ticketID}/attachments", wrapper.AttachToAccountSupportTicket)
 	})
 	r.Group(func(r chi.Router) {
@@ -43138,6 +43222,74 @@ func (response ReplyToAccountSupportTicket429ApplicationProblemPlusJSONResponse)
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RateAccountSupportTicketRequestObject struct {
+	TicketID AccountTicketID `json:"ticketID"`
+	Params   RateAccountSupportTicketParams
+	Body     *RateAccountSupportTicketJSONRequestBody
+}
+
+type RateAccountSupportTicketResponseObject interface {
+	VisitRateAccountSupportTicketResponse(w http.ResponseWriter) error
+}
+
+type RateAccountSupportTicket200JSONResponse AccountTicket
+
+func (response RateAccountSupportTicket200JSONResponse) VisitRateAccountSupportTicketResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RateAccountSupportTicket404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response RateAccountSupportTicket404ApplicationProblemPlusJSONResponse) VisitRateAccountSupportTicketResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RateAccountSupportTicket409ApplicationProblemPlusJSONResponse Problem
+
+func (response RateAccountSupportTicket409ApplicationProblemPlusJSONResponse) VisitRateAccountSupportTicketResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RateAccountSupportTicket422ApplicationProblemPlusJSONResponse Problem
+
+func (response RateAccountSupportTicket422ApplicationProblemPlusJSONResponse) VisitRateAccountSupportTicketResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -56985,6 +57137,9 @@ type StrictServerInterface interface {
 	// (POST /v1/account/support/tickets/{ticketID}/messages)
 	ReplyToAccountSupportTicket(ctx context.Context, request ReplyToAccountSupportTicketRequestObject) (ReplyToAccountSupportTicketResponseObject, error)
 
+	// (POST /v1/account/support/tickets/{ticketID}/rating)
+	RateAccountSupportTicket(ctx context.Context, request RateAccountSupportTicketRequestObject) (RateAccountSupportTicketResponseObject, error)
+
 	// (POST /v1/account/support/tickets/{ticketID}/read)
 	MarkAccountSupportTicketRead(ctx context.Context, request MarkAccountSupportTicketReadRequestObject) (MarkAccountSupportTicketReadResponseObject, error)
 
@@ -61618,6 +61773,40 @@ func (sh *strictHandler) ReplyToAccountSupportTicket(w http.ResponseWriter, r *h
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ReplyToAccountSupportTicketResponseObject); ok {
 		if err := validResponse.VisitReplyToAccountSupportTicketResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RateAccountSupportTicket operation middleware
+func (sh *strictHandler) RateAccountSupportTicket(w http.ResponseWriter, r *http.Request, ticketID AccountTicketID, params RateAccountSupportTicketParams) {
+	var request RateAccountSupportTicketRequestObject
+
+	request.TicketID = ticketID
+	request.Params = params
+
+	var body RateAccountSupportTicketJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RateAccountSupportTicket(ctx, request.(RateAccountSupportTicketRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RateAccountSupportTicket")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RateAccountSupportTicketResponseObject); ok {
+		if err := validResponse.VisitRateAccountSupportTicketResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
