@@ -69,6 +69,7 @@ description: "Что хранит экран настроек, что из эт�
 | Telegram-бот | `buttons`, `texts` | бот | Свои кнопки главного меню со ссылкой https или Mini App и замены любого текста бота по языкам — на карточке **Меню и тексты бота** под разделами. Замена должна сохранять подстановки `%s`/`%d` в том же порядке | нет |
 | Группа операторов | `chatId` | бот | Группа для уведомлений; при смене все топики создаются заново в новой группе | `APP_OPERATOR_CHAT_ID` |
 | Группа операторов | `createTopics` | бот | Выключено — все уведомления идут в саму группу, для группы без топиков | включено |
+| Группа операторов | `actionTelegramIds` | бот | Telegram ID, которым можно нажимать кнопки действий в уведомлениях; если пусто — `APP_OPERATOR_TELEGRAM_IDS`, затем администраторы группы | пусто |
 | Группа операторов | `locale` | бот | Язык уведомлений: `en` или `ru` | `en` |
 | Группа операторов | `notificationCap`, `windowMinutes` | бот | Лимит на тип уведомлений и его окно; `0` снимает лимит | `APP_OPERATOR_NOTIFICATION_CAP`, `APP_OPERATOR_NOTIFICATION_WINDOW_MINUTES` |
 | Группа операторов | `disabledKinds` | бот | Выключенные потоки. Их уведомления закрываются как `suppressed` с `error_code = disabled` | нет |
@@ -76,6 +77,7 @@ description: "Что хранит экран настроек, что из эт�
 | Поддержка | `mode`, `introRu`, `introEn` | бот | Экран поддержки в боте: `both` (обращения и ссылка для связи, по умолчанию), только `tickets` или только `contact`, с необязательным вступлением на каждом языке над ним | `both`, без вступления |
 | Поддержка | `notifyNewTicket`, `notifyCustomerReply` | бот | Узнаёт ли группа операторов о новом обращении и об ответе клиента | включено |
 | Поддержка | `notifySlaBreach` | воркер | Объявляется ли обращение, на которое просрочен первый ответ | включено |
+| Поддержка | `notifyIncludeText` | бот | Показывают ли уведомления поддержки тему обращения и сообщение клиента | включено |
 | Модерация | `filterDisplayNames`, `blockedNamePatterns` | бот | Не обслуживать аккаунты, чьё имя выдаёт себя за сотрудника или содержит ссылку; см. [Операции в админке](/ru/operations/admin-operations) | выключено |
 | Плановые отчёты | `periods`, `time` | воркер | Ежедневная, еженедельная (по понедельникам) и ежемесячная (1-го числа) сводка в топик «Отчёты» в заданное местное время | не отправляются |
 | Обслуживание | `autoEnable`, `failureThreshold` | api | Включают ли сбои зависимостей режим обслуживания и после скольких неудачных проверок подряд | `APP_MAINTENANCE_AUTO_DETECT`, `APP_MAINTENANCE_FAILURE_STREAK` |
@@ -175,8 +177,8 @@ description: "Что хранит экран настроек, что из эт�
 | `branding` | `serviceName`, `supportContact`, `termsUrl`, `defaultLocale`, `timezone` | — |
 | `remnawave` | `reconcileIntervalMinutes`, `importExcludedUsernames`, `importExcludedSquads` | — |
 | `bot` | `languages`, `miniAppUrl`, `cabinetOnly`, `miniAppFullscreen`, `miniAppLite`, `hiddenMenu`, `buttons`, `texts`, `menuLayout`, `menuStyles` | — |
-| `support` | `mode`, `introRu`, `introEn`, `notifyNewTicket`, `notifyCustomerReply`, `notifySlaBreach` | — |
-| `operator_group` | `chatId`, `createTopics`, `locale`, `notificationCap`, `windowMinutes`, `disabledKinds` | — |
+| `support` | `mode`, `introRu`, `introEn`, `notifyNewTicket`, `notifyCustomerReply`, `notifySlaBreach`, `notifyIncludeText` | — |
+| `operator_group` | `chatId`, `createTopics`, `actionTelegramIds`, `locale`, `notificationCap`, `windowMinutes`, `disabledKinds` | — |
 | `reports` | `periods`, `time` | — |
 | `maintenance` | `autoEnable`, `failureThreshold`, `noticeEn`, `noticeRu`, `broadcastCustomers`, `broadcastEmail` | — |
 | `notifications` | `fulfillmentAlertAttempts`, `quietHoursStart`, `quietHoursEnd` | — |

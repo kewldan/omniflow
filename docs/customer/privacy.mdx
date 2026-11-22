@@ -360,11 +360,13 @@ or saved out of the chat. The bot-delivered sign-in link is protected by the sam
 rule, and its copy says so plainly: the link works once, expires in ten minutes,
 and whoever opens it signs in as the customer.
 
-**No customer content in the operator group.** Notices posted to the operator
-Telegram group name the event, the amount class, and identifiers an operator can
-look up. They never carry customer text, a subscription link, a token, or a
-payment payload; payloads are redacted at enqueue and again at render against a
-field whitelist. See [operator notifications](/operations/operator-notifications).
+**Little customer content in the operator group.** Notices posted to the operator
+Telegram group name the event, the amounts, the customer's Telegram name and
+handle, and identifiers an operator can look up. The only customer text they
+carry is a support ticket's subject and message, for the desk that answers it,
+and the support section can turn that off. They never carry a subscription link,
+a token, or a payment payload; payloads are redacted at enqueue and again at
+render against a field whitelist. See [operator notifications](/operations/operator-notifications).
 
 **No indexing, no caching.** The account panel sets `noindex, nofollow` at the
 layout level, and every `/v1/account` response carries `Cache-Control: no-store`,

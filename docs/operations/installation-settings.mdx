@@ -66,6 +66,7 @@ diagnostics bundle needs `system.read` and lives on the system screen. See
 | Telegram bot | `buttons`, `texts` | bot | Custom main-menu buttons opening an https link or a Mini App, and overrides of any bot message per language — edited on the **Bot menu and wording** card below the sections. An override must keep the message's `%s`/`%d` placeholders in order | none |
 | Operator group | `chatId` | bot | The group notices go to; changing it rebinds every topic in the new group | `APP_OPERATOR_CHAT_ID` |
 | Operator group | `createTopics` | bot | Off sends every notice to the group itself, for a group without topics | on |
+| Operator group | `actionTelegramIds` | bot | Telegram IDs allowed to press the action buttons on notices; empty falls back to `APP_OPERATOR_TELEGRAM_IDS`, then to the group's administrators | empty |
 | Operator group | `locale` | bot | The language notices are written in: `en` or `ru` | `en` |
 | Operator group | `notificationCap`, `windowMinutes` | bot | The per-kind volume cap and its window; `0` removes the cap | `APP_OPERATOR_NOTIFICATION_CAP`, `APP_OPERATOR_NOTIFICATION_WINDOW_MINUTES` |
 | Operator group | `disabledKinds` | bot | Streams switched off. Their notices are completed as `suppressed` with `error_code = disabled` | none |
@@ -73,6 +74,7 @@ diagnostics bundle needs `system.read` and lives on the system screen. See
 | Support | `mode`, `introRu`, `introEn` | bot | The bot's support screen: `both` (tickets and the contact link, the default), `tickets` only, or `contact` only, with an optional introduction per language above it | `both`, no introduction |
 | Support | `notifyNewTicket`, `notifyCustomerReply` | bot | Whether the operator group hears about a new ticket and a customer's reply | on |
 | Support | `notifySlaBreach` | worker | Whether a ticket whose first response is overdue is announced | on |
+| Support | `notifyIncludeText` | bot | Whether support notices show the ticket's subject and the customer's message | on |
 | Moderation | `filterDisplayNames`, `blockedNamePatterns` | bot | Refuse the bot to accounts whose name pretends to be staff or carries a link; see [Admin operations](/operations/admin-operations) | off |
 | Scheduled reports | `periods`, `time` | worker | Daily, weekly (Mondays), and monthly (the 1st) summaries in the Reports topic, at the local time given | none sent |
 | Maintenance | `autoEnable`, `failureThreshold` | api | Whether dependency failures switch maintenance on, and after how many consecutive failed probes | `APP_MAINTENANCE_AUTO_DETECT`, `APP_MAINTENANCE_FAILURE_STREAK` |
@@ -171,8 +173,8 @@ somewhere it does not belong.
 | `branding` | `serviceName`, `supportContact`, `termsUrl`, `defaultLocale`, `timezone` | — |
 | `remnawave` | `reconcileIntervalMinutes`, `importExcludedUsernames`, `importExcludedSquads` | — |
 | `bot` | `languages`, `miniAppUrl`, `cabinetOnly`, `miniAppFullscreen`, `miniAppLite`, `hiddenMenu`, `buttons`, `texts`, `menuLayout`, `menuStyles` | — |
-| `support` | `mode`, `introRu`, `introEn`, `notifyNewTicket`, `notifyCustomerReply`, `notifySlaBreach` | — |
-| `operator_group` | `chatId`, `createTopics`, `locale`, `notificationCap`, `windowMinutes`, `disabledKinds` | — |
+| `support` | `mode`, `introRu`, `introEn`, `notifyNewTicket`, `notifyCustomerReply`, `notifySlaBreach`, `notifyIncludeText` | — |
+| `operator_group` | `chatId`, `createTopics`, `actionTelegramIds`, `locale`, `notificationCap`, `windowMinutes`, `disabledKinds` | — |
 | `reports` | `periods`, `time` | — |
 | `maintenance` | `autoEnable`, `failureThreshold`, `noticeEn`, `noticeRu`, `broadcastCustomers`, `broadcastEmail` | — |
 | `notifications` | `fulfillmentAlertAttempts`, `quietHoursStart`, `quietHoursEnd` | — |

@@ -151,17 +151,23 @@ is not configurable.
 
 If you have connected an operator group, the bot posts support events into its **💬 Support
 tickets** topic: every new ticket, every later customer message, and every ticket whose first
-response is overdue. A notice carries ticket and queue identifiers only — never the subject or the
-message, which are customer text and do not belong in a chat kept for years. Setting up the group is
+response is overdue. A new-ticket notice reads like the previous bot's: the ticket, the customer's
+Telegram name, ID, and handle, the queue, the subject, and the customer's message, with buttons to
+message the customer, open their profile and the ticket, close the ticket, and block the customer.
+A reply notice quotes the new message. Setting up the group and who may press the buttons are
 covered in [Operator notifications](/operations/operator-notifications).
 
-Three switches in the support section narrow the stream, all on by default:
+The subject and message are the customer's own words in a chat that is kept for years. Switch
+`notifyIncludeText` off and the notices carry everything else but those two.
+
+Four switches in the support section narrow the stream, all on by default:
 
 | Field | Turns off |
 | --- | --- |
 | `notifyNewTicket` | Notices for new tickets |
 | `notifyCustomerReply` | Notices for later customer messages |
 | `notifySlaBreach` | The once-per-ticket notice that the first response is overdue |
+| `notifyIncludeText` | The ticket's subject and the customer's message in the notices |
 
 The operator group section can also switch the whole support stream off or cap its volume. The
 daily, weekly, and monthly reports in the same group include tickets opened and waiting.

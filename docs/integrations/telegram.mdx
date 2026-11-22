@@ -209,10 +209,13 @@ one forum topic per event kind, and recreates one that was deleted; you supply o
   </Step>
 </Steps>
 
-Everything the group receives is deliberately content-free. A notice names the event, an amount
-class, and identifiers an operator can look up; it never carries customer text, a subscription link,
-a token, or a payment payload. Rendering uses an explicit field allowlist, so a field somebody adds
-to a payload later is ignored rather than published by accident.
+What the group receives is deliberately narrow. A notice names the event, the amounts, the
+customer's Telegram name and handle, and identifiers an operator can open in the panel; it never
+carries a subscription link, a token, or a payment payload. The one piece of customer text is a
+support ticket's subject and message, which the support section can turn off. Rendering uses an
+explicit field allowlist, so a field somebody adds to a payload later is ignored rather than
+published by accident. The bot creates the topics itself and saves their thread IDs; the panel
+shows them under **Settings → Integrations** and can recreate them.
 
 Volume is bounded: past `APP_OPERATOR_NOTIFICATION_CAP` messages of one kind per
 `APP_OPERATOR_NOTIFICATION_WINDOW_MINUTES` (defaults 30 and 5), further notices complete as
