@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.5.0](https://github.com/kewldan/omniflow/compare/omniflow-v1.4.1...omniflow-v1.5.0) (2026-11-22)
+
+
+### Features
+
+* **account:** rate a finished support conversation in the cabinet ([547297d](https://github.com/kewldan/omniflow/commit/547297d70d6d9ccee30e6bce5bbc9201cbcff5a0))
+* **admin:** animated sidebar icons on hover ([fd01703](https://github.com/kewldan/omniflow/commit/fd01703624209926cbd8f887972ceef3cf9fb984))
+* **admin:** pick merge targets by search instead of pasted IDs ([0c93830](https://github.com/kewldan/omniflow/commit/0c93830d78bc84cf19003927b5a556e1c119b4a4))
+* **admin:** readable codes, answered tickets, customer balances ([cf9003a](https://github.com/kewldan/omniflow/commit/cf9003a060fb1bee11aeebc26acf9d034c08042b))
+* **admin:** subscription, acquisition, traffic history and satisfaction screens ([c8b9dc9](https://github.com/kewldan/omniflow/commit/c8b9dc9d51e66374b0e1c80f4015df1a2055eab4))
+* **analytics:** subscription history, renewals, cohorts, acquisition costs, funnel and CSAT ([2f4c2e7](https://github.com/kewldan/omniflow/commit/2f4c2e74daa736ab9bc9444ca246145e566c7530))
+* **migrate:** carry Bedolaga pages, tickets, and consents ([5ff56e0](https://github.com/kewldan/omniflow/commit/5ff56e0329e38c43d4570f5b4048d242022682b2))
+* **migrate:** carry promo groups as loyalty, and archive the rest ([00388cb](https://github.com/kewldan/omniflow/commit/00388cb3b40ef808618f4a510ea3506ef1098e57))
+* **observability:** instrument worker passes, queues, Remnawave and Telegram ([a6e7bf6](https://github.com/kewldan/omniflow/commit/a6e7bf6e80ddf5af05065d8eac44f3592b3b1985))
+
+
+### Bug Fixes
+
+* **admin:** dashboard accessibility, and the Mini App sign-in test ([dc0ba93](https://github.com/kewldan/omniflow/commit/dc0ba93a0ce378f069c1b5bf0bb5bc02039075f5))
+* **admin:** period switch as a fieldset ([78eb601](https://github.com/kewldan/omniflow/commit/78eb60160b0cd5658ee322aa676c5bd81b8dfa84))
+* **admin:** words for the remaining codes the panel printed raw ([f96e2bb](https://github.com/kewldan/omniflow/commit/f96e2bb89031e18207d8788764e094bf1c4183ae))
+* **fulfillment:** compare expiry at millisecond precision, read an ended entitlement instead of pushing it ([96cc848](https://github.com/kewldan/omniflow/commit/96cc848ea199148bfee14b83ad72e229c1bc3278))
+* **migrate:** report every kind apply writes ([dc74264](https://github.com/kewldan/omniflow/commit/dc7426420a6d7c7231774288581427bf88e08ea4))
+
 ## [1.4.1](https://github.com/kewldan/omniflow/compare/omniflow-v1.4.0...omniflow-v1.4.1) (2026-11-21)
 
 
