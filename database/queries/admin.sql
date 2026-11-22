@@ -535,11 +535,12 @@ SELECT * FROM admin_passkeys WHERE credential_id = sqlc.arg(credential_id);
 -- name: CreateAdminPasskey :one
 INSERT INTO admin_passkeys (
   admin_user_id, credential_id, public_key, label,
-  sign_count, aaguid, discoverable, user_verified, created_ip
+  sign_count, aaguid, discoverable, user_verified, created_ip,
+  backup_eligible, backup_state
 ) VALUES (
   sqlc.arg(admin_user_id), sqlc.arg(credential_id), sqlc.arg(public_key), sqlc.arg(label),
   sqlc.arg(sign_count), sqlc.narg(aaguid), sqlc.arg(discoverable), sqlc.arg(user_verified),
-  sqlc.narg(created_ip)
+  sqlc.narg(created_ip), sqlc.arg(backup_eligible), sqlc.arg(backup_state)
 )
 RETURNING *;
 
@@ -550,7 +551,11 @@ RETURNING *;
 UPDATE admin_passkeys
 SET sign_count = GREATEST(sign_count, sqlc.arg(sign_count)),
     last_used_at = now(),
-    last_used_ip = sqlc.narg(last_used_ip)
+    last_used_ip = sqlc.narg(last_used_ip),
+    -- Recorded once for a passkey registered before the flag was kept; the
+    -- backup state may change between sign-ins and is simply the latest.
+    backup_eligible = COALESCE(backup_eligible, sqlc.arg(backup_eligible)),
+    backup_state = sqlc.arg(backup_state)
 WHERE id = sqlc.arg(passkey_id);
 
 -- name: RenameAdminPasskey :one

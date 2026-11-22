@@ -154,6 +154,11 @@ reason: `unknown_credential` when the key was never registered here — register
 the phone's own key from the laptop session — or `assertion_rejected` with the
 WebAuthn library's detail otherwise.
 
+A synced passkey (iCloud Keychain, Google Password Manager) is *backup eligible*, and WebAuthn
+refuses an assertion whose backup-eligible flag differs from the registered one. The panel keeps
+the flag with the key (`admin_passkeys.backup_eligible`); a key registered before it was kept
+takes it from its first sign-in.
+
 The new-password field carries a strength meter. It estimates entropy over the
 alphabet the password actually uses and then subtracts for the patterns that
 make that alphabet a lie — too few distinct characters, a run from the keyboard

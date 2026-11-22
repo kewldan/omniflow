@@ -683,6 +683,8 @@ CREATE TABLE public.admin_passkeys (
     created_ip inet,
     last_used_at timestamp with time zone,
     last_used_ip inet,
+    backup_eligible boolean,
+    backup_state boolean,
     CONSTRAINT admin_passkeys_label_check CHECK (((char_length(label) >= 1) AND (char_length(label) <= 60))),
     CONSTRAINT admin_passkeys_sign_count_check CHECK ((sign_count >= 0))
 );

@@ -76,6 +76,9 @@ type authenticator struct {
 	// userVerified is what the authenticator claims it did. Turning it off is
 	// how the test reproduces a key with no PIN and no fingerprint.
 	userVerified bool
+	// synced makes it a passkey kept in a password manager that syncs it —
+	// iCloud Keychain, Google Password Manager: backup eligible and backed up.
+	synced bool
 }
 
 func newAuthenticator(t *testing.T) *authenticator {
@@ -93,15 +96,20 @@ func newAuthenticator(t *testing.T) *authenticator {
 
 // Authenticator data flags, from the WebAuthn specification.
 const (
-	flagUserPresent  = 0x01
-	flagUserVerified = 0x04
-	flagAttestedData = 0x40
+	flagUserPresent    = 0x01
+	flagUserVerified   = 0x04
+	flagBackupEligible = 0x08
+	flagBackupState    = 0x10
+	flagAttestedData   = 0x40
 )
 
 func (device *authenticator) flags(attested bool) byte {
 	value := byte(flagUserPresent)
 	if device.userVerified {
 		value |= flagUserVerified
+	}
+	if device.synced {
+		value |= flagBackupEligible | flagBackupState
 	}
 	if attested {
 		value |= flagAttestedData
@@ -550,5 +558,53 @@ func TestPasskeyFromAnotherDeviceIsAudited(t *testing.T) {
 	}
 	if actor != "anonymous" || reason != "unknown_credential" {
 		t.Fatalf("audit row is %s/%s, want anonymous/unknown_credential", actor, reason)
+	}
+}
+
+// TestSyncedPasskeySignsIn pins the case every iCloud Keychain and Google
+// passkey is: backup eligible. Its sign-in was refused for a "Backup Eligible
+// flag inconsistency" because the flag was not kept at registration. A key
+// registered before the flag was kept takes it from its first sign-in.
+func TestSyncedPasskeySignsIn(t *testing.T) {
+	harness := newHarness(t)
+	ctx := context.Background()
+	service := newPasskeyService(t, harness)
+	owner := bootstrapOwner(t, ctx, service)
+	device := newAuthenticator(t)
+	device.synced = true
+	handle := accountHandle(t, owner.ID)
+
+	if _, err := registerPasskey(t, ctx, service, device, owner.ID, "iCloud"); err != nil {
+		t.Fatalf("register synced passkey: %v", err)
+	}
+	device.signCount++
+	if _, err := signIn(t, ctx, service, device, handle); err != nil {
+		t.Fatalf("a synced passkey was refused: %v", err)
+	}
+
+	// A key stored before the flags were kept: its first sign-in records them.
+	if _, err := harness.pool.Exec(ctx,
+		`UPDATE admin_passkeys SET backup_eligible = NULL, backup_state = NULL`); err != nil {
+		t.Fatal(err)
+	}
+	device.signCount++
+	if _, err := signIn(t, ctx, service, device, handle); err != nil {
+		t.Fatalf("a synced passkey registered before the flags were kept was refused: %v", err)
+	}
+	var eligible, state *bool
+	if err := harness.pool.QueryRow(ctx,
+		`SELECT backup_eligible, backup_state FROM admin_passkeys`).Scan(&eligible, &state); err != nil {
+		t.Fatal(err)
+	}
+	if eligible == nil || !*eligible || state == nil || !*state {
+		t.Fatalf("flags after the first sign-in: eligible %v, state %v", eligible, state)
+	}
+
+	// Held to them from then on: the same credential claiming it cannot be
+	// backed up is not the credential that was registered.
+	device.synced = false
+	device.signCount++
+	if _, err := signIn(t, ctx, service, device, handle); err == nil {
+		t.Fatal("a backup-eligible passkey answering as not eligible was accepted")
 	}
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/omniflow/omniflow/internal/adminauth"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 )
@@ -179,9 +180,11 @@ func (service *Service) FinishPasskeyRegistration(
 			// True by construction, not by observation: registration asked for
 			// a resident key as a requirement, so an authenticator that could
 			// not store one failed the ceremony rather than reaching here.
-			Discoverable: true,
-			UserVerified: credential.Flags.UserVerified,
-			CreatedIp:    request.IP,
+			Discoverable:   true,
+			UserVerified:   credential.Flags.UserVerified,
+			CreatedIp:      request.IP,
+			BackupEligible: pgtype.Bool{Bool: credential.Flags.BackupEligible, Valid: true},
+			BackupState:    pgtype.Bool{Bool: credential.Flags.BackupState, Valid: true},
 		})
 		if txErr != nil {
 			return txErr
@@ -261,7 +264,7 @@ func (service *Service) FinishPasskeyLogin(
 		storedRow, account = row, owner
 		return passkeyUser{
 			id: owner.ID.Bytes[:], name: owner.Email, displayName: owner.DisplayName,
-			credentials: []webauthn.Credential{credentialFrom(row)},
+			credentials: []webauthn.Credential{credentialFrom(row, response.Response.AuthenticatorData.Flags)},
 		}, nil
 	}
 
@@ -301,9 +304,11 @@ func (service *Service) FinishPasskeyLogin(
 	}
 
 	if err = queries.RecordAdminPasskeyUse(ctx, dbgen.RecordAdminPasskeyUseParams{
-		PasskeyID:  storedRow.ID,
-		SignCount:  int64(credential.Authenticator.SignCount),
-		LastUsedIp: request.IP,
+		PasskeyID:      storedRow.ID,
+		SignCount:      int64(credential.Authenticator.SignCount),
+		LastUsedIp:     request.IP,
+		BackupEligible: pgtype.Bool{Bool: credential.Flags.BackupEligible, Valid: true},
+		BackupState:    pgtype.Bool{Bool: credential.Flags.BackupState, Valid: true},
 	}); err != nil {
 		return LoginResult{}, err
 	}
@@ -404,7 +409,8 @@ func (service *Service) passkeyUser(ctx context.Context, adminUserID string) (pa
 	}
 	credentials := make([]webauthn.Credential, 0, len(rows))
 	for _, row := range rows {
-		credentials = append(credentials, credentialFrom(row))
+		// Listed only to exclude keys already registered; no flags are checked.
+		credentials = append(credentials, credentialFrom(row, 0))
 	}
 	return passkeyUser{
 		id: account.ID.Bytes[:], name: account.Email,
@@ -412,11 +418,23 @@ func (service *Service) passkeyUser(ctx context.Context, adminUserID string) (pa
 	}, nil
 }
 
-func credentialFrom(row dbgen.AdminPasskey) webauthn.Credential {
+// credentialFrom rebuilds the stored credential for a check. reported is the
+// authenticator data's flags from the assertion being checked: a passkey
+// registered before its backup flags were kept takes them from there once,
+// since nothing else knows them, and RecordAdminPasskeyUse stores them.
+func credentialFrom(row dbgen.AdminPasskey, reported protocol.AuthenticatorFlags) webauthn.Credential {
+	flags := webauthn.CredentialFlags{
+		UserVerified:   row.UserVerified,
+		BackupEligible: reported.HasBackupEligible(),
+		BackupState:    reported.HasBackupState(),
+	}
+	if row.BackupEligible.Valid {
+		flags.BackupEligible = row.BackupEligible.Bool
+	}
 	return webauthn.Credential{
 		ID:        row.CredentialID,
 		PublicKey: row.PublicKey,
-		Flags:     webauthn.CredentialFlags{UserVerified: row.UserVerified},
+		Flags:     flags,
 		Authenticator: webauthn.Authenticator{
 			AAGUID: row.Aaguid, SignCount: uint32(row.SignCount),
 		},

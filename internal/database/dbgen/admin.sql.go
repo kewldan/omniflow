@@ -305,25 +305,28 @@ func (q *Queries) CountUnusedAdminRecoveryCodes(ctx context.Context, adminUserID
 const createAdminPasskey = `-- name: CreateAdminPasskey :one
 INSERT INTO admin_passkeys (
   admin_user_id, credential_id, public_key, label,
-  sign_count, aaguid, discoverable, user_verified, created_ip
+  sign_count, aaguid, discoverable, user_verified, created_ip,
+  backup_eligible, backup_state
 ) VALUES (
   $1, $2, $3, $4,
   $5, $6, $7, $8,
-  $9
+  $9, $10, $11
 )
-RETURNING id, admin_user_id, credential_id, public_key, label, sign_count, aaguid, discoverable, user_verified, created_at, created_ip, last_used_at, last_used_ip
+RETURNING id, admin_user_id, credential_id, public_key, label, sign_count, aaguid, discoverable, user_verified, created_at, created_ip, last_used_at, last_used_ip, backup_eligible, backup_state
 `
 
 type CreateAdminPasskeyParams struct {
-	AdminUserID  pgtype.UUID `json:"admin_user_id"`
-	CredentialID []byte      `json:"credential_id"`
-	PublicKey    []byte      `json:"public_key"`
-	Label        string      `json:"label"`
-	SignCount    int64       `json:"sign_count"`
-	Aaguid       []byte      `json:"aaguid"`
-	Discoverable bool        `json:"discoverable"`
-	UserVerified bool        `json:"user_verified"`
-	CreatedIp    *netip.Addr `json:"created_ip"`
+	AdminUserID    pgtype.UUID `json:"admin_user_id"`
+	CredentialID   []byte      `json:"credential_id"`
+	PublicKey      []byte      `json:"public_key"`
+	Label          string      `json:"label"`
+	SignCount      int64       `json:"sign_count"`
+	Aaguid         []byte      `json:"aaguid"`
+	Discoverable   bool        `json:"discoverable"`
+	UserVerified   bool        `json:"user_verified"`
+	CreatedIp      *netip.Addr `json:"created_ip"`
+	BackupEligible pgtype.Bool `json:"backup_eligible"`
+	BackupState    pgtype.Bool `json:"backup_state"`
 }
 
 func (q *Queries) CreateAdminPasskey(ctx context.Context, arg CreateAdminPasskeyParams) (AdminPasskey, error) {
@@ -337,6 +340,8 @@ func (q *Queries) CreateAdminPasskey(ctx context.Context, arg CreateAdminPasskey
 		arg.Discoverable,
 		arg.UserVerified,
 		arg.CreatedIp,
+		arg.BackupEligible,
+		arg.BackupState,
 	)
 	var i AdminPasskey
 	err := row.Scan(
@@ -353,6 +358,8 @@ func (q *Queries) CreateAdminPasskey(ctx context.Context, arg CreateAdminPasskey
 		&i.CreatedIp,
 		&i.LastUsedAt,
 		&i.LastUsedIp,
+		&i.BackupEligible,
+		&i.BackupState,
 	)
 	return i, err
 }
@@ -564,7 +571,7 @@ func (q *Queries) DeleteAdminOIDCProvider(ctx context.Context, slug string) erro
 const deleteAdminPasskey = `-- name: DeleteAdminPasskey :one
 DELETE FROM admin_passkeys
 WHERE id = $1 AND admin_user_id = $2
-RETURNING id, admin_user_id, credential_id, public_key, label, sign_count, aaguid, discoverable, user_verified, created_at, created_ip, last_used_at, last_used_ip
+RETURNING id, admin_user_id, credential_id, public_key, label, sign_count, aaguid, discoverable, user_verified, created_at, created_ip, last_used_at, last_used_ip, backup_eligible, backup_state
 `
 
 type DeleteAdminPasskeyParams struct {
@@ -591,6 +598,8 @@ func (q *Queries) DeleteAdminPasskey(ctx context.Context, arg DeleteAdminPasskey
 		&i.CreatedIp,
 		&i.LastUsedAt,
 		&i.LastUsedIp,
+		&i.BackupEligible,
+		&i.BackupState,
 	)
 	return i, err
 }
@@ -741,7 +750,7 @@ func (q *Queries) GetAdminOIDCProviderBySlug(ctx context.Context, slug string) (
 }
 
 const getAdminPasskeyByCredential = `-- name: GetAdminPasskeyByCredential :one
-SELECT id, admin_user_id, credential_id, public_key, label, sign_count, aaguid, discoverable, user_verified, created_at, created_ip, last_used_at, last_used_ip FROM admin_passkeys WHERE credential_id = $1
+SELECT id, admin_user_id, credential_id, public_key, label, sign_count, aaguid, discoverable, user_verified, created_at, created_ip, last_used_at, last_used_ip, backup_eligible, backup_state FROM admin_passkeys WHERE credential_id = $1
 `
 
 // The lookup an assertion performs. It is by credential alone because a
@@ -764,6 +773,8 @@ func (q *Queries) GetAdminPasskeyByCredential(ctx context.Context, credentialID 
 		&i.CreatedIp,
 		&i.LastUsedAt,
 		&i.LastUsedIp,
+		&i.BackupEligible,
+		&i.BackupState,
 	)
 	return i, err
 }
@@ -1092,7 +1103,7 @@ func (q *Queries) ListAdminOIDCProviders(ctx context.Context) ([]AdminOidcProvid
 
 const listAdminPasskeys = `-- name: ListAdminPasskeys :many
 
-SELECT id, admin_user_id, credential_id, public_key, label, sign_count, aaguid, discoverable, user_verified, created_at, created_ip, last_used_at, last_used_ip FROM admin_passkeys
+SELECT id, admin_user_id, credential_id, public_key, label, sign_count, aaguid, discoverable, user_verified, created_at, created_ip, last_used_at, last_used_ip, backup_eligible, backup_state FROM admin_passkeys
 WHERE admin_user_id = $1
 ORDER BY created_at DESC
 `
@@ -1127,6 +1138,8 @@ func (q *Queries) ListAdminPasskeys(ctx context.Context, adminUserID pgtype.UUID
 			&i.CreatedIp,
 			&i.LastUsedAt,
 			&i.LastUsedIp,
+			&i.BackupEligible,
+			&i.BackupState,
 		); err != nil {
 			return nil, err
 		}
@@ -1556,21 +1569,33 @@ const recordAdminPasskeyUse = `-- name: RecordAdminPasskeyUse :exec
 UPDATE admin_passkeys
 SET sign_count = GREATEST(sign_count, $1),
     last_used_at = now(),
-    last_used_ip = $2
-WHERE id = $3
+    last_used_ip = $2,
+    -- Recorded once for a passkey registered before the flag was kept; the
+    -- backup state may change between sign-ins and is simply the latest.
+    backup_eligible = COALESCE(backup_eligible, $3),
+    backup_state = $4
+WHERE id = $5
 `
 
 type RecordAdminPasskeyUseParams struct {
-	SignCount  int64       `json:"sign_count"`
-	LastUsedIp *netip.Addr `json:"last_used_ip"`
-	PasskeyID  pgtype.UUID `json:"passkey_id"`
+	SignCount      int64       `json:"sign_count"`
+	LastUsedIp     *netip.Addr `json:"last_used_ip"`
+	BackupEligible pgtype.Bool `json:"backup_eligible"`
+	BackupState    pgtype.Bool `json:"backup_state"`
+	PasskeyID      pgtype.UUID `json:"passkey_id"`
 }
 
 // The counter only ever moves forward. A replayed assertion carrying an older
 // value must not roll it back, or the clone detection it exists for would be
 // defeated by the very thing it is watching for.
 func (q *Queries) RecordAdminPasskeyUse(ctx context.Context, arg RecordAdminPasskeyUseParams) error {
-	_, err := q.db.Exec(ctx, recordAdminPasskeyUse, arg.SignCount, arg.LastUsedIp, arg.PasskeyID)
+	_, err := q.db.Exec(ctx, recordAdminPasskeyUse,
+		arg.SignCount,
+		arg.LastUsedIp,
+		arg.BackupEligible,
+		arg.BackupState,
+		arg.PasskeyID,
+	)
 	return err
 }
 
@@ -1623,7 +1648,7 @@ func (q *Queries) RecordAdminTOTPFailure(ctx context.Context, arg RecordAdminTOT
 const renameAdminPasskey = `-- name: RenameAdminPasskey :one
 UPDATE admin_passkeys SET label = $1
 WHERE id = $2 AND admin_user_id = $3
-RETURNING id, admin_user_id, credential_id, public_key, label, sign_count, aaguid, discoverable, user_verified, created_at, created_ip, last_used_at, last_used_ip
+RETURNING id, admin_user_id, credential_id, public_key, label, sign_count, aaguid, discoverable, user_verified, created_at, created_ip, last_used_at, last_used_ip, backup_eligible, backup_state
 `
 
 type RenameAdminPasskeyParams struct {
@@ -1649,6 +1674,8 @@ func (q *Queries) RenameAdminPasskey(ctx context.Context, arg RenameAdminPasskey
 		&i.CreatedIp,
 		&i.LastUsedAt,
 		&i.LastUsedIp,
+		&i.BackupEligible,
+		&i.BackupState,
 	)
 	return i, err
 }
