@@ -248,6 +248,15 @@ type SignInResult struct {
 	ExpiresAt time.Time
 	Customer  Customer
 	SessionID string
+	// LinkMessage is the bot message that delivered a redeemed sign-in link,
+	// for the caller to delete; nil for every other route.
+	LinkMessage *ChatMessage
+}
+
+// ChatMessage names one message in a Telegram chat.
+type ChatMessage struct {
+	ChatID    int64
+	MessageID int
 }
 
 // ---------------------------------------------------------------------------

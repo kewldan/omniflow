@@ -12,6 +12,27 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const attachCustomerMagicLinkMessage = `-- name: AttachCustomerMagicLinkMessage :exec
+UPDATE customer_magic_links
+SET telegram_chat_id = $1,
+    telegram_message_id = $2
+WHERE token_hash = $3
+  AND consumed_at IS NULL
+`
+
+type AttachCustomerMagicLinkMessageParams struct {
+	TelegramChatID    pgtype.Int8 `json:"telegram_chat_id"`
+	TelegramMessageID pgtype.Int4 `json:"telegram_message_id"`
+	TokenHash         []byte      `json:"token_hash"`
+}
+
+// Remembers the chat message a link was delivered in, while the link is
+// still unspent.
+func (q *Queries) AttachCustomerMagicLinkMessage(ctx context.Context, arg AttachCustomerMagicLinkMessageParams) error {
+	_, err := q.db.Exec(ctx, attachCustomerMagicLinkMessage, arg.TelegramChatID, arg.TelegramMessageID, arg.TokenHash)
+	return err
+}
+
 const checkCustomerMagicLink = `-- name: CheckCustomerMagicLink :one
 SELECT id FROM customer_magic_links
 WHERE token_hash = $1
@@ -35,7 +56,7 @@ SET consumed_at = now(), consumed_ip = $1
 WHERE token_hash = $2
   AND consumed_at IS NULL
   AND expires_at > now()
-RETURNING id, user_id, token_hash, requested_ip, created_at, expires_at, consumed_at, consumed_ip, email_fingerprint, email_ciphertext
+RETURNING id, user_id, token_hash, requested_ip, created_at, expires_at, consumed_at, consumed_ip, email_fingerprint, email_ciphertext, telegram_chat_id, telegram_message_id
 `
 
 type ConsumeCustomerMagicLinkParams struct {
@@ -60,6 +81,8 @@ func (q *Queries) ConsumeCustomerMagicLink(ctx context.Context, arg ConsumeCusto
 		&i.ConsumedIp,
 		&i.EmailFingerprint,
 		&i.EmailCiphertext,
+		&i.TelegramChatID,
+		&i.TelegramMessageID,
 	)
 	return i, err
 }
@@ -122,7 +145,7 @@ VALUES (
   $1, $2, $3,
   now() + $4::interval, $5, $6
 )
-RETURNING id, user_id, token_hash, requested_ip, created_at, expires_at, consumed_at, consumed_ip, email_fingerprint, email_ciphertext
+RETURNING id, user_id, token_hash, requested_ip, created_at, expires_at, consumed_at, consumed_ip, email_fingerprint, email_ciphertext, telegram_chat_id, telegram_message_id
 `
 
 type CreateCustomerEmailMagicLinkParams struct {
@@ -157,6 +180,8 @@ func (q *Queries) CreateCustomerEmailMagicLink(ctx context.Context, arg CreateCu
 		&i.ConsumedIp,
 		&i.EmailFingerprint,
 		&i.EmailCiphertext,
+		&i.TelegramChatID,
+		&i.TelegramMessageID,
 	)
 	return i, err
 }
@@ -203,7 +228,7 @@ VALUES (
   $1, $2, $3,
   now() + $4::interval
 )
-RETURNING id, user_id, token_hash, requested_ip, created_at, expires_at, consumed_at, consumed_ip, email_fingerprint, email_ciphertext
+RETURNING id, user_id, token_hash, requested_ip, created_at, expires_at, consumed_at, consumed_ip, email_fingerprint, email_ciphertext, telegram_chat_id, telegram_message_id
 `
 
 type CreateCustomerMagicLinkParams struct {
@@ -235,6 +260,8 @@ func (q *Queries) CreateCustomerMagicLink(ctx context.Context, arg CreateCustome
 		&i.ConsumedIp,
 		&i.EmailFingerprint,
 		&i.EmailCiphertext,
+		&i.TelegramChatID,
+		&i.TelegramMessageID,
 	)
 	return i, err
 }

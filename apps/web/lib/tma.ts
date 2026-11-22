@@ -10,6 +10,7 @@
  */
 import {
   backButton,
+  downloadFile,
   hapticFeedback,
   init,
   isTMA,
@@ -220,4 +221,27 @@ export function openThroughTelegram(href: string): boolean {
     return opened;
   }
   return false;
+}
+
+/**
+ * Whether Telegram can save a file for the page. Its web view drops a download
+ * the page starts itself, so a file has to be handed to Telegram by address.
+ */
+export function canDownloadThroughTelegram(): boolean {
+  if (!started) {
+    return false;
+  }
+  try {
+    return downloadFile.isAvailable();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Asks Telegram to download `url` (https) under `fileName`. Telegram shows its
+ * own prompt and fetches the address itself, without the page's cookies.
+ */
+export async function downloadThroughTelegram(url: string, fileName: string): Promise<void> {
+  await downloadFile(url, fileName);
 }

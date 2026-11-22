@@ -8519,6 +8519,15 @@ export type AddAccountContactBody = {
   marketing?: boolean;
 };
 
+export type IssueAccountExportLink200 = {
+  path: string;
+  expiresAt: string;
+};
+
+export type DownloadAccountExportByLinkParams = {
+  token: string;
+};
+
 export type RequestAccountDeletionBody = {
   confirm: true;
   /** @minLength 1 */
@@ -38673,6 +38682,178 @@ export const useExportAccountPersonalData = <TError = Promise<ProblemResponse>>(
   const swrFn = getExportAccountPersonalDataMutationFetcher(fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type issueAccountExportLinkResponse200 = {
+  data: IssueAccountExportLink200;
+  status: 200;
+};
+
+export type issueAccountExportLinkResponse429 = {
+  data: ProblemResponse;
+  status: 429;
+};
+
+export type issueAccountExportLinkResponse503 = {
+  data: ProblemResponse;
+  status: 503;
+};
+
+export type issueAccountExportLinkResponseSuccess = issueAccountExportLinkResponse200 & {
+  headers: Headers;
+};
+export type issueAccountExportLinkResponseError = (
+  | issueAccountExportLinkResponse429
+  | issueAccountExportLinkResponse503
+) & {
+  headers: Headers;
+};
+
+export type issueAccountExportLinkResponse =
+  | issueAccountExportLinkResponseSuccess
+  | issueAccountExportLinkResponseError;
+
+export const getIssueAccountExportLinkUrl = () => {
+  return `/v1/account/privacy/export/link`;
+};
+
+/**
+ * A one-time path that serves the export to whoever fetches it, for the Telegram Mini App: Telegram's web view cannot save a file the page assembled, and Telegram's own download fetches the address without the session cookie. The link lives five minutes, works once, and counts against the export limit.
+ */
+export const issueAccountExportLink = async (
+  options?: RequestInit,
+): Promise<issueAccountExportLinkResponse> => {
+  const res = await fetch(getIssueAccountExportLinkUrl(), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: issueAccountExportLinkResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as issueAccountExportLinkResponse;
+};
+
+export const getIssueAccountExportLinkMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return issueAccountExportLink(options);
+  };
+};
+export const getIssueAccountExportLinkMutationKey = () =>
+  [`/v1/account/privacy/export/link`] as const;
+
+export type IssueAccountExportLinkMutationResult = NonNullable<
+  Awaited<ReturnType<typeof issueAccountExportLink>>
+>;
+
+export const useIssueAccountExportLink = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof issueAccountExportLink>>,
+    TError,
+    Key,
+    Arguments,
+    Awaited<ReturnType<typeof issueAccountExportLink>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getIssueAccountExportLinkMutationKey();
+  const swrFn = getIssueAccountExportLinkMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type downloadAccountExportByLinkResponse200 = {
+  data: AccountExport;
+  status: 200;
+};
+
+export type downloadAccountExportByLinkResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type downloadAccountExportByLinkResponseSuccess = downloadAccountExportByLinkResponse200 & {
+  headers: Headers;
+};
+export type downloadAccountExportByLinkResponseError = downloadAccountExportByLinkResponse404 & {
+  headers: Headers;
+};
+
+export type downloadAccountExportByLinkResponse =
+  | downloadAccountExportByLinkResponseSuccess
+  | downloadAccountExportByLinkResponseError;
+
+export const getDownloadAccountExportByLinkUrl = (params: DownloadAccountExportByLinkParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/account/privacy/export/file?${stringifiedParams}`
+    : `/v1/account/privacy/export/file`;
+};
+
+/**
+ * Spends a link from issueAccountExportLink and answers with the export as a file.
+ */
+export const downloadAccountExportByLink = async (
+  params: DownloadAccountExportByLinkParams,
+  options?: RequestInit,
+): Promise<downloadAccountExportByLinkResponse> => {
+  const res = await fetch(getDownloadAccountExportByLinkUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: downloadAccountExportByLinkResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as downloadAccountExportByLinkResponse;
+};
+
+export const getDownloadAccountExportByLinkKey = (params: DownloadAccountExportByLinkParams) =>
+  [`/v1/account/privacy/export/file`, ...(params ? [params] : [])] as const;
+
+export type DownloadAccountExportByLinkQueryResult = NonNullable<
+  Awaited<ReturnType<typeof downloadAccountExportByLink>>
+>;
+
+export const useDownloadAccountExportByLink = <TError = Promise<ProblemResponse>>(
+  params: DownloadAccountExportByLinkParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof downloadAccountExportByLink>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getDownloadAccountExportByLinkKey(params) : null));
+  const swrFn = () => downloadAccountExportByLink(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,

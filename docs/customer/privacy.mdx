@@ -143,6 +143,14 @@ further disclosure decisions to answer a question that fits inside one response.
 Nothing is written to disk, nothing is emailed, and the document exists in that
 one response and nowhere else.
 
+The Telegram Mini App is the exception, because Telegram's web view drops a file
+the page saves itself. There the card asks for a one-time address
+(`POST /v1/account/privacy/export/link`) and hands it to Telegram's own download
+prompt; Telegram fetches `GET /v1/account/privacy/export/file` without the
+session cookie, so the address is the credential. It lives five minutes, works
+once, counts against the same three-an-hour limit, and the document is built
+when it is fetched — nothing of it is stored in between.
+
 ### What is in it
 
 | Section | Contents |

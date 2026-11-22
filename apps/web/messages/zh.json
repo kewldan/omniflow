@@ -5775,6 +5775,7 @@
         "download": "下载我的数据",
         "preparing": "正在生成文件…",
         "saved": "文件已保存",
+        "telegram": "Telegram 将提示您保存文件",
         "savedAt": "已于 {time} 生成并保存到您的设备。",
         "redactionsChanged": "文件排除的内容比此页面列出的更多。实际排除的内容：{items}",
         "truncated": "以下部分内容过长，已被截断：{sections}。如需完整内容，请联系客服。",

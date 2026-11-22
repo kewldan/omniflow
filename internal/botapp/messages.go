@@ -97,10 +97,15 @@ var catalog = map[string]phrase{
 	// the copy says so plainly rather than leaving the customer to guess whether
 	// forwarding it is safe.
 	"weblogin.link": {
-		ru: "🔐 <b>Вход в личный кабинет</b>\n\nСсылка действует 10 минут и сработает один раз. " +
-			"Не пересылайте её — тот, кто откроет ссылку, войдёт в ваш аккаунт.\n\n%s",
-		en: "🔐 <b>Sign in to your account</b>\n\nThis link works once and expires in 10 minutes. " +
-			"Do not forward it — whoever opens it signs in as you.\n\n%s"},
+		ru: "🔐 <b>Вход в личный кабинет</b>\n\nКнопка ниже действует 10 минут и сработает один раз. " +
+			"Не пересылайте это сообщение — тот, кто откроет ссылку, войдёт в ваш аккаунт. " +
+			"После входа сообщение удалится.",
+		en: "🔐 <b>Sign in to your account</b>\n\nThe button below works once and expires in 10 minutes. " +
+			"Do not forward this message — whoever opens the link signs in as you. " +
+			"It is deleted once you have signed in."},
+	"weblogin.button": {
+		ru: "Войти в кабинет",
+		en: "Sign in"},
 	"weblogin.unavailable": {
 		ru: "Вход на сайте через ссылку сейчас недоступен.",
 		en: "Link sign-in on the website is not available right now."},

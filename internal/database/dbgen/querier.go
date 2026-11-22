@@ -81,6 +81,9 @@ type Querier interface {
 	// should be able to put it down.
 	AssignSupportTicket(ctx context.Context, arg AssignSupportTicketParams) (SupportTicket, error)
 	AttachAccessCodeEntitlement(ctx context.Context, arg AttachAccessCodeEntitlementParams) error
+	// Remembers the chat message a link was delivered in, while the link is
+	// still unspent.
+	AttachCustomerMagicLinkMessage(ctx context.Context, arg AttachCustomerMagicLinkMessageParams) error
 	// Gives a detached subscription order the subscription opened in place of
 	// the one the ghost cleanup removed. It only ever fills an empty target, so it
 	// can never move an order from one subscription to another.
@@ -1695,6 +1698,11 @@ type Querier interface {
 	// What the customer panel lists. A page can be published without being listed:
 	// a document that exists to satisfy a provider's review needs a stable address
 	// and not necessarily a menu entry.
+	//
+	// Each page is listed once, in the reader's language when it has it and in
+	// another otherwise, the way GetPublishedInfoPage answers at its address: an
+	// installation that writes its pages in Russian only must not show an English
+	// reader an empty list of pages that open for them.
 	ListPublishedInfoPages(ctx context.Context, locale string) ([]ListPublishedInfoPagesRow, error)
 	// The panel's review queue: failed and abandoned charges, newest first, with
 	// the customer attached so the list is usable without a second lookup per row.

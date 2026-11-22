@@ -2181,6 +2181,8 @@ CREATE TABLE public.customer_magic_links (
     consumed_ip inet,
     email_fingerprint bytea,
     email_ciphertext bytea,
+    telegram_chat_id bigint,
+    telegram_message_id integer,
     CONSTRAINT customer_magic_links_consumption_complete CHECK (((consumed_ip IS NULL) OR (consumed_at IS NOT NULL))),
     CONSTRAINT customer_magic_links_expiry_after_creation CHECK ((expires_at > created_at)),
     CONSTRAINT customer_magic_links_target_known CHECK (((user_id IS NOT NULL) OR ((email_fingerprint IS NOT NULL) AND (email_ciphertext IS NOT NULL)))),

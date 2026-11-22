@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -308,6 +309,28 @@ func (handlers *AccountHandlers) completeMagicLink(writer http.ResponseWriter, r
 		return
 	}
 	handlers.finishSignIn(writer, request, result, err)
+	if err == nil && result.LinkMessage != nil && handlers.chat != nil {
+		handlers.deleteLinkMessage(*result.LinkMessage)
+	}
+}
+
+// ChatMessageRemover deletes one message from a Telegram chat.
+type ChatMessageRemover interface {
+	DeleteMessage(ctx context.Context, chatID int64, messageID int) error
+}
+
+// deleteLinkMessage removes the bot message a spent link was delivered in.
+// The customer is already signed in, so this runs apart from the request and
+// a failure is only logged: Telegram refuses to delete a message older than
+// two days, and the customer may have deleted it themselves.
+func (handlers *AccountHandlers) deleteLinkMessage(message customerauthpg.ChatMessage) {
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		if err := handlers.chat.DeleteMessage(ctx, message.ChatID, message.MessageID); err != nil {
+			handlers.logger.Info("the sign-in link message was not deleted", "error", err)
+		}
+	}()
 }
 
 // ---------------------------------------------------------------------------

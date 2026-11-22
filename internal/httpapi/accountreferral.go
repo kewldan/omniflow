@@ -33,6 +33,7 @@ func (handlers *AccountHandlers) mountReferral(router chi.Router) {
 
 	router.Get("/privacy", handlers.privacy)
 	router.Post("/privacy/export", handlers.exportPersonalData)
+	router.Post("/privacy/export/link", handlers.issueExportLink)
 	router.With(handlers.requireRecentAuthentication).
 		Post("/privacy/deletion", handlers.requestDeletion)
 	router.Delete("/privacy/deletion", handlers.cancelDeletion)

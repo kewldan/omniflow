@@ -14956,6 +14956,51 @@ export const ExportAccountPersonalDataResponse = zod
   );
 
 /**
+ * A one-time path that serves the export to whoever fetches it, for the Telegram Mini App: Telegram's web view cannot save a file the page assembled, and Telegram's own download fetches the address without the session cookie. The link lives five minutes, works once, and counts against the export limit.
+ */
+export const IssueAccountExportLinkHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const IssueAccountExportLinkResponse = zod.object({
+  path: zod.string(),
+  expiresAt: zod.iso.datetime({ offset: true }),
+});
+
+/**
+ * Spends a link from issueAccountExportLink and answers with the export as a file.
+ */
+export const DownloadAccountExportByLinkQueryParams = zod.object({
+  token: zod.string(),
+});
+
+export const DownloadAccountExportByLinkResponse = zod
+  .object({
+    version: zod.enum(["omniflow.account.export/1"]),
+    generatedAt: zod.iso.datetime({ offset: true }),
+    profile: zod.looseObject({}),
+    identities: zod.array(zod.looseObject({})).optional(),
+    contacts: zod.array(zod.looseObject({})).optional(),
+    subscriptions: zod.array(zod.looseObject({})).optional(),
+    entitlements: zod.array(zod.looseObject({})).optional(),
+    orders: zod.array(zod.looseObject({})).optional(),
+    payments: zod.array(zod.looseObject({})).optional(),
+    wallet: zod.array(zod.looseObject({})).optional(),
+    support: zod.array(zod.looseObject({})).optional(),
+    referral: zod.looseObject({}).optional(),
+    loyalty: zod.looseObject({}).optional(),
+    consents: zod.array(zod.looseObject({})).optional(),
+    lifecycle: zod.array(zod.looseObject({})).optional(),
+    redactions: zod.array(zod.string()),
+    truncated: zod.array(zod.string()),
+  })
+  .describe(
+    "The customer's own records. It names what it left out in `redactions` and which sections hit the per-section row cap in `truncated`, because an export that silently omitted something would be worse than one that says so.",
+  );
+
+/**
  * Records a deletion request and nothing else. The retention workflow an operator already governs is what deletes, so an irreversible action never happens on the strength of one browser session. It needs a recent sign-in, and answers 202 because the work has been accepted rather than done.
  */
 export const RequestAccountDeletionHeader = zod.object({

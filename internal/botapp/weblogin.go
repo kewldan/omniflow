@@ -19,6 +19,9 @@ import (
 // link reaches somebody who already controls the account.
 type WebSignIn interface {
 	IssueMagicLink(ctx context.Context, customerID string) (string, error)
+	// AttachMagicLinkMessage records the message a link was delivered in, so
+	// signing in with it deletes the message from the chat.
+	AttachMagicLinkMessage(ctx context.Context, link string, chatID int64, messageID int) error
 }
 
 // WithWebSignIn attaches the customer web sign-in issuer. Leaving it nil is the
@@ -31,10 +34,10 @@ func (app *App) WithWebSignIn(issuer WebSignIn) *App {
 
 // HandleWebLogin answers /login with a one-time link into the web panel.
 //
-// The link is sent as plain text rather than as a button. A Telegram inline
-// button would open the link in the in-app browser, which on several platforms
-// holds a separate cookie jar from the customer's real browser — they would sign
-// in somewhere they are not going to come back to.
+// The link is a URL button under the warning rather than a raw address in the
+// text: a token printed in the message is easy to copy by accident and reads
+// as noise. Once the link is spent, the API deletes the message, so the chat
+// is left with no credential, used or not, for anybody to find later.
 func (app *App) HandleWebLogin(ctx context.Context, client *telegram.Bot, update *models.Update) {
 	message := update.Message
 	if message == nil || message.From == nil || message.Chat.Type != models.ChatTypePrivate {
@@ -89,10 +92,19 @@ func (app *App) HandleWebLogin(ctx context.Context, client *telegram.Bot, update
 	// from the outside exactly like a command that was never received: no
 	// message arrives, and until this line existed nothing was written down
 	// either. The link itself is never logged — it is a credential.
-	if _, err := client.SendMessage(ctx, sendParams(message.Chat.ID, View{
-		Text: text(locale, "weblogin.link", link), Protect: true,
-	})); err != nil {
+	sent, err := client.SendMessage(ctx, sendParams(message.Chat.ID, View{
+		Text: text(locale, "weblogin.link"), Protect: true,
+		Keyboard: keyboard(row(models.InlineKeyboardButton{
+			Text: text(locale, "weblogin.button"), URL: link,
+		})),
+	}))
+	if err != nil {
 		app.logger.Warn("web sign-in link could not be delivered", "error", err)
+		return
+	}
+	if err := app.webSignIn.AttachMagicLinkMessage(ctx, link, message.Chat.ID, sent.ID); err != nil {
+		// The link still works; only the clean-up after it is lost.
+		app.logger.Warn("web sign-in message could not be recorded", "error", err)
 	}
 }
 

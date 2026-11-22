@@ -29,6 +29,7 @@ import (
 type AccountHandlers struct {
 	auth    *customerauthpg.Service
 	avatars AvatarSource
+	chat    ChatMessageRemover
 	account *accountpg.Service
 	limiter *platform.RateLimiter
 	logger  *slog.Logger
@@ -70,6 +71,9 @@ type AccountOptions struct {
 	Proxies  *TrustedProxies
 	// Avatars serves customers' Telegram photos; nil without a bot.
 	Avatars AvatarSource
+	// Chat deletes the bot message a spent sign-in link was delivered in; nil
+	// without a bot.
+	Chat ChatMessageRemover
 	// CookieSecure must be true in production. It is separately configurable
 	// only so a plain-HTTP local development stack can sign in at all.
 	CookieSecure bool
@@ -102,7 +106,8 @@ func NewAccountHandlers(options AccountOptions) *AccountHandlers {
 		options.Checkout.SetBotUsername(options.Auth.BotUsername)
 	}
 	return &AccountHandlers{
-		auth: options.Auth, avatars: options.Avatars, account: options.Account, limiter: options.Limiter,
+		auth: options.Auth, avatars: options.Avatars, chat: options.Chat,
+		account: options.Account, limiter: options.Limiter,
 		logger: logger, proxies: proxies,
 		checkout: options.Checkout, shop: options.Shop,
 		support: options.Support, referral: options.Referral,
@@ -134,6 +139,10 @@ func (handlers *AccountHandlers) Mount(router chi.Router) {
 		account.With(requireSameOriginJSON).Post("/auth/link", handlers.completeMagicLink)
 		account.With(requireSameOriginJSON).Post("/auth/email", handlers.requestEmailSignIn)
 		account.Get("/auth/link", handlers.checkMagicLink)
+		// The link is the credential here; see accountexportlink.go.
+		if handlers.referral != nil {
+			account.Get("/privacy/export/file", handlers.exportByLink)
+		}
 		account.Get("/auth/oidc/{slug}/start", handlers.startOIDC)
 		account.Get("/auth/oidc/{slug}/callback", handlers.callbackOIDC)
 		handlers.mountGrowthPublic(account)

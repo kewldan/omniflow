@@ -62,7 +62,7 @@ func TestAMessageWithAKeyboardStillSendsIt(t *testing.T) {
 func TestTheKeyboardlessViewsAreDeliverable(t *testing.T) {
 	var none notices
 	for name, view := range map[string]View{
-		"web sign-in link":   {Text: text(LocaleEnglish, "weblogin.link", "https://example.test/x")},
+		"web sign-in link":   {Text: text(LocaleEnglish, "weblogin.link")},
 		"sign-in notice":     {Text: text(LocaleEnglish, "weblogin.unavailable")},
 		"test notification":  testNotificationView(LocaleEnglish, time.Unix(0, 0).UTC()),
 		"dunning (has keys)": dunningAlertView(none, LocaleEnglish, false),

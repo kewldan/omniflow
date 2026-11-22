@@ -406,6 +406,12 @@ func (issuer webSignIn) IssueMagicLink(ctx context.Context, customerID string) (
 	return issuer.service.IssueMagicLink(ctx, customerID, customerauthpg.RequestContext{})
 }
 
+func (issuer webSignIn) AttachMagicLinkMessage(
+	ctx context.Context, link string, chatID int64, messageID int,
+) error {
+	return issuer.service.AttachMagicLinkMessage(ctx, link, chatID, messageID)
+}
+
 func configureCommands(ctx context.Context, logger *slog.Logger, client *telegram.Bot) {
 	commands := []models.BotCommand{
 		{Command: "start", Description: "Open your Omniflow account"},

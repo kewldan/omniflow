@@ -537,6 +537,44 @@ func TestMagicLinkIsSingleUseUnderConcurrency(t *testing.T) {
 	}
 }
 
+// Redeeming a link hands back the chat message it was delivered in, so the
+// API can delete it; a link nobody attached a message to hands back none.
+func TestMagicLinkNamesTheMessageThatDeliveredIt(t *testing.T) {
+	ctx := context.Background()
+	harness := newHarness(t)
+	now := time.Now().UTC()
+	service := newCustomerService(t, harness, func() time.Time { return now })
+
+	seed, err := service.SignInWithTelegram(ctx, signedWidget(700410, now), customerauthpg.RequestContext{})
+	if err != nil {
+		t.Fatalf("seed customer: %v", err)
+	}
+	redeem := func(attach bool) *customerauthpg.ChatMessage {
+		link, issueErr := service.IssueMagicLink(ctx, seed.Customer.ID, customerauthpg.RequestContext{})
+		if issueErr != nil {
+			t.Fatalf("issue: %v", issueErr)
+		}
+		if attach {
+			if attachErr := service.AttachMagicLinkMessage(ctx, link, 700410, 77); attachErr != nil {
+				t.Fatalf("attach: %v", attachErr)
+			}
+		}
+		parsed, _ := url.Parse(link)
+		result, redeemErr := service.CompleteMagicLink(ctx, parsed.Query().Get("token"), customerauthpg.RequestContext{})
+		if redeemErr != nil {
+			t.Fatalf("redeem: %v", redeemErr)
+		}
+		return result.LinkMessage
+	}
+
+	if got := redeem(true); got == nil || got.ChatID != 700410 || got.MessageID != 77 {
+		t.Fatalf("attached message = %+v", got)
+	}
+	if got := redeem(false); got != nil {
+		t.Fatalf("a link with no message named %+v", got)
+	}
+}
+
 func TestMagicLinkExpiresAndIsThrottled(t *testing.T) {
 	ctx := context.Background()
 	harness := newHarness(t)

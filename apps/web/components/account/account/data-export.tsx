@@ -8,6 +8,7 @@ import { useState } from "react";
 import type { ExportDocument, PrivacyOverview } from "@/components/account/account/types";
 import { useAccountProblem } from "@/components/account/problems";
 import { apiFetch } from "@/lib/api";
+import { canDownloadThroughTelegram, downloadThroughTelegram } from "@/lib/tma";
 
 /** The filename the browser saves, dated so two exports do not overwrite each other. */
 function exportFilename(generatedAt: string): string {
@@ -45,6 +46,10 @@ export function DataExport({ preview }: { preview: PrivacyOverview["export"] }) 
   async function download() {
     setBusy(true);
     setFailure(null);
+    if (canDownloadThroughTelegram()) {
+      await downloadInTelegram();
+      return;
+    }
     try {
       // The request goes through the shared transport so the session cookie and
       // the CSRF token are attached; the file is assembled from the parsed
@@ -65,6 +70,31 @@ export function DataExport({ preview }: { preview: PrivacyOverview["export"] }) 
         truncated: personalData.truncated ?? [],
       });
       toast.success(translate("export.saved"));
+    } catch (exportError) {
+      setFailure(describeProblem(exportError));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * Inside the Mini App: Telegram's web view drops a file the page saves
+   * itself, so Telegram is given a one-time address and downloads it. The
+   * document is built when Telegram fetches it, so the screen repeats the
+   * preview's exclusions rather than the file's own.
+   */
+  async function downloadInTelegram() {
+    try {
+      const link = await apiFetch<{ path: string }>("/v1/account/privacy/export/link", {
+        method: "POST",
+      });
+      const generatedAt = new Date().toISOString();
+      await downloadThroughTelegram(
+        new URL(link.path, window.location.origin).toString(),
+        exportFilename(generatedAt),
+      );
+      setSaved({ generatedAt, redactions: preview.redactions, truncated: [] });
+      toast.success(translate("export.telegram"));
     } catch (exportError) {
       setFailure(describeProblem(exportError));
     } finally {

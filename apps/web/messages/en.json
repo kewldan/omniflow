@@ -5867,6 +5867,7 @@
         "download": "Download my data",
         "preparing": "Putting the file together…",
         "saved": "Your file has been saved",
+        "telegram": "Telegram will offer to save the file",
         "savedAt": "Prepared at {time} and saved to your device.",
         "redactionsChanged": "The file leaves out more than this page listed. What it actually excludes: {items}",
         "truncated": "These sections were long and were cut short: {sections}. Ask support if you need them in full.",

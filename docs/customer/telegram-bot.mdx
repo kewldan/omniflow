@@ -925,18 +925,20 @@ that cannot work.
 ## /login — signing in on the web
 
 `/login` mints a single-use link into the customer web panel, valid for ten
-minutes, and sends it as plain text:
+minutes, and sends it as a **Sign in** button under the warning:
 
-> 🔐 Sign in to your account — This link works once and expires in 10 minutes. Do
-> not forward it — whoever opens it signs in as you.
+> 🔐 Sign in to your account — The button below works once and expires in 10
+> minutes. Do not forward this message — whoever opens the link signs in as you.
+> It is deleted once you have signed in.
 
 The flow starts in the chat rather than on a web form because a form would have
 to take some identifier and answer whether Omniflow knows it, and every version
 of that answer tells a stranger whether somebody is a customer here. The link is
-sent as text and not as a button because a Telegram inline button opens the
-in-app browser, which on several platforms keeps a separate cookie jar from the
-customer's real browser — they would sign in somewhere they are not going to come
-back to.
+a button rather than an address in the text, so the token is not copied by
+accident. The message's chat and ID are stored with the link, and redeeming it
+deletes the message (`deleteMessage`, from the API): a spent credential does not
+stay on the screen. Telegram refuses to delete a message older than two days,
+and a deletion that fails is only logged.
 
 Three refusals are kept apart: link sign-in is not available right now (the
 operator has not enabled it, or the encryption key is not configured), too many

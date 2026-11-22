@@ -159,6 +159,15 @@ WHERE token_hash = sqlc.arg(token_hash)
   AND expires_at > now()
 RETURNING *;
 
+-- name: AttachCustomerMagicLinkMessage :exec
+-- Remembers the chat message a link was delivered in, while the link is
+-- still unspent.
+UPDATE customer_magic_links
+SET telegram_chat_id = sqlc.arg(telegram_chat_id),
+    telegram_message_id = sqlc.arg(telegram_message_id)
+WHERE token_hash = sqlc.arg(token_hash)
+  AND consumed_at IS NULL;
+
 -- name: CountRecentCustomerMagicLinks :one
 -- Feeds the per-customer request limit, so asking for a link repeatedly cannot
 -- be used to flood somebody's Telegram chat.

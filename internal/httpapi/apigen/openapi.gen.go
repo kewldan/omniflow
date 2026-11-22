@@ -12015,6 +12015,17 @@ type ExportAccountPersonalDataParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// DownloadAccountExportByLinkParams defines parameters for DownloadAccountExportByLink.
+type DownloadAccountExportByLinkParams struct {
+	Token string `form:"token" json:"token"`
+}
+
+// IssueAccountExportLinkParams defines parameters for IssueAccountExportLink.
+type IssueAccountExportLinkParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // GetAccountReferralsParams defines parameters for GetAccountReferrals.
 type GetAccountReferralsParams struct {
 	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -14940,6 +14951,12 @@ type ServerInterface interface {
 	// (POST /v1/account/privacy/export)
 	ExportAccountPersonalData(w http.ResponseWriter, r *http.Request, params ExportAccountPersonalDataParams)
 
+	// (GET /v1/account/privacy/export/file)
+	DownloadAccountExportByLink(w http.ResponseWriter, r *http.Request, params DownloadAccountExportByLinkParams)
+
+	// (POST /v1/account/privacy/export/link)
+	IssueAccountExportLink(w http.ResponseWriter, r *http.Request, params IssueAccountExportLinkParams)
+
 	// (GET /v1/account/referrals)
 	GetAccountReferrals(w http.ResponseWriter, r *http.Request, params GetAccountReferralsParams)
 
@@ -16358,6 +16375,16 @@ func (_ Unimplemented) RequestAccountDeletion(w http.ResponseWriter, r *http.Req
 
 // (POST /v1/account/privacy/export)
 func (_ Unimplemented) ExportAccountPersonalData(w http.ResponseWriter, r *http.Request, params ExportAccountPersonalDataParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/privacy/export/file)
+func (_ Unimplemented) DownloadAccountExportByLink(w http.ResponseWriter, r *http.Request, params DownloadAccountExportByLinkParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/account/privacy/export/link)
+func (_ Unimplemented) IssueAccountExportLink(w http.ResponseWriter, r *http.Request, params IssueAccountExportLinkParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -20685,6 +20712,84 @@ func (siw *ServerInterfaceWrapper) ExportAccountPersonalData(w http.ResponseWrit
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ExportAccountPersonalData(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DownloadAccountExportByLink operation middleware
+func (siw *ServerInterfaceWrapper) DownloadAccountExportByLink(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DownloadAccountExportByLinkParams
+
+	// ------------- Required query parameter "token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "token", r.URL.Query(), &params.Token, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DownloadAccountExportByLink(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// IssueAccountExportLink operation middleware
+func (siw *ServerInterfaceWrapper) IssueAccountExportLink(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params IssueAccountExportLinkParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.IssueAccountExportLink(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -37287,6 +37392,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/v1/account/privacy/export", wrapper.ExportAccountPersonalData)
 	})
 	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/account/privacy/export/link", wrapper.IssueAccountExportLink)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/privacy/export/file", wrapper.DownloadAccountExportByLink)
+	})
+	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/v1/account/privacy/deletion", wrapper.CancelAccountDeletion)
 	})
 	r.Group(func(r chi.Router) {
@@ -40485,6 +40596,99 @@ func (response ExportAccountPersonalData429ApplicationProblemPlusJSONResponse) V
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DownloadAccountExportByLinkRequestObject struct {
+	Params DownloadAccountExportByLinkParams
+}
+
+type DownloadAccountExportByLinkResponseObject interface {
+	VisitDownloadAccountExportByLinkResponse(w http.ResponseWriter) error
+}
+
+type DownloadAccountExportByLink200JSONResponse AccountExport
+
+func (response DownloadAccountExportByLink200JSONResponse) VisitDownloadAccountExportByLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DownloadAccountExportByLink404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DownloadAccountExportByLink404ApplicationProblemPlusJSONResponse) VisitDownloadAccountExportByLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type IssueAccountExportLinkRequestObject struct {
+	Params IssueAccountExportLinkParams
+}
+
+type IssueAccountExportLinkResponseObject interface {
+	VisitIssueAccountExportLinkResponse(w http.ResponseWriter) error
+}
+
+type IssueAccountExportLink200JSONResponse struct {
+	ExpiresAt time.Time `json:"expiresAt"`
+	Path      string    `json:"path"`
+}
+
+func (response IssueAccountExportLink200JSONResponse) VisitIssueAccountExportLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type IssueAccountExportLink429ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response IssueAccountExportLink429ApplicationProblemPlusJSONResponse) VisitIssueAccountExportLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type IssueAccountExportLink503ApplicationProblemPlusJSONResponse Problem
+
+func (response IssueAccountExportLink503ApplicationProblemPlusJSONResponse) VisitIssueAccountExportLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -57418,6 +57622,12 @@ type StrictServerInterface interface {
 	// (POST /v1/account/privacy/export)
 	ExportAccountPersonalData(ctx context.Context, request ExportAccountPersonalDataRequestObject) (ExportAccountPersonalDataResponseObject, error)
 
+	// (GET /v1/account/privacy/export/file)
+	DownloadAccountExportByLink(ctx context.Context, request DownloadAccountExportByLinkRequestObject) (DownloadAccountExportByLinkResponseObject, error)
+
+	// (POST /v1/account/privacy/export/link)
+	IssueAccountExportLink(ctx context.Context, request IssueAccountExportLinkRequestObject) (IssueAccountExportLinkResponseObject, error)
+
 	// (GET /v1/account/referrals)
 	GetAccountReferrals(ctx context.Context, request GetAccountReferralsRequestObject) (GetAccountReferralsResponseObject, error)
 
@@ -60512,6 +60722,58 @@ func (sh *strictHandler) ExportAccountPersonalData(w http.ResponseWriter, r *htt
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ExportAccountPersonalDataResponseObject); ok {
 		if err := validResponse.VisitExportAccountPersonalDataResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DownloadAccountExportByLink operation middleware
+func (sh *strictHandler) DownloadAccountExportByLink(w http.ResponseWriter, r *http.Request, params DownloadAccountExportByLinkParams) {
+	var request DownloadAccountExportByLinkRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DownloadAccountExportByLink(ctx, request.(DownloadAccountExportByLinkRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DownloadAccountExportByLink")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DownloadAccountExportByLinkResponseObject); ok {
+		if err := validResponse.VisitDownloadAccountExportByLinkResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// IssueAccountExportLink operation middleware
+func (sh *strictHandler) IssueAccountExportLink(w http.ResponseWriter, r *http.Request, params IssueAccountExportLinkParams) {
+	var request IssueAccountExportLinkRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.IssueAccountExportLink(ctx, request.(IssueAccountExportLinkRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "IssueAccountExportLink")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(IssueAccountExportLinkResponseObject); ok {
+		if err := validResponse.VisitIssueAccountExportLinkResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -5282,6 +5282,41 @@ paths:
       responses:
         "200": {description: Export document, content: {application/json: {schema: {$ref: "#/components/schemas/AccountExport"}}}}
         "429": {$ref: "#/components/responses/Problem"}
+  /v1/account/privacy/export/link:
+    post:
+      operationId: issueAccountExportLink
+      tags: [account]
+      description: >-
+        A one-time path that serves the export to whoever fetches it, for the
+        Telegram Mini App: Telegram's web view cannot save a file the page
+        assembled, and Telegram's own download fetches the address without the
+        session cookie. The link lives five minutes, works once, and counts
+        against the export limit.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      responses:
+        "200":
+          description: Link
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [path, expiresAt]
+                properties:
+                  path: {type: string}
+                  expiresAt: {type: string, format: date-time}
+        "429": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
+  /v1/account/privacy/export/file:
+    get:
+      operationId: downloadAccountExportByLink
+      tags: [account]
+      security: []
+      description: Spends a link from issueAccountExportLink and answers with the export as a file.
+      parameters:
+        - {name: token, in: query, required: true, schema: {type: string}}
+      responses:
+        "200": {description: Export document, content: {application/json: {schema: {$ref: "#/components/schemas/AccountExport"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
   /v1/account/privacy/deletion:
     post:
       operationId: requestAccountDeletion

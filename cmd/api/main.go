@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	telegram "github.com/go-telegram/bot"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/omniflow/omniflow/internal/accountcheckout"
 	"github.com/omniflow/omniflow/internal/accountpg"
@@ -537,6 +538,7 @@ func buildCustomerPanel(
 		Auth: identity, Account: account, Limiter: limiter, Logger: logger, Proxies: proxies,
 		Checkout: checkout, Shop: shop, Support: support, Referral: referral,
 		Avatars:      newAvatarSource(logger, cfg, pool),
+		Chat:         newChatRemover(logger, cfg),
 		CookieSecure: cfg.CustomerPanel.CookieSecure,
 	}), identity, nil
 }
@@ -639,6 +641,30 @@ func newAvatarSource(logger *slog.Logger, cfg config.Config, pool *pgxpool.Pool)
 		return nil
 	}
 	return avatarAdapter{source.WithStore(telegramavatar.NewPostgresStore(pool))}
+}
+
+// newChatRemover builds the Bot API client that deletes a spent sign-in link's
+// message; nil without a bot token.
+func newChatRemover(logger *slog.Logger, cfg config.Config) apihttp.ChatMessageRemover {
+	if cfg.TelegramToken == "" {
+		return nil
+	}
+	options := append(app.TelegramOptions(cfg.TelegramTransport), telegram.WithSkipGetMe())
+	client, err := telegram.New(cfg.TelegramToken, options...)
+	if err != nil {
+		logger.Warn("sign-in link messages will not be deleted", "error", err)
+		return nil
+	}
+	return chatRemover{client}
+}
+
+type chatRemover struct{ client *telegram.Bot }
+
+func (remover chatRemover) DeleteMessage(ctx context.Context, chatID int64, messageID int) error {
+	_, err := remover.client.DeleteMessage(ctx, &telegram.DeleteMessageParams{
+		ChatID: chatID, MessageID: messageID,
+	})
+	return err
 }
 
 // avatarAdapter maps the Telegram source's "no photo" onto the one the panel

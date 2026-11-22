@@ -305,6 +305,28 @@ func (service *Service) IssueMagicLink(
 	return service.publicURL + "/v1/account/auth/link?token=" + url.QueryEscape(token), nil
 }
 
+// AttachMagicLinkMessage records the chat message a link was delivered in, so
+// redeeming the link can delete it. The link is the URL IssueMagicLink
+// returned; one that is not, or that was already spent, changes nothing.
+func (service *Service) AttachMagicLinkMessage(
+	ctx context.Context, link string, chatID int64, messageID int,
+) error {
+	parsed, err := url.Parse(link)
+	if err != nil {
+		return err
+	}
+	token := parsed.Query().Get("token")
+	if token == "" {
+		return nil
+	}
+	return dbgen.New(service.pool).AttachCustomerMagicLinkMessage(ctx,
+		dbgen.AttachCustomerMagicLinkMessageParams{
+			TelegramChatID:    pgtype.Int8{Int64: chatID, Valid: true},
+			TelegramMessageID: pgtype.Int4{Int32: int32(messageID), Valid: true},
+			TokenHash:         customerauth.HashMagicLinkToken(token),
+		})
+}
+
 // CheckMagicLink reports whether a delivered link can still be redeemed,
 // without spending it.
 //
@@ -355,6 +377,11 @@ func (service *Service) CompleteMagicLink(
 			return ErrAccountInactive
 		}
 		result.Customer = customerFromUser(user)
+		if link.TelegramChatID.Valid && link.TelegramMessageID.Valid {
+			result.LinkMessage = &ChatMessage{
+				ChatID: link.TelegramChatID.Int64, MessageID: int(link.TelegramMessageID.Int32),
+			}
+		}
 
 		session, sessionErr := service.openSession(
 			ctx, queries, result.Customer.ID, "magic_link", "", request,

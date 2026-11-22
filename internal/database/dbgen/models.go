@@ -1027,16 +1027,18 @@ type CustomerLifecycleEvent struct {
 }
 
 type CustomerMagicLink struct {
-	ID               pgtype.UUID        `json:"id"`
-	UserID           pgtype.UUID        `json:"user_id"`
-	TokenHash        []byte             `json:"token_hash"`
-	RequestedIp      *netip.Addr        `json:"requested_ip"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
-	ConsumedAt       pgtype.Timestamptz `json:"consumed_at"`
-	ConsumedIp       *netip.Addr        `json:"consumed_ip"`
-	EmailFingerprint []byte             `json:"email_fingerprint"`
-	EmailCiphertext  []byte             `json:"email_ciphertext"`
+	ID                pgtype.UUID        `json:"id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	TokenHash         []byte             `json:"token_hash"`
+	RequestedIp       *netip.Addr        `json:"requested_ip"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt        pgtype.Timestamptz `json:"consumed_at"`
+	ConsumedIp        *netip.Addr        `json:"consumed_ip"`
+	EmailFingerprint  []byte             `json:"email_fingerprint"`
+	EmailCiphertext   []byte             `json:"email_ciphertext"`
+	TelegramChatID    pgtype.Int8        `json:"telegram_chat_id"`
+	TelegramMessageID pgtype.Int4        `json:"telegram_message_id"`
 }
 
 type CustomerOidcProvider struct {
