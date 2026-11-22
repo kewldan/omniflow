@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import useSWR from "swr";
 
 import { AddSignInMethod } from "@/components/account/add-sign-in-method";
+import { ProviderMark, providerName } from "@/components/account/provider-mark";
 import { ReauthNotice, useReauthentication } from "@/components/account/reauth";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
 import { Timestamp } from "@/components/intl/timestamp";
@@ -319,7 +320,10 @@ function SignInMethods() {
       <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
         {(data?.items ?? []).map((method) => (
           <li className="flex items-center gap-3 px-4 py-3.5" key={method.id}>
-            <span className="flex-1 font-medium text-[14px]">{method.label}</span>
+            <ProviderMark provider={method.provider} />
+            <span className="flex-1 font-medium text-[14px]">
+              {providerName(method.provider, method.label, translate("security.emailMethod"))}
+            </span>
             <Button
               disabled={busy || !method.removable || needsReauth}
               onClick={() => setPending(method.id)}

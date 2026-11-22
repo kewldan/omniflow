@@ -5535,7 +5535,8 @@
         "unverified_email": "服务提供方尚未验证您的电子邮箱地址，因此无法绑定。",
         "method_unavailable": "此登录方式暂不可用。",
         "link_failed": "无法绑定该登录方式，请重试。"
-      }
+      },
+      "emailMethod": "电子邮件"
     },
     "account": {
       "actions": {

@@ -5627,7 +5627,8 @@
         "unverified_email": "The provider has not verified your e-mail address, so it cannot be linked.",
         "method_unavailable": "This sign-in method is not available right now.",
         "link_failed": "The method could not be linked. Try again."
-      }
+      },
+      "emailMethod": "Email"
     },
     "account": {
       "actions": {
