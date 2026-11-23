@@ -108,7 +108,8 @@ func flagCountry(text string) string {
 }
 
 // containsWord reports whether word occurs in text bounded on both sides by
-// the text's edge or a character that is not a Latin letter.
+// the text's edge or a character that is neither a Latin letter nor a dot:
+// "lk" in "lk.example.com" is part of a domain, not Sri Lanka.
 func containsWord(text, word string) bool {
 	for start := 0; ; {
 		index := strings.Index(text[start:], word)
@@ -117,11 +118,11 @@ func containsWord(text, word string) bool {
 		}
 		at := start + index
 		end := at + len(word)
-		if (at == 0 || !isLatinLetter(text[at-1])) && (end == len(text) || !isLatinLetter(text[end])) {
+		if (at == 0 || !isWordByte(text[at-1])) && (end == len(text) || !isWordByte(text[end])) {
 			return true
 		}
 		start = at + 1
 	}
 }
 
-func isLatinLetter(b byte) bool { return b >= 'a' && b <= 'z' }
+func isWordByte(b byte) bool { return b >= 'a' && b <= 'z' || b == '.' }

@@ -47,17 +47,24 @@ func fakeSmartPanel(t *testing.T, panelURL *string) *httptest.Server {
 		switch request.URL.Path {
 		case "/api/hosts":
 			_, _ = writer.Write([]byte(`{"response":[
-				{"uuid":"` + smartFinlandHost + `","remark":"🇫🇮 Finland 1","address":"fi.example.net","port":443,"nodes":[]},
-				{"uuid":"` + smartWhiteHost + `","remark":"Russia WHITE","address":"ru.example.net","port":443,"nodes":[]}]}`))
+				{"uuid":"` + smartFinlandHost + `","remark":"🇫🇮 Finland 1","address":"fi.example.net","port":443,"nodes":[],
+				 "inbound":{"configProfileInboundUuid":"in-1"},"internalSquads":{"mode":"EXCLUDE","squads":[]}},
+				{"uuid":"33333333-3333-4333-8333-333333333333","remark":"🇩🇪 Germany 1","address":"de.example.net","port":443,"nodes":[],
+				 "inbound":{"configProfileInboundUuid":"in-1"},"internalSquads":{"mode":"EXCLUDE","squads":[]}},
+				{"uuid":"44444444-4444-4444-8444-444444444444","remark":"🇺🇸 Other squad","address":"us.example.net","port":443,"nodes":[],
+				 "inbound":{"configProfileInboundUuid":"in-9"},"internalSquads":{"mode":"EXCLUDE","squads":[]}},
+				{"uuid":"` + smartWhiteHost + `","remark":"Russia WHITE","address":"ru.example.net","port":443,"nodes":[],
+				 "inbound":{"configProfileInboundUuid":"in-1"},"internalSquads":{"mode":"EXCLUDE","squads":[]}}]}`))
+		case "/api/internal-squads":
+			_, _ = writer.Write([]byte(`{"response":{"internalSquads":[{"uuid":"sq-a","inbounds":[{"uuid":"in-1"}]}]}}`))
+		case "/api/users/42":
+			_, _ = writer.Write([]byte(`{"response":{"id":42,"username":"u","status":"ACTIVE","activeInternalSquads":[{"uuid":"sq-a","name":"Main"}]}}`))
+		case "/api/users/by-short-uuid/" + smartShortUUID:
+			_, _ = writer.Write([]byte(`{"response":{"id":42,"username":"u","status":"ACTIVE","activeInternalSquads":[{"uuid":"sq-a","name":"Main"}]}}`))
 		case "/api/nodes":
 			_, _ = writer.Write([]byte(`{"response":[]}`))
 		case "/api/subscriptions/by-id/42":
 			_, _ = writer.Write([]byte(`{"response":{"isFound":true,"subscriptionUrl":"` + *panelURL + `/` + smartShortUUID + `"}}`))
-		case "/api/subscriptions/by-short-uuid/" + smartShortUUID + "/raw":
-			_, _ = writer.Write([]byte(`{"response":{"user":{"id":42},"resolvedProxyConfigs":[
-				{"finalRemark":"🇫🇮 Finland 1","address":"fi.example.net","port":443,"metadata":{"uuid":"` + smartFinlandHost + `"}},
-				{"finalRemark":"🇩🇪 Germany 1","address":"de.example.net","port":443,"metadata":{"uuid":"h-de"}},
-				{"finalRemark":"Russia WHITE","address":"ru.example.net","port":443,"metadata":{"uuid":"` + smartWhiteHost + `"}}]}}`))
 		case "/api/sub/" + smartShortUUID + "/json":
 			if request.Header.Get("X-Hwid") != "device-1" {
 				t.Errorf("the device header did not reach the panel")

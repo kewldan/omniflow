@@ -15,6 +15,12 @@ type Host struct {
 	Nodes    []string
 	Disabled bool
 	Hidden   bool
+	// InboundUUID is the config-profile inbound the host serves.
+	InboundUUID string
+	// SquadMode and Squads narrow which internal squads get the host:
+	// "ALLOW_ONLY" the listed ones, "EXCLUDE" all but them.
+	SquadMode string
+	Squads    []string
 }
 
 // Catalog is the panel's hosts and which of its nodes are down, read once a
@@ -23,6 +29,42 @@ type Catalog struct {
 	Hosts []Host
 	// DownNodes are nodes that are disconnected or disabled.
 	DownNodes map[string]bool
+	// SquadInbounds maps each internal squad to the inbounds it grants.
+	SquadInbounds map[string][]string
+}
+
+// HostsFor lists the hosts a member of these internal squads gets, the way
+// the panel decides it: a host is in when one of the user's squads grants its
+// inbound and the host's squad rule lets that squad through (ALLOW_ONLY: the
+// squad is listed; EXCLUDE: it is not). Disabled and hidden hosts are left
+// out, in the panel's order.
+func (catalog Catalog) HostsFor(squads []string) []Host {
+	var hosts []Host
+	for _, host := range catalog.Hosts {
+		if host.Disabled || host.Hidden || host.InboundUUID == "" {
+			continue
+		}
+		listed := setOf(host.Squads)
+		for _, squad := range squads {
+			if !contains(catalog.SquadInbounds[squad], host.InboundUUID) {
+				continue
+			}
+			if listed[squad] == (host.SquadMode == "ALLOW_ONLY") {
+				hosts = append(hosts, host)
+				break
+			}
+		}
+	}
+	return hosts
+}
+
+func contains(values []string, value string) bool {
+	for _, candidate := range values {
+		if candidate == value {
+			return true
+		}
+	}
+	return false
 }
 
 // Server is one server in a subscription, placed: which host it is, which

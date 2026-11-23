@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func TestHostsAndRawSubscription(t *testing.T) {
+func TestHostsSquadsAndUserByShortUUID(t *testing.T) {
 	t.Parallel()
 	client := contractClient(t, func(writer http.ResponseWriter, request *http.Request) {
 		if request.Header.Get("Authorization") != "Bearer secret" {
@@ -16,23 +16,30 @@ func TestHostsAndRawSubscription(t *testing.T) {
 		}
 		switch request.URL.Path {
 		case "/api/hosts":
-			_, _ = writer.Write([]byte(`{"response":[{"uuid":"h1","remark":"🇫🇮 Finland","address":"fi.example.net","port":443,"isDisabled":false,"isHidden":false,"nodes":["n1"]}]}`))
-		case "/api/subscriptions/by-short-uuid/abcDEF_12-x/raw":
-			_, _ = writer.Write([]byte(`{"response":{"user":{"id":42},"resolvedProxyConfigs":[{"finalRemark":"🇫🇮 Finland","address":"fi.example.net","port":443,"metadata":{"uuid":"h1","isHidden":false,"isDisabled":false}}]}}`))
+			_, _ = writer.Write([]byte(`{"response":[{"uuid":"h1","remark":"🇫🇮 Finland","address":"fi.example.net","port":443,"isDisabled":false,"isHidden":false,"nodes":["n1"],"inbound":{"configProfileUuid":"p1","configProfileInboundUuid":"in-1"},"internalSquads":{"mode":"EXCLUDE","squads":["sq-x"]}}]}`))
+		case "/api/internal-squads":
+			_, _ = writer.Write([]byte(`{"response":{"total":1,"internalSquads":[{"uuid":"sq-a","name":"Main","info":{"membersCount":1,"inboundsCount":1},"inbounds":[{"uuid":"in-1","tag":"VLESS"}]}]}}`))
+		case "/api/users/by-short-uuid/abcDEF_12-x":
+			_, _ = writer.Write([]byte(`{"response":{"id":42,"username":"u","status":"ACTIVE","activeInternalSquads":[{"uuid":"sq-a","name":"Main"}]}}`))
 		default:
 			t.Errorf("unexpected %s", request.URL.Path)
 			writer.WriteHeader(http.StatusNotFound)
 		}
 	})
 	hosts, err := client.Hosts(context.Background())
-	if err != nil || len(hosts) != 1 || hosts[0].Nodes[0] != "n1" || hosts[0].Port != 443 {
+	if err != nil || len(hosts) != 1 || hosts[0].Nodes[0] != "n1" || hosts[0].Port != 443 ||
+		hosts[0].Inbound.ConfigProfileInboundUUID != "in-1" || hosts[0].InternalSquads.Mode != "EXCLUDE" {
 		t.Fatalf("hosts = %+v, %v", hosts, err)
 	}
-	raw, err := client.RawSubscription(context.Background(), "abcDEF_12-x")
-	if err != nil || raw.UserID != 42 || raw.Entries[0].Metadata.UUID != "h1" {
-		t.Fatalf("raw = %+v, %v", raw, err)
+	squads, err := client.InternalSquadInbounds(context.Background())
+	if err != nil || len(squads["sq-a"]) != 1 || squads["sq-a"][0] != "in-1" {
+		t.Fatalf("squads = %+v, %v", squads, err)
 	}
-	if _, err := client.RawSubscription(context.Background(), "../users"); !errors.Is(err, ErrNotFound) {
+	user, err := client.UserByShortUUID(context.Background(), "abcDEF_12-x")
+	if err != nil || user.ID != 42 || user.ActiveInternalSquads[0].UUID != "sq-a" {
+		t.Fatalf("user = %+v, %v", user, err)
+	}
+	if _, err := client.UserByShortUUID(context.Background(), "../users"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("a malformed short UUID reached the panel: %v", err)
 	}
 }

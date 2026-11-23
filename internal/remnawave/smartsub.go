@@ -10,9 +10,9 @@ import (
 	"time"
 )
 
-// The smart subscription reads three things from the panel: its hosts, a
-// user's subscription as the panel resolves it, and the subscription body a
-// client would get. None of them writes anything.
+// The smart subscription reads from the panel: its hosts and internal
+// squads, the user a link belongs to, and the subscription body a client
+// would get. None of them writes anything.
 
 // Host is one Remnawave host, with the fields the smart subscription places
 // servers by.
@@ -24,6 +24,15 @@ type Host struct {
 	IsDisabled bool     `json:"isDisabled"`
 	IsHidden   bool     `json:"isHidden"`
 	Nodes      []string `json:"nodes"`
+	Inbound    struct {
+		ConfigProfileInboundUUID string `json:"configProfileInboundUuid"`
+	} `json:"inbound"`
+	// InternalSquads narrows which squads get the host: ALLOW_ONLY those
+	// listed, or EXCLUDE them.
+	InternalSquads struct {
+		Mode   string   `json:"mode"`
+		Squads []string `json:"squads"`
+	} `json:"internalSquads"`
 }
 
 // Hosts lists the panel's hosts.
@@ -37,45 +46,48 @@ func (client *Client) Hosts(ctx context.Context) ([]Host, error) {
 	return envelope.Response, nil
 }
 
-// ResolvedEntry is one server of a user's subscription as the panel resolved
-// it for that user: the remark after templating, and the host it came from.
-type ResolvedEntry struct {
-	FinalRemark string `json:"finalRemark"`
-	Address     string `json:"address"`
-	Port        int    `json:"port"`
-	Metadata    struct {
-		UUID       string `json:"uuid"`
-		IsHidden   bool   `json:"isHidden"`
-		IsDisabled bool   `json:"isDisabled"`
-	} `json:"metadata"`
-}
-
-// RawSubscription is a user's subscription without a client format applied.
-type RawSubscription struct {
-	UserID  int64
-	Entries []ResolvedEntry
-}
-
-// RawSubscription reads a user's resolved servers by the short UUID their
-// link carries. It is an authenticated read: unlike the public link, it
-// registers no device and records no request in the user's history.
-func (client *Client) RawSubscription(ctx context.Context, shortUUID string) (RawSubscription, error) {
+// UserByShortUUID reads the user a subscription link belongs to, by the
+// short UUID the link ends in. It is a plain user read: unlike the panel's
+// subscription routes it runs no device check and records no request in the
+// user's history.
+func (client *Client) UserByShortUUID(ctx context.Context, shortUUID string) (User, error) {
 	if !ValidShortUUID(shortUUID) {
-		return RawSubscription{}, ErrNotFound
+		return User{}, ErrNotFound
 	}
 	var envelope struct {
+		Response User `json:"response"`
+	}
+	if err := client.get(ctx, "/api/users/by-short-uuid/"+url.PathEscape(shortUUID), &envelope); err != nil {
+		return User{}, err
+	}
+	return envelope.Response, nil
+}
+
+// InternalSquadInbounds maps each internal squad to the inbounds it grants,
+// which is what decides the hosts a squad's members get.
+func (client *Client) InternalSquadInbounds(ctx context.Context) (map[string][]string, error) {
+	var envelope struct {
 		Response struct {
-			User struct {
-				ID int64 `json:"id"`
-			} `json:"user"`
-			Entries []ResolvedEntry `json:"resolvedProxyConfigs"`
+			InternalSquads []struct {
+				UUID     string `json:"uuid"`
+				Inbounds []struct {
+					UUID string `json:"uuid"`
+				} `json:"inbounds"`
+			} `json:"internalSquads"`
 		} `json:"response"`
 	}
-	path := "/api/subscriptions/by-short-uuid/" + url.PathEscape(shortUUID) + "/raw"
-	if err := client.get(ctx, path, &envelope); err != nil {
-		return RawSubscription{}, err
+	if err := client.get(ctx, "/api/internal-squads", &envelope); err != nil {
+		return nil, err
 	}
-	return RawSubscription{UserID: envelope.Response.User.ID, Entries: envelope.Response.Entries}, nil
+	squads := make(map[string][]string, len(envelope.Response.InternalSquads))
+	for _, squad := range envelope.Response.InternalSquads {
+		inbounds := make([]string, 0, len(squad.Inbounds))
+		for _, inbound := range squad.Inbounds {
+			inbounds = append(inbounds, inbound.UUID)
+		}
+		squads[squad.UUID] = inbounds
+	}
+	return squads, nil
 }
 
 // ValidShortUUID reports whether value can be a panel short UUID: the

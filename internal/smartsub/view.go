@@ -36,7 +36,9 @@ func BuildView(entries []Entry, catalog Catalog, settings Settings) View {
 	index := map[string]int{}
 	var unknown *ViewCountry
 	for _, entry := range entries {
-		if entry.Hidden {
+		// A panel notice (a device limit, an expired subscription) is a server
+		// at 0.0.0.0:1; it is a message, not a server to list.
+		if entry.Hidden || entry.Address == "0.0.0.0" && entry.Port == 1 {
 			continue
 		}
 		server := catalog.Classify(entry.Remark, entry.Address, entry.Port, settings)

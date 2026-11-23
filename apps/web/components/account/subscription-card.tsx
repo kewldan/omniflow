@@ -2,7 +2,7 @@
 
 import { Button } from "@omniflow/ui/button";
 import { cn } from "@omniflow/ui/lib/utils";
-import { ArrowUpDown, KeyRound, Receipt, ShoppingBag } from "lucide-react";
+import { KeyRound, Receipt, Settings, ShoppingBag } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useNow, useTranslations } from "next-intl";
 
@@ -427,7 +427,7 @@ export function SubscriptionActions({ subscription }: { subscription: AccountSub
           aria-label={translate("subscription.manage")}
           href={`/account/subscriptions/${subscription.id}`}
         >
-          <ArrowUpDown aria-hidden />
+          <Settings aria-hidden />
         </Link>
       </Button>
     </div>

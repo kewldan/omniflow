@@ -29,8 +29,9 @@ import (
 type Panel interface {
 	Hosts(ctx context.Context) ([]remnawave.Host, error)
 	Nodes(ctx context.Context) ([]remnawave.Node, error)
-	Subscription(ctx context.Context, userID int64) (remnawave.Subscription, error)
-	RawSubscription(ctx context.Context, shortUUID string) (remnawave.RawSubscription, error)
+	InternalSquadInbounds(ctx context.Context) (map[string][]string, error)
+	User(ctx context.Context, userID int64) (remnawave.User, error)
+	UserByShortUUID(ctx context.Context, shortUUID string) (remnawave.User, error)
 	FetchSubscription(ctx context.Context, shortUUID, format string, from http.Header, clientIP string) (remnawave.SubscriptionContent, error)
 }
 
@@ -189,7 +190,14 @@ func (service *Service) FreshCatalog(ctx context.Context) (smartsub.Catalog, err
 		catalog.Hosts = append(catalog.Hosts, smartsub.Host{
 			UUID: strings.ToLower(host.UUID), Remark: host.Remark, Address: host.Address, Port: host.Port,
 			Nodes: host.Nodes, Disabled: host.IsDisabled, Hidden: host.IsHidden,
+			InboundUUID: host.Inbound.ConfigProfileInboundUUID,
+			SquadMode:   host.InternalSquads.Mode, Squads: host.InternalSquads.Squads,
 		})
+	}
+	// The squads decide which hosts a customer's screen lists; without them
+	// the screen says the list is unavailable rather than guessing.
+	if squads, err := service.panel.InternalSquadInbounds(ctx); err == nil {
+		catalog.SquadInbounds = squads
 	}
 	// Node status only ever removes servers, so a panel that will not list
 	// its nodes leaves every server in rather than failing the read.
@@ -248,7 +256,8 @@ func ShortUUID(panelURL string) string {
 
 // remnawaveUser finds the panel user behind a short UUID, through a cache:
 // the mapping only changes when the link is reissued, and a reissued link is
-// a different short UUID.
+// a different short UUID. It is a plain user read, so it neither checks nor
+// registers a device.
 func (service *Service) remnawaveUser(ctx context.Context, short string) (int64, error) {
 	now := service.clock()
 	service.mu.Lock()
@@ -257,7 +266,7 @@ func (service *Service) remnawaveUser(ctx context.Context, short string) (int64,
 	if ok && now.Sub(cached.at) < userTTL {
 		return cached.remnawaveID, nil
 	}
-	raw, err := service.panel.RawSubscription(ctx, short)
+	user, err := service.panel.UserByShortUUID(ctx, short)
 	if err != nil {
 		return 0, err
 	}
@@ -265,7 +274,7 @@ func (service *Service) remnawaveUser(ctx context.Context, short string) (int64,
 	if len(service.users) >= userCacheSize {
 		service.users = map[string]cachedUser{}
 	}
-	service.users[short] = cachedUser{remnawaveID: raw.UserID, at: now}
+	service.users[short] = cachedUser{remnawaveID: user.ID, at: now}
 	service.mu.Unlock()
-	return raw.UserID, nil
+	return user.ID, nil
 }

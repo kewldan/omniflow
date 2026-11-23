@@ -34,29 +34,29 @@ func (service *Service) CustomerView(ctx context.Context, customerID, subscripti
 	if err != nil {
 		return CustomerView{}, err
 	}
-	subscription, err := service.panel.Subscription(ctx, remnawaveID)
-	if err != nil {
-		return CustomerView{}, ErrPanelUnavailable
-	}
-	short := ShortUUID(subscription.SubscriptionURL)
-	if short == "" {
-		return CustomerView{}, ErrPanelUnavailable
-	}
-	raw, err := service.panel.RawSubscription(ctx, short)
+	// The list is built the way the panel builds a subscription — the hosts
+	// the user's internal squads grant — rather than by asking the panel for
+	// the subscription itself, which runs the device check and would answer a
+	// request without a device with a notice instead of servers.
+	user, err := service.panel.User(ctx, remnawaveID)
 	if err != nil {
 		if errors.Is(err, remnawave.ErrNotFound) {
 			return CustomerView{}, ErrNotFound
 		}
 		return CustomerView{}, ErrPanelUnavailable
 	}
-	entries := make([]smartsub.Entry, 0, len(raw.Entries))
-	for _, entry := range raw.Entries {
-		if entry.Metadata.IsDisabled {
-			continue
-		}
-		entries = append(entries, smartsub.Entry{
-			Remark: entry.FinalRemark, Address: entry.Address, Port: entry.Port, Hidden: entry.Metadata.IsHidden,
-		})
+	catalog := service.Catalog(ctx)
+	if catalog.SquadInbounds == nil {
+		return CustomerView{}, ErrPanelUnavailable
+	}
+	squads := make([]string, 0, len(user.ActiveInternalSquads))
+	for _, squad := range user.ActiveInternalSquads {
+		squads = append(squads, squad.UUID)
+	}
+	hosts := catalog.HostsFor(squads)
+	entries := make([]smartsub.Entry, 0, len(hosts))
+	for _, host := range hosts {
+		entries = append(entries, smartsub.Entry{Remark: host.Remark, Address: host.Address, Port: host.Port})
 	}
 	view := CustomerView{
 		Servers:  smartsub.BuildView(entries, service.Catalog(ctx), settings),

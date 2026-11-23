@@ -21,7 +21,8 @@ func TestDetectCountry(t *testing.T) {
 		"New Jersey":        "US",
 		"Nigeria":           "NG",
 		"🇩🇪 but says Paris": "DE",
-		"":                  "",
+		"🌐 Инструкция: lk.example.xyz": "",
+		"": "",
 	}
 	for remark, want := range cases {
 		if got := DetectCountry(remark); got != want {
@@ -506,6 +507,31 @@ func TestDetectFormat(t *testing.T) {
 	}
 }
 
+func TestHostsFor(t *testing.T) {
+	catalog := Catalog{
+		SquadInbounds: map[string][]string{"sq-a": {"in-1", "in-2"}, "sq-b": {"in-3"}},
+		Hosts: []Host{
+			{UUID: "h1", InboundUUID: "in-1", SquadMode: "EXCLUDE"},
+			{UUID: "h2", InboundUUID: "in-2", SquadMode: "EXCLUDE", Squads: []string{"sq-a"}},
+			{UUID: "h3", InboundUUID: "in-3", SquadMode: "EXCLUDE"},
+			{UUID: "h4", InboundUUID: "in-1", SquadMode: "ALLOW_ONLY", Squads: []string{"sq-a"}},
+			{UUID: "h5", InboundUUID: "in-1", SquadMode: "ALLOW_ONLY", Squads: []string{"sq-b"}},
+			{UUID: "h6", InboundUUID: "in-1", SquadMode: "EXCLUDE", Disabled: true},
+			{UUID: "h7", InboundUUID: "in-1", SquadMode: "EXCLUDE", Hidden: true},
+		},
+	}
+	var got []string
+	for _, host := range catalog.HostsFor([]string{"sq-a"}) {
+		got = append(got, host.UUID)
+	}
+	if strings.Join(got, ",") != "h1,h4" {
+		t.Errorf("hosts for sq-a = %v", got)
+	}
+	if len(catalog.HostsFor(nil)) != 0 {
+		t.Error("a user in no squad got hosts")
+	}
+}
+
 func TestBuildView(t *testing.T) {
 	view := BuildView([]Entry{
 		{Remark: "🇫🇮 Finland 1", Address: "fi1.example.net", Port: 443},
@@ -514,6 +540,7 @@ func TestBuildView(t *testing.T) {
 		{Remark: "Russia WHITE", Address: "ru.example.net", Port: 443},
 		{Remark: "Germany test", Address: "de-test.example.net", Port: 443},
 		{Remark: "Panel hidden", Address: "h.example.net", Port: 443, Hidden: true},
+		{Remark: "⚠️ Приложение не поддерживается", Address: "0.0.0.0", Port: 1},
 	}, testCatalog(), testSettings())
 	got := fmt.Sprintf("%d %s %d %s %d", len(view.Countries), view.Countries[0].Code, len(view.Countries[0].Servers),
 		view.Countries[1].Code, len(view.Reserve))
