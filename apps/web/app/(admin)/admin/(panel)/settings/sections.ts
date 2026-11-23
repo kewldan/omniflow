@@ -76,7 +76,14 @@ export const NOTIFICATION_KINDS = [
 export type SettingsGroupKey = "commerce" | "integrations" | "operations" | "brand";
 
 export type SettingsGroup = {
-  key: SettingsGroupKey | "signIn" | "ai" | "connect" | "notices" | "analytics";
+  key:
+    | SettingsGroupKey
+    | "signIn"
+    | "ai"
+    | "connect"
+    | "notices"
+    | "analytics"
+    | "smartSubscription";
   href: string;
   /** The permission the route itself requires. */
   permission: string;
@@ -88,6 +95,13 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
   { key: "operations", href: "/admin/settings/operations", permission: "settings.read" },
   { key: "brand", href: "/admin/settings/brand", permission: "settings.read" },
   { key: "connect", href: "/admin/settings/connect", permission: "settings.read" },
+  // The smart subscription: the link customers import, rewritten into country
+  // groups with a whitelist-bypass fallback and their own routing.
+  {
+    key: "smartSubscription",
+    href: "/admin/settings/smart-subscription",
+    permission: "settings.read",
+  },
   // The wording of the messages the installation sends on its own initiative.
   // It sits here rather than under marketing because there is no audience
   // decision to make: these reach every customer, and how the installation

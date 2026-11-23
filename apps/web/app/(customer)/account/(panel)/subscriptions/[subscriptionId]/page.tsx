@@ -21,6 +21,7 @@ import { SubscriptionAddons } from "@/components/account/commerce/subscription-a
 import { TrafficPackage } from "@/components/account/commerce/traffic-package";
 import { TrafficReset } from "@/components/account/commerce/traffic-reset";
 import { ReauthNotice, useReauthentication } from "@/components/account/reauth";
+import { SmartSubscriptionEntry } from "@/components/account/smart-subscription";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
 import {
   type AccountSubscription,
@@ -72,6 +73,8 @@ export default function SubscriptionPage() {
           subscription that can be connected, the order for one waiting to be
           paid, the store for one that has lapsed or was never provisioned. */}
       <PrimaryAction page={page} subscription={data} />
+
+      <SmartSubscriptionEntry provisioned={data.provisioned} subscriptionId={data.id} />
 
       <SubscriptionAddons onBought={() => void mutate()} subscriptionId={data.id} />
       <TrafficReset onReset={() => void mutate()} subscriptionId={data.id} />

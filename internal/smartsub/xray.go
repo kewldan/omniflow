@@ -1,0 +1,659 @@
+package smartsub
+
+import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"sort"
+	"strconv"
+	"strings"
+)
+
+// ErrPassThrough means the panel's answer is not something the module can
+// rewrite — an error page, a limit notice, a format it does not handle — and
+// it should reach the client exactly as the panel sent it.
+var ErrPassThrough = errors.New("smart subscription passes this response through")
+
+// Request is everything one rewrite needs.
+type Request struct {
+	Upstream    []byte
+	Settings    Settings
+	Preferences Preferences
+	Catalog     Catalog
+	// Locale picks the language group names are written in.
+	Locale string
+}
+
+// Tuning of the balancers each group gets. The numbers are the ones the
+// subscription balancer this package replaces settled on in production.
+const (
+	loadExpected        = 3
+	tolerance           = 0.5
+	toleranceFallback   = 0.8
+	mainBaselineMS      = 2000
+	singleBaselineMS    = 4000
+	reserveBaselineMS   = 4000
+	probeSampling       = 1
+	probeTimeout        = "1s"
+	defaultDomainPolicy = "IPIfNonMatch"
+)
+
+// systemProtocols are outbounds that are not servers.
+var systemProtocols = map[string]bool{"freedom": true, "blackhole": true, "dns": true, "loopback": true}
+
+// managedFields are the template keys a group config writes itself; every
+// other key of the panel's first config is carried into each group as is.
+var managedFields = map[string]bool{
+	"remarks": true, "meta": true, "dns": true, "inbounds": true, "outbounds": true,
+	"routing": true, "burstObservatory": true, "observatory": true, "log": true,
+}
+
+// privateRanges always go direct: a tunnel to the local network is never
+// what anyone wants, and listing them as ranges needs no geo database.
+var privateRanges = []any{
+	"127.0.0.0/8", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16",
+	"::1/128", "fc00::/7", "fe80::/10",
+}
+
+// proxy is one server outbound found in the panel's answer.
+type proxy struct {
+	outbound map[string]any
+	// aux are outbounds it dials through (a fragment or mux chain), renamed
+	// so two servers' chains cannot collide once they share a config.
+	aux    []map[string]any
+	server Server
+	order  int
+}
+
+type template struct {
+	inherited map[string]any
+	dns       any
+	inbounds  any
+	meta      map[string]any
+	// rules are the panel template's own routing rules, with the target
+	// rewritten: "proxy" for the group's balancer, "direct" or "block".
+	rules          []templateRule
+	direct, block  map[string]any
+	domainStrategy string
+}
+
+type templateRule struct {
+	rule   map[string]any
+	target string // "balancer", "direct", or "block"
+}
+
+// BuildXray rewrites the panel's Xray JSON subscription — an array with one
+// config per server — into one config per group.
+//
+// The groups are the automatic group over every country the customer left in
+// it, one group per visible country, and the whitelist bypass group. Each is a
+// leastLoad balancer over its servers; the country and automatic groups fall
+// back onto the bypass servers when none of theirs answers, through a loopback
+// chain because Xray's fallbackTag takes an outbound, not a balancer.
+func BuildXray(request Request) ([]byte, error) {
+	configs, err := decodeConfigs(request.Upstream)
+	if err != nil {
+		return nil, ErrPassThrough
+	}
+	proxies, fakes := collectProxies(configs, request.Catalog, request.Settings)
+	if len(proxies) == 0 || fakes == len(proxies) {
+		// A panel answering with a limit or expiry notice sends servers at
+		// 0.0.0.0:1. The notice is the message; it must reach the client.
+		return nil, ErrPassThrough
+	}
+	tpl := templateOf(configs[0])
+	groups := plan(proxies, request.Preferences)
+	if len(groups) == 0 {
+		return nil, ErrPassThrough
+	}
+	builder := groupBuilder{request: request, tpl: tpl}
+	out := make([]any, 0, len(groups))
+	for index, group := range groups {
+		out = append(out, builder.build(group, "g"+strconv.Itoa(index)))
+	}
+	encoded, err := json.Marshal(out)
+	if err != nil {
+		return nil, fmt.Errorf("encode smart subscription: %w", err)
+	}
+	return encoded, nil
+}
+
+func decodeConfigs(body []byte) ([]map[string]any, error) {
+	trimmed := bytes.TrimSpace(body)
+	if len(trimmed) == 0 || trimmed[0] != '[' {
+		return nil, ErrPassThrough
+	}
+	decoder := json.NewDecoder(bytes.NewReader(trimmed))
+	decoder.UseNumber()
+	var configs []map[string]any
+	if err := decoder.Decode(&configs); err != nil || len(configs) == 0 {
+		return nil, ErrPassThrough
+	}
+	return configs, nil
+}
+
+func collectProxies(configs []map[string]any, catalog Catalog, settings Settings) ([]*proxy, int) {
+	var proxies []*proxy
+	fakes := 0
+	for index, config := range configs {
+		remark, _ := config["remarks"].(string)
+		outbounds, _ := config["outbounds"].([]any)
+		byTag := map[string]map[string]any{}
+		for _, raw := range outbounds {
+			if outbound, ok := raw.(map[string]any); ok {
+				if tag, _ := outbound["tag"].(string); tag != "" {
+					byTag[tag] = outbound
+				}
+			}
+		}
+		for _, raw := range outbounds {
+			outbound, ok := raw.(map[string]any)
+			if !ok {
+				continue
+			}
+			protocol, _ := outbound["protocol"].(string)
+			tag, _ := outbound["tag"].(string)
+			if tag == "" || systemProtocols[protocol] {
+				continue
+			}
+			address, port := endpoint(outbound)
+			if address == "0.0.0.0" && port == 1 {
+				fakes++
+			}
+			name := remark
+			if name == "" || tag != "proxy" {
+				name = strings.TrimSpace(remark + " " + tag)
+			}
+			copied := shallow(outbound)
+			copied["tag"] = name
+			found := &proxy{
+				outbound: copied, order: len(proxies),
+				server: catalog.Classify(remark, address, port, settings),
+			}
+			found.aux = dialChain(copied, byTag, index)
+			proxies = append(proxies, found)
+		}
+	}
+	return proxies, fakes
+}
+
+// endpoint reads a server's address and port from the shapes Xray accepts:
+// vnext (VLESS, VMess), servers (Trojan, Shadowsocks), or the flat form.
+func endpoint(outbound map[string]any) (string, int) {
+	settings, _ := outbound["settings"].(map[string]any)
+	if settings == nil {
+		return "", 0
+	}
+	for _, key := range []string{"vnext", "servers"} {
+		if list, ok := settings[key].([]any); ok && len(list) > 0 {
+			if first, ok := list[0].(map[string]any); ok {
+				return stringOf(first["address"]), intOf(first["port"])
+			}
+		}
+	}
+	return stringOf(settings["address"]), intOf(settings["port"])
+}
+
+// dialChain carries the outbounds a server dials through. Xray names them in
+// streamSettings.sockopt.dialerProxy; once several servers share one config
+// their chains would collide by tag, so each is renamed for its config and the
+// reference rewritten — on copies, since the nested objects are shared.
+func dialChain(outbound map[string]any, byTag map[string]map[string]any, configIndex int) []map[string]any {
+	stream, _ := outbound["streamSettings"].(map[string]any)
+	sockopt, _ := stream["sockopt"].(map[string]any)
+	through, _ := sockopt["dialerProxy"].(string)
+	target, ok := byTag[through]
+	if through == "" || !ok {
+		return nil
+	}
+	renamed := fmt.Sprintf("%s~%d", through, configIndex)
+	newSockopt := shallow(sockopt)
+	newSockopt["dialerProxy"] = renamed
+	newStream := shallow(stream)
+	newStream["sockopt"] = newSockopt
+	outbound["streamSettings"] = newStream
+	chained := shallow(target)
+	chained["tag"] = renamed
+	return []map[string]any{chained}
+}
+
+func templateOf(config map[string]any) template {
+	tpl := template{inherited: map[string]any{}, domainStrategy: defaultDomainPolicy}
+	for key, value := range config {
+		if !managedFields[key] {
+			tpl.inherited[key] = value
+		}
+	}
+	tpl.dns = config["dns"]
+	if tpl.dns == nil {
+		tpl.dns = map[string]any{"servers": []any{"1.1.1.1", "1.0.0.1"}, "queryStrategy": "UseIP"}
+	}
+	tpl.inbounds = config["inbounds"]
+	if tpl.inbounds == nil {
+		tpl.inbounds = []any{
+			map[string]any{
+				"tag": "socks", "port": 10808, "listen": "127.0.0.1", "protocol": "socks",
+				"settings": map[string]any{"udp": true, "auth": "noauth"},
+				"sniffing": map[string]any{"enabled": true, "routeOnly": false, "destOverride": []any{"http", "tls", "quic"}},
+			},
+			map[string]any{
+				"tag": "http", "port": 10809, "listen": "127.0.0.1", "protocol": "http",
+				"sniffing": map[string]any{"enabled": true, "routeOnly": false, "destOverride": []any{"http", "tls", "quic"}},
+			},
+		}
+	}
+	if meta, ok := config["meta"].(map[string]any); ok {
+		tpl.meta = meta
+	}
+
+	kinds := map[string]string{}
+	outbounds, _ := config["outbounds"].([]any)
+	for _, raw := range outbounds {
+		outbound, _ := raw.(map[string]any)
+		tag, _ := outbound["tag"].(string)
+		switch protocol, _ := outbound["protocol"].(string); protocol {
+		case "freedom":
+			kinds[tag] = "direct"
+			if tpl.direct == nil {
+				tpl.direct = outbound
+			}
+		case "blackhole":
+			kinds[tag] = "block"
+			if tpl.block == nil {
+				tpl.block = outbound
+			}
+		case "dns", "loopback":
+		default:
+			if tag != "" {
+				kinds[tag] = "balancer"
+			}
+		}
+	}
+	routing, _ := config["routing"].(map[string]any)
+	if strategy, _ := routing["domainStrategy"].(string); strategy != "" {
+		tpl.domainStrategy = strategy
+	}
+	rules, _ := routing["rules"].([]any)
+	for _, raw := range rules {
+		rule, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		tag, _ := rule["outboundTag"].(string)
+		target := kinds[tag]
+		// A rule that names a balancer, or an outbound the group configs will
+		// not carry, would make Xray refuse the whole config.
+		if target == "" || rule["balancerTag"] != nil {
+			continue
+		}
+		cleaned := shallow(rule)
+		delete(cleaned, "outboundTag")
+		tpl.rules = append(tpl.rules, templateRule{rule: cleaned, target: target})
+	}
+	return tpl
+}
+
+// planned is a group before it is named.
+type planned struct {
+	kind     string // "auto", "country", "reserve"
+	country  string
+	main     []*proxy
+	fallback []*proxy
+}
+
+// plan decides the groups. It is separate from naming so the rules about
+// which server goes where read in one place.
+func plan(proxies []*proxy, preferences Preferences) []planned {
+	var main, reserve []*proxy
+	anyUp := false
+	for _, candidate := range proxies {
+		if candidate.server.Role != RoleHidden && !candidate.server.Down {
+			anyUp = true
+		}
+	}
+	for _, candidate := range proxies {
+		// A server whose nodes are all down is left out while anything else
+		// answers; when nothing does, the panel may know better than its own
+		// node status, and an empty subscription helps nobody.
+		if candidate.server.Role == RoleHidden || candidate.server.Down && anyUp {
+			continue
+		}
+		if candidate.server.Role == RoleReserve {
+			reserve = append(reserve, candidate)
+		} else {
+			main = append(main, candidate)
+		}
+	}
+
+	hidden := setOf(preferences.HiddenCountries)
+	excluded := setOf(preferences.AutoExcluded)
+	var visible []*proxy
+	for _, candidate := range main {
+		if !hidden[candidate.server.Country] {
+			visible = append(visible, candidate)
+		}
+	}
+	// Hiding every country would leave a subscription that connects nowhere.
+	// That is never what somebody meant, so the choice is set aside.
+	if len(visible) == 0 && (len(reserve) == 0 || !preferences.Reserve) {
+		visible = main
+	}
+	var fallback []*proxy
+	if preferences.Reserve {
+		fallback = reserve
+	}
+
+	var groups []planned
+	var auto []*proxy
+	for _, candidate := range visible {
+		if !excluded[candidate.server.Country] {
+			auto = append(auto, candidate)
+		}
+	}
+	if len(auto) > 0 {
+		groups = append(groups, planned{kind: "auto", main: auto, fallback: fallback})
+	}
+	order := []string{}
+	byCountry := map[string][]*proxy{}
+	for _, candidate := range visible {
+		country := candidate.server.Country
+		if _, seen := byCountry[country]; !seen {
+			order = append(order, country)
+		}
+		byCountry[country] = append(byCountry[country], candidate)
+	}
+	// The unknown group goes last, after every named country.
+	sort.SliceStable(order, func(i, j int) bool {
+		return order[i] != UnknownCountry && order[j] == UnknownCountry
+	})
+	for _, country := range order {
+		groups = append(groups, planned{kind: "country", country: country, main: byCountry[country], fallback: fallback})
+	}
+	if preferences.Reserve && len(reserve) > 0 {
+		groups = append(groups, planned{kind: "reserve", main: reserve})
+	}
+	return groups
+}
+
+type groupBuilder struct {
+	request Request
+	tpl     template
+}
+
+func (builder groupBuilder) name(group planned) string {
+	switch group.kind {
+	case "auto":
+		return autoName(builder.request.Settings, builder.request.Locale)
+	case "reserve":
+		return reserveName(builder.request.Settings, builder.request.Locale)
+	default:
+		return Flag(group.country) + " " + CountryName(group.country, builder.request.Locale)
+	}
+}
+
+func (builder groupBuilder) build(group planned, prefix string) map[string]any {
+	main := dedupe(group.main, nil)
+	fallback := dedupe(group.fallback, main)
+	all := append(append([]*proxy{}, main...), fallback...)
+	others := []string{"direct", "block",
+		prefix + "-reserve-loopback", prefix + "-main-loopback"}
+	for _, candidate := range all {
+		for _, aux := range candidate.aux {
+			others = append(others, aux["tag"].(string))
+		}
+	}
+	tags := safeTags(all, others)
+	mainTags := make([]any, 0, len(main))
+	for _, candidate := range main {
+		mainTags = append(mainTags, tags[candidate])
+	}
+	fallbackTags := make([]any, 0, len(fallback))
+	for _, candidate := range fallback {
+		fallbackTags = append(fallbackTags, tags[candidate])
+	}
+	allTags := append(append([]any{}, mainTags...), fallbackTags...)
+
+	entry := prefix + "-balancer"
+	var balancers []any
+	var extra []any
+	var loopRules []any
+	if len(fallback) > 0 {
+		lastResort := prefix + "-all-balancer"
+		balancers = append(balancers, balancer(lastResort, allTags, toleranceFallback, 0, ""))
+		toAll := loopback(prefix, "reserve", lastResort)
+		extra, loopRules = append(extra, toAll.outbound), append(loopRules, toAll.rule)
+		reserveTag := prefix + "-reserve-balancer"
+		balancers = append(balancers, balancer(reserveTag, fallbackTags, toleranceFallback, reserveBaselineMS, toAll.tag))
+		toReserve := loopback(prefix, "main", reserveTag)
+		extra, loopRules = append(extra, toReserve.outbound), append(loopRules, toReserve.rule)
+		balancers = append(balancers, balancer(entry, mainTags, tolerance, mainBaselineMS, toReserve.tag))
+	} else {
+		balancers = append(balancers, balancer(entry, mainTags, toleranceFallback, singleBaselineMS, ""))
+	}
+
+	outbounds := make([]any, 0, len(all)*2+len(extra)+2)
+	chained := map[string]bool{}
+	for _, candidate := range all {
+		copied := shallow(candidate.outbound)
+		copied["tag"] = tags[candidate]
+		outbounds = append(outbounds, copied)
+		for _, aux := range candidate.aux {
+			// Two servers of one panel config dial through the same chain.
+			if tag := aux["tag"].(string); !chained[tag] {
+				chained[tag] = true
+				outbounds = append(outbounds, aux)
+			}
+		}
+	}
+	outbounds = append(outbounds, extra...)
+	outbounds = append(outbounds, systemOutbound(builder.tpl.direct, "direct", "freedom"))
+	outbounds = append(outbounds, systemOutbound(builder.tpl.block, "block", "blackhole"))
+
+	config := map[string]any{}
+	for key, value := range builder.tpl.inherited {
+		config[key] = value
+	}
+	config["remarks"] = builder.name(group)
+	meta := map[string]any{}
+	for key, value := range builder.tpl.meta {
+		meta[key] = value
+	}
+	meta["serverDescription"] = describe(len(main), builder.request.Locale)
+	config["meta"] = meta
+	config["dns"] = builder.tpl.dns
+	config["inbounds"] = builder.tpl.inbounds
+	config["outbounds"] = outbounds
+	config["burstObservatory"] = map[string]any{
+		"subjectSelector": allTags,
+		"pingConfig": map[string]any{
+			"destination": builder.request.Settings.ProbeURL,
+			"interval":    strconv.Itoa(builder.request.Settings.ProbeIntervalSeconds) + "s",
+			"sampling":    probeSampling,
+			"timeout":     probeTimeout,
+		},
+	}
+	rules := append(loopRules, builder.rules(entry)...)
+	config["routing"] = map[string]any{
+		"domainStrategy": builder.tpl.domainStrategy,
+		"domainMatcher":  "hybrid",
+		"balancers":      balancers,
+		"rules":          rules,
+	}
+	return config
+}
+
+// rules are the routing rules after the loopback chain, in the order they
+// must win: QUIC, the customer's own domains, the operator's direct list, the
+// presets, the panel template's rules, and finally everything else into the
+// group's balancer.
+func (builder groupBuilder) rules(entry string) []any {
+	presets := builder.request.Preferences.Presets
+	var rules []any
+	rules = append(rules, map[string]any{"type": "field", "ip": privateRanges, "outboundTag": "direct"})
+	if presets.BlockQUIC {
+		rules = append(rules, map[string]any{"type": "field", "network": "udp", "port": "443", "outboundTag": "block"})
+	}
+	byAction := map[Action][]any{}
+	for _, rule := range builder.request.Preferences.Rules {
+		byAction[rule.Action] = append(byAction[rule.Action], "domain:"+rule.Domain)
+	}
+	if domains := byAction[ActionBlock]; len(domains) > 0 {
+		rules = append(rules, map[string]any{"type": "field", "domain": domains, "outboundTag": "block"})
+	}
+	if domains := byAction[ActionProxy]; len(domains) > 0 {
+		rules = append(rules, map[string]any{"type": "field", "domain": domains, "balancerTag": entry})
+	}
+	if domains := byAction[ActionDirect]; len(domains) > 0 {
+		rules = append(rules, map[string]any{"type": "field", "domain": domains, "outboundTag": "direct"})
+	}
+	if len(builder.request.Settings.DirectDomains) > 0 {
+		domains := make([]any, 0, len(builder.request.Settings.DirectDomains))
+		for _, domain := range builder.request.Settings.DirectDomains {
+			domains = append(domains, "domain:"+domain)
+		}
+		rules = append(rules, map[string]any{"type": "field", "domain": domains, "outboundTag": "direct"})
+	}
+	if presets.BlockAds {
+		rules = append(rules, map[string]any{"type": "field", "domain": []any{"geosite:category-ads-all"}, "outboundTag": "block"})
+	}
+	if presets.RussiaDirect {
+		rules = append(rules,
+			map[string]any{"type": "field", "domain": []any{"domain:ru", "domain:su", "domain:xn--p1ai"}, "outboundTag": "direct"},
+			map[string]any{"type": "field", "ip": []any{"geoip:ru"}, "outboundTag": "direct"},
+		)
+	}
+	for _, templated := range builder.tpl.rules {
+		rule := shallow(templated.rule)
+		switch templated.target {
+		case "balancer":
+			rule["balancerTag"] = entry
+		default:
+			rule["outboundTag"] = templated.target
+		}
+		rules = append(rules, rule)
+	}
+	return append(rules, map[string]any{"type": "field", "network": "tcp,udp", "balancerTag": entry})
+}
+
+func balancer(tag string, selector []any, tolerance float64, baselineMS int, fallbackTag string) map[string]any {
+	expected := loadExpected
+	if len(selector) < expected {
+		expected = len(selector)
+	}
+	if expected < 1 {
+		expected = 1
+	}
+	settings := map[string]any{"expected": expected, "tolerance": tolerance}
+	if baselineMS > 0 {
+		settings["baselines"] = []any{strconv.Itoa(baselineMS) + "ms"}
+	}
+	result := map[string]any{
+		"tag": tag, "selector": selector,
+		"strategy": map[string]any{"type": "leastLoad", "settings": settings},
+	}
+	if fallbackTag != "" {
+		result["fallbackTag"] = fallbackTag
+	}
+	return result
+}
+
+type loopbackLink struct {
+	tag      string
+	outbound map[string]any
+	rule     map[string]any
+}
+
+// loopback chains one balancer onto the next: the first balancer's fallback
+// is a loopback outbound, which re-enters routing under an inbound tag that a
+// rule sends to the next balancer.
+func loopback(prefix, kind, target string) loopbackLink {
+	tag := prefix + "-" + kind + "-loopback"
+	inbound := prefix + "-" + kind + "-lb-in"
+	return loopbackLink{
+		tag:      tag,
+		outbound: map[string]any{"tag": tag, "protocol": "loopback", "settings": map[string]any{"inboundTag": inbound}},
+		rule:     map[string]any{"type": "field", "inboundTag": []any{inbound}, "balancerTag": target},
+	}
+}
+
+func systemOutbound(fromTemplate map[string]any, tag, protocol string) map[string]any {
+	if fromTemplate == nil {
+		return map[string]any{"tag": tag, "protocol": protocol}
+	}
+	copied := shallow(fromTemplate)
+	copied["tag"] = tag
+	return copied
+}
+
+// safeTags gives every server a tag that is neither a prefix of another tag
+// in the config nor has one as its prefix. Xray's balancer selector matches
+// tags by prefix, so "Finland 1" would also select "Finland 10", or a server
+// called "g0" every loopback outbound; when any such pair exists, every server
+// tag is numbered.
+func safeTags(proxies []*proxy, others []string) map[*proxy]string {
+	names := make([]string, 0, len(proxies)+len(others))
+	for _, candidate := range proxies {
+		names = append(names, candidate.outbound["tag"].(string))
+	}
+	names = append(names, others...)
+	sort.Strings(names)
+	collision := false
+	for index := 1; index < len(names); index++ {
+		if strings.HasPrefix(names[index], names[index-1]) {
+			collision = true
+			break
+		}
+	}
+	tags := make(map[*proxy]string, len(proxies))
+	for index, candidate := range proxies {
+		tag := candidate.outbound["tag"].(string)
+		if collision {
+			tag = "s" + strconv.Itoa(index) + "_" + tag
+		}
+		tags[candidate] = tag
+	}
+	return tags
+}
+
+func dedupe(proxies []*proxy, already []*proxy) []*proxy {
+	seen := make(map[*proxy]bool, len(already))
+	for _, candidate := range already {
+		seen[candidate] = true
+	}
+	kept := make([]*proxy, 0, len(proxies))
+	for _, candidate := range proxies {
+		if !seen[candidate] {
+			seen[candidate] = true
+			kept = append(kept, candidate)
+		}
+	}
+	return kept
+}
+
+func shallow(source map[string]any) map[string]any {
+	copied := make(map[string]any, len(source))
+	for key, value := range source {
+		copied[key] = value
+	}
+	return copied
+}
+
+func stringOf(value any) string {
+	text, _ := value.(string)
+	return text
+}
+
+func intOf(value any) int {
+	switch typed := value.(type) {
+	case json.Number:
+		parsed, _ := strconv.Atoi(typed.String())
+		return parsed
+	case float64:
+		return int(typed)
+	case string:
+		parsed, _ := strconv.Atoi(typed)
+		return parsed
+	}
+	return 0
+}

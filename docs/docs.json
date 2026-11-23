@@ -38,6 +38,7 @@
               "features/gifts-and-stars-shop",
               "features/analytics",
               "features/backups",
+              "features/smart-subscription",
               "features/ai-assistant"
             ]
           },
@@ -184,6 +185,7 @@
               "ru/features/gifts-and-stars-shop",
               "ru/features/analytics",
               "ru/features/backups",
+              "ru/features/smart-subscription",
               "ru/features/ai-assistant"
             ]
           },

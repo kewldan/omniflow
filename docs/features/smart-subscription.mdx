@@ -1,0 +1,112 @@
+---
+title: Smart subscription
+description: Servers grouped by country with a fastest-server group, a whitelist-bypass fallback, and routing each customer sets up for their own subscription
+---
+
+A Remnawave subscription hands a VPN app one entry per host, and that is all a customer can work
+with: a flat list, the same for everybody. The smart subscription turns it into something a
+customer can shape. Their app gets one group per country, a "Fastest" group that picks the best
+server on its own, and a whitelist-bypass group that takes over when a mobile network only lets
+approved sites through. Each customer decides which countries they see at all, which ones the
+automatic choice may use, and which domains go direct, through the tunnel, or nowhere.
+
+It is **off until you turn it on**, and turning it off again is safe at any time.
+
+## How it works
+
+While the module is on, customers are handed an Omniflow link instead of the panel's:
+`https://<your address>/v1/sub/<short UUID>`. The short UUID is the panel's own, so the link is
+exactly as secret as the panel's, and re-issuing the link in the cabinet or the bot re-issues both.
+
+When an app refreshes the subscription, Omniflow asks Remnawave for it on the app's behalf —
+forwarding its User-Agent and device headers, so your response rules and the device limit apply as
+before — and rewrites what goes back:
+
+- **Xray JSON apps** (Happ, v2RayTun, Streisand, V2Box, v2rayN, FoXray, and similar) get one config
+  per group. Each group is a balancer that times its servers and picks the least loaded; when none
+  of them answers, it falls back to the whitelist-bypass servers, and then to every server.
+- **Every other app** gets the panel's own answer, with the servers the customer hid taken out when
+  it is a plain list of links.
+- An answer the module cannot rewrite — a limit or expiry notice, an encrypted or unknown format —
+  reaches the app exactly as Remnawave sent it.
+
+Hosts whose nodes are all disconnected are left out while anything else answers. Nothing about your
+hosts is copied into Omniflow; the list is read from Remnawave once a minute.
+
+<Note>
+  Changes reach a device when its app refreshes the subscription. Most apps do that on a timer; a
+  customer can also refresh by hand.
+</Note>
+
+## Turning it on
+
+<Steps>
+  <Step title="Check the link address">
+    Open **Settings → Smart subscription**. Links are built on `APP_PUBLIC_URL` followed by
+    `/v1/sub/`, or on the link base you enter. If neither is set, the screen says so and customers
+    keep the panel's link.
+  </Step>
+  <Step title="Check the hosts">
+    The table lists your Remnawave hosts with the country read from each one's flag or name. Correct
+    a country where it was read wrong. Give the hosts that work on whitelisted mobile networks the
+    **Whitelist bypass** role, and hide test or retiring hosts with **Hidden**.
+  </Step>
+  <Step title="Choose what customers start with">
+    Pick the default routing (Russian sites direct is on by default), whether customers may add their
+    own domains, how many, and any domains that always go direct for everyone.
+  </Step>
+  <Step title="Turn it on and save">
+    From now on the cabinet and the bot hand out the new link. Customers who already imported the
+    panel's link keep it until they import the new one.
+  </Step>
+</Steps>
+
+<Warning>
+  If you use subscription mirrors (`APP_SUBSCRIPTION_MIRRORS`), each mirror must forward `/v1/sub/`
+  to Omniflow. A mirror that only proxies the Remnawave subscription page will not serve the new
+  link.
+</Warning>
+
+## What customers see
+
+On a subscription's page in the web cabinet, a **Servers and routing** card opens the customer's
+own screen:
+
+- **Servers** lists their countries. **Shown** keeps a country in the subscription; **Auto** lets the
+  Fastest group use it. A country can be shown but kept out of Auto — for example, so the automatic
+  choice never lands in one country but it is still there to pick by hand. Expanding a country lists
+  its servers. **Measure ping** times each server from the browser; the figure is approximate, and
+  it goes through the VPN when the VPN is on.
+- **Whitelist bypass** can be switched off by a customer who never needs it.
+- **Routing** has the three ready-made choices — Russian sites direct, block ads, block QUIC — and,
+  if you allow it, their own domains with Direct, Through VPN, or Block. A domain covers its
+  subdomains; a pasted link keeps only the domain.
+
+Choices are saved per subscription and can be reset to your defaults. They are part of the
+customer's privacy export.
+
+## Limits worth knowing
+
+- The ad-blocking choice needs the app's geosite database. Happ and v2RayTun ship it; an app without
+  it may refuse the config, which is why the choice is off by default.
+- INCY gets the panel's own answer: it stalls on the geo databases the routing rules name.
+- Omniflow is in the path of every refresh while the module is on. If it is down, apps cannot
+  refresh, but configurations they already have keep working.
+- The link answers 60 requests a minute per address.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Plans and subscriptions" icon="layer-group" href="/features/plans-and-subscriptions">
+    What a customer buys and how the subscription link is handed out.
+  </Card>
+  <Card title="Telegram bot and web cabinet" icon="comments" href="/features/telegram-bot-and-web">
+    Where customers find the link and the connection screen.
+  </Card>
+  <Card title="Data ownership" icon="scale-balanced" href="/architecture/data-ownership">
+    What Remnawave keeps owning while Omniflow rewrites the subscription.
+  </Card>
+  <Card title="Architecture decisions" icon="landmark" href="/architecture/decisions#smart-subscription">
+    Decision 0017: why the rewrite and what it costs.
+  </Card>
+</CardGroup>

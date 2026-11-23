@@ -130,6 +130,7 @@ without the suffix (`commerce` → `commercepg`, `customerauth` →
 - `dormancy`, `retention`, `sweeper`, `blockedbot` — lifecycle passes.
 - `termsgate`, `channelgate`, `channelworker` — terms acceptance and required channels.
 - `sharing` — account-sharing signal from Remnawave devices.
+- `smartsub` (rules: country detection, Xray JSON rewrite, routing) · `smartsubpg` — the smart subscription: the `/v1/sub/{shortUUID}` link, host cache, customers' routing choices.
 - `telegramavatar` — profile photos for the customer card.
 
 **Growth**

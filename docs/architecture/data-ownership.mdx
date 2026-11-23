@@ -16,8 +16,8 @@ answer is the truth about access; Omniflow's answer is the truth about money and
 operator can upgrade Remnawave without Omniflow having an opinion about its schema.
 
 The boundary is structural, not aspirational. Omniflow never writes Remnawave's database and never manages
-Xray. Every call goes through the HTTP adapter in `internal/remnawave`, which exposes exactly thirteen
-operations, and everything else in the codebase takes `remnawave.Service`, `remnawave.Provisioner`, or
+Xray. Every call goes through the HTTP adapter in `internal/remnawave`, which exposes a fixed set of
+operations pinned by its contract tests, and everything else in the codebase takes `remnawave.Service`, `remnawave.Provisioner`, or
 `remnawave.Importer` as an interface.
 
 ## What Remnawave owns
@@ -29,7 +29,7 @@ operations, and everything else in the codebase takes `remnawave.Service`, `remn
 | Connected devices | Remnawave | Listed live through `GET /api/hwid/devices/{id}`; never mirrored |
 | The access (subscription) link | Remnawave | Fetched live on every request; no column for it exists anywhere in Omniflow's schema |
 | Nodes, hosts, and Internal Squads | Remnawave | A plan version stores squad UUIDs and nothing else about them |
-| Xray configuration | Remnawave | Not touched, read, or represented |
+| Xray configuration | Remnawave | Never written. With the [smart subscription](/features/smart-subscription) on, the subscription a client receives is read from the panel per request and rewritten on its way out; none of it is stored ([0017](/architecture/decisions#smart-subscription)) |
 
 ## What Omniflow owns
 
@@ -47,6 +47,7 @@ operations, and everything else in the codebase takes `remnawave.Service`, `remn
 | Marketing, news, campaigns, audience segments, suppressions | marketing tables | |
 | Referrals, loyalty tiers, gifts, digital-goods orders | commerce tables | |
 | Operators, roles, permissions, sessions, audit trail | admin tables | The permission catalogue itself is compiled in, not stored |
+| Smart subscription settings and each customer's routing choices | `smart_subscription_settings`, `smart_subscription_preferences` | Host corrections are keyed by Remnawave host UUID; nothing else about a host is kept |
 
 ## The single join between the two
 

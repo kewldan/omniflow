@@ -4055,6 +4055,10 @@
         "analytics": {
           "title": "Вимірювання",
           "description": "Ваша власна рекламна аналітика: лічильники, підтвердження сайту та ідентифікатор кліку, що пов'язує оголошення із замовленням. За замовчуванням вимкнено й ніколи не надсилається проєкту Omniflow."
+        },
+        "smartSubscription": {
+          "title": "Розумна підписка",
+          "description": "Сервери за країнами, автовибір найшвидшого, обхід білих списків і маршрути, які клієнти налаштовують самі"
         }
       }
     },
@@ -5517,6 +5521,77 @@
         "renewal": "Продовжено",
         "tickets": "Звернення",
         "perHundred": "На 100 клієнтів"
+      }
+    },
+    "smartSubscription": {
+      "saved": "Settings saved",
+      "save": "Save",
+      "enabled": "Turn on the smart subscription",
+      "moduleTitle": "Module",
+      "moduleDescription": "Customers get an Omniflow link: servers grouped by country, a fastest-server group, a whitelist-bypass fallback, and routing they choose. Turning it off is safe — links already handed out keep serving the panel's subscription as is.",
+      "linkBase": "Link base",
+      "linkBaseHint": "The start of the link before the short UUID. Empty uses the service address (APP_PUBLIC_URL) and /v1/sub/. Subscription mirrors must forward this path to Omniflow.",
+      "noLinkBase": "Neither a link base nor APP_PUBLIC_URL is set, so customers keep getting the panel's own link.",
+      "customersTitle": "For customers",
+      "customersDescription": "What a customer starts with and what they can change.",
+      "presets": {
+        "russiaDirect": {
+          "label": "Russian sites direct",
+          "hint": ".ru, .su, .рф, and Russian IPs skip the VPN"
+        },
+        "blockAds": {
+          "label": "Block ads",
+          "hint": "Needs geosite in the customer's app; Happ and v2RayTun ship it"
+        },
+        "blockQuic": {
+          "label": "Block QUIC",
+          "hint": "Refuses UDP 443 so browsers fall back to TCP"
+        }
+      },
+      "customRules": "Customer rules",
+      "customRulesHint": "Customers can add domains to send direct, through the VPN, or block",
+      "maxRules": "Most rules per customer",
+      "directDomains": "Always direct for everyone",
+      "directDomainsHint": "One domain per line; subdomains are included.",
+      "hostsTitle": "Remnawave hosts",
+      "hostsDescription": "The country is read from each host's flag or name — correct it where it's wrong. The whitelist bypass role makes a host a fallback; Hidden leaves it out of every subscription.",
+      "hostsUnavailable": "Remnawave didn't answer, so the host list is unavailable.",
+      "hostsEmpty": "Remnawave has no hosts.",
+      "host": "Host",
+      "country": "Country",
+      "status": "Status",
+      "role": "Role",
+      "statusUp": "up",
+      "statusDown": "nodes down",
+      "statusDisabled": "off in the panel",
+      "roles": {
+        "main": "Main",
+        "reserve": "Whitelist bypass",
+        "hidden": "Hidden"
+      },
+      "countryDetected": "Auto: {country}",
+      "countryUnknown": "Auto: unknown",
+      "countryAuto": "Read from the name",
+      "countrySearch": "Find a country",
+      "countryNone": "Nothing found",
+      "advancedTitle": "Advanced",
+      "advancedDescription": "Group names in the app and how servers are timed.",
+      "autoName": "Fastest group name",
+      "autoNamePlaceholder": "⚡ Fastest",
+      "reserveName": "Bypass group name",
+      "reserveNamePlaceholder": "🛡 Whitelist bypass",
+      "probeUrl": "Speed check URL",
+      "probeInterval": "Check interval, seconds",
+      "fieldError": "{field}: {detail}",
+      "fields": {
+        "linkBase": "Link base",
+        "probeUrl": "Speed check URL",
+        "probeIntervalSeconds": "Check interval",
+        "autoName": "Group name",
+        "reserveName": "Bypass group name",
+        "maxRules": "Most rules",
+        "directDomains": "Always direct",
+        "hosts": "Hosts"
       }
     }
   },
@@ -7409,6 +7484,69 @@
       "emptyDescription": "Тут з'являються персональні пропозиції сервісу.",
       "failed": "Не вдалося завантажити пропозиції",
       "failedDescription": "Спробуйте ще раз трохи пізніше."
+    },
+    "smart": {
+      "entryTitle": "Сервери та маршрути",
+      "entryDescription": "Які країни в підписці, автовибір і що йде повз VPN",
+      "title": "Сервери та маршрути",
+      "tabServers": "Сервери",
+      "tabRoutes": "Маршрути",
+      "offTitle": "Налаштування недоступне",
+      "offDescription": "Сервіс зараз не дозволяє налаштовувати сервери та маршрути.",
+      "unavailableDescription": "Список серверів тимчасово недоступний. Спробуйте за кілька хвилин.",
+      "saved": "Збережено. Оновіть підписку в застосунку",
+      "reset": "Скинути",
+      "resetDone": "Повернули налаштування за замовчуванням",
+      "appliesOnRefresh": "Зміни застосуються, коли застосунок оновить підписку. Оновити можна вручну в самому застосунку.",
+      "pingHint": "Пінг приблизний і вимірюється з браузера. Якщо VPN увімкнено, вимір іде через нього.",
+      "measure": "Виміряти пінг",
+      "autoTitle": "Найшвидший",
+      "autoCountries": "{count, plural, =0 {немає країн} one {# країна} few {# країни} other {# країн}}",
+      "autoDescription": "Застосунок сам обирає найкращий сервер серед країн, де увімкнено «Авто».",
+      "countries": "Країна",
+      "visible": "Видима",
+      "auto": "Авто",
+      "ping": "Пінг",
+      "visibleLabel": "Показувати: {country}",
+      "autoLabel": "Автовибір: {country}",
+      "noServers": "У підписці поки немає серверів.",
+      "otherCountry": "Інші",
+      "down": "недоступний",
+      "noAnswer": "немає",
+      "ms": "{value} мс",
+      "reserveTitle": "Обхід білих списків",
+      "reserveDescription": "{count, plural, one {Запасний сервер} other {Запасні сервери}} для мобільного інтернету, що пропускає лише дозволені сайти. Вмикаються самі, якщо основні не відповідають, і доступні окремою групою.",
+      "presets": {
+        "russiaDirect": {
+          "title": "Російські сайти напряму",
+          "description": ".ru, .su, .рф і російські IP — без VPN"
+        },
+        "blockAds": {
+          "title": "Блокувати рекламу",
+          "description": "Рекламні та трекінгові домени"
+        },
+        "blockQuic": {
+          "title": "Не пускати QUIC",
+          "description": "Допомагає, якщо гальмує відео"
+        }
+      },
+      "rulesTitle": "Свої правила",
+      "rulesCount": "{count} з {max}",
+      "domainLabel": "Домен",
+      "actionLabel": "Що робити",
+      "addRule": "Додати правило",
+      "removeRule": "Видалити {domain}",
+      "actions": {
+        "direct": "Напряму",
+        "proxy": "Через VPN",
+        "block": "Блокувати"
+      },
+      "domainInvalid": "Введіть домен, наприклад example.com",
+      "domainDuplicate": "Такий домен уже є",
+      "rulesFull": "Не більше {max} правил",
+      "rulesEmpty": "Правил поки немає. Додайте домен, який має йти напряму, через VPN або блокуватися.",
+      "rulesHint": "Правило діє на домен і всі його піддомени. Можна вставити посилання — залишиться лише домен.",
+      "serverCount": "{count, plural, one {# сервер} few {# сервери} other {# серверів}}"
     }
   },
   "pages": {

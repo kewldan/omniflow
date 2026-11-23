@@ -334,6 +334,36 @@ paths:
                         countryCode: {type: string}
                         online: {type: boolean}
         "503": {$ref: "#/components/responses/Problem"}
+  /v1/sub/{shortUUID}:
+    get:
+      operationId: getSmartSubscription
+      tags: [remnawave]
+      security: []
+      description: >-
+        Public; the short UUID of the Remnawave link is the credential, so this
+        link is exactly as secret as the panel's and is re-issued with it. While
+        the smart subscription is on, a client that reads Xray JSON (Happ,
+        v2RayTun, Streisand, and similar) gets one config per group — the
+        fastest-server group, each country, and the whitelist bypass — each a
+        balancer with a failover chain and the customer's routing; any other
+        client gets the panel's own answer with hidden servers removed. While it
+        is off, and for anything the module cannot rewrite, the panel's answer
+        passes through unchanged. The client's User-Agent and HWID headers are
+        forwarded to the panel, so its response rules and device limit apply.
+        Answers carry an ETag and honour If-None-Match. Limited to 60 requests a
+        minute per address.
+      parameters:
+        - {in: path, name: shortUUID, required: true, schema: {type: string, pattern: "^[A-Za-z0-9_-]{4,64}$"}}
+      responses:
+        "200":
+          description: The subscription, in the format the client reads.
+          content:
+            application/json: {schema: {type: array, items: {type: object, additionalProperties: true}}}
+            text/plain: {schema: {type: string}}
+        "304": {description: The client already has this body}
+        "404": {$ref: "#/components/responses/Problem"}
+        "429": {$ref: "#/components/responses/Problem"}
+        "502": {$ref: "#/components/responses/Problem"}
   /v1/remnawave/webhook:
     post:
       operationId: receiveRemnawaveWebhook
@@ -1393,6 +1423,45 @@ paths:
         "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSimpleSubscription"}}}}
         "403": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/smart-subscription:
+    get:
+      operationId: getPanelSmartSubscription
+      tags: [panel]
+      description: >-
+        Requires settings.read. The smart subscription's settings.
+        `effectiveLinkBase` is where links are built — the saved base, or
+        APP_PUBLIC_URL followed by /v1/sub/ — and is empty when neither is set,
+        in which case customers keep the panel's link.
+      responses:
+        "200": {description: Settings, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSmartSubscription"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+    put:
+      operationId: savePanelSmartSubscription
+      tags: [panel]
+      description: >-
+        Requires settings.write. Saves the settings; `version` must be the one
+        last read, or the answer is 409. A field that fails validation is a 422
+        naming it in `field`. Audited as panel.smart_subscription.updated.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSmartSubscription"}}}}
+      responses:
+        "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSmartSubscription"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/smart-subscription/hosts:
+    get:
+      operationId: listPanelSmartSubscriptionHosts
+      tags: [panel]
+      description: >-
+        Requires settings.read. The Remnawave panel's hosts, read live, with
+        the country read from each remark and the country and role in effect
+        after the operator's corrections. Nothing is stored. 502 when the panel
+        does not answer.
+      responses:
+        "200": {description: Hosts, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSmartSubscriptionHosts"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "502": {$ref: "#/components/responses/Problem"}
   /v1/panel/remnawave/squads:
     get:
       operationId: listPanelRemnawaveSquads
@@ -4669,6 +4738,68 @@ paths:
         "204": {description: Renamed}
         "404": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
+  /v1/account/smart-subscription:
+    get:
+      operationId: getAccountSmartSubscriptionStatus
+      tags: [account]
+      description: Whether the operator turned the smart subscription on, so the panel knows to offer its screen.
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              schema: {type: object, required: [enabled], properties: {enabled: {type: boolean}}}
+  /v1/account/subscriptions/{subscriptionID}/smart:
+    get:
+      operationId: getAccountSmartSubscription
+      tags: [account]
+      description: >-
+        The customer's servers for one subscription, grouped by country, with
+        the whitelist bypass servers apart, and the choices they saved — or the
+        operator's defaults, with `customized` false. Read live from Remnawave.
+        409 when the module is off or the subscription has no panel user yet.
+      parameters: [{$ref: "#/components/parameters/AccountSubscriptionID"}]
+      responses:
+        "200": {description: Servers and choices, content: {application/json: {schema: {$ref: "#/components/schemas/AccountSmartSubscription"}}}}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
+    put:
+      operationId: saveAccountSmartSubscription
+      tags: [account]
+      description: >-
+        Saves the customer's choices for one subscription. They apply the next
+        time a client refreshes the subscription. Domains are normalised — a
+        pasted URL keeps its host, an internationalised name is stored in its
+        ASCII form — and a field that fails validation is a 422 naming it in
+        `field`.
+      parameters:
+        - {$ref: "#/components/parameters/AccountSubscriptionID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/SmartSubscriptionPreferences"}}}}
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [preferences]
+                properties: {preferences: {$ref: "#/components/schemas/SmartSubscriptionPreferences"}}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+    delete:
+      operationId: resetAccountSmartSubscription
+      tags: [account]
+      description: Puts the subscription back on the operator's defaults.
+      parameters:
+        - {$ref: "#/components/parameters/AccountSubscriptionID"}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "204": {description: Reset}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
   /v1/account/subscriptions/{subscriptionID}/connection:
     get:
       operationId: getAccountConnection
@@ -7859,6 +7990,102 @@ components:
         trafficGb: {type: integer, minimum: 0, maximum: 1000000, description: 0 is the version's own traffic.}
         deviceAddonId: {type: string, description: A devices add-on bought with the plan; empty for none.}
         deviceQuantity: {type: integer, minimum: 0, maximum: 100}
+    SmartSubscriptionPresets:
+      type: object
+      required: [russiaDirect, blockAds, blockQuic]
+      properties:
+        russiaDirect: {type: boolean, description: ".ru, .su, .рф, and Russian IP ranges go around the tunnel."}
+        blockAds: {type: boolean, description: Advertising and tracking domains are dropped.}
+        blockQuic: {type: boolean, description: "UDP 443 is refused, which pushes browsers back onto TCP."}
+    SmartSubscriptionHostOverride:
+      type: object
+      properties:
+        country: {type: string, description: An ISO 3166-1 code; empty keeps the one read from the remark.}
+        role: {type: string, enum: ["", main, reserve, hidden], description: "reserve is the whitelist bypass; hidden leaves the host out of every subscription."}
+    PanelSmartSubscription:
+      type: object
+      required: [enabled, version, linkBase, probeUrl, probeIntervalSeconds, autoName, reserveName, defaults, customRules, maxRules, directDomains, hosts]
+      properties:
+        enabled: {type: boolean}
+        version: {type: integer, description: Send back the version last read; a newer one on the server is a 409.}
+        linkBase: {type: string, description: "The public prefix links are built on, ending before the short UUID; empty uses APP_PUBLIC_URL and /v1/sub/."}
+        effectiveLinkBase: {type: string, readOnly: true}
+        probeUrl: {type: string, format: uri}
+        probeIntervalSeconds: {type: integer, minimum: 30, maximum: 86400}
+        autoName: {type: string, maxLength: 40, description: The fastest-server group's name; empty uses the customer's language's default.}
+        reserveName: {type: string, maxLength: 40, description: The whitelist bypass group's name; empty uses the default.}
+        defaults: {$ref: "#/components/schemas/SmartSubscriptionPresets"}
+        customRules: {type: boolean, description: Customers may add their own domains.}
+        maxRules: {type: integer, minimum: 1, maximum: 200}
+        directDomains: {type: array, maxItems: 200, items: {type: string}, description: Domains that always go around the tunnel for everyone.}
+        hosts:
+          type: object
+          description: Corrections keyed by Remnawave host UUID.
+          additionalProperties: {$ref: "#/components/schemas/SmartSubscriptionHostOverride"}
+    PanelSmartSubscriptionHost:
+      type: object
+      required: [uuid, remark, address, port, detectedCountry, country, role, disabled, hidden, down]
+      properties:
+        uuid: {type: string}
+        remark: {type: string}
+        address: {type: string}
+        port: {type: integer}
+        detectedCountry: {type: string, description: The country read from the remark; empty when none.}
+        country: {type: string, description: The country in effect; ZZ when unknown.}
+        role: {type: string, enum: [main, reserve, hidden]}
+        disabled: {type: boolean}
+        hidden: {type: boolean}
+        down: {type: boolean, description: Every node behind the host is disconnected or disabled.}
+    PanelSmartSubscriptionHosts:
+      type: object
+      required: [hosts]
+      properties:
+        hosts: {type: array, items: {$ref: "#/components/schemas/PanelSmartSubscriptionHost"}}
+    SmartSubscriptionRule:
+      type: object
+      required: [domain, action]
+      properties:
+        domain: {type: string, description: Matches the domain and every subdomain.}
+        action: {type: string, enum: [direct, proxy, block]}
+    SmartSubscriptionPreferences:
+      type: object
+      required: [hiddenCountries, autoExcluded, reserve, presets, rules]
+      properties:
+        hiddenCountries: {type: array, items: {type: string}, description: "ISO codes left out of the subscription; ZZ is the servers whose country is unknown."}
+        autoExcluded: {type: array, items: {type: string}, description: Countries the fastest-server group never picks.}
+        reserve: {type: boolean, description: "Keep the whitelist bypass servers, as a fallback and as a group."}
+        presets: {$ref: "#/components/schemas/SmartSubscriptionPresets"}
+        rules: {type: array, maxItems: 200, items: {$ref: "#/components/schemas/SmartSubscriptionRule"}}
+    SmartSubscriptionServer:
+      type: object
+      required: [name, address, port, down]
+      properties:
+        name: {type: string}
+        address: {type: string}
+        port: {type: integer}
+        down: {type: boolean}
+    AccountSmartSubscription:
+      type: object
+      required: [servers, preferences, customized, defaults, customRules, maxRules]
+      properties:
+        servers:
+          type: object
+          required: [countries, reserve]
+          properties:
+            countries:
+              type: array
+              items:
+                type: object
+                required: [code, servers]
+                properties:
+                  code: {type: string, description: "An ISO 3166-1 code, or ZZ for servers whose country is unknown."}
+                  servers: {type: array, items: {$ref: "#/components/schemas/SmartSubscriptionServer"}}
+            reserve: {type: array, items: {$ref: "#/components/schemas/SmartSubscriptionServer"}}
+        preferences: {$ref: "#/components/schemas/SmartSubscriptionPreferences"}
+        customized: {type: boolean}
+        defaults: {$ref: "#/components/schemas/SmartSubscriptionPresets"}
+        customRules: {type: boolean}
+        maxRules: {type: integer}
     PanelTrafficPackage:
       type: object
       required: [gb, currency, amountMinor]

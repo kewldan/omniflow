@@ -829,6 +829,18 @@ export const GetServerStatusResponse = zod.object({
 });
 
 /**
+ * Public; the short UUID of the Remnawave link is the credential, so this link is exactly as secret as the panel's and is re-issued with it. While the smart subscription is on, a client that reads Xray JSON (Happ, v2RayTun, Streisand, and similar) gets one config per group — the fastest-server group, each country, and the whitelist bypass — each a balancer with a failover chain and the customer's routing; any other client gets the panel's own answer with hidden servers removed. While it is off, and for anything the module cannot rewrite, the panel's answer passes through unchanged. The client's User-Agent and HWID headers are forwarded to the panel, so its response rules and device limit apply. Answers carry an ETag and honour If-None-Match. Limited to 60 requests a minute per address.
+ */
+export const getSmartSubscriptionPathShortUUIDRegExp = /^[A-Za-z0-9_-]{4,64}$/;
+
+export const GetSmartSubscriptionParams = zod.object({
+  shortUUID: zod.string().regex(getSmartSubscriptionPathShortUUIDRegExp),
+});
+
+export const GetSmartSubscriptionResponseItem = zod.record(zod.string(), zod.unknown());
+export const GetSmartSubscriptionResponse = zod.array(GetSmartSubscriptionResponseItem);
+
+/**
  * Remnawave's own event deliveries, signed with an HMAC-SHA256 of the body in X-Remnawave-Signature under APP_REMNAWAVE_WEBHOOK_SECRET. Mounted only when the secret is set. A retried delivery is acknowledged without being recorded twice.
  */
 export const ReceiveRemnawaveWebhookHeader = zod.object({
@@ -3821,6 +3833,238 @@ export const SavePanelSimpleSubscriptionResponse = zod.object({
     .int()
     .min(savePanelSimpleSubscriptionResponseDeviceQuantityMin)
     .max(savePanelSimpleSubscriptionResponseDeviceQuantityMax),
+});
+
+/**
+ * Requires settings.read. The smart subscription's settings. `effectiveLinkBase` is where links are built — the saved base, or APP_PUBLIC_URL followed by /v1/sub/ — and is empty when neither is set, in which case customers keep the panel's link.
+ */
+export const getPanelSmartSubscriptionResponseProbeIntervalSecondsMin = 30;
+export const getPanelSmartSubscriptionResponseProbeIntervalSecondsMax = 86400;
+
+export const getPanelSmartSubscriptionResponseAutoNameMax = 40;
+
+export const getPanelSmartSubscriptionResponseReserveNameMax = 40;
+
+export const getPanelSmartSubscriptionResponseMaxRulesMax = 200;
+
+export const getPanelSmartSubscriptionResponseDirectDomainsMax = 200;
+
+export const GetPanelSmartSubscriptionResponse = zod.object({
+  enabled: zod.boolean(),
+  version: zod
+    .int()
+    .describe("Send back the version last read; a newer one on the server is a 409."),
+  linkBase: zod
+    .string()
+    .describe(
+      "The public prefix links are built on, ending before the short UUID; empty uses APP_PUBLIC_URL and /v1/sub/.",
+    ),
+  effectiveLinkBase: zod.string().optional(),
+  probeUrl: zod.url(),
+  probeIntervalSeconds: zod
+    .int()
+    .min(getPanelSmartSubscriptionResponseProbeIntervalSecondsMin)
+    .max(getPanelSmartSubscriptionResponseProbeIntervalSecondsMax),
+  autoName: zod
+    .string()
+    .max(getPanelSmartSubscriptionResponseAutoNameMax)
+    .describe("The fastest-server group's name; empty uses the customer's language's default."),
+  reserveName: zod
+    .string()
+    .max(getPanelSmartSubscriptionResponseReserveNameMax)
+    .describe("The whitelist bypass group's name; empty uses the default."),
+  defaults: zod.object({
+    russiaDirect: zod
+      .boolean()
+      .describe(".ru, .su, .рф, and Russian IP ranges go around the tunnel."),
+    blockAds: zod.boolean().describe("Advertising and tracking domains are dropped."),
+    blockQuic: zod.boolean().describe("UDP 443 is refused, which pushes browsers back onto TCP."),
+  }),
+  customRules: zod.boolean().describe("Customers may add their own domains."),
+  maxRules: zod.int().min(1).max(getPanelSmartSubscriptionResponseMaxRulesMax),
+  directDomains: zod
+    .array(zod.string())
+    .max(getPanelSmartSubscriptionResponseDirectDomainsMax)
+    .describe("Domains that always go around the tunnel for everyone."),
+  hosts: zod
+    .record(
+      zod.string(),
+      zod.object({
+        country: zod
+          .string()
+          .optional()
+          .describe("An ISO 3166-1 code; empty keeps the one read from the remark."),
+        role: zod
+          .enum(["", "main", "reserve", "hidden"])
+          .optional()
+          .describe(
+            "reserve is the whitelist bypass; hidden leaves the host out of every subscription.",
+          ),
+      }),
+    )
+    .describe("Corrections keyed by Remnawave host UUID."),
+});
+
+/**
+ * Requires settings.write. Saves the settings; `version` must be the one last read, or the answer is 409. A field that fails validation is a 422 naming it in `field`. Audited as panel.smart_subscription.updated.
+ */
+export const SavePanelSmartSubscriptionHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const savePanelSmartSubscriptionBodyProbeIntervalSecondsMin = 30;
+export const savePanelSmartSubscriptionBodyProbeIntervalSecondsMax = 86400;
+
+export const savePanelSmartSubscriptionBodyAutoNameMax = 40;
+
+export const savePanelSmartSubscriptionBodyReserveNameMax = 40;
+
+export const savePanelSmartSubscriptionBodyMaxRulesMax = 200;
+
+export const savePanelSmartSubscriptionBodyDirectDomainsMax = 200;
+
+export const SavePanelSmartSubscriptionBody = zod.object({
+  enabled: zod.boolean(),
+  version: zod
+    .int()
+    .describe("Send back the version last read; a newer one on the server is a 409."),
+  linkBase: zod
+    .string()
+    .describe(
+      "The public prefix links are built on, ending before the short UUID; empty uses APP_PUBLIC_URL and /v1/sub/.",
+    ),
+  probeUrl: zod.url(),
+  probeIntervalSeconds: zod
+    .int()
+    .min(savePanelSmartSubscriptionBodyProbeIntervalSecondsMin)
+    .max(savePanelSmartSubscriptionBodyProbeIntervalSecondsMax),
+  autoName: zod
+    .string()
+    .max(savePanelSmartSubscriptionBodyAutoNameMax)
+    .describe("The fastest-server group's name; empty uses the customer's language's default."),
+  reserveName: zod
+    .string()
+    .max(savePanelSmartSubscriptionBodyReserveNameMax)
+    .describe("The whitelist bypass group's name; empty uses the default."),
+  defaults: zod.object({
+    russiaDirect: zod
+      .boolean()
+      .describe(".ru, .su, .рф, and Russian IP ranges go around the tunnel."),
+    blockAds: zod.boolean().describe("Advertising and tracking domains are dropped."),
+    blockQuic: zod.boolean().describe("UDP 443 is refused, which pushes browsers back onto TCP."),
+  }),
+  customRules: zod.boolean().describe("Customers may add their own domains."),
+  maxRules: zod.int().min(1).max(savePanelSmartSubscriptionBodyMaxRulesMax),
+  directDomains: zod
+    .array(zod.string())
+    .max(savePanelSmartSubscriptionBodyDirectDomainsMax)
+    .describe("Domains that always go around the tunnel for everyone."),
+  hosts: zod
+    .record(
+      zod.string(),
+      zod.object({
+        country: zod
+          .string()
+          .optional()
+          .describe("An ISO 3166-1 code; empty keeps the one read from the remark."),
+        role: zod
+          .enum(["", "main", "reserve", "hidden"])
+          .optional()
+          .describe(
+            "reserve is the whitelist bypass; hidden leaves the host out of every subscription.",
+          ),
+      }),
+    )
+    .describe("Corrections keyed by Remnawave host UUID."),
+});
+
+export const savePanelSmartSubscriptionResponseProbeIntervalSecondsMin = 30;
+export const savePanelSmartSubscriptionResponseProbeIntervalSecondsMax = 86400;
+
+export const savePanelSmartSubscriptionResponseAutoNameMax = 40;
+
+export const savePanelSmartSubscriptionResponseReserveNameMax = 40;
+
+export const savePanelSmartSubscriptionResponseMaxRulesMax = 200;
+
+export const savePanelSmartSubscriptionResponseDirectDomainsMax = 200;
+
+export const SavePanelSmartSubscriptionResponse = zod.object({
+  enabled: zod.boolean(),
+  version: zod
+    .int()
+    .describe("Send back the version last read; a newer one on the server is a 409."),
+  linkBase: zod
+    .string()
+    .describe(
+      "The public prefix links are built on, ending before the short UUID; empty uses APP_PUBLIC_URL and /v1/sub/.",
+    ),
+  effectiveLinkBase: zod.string().optional(),
+  probeUrl: zod.url(),
+  probeIntervalSeconds: zod
+    .int()
+    .min(savePanelSmartSubscriptionResponseProbeIntervalSecondsMin)
+    .max(savePanelSmartSubscriptionResponseProbeIntervalSecondsMax),
+  autoName: zod
+    .string()
+    .max(savePanelSmartSubscriptionResponseAutoNameMax)
+    .describe("The fastest-server group's name; empty uses the customer's language's default."),
+  reserveName: zod
+    .string()
+    .max(savePanelSmartSubscriptionResponseReserveNameMax)
+    .describe("The whitelist bypass group's name; empty uses the default."),
+  defaults: zod.object({
+    russiaDirect: zod
+      .boolean()
+      .describe(".ru, .su, .рф, and Russian IP ranges go around the tunnel."),
+    blockAds: zod.boolean().describe("Advertising and tracking domains are dropped."),
+    blockQuic: zod.boolean().describe("UDP 443 is refused, which pushes browsers back onto TCP."),
+  }),
+  customRules: zod.boolean().describe("Customers may add their own domains."),
+  maxRules: zod.int().min(1).max(savePanelSmartSubscriptionResponseMaxRulesMax),
+  directDomains: zod
+    .array(zod.string())
+    .max(savePanelSmartSubscriptionResponseDirectDomainsMax)
+    .describe("Domains that always go around the tunnel for everyone."),
+  hosts: zod
+    .record(
+      zod.string(),
+      zod.object({
+        country: zod
+          .string()
+          .optional()
+          .describe("An ISO 3166-1 code; empty keeps the one read from the remark."),
+        role: zod
+          .enum(["", "main", "reserve", "hidden"])
+          .optional()
+          .describe(
+            "reserve is the whitelist bypass; hidden leaves the host out of every subscription.",
+          ),
+      }),
+    )
+    .describe("Corrections keyed by Remnawave host UUID."),
+});
+
+/**
+ * Requires settings.read. The Remnawave panel's hosts, read live, with the country read from each remark and the country and role in effect after the operator's corrections. Nothing is stored. 502 when the panel does not answer.
+ */
+export const ListPanelSmartSubscriptionHostsResponse = zod.object({
+  hosts: zod.array(
+    zod.object({
+      uuid: zod.string(),
+      remark: zod.string(),
+      address: zod.string(),
+      port: zod.int(),
+      detectedCountry: zod.string().describe("The country read from the remark; empty when none."),
+      country: zod.string().describe("The country in effect; ZZ when unknown."),
+      role: zod.enum(["main", "reserve", "hidden"]),
+      disabled: zod.boolean(),
+      hidden: zod.boolean(),
+      down: zod.boolean().describe("Every node behind the host is disconnected or disabled."),
+    }),
+  ),
 });
 
 /**
@@ -12119,6 +12363,178 @@ export const RenameAccountSubscriptionBody = zod.object({
 });
 
 export const RenameAccountSubscriptionResponse = zod.void();
+
+/**
+ * Whether the operator turned the smart subscription on, so the panel knows to offer its screen.
+ */
+export const GetAccountSmartSubscriptionStatusResponse = zod.object({
+  enabled: zod.boolean(),
+});
+
+/**
+ * The customer's servers for one subscription, grouped by country, with the whitelist bypass servers apart, and the choices they saved — or the operator's defaults, with `customized` false. Read live from Remnawave. 409 when the module is off or the subscription has no panel user yet.
+ */
+export const GetAccountSmartSubscriptionParams = zod.object({
+  subscriptionID: zod.uuid(),
+});
+
+export const getAccountSmartSubscriptionResponsePreferencesRulesMax = 200;
+
+export const GetAccountSmartSubscriptionResponse = zod.object({
+  servers: zod.object({
+    countries: zod.array(
+      zod.object({
+        code: zod
+          .string()
+          .describe("An ISO 3166-1 code, or ZZ for servers whose country is unknown."),
+        servers: zod.array(
+          zod.object({
+            name: zod.string(),
+            address: zod.string(),
+            port: zod.int(),
+            down: zod.boolean(),
+          }),
+        ),
+      }),
+    ),
+    reserve: zod.array(
+      zod.object({
+        name: zod.string(),
+        address: zod.string(),
+        port: zod.int(),
+        down: zod.boolean(),
+      }),
+    ),
+  }),
+  preferences: zod.object({
+    hiddenCountries: zod
+      .array(zod.string())
+      .describe(
+        "ISO codes left out of the subscription; ZZ is the servers whose country is unknown.",
+      ),
+    autoExcluded: zod
+      .array(zod.string())
+      .describe("Countries the fastest-server group never picks."),
+    reserve: zod
+      .boolean()
+      .describe("Keep the whitelist bypass servers, as a fallback and as a group."),
+    presets: zod.object({
+      russiaDirect: zod
+        .boolean()
+        .describe(".ru, .su, .рф, and Russian IP ranges go around the tunnel."),
+      blockAds: zod.boolean().describe("Advertising and tracking domains are dropped."),
+      blockQuic: zod.boolean().describe("UDP 443 is refused, which pushes browsers back onto TCP."),
+    }),
+    rules: zod
+      .array(
+        zod.object({
+          domain: zod.string().describe("Matches the domain and every subdomain."),
+          action: zod.enum(["direct", "proxy", "block"]),
+        }),
+      )
+      .max(getAccountSmartSubscriptionResponsePreferencesRulesMax),
+  }),
+  customized: zod.boolean(),
+  defaults: zod.object({
+    russiaDirect: zod
+      .boolean()
+      .describe(".ru, .su, .рф, and Russian IP ranges go around the tunnel."),
+    blockAds: zod.boolean().describe("Advertising and tracking domains are dropped."),
+    blockQuic: zod.boolean().describe("UDP 443 is refused, which pushes browsers back onto TCP."),
+  }),
+  customRules: zod.boolean(),
+  maxRules: zod.int(),
+});
+
+/**
+ * Saves the customer's choices for one subscription. They apply the next time a client refreshes the subscription. Domains are normalised — a pasted URL keeps its host, an internationalised name is stored in its ASCII form — and a field that fails validation is a 422 naming it in `field`.
+ */
+export const SaveAccountSmartSubscriptionParams = zod.object({
+  subscriptionID: zod.uuid(),
+});
+
+export const SaveAccountSmartSubscriptionHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const saveAccountSmartSubscriptionBodyRulesMax = 200;
+
+export const SaveAccountSmartSubscriptionBody = zod.object({
+  hiddenCountries: zod
+    .array(zod.string())
+    .describe(
+      "ISO codes left out of the subscription; ZZ is the servers whose country is unknown.",
+    ),
+  autoExcluded: zod.array(zod.string()).describe("Countries the fastest-server group never picks."),
+  reserve: zod
+    .boolean()
+    .describe("Keep the whitelist bypass servers, as a fallback and as a group."),
+  presets: zod.object({
+    russiaDirect: zod
+      .boolean()
+      .describe(".ru, .su, .рф, and Russian IP ranges go around the tunnel."),
+    blockAds: zod.boolean().describe("Advertising and tracking domains are dropped."),
+    blockQuic: zod.boolean().describe("UDP 443 is refused, which pushes browsers back onto TCP."),
+  }),
+  rules: zod
+    .array(
+      zod.object({
+        domain: zod.string().describe("Matches the domain and every subdomain."),
+        action: zod.enum(["direct", "proxy", "block"]),
+      }),
+    )
+    .max(saveAccountSmartSubscriptionBodyRulesMax),
+});
+
+export const saveAccountSmartSubscriptionResponsePreferencesRulesMax = 200;
+
+export const SaveAccountSmartSubscriptionResponse = zod.object({
+  preferences: zod.object({
+    hiddenCountries: zod
+      .array(zod.string())
+      .describe(
+        "ISO codes left out of the subscription; ZZ is the servers whose country is unknown.",
+      ),
+    autoExcluded: zod
+      .array(zod.string())
+      .describe("Countries the fastest-server group never picks."),
+    reserve: zod
+      .boolean()
+      .describe("Keep the whitelist bypass servers, as a fallback and as a group."),
+    presets: zod.object({
+      russiaDirect: zod
+        .boolean()
+        .describe(".ru, .su, .рф, and Russian IP ranges go around the tunnel."),
+      blockAds: zod.boolean().describe("Advertising and tracking domains are dropped."),
+      blockQuic: zod.boolean().describe("UDP 443 is refused, which pushes browsers back onto TCP."),
+    }),
+    rules: zod
+      .array(
+        zod.object({
+          domain: zod.string().describe("Matches the domain and every subdomain."),
+          action: zod.enum(["direct", "proxy", "block"]),
+        }),
+      )
+      .max(saveAccountSmartSubscriptionResponsePreferencesRulesMax),
+  }),
+});
+
+/**
+ * Puts the subscription back on the operator's defaults.
+ */
+export const ResetAccountSmartSubscriptionParams = zod.object({
+  subscriptionID: zod.uuid(),
+});
+
+export const ResetAccountSmartSubscriptionHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const ResetAccountSmartSubscriptionResponse = zod.void();
 
 /**
  * The access link plus the documented clients for one platform. The catalogue is the operator's own and is read through one query that the bot reads too, so the two surfaces cannot recommend different applications.

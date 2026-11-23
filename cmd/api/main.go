@@ -47,6 +47,7 @@ import (
 	"github.com/omniflow/omniflow/internal/platform"
 	"github.com/omniflow/omniflow/internal/remnawave"
 	"github.com/omniflow/omniflow/internal/remnawavesync"
+	"github.com/omniflow/omniflow/internal/smartsubpg"
 	"github.com/omniflow/omniflow/internal/telemetry"
 	"github.com/omniflow/omniflow/internal/termsgate"
 )
@@ -115,10 +116,11 @@ func main() {
 		Handler: apihttp.NewRouter(logger, apihttp.RouterOptions{
 			Health: health, Metrics: metrics, MetricsToken: cfg.MetricsToken,
 			Commerce: runtime.handlers, Admin: runtime.admin,
-			Account:          runtime.account,
-			RemnawaveWebhook: runtime.remnawaveWebhook,
-			ServerStatus:     runtime.serverStatus,
-			CollectorEnabled: cfg.TelemetryCollectorEnabled, Telemetry: telemetryClient, Version: version,
+			Account:           runtime.account,
+			RemnawaveWebhook:  runtime.remnawaveWebhook,
+			ServerStatus:      runtime.serverStatus,
+			SmartSubscription: runtime.smartSubscription,
+			CollectorEnabled:  cfg.TelemetryCollectorEnabled, Telemetry: telemetryClient, Version: version,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       15 * time.Second,
@@ -154,6 +156,8 @@ type runtimeServices struct {
 	remnawaveWebhook *apihttp.RemnawaveWebhookHandler
 	// serverStatus is nil unless APP_SERVER_STATUS_ENABLED is true.
 	serverStatus *apihttp.ServerStatusHandler
+	// smartSubscription serves /v1/sub/{shortUUID}, on or off.
+	smartSubscription *apihttp.SmartSubscriptionHandler
 	// pool and installation are shared with main for the error log and the
 	// telemetry switch.
 	pool         *pgxpool.Pool
@@ -240,6 +244,19 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 
 	services := runtimeServices{handlers: handlers, pool: pool, installation: installation}
 	services.serverStatus = apihttp.NewServerStatusHandler(remnawaveClient, logger, os.Getenv)
+	// The smart subscription: the link VPN clients import while it is on, the
+	// operator's settings, and each customer's choices. The link route is
+	// mounted even while the module is off, so links handed out while it was
+	// on keep answering with the panel's own subscription.
+	smartSubscription := smartsubpg.New(pool, remnawaveClient, cfg.PublicURL, logger)
+	subscriptionProxies, err := apihttp.NewTrustedProxies(cfg.AdminPanel.TrustedProxies)
+	if err != nil {
+		closeAll()
+		return runtimeServices{}, nil, err
+	}
+	services.smartSubscription = apihttp.NewSmartSubscriptionHandler(
+		smartSubscription, platform.NewRateLimiter(valkeyClient), subscriptionProxies, logger,
+	)
 	services.remnawaveWebhook = apihttp.NewRemnawaveWebhookHandler(
 		remnawavesync.NewIntake(pool, remnawavesync.IntakeOptionsFromEnv(os.Getenv)), logger,
 	)
@@ -253,6 +270,7 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 			return runtimeServices{}, nil, adminErr
 		}
 		services.admin = adminHandlers
+		adminHandlers.WithSmartSubscription(smartSubscription)
 		// Named API tokens reach a set of the panel's handlers under
 		// /v1/admin, acting as the operator who made the token.
 		handlers.WithMachineRoutes(adminHandlers.MountMachine)
@@ -266,7 +284,7 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 	if cfg.CustomerPanel.Enabled {
 		accountHandlers, identity, accountErr := buildCustomerPanel(
 			logger, cfg, pool, platform.NewRateLimiter(valkeyClient), remnawaveClient,
-			commerceStore, paymentService,
+			commerceStore, paymentService, smartSubscription,
 		)
 		if accountErr != nil {
 			closeAll()
@@ -411,6 +429,7 @@ func buildCustomerPanel(
 	logger *slog.Logger, cfg config.Config, pool *pgxpool.Pool,
 	limiter *platform.RateLimiter, remnawaveClient *remnawave.Client,
 	commerceStore *commercepg.Store, paymentService *paymentservice.Service,
+	smartSubscription *smartsubpg.Service,
 ) (*apihttp.AccountHandlers, *customerauthpg.Service, error) {
 	// E-mail sign-in needs a mail transport and the contact sealer, so an
 	// address typed into the form is looked up exactly as it was stored.
@@ -460,7 +479,10 @@ func buildCustomerPanel(
 	if err != nil {
 		return nil, nil, err
 	}
-	account, err := accountpg.New(pool, remnawaveClient, accountpg.Options{
+	// The account reads the subscription link through the smart subscription,
+	// which hands out its own link while the module is on.
+	linkedPanel := smartsubpg.LinkedPanel{Client: remnawaveClient, Links: smartSubscription}
+	account, err := accountpg.New(pool, linkedPanel, accountpg.Options{
 		Logger: logger, Connect: connectSettings, RecoveryWindow: cfg.RecoveryWindow,
 		Security: accountpg.SecurityRecorderFunc(func(
 			ctx context.Context, customerID, event string,
@@ -540,7 +562,7 @@ func buildCustomerPanel(
 		Avatars:      newAvatarSource(logger, cfg, pool),
 		Chat:         newChatRemover(logger, cfg),
 		CookieSecure: cfg.CustomerPanel.CookieSecure,
-	}), identity, nil
+	}).WithSmartSubscription(smartSubscription), identity, nil
 }
 
 // parseAddress converts a rendered client address back for storage, yielding nil

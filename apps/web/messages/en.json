@@ -4147,6 +4147,10 @@
         "analytics": {
           "title": "Measurement",
           "description": "Your own advertising analytics: counters, site verification, and the click identifier that connects an advertisement to the order it produced. Off by default, and never reported to the Omniflow project."
+        },
+        "smartSubscription": {
+          "title": "Smart subscription",
+          "description": "Servers by country, the fastest-server group, the whitelist bypass, and routing customers set up themselves"
         }
       }
     },
@@ -5609,6 +5613,77 @@
         "renewal": "Renewed",
         "tickets": "Tickets",
         "perHundred": "Per 100 customers"
+      }
+    },
+    "smartSubscription": {
+      "saved": "Settings saved",
+      "save": "Save",
+      "enabled": "Turn on the smart subscription",
+      "moduleTitle": "Module",
+      "moduleDescription": "Customers get an Omniflow link: servers grouped by country, a fastest-server group, a whitelist-bypass fallback, and routing they choose. Turning it off is safe — links already handed out keep serving the panel's subscription as is.",
+      "linkBase": "Link base",
+      "linkBaseHint": "The start of the link before the short UUID. Empty uses the service address (APP_PUBLIC_URL) and /v1/sub/. Subscription mirrors must forward this path to Omniflow.",
+      "noLinkBase": "Neither a link base nor APP_PUBLIC_URL is set, so customers keep getting the panel's own link.",
+      "customersTitle": "For customers",
+      "customersDescription": "What a customer starts with and what they can change.",
+      "presets": {
+        "russiaDirect": {
+          "label": "Russian sites direct",
+          "hint": ".ru, .su, .рф, and Russian IPs skip the VPN"
+        },
+        "blockAds": {
+          "label": "Block ads",
+          "hint": "Needs geosite in the customer's app; Happ and v2RayTun ship it"
+        },
+        "blockQuic": {
+          "label": "Block QUIC",
+          "hint": "Refuses UDP 443 so browsers fall back to TCP"
+        }
+      },
+      "customRules": "Customer rules",
+      "customRulesHint": "Customers can add domains to send direct, through the VPN, or block",
+      "maxRules": "Most rules per customer",
+      "directDomains": "Always direct for everyone",
+      "directDomainsHint": "One domain per line; subdomains are included.",
+      "hostsTitle": "Remnawave hosts",
+      "hostsDescription": "The country is read from each host's flag or name — correct it where it's wrong. The whitelist bypass role makes a host a fallback; Hidden leaves it out of every subscription.",
+      "hostsUnavailable": "Remnawave didn't answer, so the host list is unavailable.",
+      "hostsEmpty": "Remnawave has no hosts.",
+      "host": "Host",
+      "country": "Country",
+      "status": "Status",
+      "role": "Role",
+      "statusUp": "up",
+      "statusDown": "nodes down",
+      "statusDisabled": "off in the panel",
+      "roles": {
+        "main": "Main",
+        "reserve": "Whitelist bypass",
+        "hidden": "Hidden"
+      },
+      "countryDetected": "Auto: {country}",
+      "countryUnknown": "Auto: unknown",
+      "countryAuto": "Read from the name",
+      "countrySearch": "Find a country",
+      "countryNone": "Nothing found",
+      "advancedTitle": "Advanced",
+      "advancedDescription": "Group names in the app and how servers are timed.",
+      "autoName": "Fastest group name",
+      "autoNamePlaceholder": "⚡ Fastest",
+      "reserveName": "Bypass group name",
+      "reserveNamePlaceholder": "🛡 Whitelist bypass",
+      "probeUrl": "Speed check URL",
+      "probeInterval": "Check interval, seconds",
+      "fieldError": "{field}: {detail}",
+      "fields": {
+        "linkBase": "Link base",
+        "probeUrl": "Speed check URL",
+        "probeIntervalSeconds": "Check interval",
+        "autoName": "Group name",
+        "reserveName": "Bypass group name",
+        "maxRules": "Most rules",
+        "directDomains": "Always direct",
+        "hosts": "Hosts"
       }
     }
   },
@@ -7573,6 +7648,69 @@
       "squadsTitle": "Server add-ons",
       "squadsRemove": "Remove",
       "squadsConfirm": "Remove {name} for the rest of this period. What is left of it is credited to your wallet at what you paid."
+    },
+    "smart": {
+      "entryTitle": "Servers and routing",
+      "entryDescription": "Which countries your subscription has, automatic choice, and what skips the VPN",
+      "title": "Servers and routing",
+      "tabServers": "Servers",
+      "tabRoutes": "Routing",
+      "offTitle": "Not available",
+      "offDescription": "This service doesn't let you set up servers and routing right now.",
+      "unavailableDescription": "The server list is temporarily unavailable. Try again in a couple of minutes.",
+      "saved": "Saved. Refresh the subscription in your app",
+      "reset": "Reset",
+      "resetDone": "Back to the default settings",
+      "appliesOnRefresh": "Changes apply when your app refreshes the subscription. You can refresh it by hand in the app.",
+      "pingHint": "Ping is approximate and measured from your browser. If the VPN is on, it's measured through it.",
+      "measure": "Measure ping",
+      "autoTitle": "Fastest",
+      "autoCountries": "{count, plural, =0 {no countries} one {# country} other {# countries}}",
+      "autoDescription": "Your app picks the best server among the countries with Auto on.",
+      "countries": "Country",
+      "visible": "Shown",
+      "auto": "Auto",
+      "ping": "Ping",
+      "visibleLabel": "Show {country}",
+      "autoLabel": "Automatic choice: {country}",
+      "noServers": "Your subscription has no servers yet.",
+      "otherCountry": "Other",
+      "down": "down",
+      "noAnswer": "none",
+      "ms": "{value} ms",
+      "reserveTitle": "Whitelist bypass",
+      "reserveDescription": "{count, plural, one {A backup server} other {Backup servers}} for mobile networks that only let through approved sites. They take over on their own when the main servers stop answering, and are also a group of their own.",
+      "presets": {
+        "russiaDirect": {
+          "title": "Russian sites direct",
+          "description": ".ru, .su, .рф, and Russian IPs skip the VPN"
+        },
+        "blockAds": {
+          "title": "Block ads",
+          "description": "Advertising and tracking domains"
+        },
+        "blockQuic": {
+          "title": "Block QUIC",
+          "description": "Helps when video is slow"
+        }
+      },
+      "rulesTitle": "Your rules",
+      "rulesCount": "{count} of {max}",
+      "domainLabel": "Domain",
+      "actionLabel": "What to do",
+      "addRule": "Add rule",
+      "removeRule": "Remove {domain}",
+      "actions": {
+        "direct": "Direct",
+        "proxy": "Through VPN",
+        "block": "Block"
+      },
+      "domainInvalid": "Enter a domain such as example.com",
+      "domainDuplicate": "That domain is already there",
+      "rulesFull": "At most {max} rules",
+      "rulesEmpty": "No rules yet. Add a domain that should go direct, through the VPN, or be blocked.",
+      "rulesHint": "A rule covers the domain and all its subdomains. You can paste a link; only the domain is kept.",
+      "serverCount": "{count, plural, one {# server} other {# servers}}"
     }
   },
   "pages": {

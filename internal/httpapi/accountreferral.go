@@ -439,6 +439,7 @@ func privacyExportPayload(document accountreferral.ExportDocument) map[string]an
 			"status":    subscription.Status,
 			"createdAt": subscription.CreatedAt.Format(time.RFC3339),
 			"closedAt":  referralOptionalTime(subscription.ClosedAt),
+			"routing":   subscription.Routing,
 		})
 	}
 	entitlements := make([]map[string]any, 0, len(document.Entitlements))

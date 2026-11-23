@@ -31,6 +31,7 @@ import (
 	"github.com/omniflow/omniflow/internal/panelpg"
 	"github.com/omniflow/omniflow/internal/platform"
 	"github.com/omniflow/omniflow/internal/remnawave"
+	"github.com/omniflow/omniflow/internal/smartsubpg"
 )
 
 var version = "dev"
@@ -76,7 +77,12 @@ func main() {
 	metrics := platform.NewMetrics("bot")
 	metrics.SetBuild(version)
 	remnawaveClient.WithObserver(metrics.ObserveRemnawave)
-	application := botapp.New(logger, identities, remnawaveClient, cfg.SupportURL)
+	// The bot hands out the subscription link through the smart subscription,
+	// which swaps in its own link while the module is on.
+	linkedPanel := smartsubpg.LinkedPanel{
+		Client: remnawaveClient, Links: smartsubpg.New(pool, remnawaveClient, cfg.PublicURL, logger),
+	}
+	application := botapp.New(logger, identities, linkedPanel, cfg.SupportURL)
 	application.UseInstallationSettings(installation)
 	// Funnel steps and support marks for business analytics.
 	businessAnalytics := analytics.New(pool)
@@ -194,7 +200,7 @@ func main() {
 	go notifier.Run(ctx)
 	go botapp.NewBlockerScanner(pool, identities, client, logger).Run(ctx)
 	go announceStart(ctx, notifier, pool, client, installation, remnawaveClient)
-	customerNotifier := botapp.NewNotifier(logger, sender, identities, remnawaveClient, commerceService, settings).
+	customerNotifier := botapp.NewNotifier(logger, sender, identities, linkedPanel, commerceService, settings).
 		WithAnalytics(businessAnalytics)
 	if me, getMeErr := client.GetMe(ctx); getMeErr == nil {
 		customerNotifier.SetBotUsername(me.Username)

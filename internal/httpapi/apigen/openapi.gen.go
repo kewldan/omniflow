@@ -3785,6 +3785,27 @@ func (e PanelSearchResultsHints) Valid() bool {
 	}
 }
 
+// Defines values for PanelSmartSubscriptionHostRole.
+const (
+	PanelSmartSubscriptionHostRoleHidden  PanelSmartSubscriptionHostRole = "hidden"
+	PanelSmartSubscriptionHostRoleMain    PanelSmartSubscriptionHostRole = "main"
+	PanelSmartSubscriptionHostRoleReserve PanelSmartSubscriptionHostRole = "reserve"
+)
+
+// Valid indicates whether the value is a known member of the PanelSmartSubscriptionHostRole enum.
+func (e PanelSmartSubscriptionHostRole) Valid() bool {
+	switch e {
+	case PanelSmartSubscriptionHostRoleHidden:
+		return true
+	case PanelSmartSubscriptionHostRoleMain:
+		return true
+	case PanelSmartSubscriptionHostRoleReserve:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PanelSquadGrantSource.
 const (
 	PanelSquadGrantSourceOperator PanelSquadGrantSource = "operator"
@@ -4523,6 +4544,51 @@ func (e ReadinessStatus) Valid() bool {
 	case ReadinessStatusDegraded:
 		return true
 	case ReadinessStatusReady:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SmartSubscriptionHostOverrideRole.
+const (
+	SmartSubscriptionHostOverrideRoleEmpty   SmartSubscriptionHostOverrideRole = ""
+	SmartSubscriptionHostOverrideRoleHidden  SmartSubscriptionHostOverrideRole = "hidden"
+	SmartSubscriptionHostOverrideRoleMain    SmartSubscriptionHostOverrideRole = "main"
+	SmartSubscriptionHostOverrideRoleReserve SmartSubscriptionHostOverrideRole = "reserve"
+)
+
+// Valid indicates whether the value is a known member of the SmartSubscriptionHostOverrideRole enum.
+func (e SmartSubscriptionHostOverrideRole) Valid() bool {
+	switch e {
+	case SmartSubscriptionHostOverrideRoleEmpty:
+		return true
+	case SmartSubscriptionHostOverrideRoleHidden:
+		return true
+	case SmartSubscriptionHostOverrideRoleMain:
+		return true
+	case SmartSubscriptionHostOverrideRoleReserve:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SmartSubscriptionRuleAction.
+const (
+	Block  SmartSubscriptionRuleAction = "block"
+	Direct SmartSubscriptionRuleAction = "direct"
+	Proxy  SmartSubscriptionRuleAction = "proxy"
+)
+
+// Valid indicates whether the value is a known member of the SmartSubscriptionRuleAction enum.
+func (e SmartSubscriptionRuleAction) Valid() bool {
+	switch e {
+	case Block:
+		return true
+	case Direct:
+		return true
+	case Proxy:
 		return true
 	default:
 		return false
@@ -7347,6 +7413,23 @@ type AccountSimpleSubscription struct {
 
 	// TrafficGb 0 is the plan's own traffic.
 	TrafficGb *int `json:"trafficGb,omitempty"`
+}
+
+// AccountSmartSubscription defines model for AccountSmartSubscription.
+type AccountSmartSubscription struct {
+	CustomRules bool                         `json:"customRules"`
+	Customized  bool                         `json:"customized"`
+	Defaults    SmartSubscriptionPresets     `json:"defaults"`
+	MaxRules    int                          `json:"maxRules"`
+	Preferences SmartSubscriptionPreferences `json:"preferences"`
+	Servers     struct {
+		Countries []struct {
+			// Code An ISO 3166-1 code, or ZZ for servers whose country is unknown.
+			Code    string                    `json:"code"`
+			Servers []SmartSubscriptionServer `json:"servers"`
+		} `json:"countries"`
+		Reserve []SmartSubscriptionServer `json:"reserve"`
+	} `json:"servers"`
 }
 
 // AccountSquadAddons defines model for AccountSquadAddons.
@@ -10847,6 +10930,64 @@ type PanelSimpleSubscription struct {
 	TrafficGb int `json:"trafficGb"`
 }
 
+// PanelSmartSubscription defines model for PanelSmartSubscription.
+type PanelSmartSubscription struct {
+	// AutoName The fastest-server group's name; empty uses the customer's language's default.
+	AutoName string `json:"autoName"`
+
+	// CustomRules Customers may add their own domains.
+	CustomRules bool                     `json:"customRules"`
+	Defaults    SmartSubscriptionPresets `json:"defaults"`
+
+	// DirectDomains Domains that always go around the tunnel for everyone.
+	DirectDomains     []string `json:"directDomains"`
+	EffectiveLinkBase *string  `json:"effectiveLinkBase,omitempty"`
+	Enabled           bool     `json:"enabled"`
+
+	// Hosts Corrections keyed by Remnawave host UUID.
+	Hosts map[string]SmartSubscriptionHostOverride `json:"hosts"`
+
+	// LinkBase The public prefix links are built on, ending before the short UUID; empty uses APP_PUBLIC_URL and /v1/sub/.
+	LinkBase             string `json:"linkBase"`
+	MaxRules             int    `json:"maxRules"`
+	ProbeIntervalSeconds int    `json:"probeIntervalSeconds"`
+	ProbeUrl             string `json:"probeUrl"`
+
+	// ReserveName The whitelist bypass group's name; empty uses the default.
+	ReserveName string `json:"reserveName"`
+
+	// Version Send back the version last read; a newer one on the server is a 409.
+	Version int `json:"version"`
+}
+
+// PanelSmartSubscriptionHost defines model for PanelSmartSubscriptionHost.
+type PanelSmartSubscriptionHost struct {
+	Address string `json:"address"`
+
+	// Country The country in effect; ZZ when unknown.
+	Country string `json:"country"`
+
+	// DetectedCountry The country read from the remark; empty when none.
+	DetectedCountry string `json:"detectedCountry"`
+	Disabled        bool   `json:"disabled"`
+
+	// Down Every node behind the host is disconnected or disabled.
+	Down   bool                           `json:"down"`
+	Hidden bool                           `json:"hidden"`
+	Port   int                            `json:"port"`
+	Remark string                         `json:"remark"`
+	Role   PanelSmartSubscriptionHostRole `json:"role"`
+	Uuid   string                         `json:"uuid"`
+}
+
+// PanelSmartSubscriptionHostRole defines model for PanelSmartSubscriptionHost.Role.
+type PanelSmartSubscriptionHostRole string
+
+// PanelSmartSubscriptionHosts defines model for PanelSmartSubscriptionHosts.
+type PanelSmartSubscriptionHosts struct {
+	Hosts []PanelSmartSubscriptionHost `json:"hosts"`
+}
+
 // PanelSquadGrant defines model for PanelSquadGrant.
 type PanelSquadGrant struct {
 	EndsAt   time.Time             `json:"endsAt"`
@@ -11854,6 +11995,63 @@ type RolesInput struct {
 // SessionList defines model for SessionList.
 type SessionList struct {
 	Items []AdminSession `json:"items"`
+}
+
+// SmartSubscriptionHostOverride defines model for SmartSubscriptionHostOverride.
+type SmartSubscriptionHostOverride struct {
+	// Country An ISO 3166-1 code; empty keeps the one read from the remark.
+	Country *string `json:"country,omitempty"`
+
+	// Role reserve is the whitelist bypass; hidden leaves the host out of every subscription.
+	Role *SmartSubscriptionHostOverrideRole `json:"role,omitempty"`
+}
+
+// SmartSubscriptionHostOverrideRole reserve is the whitelist bypass; hidden leaves the host out of every subscription.
+type SmartSubscriptionHostOverrideRole string
+
+// SmartSubscriptionPreferences defines model for SmartSubscriptionPreferences.
+type SmartSubscriptionPreferences struct {
+	// AutoExcluded Countries the fastest-server group never picks.
+	AutoExcluded []string `json:"autoExcluded"`
+
+	// HiddenCountries ISO codes left out of the subscription; ZZ is the servers whose country is unknown.
+	HiddenCountries []string                 `json:"hiddenCountries"`
+	Presets         SmartSubscriptionPresets `json:"presets"`
+
+	// Reserve Keep the whitelist bypass servers, as a fallback and as a group.
+	Reserve bool                    `json:"reserve"`
+	Rules   []SmartSubscriptionRule `json:"rules"`
+}
+
+// SmartSubscriptionPresets defines model for SmartSubscriptionPresets.
+type SmartSubscriptionPresets struct {
+	// BlockAds Advertising and tracking domains are dropped.
+	BlockAds bool `json:"blockAds"`
+
+	// BlockQuic UDP 443 is refused, which pushes browsers back onto TCP.
+	BlockQuic bool `json:"blockQuic"`
+
+	// RussiaDirect .ru, .su, .рф, and Russian IP ranges go around the tunnel.
+	RussiaDirect bool `json:"russiaDirect"`
+}
+
+// SmartSubscriptionRule defines model for SmartSubscriptionRule.
+type SmartSubscriptionRule struct {
+	Action SmartSubscriptionRuleAction `json:"action"`
+
+	// Domain Matches the domain and every subdomain.
+	Domain string `json:"domain"`
+}
+
+// SmartSubscriptionRuleAction defines model for SmartSubscriptionRule.Action.
+type SmartSubscriptionRuleAction string
+
+// SmartSubscriptionServer defines model for SmartSubscriptionServer.
+type SmartSubscriptionServer struct {
+	Address string `json:"address"`
+	Down    bool   `json:"down"`
+	Name    string `json:"name"`
+	Port    int    `json:"port"`
 }
 
 // TelegramLoginWidgetPayload The document Telegram's Login Widget produces. Every field except `hash` participates in the signature in its textual form, so the server keeps the digits of the numeric fields verbatim rather than parsing them as floating point.
@@ -12876,6 +13074,18 @@ type RotateAccountSubscriptionLinkJSONBody struct {
 
 // RotateAccountSubscriptionLinkParams defines parameters for RotateAccountSubscriptionLink.
 type RotateAccountSubscriptionLinkParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// ResetAccountSmartSubscriptionParams defines parameters for ResetAccountSmartSubscription.
+type ResetAccountSmartSubscriptionParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// SaveAccountSmartSubscriptionParams defines parameters for SaveAccountSmartSubscription.
+type SaveAccountSmartSubscriptionParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
@@ -14415,6 +14625,12 @@ type ConfigurePanelRecurringParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// SavePanelSmartSubscriptionParams defines parameters for SavePanelSmartSubscription.
+type SavePanelSmartSubscriptionParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // SavePanelSubscriptionPolicyParams defines parameters for SavePanelSubscriptionPolicy.
 type SavePanelSubscriptionPolicyParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
@@ -14788,6 +15004,9 @@ type RenameAccountDeviceJSONRequestBody RenameAccountDeviceJSONBody
 // RotateAccountSubscriptionLinkJSONRequestBody defines body for RotateAccountSubscriptionLink for application/json ContentType.
 type RotateAccountSubscriptionLinkJSONRequestBody RotateAccountSubscriptionLinkJSONBody
 
+// SaveAccountSmartSubscriptionJSONRequestBody defines body for SaveAccountSmartSubscription for application/json ContentType.
+type SaveAccountSmartSubscriptionJSONRequestBody = SmartSubscriptionPreferences
+
 // ChangeAccountTrafficPackageJSONRequestBody defines body for ChangeAccountTrafficPackage for application/json ContentType.
 type ChangeAccountTrafficPackageJSONRequestBody ChangeAccountTrafficPackageJSONBody
 
@@ -15084,6 +15303,9 @@ type SavePanelProviderSettingsJSONRequestBody = PanelProviderSettingsInput
 
 // ConfigurePanelRecurringJSONRequestBody defines body for ConfigurePanelRecurring for application/json ContentType.
 type ConfigurePanelRecurringJSONRequestBody = PanelRecurringTest
+
+// SavePanelSmartSubscriptionJSONRequestBody defines body for SavePanelSmartSubscription for application/json ContentType.
+type SavePanelSmartSubscriptionJSONRequestBody = PanelSmartSubscription
 
 // SavePanelSubscriptionPolicyJSONRequestBody defines body for SavePanelSubscriptionPolicy for application/json ContentType.
 type SavePanelSubscriptionPolicyJSONRequestBody = PanelSubscriptionPolicy
@@ -15603,6 +15825,9 @@ type ServerInterface interface {
 	// (POST /v1/account/simple-subscription/checkout)
 	OpenAccountSimpleCheckout(w http.ResponseWriter, r *http.Request, params OpenAccountSimpleCheckoutParams)
 
+	// (GET /v1/account/smart-subscription)
+	GetAccountSmartSubscriptionStatus(w http.ResponseWriter, r *http.Request)
+
 	// (POST /v1/account/subscriptions/rotate-links)
 	RotateAllAccountSubscriptionLinks(w http.ResponseWriter, r *http.Request, params RotateAllAccountSubscriptionLinksParams)
 
@@ -15656,6 +15881,15 @@ type ServerInterface interface {
 
 	// (POST /v1/account/subscriptions/{subscriptionID}/rotate-link)
 	RotateAccountSubscriptionLink(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params RotateAccountSubscriptionLinkParams)
+
+	// (DELETE /v1/account/subscriptions/{subscriptionID}/smart)
+	ResetAccountSmartSubscription(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params ResetAccountSmartSubscriptionParams)
+
+	// (GET /v1/account/subscriptions/{subscriptionID}/smart)
+	GetAccountSmartSubscription(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID)
+
+	// (PUT /v1/account/subscriptions/{subscriptionID}/smart)
+	SaveAccountSmartSubscription(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params SaveAccountSmartSubscriptionParams)
 
 	// (GET /v1/account/subscriptions/{subscriptionID}/squad-addons)
 	ListAccountSquadAddons(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params ListAccountSquadAddonsParams)
@@ -16470,6 +16704,15 @@ type ServerInterface interface {
 	// (POST /v1/panel/settings/providers/{provider}/recurring)
 	ConfigurePanelRecurring(w http.ResponseWriter, r *http.Request, provider string, params ConfigurePanelRecurringParams)
 
+	// (GET /v1/panel/settings/smart-subscription)
+	GetPanelSmartSubscription(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /v1/panel/settings/smart-subscription)
+	SavePanelSmartSubscription(w http.ResponseWriter, r *http.Request, params SavePanelSmartSubscriptionParams)
+
+	// (GET /v1/panel/settings/smart-subscription/hosts)
+	ListPanelSmartSubscriptionHosts(w http.ResponseWriter, r *http.Request)
+
 	// (GET /v1/panel/settings/subscription-policy)
 	GetPanelSubscriptionPolicy(w http.ResponseWriter, r *http.Request)
 
@@ -16586,6 +16829,9 @@ type ServerInterface interface {
 
 	// (GET /v1/status/servers)
 	GetServerStatus(w http.ResponseWriter, r *http.Request)
+
+	// (GET /v1/sub/{shortUUID})
+	GetSmartSubscription(w http.ResponseWriter, r *http.Request, shortUUID string)
 
 	// (POST /v1/telemetry/events)
 	CollectTelemetryEvent(w http.ResponseWriter, r *http.Request)
@@ -17125,6 +17371,11 @@ func (_ Unimplemented) OpenAccountSimpleCheckout(w http.ResponseWriter, r *http.
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /v1/account/smart-subscription)
+func (_ Unimplemented) GetAccountSmartSubscriptionStatus(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (POST /v1/account/subscriptions/rotate-links)
 func (_ Unimplemented) RotateAllAccountSubscriptionLinks(w http.ResponseWriter, r *http.Request, params RotateAllAccountSubscriptionLinksParams) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -17212,6 +17463,21 @@ func (_ Unimplemented) RenameAccountDevice(w http.ResponseWriter, r *http.Reques
 
 // (POST /v1/account/subscriptions/{subscriptionID}/rotate-link)
 func (_ Unimplemented) RotateAccountSubscriptionLink(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params RotateAccountSubscriptionLinkParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /v1/account/subscriptions/{subscriptionID}/smart)
+func (_ Unimplemented) ResetAccountSmartSubscription(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params ResetAccountSmartSubscriptionParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/account/subscriptions/{subscriptionID}/smart)
+func (_ Unimplemented) GetAccountSmartSubscription(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /v1/account/subscriptions/{subscriptionID}/smart)
+func (_ Unimplemented) SaveAccountSmartSubscription(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params SaveAccountSmartSubscriptionParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -18570,6 +18836,21 @@ func (_ Unimplemented) ConfigurePanelRecurring(w http.ResponseWriter, r *http.Re
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /v1/panel/settings/smart-subscription)
+func (_ Unimplemented) GetPanelSmartSubscription(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /v1/panel/settings/smart-subscription)
+func (_ Unimplemented) SavePanelSmartSubscription(w http.ResponseWriter, r *http.Request, params SavePanelSmartSubscriptionParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/settings/smart-subscription/hosts)
+func (_ Unimplemented) ListPanelSmartSubscriptionHosts(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /v1/panel/settings/subscription-policy)
 func (_ Unimplemented) GetPanelSubscriptionPolicy(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -18762,6 +19043,11 @@ func (_ Unimplemented) ReceiveRemnawaveWebhook(w http.ResponseWriter, r *http.Re
 
 // (GET /v1/status/servers)
 func (_ Unimplemented) GetServerStatus(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/sub/{shortUUID})
+func (_ Unimplemented) GetSmartSubscription(w http.ResponseWriter, r *http.Request, shortUUID string) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -22591,6 +22877,20 @@ func (siw *ServerInterfaceWrapper) OpenAccountSimpleCheckout(w http.ResponseWrit
 	handler.ServeHTTP(w, r)
 }
 
+// GetAccountSmartSubscriptionStatus operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountSmartSubscriptionStatus(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountSmartSubscriptionStatus(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // RotateAllAccountSubscriptionLinks operation middleware
 func (siw *ServerInterfaceWrapper) RotateAllAccountSubscriptionLinks(w http.ResponseWriter, r *http.Request) {
 
@@ -23525,6 +23825,140 @@ func (siw *ServerInterfaceWrapper) RotateAccountSubscriptionLink(w http.Response
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RotateAccountSubscriptionLink(w, r, subscriptionID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ResetAccountSmartSubscription operation middleware
+func (siw *ServerInterfaceWrapper) ResetAccountSmartSubscription(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID AccountSubscriptionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ResetAccountSmartSubscriptionParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ResetAccountSmartSubscription(w, r, subscriptionID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAccountSmartSubscription operation middleware
+func (siw *ServerInterfaceWrapper) GetAccountSmartSubscription(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID AccountSubscriptionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAccountSmartSubscription(w, r, subscriptionID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SaveAccountSmartSubscription operation middleware
+func (siw *ServerInterfaceWrapper) SaveAccountSmartSubscription(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "subscriptionID" -------------
+	var subscriptionID AccountSubscriptionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "subscriptionID", chi.URLParam(r, "subscriptionID"), &subscriptionID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "subscriptionID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SaveAccountSmartSubscriptionParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SaveAccountSmartSubscription(w, r, subscriptionID, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -35400,6 +35834,79 @@ func (siw *ServerInterfaceWrapper) ConfigurePanelRecurring(w http.ResponseWriter
 	handler.ServeHTTP(w, r)
 }
 
+// GetPanelSmartSubscription operation middleware
+func (siw *ServerInterfaceWrapper) GetPanelSmartSubscription(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPanelSmartSubscription(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SavePanelSmartSubscription operation middleware
+func (siw *ServerInterfaceWrapper) SavePanelSmartSubscription(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SavePanelSmartSubscriptionParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SavePanelSmartSubscription(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPanelSmartSubscriptionHosts operation middleware
+func (siw *ServerInterfaceWrapper) ListPanelSmartSubscriptionHosts(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPanelSmartSubscriptionHosts(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetPanelSubscriptionPolicy operation middleware
 func (siw *ServerInterfaceWrapper) GetPanelSubscriptionPolicy(w http.ResponseWriter, r *http.Request) {
 
@@ -37179,6 +37686,32 @@ func (siw *ServerInterfaceWrapper) GetServerStatus(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// GetSmartSubscription operation middleware
+func (siw *ServerInterfaceWrapper) GetSmartSubscription(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "shortUUID" -------------
+	var shortUUID string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "shortUUID", chi.URLParam(r, "shortUUID"), &shortUUID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "shortUUID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSmartSubscription(w, r, shortUUID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CollectTelemetryEvent operation middleware
 func (siw *ServerInterfaceWrapper) CollectTelemetryEvent(w http.ResponseWriter, r *http.Request) {
 
@@ -37389,6 +37922,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/status/servers", wrapper.GetServerStatus)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/sub/{shortUUID}", wrapper.GetSmartSubscription)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/remnawave/webhook", wrapper.ReceiveRemnawaveWebhook)
@@ -37653,6 +38189,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/v1/panel/catalog/simple-subscription", wrapper.SavePanelSimpleSubscription)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/settings/smart-subscription", wrapper.GetPanelSmartSubscription)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/v1/panel/settings/smart-subscription", wrapper.SavePanelSmartSubscription)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/settings/smart-subscription/hosts", wrapper.ListPanelSmartSubscriptionHosts)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/remnawave/squads", wrapper.ListPanelRemnawaveSquads)
@@ -38241,6 +38786,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}", wrapper.RenameAccountSubscription)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/smart-subscription", wrapper.GetAccountSmartSubscriptionStatus)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/smart", wrapper.ResetAccountSmartSubscription)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/smart", wrapper.GetAccountSmartSubscription)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/smart", wrapper.SaveAccountSmartSubscription)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/account/subscriptions/{subscriptionID}/connection", wrapper.GetAccountConnection)
@@ -43061,6 +43618,29 @@ func (response OpenAccountSimpleCheckout422ApplicationProblemPlusJSONResponse) V
 	return err
 }
 
+type GetAccountSmartSubscriptionStatusRequestObject struct {
+}
+
+type GetAccountSmartSubscriptionStatusResponseObject interface {
+	VisitGetAccountSmartSubscriptionStatusResponse(w http.ResponseWriter) error
+}
+
+type GetAccountSmartSubscriptionStatus200JSONResponse struct {
+	Enabled bool `json:"enabled"`
+}
+
+func (response GetAccountSmartSubscriptionStatus200JSONResponse) VisitGetAccountSmartSubscriptionStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type RotateAllAccountSubscriptionLinksRequestObject struct {
 	Params RotateAllAccountSubscriptionLinksParams
 	Body   *RotateAllAccountSubscriptionLinksJSONRequestBody
@@ -44081,6 +44661,189 @@ func (response RotateAccountSubscriptionLink503ApplicationProblemPlusJSONRespons
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ResetAccountSmartSubscriptionRequestObject struct {
+	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
+	Params         ResetAccountSmartSubscriptionParams
+}
+
+type ResetAccountSmartSubscriptionResponseObject interface {
+	VisitResetAccountSmartSubscriptionResponse(w http.ResponseWriter) error
+}
+
+type ResetAccountSmartSubscription204Response struct {
+}
+
+func (response ResetAccountSmartSubscription204Response) VisitResetAccountSmartSubscriptionResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type ResetAccountSmartSubscription404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ResetAccountSmartSubscription404ApplicationProblemPlusJSONResponse) VisitResetAccountSmartSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ResetAccountSmartSubscription409ApplicationProblemPlusJSONResponse Problem
+
+func (response ResetAccountSmartSubscription409ApplicationProblemPlusJSONResponse) VisitResetAccountSmartSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountSmartSubscriptionRequestObject struct {
+	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
+}
+
+type GetAccountSmartSubscriptionResponseObject interface {
+	VisitGetAccountSmartSubscriptionResponse(w http.ResponseWriter) error
+}
+
+type GetAccountSmartSubscription200JSONResponse AccountSmartSubscription
+
+func (response GetAccountSmartSubscription200JSONResponse) VisitGetAccountSmartSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountSmartSubscription404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetAccountSmartSubscription404ApplicationProblemPlusJSONResponse) VisitGetAccountSmartSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountSmartSubscription409ApplicationProblemPlusJSONResponse Problem
+
+func (response GetAccountSmartSubscription409ApplicationProblemPlusJSONResponse) VisitGetAccountSmartSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAccountSmartSubscription503ApplicationProblemPlusJSONResponse Problem
+
+func (response GetAccountSmartSubscription503ApplicationProblemPlusJSONResponse) VisitGetAccountSmartSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SaveAccountSmartSubscriptionRequestObject struct {
+	SubscriptionID AccountSubscriptionID `json:"subscriptionID"`
+	Params         SaveAccountSmartSubscriptionParams
+	Body           *SaveAccountSmartSubscriptionJSONRequestBody
+}
+
+type SaveAccountSmartSubscriptionResponseObject interface {
+	VisitSaveAccountSmartSubscriptionResponse(w http.ResponseWriter) error
+}
+
+type SaveAccountSmartSubscription200JSONResponse struct {
+	Preferences SmartSubscriptionPreferences `json:"preferences"`
+}
+
+func (response SaveAccountSmartSubscription200JSONResponse) VisitSaveAccountSmartSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SaveAccountSmartSubscription404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SaveAccountSmartSubscription404ApplicationProblemPlusJSONResponse) VisitSaveAccountSmartSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SaveAccountSmartSubscription409ApplicationProblemPlusJSONResponse Problem
+
+func (response SaveAccountSmartSubscription409ApplicationProblemPlusJSONResponse) VisitSaveAccountSmartSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SaveAccountSmartSubscription422ApplicationProblemPlusJSONResponse Problem
+
+func (response SaveAccountSmartSubscription422ApplicationProblemPlusJSONResponse) VisitSaveAccountSmartSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -56789,6 +57552,161 @@ func (response ConfigurePanelRecurring422ApplicationProblemPlusJSONResponse) Vis
 	return err
 }
 
+type GetPanelSmartSubscriptionRequestObject struct {
+}
+
+type GetPanelSmartSubscriptionResponseObject interface {
+	VisitGetPanelSmartSubscriptionResponse(w http.ResponseWriter) error
+}
+
+type GetPanelSmartSubscription200JSONResponse PanelSmartSubscription
+
+func (response GetPanelSmartSubscription200JSONResponse) VisitGetPanelSmartSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelSmartSubscription403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetPanelSmartSubscription403ApplicationProblemPlusJSONResponse) VisitGetPanelSmartSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelSmartSubscriptionRequestObject struct {
+	Params SavePanelSmartSubscriptionParams
+	Body   *SavePanelSmartSubscriptionJSONRequestBody
+}
+
+type SavePanelSmartSubscriptionResponseObject interface {
+	VisitSavePanelSmartSubscriptionResponse(w http.ResponseWriter) error
+}
+
+type SavePanelSmartSubscription200JSONResponse PanelSmartSubscription
+
+func (response SavePanelSmartSubscription200JSONResponse) VisitSavePanelSmartSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelSmartSubscription403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SavePanelSmartSubscription403ApplicationProblemPlusJSONResponse) VisitSavePanelSmartSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelSmartSubscription409ApplicationProblemPlusJSONResponse Problem
+
+func (response SavePanelSmartSubscription409ApplicationProblemPlusJSONResponse) VisitSavePanelSmartSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelSmartSubscription422ApplicationProblemPlusJSONResponse Problem
+
+func (response SavePanelSmartSubscription422ApplicationProblemPlusJSONResponse) VisitSavePanelSmartSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelSmartSubscriptionHostsRequestObject struct {
+}
+
+type ListPanelSmartSubscriptionHostsResponseObject interface {
+	VisitListPanelSmartSubscriptionHostsResponse(w http.ResponseWriter) error
+}
+
+type ListPanelSmartSubscriptionHosts200JSONResponse PanelSmartSubscriptionHosts
+
+func (response ListPanelSmartSubscriptionHosts200JSONResponse) VisitListPanelSmartSubscriptionHostsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelSmartSubscriptionHosts403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ListPanelSmartSubscriptionHosts403ApplicationProblemPlusJSONResponse) VisitListPanelSmartSubscriptionHostsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPanelSmartSubscriptionHosts502ApplicationProblemPlusJSONResponse Problem
+
+func (response ListPanelSmartSubscriptionHosts502ApplicationProblemPlusJSONResponse) VisitListPanelSmartSubscriptionHostsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetPanelSubscriptionPolicyRequestObject struct {
 }
 
@@ -58804,6 +59722,91 @@ func (response GetServerStatus503ApplicationProblemPlusJSONResponse) VisitGetSer
 	return err
 }
 
+type GetSmartSubscriptionRequestObject struct {
+	ShortUUID string `json:"shortUUID"`
+}
+
+type GetSmartSubscriptionResponseObject interface {
+	VisitGetSmartSubscriptionResponse(w http.ResponseWriter) error
+}
+
+type GetSmartSubscription200JSONResponse []map[string]interface{}
+
+func (response GetSmartSubscription200JSONResponse) VisitGetSmartSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSmartSubscription200TextResponse string
+
+func (response GetSmartSubscription200TextResponse) VisitGetSmartSubscriptionResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "text/plain")
+	w.WriteHeader(200)
+
+	_, err := w.Write([]byte(fmt.Sprint(response)))
+	return err
+}
+
+type GetSmartSubscription304Response struct {
+}
+
+func (response GetSmartSubscription304Response) VisitGetSmartSubscriptionResponse(w http.ResponseWriter) error {
+	w.WriteHeader(304)
+	return nil
+}
+
+type GetSmartSubscription404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetSmartSubscription404ApplicationProblemPlusJSONResponse) VisitGetSmartSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSmartSubscription429ApplicationProblemPlusJSONResponse Problem
+
+func (response GetSmartSubscription429ApplicationProblemPlusJSONResponse) VisitGetSmartSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSmartSubscription502ApplicationProblemPlusJSONResponse Problem
+
+func (response GetSmartSubscription502ApplicationProblemPlusJSONResponse) VisitGetSmartSubscriptionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(502)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type CollectTelemetryEventRequestObject struct {
 	Body *CollectTelemetryEventJSONRequestBody
 }
@@ -59157,6 +60160,9 @@ type StrictServerInterface interface {
 	// (POST /v1/account/simple-subscription/checkout)
 	OpenAccountSimpleCheckout(ctx context.Context, request OpenAccountSimpleCheckoutRequestObject) (OpenAccountSimpleCheckoutResponseObject, error)
 
+	// (GET /v1/account/smart-subscription)
+	GetAccountSmartSubscriptionStatus(ctx context.Context, request GetAccountSmartSubscriptionStatusRequestObject) (GetAccountSmartSubscriptionStatusResponseObject, error)
+
 	// (POST /v1/account/subscriptions/rotate-links)
 	RotateAllAccountSubscriptionLinks(ctx context.Context, request RotateAllAccountSubscriptionLinksRequestObject) (RotateAllAccountSubscriptionLinksResponseObject, error)
 
@@ -59210,6 +60216,15 @@ type StrictServerInterface interface {
 
 	// (POST /v1/account/subscriptions/{subscriptionID}/rotate-link)
 	RotateAccountSubscriptionLink(ctx context.Context, request RotateAccountSubscriptionLinkRequestObject) (RotateAccountSubscriptionLinkResponseObject, error)
+
+	// (DELETE /v1/account/subscriptions/{subscriptionID}/smart)
+	ResetAccountSmartSubscription(ctx context.Context, request ResetAccountSmartSubscriptionRequestObject) (ResetAccountSmartSubscriptionResponseObject, error)
+
+	// (GET /v1/account/subscriptions/{subscriptionID}/smart)
+	GetAccountSmartSubscription(ctx context.Context, request GetAccountSmartSubscriptionRequestObject) (GetAccountSmartSubscriptionResponseObject, error)
+
+	// (PUT /v1/account/subscriptions/{subscriptionID}/smart)
+	SaveAccountSmartSubscription(ctx context.Context, request SaveAccountSmartSubscriptionRequestObject) (SaveAccountSmartSubscriptionResponseObject, error)
 
 	// (GET /v1/account/subscriptions/{subscriptionID}/squad-addons)
 	ListAccountSquadAddons(ctx context.Context, request ListAccountSquadAddonsRequestObject) (ListAccountSquadAddonsResponseObject, error)
@@ -60024,6 +61039,15 @@ type StrictServerInterface interface {
 	// (POST /v1/panel/settings/providers/{provider}/recurring)
 	ConfigurePanelRecurring(ctx context.Context, request ConfigurePanelRecurringRequestObject) (ConfigurePanelRecurringResponseObject, error)
 
+	// (GET /v1/panel/settings/smart-subscription)
+	GetPanelSmartSubscription(ctx context.Context, request GetPanelSmartSubscriptionRequestObject) (GetPanelSmartSubscriptionResponseObject, error)
+
+	// (PUT /v1/panel/settings/smart-subscription)
+	SavePanelSmartSubscription(ctx context.Context, request SavePanelSmartSubscriptionRequestObject) (SavePanelSmartSubscriptionResponseObject, error)
+
+	// (GET /v1/panel/settings/smart-subscription/hosts)
+	ListPanelSmartSubscriptionHosts(ctx context.Context, request ListPanelSmartSubscriptionHostsRequestObject) (ListPanelSmartSubscriptionHostsResponseObject, error)
+
 	// (GET /v1/panel/settings/subscription-policy)
 	GetPanelSubscriptionPolicy(ctx context.Context, request GetPanelSubscriptionPolicyRequestObject) (GetPanelSubscriptionPolicyResponseObject, error)
 
@@ -60140,6 +61164,9 @@ type StrictServerInterface interface {
 
 	// (GET /v1/status/servers)
 	GetServerStatus(ctx context.Context, request GetServerStatusRequestObject) (GetServerStatusResponseObject, error)
+
+	// (GET /v1/sub/{shortUUID})
+	GetSmartSubscription(ctx context.Context, request GetSmartSubscriptionRequestObject) (GetSmartSubscriptionResponseObject, error)
 
 	// (POST /v1/telemetry/events)
 	CollectTelemetryEvent(ctx context.Context, request CollectTelemetryEventRequestObject) (CollectTelemetryEventResponseObject, error)
@@ -63127,6 +64154,30 @@ func (sh *strictHandler) OpenAccountSimpleCheckout(w http.ResponseWriter, r *htt
 	}
 }
 
+// GetAccountSmartSubscriptionStatus operation middleware
+func (sh *strictHandler) GetAccountSmartSubscriptionStatus(w http.ResponseWriter, r *http.Request) {
+	var request GetAccountSmartSubscriptionStatusRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountSmartSubscriptionStatus(ctx, request.(GetAccountSmartSubscriptionStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountSmartSubscriptionStatus")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountSmartSubscriptionStatusResponseObject); ok {
+		if err := validResponse.VisitGetAccountSmartSubscriptionStatusResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // RotateAllAccountSubscriptionLinks operation middleware
 func (sh *strictHandler) RotateAllAccountSubscriptionLinks(w http.ResponseWriter, r *http.Request, params RotateAllAccountSubscriptionLinksParams) {
 	var request RotateAllAccountSubscriptionLinksRequestObject
@@ -63660,6 +64711,93 @@ func (sh *strictHandler) RotateAccountSubscriptionLink(w http.ResponseWriter, r 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(RotateAccountSubscriptionLinkResponseObject); ok {
 		if err := validResponse.VisitRotateAccountSubscriptionLinkResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ResetAccountSmartSubscription operation middleware
+func (sh *strictHandler) ResetAccountSmartSubscription(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params ResetAccountSmartSubscriptionParams) {
+	var request ResetAccountSmartSubscriptionRequestObject
+
+	request.SubscriptionID = subscriptionID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ResetAccountSmartSubscription(ctx, request.(ResetAccountSmartSubscriptionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ResetAccountSmartSubscription")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ResetAccountSmartSubscriptionResponseObject); ok {
+		if err := validResponse.VisitResetAccountSmartSubscriptionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAccountSmartSubscription operation middleware
+func (sh *strictHandler) GetAccountSmartSubscription(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID) {
+	var request GetAccountSmartSubscriptionRequestObject
+
+	request.SubscriptionID = subscriptionID
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAccountSmartSubscription(ctx, request.(GetAccountSmartSubscriptionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAccountSmartSubscription")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAccountSmartSubscriptionResponseObject); ok {
+		if err := validResponse.VisitGetAccountSmartSubscriptionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SaveAccountSmartSubscription operation middleware
+func (sh *strictHandler) SaveAccountSmartSubscription(w http.ResponseWriter, r *http.Request, subscriptionID AccountSubscriptionID, params SaveAccountSmartSubscriptionParams) {
+	var request SaveAccountSmartSubscriptionRequestObject
+
+	request.SubscriptionID = subscriptionID
+	request.Params = params
+
+	var body SaveAccountSmartSubscriptionJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SaveAccountSmartSubscription(ctx, request.(SaveAccountSmartSubscriptionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SaveAccountSmartSubscription")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SaveAccountSmartSubscriptionResponseObject); ok {
+		if err := validResponse.VisitSaveAccountSmartSubscriptionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -71415,6 +72553,87 @@ func (sh *strictHandler) ConfigurePanelRecurring(w http.ResponseWriter, r *http.
 	}
 }
 
+// GetPanelSmartSubscription operation middleware
+func (sh *strictHandler) GetPanelSmartSubscription(w http.ResponseWriter, r *http.Request) {
+	var request GetPanelSmartSubscriptionRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPanelSmartSubscription(ctx, request.(GetPanelSmartSubscriptionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPanelSmartSubscription")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPanelSmartSubscriptionResponseObject); ok {
+		if err := validResponse.VisitGetPanelSmartSubscriptionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SavePanelSmartSubscription operation middleware
+func (sh *strictHandler) SavePanelSmartSubscription(w http.ResponseWriter, r *http.Request, params SavePanelSmartSubscriptionParams) {
+	var request SavePanelSmartSubscriptionRequestObject
+
+	request.Params = params
+
+	var body SavePanelSmartSubscriptionJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SavePanelSmartSubscription(ctx, request.(SavePanelSmartSubscriptionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SavePanelSmartSubscription")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SavePanelSmartSubscriptionResponseObject); ok {
+		if err := validResponse.VisitSavePanelSmartSubscriptionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPanelSmartSubscriptionHosts operation middleware
+func (sh *strictHandler) ListPanelSmartSubscriptionHosts(w http.ResponseWriter, r *http.Request) {
+	var request ListPanelSmartSubscriptionHostsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPanelSmartSubscriptionHosts(ctx, request.(ListPanelSmartSubscriptionHostsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPanelSmartSubscriptionHosts")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPanelSmartSubscriptionHostsResponseObject); ok {
+		if err := validResponse.VisitListPanelSmartSubscriptionHostsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetPanelSubscriptionPolicy operation middleware
 func (sh *strictHandler) GetPanelSubscriptionPolicy(w http.ResponseWriter, r *http.Request) {
 	var request GetPanelSubscriptionPolicyRequestObject
@@ -72528,6 +73747,32 @@ func (sh *strictHandler) GetServerStatus(w http.ResponseWriter, r *http.Request)
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetServerStatusResponseObject); ok {
 		if err := validResponse.VisitGetServerStatusResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetSmartSubscription operation middleware
+func (sh *strictHandler) GetSmartSubscription(w http.ResponseWriter, r *http.Request, shortUUID string) {
+	var request GetSmartSubscriptionRequestObject
+
+	request.ShortUUID = shortUUID
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSmartSubscription(ctx, request.(GetSmartSubscriptionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSmartSubscription")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetSmartSubscriptionResponseObject); ok {
+		if err := validResponse.VisitGetSmartSubscriptionResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

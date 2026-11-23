@@ -25,6 +25,7 @@ import (
 	"github.com/omniflow/omniflow/internal/platform"
 	"github.com/omniflow/omniflow/internal/rbac"
 	"github.com/omniflow/omniflow/internal/remnawave"
+	"github.com/omniflow/omniflow/internal/smartsubpg"
 	"github.com/omniflow/omniflow/internal/updatecheck"
 )
 
@@ -48,6 +49,9 @@ type AdminHandlers struct {
 	// operations serves the v0.7 surfaces. A nil value leaves them unmounted,
 	// which is what a panel running only the v0.6 foundation gets.
 	operations *panelpg.Service
+	// smartSubscription is the smart subscription module; nil leaves its
+	// settings routes unmounted.
+	smartSubscription *smartsubpg.Service
 	// ai builds a gateway from what an owner configured, so an AI feature can
 	// make a call. It is derived from operations rather than passed in
 	// separately: they read the same rows, and allowing them to be supplied
@@ -328,6 +332,7 @@ func (handlers *AdminHandlers) Mount(router chi.Router) {
 			handlers.mountCustomerAuth(secure)
 			handlers.mountSearch(secure)
 			handlers.mountPlanOptions(secure)
+			handlers.mountSmartSubscription(secure)
 			handlers.mountServers(secure)
 			handlers.mountPlatform(secure)
 			handlers.mountNews(secure)

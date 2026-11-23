@@ -33,6 +33,9 @@ type RouterOptions struct {
 	RemnawaveWebhook *RemnawaveWebhookHandler
 	// ServerStatus is the public server status. Nil unless enabled.
 	ServerStatus *ServerStatusHandler
+	// SmartSubscription serves the smart subscription link. Nil without a
+	// database.
+	SmartSubscription *SmartSubscriptionHandler
 	// CollectorEnabled exposes the anonymous telemetry collector endpoint.
 	CollectorEnabled bool
 	Telemetry        *telemetry.Client
@@ -83,6 +86,9 @@ func NewRouter(logger *slog.Logger, options RouterOptions) http.Handler {
 	}
 	if options.ServerStatus != nil {
 		options.ServerStatus.Mount(router)
+	}
+	if options.SmartSubscription != nil {
+		options.SmartSubscription.Mount(router)
 	}
 	return router
 }

@@ -1874,6 +1874,163 @@ export interface PanelSimpleSubscription {
   deviceQuantity: number;
 }
 
+export interface SmartSubscriptionPresets {
+  /** .ru, .su, .рф, and Russian IP ranges go around the tunnel. */
+  russiaDirect: boolean;
+  /** Advertising and tracking domains are dropped. */
+  blockAds: boolean;
+  /** UDP 443 is refused, which pushes browsers back onto TCP. */
+  blockQuic: boolean;
+}
+
+/**
+ * reserve is the whitelist bypass; hidden leaves the host out of every subscription.
+ */
+export type SmartSubscriptionHostOverrideRole =
+  (typeof SmartSubscriptionHostOverrideRole)[keyof typeof SmartSubscriptionHostOverrideRole];
+
+export const SmartSubscriptionHostOverrideRole = {
+  "": "",
+  main: "main",
+  reserve: "reserve",
+  hidden: "hidden",
+} as const;
+
+export interface SmartSubscriptionHostOverride {
+  /** An ISO 3166-1 code; empty keeps the one read from the remark. */
+  country?: string;
+  /** reserve is the whitelist bypass; hidden leaves the host out of every subscription. */
+  role?: SmartSubscriptionHostOverrideRole;
+}
+
+/**
+ * Corrections keyed by Remnawave host UUID.
+ */
+export type PanelSmartSubscriptionHostsProperty = { [key: string]: SmartSubscriptionHostOverride };
+
+export interface PanelSmartSubscription {
+  enabled: boolean;
+  /** Send back the version last read; a newer one on the server is a 409. */
+  version: number;
+  /** The public prefix links are built on, ending before the short UUID; empty uses APP_PUBLIC_URL and /v1/sub/. */
+  linkBase: string;
+  readonly effectiveLinkBase?: string;
+  probeUrl: string;
+  /**
+   * @minimum 30
+   * @maximum 86400
+   */
+  probeIntervalSeconds: number;
+  /**
+   * The fastest-server group's name; empty uses the customer's language's default.
+   * @maxLength 40
+   */
+  autoName: string;
+  /**
+   * The whitelist bypass group's name; empty uses the default.
+   * @maxLength 40
+   */
+  reserveName: string;
+  defaults: SmartSubscriptionPresets;
+  /** Customers may add their own domains. */
+  customRules: boolean;
+  /**
+   * @minimum 1
+   * @maximum 200
+   */
+  maxRules: number;
+  /**
+   * Domains that always go around the tunnel for everyone.
+   * @maxItems 200
+   */
+  directDomains: string[];
+  /** Corrections keyed by Remnawave host UUID. */
+  hosts: PanelSmartSubscriptionHostsProperty;
+}
+
+export type PanelSmartSubscriptionHostRole =
+  (typeof PanelSmartSubscriptionHostRole)[keyof typeof PanelSmartSubscriptionHostRole];
+
+export const PanelSmartSubscriptionHostRole = {
+  main: "main",
+  reserve: "reserve",
+  hidden: "hidden",
+} as const;
+
+export interface PanelSmartSubscriptionHost {
+  uuid: string;
+  remark: string;
+  address: string;
+  port: number;
+  /** The country read from the remark; empty when none. */
+  detectedCountry: string;
+  /** The country in effect; ZZ when unknown. */
+  country: string;
+  role: PanelSmartSubscriptionHostRole;
+  disabled: boolean;
+  hidden: boolean;
+  /** Every node behind the host is disconnected or disabled. */
+  down: boolean;
+}
+
+export interface PanelSmartSubscriptionHosts {
+  hosts: PanelSmartSubscriptionHost[];
+}
+
+export type SmartSubscriptionRuleAction =
+  (typeof SmartSubscriptionRuleAction)[keyof typeof SmartSubscriptionRuleAction];
+
+export const SmartSubscriptionRuleAction = {
+  direct: "direct",
+  proxy: "proxy",
+  block: "block",
+} as const;
+
+export interface SmartSubscriptionRule {
+  /** Matches the domain and every subdomain. */
+  domain: string;
+  action: SmartSubscriptionRuleAction;
+}
+
+export interface SmartSubscriptionPreferences {
+  /** ISO codes left out of the subscription; ZZ is the servers whose country is unknown. */
+  hiddenCountries: string[];
+  /** Countries the fastest-server group never picks. */
+  autoExcluded: string[];
+  /** Keep the whitelist bypass servers, as a fallback and as a group. */
+  reserve: boolean;
+  presets: SmartSubscriptionPresets;
+  /** @maxItems 200 */
+  rules: SmartSubscriptionRule[];
+}
+
+export interface SmartSubscriptionServer {
+  name: string;
+  address: string;
+  port: number;
+  down: boolean;
+}
+
+export type AccountSmartSubscriptionServersCountriesItem = {
+  /** An ISO 3166-1 code, or ZZ for servers whose country is unknown. */
+  code: string;
+  servers: SmartSubscriptionServer[];
+};
+
+export type AccountSmartSubscriptionServers = {
+  countries: AccountSmartSubscriptionServersCountriesItem[];
+  reserve: SmartSubscriptionServer[];
+};
+
+export interface AccountSmartSubscription {
+  servers: AccountSmartSubscriptionServers;
+  preferences: SmartSubscriptionPreferences;
+  customized: boolean;
+  defaults: SmartSubscriptionPresets;
+  customRules: boolean;
+  maxRules: number;
+}
+
 export type PanelPlanVersionInputBillingPeriod =
   (typeof PanelPlanVersionInputBillingPeriod)[keyof typeof PanelPlanVersionInputBillingPeriod];
 
@@ -7364,6 +7521,8 @@ export type GetServerStatus200 = {
   servers: GetServerStatus200ServersItem[];
 };
 
+export type GetSmartSubscription200OneItem = { [key: string]: unknown };
+
 export type ReceiveRemnawaveWebhookBody = { [key: string]: unknown };
 
 export type ListFulfillmentDriftsParams = {
@@ -8549,6 +8708,14 @@ export type RenameAccountSubscriptionBody = {
    * @maxLength 40
    */
   label: string;
+};
+
+export type GetAccountSmartSubscriptionStatus200 = {
+  enabled: boolean;
+};
+
+export type SaveAccountSmartSubscription200 = {
+  preferences: SmartSubscriptionPreferences;
 };
 
 export type GetAccountConnectionParams = {
@@ -11592,6 +11759,113 @@ export const useGetServerStatus = <TError = Promise<ProblemResponse>>(options?: 
   const isEnabled = swrOptions?.enabled !== false;
   const swrKey = swrOptions?.swrKey ?? (() => (isEnabled ? getGetServerStatusKey() : null));
   const swrFn = () => getServerStatus(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getSmartSubscriptionResponse200ApplicationJson = {
+  data: GetSmartSubscription200OneItem[];
+  status: 200;
+};
+
+export type getSmartSubscriptionResponse200TextPlain = {
+  data: string;
+  status: 200;
+};
+
+export type getSmartSubscriptionResponse304 = {
+  data: void;
+  status: 304;
+};
+
+export type getSmartSubscriptionResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type getSmartSubscriptionResponse429 = {
+  data: ProblemResponse;
+  status: 429;
+};
+
+export type getSmartSubscriptionResponse502 = {
+  data: ProblemResponse;
+  status: 502;
+};
+
+export type getSmartSubscriptionResponseSuccess = (
+  | getSmartSubscriptionResponse200ApplicationJson
+  | getSmartSubscriptionResponse200TextPlain
+) & {
+  headers: Headers;
+};
+export type getSmartSubscriptionResponseError = (
+  | getSmartSubscriptionResponse304
+  | getSmartSubscriptionResponse404
+  | getSmartSubscriptionResponse429
+  | getSmartSubscriptionResponse502
+) & {
+  headers: Headers;
+};
+
+export type getSmartSubscriptionResponse =
+  | getSmartSubscriptionResponseSuccess
+  | getSmartSubscriptionResponseError;
+
+export const getGetSmartSubscriptionUrl = (shortUUID: string) => {
+  return `/v1/sub/${shortUUID}`;
+};
+
+/**
+ * Public; the short UUID of the Remnawave link is the credential, so this link is exactly as secret as the panel's and is re-issued with it. While the smart subscription is on, a client that reads Xray JSON (Happ, v2RayTun, Streisand, and similar) gets one config per group — the fastest-server group, each country, and the whitelist bypass — each a balancer with a failover chain and the customer's routing; any other client gets the panel's own answer with hidden servers removed. While it is off, and for anything the module cannot rewrite, the panel's answer passes through unchanged. The client's User-Agent and HWID headers are forwarded to the panel, so its response rules and device limit apply. Answers carry an ETag and honour If-None-Match. Limited to 60 requests a minute per address.
+ */
+export const getSmartSubscription = async (
+  shortUUID: string,
+  options?: RequestInit,
+): Promise<getSmartSubscriptionResponse> => {
+  const res = await fetch(getGetSmartSubscriptionUrl(shortUUID), {
+    ...options,
+    method: "GET",
+  });
+
+  const contentType = (res.headers.get("content-type") ?? "").toLowerCase();
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getSmartSubscriptionResponse["data"] = body
+    ? contentType.includes("json")
+      ? JSON.parse(body)
+      : body
+    : {};
+  return { data, status: res.status, headers: res.headers } as getSmartSubscriptionResponse;
+};
+
+export const getGetSmartSubscriptionKey = (shortUUID: string) => [`/v1/sub/${shortUUID}`] as const;
+
+export type GetSmartSubscriptionQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSmartSubscription>>
+>;
+
+export const useGetSmartSubscription = <TError = Promise<void | ProblemResponse>>(
+  shortUUID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getSmartSubscription>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false && shortUUID !== null && shortUUID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetSmartSubscriptionKey(shortUUID) : null));
+  const swrFn = () => getSmartSubscription(shortUUID, fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 
@@ -18771,6 +19045,255 @@ export const useSavePanelSimpleSubscription = <TError = Promise<ProblemResponse>
   const swrFn = getSavePanelSimpleSubscriptionMutationFetcher(fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelSmartSubscriptionResponse200 = {
+  data: PanelSmartSubscription;
+  status: 200;
+};
+
+export type getPanelSmartSubscriptionResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelSmartSubscriptionResponseSuccess = getPanelSmartSubscriptionResponse200 & {
+  headers: Headers;
+};
+export type getPanelSmartSubscriptionResponseError = getPanelSmartSubscriptionResponse403 & {
+  headers: Headers;
+};
+
+export type getPanelSmartSubscriptionResponse =
+  | getPanelSmartSubscriptionResponseSuccess
+  | getPanelSmartSubscriptionResponseError;
+
+export const getGetPanelSmartSubscriptionUrl = () => {
+  return `/v1/panel/settings/smart-subscription`;
+};
+
+/**
+ * Requires settings.read. The smart subscription's settings. `effectiveLinkBase` is where links are built — the saved base, or APP_PUBLIC_URL followed by /v1/sub/ — and is empty when neither is set, in which case customers keep the panel's link.
+ */
+export const getPanelSmartSubscription = async (
+  options?: RequestInit,
+): Promise<getPanelSmartSubscriptionResponse> => {
+  const res = await fetch(getGetPanelSmartSubscriptionUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelSmartSubscriptionResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelSmartSubscriptionResponse;
+};
+
+export const getGetPanelSmartSubscriptionKey = () =>
+  [`/v1/panel/settings/smart-subscription`] as const;
+
+export type GetPanelSmartSubscriptionQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelSmartSubscription>>
+>;
+
+export const useGetPanelSmartSubscription = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelSmartSubscription>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelSmartSubscriptionKey() : null));
+  const swrFn = () => getPanelSmartSubscription(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelSmartSubscriptionResponse200 = {
+  data: PanelSmartSubscription;
+  status: 200;
+};
+
+export type savePanelSmartSubscriptionResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelSmartSubscriptionResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type savePanelSmartSubscriptionResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type savePanelSmartSubscriptionResponseSuccess = savePanelSmartSubscriptionResponse200 & {
+  headers: Headers;
+};
+export type savePanelSmartSubscriptionResponseError = (
+  | savePanelSmartSubscriptionResponse403
+  | savePanelSmartSubscriptionResponse409
+  | savePanelSmartSubscriptionResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelSmartSubscriptionResponse =
+  | savePanelSmartSubscriptionResponseSuccess
+  | savePanelSmartSubscriptionResponseError;
+
+export const getSavePanelSmartSubscriptionUrl = () => {
+  return `/v1/panel/settings/smart-subscription`;
+};
+
+/**
+ * Requires settings.write. Saves the settings; `version` must be the one last read, or the answer is 409. A field that fails validation is a 422 naming it in `field`. Audited as panel.smart_subscription.updated.
+ */
+export const savePanelSmartSubscription = async (
+  panelSmartSubscription: NonReadonly<PanelSmartSubscription>,
+  options?: RequestInit,
+): Promise<savePanelSmartSubscriptionResponse> => {
+  const res = await fetch(getSavePanelSmartSubscriptionUrl(), {
+    ...options,
+    method: "PUT",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(panelSmartSubscription),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelSmartSubscriptionResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as savePanelSmartSubscriptionResponse;
+};
+
+export const getSavePanelSmartSubscriptionMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: NonReadonly<PanelSmartSubscription> }) => {
+    return savePanelSmartSubscription(arg, options);
+  };
+};
+export const getSavePanelSmartSubscriptionMutationKey = () =>
+  [`/v1/panel/settings/smart-subscription`] as const;
+
+export type SavePanelSmartSubscriptionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelSmartSubscription>>
+>;
+
+export const useSavePanelSmartSubscription = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof savePanelSmartSubscription>>,
+    TError,
+    Key,
+    NonReadonly<PanelSmartSubscription>,
+    Awaited<ReturnType<typeof savePanelSmartSubscription>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelSmartSubscriptionMutationKey();
+  const swrFn = getSavePanelSmartSubscriptionMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type listPanelSmartSubscriptionHostsResponse200 = {
+  data: PanelSmartSubscriptionHosts;
+  status: 200;
+};
+
+export type listPanelSmartSubscriptionHostsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type listPanelSmartSubscriptionHostsResponse502 = {
+  data: ProblemResponse;
+  status: 502;
+};
+
+export type listPanelSmartSubscriptionHostsResponseSuccess =
+  listPanelSmartSubscriptionHostsResponse200 & {
+    headers: Headers;
+  };
+export type listPanelSmartSubscriptionHostsResponseError = (
+  | listPanelSmartSubscriptionHostsResponse403
+  | listPanelSmartSubscriptionHostsResponse502
+) & {
+  headers: Headers;
+};
+
+export type listPanelSmartSubscriptionHostsResponse =
+  | listPanelSmartSubscriptionHostsResponseSuccess
+  | listPanelSmartSubscriptionHostsResponseError;
+
+export const getListPanelSmartSubscriptionHostsUrl = () => {
+  return `/v1/panel/settings/smart-subscription/hosts`;
+};
+
+/**
+ * Requires settings.read. The Remnawave panel's hosts, read live, with the country read from each remark and the country and role in effect after the operator's corrections. Nothing is stored. 502 when the panel does not answer.
+ */
+export const listPanelSmartSubscriptionHosts = async (
+  options?: RequestInit,
+): Promise<listPanelSmartSubscriptionHostsResponse> => {
+  const res = await fetch(getListPanelSmartSubscriptionHostsUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: listPanelSmartSubscriptionHostsResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as listPanelSmartSubscriptionHostsResponse;
+};
+
+export const getListPanelSmartSubscriptionHostsKey = () =>
+  [`/v1/panel/settings/smart-subscription/hosts`] as const;
+
+export type ListPanelSmartSubscriptionHostsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listPanelSmartSubscriptionHosts>>
+>;
+
+export const useListPanelSmartSubscriptionHosts = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof listPanelSmartSubscriptionHosts>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelSmartSubscriptionHostsKey() : null));
+  const swrFn = () => listPanelSmartSubscriptionHosts(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 
   return {
     swrKey,
@@ -35997,6 +36520,363 @@ export const useRenameAccountSubscription = <TError = Promise<ProblemResponse>>(
 
   const swrKey = swrOptions?.swrKey ?? getRenameAccountSubscriptionMutationKey(subscriptionID);
   const swrFn = getRenameAccountSubscriptionMutationFetcher(subscriptionID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountSmartSubscriptionStatusResponse200 = {
+  data: GetAccountSmartSubscriptionStatus200;
+  status: 200;
+};
+
+export type getAccountSmartSubscriptionStatusResponseSuccess =
+  getAccountSmartSubscriptionStatusResponse200 & {
+    headers: Headers;
+  };
+
+export type getAccountSmartSubscriptionStatusResponse =
+  getAccountSmartSubscriptionStatusResponseSuccess;
+
+export const getGetAccountSmartSubscriptionStatusUrl = () => {
+  return `/v1/account/smart-subscription`;
+};
+
+/**
+ * Whether the operator turned the smart subscription on, so the panel knows to offer its screen.
+ */
+export const getAccountSmartSubscriptionStatus = async (
+  options?: RequestInit,
+): Promise<getAccountSmartSubscriptionStatusResponse> => {
+  const res = await fetch(getGetAccountSmartSubscriptionStatusUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountSmartSubscriptionStatusResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getAccountSmartSubscriptionStatusResponse;
+};
+
+export const getGetAccountSmartSubscriptionStatusKey = () =>
+  [`/v1/account/smart-subscription`] as const;
+
+export type GetAccountSmartSubscriptionStatusQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountSmartSubscriptionStatus>>
+>;
+
+export const useGetAccountSmartSubscriptionStatus = <TError = Promise<unknown>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountSmartSubscriptionStatus>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetAccountSmartSubscriptionStatusKey() : null));
+  const swrFn = () => getAccountSmartSubscriptionStatus(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountSmartSubscriptionResponse200 = {
+  data: AccountSmartSubscription;
+  status: 200;
+};
+
+export type getAccountSmartSubscriptionResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type getAccountSmartSubscriptionResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type getAccountSmartSubscriptionResponse503 = {
+  data: ProblemResponse;
+  status: 503;
+};
+
+export type getAccountSmartSubscriptionResponseSuccess = getAccountSmartSubscriptionResponse200 & {
+  headers: Headers;
+};
+export type getAccountSmartSubscriptionResponseError = (
+  | getAccountSmartSubscriptionResponse404
+  | getAccountSmartSubscriptionResponse409
+  | getAccountSmartSubscriptionResponse503
+) & {
+  headers: Headers;
+};
+
+export type getAccountSmartSubscriptionResponse =
+  | getAccountSmartSubscriptionResponseSuccess
+  | getAccountSmartSubscriptionResponseError;
+
+export const getGetAccountSmartSubscriptionUrl = (subscriptionID: string) => {
+  return `/v1/account/subscriptions/${subscriptionID}/smart`;
+};
+
+/**
+ * The customer's servers for one subscription, grouped by country, with the whitelist bypass servers apart, and the choices they saved — or the operator's defaults, with `customized` false. Read live from Remnawave. 409 when the module is off or the subscription has no panel user yet.
+ */
+export const getAccountSmartSubscription = async (
+  subscriptionID: string,
+  options?: RequestInit,
+): Promise<getAccountSmartSubscriptionResponse> => {
+  const res = await fetch(getGetAccountSmartSubscriptionUrl(subscriptionID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getAccountSmartSubscriptionResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getAccountSmartSubscriptionResponse;
+};
+
+export const getGetAccountSmartSubscriptionKey = (subscriptionID: string) =>
+  [`/v1/account/subscriptions/${subscriptionID}/smart`] as const;
+
+export type GetAccountSmartSubscriptionQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountSmartSubscription>>
+>;
+
+export const useGetAccountSmartSubscription = <TError = Promise<ProblemResponse>>(
+  subscriptionID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountSmartSubscription>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && subscriptionID !== null && subscriptionID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ??
+    (() => (isEnabled ? getGetAccountSmartSubscriptionKey(subscriptionID) : null));
+  const swrFn = () => getAccountSmartSubscription(subscriptionID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type saveAccountSmartSubscriptionResponse200 = {
+  data: SaveAccountSmartSubscription200;
+  status: 200;
+};
+
+export type saveAccountSmartSubscriptionResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type saveAccountSmartSubscriptionResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type saveAccountSmartSubscriptionResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type saveAccountSmartSubscriptionResponseSuccess =
+  saveAccountSmartSubscriptionResponse200 & {
+    headers: Headers;
+  };
+export type saveAccountSmartSubscriptionResponseError = (
+  | saveAccountSmartSubscriptionResponse404
+  | saveAccountSmartSubscriptionResponse409
+  | saveAccountSmartSubscriptionResponse422
+) & {
+  headers: Headers;
+};
+
+export type saveAccountSmartSubscriptionResponse =
+  | saveAccountSmartSubscriptionResponseSuccess
+  | saveAccountSmartSubscriptionResponseError;
+
+export const getSaveAccountSmartSubscriptionUrl = (subscriptionID: string) => {
+  return `/v1/account/subscriptions/${subscriptionID}/smart`;
+};
+
+/**
+ * Saves the customer's choices for one subscription. They apply the next time a client refreshes the subscription. Domains are normalised — a pasted URL keeps its host, an internationalised name is stored in its ASCII form — and a field that fails validation is a 422 naming it in `field`.
+ */
+export const saveAccountSmartSubscription = async (
+  subscriptionID: string,
+  smartSubscriptionPreferences: SmartSubscriptionPreferences,
+  options?: RequestInit,
+): Promise<saveAccountSmartSubscriptionResponse> => {
+  const res = await fetch(getSaveAccountSmartSubscriptionUrl(subscriptionID), {
+    ...options,
+    method: "PUT",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(smartSubscriptionPreferences),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: saveAccountSmartSubscriptionResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as saveAccountSmartSubscriptionResponse;
+};
+
+export const getSaveAccountSmartSubscriptionMutationFetcher = (
+  subscriptionID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: SmartSubscriptionPreferences }) => {
+    return saveAccountSmartSubscription(subscriptionID, arg, options);
+  };
+};
+export const getSaveAccountSmartSubscriptionMutationKey = (subscriptionID: string) =>
+  [`/v1/account/subscriptions/${subscriptionID}/smart`] as const;
+
+export type SaveAccountSmartSubscriptionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof saveAccountSmartSubscription>>
+>;
+
+export const useSaveAccountSmartSubscription = <TError = Promise<ProblemResponse>>(
+  subscriptionID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof saveAccountSmartSubscription>>,
+      TError,
+      Key,
+      SmartSubscriptionPreferences,
+      Awaited<ReturnType<typeof saveAccountSmartSubscription>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSaveAccountSmartSubscriptionMutationKey(subscriptionID);
+  const swrFn = getSaveAccountSmartSubscriptionMutationFetcher(subscriptionID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type resetAccountSmartSubscriptionResponse204 = {
+  data: void;
+  status: 204;
+};
+
+export type resetAccountSmartSubscriptionResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type resetAccountSmartSubscriptionResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type resetAccountSmartSubscriptionResponseSuccess =
+  resetAccountSmartSubscriptionResponse204 & {
+    headers: Headers;
+  };
+export type resetAccountSmartSubscriptionResponseError = (
+  | resetAccountSmartSubscriptionResponse404
+  | resetAccountSmartSubscriptionResponse409
+) & {
+  headers: Headers;
+};
+
+export type resetAccountSmartSubscriptionResponse =
+  | resetAccountSmartSubscriptionResponseSuccess
+  | resetAccountSmartSubscriptionResponseError;
+
+export const getResetAccountSmartSubscriptionUrl = (subscriptionID: string) => {
+  return `/v1/account/subscriptions/${subscriptionID}/smart`;
+};
+
+/**
+ * Puts the subscription back on the operator's defaults.
+ */
+export const resetAccountSmartSubscription = async (
+  subscriptionID: string,
+  options?: RequestInit,
+): Promise<resetAccountSmartSubscriptionResponse> => {
+  const res = await fetch(getResetAccountSmartSubscriptionUrl(subscriptionID), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: resetAccountSmartSubscriptionResponse["data"] = body ? JSON.parse(body) : undefined;
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as resetAccountSmartSubscriptionResponse;
+};
+
+export const getResetAccountSmartSubscriptionMutationFetcher = (
+  subscriptionID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return resetAccountSmartSubscription(subscriptionID, options);
+  };
+};
+export const getResetAccountSmartSubscriptionMutationKey = (subscriptionID: string) =>
+  [`/v1/account/subscriptions/${subscriptionID}/smart`] as const;
+
+export type ResetAccountSmartSubscriptionMutationResult = NonNullable<
+  Awaited<ReturnType<typeof resetAccountSmartSubscription>>
+>;
+
+export const useResetAccountSmartSubscription = <TError = Promise<ProblemResponse>>(
+  subscriptionID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof resetAccountSmartSubscription>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof resetAccountSmartSubscription>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getResetAccountSmartSubscriptionMutationKey(subscriptionID);
+  const swrFn = getResetAccountSmartSubscriptionMutationFetcher(subscriptionID, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

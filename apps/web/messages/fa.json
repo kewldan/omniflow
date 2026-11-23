@@ -4055,6 +4055,10 @@
         "analytics": {
           "title": "اندازه‌گیری",
           "description": "تحلیل‌های تبلیغاتی خودتان: شمارنده‌ها، تأیید سایت و شناسه کلیکی که یک تبلیغ را به سفارش حاصل از آن پیوند می‌دهد. به‌طور پیش‌فرض خاموش است و هرگز به پروژه Omniflow گزارش نمی‌شود."
+        },
+        "smartSubscription": {
+          "title": "اشتراک هوشمند",
+          "description": "سرورها بر اساس کشور، گروه سریع‌ترین سرور، عبور از فهرست سفید و مسیرهایی که مشتری خودش تنظیم می‌کند"
         }
       }
     },
@@ -5517,6 +5521,77 @@
         "renewal": "تمدیدشده",
         "tickets": "تیکت‌ها",
         "perHundred": "به ازای ۱۰۰ مشتری"
+      }
+    },
+    "smartSubscription": {
+      "saved": "Settings saved",
+      "save": "Save",
+      "enabled": "Turn on the smart subscription",
+      "moduleTitle": "Module",
+      "moduleDescription": "Customers get an Omniflow link: servers grouped by country, a fastest-server group, a whitelist-bypass fallback, and routing they choose. Turning it off is safe — links already handed out keep serving the panel's subscription as is.",
+      "linkBase": "Link base",
+      "linkBaseHint": "The start of the link before the short UUID. Empty uses the service address (APP_PUBLIC_URL) and /v1/sub/. Subscription mirrors must forward this path to Omniflow.",
+      "noLinkBase": "Neither a link base nor APP_PUBLIC_URL is set, so customers keep getting the panel's own link.",
+      "customersTitle": "For customers",
+      "customersDescription": "What a customer starts with and what they can change.",
+      "presets": {
+        "russiaDirect": {
+          "label": "Russian sites direct",
+          "hint": ".ru, .su, .рф, and Russian IPs skip the VPN"
+        },
+        "blockAds": {
+          "label": "Block ads",
+          "hint": "Needs geosite in the customer's app; Happ and v2RayTun ship it"
+        },
+        "blockQuic": {
+          "label": "Block QUIC",
+          "hint": "Refuses UDP 443 so browsers fall back to TCP"
+        }
+      },
+      "customRules": "Customer rules",
+      "customRulesHint": "Customers can add domains to send direct, through the VPN, or block",
+      "maxRules": "Most rules per customer",
+      "directDomains": "Always direct for everyone",
+      "directDomainsHint": "One domain per line; subdomains are included.",
+      "hostsTitle": "Remnawave hosts",
+      "hostsDescription": "The country is read from each host's flag or name — correct it where it's wrong. The whitelist bypass role makes a host a fallback; Hidden leaves it out of every subscription.",
+      "hostsUnavailable": "Remnawave didn't answer, so the host list is unavailable.",
+      "hostsEmpty": "Remnawave has no hosts.",
+      "host": "Host",
+      "country": "Country",
+      "status": "Status",
+      "role": "Role",
+      "statusUp": "up",
+      "statusDown": "nodes down",
+      "statusDisabled": "off in the panel",
+      "roles": {
+        "main": "Main",
+        "reserve": "Whitelist bypass",
+        "hidden": "Hidden"
+      },
+      "countryDetected": "Auto: {country}",
+      "countryUnknown": "Auto: unknown",
+      "countryAuto": "Read from the name",
+      "countrySearch": "Find a country",
+      "countryNone": "Nothing found",
+      "advancedTitle": "Advanced",
+      "advancedDescription": "Group names in the app and how servers are timed.",
+      "autoName": "Fastest group name",
+      "autoNamePlaceholder": "⚡ Fastest",
+      "reserveName": "Bypass group name",
+      "reserveNamePlaceholder": "🛡 Whitelist bypass",
+      "probeUrl": "Speed check URL",
+      "probeInterval": "Check interval, seconds",
+      "fieldError": "{field}: {detail}",
+      "fields": {
+        "linkBase": "Link base",
+        "probeUrl": "Speed check URL",
+        "probeIntervalSeconds": "Check interval",
+        "autoName": "Group name",
+        "reserveName": "Bypass group name",
+        "maxRules": "Most rules",
+        "directDomains": "Always direct",
+        "hosts": "Hosts"
       }
     }
   },
@@ -7409,6 +7484,69 @@
       "emptyDescription": "پیشنهادهای شخصی سرویس اینجا نمایش داده می‌شوند.",
       "failed": "پیشنهادها بارگیری نشدند",
       "failedDescription": "کمی بعد دوباره تلاش کنید."
+    },
+    "smart": {
+      "entryTitle": "سرورها و مسیرها",
+      "entryDescription": "کشورهای اشتراک، انتخاب خودکار و آنچه از VPN عبور نمی‌کند",
+      "title": "سرورها و مسیرها",
+      "tabServers": "سرورها",
+      "tabRoutes": "مسیرها",
+      "offTitle": "در دسترس نیست",
+      "offDescription": "این سرویس در حال حاضر اجازهٔ تنظیم سرورها و مسیرها را نمی‌دهد.",
+      "unavailableDescription": "فهرست سرورها موقتاً در دسترس نیست. چند دقیقهٔ دیگر دوباره امتحان کنید.",
+      "saved": "ذخیره شد. اشتراک را در برنامه به‌روز کنید",
+      "reset": "بازنشانی",
+      "resetDone": "تنظیمات پیش‌فرض بازگردانده شد",
+      "appliesOnRefresh": "تغییرات وقتی برنامه اشتراک را به‌روز کند اعمال می‌شود. می‌توانید دستی هم به‌روز کنید.",
+      "pingHint": "پینگ تقریبی است و از مرورگر اندازه‌گیری می‌شود. اگر VPN روشن باشد، از طریق آن اندازه‌گیری می‌شود.",
+      "measure": "اندازه‌گیری پینگ",
+      "autoTitle": "سریع‌ترین",
+      "autoCountries": "{count, plural, =0 {بدون کشور} other {# کشور}}",
+      "autoDescription": "برنامه بهترین سرور را از میان کشورهایی که «خودکار» برایشان روشن است انتخاب می‌کند.",
+      "countries": "کشور",
+      "visible": "نمایش",
+      "auto": "خودکار",
+      "ping": "پینگ",
+      "visibleLabel": "نمایش {country}",
+      "autoLabel": "انتخاب خودکار: {country}",
+      "noServers": "اشتراک شما هنوز سروری ندارد.",
+      "otherCountry": "سایر",
+      "down": "قطع",
+      "noAnswer": "ندارد",
+      "ms": "{value} میلی‌ثانیه",
+      "reserveTitle": "عبور از فهرست سفید",
+      "reserveDescription": "{count, plural, other {# سرور پشتیبان}} برای اینترنت همراهی که فقط سایت‌های مجاز را باز می‌کند. وقتی سرورهای اصلی پاسخ ندهند خودکار فعال می‌شوند و گروه جداگانه‌ای هم دارند.",
+      "presets": {
+        "russiaDirect": {
+          "title": "سایت‌های روسی مستقیم",
+          "description": ".ru، .su، .рф و IPهای روسی بدون VPN"
+        },
+        "blockAds": {
+          "title": "مسدود کردن تبلیغات",
+          "description": "دامنه‌های تبلیغاتی و ردیاب"
+        },
+        "blockQuic": {
+          "title": "مسدود کردن QUIC",
+          "description": "وقتی ویدیو کند است کمک می‌کند"
+        }
+      },
+      "rulesTitle": "قوانین شما",
+      "rulesCount": "{count} از {max}",
+      "domainLabel": "دامنه",
+      "actionLabel": "چه کاری",
+      "addRule": "افزودن قانون",
+      "removeRule": "حذف {domain}",
+      "actions": {
+        "direct": "مستقیم",
+        "proxy": "از طریق VPN",
+        "block": "مسدود"
+      },
+      "domainInvalid": "یک دامنه وارد کنید، مثلاً example.com",
+      "domainDuplicate": "این دامنه از قبل هست",
+      "rulesFull": "حداکثر {max} قانون",
+      "rulesEmpty": "هنوز قانونی نیست. دامنه‌ای اضافه کنید که باید مستقیم، از طریق VPN یا مسدود باشد.",
+      "rulesHint": "هر قانون شامل دامنه و همهٔ زیردامنه‌های آن است. می‌توانید پیوند بچسبانید؛ فقط دامنه نگه داشته می‌شود.",
+      "serverCount": "{count, plural, other {# سرور}}"
     }
   },
   "pages": {

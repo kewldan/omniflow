@@ -4055,6 +4055,10 @@
         "analytics": {
           "title": "统计",
           "description": "您自己的广告分析：计数器、站点验证，以及将广告与其带来的订单关联起来的点击标识。默认关闭，且绝不会上报给 Omniflow 项目。"
+        },
+        "smartSubscription": {
+          "title": "智能订阅",
+          "description": "按国家分组的服务器、最快服务器组、白名单绕行以及客户自行设置的路由"
         }
       }
     },
@@ -5517,6 +5521,77 @@
         "renewal": "已续费",
         "tickets": "工单",
         "perHundred": "每 100 位客户"
+      }
+    },
+    "smartSubscription": {
+      "saved": "Settings saved",
+      "save": "Save",
+      "enabled": "Turn on the smart subscription",
+      "moduleTitle": "Module",
+      "moduleDescription": "Customers get an Omniflow link: servers grouped by country, a fastest-server group, a whitelist-bypass fallback, and routing they choose. Turning it off is safe — links already handed out keep serving the panel's subscription as is.",
+      "linkBase": "Link base",
+      "linkBaseHint": "The start of the link before the short UUID. Empty uses the service address (APP_PUBLIC_URL) and /v1/sub/. Subscription mirrors must forward this path to Omniflow.",
+      "noLinkBase": "Neither a link base nor APP_PUBLIC_URL is set, so customers keep getting the panel's own link.",
+      "customersTitle": "For customers",
+      "customersDescription": "What a customer starts with and what they can change.",
+      "presets": {
+        "russiaDirect": {
+          "label": "Russian sites direct",
+          "hint": ".ru, .su, .рф, and Russian IPs skip the VPN"
+        },
+        "blockAds": {
+          "label": "Block ads",
+          "hint": "Needs geosite in the customer's app; Happ and v2RayTun ship it"
+        },
+        "blockQuic": {
+          "label": "Block QUIC",
+          "hint": "Refuses UDP 443 so browsers fall back to TCP"
+        }
+      },
+      "customRules": "Customer rules",
+      "customRulesHint": "Customers can add domains to send direct, through the VPN, or block",
+      "maxRules": "Most rules per customer",
+      "directDomains": "Always direct for everyone",
+      "directDomainsHint": "One domain per line; subdomains are included.",
+      "hostsTitle": "Remnawave hosts",
+      "hostsDescription": "The country is read from each host's flag or name — correct it where it's wrong. The whitelist bypass role makes a host a fallback; Hidden leaves it out of every subscription.",
+      "hostsUnavailable": "Remnawave didn't answer, so the host list is unavailable.",
+      "hostsEmpty": "Remnawave has no hosts.",
+      "host": "Host",
+      "country": "Country",
+      "status": "Status",
+      "role": "Role",
+      "statusUp": "up",
+      "statusDown": "nodes down",
+      "statusDisabled": "off in the panel",
+      "roles": {
+        "main": "Main",
+        "reserve": "Whitelist bypass",
+        "hidden": "Hidden"
+      },
+      "countryDetected": "Auto: {country}",
+      "countryUnknown": "Auto: unknown",
+      "countryAuto": "Read from the name",
+      "countrySearch": "Find a country",
+      "countryNone": "Nothing found",
+      "advancedTitle": "Advanced",
+      "advancedDescription": "Group names in the app and how servers are timed.",
+      "autoName": "Fastest group name",
+      "autoNamePlaceholder": "⚡ Fastest",
+      "reserveName": "Bypass group name",
+      "reserveNamePlaceholder": "🛡 Whitelist bypass",
+      "probeUrl": "Speed check URL",
+      "probeInterval": "Check interval, seconds",
+      "fieldError": "{field}: {detail}",
+      "fields": {
+        "linkBase": "Link base",
+        "probeUrl": "Speed check URL",
+        "probeIntervalSeconds": "Check interval",
+        "autoName": "Group name",
+        "reserveName": "Bypass group name",
+        "maxRules": "Most rules",
+        "directDomains": "Always direct",
+        "hosts": "Hosts"
       }
     }
   },
@@ -7409,6 +7484,69 @@
       "emptyDescription": "来自服务的专属优惠将显示在这里。",
       "failed": "无法加载优惠",
       "failedDescription": "请稍后重试。"
+    },
+    "smart": {
+      "entryTitle": "服务器与路由",
+      "entryDescription": "订阅包含哪些国家、自动选择以及哪些流量不走 VPN",
+      "title": "服务器与路由",
+      "tabServers": "服务器",
+      "tabRoutes": "路由",
+      "offTitle": "不可用",
+      "offDescription": "此服务目前不允许设置服务器和路由。",
+      "unavailableDescription": "服务器列表暂时不可用，请几分钟后再试。",
+      "saved": "已保存。请在应用中刷新订阅",
+      "reset": "重置",
+      "resetDone": "已恢复默认设置",
+      "appliesOnRefresh": "应用刷新订阅后更改生效，也可以在应用中手动刷新。",
+      "pingHint": "延迟为估算值，从浏览器测量。如果 VPN 已开启，则通过 VPN 测量。",
+      "measure": "测量延迟",
+      "autoTitle": "最快",
+      "autoCountries": "{count, plural, =0 {没有国家} other {# 个国家}}",
+      "autoDescription": "应用会在开启“自动”的国家中自动选择最佳服务器。",
+      "countries": "国家",
+      "visible": "显示",
+      "auto": "自动",
+      "ping": "延迟",
+      "visibleLabel": "显示 {country}",
+      "autoLabel": "自动选择：{country}",
+      "noServers": "订阅中还没有服务器。",
+      "otherCountry": "其他",
+      "down": "不可用",
+      "noAnswer": "无",
+      "ms": "{value} 毫秒",
+      "reserveTitle": "白名单绕行",
+      "reserveDescription": "{count, plural, other {# 台备用服务器}}，用于只允许访问白名单网站的移动网络。主服务器无响应时自动启用，也可作为单独的组使用。",
+      "presets": {
+        "russiaDirect": {
+          "title": "俄罗斯网站直连",
+          "description": ".ru、.su、.рф 和俄罗斯 IP 不走 VPN"
+        },
+        "blockAds": {
+          "title": "屏蔽广告",
+          "description": "广告和跟踪域名"
+        },
+        "blockQuic": {
+          "title": "禁用 QUIC",
+          "description": "视频卡顿时有帮助"
+        }
+      },
+      "rulesTitle": "自定义规则",
+      "rulesCount": "{count} / {max}",
+      "domainLabel": "域名",
+      "actionLabel": "操作",
+      "addRule": "添加规则",
+      "removeRule": "删除 {domain}",
+      "actions": {
+        "direct": "直连",
+        "proxy": "通过 VPN",
+        "block": "屏蔽"
+      },
+      "domainInvalid": "请输入域名，例如 example.com",
+      "domainDuplicate": "该域名已存在",
+      "rulesFull": "最多 {max} 条规则",
+      "rulesEmpty": "还没有规则。添加应直连、通过 VPN 或屏蔽的域名。",
+      "rulesHint": "规则适用于该域名及其所有子域名。可以粘贴链接，只保留域名。",
+      "serverCount": "{count, plural, other {# 台服务器}}"
     }
   },
   "pages": {

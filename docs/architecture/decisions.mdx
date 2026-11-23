@@ -31,6 +31,7 @@ there was a reason. Read the decision before changing the area it covers.
 | 0014 | [No Apple in-app purchases](#no-apple-in-app-purchases) | Only with a native app, which Omniflow does not have |
 | 0015 | [Live updates over SSE](#live-updates-over-sse) | Short streams that name what changed, not WebSocket |
 | 0016 | [Traffic history is an observation](#traffic-history-is-an-observation) | Hourly node counters kept for reporting, never acted on |
+| 0017 | [Smart subscription](#smart-subscription) | Omniflow rewrites the subscription a client gets; Remnawave keeps owning it |
 
 All sixteen are **accepted**. A decision that is replaced is marked
 *superseded* and kept, with the reasoning that turned out wrong: that is the
@@ -395,6 +396,37 @@ next sample's step covers them.
 **Revisit when** anything other than a report needs to read the samples, or
 somebody proposes storing per-customer consumption: either one changes who owns
 traffic, which is 0004's to decide.
+
+## Smart subscription
+
+**0017.** When the operator turns the smart subscription on, Omniflow serves
+the link VPN clients import, at `/v1/sub/{shortUUID}`. For each request it reads
+the user's subscription from Remnawave's public subscription route — forwarding
+the client's User-Agent and HWID headers, so the panel's response rules and
+device limit still decide — and rewrites the answer it returns: servers grouped
+by country, a balancer per group, a failover onto the hosts the operator marked
+as the whitelist bypass, and routing rules the customer chose. Omniflow stores
+the operator's settings and each customer's choices; it stores no Xray
+configuration, no host, and no node, and it never writes to Remnawave. With the
+module off, or for any answer it cannot rewrite, the panel's response passes
+through unchanged.
+
+**Why.** Customers asked to decide what their own subscription contains — no
+servers in one country, a domain sent around the tunnel — and Remnawave has no
+per-user notion of either. Rewriting the client-facing answer gives them that
+without changing who owns users, hosts, or the link: the short UUID in the path
+is the panel's own, so re-issuing the panel link re-issues this one.
+
+**Cost.** Omniflow is now in the path of every subscription refresh, so an
+Omniflow outage stops clients from refreshing (existing configurations keep
+working). Each refresh costs one panel call, plus a cached host list and user
+lookup. The rewrite follows Xray's JSON format and the clients that read it;
+a format change on either side is ours to follow. Customers' domain lists are
+personal data and are included in the privacy export.
+
+**Revisit when** Remnawave offers per-user routing or server selection itself,
+or the rewrite needs anything beyond the panel's answer, its host list, and
+node status — which would make Omniflow a second owner of Xray configuration.
 
 ## Adding a decision
 

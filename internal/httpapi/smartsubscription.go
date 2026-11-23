@@ -1,0 +1,286 @@
+package httpapi
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"log/slog"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/omniflow/omniflow/internal/panelpg"
+	"github.com/omniflow/omniflow/internal/platform"
+	"github.com/omniflow/omniflow/internal/rbac"
+	"github.com/omniflow/omniflow/internal/smartsub"
+	"github.com/omniflow/omniflow/internal/smartsubpg"
+)
+
+// SmartSubscriptionHandler serves the link VPN clients import while the smart
+// subscription is on: GET /v1/sub/{shortUUID}. The short UUID is the panel's
+// own, so the link is exactly as secret as the panel's, and re-issuing the
+// panel link re-issues this one.
+type SmartSubscriptionHandler struct {
+	service *smartsubpg.Service
+	limiter *platform.RateLimiter
+	proxies *TrustedProxies
+	logger  *slog.Logger
+}
+
+// NewSmartSubscriptionHandler builds the public handler. A nil limiter
+// leaves the route unlimited.
+func NewSmartSubscriptionHandler(
+	service *smartsubpg.Service, limiter *platform.RateLimiter, proxies *TrustedProxies, logger *slog.Logger,
+) *SmartSubscriptionHandler {
+	if logger == nil {
+		logger = slog.Default()
+	}
+	return &SmartSubscriptionHandler{service: service, limiter: limiter, proxies: proxies, logger: logger}
+}
+
+// Mount registers the route. It is mounted whether the module is on or off:
+// a link a client imported while it was on keeps answering, with the panel's
+// own subscription, after it is turned off.
+func (handler *SmartSubscriptionHandler) Mount(router chi.Router) {
+	router.Get("/v1/sub/{shortUUID}", handler.serve)
+	router.Head("/v1/sub/{shortUUID}", handler.serve)
+}
+
+// subscriptionRequestsPerMinute bounds one address. A household's devices
+// refreshing together stay well under it; a script walking short UUIDs does
+// not.
+const subscriptionRequestsPerMinute = 60
+
+func (handler *SmartSubscriptionHandler) serve(writer http.ResponseWriter, request *http.Request) {
+	writer.Header().Set("Cache-Control", "no-store")
+	writer.Header().Set("Referrer-Policy", "no-referrer")
+	writer.Header().Set("X-Content-Type-Options", "nosniff")
+	clientIP := ""
+	if address := handler.proxies.ClientIP(request); address != nil {
+		clientIP = address.String()
+	}
+	if handler.limiter != nil && clientIP != "" {
+		allowed, err := handler.limiter.Allow(request.Context(), "smart_subscription", clientIP,
+			subscriptionRequestsPerMinute, time.Minute)
+		if err == nil && !allowed {
+			writer.Header().Set("Retry-After", "60")
+			writeProblem(writer, request, http.StatusTooManyRequests, "rate_limited", "Too many subscription requests")
+			return
+		}
+	}
+	response, err := handler.service.Serve(request.Context(), chi.URLParam(request, "shortUUID"), request.Header, clientIP)
+	switch {
+	case errors.Is(err, smartsubpg.ErrNotFound):
+		writeProblem(writer, request, http.StatusNotFound, "not_found", "That subscription does not exist")
+		return
+	case err != nil:
+		handler.logger.Warn("smart subscription could not reach the panel", "error", err)
+		writer.Header().Set("Retry-After", "30")
+		writeProblem(writer, request, http.StatusBadGateway, "panel_unavailable", "The subscription is temporarily unavailable")
+		return
+	}
+	for name, values := range response.Header {
+		writer.Header()[name] = values
+	}
+	if response.Status == http.StatusOK {
+		// The body only changes when the servers, the settings, or the
+		// customer's choices do, so a client that already has it is told so
+		// and does not reload its tunnel.
+		sum := sha256.Sum256(response.Body)
+		tag := `"` + hex.EncodeToString(sum[:16]) + `"`
+		writer.Header().Set("ETag", tag)
+		if match := request.Header.Get("If-None-Match"); match != "" && strings.Contains(match, tag) {
+			writer.WriteHeader(http.StatusNotModified)
+			return
+		}
+	}
+	writer.WriteHeader(response.Status)
+	if request.Method != http.MethodHead {
+		_, _ = writer.Write(response.Body)
+	}
+}
+
+// WithSmartSubscription attaches the module to the operator panel. A nil
+// service leaves its routes unmounted.
+func (handlers *AdminHandlers) WithSmartSubscription(service *smartsubpg.Service) *AdminHandlers {
+	handlers.smartSubscription = service
+	return handlers
+}
+
+// mountSmartSubscription registers the module's settings and the live host
+// list the settings screen places servers with. Both sit with the other
+// installation settings, behind `settings.read` and `settings.write`.
+func (handlers *AdminHandlers) mountSmartSubscription(secure chi.Router) {
+	if handlers.smartSubscription == nil || handlers.operations == nil {
+		return
+	}
+	secure.With(handlers.requirePermission(rbac.PermissionSettingsRead)).
+		Get("/settings/smart-subscription", handlers.smartSubscriptionSettings)
+	secure.With(handlers.requirePermission(rbac.PermissionSettingsWrite)).
+		Put("/settings/smart-subscription", handlers.saveSmartSubscriptionSettings)
+	secure.With(handlers.requirePermission(rbac.PermissionSettingsRead)).
+		Get("/settings/smart-subscription/hosts", handlers.smartSubscriptionHosts)
+}
+
+func (handlers *AdminHandlers) smartSubscriptionPayload(setting panelpg.SmartSubscription) map[string]any {
+	hosts := setting.Hosts
+	if hosts == nil {
+		hosts = map[string]smartsub.HostOverride{}
+	}
+	return map[string]any{
+		"enabled": setting.Enabled, "version": setting.Version,
+		"linkBase": setting.LinkBase, "effectiveLinkBase": handlers.smartSubscription.LinkBase(setting.Settings),
+		"probeUrl": setting.ProbeURL, "probeIntervalSeconds": setting.ProbeIntervalSeconds,
+		"autoName": setting.AutoName, "reserveName": setting.ReserveName,
+		"defaults": setting.Defaults, "customRules": setting.CustomRules, "maxRules": setting.MaxRules,
+		"directDomains": setting.DirectDomains, "hosts": hosts,
+	}
+}
+
+func (handlers *AdminHandlers) smartSubscriptionSettings(writer http.ResponseWriter, request *http.Request) {
+	setting, err := handlers.operations.SmartSubscription(request.Context())
+	if err != nil {
+		handlers.operationsError(writer, request, err)
+		return
+	}
+	writeJSON(writer, http.StatusOK, handlers.smartSubscriptionPayload(setting))
+}
+
+func (handlers *AdminHandlers) saveSmartSubscriptionSettings(writer http.ResponseWriter, request *http.Request) {
+	var body panelpg.SmartSubscription
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	setting, err := handlers.operations.SaveSmartSubscription(request.Context(), body, actorFrom(request))
+	var field *smartsub.FieldError
+	if errors.As(err, &field) {
+		writeJSON(writer, http.StatusUnprocessableEntity, map[string]any{
+			"type": "https://omniflow.dev/problems/invalid_setting", "title": "Unprocessable Entity",
+			"status": http.StatusUnprocessableEntity, "detail": field.Reason, "field": field.Field,
+			"request_id": middlewareRequestID(request),
+		})
+		return
+	}
+	if err != nil {
+		handlers.operationsError(writer, request, err)
+		return
+	}
+	handlers.smartSubscription.Invalidate()
+	writeJSON(writer, http.StatusOK, handlers.smartSubscriptionPayload(setting))
+}
+
+// smartSubscriptionHosts lists the panel's hosts with the country read from
+// each remark, so the operator corrects only what was read wrong.
+func (handlers *AdminHandlers) smartSubscriptionHosts(writer http.ResponseWriter, request *http.Request) {
+	setting, err := handlers.operations.SmartSubscription(request.Context())
+	if err != nil {
+		handlers.operationsError(writer, request, err)
+		return
+	}
+	catalog, err := handlers.smartSubscription.FreshCatalog(request.Context())
+	if err != nil {
+		writeProblem(writer, request, http.StatusBadGateway, "panel_unavailable", "Remnawave did not answer")
+		return
+	}
+	hosts := make([]map[string]any, 0, len(catalog.Hosts))
+	for _, host := range catalog.Hosts {
+		server := catalog.Classify(host.Remark, host.Address, host.Port, setting.Settings)
+		hosts = append(hosts, map[string]any{
+			"uuid": host.UUID, "remark": host.Remark, "address": host.Address, "port": host.Port,
+			"detectedCountry": server.Detected, "country": server.Country, "role": server.Role,
+			"disabled": host.Disabled, "hidden": host.Hidden, "down": server.Down,
+		})
+	}
+	writeJSON(writer, http.StatusOK, map[string]any{"hosts": hosts})
+}
+
+// WithSmartSubscription attaches the module to the customer panel.
+func (handlers *AccountHandlers) WithSmartSubscription(service *smartsubpg.Service) *AccountHandlers {
+	handlers.smartSubscription = service
+	return handlers
+}
+
+func (handlers *AccountHandlers) mountSmartSubscription(secure chi.Router) {
+	if handlers.smartSubscription == nil {
+		return
+	}
+	secure.Get("/smart-subscription", handlers.smartSubscriptionStatus)
+	secure.Get("/subscriptions/{subscriptionID}/smart", handlers.smartSubscriptionView)
+	secure.Put("/subscriptions/{subscriptionID}/smart", handlers.saveSmartSubscription)
+	secure.Delete("/subscriptions/{subscriptionID}/smart", handlers.resetSmartSubscription)
+}
+
+// smartSubscriptionStatus tells the panel whether to offer the screen at all.
+func (handlers *AccountHandlers) smartSubscriptionStatus(writer http.ResponseWriter, request *http.Request) {
+	settings := handlers.smartSubscription.Settings(request.Context())
+	writeJSON(writer, http.StatusOK, map[string]any{"enabled": settings.Enabled})
+}
+
+func (handlers *AccountHandlers) smartSubscriptionView(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := CustomerFrom(request.Context())
+	view, err := handlers.smartSubscription.CustomerView(
+		request.Context(), principal.Customer.ID, chi.URLParam(request, "subscriptionID"),
+	)
+	if handlers.writeSmartSubscriptionError(writer, request, err) {
+		return
+	}
+	writeJSON(writer, http.StatusOK, map[string]any{
+		"servers": view.Servers, "preferences": view.Preferences, "customized": view.Customized,
+		"defaults": view.Defaults, "customRules": view.CustomRules, "maxRules": view.MaxRules,
+	})
+}
+
+func (handlers *AccountHandlers) saveSmartSubscription(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := CustomerFrom(request.Context())
+	var body smartsub.Preferences
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	saved, err := handlers.smartSubscription.SavePreferences(
+		request.Context(), principal.Customer.ID, chi.URLParam(request, "subscriptionID"), body,
+	)
+	if handlers.writeSmartSubscriptionError(writer, request, err) {
+		return
+	}
+	writeJSON(writer, http.StatusOK, map[string]any{"preferences": saved})
+}
+
+func (handlers *AccountHandlers) resetSmartSubscription(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := CustomerFrom(request.Context())
+	err := handlers.smartSubscription.ResetPreferences(
+		request.Context(), principal.Customer.ID, chi.URLParam(request, "subscriptionID"),
+	)
+	if handlers.writeSmartSubscriptionError(writer, request, err) {
+		return
+	}
+	writer.WriteHeader(http.StatusNoContent)
+}
+
+func (handlers *AccountHandlers) writeSmartSubscriptionError(
+	writer http.ResponseWriter, request *http.Request, err error,
+) bool {
+	var field *smartsub.FieldError
+	switch {
+	case err == nil:
+		return false
+	case errors.As(err, &field):
+		writeJSON(writer, http.StatusUnprocessableEntity, map[string]any{
+			"type": "https://omniflow.dev/problems/invalid_preferences", "title": "Unprocessable Entity",
+			"status": http.StatusUnprocessableEntity, "detail": field.Reason, "field": field.Field,
+			"request_id": middlewareRequestID(request),
+		})
+	case errors.Is(err, smartsubpg.ErrDisabled):
+		writeProblem(writer, request, http.StatusConflict, "smart_subscription_off", "The smart subscription is not on")
+	case errors.Is(err, smartsubpg.ErrNotFound):
+		writeProblem(writer, request, http.StatusNotFound, "not_found", "That subscription does not exist")
+	case errors.Is(err, smartsubpg.ErrNotProvisioned):
+		writeProblem(writer, request, http.StatusConflict, "not_provisioned", "The subscription is still being set up")
+	case errors.Is(err, smartsubpg.ErrPanelUnavailable):
+		writeProblem(writer, request, http.StatusServiceUnavailable, "panel_unavailable", "The server list is temporarily unavailable")
+	default:
+		handlers.logger.Error("smart subscription request failed", "error", err)
+		writeProblem(writer, request, http.StatusInternalServerError, "operation_failed", "That could not be completed")
+	}
+	return true
+}

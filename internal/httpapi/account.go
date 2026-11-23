@@ -15,6 +15,7 @@ import (
 	"github.com/omniflow/omniflow/internal/analytics"
 	"github.com/omniflow/omniflow/internal/customerauthpg"
 	"github.com/omniflow/omniflow/internal/platform"
+	"github.com/omniflow/omniflow/internal/smartsubpg"
 	"github.com/omniflow/omniflow/internal/termsgate"
 )
 
@@ -31,9 +32,12 @@ type AccountHandlers struct {
 	avatars AvatarSource
 	chat    ChatMessageRemover
 	account *accountpg.Service
-	limiter *platform.RateLimiter
-	logger  *slog.Logger
-	proxies *TrustedProxies
+	// smartSubscription is the smart subscription module; nil leaves its
+	// routes unmounted.
+	smartSubscription *smartsubpg.Service
+	limiter           *platform.RateLimiter
+	logger            *slog.Logger
+	proxies           *TrustedProxies
 
 	// The four v0.10 surfaces. Each is optional: an installation that sells no
 	// digital goods, or runs with no payment provider configured, presents a
@@ -207,6 +211,7 @@ func (handlers *AccountHandlers) Mount(router chi.Router) {
 			handlers.mountOffers(secure)
 			handlers.mountTerms(secure)
 			handlers.mountLive(secure)
+			handlers.mountSmartSubscription(secure)
 		})
 	})
 }

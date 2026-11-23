@@ -2,6 +2,7 @@ package accountreferral
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -138,6 +139,9 @@ type ExportSubscription struct {
 	Status    string
 	CreatedAt time.Time
 	ClosedAt  *time.Time
+	// Routing is what the customer chose on the smart subscription screen —
+	// hidden countries and their own domains — or nil when they never did.
+	Routing json.RawMessage
 }
 
 // ExportEntitlement is one purchased period.
@@ -509,10 +513,24 @@ func (service *Service) exportSubscriptions(
 		return false, err
 	}
 	for _, row := range rows {
-		document.Subscriptions = append(document.Subscriptions, ExportSubscription{
+		subscription := ExportSubscription{
 			ID: uuidString(row.ID), Slot: int(row.Slot), Label: row.Label, Status: row.Status,
 			CreatedAt: row.CreatedAt.Time.UTC(), ClosedAt: timePointer(row.ClosedAt),
-		})
+		}
+		var routing []byte
+		err := service.pool.QueryRow(ctx, `SELECT jsonb_build_object(
+				'hiddenCountries', hidden_countries, 'autoExcluded', auto_excluded, 'reserve', reserve,
+				'russiaDirect', russia_direct, 'blockAds', block_ads, 'blockQuic', block_quic,
+				'rules', rules, 'updatedAt', updated_at)
+			FROM smart_subscription_preferences WHERE subscription_id = $1`, row.ID).Scan(&routing)
+		switch {
+		case errors.Is(err, pgx.ErrNoRows):
+		case err != nil:
+			return false, err
+		default:
+			subscription.Routing = routing
+		}
+		document.Subscriptions = append(document.Subscriptions, subscription)
 	}
 	return false, nil
 }

@@ -5309,6 +5309,42 @@ CREATE TABLE public.simple_subscription (
 
 
 --
+-- Name: smart_subscription_preferences; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.smart_subscription_preferences (
+    subscription_id uuid NOT NULL,
+    hidden_countries text[] DEFAULT '{}'::text[] NOT NULL,
+    auto_excluded text[] DEFAULT '{}'::text[] NOT NULL,
+    reserve boolean DEFAULT true NOT NULL,
+    russia_direct boolean DEFAULT false NOT NULL,
+    block_ads boolean DEFAULT false NOT NULL,
+    block_quic boolean DEFAULT false NOT NULL,
+    rules jsonb DEFAULT '[]'::jsonb NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT smart_subscription_preferences_countries_bounded CHECK (((cardinality(hidden_countries) <= 300) AND (cardinality(auto_excluded) <= 300))),
+    CONSTRAINT smart_subscription_preferences_rules_array CHECK (((jsonb_typeof(rules) = 'array'::text) AND (jsonb_array_length(rules) <= 200)))
+);
+
+
+--
+-- Name: smart_subscription_settings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.smart_subscription_settings (
+    singleton boolean DEFAULT true NOT NULL,
+    enabled boolean DEFAULT false NOT NULL,
+    document jsonb DEFAULT '{}'::jsonb NOT NULL,
+    version integer DEFAULT 1 NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_by uuid,
+    CONSTRAINT smart_subscription_settings_document_object CHECK ((jsonb_typeof(document) = 'object'::text)),
+    CONSTRAINT smart_subscription_settings_singleton CHECK (singleton),
+    CONSTRAINT smart_subscription_settings_version_positive CHECK ((version > 0))
+);
+
+
+--
 -- Name: squad_access_grants; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -8330,6 +8366,22 @@ ALTER TABLE ONLY public.server_catalog_prices
 
 ALTER TABLE ONLY public.simple_subscription
     ADD CONSTRAINT simple_subscription_pkey PRIMARY KEY (singleton);
+
+
+--
+-- Name: smart_subscription_preferences smart_subscription_preferences_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.smart_subscription_preferences
+    ADD CONSTRAINT smart_subscription_preferences_pkey PRIMARY KEY (subscription_id);
+
+
+--
+-- Name: smart_subscription_settings smart_subscription_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.smart_subscription_settings
+    ADD CONSTRAINT smart_subscription_settings_pkey PRIMARY KEY (singleton);
 
 
 --
@@ -12650,6 +12702,14 @@ ALTER TABLE ONLY public.simple_subscription
 
 ALTER TABLE ONLY public.simple_subscription
     ADD CONSTRAINT simple_subscription_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.plans(id) ON DELETE SET NULL;
+
+
+--
+-- Name: smart_subscription_preferences smart_subscription_preferences_subscription_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.smart_subscription_preferences
+    ADD CONSTRAINT smart_subscription_preferences_subscription_id_fkey FOREIGN KEY (subscription_id) REFERENCES public.subscriptions(id) ON DELETE CASCADE;
 
 
 --
