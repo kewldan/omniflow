@@ -8,14 +8,21 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import type { ReferralLinkReason } from "@/components/account/account/types";
+import { QrCode } from "@/components/qr-code";
 
 /**
- * The invite code, and the link built from it when there is one.
+ * Everything a customer needs to invite somebody, in one card: what the friend
+ * and the customer get, the code, the link with its share controls, and the
+ * link as a QR code.
+ *
+ * It is the whole of the invite screen above the fold, so it says the offer in
+ * one sentence and leaves the rules — when a reward is granted, where it is
+ * paid, whether it can be withdrawn — to the section underneath.
  *
  * The code is the headline rather than the link because the code is the thing
  * that always exists: an installation with no public URL configured still mints
  * one, and a friend can type it in even when nothing can be shared from here.
- * The link and its controls appear underneath only when the server said a link
+ * The link, its controls, and the QR appear only when the server said a link
  * could be built.
  */
 export function ShareLink({
@@ -23,6 +30,7 @@ export function ShareLink({
   link,
   linkAvailable,
   linkReason,
+  offer,
   shareText,
   shareTitle,
 }: {
@@ -30,6 +38,8 @@ export function ShareLink({
   link: string;
   linkAvailable: boolean;
   linkReason?: ReferralLinkReason;
+  /** The offer in one sentence; empty when neither side is rewarded. */
+  offer: string;
   shareText: string;
   shareTitle: string;
 }) {
@@ -80,17 +90,30 @@ export function ShareLink({
   }
 
   return (
-    <section className="space-y-3 rounded-xl border border-border bg-card p-4">
-      <div>
-        <h2 className="font-semibold text-[13px] text-muted-foreground">
-          {translate("referrals.code")}
-        </h2>
-        <p
-          className="mt-1.5 select-all font-bold font-mono text-[24px] tracking-[0.08em]"
-          data-numeric
-        >
-          {code}
-        </p>
+    <section className="space-y-4 rounded-xl border border-border bg-card p-4">
+      {offer && <p className="font-medium text-[14.5px] leading-snug">{offer}</p>}
+
+      <div className="flex items-center gap-4">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-[12.5px] text-muted-foreground">{translate("referrals.code")}</h2>
+          <p
+            className="mt-1 select-all break-all font-bold font-mono text-[22px] tracking-[0.08em]"
+            data-numeric
+          >
+            {code}
+          </p>
+        </div>
+        {/* Beside the code rather than under it, so the QR costs no height:
+            the card is the whole fold on a phone. 112px still scans from
+            another phone's camera held at reading distance. */}
+        {linkAvailable && link && (
+          <QrCode
+            alt={translate("referrals.qr")}
+            className="size-28 shrink-0 rounded-lg"
+            size={320}
+            value={link}
+          />
+        )}
       </div>
 
       {linkAvailable ? (

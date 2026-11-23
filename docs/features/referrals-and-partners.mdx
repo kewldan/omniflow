@@ -84,11 +84,23 @@ In the bot, **🎁 Invite** opens the invitation screen with the customer's code
 so the link never passes through an outside QR service. The same screen has **🤝 Partner programme**
 and, once a game is switched on, **🎲 Daily games**.
 
-On the web panel, **Invite a friend** (`/account/referrals`) shows the link and its QR code, what
-invites and commissions earned over 7 days, 30 days, and all time, the reward choice when it is
-offered, and the friends invited — when each joined, whether they paid, and what they earned the
-customer. Friends are never identified to the inviter. The customer is told in the bot when a friend
-joins and when a reward is credited; these notices cannot be switched off.
+On the web panel, **Invites** has two places with a switch at the top of both. **Invite a friend**
+(`/account/referrals`) opens on one card: what the friend and the customer get in one sentence, the
+code, the link, and its QR code. Below it are what invites and commissions earned over 7 days,
+30 days, and all time; **How rewards are paid**; the withdrawal form; and the friends invited — when
+each joined, whether they paid, and what they earned the customer. **Partner programme**
+(`/account/referrals/partner`) holds the application and the partner's rate; its switch is shown
+only when the installation runs the programme. Friends are never identified to the inviter. The
+customer is told in the bot when a friend joins and when a reward is credited; these notices cannot
+be switched off.
+
+**How rewards are paid** is built from your settings, never written by hand: a day reward is added to
+the subscription; a money reward is credited to the wallet, where it pays for a subscription; and
+whether it can also be withdrawn, from what minimum, how often, and when unspent money expires
+follow from **Payouts** and the programme's expiry. With withdrawals off, the screen says the reward
+cannot be withdrawn. The reward choice, when offered, sits in the same section. On the partner page
+the rate is said to be credited to the balance; withdrawal is mentioned there only when the whole
+balance may be withdrawn.
 
 **Settings → Marketing** can also add **🎟 I have an invite code** to a newcomer's welcome in the
 bot, so somebody who was told a code rather than sent a link can still be attributed.
@@ -164,7 +176,7 @@ personal commission rate instead of the programme's.
 <Steps>
   <Step title="The customer applies">
     In the bot, **🤝 Partner programme** on the invitation screen applies in one tap. On the web,
-    **Partner programme** on the referral screen takes where they will promote the service and a
+    **Partner programme** (`/account/referrals/partner`) takes where they will promote the service and a
     message for you. One application may wait at a time.
   </Step>
   <Step title="You decide">

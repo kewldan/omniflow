@@ -25,7 +25,7 @@ type WithdrawalRequest = {
   createdAt: string;
 };
 
-type WithdrawalSummary = {
+export type WithdrawalSummary = {
   enabled: boolean;
   currency: string;
   minimumMinor: number;
@@ -40,6 +40,17 @@ type WithdrawalSummary = {
 const METHODS = ["card", "sbp", "crypto", "other"] as const;
 
 /**
+ * The withdrawal policy and the customer's requests, shared by the form and the
+ * payout rules so both read one request. A 404 means the installation has no
+ * withdrawal service at all, which the payout rules state as "not withdrawable".
+ */
+export function useWithdrawalSummary() {
+  return useSWR<WithdrawalSummary, ApiError>("/v1/account/referrals/withdrawals", fetcher, {
+    shouldRetryOnError: false,
+  });
+}
+
+/**
  * Withdrawing what referrals earned.
  *
  * The amount is held the moment the request is sent, so the balance shown on
@@ -49,11 +60,7 @@ const METHODS = ["card", "sbp", "crypto", "other"] as const;
 export function Withdrawals() {
   const translate = useTranslations("account.account.withdrawals");
   const money = useMoney();
-  const { data, mutate } = useSWR<WithdrawalSummary, ApiError>(
-    "/v1/account/referrals/withdrawals",
-    fetcher,
-    { shouldRetryOnError: false },
-  );
+  const { data, mutate } = useWithdrawalSummary();
   const submission = useSubmission();
   const ids = { amount: useId(), method: useId(), details: useId() };
   const [amount, setAmount] = useState("");

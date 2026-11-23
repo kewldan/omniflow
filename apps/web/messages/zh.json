@@ -5816,7 +5816,7 @@
         "sessionsHint": "查看您在哪些地方登录，并结束无法识别的会话。",
         "rewards": "奖励",
         "referrals": "邀请好友",
-        "referralsHint": "您的邀请码、已获得的奖励以及会员等级。",
+        "referralsHint": "邀请链接、合作伙伴计划以及会员等级。",
         "data": "消息与数据",
         "preferences": "通知",
         "preferencesHint": "选择我们通知您的内容和方式。",
@@ -5826,9 +5826,8 @@
         "documentsHint": "服务条款、规则与隐私"
       },
       "referrals": {
-        "title": "邀请好友",
         "disabled": "此处未开放邀请",
-        "disabledDescription": "本服务目前没有邀请计划。如果推出，会显示在此页面。",
+        "disabledDescription": "本服务目前没有推荐计划。",
         "code": "您的邀请码",
         "share": "分享",
         "copy": "复制链接",
@@ -5836,28 +5835,26 @@
         "shared": "链接已分享",
         "copyFailed": "无法复制链接。请选中后手动复制。",
         "shareTitle": "一起来用吧",
-        "shareText": "通过我的链接注册，即可获得 {reward} 作为起步奖励。",
+        "shareText": "通过我的链接注册，首次付款后即可获得{reward}。",
         "linkReason": {
-          "public_url_not_configured": "本服务尚未设置公开地址，因此暂无可分享的链接。请把上方的邀请码告诉好友——效果完全一样。",
+          "public_url_not_configured": "暂无链接：本服务尚未设置公开地址。好友可以直接输入邀请码。",
           "no_code": "您的邀请码尚未生成。刷新页面后即会显示。"
         },
-        "earned": "邀请所得",
+        "earned": "已赚取",
         "reversedTotal": "有 {amount} 在发放后被收回，因此未计入上方金额。",
         "slotsLeft": "还剩 {remaining}/{cap} 次有奖邀请。",
-        "slotsSpent": "您已用完全部 {cap} 次有奖邀请。好友仍可使用您的邀请码加入，但不再发放奖励。",
+        "slotsSpent": "您已用完全部 {cap} 个有奖邀请名额。好友仍可使用您的邀请码注册，但不再有奖励。",
         "invited": "已邀请",
         "qualified": "已达标",
         "pending": "审核中",
         "rejected": "已拒绝",
-        "terms": "规则说明",
         "inviterReward": "您将获得",
         "inviteeReward": "好友将获得",
         "qualification": {
-          "first_paid_order": "好友的首笔订单付款后，奖励即会发放。"
+          "first_paid_order": "好友的首笔订单付款后发放奖励。"
         },
-        "attribution": "好友点击您的链接后，{days} 天内都会归属于您。",
-        "rewardExpiry": "奖励发放后 {days} 天内未使用将失效。",
-        "readTerms": "阅读完整条款（在新标签页中打开）",
+        "attribution": "好友点击您的链接后 {days} 天内有效。",
+        "readTerms": "完整条款",
         "history": "奖励记录",
         "historyEmpty": "暂无奖励",
         "historyEmptyDescription": "好友使用您的邀请码加入并完成首笔订单后，奖励会显示在这里。",
@@ -5872,7 +5869,33 @@
           "rejected": "未发放"
         },
         "reversedOn": "已于 {date} 收回",
-        "days": "{count, plural, one {# 天订阅} other {# 天订阅}}"
+        "days": "{count, plural, one {# 天订阅} other {# 天订阅}}",
+        "shareTextPlain": "通过我的链接注册。",
+        "qr": "您的邀请链接二维码",
+        "offer": {
+          "both": "好友支付首笔订单后，好友获得{friend}，您获得{you}。",
+          "inviter": "每位好友支付首笔订单后，您可获得{you}。",
+          "invitee": "好友支付首笔订单后可获得{friend}。"
+        },
+        "yourRewards": "您的奖励",
+        "payout": {
+          "title": "奖励如何发放",
+          "days": "奖励以天数形式添加到您的订阅中。",
+          "wallet": "奖励将存入您在此处的余额，可用于支付订阅。",
+          "walletOnly": "奖励将存入您在此处的余额，可用于支付订阅，但不能提现。",
+          "walletWithdrawable": "奖励将存入您在此处的余额，可用于支付订阅，也可以提现。",
+          "choice": "奖励领取方式",
+          "kinds": {
+            "days": "订阅天数",
+            "wallet": "余额"
+          },
+          "minimum": "最低提现金额",
+          "cooldown": "提现申请",
+          "everyDays": "{count, plural, =1 {每天一次} other {每 # 天一次}}",
+          "expires": "未使用的奖励过期",
+          "afterDays": "{count, plural, other {# 天后}}"
+        },
+        "newTab": "（在新标签页中打开）"
       },
       "loyalty": {
         "title": "会员等级",
@@ -6113,18 +6136,9 @@
         "referrals": "{count, plural, one {# 位邀请} other {# 位邀请}}"
       },
       "referralInsights": {
-        "qr": "您的邀请链接二维码",
-        "qrHint": "让好友扫码即可打开您的邀请。",
-        "choice": "邀请奖励的领取形式",
-        "kinds": {
-          "days": "订阅天数",
-          "wallet": "余额"
-        },
-        "earnings": "邀请收益",
         "periods": {
           "last7": "7 天",
-          "last30": "30 天",
-          "all": "全部时间"
+          "last30": "30 天"
         },
         "invitees": "您邀请的好友",
         "noInvitees": "还没有人通过您的邀请加入。",
@@ -6132,17 +6146,22 @@
         "notPaid": "尚未付费"
       },
       "partner": {
-        "title": "合作伙伴计划",
-        "intro": "您运营频道、博客或社区吗？申请成为合作伙伴：管理员会为您设定专属分成比例，从您邀请的用户的每笔付款中抽取。",
-        "rejected": "您上次的申请被拒绝，可以重新申请。",
+        "intro": "运营频道、博客或社群？提交申请，管理员可能会为您设定被邀请人付款的专属分成。",
+        "rejected": "您上次的申请未通过，可以重新申请。",
         "pending": "您的申请正在等待审核。提交时间：",
-        "active": "您已是合作伙伴。您从受邀用户付款中获得的分成为 {rate}，首次付款为 {first}。",
+        "active": "您是合作伙伴：可获得被邀请人付款的 {rate}。",
         "channel": "您将在哪里推广本服务",
         "channelPlaceholder": "频道、网站或社区",
         "message": "其他想告诉管理员的内容",
         "apply": "申请",
         "sent": "申请已提交",
-        "failed": "申请提交失败"
+        "failed": "申请提交失败",
+        "activeWithFirst": "您是合作伙伴：被邀请人首次付款的 {first}，之后付款的 {rate}。",
+        "paidTo": "您的分成将存入您在此处的余额。",
+        "paidToWalletOnly": "您的分成将存入您在此处的余额，不能提现。",
+        "paidToWithdrawable": "您的分成将存入您在此处的余额，满 {minimum} 即可提现。",
+        "unavailable": "暂无合作伙伴计划",
+        "unavailableDescription": "本服务没有合作伙伴计划。邀请功能照常可用。"
       },
       "games": {
         "title": "每日游戏",
@@ -6190,6 +6209,12 @@
           "right": "正确",
           "wrong": "错误"
         }
+      },
+      "referralSwitch": {
+        "title": "邀请",
+        "label": "邀请",
+        "invite": "邀请好友",
+        "partner": "合作伙伴计划"
       }
     },
     "shop": {

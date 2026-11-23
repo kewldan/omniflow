@@ -5908,7 +5908,7 @@
         "sessionsHint": "See where you're signed in and end anything you don't recognise.",
         "rewards": "Rewards",
         "referrals": "Invite a friend",
-        "referralsHint": "Your code, what it has earned, and your loyalty tier.",
+        "referralsHint": "Your invite link, the partner programme, and your loyalty tier.",
         "data": "Messages and data",
         "preferences": "Notifications",
         "preferencesHint": "Choose what we tell you about, and where.",
@@ -5918,9 +5918,8 @@
         "documentsHint": "Offer, rules, and privacy"
       },
       "referrals": {
-        "title": "Invite a friend",
         "disabled": "Invites aren't running here",
-        "disabledDescription": "This service doesn't have a referral programme at the moment. If one starts, it will appear on this screen.",
+        "disabledDescription": "This service has no referral programme right now.",
         "code": "Your code",
         "share": "Share",
         "copy": "Copy the link",
@@ -5928,28 +5927,26 @@
         "shared": "Link shared",
         "copyFailed": "The link couldn't be copied. Select it and copy it by hand.",
         "shareTitle": "Join me here",
-        "shareText": "Sign up with my link and you'll get {reward} to start with.",
+        "shareText": "Sign up with my link and get {reward} after your first payment.",
         "linkReason": {
-          "public_url_not_configured": "No public address is set up for this service yet, so there's no link to share. Give your friend the code above — it works just as well.",
+          "public_url_not_configured": "There's no link yet: the service has no public address. Your friend can enter the code instead.",
           "no_code": "Your code hasn't been created yet. Reload the page and it will appear."
         },
-        "earned": "Earned from invites",
+        "earned": "Earned",
         "reversedTotal": "{amount} was granted and later taken back, so it isn't counted above.",
         "slotsLeft": "{remaining} of {cap} rewarded invites left.",
-        "slotsSpent": "You've used all {cap} rewarded invites. Friends can still join with your code, but no further reward is paid.",
+        "slotsSpent": "You've used all {cap} rewarded invites. Friends can still join with your code, but without a reward.",
         "invited": "Invited",
         "qualified": "Qualified",
         "pending": "Being checked",
         "rejected": "Rejected",
-        "terms": "How it works",
         "inviterReward": "You get",
         "inviteeReward": "Your friend gets",
         "qualification": {
-          "first_paid_order": "The reward is paid once your friend's first order has been paid for."
+          "first_paid_order": "A reward is granted once the friend's first order is paid."
         },
-        "attribution": "Your link stays attached to a friend for {days} days after they follow it.",
-        "rewardExpiry": "A reward expires {days} days after it is granted if it hasn't been used.",
-        "readTerms": "Read the full terms (opens in a new tab)",
+        "attribution": "Your link counts for {days} days after a friend follows it.",
+        "readTerms": "Full terms",
         "history": "Reward history",
         "historyEmpty": "Nothing earned yet",
         "historyEmptyDescription": "Rewards appear here once a friend joins with your code and their first order goes through.",
@@ -5964,7 +5961,33 @@
           "rejected": "Not paid"
         },
         "reversedOn": "Taken back on {date}",
-        "days": "{count, plural, one {# day of subscription} other {# days of subscription}}"
+        "days": "{count, plural, one {# day of subscription} other {# days of subscription}}",
+        "shareTextPlain": "Sign up with my link.",
+        "qr": "QR code of your invite link",
+        "offer": {
+          "both": "When your friend pays for their first order, they get {friend} and you get {you}.",
+          "inviter": "You get {you} for every friend who pays for their first order.",
+          "invitee": "Your friend gets {friend} when they pay for their first order."
+        },
+        "yourRewards": "Your rewards",
+        "payout": {
+          "title": "How rewards are paid",
+          "days": "Your reward is added to your subscription as extra days.",
+          "wallet": "Your reward is credited to your balance here, and you can pay for your subscription with it.",
+          "walletOnly": "Your reward is credited to your balance here. It pays for your subscription and can't be withdrawn.",
+          "walletWithdrawable": "Your reward is credited to your balance here. Pay for your subscription with it, or withdraw it.",
+          "choice": "Take rewards as",
+          "kinds": {
+            "days": "Subscription days",
+            "wallet": "Balance"
+          },
+          "minimum": "Withdraw from",
+          "cooldown": "Withdrawal requests",
+          "everyDays": "{count, plural, =1 {once a day} one {once every # day} other {once every # days}}",
+          "expires": "Unspent reward expires",
+          "afterDays": "{count, plural, one {after # day} other {after # days}}"
+        },
+        "newTab": "(opens in a new tab)"
       },
       "loyalty": {
         "title": "Loyalty",
@@ -6205,18 +6228,9 @@
         "referrals": "{count, plural, one {# referral} other {# referrals}}"
       },
       "referralInsights": {
-        "qr": "QR code of your invite link",
-        "qrHint": "Let a friend scan it to open your invite.",
-        "choice": "Take your referral rewards as",
-        "kinds": {
-          "days": "Subscription days",
-          "wallet": "Balance"
-        },
-        "earnings": "Earned from invites",
         "periods": {
           "last7": "7 days",
-          "last30": "30 days",
-          "all": "All time"
+          "last30": "30 days"
         },
         "invitees": "Friends you invited",
         "noInvitees": "Nobody has joined through your invite yet.",
@@ -6224,17 +6238,22 @@
         "notPaid": "Not paid yet"
       },
       "partner": {
-        "title": "Partner programme",
-        "intro": "Run a channel, a blog, or a community? Apply to become a partner: the administrator answers with a personal share of every payment your invitees make.",
-        "rejected": "Your last application was declined; you may apply again.",
+        "intro": "Run a channel, blog or community? Apply, and the administrator may give you a personal share of the payments your invitees make.",
+        "rejected": "Your last application was declined. You can apply again.",
         "pending": "Your application is waiting for a decision. Sent",
-        "active": "You are a partner. Your share of your invitees' payments is {rate}, and of a first payment {first}.",
+        "active": "You're a partner: you get {rate} of every payment your invitees make.",
         "channel": "Where you will promote the service",
         "channelPlaceholder": "A channel, a site, a community",
         "message": "Anything else for the administrator",
         "apply": "Apply",
         "sent": "Application sent",
-        "failed": "The application could not be sent"
+        "failed": "The application could not be sent",
+        "activeWithFirst": "You're a partner: you get {first} of a first payment from an invitee and {rate} of every later one.",
+        "paidTo": "Your share is credited to your balance here.",
+        "paidToWalletOnly": "Your share is credited to your balance here. It can't be withdrawn.",
+        "paidToWithdrawable": "Your share is credited to your balance here and can be withdrawn from {minimum}.",
+        "unavailable": "No partner programme here",
+        "unavailableDescription": "This service doesn't run a partner programme. Invites work as usual."
       },
       "games": {
         "title": "Daily games",
@@ -6282,6 +6301,12 @@
           "right": "Right",
           "wrong": "Wrong"
         }
+      },
+      "referralSwitch": {
+        "title": "Invites",
+        "label": "Invites",
+        "invite": "Invite a friend",
+        "partner": "Partner programme"
       }
     },
     "shop": {
