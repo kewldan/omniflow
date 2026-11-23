@@ -19,7 +19,7 @@
 //	## Heading            a line beginning with two hashes
 //	- item                a line beginning with a dash and a space
 //	1. item               a line beginning with a number, a dot, and a space
-//	blank line            ends the current block
+//	blank line            ends a paragraph; a list carries on across one
 //	[text](https://…)     an inline link, https only
 //
 // Everything else is a paragraph. There is no bold, no italic, no image, and no
@@ -58,6 +58,9 @@ type Block struct {
 	Items [][]Span `json:"items,omitempty"`
 	// Ordered distinguishes a numbered list from a bulleted one.
 	Ordered bool `json:"ordered,omitempty"`
+	// Start is the number of a numbered list's first item when it is not 1,
+	// so a list the author resumed after a paragraph keeps counting.
+	Start int `json:"start,omitempty"`
 }
 
 // Document is a parsed page body.
@@ -67,7 +70,7 @@ type Document struct {
 
 var (
 	linkPattern    = regexp.MustCompile(`\[([^\]\n]{1,200})\]\((https://[^\s)]{4,500})\)`)
-	orderedPattern = regexp.MustCompile(`^\s*\d{1,3}\.\s+`)
+	orderedPattern = regexp.MustCompile(`^\s*(\d{1,3})\.\s+`)
 )
 
 // Parse turns an operator's source text into blocks.
@@ -81,6 +84,7 @@ func Parse(source string) Document {
 	var paragraph []string
 	var items [][]Span
 	ordered := false
+	start := 0
 
 	flushParagraph := func() {
 		if len(paragraph) == 0 {
@@ -95,10 +99,12 @@ func Parse(source string) Document {
 		if len(items) == 0 {
 			return
 		}
-		document.Blocks = append(document.Blocks, Block{
-			Kind: BlockList, Items: items, Ordered: ordered,
-		})
-		items, ordered = nil, false
+		block := Block{Kind: BlockList, Items: items, Ordered: ordered}
+		if ordered && start > 1 {
+			block.Start = start
+		}
+		document.Blocks = append(document.Blocks, block)
+		items, ordered, start = nil, false, 0
 	}
 
 	for _, raw := range strings.Split(strings.ReplaceAll(source, "\r\n", "\n"), "\n") {
@@ -107,8 +113,10 @@ func Parse(source string) Document {
 
 		switch {
 		case trimmed == "":
+			// A blank line ends a paragraph but not a list: authors space out
+			// long numbered points, and ending the list there made every
+			// point a list of its own, each numbered 1.
 			flushParagraph()
-			flushList()
 
 		case strings.HasPrefix(trimmed, "## "):
 			flushParagraph()
@@ -131,6 +139,9 @@ func Parse(source string) Document {
 			flushParagraph()
 			if len(items) > 0 && !ordered {
 				flushList()
+			}
+			if len(items) == 0 {
+				start, _ = strconv.Atoi(orderedPattern.FindStringSubmatch(trimmed)[1])
 			}
 			ordered = true
 			items = append(items, spans(orderedPattern.ReplaceAllString(trimmed, "")))
@@ -222,7 +233,7 @@ func PlainText(document Document) string {
 					builder.WriteString("\n")
 				}
 				if block.Ordered {
-					builder.WriteString(strconv.Itoa(item + 1))
+					builder.WriteString(strconv.Itoa(max(block.Start, 1) + item))
 					builder.WriteString(". ")
 				} else {
 					builder.WriteString("• ")

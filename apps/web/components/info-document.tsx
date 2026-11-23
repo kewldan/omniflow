@@ -23,6 +23,8 @@ export type Block = {
   spans?: Span[];
   items?: Span[][];
   ordered?: boolean;
+  /** The first item's number when a numbered list does not start at 1. */
+  start?: number;
 };
 
 export type InfoDocument = { blocks: Block[] };
@@ -54,7 +56,7 @@ function BlockView({ block }: { block: Block }): ReactNode {
     const items = block.items ?? [];
     const className = "space-y-1.5 pl-5 text-[13.5px] leading-relaxed";
     return block.ordered ? (
-      <ol className={`list-decimal ${className}`}>
+      <ol className={`list-decimal ${className}`} start={block.start}>
         {items.map((item, index) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: list items are positions, not records
           <li key={index}>

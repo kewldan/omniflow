@@ -9144,6 +9144,10 @@ components:
           type: array
           items: {type: array, items: {$ref: "#/components/schemas/PageSpan"}}
         ordered: {type: boolean}
+        start:
+          type: integer
+          minimum: 2
+          description: The first item's number when a numbered list does not start at 1.
     PageDocument:
       type: object
       required: [blocks]

@@ -91,6 +91,8 @@ export const GetPublishedPageQueryParams = zod.object({
   locale: zod.enum(["ru", "en"]).optional(),
 });
 
+export const getPublishedPageResponseDocumentBlocksItemStartMin = 2;
+
 export const GetPublishedPageResponse = zod.object({
   slug: zod.string(),
   kind: zod.enum(["faq", "terms", "offer", "privacy", "custom"]),
@@ -128,6 +130,11 @@ export const GetPublishedPageResponse = zod.object({
             )
             .optional(),
           ordered: zod.boolean().optional(),
+          start: zod
+            .int()
+            .min(getPublishedPageResponseDocumentBlocksItemStartMin)
+            .optional()
+            .describe("The first item's number when a numbered list does not start at 1."),
         }),
       ),
     })

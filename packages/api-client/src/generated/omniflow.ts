@@ -3638,6 +3638,11 @@ export interface PageBlock {
   spans?: PageSpan[];
   items?: PageSpan[][];
   ordered?: boolean;
+  /**
+   * The first item's number when a numbered list does not start at 1.
+   * @minimum 2
+   */
+  start?: number;
 }
 
 /**

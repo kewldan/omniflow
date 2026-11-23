@@ -140,3 +140,27 @@ func flattenItems(items [][]Span) []Span {
 	}
 	return all
 }
+
+// Rules written as numbered points with a blank line between them are one
+// list. Each point used to become a list of its own and every one rendered
+// as "1.". A list resumed after a paragraph keeps counting from its number.
+func TestNumberedPointsSpacedOutAreOneList(t *testing.T) {
+	t.Parallel()
+	document := Parse("1. First rule.\n\n2. Second rule.\n\n3. Third rule.\n\nA note.\n\n4. Fourth rule.")
+	if len(document.Blocks) != 3 {
+		t.Fatalf("blocks = %+v, want a list, a paragraph, and a list", document.Blocks)
+	}
+	first, note, resumed := document.Blocks[0], document.Blocks[1], document.Blocks[2]
+	if first.Kind != BlockList || !first.Ordered || len(first.Items) != 3 || first.Start != 0 {
+		t.Fatalf("first list = %+v", first)
+	}
+	if note.Kind != BlockParagraph {
+		t.Fatalf("the note = %+v", note)
+	}
+	if resumed.Kind != BlockList || resumed.Start != 4 || len(resumed.Items) != 1 {
+		t.Fatalf("resumed list = %+v, want one item starting at 4", resumed)
+	}
+	if text := PlainText(document); !strings.Contains(text, "3. Third rule.") || !strings.Contains(text, "4. Fourth rule.") {
+		t.Fatalf("plain text numbers the points wrongly:\n%s", text)
+	}
+}

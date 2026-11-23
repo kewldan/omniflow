@@ -8199,6 +8199,9 @@ type PageBlock struct {
 	Kind    PageBlockKind `json:"kind"`
 	Ordered *bool         `json:"ordered,omitempty"`
 	Spans   *[]PageSpan   `json:"spans,omitempty"`
+
+	// Start The first item's number when a numbered list does not start at 1.
+	Start *int `json:"start,omitempty"`
 }
 
 // PageBlockKind defines model for PageBlock.Kind.
