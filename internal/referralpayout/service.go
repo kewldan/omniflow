@@ -145,11 +145,18 @@ func (service *Service) SaveSettings(ctx context.Context, settings Settings, act
 	return settings, tx.Commit(ctx)
 }
 
+// earningRoles are the referral rewards that count as what referrals earned:
+// the one-off invite reward and the commission on a friend's payments, a
+// partner's personal rate included. Both are credited to the wallet as
+// referral income; the invitee's own welcome reward is not the customer's
+// earnings from referring anybody and stays out.
+const earningRoles = `role IN ('inviter', 'commission')`
+
 // balance is the money side of a summary.
 func (service *Service) balance(ctx context.Context, tx pgx.Tx, customerID string, settings Settings) (earned, requested, available int64, err error) {
 	if err = tx.QueryRow(ctx, `SELECT
 			(SELECT COALESCE(sum(amount_minor), 0)::bigint FROM referral_rewards
-				WHERE beneficiary_user_id = $1::uuid AND role = 'inviter' AND reversed_at IS NULL
+				WHERE beneficiary_user_id = $1::uuid AND `+earningRoles+` AND reversed_at IS NULL
 				  AND days IS NULL AND currency = $2),
 			(SELECT COALESCE(sum(amount_minor), 0)::bigint FROM referral_withdrawals
 				WHERE user_id = $1::uuid AND currency = $2 AND status IN ('pending', 'approved', 'paid'))`,
@@ -322,9 +329,13 @@ func uniqueViolation(err error) bool {
 // facts gathers what the risk score needs.
 func (service *Service) facts(ctx context.Context, tx pgx.Tx, customerID string, settings Settings) (Facts, error) {
 	facts := Facts{MinimumMinor: settings.MinimumMinor}
+	// Commission counts towards what was earned and towards the largest single
+	// source, which is what those signals measure. The burst counts invite
+	// rewards only: a partner with many paying friends is paid a commission row
+	// per payment, and that is the programme working, not a burst of sign-ups.
 	err := tx.QueryRow(ctx, `WITH rewards AS (
-			SELECT referred_user_id, amount_minor, granted_at FROM referral_rewards
-			WHERE beneficiary_user_id = $1::uuid AND role = 'inviter' AND reversed_at IS NULL
+			SELECT referred_user_id, amount_minor, granted_at, role FROM referral_rewards
+			WHERE beneficiary_user_id = $1::uuid AND `+earningRoles+` AND reversed_at IS NULL
 			  AND days IS NULL AND currency = $2
 		), referrals AS (
 			SELECT a.referred_user_id, a.review_state,
@@ -338,7 +349,8 @@ func (service *Service) facts(ctx context.Context, tx pgx.Tx, customerID string,
 			(SELECT count(*)::integer FROM referrals),
 			(SELECT count(*)::integer FROM referrals WHERE paying),
 			(SELECT COALESCE(max(total), 0)::bigint FROM (SELECT sum(amount_minor) AS total FROM rewards GROUP BY referred_user_id) s),
-			(SELECT count(*)::integer FROM rewards WHERE granted_at > now() - interval '7 days'),
+			(SELECT count(*)::integer FROM rewards WHERE role = 'inviter'
+				AND granted_at > now() - interval '7 days'),
 			(SELECT COALESCE(sum(credited_minor), 0)::bigint FROM wallet_topups
 				WHERE user_id = $1::uuid AND currency = $2 AND credited_at IS NOT NULL),
 			(SELECT count(*)::integer FROM orders WHERE user_id = $1::uuid

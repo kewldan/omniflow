@@ -62,7 +62,6 @@ export function useWithdrawability():
       minimumMinor: number;
       cooldownDays: number;
       currency: string;
-      onlyReferral: boolean;
     }
   | { state: "no" | "unknown" } {
   const { data, error } = useWithdrawalSummary();
@@ -72,7 +71,6 @@ export function useWithdrawability():
           cooldownDays: data.cooldownDays,
           currency: data.currency,
           minimumMinor: data.minimumMinor,
-          onlyReferral: data.onlyReferralBalance,
           state: "yes",
         }
       : { state: "no" };

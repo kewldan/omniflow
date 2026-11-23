@@ -47,10 +47,9 @@ export function usePartnerState() {
  *
  * The share is a referral reward of role `commission`, credited to the wallet
  * (`internal/commercepg/commission.go`), and the screen says so under the
- * status. Whether it can be withdrawn is said only when the withdrawal policy
- * covers the whole balance: with "only referral earnings" switched on, the
- * withdrawable amount is counted from invite rewards alone, and the screen
- * makes no promise the server would not keep.
+ * status, with whether it can be withdrawn: commission counts as referral
+ * earnings (`internal/referralpayout`), so it leaves the wallet under the same
+ * policy as an invite reward.
  */
 export function PartnerProgramme() {
   const translate = useTranslations("account.account.partner");
@@ -85,7 +84,7 @@ export function PartnerProgramme() {
   }
 
   const paidTo =
-    withdrawable.state === "yes" && !withdrawable.onlyReferral
+    withdrawable.state === "yes"
       ? translate("paidToWithdrawable", {
           minimum: money(withdrawable.minimumMinor, withdrawable.currency),
         })

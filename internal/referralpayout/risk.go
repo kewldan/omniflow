@@ -15,7 +15,8 @@ import "sort"
 
 // Facts are what the score is computed from, gathered in one read.
 type Facts struct {
-	// EarnedMinor is every unreversed inviter reward in the currency.
+	// EarnedMinor is every unreversed invite reward and commission in the
+	// currency.
 	EarnedMinor int64
 	// Referrals is how many customers this one invited, and PayingReferrals
 	// how many of them have a paid order.
@@ -23,7 +24,7 @@ type Facts struct {
 	PayingReferrals int
 	// LargestSourceMinor is the most any single referral produced.
 	LargestSourceMinor int64
-	// RewardsLastWeek counts rewards granted in the last seven days.
+	// RewardsLastWeek counts invite rewards granted in the last seven days.
 	RewardsLastWeek int
 	// OwnTopUpsMinor is what the customer paid into their own wallet, and
 	// OwnPurchases how many subscription orders they paid for themselves.

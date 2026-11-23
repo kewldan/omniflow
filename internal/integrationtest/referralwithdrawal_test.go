@@ -16,6 +16,13 @@ import (
 // inviter reward, through the same ledger rows a real reward writes.
 func (harness *harness) seedReferralEarnings(ctx context.Context, t *testing.T, inviter string, amount int64) string {
 	t.Helper()
+	return harness.seedReferralReward(ctx, t, inviter, "inviter", amount)
+}
+
+// seedReferralReward is seedReferralEarnings for any reward role the inviter
+// can earn — `inviter`, or `commission` on the friend's payment.
+func (harness *harness) seedReferralReward(ctx context.Context, t *testing.T, inviter, role string, amount int64) string {
+	t.Helper()
 	invitee := harness.customer(ctx, t)
 	var orderID, transactionID string
 	if err := harness.pool.QueryRow(ctx, `INSERT INTO orders (user_id, state, operation, currency, subtotal_minor,
@@ -39,8 +46,8 @@ func (harness *harness) seedReferralEarnings(ctx context.Context, t *testing.T, 
 	}
 	if _, err := harness.pool.Exec(ctx, `INSERT INTO referral_rewards (referred_user_id, beneficiary_user_id, role, order_id,
 			amount_minor, currency, ledger_transaction_id)
-		VALUES ($1::uuid, $2::uuid, 'inviter', $3::uuid, $4, 'RUB', $5::uuid)`,
-		invitee, inviter, orderID, amount, transactionID); err != nil {
+		VALUES ($1::uuid, $2::uuid, $6, $3::uuid, $4, 'RUB', $5::uuid)`,
+		invitee, inviter, orderID, amount, transactionID, role); err != nil {
 		t.Fatal(err)
 	}
 	return invitee
@@ -188,5 +195,46 @@ func TestReferralWithdrawalLifecycle(t *testing.T) {
 	}
 	if balance := harness.walletBalance(ctx, t, inviter); balance != 80000 {
 		t.Fatalf("balance after cancel = %d", balance)
+	}
+}
+
+// Commission on a friend's payments — a partner's personal rate included — is
+// referral income like the invite reward: with only the referral share
+// allowed out, both count towards what may be withdrawn, and the customer's
+// own top-up still does not.
+func TestReferralWithdrawalCountsCommission(t *testing.T) {
+	ctx := context.Background()
+	harness := newHarness(t)
+	service, err := referralpayout.New(harness.pool, operationsKey, nil, slog.New(slog.DiscardHandler))
+	if err != nil {
+		t.Fatal(err)
+	}
+	actor := harness.operator(ctx, t, "finance@omniflow.test")
+	partner := harness.customer(ctx, t)
+	harness.seedReferralReward(ctx, t, partner, "inviter", 30000)
+	harness.seedReferralReward(ctx, t, partner, "commission", 40000)
+	harness.seedWallet(ctx, t, partner, "own-topup", 50000)
+	if _, err = service.SaveSettings(ctx, referralpayout.Settings{Enabled: true, Currency: "RUB", MinimumMinor: 50000,
+		CooldownDays: 30, OnlyReferral: true}, actor); err != nil {
+		t.Fatal(err)
+	}
+
+	summary, err := service.Summary(ctx, partner)
+	if err != nil || summary.EarnedMinor != 70000 || summary.AvailableMinor != 70000 {
+		t.Fatalf("summary = %+v (%v)", summary, err)
+	}
+	if _, err = service.RequestWithdrawal(ctx, partner, "over", referralpayout.Input{AmountMinor: 70001, Method: "card", Details: "4111"}); !errors.Is(err, referralpayout.ErrInsufficient) {
+		t.Fatalf("over the referral share: %v", err)
+	}
+	request, err := service.RequestWithdrawal(ctx, partner, "all", referralpayout.Input{AmountMinor: 70000, Method: "card", Details: "4111"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A commission comes from a paying referral, so neither the earned total
+	// nor its single source reads as income with nobody paying.
+	for _, flag := range request.Risk.Flags {
+		if flag == "no_paying_referrals" {
+			t.Fatalf("flags = %v", request.Risk.Flags)
+		}
 	}
 }
