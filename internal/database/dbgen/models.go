@@ -2785,6 +2785,27 @@ type SimpleSubscription struct {
 	UpdatedBy      pgtype.UUID        `json:"updated_by"`
 }
 
+type SmartSubscriptionPreference struct {
+	SubscriptionID  pgtype.UUID        `json:"subscription_id"`
+	HiddenCountries []string           `json:"hidden_countries"`
+	AutoExcluded    []string           `json:"auto_excluded"`
+	Reserve         bool               `json:"reserve"`
+	RussiaDirect    bool               `json:"russia_direct"`
+	BlockAds        bool               `json:"block_ads"`
+	BlockQuic       bool               `json:"block_quic"`
+	Rules           []byte             `json:"rules"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SmartSubscriptionSetting struct {
+	Singleton bool               `json:"singleton"`
+	Enabled   bool               `json:"enabled"`
+	Document  []byte             `json:"document"`
+	Version   int32              `json:"version"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy pgtype.UUID        `json:"updated_by"`
+}
+
 type SquadAccessGrant struct {
 	ID             pgtype.UUID        `json:"id"`
 	UserID         pgtype.UUID        `json:"user_id"`
