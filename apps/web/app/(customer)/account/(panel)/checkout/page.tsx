@@ -395,11 +395,11 @@ function Checkout({
           </p>
         )}
         <Button
-          className="w-full text-destructive"
+          className="w-full"
           disabled={busy}
           onClick={() => setDiscarding(true)}
           size="lg"
-          variant="outline"
+          variant="destructive-outline"
         >
           {translate("checkout.discard")}
         </Button>

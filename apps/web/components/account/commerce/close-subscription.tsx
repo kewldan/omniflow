@@ -60,11 +60,11 @@ export function CloseSubscription({ subscriptionId }: { subscriptionId: string }
       <p className="text-[13px] text-muted-foreground leading-relaxed">{translate("warning")}</p>
       {needsReauth && <ReauthNotice />}
       <Button
-        className="w-full text-destructive"
+        className="w-full"
         disabled={busy}
         onClick={() => setOpen(true)}
         size="lg"
-        variant="outline"
+        variant="destructive-outline"
       >
         {translate("action")}
       </Button>

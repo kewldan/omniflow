@@ -253,11 +253,10 @@ export function DeviceList({
                   </p>
                 </div>
                 <Button
-                  className="text-destructive"
                   disabled={busy}
                   onClick={() => setPendingHandle(device.handle)}
                   size="sm"
-                  variant="ghost"
+                  variant="destructive-ghost"
                 >
                   {translate("devices.remove")}
                 </Button>
@@ -272,11 +271,11 @@ export function DeviceList({
         // A quiet control: it is the rare, destructive one, and as a
         // full-width outlined button it outweighed everything above it.
         <Button
-          className="mx-auto flex text-destructive"
+          className="mx-auto flex"
           disabled={busy}
           onClick={() => setRemoveAllOpen(true)}
           size="sm"
-          variant="ghost"
+          variant="destructive-ghost"
         >
           {translate("devices.removeAll")}
         </Button>

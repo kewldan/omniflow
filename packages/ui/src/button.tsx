@@ -32,6 +32,14 @@ const buttonVariants = cva(
         default: "bg-primary text-primary-foreground hover:bg-primary/90",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:ring-destructive/35",
+        // A quiet destructive control — "Remove", "Disconnect" — in the
+        // destructive tone at rest and a faint wash of it on hover. Marking a
+        // ghost or outline button red with a class gave it their accent hover,
+        // which turned the red label into a lilac pill.
+        "destructive-ghost":
+          "text-destructive hover:bg-destructive/10 hover:text-destructive focus-visible:ring-destructive/35",
+        "destructive-outline":
+          "border border-destructive/35 bg-field text-destructive hover:border-destructive/60 hover:bg-destructive/10 hover:text-destructive focus-visible:ring-destructive/35",
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-foreground underline underline-offset-4 hover:text-muted-foreground",
         outline: "border border-border bg-field hover:bg-accent hover:text-accent-foreground",

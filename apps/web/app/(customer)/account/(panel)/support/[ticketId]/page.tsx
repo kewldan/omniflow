@@ -230,11 +230,11 @@ export default function SupportTicketPage() {
 
       {ticket.open && (
         <Button
-          className="w-full text-destructive"
+          className="w-full"
           disabled={busy}
           onClick={() => setConfirmClose(true)}
           size="lg"
-          variant="outline"
+          variant="destructive-outline"
         >
           {translate("ticket.close")}
         </Button>

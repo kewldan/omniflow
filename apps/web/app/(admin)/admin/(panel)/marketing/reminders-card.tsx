@@ -134,11 +134,10 @@ export function RemindersCard({ editable }: { editable: boolean }) {
                       {translate("edit")}
                     </Button>
                     <Button
-                      className="text-destructive"
                       disabled={pending}
                       onClick={() => reminder.id && remove(reminder.id)}
                       size="sm"
-                      variant="ghost"
+                      variant="destructive-ghost"
                     >
                       {translate("delete")}
                     </Button>

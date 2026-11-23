@@ -442,13 +442,13 @@ function AccountFooter({ customerId }: { customerId: string }) {
           }
         }}
         size="sm"
-        variant="ghost"
+        variant="destructive-ghost"
       >
         <LogOut aria-hidden className="size-4" />
         {translate("nav.signOut")}
       </Button>
       {failed && (
-        <p className="px-3 pt-1.5 text-[11px] text-destructive" role="alert">
+        <p className="px-3 pt-1.5 text-[11px]" role="alert">
           {translate("nav.signOutFailed")}
         </p>
       )}

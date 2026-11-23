@@ -99,11 +99,11 @@ function ReissueLinks() {
         {translate("security.linksDescription")}
       </p>
       <Button
-        className="w-full text-destructive"
+        className="w-full"
         disabled={busy}
         onClick={() => setOpen(true)}
         size="lg"
-        variant="outline"
+        variant="destructive-outline"
       >
         {translate("security.linksReissue")}
       </Button>
@@ -224,11 +224,11 @@ function Sessions() {
       </ul>
 
       <Button
-        className="w-full text-destructive"
+        className="w-full"
         disabled={busy}
         onClick={() => setConfirmAll(true)}
         size="lg"
-        variant="outline"
+        variant="destructive-outline"
       >
         {translate("security.endAll")}
       </Button>

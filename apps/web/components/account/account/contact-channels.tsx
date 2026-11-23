@@ -176,11 +176,11 @@ export function ContactChannels() {
                   </div>
                 </div>
                 <Button
-                  className="shrink-0 text-destructive"
+                  className="shrink-0"
                   disabled={busy}
                   onClick={() => setPendingRemoval(contact)}
                   size="sm"
-                  variant="ghost"
+                  variant="destructive-ghost"
                 >
                   {translate("contacts.remove")}
                 </Button>

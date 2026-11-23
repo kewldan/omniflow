@@ -172,7 +172,7 @@ function SignOutButton() {
 
   return (
     <Button
-      className="w-full text-destructive"
+      className="w-full"
       disabled={busy}
       onClick={async () => {
         setBusy(true);
@@ -185,7 +185,7 @@ function SignOutButton() {
         }
       }}
       size="lg"
-      variant="outline"
+      variant="destructive-outline"
     >
       <LogOut aria-hidden />
       {translate("nav.signOut")}

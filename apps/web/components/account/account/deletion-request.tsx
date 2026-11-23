@@ -223,11 +223,11 @@ export function DeletionRequest({
         )}
 
         <Button
-          className="w-full text-destructive"
+          className="w-full"
           disabled={busy}
           size="lg"
           type="submit"
-          variant="outline"
+          variant="destructive-outline"
         >
           {translate("deletion.request")}
         </Button>

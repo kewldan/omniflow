@@ -360,11 +360,11 @@ export default function OrderPage() {
 
         {CANCELLABLE.includes(data.state) && (
           <Button
-            className="w-full text-destructive"
+            className="w-full"
             disabled={busy}
             onClick={() => setCancelling(true)}
             size="lg"
-            variant="outline"
+            variant="destructive-outline"
           >
             {translate("order.cancel")}
           </Button>

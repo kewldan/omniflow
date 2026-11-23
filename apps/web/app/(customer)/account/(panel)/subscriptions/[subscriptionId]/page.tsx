@@ -256,11 +256,11 @@ function RotateLink({ subscriptionId }: { subscriptionId: string }) {
       {needsReauth && <ReauthNotice />}
 
       <Button
-        className="w-full text-destructive"
+        className="w-full"
         disabled={busy}
         onClick={() => setOpen(true)}
         size="lg"
-        variant="outline"
+        variant="destructive-outline"
       >
         <RefreshCw aria-hidden />
         {translate("subscription.rotate")}
