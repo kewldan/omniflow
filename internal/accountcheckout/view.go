@@ -292,7 +292,10 @@ func (service *Service) chooseProvider(
 	if provider == "" {
 		return service.store.SetCheckoutProvider(ctx, session.ID, "", session.Currency)
 	}
-	choices, err := service.PaymentChoices(ctx, session.PlanVersionID)
+	// Priced at the period the checkout has chosen, as the screen offered them:
+	// the version's own prices sat beside a 90-day total and decided which
+	// methods' bounds the order had to fit.
+	choices, err := service.SessionPaymentChoices(ctx, session)
 	if err != nil {
 		return Session{}, err
 	}
@@ -440,7 +443,10 @@ func (service *Service) view(ctx context.Context, session Session, locale string
 	if err != nil {
 		return CheckoutView{}, err
 	}
-	choices, err := service.PaymentChoices(ctx, session.PlanVersionID)
+	// Each method shows what it would charge for the period chosen; the
+	// version's own price beside a longer period was a different figure from
+	// the total under it.
+	choices, err := service.SessionPaymentChoices(ctx, session)
 	if err != nil {
 		return CheckoutView{}, err
 	}
