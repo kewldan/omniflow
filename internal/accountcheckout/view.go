@@ -77,6 +77,10 @@ type OpenRequest struct {
 	// NewSubscription asks for an additional subscription rather than a change to
 	// an existing one. Only a purchase can honour it.
 	NewSubscription bool
+	// PeriodDays opens the checkout at a billing period other than the
+	// version's own, as the store card's period switcher chose it; zero is the
+	// version's own. It is checked the way UpdateRequest.PeriodDays is.
+	PeriodDays int
 }
 
 // UpdateRequest is a partial edit to the open checkout.
@@ -122,11 +126,21 @@ func (service *Service) Open(
 	if err != nil {
 		return CheckoutView{}, err
 	}
+	if request.PeriodDays < 0 {
+		return CheckoutView{}, invalidInput("a period is a positive number of days")
+	}
 	session, err := service.store.OpenCheckout(
 		ctx, customerID, request.PlanVersionID, operation, service.settings.Currency, target, nil,
 	)
 	if err != nil {
 		return CheckoutView{}, err
+	}
+	if request.PeriodDays > 0 {
+		// Priced and stored by the same path the checkout's own picker takes,
+		// so a period the version does not sell for this operation is refused
+		// with the same problem.
+		days := request.PeriodDays
+		return service.Update(ctx, customerID, locale, UpdateRequest{PeriodDays: &days})
 	}
 	return service.view(ctx, session, locale)
 }

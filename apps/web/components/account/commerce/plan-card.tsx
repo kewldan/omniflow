@@ -5,8 +5,9 @@ import { Button } from "@omniflow/ui/button";
 import { cn } from "@omniflow/ui/lib/utils";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { useCallback } from "react";
+import { useCallback, useId, useState } from "react";
 
+import { ownPeriodDays, periodSaving, SAVING_SHOWN } from "@/components/account/commerce/periods";
 import { useIneligibility } from "@/components/account/commerce/reasons";
 import type { PlanOffer } from "@/components/account/commerce/types";
 import { useBytes } from "@/lib/format";
@@ -56,6 +57,47 @@ export function usePeriodLabel(): (billingPeriod: string, durationSeconds: numbe
   );
 }
 
+/** The named periods a number of days reads as, for the card's switcher. */
+const NAMED = ["day", "week", "month", "quarter", "half_year", "year"];
+
+/**
+ * The name a number of days goes by, or `null` when it has none.
+ *
+ * A month is 28 to 31 days and a year 364 to 366 because operators write
+ * either; anything else is honestly a number of days.
+ */
+export function periodNameOf(days: number): string | null {
+  if (days === 1) return "day";
+  if (days === 7) return "week";
+  if (days >= 28 && days <= 31) return "month";
+  if (days >= 89 && days <= 92) return "quarter";
+  if (days >= 180 && days <= 184) return "half_year";
+  if (days >= 364 && days <= 366) return "year";
+  return null;
+}
+
+/**
+ * Names a period of a plan for the switcher: as a segment ("Year") or as what
+ * the headline price buys ("for a year"). Zero is the plan's own period, named
+ * by its billing period when it has one and by its length otherwise.
+ */
+function usePeriodPhrase(form: "name" | "for"): (plan: PlanOffer, days: number) => string {
+  const translate = useTranslations("account.commerce");
+  return useCallback(
+    (plan: PlanOffer, days: number) => {
+      const length = days > 0 ? days : ownPeriodDays(plan.durationSeconds);
+      const named =
+        days === 0 && NAMED.includes(plan.billingPeriod)
+          ? plan.billingPeriod
+          : periodNameOf(length);
+      return named
+        ? translate(`switcher.${form}.${named}`)
+        : translate(`switcher.${form}.days`, { count: length });
+    },
+    [form, translate],
+  );
+}
+
 /**
  * The plan's measurable facts as a definition list.
  *
@@ -63,9 +105,19 @@ export function usePeriodLabel(): (billingPeriod: string, durationSeconds: numbe
  * 200 GB" as one pair instead of two loose strings. Each fact is a small tile,
  * label over value, so a long value such as "unlimited" wraps inside its own
  * tile instead of breaking the row beside it. The catalogue card leaves the
- * period out: its price line already says it.
+ * period out: its price line already says it. `periodDays` names one of the
+ * plan's further periods in place of its own, as the plan page does when the
+ * store card's switcher chose one.
  */
-export function PlanSpecs({ plan, withPeriod = true }: { plan: PlanOffer; withPeriod?: boolean }) {
+export function PlanSpecs({
+  plan,
+  periodDays = 0,
+  withPeriod = true,
+}: {
+  plan: PlanOffer;
+  periodDays?: number;
+  withPeriod?: boolean;
+}) {
   const translate = useTranslations("account.commerce");
   const formatBytes = useBytes();
   const period = usePeriodLabel();
@@ -75,7 +127,10 @@ export function PlanSpecs({ plan, withPeriod = true }: { plan: PlanOffer; withPe
       ? [
           {
             label: translate("specs.period"),
-            value: period(plan.billingPeriod, plan.durationSeconds),
+            value:
+              periodDays > 0
+                ? translate("period.days", { count: periodDays })
+                : period(plan.billingPeriod, plan.durationSeconds),
           },
         ]
       : []),
@@ -126,9 +181,17 @@ export function PlanSpecs({ plan, withPeriod = true }: { plan: PlanOffer; withPe
  */
 export function PlanCard({ plan }: { plan: PlanOffer }) {
   const translate = useTranslations("account.commerce");
+  const translatePicker = useTranslations("account.periodPicker");
   const locale = useLocale();
   const period = usePeriodLabel();
   const explain = useIneligibility();
+  // Zero is the plan's own period, as in the checkout's `periodDays`.
+  const [chosenDays, setChosenDays] = useState(0);
+
+  const periods = plan.eligible ? (plan.periods ?? []) : [];
+  const chosen = periods.find((choice) => choice.days === chosenDays);
+  const price = chosen?.price ?? plan.price;
+  const forPeriod = usePeriodPhrase("for");
 
   return (
     <article
@@ -153,17 +216,27 @@ export function PlanCard({ plan }: { plan: PlanOffer }) {
         </div>
         <p className="flex flex-wrap items-baseline gap-x-2">
           <span className="font-bold text-[30px] leading-tight tracking-[-0.03em]" data-numeric>
-            {formatMoney(plan.price.amountMinor, plan.price.currency, locale, {
+            {formatMoney(price.amountMinor, price.currency, locale, {
               display: "narrowSymbol",
               trimZeroFraction: true,
             })}
           </span>
           <span className="text-[14px] text-muted-foreground">
-            {period(plan.billingPeriod, plan.durationSeconds)}
+            {periods.length > 0
+              ? // Beside a switcher every period reads "for a year", "for a
+                // month": "monthly" next to a one-off year would compare a
+                // subscription with a purchase.
+                forPeriod(plan, chosen?.days ?? 0)
+              : period(plan.billingPeriod, plan.durationSeconds)}
           </span>
+          {chosen?.highlighted && <Badge variant="warning">{translatePicker("best")}</Badge>}
         </p>
         {plan.description && <PlanDescription text={plan.description} />}
       </div>
+
+      {periods.length > 0 && (
+        <PeriodSwitcher chosenDays={chosenDays} onChange={setChosenDays} plan={plan} />
+      )}
 
       {(plan.recurringCapable || plan.configurableSquads) && (
         <div className="flex flex-wrap gap-1.5">
@@ -184,7 +257,14 @@ export function PlanCard({ plan }: { plan: PlanOffer }) {
               size="lg"
               variant={index === 0 ? "default" : "outline"}
             >
-              <Link href={`/account/store/${plan.planVersionId}?operation=${operation}`}>
+              <Link
+                href={`/account/store/${plan.planVersionId}?operation=${operation}${
+                  // The periods were priced for the first operation, so only
+                  // its button carries the choice; another opens at the plan's
+                  // own period and is chosen again at the checkout.
+                  index === 0 && chosen ? `&period=${chosen.days}` : ""
+                }`}
+              >
                 {translate(`operations.${OPERATIONS.includes(operation) ? operation : "unknown"}`)}
               </Link>
             </Button>
@@ -231,5 +311,75 @@ function PlanDescription({ text }: { text: string }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * The periods a plan is sold for, as a segmented control: the plan's own
+ * first, then each longer one with its saving per day.
+ *
+ * Native radios under the segments, so the group is one tab stop, arrows move
+ * the choice, and a screen reader announces "year, minus 50 per cent, 2 of 3"
+ * without any of it being rebuilt here. The prices behind the saving are the
+ * server's; the card only reads them.
+ */
+function PeriodSwitcher({
+  chosenDays,
+  onChange,
+  plan,
+}: {
+  chosenDays: number;
+  onChange: (days: number) => void;
+  plan: PlanOffer;
+}) {
+  const translate = useTranslations("account.commerce");
+  const name = useId();
+  const label = usePeriodPhrase("name");
+
+  // In order of length, the plan's own among them: "week | month | year"
+  // reads as a scale, and a week listed after the month did not.
+  const ownDays = ownPeriodDays(plan.durationSeconds);
+  const segments = [
+    { days: 0, label: label(plan, 0), length: ownDays, saving: 0 },
+    ...(plan.periods ?? []).map((choice) => ({
+      days: choice.days,
+      label: label(plan, choice.days),
+      length: choice.days,
+      saving: periodSaving(plan, choice.days, choice.price),
+    })),
+  ].sort((left, right) => left.length - right.length);
+
+  return (
+    <fieldset>
+      <legend className="sr-only">{translate("switcher.label")}</legend>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(4.5rem,1fr))] gap-1 rounded-lg bg-well p-1">
+        {segments.map((segment) => (
+          <label
+            className={cn(
+              "flex min-h-11 cursor-pointer flex-col items-center justify-center rounded-md px-1.5 py-1 text-center transition-colors",
+              "text-muted-foreground hover:text-foreground",
+              "has-[:checked]:bg-card has-[:checked]:text-foreground has-[:checked]:shadow-sm",
+              "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-ring has-[:focus-visible]:outline-offset-1",
+            )}
+            key={segment.days}
+          >
+            <input
+              checked={chosenDays === segment.days}
+              className="sr-only"
+              name={name}
+              onChange={() => onChange(segment.days)}
+              type="radio"
+              value={segment.days}
+            />
+            <span className="font-semibold text-[13px] leading-tight">{segment.label}</span>
+            {segment.saving >= SAVING_SHOWN && (
+              <span className="font-semibold text-[11.5px] text-success leading-tight" data-numeric>
+                −{segment.saving}%
+              </span>
+            )}
+          </label>
+        ))}
+      </div>
+    </fieldset>
   );
 }

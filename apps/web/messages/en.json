@@ -7339,6 +7339,27 @@
             "other": "Other"
           }
         }
+      },
+      "switcher": {
+        "label": "Period",
+        "name": {
+          "day": "Day",
+          "week": "Week",
+          "month": "Month",
+          "quarter": "3 months",
+          "half_year": "6 months",
+          "year": "Year",
+          "days": "{count} days"
+        },
+        "for": {
+          "day": "for a day",
+          "week": "for a week",
+          "month": "for a month",
+          "quarter": "for 3 months",
+          "half_year": "for 6 months",
+          "year": "for a year",
+          "days": "for {count, plural, one {# day} other {# days}}"
+        }
       }
     },
     "gifts": {

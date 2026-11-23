@@ -9,6 +9,7 @@ import { useId, useState } from "react";
 
 import { useMoney } from "@/lib/format";
 
+import { ownPeriodDays, periodSaving, SAVING_SHOWN } from "./periods";
 import type { CheckoutView } from "./types";
 
 const OWN = "own";
@@ -48,12 +49,8 @@ export function PeriodPicker({
   // rather than as "the plan's period", which left the customer to guess that
   // the 30 days were the first line. Longer periods say how much they save on
   // it per day, which is the reason to pick one.
-  const ownDays = Math.max(1, Math.round(checkout.plan.durationSeconds / 86_400));
-  const ownPerDay = checkout.plan.price.amountMinor / ownDays;
-  const saving = (days: number, amountMinor: number) =>
-    ownPerDay > 0 && checkout.plan.price.currency
-      ? Math.round((1 - amountMinor / days / ownPerDay) * 100)
-      : 0;
+  // The rule is shared with the store card's switcher (`periods.ts`).
+  const ownDays = ownPeriodDays(checkout.plan.durationSeconds);
 
   return (
     <fieldset className="space-y-2 rounded-lg border border-border bg-card p-4">
@@ -82,17 +79,14 @@ export function PeriodPicker({
             })}
           </SelectItem>
           {periods.choices.map((choice) => {
-            const percent =
-              choice.price.currency === checkout.plan.price.currency
-                ? saving(choice.days, choice.price.amountMinor)
-                : 0;
+            const percent = periodSaving(checkout.plan, choice.days, choice.price);
             return (
               <SelectItem key={choice.days} value={String(choice.days)}>
                 {translate("choice", {
                   days: choice.days,
                   price: money(choice.price.amountMinor, choice.price.currency),
                 })}
-                {percent >= 5 ? ` · −${percent}%` : ""}
+                {percent >= SAVING_SHOWN ? ` · −${percent}%` : ""}
                 {choice.highlighted ? ` · ${translate("best")}` : ""}
               </SelectItem>
             );

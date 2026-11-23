@@ -7339,6 +7339,27 @@
             "other": "Другое"
           }
         }
+      },
+      "switcher": {
+        "label": "Срок",
+        "name": {
+          "day": "День",
+          "week": "Неделя",
+          "month": "Месяц",
+          "quarter": "3 месяца",
+          "half_year": "Полгода",
+          "year": "Год",
+          "days": "{count} дн."
+        },
+        "for": {
+          "day": "за день",
+          "week": "за неделю",
+          "month": "за месяц",
+          "quarter": "за 3 месяца",
+          "half_year": "за полгода",
+          "year": "за год",
+          "days": "за {count, plural, one {# день} few {# дня} many {# дней} other {# дня}}"
+        }
       }
     },
     "gifts": {

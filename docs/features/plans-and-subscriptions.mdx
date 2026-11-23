@@ -48,7 +48,9 @@ currency, and two flags: **Purchases** (offered on a first purchase or a plan ch
 **Renewals** (offered on an extension and on automatic renewal). **Custom days from / up to** with a
 **Price per day** lets the customer type any number of days in that range.
 
-When the version sells more than its own period, both the web checkout and the bot ask which one: the
+When the version sells more than its own period, both the web checkout and the bot ask which one, and
+the plan's card in the web store already offers the choice as a switcher with each longer period's
+saving per day, so the checkout opens at the period picked there. The
 bot shows a button per period with its price between the plan and the payment method, on a purchase
 and on a renewal, and the payment methods then show the chosen period's price. Tick **Highlight** on
 one period per currency to mark it as the recommended one — the bot labels it "best price".

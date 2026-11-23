@@ -53,6 +53,13 @@ type PlanOffer struct {
 	Held bool
 	// ConfigurableSquads tells the panel a selection step comes before payment.
 	ConfigurableSquads bool
+	// Periods are the further billing periods the card's first operation may
+	// be bought for, in the offer's currency, so the card can price a longer
+	// one before the checkout opens. A renewal-only period is listed for an
+	// extension and not for a purchase, the rule PlanPeriods applies at the
+	// checkout. Empty when the plan sells nothing beyond its own period or
+	// the customer may start nothing.
+	Periods []PeriodChoice
 }
 
 // SelectableSquad is one squad a customer may add to a plan.
@@ -213,6 +220,9 @@ func (service *Service) Plans(ctx context.Context, customerID, locale string) ([
 		}
 		offers = append(offers, offer)
 	}
+	if err = service.store.attachPeriods(ctx, offers); err != nil {
+		return nil, err
+	}
 	return offers, nil
 }
 
@@ -274,6 +284,11 @@ func (service *Service) Plan(ctx context.Context, customerID, planVersionID, loc
 		return PlanDetail{}, err
 	}
 	detail.ConfigurableSquads = detail.Squads.Configurable()
+	offers := []PlanOffer{detail.PlanOffer}
+	if err = service.store.attachPeriods(ctx, offers); err != nil {
+		return PlanDetail{}, err
+	}
+	detail.Periods = offers[0].Periods
 	if detail.Addons, err = service.store.PlanAddons(
 		ctx, record.offer.PlanVersionID, locale, service.settings.Currency,
 	); err != nil {

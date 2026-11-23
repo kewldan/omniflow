@@ -11500,6 +11500,21 @@ export const GetAccountSimpleSubscriptionResponse = zod.object({
           "Null means unlimited. Nullable rather than zero because unlimited and none are different offers.",
         ),
       deviceLimit: zod.int().nullish().describe("Null means unlimited."),
+      periods: zod
+        .array(
+          zod.object({
+            days: zod.int(),
+            price: zod.object({
+              amountMinor: zod.int(),
+              currency: zod.string(),
+            }),
+            highlighted: zod.boolean().describe("The period the operator recommends."),
+          }),
+        )
+        .optional()
+        .describe(
+          "Further billing periods the first of `operations` may be bought for, beside the plan's own, in the plan's currency: a renewal-only period for an extension, a purchase period otherwise. Empty when nothing more is sold or nothing may be started.",
+        ),
     })
     .optional(),
   periodDays: zod.int().optional().describe("0 is the plan's own period."),
@@ -11564,6 +11579,21 @@ export const OpenAccountSimpleCheckoutResponse = zod.object({
         "Null means unlimited. Nullable rather than zero because unlimited and none are different offers.",
       ),
     deviceLimit: zod.int().nullish().describe("Null means unlimited."),
+    periods: zod
+      .array(
+        zod.object({
+          days: zod.int(),
+          price: zod.object({
+            amountMinor: zod.int(),
+            currency: zod.string(),
+          }),
+          highlighted: zod.boolean().describe("The period the operator recommends."),
+        }),
+      )
+      .optional()
+      .describe(
+        "Further billing periods the first of `operations` may be bought for, beside the plan's own, in the plan's currency: a renewal-only period for an extension, a purchase period otherwise. Empty when nothing more is sold or nothing may be started.",
+      ),
   }),
   operation: zod.enum(["purchase", "renew", "upgrade", "downgrade"]),
   currency: zod.string(),
@@ -12349,6 +12379,21 @@ export const ListAccountPlansResponse = zod.object({
           "Null means unlimited. Nullable rather than zero because unlimited and none are different offers.",
         ),
       deviceLimit: zod.int().nullish().describe("Null means unlimited."),
+      periods: zod
+        .array(
+          zod.object({
+            days: zod.int(),
+            price: zod.object({
+              amountMinor: zod.int(),
+              currency: zod.string(),
+            }),
+            highlighted: zod.boolean().describe("The period the operator recommends."),
+          }),
+        )
+        .optional()
+        .describe(
+          "Further billing periods the first of `operations` may be bought for, beside the plan's own, in the plan's currency: a renewal-only period for an extension, a purchase period otherwise. Empty when nothing more is sold or nothing may be started.",
+        ),
     }),
   ),
   currency: zod.string(),
@@ -12402,6 +12447,21 @@ export const GetAccountPlanResponse = zod
         "Null means unlimited. Nullable rather than zero because unlimited and none are different offers.",
       ),
     deviceLimit: zod.int().nullish().describe("Null means unlimited."),
+    periods: zod
+      .array(
+        zod.object({
+          days: zod.int(),
+          price: zod.object({
+            amountMinor: zod.int(),
+            currency: zod.string(),
+          }),
+          highlighted: zod.boolean().describe("The period the operator recommends."),
+        }),
+      )
+      .optional()
+      .describe(
+        "Further billing periods the first of `operations` may be bought for, beside the plan's own, in the plan's currency: a renewal-only period for an extension, a purchase period otherwise. Empty when nothing more is sold or nothing may be started.",
+      ),
   })
   .and(
     zod.object({
@@ -12502,6 +12562,21 @@ export const GetAccountCheckoutResponse = zod.object({
         "Null means unlimited. Nullable rather than zero because unlimited and none are different offers.",
       ),
     deviceLimit: zod.int().nullish().describe("Null means unlimited."),
+    periods: zod
+      .array(
+        zod.object({
+          days: zod.int(),
+          price: zod.object({
+            amountMinor: zod.int(),
+            currency: zod.string(),
+          }),
+          highlighted: zod.boolean().describe("The period the operator recommends."),
+        }),
+      )
+      .optional()
+      .describe(
+        "Further billing periods the first of `operations` may be bought for, beside the plan's own, in the plan's currency: a renewal-only period for an extension, a purchase period otherwise. Empty when nothing more is sold or nothing may be started.",
+      ),
   }),
   operation: zod.enum(["purchase", "renew", "upgrade", "downgrade"]),
   currency: zod.string(),
@@ -12674,6 +12749,8 @@ export const OpenAccountCheckoutHeader = zod.object({
     .describe("Echoes the token from the current session. Required on every unsafe method."),
 });
 
+export const openAccountCheckoutBodyPeriodDaysMin = 0;
+
 export const OpenAccountCheckoutBody = zod.object({
   planVersionId: zod.uuid(),
   operation: zod.enum(["purchase", "renew", "upgrade", "downgrade"]),
@@ -12684,6 +12761,13 @@ export const OpenAccountCheckoutBody = zod.object({
       "Required for renew, upgrade, and downgrade when concurrent subscriptions are enabled.",
     ),
   newSubscription: zod.boolean().optional(),
+  periodDays: zod
+    .int()
+    .min(openAccountCheckoutBodyPeriodDaysMin)
+    .optional()
+    .describe(
+      "Opens at one of the plan's further periods; 0 or absent is its own. A period the plan does not sell for this operation is refused with period_unavailable.",
+    ),
 });
 
 export const OpenAccountCheckoutResponse = zod.object({
@@ -12728,6 +12812,21 @@ export const OpenAccountCheckoutResponse = zod.object({
         "Null means unlimited. Nullable rather than zero because unlimited and none are different offers.",
       ),
     deviceLimit: zod.int().nullish().describe("Null means unlimited."),
+    periods: zod
+      .array(
+        zod.object({
+          days: zod.int(),
+          price: zod.object({
+            amountMinor: zod.int(),
+            currency: zod.string(),
+          }),
+          highlighted: zod.boolean().describe("The period the operator recommends."),
+        }),
+      )
+      .optional()
+      .describe(
+        "Further billing periods the first of `operations` may be bought for, beside the plan's own, in the plan's currency: a renewal-only period for an extension, a purchase period otherwise. Empty when nothing more is sold or nothing may be started.",
+      ),
   }),
   operation: zod.enum(["purchase", "renew", "upgrade", "downgrade"]),
   currency: zod.string(),
@@ -12973,6 +13072,21 @@ export const UpdateAccountCheckoutResponse = zod.object({
         "Null means unlimited. Nullable rather than zero because unlimited and none are different offers.",
       ),
     deviceLimit: zod.int().nullish().describe("Null means unlimited."),
+    periods: zod
+      .array(
+        zod.object({
+          days: zod.int(),
+          price: zod.object({
+            amountMinor: zod.int(),
+            currency: zod.string(),
+          }),
+          highlighted: zod.boolean().describe("The period the operator recommends."),
+        }),
+      )
+      .optional()
+      .describe(
+        "Further billing periods the first of `operations` may be bought for, beside the plan's own, in the plan's currency: a renewal-only period for an extension, a purchase period otherwise. Empty when nothing more is sold or nothing may be started.",
+      ),
   }),
   operation: zod.enum(["purchase", "renew", "upgrade", "downgrade"]),
   currency: zod.string(),
@@ -13202,6 +13316,21 @@ export const ApplyAccountPromoCodeResponse = zod.object({
         "Null means unlimited. Nullable rather than zero because unlimited and none are different offers.",
       ),
     deviceLimit: zod.int().nullish().describe("Null means unlimited."),
+    periods: zod
+      .array(
+        zod.object({
+          days: zod.int(),
+          price: zod.object({
+            amountMinor: zod.int(),
+            currency: zod.string(),
+          }),
+          highlighted: zod.boolean().describe("The period the operator recommends."),
+        }),
+      )
+      .optional()
+      .describe(
+        "Further billing periods the first of `operations` may be bought for, beside the plan's own, in the plan's currency: a renewal-only period for an extension, a purchase period otherwise. Empty when nothing more is sold or nothing may be started.",
+      ),
   }),
   operation: zod.enum(["purchase", "renew", "upgrade", "downgrade"]),
   currency: zod.string(),
@@ -13416,6 +13545,21 @@ export const RemoveAccountPromoCodeResponse = zod.object({
         "Null means unlimited. Nullable rather than zero because unlimited and none are different offers.",
       ),
     deviceLimit: zod.int().nullish().describe("Null means unlimited."),
+    periods: zod
+      .array(
+        zod.object({
+          days: zod.int(),
+          price: zod.object({
+            amountMinor: zod.int(),
+            currency: zod.string(),
+          }),
+          highlighted: zod.boolean().describe("The period the operator recommends."),
+        }),
+      )
+      .optional()
+      .describe(
+        "Further billing periods the first of `operations` may be bought for, beside the plan's own, in the plan's currency: a renewal-only period for an extension, a purchase period otherwise. Empty when nothing more is sold or nothing may be started.",
+      ),
   }),
   operation: zod.enum(["purchase", "renew", "upgrade", "downgrade"]),
   currency: zod.string(),
@@ -13634,6 +13778,21 @@ export const ToggleAccountCheckoutAddonResponse = zod.object({
         "Null means unlimited. Nullable rather than zero because unlimited and none are different offers.",
       ),
     deviceLimit: zod.int().nullish().describe("Null means unlimited."),
+    periods: zod
+      .array(
+        zod.object({
+          days: zod.int(),
+          price: zod.object({
+            amountMinor: zod.int(),
+            currency: zod.string(),
+          }),
+          highlighted: zod.boolean().describe("The period the operator recommends."),
+        }),
+      )
+      .optional()
+      .describe(
+        "Further billing periods the first of `operations` may be bought for, beside the plan's own, in the plan's currency: a renewal-only period for an extension, a purchase period otherwise. Empty when nothing more is sold or nothing may be started.",
+      ),
   }),
   operation: zod.enum(["purchase", "renew", "upgrade", "downgrade"]),
   currency: zod.string(),

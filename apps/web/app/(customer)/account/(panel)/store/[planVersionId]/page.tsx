@@ -84,6 +84,17 @@ export default function PlanPage() {
   const preferred = offered.includes(requested) ? requested : (offered[0] ?? "");
   const selected = operation && offered.includes(operation) ? operation : preferred;
 
+  // The period the store card's switcher chose. Its prices were for the
+  // plan's first operation, so it rides along only while that is the one
+  // being started and the plan still sells it; otherwise the checkout opens
+  // at the plan's own period and its picker offers the rest.
+  const requestedDays = Number(search.get("period") ?? "0");
+  const chosenPeriod =
+    selected === offered[0]
+      ? data.periods?.find((choice) => choice.days === requestedDays)
+      : undefined;
+  const headlinePrice = chosenPeriod?.price ?? data.price;
+
   const canOpenNew = selected === "purchase";
   // A purchase never targets a subscription that still has time left: those
   // are what extension, upgrade, and downgrade are for, and the server refuses
@@ -108,6 +119,7 @@ export default function PlanPage() {
         body: JSON.stringify({
           newSubscription: asksForTarget ? onlyNew || target === "new" : false,
           operation: selected,
+          periodDays: chosenPeriod?.days ?? 0,
           planVersionId: params.planVersionId,
           subscriptionId: asksForTarget && !onlyNew && target !== "new" ? target : "",
         }),
@@ -135,14 +147,16 @@ export default function PlanPage() {
           </div>
           <div className="shrink-0 text-right">
             <div className="font-bold text-[22px] leading-none tracking-[-0.03em]" data-numeric>
-              {money(data.price.amountMinor, data.price.currency)}
+              {money(headlinePrice.amountMinor, headlinePrice.currency)}
             </div>
             <div className="mt-1 text-[12px] text-subtle-foreground">
-              {period(data.billingPeriod, data.durationSeconds)}
+              {chosenPeriod
+                ? translate("period.days", { count: chosenPeriod.days })
+                : period(data.billingPeriod, data.durationSeconds)}
             </div>
           </div>
         </div>
-        <PlanSpecs plan={data} />
+        <PlanSpecs periodDays={chosenPeriod?.days} plan={data} />
       </header>
 
       {!data.eligible && (

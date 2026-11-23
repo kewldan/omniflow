@@ -37,7 +37,6 @@ func (store *Store) PlanPeriods(ctx context.Context, planVersionID, currency, op
 		return PeriodOffer{}, err
 	}
 	defer rows.Close()
-	renewal := commerce.RenewsPeriod(operation)
 	for rows.Next() {
 		var (
 			choice                  PeriodChoice
@@ -47,7 +46,7 @@ func (store *Store) PlanPeriods(ctx context.Context, planVersionID, currency, op
 		if err = rows.Scan(&days, &choice.AmountMinor, &forPurchase, &forRenewal, &choice.Highlighted); err != nil {
 			return PeriodOffer{}, err
 		}
-		if renewal && forRenewal || !renewal && forPurchase {
+		if periodSoldFor(operation, forPurchase, forRenewal) {
 			choice.Days = int(days)
 			offer.Choices = append(offer.Choices, choice)
 		}
@@ -70,6 +69,68 @@ func (store *Store) PlanPeriods(ctx context.Context, planVersionID, currency, op
 		offer.MinDays, offer.MaxDays, offer.PricePerDayMinor = int(*minDays), int(*maxDays), *perDay
 	}
 	return offer, nil
+}
+
+// attachPeriods lists, on each offer, the further periods its first
+// operation may be bought for in the offer's own currency: one query for the
+// whole catalogue rather than one per card.
+func (store *Store) attachPeriods(ctx context.Context, offers []PlanOffer) error {
+	versions := make([]string, 0, len(offers))
+	for _, offer := range offers {
+		if len(offer.Operations) > 0 {
+			versions = append(versions, offer.PlanVersionID)
+		}
+	}
+	if len(versions) == 0 {
+		return nil
+	}
+	rows, err := store.pool.Query(ctx, `SELECT plan_version_id::text, currency, days, amount_minor,
+			for_purchase, for_renewal, highlighted
+		FROM plan_version_periods WHERE plan_version_id = ANY($1::uuid[])
+		ORDER BY days`, versions)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	index := make(map[string]int, len(offers))
+	for position, offer := range offers {
+		index[offer.PlanVersionID] = position
+	}
+	for rows.Next() {
+		var (
+			version, currency       string
+			days                    int32
+			choice                  PeriodChoice
+			forPurchase, forRenewal bool
+		)
+		if err = rows.Scan(&version, &currency, &days, &choice.AmountMinor,
+			&forPurchase, &forRenewal, &choice.Highlighted); err != nil {
+			return err
+		}
+		position, found := index[version]
+		if !found {
+			continue
+		}
+		offer := &offers[position]
+		if currency != offer.Currency || len(offer.Operations) == 0 {
+			continue
+		}
+		if periodSoldFor(offer.Operations[0], forPurchase, forRenewal) {
+			choice.Days = int(days)
+			offer.Periods = append(offer.Periods, choice)
+		}
+	}
+	return rows.Err()
+}
+
+// periodSoldFor is whether a listed period may be bought by an operation: a
+// renewal-only period renews, and a purchase-only one starts or changes a
+// plan.
+func periodSoldFor(operation string, forPurchase, forRenewal bool) bool {
+	if commerce.RenewsPeriod(operation) {
+		return forRenewal
+	}
+	return forPurchase
 }
 
 // PeriodPrices is what one listed period of a version costs in each currency

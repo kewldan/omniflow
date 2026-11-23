@@ -709,6 +709,17 @@ A plan with no price in the settlement currency is omitted from the catalogue
 entirely, because it cannot be bought here at all and an entry nobody can act on
 is only a question the customer cannot answer.
 
+When a plan sells further periods, its card in the store carries a period
+switcher under the plan's points: the plan's own period first, then each further
+one the card's first operation may buy — purchase periods on a purchase,
+renewal periods on an extension — with what it saves per day against the plan's
+own period ("−50%", shown from 5%). The headline price follows the choice, and
+the card's main button opens the plan page and then the checkout already at that
+period (`periodDays` on `POST /checkout`, refused with `period_unavailable` like
+the checkout's own picker refuses it). The periods arrive priced in `periods`
+on `GET /plans`; the card works nothing out but the saving, and the checkout's
+picker uses the same rule.
+
 A checkout is a resumable purchase intent, and a customer has at most one. It is
 shared with the bot: opening a checkout in a browser deletes one left open in a
 chat in the same transaction, and a partial unique index in the database enforces

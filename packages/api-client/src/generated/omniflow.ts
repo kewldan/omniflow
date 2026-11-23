@@ -5475,6 +5475,13 @@ export const AccountPlanOperationsItem = {
   downgrade: "downgrade",
 } as const;
 
+export interface AccountPlanPeriod {
+  days: number;
+  price: AccountMoney;
+  /** The period the operator recommends. */
+  highlighted: boolean;
+}
+
 export interface AccountPlan {
   planId: string;
   planVersionId: string;
@@ -5507,6 +5514,8 @@ export interface AccountPlan {
    * @nullable
    */
   deviceLimit?: number | null;
+  /** Further billing periods the first of `operations` may be bought for, beside the plan's own, in the plan's currency: a renewal-only period for an extension, a purchase period otherwise. Empty when nothing more is sold or nothing may be started. */
+  periods?: AccountPlanPeriod[];
 }
 
 export interface AccountPlanList {
@@ -8658,6 +8667,11 @@ export type OpenAccountCheckoutBody = {
   /** Required for renew, upgrade, and downgrade when concurrent subscriptions are enabled. */
   subscriptionId?: string;
   newSubscription?: boolean;
+  /**
+   * Opens at one of the plan's further periods; 0 or absent is its own. A period the plan does not sell for this operation is refused with period_unavailable.
+   * @minimum 0
+   */
+  periodDays?: number;
 };
 
 export type UpdateAccountCheckoutBody = {

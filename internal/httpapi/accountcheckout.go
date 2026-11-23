@@ -196,6 +196,15 @@ func planPayload(plan accountcheckout.PlanOffer) map[string]any {
 	if plan.IneligibleReason != "" {
 		payload["ineligibleReason"] = plan.IneligibleReason
 	}
+	periods := make([]map[string]any, 0, len(plan.Periods))
+	for _, choice := range plan.Periods {
+		periods = append(periods, map[string]any{
+			"days":        choice.Days,
+			"price":       map[string]any{"amountMinor": choice.AmountMinor, "currency": plan.Currency},
+			"highlighted": choice.Highlighted,
+		})
+	}
+	payload["periods"] = periods
 	return payload
 }
 
@@ -260,6 +269,7 @@ func (handlers *AccountHandlers) openCheckout(writer http.ResponseWriter, reques
 		Operation       string `json:"operation"`
 		SubscriptionID  string `json:"subscriptionId"`
 		NewSubscription bool   `json:"newSubscription"`
+		PeriodDays      int    `json:"periodDays"`
 	}
 	if !decodeJSON(writer, request, &body) {
 		return
@@ -269,6 +279,7 @@ func (handlers *AccountHandlers) openCheckout(writer http.ResponseWriter, reques
 		accountcheckout.OpenRequest{
 			PlanVersionID: body.PlanVersionID, Operation: body.Operation,
 			SubscriptionID: body.SubscriptionID, NewSubscription: body.NewSubscription,
+			PeriodDays: body.PeriodDays,
 		},
 	)
 	if handlers.writeCheckoutError(writer, request, err) {

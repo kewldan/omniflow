@@ -7234,6 +7234,27 @@
             "other": "其他"
           }
         }
+      },
+      "switcher": {
+        "label": "时长",
+        "name": {
+          "day": "1 天",
+          "week": "1 周",
+          "month": "1 个月",
+          "quarter": "3 个月",
+          "half_year": "半年",
+          "year": "1 年",
+          "days": "{count} 天"
+        },
+        "for": {
+          "day": "/ 天",
+          "week": "/ 周",
+          "month": "/ 月",
+          "quarter": "/ 3 个月",
+          "half_year": "/ 半年",
+          "year": "/ 年",
+          "days": "/ {count} 天"
+        }
       }
     },
     "gifts": {

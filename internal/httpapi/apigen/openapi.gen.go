@@ -6807,12 +6807,15 @@ type AccountPlan struct {
 	Name             string          `json:"name"`
 
 	// Operations The lifecycle actions the configured plan policy allows for this customer.
-	Operations       []AccountPlanOperations `json:"operations"`
-	PlanId           openapi_types.UUID      `json:"planId"`
-	PlanVersionId    openapi_types.UUID      `json:"planVersionId"`
-	Price            AccountMoney            `json:"price"`
-	RecurringCapable *bool                   `json:"recurringCapable,omitempty"`
-	SortOrder        *int                    `json:"sortOrder,omitempty"`
+	Operations []AccountPlanOperations `json:"operations"`
+
+	// Periods Further billing periods the first of `operations` may be bought for, beside the plan's own, in the plan's currency: a renewal-only period for an extension, a purchase period otherwise. Empty when nothing more is sold or nothing may be started.
+	Periods          *[]AccountPlanPeriod `json:"periods,omitempty"`
+	PlanId           openapi_types.UUID   `json:"planId"`
+	PlanVersionId    openapi_types.UUID   `json:"planVersionId"`
+	Price            AccountMoney         `json:"price"`
+	RecurringCapable *bool                `json:"recurringCapable,omitempty"`
+	SortOrder        *int                 `json:"sortOrder,omitempty"`
 
 	// TrafficAllowanceBytes Null means unlimited. Nullable rather than zero because unlimited and none are different offers.
 	TrafficAllowanceBytes *int64 `json:"trafficAllowanceBytes,omitempty"`
@@ -6848,10 +6851,13 @@ type AccountPlanDetail struct {
 	Name             string                `json:"name"`
 
 	// Operations The lifecycle actions the configured plan policy allows for this customer.
-	Operations    []AccountPlanDetailOperations `json:"operations"`
-	PlanId        openapi_types.UUID            `json:"planId"`
-	PlanVersionId openapi_types.UUID            `json:"planVersionId"`
-	Price         AccountMoney                  `json:"price"`
+	Operations []AccountPlanDetailOperations `json:"operations"`
+
+	// Periods Further billing periods the first of `operations` may be bought for, beside the plan's own, in the plan's currency: a renewal-only period for an extension, a purchase period otherwise. Empty when nothing more is sold or nothing may be started.
+	Periods       *[]AccountPlanPeriod `json:"periods,omitempty"`
+	PlanId        openapi_types.UUID   `json:"planId"`
+	PlanVersionId openapi_types.UUID   `json:"planVersionId"`
+	Price         AccountMoney         `json:"price"`
 	Promotions    []struct {
 		Code     string     `json:"code"`
 		Currency *string    `json:"currency,omitempty"`
@@ -6880,6 +6886,15 @@ type AccountPlanDetailOperations string
 type AccountPlanList struct {
 	Currency string        `json:"currency"`
 	Items    []AccountPlan `json:"items"`
+}
+
+// AccountPlanPeriod defines model for AccountPlanPeriod.
+type AccountPlanPeriod struct {
+	Days int `json:"days"`
+
+	// Highlighted The period the operator recommends.
+	Highlighted bool         `json:"highlighted"`
+	Price       AccountMoney `json:"price"`
 }
 
 // AccountPreferences defines model for AccountPreferences.
@@ -12136,7 +12151,10 @@ type UpdateAccountCheckoutParams struct {
 type OpenAccountCheckoutJSONBody struct {
 	NewSubscription *bool                                `json:"newSubscription,omitempty"`
 	Operation       OpenAccountCheckoutJSONBodyOperation `json:"operation"`
-	PlanVersionId   openapi_types.UUID                   `json:"planVersionId"`
+
+	// PeriodDays Opens at one of the plan's further periods; 0 or absent is its own. A period the plan does not sell for this operation is refused with period_unavailable.
+	PeriodDays    *int               `json:"periodDays,omitempty"`
+	PlanVersionId openapi_types.UUID `json:"planVersionId"`
 
 	// SubscriptionId Required for renew, upgrade, and downgrade when concurrent subscriptions are enabled.
 	SubscriptionId *openapi_types.UUID `json:"subscriptionId,omitempty"`

@@ -50,7 +50,16 @@ export type PlanOffer = {
   /** `null` means unlimited, which is not the same as a limit of zero. */
   trafficAllowanceBytes: number | null;
   deviceLimit: number | null;
+  /**
+   * Further periods the first of `operations` may be bought for, in the
+   * plan's currency — what the store card's switcher offers. Absent from an
+   * older server.
+   */
+  periods?: PlanPeriod[];
 };
+
+/** One further billing period a plan is sold for, and its price. */
+export type PlanPeriod = { days: number; price: Money; highlighted?: boolean };
 
 /** One squad a customer may add to a plan. */
 export type SelectableSquad = {
@@ -420,7 +429,7 @@ export type TopUpResult = {
 
 /** A plan version's further billing periods in one currency. */
 export type PeriodOffer = {
-  choices: { days: number; price: Money; highlighted?: boolean }[];
+  choices: PlanPeriod[];
   custom?: { minDays: number; maxDays: number; pricePerDay: Money };
 };
 

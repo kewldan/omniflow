@@ -4896,6 +4896,7 @@ paths:
                 operation: {type: string, enum: [purchase, renew, upgrade, downgrade]}
                 subscriptionId: {type: string, format: uuid, description: "Required for renew, upgrade, and downgrade when concurrent subscriptions are enabled."}
                 newSubscription: {type: boolean}
+                periodDays: {type: integer, minimum: 0, description: "Opens at one of the plan's further periods; 0 or absent is its own. A period the plan does not sell for this operation is refused with period_unavailable."}
       responses:
         "201": {description: Opened, content: {application/json: {schema: {$ref: "#/components/schemas/AccountCheckout"}}}}
         "404": {$ref: "#/components/responses/Problem"}
@@ -10401,6 +10402,21 @@ components:
           nullable: true
           description: "Null means unlimited. Nullable rather than zero because unlimited and none are different offers."
         deviceLimit: {type: integer, nullable: true, description: "Null means unlimited."}
+        periods:
+          type: array
+          description: >-
+            Further billing periods the first of `operations` may be bought for,
+            beside the plan's own, in the plan's currency: a renewal-only period
+            for an extension, a purchase period otherwise. Empty when nothing more
+            is sold or nothing may be started.
+          items: {$ref: "#/components/schemas/AccountPlanPeriod"}
+    AccountPlanPeriod:
+      type: object
+      required: [days, price, highlighted]
+      properties:
+        days: {type: integer}
+        price: {$ref: "#/components/schemas/AccountMoney"}
+        highlighted: {type: boolean, description: "The period the operator recommends."}
     AccountPlanList:
       type: object
       required: [items, currency]

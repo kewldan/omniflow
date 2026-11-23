@@ -7234,6 +7234,27 @@
             "other": "Інше"
           }
         }
+      },
+      "switcher": {
+        "label": "Термін",
+        "name": {
+          "day": "День",
+          "week": "Тиждень",
+          "month": "Місяць",
+          "quarter": "3 місяці",
+          "half_year": "Пів року",
+          "year": "Рік",
+          "days": "{count} дн."
+        },
+        "for": {
+          "day": "за день",
+          "week": "за тиждень",
+          "month": "за місяць",
+          "quarter": "за 3 місяці",
+          "half_year": "за пів року",
+          "year": "за рік",
+          "days": "за {count, plural, one {# день} few {# дні} many {# днів} other {# дня}}"
+        }
       }
     },
     "gifts": {
