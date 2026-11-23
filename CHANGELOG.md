@@ -1,5 +1,61 @@
 # Changelog
 
+## [1.8.0](https://github.com/kewldan/omniflow/compare/omniflow-v1.7.0...omniflow-v1.8.0) (2026-11-23)
+
+
+### Features
+
+* **account:** a customer's review of the cabinet, worked through ([5b6f994](https://github.com/kewldan/omniflow/commit/5b6f994cb4a670155b6f9ed59a13571f8cb61828))
+* **account:** a friendlier cabinet, and payment methods by their marks ([77bc376](https://github.com/kewldan/omniflow/commit/77bc3764216f16f7b9faedc378fca7b86f929acc))
+* **account:** animated menu icons, played on hover and tap ([67a1570](https://github.com/kewldan/omniflow/commit/67a1570849037f059d6505944266e6815c595318))
+* **account:** audit a refused Telegram sign-in with its reason ([cb3706a](https://github.com/kewldan/omniflow/commit/cb3706a710a20cb4c5a6f7f5a83b4858d4f9b349))
+* **account:** icons on every menu entry, and a short account ID that copies ([e5bf2e9](https://github.com/kewldan/omniflow/commit/e5bf2e9ccab661d43b8db357c8612a3c60d24d44))
+* **account:** no title bar on a phone ([36a53cb](https://github.com/kewldan/omniflow/commit/36a53cbc4f76e649184c529e018cbb149227c66e))
+* **account:** open a single subscription out on the dashboard ([966d9f8](https://github.com/kewldan/omniflow/commit/966d9f80b5cab5e6d55e14f291a21aca17087df3))
+* **account:** the sign-in link as a button that disappears, and exports in the Mini App ([de5c3fa](https://github.com/kewldan/omniflow/commit/de5c3fae2895b5381df2f9fdaaab8697cd2ce10f))
+* **admin:** a method column in finance, and a support count that follows a reply ([797532f](https://github.com/kewldan/omniflow/commit/797532f173c43be1d1caa2b4d793e1b8c9b13be1))
+* **admin:** information pages edit beside a live preview ([8f11d26](https://github.com/kewldan/omniflow/commit/8f11d26233e681597f13051de029458d36153144))
+* **admin:** marketing in five sections ([43be927](https://github.com/kewldan/omniflow/commit/43be9270ea83ff57384645b944ba616396cf0458))
+* **admin:** operator group topics in the panel, with recreate ([e78b4a4](https://github.com/kewldan/omniflow/commit/e78b4a49d0dd2345cd873762b5c1a4d374989f74))
+* **admin:** passkeys-only sign-in, and a server command line ([2e19e08](https://github.com/kewldan/omniflow/commit/2e19e087f95eb65c8d295a64c5deaeb6dd2ca4f4))
+* **admin:** repair the operator group's topic names and icons in place ([32d3c51](https://github.com/kewldan/omniflow/commit/32d3c515acd9b4dbcabc07e5e80f7536405cbbce))
+* **analytics:** unit economics, activation, revenue movement, and why customers leave ([3fe3689](https://github.com/kewldan/omniflow/commit/3fe3689bc68b3287222f662794ebf6dd100be954))
+* **bot:** answer operator notice buttons and post a startup report ([5572bf4](https://github.com/kewldan/omniflow/commit/5572bf4175f441533d735ef9f98bfddc012c88d6))
+* **migrate-bedolaga:** carry the referral programme's terms ([0b24d44](https://github.com/kewldan/omniflow/commit/0b24d44c2ec47c975946a181e0a67f637f5fe709))
+* **operator:** notices laid out like the previous bot, with labelled fields and buttons ([580c39d](https://github.com/kewldan/omniflow/commit/580c39d4d8d68bc36eb75be543e20b51f11eb766))
+* **operator:** plain topic names with icons, and one edited status message ([3ddd3b9](https://github.com/kewldan/omniflow/commit/3ddd3b9a8a7313522a09fc96fd28e624ae73433d))
+* **operator:** the shop sale and scheduled report in the notice layout ([fc49fa9](https://github.com/kewldan/omniflow/commit/fc49fa95032a91f793010ed8724f2d0bc7bdaf27))
+* **referrals:** invite and partner programme apart, and how rewards are paid ([5628771](https://github.com/kewldan/omniflow/commit/5628771d9d468ad921dbab638fb2ab1c3bbeb8cd))
+* **smart-subscription:** balance INCY, Russian geosite, operator block list ([e2980c6](https://github.com/kewldan/omniflow/commit/e2980c6660af0d90a134021ac2e848eca8eeb3aa))
+* **smart-subscription:** country groups, whitelist bypass, and customer routing ([f370abd](https://github.com/kewldan/omniflow/commit/f370abde1cfa038c1e84b8c46735f9a649560246))
+* **store:** choose the plan's period on its card ([42c82eb](https://github.com/kewldan/omniflow/commit/42c82eb4a95ad4ef8b0ad0ddde04869996076eb6))
+* **store:** leave out a trial the customer can no longer take ([ff4a5fb](https://github.com/kewldan/omniflow/commit/ff4a5fb6e121b268ec8618ecd8b18020a899f271))
+* **ui:** controls lighter than the card, filled blocks, short labels with hints ([7de4b66](https://github.com/kewldan/omniflow/commit/7de4b66183aece1ac42a4f99d84fc59d7f6c8597))
+* **wallet:** top up by what the next period needs, with less to read ([60dfa88](https://github.com/kewldan/omniflow/commit/60dfa88e884df9e86a2fb656ddaaf3ef1633bc3a))
+
+
+### Bug Fixes
+
+* **account:** a switch is a 24-pixel target, and the sweep reads each page from its end ([46610aa](https://github.com/kewldan/omniflow/commit/46610aa14c56fa56fee2043f26129ab56ea0be8b))
+* **account:** no title bar or back link of the panel's own inside Telegram ([749d30b](https://github.com/kewldan/omniflow/commit/749d30b332c2d51daae2d13065efef788e91a0d7))
+* **account:** sign-in methods by their names and marks ([84991eb](https://github.com/kewldan/omniflow/commit/84991eb27c79f2ed90a0856351f9c3e8b927eb8e))
+* **account:** the account ID button is named by what it shows ([423e973](https://github.com/kewldan/omniflow/commit/423e973a563be2d940230366dacbe2e72939f2dc))
+* **account:** the page is as tall as the screen, not a tab bar and more ([f98b05e](https://github.com/kewldan/omniflow/commit/f98b05e0dde13572def47d3cbaa8f23d35547d74))
+* **account:** the tab icons animate in one direction ([e8927a1](https://github.com/kewldan/omniflow/commit/e8927a123c9e8e0288bd70f8d97143d4e3a60f64))
+* **admin:** sign in with a synced passkey ([533ffb3](https://github.com/kewldan/omniflow/commit/533ffb3bda0241997a7d34b79bed13154f42f3d7))
+* **admin:** ticket reply stays in its card, aligned buttons, wider selects, star seller hint ([68a617d](https://github.com/kewldan/omniflow/commit/68a617d256e40dd6636cf328554113c5b39b16a5))
+* **checkout:** payment methods are priced at the period chosen ([92de3a6](https://github.com/kewldan/omniflow/commit/92de3a6c872cac6d552bbf31dff01981e44230d5))
+* **loyalty:** no tier notice for a tier without a benefit or at a programme's launch ([b0ac9f8](https://github.com/kewldan/omniflow/commit/b0ac9f80b256c086391c4d9fbdc6a7b516fe0b27))
+* **pages:** list pages in another language, and a back button in the Mini App ([13fb365](https://github.com/kewldan/omniflow/commit/13fb365568fc51f8a5e503ad96723f7fc09ea88c))
+* **pages:** numbered points spaced out by blank lines stay one list ([4bc6a0f](https://github.com/kewldan/omniflow/commit/4bc6a0fd59061e92769fa3acc5074f10e4fa9f4d))
+* **smart-subscription:** list a customer's servers from their squads ([753fcb6](https://github.com/kewldan/omniflow/commit/753fcb66986f64d507b583f820eb40db015cc917))
+* **ui:** a pointer cursor on everything that acts on a click ([a3dd610](https://github.com/kewldan/omniflow/commit/a3dd6105b8e724adecb370eb47ff5855b9acf85c))
+* **ui:** keep the scrollbar's room so pages do not shift between routes ([7d9889b](https://github.com/kewldan/omniflow/commit/7d9889b9ff34f5247fc565ce91d1101429749e16))
+* **ui:** quiet destructive buttons hover red, not lilac ([3cff3c0](https://github.com/kewldan/omniflow/commit/3cff3c01ad3136139f6c7f9dfaaa972e5b7413d0))
+* **web:** keep Bedolaga's app opener links working ([787ab33](https://github.com/kewldan/omniflow/commit/787ab337c8146079e22bcc6f6e94260e2f1a318a))
+* **web:** the passkeys-only hint parses as ICU ([004e80b](https://github.com/kewldan/omniflow/commit/004e80b493890c0dd02557d063497bd8b3ea4405))
+* **withdrawals:** commission counts as referral earnings ([d597679](https://github.com/kewldan/omniflow/commit/d59767941b4cf330d04ebda50cc8a54fdc1c47c6))
+
 ## [1.7.0](https://github.com/kewldan/omniflow/compare/omniflow-v1.6.2...omniflow-v1.7.0) (2026-11-22)
 
 
