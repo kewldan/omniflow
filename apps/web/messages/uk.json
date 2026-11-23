@@ -5591,8 +5591,11 @@
         "reserveName": "Bypass group name",
         "maxRules": "Most rules",
         "directDomains": "Always direct",
-        "hosts": "Hosts"
-      }
+        "hosts": "Hosts",
+        "blockDomains": "Завжди блокувати"
+      },
+      "blockDomains": "Завжди блокувати для всіх",
+      "blockDomainsHint": "По одному домену в рядку; піддомени теж блокуються."
     }
   },
   "account": {

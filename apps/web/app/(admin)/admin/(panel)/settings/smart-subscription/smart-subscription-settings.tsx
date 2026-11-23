@@ -48,6 +48,7 @@ type Settings = {
   customRules: boolean;
   maxRules: number;
   directDomains: string[];
+  blockDomains: string[];
   hosts: Record<string, HostOverride>;
 };
 type Host = {
@@ -92,12 +93,14 @@ function SettingsForm({ onSaved, settings }: { onSaved: () => void; settings: Se
   const editable = can("settings.write");
   const [draft, setDraft] = useState<Settings>(settings);
   const [domains, setDomains] = useState(settings.directDomains.join("\n"));
+  const [blocked, setBlocked] = useState((settings.blockDomains ?? []).join("\n"));
   const [maxRules, setMaxRules] = useState(String(settings.maxRules));
   const [probeInterval, setProbeInterval] = useState(String(settings.probeIntervalSeconds));
   const { run, pending, error } = useOperatorAction();
   const ids = {
     link: useId(),
     domains: useId(),
+    blocked: useId(),
     maxRules: useId(),
     auto: useId(),
     reserve: useId(),
@@ -111,10 +114,8 @@ function SettingsForm({ onSaved, settings }: { onSaved: () => void; settings: Se
     const { effectiveLinkBase: _readOnly, ...sendable } = draft;
     const body: Omit<Settings, "effectiveLinkBase"> = {
       ...sendable,
-      directDomains: domains
-        .split(/[\s,]+/)
-        .map((domain) => domain.trim())
-        .filter(Boolean),
+      directDomains: lines(domains),
+      blockDomains: lines(blocked),
       maxRules: Number(maxRules) || 0,
       probeIntervalSeconds: Number(probeInterval) || 0,
     };
@@ -218,6 +219,19 @@ function SettingsForm({ onSaved, settings }: { onSaved: () => void; settings: Se
             />
             <p className="text-muted-foreground text-xs">{translate("directDomainsHint")}</p>
           </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={ids.blocked}>{translate("blockDomains")}</Label>
+            <Textarea
+              aria-invalid={field === "blockDomains"}
+              id={ids.blocked}
+              onChange={(event) => setBlocked(event.target.value)}
+              placeholder="ads.example"
+              readOnly={!editable}
+              rows={3}
+              value={blocked}
+            />
+            <p className="text-muted-foreground text-xs">{translate("blockDomainsHint")}</p>
+          </div>
         </CardContent>
       </Card>
 
@@ -304,6 +318,14 @@ function SettingsForm({ onSaved, settings }: { onSaved: () => void; settings: Se
       )}
     </div>
   );
+}
+
+/** One domain per line, or separated by spaces or commas. */
+function lines(text: string): string[] {
+  return text
+    .split(/[\s,]+/)
+    .map((domain) => domain.trim())
+    .filter(Boolean);
 }
 
 function SwitchRow({

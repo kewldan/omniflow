@@ -23,6 +23,9 @@ type Request struct {
 	Catalog     Catalog
 	// Locale picks the language group names are written in.
 	Locale string
+	// NoGeosite leaves out every rule that names the geosite database, for a
+	// client that stalls on it (StripsGeosite).
+	NoGeosite bool
 }
 
 // Tuning of the balancers each group gets. The numbers are the ones the
@@ -507,6 +510,13 @@ func (builder groupBuilder) rules(entry string) []any {
 	if domains := byAction[ActionDirect]; len(domains) > 0 {
 		rules = append(rules, map[string]any{"type": "field", "domain": domains, "outboundTag": "direct"})
 	}
+	if len(builder.request.Settings.BlockDomains) > 0 {
+		domains := make([]any, 0, len(builder.request.Settings.BlockDomains))
+		for _, domain := range builder.request.Settings.BlockDomains {
+			domains = append(domains, "domain:"+domain)
+		}
+		rules = append(rules, map[string]any{"type": "field", "domain": domains, "outboundTag": "block"})
+	}
 	if len(builder.request.Settings.DirectDomains) > 0 {
 		domains := make([]any, 0, len(builder.request.Settings.DirectDomains))
 		for _, domain := range builder.request.Settings.DirectDomains {
@@ -514,17 +524,20 @@ func (builder groupBuilder) rules(entry string) []any {
 		}
 		rules = append(rules, map[string]any{"type": "field", "domain": domains, "outboundTag": "direct"})
 	}
-	if presets.BlockAds {
+	if presets.BlockAds && !builder.request.NoGeosite {
 		rules = append(rules, map[string]any{"type": "field", "domain": []any{"geosite:category-ads-all"}, "outboundTag": "block"})
 	}
 	if presets.RussiaDirect {
 		rules = append(rules,
-			map[string]any{"type": "field", "domain": []any{"domain:ru", "domain:su", "domain:xn--p1ai"}, "outboundTag": "direct"},
+			map[string]any{"type": "field", "domain": russianDomains(builder.request.NoGeosite), "outboundTag": "direct"},
 			map[string]any{"type": "field", "ip": []any{"geoip:ru"}, "outboundTag": "direct"},
 		)
 	}
 	for _, templated := range builder.tpl.rules {
 		rule := shallow(templated.rule)
+		if builder.request.NoGeosite && !dropGeosite(rule) {
+			continue
+		}
 		switch templated.target {
 		case "balancer":
 			rule["balancerTag"] = entry
@@ -534,6 +547,37 @@ func (builder groupBuilder) rules(entry string) []any {
 		rules = append(rules, rule)
 	}
 	return append(rules, map[string]any{"type": "field", "network": "tcp,udp", "balancerTag": entry})
+}
+
+// russianDomains are the Russia preset's domains: the national zones, and
+// the geosite category that also covers Russian services on other zones.
+func russianDomains(noGeosite bool) []any {
+	domains := []any{"domain:ru", "domain:su", "domain:xn--p1ai"}
+	if !noGeosite {
+		domains = append(domains, "geosite:category-ru")
+	}
+	return domains
+}
+
+// dropGeosite removes geosite entries from a rule's domain list, in place on
+// the rule's own copy. It reports false when nothing is left of a rule that
+// only named geosite, which must then be dropped rather than widened.
+func dropGeosite(rule map[string]any) bool {
+	domains, ok := rule["domain"].([]any)
+	if !ok {
+		return true
+	}
+	kept := make([]any, 0, len(domains))
+	for _, domain := range domains {
+		if text, _ := domain.(string); !strings.HasPrefix(text, "geosite:") {
+			kept = append(kept, domain)
+		}
+	}
+	if len(kept) == 0 {
+		return false
+	}
+	rule["domain"] = kept
+	return true
 }
 
 func balancer(tag string, selector []any, tolerance float64, baselineMS int, fallbackTag string) map[string]any {

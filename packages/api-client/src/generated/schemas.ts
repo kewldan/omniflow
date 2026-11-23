@@ -829,7 +829,7 @@ export const GetServerStatusResponse = zod.object({
 });
 
 /**
- * Public; the short UUID of the Remnawave link is the credential, so this link is exactly as secret as the panel's and is re-issued with it. While the smart subscription is on, a client that reads Xray JSON (Happ, v2RayTun, Streisand, and similar) gets one config per group — the fastest-server group, each country, and the whitelist bypass — each a balancer with a failover chain and the customer's routing; any other client gets the panel's own answer with hidden servers removed. While it is off, and for anything the module cannot rewrite, the panel's answer passes through unchanged. The client's User-Agent and HWID headers are forwarded to the panel, so its response rules and device limit apply. Answers carry an ETag and honour If-None-Match. Limited to 60 requests a minute per address.
+ * Public; the short UUID of the Remnawave link is the credential, so this link is exactly as secret as the panel's and is re-issued with it. While the smart subscription is on, a client that reads Xray JSON (Happ, v2RayTun, Streisand, and similar) gets one config per group — the fastest-server group, each country, and the whitelist bypass — each a balancer with a failover chain and the customer's routing; any other client gets the panel's own answer with hidden servers removed. While it is off, and for anything the module cannot rewrite, the panel's answer passes through unchanged. The client's User-Agent and HWID headers are forwarded to the panel, so its response rules and device limit apply. Answers carry an ETag and honour If-None-Match. Limited to 600 requests a minute per address.
  */
 export const getSmartSubscriptionPathShortUUIDRegExp = /^[A-Za-z0-9_-]{4,64}$/;
 
@@ -3849,6 +3849,8 @@ export const getPanelSmartSubscriptionResponseMaxRulesMax = 200;
 
 export const getPanelSmartSubscriptionResponseDirectDomainsMax = 200;
 
+export const getPanelSmartSubscriptionResponseBlockDomainsMax = 200;
+
 export const GetPanelSmartSubscriptionResponse = zod.object({
   enabled: zod.boolean(),
   version: zod
@@ -3886,6 +3888,10 @@ export const GetPanelSmartSubscriptionResponse = zod.object({
     .array(zod.string())
     .max(getPanelSmartSubscriptionResponseDirectDomainsMax)
     .describe("Domains that always go around the tunnel for everyone."),
+  blockDomains: zod
+    .array(zod.string())
+    .max(getPanelSmartSubscriptionResponseBlockDomainsMax)
+    .describe("Domains refused for everyone."),
   hosts: zod
     .record(
       zod.string(),
@@ -3925,6 +3931,8 @@ export const savePanelSmartSubscriptionBodyMaxRulesMax = 200;
 
 export const savePanelSmartSubscriptionBodyDirectDomainsMax = 200;
 
+export const savePanelSmartSubscriptionBodyBlockDomainsMax = 200;
+
 export const SavePanelSmartSubscriptionBody = zod.object({
   enabled: zod.boolean(),
   version: zod
@@ -3961,6 +3969,10 @@ export const SavePanelSmartSubscriptionBody = zod.object({
     .array(zod.string())
     .max(savePanelSmartSubscriptionBodyDirectDomainsMax)
     .describe("Domains that always go around the tunnel for everyone."),
+  blockDomains: zod
+    .array(zod.string())
+    .max(savePanelSmartSubscriptionBodyBlockDomainsMax)
+    .describe("Domains refused for everyone."),
   hosts: zod
     .record(
       zod.string(),
@@ -3990,6 +4002,8 @@ export const savePanelSmartSubscriptionResponseReserveNameMax = 40;
 export const savePanelSmartSubscriptionResponseMaxRulesMax = 200;
 
 export const savePanelSmartSubscriptionResponseDirectDomainsMax = 200;
+
+export const savePanelSmartSubscriptionResponseBlockDomainsMax = 200;
 
 export const SavePanelSmartSubscriptionResponse = zod.object({
   enabled: zod.boolean(),
@@ -4028,6 +4042,10 @@ export const SavePanelSmartSubscriptionResponse = zod.object({
     .array(zod.string())
     .max(savePanelSmartSubscriptionResponseDirectDomainsMax)
     .describe("Domains that always go around the tunnel for everyone."),
+  blockDomains: zod
+    .array(zod.string())
+    .max(savePanelSmartSubscriptionResponseBlockDomainsMax)
+    .describe("Domains refused for everyone."),
   hosts: zod
     .record(
       zod.string(),

@@ -10935,6 +10935,9 @@ type PanelSmartSubscription struct {
 	// AutoName The fastest-server group's name; empty uses the customer's language's default.
 	AutoName string `json:"autoName"`
 
+	// BlockDomains Domains refused for everyone.
+	BlockDomains []string `json:"blockDomains"`
+
 	// CustomRules Customers may add their own domains.
 	CustomRules bool                     `json:"customRules"`
 	Defaults    SmartSubscriptionPresets `json:"defaults"`

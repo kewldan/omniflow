@@ -20,9 +20,17 @@ const (
 	FormatLinks Format = "links"
 )
 
-// xrayClients read an Xray JSON array with balancers. INCY is left out on
-// purpose: it stalls on the geo databases the routing rules name.
-var xrayClients = regexp.MustCompile(`(?i)^(?:happ|streisand|foxray|v2box|v2rayn|v2raytun|invisibleman|xray|neko)|happ`)
+// xrayClients read an Xray JSON array with balancers.
+var xrayClients = regexp.MustCompile(`(?i)^(?:happ|streisand|foxray|v2box|v2rayn|v2raytun|invisibleman|xray|neko)|happ|incy`)
+
+// noGeositeClients stall on a config that names the geosite database, so the
+// rules they get are built from domain suffixes and geoip alone.
+var noGeositeClients = regexp.MustCompile(`(?i)incy`)
+
+// StripsGeosite reports whether a client must get rules without geosite.
+func StripsGeosite(userAgent string) bool {
+	return noGeositeClients.MatchString(userAgent)
+}
 
 // DetectFormat picks the answer by User-Agent. A client the module does not
 // know gets the panel's own answer for it.

@@ -47,10 +47,10 @@ func (handler *SmartSubscriptionHandler) Mount(router chi.Router) {
 	router.Head("/v1/sub/{shortUUID}", handler.serve)
 }
 
-// subscriptionRequestsPerMinute bounds one address. A household's devices
-// refreshing together stay well under it; a script walking short UUIDs does
-// not.
-const subscriptionRequestsPerMinute = 60
+// subscriptionRequestsPerMinute bounds one address. It is generous because a
+// mobile carrier's NAT puts many customers behind one address; a script
+// walking short UUIDs still runs into it.
+const subscriptionRequestsPerMinute = 600
 
 func (handler *SmartSubscriptionHandler) serve(writer http.ResponseWriter, request *http.Request) {
 	writer.Header().Set("Cache-Control", "no-store")
@@ -134,7 +134,7 @@ func (handlers *AdminHandlers) smartSubscriptionPayload(setting panelpg.SmartSub
 		"probeUrl": setting.ProbeURL, "probeIntervalSeconds": setting.ProbeIntervalSeconds,
 		"autoName": setting.AutoName, "reserveName": setting.ReserveName,
 		"defaults": setting.Defaults, "customRules": setting.CustomRules, "maxRules": setting.MaxRules,
-		"directDomains": setting.DirectDomains, "hosts": hosts,
+		"directDomains": setting.DirectDomains, "blockDomains": setting.BlockDomains, "hosts": hosts,
 	}
 }
 

@@ -346,6 +346,36 @@ func TestBuildXrayPreferences(t *testing.T) {
 	}
 }
 
+func TestBuildXrayWithoutGeosite(t *testing.T) {
+	settings := testSettings()
+	settings.BlockDomains = []string{"max.ru"}
+	preferences := settings.DefaultPreferences()
+	preferences.Presets.BlockAds = true
+	answer := panelConfig("Finland 1", "a.example.net", 443)
+	answer["routing"] = map[string]any{"rules": []any{
+		map[string]any{"type": "field", "domain": []any{"geosite:google"}, "outboundTag": "direct"},
+		map[string]any{"type": "field", "domain": []any{"geosite:openai", "domain:example.org"}, "outboundTag": "proxy"},
+	}}
+	request := Request{Upstream: panelAnswer(t, answer), Settings: settings, Preferences: preferences}
+	with, _ := BuildXray(request)
+	request.NoGeosite = true
+	without, _ := BuildXray(request)
+	if !strings.Contains(string(with), "geosite:category-ru") || !strings.Contains(string(with), "geosite:category-ads-all") {
+		t.Error("a client that reads geosite lost the geosite rules")
+	}
+	if strings.Contains(string(without), "geosite:") {
+		t.Errorf("a client that stalls on geosite still got it: %s", without)
+	}
+	for _, body := range [][]byte{with, without} {
+		if !strings.Contains(string(body), "domain:max.ru") || !strings.Contains(string(body), "domain:example.org") {
+			t.Error("the operator's block list or a template domain went missing")
+		}
+	}
+	if !StripsGeosite("INCY/2.1") || StripsGeosite("Happ/3") {
+		t.Error("StripsGeosite picks the wrong clients")
+	}
+}
+
 func TestBuildXrayHidingEverythingKeepsServers(t *testing.T) {
 	settings := testSettings()
 	configs := build(t, Request{
@@ -466,7 +496,7 @@ func TestDetectFormat(t *testing.T) {
 		"v2rayTun/2.1 (ios)":  FormatXray,
 		"Streisand":           FormatXray,
 		"clash-verge/v2":      FormatLinks,
-		"INCY/1.0":            FormatLinks,
+		"INCY/1.0":            FormatXray,
 		"Mozilla/5.0 (Linux)": FormatLinks,
 		"":                    FormatLinks,
 	} {

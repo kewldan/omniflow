@@ -1944,6 +1944,11 @@ export interface PanelSmartSubscription {
    * @maxItems 200
    */
   directDomains: string[];
+  /**
+   * Domains refused for everyone.
+   * @maxItems 200
+   */
+  blockDomains: string[];
   /** Corrections keyed by Remnawave host UUID. */
   hosts: PanelSmartSubscriptionHostsProperty;
 }
@@ -11822,7 +11827,7 @@ export const getGetSmartSubscriptionUrl = (shortUUID: string) => {
 };
 
 /**
- * Public; the short UUID of the Remnawave link is the credential, so this link is exactly as secret as the panel's and is re-issued with it. While the smart subscription is on, a client that reads Xray JSON (Happ, v2RayTun, Streisand, and similar) gets one config per group — the fastest-server group, each country, and the whitelist bypass — each a balancer with a failover chain and the customer's routing; any other client gets the panel's own answer with hidden servers removed. While it is off, and for anything the module cannot rewrite, the panel's answer passes through unchanged. The client's User-Agent and HWID headers are forwarded to the panel, so its response rules and device limit apply. Answers carry an ETag and honour If-None-Match. Limited to 60 requests a minute per address.
+ * Public; the short UUID of the Remnawave link is the credential, so this link is exactly as secret as the panel's and is re-issued with it. While the smart subscription is on, a client that reads Xray JSON (Happ, v2RayTun, Streisand, and similar) gets one config per group — the fastest-server group, each country, and the whitelist bypass — each a balancer with a failover chain and the customer's routing; any other client gets the panel's own answer with hidden servers removed. While it is off, and for anything the module cannot rewrite, the panel's answer passes through unchanged. The client's User-Agent and HWID headers are forwarded to the panel, so its response rules and device limit apply. Answers carry an ETag and honour If-None-Match. Limited to 600 requests a minute per address.
  */
 export const getSmartSubscription = async (
   shortUUID: string,

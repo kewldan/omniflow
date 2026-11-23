@@ -67,6 +67,7 @@ func (service *Service) Serve(ctx context.Context, short string, from http.Heade
 	request := smartsub.Request{
 		Upstream: content.Body, Settings: settings, Preferences: preferences,
 		Catalog: service.Catalog(ctx), Locale: locale,
+		NoGeosite: smartsub.StripsGeosite(from.Get("User-Agent")),
 	}
 	var body []byte
 	if format == smartsub.FormatXray {

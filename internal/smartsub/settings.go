@@ -69,6 +69,8 @@ type Settings struct {
 	// DirectDomains always go around the tunnel for everyone: the
 	// installation's own sites, a bank the operator knows misbehaves.
 	DirectDomains []string `json:"directDomains"`
+	// BlockDomains are refused for everyone.
+	BlockDomains []string `json:"blockDomains"`
 	// Hosts are the per-host corrections, keyed by Remnawave host UUID.
 	Hosts map[string]HostOverride `json:"hosts"`
 }
@@ -91,7 +93,7 @@ func DefaultSettings() Settings {
 		ProbeURL: DefaultProbeURL, ProbeIntervalSeconds: DefaultProbeInterval,
 		Defaults:    Presets{RussiaDirect: true},
 		CustomRules: true, MaxRules: DefaultMaxRules,
-		DirectDomains: []string{}, Hosts: map[string]HostOverride{},
+		DirectDomains: []string{}, BlockDomains: []string{}, Hosts: map[string]HostOverride{},
 	}
 }
 
@@ -153,23 +155,13 @@ func (settings Settings) Normalize() (Settings, error) {
 	case settings.MaxRules < 0 || settings.MaxRules > MaxRulesCeiling:
 		return Settings{}, invalid("maxRules", fmt.Sprintf("must be between 1 and %d", MaxRulesCeiling))
 	}
-	if len(settings.DirectDomains) > maxDirectDomains {
-		return Settings{}, invalid("directDomains", "too many domains")
+	var err error
+	if settings.DirectDomains, err = normalizeDomains("directDomains", settings.DirectDomains); err != nil {
+		return Settings{}, err
 	}
-	domains := make([]string, 0, len(settings.DirectDomains))
-	seen := map[string]bool{}
-	for _, raw := range settings.DirectDomains {
-		domain, err := NormalizeDomain(raw)
-		if err != nil {
-			return Settings{}, invalid("directDomains", err.Error())
-		}
-		if !seen[domain] {
-			seen[domain] = true
-			domains = append(domains, domain)
-		}
+	if settings.BlockDomains, err = normalizeDomains("blockDomains", settings.BlockDomains); err != nil {
+		return Settings{}, err
 	}
-	sort.Strings(domains)
-	settings.DirectDomains = domains
 	hosts := make(map[string]HostOverride, len(settings.Hosts))
 	for id, override := range settings.Hosts {
 		id = strings.ToLower(strings.TrimSpace(id))
@@ -195,6 +187,28 @@ func (settings Settings) Normalize() (Settings, error) {
 	}
 	settings.Hosts = hosts
 	return settings, nil
+}
+
+// normalizeDomains validates an operator's domain list and returns it
+// deduplicated and sorted.
+func normalizeDomains(field string, raw []string) ([]string, error) {
+	if len(raw) > maxDirectDomains {
+		return nil, invalid(field, "too many domains")
+	}
+	domains := make([]string, 0, len(raw))
+	seen := map[string]bool{}
+	for _, entry := range raw {
+		domain, err := NormalizeDomain(entry)
+		if err != nil {
+			return nil, invalid(field, err.Error())
+		}
+		if !seen[domain] {
+			seen[domain] = true
+			domains = append(domains, domain)
+		}
+	}
+	sort.Strings(domains)
+	return domains, nil
 }
 
 // Action is what one customer rule does with a domain.

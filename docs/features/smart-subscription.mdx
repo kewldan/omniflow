@@ -22,7 +22,7 @@ When an app refreshes the subscription, Omniflow asks Remnawave for it on the ap
 forwarding its User-Agent and device headers, so your response rules and the device limit apply as
 before — and rewrites what goes back:
 
-- **Xray JSON apps** (Happ, v2RayTun, Streisand, V2Box, v2rayN, FoXray, and similar) get one config
+- **Xray JSON apps** (Happ, INCY, v2RayTun, Streisand, V2Box, v2rayN, FoXray, and similar) get one config
   per group. Each group is a balancer that times its servers and picks the least loaded; when none
   of them answers, it falls back to the whitelist-bypass servers, and then to every server.
 - **Every other app** gets the panel's own answer, with the servers the customer hid taken out when
@@ -53,7 +53,8 @@ hosts is copied into Omniflow; the list is read from Remnawave once a minute.
   </Step>
   <Step title="Choose what customers start with">
     Pick the default routing (Russian sites direct is on by default), whether customers may add their
-    own domains, how many, and any domains that always go direct for everyone.
+    own domains, how many, and any domains that always go direct, or are always blocked, for
+    everyone.
   </Step>
   <Step title="Turn it on and save">
     From now on the cabinet and the bot hand out the new link. Customers who already imported the
@@ -78,7 +79,8 @@ own screen:
   its servers. **Measure ping** times each server from the browser; the figure is approximate, and
   it goes through the VPN when the VPN is on.
 - **Whitelist bypass** can be switched off by a customer who never needs it.
-- **Routing** has the three ready-made choices — Russian sites direct, block ads, block QUIC — and,
+- **Routing** has the three ready-made choices — Russian sites direct (the national zones, the
+  geosite Russian category, and Russian IPs), block ads, block QUIC — and,
   if you allow it, their own domains with Direct, Through VPN, or Block. A domain covers its
   subdomains; a pasted link keeps only the domain.
 
@@ -89,10 +91,13 @@ customer's privacy export.
 
 - The ad-blocking choice needs the app's geosite database. Happ and v2RayTun ship it; an app without
   it may refuse the config, which is why the choice is off by default.
-- INCY gets the panel's own answer: it stalls on the geo databases the routing rules name.
+- INCY stalls on a config that names the geosite database, so it gets the same groups with
+  geosite rules left out: the Russia preset falls back to the national zones and Russian IPs, and
+  ad blocking does not apply.
 - Omniflow is in the path of every refresh while the module is on. If it is down, apps cannot
   refresh, but configurations they already have keep working.
-- The link answers 60 requests a minute per address.
+- The link answers 600 requests a minute per address; a carrier's NAT can put many customers behind
+  one.
 
 ## Related
 

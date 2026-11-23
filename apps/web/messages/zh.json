@@ -5591,8 +5591,11 @@
         "reserveName": "Bypass group name",
         "maxRules": "Most rules",
         "directDomains": "Always direct",
-        "hosts": "Hosts"
-      }
+        "hosts": "Hosts",
+        "blockDomains": "Always blocked"
+      },
+      "blockDomains": "Always blocked for everyone",
+      "blockDomainsHint": "One domain per line; subdomains are blocked too."
     }
   },
   "account": {
