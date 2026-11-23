@@ -7233,14 +7233,17 @@
         "topUp": {
           "title": "Add to wallet",
           "disabled": "Topping up is switched off on this service. Your balance can still be spent on a purchase.",
-          "amount": "Amount in {currency}",
+          "amount": "Amount",
           "limits": "From {minimum} to {maximum} at a time.",
           "remaining": "You may still add {amount} in this period.",
           "submit": "Add to wallet",
           "startedDescription": "{amount} lands in your wallet as soon as the payment is confirmed. This page does not need to stay open.",
           "submitting": "Starting the payment…",
           "forShop": "Your shop purchase is saved. Top up {amount} and it is bought automatically as soon as the payment lands.",
-          "viaSupport": "Top up through support instead"
+          "viaSupport": "Top up through support instead",
+          "quickRenewal": "Renewal {amount}",
+          "quickShortfall": "Missing {amount}",
+          "window": "You can add up to {amount} more right now."
         },
         "pending": {
           "title": "Waiting to be paid",
@@ -7249,7 +7252,7 @@
           "noPayment": "The payment for this top-up has not been started. Open the order to choose a method."
         },
         "redeem": {
-          "title": "Promo or gift code",
+          "title": "Promo code",
           "label": "Code",
           "apply": "Apply",
           "applying": "Applying…",

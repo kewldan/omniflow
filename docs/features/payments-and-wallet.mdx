@@ -46,7 +46,9 @@ Once a provider is configured, **Settings → Commerce** in the panel controls h
 
 - each provider's **Enabled** switch and **Display order**;
 - **Payment buttons** — a name and description per button in both languages, minimum and maximum
-  amounts, quick top-up amounts, and who sees it (by sign-in method, by first top-up, or by loyalty
+  amounts, quick top-up amounts (the cabinet shows them only to a customer with no subscription;
+  one with a subscription is offered its renewal price and, when the balance is short of it, the
+  difference), and who sees it (by sign-in method, by first top-up, or by loyalty
   tier). Some providers can show SBP, card, and other methods as separate buttons through their
   `APP_<SLUG>_PAYMENT_METHODS` variable. In the cabinet each button carries the mark customers know
   it by: the SBP mark on any provider's SBP method, ЮKassa's on ЮKassa, CryptoBot's with the coins it

@@ -7129,14 +7129,17 @@
         "topUp": {
           "title": "充值钱包",
           "disabled": "本服务已关闭充值功能。您的余额仍可用于购买。",
-          "amount": "金额（{currency}）",
+          "amount": "金额",
           "limits": "单次 {minimum} 至 {maximum}。",
           "remaining": "本周期内您还可充值 {amount}。",
           "submit": "充值钱包",
           "startedDescription": "付款确认后，{amount} 将立即存入您的钱包。无需保持此页面打开。",
           "submitting": "正在发起付款…",
           "forShop": "您的商店购买已保存。充值 {amount}，款项到账后将自动完成购买。",
-          "viaSupport": "改为通过客服充值"
+          "viaSupport": "改为通过客服充值",
+          "quickRenewal": "续订 {amount}",
+          "quickShortfall": "还差 {amount}",
+          "window": "目前最多还可充值 {amount}。"
         },
         "pending": {
           "title": "待支付",
@@ -7145,7 +7148,7 @@
           "noPayment": "此次充值尚未开始付款。请打开订单选择支付方式。"
         },
         "redeem": {
-          "title": "优惠码或礼物码",
+          "title": "优惠码",
           "label": "代码",
           "apply": "使用",
           "applying": "正在使用…",

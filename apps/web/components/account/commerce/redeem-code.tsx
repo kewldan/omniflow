@@ -86,8 +86,11 @@ export function RedeemCode({ onRedeemed }: { onRedeemed: () => void }) {
   return (
     <section className="space-y-3">
       <SectionLabel>{translate("title")}</SectionLabel>
-      <form className="space-y-2 rounded-lg border border-border bg-card p-4" onSubmit={submit}>
-        <Label htmlFor="redeem-code">{translate("label")}</Label>
+      <form className="space-y-2 rounded-lg border border-border bg-card p-3" onSubmit={submit}>
+        {/* The section heading already says what goes in the field. */}
+        <Label className="sr-only" htmlFor="redeem-code">
+          {translate("label")}
+        </Label>
         <div className="flex gap-2">
           <Input
             aria-describedby={error ? "redeem-code-error" : undefined}
@@ -96,6 +99,7 @@ export function RedeemCode({ onRedeemed }: { onRedeemed: () => void }) {
             autoComplete="off"
             id="redeem-code"
             onChange={(event) => setCode(event.target.value)}
+            placeholder={translate("label")}
             value={code}
           />
           <Button disabled={pending || code.trim().length < 3} type="submit">
@@ -107,7 +111,6 @@ export function RedeemCode({ onRedeemed }: { onRedeemed: () => void }) {
             {error}
           </p>
         )}
-        <p className="text-[12.5px] text-muted-foreground">{translate("hint")}</p>
       </form>
     </section>
   );

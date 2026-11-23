@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useForm, useWatch } from "react-hook-form";
+import useSWR from "swr";
 import useSWRInfinite from "swr/infinite";
 import * as z from "zod/mini";
 import { PaymentHandoff } from "@/components/account/commerce/order-status";
@@ -120,6 +121,10 @@ export default function WalletPage() {
       {/* A top-up changes the balance shown on the dashboard, the checkout,
           and the order screens too, so every one of them is re-read. */}
       <TopUpForm
+        availableMinor={
+          wallet.balances.find((balance) => balance.currency === wallet.currency)?.availableMinor ??
+          0
+        }
         currency={wallet.currency}
         onCredited={() => {
           // The ledger is an infinite list, which a filtered global mutate
@@ -212,8 +217,8 @@ function BalanceCard({ balance }: { balance: WalletBalance }) {
 
   return (
     <article className="animate-step-in space-y-3 rounded-lg border border-border bg-card p-4">
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="text-[13px] text-muted-foreground">{translate("wallet.available")}</span>
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[14px] text-muted-foreground">{translate("wallet.available")}</span>
         <span className="font-bold text-[26px] leading-none tracking-[-0.04em]" data-numeric>
           {money(balance.availableMinor, balance.currency)}
         </span>
@@ -258,10 +263,12 @@ function BalanceCard({ balance }: { balance: WalletBalance }) {
  * arrives with a reason this screen has copy for.
  */
 function TopUpForm({
+  availableMinor,
   currency,
   onCredited,
   policy,
 }: {
+  availableMinor: number;
   currency: string;
   onCredited: () => void;
   policy: TopUpPolicy;
@@ -331,7 +338,18 @@ function TopUpForm({
   const chosen = policy.providers.find((choice) => choiceKey(choice) === chosenKey);
   // A method the operator gave its own quick amounts shows those instead of
   // the wallet-wide presets.
-  const presets = chosen?.quickAmountsMinor?.length ? chosen.quickAmountsMinor : policy.presets;
+  const fixedPresets = chosen?.quickAmountsMinor?.length
+    ? chosen.quickAmountsMinor
+    : policy.presets;
+  const renewalPresets = useRenewalPresets({ availableMinor, currency, policy });
+  // Amounts that mean something to this customer — what the next period
+  // costs, and what the balance is short of it — replace round figures that
+  // meant nothing to anyone. The operator's figures stay for a customer with
+  // no subscription to price them against.
+  const presets: { amountMinor: number; label: string }[] =
+    renewalPresets.length > 0
+      ? renewalPresets
+      : fixedPresets.map((amountMinor) => ({ amountMinor, label: money(amountMinor, currency) }));
 
   if (!policy.enabled) {
     return (
@@ -404,18 +422,18 @@ function TopUpForm({
           <div className="flex flex-wrap gap-2">
             {presets.map((preset) => (
               <Button
-                key={preset}
+                key={`${preset.label}-${preset.amountMinor}`}
                 onClick={() =>
-                  setValue("amount", minorToInput(preset, currency), {
+                  setValue("amount", minorToInput(preset.amountMinor, currency), {
                     shouldDirty: true,
                     shouldValidate: formState.isSubmitted,
                   })
                 }
                 size="sm"
                 type="button"
-                variant={minor === preset ? "secondary" : "outline"}
+                variant={minor === preset.amountMinor ? "secondary" : "outline"}
               >
-                {money(preset, currency)}
+                {preset.label}
               </Button>
             ))}
           </div>
@@ -423,19 +441,18 @@ function TopUpForm({
 
         <FormField
           error={formState.errors.amount?.message}
+          // The per-payment bounds are said by the field when an amount falls
+          // outside them; up front, only a window that is tighter than they
+          // are is worth a line, because it is the one limit nobody expects.
           hint={
-            <>
-              {translate("wallet.topUp.limits", {
-                maximum: money(policy.maximumMinor, currency),
-                minimum: money(policy.minimumMinor, currency),
-              })}
-              {policy.remainingWindowMinor > 0 &&
-                ` ${translate("wallet.topUp.remaining", {
+            policy.remainingWindowMinor > 0 &&
+            (policy.maximumMinor <= 0 || policy.remainingWindowMinor < policy.maximumMinor)
+              ? translate("wallet.topUp.window", {
                   amount: money(policy.remainingWindowMinor, currency),
-                })}`}
-            </>
+                })
+              : undefined
           }
-          label={translate("wallet.topUp.amount", { currency })}
+          label={translate("wallet.topUp.amount")}
         >
           {(props) => <MoneyInput {...props} currency={currency} {...register("amount")} />}
         </FormField>
@@ -537,4 +554,76 @@ function LedgerRow({ entry }: { entry: WalletEntry }) {
       </span>
     </li>
   );
+}
+
+type RenewalPricing = {
+  subscriptions: {
+    endsAt?: string;
+    currency: string;
+    periods: { amountMinor: number; own: boolean }[];
+  }[];
+};
+
+/**
+ * The quick amounts worth offering this customer: what their balance is short
+ * of the next period, and the period itself.
+ *
+ * The price is the subscription's own period from the renewal read, for the
+ * subscription that ends first in the wallet's currency. The renewal amount is
+ * raised to the smallest top-up the policy takes, and either is dropped when
+ * it is above what may be added, so a chip never offers an amount the store
+ * would refuse.
+ * Nothing to price against — no subscription, or the read failed — gives an
+ * empty list and the operator's presets.
+ */
+function useRenewalPresets({
+  availableMinor,
+  currency,
+  policy,
+}: {
+  availableMinor: number;
+  currency: string;
+  policy: TopUpPolicy;
+}): { amountMinor: number; label: string }[] {
+  const translate = useTranslations("account.commerce");
+  const money = useMoney({ trimZeroFraction: true });
+  const { data } = useSWR<RenewalPricing, ApiError>("/v1/account/renewal", fetcher, {
+    shouldRetryOnError: false,
+  });
+
+  const next = (data?.subscriptions ?? [])
+    .filter((subscription) => subscription.currency === currency)
+    .map((subscription) => ({
+      endsAt: subscription.endsAt ? Date.parse(subscription.endsAt) : Number.POSITIVE_INFINITY,
+      price: subscription.periods.find((period) => period.own)?.amountMinor ?? 0,
+    }))
+    .filter((subscription) => subscription.price > 0)
+    .sort((left, right) => left.endsAt - right.endsAt)[0];
+  if (!next) {
+    return [];
+  }
+
+  const ceiling = Math.min(
+    policy.maximumMinor > 0 ? policy.maximumMinor : Number.POSITIVE_INFINITY,
+    policy.remainingWindowMinor > 0 ? policy.remainingWindowMinor : Number.POSITIVE_INFINITY,
+  );
+  const offer = (amountMinor: number) => Math.max(amountMinor, policy.minimumMinor);
+  const presets: { amountMinor: number; label: string }[] = [];
+  const shortfall = next.price - availableMinor;
+  // Offered only as the exact figure: below the smallest top-up, a chip that
+  // said "missing 79 ₽" and filled in 100 ₽ would be saying something false,
+  // and the renewal chip beside it covers that customer anyway.
+  if (shortfall >= policy.minimumMinor && shortfall < next.price && shortfall <= ceiling) {
+    presets.push({
+      amountMinor: shortfall,
+      label: translate("wallet.topUp.quickShortfall", { amount: money(shortfall, currency) }),
+    });
+  }
+  if (offer(next.price) <= ceiling) {
+    presets.push({
+      amountMinor: offer(next.price),
+      label: translate("wallet.topUp.quickRenewal", { amount: money(offer(next.price), currency) }),
+    });
+  }
+  return presets;
 }

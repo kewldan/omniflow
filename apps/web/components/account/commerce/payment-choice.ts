@@ -36,12 +36,18 @@ export function useChoiceCopy(): (choice: PaymentChoice) => { label: string; des
       const custom = choice.name?.[language] || "";
       let label = custom;
       if (!label) {
-        label = translate(`checkout.provider.names.${providerKey(choice.provider)}`);
-        if (choice.method) {
-          const method = METHODS.includes(choice.method)
-            ? translate(`checkout.provider.methods.${choice.method}`)
-            : choice.method.toUpperCase();
-          label = `${label} · ${method}`;
+        const provider = translate(`checkout.provider.names.${providerKey(choice.provider)}`);
+        // A provider's own method is named by the method alone — "SBP", not
+        // "Card · SBP": the provider is how it is settled, not what the
+        // customer chooses. Its card method keeps the provider's name, which
+        // already says card; a method this build has no copy for keeps both.
+        if (!choice.method || choice.method === "card") {
+          label = provider;
+        } else if (METHODS.includes(choice.method)) {
+          const method = translate(`checkout.provider.methods.${choice.method}`);
+          label = method.charAt(0).toLocaleUpperCase(locale) + method.slice(1);
+        } else {
+          label = `${provider} · ${choice.method.toUpperCase()}`;
         }
       }
       return { description: choice.description?.[language] || "", label };
