@@ -44,7 +44,7 @@ export default async function PublishedPage({ params }: Params) {
     <article className="space-y-6">
       <header className="space-y-1">
         <h1 className="font-semibold text-xl tracking-tight">{page.title}</h1>
-        <p className="font-mono text-[11px] text-subtle-foreground">
+        <p className="text-[12.5px] text-subtle-foreground">
           {/* A calendar date, in UTC like every server-rendered moment: the
               reader is anonymous, so there is no zone of theirs to use. */}
           {translate("updated", { date: format.dateTime(new Date(page.updatedAt), "date") })}

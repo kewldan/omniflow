@@ -1,9 +1,9 @@
 "use client";
 
 import { Button } from "@omniflow/ui/button";
-import { Bell, ChevronRight, Megaphone, Plus } from "lucide-react";
+import { ChevronRight, CircleHelp, Megaphone, Plus } from "lucide-react";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { type ReactNode, useCallback } from "react";
 import useSWR from "swr";
 import useSWRInfinite from "swr/infinite";
@@ -49,6 +49,15 @@ function ticketPageKey(index: number, previous: SupportTicketPage | null) {
  */
 export default function SupportTicketsPage() {
   const translate = useTranslations("account.support");
+  const locale = useLocale();
+  // The operator's FAQ, when one is published: the answer a customer is
+  // looking for is often already written, and support is where they look.
+  const { data: published } = useSWR<{ items?: { slug: string; kind: string; title: string }[] }>(
+    `/v1/pages?locale=${encodeURIComponent(locale)}`,
+    fetcher,
+    { revalidateOnFocus: false },
+  );
+  const faq = published?.items?.find((page) => page.kind === "faq");
   const { data, error, isLoading, isValidating, mutate, setSize, size } = useSWRInfinite<
     SupportTicketPage,
     ApiError
@@ -157,23 +166,25 @@ export default function SupportTicketsPage() {
         </>
       )}
 
-      {/* Announcements and notification settings are reached from here rather
-          than from the tab bar. Both are places a customer visits occasionally,
-          and support is the errand they are already on when they think of
-          either. */}
-      <SectionLabel>{translate("nav.preferences")}</SectionLabel>
+      {/* Help a customer looks for before writing, or after: the operator's
+          frequently asked questions, when they published them, and the
+          announcements. Notification settings are not support; they live in
+          the account tab with the rest of the settings. */}
+      <SectionLabel>{translate("nav.help")}</SectionLabel>
       <nav className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+        {faq && (
+          <SideLink
+            description={translate("nav.faqDescription")}
+            href={`/pages/${faq.slug}`}
+            icon={<CircleHelp aria-hidden className="size-4 text-muted-foreground" />}
+            label={faq.title}
+          />
+        )}
         <SideLink
           description={translate("nav.newsDescription")}
           href="/account/news"
           icon={<Megaphone aria-hidden className="size-4 text-muted-foreground" />}
           label={translate("nav.news")}
-        />
-        <SideLink
-          description={translate("nav.preferencesDescription")}
-          href="/account/preferences"
-          icon={<Bell aria-hidden className="size-4 text-muted-foreground" />}
-          label={translate("nav.preferences")}
         />
       </nav>
     </div>

@@ -48,15 +48,13 @@ export default function ServerStatusPage() {
               <li className="flex items-center justify-between gap-3 px-4 py-3" key={server.name}>
                 <span className="truncate text-sm">
                   {server.countryCode ? (
-                    <span className="mr-2 font-mono text-muted-foreground text-xs">
-                      {server.countryCode}
-                    </span>
+                    <span className="mr-2 text-muted-foreground text-xs">{server.countryCode}</span>
                   ) : null}
                   {server.name}
                 </span>
                 <span
                   className={cn(
-                    "flex items-center gap-2 font-mono text-xs",
+                    "flex items-center gap-2 text-xs",
                     server.online ? "text-success" : "text-destructive",
                   )}
                 >
@@ -72,7 +70,7 @@ export default function ServerStatusPage() {
               </li>
             ))}
           </ul>
-          <p className="font-mono text-[11px] text-subtle-foreground">
+          <p className="text-[12.5px] text-subtle-foreground">
             {translate("checked")} <Timestamp value={data.checkedAt} />
           </p>
         </>

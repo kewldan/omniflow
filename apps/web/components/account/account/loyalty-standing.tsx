@@ -211,7 +211,11 @@ export function LoyaltyStanding() {
       <div className="space-y-1.5 rounded-xl border border-border bg-card p-4">
         <p className="font-medium text-[13.5px]">{translate("loyalty.rules")}</p>
         <p className="text-[12.5px] text-muted-foreground leading-relaxed">
-          {translate(`loyalty.metricRule.${rules.metric}`, { days: rules.windowDays })}
+          {/* A window of ten years or more is the customer's whole history;
+              "the last 3650 days" said that in a way nobody reads as such. */}
+          {rules.windowDays >= 3650 && rules.metric !== "tenure"
+            ? translate(`loyalty.metricRuleAllTime.${rules.metric}`)
+            : translate(`loyalty.metricRule.${rules.metric}`, { days: rules.windowDays })}
         </p>
         <p className="text-[12.5px] text-muted-foreground leading-relaxed">
           {rules.graceDays > 0

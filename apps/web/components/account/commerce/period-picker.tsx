@@ -31,7 +31,7 @@ export function PeriodPicker({
   onChange: (body: Record<string, unknown>) => void;
 }) {
   const translate = useTranslations("account.periodPicker");
-  const money = useMoney();
+  const money = useMoney({ trimZeroFraction: true });
   const selectId = useId();
   const daysId = useId();
   const periods = checkout.periods;
@@ -44,6 +44,16 @@ export function PeriodPicker({
     return null;
   }
   const custom = periods.custom;
+  // The plan's own period is named like the others — its days and its price —
+  // rather than as "the plan's period", which left the customer to guess that
+  // the 30 days were the first line. Longer periods say how much they save on
+  // it per day, which is the reason to pick one.
+  const ownDays = Math.max(1, Math.round(checkout.plan.durationSeconds / 86_400));
+  const ownPerDay = checkout.plan.price.amountMinor / ownDays;
+  const saving = (days: number, amountMinor: number) =>
+    ownPerDay > 0 && checkout.plan.price.currency
+      ? Math.round((1 - amountMinor / days / ownPerDay) * 100)
+      : 0;
 
   return (
     <fieldset className="space-y-2 rounded-lg border border-border bg-card p-4">
@@ -65,16 +75,28 @@ export function PeriodPicker({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={OWN}>{translate("own")}</SelectItem>
-          {periods.choices.map((choice) => (
-            <SelectItem key={choice.days} value={String(choice.days)}>
-              {translate("choice", {
-                days: choice.days,
-                price: money(choice.price.amountMinor, choice.price.currency),
-              })}
-              {choice.highlighted ? ` · ${translate("best")}` : ""}
-            </SelectItem>
-          ))}
+          <SelectItem value={OWN}>
+            {translate("choice", {
+              days: ownDays,
+              price: money(checkout.plan.price.amountMinor, checkout.plan.price.currency),
+            })}
+          </SelectItem>
+          {periods.choices.map((choice) => {
+            const percent =
+              choice.price.currency === checkout.plan.price.currency
+                ? saving(choice.days, choice.price.amountMinor)
+                : 0;
+            return (
+              <SelectItem key={choice.days} value={String(choice.days)}>
+                {translate("choice", {
+                  days: choice.days,
+                  price: money(choice.price.amountMinor, choice.price.currency),
+                })}
+                {percent >= 5 ? ` · −${percent}%` : ""}
+                {choice.highlighted ? ` · ${translate("best")}` : ""}
+              </SelectItem>
+            );
+          })}
           {custom && <SelectItem value={CUSTOM}>{translate("custom")}</SelectItem>}
         </SelectContent>
       </Select>

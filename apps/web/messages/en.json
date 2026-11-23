@@ -5636,7 +5636,8 @@
       "renewal": "Auto-renew",
       "offers": "Offers",
       "copyAccountId": "Copy the account ID",
-      "copied": "Copied"
+      "copied": "Copied",
+      "subscription": "Subscription"
     },
     "actions": {
       "cancel": "Cancel",
@@ -5913,8 +5914,8 @@
         "preferencesHint": "Choose what we tell you about, and where.",
         "privacy": "Personal data",
         "privacyHint": "Contact addresses, consents, your export, and account deletion.",
-        "documents": "Terms and policies",
-        "documentsHint": "The documents this service publishes."
+        "documents": "Documents",
+        "documentsHint": "Offer, rules, and privacy"
       },
       "referrals": {
         "title": "Invite a friend",
@@ -5991,7 +5992,11 @@
         "days": "{count, plural, one {# day} other {# days}}",
         "orders": "{count, plural, one {# order} other {# orders}}",
         "groups": "Your groups",
-        "groupsHint": "Granted to you beside the ladder. Your plan price uses the group with the highest priority."
+        "groupsHint": "Granted to you beside the ladder. Your plan price uses the group with the highest priority.",
+        "metricRuleAllTime": {
+          "spend": "Your level depends on everything you have bought.",
+          "orders": "Your level depends on all the orders you have placed."
+        }
       },
       "retention": {
         "title": "Your account",
@@ -6493,7 +6498,9 @@
         "news": "Announcements",
         "newsDescription": "Service news, incidents, and maintenance",
         "preferences": "Notifications",
-        "preferencesDescription": "What we send you, and when"
+        "preferencesDescription": "What we send you, and when",
+        "help": "Help",
+        "faqDescription": "Answers to the usual questions"
       },
       "status": {
         "open": "Open",
@@ -6841,10 +6848,10 @@
         "sign_in_method": "The trial is not available for the way this account signs in. Pick a paid plan, or sign in another way."
       },
       "promoRejection": {
-        "promo_unknown": "That code is not recognised. Check the spelling, or continue without it.",
+        "promo_unknown": "This promo code isn't valid.",
         "promo_ineligible": "That code does not apply to this purchase. You can continue without it.",
         "promo_exhausted": "That code has been used up. Continue without it, or ask support whether another applies.",
-        "promo_invalid": "That code cannot be used here. Continue without it.",
+        "promo_invalid": "This promo code isn't valid.",
         "unknown": "That code was not applied. You can continue without it.",
         "promo_daily_limit": "You have used as many different promo codes today as allowed. Try again tomorrow."
       },
@@ -6985,7 +6992,7 @@
         "confirm": "Confirm and pay",
         "confirmFree": "Confirm",
         "discard": "Discard this purchase",
-        "discardDescription": "The plan, the extras, and the code you entered are forgotten. Nothing has been charged.",
+        "discardDescription": "Your plan choice, add-ons, and promo code will be cleared. You haven't been charged.",
         "unreadableDescription": "Your open purchase could not be loaded. You can discard it and start again from the store; nothing has been charged.",
         "target": {
           "title": "Which subscription",
@@ -7069,7 +7076,9 @@
             "mastercard": "Mastercard"
           },
           "bounds": "From {minimum} to {maximum}"
-        }
+        },
+        "discardKeep": "Back to the purchase",
+        "discardTitle": "Cancel this purchase?"
       },
       "orders": {
         "title": "Orders",

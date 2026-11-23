@@ -6,7 +6,9 @@ import { readPages } from "@/lib/pages";
 export default async function PagesIndex() {
   const locale = await getLocale();
   const translate = await getTranslations("pages");
-  const pages = await readPages(locale);
+  // The documents list is the operator's legal pages. Frequently asked
+  // questions are help, not a document, and are reached from support.
+  const pages = (await readPages(locale)).filter((page) => page.kind !== "faq");
 
   return (
     <div className="space-y-6">

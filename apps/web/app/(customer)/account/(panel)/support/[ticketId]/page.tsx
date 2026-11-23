@@ -323,12 +323,13 @@ function ReplyForm({
 /**
  * The attachment control.
  *
- * The limits are stated above the picker, not discovered from a refusal. The
- * same two rules are then applied in the browser before anything is sent — the
- * server checks them again, because nothing in a browser is a boundary, but
- * checking here is what turns "your upload failed" into a sentence naming this
- * file's size and this installation's cap, said before a slow connection spends a
- * minute on it.
+ * At rest it is one quiet button under the reply box: a card with a heading,
+ * the limits, a note field, and a send button on every visit made the
+ * conversation hard to find. Choosing a file opens the rest. The limits are
+ * applied in the browser the moment a file is picked — the server checks them
+ * again, because nothing in a browser is a boundary — and a refusal names this
+ * file's size or type and the installation's rule, before a slow connection
+ * spends a minute on it.
  */
 function AttachmentForm({
   limits,
@@ -410,12 +411,11 @@ function AttachmentForm({
   }
 
   return (
-    <form className="space-y-2.5 rounded-lg border border-border bg-card p-4" onSubmit={submit}>
-      <div className="flex items-center gap-2">
-        <Paperclip aria-hidden className="size-[15px] text-muted-foreground" />
-        <h2 className="font-semibold text-[14px]">{translate("attachments.title")}</h2>
-      </div>
-      <AttachmentLimits limits={limits} />
+    <form
+      className={cn("space-y-2.5", file && "rounded-lg border border-border bg-card p-4")}
+      onSubmit={submit}
+    >
+      {file && <AttachmentLimits limits={limits} />}
 
       {/* The native control stays — it is what opens the system picker and
           what assistive technology announces — but its own button and "No file
@@ -436,19 +436,14 @@ function AttachmentForm({
         />
         <Label
           className={cn(
-            buttonVariants({ size: "sm", variant: "outline" }),
+            buttonVariants({ size: "sm", variant: file ? "outline" : "ghost" }),
             "cursor-pointer peer-focus-visible:ring-[3px] peer-focus-visible:ring-ring/40 peer-disabled:cursor-not-allowed peer-disabled:opacity-50",
           )}
           htmlFor={fileId}
         >
           <Paperclip aria-hidden />
-          {translate(file ? "attachments.chooseAnother" : "attachments.choose")}
+          {translate(file ? "attachments.chooseAnother" : "attachments.title")}
         </Label>
-        {!file && (
-          <span className="text-[12px] text-subtle-foreground">
-            {translate("attachments.none")}
-          </span>
-        )}
       </div>
       {rejection && (
         <p
@@ -465,21 +460,25 @@ function AttachmentForm({
         </p>
       )}
 
-      <Label className="pt-1" htmlFor={noteId}>
-        {translate("attachments.note")}
-      </Label>
-      <Textarea
-        className="min-h-16"
-        disabled={busy}
-        id={noteId}
-        maxLength={limits.maxMessageLength}
-        onChange={(event) => setNote(event.target.value)}
-        value={note}
-      />
+      {file && (
+        <>
+          <Label className="pt-1" htmlFor={noteId}>
+            {translate("attachments.note")}
+          </Label>
+          <Textarea
+            className="min-h-16"
+            disabled={busy}
+            id={noteId}
+            maxLength={limits.maxMessageLength}
+            onChange={(event) => setNote(event.target.value)}
+            value={note}
+          />
 
-      <Button disabled={busy || !file} size="sm" type="submit">
-        {busy ? translate("attachments.uploading") : translate("attachments.upload")}
-      </Button>
+          <Button disabled={busy || !file} size="sm" type="submit">
+            {busy ? translate("attachments.uploading") : translate("attachments.upload")}
+          </Button>
+        </>
+      )}
     </form>
   );
 }

@@ -25,6 +25,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { type ReactNode, useEffect, useState } from "react";
+import useSWR from "swr";
 
 import { AccountLiveUpdates } from "@/components/account/live-updates";
 import { useMiniApp } from "@/components/account/miniapp";
@@ -33,7 +34,7 @@ import { NavIcon } from "@/components/admin/nav-icon";
 import { useBrandName } from "@/components/brand-name";
 import { LocaleSync } from "@/components/intl/locale-switch";
 import { useAccount } from "@/lib/account-session";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, fetcher } from "@/lib/api";
 import { flushReferralAttribution, rememberReferralCode } from "@/lib/referral";
 import { signInPath } from "@/lib/sign-in-path";
 
@@ -105,6 +106,56 @@ const UNTITLED_SECTIONS: Record<string, string> = {
   "/account/offers": "nav.offers",
 };
 
+/**
+ * Which tab a page belongs to.
+ *
+ * Every page sits under `/account`, the subscriptions tab's own address, so a
+ * longest-prefix match lit "Subscriptions" for every page outside the bar —
+ * announcements reached from support, security reached from the account tab.
+ * A page is placed by where the customer reached it from instead.
+ */
+const SECTIONS: [prefix: string, tab: string][] = [
+  ["/account/store", "store"],
+  ["/account/shop", "store"],
+  ["/account/orders", "store"],
+  ["/account/checkout", "store"],
+  ["/account/wallet", "wallet"],
+  ["/account/support", "support"],
+  ["/account/news", "support"],
+  ["/account/profile", "profile"],
+  ["/account/preferences", "profile"],
+  ["/account/security", "profile"],
+  ["/account/privacy", "profile"],
+  ["/account/referrals", "profile"],
+  ["/account/gifts", "profile"],
+  ["/account/offers", "profile"],
+  ["/account/renewal", "profile"],
+];
+
+function sectionOf(pathname: string): string {
+  const match = SECTIONS.find(
+    ([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+  return match ? match[1] : "subscriptions";
+}
+
+/**
+ * The label key for a tab: "Subscription" for a customer with exactly one,
+ * which is most of them, and "Subscriptions" otherwise — the plural named a
+ * list that was never there. The overview is the dashboard's own read, so
+ * on the dashboard this costs nothing extra.
+ */
+function useNavKey(): (key: string) => string {
+  const { session } = useAccount();
+  const { data } = useSWR<{ subscriptions?: unknown[] }>(
+    session ? "/v1/account/overview" : null,
+    fetcher,
+    { revalidateOnFocus: false },
+  );
+  const single = data?.subscriptions?.length === 1;
+  return (key: string) => (key === "subscriptions" && single ? "nav.subscription" : `nav.${key}`);
+}
+
 /** The longest matching prefix, so a detail route keeps its section lit. */
 function isActive(pathname: string, href: string): boolean {
   if (href === "/account") {
@@ -126,6 +177,7 @@ function isActive(pathname: string, href: string): boolean {
  */
 export function AccountShell({ children }: { children: ReactNode }) {
   const translate = useTranslations("account");
+  const navKey = useNavKey();
   const { error, loading, session, signedOut, unavailable } = useAccount();
   const pathname = usePathname();
   const search = useSearchParams();
@@ -201,7 +253,7 @@ export function AccountShell({ children }: { children: ReactNode }) {
         <main className="mx-auto w-full max-w-lg flex-1 px-4 pt-3 pb-4 md:max-w-3xl md:px-8 md:pt-8 md:pb-16">
           {pageTitle ? (
             <h1 className="mb-4 font-semibold text-[19px] tracking-[-0.02em]">
-              {translate(pageTitle)}
+              {translate(pageTitle === "nav.subscriptions" ? navKey("subscriptions") : pageTitle)}
             </h1>
           ) : null}
           {children}
@@ -233,6 +285,7 @@ function DesktopSidebar({
   tabs: typeof TABS;
 }) {
   const translate = useTranslations("account");
+  const navKey = useNavKey();
   const serviceName = useBrandName(translate("nav.title"));
 
   return (
@@ -250,7 +303,7 @@ function DesktopSidebar({
               href={tab.href}
               icon={tab.icon}
               key={tab.href}
-              label={translate(`nav.${tab.key}`)}
+              label={translate(navKey(tab.key))}
               pathname={pathname}
             />
           ))}
@@ -404,14 +457,14 @@ function AccountFooter({ customerId }: { customerId: string }) {
 
 function TabBar({ pathname, tabs }: { pathname: string; tabs: typeof TABS }) {
   const translate = useTranslations("account");
+  const navKey = useNavKey();
   // How many times each tab was tapped; every change plays its icon once.
   const [plays, setPlays] = useState<Record<string, number>>({});
-  // The active tab is the longest matching prefix, so a detail route under a tab
-  // keeps that tab lit rather than falling back to the first one.
-  const activeIndex = tabs.reduce((best, tab, index) => {
-    const matches = pathname === tab.href || pathname.startsWith(`${tab.href}/`);
-    return matches && tab.href.length >= tabs[best].href.length ? index : best;
-  }, 0);
+  const section = sectionOf(pathname);
+  const activeIndex = Math.max(
+    0,
+    tabs.findIndex((tab) => tab.key === section),
+  );
 
   return (
     <nav
@@ -451,7 +504,7 @@ function TabBar({ pathname, tabs }: { pathname: string; tabs: typeof TABS }) {
                 play={plays[tab.key] ?? 0}
                 set="account"
               />
-              <span className="font-medium text-[9.5px]">{translate(`nav.${tab.key}`)}</span>
+              <span className="font-medium text-[9.5px]">{translate(navKey(tab.key))}</span>
             </Link>
           );
         })}

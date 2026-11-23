@@ -406,7 +406,9 @@ function Checkout({
       </div>
 
       <ConfirmDialog
-        cancelLabel={translate("actions.cancel")}
+        // "Cancel" beside "Cancel the purchase" asked the customer to work out
+        // which cancel was which; the way out says where it leads.
+        cancelLabel={translate("checkout.discardKeep")}
         confirmLabel={translate("checkout.discard")}
         description={translate("checkout.discardDescription")}
         destructive
@@ -414,7 +416,7 @@ function Checkout({
         onOpenChange={setDiscarding}
         open={discarding}
         pending={busy}
-        title={translate("checkout.discard")}
+        title={translate("checkout.discardTitle")}
       />
     </div>
   );
@@ -720,8 +722,10 @@ function PromoField({
               {translate("checkout.promo.label")}
             </Label>
             <Input
-              aria-describedby={formState.errors.code ? "promo-code-error" : undefined}
-              aria-invalid={Boolean(formState.errors.code)}
+              aria-describedby={
+                formState.errors.code || checkout.promoRejection ? "promo-code-error" : undefined
+              }
+              aria-invalid={Boolean(formState.errors.code || checkout.promoRejection)}
               autoComplete="off"
               id="promo-code"
               placeholder={translate("checkout.promo.placeholder")}
@@ -731,16 +735,16 @@ function PromoField({
               {translate("checkout.promo.apply")}
             </Button>
           </div>
-          <FieldMessage id="promo-code-error" message={formState.errors.code?.message} />
+          {/* A refused code is an error on the field it was typed into, said
+              in red under it, rather than a yellow notice that read as advice. */}
+          <FieldMessage
+            id="promo-code-error"
+            message={
+              formState.errors.code?.message ??
+              (checkout.promoRejection ? explain(checkout.promoRejection) : undefined)
+            }
+          />
         </form>
-      )}
-      {checkout.promoRejection && (
-        <p
-          className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-[12.5px] leading-relaxed"
-          role="status"
-        >
-          {explain(checkout.promoRejection)}
-        </p>
       )}
     </section>
   );

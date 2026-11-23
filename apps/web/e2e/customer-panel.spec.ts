@@ -133,7 +133,8 @@ test.describe("customer panel", () => {
   test("the dashboard has a heading, a way to buy, and fits the screen", async ({ browser }) => {
     const { context, page } = await signedIn(browser);
     await page.goto("/account");
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Subscriptions");
+    // "Subscription" for a customer with exactly one, "Subscriptions" otherwise.
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(/^Subscriptions?$/);
     await expect(page.getByRole("navigation", { name: /sections/i }).first()).toBeVisible();
     // A customer with nothing yet is offered the store, not told to find it.
     const browse = page.getByRole("link", { name: "Browse plans" });

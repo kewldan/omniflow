@@ -162,9 +162,7 @@ export function PlanCard({ plan }: { plan: PlanOffer }) {
             {period(plan.billingPeriod, plan.durationSeconds)}
           </span>
         </p>
-        {plan.description && (
-          <p className="text-[13.5px] text-muted-foreground leading-relaxed">{plan.description}</p>
-        )}
+        {plan.description && <PlanDescription text={plan.description} />}
       </div>
 
       {(plan.recurringCapable || plan.configurableSquads) && (
@@ -204,5 +202,34 @@ export function PlanCard({ plan }: { plan: PlanOffer }) {
         </p>
       )}
     </article>
+  );
+}
+
+/**
+ * A plan's description: a list when the operator wrote it as one line per
+ * point, a paragraph otherwise.
+ *
+ * Plans are compared point by point — countries, speed, devices — and a
+ * sentence with them run together had to be read rather than scanned.
+ * A leading dash or bullet on a line is the author's own marker and is
+ * dropped, so either way of writing a list renders the same.
+ */
+function PlanDescription({ text }: { text: string }) {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\s*(?:[-•*·]\s+)?/, "").trim())
+    .filter(Boolean);
+  if (lines.length < 2) {
+    return <p className="text-[13.5px] text-muted-foreground leading-relaxed">{text.trim()}</p>;
+  }
+  return (
+    <ul className="space-y-1 text-[13.5px] text-muted-foreground leading-relaxed">
+      {lines.map((line) => (
+        <li className="flex gap-2" key={line}>
+          <span aria-hidden className="mt-[0.6em] size-1 shrink-0 rounded-full bg-primary" />
+          <span className="min-w-0">{line}</span>
+        </li>
+      ))}
+    </ul>
   );
 }

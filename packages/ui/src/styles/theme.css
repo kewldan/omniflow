@@ -221,6 +221,10 @@
   --color-success-tint-foreground: var(--success-tint-foreground);
   --color-warning-tint-foreground: var(--warning-tint-foreground);
   --color-destructive-tint-foreground: var(--destructive-tint-foreground);
+  /* A field's error message (components/forms/field.tsx). The name was used
+     there and in a dozen panel screens without ever being defined, so every
+     form error rendered in the body colour instead of red. */
+  --color-danger-foreground: var(--destructive-tint-foreground);
   --color-info-tint-foreground: var(--info-tint-foreground);
   --color-border: var(--border);
   --color-input: var(--input);

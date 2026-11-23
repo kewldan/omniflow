@@ -5544,7 +5544,8 @@
       "renewal": "自动续费",
       "offers": "优惠",
       "copyAccountId": "复制账户 ID",
-      "copied": "已复制"
+      "copied": "已复制",
+      "subscription": "订阅"
     },
     "actions": {
       "cancel": "取消",
@@ -5821,8 +5822,8 @@
         "preferencesHint": "选择我们通知您的内容和方式。",
         "privacy": "个人数据",
         "privacyHint": "联系地址、同意记录、数据导出和账户删除。",
-        "documents": "条款与政策",
-        "documentsHint": "本服务发布的文件。"
+        "documents": "文件",
+        "documentsHint": "服务条款、规则与隐私"
       },
       "referrals": {
         "title": "邀请好友",
@@ -5899,7 +5900,11 @@
         "days": "{count, plural, one {# 天} other {# 天}}",
         "orders": "{count, plural, one {# 笔订单} other {# 笔订单}}",
         "groups": "您的用户组",
-        "groupsHint": "在等级之外单独授予您的用户组。套餐价格以优先级最高的用户组为准。"
+        "groupsHint": "在等级之外单独授予您的用户组。套餐价格以优先级最高的用户组为准。",
+        "metricRuleAllTime": {
+          "spend": "等级取决于您全部购买的金额。",
+          "orders": "等级取决于您全部订单的数量。"
+        }
       },
       "retention": {
         "title": "您的账户",
@@ -6401,7 +6406,9 @@
         "news": "公告",
         "newsDescription": "服务动态、故障与维护",
         "preferences": "通知",
-        "preferencesDescription": "我们向您发送什么，以及何时发送"
+        "preferencesDescription": "我们向您发送什么，以及何时发送",
+        "help": "帮助",
+        "faqDescription": "常见问题解答"
       },
       "status": {
         "open": "进行中",
@@ -6749,10 +6756,10 @@
         "sign_in_method": "此账户的登录方式不支持试用。请选择付费套餐，或换用其他方式登录。"
       },
       "promoRejection": {
-        "promo_unknown": "无法识别该优惠码。请检查拼写，或不使用优惠码继续。",
+        "promo_unknown": "优惠码无效。",
         "promo_ineligible": "该优惠码不适用于本次购买，您可以不使用它继续。",
         "promo_exhausted": "该优惠码已用完。请不使用它继续，或咨询客服是否有其他可用优惠码。",
-        "promo_invalid": "该优惠码无法在此使用，请不使用它继续。",
+        "promo_invalid": "优惠码无效。",
         "unknown": "该优惠码未生效，您可以不使用它继续。",
         "promo_daily_limit": "您今天使用的不同优惠码数量已达上限，请明天再试。"
       },
@@ -6881,7 +6888,7 @@
         "confirm": "确认并支付",
         "confirmFree": "确认",
         "discard": "放弃此购买",
-        "discardDescription": "所选套餐、附加包和输入的优惠码都将被清除。未产生任何扣款。",
+        "discardDescription": "已选的套餐、附加项和优惠码将被清除。您未被扣款。",
         "unreadableDescription": "无法加载您进行中的购买。您可以放弃它并从商店重新开始，未产生任何扣款。",
         "target": {
           "title": "选择订阅",
@@ -6965,7 +6972,9 @@
             "mastercard": "Mastercard"
           },
           "bounds": "{minimum} 至 {maximum}"
-        }
+        },
+        "discardKeep": "返回购买",
+        "discardTitle": "取消此次购买？"
       },
       "orders": {
         "title": "订单",
