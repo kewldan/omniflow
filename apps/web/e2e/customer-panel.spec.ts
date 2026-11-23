@@ -195,7 +195,7 @@ test.describe("customer panel", () => {
   test("the wallet top-up explains an amount it will refuse", async ({ browser }) => {
     const { context, page } = await signedIn(browser);
     await page.goto("/account/wallet");
-    const amount = page.getByLabel(/^Amount in/);
+    const amount = page.getByLabel(/^Amount$/);
     await page.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => undefined);
     test.skip((await amount.count()) === 0, "wallet top-up is switched off on this installation");
 
@@ -233,11 +233,12 @@ test.describe("customer panel", () => {
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(subject);
 
     // The picker is ours, in the panel's language, not the browser's own
-    // "Choose File / No file chosen".
+    // "Choose File / No file chosen". At rest it is one button: the limits,
+    // the note, and the send button appear once a file is chosen.
     const picker = page.locator('input[type="file"]');
     if (await picker.count()) {
-      await expect(page.getByText("Choose a file", { exact: false }).first()).toBeVisible();
-      await expect(page.getByText("No file chosen yet")).toBeVisible();
+      await expect(page.getByText("Attach a file", { exact: true }).first()).toBeVisible();
+      await expect(page.getByRole("button", { name: "Send file" })).toHaveCount(0);
       await expect(page.getByText(/image\/png/)).toHaveCount(0);
     }
     await noHorizontalScroll(page, "support thread");
