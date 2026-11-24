@@ -1,5 +1,35 @@
 # Changelog
 
+## [1.9.0](https://github.com/kewldan/omniflow/compare/omniflow-v1.8.0...omniflow-v1.9.0) (2026-11-24)
+
+
+### Features
+
+* **account:** servers and routing in the cabinet menu and on the home screen ([f332572](https://github.com/kewldan/omniflow/commit/f33257221bcc016852ad8d9fd19ef03a78faf28c))
+* **shop:** open Stars directly and keep the purchase form while repricing ([3bf1518](https://github.com/kewldan/omniflow/commit/3bf15185ee0981be490fcc9f7e88a180a92a732b))
+* **smart-subscription:** estimate ping through the VPN ([fa69352](https://github.com/kewldan/omniflow/commit/fa693526bbc22c25252cdaab18f3fee97960dad7))
+* **smart-subscription:** explain the screen to a first-time customer ([f34c8ec](https://github.com/kewldan/omniflow/commit/f34c8ec980e70c19cff98117007d59c4f9dea491))
+* **smart-subscription:** measure ping when the servers screen opens ([42f8a6d](https://github.com/kewldan/omniflow/commit/42f8a6d58c735eb25833939833af5880fe4d3669))
+* **smart-subscription:** offer the whitelist mode only when the operator turns it on ([6b3e306](https://github.com/kewldan/omniflow/commit/6b3e306f3983b4aeee45fd798aacc000ddda9e98))
+* **smart-subscription:** service logos on the servers badges ([8d415c6](https://github.com/kewldan/omniflow/commit/8d415c6c8d835e6928ddc3d8c7cb9defe6000f89))
+* **smart-subscription:** service rule cards, my server, outage notices, analytics ([35677f3](https://github.com/kewldan/omniflow/commit/35677f33053303c5ec3a0c6b1a611c27ad26b8df))
+* **smart-subscription:** show the service's rules on the customer's routing tab ([6657263](https://github.com/kewldan/omniflow/commit/665726348b5790ea7cb970acbd5ae605ff677499))
+* **smart-subscription:** show which services work through each server ([2c5268b](https://github.com/kewldan/omniflow/commit/2c5268be794c6dd9e9dc3358d9454cd658a3f7f6))
+* **smart-subscription:** take service availability from Remnawave geocheck ([b4f4d1e](https://github.com/kewldan/omniflow/commit/b4f4d1e6de2ceecf44d0cc7cc8aa3e6b7cd54657))
+* **support:** keep attachments in an S3 object store and show Telegram photos on the desk ([0b2c43b](https://github.com/kewldan/omniflow/commit/0b2c43b0e3f6389d6108d6059df4586c8b53ec59))
+* **web:** every sidebar entry is animated, enforced by a test ([13e525d](https://github.com/kewldan/omniflow/commit/13e525dfb0ad051fb01d32417073550e89eb7baf))
+
+
+### Bug Fixes
+
+* **admin:** name the smart subscription's built-in rules in the operator panel ([a03da11](https://github.com/kewldan/omniflow/commit/a03da1196c7de150041d0c4ebf1a2d9342d2e8e0))
+* **checkout:** keep a subscription on the version it was bought at when extended from the web ([a622178](https://github.com/kewldan/omniflow/commit/a6221789583b104adad50ca44870803890157463))
+* **checkout:** keep the bought version for extensions opened from the bot's plan list ([7826db6](https://github.com/kewldan/omniflow/commit/7826db60810ee72990ca719510017fa60940623f))
+* **smart-subscription:** cheaper kilometres for long-haul chain hops ([404ddd3](https://github.com/kewldan/omniflow/commit/404ddd345afdae76b3612831a7d8f32f9cf788f2))
+* **smart-subscription:** never send torrents through the VPN ([84cc98d](https://github.com/kewldan/omniflow/commit/84cc98d611a0738934561fbed6131fb951065aab))
+* **smart-subscription:** place a node by its CDN edges when geoip splits ([d4f7171](https://github.com/kewldan/omniflow/commit/d4f7171638d5b85494989b8c30b263d986c1d67f))
+* **web:** keep the customer look on public pages opened from the cabinet ([a022b80](https://github.com/kewldan/omniflow/commit/a022b80088eda5f10c906fd11eac468083d7a4bf))
+
 ## [1.8.0](https://github.com/kewldan/omniflow/compare/omniflow-v1.7.0...omniflow-v1.8.0) (2026-11-23)
 
 
