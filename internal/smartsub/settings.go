@@ -81,6 +81,10 @@ type Settings struct {
 	// country they use has been down for OutageMinutes, and when it is back.
 	OutageNotices bool `json:"outageNotices"`
 	OutageMinutes int  `json:"outageMinutes"`
+	// WhitelistMode offers customers the whitelist mode, which starts the
+	// automatic group on the bypass servers. Off by default: a customer who
+	// forgets to turn it off keeps spending the bypass servers' traffic.
+	WhitelistMode bool `json:"whitelistMode"`
 	// LegacyDefaults, LegacyDirect, and LegacyBlock are what versions before
 	// service rules saved; Normalize turns them into rules.
 	LegacyDefaults *Presets `json:"defaults,omitempty"`
@@ -349,6 +353,9 @@ func (preferences Preferences) Normalize(settings Settings) (Preferences, error)
 	preferences.Pinned = strings.ToLower(strings.TrimSpace(preferences.Pinned))
 	if preferences.Pinned != "" && !validUUID(preferences.Pinned) {
 		return Preferences{}, invalid("pinned", "pick one of your servers")
+	}
+	if !settings.WhitelistMode {
+		preferences.WhitelistMode = false
 	}
 	// The whitelist mode needs the bypass servers it switches to.
 	if preferences.WhitelistMode {

@@ -3922,6 +3922,11 @@ export const GetPanelSmartSubscriptionResponse = zod.object({
     .describe(
       "A bot message when every server of a country a customer uses has been down outageMinutes, and when it is back.",
     ),
+  whitelistMode: zod
+    .boolean()
+    .describe(
+      "Customers may turn on the whitelist mode, which starts the fastest-server group on the bypass servers. Off by default.",
+    ),
   outageMinutes: zod
     .int()
     .min(getPanelSmartSubscriptionResponseOutageMinutesMin)
@@ -4045,6 +4050,11 @@ export const SavePanelSmartSubscriptionBody = zod.object({
     .describe(
       "A bot message when every server of a country a customer uses has been down outageMinutes, and when it is back.",
     ),
+  whitelistMode: zod
+    .boolean()
+    .describe(
+      "Customers may turn on the whitelist mode, which starts the fastest-server group on the bypass servers. Off by default.",
+    ),
   outageMinutes: zod
     .int()
     .min(savePanelSmartSubscriptionBodyOutageMinutesMin)
@@ -4157,6 +4167,11 @@ export const SavePanelSmartSubscriptionResponse = zod.object({
     .boolean()
     .describe(
       "A bot message when every server of a country a customer uses has been down outageMinutes, and when it is back.",
+    ),
+  whitelistMode: zod
+    .boolean()
+    .describe(
+      "Customers may turn on the whitelist mode, which starts the fastest-server group on the bypass servers. Off by default.",
     ),
   outageMinutes: zod
     .int()
@@ -13062,6 +13077,9 @@ export const GetAccountSmartSubscriptionResponse = zod.object({
       .describe("The fastest-server group starts on the whitelist bypass servers."),
   }),
   customized: zod.boolean(),
+  whitelistMode: zod
+    .boolean()
+    .describe("Whether the operator offers the whitelist mode; the switch is hidden when not."),
   customRules: zod.boolean(),
   maxRules: zod.int(),
   rules: zod

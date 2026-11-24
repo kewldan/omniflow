@@ -221,6 +221,7 @@ func (handlers *AdminHandlers) smartSubscriptionPayload(setting panelpg.SmartSub
 		"autoName": setting.AutoName, "reserveName": setting.ReserveName,
 		"customRules": setting.CustomRules, "maxRules": setting.MaxRules, "rules": rulesPayload(setting.Rules),
 		"outageNotices": setting.OutageNotices, "outageMinutes": setting.OutageMinutes,
+		"whitelistMode": setting.WhitelistMode,
 		"logoSearch": handlers.smartSubscription.LogoSearch(), "hosts": hosts,
 	}
 }
@@ -329,6 +330,7 @@ func (handlers *AccountHandlers) smartSubscriptionView(writer http.ResponseWrite
 		"servers": view.Servers, "preferences": view.Preferences, "customized": view.Customized,
 		"customRules": view.CustomRules, "maxRules": view.MaxRules,
 		"rules": rulesPayload(view.Rules), "aiServers": view.AIServers,
+		"whitelistMode": view.WhitelistMode,
 	})
 }
 

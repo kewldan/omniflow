@@ -26,6 +26,8 @@ type CustomerView struct {
 	// AIServers counts, for each AI service, the customer's servers it
 	// answers from, so the AI card can say where it will go.
 	AIServers map[string]int
+	// WhitelistMode is whether the operator offers the whitelist mode.
+	WhitelistMode bool
 }
 
 // CustomerView reads the customer's servers from the panel and their saved
@@ -66,7 +68,7 @@ func (service *Service) CustomerView(ctx context.Context, customerID, subscripti
 	view := CustomerView{
 		Servers:     smartsub.BuildView(entries, catalog, settings, service.NodeChecks(ctx)),
 		CustomRules: settings.CustomRules, MaxRules: settings.MaxRules,
-		Rules: visibleRules(settings.Rules),
+		Rules: visibleRules(settings.Rules), WhitelistMode: settings.WhitelistMode,
 	}
 	view.AIServers = aiServerCounts(view.Servers)
 	preferences, found, err := readPreferences(ctx, service.pool, subscriptionID)

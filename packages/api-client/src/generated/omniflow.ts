@@ -2029,6 +2029,8 @@ export interface PanelSmartSubscription {
   rules: SmartSubscriptionServiceRule[];
   /** A bot message when every server of a country a customer uses has been down outageMinutes, and when it is back. */
   outageNotices: boolean;
+  /** Customers may turn on the whitelist mode, which starts the fastest-server group on the bypass servers. Off by default. */
+  whitelistMode: boolean;
   /**
    * @minimum 2
    * @maximum 1440
@@ -2168,6 +2170,8 @@ export interface AccountSmartSubscription {
   servers: AccountSmartSubscriptionServers;
   preferences: SmartSubscriptionPreferences;
   customized: boolean;
+  /** Whether the operator offers the whitelist mode; the switch is hidden when not. */
+  whitelistMode: boolean;
   customRules: boolean;
   maxRules: number;
   /** The service rules the customer sees, in order; disabled ones are left out. */

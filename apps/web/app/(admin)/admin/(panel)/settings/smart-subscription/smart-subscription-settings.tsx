@@ -85,6 +85,7 @@ type Settings = {
   rules: ServiceRule[];
   outageNotices: boolean;
   outageMinutes: number;
+  whitelistMode: boolean;
   logoSearch?: boolean;
   hosts: Record<string, HostOverride>;
 };
@@ -288,6 +289,13 @@ function SettingsForm({ onSaved, settings }: { onSaved: () => void; settings: Se
                   value={maxRules}
                 />
               </div>
+              <SwitchRow
+                checked={draft.whitelistMode}
+                disabled={!editable}
+                hint={translate("whitelistModeHint")}
+                label={translate("whitelistMode")}
+                onChange={(whitelistMode) => setDraft((current) => ({ ...current, whitelistMode }))}
+              />
               <SwitchRow
                 checked={draft.outageNotices}
                 disabled={!editable}

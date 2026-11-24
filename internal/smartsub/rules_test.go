@@ -194,9 +194,22 @@ func TestPinnedServerComesFirst(t *testing.T) {
 
 func TestWhitelistModeStartsOnTheBypass(t *testing.T) {
 	settings := testSettings()
+	// Not offered, a saved choice is ignored.
+	offOnly := settings.DefaultPreferences()
+	offOnly.WhitelistMode = true
+	configs := build(t, Request{Upstream: standardAnswer(t), Settings: settings, Catalog: testCatalog(), Preferences: offOnly})
+	for _, balancer := range configs[0].Routing.Balancers {
+		if balancer.Tag == "g0-balancer" && strings.Join(balancer.Selector, ",") == "Russia WHITE" {
+			t.Error("the whitelist mode applied while the operator does not offer it")
+		}
+	}
+	if normalized, _ := (Preferences{WhitelistMode: true}).Normalize(settings); normalized.WhitelistMode {
+		t.Error("a whitelist mode that is not offered was saved")
+	}
+	settings.WhitelistMode = true
 	preferences := settings.DefaultPreferences()
 	preferences.WhitelistMode = true
-	configs := build(t, Request{Upstream: standardAnswer(t), Settings: settings, Catalog: testCatalog(), Preferences: preferences})
+	configs = build(t, Request{Upstream: standardAnswer(t), Settings: settings, Catalog: testCatalog(), Preferences: preferences})
 	var entry []string
 	for _, balancer := range configs[0].Routing.Balancers {
 		if balancer.Tag == "g0-balancer" {

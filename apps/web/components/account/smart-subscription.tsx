@@ -90,6 +90,8 @@ type SmartView = {
   rules: ServiceRule[];
   /** For each AI service, how many of the customer's servers it answers from. */
   aiServers: Record<string, number>;
+  /** Whether the operator offers the whitelist mode. */
+  whitelistMode: boolean;
 };
 
 /** Servers whose country could not be read are grouped under this code. */
@@ -642,30 +644,32 @@ function ServersTab({
             <span className="flex-1 font-medium text-[14px]">{translate("reserveTitle")}</span>
             <Switch
               aria-label={translate("reserveTitle")}
-              checked={draft.reserve || draft.whitelistMode}
-              disabled={draft.whitelistMode}
+              checked={draft.reserve || (view.whitelistMode && draft.whitelistMode)}
+              disabled={view.whitelistMode && draft.whitelistMode}
               onCheckedChange={(on) => onChange({ ...draft, reserve: on })}
             />
           </div>
           <p className="text-[12.5px] text-muted-foreground">
             {translate("reserveDescription", { count: view.servers.reserve.length })}
           </p>
-          <label className="flex items-start gap-3 rounded-md bg-secondary p-3">
-            <span className="min-w-0 flex-1">
-              <span className="block font-medium text-[13.5px]">
-                {translate("whitelistModeTitle")}
+          {view.whitelistMode && (
+            <label className="flex items-start gap-3 rounded-md bg-secondary p-3">
+              <span className="min-w-0 flex-1">
+                <span className="block font-medium text-[13.5px]">
+                  {translate("whitelistModeTitle")}
+                </span>
+                <span className="block text-[12.5px] text-muted-foreground">
+                  {translate("whitelistModeDescription")}
+                </span>
               </span>
-              <span className="block text-[12.5px] text-muted-foreground">
-                {translate("whitelistModeDescription")}
-              </span>
-            </span>
-            <Switch
-              checked={draft.whitelistMode}
-              onCheckedChange={(on) =>
-                onChange({ ...draft, whitelistMode: on, reserve: on ? true : draft.reserve })
-              }
-            />
-          </label>
+              <Switch
+                checked={draft.whitelistMode}
+                onCheckedChange={(on) =>
+                  onChange({ ...draft, whitelistMode: on, reserve: on ? true : draft.reserve })
+                }
+              />
+            </label>
+          )}
           <ul className="space-y-1.5 pt-1">
             {view.servers.reserve.map((server) => (
               <li className="flex items-center gap-2 text-[13px]" key={key(server)}>

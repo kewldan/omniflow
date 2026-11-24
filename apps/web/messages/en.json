@@ -5750,7 +5750,9 @@
       "statsDomainsHint": "Domains at least three subscriptions added for themselves: candidates for a service rule.",
       "statsDomain": "Domain",
       "statsSubscriptions": "Subscriptions",
-      "statsMakeRule": "Make a rule"
+      "statsMakeRule": "Make a rule",
+      "whitelistMode": "Whitelist mode for customers",
+      "whitelistModeHint": "Customers may turn on a mode that starts Fastest on the bypass servers. Off, the switch is hidden and saved choices are ignored: a customer who forgets to turn the mode off keeps spending the bypass servers' traffic."
     }
   },
   "account": {

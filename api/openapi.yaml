@@ -8101,7 +8101,7 @@ components:
         tiktok: {$ref: "#/components/schemas/SmartSubscriptionServiceStatus"}
     PanelSmartSubscription:
       type: object
-      required: [enabled, version, linkBase, probeUrl, probeIntervalSeconds, autoName, reserveName, customRules, maxRules, rules, outageNotices, outageMinutes, hosts]
+      required: [enabled, version, linkBase, probeUrl, probeIntervalSeconds, autoName, reserveName, customRules, maxRules, rules, outageNotices, outageMinutes, whitelistMode, hosts]
       properties:
         enabled: {type: boolean}
         version: {type: integer, description: Send back the version last read; a newer one on the server is a 409.}
@@ -8115,6 +8115,7 @@ components:
         maxRules: {type: integer, minimum: 1, maximum: 200}
         rules: {type: array, maxItems: 40, items: {$ref: "#/components/schemas/SmartSubscriptionServiceRule"}, description: "The service rules in the order customers see them; any built-in rule left out is added with its default."}
         outageNotices: {type: boolean, description: "A bot message when every server of a country a customer uses has been down outageMinutes, and when it is back."}
+        whitelistMode: {type: boolean, description: "Customers may turn on the whitelist mode, which starts the fastest-server group on the bypass servers. Off by default."}
         outageMinutes: {type: integer, minimum: 2, maximum: 1440}
         logoSearch: {type: boolean, readOnly: true, description: "Whether icons can be fetched by domain (APP_LOGO_DEV_TOKEN is set)."}
         hosts:
@@ -8188,7 +8189,7 @@ components:
             tailMs: {type: integer, description: "The round trip past the entry: the hop to the exit node, the exit's median round trip to common sites, and 1 ms per node."}
     AccountSmartSubscription:
       type: object
-      required: [servers, preferences, customized, customRules, maxRules, rules, aiServers]
+      required: [servers, preferences, customized, customRules, maxRules, rules, aiServers, whitelistMode]
       properties:
         servers:
           type: object
@@ -8205,6 +8206,7 @@ components:
             reserve: {type: array, items: {$ref: "#/components/schemas/SmartSubscriptionServer"}}
         preferences: {$ref: "#/components/schemas/SmartSubscriptionPreferences"}
         customized: {type: boolean}
+        whitelistMode: {type: boolean, description: "Whether the operator offers the whitelist mode; the switch is hidden when not."}
         customRules: {type: boolean}
         maxRules: {type: integer}
         rules: {type: array, items: {$ref: "#/components/schemas/SmartSubscriptionServiceRule"}, description: "The service rules the customer sees, in order; disabled ones are left out."}

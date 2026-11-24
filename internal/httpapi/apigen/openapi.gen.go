@@ -7552,6 +7552,9 @@ type AccountSmartSubscription struct {
 		} `json:"countries"`
 		Reserve []SmartSubscriptionServer `json:"reserve"`
 	} `json:"servers"`
+
+	// WhitelistMode Whether the operator offers the whitelist mode; the switch is hidden when not.
+	WhitelistMode bool `json:"whitelistMode"`
 }
 
 // AccountSquadAddons defines model for AccountSquadAddons.
@@ -11086,6 +11089,9 @@ type PanelSmartSubscription struct {
 
 	// Version Send back the version last read; a newer one on the server is a 409.
 	Version int `json:"version"`
+
+	// WhitelistMode Customers may turn on the whitelist mode, which starts the fastest-server group on the bypass servers. Off by default.
+	WhitelistMode bool `json:"whitelistMode"`
 }
 
 // PanelSmartSubscriptionHost defines model for PanelSmartSubscriptionHost.

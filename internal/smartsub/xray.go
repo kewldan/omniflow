@@ -109,7 +109,12 @@ func BuildXray(request Request) ([]byte, error) {
 		return nil, ErrPassThrough
 	}
 	tpl := templateOf(configs[0])
-	groups := plan(proxies, request.Preferences)
+	preferences := request.Preferences
+	// A mode the operator no longer offers is ignored, even if it was saved.
+	if !request.Settings.WhitelistMode {
+		preferences.WhitelistMode = false
+	}
+	groups := plan(proxies, preferences)
 	if len(groups) == 0 {
 		return nil, ErrPassThrough
 	}
