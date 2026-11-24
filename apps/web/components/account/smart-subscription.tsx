@@ -949,6 +949,9 @@ function RuleCard({
           {locked && (
             <span className="text-[11px] text-subtle-foreground">{translate("ruleAlways")}</span>
           )}
+          {rule.kind === "torrents" && !locked && !on && (
+            <span className="text-[11px] text-destructive">{translate("torrentsOff")}</span>
+          )}
         </div>
       </div>
     </li>

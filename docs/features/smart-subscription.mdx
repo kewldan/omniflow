@@ -131,7 +131,10 @@ say. Five rules are built in and carry their own matchers:
 - **AI assistants** — ChatGPT, Gemini, and Claude go through the customer's servers where
   Remnawave's geocheck found them working, whichever server the customer picked; the card says
   how many servers each one has. With no check on record the rule changes nothing.
-- **Torrents** — BitTorrent traffic goes direct, outside the VPN, or is blocked.
+- **Torrents** — BitTorrent never goes through the VPN. Sent direct, the rule is a switch:
+  on, torrents download directly at full speed; off, they are blocked, for customers who would
+  rather not show their own address to a swarm. Hidden, or set to block, torrents are blocked
+  for everyone.
 - **Ads and trackers** — the geosite advertising category, blocked.
 - **No QUIC** — UDP 443 blocked, so browsers fall back to TCP.
 

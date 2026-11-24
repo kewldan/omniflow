@@ -96,6 +96,34 @@ func TestTorrentsAndQUIC(t *testing.T) {
 	}
 }
 
+func TestTorrentsNeverGoThroughTheVPN(t *testing.T) {
+	settings := withRule(testSettings(), ServiceRule{ID: "torrents", Kind: KindTorrents, Action: ActionDirect, Mode: ModeOn})
+	request := Request{Upstream: standardAnswer(t), Settings: settings, Catalog: testCatalog(), Preferences: settings.DefaultPreferences()}
+	if text := rulesText(t, build(t, request)); !strings.Contains(text, `{"outboundTag":"direct","protocol":["bittorrent"],"type":"field"}`) {
+		t.Errorf("torrents on do not go direct: %s", text)
+	}
+	// Turned off, torrents are blocked rather than proxied.
+	request.Preferences.Toggles = map[string]bool{"torrents": false}
+	if text := rulesText(t, build(t, request)); !strings.Contains(text, `{"outboundTag":"block","protocol":["bittorrent"],"type":"field"}`) {
+		t.Errorf("torrents turned off are not blocked: %s", text)
+	}
+	// Even a hidden rule leaves them blocked.
+	hidden := withRule(testSettings(), ServiceRule{ID: "torrents", Kind: KindTorrents, Action: ActionDirect, Mode: ModeDisabled})
+	request = Request{Upstream: standardAnswer(t), Settings: hidden, Catalog: testCatalog(), Preferences: hidden.DefaultPreferences()}
+	if text := rulesText(t, build(t, request)); !strings.Contains(text, `{"outboundTag":"block","protocol":["bittorrent"],"type":"field"}`) {
+		t.Errorf("hidden torrents rule let torrents through the VPN: %s", text)
+	}
+	// Blocked torrents have no switch.
+	blocked := withRule(testSettings(), ServiceRule{ID: "torrents", Kind: KindTorrents, Action: ActionBlock, Mode: ModeOff})
+	normalized, err := blocked.Normalize()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rule, _ := normalized.Rule("torrents"); rule.Mode != ModeLocked {
+		t.Errorf("blocked torrents mode = %s", rule.Mode)
+	}
+}
+
 func TestAIRoutesThroughServersWhereItWorks(t *testing.T) {
 	settings := testSettings()
 	// Finland 1 runs on node n1, where ChatGPT answers; Finland 2 and

@@ -19,8 +19,8 @@ const (
 	KindAds RuleKind = "ads"
 	// KindQUIC refuses UDP 443, which pushes browsers back onto TCP.
 	KindQUIC RuleKind = "quic"
-	// KindTorrents sends BitTorrent traffic direct, or blocks it, so it does
-	// not load the servers.
+	// KindTorrents sends BitTorrent traffic direct while it applies and
+	// blocks it otherwise: it never goes through the VPN.
 	KindTorrents RuleKind = "torrents"
 	// KindAI sends ChatGPT, Gemini, and Claude through servers whose exit
 	// node those services answer from, as the node's geocheck says.
@@ -145,6 +145,10 @@ func normalizeRules(rules []ServiceRule) ([]ServiceRule, error) {
 			rule.Mode = ModeOn
 		default:
 			return nil, invalid(field, "mode must be locked, on, off, or disabled")
+		}
+		// Blocked torrents have nothing to switch: off would block them too.
+		if rule.Kind == KindTorrents && rule.Action == ActionBlock && rule.Mode != ModeDisabled {
+			rule.Mode = ModeLocked
 		}
 		rule.Name = strings.TrimSpace(rule.Name)
 		rule.Caption = strings.TrimSpace(rule.Caption)

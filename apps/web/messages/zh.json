@@ -7649,11 +7649,11 @@
         },
         "torrents_direct": {
           "name": "种子下载",
-          "caption": "种子绕过 VPN 直接下载：更快，服务器也不会收到投诉。"
+          "caption": "种子永远不会经过 VPN。开启时直接下载，速度最快。不想在下载中暴露自己的 IP？关闭后种子会被屏蔽。"
         },
         "torrents_block": {
           "name": "种子下载",
-          "caption": "种子不能通过 VPN 下载，这样服务器不会收到投诉，对所有人都保持快速。"
+          "caption": "种子永远不会经过 VPN，这里已被屏蔽。要下载请关闭 VPN。"
         },
         "ads": {
           "name": "广告和跟踪器",
@@ -7667,7 +7667,8 @@
       "aiNone": "目前没有服务器通过 AI 助手检查，它们会经由您选择的服务器。",
       "aiServers": "{service}：{count, plural, other {# 台服务器}}",
       "ruleDomains": "{count, plural, other {# 个域名}}",
-      "ruleAlways": "已开启"
+      "ruleAlways": "已开启",
+      "torrentsOff": "已屏蔽"
     }
   },
   "pages": {

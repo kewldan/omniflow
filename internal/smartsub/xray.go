@@ -639,13 +639,15 @@ func (builder groupBuilder) rules(entry string, ai map[Service]string) []any {
 	if domains := serviceDomains[ActionDirect]; len(domains) > 0 {
 		rules = append(rules, field("domain", domains, "direct", false))
 	}
-	if rule, on := applies[KindTorrents]; on {
-		target := "direct"
-		if rule.Action == ActionBlock {
-			target = "block"
-		}
-		rules = append(rules, field("protocol", []any{"bittorrent"}, target, false))
+	// BitTorrent never goes through the VPN: it runs direct, which is the
+	// fastest way, while a rule that sends it direct applies, and is blocked
+	// otherwise — the choice of someone who would rather not show their own
+	// address to a swarm.
+	torrents := "block"
+	if rule, on := applies[KindTorrents]; on && rule.Action == ActionDirect {
+		torrents = "direct"
 	}
+	rules = append(rules, field("protocol", []any{"bittorrent"}, torrents, false))
 	if _, on := applies[KindRussia]; on {
 		rules = append(rules,
 			field("domain", russianDomains(request.NoGeosite), "direct", false),

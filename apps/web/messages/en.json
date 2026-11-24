@@ -7813,11 +7813,11 @@
         },
         "torrents_direct": {
           "name": "Torrents",
-          "caption": "Torrents download directly, outside the VPN: faster, and the servers get no complaints."
+          "caption": "Torrents never go through the VPN. On, they download directly at full speed. Rather not show your IP to the swarm? Turn it off and torrents are blocked."
         },
         "torrents_block": {
           "name": "Torrents",
-          "caption": "Torrents don't work through the VPN, so the servers get no complaints and stay fast for everyone."
+          "caption": "Torrents never go through the VPN and are blocked here. To download, turn the VPN off."
         },
         "ads": {
           "name": "Ads and trackers",
@@ -7831,7 +7831,8 @@
       "aiNone": "No server has a check confirming the assistants right now; they go through the server you chose.",
       "aiServers": "{service}: {count, plural, one {# server} other {# servers}}",
       "ruleDomains": "{count, plural, one {# domain} other {# domains}}",
-      "ruleAlways": "On"
+      "ruleAlways": "On",
+      "torrentsOff": "Blocked"
     }
   },
   "pages": {
