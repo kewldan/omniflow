@@ -129,6 +129,19 @@ func (service *Service) Open(
 	if request.PeriodDays < 0 {
 		return CheckoutView{}, invalidInput("a period is a positive number of days")
 	}
+	// An extension stays on the version the subscription was bought at,
+	// while that version still has a price here; see heldVersion.
+	if operation == "extension" && target != "" {
+		held, heldErr := service.store.heldVersion(ctx, target, record.offer.PlanID)
+		if heldErr != nil {
+			return CheckoutView{}, heldErr
+		}
+		if held != "" && held != request.PlanVersionID {
+			if _, priceErr := service.store.planRecord(ctx, held, locale, service.settings.Currency); priceErr == nil {
+				request.PlanVersionID = held
+			}
+		}
+	}
 	session, err := service.store.OpenCheckout(
 		ctx, customerID, request.PlanVersionID, operation, service.settings.Currency, target, nil,
 	)

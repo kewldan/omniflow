@@ -24,7 +24,9 @@ downgrade policies, and one price per currency.
 A version is never edited. To change a price or a limit, open the plan in `/admin/catalog`, press
 **New version** (the editor is pre-filled from the current one), change what you need, type a reason,
 and press **Publish version**. New purchases use the new version; every order already placed keeps
-the version it was bought at, so publishing never changes what anyone already paid.
+the version it was bought at, so publishing never changes what anyone already paid. Extending a
+subscription keeps it on the version it was bought at too — from the web store, the bot, and
+automatic renewal alike — so cutting the devices in a new version reaches new customers only.
 
 <Warning>
   Two things have no control in `/admin` and are done through the operator-token API: **creating a
