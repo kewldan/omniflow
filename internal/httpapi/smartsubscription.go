@@ -222,7 +222,7 @@ func (handlers *AdminHandlers) smartSubscriptionPayload(setting panelpg.SmartSub
 		"customRules": setting.CustomRules, "maxRules": setting.MaxRules, "rules": rulesPayload(setting.Rules),
 		"outageNotices": setting.OutageNotices, "outageMinutes": setting.OutageMinutes,
 		"whitelistMode": setting.WhitelistMode,
-		"logoSearch": handlers.smartSubscription.LogoSearch(), "hosts": hosts,
+		"logoSearch":    handlers.smartSubscription.LogoSearch(), "hosts": hosts,
 	}
 }
 
