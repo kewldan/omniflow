@@ -143,7 +143,7 @@ Omniflow covers the Bedolaga bot and cabinet feature by feature: payment provide
 | Check that totals and balances match | `migrate-bedolaga verify` |
 | Switch the bot over and roll back if needed | `deploy/migration/06-cutover.sh`, `07-rollback.sh` |
 
-Read [Migrating from Bedolaga](./docs/operations/migrate-from-bedolaga.mdx) before you start. Every Bedolaga capability and its status in Omniflow is listed in [`bedolaga-bot-gaps.md`](./bedolaga-bot-gaps.md).
+Read [Migrating from Bedolaga](./docs/operations/migrate-from-bedolaga.mdx) before you start.
 
 ## 💳 Payments
 

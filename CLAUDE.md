@@ -34,11 +34,13 @@ tooling.
 - The customer panel talks to the Telegram Mini App through tma.js
   (`apps/web/lib/tma.ts`), and Telegram avatars are stored in
   `telegram_avatars` and served by the API, never loaded from Telegram's hosts.
-- Parity with Bedolaga is tracked in `bedolaga-bot-gaps.md`: 228 closed, none
-  partial, 8 open, 8 declined. The open eight are listed in `BACKLOG.md` under
-  «Остаток паритета с Bedolaga»: QR payment in the bot, Overpay `.p12` upload,
-  embedded payment forms, ban-system, Abuse API, ABAC, a log viewer, a live
-  menu editor. Do not start one unasked. The `.p12` upload stays open on
+- Parity with Bedolaga is no longer tracked: Omniflow builds its own product,
+  and a Bedolaga feature is not a reason to add one. A port that duplicates
+  something the general model already covers gets removed (the "simple
+  subscription" went on 24 November). Eight Bedolaga features never ported are
+  listed in `BACKLOG.md` under «Было у Bedolaga, у нас нет»: QR payment in the
+  bot, Overpay `.p12` upload, embedded payment forms, ban-system, Abuse API,
+  ABAC, a log viewer, a live menu editor. Do not start one unasked. The `.p12` upload stays open on
   purpose: it would store a payment secret in the database, against the rule
   below; the owner chose to leave it rather than change the rule.
 - Targets: Remnawave 3.4.x API, PostgreSQL 19, Valkey 9, Go with River jobs,

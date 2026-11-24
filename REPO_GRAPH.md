@@ -30,7 +30,7 @@ omniflow/
 ```
 
 Root notes: `README.md` (product), `ROADMAP.md` and `BACKLOG.md` (plans),
-`bedolaga-bot-gaps.md` and `bedolaga-features.md` (parity with Bedolaga),
+`bedolaga-features.md` (what Bedolaga had),
 `CHANGELOG.md` (release-please), `*-audit.md` and `fixes.md` (UX audit notes).
 
 ## Processes
