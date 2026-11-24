@@ -7556,8 +7556,8 @@
       "failedDescription": "请稍后重试。"
     },
     "smart": {
-      "entryTitle": "服务器与路由",
-      "entryDescription": "订阅包含哪些国家、自动选择以及哪些流量不走 VPN",
+      "entryTitle": "按需设置 VPN",
+      "entryDescription": "国家、我的服务器，以及哪些网站不走 VPN",
       "title": "服务器与路由",
       "tabServers": "服务器",
       "tabRoutes": "路由",
@@ -7568,7 +7568,7 @@
       "reset": "重置",
       "resetDone": "已恢复默认设置",
       "appliesOnRefresh": "应用刷新订阅后更改生效，也可以在应用中手动刷新。",
-      "pingHint": "打开此页面时会自动测量延迟：我们在浏览器中测量到每台服务器的路径，再加上在服务器上测得的其余路线。如果 VPN 开着，测量会经过它——请关闭 VPN 后点“刷新”。",
+      "pingHint": "延迟会自动测量。VPN 开着时测量会经过它——关闭 VPN 后点“刷新”。",
       "measure": "刷新",
       "autoTitle": "最快",
       "autoCountries": "{count, plural, =0 {没有国家} other {# 个国家}}",
@@ -7670,7 +7670,38 @@
       "aiServers": "{service}：{count, plural, other {# 台服务器}}",
       "ruleDomains": "{count, plural, other {# 个域名}}",
       "ruleAlways": "已开启",
-      "torrentsOff": "已屏蔽"
+      "torrentsOff": "已屏蔽",
+      "introOpen": "使用说明",
+      "unsaved": "有未保存的更改",
+      "discard": "放弃",
+      "columnsHint": "“显示”——该国家出现在应用的服务器列表中。“自动”——“最快”可以自动选择它。",
+      "intro": {
+        "title": "你的订阅，你做主",
+        "lead": "在这里决定应用里显示哪些服务器，以及哪些网站不经过 VPN 打开。",
+        "close": "关闭提示",
+        "servers": {
+          "title": "服务器",
+          "text": "保留需要的国家；想要固定 IP 就选择“我的服务器”。"
+        },
+        "routes": {
+          "title": "路由",
+          "text": "政务、银行和俄罗斯网站不走 VPN，AI 助手经由可用的服务器。按需开关。"
+        },
+        "refresh": {
+          "title": "保存并刷新订阅",
+          "text": "点“保存”，然后在应用中刷新订阅——更改会在那里生效。"
+        },
+        "defaults": "不想改动？已经可以正常使用：默认设置适合大多数人。",
+        "gotIt": "知道了"
+      },
+      "savedCard": {
+        "title": "已保存",
+        "text": "在应用中刷新订阅即可看到更改：",
+        "close": "关闭",
+        "happ": "Happ——下拉服务器列表，或点订阅旁的刷新按钮。",
+        "incy": "INCY——点订阅旁的刷新按钮。",
+        "other": "其他应用——找到“更新订阅”。"
+      }
     }
   },
   "pages": {

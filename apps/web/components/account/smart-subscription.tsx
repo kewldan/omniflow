@@ -11,6 +11,8 @@ import { toast } from "@omniflow/ui/toast";
 import {
   ChevronDown,
   ChevronRight,
+  CircleCheck,
+  CircleHelp,
   Gauge,
   Globe,
   House,
@@ -21,6 +23,7 @@ import {
   Pin,
   Plus,
   RotateCw,
+  Route,
   ShieldHalf,
   Sparkles,
   X,
@@ -327,6 +330,10 @@ export function SmartSubscriptionScreen({ subscriptionId }: { subscriptionId: st
   });
   const [draft, setDraft] = useState<Preferences | null>(null);
   const [saving, setSaving] = useState(false);
+  // After a save the screen says what to do next: the app shows the change
+  // only once it refreshes the subscription.
+  const [justSaved, setJustSaved] = useState(false);
+  const [intro, setIntro] = useIntro();
 
   useEffect(() => {
     if (data) {
@@ -365,7 +372,7 @@ export function SmartSubscriptionScreen({ subscriptionId }: { subscriptionId: st
     try {
       await apiFetch(path, { body: JSON.stringify(draft), method: "PUT" });
       await mutate();
-      toast.success(translate("saved"));
+      setJustSaved(true);
     } catch (saveError) {
       toast.error(saveError instanceof ApiError ? saveError.message : shared("states.error"));
     } finally {
@@ -378,6 +385,7 @@ export function SmartSubscriptionScreen({ subscriptionId }: { subscriptionId: st
     try {
       await apiFetch(path, { method: "DELETE" });
       await mutate();
+      setJustSaved(true);
       toast.success(translate("resetDone"));
     } catch (resetError) {
       toast.error(resetError instanceof ApiError ? resetError.message : shared("states.error"));
@@ -388,7 +396,17 @@ export function SmartSubscriptionScreen({ subscriptionId }: { subscriptionId: st
 
   return (
     <div className="animate-step-in space-y-4 pb-4">
-      <h1 className="font-semibold text-[19px] tracking-[-0.02em]">{translate("title")}</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="font-semibold text-[19px] tracking-[-0.02em]">{translate("title")}</h1>
+        {!intro && (
+          <Button onClick={() => setIntro(true)} size="sm" variant="ghost">
+            <CircleHelp aria-hidden />
+            {translate("introOpen")}
+          </Button>
+        )}
+      </div>
+      {intro && <IntroCard onClose={() => setIntro(false)} />}
+      {justSaved && !dirty && <SavedCard onClose={() => setJustSaved(false)} />}
       <Tabs defaultValue="servers">
         <TabsList className="w-full">
           <TabsTrigger className="flex-1" value="servers">
@@ -406,7 +424,17 @@ export function SmartSubscriptionScreen({ subscriptionId }: { subscriptionId: st
         </TabsContent>
       </Tabs>
 
-      <div className="space-y-2">
+      {/* With unsaved changes the buttons float above the tab bar, so a
+          customer who changed something at the top of a long list does not
+          have to find the end of the page to keep it. */}
+      <div
+        className={cn(
+          "space-y-2",
+          dirty &&
+            "sticky bottom-[88px] z-20 rounded-xl border border-border bg-card/95 p-3 shadow-lg backdrop-blur md:bottom-4",
+        )}
+      >
+        {dirty && <p className="px-1 font-medium text-[13px]">{translate("unsaved")}</p>}
         <div className="flex gap-2">
           <Button
             className="flex-1"
@@ -416,15 +444,134 @@ export function SmartSubscriptionScreen({ subscriptionId }: { subscriptionId: st
           >
             {shared("actions.save")}
           </Button>
-          {data.customized && (
-            <Button disabled={saving} onClick={() => void reset()} size="lg" variant="outline">
-              {translate("reset")}
+          {dirty ? (
+            <Button
+              disabled={saving}
+              onClick={() => setDraft(structuredClone(data.preferences))}
+              size="lg"
+              variant="outline"
+            >
+              {translate("discard")}
             </Button>
+          ) : (
+            data.customized && (
+              <Button disabled={saving} onClick={() => void reset()} size="lg" variant="outline">
+                {translate("reset")}
+              </Button>
+            )
           )}
         </div>
-        <p className="px-1 text-[12.5px] text-muted-foreground">{translate("appliesOnRefresh")}</p>
+        {!dirty && (
+          <p className="px-1 text-[12.5px] text-muted-foreground">
+            {translate("appliesOnRefresh")}
+          </p>
+        )}
       </div>
     </div>
+  );
+}
+
+const INTRO_KEY = "omniflow.smart.intro.closed";
+
+/** Whether the how-it-works card shows: until the customer closes it once. */
+function useIntro(): [boolean, (open: boolean) => void] {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    try {
+      setOpen(window.localStorage.getItem(INTRO_KEY) !== "1");
+    } catch {
+      setOpen(true);
+    }
+  }, []);
+  return [
+    open,
+    (next: boolean) => {
+      setOpen(next);
+      try {
+        if (next) {
+          window.localStorage.removeItem(INTRO_KEY);
+        } else {
+          window.localStorage.setItem(INTRO_KEY, "1");
+        }
+      } catch {
+        // Private mode: the card simply shows again next time.
+      }
+    },
+  ];
+}
+
+/**
+ * What this screen is for, in three steps, and the reassurance that nothing
+ * has to be touched: the defaults already work.
+ */
+function IntroCard({ onClose }: { onClose: () => void }) {
+  const translate = useTranslations("account.smart.intro");
+  const steps = [
+    { icon: Globe, key: "servers" },
+    { icon: Route, key: "routes" },
+    { icon: RotateCw, key: "refresh" },
+  ] as const;
+  return (
+    <section className="space-y-3 rounded-lg border border-border bg-card p-4">
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <h2 className="font-medium text-[14.5px]">{translate("title")}</h2>
+          <p className="text-[12.5px] text-muted-foreground">{translate("lead")}</p>
+        </div>
+        <Button aria-label={translate("close")} onClick={onClose} size="icon-sm" variant="ghost">
+          <X aria-hidden />
+        </Button>
+      </div>
+      <ol className="space-y-2.5">
+        {steps.map(({ icon: Icon, key }, index) => (
+          <li className="flex gap-3" key={key}>
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-secondary">
+              <Icon aria-hidden className="size-4" />
+            </span>
+            <span className="min-w-0">
+              <span className="block font-medium text-[13.5px]">
+                {index + 1}. {translate(`${key}.title`)}
+              </span>
+              <span className="block text-[12.5px] text-muted-foreground">
+                {translate(`${key}.text`)}
+              </span>
+            </span>
+          </li>
+        ))}
+      </ol>
+      <p className="rounded-md bg-secondary px-3 py-2 text-[12.5px]">{translate("defaults")}</p>
+      <Button className="w-full" onClick={onClose} variant="outline">
+        {translate("gotIt")}
+      </Button>
+    </section>
+  );
+}
+
+/** After a save: the change reaches the app when it refreshes, and how to. */
+function SavedCard({ onClose }: { onClose: () => void }) {
+  const translate = useTranslations("account.smart.savedCard");
+  return (
+    <section
+      aria-live="polite"
+      className="space-y-2 rounded-lg border border-success/30 bg-success/10 p-4"
+      role="status"
+    >
+      <div className="flex items-start gap-2">
+        <CircleCheck aria-hidden className="mt-0.5 size-4 shrink-0 text-success" />
+        <div className="min-w-0 flex-1">
+          <h2 className="font-medium text-[14px]">{translate("title")}</h2>
+          <p className="text-[12.5px] text-muted-foreground">{translate("text")}</p>
+        </div>
+        <Button aria-label={translate("close")} onClick={onClose} size="icon-sm" variant="ghost">
+          <X aria-hidden />
+        </Button>
+      </div>
+      <ul className="space-y-1 pl-6 text-[12.5px]">
+        <li>{translate("happ")}</li>
+        <li>{translate("incy")}</li>
+        <li>{translate("other")}</li>
+      </ul>
+    </section>
   );
 }
 
@@ -536,6 +683,7 @@ function ServersTab({
           <span className="w-[52px] text-center">{translate("visible")}</span>
           <span className="w-[52px] text-center">{translate("auto")}</span>
         </div>
+        <p className="pb-2 text-[12px] text-muted-foreground">{translate("columnsHint")}</p>
         {view.servers.countries.length === 0 && (
           <p className="py-4 text-[13px] text-muted-foreground">{translate("noServers")}</p>
         )}

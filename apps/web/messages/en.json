@@ -7720,8 +7720,8 @@
       "squadsConfirm": "Remove {name} for the rest of this period. What is left of it is credited to your wallet at what you paid."
     },
     "smart": {
-      "entryTitle": "Servers and routing",
-      "entryDescription": "Which countries your subscription has, automatic choice, and what skips the VPN",
+      "entryTitle": "Make the VPN yours",
+      "entryDescription": "Countries, your own server, and which sites open without the VPN",
       "title": "Servers and routing",
       "tabServers": "Servers",
       "tabRoutes": "Routing",
@@ -7732,7 +7732,7 @@
       "reset": "Reset",
       "resetDone": "Back to the default settings",
       "appliesOnRefresh": "Changes apply when your app refreshes the subscription. You can refresh it by hand in the app.",
-      "pingHint": "Ping is measured as soon as you open this screen: we time the way to each server from your browser and add the rest of the route, measured on the servers. With the VPN on, the timing runs through it, so turn it off and press Refresh.",
+      "pingHint": "Ping is measured on its own. With the VPN on, the timing runs through it — turn the VPN off and press Refresh.",
       "measure": "Refresh",
       "autoTitle": "Fastest",
       "autoCountries": "{count, plural, =0 {no countries} one {# country} other {# countries}}",
@@ -7834,7 +7834,38 @@
       "aiServers": "{service}: {count, plural, one {# server} other {# servers}}",
       "ruleDomains": "{count, plural, one {# domain} other {# domains}}",
       "ruleAlways": "On",
-      "torrentsOff": "Blocked"
+      "torrentsOff": "Blocked",
+      "introOpen": "How it works",
+      "unsaved": "You have unsaved changes",
+      "discard": "Discard",
+      "columnsHint": "Shown — the country is in the app's server list. Auto — Fastest may pick it by itself.",
+      "intro": {
+        "title": "Your subscription, your rules",
+        "lead": "Here you decide which servers the app shows and which sites open without the VPN.",
+        "close": "Close the tip",
+        "servers": {
+          "title": "Servers",
+          "text": "Keep the countries you need, and pick My server if you want an address that stays the same."
+        },
+        "routes": {
+          "title": "Routing",
+          "text": "Gosuslugi, banks and Russian sites open without the VPN, AI assistants through servers where they work. Turn on and off what you need."
+        },
+        "refresh": {
+          "title": "Save and refresh",
+          "text": "Press Save, then refresh the subscription in your app — that is when the change shows up."
+        },
+        "defaults": "Don't want to change anything? It already works: the defaults suit most people.",
+        "gotIt": "Got it"
+      },
+      "savedCard": {
+        "title": "Saved",
+        "text": "Refresh the subscription in your app to see the change:",
+        "close": "Close",
+        "happ": "Happ — pull the server list down or tap the refresh button next to the subscription.",
+        "incy": "INCY — tap the refresh button next to the subscription.",
+        "other": "Other apps — look for Update subscription."
+      }
     }
   },
   "pages": {
