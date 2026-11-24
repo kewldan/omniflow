@@ -33,6 +33,8 @@ type Panel interface {
 	User(ctx context.Context, userID int64) (remnawave.User, error)
 	UserByShortUUID(ctx context.Context, shortUUID string) (remnawave.User, error)
 	FetchSubscription(ctx context.Context, shortUUID, format string, from http.Header, clientIP string) (remnawave.SubscriptionContent, error)
+	RequestGeocheck(ctx context.Context, nodeUUID string) (string, error)
+	Geocheck(ctx context.Context, jobID string) (remnawave.GeocheckJob, error)
 }
 
 var (
@@ -71,6 +73,9 @@ type Service struct {
 	catalog    smartsub.Catalog
 	catalogAt  time.Time
 	users      map[string]cachedUser
+	checkStore CheckStore
+	checks     map[string]smartsub.NodeCheck
+	checksAt   time.Time
 }
 
 type cachedUser struct {
@@ -185,7 +190,7 @@ func (service *Service) FreshCatalog(ctx context.Context) (smartsub.Catalog, err
 	if err != nil {
 		return smartsub.Catalog{}, err
 	}
-	catalog := smartsub.Catalog{DownNodes: map[string]bool{}}
+	catalog := smartsub.Catalog{DownNodes: map[string]bool{}, NodeNames: map[string]string{}}
 	for _, host := range hosts {
 		catalog.Hosts = append(catalog.Hosts, smartsub.Host{
 			UUID: strings.ToLower(host.UUID), Remark: host.Remark, Address: host.Address, Port: host.Port,
@@ -203,6 +208,7 @@ func (service *Service) FreshCatalog(ctx context.Context) (smartsub.Catalog, err
 	// its nodes leaves every server in rather than failing the read.
 	if nodes, err := service.panel.Nodes(ctx); err == nil {
 		for _, node := range nodes {
+			catalog.NodeNames[strings.ToLower(node.UUID)] = node.Name
 			if node.IsDisabled || !node.IsConnected {
 				catalog.DownNodes[node.UUID] = true
 			}

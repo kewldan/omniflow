@@ -84,6 +84,24 @@ func TestSupportedRoutesAreCalledExactly(t *testing.T) {
 			func(client *Client) error { _, err := client.InternalSquads(context.Background()); return err }},
 		{"list external squads", http.MethodGet, "/api/external-squads", "", `{"response":{"total":0,"externalSquads":[]}}`,
 			func(client *Client) error { _, err := client.ExternalSquads(context.Background()); return err }},
+		{"request a node geocheck", http.MethodPost, "/api/connections/geocheck/0f0e0d0c-0000-4000-8000-000000000001", "",
+			`{"response":{"jobId":"42"}}`,
+			func(client *Client) error {
+				job, err := client.RequestGeocheck(context.Background(), "0f0e0d0c-0000-4000-8000-000000000001")
+				if err == nil && job != "42" {
+					return errors.New("job id not decoded")
+				}
+				return err
+			}},
+		{"read a node geocheck", http.MethodGet, "/api/connections/geocheck/42", "",
+			`{"response":{"isCompleted":true,"isFailed":false,"result":{"success":true,"nodeUuid":"0f0e0d0c-0000-4000-8000-000000000001","image":null,"rawReport":{"schema":1},"message":null}}}`,
+			func(client *Client) error {
+				job, err := client.Geocheck(context.Background(), "42")
+				if err == nil && (!job.Completed || !job.Success || string(job.Report) != `{"schema":1}`) {
+					return errors.New("geocheck not decoded")
+				}
+				return err
+			}},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {

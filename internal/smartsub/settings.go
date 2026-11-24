@@ -33,15 +33,15 @@ const (
 type HostOverride struct {
 	Country string `json:"country,omitempty"`
 	Role    Role   `json:"role,omitempty"`
-	// Services are which sites work through the host, as the operator
-	// checked them from its exit address: true works, false does not, and a
-	// service left out was not checked. Customers see them on their servers
-	// screen.
-	Services map[string]bool `json:"services,omitempty"`
+	// ExitNode is the Remnawave node the host's traffic leaves from, when it
+	// is not the node the host runs on: a host whose inbound forwards to a
+	// second node exits there, and that node's geocheck is what customers
+	// should see. Empty uses the host's own node.
+	ExitNode string `json:"exitNode,omitempty"`
 }
 
 func (override HostOverride) isZero() bool {
-	return override.Country == "" && override.Role == "" && len(override.Services) == 0
+	return override == HostOverride{}
 }
 
 // Presets are the ready-made routing choices.
@@ -188,11 +188,10 @@ func (settings Settings) Normalize() (Settings, error) {
 		default:
 			return Settings{}, invalid("hosts", "role must be main, reserve, or hidden")
 		}
-		services, err := normalizeServices(override.Services)
-		if err != nil {
-			return Settings{}, err
+		override.ExitNode = strings.ToLower(strings.TrimSpace(override.ExitNode))
+		if override.ExitNode != "" && !validUUID(override.ExitNode) {
+			return Settings{}, invalid("hosts", "exit node must be a Remnawave node UUID")
 		}
-		override.Services = services
 		// An override that changes nothing is not kept, so the document only
 		// ever lists hosts somebody actually corrected.
 		if !override.isZero() {

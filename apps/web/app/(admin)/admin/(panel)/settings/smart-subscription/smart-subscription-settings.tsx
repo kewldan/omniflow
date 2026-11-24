@@ -20,12 +20,13 @@ import { Skeleton } from "@omniflow/ui/skeleton";
 import { Switch } from "@omniflow/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
 import { toast } from "@omniflow/ui/toast";
-import { Check, ChevronsUpDown, Circle, TriangleAlert, X } from "lucide-react";
+import { Check, ChevronsUpDown, Minus, TriangleAlert, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useId, useMemo, useState } from "react";
 import useSWR from "swr";
 
 import { type ApiError, fetcher } from "@/lib/api";
+import { NODE_SERVICE_LABELS, type NodeServices, summarizeServices } from "@/lib/node-services";
 import { useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 
@@ -34,19 +35,7 @@ import { COUNTRY_CODES } from "./countries";
 
 type Role = "" | "main" | "reserve" | "hidden";
 type Presets = { russiaDirect: boolean; blockAds: boolean; blockQuic: boolean };
-/** Sites whose answer depends on where a server's address is placed. */
-const SERVICES = ["gemini", "youtube", "reddit", "chatgpt", "claude"] as const;
-type ServiceName = (typeof SERVICES)[number];
-const SERVICE_LABELS: Record<ServiceName, string> = {
-  chatgpt: "ChatGPT",
-  claude: "Claude",
-  gemini: "Gemini",
-  reddit: "Reddit",
-  youtube: "YouTube",
-};
-/** true works through the host, false doesn't; absent was not checked. */
-type Services = Partial<Record<ServiceName, boolean>>;
-type HostOverride = { country?: string; role?: Role; services?: Services };
+type HostOverride = { country?: string; role?: Role; exitNode?: string };
 type Settings = {
   enabled: boolean;
   version: number;
@@ -74,7 +63,15 @@ type Host = {
   disabled: boolean;
   hidden: boolean;
   down: boolean;
+  nodes?: string[];
+  /** The node the host exits from: the operator's choice or its only node. */
+  exitNode?: string;
+  services?: NodeServices;
+  checkedAt?: string;
 };
+type PanelNode = { uuid: string; name: string };
+/** The exit-node choice that keeps the host's own node. */
+const OWN_NODE = "own";
 
 const PRESETS: (keyof Presets)[] = ["russiaDirect", "blockAds", "blockQuic"];
 const ROLES = ["main", "reserve", "hidden"] as const;
@@ -385,66 +382,86 @@ function useCountryName() {
 }
 
 /**
- * One toggle per service, cycling not checked → works → doesn't. Customers
- * see the marks on their servers screen.
+ * Which node the host's traffic leaves from. A host whose inbound forwards to
+ * another node exits there, and that node's geocheck is the one that counts.
  */
-function ServiceMarks({
+function ExitNodePicker({
   disabled,
+  host,
+  nodes,
   onChange,
   value,
 }: {
   disabled: boolean;
-  onChange: (services: Services) => void;
-  value: Services;
+  host: Host;
+  nodes: PanelNode[];
+  onChange: (exitNode: string) => void;
+  value: string;
 }) {
   const translate = useTranslations("admin.smartSubscription");
-  function cycle(service: ServiceName) {
-    const next = { ...value };
-    const mark = value[service];
-    if (mark === undefined) {
-      next[service] = true;
-    } else if (mark) {
-      next[service] = false;
-    } else {
-      delete next[service];
-    }
-    onChange(next);
+  const names = new Map(nodes.map((node) => [node.uuid, node.name]));
+  const own = (host.nodes ?? []).map((id) => names.get(id) ?? id).join(", ");
+  return (
+    <Select
+      disabled={disabled}
+      onValueChange={(next) => onChange(next === OWN_NODE ? "" : next)}
+      value={value || OWN_NODE}
+    >
+      <SelectTrigger aria-label={translate("exitNode")} className="w-[190px]">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={OWN_NODE}>
+          {own ? translate("exitNodeOwn", { node: own }) : translate("exitNodeUnknown")}
+        </SelectItem>
+        {nodes.map((node) => (
+          <SelectItem key={node.uuid} value={node.uuid}>
+            {node.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+/** What the exit node's latest geocheck found, read-only. */
+function NodeCheck({ checkedAt, services }: { checkedAt?: string; services?: NodeServices }) {
+  const translate = useTranslations("admin.smartSubscription");
+  const locale = useLocale();
+  const summary = summarizeServices([{ services }]);
+  if (!checkedAt || summary.length === 0) {
+    return <span className="text-muted-foreground text-xs">{translate("notChecked")}</span>;
   }
   return (
-    <div className="flex min-w-[300px] flex-wrap gap-1">
-      {SERVICES.map((service) => {
-        const mark = value[service];
-        const state = mark === undefined ? "unchecked" : mark ? "works" : "broken";
-        const label = translate("serviceToggle", {
-          service: SERVICE_LABELS[service],
-          state: translate(`serviceStates.${state}`),
-        });
-        return (
-          <button
-            aria-label={label}
-            className="disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={disabled}
+    <div className="flex min-w-[260px] flex-col gap-1">
+      <div className="flex flex-wrap gap-1">
+        {summary.map(({ region, service, state }) => (
+          <Badge
+            className={cn(state === "no" && "line-through")}
             key={service}
-            onClick={() => cycle(service)}
-            title={label}
-            type="button"
+            title={region ? `${NODE_SERVICE_LABELS[service]} · ${region}` : undefined}
+            variant={state === "yes" ? "success" : state === "no" ? "danger" : "warning"}
           >
-            <Badge
-              className={cn(state === "broken" && "line-through")}
-              variant={state === "works" ? "success" : state === "broken" ? "danger" : "outline"}
-            >
-              {state === "works" ? (
-                <Check aria-hidden />
-              ) : state === "broken" ? (
-                <X aria-hidden />
-              ) : (
-                <Circle aria-hidden className="size-2.5 text-subtle-foreground" />
-              )}
-              {SERVICE_LABELS[service]}
-            </Badge>
-          </button>
-        );
-      })}
+            {state === "yes" ? (
+              <Check aria-hidden />
+            ) : state === "no" ? (
+              <X aria-hidden />
+            ) : (
+              <Minus aria-hidden />
+            )}
+            {NODE_SERVICE_LABELS[service]}
+            {region && state !== "yes" ? ` · ${region}` : ""}
+          </Badge>
+        ))}
+      </div>
+      <span className="text-muted-foreground text-xs">
+        {translate("checkedAt", {
+          time: new Date(checkedAt).toLocaleString(locale, {
+            dateStyle: "short",
+            timeStyle: "short",
+          }),
+        })}
+      </span>
     </div>
   );
 }
@@ -459,7 +476,7 @@ function HostsCard({
   onChange: (hosts: Record<string, HostOverride>) => void;
 }) {
   const translate = useTranslations("admin.smartSubscription");
-  const { data, error, isLoading } = useSWR<{ hosts: Host[] }, ApiError>(
+  const { data, error, isLoading } = useSWR<{ hosts: Host[]; nodes?: PanelNode[] }, ApiError>(
     `${ENDPOINT}/hosts`,
     fetcher,
     {
@@ -469,11 +486,11 @@ function HostsCard({
 
   function update(uuid: string, change: HostOverride) {
     const next = { ...hosts[uuid], ...change };
-    if (next.services && Object.keys(next.services).length === 0) {
-      delete next.services;
+    if (!next.exitNode) {
+      delete next.exitNode;
     }
     const copy = { ...hosts };
-    if (!next.country && (!next.role || next.role === "main") && !next.services) {
+    if (!next.country && (!next.role || next.role === "main") && !next.exitNode) {
       delete copy[uuid];
     } else {
       copy[uuid] = next;
@@ -503,6 +520,7 @@ function HostsCard({
                   <TableHead>{translate("country")}</TableHead>
                   <TableHead>{translate("status")}</TableHead>
                   <TableHead>{translate("role")}</TableHead>
+                  <TableHead>{translate("exitNode")}</TableHead>
                   <TableHead>{translate("services")}</TableHead>
                 </TableRow>
               </TableHeader>
@@ -554,11 +572,16 @@ function HostsCard({
                         </Select>
                       </TableCell>
                       <TableCell>
-                        <ServiceMarks
+                        <ExitNodePicker
                           disabled={!editable}
-                          onChange={(services) => update(host.uuid, { services })}
-                          value={override.services ?? {}}
+                          host={host}
+                          nodes={data.nodes ?? []}
+                          onChange={(exitNode) => update(host.uuid, { exitNode })}
+                          value={override.exitNode ?? ""}
                         />
+                      </TableCell>
+                      <TableCell>
+                        <NodeCheck checkedAt={host.checkedAt} services={host.services} />
                       </TableCell>
                     </TableRow>
                   );

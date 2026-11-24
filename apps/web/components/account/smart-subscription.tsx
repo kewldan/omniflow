@@ -27,6 +27,13 @@ import useSWR from "swr";
 
 import { AccountNotice, ListSkeleton } from "@/components/account/state";
 import { ApiError, apiFetch, fetcher } from "@/lib/api";
+import {
+  NODE_SERVICE_LABELS,
+  type NodeService,
+  type NodeServices,
+  type SummaryState,
+  summarizeServices,
+} from "@/lib/node-services";
 
 type Presets = { russiaDirect: boolean; blockAds: boolean; blockQuic: boolean };
 type Action = "direct" | "proxy" | "block";
@@ -38,23 +45,13 @@ type Preferences = {
   presets: Presets;
   rules: Rule[];
 };
-/** Sites whose answer depends on where a server's address is placed. */
-const SERVICES = ["gemini", "youtube", "reddit", "chatgpt", "claude"] as const;
-type ServiceName = (typeof SERVICES)[number];
-const SERVICE_LABELS: Record<ServiceName, string> = {
-  chatgpt: "ChatGPT",
-  claude: "Claude",
-  gemini: "Gemini",
-  reddit: "Reddit",
-  youtube: "YouTube",
-};
 type Server = {
   name: string;
   address: string;
   port: number;
   down: boolean;
-  /** The operator's check: true works, false doesn't, absent not checked. */
-  services?: Partial<Record<ServiceName, boolean>>;
+  /** What the latest geocheck of the server's exit node found. */
+  services?: NodeServices;
 };
 type SmartView = {
   servers: { countries: { code: string; servers: Server[] }[]; reserve: Server[] };
@@ -214,58 +211,54 @@ function Ping({
   return <span className={cn(shape, tone)}>{translate("ms", { value })}</span>;
 }
 
-type ServiceState = "yes" | "no" | "some";
-
-/**
- * What the operator found for a set of servers, service by service: "some"
- * when the servers disagree. Services nobody checked are left out.
- */
-function serviceStates(servers: Server[]): [ServiceName, ServiceState][] {
-  const states: [ServiceName, ServiceState][] = [];
-  for (const service of SERVICES) {
-    const marks = servers
-      .map((server) => server.services?.[service])
-      .filter((mark): mark is boolean => mark !== undefined);
-    if (marks.length === 0) {
-      continue;
+/** The service's line for a badge's tooltip and screen readers. */
+function useServiceTitle() {
+  const translate = useTranslations("account.smart");
+  return (service: NodeService, state: SummaryState, region?: string) => {
+    const name = NODE_SERVICE_LABELS[service];
+    if (state === "no" && service === "reddit") {
+      return translate("serviceRedditNo");
     }
-    const works = marks.filter(Boolean).length;
-    states.push([service, works === marks.length ? "yes" : works === 0 ? "no" : "some"]);
-  }
-  return states;
+    if (state === "limited" && (service === "youtube" || service === "netflix")) {
+      return translate(`serviceLimited.${service}`);
+    }
+    const line = translate(`serviceState.${state}`, { service: name });
+    return region && state !== "some"
+      ? `${line} · ${translate("serviceRegion", { region })}`
+      : line;
+  };
 }
 
-/** One chip per checked service: green works, struck out doesn't. */
+/**
+ * One badge per service the checks settled: green opens, amber opens with
+ * limits or on only some servers, struck out doesn't.
+ */
 function ServiceChips({ servers }: { servers: Server[] }) {
-  const translate = useTranslations("account.smart");
-  const states = serviceStates(servers);
-  if (states.length === 0) {
+  const title = useServiceTitle();
+  const summary = summarizeServices(servers);
+  if (summary.length === 0) {
     return null;
   }
   return (
     <span className="mt-1 flex flex-wrap gap-1">
-      {states.map(([service, state]) => {
-        const label = SERVICE_LABELS[service];
-        const title =
-          service === "reddit" && state === "no"
-            ? translate("serviceRedditNo")
-            : translate(`serviceState.${state}`, { service: label });
+      {summary.map(({ region, service, state }) => {
+        const line = title(service, state, region);
         return (
           <Badge
-            aria-label={title}
+            aria-label={line}
             className={cn("px-1.5 font-normal", state === "no" && "line-through")}
             key={service}
-            title={title}
-            variant={state === "yes" ? "success" : state === "some" ? "warning" : "neutral"}
+            title={line}
+            variant={state === "yes" ? "success" : state === "no" ? "neutral" : "warning"}
           >
             {state === "yes" ? (
               <Check aria-hidden />
-            ) : state === "some" ? (
-              <Minus aria-hidden />
-            ) : (
+            ) : state === "no" ? (
               <X aria-hidden />
+            ) : (
+              <Minus aria-hidden />
             )}
-            {label}
+            {NODE_SERVICE_LABELS[service]}
           </Badge>
         );
       })}
@@ -416,7 +409,7 @@ function ServersTab({
     ...view.servers.countries.flatMap((c) => c.servers),
     ...view.servers.reserve,
   ];
-  const checked = serviceStates(everyServer).length > 0;
+  const checked = summarizeServices(everyServer).length > 0;
 
   async function measureAll() {
     setMeasuring(true);

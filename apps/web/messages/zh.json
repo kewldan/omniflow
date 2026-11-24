@@ -5597,13 +5597,12 @@
       "blockDomains": "Always blocked for everyone",
       "blockDomainsHint": "One domain per line; subdomains are blocked too.",
       "services": "服务",
-      "servicesHint": "从主机的出口地址检查后，标记可通过它访问的服务：点击在“未检查 → 可用 → 不可用”之间切换。客户会在服务器页面看到这些标记。tools/check-node-services.sh 可在节点上运行检查。",
-      "serviceToggle": "{service}：{state}",
-      "serviceStates": {
-        "unchecked": "未检查",
-        "works": "可用",
-        "broken": "不可用"
-      }
+      "servicesHint": "服务结果来自 Remnawave 的 geocheck：模块开启时，每 6 小时在每个节点上运行一次。入站转发到其他节点的主机会从该节点出口——请将其选为出口，以便客户看到正确的结果。",
+      "exitNode": "出口节点",
+      "exitNodeOwn": "自身节点（{node}）",
+      "exitNodeUnknown": "自身节点",
+      "notChecked": "尚未检查",
+      "checkedAt": "检查于 {time}"
     }
   },
   "account": {
@@ -7558,13 +7557,19 @@
       "rulesEmpty": "还没有规则。添加应直连、通过 VPN 或屏蔽的域名。",
       "rulesHint": "规则适用于该域名及其所有子域名。可以粘贴链接，只保留域名。",
       "serverCount": "{count, plural, other {# 台服务器}}",
-      "servicesHint": "徽章表示经我们检查后可通过该国家访问的服务：绿色可用，划线不可用，黄色仅部分服务器可用。",
+      "servicesHint": "徽章表示根据 Remnawave 在服务器上的检查（每隔几小时更新）可通过该国家访问的服务：绿色可用，黄色有限制或仅部分服务器可用，划线不可用。",
+      "serviceRedditNo": "Reddit 要求登录",
       "serviceState": {
         "yes": "{service} 可用",
         "no": "{service} 无法打开",
+        "limited": "{service} 可用但有限制",
         "some": "{service} 仅部分服务器可用"
       },
-      "serviceRedditNo": "Reddit 要求登录"
+      "serviceLimited": {
+        "youtube": "YouTube 将该服务器视为俄罗斯：俄罗斯的广告和推荐，没有 Premium",
+        "netflix": "Netflix 仅提供自制内容"
+      },
+      "serviceRegion": "地区 {region}"
     }
   },
   "pages": {

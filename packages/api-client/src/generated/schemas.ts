@@ -3906,20 +3906,11 @@ export const GetPanelSmartSubscriptionResponse = zod.object({
           .describe(
             "reserve is the whitelist bypass; hidden leaves the host out of every subscription.",
           ),
-        services: zod
-          .object({
-            gemini: zod.boolean().optional(),
-            youtube: zod.boolean().optional(),
-            reddit: zod
-              .boolean()
-              .optional()
-              .describe("false means Reddit asks to sign in before showing anything."),
-            chatgpt: zod.boolean().optional(),
-            claude: zod.boolean().optional(),
-          })
+        exitNode: zod
+          .string()
           .optional()
           .describe(
-            "Which sites work through the server, as the operator checked them from its exit address: true works, false does not; a service left out was not checked.",
+            "The Remnawave node UUID the host's traffic leaves from, for a host whose inbound forwards to another node; empty uses the host's own node.",
           ),
       }),
     )
@@ -4002,20 +3993,11 @@ export const SavePanelSmartSubscriptionBody = zod.object({
           .describe(
             "reserve is the whitelist bypass; hidden leaves the host out of every subscription.",
           ),
-        services: zod
-          .object({
-            gemini: zod.boolean().optional(),
-            youtube: zod.boolean().optional(),
-            reddit: zod
-              .boolean()
-              .optional()
-              .describe("false means Reddit asks to sign in before showing anything."),
-            chatgpt: zod.boolean().optional(),
-            claude: zod.boolean().optional(),
-          })
+        exitNode: zod
+          .string()
           .optional()
           .describe(
-            "Which sites work through the server, as the operator checked them from its exit address: true works, false does not; a service left out was not checked.",
+            "The Remnawave node UUID the host's traffic leaves from, for a host whose inbound forwards to another node; empty uses the host's own node.",
           ),
       }),
     )
@@ -4090,20 +4072,11 @@ export const SavePanelSmartSubscriptionResponse = zod.object({
           .describe(
             "reserve is the whitelist bypass; hidden leaves the host out of every subscription.",
           ),
-        services: zod
-          .object({
-            gemini: zod.boolean().optional(),
-            youtube: zod.boolean().optional(),
-            reddit: zod
-              .boolean()
-              .optional()
-              .describe("false means Reddit asks to sign in before showing anything."),
-            chatgpt: zod.boolean().optional(),
-            claude: zod.boolean().optional(),
-          })
+        exitNode: zod
+          .string()
           .optional()
           .describe(
-            "Which sites work through the server, as the operator checked them from its exit address: true works, false does not; a service left out was not checked.",
+            "The Remnawave node UUID the host's traffic leaves from, for a host whose inbound forwards to another node; empty uses the host's own node.",
           ),
       }),
     )
@@ -4126,6 +4099,134 @@ export const ListPanelSmartSubscriptionHostsResponse = zod.object({
       disabled: zod.boolean(),
       hidden: zod.boolean(),
       down: zod.boolean().describe("Every node behind the host is disconnected or disabled."),
+      nodes: zod.array(zod.string()).optional().describe("The nodes the host runs on."),
+      exitNode: zod
+        .string()
+        .optional()
+        .describe(
+          "The node the host exits from: the operator's choice, or its only node; empty when it runs on several and none was chosen.",
+        ),
+      services: zod
+        .object({
+          gemini: zod
+            .object({
+              state: zod
+                .enum(["yes", "no", "limited"])
+                .describe(
+                  "no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region.",
+                ),
+              region: zod
+                .string()
+                .optional()
+                .describe("The country the service placed the address in, when it says."),
+            })
+            .optional(),
+          youtube: zod
+            .object({
+              state: zod
+                .enum(["yes", "no", "limited"])
+                .describe(
+                  "no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region.",
+                ),
+              region: zod
+                .string()
+                .optional()
+                .describe("The country the service placed the address in, when it says."),
+            })
+            .optional(),
+          reddit: zod
+            .object({
+              state: zod
+                .enum(["yes", "no", "limited"])
+                .describe(
+                  "no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region.",
+                ),
+              region: zod
+                .string()
+                .optional()
+                .describe("The country the service placed the address in, when it says."),
+            })
+            .optional(),
+          chatgpt: zod
+            .object({
+              state: zod
+                .enum(["yes", "no", "limited"])
+                .describe(
+                  "no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region.",
+                ),
+              region: zod
+                .string()
+                .optional()
+                .describe("The country the service placed the address in, when it says."),
+            })
+            .optional(),
+          claude: zod
+            .object({
+              state: zod
+                .enum(["yes", "no", "limited"])
+                .describe(
+                  "no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region.",
+                ),
+              region: zod
+                .string()
+                .optional()
+                .describe("The country the service placed the address in, when it says."),
+            })
+            .optional(),
+          netflix: zod
+            .object({
+              state: zod
+                .enum(["yes", "no", "limited"])
+                .describe(
+                  "no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region.",
+                ),
+              region: zod
+                .string()
+                .optional()
+                .describe("The country the service placed the address in, when it says."),
+            })
+            .optional(),
+          spotify: zod
+            .object({
+              state: zod
+                .enum(["yes", "no", "limited"])
+                .describe(
+                  "no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region.",
+                ),
+              region: zod
+                .string()
+                .optional()
+                .describe("The country the service placed the address in, when it says."),
+            })
+            .optional(),
+          tiktok: zod
+            .object({
+              state: zod
+                .enum(["yes", "no", "limited"])
+                .describe(
+                  "no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region.",
+                ),
+              region: zod
+                .string()
+                .optional()
+                .describe("The country the service placed the address in, when it says."),
+            })
+            .optional(),
+        })
+        .optional()
+        .describe(
+          "How each site answered from the server's exit node in Remnawave's latest geocheck. A service the check could not settle is left out.",
+        ),
+      checkedAt: zod.iso
+        .datetime({ offset: true })
+        .optional()
+        .describe("When the exit node was last checked; absent when it never was."),
+    }),
+  ),
+  nodes: zod.array(
+    zod.object({
+      uuid: zod.string(),
+      name: zod.string(),
     }),
   ),
 });
@@ -12458,18 +12559,114 @@ export const GetAccountSmartSubscriptionResponse = zod.object({
             down: zod.boolean(),
             services: zod
               .object({
-                gemini: zod.boolean().optional(),
-                youtube: zod.boolean().optional(),
+                gemini: zod
+                  .object({
+                    state: zod
+                      .enum(["yes", "no", "limited"])
+                      .describe(
+                        "no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region.",
+                      ),
+                    region: zod
+                      .string()
+                      .optional()
+                      .describe("The country the service placed the address in, when it says."),
+                  })
+                  .optional(),
+                youtube: zod
+                  .object({
+                    state: zod
+                      .enum(["yes", "no", "limited"])
+                      .describe(
+                        "no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region.",
+                      ),
+                    region: zod
+                      .string()
+                      .optional()
+                      .describe("The country the service placed the address in, when it says."),
+                  })
+                  .optional(),
                 reddit: zod
-                  .boolean()
-                  .optional()
-                  .describe("false means Reddit asks to sign in before showing anything."),
-                chatgpt: zod.boolean().optional(),
-                claude: zod.boolean().optional(),
+                  .object({
+                    state: zod
+                      .enum(["yes", "no", "limited"])
+                      .describe(
+                        "no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region.",
+                      ),
+                    region: zod
+                      .string()
+                      .optional()
+                      .describe("The country the service placed the address in, when it says."),
+                  })
+                  .optional(),
+                chatgpt: zod
+                  .object({
+                    state: zod
+                      .enum(["yes", "no", "limited"])
+                      .describe(
+                        "no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region.",
+                      ),
+                    region: zod
+                      .string()
+                      .optional()
+                      .describe("The country the service placed the address in, when it says."),
+                  })
+                  .optional(),
+                claude: zod
+                  .object({
+                    state: zod
+                      .enum(["yes", "no", "limited"])
+                      .describe(
+                        "no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region.",
+                      ),
+                    region: zod
+                      .string()
+                      .optional()
+                      .describe("The country the service placed the address in, when it says."),
+                  })
+                  .optional(),
+                netflix: zod
+                  .object({
+                    state: zod
+                      .enum(["yes", "no", "limited"])
+                      .describe(
+                        "no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region.",
+                      ),
+                    region: zod
+                      .string()
+                      .optional()
+                      .describe("The country the service placed the address in, when it says."),
+                  })
+                  .optional(),
+                spotify: zod
+                  .object({
+                    state: zod
+                      .enum(["yes", "no", "limited"])
+                      .describe(
+                        "no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region.",
+                      ),
+                    region: zod
+                      .string()
+                      .optional()
+                      .describe("The country the service placed the address in, when it says."),
+                  })
+                  .optional(),
+                tiktok: zod
+                  .object({
+                    state: zod
+                      .enum(["yes", "no", "limited"])
+                      .describe(
+                        "no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region.",
+                      ),
+                    region: zod
+                      .string()
+                      .optional()
+                      .describe("The country the service placed the address in, when it says."),
+                  })
+                  .optional(),
               })
               .optional()
               .describe(
-                "Which sites work through the server, as the operator checked them from its exit address: true works, false does not; a service left out was not checked.",
+                "How each site answered from the server's exit node in Remnawave's latest geocheck. A service the check could not settle is left out.",
               ),
           }),
         ),
@@ -12483,18 +12680,114 @@ export const GetAccountSmartSubscriptionResponse = zod.object({
         down: zod.boolean(),
         services: zod
           .object({
-            gemini: zod.boolean().optional(),
-            youtube: zod.boolean().optional(),
+            gemini: zod
+              .object({
+                state: zod
+                  .enum(["yes", "no", "limited"])
+                  .describe(
+                    "no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region.",
+                  ),
+                region: zod
+                  .string()
+                  .optional()
+                  .describe("The country the service placed the address in, when it says."),
+              })
+              .optional(),
+            youtube: zod
+              .object({
+                state: zod
+                  .enum(["yes", "no", "limited"])
+                  .describe(
+                    "no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region.",
+                  ),
+                region: zod
+                  .string()
+                  .optional()
+                  .describe("The country the service placed the address in, when it says."),
+              })
+              .optional(),
             reddit: zod
-              .boolean()
-              .optional()
-              .describe("false means Reddit asks to sign in before showing anything."),
-            chatgpt: zod.boolean().optional(),
-            claude: zod.boolean().optional(),
+              .object({
+                state: zod
+                  .enum(["yes", "no", "limited"])
+                  .describe(
+                    "no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region.",
+                  ),
+                region: zod
+                  .string()
+                  .optional()
+                  .describe("The country the service placed the address in, when it says."),
+              })
+              .optional(),
+            chatgpt: zod
+              .object({
+                state: zod
+                  .enum(["yes", "no", "limited"])
+                  .describe(
+                    "no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region.",
+                  ),
+                region: zod
+                  .string()
+                  .optional()
+                  .describe("The country the service placed the address in, when it says."),
+              })
+              .optional(),
+            claude: zod
+              .object({
+                state: zod
+                  .enum(["yes", "no", "limited"])
+                  .describe(
+                    "no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region.",
+                  ),
+                region: zod
+                  .string()
+                  .optional()
+                  .describe("The country the service placed the address in, when it says."),
+              })
+              .optional(),
+            netflix: zod
+              .object({
+                state: zod
+                  .enum(["yes", "no", "limited"])
+                  .describe(
+                    "no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region.",
+                  ),
+                region: zod
+                  .string()
+                  .optional()
+                  .describe("The country the service placed the address in, when it says."),
+              })
+              .optional(),
+            spotify: zod
+              .object({
+                state: zod
+                  .enum(["yes", "no", "limited"])
+                  .describe(
+                    "no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region.",
+                  ),
+                region: zod
+                  .string()
+                  .optional()
+                  .describe("The country the service placed the address in, when it says."),
+              })
+              .optional(),
+            tiktok: zod
+              .object({
+                state: zod
+                  .enum(["yes", "no", "limited"])
+                  .describe(
+                    "no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region.",
+                  ),
+                region: zod
+                  .string()
+                  .optional()
+                  .describe("The country the service placed the address in, when it says."),
+              })
+              .optional(),
           })
           .optional()
           .describe(
-            "Which sites work through the server, as the operator checked them from its exit address: true works, false does not; a service left out was not checked.",
+            "How each site answered from the server's exit node in Remnawave's latest geocheck. A service the check could not settle is left out.",
           ),
       }),
     ),

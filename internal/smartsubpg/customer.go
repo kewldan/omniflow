@@ -59,7 +59,7 @@ func (service *Service) CustomerView(ctx context.Context, customerID, subscripti
 		entries = append(entries, smartsub.Entry{Remark: host.Remark, Address: host.Address, Port: host.Port})
 	}
 	view := CustomerView{
-		Servers:  smartsub.BuildView(entries, service.Catalog(ctx), settings),
+		Servers:  smartsub.BuildView(entries, catalog, settings, service.NodeChecks(ctx)),
 		Defaults: settings.Defaults, CustomRules: settings.CustomRules, MaxRules: settings.MaxRules,
 	}
 	preferences, found, err := readPreferences(ctx, service.pool, subscriptionID)

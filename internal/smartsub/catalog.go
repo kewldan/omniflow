@@ -31,6 +31,9 @@ type Catalog struct {
 	DownNodes map[string]bool
 	// SquadInbounds maps each internal squad to the inbounds it grants.
 	SquadInbounds map[string][]string
+	// NodeNames are the panel's nodes by UUID, for the operator's exit-node
+	// choice.
+	NodeNames map[string]string
 }
 
 // HostsFor lists the hosts a member of these internal squads gets, the way
@@ -81,8 +84,10 @@ type Server struct {
 	Role     Role
 	// Down is true when every node behind the host is down.
 	Down bool
-	// Services are the operator's marks for the host; nil when unchecked.
-	Services map[string]bool
+	// ExitNode is the node the host's traffic leaves from: the operator's
+	// choice, or the host's only node. Empty when the host runs on several
+	// nodes and nobody said which one.
+	ExitNode string
 }
 
 // Classify places one server. The host is found by its remark first, which is
@@ -98,6 +103,9 @@ func (catalog Catalog) Classify(remark, address string, port int, settings Setti
 			server.Detected = DetectCountry(host.Remark)
 		}
 		server.Down = catalog.down(host)
+		if len(host.Nodes) == 1 {
+			server.ExitNode = strings.ToLower(host.Nodes[0])
+		}
 	}
 	server.Country = server.Detected
 	if found {
@@ -108,7 +116,9 @@ func (catalog Catalog) Classify(remark, address string, port int, settings Setti
 			if override.Role != "" {
 				server.Role = override.Role
 			}
-			server.Services = copyServices(override.Services)
+			if override.ExitNode != "" {
+				server.ExitNode = override.ExitNode
+			}
 		}
 	}
 	if server.Country == "" {

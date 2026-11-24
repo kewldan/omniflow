@@ -4595,6 +4595,27 @@ func (e SmartSubscriptionRuleAction) Valid() bool {
 	}
 }
 
+// Defines values for SmartSubscriptionServiceStatusState.
+const (
+	SmartSubscriptionServiceStatusStateLimited SmartSubscriptionServiceStatusState = "limited"
+	SmartSubscriptionServiceStatusStateNo      SmartSubscriptionServiceStatusState = "no"
+	SmartSubscriptionServiceStatusStateYes     SmartSubscriptionServiceStatusState = "yes"
+)
+
+// Valid indicates whether the value is a known member of the SmartSubscriptionServiceStatusState enum.
+func (e SmartSubscriptionServiceStatusState) Valid() bool {
+	switch e {
+	case SmartSubscriptionServiceStatusStateLimited:
+		return true
+	case SmartSubscriptionServiceStatusStateNo:
+		return true
+	case SmartSubscriptionServiceStatusStateYes:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TelemetryEventName.
 const (
 	FeatureUsage          TelemetryEventName = "feature.usage"
@@ -10967,6 +10988,9 @@ type PanelSmartSubscription struct {
 type PanelSmartSubscriptionHost struct {
 	Address string `json:"address"`
 
+	// CheckedAt When the exit node was last checked; absent when it never was.
+	CheckedAt *time.Time `json:"checkedAt,omitempty"`
+
 	// Country The country in effect; ZZ when unknown.
 	Country string `json:"country"`
 
@@ -10975,12 +10999,21 @@ type PanelSmartSubscriptionHost struct {
 	Disabled        bool   `json:"disabled"`
 
 	// Down Every node behind the host is disconnected or disabled.
-	Down   bool                           `json:"down"`
-	Hidden bool                           `json:"hidden"`
+	Down bool `json:"down"`
+
+	// ExitNode The node the host exits from: the operator's choice, or its only node; empty when it runs on several and none was chosen.
+	ExitNode *string `json:"exitNode,omitempty"`
+	Hidden   bool    `json:"hidden"`
+
+	// Nodes The nodes the host runs on.
+	Nodes  *[]string                      `json:"nodes,omitempty"`
 	Port   int                            `json:"port"`
 	Remark string                         `json:"remark"`
 	Role   PanelSmartSubscriptionHostRole `json:"role"`
-	Uuid   string                         `json:"uuid"`
+
+	// Services How each site answered from the server's exit node in Remnawave's latest geocheck. A service the check could not settle is left out.
+	Services *SmartSubscriptionServices `json:"services,omitempty"`
+	Uuid     string                     `json:"uuid"`
 }
 
 // PanelSmartSubscriptionHostRole defines model for PanelSmartSubscriptionHost.Role.
@@ -10989,6 +11022,10 @@ type PanelSmartSubscriptionHostRole string
 // PanelSmartSubscriptionHosts defines model for PanelSmartSubscriptionHosts.
 type PanelSmartSubscriptionHosts struct {
 	Hosts []PanelSmartSubscriptionHost `json:"hosts"`
+	Nodes []struct {
+		Name string `json:"name"`
+		Uuid string `json:"uuid"`
+	} `json:"nodes"`
 }
 
 // PanelSquadGrant defines model for PanelSquadGrant.
@@ -12005,11 +12042,11 @@ type SmartSubscriptionHostOverride struct {
 	// Country An ISO 3166-1 code; empty keeps the one read from the remark.
 	Country *string `json:"country,omitempty"`
 
+	// ExitNode The Remnawave node UUID the host's traffic leaves from, for a host whose inbound forwards to another node; empty uses the host's own node.
+	ExitNode *string `json:"exitNode,omitempty"`
+
 	// Role reserve is the whitelist bypass; hidden leaves the host out of every subscription.
 	Role *SmartSubscriptionHostOverrideRole `json:"role,omitempty"`
-
-	// Services Which sites work through the server, as the operator checked them from its exit address: true works, false does not; a service left out was not checked.
-	Services *SmartSubscriptionServices `json:"services,omitempty"`
 }
 
 // SmartSubscriptionHostOverrideRole reserve is the whitelist bypass; hidden leaves the host out of every subscription.
@@ -12059,19 +12096,32 @@ type SmartSubscriptionServer struct {
 	Name    string `json:"name"`
 	Port    int    `json:"port"`
 
-	// Services Which sites work through the server, as the operator checked them from its exit address: true works, false does not; a service left out was not checked.
+	// Services How each site answered from the server's exit node in Remnawave's latest geocheck. A service the check could not settle is left out.
 	Services *SmartSubscriptionServices `json:"services,omitempty"`
 }
 
-// SmartSubscriptionServices Which sites work through the server, as the operator checked them from its exit address: true works, false does not; a service left out was not checked.
-type SmartSubscriptionServices struct {
-	Chatgpt *bool `json:"chatgpt,omitempty"`
-	Claude  *bool `json:"claude,omitempty"`
-	Gemini  *bool `json:"gemini,omitempty"`
+// SmartSubscriptionServiceStatus defines model for SmartSubscriptionServiceStatus.
+type SmartSubscriptionServiceStatus struct {
+	// Region The country the service placed the address in, when it says.
+	Region *string `json:"region,omitempty"`
 
-	// Reddit false means Reddit asks to sign in before showing anything.
-	Reddit  *bool `json:"reddit,omitempty"`
-	Youtube *bool `json:"youtube,omitempty"`
+	// State no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region.
+	State SmartSubscriptionServiceStatusState `json:"state"`
+}
+
+// SmartSubscriptionServiceStatusState no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region.
+type SmartSubscriptionServiceStatusState string
+
+// SmartSubscriptionServices How each site answered from the server's exit node in Remnawave's latest geocheck. A service the check could not settle is left out.
+type SmartSubscriptionServices struct {
+	Chatgpt *SmartSubscriptionServiceStatus `json:"chatgpt,omitempty"`
+	Claude  *SmartSubscriptionServiceStatus `json:"claude,omitempty"`
+	Gemini  *SmartSubscriptionServiceStatus `json:"gemini,omitempty"`
+	Netflix *SmartSubscriptionServiceStatus `json:"netflix,omitempty"`
+	Reddit  *SmartSubscriptionServiceStatus `json:"reddit,omitempty"`
+	Spotify *SmartSubscriptionServiceStatus `json:"spotify,omitempty"`
+	Tiktok  *SmartSubscriptionServiceStatus `json:"tiktok,omitempty"`
+	Youtube *SmartSubscriptionServiceStatus `json:"youtube,omitempty"`
 }
 
 // TelegramLoginWidgetPayload The document Telegram's Login Widget produces. Every field except `hash` participates in the signature in its textual form, so the server keeps the digits of the numeric fields verbatim rather than parsing them as floating point.

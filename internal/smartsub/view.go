@@ -6,9 +6,9 @@ type ViewServer struct {
 	Address string `json:"address"`
 	Port    int    `json:"port"`
 	Down    bool   `json:"down"`
-	// Services are which sites work through the server, as the operator
-	// checked them; a service left out was not checked.
-	Services map[string]bool `json:"services,omitempty"`
+	// Services are how each site answered from the server's exit node in
+	// its latest geocheck; nil when the node was never checked.
+	Services map[string]ServiceStatus `json:"services,omitempty"`
 }
 
 // ViewCountry is one country with its servers.
@@ -33,8 +33,9 @@ type Entry struct {
 	Hidden  bool
 }
 
-// BuildView places a customer's servers for the screen.
-func BuildView(entries []Entry, catalog Catalog, settings Settings) View {
+// BuildView places a customer's servers for the screen. checks are the
+// latest geocheck of each node, by node UUID.
+func BuildView(entries []Entry, catalog Catalog, settings Settings, checks map[string]NodeCheck) View {
 	view := View{Countries: []ViewCountry{}, Reserve: []ViewServer{}}
 	index := map[string]int{}
 	var unknown *ViewCountry
@@ -46,7 +47,10 @@ func BuildView(entries []Entry, catalog Catalog, settings Settings) View {
 		}
 		server := catalog.Classify(entry.Remark, entry.Address, entry.Port, settings)
 		listed := ViewServer{
-			Name: entry.Remark, Address: entry.Address, Port: entry.Port, Down: server.Down, Services: server.Services,
+			Name: entry.Remark, Address: entry.Address, Port: entry.Port, Down: server.Down,
+		}
+		if check, ok := checks[server.ExitNode]; ok && server.ExitNode != "" && len(check.Services) > 0 {
+			listed.Services = check.Services
 		}
 		switch server.Role {
 		case RoleHidden:

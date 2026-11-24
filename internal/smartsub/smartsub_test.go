@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestDetectCountry(t *testing.T) {
@@ -75,20 +76,20 @@ func TestSettingsNormalize(t *testing.T) {
 		t.Errorf("hosts = %v", normalized.Hosts)
 	}
 
-	// Service marks are kept, keys lowercased; an override whose only content
-	// is an empty set of marks is dropped like any other empty override.
-	marked := DefaultSettings()
-	marked.Hosts = map[string]HostOverride{
-		"0f0e0d0c-0000-4000-8000-000000000001": {Services: map[string]bool{" Gemini ": false, "reddit": true}},
-		"0f0e0d0c-0000-4000-8000-000000000002": {Services: map[string]bool{}},
+	// An exit node is kept lowercased; an override that only names an empty
+	// one is dropped like any other empty override.
+	chained := DefaultSettings()
+	chained.Hosts = map[string]HostOverride{
+		"0f0e0d0c-0000-4000-8000-000000000001": {ExitNode: " 0F0E0D0C-0000-4000-8000-0000000000AA "},
+		"0f0e0d0c-0000-4000-8000-000000000002": {ExitNode: " "},
 	}
-	normalized, err = marked.Normalize()
+	normalized, err = chained.Normalize()
 	if err != nil {
 		t.Fatal(err)
 	}
-	services := normalized.Hosts["0f0e0d0c-0000-4000-8000-000000000001"].Services
-	if len(normalized.Hosts) != 1 || len(services) != 2 || services["gemini"] || !services["reddit"] {
-		t.Errorf("marked hosts = %v", normalized.Hosts)
+	if len(normalized.Hosts) != 1 ||
+		normalized.Hosts["0f0e0d0c-0000-4000-8000-000000000001"].ExitNode != "0f0e0d0c-0000-4000-8000-0000000000aa" {
+		t.Errorf("chained hosts = %v", normalized.Hosts)
 	}
 
 	for name, broken := range map[string]func(*Settings){
@@ -100,10 +101,8 @@ func TestSettingsNormalize(t *testing.T) {
 		"role": func(s *Settings) {
 			s.Hosts = map[string]HostOverride{"0f0e0d0c-0000-4000-8000-000000000001": {Role: "vip"}}
 		},
-		"service": func(s *Settings) {
-			s.Hosts = map[string]HostOverride{
-				"0f0e0d0c-0000-4000-8000-000000000001": {Services: map[string]bool{"netflix": true}},
-			}
+		"exit node": func(s *Settings) {
+			s.Hosts = map[string]HostOverride{"0f0e0d0c-0000-4000-8000-000000000001": {ExitNode: "node-1"}}
 		},
 		"host key":  func(s *Settings) { s.Hosts = map[string]HostOverride{"not-a-uuid": {Role: RoleHidden}} },
 		"link base": func(s *Settings) { s.LinkBase = "sub.example.com" },
@@ -562,27 +561,96 @@ func TestBuildView(t *testing.T) {
 		{Remark: "Germany test", Address: "de-test.example.net", Port: 443},
 		{Remark: "Panel hidden", Address: "h.example.net", Port: 443, Hidden: true},
 		{Remark: "⚠️ Приложение не поддерживается", Address: "0.0.0.0", Port: 1},
-	}, testCatalog(), testSettings())
+	}, testCatalog(), testSettings(), nil)
 	got := fmt.Sprintf("%d %s %d %s %d", len(view.Countries), view.Countries[0].Code, len(view.Countries[0].Servers),
 		view.Countries[1].Code, len(view.Reserve))
 	if got != "2 FI 2 ZZ 1" {
 		t.Errorf("view = %s", got)
 	}
 
-	// The operator's service marks reach the server they were set on, and
-	// only that one.
+	// A server shows the latest check of the node it exits from: its own
+	// node, or the one the operator named for a chained host.
 	settings := testSettings()
-	settings.Hosts[finlandHost] = HostOverride{Services: map[string]bool{"gemini": true, "reddit": false}}
+	checks := map[string]NodeCheck{
+		"n1":    {Services: map[string]ServiceStatus{"gemini": {State: StateYes}}},
+		"exit2": {Services: map[string]ServiceStatus{"gemini": {State: StateNo, Region: "RUS"}}},
+	}
 	marked := BuildView([]Entry{
 		{Remark: "🇫🇮 Finland 1", Address: "fi1.example.net", Port: 443},
 		{Remark: "Finland 2", Address: "fi2.example.net", Port: 443},
-	}, testCatalog(), settings)
+	}, testCatalog(), settings, checks)
 	first, second := marked.Countries[0].Servers[0], marked.Countries[0].Servers[1]
-	if !first.Services["gemini"] || first.Services["reddit"] || len(first.Services) != 2 || second.Services != nil {
+	if first.Services["gemini"].State != StateYes || second.Services != nil {
 		t.Errorf("services = %v, %v", first.Services, second.Services)
 	}
 	encoded, err := json.Marshal(second)
 	if err != nil || strings.Contains(string(encoded), "services") {
 		t.Errorf("unchecked server encodes as %s", encoded)
+	}
+	settings.Hosts[finlandHost] = HostOverride{ExitNode: "exit2"}
+	chained := BuildView([]Entry{{Remark: "🇫🇮 Finland 1", Address: "fi1.example.net", Port: 443}},
+		testCatalog(), settings, checks)
+	if status := chained.Countries[0].Servers[0].Services["gemini"]; status.State != StateNo || status.Region != "RUS" {
+		t.Errorf("chained host services = %v", chained.Countries[0].Servers[0].Services)
+	}
+}
+
+// geocheckFixture is a trimmed Remnawave geocheck report, shaped like a real
+// one from a node Google places in Russia and Reddit turns away.
+const geocheckFixture = `{
+ "schema": 1, "timestamp": "2026-11-24T07:29:45Z",
+ "identity": {"ipv4": "192.0.2.10"},
+ "geo": {"services": [
+  {"id": "google", "kind": "country", "ipv4": {"value": "RU"}},
+  {"id": "youtube", "kind": "country", "ipv4": {"value": "RU"}},
+  {"id": "reddit", "kind": "country", "ipv4": {"error": "blocked by Reddit's network security"}},
+  {"id": "reddit_guest", "kind": "availability", "ipv4": {"value": "no"}},
+  {"id": "spotify", "kind": "country", "ipv4": {"value": "AT"}}
+ ]},
+ "stash_checks": [
+  {"id": "chatgpt_web", "state": "available"},
+  {"id": "netflix_access", "state": "available", "region": "AT", "detail": "originals only"},
+  {"id": "claude_access", "state": "error", "detail": "Cloudflare challenged the request"},
+  {"id": "tiktok_access", "state": "available"},
+  {"id": "gemini_access", "state": "blocked", "region": "RUS", "detail": "not offered in this country"}
+ ],
+ "ai_endpoints": [{"id": "anthropic", "state": "reachable", "http_status": 401}]
+}`
+
+func TestSummarizeGeocheck(t *testing.T) {
+	check, err := SummarizeGeocheck([]byte(geocheckFixture), time.Unix(0, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !check.CheckedAt.Equal(time.Date(2026, 11, 24, 7, 29, 45, 0, time.UTC)) {
+		t.Errorf("checked at = %v", check.CheckedAt)
+	}
+	want := map[string]ServiceStatus{
+		"gemini":  {State: StateNo, Region: "RUS"},
+		"youtube": {State: StateLimited, Region: "RU"},
+		"reddit":  {State: StateNo},
+		"chatgpt": {State: StateYes},
+		"claude":  {State: StateYes},
+		"netflix": {State: StateLimited, Region: "AT"},
+		"spotify": {State: StateYes, Region: "AT"},
+		"tiktok":  {State: StateYes},
+	}
+	if len(check.Services) != len(want) {
+		t.Errorf("services = %v", check.Services)
+	}
+	for service, status := range want {
+		if check.Services[service] != status {
+			t.Errorf("%s = %v, want %v", service, check.Services[service], status)
+		}
+	}
+
+	// A check that settled nothing has no services, and a broken report is
+	// an error rather than an empty success.
+	empty, err := SummarizeGeocheck([]byte(`{"geo":{"services":[{"id":"youtube","ipv4":{"error":"timeout"}}]}}`), time.Unix(0, 0))
+	if err != nil || len(empty.Services) != 0 {
+		t.Errorf("empty = %v, %v", empty, err)
+	}
+	if _, err := SummarizeGeocheck([]byte(`not json`), time.Unix(0, 0)); err == nil {
+		t.Error("a broken report was accepted")
 	}
 }

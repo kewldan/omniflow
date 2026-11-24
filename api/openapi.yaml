@@ -8002,17 +8002,25 @@ components:
       properties:
         country: {type: string, description: An ISO 3166-1 code; empty keeps the one read from the remark.}
         role: {type: string, enum: ["", main, reserve, hidden], description: "reserve is the whitelist bypass; hidden leaves the host out of every subscription."}
-        services: {$ref: "#/components/schemas/SmartSubscriptionServices"}
+        exitNode: {type: string, description: "The Remnawave node UUID the host's traffic leaves from, for a host whose inbound forwards to another node; empty uses the host's own node."}
+    SmartSubscriptionServiceStatus:
+      type: object
+      required: [state]
+      properties:
+        state: {type: string, enum: ["yes", "no", limited], description: "no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region."}
+        region: {type: string, description: "The country the service placed the address in, when it says."}
     SmartSubscriptionServices:
       type: object
-      description: "Which sites work through the server, as the operator checked them from its exit address: true works, false does not; a service left out was not checked."
+      description: "How each site answered from the server's exit node in Remnawave's latest geocheck. A service the check could not settle is left out."
       properties:
-        gemini: {type: boolean}
-        youtube: {type: boolean}
-        reddit: {type: boolean, description: false means Reddit asks to sign in before showing anything.}
-        chatgpt: {type: boolean}
-        claude: {type: boolean}
-      additionalProperties: false
+        gemini: {$ref: "#/components/schemas/SmartSubscriptionServiceStatus"}
+        youtube: {$ref: "#/components/schemas/SmartSubscriptionServiceStatus"}
+        reddit: {$ref: "#/components/schemas/SmartSubscriptionServiceStatus"}
+        chatgpt: {$ref: "#/components/schemas/SmartSubscriptionServiceStatus"}
+        claude: {$ref: "#/components/schemas/SmartSubscriptionServiceStatus"}
+        netflix: {$ref: "#/components/schemas/SmartSubscriptionServiceStatus"}
+        spotify: {$ref: "#/components/schemas/SmartSubscriptionServiceStatus"}
+        tiktok: {$ref: "#/components/schemas/SmartSubscriptionServiceStatus"}
     PanelSmartSubscription:
       type: object
       required: [enabled, version, linkBase, probeUrl, probeIntervalSeconds, autoName, reserveName, defaults, customRules, maxRules, directDomains, blockDomains, hosts]
@@ -8048,11 +8056,23 @@ components:
         disabled: {type: boolean}
         hidden: {type: boolean}
         down: {type: boolean, description: Every node behind the host is disconnected or disabled.}
+        nodes: {type: array, items: {type: string}, description: The nodes the host runs on.}
+        exitNode: {type: string, description: "The node the host exits from: the operator's choice, or its only node; empty when it runs on several and none was chosen."}
+        services: {$ref: "#/components/schemas/SmartSubscriptionServices"}
+        checkedAt: {type: string, format: date-time, description: When the exit node was last checked; absent when it never was.}
     PanelSmartSubscriptionHosts:
       type: object
-      required: [hosts]
+      required: [hosts, nodes]
       properties:
         hosts: {type: array, items: {$ref: "#/components/schemas/PanelSmartSubscriptionHost"}}
+        nodes:
+          type: array
+          items:
+            type: object
+            required: [uuid, name]
+            properties:
+              uuid: {type: string}
+              name: {type: string}
     SmartSubscriptionRule:
       type: object
       required: [domain, action]

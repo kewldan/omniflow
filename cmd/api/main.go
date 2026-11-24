@@ -248,7 +248,10 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 	// operator's settings, and each customer's choices. The link route is
 	// mounted even while the module is off, so links handed out while it was
 	// on keep answering with the panel's own subscription.
-	smartSubscription := smartsubpg.New(pool, remnawaveClient, cfg.PublicURL, logger)
+	// Node geochecks are run by the worker and read here for the customer's
+	// servers screen.
+	smartSubscription := smartsubpg.New(pool, remnawaveClient, cfg.PublicURL, logger).
+		WithChecks(smartsubpg.ValkeyChecks{Client: valkeyClient})
 	subscriptionProxies, err := apihttp.NewTrustedProxies(cfg.AdminPanel.TrustedProxies)
 	if err != nil {
 		closeAll()

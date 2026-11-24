@@ -407,7 +407,10 @@ device limit still decide — and rewrites the answer it returns: servers groupe
 by country, a balancer per group, a failover onto the hosts the operator marked
 as the whitelist bypass, and routing rules the customer chose. Omniflow stores
 the operator's settings and each customer's choices; it stores no Xray
-configuration, no host, and no node, and it never writes to Remnawave. With the
+configuration, no host, and no node, and it never writes to Remnawave. The
+customer's servers screen also shows which services open through each server,
+from Remnawave's geocheck of each node: the worker asks the panel to run it and
+keeps a summary in Valkey as a cache that expires, never in PostgreSQL. With the
 module off, or for any answer it cannot rewrite, the panel's response passes
 through unchanged.
 

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -171,7 +172,8 @@ func (handlers *AdminHandlers) saveSmartSubscriptionSettings(writer http.Respons
 }
 
 // smartSubscriptionHosts lists the panel's hosts with the country read from
-// each remark, so the operator corrects only what was read wrong.
+// each remark, so the operator corrects only what was read wrong, and the node
+// each host exits from with what that node's latest geocheck found.
 func (handlers *AdminHandlers) smartSubscriptionHosts(writer http.ResponseWriter, request *http.Request) {
 	setting, err := handlers.operations.SmartSubscription(request.Context())
 	if err != nil {
@@ -183,16 +185,27 @@ func (handlers *AdminHandlers) smartSubscriptionHosts(writer http.ResponseWriter
 		writeProblem(writer, request, http.StatusBadGateway, "panel_unavailable", "Remnawave did not answer")
 		return
 	}
+	checks := handlers.smartSubscription.NodeChecks(request.Context())
 	hosts := make([]map[string]any, 0, len(catalog.Hosts))
 	for _, host := range catalog.Hosts {
 		server := catalog.Classify(host.Remark, host.Address, host.Port, setting.Settings)
-		hosts = append(hosts, map[string]any{
+		entry := map[string]any{
 			"uuid": host.UUID, "remark": host.Remark, "address": host.Address, "port": host.Port,
 			"detectedCountry": server.Detected, "country": server.Country, "role": server.Role,
 			"disabled": host.Disabled, "hidden": host.Hidden, "down": server.Down,
-		})
+			"nodes": host.Nodes, "exitNode": server.ExitNode,
+		}
+		if check, ok := checks[server.ExitNode]; ok && server.ExitNode != "" {
+			entry["services"], entry["checkedAt"] = check.Services, check.CheckedAt
+		}
+		hosts = append(hosts, entry)
 	}
-	writeJSON(writer, http.StatusOK, map[string]any{"hosts": hosts})
+	nodes := make([]map[string]string, 0, len(catalog.NodeNames))
+	for id, name := range catalog.NodeNames {
+		nodes = append(nodes, map[string]string{"uuid": id, "name": name})
+	}
+	sort.Slice(nodes, func(left, right int) bool { return nodes[left]["name"] < nodes[right]["name"] })
+	writeJSON(writer, http.StatusOK, map[string]any{"hosts": hosts, "nodes": nodes})
 }
 
 // WithSmartSubscription attaches the module to the customer panel.

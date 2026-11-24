@@ -51,20 +51,16 @@ hosts is copied into Omniflow; the list is read from Remnawave once a minute.
     a country where it was read wrong. Give the hosts that work on whitelisted mobile networks the
     **Whitelist bypass** role, and hide test or retiring hosts with **Hidden**.
   </Step>
-  <Step title="Mark which services work">
-    The **Services** column says what opens through each host: Gemini, YouTube, Reddit without
-    signing in, ChatGPT, and Claude. Each one depends on where the exit address is placed, not
-    on the panel, so Omniflow cannot tell on its own: run the check on the node the host leaves
-    from and mark what it reports. A click cycles a service through not checked, works, and
-    doesn't work.
+  <Step title="Check which node each host exits from">
+    The **Services** column is what opens through each host: Gemini, YouTube, Reddit without
+    signing in, ChatGPT, Claude, Netflix, Spotify, and TikTok. It comes from Remnawave's own
+    geocheck, which Omniflow's worker runs on every connected node every 6 hours while the module
+    is on; nothing has to be marked by hand. Google's placement matters most: an address it puts
+    in Russia loses Gemini and gets YouTube's Russian region, whatever country the panel shows.
 
-    ```bash
-    ssh <node> 'sh -s' < tools/check-node-services.sh
-    ```
-
-    A host chained to another node (an inbound that forwards to a second exit) gets that exit's
-    results. Google's own placement matters most: an address it places in Russia loses Gemini
-    and gets YouTube's Russian region, whatever country the panel shows.
+    A host is shown its own node's results. A host whose inbound forwards to another node (a chain
+    through a second exit) leaves from that other node, so pick it under **Exit node**. A host
+    that runs on several nodes needs one picked too.
   </Step>
   <Step title="Choose what customers start with">
     Pick the default routing (Russian sites direct is on by default), whether customers may add their
@@ -92,9 +88,9 @@ own screen:
   Fastest group use it. A country can be shown but kept out of Auto — for example, so the automatic
   choice never lands in one country but it is still there to pick by hand. Expanding a country lists
   its servers. **Measure ping** times each server from the browser; the figure is approximate, and
-  it goes through the VPN when the VPN is on. Under each country are the services you marked: green
-  works, struck out doesn't, amber works on only some of the country's servers. Services you never
-  marked are not shown.
+  it goes through the VPN when the VPN is on. Under each country are the services Remnawave's check
+  found: green works, amber works with limits (YouTube treating the address as Russian) or on only
+  some of the country's servers, struck out doesn't.
 - **Whitelist bypass** can be switched off by a customer who never needs it.
 - **Routing** has the three ready-made choices — Russian sites direct (the national zones, the
   geosite Russian category, and Russian IPs), block ads, block QUIC — and,

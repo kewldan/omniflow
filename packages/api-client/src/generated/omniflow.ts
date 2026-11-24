@@ -1896,24 +1896,46 @@ export const SmartSubscriptionHostOverrideRole = {
   hidden: "hidden",
 } as const;
 
-/**
- * Which sites work through the server, as the operator checked them from its exit address: true works, false does not; a service left out was not checked.
- */
-export interface SmartSubscriptionServices {
-  gemini?: boolean;
-  youtube?: boolean;
-  /** false means Reddit asks to sign in before showing anything. */
-  reddit?: boolean;
-  chatgpt?: boolean;
-  claude?: boolean;
-}
-
 export interface SmartSubscriptionHostOverride {
   /** An ISO 3166-1 code; empty keeps the one read from the remark. */
   country?: string;
   /** reserve is the whitelist bypass; hidden leaves the host out of every subscription. */
   role?: SmartSubscriptionHostOverrideRole;
-  services?: SmartSubscriptionServices;
+  /** The Remnawave node UUID the host's traffic leaves from, for a host whose inbound forwards to another node; empty uses the host's own node. */
+  exitNode?: string;
+}
+
+/**
+ * no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region.
+ */
+export type SmartSubscriptionServiceStatusState =
+  (typeof SmartSubscriptionServiceStatusState)[keyof typeof SmartSubscriptionServiceStatusState];
+
+export const SmartSubscriptionServiceStatusState = {
+  yes: "yes",
+  no: "no",
+  limited: "limited",
+} as const;
+
+export interface SmartSubscriptionServiceStatus {
+  /** no is refused (Reddit asking to sign in counts); limited opens but not as the server's country would, such as YouTube's Russian region. */
+  state: SmartSubscriptionServiceStatusState;
+  /** The country the service placed the address in, when it says. */
+  region?: string;
+}
+
+/**
+ * How each site answered from the server's exit node in Remnawave's latest geocheck. A service the check could not settle is left out.
+ */
+export interface SmartSubscriptionServices {
+  gemini?: SmartSubscriptionServiceStatus;
+  youtube?: SmartSubscriptionServiceStatus;
+  reddit?: SmartSubscriptionServiceStatus;
+  chatgpt?: SmartSubscriptionServiceStatus;
+  claude?: SmartSubscriptionServiceStatus;
+  netflix?: SmartSubscriptionServiceStatus;
+  spotify?: SmartSubscriptionServiceStatus;
+  tiktok?: SmartSubscriptionServiceStatus;
 }
 
 /**
@@ -1989,10 +2011,23 @@ export interface PanelSmartSubscriptionHost {
   hidden: boolean;
   /** Every node behind the host is disconnected or disabled. */
   down: boolean;
+  /** The nodes the host runs on. */
+  nodes?: string[];
+  /** The node the host exits from: the operator's choice, or its only node; empty when it runs on several and none was chosen. */
+  exitNode?: string;
+  services?: SmartSubscriptionServices;
+  /** When the exit node was last checked; absent when it never was. */
+  checkedAt?: string;
 }
+
+export type PanelSmartSubscriptionHostsNodesItem = {
+  uuid: string;
+  name: string;
+};
 
 export interface PanelSmartSubscriptionHosts {
   hosts: PanelSmartSubscriptionHost[];
+  nodes: PanelSmartSubscriptionHostsNodesItem[];
 }
 
 export type SmartSubscriptionRuleAction =

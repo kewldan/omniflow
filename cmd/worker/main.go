@@ -40,6 +40,7 @@ import (
 	"github.com/omniflow/omniflow/internal/remnawavesync"
 	"github.com/omniflow/omniflow/internal/renewal"
 	"github.com/omniflow/omniflow/internal/retention"
+	"github.com/omniflow/omniflow/internal/smartsubpg"
 	"github.com/omniflow/omniflow/internal/sweeper"
 	"github.com/omniflow/omniflow/internal/updatecheck"
 	"github.com/riverqueue/river"
@@ -153,6 +154,12 @@ func main() {
 	}
 	tasks = append(tasks, monitoring...)
 	tasks = append(tasks, analyticsTasks(pool, remnawaveClient)...)
+	geochecks, err := geocheckTasks(logger, cfg, pool, remnawaveClient)
+	if err != nil {
+		logger.Error("initialize node geochecks", "error", err)
+		os.Exit(1)
+	}
+	tasks = append(tasks, geochecks...)
 	periodicWorker, schedule, err := jobs.NewPeriodic(logger, tasks...)
 	if err != nil {
 		logger.Error("initialize periodic tasks", "error", err)
@@ -571,4 +578,24 @@ func lowBalanceWarning() time.Duration {
 		return -1
 	}
 	return time.Duration(hours) * time.Hour
+}
+
+// geocheckTasks asks Remnawave to run its geocheck on every node a few times a
+// day, so the customer's servers screen can say which services open through
+// each server. It needs Valkey, where the summaries are kept, and does
+// nothing while the smart subscription is off.
+func geocheckTasks(logger *slog.Logger, cfg config.WorkerConfig, pool *pgxpool.Pool, panel *remnawave.Client) ([]jobs.Task, error) {
+	if cfg.ValkeyURL == "" {
+		logger.Info("node geochecks disabled", "reason", "APP_VALKEY_URL is not set")
+		return nil, nil
+	}
+	client, err := platform.NewValkeyClient(cfg.ValkeyURL)
+	if err != nil {
+		return nil, err
+	}
+	service := smartsubpg.New(pool, panel, "", logger).WithChecks(smartsubpg.ValkeyChecks{Client: client})
+	return []jobs.Task{{
+		Name: smartsubpg.GeocheckTaskName, Interval: smartsubpg.GeocheckInterval,
+		Timeout: smartsubpg.GeocheckTimeout, Run: service.RunGeochecks,
+	}}, nil
 }
