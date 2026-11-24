@@ -808,7 +808,7 @@ function RuleIcon({ rule }: { rule: ServiceRule }) {
 
 /** The panel's own name and caption for a built-in rule. */
 function useBuiltinText() {
-  const translate = useTranslations("account.smart.builtin");
+  const translate = useTranslations("admin.smartSubscription.builtin");
   return (rule: ServiceRule) => {
     if (rule.kind === "domains") {
       return { caption: "", name: "" };
