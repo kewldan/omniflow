@@ -3,7 +3,9 @@
 import { Button } from "@omniflow/ui/button";
 import { Receipt } from "lucide-react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useEffect } from "react";
 import useSWR from "swr";
 
 import { ProductCard } from "@/components/account/shop/product-card";
@@ -31,8 +33,18 @@ export default function ShopPage() {
     "/v1/account/shop/products",
     fetcher,
   );
+  const router = useRouter();
+  // A shop selling one thing opens on it: a list of one is a page to click
+  // through. `?all` keeps the list, which a product's "back" link asks for.
+  const listAll = useSearchParams().has("all");
+  const only = !listAll && data?.items.length === 1 ? data.items[0] : undefined;
+  useEffect(() => {
+    if (only) {
+      router.replace(`/account/shop/${only.id}`);
+    }
+  }, [only, router]);
 
-  if (isLoading) {
+  if (isLoading || only) {
     return <ListSkeleton />;
   }
   if (error) {

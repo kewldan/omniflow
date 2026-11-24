@@ -5689,7 +5689,8 @@
       "copyAccountId": "复制账户 ID",
       "copied": "已复制",
       "subscription": "订阅",
-      "servers": "服务器与路由"
+      "servers": "服务器与路由",
+      "stars": "星星"
     },
     "actions": {
       "cancel": "取消",

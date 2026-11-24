@@ -12,6 +12,7 @@ import type { PlanCatalogue } from "@/components/account/commerce/types";
 import { useOpenCheckout } from "@/components/account/commerce/use-checkout";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
 import { type ApiError, fetcher } from "@/lib/api";
+import { shopHref, useShopProducts } from "@/lib/shop-products";
 
 /**
  * The store: what may be bought, and what is already half-bought.
@@ -91,13 +92,9 @@ export default function StorePage() {
  */
 function ShopLink() {
   const translate = useTranslations("account.commerce");
-  const { data } = useSWR<{ items: unknown[] }, ApiError>("/v1/account/shop/products", fetcher, {
-    // The catalogue changes when the operator changes it, not while somebody is
-    // looking at the store.
-    revalidateOnFocus: false,
-  });
+  const products = useShopProducts();
 
-  if (!data || data.items.length === 0) {
+  if (!products || products.length === 0) {
     return null;
   }
 
@@ -106,7 +103,7 @@ function ShopLink() {
       <SectionLabel>{translate("store.shop.section")}</SectionLabel>
       <Link
         className="flex items-center gap-3 rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/50 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
-        href="/account/shop"
+        href={shopHref(products)}
       >
         <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-secondary">
           <ShoppingBag aria-hidden className="size-[19px] text-muted-foreground" />

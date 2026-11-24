@@ -3,13 +3,14 @@
 import { Button } from "@omniflow/ui/button";
 import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
+import { cn } from "@omniflow/ui/lib/utils";
 import { Switch } from "@omniflow/ui/switch";
 import { toast } from "@omniflow/ui/toast";
 import { Minus, Plus } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useCallback, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import useSWR from "swr";
 import { useShopProblem } from "@/components/account/problems";
 import { useGoodsMeasure } from "@/components/account/shop/labels";
@@ -91,13 +92,17 @@ export function PurchaseForm({ productId }: { productId: string }) {
     quantity,
     stars: stars > 0 ? stars : undefined,
   })}`;
-  const { data, error, isLoading, mutate } = useSWR<ShopProductDetail, ApiError>(key, fetcher, {
-    // The displayed price only changes when the customer changes something or
-    // the hold lapses. A background revalidation swapping the amount under a
-    // reader's eyes would defeat the point of holding it at all.
-    keepPreviousData: true,
-    revalidateOnFocus: false,
-  });
+  const { data, error, isLoading, isValidating, mutate } = useSWR<ShopProductDetail, ApiError>(
+    key,
+    fetcher,
+    {
+      // The displayed price only changes when the customer changes something or
+      // the hold lapses. A background revalidation swapping the amount under a
+      // reader's eyes would defeat the point of holding it at all.
+      keepPreviousData: true,
+      revalidateOnFocus: false,
+    },
+  );
 
   const lastRequote = useRef(0);
   const idempotency = useRef<{ key: string; signature: string } | null>(null);
@@ -118,7 +123,33 @@ export function PurchaseForm({ productId }: { productId: string }) {
     void mutate();
   }, [mutate]);
 
-  if (isLoading) {
+  // A typed amount is priced once the customer pauses, so the total follows
+  // the number without a request per keystroke.
+  const bounds = data?.customAmount;
+  useEffect(() => {
+    if (!bounds) {
+      return;
+    }
+    const typed = Math.round(Number(starsInput));
+    if (!starsInput.trim() || !Number.isFinite(typed) || typed < bounds.min || typed > bounds.max) {
+      return;
+    }
+    if (typed === stars) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setStars(typed);
+      setPriceChange(null);
+      setNotice(null);
+    }, 500);
+    return () => window.clearTimeout(timer);
+  }, [starsInput, bounds, stars]);
+
+  // Only the first load shows a skeleton. A new amount, quantity, or code is a
+  // new key, and SWR reports it as loading even while the previous quote is
+  // still on screen; replacing the whole form then made typing a number blank
+  // the page on every keystroke.
+  if (isLoading && !data) {
     return <ListSkeleton rows={3} />;
   }
   if (error || !data) {
@@ -304,7 +335,7 @@ export function PurchaseForm({ productId }: { productId: string }) {
         <AccountNotice
           action={
             <Button asChild variant="outline">
-              <Link href="/account/shop">{translate("actions.back")}</Link>
+              <Link href="/account/shop?all">{translate("actions.back")}</Link>
             </Button>
           }
           description={translate("product.unavailableDescription")}
@@ -344,6 +375,11 @@ export function PurchaseForm({ productId }: { productId: string }) {
                     }
                   }}
                   onChange={(event) => setStarsInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.currentTarget.blur();
+                    }
+                  }}
                   placeholder={String(chosenStars || custom.min)}
                   value={starsInput}
                 />
@@ -479,8 +515,17 @@ export function PurchaseForm({ productId }: { productId: string }) {
           />
 
           <section className="space-y-3 rounded-lg border border-border bg-card p-4">
-            <QuoteSummary discountMinor={discountMinor} quote={data.quote} />
-            <QuoteCountdown expiresAt={data.quote.expiresAt} onExpire={requote} />
+            <div
+              aria-busy={isValidating}
+              className={cn("transition-opacity", isValidating && "opacity-60")}
+            >
+              <QuoteSummary discountMinor={discountMinor} quote={data.quote} />
+            </div>
+            <QuoteCountdown
+              expiresAt={data.quote.expiresAt}
+              onExpire={requote}
+              silent={data.operatorPriced === true}
+            />
           </section>
 
           {priceChange && (
@@ -564,7 +609,7 @@ function DetailProblem({ error, onRetry }: { error?: ApiError; onRetry: () => vo
       <AccountNotice
         action={
           <Button asChild variant="outline">
-            <Link href="/account/shop">{translate("actions.back")}</Link>
+            <Link href="/account/shop?all">{translate("actions.back")}</Link>
           </Button>
         }
         description={translate("states.notFoundDescription")}

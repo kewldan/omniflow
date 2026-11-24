@@ -5781,7 +5781,8 @@
       "copyAccountId": "Copy the account ID",
       "copied": "Copied",
       "subscription": "Subscription",
-      "servers": "Servers and routing"
+      "servers": "Servers and routing",
+      "stars": "Stars"
     },
     "actions": {
       "cancel": "Cancel",

@@ -16,6 +16,7 @@ import {
   Route,
   ShieldCheck,
   Smartphone,
+  Star,
   Store,
   Tag,
   UserPlus,
@@ -36,6 +37,7 @@ import { LocaleSync } from "@/components/intl/locale-switch";
 import { useAccount } from "@/lib/account-session";
 import { apiFetch, fetcher } from "@/lib/api";
 import { flushReferralAttribution, rememberReferralCode } from "@/lib/referral";
+import { starsProduct, useShopProducts } from "@/lib/shop-products";
 import { signInPath } from "@/lib/sign-in-path";
 import { useSmartEnabled } from "@/lib/smart-enabled";
 
@@ -293,6 +295,9 @@ function DesktopSidebar({
   // The smart subscription's screen belongs to a subscription, but customers
   // look for it in the menu; it is listed while the operator runs the module.
   const smart = useSmartEnabled();
+  // Stars sell often enough to have their own entry; it leads straight to
+  // the product rather than to a one-item shop.
+  const stars = starsProduct(useShopProducts());
 
   return (
     <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-chrome-border border-r bg-chrome md:flex">
@@ -313,6 +318,14 @@ function DesktopSidebar({
               pathname={pathname}
             />
           ))}
+          {stars && (
+            <SidebarLink
+              href={`/account/shop/${stars.id}`}
+              icon={Star}
+              label={translate("nav.stars")}
+              pathname={pathname}
+            />
+          )}
           {smart && (
             <SidebarLink
               href="/account/servers"

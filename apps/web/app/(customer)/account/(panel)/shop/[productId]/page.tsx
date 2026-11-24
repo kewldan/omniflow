@@ -1,6 +1,10 @@
 "use client";
 
+import { Button } from "@omniflow/ui/button";
+import { Receipt } from "lucide-react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 import { PurchaseForm } from "@/components/account/shop/purchase-form";
 
@@ -14,5 +18,20 @@ import { PurchaseForm } from "@/components/account/shop/purchase-form";
  */
 export default function ShopProductPage() {
   const params = useParams<{ productId: string }>();
-  return <PurchaseForm productId={params.productId} />;
+  const translate = useTranslations("account.shop");
+  // The catalogue page that carried this link is skipped when the shop sells
+  // one product, so the product page carries it instead.
+  return (
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <Button asChild size="sm" variant="ghost">
+          <Link href="/account/shop/orders">
+            <Receipt aria-hidden />
+            {translate("catalogue.orders")}
+          </Link>
+        </Button>
+      </div>
+      <PurchaseForm productId={params.productId} />
+    </div>
+  );
 }

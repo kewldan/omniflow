@@ -32,9 +32,16 @@ function clock(seconds: number): string {
 export function QuoteCountdown({
   expiresAt,
   onExpire,
+  silent = false,
 }: {
   expiresAt: string;
   onExpire: () => void;
+  /**
+   * The operator fixed the price, so a fresh quote names the same amount and a
+   * countdown would only suggest a deadline that does not exist. The hold is
+   * still renewed when it lapses, without saying so.
+   */
+  silent?: boolean;
 }) {
   const translate = useTranslations("account.shop");
   const duration = useDuration();
@@ -56,6 +63,9 @@ export function QuoteCountdown({
     }
   }, [expired, onExpire]);
 
+  if (silent) {
+    return null;
+  }
   if (expired) {
     return (
       <p className="flex items-center gap-1.5 text-[12.5px] text-warning" role="status">
