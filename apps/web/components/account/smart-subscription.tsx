@@ -10,7 +10,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@omniflow/ui/tabs";
 import { toast } from "@omniflow/ui/toast";
 import {
   Activity,
-  Check,
   ChevronDown,
   ChevronRight,
   Globe,
@@ -34,6 +33,7 @@ import {
   type SummaryState,
   summarizeServices,
 } from "@/lib/node-services";
+import { ServiceLogo } from "@/lib/service-logos";
 
 type Presets = { russiaDirect: boolean; blockAds: boolean; blockQuic: boolean };
 type Action = "direct" | "proxy" | "block";
@@ -251,14 +251,13 @@ function ServiceChips({ servers }: { servers: Server[] }) {
             title={line}
             variant={state === "yes" ? "success" : state === "no" ? "neutral" : "warning"}
           >
-            {state === "yes" ? (
-              <Check aria-hidden />
-            ) : state === "no" ? (
-              <X aria-hidden />
-            ) : (
-              <Minus aria-hidden />
-            )}
+            <ServiceLogo className="size-3" service={service} />
             {NODE_SERVICE_LABELS[service]}
+            {state === "no" ? (
+              <X aria-hidden className="size-2.5 opacity-70" />
+            ) : state !== "yes" ? (
+              <Minus aria-hidden className="size-2.5 opacity-70" />
+            ) : null}
           </Badge>
         );
       })}

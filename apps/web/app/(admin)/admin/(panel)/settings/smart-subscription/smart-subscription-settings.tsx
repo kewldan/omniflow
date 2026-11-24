@@ -28,6 +28,7 @@ import useSWR from "swr";
 import { type ApiError, fetcher } from "@/lib/api";
 import { NODE_SERVICE_LABELS, type NodeServices, summarizeServices } from "@/lib/node-services";
 import { useOperatorAction } from "@/lib/operations";
+import { ServiceLogo } from "@/lib/service-logos";
 import { useSession } from "@/lib/session";
 
 import { SettingsGroupHeader } from "../settings-group-header";
@@ -442,14 +443,13 @@ function NodeCheck({ checkedAt, services }: { checkedAt?: string; services?: Nod
             title={region ? `${NODE_SERVICE_LABELS[service]} · ${region}` : undefined}
             variant={state === "yes" ? "success" : state === "no" ? "danger" : "warning"}
           >
-            {state === "yes" ? (
-              <Check aria-hidden />
-            ) : state === "no" ? (
-              <X aria-hidden />
-            ) : (
-              <Minus aria-hidden />
-            )}
+            <ServiceLogo className="size-3" service={service} />
             {NODE_SERVICE_LABELS[service]}
+            {state === "no" ? (
+              <X aria-hidden className="size-2.5 opacity-70" />
+            ) : state !== "yes" ? (
+              <Minus aria-hidden className="size-2.5 opacity-70" />
+            ) : null}
             {region && state !== "yes" ? ` · ${region}` : ""}
           </Badge>
         ))}
