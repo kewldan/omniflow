@@ -11,7 +11,8 @@ import (
 )
 
 // A customer who bought a version keeps it when they extend from the web
-// store, even after the operator publishes a newer version with fewer
+// store or the bot's plan list (both open the checkout the same way), even
+// after the operator publishes a newer version with fewer
 // devices; a new customer gets the newer one.
 func TestWebExtensionKeepsTheBoughtVersion(t *testing.T) {
 	ctx := context.Background()

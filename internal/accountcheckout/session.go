@@ -92,8 +92,20 @@ func (store *Store) OpenCheckout(
 	ctx context.Context, customerID, planVersionID, operation, currency, subscriptionID string,
 	defaultSquads []string,
 ) (Session, error) {
-	if _, err := commerce.NormalizeOperation(operation); err != nil {
+	normalized, err := commerce.NormalizeOperation(operation)
+	if err != nil {
 		return Session{}, err
+	}
+	// An extension stays on the version the subscription was bought at; see
+	// heldVersion.
+	if normalized == "extension" && subscriptionID != "" {
+		held, heldErr := heldVersion(ctx, store.pool, subscriptionID, planVersionID, currency)
+		if heldErr != nil {
+			return Session{}, heldErr
+		}
+		if held != "" {
+			planVersionID = held
+		}
 	}
 	key, err := NewIdempotencyKey("checkout")
 	if err != nil {
