@@ -24,11 +24,16 @@ const (
 	TransportTCP = "tcp"
 	TransportUDP = "udp"
 
-	// kmPerMs turns the great-circle distance between two nodes into round
-	// trip time: light in fibre covers 100 km per millisecond of round trip,
-	// and real routes run about 2.2 times the straight line (PL→NL 1093 km,
-	// 24 ms; PL→CH 1268 km, 30 ms).
-	kmPerMs = 45.0
+	// shortHaulKmPerMs and longHaulKmPerMs turn the great-circle distance
+	// between two nodes into round trip time. Light in fibre covers 100 km
+	// per millisecond of round trip; routes inside a continent run about 2.2
+	// times the straight line (PL→NL 1093 km, 24 ms; PL→CH 1268 km, 30 ms),
+	// while ocean cables run nearly straight, so past longHaulFromKm each
+	// kilometre costs less (NL→US 6208 km, 88 ms; PL→US 7193 km, 113 ms).
+	// Fitted on 2026-11-24 to round trips between the production nodes.
+	shortHaulKmPerMs = 45.0
+	longHaulKmPerMs  = 76.0
+	longHaulFromKm   = 2000.0
 	// nodeMs is what one proxy node adds to a round trip.
 	nodeMs = 1.0
 	// colocatedShare is how many of the sites that tell places apart must
@@ -108,7 +113,7 @@ func HopMs(a, b NodeCheck) (float64, bool) {
 	if a.Place == nil || b.Place == nil {
 		return 0, false
 	}
-	return distanceKm(*a.Place, *b.Place) / kmPerMs, true
+	return distanceMs(distanceKm(*a.Place, *b.Place)), true
 }
 
 // Ping builds the model for a server from its nodes' checks. It is nil when
@@ -143,4 +148,14 @@ func Ping(server Server, checks map[string]NodeCheck) *PingModel {
 		return nil
 	}
 	return &PingModel{Transport: server.Transport, TailMs: int(math.Round(tail))}
+}
+
+// distanceMs is the round trip over a route of the given straight-line
+// length: the continental rate up to longHaulFromKm, the long-haul rate past
+// it.
+func distanceMs(km float64) float64 {
+	if km <= longHaulFromKm {
+		return km / shortHaulKmPerMs
+	}
+	return longHaulFromKm/shortHaulKmPerMs + (km-longHaulFromKm)/longHaulKmPerMs
 }

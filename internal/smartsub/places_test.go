@@ -1,6 +1,7 @@
 package smartsub
 
 import (
+	"math"
 	"testing"
 	"time"
 )
@@ -26,5 +27,25 @@ func TestGeocheckPlaceWhenDatabasesSplit(t *testing.T) {
 	check, err = SummarizeGeocheck([]byte(mixed), time.Unix(0, 0))
 	if err != nil || check.Place == nil || check.Place.City != "Bolton" {
 		t.Errorf("mixed edges place = %+v, %v", check.Place, err)
+	}
+}
+
+func TestHopAcrossTheAtlantic(t *testing.T) {
+	// Measured between the production nodes: a continental hop keeps its
+	// rate, and an ocean crossing costs less per kilometre.
+	for _, testCase := range []struct {
+		from, to Place
+		measured float64
+	}{
+		{*locate("Warsaw", "PL", "PL"), *locate("Amsterdam", "NL", "NL"), 23.5},
+		{*locate("Warsaw", "PL", "PL"), *locate("Ashburn", "US", "US"), 112.5},
+		{*locate("Amsterdam", "NL", "NL"), *locate("Ashburn", "US", "US"), 88.0},
+		{*locate("Geneva", "CH", "CH"), *locate("Ashburn", "US", "US"), 96.4},
+	} {
+		from, to := testCase.from, testCase.to
+		hop, ok := HopMs(NodeCheck{Place: &from}, NodeCheck{Place: &to})
+		if !ok || math.Abs(hop-testCase.measured) > 15 {
+			t.Errorf("%s→%s = %.1f ms, measured %.1f", from.City, to.City, hop, testCase.measured)
+		}
 	}
 }
