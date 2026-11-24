@@ -7,6 +7,8 @@ import { Label } from "@omniflow/ui/label";
 import { useTranslations } from "next-intl";
 import { useId } from "react";
 
+import { MinorAmountInput } from "@/components/forms/minor-amount-input";
+
 import type { ReferralProgram } from "./types";
 
 const percent = (bps?: number | null) => (bps ? String(bps / 100) : "");
@@ -89,10 +91,10 @@ export function ReferralCommissionFields({
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor={ids.minimum}>{translate("minimum")}</Label>
-          <Input
+          <MinorAmountInput
+            currency={program.currency}
             disabled={!editable}
             id={ids.minimum}
-            inputMode="numeric"
             onChange={(event) =>
               update({ commissionMinPaymentMinor: Number(event.target.value) || 0 })
             }

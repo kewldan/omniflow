@@ -20,6 +20,7 @@ import { useId, useState } from "react";
 import useSWR, { mutate as revalidate } from "swr";
 import { useEnumLabel } from "@/components/admin/enum-label";
 import { PageHeader } from "@/components/admin/resource-table";
+import { MinorAmountInput } from "@/components/forms/minor-amount-input";
 import { TelegramLogo } from "@/components/icons/telegram";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
@@ -738,20 +739,20 @@ function ReferralCard({ editable }: { editable: boolean }) {
         <div className="grid gap-3 sm:grid-cols-4">
           <div className="flex flex-col gap-1">
             <Label htmlFor={inviterId}>{translate("referrals.inviterReward")}</Label>
-            <Input
+            <MinorAmountInput
+              currency={program.currency}
               disabled={!editable}
               id={inviterId}
-              inputMode="numeric"
               onChange={(event) => update({ inviterRewardMinor: Number(event.target.value) || 0 })}
               value={String(program.inviterRewardMinor)}
             />
           </div>
           <div className="flex flex-col gap-1">
             <Label htmlFor={inviteeId}>{translate("referrals.inviteeReward")}</Label>
-            <Input
+            <MinorAmountInput
+              currency={program.currency}
               disabled={!editable}
               id={inviteeId}
-              inputMode="numeric"
               onChange={(event) => update({ inviteeRewardMinor: Number(event.target.value) || 0 })}
               value={String(program.inviteeRewardMinor)}
             />

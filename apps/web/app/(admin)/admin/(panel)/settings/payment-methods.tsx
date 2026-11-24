@@ -12,6 +12,7 @@ import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
 import { paymentMethodName, useEnumLabel } from "@/components/admin/enum-label";
+import { MinorAmountInput, MinorAmountList } from "@/components/forms/minor-amount-input";
 import { type ApiError, fetcher } from "@/lib/api";
 import { type CommerceSettings, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
@@ -53,6 +54,13 @@ export function PaymentMethodsCard() {
     "/v1/panel/settings/payment-methods",
     fetcher,
   );
+  // The checkout currency the button bounds are compared in; the commerce
+  // page has already loaded these settings, so this reads SWR's copy.
+  const { data: commerce } = useSWR<CommerceSettings, ApiError>(
+    "/v1/panel/settings/commerce",
+    fetcher,
+  );
+  const currency = commerce?.topUp.currency ?? "";
   const items = [...(data?.items ?? [])].sort((left, right) =>
     left.provider === right.provider
       ? left.displayOrder - right.displayOrder
@@ -95,6 +103,7 @@ export function PaymentMethodsCard() {
               </div>
               {editing === item.key && (
                 <MethodEditor
+                  currency={currency}
                   item={item}
                   onSaved={() => {
                     setEditing("");
@@ -117,7 +126,15 @@ function numberList(value: string): number[] {
     .filter((part) => Number.isInteger(part) && part > 0);
 }
 
-function MethodEditor({ item, onSaved }: { item: PaymentMethodSettings; onSaved: () => void }) {
+function MethodEditor({
+  currency,
+  item,
+  onSaved,
+}: {
+  currency: string;
+  item: PaymentMethodSettings;
+  onSaved: () => void;
+}) {
   const translate = useTranslations("admin.settings.paymentMethods");
   const id = useId();
   const [enabled, setEnabled] = useState(item.enabled);
@@ -143,6 +160,18 @@ function MethodEditor({ item, onSaved }: { item: PaymentMethodSettings; onSaved:
     </div>
   );
 
+  const amount = (key: string, label: string, value: string, onChange: (value: string) => void) => (
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor={`${id}-${key}`}>{label}</Label>
+      <MinorAmountInput
+        currency={currency}
+        id={`${id}-${key}`}
+        onChange={(event) => onChange(event.target.value)}
+        value={value}
+      />
+    </div>
+  );
+
   return (
     <div className="mt-3 flex flex-col gap-3 border-border border-t pt-3">
       <div className="flex flex-wrap gap-4">
@@ -161,9 +190,17 @@ function MethodEditor({ item, onSaved }: { item: PaymentMethodSettings; onSaved:
         {text("descriptionRu", translate("descriptionRu"), descriptionRu, setDescriptionRu)}
         {text("descriptionEn", translate("descriptionEn"), descriptionEn, setDescriptionEn)}
         {text("order", translate("displayOrder"), displayOrder, setDisplayOrder)}
-        {text("quick", translate("quickAmounts"), quick, setQuick)}
-        {text("min", translate("minMinor"), minMinor, setMinMinor)}
-        {text("max", translate("maxMinor"), maxMinor, setMaxMinor)}
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={`${id}-quick`}>{translate("quickAmounts")}</Label>
+          <Input
+            id={`${id}-quick`}
+            onChange={(event) => setQuick(event.target.value)}
+            value={quick}
+          />
+          <MinorAmountList currency={currency} value={quick} />
+        </div>
+        {amount("min", translate("minMinor"), minMinor, setMinMinor)}
+        {amount("max", translate("maxMinor"), maxMinor, setMaxMinor)}
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={`${id}-audience`}>{translate("audience")}</Label>
           <Select

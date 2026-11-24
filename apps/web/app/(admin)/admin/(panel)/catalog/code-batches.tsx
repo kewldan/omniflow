@@ -19,6 +19,7 @@ import useSWR from "swr";
 
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
+import { MinorAmountInput } from "@/components/forms/minor-amount-input";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 import type { CodeBatch, CodeBatchList, GeneratedBatch, PlanSummary } from "@/lib/operations";
 import { formatMoney, type Listing, useOperatorAction } from "@/lib/operations";
@@ -242,6 +243,7 @@ function BatchForm({
             value={perCustomer}
           />
           <Field
+            currency={currency}
             hint={translate("form.priceHint")}
             id={priceId}
             label={translate("form.price")}
@@ -472,12 +474,14 @@ function BatchRow({
 }
 
 function Field({
+  currency,
   hint,
   id,
   label,
   onChange,
   value,
 }: {
+  currency?: string;
   hint?: string;
   id: string;
   label: string;
@@ -487,7 +491,16 @@ function Field({
   return (
     <div className="flex flex-col gap-2">
       <Label htmlFor={id}>{label}</Label>
-      <Input id={id} onChange={(event) => onChange(event.target.value)} value={value} />
+      {currency ? (
+        <MinorAmountInput
+          currency={currency}
+          id={id}
+          onChange={(event) => onChange(event.target.value)}
+          value={value}
+        />
+      ) : (
+        <Input id={id} onChange={(event) => onChange(event.target.value)} value={value} />
+      )}
       {hint ? <p className="text-subtle-foreground text-xs">{hint}</p> : null}
     </div>
   );

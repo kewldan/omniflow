@@ -13,6 +13,7 @@ import { Fragment, useEffect, useId, useState } from "react";
 import useSWR from "swr";
 import { useEnumLabel } from "@/components/admin/enum-label";
 import { PageHeader } from "@/components/admin/resource-table";
+import { MinorAmountInput, MinorAmountList } from "@/components/forms/minor-amount-input";
 import { type ApiError, fetcher } from "@/lib/api";
 import {
   type CommerceSettings,
@@ -131,6 +132,7 @@ function TopUpCard({
         <div className="grid gap-3 sm:grid-cols-2">
           <Field
             id={minimumId}
+            currency={settings.topUp.currency}
             label={translate("topUp.minimum")}
             onChange={(minimum) => update({ minimum })}
             readOnly={!editable}
@@ -138,6 +140,7 @@ function TopUpCard({
           />
           <Field
             id={maximumId}
+            currency={settings.topUp.currency}
             label={translate("topUp.maximum")}
             onChange={(maximum) => update({ maximum })}
             readOnly={!editable}
@@ -152,6 +155,7 @@ function TopUpCard({
           />
           <Field
             id={limitId}
+            currency={settings.topUp.currency}
             label={translate("topUp.windowLimit")}
             onChange={(windowLimit) => update({ windowLimit })}
             readOnly={!editable}
@@ -168,6 +172,7 @@ function TopUpCard({
             readOnly={!editable}
             value={form.presets}
           />
+          <MinorAmountList currency={settings.topUp.currency} value={form.presets} />
           <p className="text-muted-foreground text-xs">{translate("topUp.presetsHint")}</p>
         </div>
 
@@ -426,12 +431,15 @@ function ProviderCard() {
 }
 
 function Field({
+  currency,
   id,
   label,
   onChange,
   readOnly,
   value,
 }: {
+  /** Set for an amount in minor units, which then shows the sum it is. */
+  currency?: string;
   id: string;
   label: string;
   onChange: (value: string) => void;
@@ -441,13 +449,23 @@ function Field({
   return (
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={id}>{label}</Label>
-      <Input
-        id={id}
-        inputMode="numeric"
-        onChange={(event) => onChange(event.target.value)}
-        readOnly={readOnly}
-        value={value}
-      />
+      {currency ? (
+        <MinorAmountInput
+          currency={currency}
+          id={id}
+          onChange={(event) => onChange(event.target.value)}
+          readOnly={readOnly}
+          value={value}
+        />
+      ) : (
+        <Input
+          id={id}
+          inputMode="numeric"
+          onChange={(event) => onChange(event.target.value)}
+          readOnly={readOnly}
+          value={value}
+        />
+      )}
     </div>
   );
 }

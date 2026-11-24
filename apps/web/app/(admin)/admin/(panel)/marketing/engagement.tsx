@@ -12,6 +12,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useId, useState } from "react";
 import useSWR from "swr";
 
+import { MinorAmountInput } from "@/components/forms/minor-amount-input";
 import { type ApiError, fetcher } from "@/lib/api";
 import { newIdempotencyKey } from "@/lib/idempotency";
 import { useOperatorAction } from "@/lib/operations";
@@ -55,6 +56,12 @@ const NUMBER_FIELDS = [
   "dayValueMinor",
   "minimumAccountAgeHours",
 ] as const;
+
+/** The settings above that are sums in minor units of the wheel's currency. */
+const MINOR_FIELDS: ReadonlySet<(typeof NUMBER_FIELDS)[number]> = new Set([
+  "spinCostMinor",
+  "dayValueMinor",
+]);
 
 /**
  * The fortune wheel and polls with rewards. The prize table is checked
@@ -166,18 +173,33 @@ export function EngagementCard({ editable }: { editable: boolean }) {
               {NUMBER_FIELDS.map((field) => (
                 <div className="flex flex-col gap-1" key={field}>
                   <Label htmlFor={`${ids.enabled}-${field}`}>{translate(`fields.${field}`)}</Label>
-                  <Input
-                    disabled={!editable}
-                    id={`${ids.enabled}-${field}`}
-                    inputMode="numeric"
-                    onChange={(event) =>
-                      setSettings({
-                        ...settings,
-                        [field]: Number.parseInt(event.target.value, 10) || 0,
-                      })
-                    }
-                    value={settings[field]}
-                  />
+                  {MINOR_FIELDS.has(field) ? (
+                    <MinorAmountInput
+                      currency={settings.currency}
+                      disabled={!editable}
+                      id={`${ids.enabled}-${field}`}
+                      onChange={(event) =>
+                        setSettings({
+                          ...settings,
+                          [field]: Number.parseInt(event.target.value, 10) || 0,
+                        })
+                      }
+                      value={String(settings[field])}
+                    />
+                  ) : (
+                    <Input
+                      disabled={!editable}
+                      id={`${ids.enabled}-${field}`}
+                      inputMode="numeric"
+                      onChange={(event) =>
+                        setSettings({
+                          ...settings,
+                          [field]: Number.parseInt(event.target.value, 10) || 0,
+                        })
+                      }
+                      value={settings[field]}
+                    />
+                  )}
                 </div>
               ))}
               <div className="flex flex-col gap-1 sm:col-span-3">
@@ -250,22 +272,41 @@ export function EngagementCard({ editable }: { editable: boolean }) {
                     <SelectItem value="nothing">{translate("kinds.nothing")}</SelectItem>
                   </SelectContent>
                 </Select>
-                <Input
-                  aria-label={translate("value")}
-                  disabled={!editable || prize.kind === "nothing"}
-                  inputMode="numeric"
-                  onChange={(event) =>
-                    setPrizes(
-                      prizes.map((item, at) =>
-                        at === index
-                          ? { ...item, value: Number.parseInt(event.target.value, 10) || 0 }
-                          : item,
-                      ),
-                    )
-                  }
-                  placeholder={translate("value")}
-                  value={prize.value}
-                />
+                {prize.kind === "wallet" ? (
+                  <MinorAmountInput
+                    aria-label={translate("value")}
+                    currency={settings.currency}
+                    disabled={!editable}
+                    onChange={(event) =>
+                      setPrizes(
+                        prizes.map((item, at) =>
+                          at === index
+                            ? { ...item, value: Number.parseInt(event.target.value, 10) || 0 }
+                            : item,
+                        ),
+                      )
+                    }
+                    placeholder={translate("value")}
+                    value={String(prize.value)}
+                  />
+                ) : (
+                  <Input
+                    aria-label={translate("value")}
+                    disabled={!editable || prize.kind === "nothing"}
+                    inputMode="numeric"
+                    onChange={(event) =>
+                      setPrizes(
+                        prizes.map((item, at) =>
+                          at === index
+                            ? { ...item, value: Number.parseInt(event.target.value, 10) || 0 }
+                            : item,
+                        ),
+                      )
+                    }
+                    placeholder={translate("value")}
+                    value={prize.value}
+                  />
+                )}
                 <Input
                   aria-label={translate("weight")}
                   disabled={!editable}

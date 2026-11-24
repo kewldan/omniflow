@@ -12,6 +12,7 @@ import { useId, useState } from "react";
 import useSWR from "swr";
 
 import { StateNotice } from "@/components/admin/state-notice";
+import { MinorAmountInput } from "@/components/forms/minor-amount-input";
 import { type ApiError, fetcher } from "@/lib/api";
 import { useSubmission } from "@/lib/idempotency";
 import { type Listing, useOperatorAction } from "@/lib/operations";
@@ -315,9 +316,9 @@ function BulkComposer({ onPreviewed }: { onPreviewed: () => void }) {
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor={amountId}>{translate("composer.amount")}</Label>
-              <Input
+              <MinorAmountInput
+                currency={currency}
                 id={amountId}
-                inputMode="numeric"
                 onChange={(event) => setAmountMinor(event.target.value)}
                 value={amountMinor}
               />

@@ -15,6 +15,7 @@ import { useEnumLabel } from "@/components/admin/enum-label";
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
 import { CopyButton } from "@/components/copy-button";
+import { MinorAmountInput } from "@/components/forms/minor-amount-input";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import { formatMoney, useOperatorAction } from "@/lib/operations";
@@ -359,9 +360,9 @@ function RefundForm({
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={amountId}>{translate("detail.refundAmount")}</Label>
-            <Input
+            <MinorAmountInput
+              currency={currency}
               id={amountId}
-              inputMode="numeric"
               onChange={(event) => setAmount(event.target.value)}
               value={amount}
             />

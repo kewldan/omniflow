@@ -15,6 +15,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
 import { useEnumLabel } from "@/components/admin/enum-label";
+import { MinorAmountInput } from "@/components/forms/minor-amount-input";
 import { type ApiError, fetcher } from "@/lib/api";
 import { type Listing, type PlanSummary, useOperatorAction } from "@/lib/operations";
 
@@ -412,6 +413,7 @@ function LoyaltyEditor({
               value={tier.nameEn}
             />
             <TierInput
+              currency={metric === "spend" ? currency.trim().toUpperCase() : undefined}
               disabled={tier.manualOnly}
               label={translate("threshold")}
               numeric
@@ -530,6 +532,7 @@ function LoyaltyEditor({
 }
 
 function TierInput({
+  currency,
   disabled,
   label,
   numeric,
@@ -537,6 +540,8 @@ function TierInput({
   placeholder,
   value,
 }: {
+  /** Set when the value is a sum in minor units of this currency. */
+  currency?: string;
   disabled?: boolean;
   label: string;
   numeric?: boolean;
@@ -548,14 +553,25 @@ function TierInput({
   return (
     <div className="flex flex-col gap-1">
       <Label htmlFor={id}>{label}</Label>
-      <Input
-        disabled={disabled}
-        id={id}
-        inputMode={numeric ? "decimal" : undefined}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        value={value}
-      />
+      {currency ? (
+        <MinorAmountInput
+          currency={currency}
+          disabled={disabled}
+          id={id}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          value={value}
+        />
+      ) : (
+        <Input
+          disabled={disabled}
+          id={id}
+          inputMode={numeric ? "decimal" : undefined}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          value={value}
+        />
+      )}
     </div>
   );
 }
