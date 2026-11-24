@@ -20,7 +20,7 @@ import { Skeleton } from "@omniflow/ui/skeleton";
 import { Switch } from "@omniflow/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
 import { toast } from "@omniflow/ui/toast";
-import { Check, ChevronsUpDown, TriangleAlert } from "lucide-react";
+import { Check, ChevronsUpDown, Circle, TriangleAlert, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useId, useMemo, useState } from "react";
 import useSWR from "swr";
@@ -34,7 +34,19 @@ import { COUNTRY_CODES } from "./countries";
 
 type Role = "" | "main" | "reserve" | "hidden";
 type Presets = { russiaDirect: boolean; blockAds: boolean; blockQuic: boolean };
-type HostOverride = { country?: string; role?: Role };
+/** Sites whose answer depends on where a server's address is placed. */
+const SERVICES = ["gemini", "youtube", "reddit", "chatgpt", "claude"] as const;
+type ServiceName = (typeof SERVICES)[number];
+const SERVICE_LABELS: Record<ServiceName, string> = {
+  chatgpt: "ChatGPT",
+  claude: "Claude",
+  gemini: "Gemini",
+  reddit: "Reddit",
+  youtube: "YouTube",
+};
+/** true works through the host, false doesn't; absent was not checked. */
+type Services = Partial<Record<ServiceName, boolean>>;
+type HostOverride = { country?: string; role?: Role; services?: Services };
 type Settings = {
   enabled: boolean;
   version: number;
@@ -372,6 +384,71 @@ function useCountryName() {
   }, [locale]);
 }
 
+/**
+ * One toggle per service, cycling not checked → works → doesn't. Customers
+ * see the marks on their servers screen.
+ */
+function ServiceMarks({
+  disabled,
+  onChange,
+  value,
+}: {
+  disabled: boolean;
+  onChange: (services: Services) => void;
+  value: Services;
+}) {
+  const translate = useTranslations("admin.smartSubscription");
+  function cycle(service: ServiceName) {
+    const next = { ...value };
+    const mark = value[service];
+    if (mark === undefined) {
+      next[service] = true;
+    } else if (mark) {
+      next[service] = false;
+    } else {
+      delete next[service];
+    }
+    onChange(next);
+  }
+  return (
+    <div className="flex min-w-[300px] flex-wrap gap-1">
+      {SERVICES.map((service) => {
+        const mark = value[service];
+        const state = mark === undefined ? "unchecked" : mark ? "works" : "broken";
+        const label = translate("serviceToggle", {
+          service: SERVICE_LABELS[service],
+          state: translate(`serviceStates.${state}`),
+        });
+        return (
+          <button
+            aria-label={label}
+            className="disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={disabled}
+            key={service}
+            onClick={() => cycle(service)}
+            title={label}
+            type="button"
+          >
+            <Badge
+              className={cn(state === "broken" && "line-through")}
+              variant={state === "works" ? "success" : state === "broken" ? "danger" : "outline"}
+            >
+              {state === "works" ? (
+                <Check aria-hidden />
+              ) : state === "broken" ? (
+                <X aria-hidden />
+              ) : (
+                <Circle aria-hidden className="size-2.5 text-subtle-foreground" />
+              )}
+              {SERVICE_LABELS[service]}
+            </Badge>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function HostsCard({
   editable,
   hosts,
@@ -392,8 +469,11 @@ function HostsCard({
 
   function update(uuid: string, change: HostOverride) {
     const next = { ...hosts[uuid], ...change };
+    if (next.services && Object.keys(next.services).length === 0) {
+      delete next.services;
+    }
     const copy = { ...hosts };
-    if (!next.country && (!next.role || next.role === "main")) {
+    if (!next.country && (!next.role || next.role === "main") && !next.services) {
       delete copy[uuid];
     } else {
       copy[uuid] = next;
@@ -423,6 +503,7 @@ function HostsCard({
                   <TableHead>{translate("country")}</TableHead>
                   <TableHead>{translate("status")}</TableHead>
                   <TableHead>{translate("role")}</TableHead>
+                  <TableHead>{translate("services")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -472,11 +553,19 @@ function HostsCard({
                           </SelectContent>
                         </Select>
                       </TableCell>
+                      <TableCell>
+                        <ServiceMarks
+                          disabled={!editable}
+                          onChange={(services) => update(host.uuid, { services })}
+                          value={override.services ?? {}}
+                        />
+                      </TableCell>
                     </TableRow>
                   );
                 })}
               </TableBody>
             </Table>
+            <p className="mt-3 text-muted-foreground text-xs">{translate("servicesHint")}</p>
           </div>
         )}
       </CardContent>

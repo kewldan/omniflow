@@ -81,6 +81,8 @@ type Server struct {
 	Role     Role
 	// Down is true when every node behind the host is down.
 	Down bool
+	// Services are the operator's marks for the host; nil when unchecked.
+	Services map[string]bool
 }
 
 // Classify places one server. The host is found by its remark first, which is
@@ -106,6 +108,7 @@ func (catalog Catalog) Classify(remark, address string, port int, settings Setti
 			if override.Role != "" {
 				server.Role = override.Role
 			}
+			server.Services = copyServices(override.Services)
 		}
 	}
 	if server.Country == "" {

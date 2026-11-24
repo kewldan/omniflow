@@ -3906,6 +3906,21 @@ export const GetPanelSmartSubscriptionResponse = zod.object({
           .describe(
             "reserve is the whitelist bypass; hidden leaves the host out of every subscription.",
           ),
+        services: zod
+          .object({
+            gemini: zod.boolean().optional(),
+            youtube: zod.boolean().optional(),
+            reddit: zod
+              .boolean()
+              .optional()
+              .describe("false means Reddit asks to sign in before showing anything."),
+            chatgpt: zod.boolean().optional(),
+            claude: zod.boolean().optional(),
+          })
+          .optional()
+          .describe(
+            "Which sites work through the server, as the operator checked them from its exit address: true works, false does not; a service left out was not checked.",
+          ),
       }),
     )
     .describe("Corrections keyed by Remnawave host UUID."),
@@ -3987,6 +4002,21 @@ export const SavePanelSmartSubscriptionBody = zod.object({
           .describe(
             "reserve is the whitelist bypass; hidden leaves the host out of every subscription.",
           ),
+        services: zod
+          .object({
+            gemini: zod.boolean().optional(),
+            youtube: zod.boolean().optional(),
+            reddit: zod
+              .boolean()
+              .optional()
+              .describe("false means Reddit asks to sign in before showing anything."),
+            chatgpt: zod.boolean().optional(),
+            claude: zod.boolean().optional(),
+          })
+          .optional()
+          .describe(
+            "Which sites work through the server, as the operator checked them from its exit address: true works, false does not; a service left out was not checked.",
+          ),
       }),
     )
     .describe("Corrections keyed by Remnawave host UUID."),
@@ -4059,6 +4089,21 @@ export const SavePanelSmartSubscriptionResponse = zod.object({
           .optional()
           .describe(
             "reserve is the whitelist bypass; hidden leaves the host out of every subscription.",
+          ),
+        services: zod
+          .object({
+            gemini: zod.boolean().optional(),
+            youtube: zod.boolean().optional(),
+            reddit: zod
+              .boolean()
+              .optional()
+              .describe("false means Reddit asks to sign in before showing anything."),
+            chatgpt: zod.boolean().optional(),
+            claude: zod.boolean().optional(),
+          })
+          .optional()
+          .describe(
+            "Which sites work through the server, as the operator checked them from its exit address: true works, false does not; a service left out was not checked.",
           ),
       }),
     )
@@ -12411,6 +12456,21 @@ export const GetAccountSmartSubscriptionResponse = zod.object({
             address: zod.string(),
             port: zod.int(),
             down: zod.boolean(),
+            services: zod
+              .object({
+                gemini: zod.boolean().optional(),
+                youtube: zod.boolean().optional(),
+                reddit: zod
+                  .boolean()
+                  .optional()
+                  .describe("false means Reddit asks to sign in before showing anything."),
+                chatgpt: zod.boolean().optional(),
+                claude: zod.boolean().optional(),
+              })
+              .optional()
+              .describe(
+                "Which sites work through the server, as the operator checked them from its exit address: true works, false does not; a service left out was not checked.",
+              ),
           }),
         ),
       }),
@@ -12421,6 +12481,21 @@ export const GetAccountSmartSubscriptionResponse = zod.object({
         address: zod.string(),
         port: zod.int(),
         down: zod.boolean(),
+        services: zod
+          .object({
+            gemini: zod.boolean().optional(),
+            youtube: zod.boolean().optional(),
+            reddit: zod
+              .boolean()
+              .optional()
+              .describe("false means Reddit asks to sign in before showing anything."),
+            chatgpt: zod.boolean().optional(),
+            claude: zod.boolean().optional(),
+          })
+          .optional()
+          .describe(
+            "Which sites work through the server, as the operator checked them from its exit address: true works, false does not; a service left out was not checked.",
+          ),
       }),
     ),
   }),

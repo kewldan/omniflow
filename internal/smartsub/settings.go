@@ -33,6 +33,15 @@ const (
 type HostOverride struct {
 	Country string `json:"country,omitempty"`
 	Role    Role   `json:"role,omitempty"`
+	// Services are which sites work through the host, as the operator
+	// checked them from its exit address: true works, false does not, and a
+	// service left out was not checked. Customers see them on their servers
+	// screen.
+	Services map[string]bool `json:"services,omitempty"`
+}
+
+func (override HostOverride) isZero() bool {
+	return override.Country == "" && override.Role == "" && len(override.Services) == 0
 }
 
 // Presets are the ready-made routing choices.
@@ -179,9 +188,14 @@ func (settings Settings) Normalize() (Settings, error) {
 		default:
 			return Settings{}, invalid("hosts", "role must be main, reserve, or hidden")
 		}
+		services, err := normalizeServices(override.Services)
+		if err != nil {
+			return Settings{}, err
+		}
+		override.Services = services
 		// An override that changes nothing is not kept, so the document only
 		// ever lists hosts somebody actually corrected.
-		if override != (HostOverride{}) {
+		if !override.isZero() {
 			hosts[id] = override
 		}
 	}

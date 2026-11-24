@@ -5595,7 +5595,15 @@
         "blockDomains": "Always blocked"
       },
       "blockDomains": "Always blocked for everyone",
-      "blockDomainsHint": "One domain per line; subdomains are blocked too."
+      "blockDomainsHint": "One domain per line; subdomains are blocked too.",
+      "services": "服务",
+      "servicesHint": "从主机的出口地址检查后，标记可通过它访问的服务：点击在“未检查 → 可用 → 不可用”之间切换。客户会在服务器页面看到这些标记。tools/check-node-services.sh 可在节点上运行检查。",
+      "serviceToggle": "{service}：{state}",
+      "serviceStates": {
+        "unchecked": "未检查",
+        "works": "可用",
+        "broken": "不可用"
+      }
     }
   },
   "account": {
@@ -7549,7 +7557,14 @@
       "rulesFull": "最多 {max} 条规则",
       "rulesEmpty": "还没有规则。添加应直连、通过 VPN 或屏蔽的域名。",
       "rulesHint": "规则适用于该域名及其所有子域名。可以粘贴链接，只保留域名。",
-      "serverCount": "{count, plural, other {# 台服务器}}"
+      "serverCount": "{count, plural, other {# 台服务器}}",
+      "servicesHint": "徽章表示经我们检查后可通过该国家访问的服务：绿色可用，划线不可用，黄色仅部分服务器可用。",
+      "serviceState": {
+        "yes": "{service} 可用",
+        "no": "{service} 无法打开",
+        "some": "{service} 仅部分服务器可用"
+      },
+      "serviceRedditNo": "Reddit 要求登录"
     }
   },
   "pages": {

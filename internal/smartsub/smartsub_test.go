@@ -75,6 +75,22 @@ func TestSettingsNormalize(t *testing.T) {
 		t.Errorf("hosts = %v", normalized.Hosts)
 	}
 
+	// Service marks are kept, keys lowercased; an override whose only content
+	// is an empty set of marks is dropped like any other empty override.
+	marked := DefaultSettings()
+	marked.Hosts = map[string]HostOverride{
+		"0f0e0d0c-0000-4000-8000-000000000001": {Services: map[string]bool{" Gemini ": false, "reddit": true}},
+		"0f0e0d0c-0000-4000-8000-000000000002": {Services: map[string]bool{}},
+	}
+	normalized, err = marked.Normalize()
+	if err != nil {
+		t.Fatal(err)
+	}
+	services := normalized.Hosts["0f0e0d0c-0000-4000-8000-000000000001"].Services
+	if len(normalized.Hosts) != 1 || len(services) != 2 || services["gemini"] || !services["reddit"] {
+		t.Errorf("marked hosts = %v", normalized.Hosts)
+	}
+
 	for name, broken := range map[string]func(*Settings){
 		"probe interval": func(s *Settings) { s.ProbeIntervalSeconds = 5 },
 		"max rules":      func(s *Settings) { s.MaxRules = MaxRulesCeiling + 1 },
@@ -83,6 +99,11 @@ func TestSettingsNormalize(t *testing.T) {
 		},
 		"role": func(s *Settings) {
 			s.Hosts = map[string]HostOverride{"0f0e0d0c-0000-4000-8000-000000000001": {Role: "vip"}}
+		},
+		"service": func(s *Settings) {
+			s.Hosts = map[string]HostOverride{
+				"0f0e0d0c-0000-4000-8000-000000000001": {Services: map[string]bool{"netflix": true}},
+			}
 		},
 		"host key":  func(s *Settings) { s.Hosts = map[string]HostOverride{"not-a-uuid": {Role: RoleHidden}} },
 		"link base": func(s *Settings) { s.LinkBase = "sub.example.com" },
@@ -546,5 +567,22 @@ func TestBuildView(t *testing.T) {
 		view.Countries[1].Code, len(view.Reserve))
 	if got != "2 FI 2 ZZ 1" {
 		t.Errorf("view = %s", got)
+	}
+
+	// The operator's service marks reach the server they were set on, and
+	// only that one.
+	settings := testSettings()
+	settings.Hosts[finlandHost] = HostOverride{Services: map[string]bool{"gemini": true, "reddit": false}}
+	marked := BuildView([]Entry{
+		{Remark: "🇫🇮 Finland 1", Address: "fi1.example.net", Port: 443},
+		{Remark: "Finland 2", Address: "fi2.example.net", Port: 443},
+	}, testCatalog(), settings)
+	first, second := marked.Countries[0].Servers[0], marked.Countries[0].Servers[1]
+	if !first.Services["gemini"] || first.Services["reddit"] || len(first.Services) != 2 || second.Services != nil {
+		t.Errorf("services = %v, %v", first.Services, second.Services)
+	}
+	encoded, err := json.Marshal(second)
+	if err != nil || strings.Contains(string(encoded), "services") {
+		t.Errorf("unchecked server encodes as %s", encoded)
 	}
 }

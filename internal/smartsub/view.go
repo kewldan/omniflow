@@ -6,6 +6,9 @@ type ViewServer struct {
 	Address string `json:"address"`
 	Port    int    `json:"port"`
 	Down    bool   `json:"down"`
+	// Services are which sites work through the server, as the operator
+	// checked them; a service left out was not checked.
+	Services map[string]bool `json:"services,omitempty"`
 }
 
 // ViewCountry is one country with its servers.
@@ -42,7 +45,9 @@ func BuildView(entries []Entry, catalog Catalog, settings Settings) View {
 			continue
 		}
 		server := catalog.Classify(entry.Remark, entry.Address, entry.Port, settings)
-		listed := ViewServer{Name: entry.Remark, Address: entry.Address, Port: entry.Port, Down: server.Down}
+		listed := ViewServer{
+			Name: entry.Remark, Address: entry.Address, Port: entry.Port, Down: server.Down, Services: server.Services,
+		}
 		switch server.Role {
 		case RoleHidden:
 			continue

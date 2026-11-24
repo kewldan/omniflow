@@ -8,7 +8,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@omniflow/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@omniflow/ui/tabs";
 import { toast } from "@omniflow/ui/toast";
-import { Activity, ChevronDown, ChevronRight, Globe, Plus, ShieldHalf, X, Zap } from "lucide-react";
+import {
+  Activity,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Globe,
+  Minus,
+  Plus,
+  ShieldHalf,
+  X,
+  Zap,
+} from "lucide-react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { type FormEvent, useEffect, useMemo, useState } from "react";
@@ -27,7 +38,24 @@ type Preferences = {
   presets: Presets;
   rules: Rule[];
 };
-type Server = { name: string; address: string; port: number; down: boolean };
+/** Sites whose answer depends on where a server's address is placed. */
+const SERVICES = ["gemini", "youtube", "reddit", "chatgpt", "claude"] as const;
+type ServiceName = (typeof SERVICES)[number];
+const SERVICE_LABELS: Record<ServiceName, string> = {
+  chatgpt: "ChatGPT",
+  claude: "Claude",
+  gemini: "Gemini",
+  reddit: "Reddit",
+  youtube: "YouTube",
+};
+type Server = {
+  name: string;
+  address: string;
+  port: number;
+  down: boolean;
+  /** The operator's check: true works, false doesn't, absent not checked. */
+  services?: Partial<Record<ServiceName, boolean>>;
+};
 type SmartView = {
   servers: { countries: { code: string; servers: Server[] }[]; reserve: Server[] };
   preferences: Preferences;
@@ -186,6 +214,65 @@ function Ping({
   return <span className={cn(shape, tone)}>{translate("ms", { value })}</span>;
 }
 
+type ServiceState = "yes" | "no" | "some";
+
+/**
+ * What the operator found for a set of servers, service by service: "some"
+ * when the servers disagree. Services nobody checked are left out.
+ */
+function serviceStates(servers: Server[]): [ServiceName, ServiceState][] {
+  const states: [ServiceName, ServiceState][] = [];
+  for (const service of SERVICES) {
+    const marks = servers
+      .map((server) => server.services?.[service])
+      .filter((mark): mark is boolean => mark !== undefined);
+    if (marks.length === 0) {
+      continue;
+    }
+    const works = marks.filter(Boolean).length;
+    states.push([service, works === marks.length ? "yes" : works === 0 ? "no" : "some"]);
+  }
+  return states;
+}
+
+/** One chip per checked service: green works, struck out doesn't. */
+function ServiceChips({ servers }: { servers: Server[] }) {
+  const translate = useTranslations("account.smart");
+  const states = serviceStates(servers);
+  if (states.length === 0) {
+    return null;
+  }
+  return (
+    <span className="mt-1 flex flex-wrap gap-1">
+      {states.map(([service, state]) => {
+        const label = SERVICE_LABELS[service];
+        const title =
+          service === "reddit" && state === "no"
+            ? translate("serviceRedditNo")
+            : translate(`serviceState.${state}`, { service: label });
+        return (
+          <Badge
+            aria-label={title}
+            className={cn("px-1.5 font-normal", state === "no" && "line-through")}
+            key={service}
+            title={title}
+            variant={state === "yes" ? "success" : state === "some" ? "warning" : "neutral"}
+          >
+            {state === "yes" ? (
+              <Check aria-hidden />
+            ) : state === "some" ? (
+              <Minus aria-hidden />
+            ) : (
+              <X aria-hidden />
+            )}
+            {label}
+          </Badge>
+        );
+      })}
+    </span>
+  );
+}
+
 function toggle(list: string[], code: string, on: boolean): string[] {
   const without = list.filter((item) => item !== code);
   return on ? [...without, code].sort() : without;
@@ -325,13 +412,17 @@ function ServersTab({
   const inAuto = view.servers.countries.filter(
     (c) => !hidden.has(c.code) && !excluded.has(c.code),
   ).length;
+  const everyServer = [
+    ...view.servers.countries.flatMap((c) => c.servers),
+    ...view.servers.reserve,
+  ];
+  const checked = serviceStates(everyServer).length > 0;
 
   async function measureAll() {
     setMeasuring(true);
     setPings({});
-    const servers = [...view.servers.countries.flatMap((c) => c.servers), ...view.servers.reserve];
     await Promise.all(
-      servers.map(async (server) => {
+      everyServer.map(async (server) => {
         const value = server.down ? null : await ping(server);
         setPings((current) => ({ ...current, [key(server)]: value }));
       }),
@@ -366,6 +457,10 @@ function ServersTab({
         </div>
         <p className="mt-1 text-[12.5px] text-muted-foreground">{translate("autoDescription")}</p>
       </div>
+
+      {checked && (
+        <p className="px-1 text-[12.5px] text-muted-foreground">{translate("servicesHint")}</p>
+      )}
 
       <section className="rounded-lg border border-border bg-card px-4">
         <div className="flex items-center gap-2 pt-3 pb-1 text-[11.5px] text-subtle-foreground">
@@ -404,6 +499,7 @@ function ServersTab({
                         </>
                       )}
                     </span>
+                    <ServiceChips servers={country.servers} />
                   </span>
                   <ChevronDown
                     aria-hidden
@@ -448,8 +544,9 @@ function ServersTab({
                 <ul className="space-y-1.5 pb-3 pl-7">
                   {country.servers.map((server) => (
                     <li className="flex items-center gap-2 text-[13px]" key={key(server)}>
-                      <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                        {server.name}
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate text-muted-foreground">{server.name}</span>
+                        {country.servers.length > 1 && <ServiceChips servers={[server]} />}
                       </span>
                       {server.down ? (
                         <Badge variant="danger">{translate("down")}</Badge>
@@ -482,7 +579,10 @@ function ServersTab({
           <ul className="space-y-1.5 pt-1">
             {view.servers.reserve.map((server) => (
               <li className="flex items-center gap-2 text-[13px]" key={key(server)}>
-                <span className="min-w-0 flex-1 truncate text-muted-foreground">{server.name}</span>
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-muted-foreground">{server.name}</span>
+                  <ServiceChips servers={[server]} />
+                </span>
                 {server.down ? (
                   <Badge variant="danger">{translate("down")}</Badge>
                 ) : (

@@ -12007,6 +12007,9 @@ type SmartSubscriptionHostOverride struct {
 
 	// Role reserve is the whitelist bypass; hidden leaves the host out of every subscription.
 	Role *SmartSubscriptionHostOverrideRole `json:"role,omitempty"`
+
+	// Services Which sites work through the server, as the operator checked them from its exit address: true works, false does not; a service left out was not checked.
+	Services *SmartSubscriptionServices `json:"services,omitempty"`
 }
 
 // SmartSubscriptionHostOverrideRole reserve is the whitelist bypass; hidden leaves the host out of every subscription.
@@ -12055,6 +12058,20 @@ type SmartSubscriptionServer struct {
 	Down    bool   `json:"down"`
 	Name    string `json:"name"`
 	Port    int    `json:"port"`
+
+	// Services Which sites work through the server, as the operator checked them from its exit address: true works, false does not; a service left out was not checked.
+	Services *SmartSubscriptionServices `json:"services,omitempty"`
+}
+
+// SmartSubscriptionServices Which sites work through the server, as the operator checked them from its exit address: true works, false does not; a service left out was not checked.
+type SmartSubscriptionServices struct {
+	Chatgpt *bool `json:"chatgpt,omitempty"`
+	Claude  *bool `json:"claude,omitempty"`
+	Gemini  *bool `json:"gemini,omitempty"`
+
+	// Reddit false means Reddit asks to sign in before showing anything.
+	Reddit  *bool `json:"reddit,omitempty"`
+	Youtube *bool `json:"youtube,omitempty"`
 }
 
 // TelegramLoginWidgetPayload The document Telegram's Login Widget produces. Every field except `hash` participates in the signature in its textual form, so the server keeps the digits of the numeric fields verbatim rather than parsing them as floating point.

@@ -5687,7 +5687,15 @@
         "blockDomains": "Always blocked"
       },
       "blockDomains": "Always blocked for everyone",
-      "blockDomainsHint": "One domain per line; subdomains are blocked too."
+      "blockDomainsHint": "One domain per line; subdomains are blocked too.",
+      "services": "Services",
+      "servicesHint": "Mark what opens through each host, checked from its exit address: a click cycles not checked → works → doesn't. Customers see the marks on their servers screen. tools/check-node-services.sh runs the check on a node.",
+      "serviceToggle": "{service}: {state}",
+      "serviceStates": {
+        "unchecked": "not checked",
+        "works": "works",
+        "broken": "doesn't work"
+      }
     }
   },
   "account": {
@@ -7713,7 +7721,14 @@
       "rulesFull": "At most {max} rules",
       "rulesEmpty": "No rules yet. Add a domain that should go direct, through the VPN, or be blocked.",
       "rulesHint": "A rule covers the domain and all its subdomains. You can paste a link; only the domain is kept.",
-      "serverCount": "{count, plural, one {# server} other {# servers}}"
+      "serverCount": "{count, plural, one {# server} other {# servers}}",
+      "servicesHint": "The badges show what opens through each country, as we checked it: green works, struck out doesn't, amber only on some of its servers.",
+      "serviceState": {
+        "yes": "{service} works",
+        "no": "{service} doesn't open",
+        "some": "{service} works on some servers"
+      },
+      "serviceRedditNo": "Reddit asks you to sign in"
     }
   },
   "pages": {

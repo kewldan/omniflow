@@ -1896,11 +1896,24 @@ export const SmartSubscriptionHostOverrideRole = {
   hidden: "hidden",
 } as const;
 
+/**
+ * Which sites work through the server, as the operator checked them from its exit address: true works, false does not; a service left out was not checked.
+ */
+export interface SmartSubscriptionServices {
+  gemini?: boolean;
+  youtube?: boolean;
+  /** false means Reddit asks to sign in before showing anything. */
+  reddit?: boolean;
+  chatgpt?: boolean;
+  claude?: boolean;
+}
+
 export interface SmartSubscriptionHostOverride {
   /** An ISO 3166-1 code; empty keeps the one read from the remark. */
   country?: string;
   /** reserve is the whitelist bypass; hidden leaves the host out of every subscription. */
   role?: SmartSubscriptionHostOverrideRole;
+  services?: SmartSubscriptionServices;
 }
 
 /**
@@ -2014,6 +2027,7 @@ export interface SmartSubscriptionServer {
   address: string;
   port: number;
   down: boolean;
+  services?: SmartSubscriptionServices;
 }
 
 export type AccountSmartSubscriptionServersCountriesItem = {

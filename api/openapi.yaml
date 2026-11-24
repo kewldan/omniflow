@@ -8002,6 +8002,17 @@ components:
       properties:
         country: {type: string, description: An ISO 3166-1 code; empty keeps the one read from the remark.}
         role: {type: string, enum: ["", main, reserve, hidden], description: "reserve is the whitelist bypass; hidden leaves the host out of every subscription."}
+        services: {$ref: "#/components/schemas/SmartSubscriptionServices"}
+    SmartSubscriptionServices:
+      type: object
+      description: "Which sites work through the server, as the operator checked them from its exit address: true works, false does not; a service left out was not checked."
+      properties:
+        gemini: {type: boolean}
+        youtube: {type: boolean}
+        reddit: {type: boolean, description: false means Reddit asks to sign in before showing anything.}
+        chatgpt: {type: boolean}
+        claude: {type: boolean}
+      additionalProperties: false
     PanelSmartSubscription:
       type: object
       required: [enabled, version, linkBase, probeUrl, probeIntervalSeconds, autoName, reserveName, defaults, customRules, maxRules, directDomains, blockDomains, hosts]
@@ -8065,6 +8076,7 @@ components:
         address: {type: string}
         port: {type: integer}
         down: {type: boolean}
+        services: {$ref: "#/components/schemas/SmartSubscriptionServices"}
     AccountSmartSubscription:
       type: object
       required: [servers, preferences, customized, defaults, customRules, maxRules]
