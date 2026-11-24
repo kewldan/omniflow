@@ -87,8 +87,8 @@ own screen:
 - **Servers** lists their countries. **Shown** keeps a country in the subscription; **Auto** lets the
   Fastest group use it. A country can be shown but kept out of Auto — for example, so the automatic
   choice never lands in one country but it is still there to pick by hand. Expanding a country lists
-  its servers. **Measure ping** estimates the round trip through the VPN to
-  common sites. The browser times the way to each server's entry, which is about two round trips
+  its servers. The ping is measured as soon as the screen opens (**Refresh** measures again) and
+  estimates the round trip through the VPN to common sites. The browser times the way to each server's entry, which is about two round trips
   over TCP (one for a Hysteria server); Omniflow adds the rest of the route from the same geocheck:
   the hop from the entry node to the exit node, estimated from the distance between them (or a
   millisecond when they share a data centre), the exit node's median round trip to common sites,

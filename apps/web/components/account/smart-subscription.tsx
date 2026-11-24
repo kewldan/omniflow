@@ -9,7 +9,6 @@ import { Switch } from "@omniflow/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@omniflow/ui/tabs";
 import { toast } from "@omniflow/ui/toast";
 import {
-  Activity,
   ChevronDown,
   ChevronRight,
   Gauge,
@@ -21,6 +20,7 @@ import {
   Minus,
   Pin,
   Plus,
+  RotateCw,
   ShieldHalf,
   Sparkles,
   X,
@@ -28,7 +28,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 
 import { AccountNotice, ListSkeleton } from "@/components/account/state";
@@ -469,6 +469,18 @@ function ServersTab({
     setMeasuring(false);
   }
 
+  // The ping is measured as soon as the screen opens: nobody comes here to
+  // press a button first. Once per mount, so a re-render does not restart it.
+  const measuredOnOpen = useRef(false);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs once when the screen opens.
+  useEffect(() => {
+    if (measuredOnOpen.current) {
+      return;
+    }
+    measuredOnOpen.current = true;
+    void measureAll();
+  }, []);
+
   function shown(server: Server) {
     return estimatePing(pings[key(server)], server.ping);
   }
@@ -492,7 +504,7 @@ function ServersTab({
       <div className="flex items-center justify-between gap-3">
         <p className="text-[12.5px] text-muted-foreground">{translate("pingHint")}</p>
         <Button disabled={measuring} onClick={() => void measureAll()} size="sm" variant="outline">
-          <Activity aria-hidden />
+          <RotateCw aria-hidden className={cn(measuring && "animate-spin")} />
           {translate("measure")}
         </Button>
       </div>
