@@ -4595,6 +4595,24 @@ func (e SmartSubscriptionRuleAction) Valid() bool {
 	}
 }
 
+// Defines values for SmartSubscriptionServerPingTransport.
+const (
+	Tcp SmartSubscriptionServerPingTransport = "tcp"
+	Udp SmartSubscriptionServerPingTransport = "udp"
+)
+
+// Valid indicates whether the value is a known member of the SmartSubscriptionServerPingTransport enum.
+func (e SmartSubscriptionServerPingTransport) Valid() bool {
+	switch e {
+	case Tcp:
+		return true
+	case Udp:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for SmartSubscriptionServiceStatusState.
 const (
 	SmartSubscriptionServiceStatusStateLimited SmartSubscriptionServiceStatusState = "limited"
@@ -12100,11 +12118,21 @@ type SmartSubscriptionServer struct {
 	Address string `json:"address"`
 	Down    bool   `json:"down"`
 	Name    string `json:"name"`
-	Port    int    `json:"port"`
+
+	// Ping Turns the browser's timing of the server into an estimate of the round trip through the tunnel: entry is (t - 5) / 2 over tcp and t over udp, plus tailMs. Absent when the estimate would be a guess.
+	Ping *struct {
+		// TailMs The round trip past the entry: the hop to the exit node, the exit's median round trip to common sites, and 1 ms per node.
+		TailMs    int                                  `json:"tailMs"`
+		Transport SmartSubscriptionServerPingTransport `json:"transport"`
+	} `json:"ping,omitempty"`
+	Port int `json:"port"`
 
 	// Services How each site answered from the server's exit node in Remnawave's latest geocheck. A service the check could not settle is left out.
 	Services *SmartSubscriptionServices `json:"services,omitempty"`
 }
+
+// SmartSubscriptionServerPingTransport defines model for SmartSubscriptionServer.Ping.Transport.
+type SmartSubscriptionServerPingTransport string
 
 // SmartSubscriptionServiceStatus defines model for SmartSubscriptionServiceStatus.
 type SmartSubscriptionServiceStatus struct {

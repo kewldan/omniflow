@@ -18,7 +18,7 @@ func TestHostsSquadsAndUserByShortUUID(t *testing.T) {
 		case "/api/hosts":
 			_, _ = writer.Write([]byte(`{"response":[{"uuid":"h1","remark":"🇫🇮 Finland","address":"fi.example.net","port":443,"isDisabled":false,"isHidden":false,"nodes":["n1"],"inbound":{"configProfileUuid":"p1","configProfileInboundUuid":"in-1"},"internalSquads":{"mode":"EXCLUDE","squads":["sq-x"]}}]}`))
 		case "/api/internal-squads":
-			_, _ = writer.Write([]byte(`{"response":{"total":1,"internalSquads":[{"uuid":"sq-a","name":"Main","info":{"membersCount":1,"inboundsCount":1},"inbounds":[{"uuid":"in-1","tag":"VLESS"}]}]}}`))
+			_, _ = writer.Write([]byte(`{"response":{"total":1,"internalSquads":[{"uuid":"sq-a","name":"Main","info":{"membersCount":1,"inboundsCount":1},"inbounds":[{"uuid":"in-1","tag":"VLESS","type":"vless"}]}]}}`))
 		case "/api/users/by-short-uuid/abcDEF_12-x":
 			_, _ = writer.Write([]byte(`{"response":{"id":42,"username":"u","status":"ACTIVE","activeInternalSquads":[{"uuid":"sq-a","name":"Main"}]}}`))
 		default:
@@ -31,9 +31,9 @@ func TestHostsSquadsAndUserByShortUUID(t *testing.T) {
 		hosts[0].Inbound.ConfigProfileInboundUUID != "in-1" || hosts[0].InternalSquads.Mode != "EXCLUDE" {
 		t.Fatalf("hosts = %+v, %v", hosts, err)
 	}
-	squads, err := client.InternalSquadInbounds(context.Background())
-	if err != nil || len(squads["sq-a"]) != 1 || squads["sq-a"][0] != "in-1" {
-		t.Fatalf("squads = %+v, %v", squads, err)
+	squads, types, err := client.InternalSquadInbounds(context.Background())
+	if err != nil || len(squads["sq-a"]) != 1 || squads["sq-a"][0] != "in-1" || types["in-1"] != "vless" {
+		t.Fatalf("squads = %+v, %+v, %v", squads, types, err)
 	}
 	user, err := client.UserByShortUUID(context.Background(), "abcDEF_12-x")
 	if err != nil || user.ID != 42 || user.ActiveInternalSquads[0].UUID != "sq-a" {

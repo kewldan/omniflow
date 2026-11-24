@@ -2057,12 +2057,31 @@ export interface SmartSubscriptionPreferences {
   rules: SmartSubscriptionRule[];
 }
 
+export type SmartSubscriptionServerPingTransport =
+  (typeof SmartSubscriptionServerPingTransport)[keyof typeof SmartSubscriptionServerPingTransport];
+
+export const SmartSubscriptionServerPingTransport = {
+  tcp: "tcp",
+  udp: "udp",
+} as const;
+
+/**
+ * Turns the browser's timing of the server into an estimate of the round trip through the tunnel: entry is (t - 5) / 2 over tcp and t over udp, plus tailMs. Absent when the estimate would be a guess.
+ */
+export type SmartSubscriptionServerPing = {
+  transport: SmartSubscriptionServerPingTransport;
+  /** The round trip past the entry: the hop to the exit node, the exit's median round trip to common sites, and 1 ms per node. */
+  tailMs: number;
+};
+
 export interface SmartSubscriptionServer {
   name: string;
   address: string;
   port: number;
   down: boolean;
   services?: SmartSubscriptionServices;
+  /** Turns the browser's timing of the server into an estimate of the round trip through the tunnel: entry is (t - 5) / 2 over tcp and t over udp, plus tailMs. Absent when the estimate would be a guess. */
+  ping?: SmartSubscriptionServerPing;
 }
 
 export type AccountSmartSubscriptionServersCountriesItem = {

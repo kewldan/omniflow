@@ -12668,6 +12668,19 @@ export const GetAccountSmartSubscriptionResponse = zod.object({
               .describe(
                 "How each site answered from the server's exit node in Remnawave's latest geocheck. A service the check could not settle is left out.",
               ),
+            ping: zod
+              .object({
+                transport: zod.enum(["tcp", "udp"]),
+                tailMs: zod
+                  .int()
+                  .describe(
+                    "The round trip past the entry: the hop to the exit node, the exit's median round trip to common sites, and 1 ms per node.",
+                  ),
+              })
+              .optional()
+              .describe(
+                "Turns the browser's timing of the server into an estimate of the round trip through the tunnel: entry is (t - 5) / 2 over tcp and t over udp, plus tailMs. Absent when the estimate would be a guess.",
+              ),
           }),
         ),
       }),
@@ -12788,6 +12801,19 @@ export const GetAccountSmartSubscriptionResponse = zod.object({
           .optional()
           .describe(
             "How each site answered from the server's exit node in Remnawave's latest geocheck. A service the check could not settle is left out.",
+          ),
+        ping: zod
+          .object({
+            transport: zod.enum(["tcp", "udp"]),
+            tailMs: zod
+              .int()
+              .describe(
+                "The round trip past the entry: the hop to the exit node, the exit's median round trip to common sites, and 1 ms per node.",
+              ),
+          })
+          .optional()
+          .describe(
+            "Turns the browser's timing of the server into an estimate of the round trip through the tunnel: entry is (t - 5) / 2 over tcp and t over udp, plus tailMs. Absent when the estimate would be a guess.",
           ),
       }),
     ),

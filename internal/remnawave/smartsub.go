@@ -64,30 +64,37 @@ func (client *Client) UserByShortUUID(ctx context.Context, shortUUID string) (Us
 }
 
 // InternalSquadInbounds maps each internal squad to the inbounds it grants,
-// which is what decides the hosts a squad's members get.
-func (client *Client) InternalSquadInbounds(ctx context.Context) (map[string][]string, error) {
+// which is what decides the hosts a squad's members get, and each of those
+// inbounds to its protocol ("vless", "hysteria", …), which decides whether a
+// client reaches it over TCP or UDP.
+func (client *Client) InternalSquadInbounds(ctx context.Context) (map[string][]string, map[string]string, error) {
 	var envelope struct {
 		Response struct {
 			InternalSquads []struct {
 				UUID     string `json:"uuid"`
 				Inbounds []struct {
 					UUID string `json:"uuid"`
+					Type string `json:"type"`
 				} `json:"inbounds"`
 			} `json:"internalSquads"`
 		} `json:"response"`
 	}
 	if err := client.get(ctx, "/api/internal-squads", &envelope); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	squads := make(map[string][]string, len(envelope.Response.InternalSquads))
+	types := map[string]string{}
 	for _, squad := range envelope.Response.InternalSquads {
 		inbounds := make([]string, 0, len(squad.Inbounds))
 		for _, inbound := range squad.Inbounds {
 			inbounds = append(inbounds, inbound.UUID)
+			if inbound.Type != "" {
+				types[inbound.UUID] = inbound.Type
+			}
 		}
 		squads[squad.UUID] = inbounds
 	}
-	return squads, nil
+	return squads, types, nil
 }
 
 // ValidShortUUID reports whether value can be a panel short UUID: the

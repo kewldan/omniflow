@@ -33,6 +33,7 @@ import {
   type SummaryState,
   summarizeServices,
 } from "@/lib/node-services";
+import { estimatePing, type PingModel } from "@/lib/ping-estimate";
 import { ServiceLogo } from "@/lib/service-logos";
 
 type Presets = { russiaDirect: boolean; blockAds: boolean; blockQuic: boolean };
@@ -52,6 +53,8 @@ type Server = {
   down: boolean;
   /** What the latest geocheck of the server's exit node found. */
   services?: NodeServices;
+  /** Turns the browser's timing into an estimate through the tunnel. */
+  ping?: PingModel;
 };
 type SmartView = {
   servers: { countries: { code: string; servers: Server[] }[]; reserve: Server[] };
@@ -191,10 +194,13 @@ function key(server: Server) {
 
 /** A measured ping; `inline` sits inside a line of text rather than in a column. */
 function Ping({
+  estimated = false,
   inline = false,
   measuring,
   value,
 }: {
+  /** The value is an estimate through the tunnel, not the raw timing. */
+  estimated?: boolean;
   inline?: boolean;
   measuring: boolean;
   value: number | null | undefined;
@@ -209,8 +215,17 @@ function Ping({
   if (value === null) {
     return <span className={cn(shape, "text-destructive")}>{translate("noAnswer")}</span>;
   }
-  const tone = value < 120 ? "text-success" : value < 250 ? "text-warning" : "text-destructive";
-  return <span className={cn(shape, tone)}>{translate("ms", { value })}</span>;
+  // An estimate is one round trip; the raw timing is about two.
+  const [good, fair] = estimated ? [80, 160] : [120, 250];
+  const tone = value < good ? "text-success" : value < fair ? "text-warning" : "text-destructive";
+  return (
+    <span
+      className={cn(shape, tone)}
+      title={estimated ? translate("pingEstimateTitle") : undefined}
+    >
+      {translate(estimated ? "msEstimated" : "ms", { value })}
+    </span>
+  );
 }
 
 /** The service's line for a badge's tooltip and screen readers. */
@@ -424,8 +439,17 @@ function ServersTab({
     setMeasuring(false);
   }
 
-  function best(servers: Server[]): number | null | undefined {
-    const values = servers.map((server) => pings[key(server)]);
+  function shown(server: Server) {
+    return estimatePing(pings[key(server)], server.ping);
+  }
+
+  function best(servers: Server[]): { value: number | null | undefined; estimated: boolean } {
+    const shownValues = servers.map(shown);
+    const value = bestValue(shownValues.map((entry) => entry.value));
+    return { estimated: shownValues.some((entry) => entry.estimated), value };
+  }
+
+  function bestValue(values: (number | null | undefined)[]): number | null | undefined {
     if (values.some((value) => value === undefined)) {
       return undefined;
     }
@@ -486,10 +510,10 @@ function ServersTab({
                     <span className="truncate font-medium text-[14px]">{name}</span>
                     <span className="text-[12px] text-subtle-foreground">
                       {translate("serverCount", { count: country.servers.length })}
-                      {(measuring || best(country.servers) !== undefined) && (
+                      {(measuring || best(country.servers).value !== undefined) && (
                         <>
                           {" · "}
-                          <Ping inline measuring={measuring} value={best(country.servers)} />
+                          <Ping inline measuring={measuring} {...best(country.servers)} />
                         </>
                       )}
                     </span>
@@ -545,7 +569,7 @@ function ServersTab({
                       {server.down ? (
                         <Badge variant="danger">{translate("down")}</Badge>
                       ) : (
-                        <Ping measuring={measuring} value={pings[key(server)]} />
+                        <Ping measuring={measuring} {...shown(server)} />
                       )}
                     </li>
                   ))}
@@ -580,7 +604,7 @@ function ServersTab({
                 {server.down ? (
                   <Badge variant="danger">{translate("down")}</Badge>
                 ) : (
-                  <Ping measuring={measuring} value={pings[key(server)]} />
+                  <Ping measuring={measuring} {...shown(server)} />
                 )}
               </li>
             ))}

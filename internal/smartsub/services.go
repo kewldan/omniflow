@@ -55,12 +55,37 @@ type ServiceStatus struct {
 type NodeCheck struct {
 	CheckedAt time.Time                `json:"checkedAt"`
 	Services  map[string]ServiceStatus `json:"services"`
+	// Place is where the node is; nil when the report did not say.
+	Place *Place `json:"place,omitempty"`
+	// Floor is the shortest round trip the node makes to anything, in ms.
+	Floor float64 `json:"floor,omitempty"`
+	// Latency is the node's round trip to each of geocheck's reference sites,
+	// in ms, leaving out routes the check flagged as detours.
+	Latency map[string]float64 `json:"latency,omitempty"`
 }
 
 // geocheckReport is the part of a Remnawave geocheck report Omniflow reads.
 type geocheckReport struct {
-	Timestamp time.Time `json:"timestamp"`
-	Geo       struct {
+	Timestamp  time.Time `json:"timestamp"`
+	Reputation struct {
+		City        string `json:"city"`
+		CountryCode string `json:"country_code"`
+	} `json:"reputation"`
+	Consensus struct {
+		IPv4 []struct {
+			Code    string  `json:"code"`
+			Percent float64 `json:"percent"`
+		} `json:"ipv4"`
+	} `json:"consensus"`
+	Connectivity struct {
+		Floor   float64 `json:"latency_floor_ms"`
+		Targets []struct {
+			ID      string  `json:"id"`
+			Verdict string  `json:"verdict"`
+			RTT     float64 `json:"rtt_ms"`
+		} `json:"targets"`
+	} `json:"connectivity"`
+	Geo struct {
 		Services []struct {
 			ID   string `json:"id"`
 			IPv4 struct {
@@ -92,6 +117,23 @@ func SummarizeGeocheck(report []byte, checkedAt time.Time) (NodeCheck, error) {
 	check := NodeCheck{CheckedAt: checkedAt.UTC(), Services: map[string]ServiceStatus{}}
 	if !parsed.Timestamp.IsZero() {
 		check.CheckedAt = parsed.Timestamp.UTC()
+	}
+	consensus := ""
+	if len(parsed.Consensus.IPv4) > 0 && parsed.Consensus.IPv4[0].Percent > 50 {
+		consensus = parsed.Consensus.IPv4[0].Code
+	}
+	check.Place = locate(parsed.Reputation.City, parsed.Reputation.CountryCode, consensus)
+	check.Floor = parsed.Connectivity.Floor
+	for _, target := range parsed.Connectivity.Targets {
+		// A detour (traffic sent round another continent) says how a route
+		// is broken, not where the node is.
+		if target.RTT <= 0 || target.Verdict == "detour" || target.Verdict == "failed" {
+			continue
+		}
+		if check.Latency == nil {
+			check.Latency = map[string]float64{}
+		}
+		check.Latency[target.ID] = target.RTT
 	}
 	set := func(service Service, status ServiceStatus) {
 		status.Region = strings.ToUpper(strings.TrimSpace(status.Region))

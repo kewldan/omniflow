@@ -9,6 +9,9 @@ type ViewServer struct {
 	// Services are how each site answered from the server's exit node in
 	// its latest geocheck; nil when the node was never checked.
 	Services map[string]ServiceStatus `json:"services,omitempty"`
+	// Ping turns the browser's timing of the server into an estimate of the
+	// round trip through the tunnel; nil when the estimate would be a guess.
+	Ping *PingModel `json:"ping,omitempty"`
 }
 
 // ViewCountry is one country with its servers.
@@ -51,6 +54,11 @@ func BuildView(entries []Entry, catalog Catalog, settings Settings, checks map[s
 		}
 		if check, ok := checks[server.ExitNode]; ok && server.ExitNode != "" && len(check.Services) > 0 {
 			listed.Services = check.Services
+		}
+		// The whitelist bypass is reached through a relay the panel does not
+		// list, so its entry timing says nothing about the route.
+		if server.Role != RoleReserve {
+			listed.Ping = Ping(server, checks)
 		}
 		switch server.Role {
 		case RoleHidden:

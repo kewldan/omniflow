@@ -7672,7 +7672,7 @@
       "reset": "Reset",
       "resetDone": "Back to the default settings",
       "appliesOnRefresh": "Changes apply when your app refreshes the subscription. You can refresh it by hand in the app.",
-      "pingHint": "Ping is approximate and measured from your browser. If the VPN is on, it's measured through it.",
+      "pingHint": "Ping is estimated through the VPN: we time the way to each server from your browser and add the rest of the route, measured on the servers. Turn the VPN off first, or the timing runs through it.",
       "measure": "Measure ping",
       "autoTitle": "Fastest",
       "autoCountries": "{count, plural, =0 {no countries} one {# country} other {# countries}}",
@@ -7735,7 +7735,9 @@
       },
       "serviceRegion": "region {region}",
       "serviceRulesTitle": "Service rules",
-      "serviceRulesHint": "These apply to everyone. Your own rule for the same domain takes precedence."
+      "serviceRulesHint": "These apply to everyone. Your own rule for the same domain takes precedence.",
+      "msEstimated": "≈ {value} ms",
+      "pingEstimateTitle": "Estimated round trip through the VPN to common sites: your timing to the server, plus the route past it measured on the servers"
     }
   },
   "pages": {

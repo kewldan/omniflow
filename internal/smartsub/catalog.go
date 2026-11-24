@@ -17,6 +17,9 @@ type Host struct {
 	Hidden   bool
 	// InboundUUID is the config-profile inbound the host serves.
 	InboundUUID string
+	// Transport is how a client reaches the host: TransportTCP, TransportUDP,
+	// or empty when the panel did not say.
+	Transport string
 	// SquadMode and Squads narrow which internal squads get the host:
 	// "ALLOW_ONLY" the listed ones, "EXCLUDE" all but them.
 	SquadMode string
@@ -88,6 +91,11 @@ type Server struct {
 	// choice, or the host's only node. Empty when the host runs on several
 	// nodes and nobody said which one.
 	ExitNode string
+	// EntryNode is the host's only node, where a client's connection lands;
+	// empty when it runs on several.
+	EntryNode string
+	// Transport is the host's, see Host.
+	Transport string
 }
 
 // Classify places one server. The host is found by its remark first, which is
@@ -104,8 +112,10 @@ func (catalog Catalog) Classify(remark, address string, port int, settings Setti
 		}
 		server.Down = catalog.down(host)
 		if len(host.Nodes) == 1 {
-			server.ExitNode = strings.ToLower(host.Nodes[0])
+			server.EntryNode = strings.ToLower(host.Nodes[0])
+			server.ExitNode = server.EntryNode
 		}
+		server.Transport = host.Transport
 	}
 	server.Country = server.Detected
 	if found {

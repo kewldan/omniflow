@@ -29,7 +29,7 @@ import (
 type Panel interface {
 	Hosts(ctx context.Context) ([]remnawave.Host, error)
 	Nodes(ctx context.Context) ([]remnawave.Node, error)
-	InternalSquadInbounds(ctx context.Context) (map[string][]string, error)
+	InternalSquadInbounds(ctx context.Context) (map[string][]string, map[string]string, error)
 	User(ctx context.Context, userID int64) (remnawave.User, error)
 	UserByShortUUID(ctx context.Context, shortUUID string) (remnawave.User, error)
 	FetchSubscription(ctx context.Context, shortUUID, format string, from http.Header, clientIP string) (remnawave.SubscriptionContent, error)
@@ -201,8 +201,11 @@ func (service *Service) FreshCatalog(ctx context.Context) (smartsub.Catalog, err
 	}
 	// The squads decide which hosts a customer's screen lists; without them
 	// the screen says the list is unavailable rather than guessing.
-	if squads, err := service.panel.InternalSquadInbounds(ctx); err == nil {
+	if squads, types, err := service.panel.InternalSquadInbounds(ctx); err == nil {
 		catalog.SquadInbounds = squads
+		for index := range catalog.Hosts {
+			catalog.Hosts[index].Transport = smartsub.TransportOf(types[catalog.Hosts[index].InboundUUID])
+		}
 	}
 	// Node status only ever removes servers, so a panel that will not list
 	// its nodes leaves every server in rather than failing the read.

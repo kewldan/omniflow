@@ -614,7 +614,15 @@ const geocheckFixture = `{
   {"id": "tiktok_access", "state": "available"},
   {"id": "gemini_access", "state": "blocked", "region": "RUS", "detail": "not offered in this country"}
  ],
- "ai_endpoints": [{"id": "anthropic", "state": "reachable", "http_status": 401}]
+ "ai_endpoints": [{"id": "anthropic", "state": "reachable", "http_status": 401}],
+ "reputation": {"city": "Vienna", "country_code": "AT"},
+ "consensus": {"ipv4": [{"code": "AT", "percent": 93.1}, {"code": "RU", "percent": 6.9}]},
+ "connectivity": {"latency_floor_ms": 5.76, "targets": [
+  {"id": "google", "verdict": "direct", "rtt_ms": 6.0},
+  {"id": "telegram", "verdict": "transit", "rtt_ms": 15.0},
+  {"id": "telegram_dc5", "verdict": "detour", "rtt_ms": 155.0},
+  {"id": "github", "verdict": "failed"}
+ ]}
 }`
 
 func TestSummarizeGeocheck(t *testing.T) {
@@ -644,6 +652,11 @@ func TestSummarizeGeocheck(t *testing.T) {
 		}
 	}
 
+	if check.Place == nil || check.Place.City != "Vienna" || check.Floor != 5.76 ||
+		len(check.Latency) != 2 || check.Latency["telegram"] != 15 {
+		t.Errorf("place, floor, latency = %+v, %v, %v", check.Place, check.Floor, check.Latency)
+	}
+
 	// A check that settled nothing has no services, and a broken report is
 	// an error rather than an empty success.
 	empty, err := SummarizeGeocheck([]byte(`{"geo":{"services":[{"id":"youtube","ipv4":{"error":"timeout"}}]}}`), time.Unix(0, 0))
@@ -652,5 +665,83 @@ func TestSummarizeGeocheck(t *testing.T) {
 	}
 	if _, err := SummarizeGeocheck([]byte(`not json`), time.Unix(0, 0)); err == nil {
 		t.Error("a broken report was accepted")
+	}
+}
+
+func TestLocate(t *testing.T) {
+	for _, testCase := range []struct {
+		city, cityCountry, consensus string
+		want                         string
+	}{
+		{"Warsaw", "PL", "PL", "Warsaw/PL"},
+		// No agreed country: the named city stands.
+		{"Bolton", "GB", "", "Bolton/GB"},
+		// The databases agree on another country: its usual city wins.
+		{"Stockholm", "SE", "FI", "/FI"},
+		// An unknown city in a known country.
+		{"Nowhere", "NL", "NL", "/NL"},
+	} {
+		place := locate(testCase.city, testCase.cityCountry, testCase.consensus)
+		if place == nil || place.City+"/"+place.Country != testCase.want {
+			t.Errorf("locate(%q, %q, %q) = %+v, want %s", testCase.city, testCase.cityCountry, testCase.consensus, place, testCase.want)
+		}
+	}
+	if place := locate("Nowhere", "ZZ", ""); place != nil {
+		t.Errorf("an unknown place was placed: %+v", place)
+	}
+}
+
+func TestHopMs(t *testing.T) {
+	warsaw, amsterdam := locate("Warsaw", "PL", "PL"), locate("Amsterdam", "NL", "NL")
+	// About 1100 km apart: two dozen milliseconds, as measured.
+	hop, ok := HopMs(NodeCheck{Place: warsaw}, NodeCheck{Place: amsterdam})
+	if !ok || hop < 22 || hop > 26 {
+		t.Errorf("Warsaw→Amsterdam = %.1f, %v", hop, ok)
+	}
+	// Nodes answering the sites that tell places apart alike share a data
+	// centre, whatever their cities say.
+	stockholm, helsinki := locate("Stockholm", "SE", "SE"), locate("Helsinki", "FI", "FI")
+	alike := map[string]float64{"google": 8.9, "cloudflare": 28.1, "telegram": 32.9, "discord": 28.2, "tiktok": 7.8, "apple": 8.1, "near": 1.1}
+	twin := map[string]float64{"google": 8.9, "cloudflare": 28.1, "telegram": 29.7, "discord": 28.1, "tiktok": 7.7, "apple": 7.6, "near": 1.2}
+	hop, ok = HopMs(NodeCheck{Place: stockholm, Floor: 1.5, Latency: alike}, NodeCheck{Place: helsinki, Floor: 1.2, Latency: twin})
+	if !ok || hop != 1.5 {
+		t.Errorf("co-located hop = %.1f, %v", hop, ok)
+	}
+	// Sites every node reaches in a millisecond or two prove nothing.
+	near := map[string]float64{"a": 1.1, "b": 1.6, "c": 1.8, "d": 1.4, "e": 1.9, "f": 1.2}
+	hop, ok = HopMs(NodeCheck{Place: warsaw, Latency: near}, NodeCheck{Place: amsterdam, Latency: near})
+	if !ok || hop < 22 {
+		t.Errorf("well-peered nodes read as co-located: %.1f, %v", hop, ok)
+	}
+	if _, ok := HopMs(NodeCheck{Place: warsaw}, NodeCheck{}); ok {
+		t.Error("a hop to a node with no place was estimated")
+	}
+}
+
+func TestPing(t *testing.T) {
+	checks := map[string]NodeCheck{
+		"pl": {Place: locate("Warsaw", "PL", "PL"), Latency: map[string]float64{"a": 1, "b": 2, "c": 3}},
+		"nl": {Place: locate("Amsterdam", "NL", "NL"), Latency: map[string]float64{"a": 1, "b": 1.5}},
+	}
+	// One node: the exit's median site latency and one node's processing.
+	if model := Ping(Server{EntryNode: "pl", ExitNode: "pl", Transport: TransportTCP}, checks); model == nil || model.TailMs != 3 {
+		t.Errorf("single node = %+v", model)
+	}
+	// A chain adds the hop and a second node.
+	model := Ping(Server{EntryNode: "pl", ExitNode: "nl", Transport: TransportUDP}, checks)
+	if model == nil || model.Transport != TransportUDP || model.TailMs < 26 || model.TailMs > 30 {
+		t.Errorf("chain = %+v", model)
+	}
+	for name, server := range map[string]Server{
+		"unknown transport":  {EntryNode: "pl", ExitNode: "pl"},
+		"exit never checked": {EntryNode: "pl", ExitNode: "de", Transport: TransportTCP},
+		"entry not known":    {ExitNode: "nl", Transport: TransportTCP},
+	} {
+		if model := Ping(server, checks); model != nil {
+			t.Errorf("%s: estimated %+v", name, model)
+		}
+	}
+	if TransportOf("hysteria") != TransportUDP || TransportOf("vless") != TransportTCP || TransportOf("") != "" {
+		t.Error("transport of an inbound protocol is wrong")
 	}
 }
