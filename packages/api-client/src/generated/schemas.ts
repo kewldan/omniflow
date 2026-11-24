@@ -12830,6 +12830,14 @@ export const GetAccountSmartSubscriptionResponse = zod.object({
   }),
   customRules: zod.boolean(),
   maxRules: zod.int(),
+  serviceRules: zod
+    .object({
+      direct: zod.array(zod.string()),
+      block: zod.array(zod.string()),
+    })
+    .describe(
+      "The operator's rules that apply to every subscription; a customer's own rule for the same domain wins.",
+    ),
 });
 
 /**

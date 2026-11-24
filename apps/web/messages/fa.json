@@ -7569,7 +7569,9 @@
         "youtube": "YouTube سرور را روسی می‌داند: تبلیغات و پیشنهادهای روسیه، بدون Premium",
         "netflix": "Netflix فقط عنوان‌های خودش را نشان می‌دهد"
       },
-      "serviceRegion": "منطقه {region}"
+      "serviceRegion": "منطقه {region}",
+      "serviceRulesTitle": "قوانین سرویس",
+      "serviceRulesHint": "برای همه اعمال می‌شوند. قانون خودتان برای همان دامنه اولویت دارد."
     }
   },
   "pages": {

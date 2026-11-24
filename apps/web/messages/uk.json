@@ -7569,7 +7569,9 @@
         "youtube": "YouTube вважає сервер російським: реклама й рекомендації як у Росії, без Premium",
         "netflix": "Netflix показує лише власні фільми й серіали"
       },
-      "serviceRegion": "регіон {region}"
+      "serviceRegion": "регіон {region}",
+      "serviceRulesTitle": "Правила сервісу",
+      "serviceRulesHint": "Діють для всіх. Ваше правило для того самого домену важливіше."
     }
   },
   "pages": {

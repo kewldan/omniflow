@@ -21,6 +21,10 @@ type CustomerView struct {
 	Defaults    smartsub.Presets
 	CustomRules bool
 	MaxRules    int
+	// DirectDomains and BlockDomains are the operator's rules for everyone,
+	// shown so the customer sees what already applies before adding their own.
+	DirectDomains []string
+	BlockDomains  []string
 }
 
 // CustomerView reads the customer's servers from the panel and their saved
@@ -61,6 +65,7 @@ func (service *Service) CustomerView(ctx context.Context, customerID, subscripti
 	view := CustomerView{
 		Servers:  smartsub.BuildView(entries, catalog, settings, service.NodeChecks(ctx)),
 		Defaults: settings.Defaults, CustomRules: settings.CustomRules, MaxRules: settings.MaxRules,
+		DirectDomains: settings.DirectDomains, BlockDomains: settings.BlockDomains,
 	}
 	preferences, found, err := readPreferences(ctx, service.pool, subscriptionID)
 	if err != nil {

@@ -8099,7 +8099,7 @@ components:
         services: {$ref: "#/components/schemas/SmartSubscriptionServices"}
     AccountSmartSubscription:
       type: object
-      required: [servers, preferences, customized, defaults, customRules, maxRules]
+      required: [servers, preferences, customized, defaults, customRules, maxRules, serviceRules]
       properties:
         servers:
           type: object
@@ -8119,6 +8119,13 @@ components:
         defaults: {$ref: "#/components/schemas/SmartSubscriptionPresets"}
         customRules: {type: boolean}
         maxRules: {type: integer}
+        serviceRules:
+          type: object
+          description: The operator's rules that apply to every subscription; a customer's own rule for the same domain wins.
+          required: [direct, block]
+          properties:
+            direct: {type: array, items: {type: string}}
+            block: {type: array, items: {type: string}}
     PanelTrafficPackage:
       type: object
       required: [gb, currency, amountMinor]

@@ -241,6 +241,7 @@ func (handlers *AccountHandlers) smartSubscriptionView(writer http.ResponseWrite
 	writeJSON(writer, http.StatusOK, map[string]any{
 		"servers": view.Servers, "preferences": view.Preferences, "customized": view.Customized,
 		"defaults": view.Defaults, "customRules": view.CustomRules, "maxRules": view.MaxRules,
+		"serviceRules": map[string]any{"direct": nonNil(view.DirectDomains), "block": nonNil(view.BlockDomains)},
 	})
 }
 
@@ -296,4 +297,13 @@ func (handlers *AccountHandlers) writeSmartSubscriptionError(
 		writeProblem(writer, request, http.StatusInternalServerError, "operation_failed", "That could not be completed")
 	}
 	return true
+}
+
+// nonNil renders an absent list as an empty one, so the screen always reads
+// an array.
+func nonNil(values []string) []string {
+	if values == nil {
+		return []string{}
+	}
+	return values
 }

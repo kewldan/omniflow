@@ -60,6 +60,8 @@ type SmartView = {
   defaults: Presets;
   customRules: boolean;
   maxRules: number;
+  /** The operator's rules for every subscription; a customer's own rule wins. */
+  serviceRules: { direct: string[]; block: string[] };
 };
 
 /** Servers whose country could not be read are grouped under this code. */
@@ -657,6 +659,8 @@ function RoutesTab({
         ))}
       </section>
 
+      <ServiceRules rules={view.serviceRules} />
+
       {view.customRules && (
         <section className="space-y-3 rounded-lg border border-border bg-card p-4">
           <div className="flex items-baseline justify-between">
@@ -743,5 +747,44 @@ function RoutesTab({
         </section>
       )}
     </div>
+  );
+}
+
+/**
+ * The rules the service applies to everyone, read-only. They are listed so a
+ * customer sees what already goes direct or is blocked before adding a rule
+ * of their own, which takes precedence for the same domain.
+ */
+function ServiceRules({ rules }: { rules: SmartView["serviceRules"] | undefined }) {
+  const translate = useTranslations("account.smart");
+  const entries = [
+    ...(rules?.block ?? []).map((domain) => ({ action: "block" as Action, domain })),
+    ...(rules?.direct ?? []).map((domain) => ({ action: "direct" as Action, domain })),
+  ];
+  if (entries.length === 0) {
+    return null;
+  }
+  return (
+    <section className="space-y-3 rounded-lg border border-border bg-card p-4">
+      <div className="space-y-1">
+        <span className="block font-medium text-[14px]">{translate("serviceRulesTitle")}</span>
+        <span className="block text-[12.5px] text-muted-foreground">
+          {translate("serviceRulesHint")}
+        </span>
+      </div>
+      <ul>
+        {entries.map((rule) => (
+          <li
+            className="flex items-center gap-2 border-border border-t py-2 first:border-t-0"
+            key={`${rule.action}:${rule.domain}`}
+          >
+            <span className="min-w-0 flex-1 truncate font-mono text-[12.5px]">{rule.domain}</span>
+            <Badge variant={rule.action === "block" ? "danger" : "neutral"}>
+              {translate(`actions.${rule.action}`)}
+            </Badge>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

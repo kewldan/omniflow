@@ -7451,6 +7451,12 @@ type AccountSmartSubscription struct {
 		} `json:"countries"`
 		Reserve []SmartSubscriptionServer `json:"reserve"`
 	} `json:"servers"`
+
+	// ServiceRules The operator's rules that apply to every subscription; a customer's own rule for the same domain wins.
+	ServiceRules struct {
+		Block  []string `json:"block"`
+		Direct []string `json:"direct"`
+	} `json:"serviceRules"`
 }
 
 // AccountSquadAddons defines model for AccountSquadAddons.

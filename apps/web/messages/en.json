@@ -7733,7 +7733,9 @@
         "youtube": "YouTube treats the server as Russian: Russian ads and recommendations, no Premium",
         "netflix": "Netflix shows only its own titles"
       },
-      "serviceRegion": "region {region}"
+      "serviceRegion": "region {region}",
+      "serviceRulesTitle": "Service rules",
+      "serviceRulesHint": "These apply to everyone. Your own rule for the same domain takes precedence."
     }
   },
   "pages": {

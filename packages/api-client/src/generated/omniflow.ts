@@ -2076,6 +2076,14 @@ export type AccountSmartSubscriptionServers = {
   reserve: SmartSubscriptionServer[];
 };
 
+/**
+ * The operator's rules that apply to every subscription; a customer's own rule for the same domain wins.
+ */
+export type AccountSmartSubscriptionServiceRules = {
+  direct: string[];
+  block: string[];
+};
+
 export interface AccountSmartSubscription {
   servers: AccountSmartSubscriptionServers;
   preferences: SmartSubscriptionPreferences;
@@ -2083,6 +2091,8 @@ export interface AccountSmartSubscription {
   defaults: SmartSubscriptionPresets;
   customRules: boolean;
   maxRules: number;
+  /** The operator's rules that apply to every subscription; a customer's own rule for the same domain wins. */
+  serviceRules: AccountSmartSubscriptionServiceRules;
 }
 
 export type PanelPlanVersionInputBillingPeriod =

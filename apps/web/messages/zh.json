@@ -7569,7 +7569,9 @@
         "youtube": "YouTube 将该服务器视为俄罗斯：俄罗斯的广告和推荐，没有 Premium",
         "netflix": "Netflix 仅提供自制内容"
       },
-      "serviceRegion": "地区 {region}"
+      "serviceRegion": "地区 {region}",
+      "serviceRulesTitle": "服务规则",
+      "serviceRulesHint": "适用于所有人。同一域名的自定义规则优先。"
     }
   },
   "pages": {
