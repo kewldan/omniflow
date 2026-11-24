@@ -11,6 +11,7 @@ import {
   LogOut,
   MonitorSmartphone,
   Moon,
+  Route,
   Shield,
   ShieldCheck,
   Sun,
@@ -25,9 +26,9 @@ import { SectionLabel } from "@/components/account/state";
 import { useSwitchLocale } from "@/components/intl/locale-switch";
 import { useAllowedThemes } from "@/components/theme-provider";
 import { useAccount } from "@/lib/account-session";
-
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 import { isLocale, LOCALES, type Locale } from "@/lib/locale";
+import { useSmartEnabled } from "@/lib/smart-enabled";
 
 /**
  * The account screen: who you are, the two preferences that follow you between
@@ -51,6 +52,7 @@ export default function ProfilePage() {
   const hub = useTranslations("account.account");
   const { refresh, session } = useAccount();
   const customer = session?.customer;
+  const smart = useSmartEnabled();
 
   return (
     <div className="animate-step-in space-y-5">
@@ -76,6 +78,33 @@ export default function ProfilePage() {
         )}
       </section>
 
+      {/* How the VPN connects: its servers and routing, and the devices on it.
+          Devices reached the tab bar in v0.9 and left it in v0.10, because
+          disconnecting a replaced phone is something a person does once; it is
+          reachable from here and from the subscription it belongs to. */}
+      <SectionLabel>{translate("profile.connection")}</SectionLabel>
+      <HubNav
+        items={[
+          ...(smart
+            ? [
+                {
+                  description: translate("smart.entryDescription"),
+                  href: "/account/servers",
+                  icon: Route,
+                  label: translate("nav.servers"),
+                },
+              ]
+            : []),
+          {
+            description: hub("hub.devicesHint"),
+            href: "/account/devices",
+            icon: MonitorSmartphone,
+            label: translate("nav.devices"),
+          },
+        ]}
+        label={translate("profile.connection")}
+      />
+
       <ThemeChoice />
 
       <SectionLabel>{translate("profile.language")}</SectionLabel>
@@ -86,18 +115,8 @@ export default function ProfilePage() {
       />
 
       <SectionLabel>{translate("profile.security")}</SectionLabel>
-      {/* Devices reached the tab bar in v0.9 and left it in v0.10, because
-          disconnecting a replaced phone is something a person does once rather
-          than something they come back to. It is reachable from here and from
-          the subscription it belongs to, so nothing lost a way in. */}
       <HubNav
         items={[
-          {
-            description: hub("hub.devicesHint"),
-            href: "/account/devices",
-            icon: MonitorSmartphone,
-            label: translate("nav.devices"),
-          },
           {
             description: hub("hub.sessionsHint"),
             href: "/account/security",

@@ -5780,7 +5780,8 @@
       "offers": "Offers",
       "copyAccountId": "Copy the account ID",
       "copied": "Copied",
-      "subscription": "Subscription"
+      "subscription": "Subscription",
+      "servers": "Servers and routing"
     },
     "actions": {
       "cancel": "Cancel",
@@ -5974,7 +5975,8 @@
         "telegram": "Telegram",
         "magic_link": "Sign-in link",
         "oidc": "{provider}"
-      }
+      },
+      "connection": "Connection"
     },
     "security": {
       "sessions": "Active sessions",
@@ -7865,7 +7867,11 @@
         "happ": "Happ — pull the server list down or tap the refresh button next to the subscription.",
         "incy": "INCY — tap the refresh button next to the subscription.",
         "other": "Other apps — look for Update subscription."
-      }
+      },
+      "pickTitle": "Which subscription to set up?",
+      "pickNone": "No connected subscription",
+      "pickNoneDescription": "Servers and routing appear once a subscription is bought and connected.",
+      "pickError": "Your subscriptions could not be loaded"
     }
   },
   "pages": {

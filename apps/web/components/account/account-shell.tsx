@@ -13,6 +13,7 @@ import {
   Megaphone,
   ReceiptText,
   RefreshCw,
+  Route,
   ShieldCheck,
   Smartphone,
   Store,
@@ -26,7 +27,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { type ReactNode, useEffect, useState } from "react";
 import useSWR from "swr";
-
 import { AccountLiveUpdates } from "@/components/account/live-updates";
 import { useMiniApp } from "@/components/account/miniapp";
 import { AccountNotice } from "@/components/account/state";
@@ -37,6 +37,7 @@ import { useAccount } from "@/lib/account-session";
 import { apiFetch, fetcher } from "@/lib/api";
 import { flushReferralAttribution, rememberReferralCode } from "@/lib/referral";
 import { signInPath } from "@/lib/sign-in-path";
+import { useSmartEnabled } from "@/lib/smart-enabled";
 
 /**
  * The tabs that carry the product.
@@ -116,6 +117,7 @@ const UNTITLED_SECTIONS: Record<string, string> = {
  * A page is placed by where the customer reached it from instead.
  */
 const SECTIONS: [prefix: string, tab: string][] = [
+  ["/account/servers", "subscriptions"],
   ["/account/store", "store"],
   ["/account/shop", "store"],
   ["/account/orders", "store"],
@@ -288,6 +290,9 @@ function DesktopSidebar({
   const translate = useTranslations("account");
   const navKey = useNavKey();
   const serviceName = useBrandName(translate("nav.title"));
+  // The smart subscription's screen belongs to a subscription, but customers
+  // look for it in the menu; it is listed while the operator runs the module.
+  const smart = useSmartEnabled();
 
   return (
     <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-chrome-border border-r bg-chrome md:flex">
@@ -308,6 +313,14 @@ function DesktopSidebar({
               pathname={pathname}
             />
           ))}
+          {smart && (
+            <SidebarLink
+              href="/account/servers"
+              icon={Route}
+              label={translate("nav.servers")}
+              pathname={pathname}
+            />
+          )}
         </ul>
 
         {lite ? null : (

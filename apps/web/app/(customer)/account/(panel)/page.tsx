@@ -7,6 +7,7 @@ import { useFormatter, useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR from "swr";
 import { DeviceList } from "@/components/account/device-list";
+import { SmartSubscriptionEntry } from "@/components/account/smart-subscription-entry";
 import {
   AccountNotice,
   ListSkeleton,
@@ -178,6 +179,12 @@ function SubscriptionHome({
   return (
     <div className="space-y-5">
       <SubscriptionHero subscription={subscription} />
+      {/* The way into the subscription's own servers and routing, here as well
+          as on the subscription's page: the dashboard is where a phone lands. */}
+      <SmartSubscriptionEntry
+        provisioned={subscription.provisioned}
+        subscriptionId={subscription.id}
+      />
       {primaryAction(subscription) === "connect" && !degraded && (
         <DeviceList embedded onChanged={onDevicesChanged} subscription={subscription} />
       )}

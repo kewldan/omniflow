@@ -10,7 +10,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@omniflow/ui/tabs";
 import { toast } from "@omniflow/ui/toast";
 import {
   ChevronDown,
-  ChevronRight,
   CircleCheck,
   CircleHelp,
   Gauge,
@@ -29,7 +28,6 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
@@ -100,54 +98,6 @@ type SmartView = {
 /** Servers whose country could not be read are grouped under this code. */
 const UNKNOWN = "ZZ";
 const ACTIONS: Action[] = ["direct", "proxy", "block"];
-
-/** Whether the operator turned the module on. */
-function useSmartEnabled() {
-  const { data } = useSWR<{ enabled: boolean }, ApiError>(
-    "/v1/account/smart-subscription",
-    fetcher,
-    {
-      // A module the installation does not run answers 404; that is "off".
-      shouldRetryOnError: false,
-    },
-  );
-  return data?.enabled ?? false;
-}
-
-/**
- * The way in from a subscription's page. It renders nothing while the
- * operator has the module off, or for a subscription not yet set up.
- */
-export function SmartSubscriptionEntry({
-  provisioned,
-  subscriptionId,
-}: {
-  provisioned: boolean;
-  subscriptionId: string;
-}) {
-  const translate = useTranslations("account.smart");
-  const enabled = useSmartEnabled();
-  if (!enabled || !provisioned) {
-    return null;
-  }
-  return (
-    <Link
-      className="flex items-center gap-3 rounded-lg border border-border bg-card p-4 transition-colors hover:border-foreground/20"
-      href={`/account/subscriptions/${subscriptionId}/servers`}
-    >
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-secondary">
-        <Globe aria-hidden className="size-[18px]" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block font-medium text-[14px]">{translate("entryTitle")}</span>
-        <span className="block text-[12.5px] text-muted-foreground">
-          {translate("entryDescription")}
-        </span>
-      </span>
-      <ChevronRight aria-hidden className="size-4 text-subtle-foreground" />
-    </Link>
-  );
-}
 
 function flag(code: string): string {
   if (code.length !== 2 || code === UNKNOWN) {
@@ -1230,3 +1180,5 @@ function CustomRules({
     </section>
   );
 }
+
+export { SmartSubscriptionEntry } from "@/components/account/smart-subscription-entry";

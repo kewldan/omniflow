@@ -5688,7 +5688,8 @@
       "offers": "优惠",
       "copyAccountId": "复制账户 ID",
       "copied": "已复制",
-      "subscription": "订阅"
+      "subscription": "订阅",
+      "servers": "服务器与路由"
     },
     "actions": {
       "cancel": "取消",
@@ -5882,7 +5883,8 @@
         "telegram": "Telegram",
         "magic_link": "登录链接",
         "oidc": "{provider}"
-      }
+      },
+      "connection": "连接"
     },
     "security": {
       "sessions": "活跃会话",
@@ -7701,7 +7703,11 @@
         "happ": "Happ——下拉服务器列表，或点订阅旁的刷新按钮。",
         "incy": "INCY——点订阅旁的刷新按钮。",
         "other": "其他应用——找到“更新订阅”。"
-      }
+      },
+      "pickTitle": "要设置哪个订阅？",
+      "pickNone": "没有已连接的订阅",
+      "pickNoneDescription": "购买并连接订阅后，这里会出现服务器与路由。",
+      "pickError": "无法加载订阅"
     }
   },
   "pages": {
