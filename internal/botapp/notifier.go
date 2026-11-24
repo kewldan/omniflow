@@ -15,6 +15,7 @@ import (
 	"github.com/omniflow/omniflow/internal/analytics"
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/remnawave"
+	"github.com/omniflow/omniflow/internal/smartsubpg"
 )
 
 const notificationInterval = 15 * time.Minute
@@ -43,6 +44,7 @@ type notificationCandidate struct {
 	TrafficNotifications bool
 	RenewalNotifications bool
 	NewsNotifications    bool
+	ServerNotifications  bool
 	MarketingEnabled     bool
 	QuietHoursStart      pgtype.Int2
 	QuietHoursEnd        pgtype.Int2
@@ -80,6 +82,8 @@ func kindEnabled(kind string, candidate notificationCandidate) bool {
 		return candidate.RenewalNotifications
 	case "news", "announcement", "incident", "maintenance":
 		return candidate.NewsNotifications
+	case "server":
+		return candidate.ServerNotifications
 	case "marketing":
 		return candidate.MarketingEnabled
 	default:
@@ -98,6 +102,12 @@ type Notifier struct {
 	commerce  *Commerce
 	settings  CommerceSettings
 	clock     func() time.Time
+	// smartSubscription tracks country outages for the server notices; nil
+	// sends none.
+	smartSubscription *smartsubpg.Service
+	// outagesTrackedAt is when node status was last read for outages; only
+	// the broadcast loop touches it.
+	outagesTrackedAt time.Time
 	// notices is the operator wording in force for the current pass. The zero
 	// value means "shipped defaults", so a notifier that has never refreshed —
 	// or one whose refresh failed — still sends every notice.
@@ -228,9 +238,11 @@ func (notifier *Notifier) drainBroadcasts(ctx context.Context) {
 		// A maintenance notice is time-sensitive, so it goes ahead of the
 		// campaigns in each round.
 		maintenance := notifier.deliverMaintenance(ctx)
+		outages := notifier.deliverOutages(ctx)
 		campaigns := notifier.deliverCampaigns(ctx)
 		announcements := notifier.deliverNews(ctx)
-		if maintenance < notificationBatch && campaigns < notificationBatch && announcements < notificationBatch {
+		if maintenance < notificationBatch && outages < notificationBatch && campaigns < notificationBatch &&
+			announcements < notificationBatch {
 			return
 		}
 	}
@@ -969,6 +981,7 @@ func (store *PostgresStore) candidateRows(ctx context.Context, windows marketing
 		CASE WHEN COALESCE(p.locale, 'auto') = 'auto' THEN u.locale ELSE p.locale END,
 		COALESCE(p.expiry_notifications, true), COALESCE(p.traffic_notifications, true),
 		COALESCE(p.renewal_notifications, true), COALESCE(p.news_notifications, true),
+		COALESCE(p.server_notifications, true),
 		COALESCE(p.marketing_enabled, false), p.quiet_hours_start, p.quiet_hours_end, u.timezone,
 		COALESCE(d.status, 'active'), d.retry_after,
 		(SELECT count(*)::integer FROM notification_deliveries n
@@ -1005,7 +1018,7 @@ func (store *PostgresStore) candidateRows(ctx context.Context, windows marketing
 		var candidate notificationCandidate
 		if err := rows.Scan(&candidate.UserID, &candidate.TelegramID, &candidate.RemnawaveID, &candidate.Locale,
 			&candidate.ExpiryNotifications, &candidate.TrafficNotifications, &candidate.RenewalNotifications,
-			&candidate.NewsNotifications, &candidate.MarketingEnabled, &candidate.QuietHoursStart,
+			&candidate.NewsNotifications, &candidate.ServerNotifications, &candidate.MarketingEnabled, &candidate.QuietHoursStart,
 			&candidate.QuietHoursEnd, &candidate.Timezone, &candidate.DeliveryStatus, &candidate.RetryAfter,
 			&candidate.MarketingSent, &candidate.MarketingSentLong, &candidate.Suppressed); err != nil {
 			return nil, err

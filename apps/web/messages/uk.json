@@ -162,7 +162,8 @@
         "risk": "Ризики",
         "settings": "Налаштування",
         "aiSettings": "ШІ та MCP",
-        "payouts": "Виплати"
+        "payouts": "Виплати",
+        "smartSubscription": "Розумна підписка"
       },
       "waiting": "{count, plural, one {# чекає} few {# чекають} many {# чекають} other {# чекають}}"
     },
@@ -839,6 +840,14 @@
         "title": "Зараз на балансах клієнтів",
         "description": "Гроші, які клієнти внесли й ще не витратили. Це борг сервісом, тому до виторгу за період не входить.",
         "holders": "{count, plural, one {у # клієнта} few {у # клієнтів} many {у # клієнтів} other {у # клієнта}}"
+      },
+      "smart": {
+        "title": "Smart subscription",
+        "on": "on",
+        "off": "off",
+        "summary": "Customized {customized} · own server {pinned} · whitelist mode {whitelist}",
+        "offHint": "Customers get the panel's subscription as is.",
+        "open": "Open"
       }
     },
     "customers": {
@@ -5533,26 +5542,10 @@
       "linkBaseHint": "The start of the link before the short UUID. Empty uses the service address (APP_PUBLIC_URL) and /v1/sub/. Subscription mirrors must forward this path to Omniflow.",
       "noLinkBase": "Neither a link base nor APP_PUBLIC_URL is set, so customers keep getting the panel's own link.",
       "customersTitle": "For customers",
-      "customersDescription": "What a customer starts with and what they can change.",
-      "presets": {
-        "russiaDirect": {
-          "label": "Russian sites direct",
-          "hint": ".ru, .su, .рф, and Russian IPs skip the VPN"
-        },
-        "blockAds": {
-          "label": "Block ads",
-          "hint": "Needs geosite in the customer's app; Happ and v2RayTun ship it"
-        },
-        "blockQuic": {
-          "label": "Block QUIC",
-          "hint": "Refuses UDP 443 so browsers fall back to TCP"
-        }
-      },
+      "customersDescription": "What customers may change themselves, and when the bot warns about outages.",
       "customRules": "Customer rules",
       "customRulesHint": "Customers can add domains to send direct, through the VPN, or block",
       "maxRules": "Most rules per customer",
-      "directDomains": "Always direct for everyone",
-      "directDomainsHint": "One domain per line; subdomains are included.",
       "hostsTitle": "Remnawave hosts",
       "hostsDescription": "The country is read from each host's flag or name — correct it where it's wrong. The whitelist bypass role makes a host a fallback; Hidden leaves it out of every subscription.",
       "hostsUnavailable": "Remnawave didn't answer, so the host list is unavailable.",
@@ -5590,19 +5583,82 @@
         "autoName": "Group name",
         "reserveName": "Bypass group name",
         "maxRules": "Most rules",
-        "directDomains": "Always direct",
         "hosts": "Hosts",
-        "blockDomains": "Завжди блокувати"
+        "rule": "Rule {index}",
+        "rules": "Rules",
+        "outageMinutes": "Send after"
       },
-      "blockDomains": "Завжди блокувати для всіх",
-      "blockDomainsHint": "По одному домену в рядку; піддомени теж блокуються.",
       "services": "Сервіси",
       "servicesHint": "Сервіси беруться з geocheck Remnawave: поки модуль увімкнено, він запускається на кожній ноді раз на 6 годин. Хост, чий інбаунд пересилає трафік на іншу ноду, виходить через неї — оберіть її як вихід, щоб клієнти бачили правильні результати.",
       "exitNode": "Вихід",
       "exitNodeOwn": "Своя нода ({node})",
       "exitNodeUnknown": "Своя нода",
       "notChecked": "Ще не перевірено",
-      "checkedAt": "Перевірено {time}"
+      "checkedAt": "Перевірено {time}",
+      "tabs": {
+        "general": "General",
+        "rules": "Rules",
+        "hosts": "Hosts",
+        "stats": "Analytics"
+      },
+      "outageNotices": "Outage messages in the bot",
+      "outageNoticesHint": "When every server of a country is down, the bot tells the customers who have that country, and again when it is back. Customers can turn it off in their notification settings.",
+      "outageMinutes": "Send after, minutes",
+      "outageMinutesHint": "A short blip is not worth a message: the bot writes only when the outage lasts longer.",
+      "rulesTitle": "Service rules",
+      "rulesDescription": "The cards on the customer's Routing tab, in this order and grouped: without VPN, through VPN, blocked. “Always” is on with a lock and the customer cannot turn it off; “On”/“Off” is the default the customer may change; “Hidden” is neither applied nor shown.",
+      "addRule": "Add a rule",
+      "ruleUnnamed": "Untitled",
+      "ruleActions": {
+        "direct": "Without VPN",
+        "proxy": "Through VPN",
+        "block": "Block"
+      },
+      "ruleDomainCount": "{count, plural, one {# domain} other {# domains}}",
+      "ruleBuiltin": "built in",
+      "ruleMode": "Mode",
+      "ruleModes": {
+        "locked": "Always (locked)",
+        "on": "On by default",
+        "off": "Off by default",
+        "disabled": "Hidden"
+      },
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "editRule": "Edit “{name}”",
+      "deleteRule": "Delete “{name}”",
+      "rulesHint": "A customer's own rule for the same domain wins over a service rule. Changes reach customers on their next subscription refresh.",
+      "ruleName": "Name",
+      "ruleNamePlaceholder": "Gosuslugi",
+      "ruleAction": "Action",
+      "ruleCaption": "Caption",
+      "ruleCaptionPlaceholder": "Opens even under whitelists, no VPN needed. Enjoy the lowest latency <3",
+      "ruleDomains": "Domains",
+      "ruleDomainsHint": "One per line; subdomains are included.",
+      "ruleIcon": "Icon",
+      "iconFailed": "The icon could not be saved",
+      "iconUpload": "Upload",
+      "iconDomain": "Domain to find a logo for",
+      "iconFetch": "Find logo",
+      "iconRemove": "Remove",
+      "iconHint": "A PNG, JPEG, WebP or SVG under 128 KB, or a site's logo by domain through logo.dev. The icon is stored here, so customers' browsers never call a third party.",
+      "iconHintNoSearch": "A PNG, JPEG, WebP or SVG under 128 KB. Finding logos by domain needs APP_LOGO_DEV_TOKEN.",
+      "statsUnavailable": "Analytics are unavailable right now.",
+      "statsCustomized": "Customized their subscription",
+      "statsWhitelist": "In whitelist mode",
+      "statsReserveOff": "Turned the bypass off",
+      "statsPinned": "Chose their own server",
+      "statsNone": "Nothing yet",
+      "statsRuleChoice": "on {on} · off {off}",
+      "statsRules": "Changed service rules",
+      "statsPinnedHosts": "Own server",
+      "statsHidden": "Hid a country",
+      "statsAutoExcluded": "Left out of Fastest",
+      "statsDomains": "Popular customer rules",
+      "statsDomainsHint": "Domains at least three subscriptions added for themselves: candidates for a service rule.",
+      "statsDomain": "Domain",
+      "statsSubscriptions": "Subscriptions",
+      "statsMakeRule": "Make a rule"
     }
   },
   "account": {
@@ -6663,6 +6719,8 @@
           "trafficDescription": "Попередження, коли трафік наближається до ліміту.",
           "renewal": "Продовження та платежі",
           "renewalDescription": "Підтвердження, коли підписку продовжено або платіж пройшов.",
+          "servers": "Сервери",
+          "serversDescription": "Якщо перестали відповідати всі сервери країни, якою ви користуєтеся, і коли вони знову запрацюють.",
           "news": "Оголошення",
           "newsDescription": "Новини сервісу, збої та планові роботи."
         },
@@ -7526,20 +7584,6 @@
       "ms": "{value} мс",
       "reserveTitle": "Обхід білих списків",
       "reserveDescription": "{count, plural, one {Запасний сервер} other {Запасні сервери}} для мобільного інтернету, що пропускає лише дозволені сайти. Вмикаються самі, якщо основні не відповідають, і доступні окремою групою.",
-      "presets": {
-        "russiaDirect": {
-          "title": "Російські сайти напряму",
-          "description": ".ru, .su, .рф і російські IP — без VPN"
-        },
-        "blockAds": {
-          "title": "Блокувати рекламу",
-          "description": "Рекламні та трекінгові домени"
-        },
-        "blockQuic": {
-          "title": "Не пускати QUIC",
-          "description": "Допомагає, якщо гальмує відео"
-        }
-      },
       "rulesTitle": "Свої правила",
       "rulesCount": "{count} з {max}",
       "domainLabel": "Домен",
@@ -7570,10 +7614,60 @@
         "netflix": "Netflix показує лише власні фільми й серіали"
       },
       "serviceRegion": "регіон {region}",
-      "serviceRulesTitle": "Правила сервісу",
-      "serviceRulesHint": "Діють для всіх. Ваше правило для того самого домену важливіше.",
       "msEstimated": "≈ {value} мс",
-      "pingEstimateTitle": "Оцінка затримки через VPN до звичайних сайтів: ваш замір до сервера плюс решта маршруту, виміряна на серверах"
+      "pingEstimateTitle": "Оцінка затримки через VPN до звичайних сайтів: ваш замір до сервера плюс решта маршруту, виміряна на серверах",
+      "pinnedTitle": "Мій сервер",
+      "pinnedHowTo": "Відкрийте країну нижче й натисніть на шпильку біля сервера — він стане першим у застосунку.",
+      "pinnedWhy": "З одним сервером у вас завжди та сама IP-адреса. Сайти рідше показують капчі, не викидають з акаунтів і не просять знову підтвердити вхід, а банки й магазини не вважають вас підозрілим. Якщо сервер перестане відповідати, застосунок сам перейде на сусідній у тій самій країні.",
+      "unpin": "Відкріпити",
+      "pinServer": "Зробити моїм сервером: {server}",
+      "unpinServer": "Відкріпити {server}",
+      "whitelistModeTitle": "Режим білих списків",
+      "whitelistModeDescription": "Увімкніть, якщо мобільний інтернет пропускає лише дозволені сайти: «Найшвидший» одразу почне з серверів обходу, а звичайні залишаться запасними. Коли обмеження знімуть, вимкніть.",
+      "groups": {
+        "direct": {
+          "title": "Працює без VPN",
+          "description": "Відкривається напряму: з мінімальною затримкою і навіть за білих списків."
+        },
+        "proxy": {
+          "title": "Через VPN",
+          "description": "Іде через сервери, на яких точно працює."
+        },
+        "block": {
+          "title": "Блокується",
+          "description": "Не завантажується зовсім."
+        }
+      },
+      "builtin": {
+        "russia": {
+          "name": "Російські сайти",
+          "caption": ".ru, .su, .рф і російські IP відкриваються напряму: швидше, і сайти не просять вимкнути VPN."
+        },
+        "ai": {
+          "name": "Нейромережі",
+          "caption": "ChatGPT, Gemini і Claude йдуть через сервери, де вони точно відкриваються, хоч який сервер ви обрали."
+        },
+        "torrents_direct": {
+          "name": "Торенти",
+          "caption": "Торенти завантажуються напряму, повз VPN: швидше, і сервери не отримують скарг."
+        },
+        "torrents_block": {
+          "name": "Торенти",
+          "caption": "Торенти через VPN не працюють: так сервери не отримують скарг і лишаються швидкими для всіх."
+        },
+        "ads": {
+          "name": "Реклама й трекери",
+          "caption": "Рекламні та стежувальні домени не завантажуються."
+        },
+        "quic": {
+          "name": "Без QUIC",
+          "caption": "Вимикає протокол QUIC. Допомагає, якщо гальмує або зависає відео."
+        }
+      },
+      "aiNone": "Зараз немає серверів, де перевірка підтвердила нейромережі, — вони підуть через обраний сервер.",
+      "aiServers": "{service}: {count, plural, one {# сервер} few {# сервери} other {# серверів}}",
+      "ruleDomains": "{count, plural, one {# домен} few {# домени} other {# доменів}}",
+      "ruleAlways": "Увімкнено"
     }
   },
   "pages": {

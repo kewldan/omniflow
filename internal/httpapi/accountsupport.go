@@ -548,6 +548,7 @@ func supportPreferencesPayload(preferences accountsupport.Preferences) map[strin
 			"traffic": preferences.Notifications.Traffic,
 			"renewal": preferences.Notifications.Renewal,
 			"news":    preferences.Notifications.News,
+			"servers": preferences.Notifications.Servers,
 		},
 		"marketing": marketing,
 		"contacts":  contacts,
@@ -593,6 +594,7 @@ func (handlers *AccountHandlers) updateCommunicationPreferences(
 			Traffic *bool `json:"traffic"`
 			Renewal *bool `json:"renewal"`
 			News    *bool `json:"news"`
+			Servers *bool `json:"servers"`
 		} `json:"notifications"`
 		Marketing  *bool `json:"marketing"`
 		QuietHours *struct {
@@ -609,6 +611,7 @@ func (handlers *AccountHandlers) updateCommunicationPreferences(
 		update.Traffic = body.Notifications.Traffic
 		update.Renewal = body.Notifications.Renewal
 		update.News = body.Notifications.News
+		update.Servers = body.Notifications.Servers
 	}
 	if body.QuietHours != nil {
 		update.QuietHours = &accountsupport.QuietWindow{

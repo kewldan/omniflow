@@ -134,7 +134,13 @@ export type ContactChannel = {
 
 export type CommunicationPreferences = {
   locale: "auto" | "ru" | "en";
-  notifications: { expiry: boolean; traffic: boolean; renewal: boolean; news: boolean };
+  notifications: {
+    expiry: boolean;
+    traffic: boolean;
+    renewal: boolean;
+    servers: boolean;
+    news: boolean;
+  };
   /** Absent when the customer has set no window. */
   quietHours?: { startHour: number; endHour: number };
   marketing: {

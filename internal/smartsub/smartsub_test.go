@@ -57,7 +57,7 @@ func TestNormalizeDomain(t *testing.T) {
 func TestSettingsNormalize(t *testing.T) {
 	settings := DefaultSettings()
 	settings.LinkBase = "https://sub.example.com/v1/sub"
-	settings.DirectDomains = []string{"B.com", "a.com", "b.com"}
+	settings.Rules = []ServiceRule{{ID: "banks", Name: "Banks", Action: ActionDirect, Mode: ModeLocked, Domains: []string{"B.com", "a.com", "b.com"}}}
 	settings.Hosts = map[string]HostOverride{
 		"0F0E0D0C-0000-4000-8000-000000000001": {Country: "fi", Role: RoleReserve},
 		"0f0e0d0c-0000-4000-8000-000000000002": {},
@@ -69,8 +69,11 @@ func TestSettingsNormalize(t *testing.T) {
 	if normalized.LinkBase != "https://sub.example.com/v1/sub/" {
 		t.Errorf("link base = %q", normalized.LinkBase)
 	}
-	if strings.Join(normalized.DirectDomains, ",") != "a.com,b.com" {
-		t.Errorf("direct domains = %v", normalized.DirectDomains)
+	if banks, _ := normalized.Rule("banks"); strings.Join(banks.Domains, ",") != "a.com,b.com" {
+		t.Errorf("rule domains = %v", banks.Domains)
+	}
+	if len(normalized.Rules) != 1+len(builtinRules) {
+		t.Errorf("the built-in rules were not filled in: %d rules", len(normalized.Rules))
 	}
 	if len(normalized.Hosts) != 1 || normalized.Hosts["0f0e0d0c-0000-4000-8000-000000000001"].Country != "FI" {
 		t.Errorf("hosts = %v", normalized.Hosts)
@@ -208,6 +211,22 @@ func testSettings() Settings {
 		whiteHost: {Role: RoleReserve},
 		testHost:  {Role: RoleHidden},
 	}
+	normalized, err := settings.Normalize()
+	if err != nil {
+		panic(err)
+	}
+	return normalized
+}
+
+// withRule sets one built-in rule's mode, or appends a domain rule.
+func withRule(settings Settings, rule ServiceRule) Settings {
+	for index, existing := range settings.Rules {
+		if existing.ID == rule.ID {
+			settings.Rules[index] = rule
+			return settings
+		}
+	}
+	settings.Rules = append([]ServiceRule{rule}, settings.Rules...)
 	return settings
 }
 
@@ -331,10 +350,10 @@ func TestBuildXrayGroups(t *testing.T) {
 
 func TestBuildXrayPreferences(t *testing.T) {
 	settings := testSettings()
-	settings.DirectDomains = []string{"bank.example"}
+	settings = withRule(settings, ServiceRule{ID: "banks", Kind: KindDomains, Name: "Banks", Action: ActionDirect, Mode: ModeLocked, Domains: []string{"bank.example"}})
 	preferences := Preferences{
 		HiddenCountries: []string{"DE"}, AutoExcluded: []string{"FI"}, Reserve: false,
-		Presets: Presets{BlockQUIC: true, BlockAds: true},
+		Toggles: map[string]bool{"quic": true, "ads": true, "russia": false},
 		Rules:   []Rule{{Domain: "chatgpt.com", Action: ActionProxy}, {Domain: "sberbank.ru", Action: ActionDirect}},
 	}
 	configs := build(t, Request{
@@ -369,9 +388,9 @@ func TestBuildXrayPreferences(t *testing.T) {
 
 func TestBuildXrayWithoutGeosite(t *testing.T) {
 	settings := testSettings()
-	settings.BlockDomains = []string{"max.ru"}
+	settings = withRule(settings, ServiceRule{ID: "blocked", Kind: KindDomains, Name: "Blocked", Action: ActionBlock, Mode: ModeLocked, Domains: []string{"max.ru"}})
 	preferences := settings.DefaultPreferences()
-	preferences.Presets.BlockAds = true
+	preferences.Toggles["ads"] = true
 	answer := panelConfig("Finland 1", "a.example.net", 443)
 	answer["routing"] = map[string]any{"rules": []any{
 		map[string]any{"type": "field", "domain": []any{"geosite:google"}, "outboundTag": "direct"},

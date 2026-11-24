@@ -44,7 +44,8 @@ func (override HostOverride) isZero() bool {
 	return override == HostOverride{}
 }
 
-// Presets are the ready-made routing choices.
+// Presets are the three ready-made routing choices versions before service
+// rules offered. They are read only to upgrade a saved document.
 type Presets struct {
 	// RussiaDirect sends Russian sites and addresses around the tunnel: .ru,
 	// .su, .рф, and Russian IP ranges.
@@ -70,16 +71,21 @@ type Settings struct {
 	// bypass group. Empty uses the customer's language's default.
 	AutoName    string `json:"autoName"`
 	ReserveName string `json:"reserveName"`
-	// Defaults are the presets a customer starts with.
-	Defaults Presets `json:"defaults"`
 	// CustomRules lets customers add their own domains; MaxRules caps them.
 	CustomRules bool `json:"customRules"`
 	MaxRules    int  `json:"maxRules"`
-	// DirectDomains always go around the tunnel for everyone: the
-	// installation's own sites, a bank the operator knows misbehaves.
-	DirectDomains []string `json:"directDomains"`
-	// BlockDomains are refused for everyone.
-	BlockDomains []string `json:"blockDomains"`
+	// Rules are the service rules: the cards on the customer's Routing tab,
+	// in the order they are shown. The built-in ones are always present.
+	Rules []ServiceRule `json:"rules"`
+	// OutageNotices sends customers a bot message when every server of a
+	// country they use has been down for OutageMinutes, and when it is back.
+	OutageNotices bool `json:"outageNotices"`
+	OutageMinutes int  `json:"outageMinutes"`
+	// LegacyDefaults, LegacyDirect, and LegacyBlock are what versions before
+	// service rules saved; Normalize turns them into rules.
+	LegacyDefaults *Presets `json:"defaults,omitempty"`
+	LegacyDirect   []string `json:"directDomains,omitempty"`
+	LegacyBlock    []string `json:"blockDomains,omitempty"`
 	// Hosts are the per-host corrections, keyed by Remnawave host UUID.
 	Hosts map[string]HostOverride `json:"hosts"`
 }
@@ -89,6 +95,7 @@ const (
 	DefaultProbeURL      = "https://www.gstatic.com/generate_204"
 	DefaultProbeInterval = 600
 	DefaultMaxRules      = 50
+	DefaultOutageMinutes = 10
 	MaxRulesCeiling      = 200
 	maxDirectDomains     = 200
 	maxNameLength        = 40
@@ -100,9 +107,8 @@ const (
 func DefaultSettings() Settings {
 	return Settings{
 		ProbeURL: DefaultProbeURL, ProbeIntervalSeconds: DefaultProbeInterval,
-		Defaults:    Presets{RussiaDirect: true},
 		CustomRules: true, MaxRules: DefaultMaxRules,
-		DirectDomains: []string{}, BlockDomains: []string{}, Hosts: map[string]HostOverride{},
+		OutageMinutes: DefaultOutageMinutes, Hosts: map[string]HostOverride{},
 	}
 }
 
@@ -164,12 +170,16 @@ func (settings Settings) Normalize() (Settings, error) {
 	case settings.MaxRules < 0 || settings.MaxRules > MaxRulesCeiling:
 		return Settings{}, invalid("maxRules", fmt.Sprintf("must be between 1 and %d", MaxRulesCeiling))
 	}
+	settings.upgradeLegacy()
 	var err error
-	if settings.DirectDomains, err = normalizeDomains("directDomains", settings.DirectDomains); err != nil {
+	if settings.Rules, err = normalizeRules(settings.Rules); err != nil {
 		return Settings{}, err
 	}
-	if settings.BlockDomains, err = normalizeDomains("blockDomains", settings.BlockDomains); err != nil {
-		return Settings{}, err
+	switch {
+	case settings.OutageMinutes == 0:
+		settings.OutageMinutes = DefaultOutageMinutes
+	case settings.OutageMinutes < 2 || settings.OutageMinutes > 1440:
+		return Settings{}, invalid("outageMinutes", "must be between 2 and 1440")
 	}
 	hosts := make(map[string]HostOverride, len(settings.Hosts))
 	for id, override := range settings.Hosts {
@@ -249,16 +259,25 @@ type Preferences struct {
 	AutoExcluded []string `json:"autoExcluded"`
 	// Reserve keeps the whitelist bypass servers: as the fallback behind
 	// every group and as a group of their own.
-	Reserve bool    `json:"reserve"`
-	Presets Presets `json:"presets"`
-	Rules   []Rule  `json:"rules"`
+	Reserve bool `json:"reserve"`
+	// Toggles are the customer's choices on the service rules they may change,
+	// by rule ID. A rule with no entry follows its default.
+	Toggles map[string]bool `json:"toggles"`
+	Rules   []Rule          `json:"rules"`
+	// Pinned is the host the customer chose as their own server: it becomes
+	// the first group, so the app keeps one exit address. Empty for none.
+	Pinned string `json:"pinned"`
+	// WhitelistMode makes the automatic group use the whitelist bypass
+	// servers first, for a mobile network that only lets an allowlist
+	// through.
+	WhitelistMode bool `json:"whitelistMode"`
 }
 
 // DefaultPreferences are what a customer who never opened the screen gets.
 func (settings Settings) DefaultPreferences() Preferences {
 	return Preferences{
 		HiddenCountries: []string{}, AutoExcluded: []string{}, Reserve: true,
-		Presets: settings.Defaults, Rules: []Rule{},
+		Toggles: map[string]bool{}, Rules: []Rule{},
 	}
 }
 
@@ -313,6 +332,28 @@ func (preferences Preferences) Normalize(settings Settings) (Preferences, error)
 		rules = append(rules, Rule{Domain: domain, Action: rule.Action})
 	}
 	preferences.Rules = rules
+
+	// Only rules the customer may change keep a choice, and only one that
+	// differs from the rule's default.
+	toggles := map[string]bool{}
+	for id, on := range preferences.Toggles {
+		rule, found := settings.Rule(id)
+		if !found || rule.Mode == ModeLocked || rule.Mode == ModeDisabled {
+			continue
+		}
+		if on != (rule.Mode == ModeOn) {
+			toggles[id] = on
+		}
+	}
+	preferences.Toggles = toggles
+	preferences.Pinned = strings.ToLower(strings.TrimSpace(preferences.Pinned))
+	if preferences.Pinned != "" && !validUUID(preferences.Pinned) {
+		return Preferences{}, invalid("pinned", "pick one of your servers")
+	}
+	// The whitelist mode needs the bypass servers it switches to.
+	if preferences.WhitelistMode {
+		preferences.Reserve = true
+	}
 	return preferences, nil
 }
 

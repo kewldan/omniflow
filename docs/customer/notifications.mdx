@@ -196,8 +196,8 @@ hub at `/account/profile`.
 
 <Steps>
   <Step title="Choose what we send">
-    Four switches, each on by default: **Subscription expiry**, **Traffic
-    warnings**, **Renewals and payments**, and **Announcements**. Flipping one
+    Five switches, each on by default: **Subscription expiry**, **Traffic
+    warnings**, **Renewals and payments**, **Servers**, and **Announcements**. Flipping one
     sends a `PATCH` carrying that field alone.
   </Step>
   <Step title="Choose the language of messages">
@@ -234,7 +234,7 @@ revalidating.
 
 ### In Telegram
 
-Send `/settings`. The screen carries a language row, the same four toggles, a
+Send `/settings`. The screen carries a language row, the same five toggles, a
 marketing toggle, and a **quiet hours** entry that opens a submenu of three
 presets: 22:00–08:00, 23:00–09:00, and off. The presets are an explicit list
 rather than a free-text time field, so there is no time parser to get wrong and
@@ -250,6 +250,7 @@ it. The web screen does not.
 | Subscription expiry | `expiry` |
 | Traffic warnings | `traffic` |
 | Renewals and payments | `renewal`, `grace`, `recovery`, `trial` |
+| Servers | `server` — a country the customer uses went down and came back ([smart subscription](/features/smart-subscription#outage-messages)) |
 | Announcements | `news`, `announcement`, `incident`, `maintenance` |
 | Offers and promotions | `marketing` |
 | No opt-out | `payment`, `fulfillment`, `support`, `referral`, `loyalty` |
@@ -259,7 +260,7 @@ the customer's own actions, and a preference model that let them be switched off
 would let somebody lose access quietly.
 
 A customer who has never opened a settings screen has no preferences row at all;
-the read falls back to the column defaults — all four switches on, marketing off,
+the read falls back to the column defaults — all five switches on, marketing off,
 language `auto`.
 
 ## Quiet hours

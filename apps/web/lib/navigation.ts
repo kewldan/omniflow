@@ -10,6 +10,7 @@ import {
   type LucideIcon,
   Megaphone,
   Package,
+  Route,
   Server,
   ShieldAlert,
   ShieldCheck,
@@ -83,6 +84,15 @@ export const NAVIGATION: NavigationSection[] = [
         href: "/admin/traffic",
         icon: Activity,
         permission: "customers.read",
+      },
+      // The smart subscription is something an operator returns to — rules,
+      // hosts, what customers chose — so it has its own entry rather than
+      // living three clicks deep in the settings index.
+      {
+        key: "smartSubscription",
+        href: "/admin/settings/smart-subscription",
+        icon: Route,
+        permission: "settings.read",
       },
       {
         key: "catalog",

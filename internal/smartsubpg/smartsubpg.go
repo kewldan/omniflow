@@ -76,6 +76,16 @@ type Service struct {
 	checkStore CheckStore
 	checks     map[string]smartsub.NodeCheck
 	checksAt   time.Time
+	// logoToken is the logo.dev publishable key (APP_LOGO_DEV_TOKEN); empty
+	// leaves logo search off and icons upload-only.
+	logoToken string
+}
+
+// WithLogoSearch lets the operator fetch a rule's icon by domain from
+// logo.dev with this publishable key.
+func (service *Service) WithLogoSearch(token string) *Service {
+	service.logoToken = strings.TrimSpace(token)
+	return service
 }
 
 type cachedUser struct {
@@ -109,7 +119,7 @@ func (service *Service) Settings(ctx context.Context) smartsub.Settings {
 	if err != nil {
 		service.logger.Warn("smart subscription settings read failed", "error", err)
 		if at.IsZero() {
-			return smartsub.DefaultSettings()
+			return defaultSettings()
 		}
 		return cached
 	}
@@ -127,6 +137,16 @@ func (service *Service) Invalidate() {
 	service.mu.Unlock()
 }
 
+// defaultSettings are the settings of an installation that saved none, with
+// the built-in rules in place.
+func defaultSettings() smartsub.Settings {
+	settings, err := smartsub.DefaultSettings().Normalize()
+	if err != nil {
+		return smartsub.DefaultSettings()
+	}
+	return settings
+}
+
 // ReadSettings reads the settings row. It is shared with the operator panel,
 // which shows exactly what the module runs on.
 func ReadSettings(ctx context.Context, querier interface {
@@ -139,7 +159,7 @@ func ReadSettings(ctx context.Context, querier interface {
 	err := querier.QueryRow(ctx, `SELECT enabled, document FROM smart_subscription_settings WHERE singleton`).
 		Scan(&enabled, &document)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return smartsub.DefaultSettings(), nil
+		return defaultSettings(), nil
 	}
 	if err != nil {
 		return smartsub.Settings{}, err
@@ -155,7 +175,7 @@ func ReadSettings(ctx context.Context, querier interface {
 	if err != nil {
 		// A document that no longer validates — a country code a later version
 		// dropped — must not take every subscription down with it.
-		return smartsub.DefaultSettings(), fmt.Errorf("stored smart subscription settings: %w", err)
+		return defaultSettings(), fmt.Errorf("stored smart subscription settings: %w", err)
 	}
 	return normalized, nil
 }

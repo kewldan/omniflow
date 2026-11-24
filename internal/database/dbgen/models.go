@@ -684,6 +684,7 @@ type BotPreference struct {
 	MarketingEnabled     bool               `json:"marketing_enabled"`
 	QuietHoursStart      pgtype.Int2        `json:"quiet_hours_start"`
 	QuietHoursEnd        pgtype.Int2        `json:"quiet_hours_end"`
+	ServerNotifications  bool               `json:"server_notifications"`
 }
 
 type BotSession struct {
@@ -2785,6 +2786,31 @@ type SimpleSubscription struct {
 	UpdatedBy      pgtype.UUID        `json:"updated_by"`
 }
 
+type SmartSubscriptionIcon struct {
+	ID          pgtype.UUID        `json:"id"`
+	ContentType string             `json:"content_type"`
+	Data        []byte             `json:"data"`
+	Sha256      []byte             `json:"sha256"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	CreatedBy   pgtype.UUID        `json:"created_by"`
+}
+
+type SmartSubscriptionOutage struct {
+	ID          pgtype.UUID        `json:"id"`
+	Country     string             `json:"country"`
+	StartedAt   pgtype.Timestamptz `json:"started_at"`
+	EndedAt     pgtype.Timestamptz `json:"ended_at"`
+	AnnouncedAt pgtype.Timestamptz `json:"announced_at"`
+}
+
+type SmartSubscriptionOutageNotice struct {
+	OutageID  pgtype.UUID        `json:"outage_id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	Kind      string             `json:"kind"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	SentAt    pgtype.Timestamptz `json:"sent_at"`
+}
+
 type SmartSubscriptionPreference struct {
 	SubscriptionID  pgtype.UUID        `json:"subscription_id"`
 	HiddenCountries []string           `json:"hidden_countries"`
@@ -2795,6 +2821,9 @@ type SmartSubscriptionPreference struct {
 	BlockQuic       bool               `json:"block_quic"`
 	Rules           []byte             `json:"rules"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	Toggles         []byte             `json:"toggles"`
+	PinnedHost      pgtype.UUID        `json:"pinned_host"`
+	WhitelistMode   bool               `json:"whitelist_mode"`
 }
 
 type SmartSubscriptionSetting struct {

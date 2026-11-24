@@ -251,7 +251,10 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 	// Node geochecks are run by the worker and read here for the customer's
 	// servers screen.
 	smartSubscription := smartsubpg.New(pool, remnawaveClient, cfg.PublicURL, logger).
-		WithChecks(smartsubpg.ValkeyChecks{Client: valkeyClient})
+		WithChecks(smartsubpg.ValkeyChecks{Client: valkeyClient}).
+		// Rule icons can be fetched by domain from logo.dev once, then served
+		// by the API; without a key the operator uploads them.
+		WithLogoSearch(os.Getenv("APP_LOGO_DEV_TOKEN"))
 	subscriptionProxies, err := apihttp.NewTrustedProxies(cfg.AdminPanel.TrustedProxies)
 	if err != nil {
 		closeAll()

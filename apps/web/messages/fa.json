@@ -162,7 +162,8 @@
         "risk": "ریسک",
         "settings": "تنظیمات",
         "aiSettings": "هوش مصنوعی و MCP",
-        "payouts": "تسویه‌ها"
+        "payouts": "تسویه‌ها",
+        "smartSubscription": "اشتراک هوشمند"
       },
       "waiting": "{count} در انتظار"
     },
@@ -839,6 +840,14 @@
         "title": "موجودی فعلی مشتریان",
         "description": "پولی که مشتریان واریز کرده‌اند و هنوز خرج نکرده‌اند. این بدهی به‌صورت سرویس است و جزو درآمد دوره نیست.",
         "holders": "{count} مشتری دارای موجودی"
+      },
+      "smart": {
+        "title": "Smart subscription",
+        "on": "on",
+        "off": "off",
+        "summary": "Customized {customized} · own server {pinned} · whitelist mode {whitelist}",
+        "offHint": "Customers get the panel's subscription as is.",
+        "open": "Open"
       }
     },
     "customers": {
@@ -5533,26 +5542,10 @@
       "linkBaseHint": "The start of the link before the short UUID. Empty uses the service address (APP_PUBLIC_URL) and /v1/sub/. Subscription mirrors must forward this path to Omniflow.",
       "noLinkBase": "Neither a link base nor APP_PUBLIC_URL is set, so customers keep getting the panel's own link.",
       "customersTitle": "For customers",
-      "customersDescription": "What a customer starts with and what they can change.",
-      "presets": {
-        "russiaDirect": {
-          "label": "Russian sites direct",
-          "hint": ".ru, .su, .рф, and Russian IPs skip the VPN"
-        },
-        "blockAds": {
-          "label": "Block ads",
-          "hint": "Needs geosite in the customer's app; Happ and v2RayTun ship it"
-        },
-        "blockQuic": {
-          "label": "Block QUIC",
-          "hint": "Refuses UDP 443 so browsers fall back to TCP"
-        }
-      },
+      "customersDescription": "What customers may change themselves, and when the bot warns about outages.",
       "customRules": "Customer rules",
       "customRulesHint": "Customers can add domains to send direct, through the VPN, or block",
       "maxRules": "Most rules per customer",
-      "directDomains": "Always direct for everyone",
-      "directDomainsHint": "One domain per line; subdomains are included.",
       "hostsTitle": "Remnawave hosts",
       "hostsDescription": "The country is read from each host's flag or name — correct it where it's wrong. The whitelist bypass role makes a host a fallback; Hidden leaves it out of every subscription.",
       "hostsUnavailable": "Remnawave didn't answer, so the host list is unavailable.",
@@ -5590,19 +5583,82 @@
         "autoName": "Group name",
         "reserveName": "Bypass group name",
         "maxRules": "Most rules",
-        "directDomains": "Always direct",
         "hosts": "Hosts",
-        "blockDomains": "Always blocked"
+        "rule": "Rule {index}",
+        "rules": "Rules",
+        "outageMinutes": "Send after"
       },
-      "blockDomains": "Always blocked for everyone",
-      "blockDomainsHint": "One domain per line; subdomains are blocked too.",
       "services": "سرویس‌ها",
       "servicesHint": "نتایج سرویس‌ها از geocheck در Remnawave می‌آید: تا وقتی ماژول روشن است، هر ۶ ساعت روی هر نود اجرا می‌شود. هاستی که اینباندش ترافیک را به نود دیگری می‌فرستد از آن نود خارج می‌شود؛ آن را به‌عنوان خروجی انتخاب کنید تا مشتریان نتیجهٔ درست را ببینند.",
       "exitNode": "نود خروجی",
       "exitNodeOwn": "نود خودش ({node})",
       "exitNodeUnknown": "نود خودش",
       "notChecked": "هنوز بررسی نشده",
-      "checkedAt": "بررسی‌شده در {time}"
+      "checkedAt": "بررسی‌شده در {time}",
+      "tabs": {
+        "general": "General",
+        "rules": "Rules",
+        "hosts": "Hosts",
+        "stats": "Analytics"
+      },
+      "outageNotices": "Outage messages in the bot",
+      "outageNoticesHint": "When every server of a country is down, the bot tells the customers who have that country, and again when it is back. Customers can turn it off in their notification settings.",
+      "outageMinutes": "Send after, minutes",
+      "outageMinutesHint": "A short blip is not worth a message: the bot writes only when the outage lasts longer.",
+      "rulesTitle": "Service rules",
+      "rulesDescription": "The cards on the customer's Routing tab, in this order and grouped: without VPN, through VPN, blocked. “Always” is on with a lock and the customer cannot turn it off; “On”/“Off” is the default the customer may change; “Hidden” is neither applied nor shown.",
+      "addRule": "Add a rule",
+      "ruleUnnamed": "Untitled",
+      "ruleActions": {
+        "direct": "Without VPN",
+        "proxy": "Through VPN",
+        "block": "Block"
+      },
+      "ruleDomainCount": "{count, plural, one {# domain} other {# domains}}",
+      "ruleBuiltin": "built in",
+      "ruleMode": "Mode",
+      "ruleModes": {
+        "locked": "Always (locked)",
+        "on": "On by default",
+        "off": "Off by default",
+        "disabled": "Hidden"
+      },
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "editRule": "Edit “{name}”",
+      "deleteRule": "Delete “{name}”",
+      "rulesHint": "A customer's own rule for the same domain wins over a service rule. Changes reach customers on their next subscription refresh.",
+      "ruleName": "Name",
+      "ruleNamePlaceholder": "Gosuslugi",
+      "ruleAction": "Action",
+      "ruleCaption": "Caption",
+      "ruleCaptionPlaceholder": "Opens even under whitelists, no VPN needed. Enjoy the lowest latency <3",
+      "ruleDomains": "Domains",
+      "ruleDomainsHint": "One per line; subdomains are included.",
+      "ruleIcon": "Icon",
+      "iconFailed": "The icon could not be saved",
+      "iconUpload": "Upload",
+      "iconDomain": "Domain to find a logo for",
+      "iconFetch": "Find logo",
+      "iconRemove": "Remove",
+      "iconHint": "A PNG, JPEG, WebP or SVG under 128 KB, or a site's logo by domain through logo.dev. The icon is stored here, so customers' browsers never call a third party.",
+      "iconHintNoSearch": "A PNG, JPEG, WebP or SVG under 128 KB. Finding logos by domain needs APP_LOGO_DEV_TOKEN.",
+      "statsUnavailable": "Analytics are unavailable right now.",
+      "statsCustomized": "Customized their subscription",
+      "statsWhitelist": "In whitelist mode",
+      "statsReserveOff": "Turned the bypass off",
+      "statsPinned": "Chose their own server",
+      "statsNone": "Nothing yet",
+      "statsRuleChoice": "on {on} · off {off}",
+      "statsRules": "Changed service rules",
+      "statsPinnedHosts": "Own server",
+      "statsHidden": "Hid a country",
+      "statsAutoExcluded": "Left out of Fastest",
+      "statsDomains": "Popular customer rules",
+      "statsDomainsHint": "Domains at least three subscriptions added for themselves: candidates for a service rule.",
+      "statsDomain": "Domain",
+      "statsSubscriptions": "Subscriptions",
+      "statsMakeRule": "Make a rule"
     }
   },
   "account": {
@@ -6663,6 +6719,8 @@
           "trafficDescription": "هشدار هنگام نزدیک شدن به سقف ترافیک.",
           "renewal": "تمدیدها و پرداخت‌ها",
           "renewalDescription": "تأیید هنگام تمدید اشتراک یا انجام پرداخت.",
+          "servers": "سرورها",
+          "serversDescription": "وقتی همه سرورهای کشوری که استفاده می‌کنید پاسخ نمی‌دهند، و وقتی دوباره کار می‌کنند.",
           "news": "اطلاعیه‌ها",
           "newsDescription": "اخبار سرویس، اختلال‌ها و نگهداری‌های برنامه‌ریزی‌شده."
         },
@@ -7526,20 +7584,6 @@
       "ms": "{value} میلی‌ثانیه",
       "reserveTitle": "عبور از فهرست سفید",
       "reserveDescription": "{count, plural, other {# سرور پشتیبان}} برای اینترنت همراهی که فقط سایت‌های مجاز را باز می‌کند. وقتی سرورهای اصلی پاسخ ندهند خودکار فعال می‌شوند و گروه جداگانه‌ای هم دارند.",
-      "presets": {
-        "russiaDirect": {
-          "title": "سایت‌های روسی مستقیم",
-          "description": ".ru، .su، .рф و IPهای روسی بدون VPN"
-        },
-        "blockAds": {
-          "title": "مسدود کردن تبلیغات",
-          "description": "دامنه‌های تبلیغاتی و ردیاب"
-        },
-        "blockQuic": {
-          "title": "مسدود کردن QUIC",
-          "description": "وقتی ویدیو کند است کمک می‌کند"
-        }
-      },
       "rulesTitle": "قوانین شما",
       "rulesCount": "{count} از {max}",
       "domainLabel": "دامنه",
@@ -7570,10 +7614,60 @@
         "netflix": "Netflix فقط عنوان‌های خودش را نشان می‌دهد"
       },
       "serviceRegion": "منطقه {region}",
-      "serviceRulesTitle": "قوانین سرویس",
-      "serviceRulesHint": "برای همه اعمال می‌شوند. قانون خودتان برای همان دامنه اولویت دارد.",
       "msEstimated": "≈ {value} میلی‌ثانیه",
-      "pingEstimateTitle": "تخمین تأخیر رفت‌وبرگشت از طریق VPN تا سایت‌های رایج: اندازه‌گیری شما تا سرور به‌علاوهٔ بقیهٔ مسیر که روی سرورها اندازه‌گیری شده"
+      "pingEstimateTitle": "تخمین تأخیر رفت‌وبرگشت از طریق VPN تا سایت‌های رایج: اندازه‌گیری شما تا سرور به‌علاوهٔ بقیهٔ مسیر که روی سرورها اندازه‌گیری شده",
+      "pinnedTitle": "سرور من",
+      "pinnedHowTo": "یک کشور را در پایین باز کنید و روی سنجاق کنار سرور بزنید تا در برنامه اولین سرور شود.",
+      "pinnedWhy": "با یک سرور، نشانی IP شما همیشه ثابت می‌ماند. سایت‌ها کمتر کپچا نشان می‌دهند، شما را از حساب بیرون نمی‌اندازند و کمتر تأیید ورود می‌خواهند، و بانک‌ها و فروشگاه‌ها شما را مشکوک نمی‌دانند. اگر سرور پاسخ ندهد، برنامه خودش به سرور دیگری در همان کشور می‌رود.",
+      "unpin": "برداشتن سنجاق",
+      "pinServer": "سرور من شود: {server}",
+      "unpinServer": "برداشتن سنجاق {server}",
+      "whitelistModeTitle": "حالت فهرست سفید",
+      "whitelistModeDescription": "وقتی اینترنت همراه فقط سایت‌های مجاز را باز می‌کند روشنش کنید: «سریع‌ترین» از سرورهای عبور شروع می‌کند و سرورهای معمولی پشتیبان می‌مانند. وقتی محدودیت برداشته شد، خاموشش کنید.",
+      "groups": {
+        "direct": {
+          "title": "بدون VPN کار می‌کند",
+          "description": "مستقیم باز می‌شود: با کمترین تأخیر، حتی با فهرست سفید."
+        },
+        "proxy": {
+          "title": "از طریق VPN",
+          "description": "از سرورهایی می‌گذرد که مطمئناً کار می‌کند."
+        },
+        "block": {
+          "title": "مسدود",
+          "description": "اصلاً بارگذاری نمی‌شود."
+        }
+      },
+      "builtin": {
+        "russia": {
+          "name": "سایت‌های روسی",
+          "caption": "‎.ru، ‎.su، ‎.рф و IPهای روسی مستقیم باز می‌شوند: سریع‌تر، و سایت‌ها نمی‌خواهند VPN را خاموش کنید."
+        },
+        "ai": {
+          "name": "هوش مصنوعی",
+          "caption": "ChatGPT، Gemini و Claude از سرورهایی می‌گذرند که مطمئناً باز می‌شوند، هر سروری که انتخاب کرده باشید."
+        },
+        "torrents_direct": {
+          "name": "تورنت",
+          "caption": "تورنت‌ها مستقیم و بیرون از VPN دانلود می‌شوند: سریع‌تر، و سرورها شکایتی نمی‌گیرند."
+        },
+        "torrents_block": {
+          "name": "تورنت",
+          "caption": "تورنت از طریق VPN کار نمی‌کند تا سرورها شکایتی نگیرند و برای همه سریع بمانند."
+        },
+        "ads": {
+          "name": "تبلیغات و ردیاب‌ها",
+          "caption": "دامنه‌های تبلیغاتی و ردیابی بارگذاری نمی‌شوند."
+        },
+        "quic": {
+          "name": "بدون QUIC",
+          "caption": "پروتکل QUIC را خاموش می‌کند. وقتی ویدیو کند می‌شود یا می‌ایستد کمک می‌کند."
+        }
+      },
+      "aiNone": "اکنون هیچ سروری بررسی هوش مصنوعی را نگذرانده است؛ از سروری که انتخاب کرده‌اید می‌گذرند.",
+      "aiServers": "{service}: {count, plural, one {# سرور} other {# سرور}}",
+      "ruleDomains": "{count, plural, one {# دامنه} other {# دامنه}}",
+      "ruleAlways": "روشن"
     }
   },
   "pages": {

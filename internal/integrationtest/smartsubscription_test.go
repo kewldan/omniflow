@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/omniflow/omniflow/internal/panelpg"
@@ -26,7 +27,7 @@ const (
 // fakeSmartPanel answers the four Remnawave routes the smart subscription
 // reads, for one user (42) with a Finnish server, a German one, and a
 // whitelist-bypass server.
-func fakeSmartPanel(t *testing.T, panelURL *string) *httptest.Server {
+func fakeSmartPanel(t *testing.T, panelURL *string, finlandDown *atomic.Bool) *httptest.Server {
 	t.Helper()
 	server := func(remark, address string) map[string]any {
 		return map[string]any{
@@ -47,7 +48,7 @@ func fakeSmartPanel(t *testing.T, panelURL *string) *httptest.Server {
 		switch request.URL.Path {
 		case "/api/hosts":
 			_, _ = writer.Write([]byte(`{"response":[
-				{"uuid":"` + smartFinlandHost + `","remark":"🇫🇮 Finland 1","address":"fi.example.net","port":443,"nodes":[],
+				{"uuid":"` + smartFinlandHost + `","remark":"🇫🇮 Finland 1","address":"fi.example.net","port":443,"nodes":["n-fi"],
 				 "inbound":{"configProfileInboundUuid":"in-1"},"internalSquads":{"mode":"EXCLUDE","squads":[]}},
 				{"uuid":"33333333-3333-4333-8333-333333333333","remark":"🇩🇪 Germany 1","address":"de.example.net","port":443,"nodes":[],
 				 "inbound":{"configProfileInboundUuid":"in-1"},"internalSquads":{"mode":"EXCLUDE","squads":[]}},
@@ -62,7 +63,11 @@ func fakeSmartPanel(t *testing.T, panelURL *string) *httptest.Server {
 		case "/api/users/by-short-uuid/" + smartShortUUID:
 			_, _ = writer.Write([]byte(`{"response":{"id":42,"username":"u","status":"ACTIVE","activeInternalSquads":[{"uuid":"sq-a","name":"Main"}]}}`))
 		case "/api/nodes":
-			_, _ = writer.Write([]byte(`{"response":[]}`))
+			connected := "true"
+			if finlandDown != nil && finlandDown.Load() {
+				connected = "false"
+			}
+			_, _ = writer.Write([]byte(`{"response":[{"uuid":"n-fi","name":"fi","isConnected":` + connected + `}]}`))
 		case "/api/subscriptions/by-id/42":
 			_, _ = writer.Write([]byte(`{"response":{"isFound":true,"subscriptionUrl":"` + *panelURL + `/` + smartShortUUID + `"}}`))
 		case "/api/sub/" + smartShortUUID + "/json":
@@ -86,7 +91,7 @@ func TestSmartSubscriptionEndToEnd(t *testing.T) {
 	actor := harness.operator(ctx, t, "smart@example.test")
 
 	var panelURL string
-	fake := fakeSmartPanel(t, &panelURL)
+	fake := fakeSmartPanel(t, &panelURL, nil)
 	t.Cleanup(fake.Close)
 	panelURL = fake.URL
 	client, err := remnawave.NewClient(fake.URL, "token")
@@ -192,6 +197,148 @@ func TestSmartSubscriptionEndToEnd(t *testing.T) {
 	view, err = service.CustomerView(ctx, customerID, subscriptionID)
 	if err != nil || view.Customized {
 		t.Fatalf("after reset: %+v, %v", view, err)
+	}
+}
+
+// TestSmartSubscriptionChoicesAndOutages covers what a customer can choose
+// beyond countries — their own server and the service rules — what the
+// operator sees of those choices, rule icons, and the bot's outage notices.
+func TestSmartSubscriptionChoicesAndOutages(t *testing.T) {
+	ctx := context.Background()
+	harness := newHarness(t)
+	panel := newOperations(t, harness)
+	actor := harness.operator(ctx, t, "smart-choices@example.test")
+
+	var panelURL string
+	var finlandDown atomic.Bool
+	fake := fakeSmartPanel(t, &panelURL, &finlandDown)
+	t.Cleanup(fake.Close)
+	panelURL = fake.URL
+	client, err := remnawave.NewClient(fake.URL, "token")
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := smartsubpg.New(harness.pool, client, "https://vpn.example.test", nil)
+
+	current, err := panel.SmartSubscription(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, found := current.Rule("russia"); !found {
+		t.Fatal("an installation that saved nothing has no built-in rules")
+	}
+	current.Enabled = true
+	current.OutageNotices = true
+	current.OutageMinutes = 5
+	current.Hosts = map[string]smartsub.HostOverride{smartWhiteHost: {Role: smartsub.RoleReserve}}
+	if _, err := panel.SaveSmartSubscription(ctx, current, actor); err != nil {
+		t.Fatal(err)
+	}
+	service.Invalidate()
+
+	plan := harness.catalog(ctx, t, "smart-plan", 30000)
+	subscribe := func(remnawaveID int) (string, string) {
+		customerID := harness.customer(ctx, t)
+		var subscriptionID string
+		if err := harness.pool.QueryRow(ctx, `INSERT INTO subscriptions (user_id, slot, label, remnawave_user_id)
+			VALUES ($1, 1, 'Main', $2) RETURNING id::text`, customerID, remnawaveID).Scan(&subscriptionID); err != nil {
+			t.Fatalf("create subscription: %v", err)
+		}
+		harness.seedSubscriptionEntitlement(ctx, t, customerID, subscriptionID, plan, "active", "20 days")
+		return customerID, subscriptionID
+	}
+	customerID, subscriptionID := subscribe(42)
+	elsewhere, elsewhereSubscription := subscribe(43)
+
+	// The customer makes Finland 1 their own server and turns ads blocking on.
+	view, err := service.CustomerView(ctx, customerID, subscriptionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	preferences := view.Preferences
+	preferences.Pinned = strings.ToUpper(smartFinlandHost)
+	preferences.Toggles = map[string]bool{"ads": true}
+	if _, err := service.SavePreferences(ctx, customerID, subscriptionID, preferences); err != nil {
+		t.Fatal(err)
+	}
+	happ := http.Header{}
+	happ.Set("User-Agent", "Happ/3.1")
+	happ.Set("X-Hwid", "device-1")
+	response, err := service.Serve(ctx, smartShortUUID, happ, "203.0.113.5")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := groupNames(t, response.Body); !strings.HasPrefix(got, "📌 🇫🇮 Finland 1 | ⚡ Fastest") {
+		t.Fatalf("groups with a pinned server = %s", got)
+	}
+	if !strings.Contains(string(response.Body), "geosite:category-ads-all") {
+		t.Error("the ads rule the customer turned on is not in the subscription")
+	}
+	// The other customer hides Finland.
+	other := service.Settings(ctx).DefaultPreferences()
+	other.HiddenCountries = []string{"FI"}
+	if _, err := service.SavePreferences(ctx, elsewhere, elsewhereSubscription, other); err != nil {
+		t.Fatal(err)
+	}
+
+	stats, err := service.Stats(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.Customized != 2 || len(stats.Pinned) != 1 || stats.Pinned[0].Key != smartFinlandHost ||
+		len(stats.Hidden) != 1 || stats.Hidden[0].Key != "FI" {
+		t.Errorf("stats = %+v", stats)
+	}
+	if len(stats.Rules) != 1 || stats.Rules[0].ID != "ads" || stats.Rules[0].On != 1 {
+		t.Errorf("rule stats = %+v", stats.Rules)
+	}
+
+	png := append([]byte("\x89PNG\r\n\x1a\n"), make([]byte, 64)...)
+	icon, err := service.SaveIcon(ctx, png, actor.AdminID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again, err := service.SaveIcon(ctx, png, actor.AdminID); err != nil || again != icon {
+		t.Errorf("the same icon stored twice: %s, %s, %v", icon, again, err)
+	}
+	if stored, err := service.Icon(ctx, icon); err != nil || stored.ContentType != "image/png" {
+		t.Errorf("icon = %+v, %v", stored.ContentType, err)
+	}
+	if _, err := service.SaveIcon(ctx, []byte(`<svg><script>alert(1)</script></svg>`), actor.AdminID); !errors.Is(err, smartsubpg.ErrIconInvalid) {
+		t.Errorf("an SVG with a script was stored: %v", err)
+	}
+
+	// Finland goes down. Nothing is sent until it has been down the
+	// operator's five minutes, and then only to the customer who uses it.
+	finlandDown.Store(true)
+	if err := service.TrackOutages(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if pending, err := service.PendingOutageNotices(ctx, 10); err != nil || len(pending) != 0 {
+		t.Fatalf("notices right after the outage began = %+v, %v", pending, err)
+	}
+	if _, err := harness.pool.Exec(ctx, `UPDATE smart_subscription_outages SET started_at = now() - interval '1 hour'`); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.TrackOutages(ctx); err != nil {
+		t.Fatal(err)
+	}
+	pending, err := service.PendingOutageNotices(ctx, 10)
+	if err != nil || len(pending) != 1 || pending[0].UserID != customerID || pending[0].Kind != "down" ||
+		pending[0].Country != "FI" || !pending[0].Open {
+		t.Fatalf("down notices = %+v, %v", pending, err)
+	}
+	if err := service.MarkOutageNotice(ctx, pending[0]); err != nil {
+		t.Fatal(err)
+	}
+
+	finlandDown.Store(false)
+	if err := service.TrackOutages(ctx); err != nil {
+		t.Fatal(err)
+	}
+	pending, err = service.PendingOutageNotices(ctx, 10)
+	if err != nil || len(pending) != 1 || pending[0].Kind != "up" || pending[0].Open {
+		t.Fatalf("up notices = %+v, %v", pending, err)
 	}
 }
 

@@ -26,6 +26,9 @@ type Request struct {
 	// NoGeosite leaves out every rule that names the geosite database, for a
 	// client that stalls on it (StripsGeosite).
 	NoGeosite bool
+	// Checks are the nodes' latest geocheck summaries by node UUID; the AI
+	// rule routes each service through servers whose exit node it answers.
+	Checks map[string]NodeCheck
 }
 
 // Tuning of the balancers each group gets. The numbers are the ones the
@@ -110,7 +113,7 @@ func BuildXray(request Request) ([]byte, error) {
 	if len(groups) == 0 {
 		return nil, ErrPassThrough
 	}
-	builder := groupBuilder{request: request, tpl: tpl}
+	builder := groupBuilder{request: request, tpl: tpl, ai: aiPools(groups, request)}
 	out := make([]any, 0, len(groups))
 	for index, group := range groups {
 		out = append(out, builder.build(group, "g"+strconv.Itoa(index)))
@@ -354,7 +357,12 @@ func plan(proxies []*proxy, preferences Preferences) []planned {
 			auto = append(auto, candidate)
 		}
 	}
-	if len(auto) > 0 {
+	// In the whitelist mode the automatic group starts on the bypass servers
+	// and falls back to the ordinary ones, so the app keeps working on a
+	// mobile network that lets only an allowlist through.
+	if preferences.WhitelistMode && len(reserve) > 0 {
+		groups = append(groups, planned{kind: "auto", main: reserve, fallback: auto})
+	} else if len(auto) > 0 {
 		groups = append(groups, planned{kind: "auto", main: auto, fallback: fallback})
 	}
 	order := []string{}
@@ -376,12 +384,61 @@ func plan(proxies []*proxy, preferences Preferences) []planned {
 	if preferences.Reserve && len(reserve) > 0 {
 		groups = append(groups, planned{kind: "reserve", main: reserve})
 	}
+	// The customer's own server goes first: one exit address the app keeps,
+	// falling back to the rest of its country and then the bypass servers.
+	if preferences.Pinned != "" {
+		for _, candidate := range append(append([]*proxy{}, visible...), fallback...) {
+			if !strings.EqualFold(candidate.server.HostUUID, preferences.Pinned) {
+				continue
+			}
+			var rest []*proxy
+			for _, other := range byCountry[candidate.server.Country] {
+				if other != candidate {
+					rest = append(rest, other)
+				}
+			}
+			pinned := planned{kind: "pinned", main: []*proxy{candidate}, fallback: append(rest, fallback...)}
+			groups = append([]planned{pinned}, groups...)
+			break
+		}
+	}
 	return groups
 }
 
 type groupBuilder struct {
 	request Request
 	tpl     template
+	// ai are, for each AI service, the servers in this subscription whose
+	// exit node the service answers from. Empty when the AI rule is off.
+	ai map[Service][]*proxy
+}
+
+// aiPools picks, for each AI service, the servers the customer has whose
+// exit node that service answers from — only when the AI rule applies.
+func aiPools(groups []planned, request Request) map[Service][]*proxy {
+	rule, found := request.Settings.Rule(string(KindAI))
+	if !found || !request.Preferences.Applies(rule) || len(request.Checks) == 0 {
+		return nil
+	}
+	var candidates []*proxy
+	for _, group := range groups {
+		candidates = append(candidates, group.main...)
+		candidates = append(candidates, group.fallback...)
+	}
+	candidates = dedupe(candidates, nil)
+	pools := map[Service][]*proxy{}
+	for _, service := range AIServices {
+		for _, candidate := range candidates {
+			check, ok := request.Checks[candidate.server.ExitNode]
+			if !ok || candidate.server.ExitNode == "" {
+				continue
+			}
+			if status, known := check.Services[string(service)]; known && status.State == StateYes {
+				pools[service] = append(pools[service], candidate)
+			}
+		}
+	}
+	return pools
 }
 
 func (builder groupBuilder) name(group planned) string {
@@ -390,6 +447,8 @@ func (builder groupBuilder) name(group planned) string {
 		return autoName(builder.request.Settings, builder.request.Locale)
 	case "reserve":
 		return reserveName(builder.request.Settings, builder.request.Locale)
+	case "pinned":
+		return "📌 " + group.main[0].server.Remark
 	default:
 		return Flag(group.country) + " " + CountryName(group.country, builder.request.Locale)
 	}
@@ -399,6 +458,11 @@ func (builder groupBuilder) build(group planned, prefix string) map[string]any {
 	main := dedupe(group.main, nil)
 	fallback := dedupe(group.fallback, main)
 	all := append(append([]*proxy{}, main...), fallback...)
+	// The AI rule's servers ride along in every group, so its balancers can
+	// select them whichever group the app is on.
+	for _, service := range AIServices {
+		all = append(all, dedupe(builder.ai[service], all)...)
+	}
 	others := []string{"direct", "block",
 		prefix + "-reserve-loopback", prefix + "-main-loopback"}
 	for _, candidate := range all {
@@ -415,7 +479,10 @@ func (builder groupBuilder) build(group planned, prefix string) map[string]any {
 	for _, candidate := range fallback {
 		fallbackTags = append(fallbackTags, tags[candidate])
 	}
-	allTags := append(append([]any{}, mainTags...), fallbackTags...)
+	allTags := make([]any, 0, len(all))
+	for _, candidate := range all {
+		allTags = append(allTags, tags[candidate])
+	}
 
 	entry := prefix + "-balancer"
 	var balancers []any
@@ -433,6 +500,20 @@ func (builder groupBuilder) build(group planned, prefix string) map[string]any {
 		balancers = append(balancers, balancer(entry, mainTags, tolerance, mainBaselineMS, toReserve.tag))
 	} else {
 		balancers = append(balancers, balancer(entry, mainTags, toleranceFallback, singleBaselineMS, ""))
+	}
+	aiBalancers := map[Service]string{}
+	for _, service := range AIServices {
+		pool := builder.ai[service]
+		if len(pool) == 0 {
+			continue
+		}
+		selector := make([]any, 0, len(pool))
+		for _, candidate := range pool {
+			selector = append(selector, tags[candidate])
+		}
+		tag := prefix + "-ai-" + string(service)
+		aiBalancers[service] = tag
+		balancers = append(balancers, balancer(tag, selector, toleranceFallback, 0, ""))
 	}
 
 	outbounds := make([]any, 0, len(all)*2+len(extra)+2)
@@ -476,7 +557,7 @@ func (builder groupBuilder) build(group planned, prefix string) map[string]any {
 			"timeout":     probeTimeout,
 		},
 	}
-	rules := append(loopRules, builder.rules(entry)...)
+	rules := append(loopRules, builder.rules(entry, aiBalancers)...)
 	config["routing"] = map[string]any{
 		"domainStrategy": builder.tpl.domainStrategy,
 		"domainMatcher":  "hybrid",
@@ -487,55 +568,93 @@ func (builder groupBuilder) build(group planned, prefix string) map[string]any {
 }
 
 // rules are the routing rules after the loopback chain, in the order they
-// must win: QUIC, the customer's own domains, the operator's direct list, the
-// presets, the panel template's rules, and finally everything else into the
-// group's balancer.
-func (builder groupBuilder) rules(entry string) []any {
-	presets := builder.request.Preferences.Presets
+// must win: QUIC, the customer's own domains, the service's blocks, the AI
+// services, the service's proxied and direct domains, torrents, Russia, the
+// panel template's rules, and finally everything else into the group's
+// balancer.
+func (builder groupBuilder) rules(entry string, ai map[Service]string) []any {
+	request := builder.request
+	applies := map[RuleKind]ServiceRule{}
+	var serviceDomains = map[Action][]any{}
+	for _, rule := range request.Settings.Rules {
+		if !request.Preferences.Applies(rule) {
+			continue
+		}
+		if rule.Kind != KindDomains {
+			applies[rule.Kind] = rule
+			continue
+		}
+		for _, domain := range rule.Domains {
+			serviceDomains[rule.Action] = append(serviceDomains[rule.Action], "domain:"+domain)
+		}
+	}
+	field := func(key string, values any, target string, balancer bool) map[string]any {
+		rule := map[string]any{"type": "field", key: values}
+		if balancer {
+			rule["balancerTag"] = target
+		} else {
+			rule["outboundTag"] = target
+		}
+		return rule
+	}
+
 	var rules []any
-	rules = append(rules, map[string]any{"type": "field", "ip": privateRanges, "outboundTag": "direct"})
-	if presets.BlockQUIC {
+	rules = append(rules, field("ip", privateRanges, "direct", false))
+	if _, on := applies[KindQUIC]; on {
 		rules = append(rules, map[string]any{"type": "field", "network": "udp", "port": "443", "outboundTag": "block"})
 	}
 	byAction := map[Action][]any{}
-	for _, rule := range builder.request.Preferences.Rules {
+	for _, rule := range request.Preferences.Rules {
 		byAction[rule.Action] = append(byAction[rule.Action], "domain:"+rule.Domain)
 	}
 	if domains := byAction[ActionBlock]; len(domains) > 0 {
-		rules = append(rules, map[string]any{"type": "field", "domain": domains, "outboundTag": "block"})
+		rules = append(rules, field("domain", domains, "block", false))
 	}
 	if domains := byAction[ActionProxy]; len(domains) > 0 {
-		rules = append(rules, map[string]any{"type": "field", "domain": domains, "balancerTag": entry})
+		rules = append(rules, field("domain", domains, entry, true))
 	}
 	if domains := byAction[ActionDirect]; len(domains) > 0 {
-		rules = append(rules, map[string]any{"type": "field", "domain": domains, "outboundTag": "direct"})
+		rules = append(rules, field("domain", domains, "direct", false))
 	}
-	if len(builder.request.Settings.BlockDomains) > 0 {
-		domains := make([]any, 0, len(builder.request.Settings.BlockDomains))
-		for _, domain := range builder.request.Settings.BlockDomains {
+	if domains := serviceDomains[ActionBlock]; len(domains) > 0 {
+		rules = append(rules, field("domain", domains, "block", false))
+	}
+	if _, on := applies[KindAds]; on && !request.NoGeosite {
+		rules = append(rules, field("domain", []any{"geosite:category-ads-all"}, "block", false))
+	}
+	for _, service := range AIServices {
+		tag, ok := ai[service]
+		if !ok {
+			continue
+		}
+		domains := make([]any, 0, len(AIDomains[service]))
+		for _, domain := range AIDomains[service] {
 			domains = append(domains, "domain:"+domain)
 		}
-		rules = append(rules, map[string]any{"type": "field", "domain": domains, "outboundTag": "block"})
+		rules = append(rules, field("domain", domains, tag, true))
 	}
-	if len(builder.request.Settings.DirectDomains) > 0 {
-		domains := make([]any, 0, len(builder.request.Settings.DirectDomains))
-		for _, domain := range builder.request.Settings.DirectDomains {
-			domains = append(domains, "domain:"+domain)
+	if domains := serviceDomains[ActionProxy]; len(domains) > 0 {
+		rules = append(rules, field("domain", domains, entry, true))
+	}
+	if domains := serviceDomains[ActionDirect]; len(domains) > 0 {
+		rules = append(rules, field("domain", domains, "direct", false))
+	}
+	if rule, on := applies[KindTorrents]; on {
+		target := "direct"
+		if rule.Action == ActionBlock {
+			target = "block"
 		}
-		rules = append(rules, map[string]any{"type": "field", "domain": domains, "outboundTag": "direct"})
+		rules = append(rules, field("protocol", []any{"bittorrent"}, target, false))
 	}
-	if presets.BlockAds && !builder.request.NoGeosite {
-		rules = append(rules, map[string]any{"type": "field", "domain": []any{"geosite:category-ads-all"}, "outboundTag": "block"})
-	}
-	if presets.RussiaDirect {
+	if _, on := applies[KindRussia]; on {
 		rules = append(rules,
-			map[string]any{"type": "field", "domain": russianDomains(builder.request.NoGeosite), "outboundTag": "direct"},
-			map[string]any{"type": "field", "ip": []any{"geoip:ru"}, "outboundTag": "direct"},
+			field("domain", russianDomains(request.NoGeosite), "direct", false),
+			field("ip", []any{"geoip:ru"}, "direct", false),
 		)
 	}
 	for _, templated := range builder.tpl.rules {
 		rule := shallow(templated.rule)
-		if builder.request.NoGeosite && !dropGeosite(rule) {
+		if request.NoGeosite && !dropGeosite(rule) {
 			continue
 		}
 		switch templated.target {

@@ -1874,13 +1874,62 @@ export interface PanelSimpleSubscription {
   deviceQuantity: number;
 }
 
-export interface SmartSubscriptionPresets {
-  /** .ru, .su, .рф, and Russian IP ranges go around the tunnel. */
-  russiaDirect: boolean;
-  /** Advertising and tracking domains are dropped. */
-  blockAds: boolean;
-  /** UDP 443 is refused, which pushes browsers back onto TCP. */
-  blockQuic: boolean;
+export type SmartSubscriptionServiceRuleKind =
+  (typeof SmartSubscriptionServiceRuleKind)[keyof typeof SmartSubscriptionServiceRuleKind];
+
+export const SmartSubscriptionServiceRuleKind = {
+  domains: "domains",
+  russia: "russia",
+  ai: "ai",
+  torrents: "torrents",
+  ads: "ads",
+  quic: "quic",
+} as const;
+
+/**
+ * russia is direct, ai proxy, ads and quic block; torrents direct or block.
+ */
+export type SmartSubscriptionServiceRuleAction =
+  (typeof SmartSubscriptionServiceRuleAction)[keyof typeof SmartSubscriptionServiceRuleAction];
+
+export const SmartSubscriptionServiceRuleAction = {
+  direct: "direct",
+  proxy: "proxy",
+  block: "block",
+} as const;
+
+/**
+ * locked: always on and shown with a lock; on/off: the default the customer can change; disabled: neither applied nor shown.
+ */
+export type SmartSubscriptionServiceRuleMode =
+  (typeof SmartSubscriptionServiceRuleMode)[keyof typeof SmartSubscriptionServiceRuleMode];
+
+export const SmartSubscriptionServiceRuleMode = {
+  locked: "locked",
+  on: "on",
+  off: "off",
+  disabled: "disabled",
+} as const;
+
+/**
+ * One card on the customer's Routing tab. Built-in kinds (russia, ai, torrents, ads, quic) carry their own matchers and ignore domains; an empty name or caption on one of them uses the panel's own words.
+ */
+export interface SmartSubscriptionServiceRule {
+  /** Stable; customers' choices are keyed by it. A built-in rule's ID is its kind. */
+  id: string;
+  kind: SmartSubscriptionServiceRuleKind;
+  /** @maxLength 60 */
+  name: string;
+  /** @maxLength 160 */
+  caption: string;
+  /** An uploaded icon's ID, or empty. */
+  icon: string;
+  /** russia is direct, ai proxy, ads and quic block; torrents direct or block. */
+  action: SmartSubscriptionServiceRuleAction;
+  /** locked: always on and shown with a lock; on/off: the default the customer can change; disabled: neither applied nor shown. */
+  mode: SmartSubscriptionServiceRuleMode;
+  /** @maxItems 200 */
+  domains: string[];
 }
 
 /**
@@ -1966,7 +2015,6 @@ export interface PanelSmartSubscription {
    * @maxLength 40
    */
   reserveName: string;
-  defaults: SmartSubscriptionPresets;
   /** Customers may add their own domains. */
   customRules: boolean;
   /**
@@ -1975,15 +2023,19 @@ export interface PanelSmartSubscription {
    */
   maxRules: number;
   /**
-   * Domains that always go around the tunnel for everyone.
-   * @maxItems 200
+   * The service rules in the order customers see them; any built-in rule left out is added with its default.
+   * @maxItems 40
    */
-  directDomains: string[];
+  rules: SmartSubscriptionServiceRule[];
+  /** A bot message when every server of a country a customer uses has been down outageMinutes, and when it is back. */
+  outageNotices: boolean;
   /**
-   * Domains refused for everyone.
-   * @maxItems 200
+   * @minimum 2
+   * @maximum 1440
    */
-  blockDomains: string[];
+  outageMinutes: number;
+  /** Whether icons can be fetched by domain (APP_LOGO_DEV_TOKEN is set). */
+  readonly logoSearch?: boolean;
   /** Corrections keyed by Remnawave host UUID. */
   hosts: PanelSmartSubscriptionHostsProperty;
 }
@@ -2045,6 +2097,11 @@ export interface SmartSubscriptionRule {
   action: SmartSubscriptionRuleAction;
 }
 
+/**
+ * Choices on the service rules the customer may change, by rule ID; a rule left out follows its default.
+ */
+export type SmartSubscriptionPreferencesToggles = { [key: string]: boolean };
+
 export interface SmartSubscriptionPreferences {
   /** ISO codes left out of the subscription; ZZ is the servers whose country is unknown. */
   hiddenCountries: string[];
@@ -2052,9 +2109,14 @@ export interface SmartSubscriptionPreferences {
   autoExcluded: string[];
   /** Keep the whitelist bypass servers, as a fallback and as a group. */
   reserve: boolean;
-  presets: SmartSubscriptionPresets;
+  /** Choices on the service rules the customer may change, by rule ID; a rule left out follows its default. */
+  toggles: SmartSubscriptionPreferencesToggles;
   /** @maxItems 200 */
   rules: SmartSubscriptionRule[];
+  /** The host the customer chose as their own server, which becomes the first group; empty for none. */
+  pinned: string;
+  /** The fastest-server group starts on the whitelist bypass servers. */
+  whitelistMode: boolean;
 }
 
 export type SmartSubscriptionServerPingTransport =
@@ -2075,6 +2137,8 @@ export type SmartSubscriptionServerPing = {
 };
 
 export interface SmartSubscriptionServer {
+  /** The Remnawave host, which the customer can pin. */
+  id: string;
   name: string;
   address: string;
   port: number;
@@ -2096,22 +2160,53 @@ export type AccountSmartSubscriptionServers = {
 };
 
 /**
- * The operator's rules that apply to every subscription; a customer's own rule for the same domain wins.
+ * For chatgpt, gemini, and claude, how many of the customer's servers the service answers from.
  */
-export type AccountSmartSubscriptionServiceRules = {
-  direct: string[];
-  block: string[];
-};
+export type AccountSmartSubscriptionAiServers = { [key: string]: number };
 
 export interface AccountSmartSubscription {
   servers: AccountSmartSubscriptionServers;
   preferences: SmartSubscriptionPreferences;
   customized: boolean;
-  defaults: SmartSubscriptionPresets;
   customRules: boolean;
   maxRules: number;
-  /** The operator's rules that apply to every subscription; a customer's own rule for the same domain wins. */
-  serviceRules: AccountSmartSubscriptionServiceRules;
+  /** The service rules the customer sees, in order; disabled ones are left out. */
+  rules: SmartSubscriptionServiceRule[];
+  /** For chatgpt, gemini, and claude, how many of the customer's servers the service answers from. */
+  aiServers: AccountSmartSubscriptionAiServers;
+}
+
+export type PanelSmartSubscriptionStatsRulesItem = {
+  id: string;
+  on: number;
+  off: number;
+};
+
+export type PanelSmartSubscriptionStatsDomainsItem = {
+  domain: string;
+  action: string;
+  count: number;
+};
+
+export interface SmartSubscriptionCount {
+  key: string;
+  count: number;
+}
+
+export interface PanelSmartSubscriptionStats {
+  customized: number;
+  hidden: SmartSubscriptionCount[];
+  autoExcluded: SmartSubscriptionCount[];
+  rules: PanelSmartSubscriptionStatsRulesItem[];
+  pinned: SmartSubscriptionCount[];
+  whitelist: number;
+  reserveOff: number;
+  /** Customers' own domains shared by at least three subscriptions, with the most common action. */
+  domains: PanelSmartSubscriptionStatsDomainsItem[];
+}
+
+export interface SmartSubscriptionIconCreated {
+  id: string;
 }
 
 export type PanelPlanVersionInputBillingPeriod =
@@ -6932,6 +7027,8 @@ export type AccountPreferencesNotifications = {
   traffic: boolean;
   renewal: boolean;
   news: boolean;
+  /** A bot message when a country the customer uses goes down and when it is back. */
+  servers: boolean;
 };
 
 /**
@@ -7016,6 +7113,7 @@ export type AccountPreferencesUpdateNotifications = {
   traffic?: boolean;
   renewal?: boolean;
   news?: boolean;
+  servers?: boolean;
 };
 
 export type AccountPreferencesUpdateQuietHours = {
@@ -7847,6 +7945,10 @@ export type ApplyPanelPlanSquads202 = {
 };
 
 export type ListPanelServers200 = { [key: string]: unknown };
+
+export type FetchPanelSmartSubscriptionIconBody = {
+  domain: string;
+};
 
 export type CreatePanelPromotion201 = { [key: string]: unknown };
 
@@ -19375,6 +19477,369 @@ export const useListPanelSmartSubscriptionHosts = <TError = Promise<ProblemRespo
   const swrKey =
     swrOptions?.swrKey ?? (() => (isEnabled ? getListPanelSmartSubscriptionHostsKey() : null));
   const swrFn = () => listPanelSmartSubscriptionHosts(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelSmartSubscriptionStatsResponse200 = {
+  data: PanelSmartSubscriptionStats;
+  status: 200;
+};
+
+export type getPanelSmartSubscriptionStatsResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelSmartSubscriptionStatsResponseSuccess =
+  getPanelSmartSubscriptionStatsResponse200 & {
+    headers: Headers;
+  };
+export type getPanelSmartSubscriptionStatsResponseError =
+  getPanelSmartSubscriptionStatsResponse403 & {
+    headers: Headers;
+  };
+
+export type getPanelSmartSubscriptionStatsResponse =
+  | getPanelSmartSubscriptionStatsResponseSuccess
+  | getPanelSmartSubscriptionStatsResponseError;
+
+export const getGetPanelSmartSubscriptionStatsUrl = () => {
+  return `/v1/panel/settings/smart-subscription/stats`;
+};
+
+/**
+ * Requires settings.read. What customers did with the smart subscription, aggregated: countries hidden and kept out of the fastest-server group, choices on each service rule, pinned servers, the whitelist mode, and the customers' own domains shared by at least three subscriptions.
+ */
+export const getPanelSmartSubscriptionStats = async (
+  options?: RequestInit,
+): Promise<getPanelSmartSubscriptionStatsResponse> => {
+  const res = await fetch(getGetPanelSmartSubscriptionStatsUrl(), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelSmartSubscriptionStatsResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getPanelSmartSubscriptionStatsResponse;
+};
+
+export const getGetPanelSmartSubscriptionStatsKey = () =>
+  [`/v1/panel/settings/smart-subscription/stats`] as const;
+
+export type GetPanelSmartSubscriptionStatsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelSmartSubscriptionStats>>
+>;
+
+export const useGetPanelSmartSubscriptionStats = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelSmartSubscriptionStats>>, TError> & {
+    swrKey?: Key;
+    enabled?: boolean;
+  };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelSmartSubscriptionStatsKey() : null));
+  const swrFn = () => getPanelSmartSubscriptionStats(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type uploadPanelSmartSubscriptionIconResponse201 = {
+  data: SmartSubscriptionIconCreated;
+  status: 201;
+};
+
+export type uploadPanelSmartSubscriptionIconResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type uploadPanelSmartSubscriptionIconResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type uploadPanelSmartSubscriptionIconResponseSuccess =
+  uploadPanelSmartSubscriptionIconResponse201 & {
+    headers: Headers;
+  };
+export type uploadPanelSmartSubscriptionIconResponseError = (
+  | uploadPanelSmartSubscriptionIconResponse403
+  | uploadPanelSmartSubscriptionIconResponse422
+) & {
+  headers: Headers;
+};
+
+export type uploadPanelSmartSubscriptionIconResponse =
+  | uploadPanelSmartSubscriptionIconResponseSuccess
+  | uploadPanelSmartSubscriptionIconResponseError;
+
+export const getUploadPanelSmartSubscriptionIconUrl = () => {
+  return `/v1/panel/settings/smart-subscription/icons`;
+};
+
+/**
+ * Requires settings.write. Stores a service rule icon sent as the raw body: PNG, JPEG, WebP, or an SVG without scripts, at most 128 KB. The type is read from the bytes. The same bytes return the same ID.
+ */
+export const uploadPanelSmartSubscriptionIcon = async (
+  uploadPanelSmartSubscriptionIconBody: Blob,
+  options?: RequestInit,
+): Promise<uploadPanelSmartSubscriptionIconResponse> => {
+  const res = await fetch(getUploadPanelSmartSubscriptionIconUrl(), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/octet-stream" }, options?.headers),
+    body: uploadPanelSmartSubscriptionIconBody,
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: uploadPanelSmartSubscriptionIconResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as uploadPanelSmartSubscriptionIconResponse;
+};
+
+export const getUploadPanelSmartSubscriptionIconMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: Blob }) => {
+    return uploadPanelSmartSubscriptionIcon(arg, options);
+  };
+};
+export const getUploadPanelSmartSubscriptionIconMutationKey = () =>
+  [`/v1/panel/settings/smart-subscription/icons`] as const;
+
+export type UploadPanelSmartSubscriptionIconMutationResult = NonNullable<
+  Awaited<ReturnType<typeof uploadPanelSmartSubscriptionIcon>>
+>;
+
+export const useUploadPanelSmartSubscriptionIcon = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof uploadPanelSmartSubscriptionIcon>>,
+    TError,
+    Key,
+    Blob,
+    Awaited<ReturnType<typeof uploadPanelSmartSubscriptionIcon>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getUploadPanelSmartSubscriptionIconMutationKey();
+  const swrFn = getUploadPanelSmartSubscriptionIconMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type fetchPanelSmartSubscriptionIconResponse201 = {
+  data: SmartSubscriptionIconCreated;
+  status: 201;
+};
+
+export type fetchPanelSmartSubscriptionIconResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type fetchPanelSmartSubscriptionIconResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type fetchPanelSmartSubscriptionIconResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type fetchPanelSmartSubscriptionIconResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type fetchPanelSmartSubscriptionIconResponseSuccess =
+  fetchPanelSmartSubscriptionIconResponse201 & {
+    headers: Headers;
+  };
+export type fetchPanelSmartSubscriptionIconResponseError = (
+  | fetchPanelSmartSubscriptionIconResponse403
+  | fetchPanelSmartSubscriptionIconResponse404
+  | fetchPanelSmartSubscriptionIconResponse409
+  | fetchPanelSmartSubscriptionIconResponse422
+) & {
+  headers: Headers;
+};
+
+export type fetchPanelSmartSubscriptionIconResponse =
+  | fetchPanelSmartSubscriptionIconResponseSuccess
+  | fetchPanelSmartSubscriptionIconResponseError;
+
+export const getFetchPanelSmartSubscriptionIconUrl = () => {
+  return `/v1/panel/settings/smart-subscription/icons/fetch`;
+};
+
+/**
+ * Requires settings.write. Downloads a site's logo from logo.dev once and stores it as an icon, so customers' browsers never ask a third party for it. 409 without APP_LOGO_DEV_TOKEN; 404 when logo.dev has no logo for the domain.
+ */
+export const fetchPanelSmartSubscriptionIcon = async (
+  fetchPanelSmartSubscriptionIconBody: FetchPanelSmartSubscriptionIconBody,
+  options?: RequestInit,
+): Promise<fetchPanelSmartSubscriptionIconResponse> => {
+  const res = await fetch(getFetchPanelSmartSubscriptionIconUrl(), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(fetchPanelSmartSubscriptionIconBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: fetchPanelSmartSubscriptionIconResponse["data"] = body ? JSON.parse(body) : {};
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as fetchPanelSmartSubscriptionIconResponse;
+};
+
+export const getFetchPanelSmartSubscriptionIconMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: FetchPanelSmartSubscriptionIconBody }) => {
+    return fetchPanelSmartSubscriptionIcon(arg, options);
+  };
+};
+export const getFetchPanelSmartSubscriptionIconMutationKey = () =>
+  [`/v1/panel/settings/smart-subscription/icons/fetch`] as const;
+
+export type FetchPanelSmartSubscriptionIconMutationResult = NonNullable<
+  Awaited<ReturnType<typeof fetchPanelSmartSubscriptionIcon>>
+>;
+
+export const useFetchPanelSmartSubscriptionIcon = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof fetchPanelSmartSubscriptionIcon>>,
+    TError,
+    Key,
+    FetchPanelSmartSubscriptionIconBody,
+    Awaited<ReturnType<typeof fetchPanelSmartSubscriptionIcon>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getFetchPanelSmartSubscriptionIconMutationKey();
+  const swrFn = getFetchPanelSmartSubscriptionIconMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelSmartSubscriptionIconResponse200ImagePng = {
+  data: Blob;
+  status: 200;
+};
+
+export type getPanelSmartSubscriptionIconResponse200ImageSvgXml = {
+  data: Blob;
+  status: 200;
+};
+
+export type getPanelSmartSubscriptionIconResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type getPanelSmartSubscriptionIconResponseSuccess = (
+  | getPanelSmartSubscriptionIconResponse200ImagePng
+  | getPanelSmartSubscriptionIconResponse200ImageSvgXml
+) & {
+  headers: Headers;
+};
+export type getPanelSmartSubscriptionIconResponseError =
+  getPanelSmartSubscriptionIconResponse404 & {
+    headers: Headers;
+  };
+
+export type getPanelSmartSubscriptionIconResponse =
+  | getPanelSmartSubscriptionIconResponseSuccess
+  | getPanelSmartSubscriptionIconResponseError;
+
+export const getGetPanelSmartSubscriptionIconUrl = (iconID: string) => {
+  return `/v1/panel/settings/smart-subscription/icons/${iconID}`;
+};
+
+/**
+ * Requires settings.read. One stored icon; immutable under its ID.
+ */
+export const getPanelSmartSubscriptionIcon = async (
+  iconID: string,
+  options?: RequestInit,
+): Promise<getPanelSmartSubscriptionIconResponse> => {
+  const res = await fetch(getGetPanelSmartSubscriptionIconUrl(iconID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.blob();
+  const data: getPanelSmartSubscriptionIconResponse["data"] =
+    body as getPanelSmartSubscriptionIconResponse["data"];
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getPanelSmartSubscriptionIconResponse;
+};
+
+export const getGetPanelSmartSubscriptionIconKey = (iconID: string) =>
+  [`/v1/panel/settings/smart-subscription/icons/${iconID}`] as const;
+
+export type GetPanelSmartSubscriptionIconQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelSmartSubscriptionIcon>>
+>;
+
+export const useGetPanelSmartSubscriptionIcon = <TError = Promise<ProblemResponse>>(
+  iconID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelSmartSubscriptionIcon>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false && iconID !== null && iconID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelSmartSubscriptionIconKey(iconID) : null));
+  const swrFn = () => getPanelSmartSubscriptionIcon(iconID, fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 
@@ -36670,6 +37135,95 @@ export const useGetAccountSmartSubscriptionStatus = <TError = Promise<unknown>>(
   const swrKey =
     swrOptions?.swrKey ?? (() => (isEnabled ? getGetAccountSmartSubscriptionStatusKey() : null));
   const swrFn = () => getAccountSmartSubscriptionStatus(fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getAccountSmartSubscriptionIconResponse200ImagePng = {
+  data: Blob;
+  status: 200;
+};
+
+export type getAccountSmartSubscriptionIconResponse200ImageSvgXml = {
+  data: Blob;
+  status: 200;
+};
+
+export type getAccountSmartSubscriptionIconResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type getAccountSmartSubscriptionIconResponseSuccess = (
+  | getAccountSmartSubscriptionIconResponse200ImagePng
+  | getAccountSmartSubscriptionIconResponse200ImageSvgXml
+) & {
+  headers: Headers;
+};
+export type getAccountSmartSubscriptionIconResponseError =
+  getAccountSmartSubscriptionIconResponse404 & {
+    headers: Headers;
+  };
+
+export type getAccountSmartSubscriptionIconResponse =
+  | getAccountSmartSubscriptionIconResponseSuccess
+  | getAccountSmartSubscriptionIconResponseError;
+
+export const getGetAccountSmartSubscriptionIconUrl = (iconID: string) => {
+  return `/v1/account/smart-subscription/icons/${iconID}`;
+};
+
+/**
+ * One service rule icon, served by the API so no third party sees the customer; immutable under its ID.
+ */
+export const getAccountSmartSubscriptionIcon = async (
+  iconID: string,
+  options?: RequestInit,
+): Promise<getAccountSmartSubscriptionIconResponse> => {
+  const res = await fetch(getGetAccountSmartSubscriptionIconUrl(iconID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.blob();
+  const data: getAccountSmartSubscriptionIconResponse["data"] =
+    body as getAccountSmartSubscriptionIconResponse["data"];
+  return {
+    data,
+    status: res.status,
+    headers: res.headers,
+  } as getAccountSmartSubscriptionIconResponse;
+};
+
+export const getGetAccountSmartSubscriptionIconKey = (iconID: string) =>
+  [`/v1/account/smart-subscription/icons/${iconID}`] as const;
+
+export type GetAccountSmartSubscriptionIconQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAccountSmartSubscriptionIcon>>
+>;
+
+export const useGetAccountSmartSubscriptionIcon = <TError = Promise<ProblemResponse>>(
+  iconID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getAccountSmartSubscriptionIcon>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false && iconID !== null && iconID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ??
+    (() => (isEnabled ? getGetAccountSmartSubscriptionIconKey(iconID) : null));
+  const swrFn = () => getAccountSmartSubscriptionIcon(iconID, fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 

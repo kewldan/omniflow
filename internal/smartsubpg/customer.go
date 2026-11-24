@@ -18,13 +18,14 @@ type CustomerView struct {
 	Preferences smartsub.Preferences
 	// Customized is false while the customer is on the operator's defaults.
 	Customized  bool
-	Defaults    smartsub.Presets
 	CustomRules bool
 	MaxRules    int
-	// DirectDomains and BlockDomains are the operator's rules for everyone,
-	// shown so the customer sees what already applies before adding their own.
-	DirectDomains []string
-	BlockDomains  []string
+	// Rules are the operator's service rules the customer sees: every one but
+	// the disabled ones, in the operator's order.
+	Rules []smartsub.ServiceRule
+	// AIServers counts, for each AI service, the customer's servers it
+	// answers from, so the AI card can say where it will go.
+	AIServers map[string]int
 }
 
 // CustomerView reads the customer's servers from the panel and their saved
@@ -60,13 +61,14 @@ func (service *Service) CustomerView(ctx context.Context, customerID, subscripti
 	hosts := catalog.HostsFor(squads)
 	entries := make([]smartsub.Entry, 0, len(hosts))
 	for _, host := range hosts {
-		entries = append(entries, smartsub.Entry{Remark: host.Remark, Address: host.Address, Port: host.Port})
+		entries = append(entries, smartsub.Entry{ID: host.UUID, Remark: host.Remark, Address: host.Address, Port: host.Port})
 	}
 	view := CustomerView{
-		Servers:  smartsub.BuildView(entries, catalog, settings, service.NodeChecks(ctx)),
-		Defaults: settings.Defaults, CustomRules: settings.CustomRules, MaxRules: settings.MaxRules,
-		DirectDomains: settings.DirectDomains, BlockDomains: settings.BlockDomains,
+		Servers:     smartsub.BuildView(entries, catalog, settings, service.NodeChecks(ctx)),
+		CustomRules: settings.CustomRules, MaxRules: settings.MaxRules,
+		Rules: visibleRules(settings.Rules),
 	}
+	view.AIServers = aiServerCounts(view.Servers)
 	preferences, found, err := readPreferences(ctx, service.pool, subscriptionID)
 	if err != nil {
 		return CustomerView{}, err
@@ -101,15 +103,25 @@ func (service *Service) SavePreferences(
 	if err != nil {
 		return smartsub.Preferences{}, err
 	}
+	toggles, err := json.Marshal(normalized.Toggles)
+	if err != nil {
+		return smartsub.Preferences{}, err
+	}
+	var pinned pgtype.UUID
+	if normalized.Pinned != "" {
+		if pinned.Scan(normalized.Pinned) != nil {
+			return smartsub.Preferences{}, &smartsub.FieldError{Field: "pinned", Reason: "pick one of your servers"}
+		}
+	}
 	_, err = service.pool.Exec(ctx, `INSERT INTO smart_subscription_preferences
-		(subscription_id, hidden_countries, auto_excluded, reserve, russia_direct, block_ads, block_quic, rules, updated_at)
+		(subscription_id, hidden_countries, auto_excluded, reserve, toggles, rules, pinned_host, whitelist_mode, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, now())
 		ON CONFLICT (subscription_id) DO UPDATE SET
 		  hidden_countries = EXCLUDED.hidden_countries, auto_excluded = EXCLUDED.auto_excluded,
-		  reserve = EXCLUDED.reserve, russia_direct = EXCLUDED.russia_direct, block_ads = EXCLUDED.block_ads,
-		  block_quic = EXCLUDED.block_quic, rules = EXCLUDED.rules, updated_at = now()`,
+		  reserve = EXCLUDED.reserve, toggles = EXCLUDED.toggles, rules = EXCLUDED.rules,
+		  pinned_host = EXCLUDED.pinned_host, whitelist_mode = EXCLUDED.whitelist_mode, updated_at = now()`,
 		subscriptionID, normalized.HiddenCountries, normalized.AutoExcluded, normalized.Reserve,
-		normalized.Presets.RussiaDirect, normalized.Presets.BlockAds, normalized.Presets.BlockQUIC, rules)
+		toggles, rules, pinned, normalized.WhitelistMode)
 	if err != nil {
 		return smartsub.Preferences{}, err
 	}
@@ -170,3 +182,33 @@ func (panel LinkedPanel) Subscription(ctx context.Context, userID int64) (remnaw
 }
 
 var _ Panel = (*remnawave.Client)(nil)
+
+// visibleRules are the rules a customer sees: all but the disabled ones.
+func visibleRules(rules []smartsub.ServiceRule) []smartsub.ServiceRule {
+	visible := make([]smartsub.ServiceRule, 0, len(rules))
+	for _, rule := range rules {
+		if rule.Mode != smartsub.ModeDisabled {
+			visible = append(visible, rule)
+		}
+	}
+	return visible
+}
+
+// aiServerCounts counts, for each AI service, the customer's servers whose
+// exit node the service answers from.
+func aiServerCounts(view smartsub.View) map[string]int {
+	counts := map[string]int{}
+	servers := append([]smartsub.ViewServer{}, view.Reserve...)
+	for _, country := range view.Countries {
+		servers = append(servers, country.Servers...)
+	}
+	for _, service := range smartsub.AIServices {
+		counts[string(service)] = 0
+		for _, server := range servers {
+			if status, ok := server.Services[string(service)]; ok && status.State == smartsub.StateYes {
+				counts[string(service)]++
+			}
+		}
+	}
+	return counts
+}

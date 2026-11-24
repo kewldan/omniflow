@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 	"sort"
@@ -122,6 +123,90 @@ func (handlers *AdminHandlers) mountSmartSubscription(secure chi.Router) {
 		Put("/settings/smart-subscription", handlers.saveSmartSubscriptionSettings)
 	secure.With(handlers.requirePermission(rbac.PermissionSettingsRead)).
 		Get("/settings/smart-subscription/hosts", handlers.smartSubscriptionHosts)
+	secure.With(handlers.requirePermission(rbac.PermissionSettingsRead)).
+		Get("/settings/smart-subscription/stats", handlers.smartSubscriptionStats)
+	secure.With(handlers.requirePermission(rbac.PermissionSettingsWrite)).
+		Post("/settings/smart-subscription/icons", handlers.uploadSmartSubscriptionIcon)
+	secure.With(handlers.requirePermission(rbac.PermissionSettingsWrite)).
+		Post("/settings/smart-subscription/icons/fetch", handlers.fetchSmartSubscriptionIcon)
+	secure.With(handlers.requirePermission(rbac.PermissionSettingsRead)).
+		Get("/settings/smart-subscription/icons/{iconID}", handlers.smartSubscriptionIcon)
+}
+
+func (handlers *AdminHandlers) smartSubscriptionStats(writer http.ResponseWriter, request *http.Request) {
+	stats, err := handlers.smartSubscription.Stats(request.Context())
+	if err != nil {
+		handlers.operationsError(writer, request, err)
+		return
+	}
+	writeJSON(writer, http.StatusOK, stats)
+}
+
+// uploadSmartSubscriptionIcon stores a rule icon sent as the raw request
+// body. Its type is read from the bytes, not from the header.
+func (handlers *AdminHandlers) uploadSmartSubscriptionIcon(writer http.ResponseWriter, request *http.Request) {
+	data, err := io.ReadAll(io.LimitReader(request.Body, smartsubpg.MaxIconBytes+1))
+	if err != nil {
+		writeProblem(writer, request, http.StatusBadRequest, "invalid_request", "The upload could not be read")
+		return
+	}
+	id, err := handlers.smartSubscription.SaveIcon(request.Context(), data, actorFrom(request).AdminID)
+	handlers.writeIconResult(writer, request, id, err)
+}
+
+// fetchSmartSubscriptionIcon downloads a site's logo from logo.dev by domain.
+func (handlers *AdminHandlers) fetchSmartSubscriptionIcon(writer http.ResponseWriter, request *http.Request) {
+	var body struct {
+		Domain string `json:"domain"`
+	}
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	id, err := handlers.smartSubscription.FetchLogo(request.Context(), body.Domain, actorFrom(request).AdminID)
+	handlers.writeIconResult(writer, request, id, err)
+}
+
+func (handlers *AdminHandlers) writeIconResult(writer http.ResponseWriter, request *http.Request, id string, err error) {
+	var field *smartsub.FieldError
+	switch {
+	case err == nil:
+		writeJSON(writer, http.StatusCreated, map[string]any{"id": id})
+	case errors.Is(err, smartsubpg.ErrIconInvalid):
+		writeProblem(writer, request, http.StatusUnprocessableEntity, "invalid_icon", err.Error())
+	case errors.Is(err, smartsubpg.ErrLogoSearchOff):
+		writeProblem(writer, request, http.StatusConflict, "logo_search_off", "Logo search needs APP_LOGO_DEV_TOKEN")
+	case errors.Is(err, smartsubpg.ErrLogoNotFound):
+		writeProblem(writer, request, http.StatusNotFound, "logo_not_found", "logo.dev has no logo for that domain")
+	case errors.As(err, &field):
+		writeProblem(writer, request, http.StatusUnprocessableEntity, "invalid_domain", field.Reason)
+	default:
+		handlers.logger.Warn("smart subscription icon failed", "error", err)
+		writeProblem(writer, request, http.StatusBadGateway, "icon_failed", "The icon could not be stored")
+	}
+}
+
+func (handlers *AdminHandlers) smartSubscriptionIcon(writer http.ResponseWriter, request *http.Request) {
+	serveIcon(writer, request, handlers.smartSubscription)
+}
+
+// serveIcon writes a stored icon. An icon never changes under its ID, and an
+// SVG is sandboxed so opening it directly runs nothing.
+func serveIcon(writer http.ResponseWriter, request *http.Request, service *smartsubpg.Service) {
+	icon, err := service.Icon(request.Context(), chi.URLParam(request, "iconID"))
+	if errors.Is(err, smartsubpg.ErrIconNotFound) {
+		writeProblem(writer, request, http.StatusNotFound, "not_found", "That icon does not exist")
+		return
+	}
+	if err != nil {
+		writeProblem(writer, request, http.StatusInternalServerError, "operation_failed", "The icon could not be read")
+		return
+	}
+	writer.Header().Set("Content-Type", icon.ContentType)
+	writer.Header().Set("Cache-Control", "private, max-age=31536000, immutable")
+	writer.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox")
+	writer.Header().Set("X-Content-Type-Options", "nosniff")
+	writer.Header().Set("Cross-Origin-Resource-Policy", "same-origin")
+	_, _ = writer.Write(icon.Data)
 }
 
 func (handlers *AdminHandlers) smartSubscriptionPayload(setting panelpg.SmartSubscription) map[string]any {
@@ -134,8 +219,9 @@ func (handlers *AdminHandlers) smartSubscriptionPayload(setting panelpg.SmartSub
 		"linkBase": setting.LinkBase, "effectiveLinkBase": handlers.smartSubscription.LinkBase(setting.Settings),
 		"probeUrl": setting.ProbeURL, "probeIntervalSeconds": setting.ProbeIntervalSeconds,
 		"autoName": setting.AutoName, "reserveName": setting.ReserveName,
-		"defaults": setting.Defaults, "customRules": setting.CustomRules, "maxRules": setting.MaxRules,
-		"directDomains": setting.DirectDomains, "blockDomains": setting.BlockDomains, "hosts": hosts,
+		"customRules": setting.CustomRules, "maxRules": setting.MaxRules, "rules": rulesPayload(setting.Rules),
+		"outageNotices": setting.OutageNotices, "outageMinutes": setting.OutageMinutes,
+		"logoSearch": handlers.smartSubscription.LogoSearch(), "hosts": hosts,
 	}
 }
 
@@ -219,6 +305,7 @@ func (handlers *AccountHandlers) mountSmartSubscription(secure chi.Router) {
 		return
 	}
 	secure.Get("/smart-subscription", handlers.smartSubscriptionStatus)
+	secure.Get("/smart-subscription/icons/{iconID}", handlers.smartSubscriptionIcon)
 	secure.Get("/subscriptions/{subscriptionID}/smart", handlers.smartSubscriptionView)
 	secure.Put("/subscriptions/{subscriptionID}/smart", handlers.saveSmartSubscription)
 	secure.Delete("/subscriptions/{subscriptionID}/smart", handlers.resetSmartSubscription)
@@ -240,9 +327,25 @@ func (handlers *AccountHandlers) smartSubscriptionView(writer http.ResponseWrite
 	}
 	writeJSON(writer, http.StatusOK, map[string]any{
 		"servers": view.Servers, "preferences": view.Preferences, "customized": view.Customized,
-		"defaults": view.Defaults, "customRules": view.CustomRules, "maxRules": view.MaxRules,
-		"serviceRules": map[string]any{"direct": nonNil(view.DirectDomains), "block": nonNil(view.BlockDomains)},
+		"customRules": view.CustomRules, "maxRules": view.MaxRules,
+		"rules": rulesPayload(view.Rules), "aiServers": view.AIServers,
 	})
+}
+
+func (handlers *AccountHandlers) smartSubscriptionIcon(writer http.ResponseWriter, request *http.Request) {
+	serveIcon(writer, request, handlers.smartSubscription)
+}
+
+// rulesPayload renders service rules with their domains always a list.
+func rulesPayload(rules []smartsub.ServiceRule) []map[string]any {
+	out := make([]map[string]any, 0, len(rules))
+	for _, rule := range rules {
+		out = append(out, map[string]any{
+			"id": rule.ID, "kind": rule.Kind, "name": rule.Name, "caption": rule.Caption, "icon": rule.Icon,
+			"action": rule.Action, "mode": rule.Mode, "domains": nonNil(rule.Domains),
+		})
+	}
+	return out
 }
 
 func (handlers *AccountHandlers) saveSmartSubscription(writer http.ResponseWriter, request *http.Request) {

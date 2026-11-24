@@ -83,7 +83,7 @@ func (service *Service) SaveSmartSubscription(
 			"panel.smart_subscription.updated", "configuration", "smart_subscription", "singleton",
 			map[string]any{
 				"enabled": saved.Enabled, "version": saved.Version, "customRules": saved.CustomRules,
-				"maxRules": saved.MaxRules, "directDomains": len(saved.DirectDomains),
+				"maxRules": saved.MaxRules, "rules": len(saved.Rules), "outageNotices": saved.OutageNotices,
 				"hostOverrides": len(saved.Hosts), "roles": roles,
 			},
 		))

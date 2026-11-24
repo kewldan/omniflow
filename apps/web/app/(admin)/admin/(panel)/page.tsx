@@ -14,6 +14,7 @@ import useSWR from "swr";
 
 import { MetricDelta, MetricSparkline, MetricTrendNote } from "@/components/admin/metric-trend";
 import { PageHeader } from "@/components/admin/resource-table";
+import { SmartSubscriptionCard } from "@/components/admin/smart-subscription-card";
 import { StateNotice } from "@/components/admin/state-notice";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
@@ -221,6 +222,7 @@ export default function AdminHome() {
             windowSeconds={data.windowSeconds}
             title={translate("dashboard.groups.subscriptions")}
           />
+          <SmartSubscriptionCard />
           <MetricGroup
             chart={<PaymentMix metrics={data.payments} />}
             metrics={data.payments}

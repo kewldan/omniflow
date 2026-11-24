@@ -42,7 +42,7 @@ hosts is copied into Omniflow; the list is read from Remnawave once a minute.
 
 <Steps>
   <Step title="Check the link address">
-    Open **Settings → Smart subscription**. Links are built on `APP_PUBLIC_URL` followed by
+    Open **Smart subscription** in the sidebar. Links are built on `APP_PUBLIC_URL` followed by
     `/v1/sub/`, or on the link base you enter. If neither is set, the screen says so and customers
     keep the panel's link.
   </Step>
@@ -63,10 +63,9 @@ hosts is copied into Omniflow; the list is read from Remnawave once a minute.
     that runs on several nodes needs one picked too. The exit node also decides the customer's
     ping estimate, below.
   </Step>
-  <Step title="Choose what customers start with">
-    Pick the default routing (Russian sites direct is on by default), whether customers may add their
-    own domains, how many, and any domains that always go direct, or are always blocked, for
-    everyone.
+  <Step title="Set up the service rules">
+    On the **Rules** tab, decide which cards customers see on their Routing tab and how each one
+    starts. See [Service rules](#service-rules) below.
   </Step>
   <Step title="Turn it on and save">
     From now on the cabinet and the bot hand out the new link. Customers who already imported the
@@ -98,22 +97,79 @@ own screen:
   raw timing, since it is reached through a relay the panel does not list. Under each country are
   the services Remnawave's check found: green works, amber works with limits (YouTube treating the
   address as Russian) or on only some of the country's servers, struck out doesn't.
-- **Whitelist bypass** can be switched off by a customer who never needs it.
-- **Routing** has the three ready-made choices — Russian sites direct (the national zones, the
-  geosite Russian category, and Russian IPs), block ads, block QUIC — and,
-  if you allow it, their own domains with Direct, Through VPN, or Block. A domain covers its
-  subdomains; a pasted link keeps only the domain.
+- **My server** pins one server: it becomes the first group in the app, falling back to the rest
+  of its country and then the whitelist bypass if it stops answering. The screen tells customers
+  why they might want it: one exit address means fewer captchas, fewer sign-outs and
+  "confirm it's you" prompts, and banks and shops that stop treating them as suspicious. A server
+  is pinned from the pin next to it in an expanded country.
+- **Whitelist bypass** can be switched off by a customer who never needs it. **Whitelist mode**
+  is for the days a mobile network lets only approved sites through: Fastest starts on the bypass
+  servers and keeps the ordinary ones as its fallback.
+- **Routing** shows the service rules as cards grouped by what they do — *Works without VPN*,
+  *Through VPN*, *Blocked* — each with its icon and caption. A locked rule shows a lock and an
+  "On" its switch cannot change; the others are the customer's to turn on or off. Below the cards,
+  if you allow it, customers add their own domains with Direct, Through VPN, or Block. A domain
+  covers its subdomains; a pasted link keeps only the domain, and a customer's own rule for a
+  domain wins over a service rule.
 
-Above their own rules the screen lists the service rules — your always-direct and always-blocked
-domains — so customers see what already applies. A customer's own rule for the same domain wins.
+## Service rules
+
+The **Rules** tab lists the cards customers see, in the order they see them. Each rule has a mode:
+
+| Mode | What it does |
+| --- | --- |
+| **Always (locked)** | Applies to everyone. The card shows a lock and the customer cannot turn it off |
+| **On by default** | Applies until the customer turns it off |
+| **Off by default** | Applies once the customer turns it on |
+| **Hidden** | Neither applies nor shows |
+
+Your own rules are lists of domains, each sending them direct, through the VPN, or nowhere — a
+"Gosuslugi" card that is always on with the caption "Opens even under whitelists, no VPN needed",
+say. Five rules are built in and carry their own matchers:
+
+- **Russian sites** — the national zones, the geosite Russian category, and Russian IPs, direct.
+- **AI assistants** — ChatGPT, Gemini, and Claude go through the customer's servers where
+  Remnawave's geocheck found them working, whichever server the customer picked; the card says
+  how many servers each one has. With no check on record the rule changes nothing.
+- **Torrents** — BitTorrent traffic goes direct, outside the VPN, or is blocked.
+- **Ads and trackers** — the geosite advertising category, blocked.
+- **No QUIC** — UDP 443 blocked, so browsers fall back to TCP.
+
+A built-in rule left without a name or caption uses the panel's own words in the customer's
+language. Rules can be reordered with the arrows; a built-in one can be hidden but not deleted.
+
+Each card can have an icon: upload a PNG, JPEG, WebP, or SVG under 128 KB, or, with
+`APP_LOGO_DEV_TOKEN` set, type a domain and **Find logo** fetches it from
+[logo.dev](https://www.logo.dev). The icon is stored in Omniflow and served from your own domain,
+so customers' browsers never call a third party. An SVG that could run a script is refused.
+
+An installation that saved settings before rules existed keeps behaving as it did: its
+always-direct and always-blocked domain lists become two locked rules, and its three defaults
+become the built-in rules' modes.
+
+## Outage messages
+
+With **Outage messages in the bot** on, the bot tells customers when every server of a country
+they use has been down longer than the minutes you set, and again when it is back. Customers who
+hid that country are left out, and an outage that ends before the message goes out sends
+nothing. Customers can turn these messages off under **Servers** in their notification settings.
+
+## Analytics
+
+The **Analytics** tab sums up what customers chose: how many customized their subscription, use
+whitelist mode, turned the bypass off, or pinned a server (and which), which service rules they
+changed, and which countries they hid or kept out of Fastest. Domains that at least three
+subscriptions added for themselves are listed with **Make a rule**, which turns one into a
+service rule draft. Nothing here names a customer. The dashboard shows the module's state and the
+headline numbers on a card of its own.
 
 Choices are saved per subscription and can be reset to your defaults. They are part of the
 customer's privacy export.
 
 ## Limits worth knowing
 
-- The ad-blocking choice needs the app's geosite database. Happ and v2RayTun ship it; an app without
-  it may refuse the config, which is why the choice is off by default.
+- The ad-blocking rule needs the app's geosite database. Happ and v2RayTun ship it; an app without
+  it may refuse the config, which is why the rule is off by default.
 - INCY stalls on a config that names the geosite database, so it gets the same groups with
   geosite rules left out: the Russia preset falls back to the national zones and Russian IPs, and
   ad blocking does not apply.

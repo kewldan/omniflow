@@ -93,8 +93,10 @@ var notificationClasses = map[string]MessageClass{
 	"access":     ClassTransactional,
 	// A service reminder from the reminder constructor; a marketing one
 	// travels as `marketing`.
-	"reminder":  ClassTransactional,
-	"loyalty":   ClassTransactional,
+	"reminder": ClassTransactional,
+	"loyalty":  ClassTransactional,
+	// A country the customer uses went down, or came back.
+	"server":    ClassTransactional,
 	"news":      ClassMarketing,
 	"marketing": ClassMarketing,
 }

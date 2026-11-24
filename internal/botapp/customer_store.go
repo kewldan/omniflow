@@ -170,6 +170,7 @@ type CustomerPreferences struct {
 	Preferences
 	RenewalNotifications bool
 	NewsNotifications    bool
+	ServerNotifications  bool
 	MarketingEnabled     bool
 	QuietHours           commerce.QuietHours
 	Timezone             string
@@ -177,16 +178,16 @@ type CustomerPreferences struct {
 
 // CustomerPreferences reads every communication preference for one customer.
 func (store *PostgresStore) CustomerPreferences(ctx context.Context, customerID string) (CustomerPreferences, error) {
-	preferences := CustomerPreferences{Preferences: Preferences{Locale: "auto", ExpiryNotifications: true, TrafficNotifications: true}, RenewalNotifications: true, NewsNotifications: true}
+	preferences := CustomerPreferences{Preferences: Preferences{Locale: "auto", ExpiryNotifications: true, TrafficNotifications: true}, RenewalNotifications: true, NewsNotifications: true, ServerNotifications: true}
 	var quietStart, quietEnd pgtype.Int2
 	err := store.pool.QueryRow(ctx, `SELECT COALESCE(p.locale, 'auto'), COALESCE(p.expiry_notifications, true),
 		COALESCE(p.traffic_notifications, true), COALESCE(p.renewal_notifications, true),
-		COALESCE(p.news_notifications, true), COALESCE(p.marketing_enabled, false),
+		COALESCE(p.news_notifications, true), COALESCE(p.server_notifications, true), COALESCE(p.marketing_enabled, false),
 		p.quiet_hours_start, p.quiet_hours_end, u.timezone
 		FROM users u LEFT JOIN bot_preferences p ON p.user_id = u.id
 		WHERE u.id = $1::uuid`, customerID).Scan(&preferences.Locale, &preferences.ExpiryNotifications,
 		&preferences.TrafficNotifications, &preferences.RenewalNotifications, &preferences.NewsNotifications,
-		&preferences.MarketingEnabled, &quietStart, &quietEnd, &preferences.Timezone)
+		&preferences.ServerNotifications, &preferences.MarketingEnabled, &quietStart, &quietEnd, &preferences.Timezone)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return preferences, ErrNotLinked
 	}
@@ -206,6 +207,7 @@ var notificationToggles = map[string]string{
 	"traffic":   "traffic_notifications",
 	"renewal":   "renewal_notifications",
 	"news":      "news_notifications",
+	"server":    "server_notifications",
 	"marketing": "marketing_enabled",
 }
 

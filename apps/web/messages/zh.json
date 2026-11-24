@@ -162,7 +162,8 @@
         "risk": "风控",
         "settings": "设置",
         "aiSettings": "AI 与 MCP",
-        "payouts": "付款"
+        "payouts": "付款",
+        "smartSubscription": "智能订阅"
       },
       "waiting": "{count} 个待处理"
     },
@@ -839,6 +840,14 @@
         "title": "客户当前余额",
         "description": "客户已充值但尚未消费的金额。这是以服务形式欠客户的钱，因此不计入本期收入。",
         "holders": "{count} 位客户有余额"
+      },
+      "smart": {
+        "title": "Smart subscription",
+        "on": "on",
+        "off": "off",
+        "summary": "Customized {customized} · own server {pinned} · whitelist mode {whitelist}",
+        "offHint": "Customers get the panel's subscription as is.",
+        "open": "Open"
       }
     },
     "customers": {
@@ -5533,26 +5542,10 @@
       "linkBaseHint": "The start of the link before the short UUID. Empty uses the service address (APP_PUBLIC_URL) and /v1/sub/. Subscription mirrors must forward this path to Omniflow.",
       "noLinkBase": "Neither a link base nor APP_PUBLIC_URL is set, so customers keep getting the panel's own link.",
       "customersTitle": "For customers",
-      "customersDescription": "What a customer starts with and what they can change.",
-      "presets": {
-        "russiaDirect": {
-          "label": "Russian sites direct",
-          "hint": ".ru, .su, .рф, and Russian IPs skip the VPN"
-        },
-        "blockAds": {
-          "label": "Block ads",
-          "hint": "Needs geosite in the customer's app; Happ and v2RayTun ship it"
-        },
-        "blockQuic": {
-          "label": "Block QUIC",
-          "hint": "Refuses UDP 443 so browsers fall back to TCP"
-        }
-      },
+      "customersDescription": "What customers may change themselves, and when the bot warns about outages.",
       "customRules": "Customer rules",
       "customRulesHint": "Customers can add domains to send direct, through the VPN, or block",
       "maxRules": "Most rules per customer",
-      "directDomains": "Always direct for everyone",
-      "directDomainsHint": "One domain per line; subdomains are included.",
       "hostsTitle": "Remnawave hosts",
       "hostsDescription": "The country is read from each host's flag or name — correct it where it's wrong. The whitelist bypass role makes a host a fallback; Hidden leaves it out of every subscription.",
       "hostsUnavailable": "Remnawave didn't answer, so the host list is unavailable.",
@@ -5590,19 +5583,82 @@
         "autoName": "Group name",
         "reserveName": "Bypass group name",
         "maxRules": "Most rules",
-        "directDomains": "Always direct",
         "hosts": "Hosts",
-        "blockDomains": "Always blocked"
+        "rule": "Rule {index}",
+        "rules": "Rules",
+        "outageMinutes": "Send after"
       },
-      "blockDomains": "Always blocked for everyone",
-      "blockDomainsHint": "One domain per line; subdomains are blocked too.",
       "services": "服务",
       "servicesHint": "服务结果来自 Remnawave 的 geocheck：模块开启时，每 6 小时在每个节点上运行一次。入站转发到其他节点的主机会从该节点出口——请将其选为出口，以便客户看到正确的结果。",
       "exitNode": "出口节点",
       "exitNodeOwn": "自身节点（{node}）",
       "exitNodeUnknown": "自身节点",
       "notChecked": "尚未检查",
-      "checkedAt": "检查于 {time}"
+      "checkedAt": "检查于 {time}",
+      "tabs": {
+        "general": "General",
+        "rules": "Rules",
+        "hosts": "Hosts",
+        "stats": "Analytics"
+      },
+      "outageNotices": "Outage messages in the bot",
+      "outageNoticesHint": "When every server of a country is down, the bot tells the customers who have that country, and again when it is back. Customers can turn it off in their notification settings.",
+      "outageMinutes": "Send after, minutes",
+      "outageMinutesHint": "A short blip is not worth a message: the bot writes only when the outage lasts longer.",
+      "rulesTitle": "Service rules",
+      "rulesDescription": "The cards on the customer's Routing tab, in this order and grouped: without VPN, through VPN, blocked. “Always” is on with a lock and the customer cannot turn it off; “On”/“Off” is the default the customer may change; “Hidden” is neither applied nor shown.",
+      "addRule": "Add a rule",
+      "ruleUnnamed": "Untitled",
+      "ruleActions": {
+        "direct": "Without VPN",
+        "proxy": "Through VPN",
+        "block": "Block"
+      },
+      "ruleDomainCount": "{count, plural, one {# domain} other {# domains}}",
+      "ruleBuiltin": "built in",
+      "ruleMode": "Mode",
+      "ruleModes": {
+        "locked": "Always (locked)",
+        "on": "On by default",
+        "off": "Off by default",
+        "disabled": "Hidden"
+      },
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "editRule": "Edit “{name}”",
+      "deleteRule": "Delete “{name}”",
+      "rulesHint": "A customer's own rule for the same domain wins over a service rule. Changes reach customers on their next subscription refresh.",
+      "ruleName": "Name",
+      "ruleNamePlaceholder": "Gosuslugi",
+      "ruleAction": "Action",
+      "ruleCaption": "Caption",
+      "ruleCaptionPlaceholder": "Opens even under whitelists, no VPN needed. Enjoy the lowest latency <3",
+      "ruleDomains": "Domains",
+      "ruleDomainsHint": "One per line; subdomains are included.",
+      "ruleIcon": "Icon",
+      "iconFailed": "The icon could not be saved",
+      "iconUpload": "Upload",
+      "iconDomain": "Domain to find a logo for",
+      "iconFetch": "Find logo",
+      "iconRemove": "Remove",
+      "iconHint": "A PNG, JPEG, WebP or SVG under 128 KB, or a site's logo by domain through logo.dev. The icon is stored here, so customers' browsers never call a third party.",
+      "iconHintNoSearch": "A PNG, JPEG, WebP or SVG under 128 KB. Finding logos by domain needs APP_LOGO_DEV_TOKEN.",
+      "statsUnavailable": "Analytics are unavailable right now.",
+      "statsCustomized": "Customized their subscription",
+      "statsWhitelist": "In whitelist mode",
+      "statsReserveOff": "Turned the bypass off",
+      "statsPinned": "Chose their own server",
+      "statsNone": "Nothing yet",
+      "statsRuleChoice": "on {on} · off {off}",
+      "statsRules": "Changed service rules",
+      "statsPinnedHosts": "Own server",
+      "statsHidden": "Hid a country",
+      "statsAutoExcluded": "Left out of Fastest",
+      "statsDomains": "Popular customer rules",
+      "statsDomainsHint": "Domains at least three subscriptions added for themselves: candidates for a service rule.",
+      "statsDomain": "Domain",
+      "statsSubscriptions": "Subscriptions",
+      "statsMakeRule": "Make a rule"
     }
   },
   "account": {
@@ -6663,6 +6719,8 @@
           "trafficDescription": "流量即将用尽时提醒您。",
           "renewal": "续费与付款",
           "renewalDescription": "订阅续费或扣款成功时发送确认。",
+          "servers": "服务器",
+          "serversDescription": "当您使用的国家的所有服务器都无响应时，以及恢复时。",
           "news": "公告",
           "newsDescription": "服务动态、故障通报和计划维护。"
         },
@@ -7526,20 +7584,6 @@
       "ms": "{value} 毫秒",
       "reserveTitle": "白名单绕行",
       "reserveDescription": "{count, plural, other {# 台备用服务器}}，用于只允许访问白名单网站的移动网络。主服务器无响应时自动启用，也可作为单独的组使用。",
-      "presets": {
-        "russiaDirect": {
-          "title": "俄罗斯网站直连",
-          "description": ".ru、.su、.рф 和俄罗斯 IP 不走 VPN"
-        },
-        "blockAds": {
-          "title": "屏蔽广告",
-          "description": "广告和跟踪域名"
-        },
-        "blockQuic": {
-          "title": "禁用 QUIC",
-          "description": "视频卡顿时有帮助"
-        }
-      },
       "rulesTitle": "自定义规则",
       "rulesCount": "{count} / {max}",
       "domainLabel": "域名",
@@ -7570,10 +7614,60 @@
         "netflix": "Netflix 仅提供自制内容"
       },
       "serviceRegion": "地区 {region}",
-      "serviceRulesTitle": "服务规则",
-      "serviceRulesHint": "适用于所有人。同一域名的自定义规则优先。",
       "msEstimated": "≈ {value} 毫秒",
-      "pingEstimateTitle": "通过 VPN 访问常见网站的估计延迟：您到服务器的测量值，加上在服务器上测得的其余路线"
+      "pingEstimateTitle": "通过 VPN 访问常见网站的估计延迟：您到服务器的测量值，加上在服务器上测得的其余路线",
+      "pinnedTitle": "我的服务器",
+      "pinnedHowTo": "在下方展开一个国家，点服务器旁的图钉：它会成为应用里的第一个。",
+      "pinnedWhy": "固定一台服务器，您的 IP 地址就不会变。网站更少弹出验证码，不会把您踢出账号，也更少要求重新确认登录；银行和商店也不会把您当成可疑用户。如果这台服务器没有响应，应用会自动切换到同一国家的另一台。",
+      "unpin": "取消固定",
+      "pinServer": "设为我的服务器：{server}",
+      "unpinServer": "取消固定 {server}",
+      "whitelistModeTitle": "白名单模式",
+      "whitelistModeDescription": "当移动网络只放行白名单网站时打开：“最快”会先使用绕过服务器，普通服务器作为备用。限制解除后请关闭。",
+      "groups": {
+        "direct": {
+          "title": "无需 VPN",
+          "description": "直接打开：延迟最低，白名单下也能用。"
+        },
+        "proxy": {
+          "title": "通过 VPN",
+          "description": "经由确认可用的服务器。"
+        },
+        "block": {
+          "title": "已屏蔽",
+          "description": "完全不加载。"
+        }
+      },
+      "builtin": {
+        "russia": {
+          "name": "俄罗斯网站",
+          "caption": ".ru、.su、.рф 和俄罗斯 IP 直接打开：更快，网站也不会要求关闭 VPN。"
+        },
+        "ai": {
+          "name": "AI 助手",
+          "caption": "无论您选了哪台服务器，ChatGPT、Gemini 和 Claude 都经由确认能打开它们的服务器。"
+        },
+        "torrents_direct": {
+          "name": "种子下载",
+          "caption": "种子绕过 VPN 直接下载：更快，服务器也不会收到投诉。"
+        },
+        "torrents_block": {
+          "name": "种子下载",
+          "caption": "种子不能通过 VPN 下载，这样服务器不会收到投诉，对所有人都保持快速。"
+        },
+        "ads": {
+          "name": "广告和跟踪器",
+          "caption": "广告和跟踪域名不会加载。"
+        },
+        "quic": {
+          "name": "禁用 QUIC",
+          "caption": "关闭 QUIC 协议。视频卡顿或停住时有帮助。"
+        }
+      },
+      "aiNone": "目前没有服务器通过 AI 助手检查，它们会经由您选择的服务器。",
+      "aiServers": "{service}：{count, plural, other {# 台服务器}}",
+      "ruleDomains": "{count, plural, other {# 个域名}}",
+      "ruleAlways": "已开启"
     }
   },
   "pages": {

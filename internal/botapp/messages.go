@@ -741,11 +741,20 @@ var catalog = map[string]phrase{
 	"referral.role.invitee": {ru: "приветственная", en: "welcome bonus"},
 
 	// Settings.
-	"settings.title":     {ru: "⚙️ <b>Настройки</b>\n\nЯзык, уведомления и тихие часы.", en: "⚙️ <b>Settings</b>\n\nLanguage, notifications, and quiet hours."},
-	"settings.expiry":    {ru: "%s Срок подписки", en: "%s Subscription expiry"},
-	"settings.traffic":   {ru: "%s Лимит трафика", en: "%s Traffic limit"},
-	"settings.renewal":   {ru: "%s Напоминания о продлении", en: "%s Renewal reminders"},
-	"settings.news":      {ru: "%s Новости сервиса", en: "%s Service news"},
+	"settings.title":   {ru: "⚙️ <b>Настройки</b>\n\nЯзык, уведомления и тихие часы.", en: "⚙️ <b>Settings</b>\n\nLanguage, notifications, and quiet hours."},
+	"settings.expiry":  {ru: "%s Срок подписки", en: "%s Subscription expiry"},
+	"settings.traffic": {ru: "%s Лимит трафика", en: "%s Traffic limit"},
+	"settings.renewal": {ru: "%s Напоминания о продлении", en: "%s Renewal reminders"},
+	"settings.news":    {ru: "%s Новости сервиса", en: "%s Service news"},
+	"settings.servers": {ru: "%s Сбои серверов", en: "%s Server outages"},
+	"server.down": {
+		ru: "🔴 <b>%s %s сейчас недоступна</b>\n\nПриложение само переключится на другие серверы — делать ничего не нужно. Напишем, когда страна вернётся.",
+		en: "🔴 <b>%s %s is down right now</b>\n\nYour app switches to other servers on its own — there is nothing to do. We'll let you know when it is back.",
+	},
+	"server.up": {
+		ru: "🟢 <b>%s %s снова работает</b>\n\nСерверы страны снова отвечают. Спасибо за терпение!",
+		en: "🟢 <b>%s %s is back</b>\n\nIts servers are answering again. Thanks for bearing with us!",
+	},
 	"settings.marketing": {ru: "%s Рекламные сообщения", en: "%s Marketing messages"},
 	"settings.quiet":     {ru: "🌙 Тихие часы: %s", en: "🌙 Quiet hours: %s"},
 	"settings.quietOff":  {ru: "выключены", en: "off"},

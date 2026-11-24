@@ -62,6 +62,7 @@ func customerSettingsView(locale Locale, preferences CustomerPreferences, market
 		row(actionButton(text(locale, "settings.traffic", toggleLabel(preferences.TrafficNotifications)), "notify:traffic")),
 		row(actionButton(text(locale, "settings.renewal", toggleLabel(preferences.RenewalNotifications)), "notify:renewal")),
 		row(actionButton(text(locale, "settings.news", toggleLabel(preferences.NewsNotifications)), "notify:news")),
+		row(actionButton(text(locale, "settings.servers", toggleLabel(preferences.ServerNotifications)), "notify:server")),
 		row(actionButton(text(locale, "settings.marketing", toggleLabel(preferences.MarketingEnabled)), "notify:marketing")),
 		row(actionButton(text(locale, "settings.quiet", quiet), "quiet-menu")),
 		row(actionButton(text(locale, "settings.timezone", timezoneLabel(locale, preferences.Timezone, now)), "tz-menu")),

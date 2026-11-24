@@ -12,10 +12,17 @@ import {
   Activity,
   ChevronDown,
   ChevronRight,
+  Gauge,
   Globe,
+  House,
+  Lock,
+  Magnet,
+  Megaphone,
   Minus,
+  Pin,
   Plus,
   ShieldHalf,
+  Sparkles,
   X,
   Zap,
 } from "lucide-react";
@@ -36,17 +43,34 @@ import {
 import { estimatePing, type PingModel } from "@/lib/ping-estimate";
 import { ServiceLogo } from "@/lib/service-logos";
 
-type Presets = { russiaDirect: boolean; blockAds: boolean; blockQuic: boolean };
 type Action = "direct" | "proxy" | "block";
 type Rule = { domain: string; action: Action };
+type RuleKind = "domains" | "russia" | "ai" | "torrents" | "ads" | "quic";
+type RuleMode = "locked" | "on" | "off" | "disabled";
+/** One of the operator's service rules: a card on the Routing tab. */
+type ServiceRule = {
+  id: string;
+  kind: RuleKind;
+  name: string;
+  caption: string;
+  icon: string;
+  action: Action;
+  mode: RuleMode;
+  domains: string[];
+};
 type Preferences = {
   hiddenCountries: string[];
   autoExcluded: string[];
   reserve: boolean;
-  presets: Presets;
+  /** Choices on the rules the customer may change; a rule left out follows its default. */
+  toggles: Record<string, boolean>;
   rules: Rule[];
+  /** The host the customer made their own server; empty for none. */
+  pinned: string;
+  whitelistMode: boolean;
 };
 type Server = {
+  id: string;
   name: string;
   address: string;
   port: number;
@@ -60,11 +84,12 @@ type SmartView = {
   servers: { countries: { code: string; servers: Server[] }[]; reserve: Server[] };
   preferences: Preferences;
   customized: boolean;
-  defaults: Presets;
   customRules: boolean;
   maxRules: number;
-  /** The operator's rules for every subscription; a customer's own rule wins. */
-  serviceRules: { direct: string[]; block: string[] };
+  /** The service's rules in the operator's order; disabled ones are left out. */
+  rules: ServiceRule[];
+  /** For each AI service, how many of the customer's servers it answers from. */
+  aiServers: Record<string, number>;
 };
 
 /** Servers whose country could not be read are grouped under this code. */
@@ -426,6 +451,11 @@ function ServersTab({
     ...view.servers.reserve,
   ];
   const checked = summarizeServices(everyServer).length > 0;
+  const pinned = findPinned(view, draft);
+
+  function pin(server: Server) {
+    onChange({ ...draft, pinned: draft.pinned === server.id ? "" : server.id });
+  }
 
   async function measureAll() {
     setMeasuring(true);
@@ -475,6 +505,12 @@ function ServersTab({
         </div>
         <p className="mt-1 text-[12.5px] text-muted-foreground">{translate("autoDescription")}</p>
       </div>
+
+      <PinnedCard
+        countryName={countryName}
+        onUnpin={() => onChange({ ...draft, pinned: "" })}
+        pinned={pinned}
+      />
 
       {checked && (
         <p className="px-1 text-[12.5px] text-muted-foreground">{translate("servicesHint")}</p>
@@ -571,6 +607,13 @@ function ServersTab({
                       ) : (
                         <Ping measuring={measuring} {...shown(server)} />
                       )}
+                      {visible && server.id && (
+                        <PinButton
+                          name={server.name}
+                          onClick={() => pin(server)}
+                          pinned={draft.pinned === server.id}
+                        />
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -587,13 +630,30 @@ function ServersTab({
             <span className="flex-1 font-medium text-[14px]">{translate("reserveTitle")}</span>
             <Switch
               aria-label={translate("reserveTitle")}
-              checked={draft.reserve}
+              checked={draft.reserve || draft.whitelistMode}
+              disabled={draft.whitelistMode}
               onCheckedChange={(on) => onChange({ ...draft, reserve: on })}
             />
           </div>
           <p className="text-[12.5px] text-muted-foreground">
             {translate("reserveDescription", { count: view.servers.reserve.length })}
           </p>
+          <label className="flex items-start gap-3 rounded-md bg-secondary p-3">
+            <span className="min-w-0 flex-1">
+              <span className="block font-medium text-[13.5px]">
+                {translate("whitelistModeTitle")}
+              </span>
+              <span className="block text-[12.5px] text-muted-foreground">
+                {translate("whitelistModeDescription")}
+              </span>
+            </span>
+            <Switch
+              checked={draft.whitelistMode}
+              onCheckedChange={(on) =>
+                onChange({ ...draft, whitelistMode: on, reserve: on ? true : draft.reserve })
+              }
+            />
+          </label>
           <ul className="space-y-1.5 pt-1">
             {view.servers.reserve.map((server) => (
               <li className="flex items-center gap-2 text-[13px]" key={key(server)}>
@@ -615,6 +675,143 @@ function ServersTab({
   );
 }
 
+/** The customer's own server, if it is still among their servers. */
+function findPinned(view: SmartView, draft: Preferences): { code: string; server: Server } | null {
+  if (!draft.pinned) {
+    return null;
+  }
+  for (const country of view.servers.countries) {
+    const server = country.servers.find((candidate) => candidate.id === draft.pinned);
+    if (server) {
+      return { code: country.code, server };
+    }
+  }
+  return null;
+}
+
+/**
+ * «My server»: one exit address the app opens first. It says why someone
+ * would want that — sites see the same IP and ask for captchas and new
+ * sign-ins less often — and how to choose one.
+ */
+function PinnedCard({
+  countryName,
+  onUnpin,
+  pinned,
+}: {
+  countryName: (code: string) => string;
+  onUnpin: () => void;
+  pinned: { code: string; server: Server } | null;
+}) {
+  const translate = useTranslations("account.smart");
+  return (
+    <section className="space-y-2 rounded-lg border border-border bg-card p-4">
+      <div className="flex items-center gap-2">
+        <Pin aria-hidden className="size-4" />
+        <span className="flex-1 font-medium text-[14px]">{translate("pinnedTitle")}</span>
+        {pinned && (
+          <Button onClick={onUnpin} size="sm" variant="ghost">
+            {translate("unpin")}
+          </Button>
+        )}
+      </div>
+      {pinned ? (
+        <p className="flex items-center gap-2 text-[13.5px]">
+          <span aria-hidden className="text-[17px]">
+            {flag(pinned.code)}
+          </span>
+          <span className="min-w-0 flex-1 truncate">
+            {countryName(pinned.code)} · {pinned.server.name}
+          </span>
+        </p>
+      ) : (
+        <p className="text-[12.5px] text-muted-foreground">{translate("pinnedHowTo")}</p>
+      )}
+      <p className="text-[12.5px] text-muted-foreground">{translate("pinnedWhy")}</p>
+    </section>
+  );
+}
+
+function PinButton({
+  name,
+  onClick,
+  pinned,
+}: {
+  name: string;
+  onClick: () => void;
+  pinned: boolean;
+}) {
+  const translate = useTranslations("account.smart");
+  return (
+    <Button
+      aria-label={translate(pinned ? "unpinServer" : "pinServer", { server: name })}
+      aria-pressed={pinned}
+      className={cn(!pinned && "text-subtle-foreground")}
+      onClick={onClick}
+      size="icon-sm"
+      title={translate(pinned ? "unpinServer" : "pinServer", { server: name })}
+      variant={pinned ? "secondary" : "ghost"}
+    >
+      {pinned ? <Pin aria-hidden className="fill-current" /> : <Pin aria-hidden />}
+    </Button>
+  );
+}
+
+const GROUPS: Action[] = ["direct", "proxy", "block"];
+const BUILTIN_ICONS: Record<Exclude<RuleKind, "domains">, typeof Globe> = {
+  ads: Megaphone,
+  ai: Sparkles,
+  quic: Gauge,
+  russia: House,
+  torrents: Magnet,
+};
+const AI_NAMES: Record<string, string> = { chatgpt: "ChatGPT", claude: "Claude", gemini: "Gemini" };
+
+/** Whether a rule applies to this customer. */
+function applies(rule: ServiceRule, toggles: Record<string, boolean>): boolean {
+  if (rule.mode === "locked") {
+    return true;
+  }
+  return toggles[rule.id] ?? rule.mode === "on";
+}
+
+function RuleIcon({ rule }: { rule: ServiceRule }) {
+  if (rule.icon) {
+    return (
+      // biome-ignore lint/performance/noImgElement: a small icon the API serves; next/image adds nothing here.
+      <img
+        alt=""
+        className="size-9 shrink-0 rounded-md bg-white object-contain p-1"
+        height={36}
+        loading="lazy"
+        src={`/v1/account/smart-subscription/icons/${encodeURIComponent(rule.icon)}`}
+        width={36}
+      />
+    );
+  }
+  const Icon = rule.kind === "domains" ? Globe : BUILTIN_ICONS[rule.kind];
+  return (
+    <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-secondary">
+      <Icon aria-hidden className="size-[18px]" />
+    </span>
+  );
+}
+
+/** The rule's caption: the operator's, else the panel's words for its kind. */
+function useRuleText() {
+  const translate = useTranslations("account.smart.builtin");
+  return (rule: ServiceRule) => {
+    if (rule.kind === "domains") {
+      return { caption: rule.caption, name: rule.name };
+    }
+    const kind = rule.kind === "torrents" ? `torrents_${rule.action}` : rule.kind;
+    return {
+      caption: rule.caption || translate(`${kind}.caption`),
+      name: rule.name || translate(`${kind}.name`),
+    };
+  };
+}
+
 function RoutesTab({
   draft,
   onChange,
@@ -625,11 +822,140 @@ function RoutesTab({
   view: SmartView;
 }) {
   const translate = useTranslations("account.smart");
+  function setToggle(rule: ServiceRule, on: boolean) {
+    const toggles = { ...draft.toggles };
+    // A choice equal to the default is not a choice: the saved document and
+    // the draft stay comparable.
+    if (on === (rule.mode === "on")) {
+      delete toggles[rule.id];
+    } else {
+      toggles[rule.id] = on;
+    }
+    onChange({ ...draft, toggles });
+  }
+
+  return (
+    <div className="space-y-5">
+      {GROUPS.map((action) => {
+        const rules = view.rules.filter((rule) => rule.action === action);
+        if (rules.length === 0) {
+          return null;
+        }
+        return (
+          <section className="space-y-2" key={action}>
+            <div className="px-1">
+              <h2 className="font-medium text-[14px]">{translate(`groups.${action}.title`)}</h2>
+              <p className="text-[12.5px] text-muted-foreground">
+                {translate(`groups.${action}.description`)}
+              </p>
+            </div>
+            <ul className="rounded-lg border border-border bg-card px-4">
+              {rules.map((rule) => (
+                <RuleCard
+                  aiServers={view.aiServers}
+                  key={rule.id}
+                  on={applies(rule, draft.toggles)}
+                  onToggle={(on) => setToggle(rule, on)}
+                  rule={rule}
+                />
+              ))}
+            </ul>
+          </section>
+        );
+      })}
+
+      {view.customRules && <CustomRules draft={draft} max={view.maxRules} onChange={onChange} />}
+    </div>
+  );
+}
+
+function RuleCard({
+  aiServers,
+  on,
+  onToggle,
+  rule,
+}: {
+  aiServers: Record<string, number>;
+  on: boolean;
+  onToggle: (on: boolean) => void;
+  rule: ServiceRule;
+}) {
+  const translate = useTranslations("account.smart");
+  const text = useRuleText();
+  const [open, setOpen] = useState(false);
+  const { caption, name } = text(rule);
+  const locked = rule.mode === "locked";
+  const ai = rule.kind === "ai" ? Object.entries(aiServers).filter(([, count]) => count > 0) : [];
+  return (
+    <li className="border-border border-t py-3 first:border-t-0">
+      <div className="flex items-start gap-3">
+        <RuleIcon rule={rule} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <span className="truncate font-medium text-[14px]">{name}</span>
+            {locked && <Lock aria-hidden className="size-3.5 shrink-0 text-subtle-foreground" />}
+          </div>
+          {caption && (
+            <p className="mt-0.5 whitespace-pre-line text-[12.5px] text-muted-foreground">
+              {caption}
+            </p>
+          )}
+          {rule.kind === "ai" && (
+            <p className="mt-1 flex flex-wrap gap-1">
+              {ai.length === 0 ? (
+                <span className="text-[12px] text-subtle-foreground">{translate("aiNone")}</span>
+              ) : (
+                ai.map(([service, count]) => (
+                  <Badge className="px-1.5 font-normal" key={service} variant="success">
+                    {service in NODE_SERVICE_LABELS && (
+                      <ServiceLogo className="size-3" service={service as NodeService} />
+                    )}
+                    {translate("aiServers", { count, service: AI_NAMES[service] ?? service })}
+                  </Badge>
+                ))
+              )}
+            </p>
+          )}
+          {rule.kind === "domains" && rule.domains.length > 0 && (
+            <button
+              aria-expanded={open}
+              className="mt-1 text-[12px] text-subtle-foreground underline-offset-2 hover:underline"
+              onClick={() => setOpen(!open)}
+              type="button"
+            >
+              {translate("ruleDomains", { count: rule.domains.length })}
+            </button>
+          )}
+          {open && (
+            <p className="mt-1 break-words font-mono text-[11.5px] text-muted-foreground">
+              {rule.domains.join(", ")}
+            </p>
+          )}
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1 pt-0.5">
+          <Switch aria-label={name} checked={on} disabled={locked} onCheckedChange={onToggle} />
+          {locked && (
+            <span className="text-[11px] text-subtle-foreground">{translate("ruleAlways")}</span>
+          )}
+        </div>
+      </div>
+    </li>
+  );
+}
+
+function CustomRules({
+  draft,
+  max,
+  onChange,
+}: {
+  draft: Preferences;
+  max: number;
+  onChange: (next: Preferences) => void;
+}) {
+  const translate = useTranslations("account.smart");
   const [domain, setDomain] = useState("");
   const [action, setAction] = useState<Action>("direct");
   const [problem, setProblem] = useState("");
-
-  const presets: (keyof Presets)[] = ["russiaDirect", "blockAds", "blockQuic"];
 
   function add(event: FormEvent) {
     event.preventDefault();
@@ -649,8 +975,8 @@ function RoutesTab({
       setProblem(translate("domainDuplicate"));
       return;
     }
-    if (draft.rules.length >= view.maxRules) {
-      setProblem(translate("rulesFull", { max: view.maxRules }));
+    if (draft.rules.length >= max) {
+      setProblem(translate("rulesFull", { max }));
       return;
     }
     onChange({ ...draft, rules: [{ action, domain: value }, ...draft.rules] });
@@ -658,157 +984,82 @@ function RoutesTab({
   }
 
   return (
-    <div className="space-y-4">
-      <section className="rounded-lg border border-border bg-card px-4">
-        {presets.map((preset) => (
-          <label
-            className="flex items-center gap-3 border-border border-t py-3 first:border-t-0"
-            key={preset}
-          >
-            <span className="min-w-0 flex-1">
-              <span className="block font-medium text-[14px]">
-                {translate(`presets.${preset}.title`)}
-              </span>
-              <span className="block text-[12.5px] text-muted-foreground">
-                {translate(`presets.${preset}.description`)}
-              </span>
-            </span>
-            <Switch
-              checked={draft.presets[preset]}
-              onCheckedChange={(on) =>
-                onChange({ ...draft, presets: { ...draft.presets, [preset]: on } })
-              }
-            />
-          </label>
-        ))}
-      </section>
-
-      <ServiceRules rules={view.serviceRules} />
-
-      {view.customRules && (
-        <section className="space-y-3 rounded-lg border border-border bg-card p-4">
-          <div className="flex items-baseline justify-between">
-            <span className="font-medium text-[14px]">{translate("rulesTitle")}</span>
-            <span className="text-[12.5px] text-subtle-foreground">
-              {translate("rulesCount", { count: draft.rules.length, max: view.maxRules })}
-            </span>
-          </div>
-          <form className="flex gap-2" noValidate onSubmit={add}>
-            <Input
-              aria-invalid={problem !== ""}
-              aria-label={translate("domainLabel")}
-              className="min-w-0 flex-1"
-              inputMode="url"
-              onChange={(event) => {
-                setDomain(event.target.value);
-                setProblem("");
-              }}
-              placeholder="example.com"
-              value={domain}
-            />
-            <Select onValueChange={(value) => setAction(value as Action)} value={action}>
-              <SelectTrigger aria-label={translate("actionLabel")} className="w-[130px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ACTIONS.map((option) => (
-                  <SelectItem key={option} value={option}>
-                    {translate(`actions.${option}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button aria-label={translate("addRule")} size="icon" type="submit">
-              <Plus aria-hidden />
-            </Button>
-          </form>
-          {problem && (
-            <p className="text-[12.5px] text-destructive" role="alert">
-              {problem}
-            </p>
-          )}
-          {draft.rules.length === 0 ? (
-            <p className="text-[12.5px] text-muted-foreground">{translate("rulesEmpty")}</p>
-          ) : (
-            <ul>
-              {draft.rules.map((rule) => (
-                <li
-                  className="flex items-center gap-2 border-border border-t py-2 first:border-t-0"
-                  key={rule.domain}
-                >
-                  <span className="min-w-0 flex-1 truncate font-mono text-[12.5px]">
-                    {rule.domain}
-                  </span>
-                  <Badge
-                    variant={
-                      rule.action === "block"
-                        ? "danger"
-                        : rule.action === "proxy"
-                          ? "info"
-                          : "neutral"
-                    }
-                  >
-                    {translate(`actions.${rule.action}`)}
-                  </Badge>
-                  <Button
-                    aria-label={translate("removeRule", { domain: rule.domain })}
-                    onClick={() =>
-                      onChange({
-                        ...draft,
-                        rules: draft.rules.filter((r) => r.domain !== rule.domain),
-                      })
-                    }
-                    size="icon-sm"
-                    variant="ghost"
-                  >
-                    <X aria-hidden />
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <p className="text-[12px] text-muted-foreground">{translate("rulesHint")}</p>
-        </section>
-      )}
-    </div>
-  );
-}
-
-/**
- * The rules the service applies to everyone, read-only. They are listed so a
- * customer sees what already goes direct or is blocked before adding a rule
- * of their own, which takes precedence for the same domain.
- */
-function ServiceRules({ rules }: { rules: SmartView["serviceRules"] | undefined }) {
-  const translate = useTranslations("account.smart");
-  const entries = [
-    ...(rules?.block ?? []).map((domain) => ({ action: "block" as Action, domain })),
-    ...(rules?.direct ?? []).map((domain) => ({ action: "direct" as Action, domain })),
-  ];
-  if (entries.length === 0) {
-    return null;
-  }
-  return (
     <section className="space-y-3 rounded-lg border border-border bg-card p-4">
-      <div className="space-y-1">
-        <span className="block font-medium text-[14px]">{translate("serviceRulesTitle")}</span>
-        <span className="block text-[12.5px] text-muted-foreground">
-          {translate("serviceRulesHint")}
+      <div className="flex items-baseline justify-between">
+        <span className="font-medium text-[14px]">{translate("rulesTitle")}</span>
+        <span className="text-[12.5px] text-subtle-foreground">
+          {translate("rulesCount", { count: draft.rules.length, max })}
         </span>
       </div>
-      <ul>
-        {entries.map((rule) => (
-          <li
-            className="flex items-center gap-2 border-border border-t py-2 first:border-t-0"
-            key={`${rule.action}:${rule.domain}`}
-          >
-            <span className="min-w-0 flex-1 truncate font-mono text-[12.5px]">{rule.domain}</span>
-            <Badge variant={rule.action === "block" ? "danger" : "neutral"}>
-              {translate(`actions.${rule.action}`)}
-            </Badge>
-          </li>
-        ))}
-      </ul>
+      <form className="flex gap-2" noValidate onSubmit={add}>
+        <Input
+          aria-invalid={problem !== ""}
+          aria-label={translate("domainLabel")}
+          className="min-w-0 flex-1"
+          inputMode="url"
+          onChange={(event) => {
+            setDomain(event.target.value);
+            setProblem("");
+          }}
+          placeholder="example.com"
+          value={domain}
+        />
+        <Select onValueChange={(value) => setAction(value as Action)} value={action}>
+          <SelectTrigger aria-label={translate("actionLabel")} className="w-[130px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {ACTIONS.map((option) => (
+              <SelectItem key={option} value={option}>
+                {translate(`actions.${option}`)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button aria-label={translate("addRule")} size="icon" type="submit">
+          <Plus aria-hidden />
+        </Button>
+      </form>
+      {problem && (
+        <p className="text-[12.5px] text-destructive" role="alert">
+          {problem}
+        </p>
+      )}
+      {draft.rules.length === 0 ? (
+        <p className="text-[12.5px] text-muted-foreground">{translate("rulesEmpty")}</p>
+      ) : (
+        <ul>
+          {draft.rules.map((rule) => (
+            <li
+              className="flex items-center gap-2 border-border border-t py-2 first:border-t-0"
+              key={rule.domain}
+            >
+              <span className="min-w-0 flex-1 truncate font-mono text-[12.5px]">{rule.domain}</span>
+              <Badge
+                variant={
+                  rule.action === "block" ? "danger" : rule.action === "proxy" ? "info" : "neutral"
+                }
+              >
+                {translate(`actions.${rule.action}`)}
+              </Badge>
+              <Button
+                aria-label={translate("removeRule", { domain: rule.domain })}
+                onClick={() =>
+                  onChange({
+                    ...draft,
+                    rules: draft.rules.filter((r) => r.domain !== rule.domain),
+                  })
+                }
+                size="icon-sm"
+                variant="ghost"
+              >
+                <X aria-hidden />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="text-[12px] text-muted-foreground">{translate("rulesHint")}</p>
     </section>
   );
 }

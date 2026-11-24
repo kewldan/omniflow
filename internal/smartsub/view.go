@@ -1,7 +1,11 @@
 package smartsub
 
+import "strings"
+
 // ViewServer is one server as the customer's screen lists it.
 type ViewServer struct {
+	// ID is the Remnawave host, which the customer can pin as their server.
+	ID      string `json:"id"`
 	Name    string `json:"name"`
 	Address string `json:"address"`
 	Port    int    `json:"port"`
@@ -30,6 +34,7 @@ type View struct {
 
 // Entry is one server of a customer's subscription as the panel resolved it.
 type Entry struct {
+	ID      string
 	Remark  string
 	Address string
 	Port    int
@@ -49,7 +54,7 @@ func BuildView(entries []Entry, catalog Catalog, settings Settings, checks map[s
 			continue
 		}
 		server := catalog.Classify(entry.Remark, entry.Address, entry.Port, settings)
-		listed := ViewServer{
+		listed := ViewServer{ID: strings.ToLower(entry.ID),
 			Name: entry.Remark, Address: entry.Address, Port: entry.Port, Down: server.Down,
 		}
 		if check, ok := checks[server.ExitNode]; ok && server.ExitNode != "" && len(check.Services) > 0 {

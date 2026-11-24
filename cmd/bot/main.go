@@ -201,6 +201,7 @@ func main() {
 	go botapp.NewBlockerScanner(pool, identities, client, logger).Run(ctx)
 	go announceStart(ctx, notifier, pool, client, installation, remnawaveClient)
 	customerNotifier := botapp.NewNotifier(logger, sender, identities, linkedPanel, commerceService, settings).
+		WithSmartSubscription(linkedPanel.Links).
 		WithAnalytics(businessAnalytics)
 	if me, getMeErr := client.GetMe(ctx); getMeErr == nil {
 		customerNotifier.SetBotUsername(me.Username)

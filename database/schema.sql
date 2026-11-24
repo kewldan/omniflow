@@ -1545,6 +1545,7 @@ CREATE TABLE public.bot_preferences (
     marketing_enabled boolean DEFAULT false NOT NULL,
     quiet_hours_start smallint,
     quiet_hours_end smallint,
+    server_notifications boolean DEFAULT true NOT NULL,
     CONSTRAINT bot_preferences_locale_check CHECK ((locale = ANY (ARRAY['auto'::text, 'ru'::text, 'en'::text, 'uk'::text, 'zh'::text, 'fa'::text]))),
     CONSTRAINT bot_preferences_quiet_hours_check CHECK (((quiet_hours_start IS NULL) = (quiet_hours_end IS NULL))),
     CONSTRAINT bot_preferences_quiet_hours_end_check CHECK (((quiet_hours_end >= 0) AND (quiet_hours_end <= 23))),
@@ -5309,6 +5310,52 @@ CREATE TABLE public.simple_subscription (
 
 
 --
+-- Name: smart_subscription_icons; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.smart_subscription_icons (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    content_type text NOT NULL,
+    data bytea NOT NULL,
+    sha256 bytea NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    created_by uuid,
+    CONSTRAINT smart_subscription_icons_content_type_known CHECK ((content_type = ANY (ARRAY['image/png'::text, 'image/svg+xml'::text, 'image/webp'::text, 'image/jpeg'::text]))),
+    CONSTRAINT smart_subscription_icons_sha256_length CHECK ((octet_length(sha256) = 32)),
+    CONSTRAINT smart_subscription_icons_size CHECK (((octet_length(data) >= 1) AND (octet_length(data) <= 131072)))
+);
+
+
+--
+-- Name: smart_subscription_outage_notices; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.smart_subscription_outage_notices (
+    outage_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    kind text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    sent_at timestamp with time zone,
+    CONSTRAINT smart_subscription_outage_notices_kind_known CHECK ((kind = ANY (ARRAY['down'::text, 'up'::text])))
+);
+
+
+--
+-- Name: smart_subscription_outages; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.smart_subscription_outages (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    country text NOT NULL,
+    started_at timestamp with time zone NOT NULL,
+    ended_at timestamp with time zone,
+    announced_at timestamp with time zone,
+    CONSTRAINT smart_subscription_outages_country_format CHECK ((country ~ '^[A-Z]{2}$'::text)),
+    CONSTRAINT smart_subscription_outages_ended_after_start CHECK (((ended_at IS NULL) OR (ended_at >= started_at)))
+);
+
+
+--
 -- Name: smart_subscription_preferences; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -5322,8 +5369,12 @@ CREATE TABLE public.smart_subscription_preferences (
     block_quic boolean DEFAULT false NOT NULL,
     rules jsonb DEFAULT '[]'::jsonb NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    toggles jsonb DEFAULT '{}'::jsonb NOT NULL,
+    pinned_host uuid,
+    whitelist_mode boolean DEFAULT false NOT NULL,
     CONSTRAINT smart_subscription_preferences_countries_bounded CHECK (((cardinality(hidden_countries) <= 300) AND (cardinality(auto_excluded) <= 300))),
-    CONSTRAINT smart_subscription_preferences_rules_array CHECK (((jsonb_typeof(rules) = 'array'::text) AND (jsonb_array_length(rules) <= 200)))
+    CONSTRAINT smart_subscription_preferences_rules_array CHECK (((jsonb_typeof(rules) = 'array'::text) AND (jsonb_array_length(rules) <= 200))),
+    CONSTRAINT smart_subscription_preferences_toggles_object CHECK ((jsonb_typeof(toggles) = 'object'::text))
 );
 
 
@@ -8369,6 +8420,38 @@ ALTER TABLE ONLY public.simple_subscription
 
 
 --
+-- Name: smart_subscription_icons smart_subscription_icons_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.smart_subscription_icons
+    ADD CONSTRAINT smart_subscription_icons_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: smart_subscription_icons smart_subscription_icons_sha256_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.smart_subscription_icons
+    ADD CONSTRAINT smart_subscription_icons_sha256_key UNIQUE (sha256);
+
+
+--
+-- Name: smart_subscription_outage_notices smart_subscription_outage_notices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.smart_subscription_outage_notices
+    ADD CONSTRAINT smart_subscription_outage_notices_pkey PRIMARY KEY (outage_id, user_id, kind);
+
+
+--
+-- Name: smart_subscription_outages smart_subscription_outages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.smart_subscription_outages
+    ADD CONSTRAINT smart_subscription_outages_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: smart_subscription_preferences smart_subscription_preferences_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9943,6 +10026,20 @@ CREATE INDEX river_notification_topic_id_idx ON public.river_notification USING 
 --
 
 CREATE INDEX self_employed_receipts_due_idx ON public.self_employed_receipts USING btree (next_attempt_at) WHERE (status = ANY (ARRAY['pending'::text, 'uncertain'::text]));
+
+
+--
+-- Name: smart_subscription_outage_notices_pending_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX smart_subscription_outage_notices_pending_idx ON public.smart_subscription_outage_notices USING btree (created_at) WHERE (sent_at IS NULL);
+
+
+--
+-- Name: smart_subscription_outages_open_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX smart_subscription_outages_open_idx ON public.smart_subscription_outages USING btree (country) WHERE (ended_at IS NULL);
 
 
 --
@@ -12702,6 +12799,22 @@ ALTER TABLE ONLY public.simple_subscription
 
 ALTER TABLE ONLY public.simple_subscription
     ADD CONSTRAINT simple_subscription_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.plans(id) ON DELETE SET NULL;
+
+
+--
+-- Name: smart_subscription_outage_notices smart_subscription_outage_notices_outage_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.smart_subscription_outage_notices
+    ADD CONSTRAINT smart_subscription_outage_notices_outage_id_fkey FOREIGN KEY (outage_id) REFERENCES public.smart_subscription_outages(id) ON DELETE CASCADE;
+
+
+--
+-- Name: smart_subscription_outage_notices smart_subscription_outage_notices_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.smart_subscription_outage_notices
+    ADD CONSTRAINT smart_subscription_outage_notices_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --

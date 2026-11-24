@@ -44,6 +44,9 @@ type Notifications struct {
 	Traffic bool
 	Renewal bool
 	News    bool
+	// Servers is the notice when a country the customer uses goes down and
+	// comes back.
+	Servers bool
 }
 
 // QuietWindow is a local-time window during which non-urgent messages wait.
@@ -95,6 +98,7 @@ type PreferencesUpdate struct {
 	Traffic *bool
 	Renewal *bool
 	News    *bool
+	Servers *bool
 	// Marketing is the consent switch. Setting it appends to the consent history;
 	// it never edits what is already there.
 	Marketing *bool
@@ -107,7 +111,7 @@ type PreferencesUpdate struct {
 // Preferences reads the notification, consent, contact, and suppression state.
 func (service *Service) Preferences(ctx context.Context, customerID string) (Preferences, error) {
 	preferences := Preferences{Locale: "auto", Notifications: Notifications{
-		Expiry: true, Traffic: true, Renewal: true, News: true,
+		Expiry: true, Traffic: true, Renewal: true, News: true, Servers: true,
 	}}
 	var start, end pgtype.Int2
 	var marketingEnabled bool
@@ -118,13 +122,13 @@ func (service *Service) Preferences(ctx context.Context, customerID string) (Pre
 		COALESCE(p.locale, 'auto'),
 		COALESCE(p.expiry_notifications, true), COALESCE(p.traffic_notifications, true),
 		COALESCE(p.renewal_notifications, true), COALESCE(p.news_notifications, true),
-		COALESCE(p.marketing_enabled, false),
+		COALESCE(p.server_notifications, true), COALESCE(p.marketing_enabled, false),
 		p.quiet_hours_start, p.quiet_hours_end
 		FROM users u LEFT JOIN bot_preferences p ON p.user_id = u.id
 		WHERE u.id = $1::uuid`, customerID).
 		Scan(&preferences.Locale, &preferences.Notifications.Expiry,
 			&preferences.Notifications.Traffic, &preferences.Notifications.Renewal,
-			&preferences.Notifications.News, &marketingEnabled, &start, &end)
+			&preferences.Notifications.News, &preferences.Notifications.Servers, &marketingEnabled, &start, &end)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Preferences{}, ErrNotFound
 	}
@@ -275,23 +279,24 @@ func (service *Service) UpdatePreferences(
 
 	if _, err = tx.Exec(ctx, `INSERT INTO bot_preferences (user_id, locale,
 		expiry_notifications, traffic_notifications, renewal_notifications,
-		news_notifications, marketing_enabled, quiet_hours_start, quiet_hours_end)
+		news_notifications, marketing_enabled, quiet_hours_start, quiet_hours_end, server_notifications)
 		VALUES ($1::uuid, COALESCE($2::text, 'auto'),
 			COALESCE($3::boolean, true), COALESCE($4::boolean, true),
 			COALESCE($5::boolean, true), COALESCE($6::boolean, true),
-			COALESCE($7::boolean, false), $8::smallint, $9::smallint)
+			COALESCE($7::boolean, false), $8::smallint, $9::smallint, COALESCE($11::boolean, true))
 		ON CONFLICT (user_id) DO UPDATE SET
 			locale = COALESCE($2::text, bot_preferences.locale),
 			expiry_notifications = COALESCE($3::boolean, bot_preferences.expiry_notifications),
 			traffic_notifications = COALESCE($4::boolean, bot_preferences.traffic_notifications),
 			renewal_notifications = COALESCE($5::boolean, bot_preferences.renewal_notifications),
 			news_notifications = COALESCE($6::boolean, bot_preferences.news_notifications),
+			server_notifications = COALESCE($11::boolean, bot_preferences.server_notifications),
 			marketing_enabled = COALESCE($7::boolean, bot_preferences.marketing_enabled),
 			quiet_hours_start = CASE WHEN $10 THEN $8::smallint ELSE bot_preferences.quiet_hours_start END,
 			quiet_hours_end = CASE WHEN $10 THEN $9::smallint ELSE bot_preferences.quiet_hours_end END,
 			updated_at = now()`,
 		customerID, locale, update.Expiry, update.Traffic, update.Renewal,
-		update.News, update.Marketing, start, end, update.QuietHours != nil); err != nil {
+		update.News, update.Marketing, start, end, update.QuietHours != nil, update.Servers); err != nil {
 		return Preferences{}, err
 	}
 

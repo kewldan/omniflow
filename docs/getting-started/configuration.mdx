@@ -112,6 +112,7 @@ processes.
 | --- | --- | --- | --- | --- | --- |
 | `APP_REMNAWAVE_URL` | — | api, bot, worker | yes | no | Remnawave API base URL |
 | `APP_REMNAWAVE_TOKEN` | — | api, bot, worker | yes | **yes** | Remnawave API credential |
+| `APP_LOGO_DEV_TOKEN` | — | api | no | no (logo.dev's publishable key) | Lets the smart subscription's rule editor fetch a site's logo by domain from logo.dev. The logo is stored once in the database; customers' browsers never call logo.dev. Empty hides **Find logo** and leaves uploads. See [Smart subscription](/features/smart-subscription#service-rules) |
 
 The API's readiness probe calls Remnawave with an authenticated request that lists one user, so a
 revoked or expired token shows up as an unhealthy `remnawave` dependency in `/readyz` rather than as

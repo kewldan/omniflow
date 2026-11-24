@@ -1462,6 +1462,66 @@ paths:
         "200": {description: Hosts, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSmartSubscriptionHosts"}}}}
         "403": {$ref: "#/components/responses/Problem"}
         "502": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/smart-subscription/stats:
+    get:
+      operationId: getPanelSmartSubscriptionStats
+      tags: [panel]
+      description: >-
+        Requires settings.read. What customers did with the smart
+        subscription, aggregated: countries hidden and kept out of the
+        fastest-server group, choices on each service rule, pinned servers,
+        the whitelist mode, and the customers' own domains shared by at least
+        three subscriptions.
+      responses:
+        "200": {description: Stats, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSmartSubscriptionStats"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/smart-subscription/icons:
+    post:
+      operationId: uploadPanelSmartSubscriptionIcon
+      tags: [panel]
+      description: >-
+        Requires settings.write. Stores a service rule icon sent as the raw
+        body: PNG, JPEG, WebP, or an SVG without scripts, at most 128 KB. The
+        type is read from the bytes. The same bytes return the same ID.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody:
+        required: true
+        content:
+          application/octet-stream: {schema: {type: string, format: binary}}
+      responses:
+        "201": {description: Stored, content: {application/json: {schema: {$ref: "#/components/schemas/SmartSubscriptionIconCreated"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/smart-subscription/icons/fetch:
+    post:
+      operationId: fetchPanelSmartSubscriptionIcon
+      tags: [panel]
+      description: >-
+        Requires settings.write. Downloads a site's logo from logo.dev once and
+        stores it as an icon, so customers' browsers never ask a third party
+        for it. 409 without APP_LOGO_DEV_TOKEN; 404 when logo.dev has no logo
+        for the domain.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [domain], properties: {domain: {type: string}}}
+      responses:
+        "201": {description: Stored, content: {application/json: {schema: {$ref: "#/components/schemas/SmartSubscriptionIconCreated"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/smart-subscription/icons/{iconID}:
+    get:
+      operationId: getPanelSmartSubscriptionIcon
+      tags: [panel]
+      description: Requires settings.read. One stored icon; immutable under its ID.
+      parameters: [{in: path, name: iconID, required: true, schema: {type: string, format: uuid}}]
+      responses:
+        "200": {description: Icon, content: {image/png: {schema: {type: string, format: binary}}, image/svg+xml: {schema: {type: string, format: binary}}}}
+        "404": {$ref: "#/components/responses/Problem"}
   /v1/panel/remnawave/squads:
     get:
       operationId: listPanelRemnawaveSquads
@@ -4749,6 +4809,15 @@ paths:
           content:
             application/json:
               schema: {type: object, required: [enabled], properties: {enabled: {type: boolean}}}
+  /v1/account/smart-subscription/icons/{iconID}:
+    get:
+      operationId: getAccountSmartSubscriptionIcon
+      tags: [account]
+      description: One service rule icon, served by the API so no third party sees the customer; immutable under its ID.
+      parameters: [{in: path, name: iconID, required: true, schema: {type: string, format: uuid}}]
+      responses:
+        "200": {description: Icon, content: {image/png: {schema: {type: string, format: binary}}, image/svg+xml: {schema: {type: string, format: binary}}}}
+        "404": {$ref: "#/components/responses/Problem"}
   /v1/account/subscriptions/{subscriptionID}/smart:
     get:
       operationId: getAccountSmartSubscription
@@ -7990,13 +8059,22 @@ components:
         trafficGb: {type: integer, minimum: 0, maximum: 1000000, description: 0 is the version's own traffic.}
         deviceAddonId: {type: string, description: A devices add-on bought with the plan; empty for none.}
         deviceQuantity: {type: integer, minimum: 0, maximum: 100}
-    SmartSubscriptionPresets:
+    SmartSubscriptionServiceRule:
       type: object
-      required: [russiaDirect, blockAds, blockQuic]
+      required: [id, kind, name, caption, icon, action, mode, domains]
+      description: >-
+        One card on the customer's Routing tab. Built-in kinds (russia, ai,
+        torrents, ads, quic) carry their own matchers and ignore domains; an
+        empty name or caption on one of them uses the panel's own words.
       properties:
-        russiaDirect: {type: boolean, description: ".ru, .su, .рф, and Russian IP ranges go around the tunnel."}
-        blockAds: {type: boolean, description: Advertising and tracking domains are dropped.}
-        blockQuic: {type: boolean, description: "UDP 443 is refused, which pushes browsers back onto TCP."}
+        id: {type: string, description: "Stable; customers' choices are keyed by it. A built-in rule's ID is its kind."}
+        kind: {type: string, enum: [domains, russia, ai, torrents, ads, quic]}
+        name: {type: string, maxLength: 60}
+        caption: {type: string, maxLength: 160}
+        icon: {type: string, description: "An uploaded icon's ID, or empty."}
+        action: {type: string, enum: [direct, proxy, block], description: "russia is direct, ai proxy, ads and quic block; torrents direct or block."}
+        mode: {type: string, enum: [locked, "on", "off", disabled], description: "locked: always on and shown with a lock; on/off: the default the customer can change; disabled: neither applied nor shown."}
+        domains: {type: array, maxItems: 200, items: {type: string}}
     SmartSubscriptionHostOverride:
       type: object
       properties:
@@ -8023,7 +8101,7 @@ components:
         tiktok: {$ref: "#/components/schemas/SmartSubscriptionServiceStatus"}
     PanelSmartSubscription:
       type: object
-      required: [enabled, version, linkBase, probeUrl, probeIntervalSeconds, autoName, reserveName, defaults, customRules, maxRules, directDomains, blockDomains, hosts]
+      required: [enabled, version, linkBase, probeUrl, probeIntervalSeconds, autoName, reserveName, customRules, maxRules, rules, outageNotices, outageMinutes, hosts]
       properties:
         enabled: {type: boolean}
         version: {type: integer, description: Send back the version last read; a newer one on the server is a 409.}
@@ -8033,11 +8111,12 @@ components:
         probeIntervalSeconds: {type: integer, minimum: 30, maximum: 86400}
         autoName: {type: string, maxLength: 40, description: The fastest-server group's name; empty uses the customer's language's default.}
         reserveName: {type: string, maxLength: 40, description: The whitelist bypass group's name; empty uses the default.}
-        defaults: {$ref: "#/components/schemas/SmartSubscriptionPresets"}
         customRules: {type: boolean, description: Customers may add their own domains.}
         maxRules: {type: integer, minimum: 1, maximum: 200}
-        directDomains: {type: array, maxItems: 200, items: {type: string}, description: Domains that always go around the tunnel for everyone.}
-        blockDomains: {type: array, maxItems: 200, items: {type: string}, description: Domains refused for everyone.}
+        rules: {type: array, maxItems: 40, items: {$ref: "#/components/schemas/SmartSubscriptionServiceRule"}, description: "The service rules in the order customers see them; any built-in rule left out is added with its default."}
+        outageNotices: {type: boolean, description: "A bot message when every server of a country a customer uses has been down outageMinutes, and when it is back."}
+        outageMinutes: {type: integer, minimum: 2, maximum: 1440}
+        logoSearch: {type: boolean, readOnly: true, description: "Whether icons can be fetched by domain (APP_LOGO_DEV_TOKEN is set)."}
         hosts:
           type: object
           description: Corrections keyed by Remnawave host UUID.
@@ -8081,17 +8160,20 @@ components:
         action: {type: string, enum: [direct, proxy, block]}
     SmartSubscriptionPreferences:
       type: object
-      required: [hiddenCountries, autoExcluded, reserve, presets, rules]
+      required: [hiddenCountries, autoExcluded, reserve, toggles, rules, pinned, whitelistMode]
       properties:
         hiddenCountries: {type: array, items: {type: string}, description: "ISO codes left out of the subscription; ZZ is the servers whose country is unknown."}
         autoExcluded: {type: array, items: {type: string}, description: Countries the fastest-server group never picks.}
         reserve: {type: boolean, description: "Keep the whitelist bypass servers, as a fallback and as a group."}
-        presets: {$ref: "#/components/schemas/SmartSubscriptionPresets"}
+        toggles: {type: object, additionalProperties: {type: boolean}, description: "Choices on the service rules the customer may change, by rule ID; a rule left out follows its default."}
         rules: {type: array, maxItems: 200, items: {$ref: "#/components/schemas/SmartSubscriptionRule"}}
+        pinned: {type: string, description: "The host the customer chose as their own server, which becomes the first group; empty for none."}
+        whitelistMode: {type: boolean, description: "The fastest-server group starts on the whitelist bypass servers."}
     SmartSubscriptionServer:
       type: object
-      required: [name, address, port, down]
+      required: [id, name, address, port, down]
       properties:
+        id: {type: string, description: "The Remnawave host, which the customer can pin."}
         name: {type: string}
         address: {type: string}
         port: {type: integer}
@@ -8106,7 +8188,7 @@ components:
             tailMs: {type: integer, description: "The round trip past the entry: the hop to the exit node, the exit's median round trip to common sites, and 1 ms per node."}
     AccountSmartSubscription:
       type: object
-      required: [servers, preferences, customized, defaults, customRules, maxRules, serviceRules]
+      required: [servers, preferences, customized, customRules, maxRules, rules, aiServers]
       properties:
         servers:
           type: object
@@ -8123,16 +8205,50 @@ components:
             reserve: {type: array, items: {$ref: "#/components/schemas/SmartSubscriptionServer"}}
         preferences: {$ref: "#/components/schemas/SmartSubscriptionPreferences"}
         customized: {type: boolean}
-        defaults: {$ref: "#/components/schemas/SmartSubscriptionPresets"}
         customRules: {type: boolean}
         maxRules: {type: integer}
-        serviceRules:
-          type: object
-          description: The operator's rules that apply to every subscription; a customer's own rule for the same domain wins.
-          required: [direct, block]
-          properties:
-            direct: {type: array, items: {type: string}}
-            block: {type: array, items: {type: string}}
+        rules: {type: array, items: {$ref: "#/components/schemas/SmartSubscriptionServiceRule"}, description: "The service rules the customer sees, in order; disabled ones are left out."}
+        aiServers: {type: object, additionalProperties: {type: integer}, description: "For chatgpt, gemini, and claude, how many of the customer's servers the service answers from."}
+    PanelSmartSubscriptionStats:
+      type: object
+      required: [customized, hidden, autoExcluded, rules, pinned, whitelist, reserveOff, domains]
+      properties:
+        customized: {type: integer}
+        hidden: {type: array, items: {$ref: "#/components/schemas/SmartSubscriptionCount"}}
+        autoExcluded: {type: array, items: {$ref: "#/components/schemas/SmartSubscriptionCount"}}
+        rules:
+          type: array
+          items:
+            type: object
+            required: [id, "on", "off"]
+            properties:
+              id: {type: string}
+              "on": {type: integer}
+              "off": {type: integer}
+        pinned: {type: array, items: {$ref: "#/components/schemas/SmartSubscriptionCount"}}
+        whitelist: {type: integer}
+        reserveOff: {type: integer}
+        domains:
+          type: array
+          description: "Customers' own domains shared by at least three subscriptions, with the most common action."
+          items:
+            type: object
+            required: [domain, action, count]
+            properties:
+              domain: {type: string}
+              action: {type: string}
+              count: {type: integer}
+    SmartSubscriptionCount:
+      type: object
+      required: [key, count]
+      properties:
+        key: {type: string}
+        count: {type: integer}
+    SmartSubscriptionIconCreated:
+      type: object
+      required: [id]
+      properties:
+        id: {type: string}
     PanelTrafficPackage:
       type: object
       required: [gb, currency, amountMinor]
@@ -11610,12 +11726,13 @@ components:
         locale: {type: string, enum: [auto, ru, en]}
         notifications:
           type: object
-          required: [expiry, traffic, renewal, news]
+          required: [expiry, traffic, renewal, news, servers]
           properties:
             expiry: {type: boolean}
             traffic: {type: boolean}
             renewal: {type: boolean}
             news: {type: boolean}
+            servers: {type: boolean, description: "A bot message when a country the customer uses goes down and when it is back."}
         quietHours:
           type: object
           description: "Absent when unset."
@@ -11665,6 +11782,7 @@ components:
             traffic: {type: boolean}
             renewal: {type: boolean}
             news: {type: boolean}
+            servers: {type: boolean}
         quietHours:
           type: object
           required: [startHour, endHour]

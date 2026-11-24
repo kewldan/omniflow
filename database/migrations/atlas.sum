@@ -1,4 +1,4 @@
-h1:T9RB5p9t7znw9d25CZ5R8u6v7fdzVdOOshB1TWixCTg=
+h1:XvEPWljsHYXUasAMLi9N19RrqSyJQLpqC1muuQhkAiI=
 20261120000000_baseline.sql h1:xcYk9mdv44B3O0TRxq3RP+hXxJ2VeeOilGnwKO251mQ=
 20261120010000_river_schema_v8.sql h1:AfdQpxaviEf8asJ5gyLmMVZr+zMYaWEw+o/vE8CMj7A=
 20261120020000_customer_email_signin.sql h1:PrCKaTaDm5ggof8aqRooMbqOXEHML5fwq1TF877zQa8=
@@ -99,3 +99,4 @@ h1:T9RB5p9t7znw9d25CZ5R8u6v7fdzVdOOshB1TWixCTg=
 20261122810000_magic_link_message.sql h1:bpUNlvs/BqJDsjaQCsLaoLq/voF2gdzwwnHnZgbijAA=
 20261122900000_unit_economics.sql h1:o5KNZXb8U76cb1k3JIlhD638ptQhpIyCBOZ9vRHNtuk=
 20261123100000_smart_subscription.sql h1:Th0wfalup2mmOrcX37ggEbrM8konW4+FN016hOUot/U=
+20261124120000_smart_subscription_rules.sql h1:SFTTPVkh8jz794XEVaGi8B2R00TcKD44ie4hAhTjAAU=

@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/omniflow/omniflow/internal/remnawave"
 	"github.com/omniflow/omniflow/internal/smartsub"
 )
@@ -68,6 +70,7 @@ func (service *Service) Serve(ctx context.Context, short string, from http.Heade
 		Upstream: content.Body, Settings: settings, Preferences: preferences,
 		Catalog: service.Catalog(ctx), Locale: locale,
 		NoGeosite: smartsub.StripsGeosite(from.Get("User-Agent")),
+		Checks:    service.NodeChecks(ctx),
 	}
 	var body []byte
 	if format == smartsub.FormatXray {
@@ -171,11 +174,13 @@ func readPreferences(ctx context.Context, querier rowQuerier, subscriptionID str
 	var (
 		preferences smartsub.Preferences
 		rules       []byte
+		toggles     []byte
+		pinned      pgtype.UUID
 	)
-	err := querier.QueryRow(ctx, `SELECT hidden_countries, auto_excluded, reserve, russia_direct, block_ads, block_quic, rules
+	err := querier.QueryRow(ctx, `SELECT hidden_countries, auto_excluded, reserve, toggles, rules, pinned_host, whitelist_mode
 		FROM smart_subscription_preferences WHERE subscription_id = $1`, subscriptionID).Scan(
 		&preferences.HiddenCountries, &preferences.AutoExcluded, &preferences.Reserve,
-		&preferences.Presets.RussiaDirect, &preferences.Presets.BlockAds, &preferences.Presets.BlockQUIC, &rules,
+		&toggles, &rules, &pinned, &preferences.WhitelistMode,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return smartsub.Preferences{}, false, nil
@@ -186,8 +191,23 @@ func readPreferences(ctx context.Context, querier rowQuerier, subscriptionID str
 	if err := json.Unmarshal(rules, &preferences.Rules); err != nil {
 		return smartsub.Preferences{}, false, err
 	}
+	if err := json.Unmarshal(toggles, &preferences.Toggles); err != nil {
+		return smartsub.Preferences{}, false, err
+	}
+	if preferences.Toggles == nil {
+		preferences.Toggles = map[string]bool{}
+	}
+	if pinned.Valid {
+		preferences.Pinned = uuidText(pinned)
+	}
 	if preferences.Rules == nil {
 		preferences.Rules = []smartsub.Rule{}
 	}
 	return preferences, true, nil
+}
+
+// uuidText renders a UUID in its canonical lowercase form.
+func uuidText(value pgtype.UUID) string {
+	bytes := value.Bytes
+	return fmt.Sprintf("%x-%x-%x-%x-%x", bytes[0:4], bytes[4:6], bytes[6:8], bytes[8:10], bytes[10:16])
 }

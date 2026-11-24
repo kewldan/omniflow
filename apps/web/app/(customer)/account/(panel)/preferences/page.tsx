@@ -100,7 +100,7 @@ export default function PreferencesPage() {
 
       <SectionLabel>{translate("preferences.notifications.title")}</SectionLabel>
       <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
-        {(["expiry", "traffic", "renewal", "news"] as const).map((kind) => (
+        {(["expiry", "traffic", "renewal", "servers", "news"] as const).map((kind) => (
           <ToggleRow
             busy={busy}
             checked={data.notifications[kind]}
