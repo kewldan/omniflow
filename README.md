@@ -37,39 +37,42 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/admin-dashboard.png" width="900" alt="Operator dashboard: 14,480 active customers and 1,777 new in the last 30 days, with the change against the previous 30 days and a daily trend line">
+  <img src="docs/screenshots/admin-dashboard.png" width="900" alt="Operator dashboard: 1,850 customers and 802 new in the last 30 days, with the change against the previous 30 days and a daily trend line">
 </p>
 
 > [!NOTE]
-> The screenshots come from a demo installation filled with generated data: customers, orders, and payments are fake.
+> The screenshots come from a demo installation filled with generated data: customers, their names and avatars, orders, and payments are made up.
 
 ## ✨ Highlights
 
 - 🤖 **A complete Telegram bot.** Plans, checkout, renewals, upgrades, devices, connection guides, support tickets, referrals, gifts, news, and a Telegram Stars and Premium shop, all in one message that updates as the customer moves through it.
 - 🖥️ **Two web panels in one app.** The customer panel at `/account` mirrors the bot, so a cart started in the chat is the cart the browser shows. Operators work in `/admin`, which needs no SQL and no shell for anything.
+- 🧭 **A smart subscription customers tune themselves.** Servers grouped by country with a Fastest group that picks its own server, a whitelist bypass, and ping estimated through the VPN. Customers hide countries, pin their own server for an address that stays the same, and switch the routing cards: Gosuslugi and banks without the VPN, AI assistants through the servers where they work, torrents never through the VPN, ads blocked. Operators edit those cards with site logos, see what customers chose, and the bot tells customers when a country goes down and comes back.
 - 💳 **29 payment providers.** YooKassa with 54-FZ receipts, Telegram Stars, CryptoBot, and 25 regional collectors carried over from Bedolaga. Each method can be its own button, with its own limits and visibility rules. Saved cards and mandates renew subscriptions automatically, and only with the customer's explicit consent.
-- ⭐ **A Stars shop on your own wallet.** Customers buy Telegram Stars and Premium, and Omniflow delivers them through Fragment from your own TON wallet. The wallet's secrets live only in environment variables.
+- ⭐ **A Stars shop on your own wallet.** Customers buy Telegram Stars by the star at your price, or Premium, and Omniflow delivers them through Fragment from your own TON wallet. The wallet's secrets live only in environment variables.
 - 🧮 **Money handled like money.** Every order and payment mutation is idempotent, provider webhooks are replay-safe, and wallet balances come from an append-only double-entry ledger. Refunds and chargebacks reported by a provider take back what they paid for.
 - 📈 **Growth tools.** Campaigns with `/start` links and UTM attribution, percentage referral commissions, a second referral level and referral contests, loyalty groups, personal offers, win-back waves with a discount, a fortune wheel, polls, and seven daily games, partner applications with personal rates, and broadcasts by Telegram and e-mail.
-- 🎫 **A real support desk.** Queues, assignment, SLA timers, internal notes, canned replies, customer topics and urgency, and an operator Telegram group with auto-created topics.
+- 🎫 **A real support desk.** Queues, assignment, SLA timers, internal notes, canned replies, customer topics and urgency, and an operator Telegram group with auto-created topics. Screenshots customers send the bot show up in the conversation, kept in any S3-compatible store.
 - 🔗 **Remnawave-native.** Omniflow uses Remnawave's public API only. It receives the panel's signed webhooks, encrypts Happ and INCY links, and reads devices and traffic live. Remnawave stays the owner of users, nodes, and traffic.
 - 🔐 **Operator security.** Argon2id passwords, passkeys, TOTP, optional OIDC, custom roles, and an append-only audit trail. Every adverse action needs a reason, and secrets are write-only by construction.
 - 🛡️ **Private by default.** Omniflow keeps no subscription links, HWIDs, or customer IP addresses. Advertising measurement is off until you turn it on, and the anonymous installation telemetry can be switched off with one variable.
 
 ## 📸 Screenshots
 
-| Sales | Customer card |
+| Smart subscription: service rules | Smart subscription: what customers chose |
 | :---: | :---: |
+| ![Service rules as the customer sees them: Gosuslugi, banks, marketplaces, and Yandex without the VPN, AI assistants through the VPN, MAX blocked, each with a logo and a mode](docs/screenshots/admin-smart-rules.png) | ![Analytics: subscriptions customers tuned, changed rules, pinned servers, hidden countries, and popular customer domains](docs/screenshots/admin-smart-analytics.png) |
+| **Sales** | **Customer card** |
 | ![Sales report: 674 trials claimed, 41.1% converted, revenue by kind of sale](docs/screenshots/admin-sales.png) | ![Customer card with the subscription, live devices, and every operator action](docs/screenshots/admin-customer.png) |
 | **Finance** | **Support desk** |
-| ![Finance: fulfilled orders with provider and amounts, filters, and CSV export](docs/screenshots/admin-finance.png) | ![Support desk: queues with unassigned counts and the ticket list](docs/screenshots/admin-support.png) |
+| ![Finance: fulfilled orders with customers, provider, and amounts, filters, and CSV export](docs/screenshots/admin-finance.png) | ![Support desk: queues, the ticket list, and a conversation with the screenshot the customer sent the bot](docs/screenshots/admin-support.png) |
 | **Catalog** | **Traffic** |
-| ![Catalog: plans with versions, order lines, visibility, and best-deal flags](docs/screenshots/admin-catalog.png) | ![Traffic: heaviest users and Remnawave nodes, read live from the panel](docs/screenshots/admin-traffic.png) |
+| ![Catalog: Trial, Standard, and Family plans with versions, order lines, visibility, and best-deal flags](docs/screenshots/admin-catalog.png) | ![Traffic: heaviest users and Remnawave nodes, read live from the panel](docs/screenshots/admin-traffic.png) |
 
-**The customer panel on a phone**: subscriptions, the plan store, devices, invitations, and the wallet.
+**The customer panel on a phone**: the subscription, servers by country with ping and the services each one opens, the routing cards, plans with the Family plan, and the Stars shop.
 
 <p align="center">
-  <img src="docs/screenshots/customer-mobile.png" alt="Customer web panel on a phone: subscriptions, store, devices, referrals with a QR code, and the wallet">
+  <img src="docs/screenshots/customer-mobile.png" alt="Customer web panel on a phone: the subscription home, servers and routing with ping and service badges, routing cards with logos, the Standard and Family plans, and buying Telegram Stars">
 </p>
 
 ## 🚀 Self-host it
@@ -175,6 +178,7 @@ flowchart LR
     Admin --> API
     API --> PostgreSQL[("PostgreSQL 19")]
     API --> Valkey[("Valkey 9")]
+    API --> Objects[("S3-compatible store")]
     API --> Remnawave["Remnawave API"]
     Remnawave -. "signed webhooks" .-> API
     Remnawave --> Xray["Xray nodes"]
@@ -187,7 +191,7 @@ flowchart LR
 | Layer | Technology |
 | --- | --- |
 | Backend | Go 1.27, Chi, pgx, sqlc, River jobs, transactional outbox, OpenAPI, OpenTelemetry |
-| Data | PostgreSQL 19 with Atlas migrations, Valkey 9 |
+| Data | PostgreSQL 19 with Atlas migrations, Valkey 9, any S3-compatible object store for files |
 | Web | Next.js 16, React 19, TypeScript 7, Tailwind CSS 4, shadcn/ui, SWR |
 | Tooling | Bun workspaces, Biome, Orval, Mintlify, Playwright, Testcontainers |
 | Delivery | GitHub Actions, Release Please, Renovate, Trivy, Gitleaks, CodeQL, Cosign-signed images |
