@@ -24,10 +24,6 @@ func (handlers *AdminHandlers) mountPlanOptions(secure chi.Router) {
 		Get("/remnawave/squads", handlers.remnawaveSquads)
 	secure.With(handlers.requirePermission(rbac.PermissionCatalogWrite)).
 		Put("/catalog/plans/{planID}/options", handlers.savePlanOptions)
-	secure.With(handlers.requirePermission(rbac.PermissionCatalogRead)).
-		Get("/catalog/simple-subscription", handlers.simpleSubscription)
-	secure.With(handlers.requirePermission(rbac.PermissionCatalogWrite)).
-		Put("/catalog/simple-subscription", handlers.saveSimpleSubscription)
 	// Moving live subscriptions onto new squads changes what customers can
 	// reach, so it needs the subscription permission, not only the catalogue.
 	if handlers.fulfillment != nil {

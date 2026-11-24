@@ -2249,22 +2249,6 @@
         "packagePrice": "Adds to the price",
         "addPackage": "Add a package"
       },
-      "simple": {
-        "title": "Simple subscription",
-        "description": "Show customers one plan with one Buy button in the bot and the web store, instead of the catalogue and the configurator.",
-        "enabled": "Sell only this plan, with one button",
-        "plan": "Plan",
-        "planHint": "Its newest live version is what the button sells.",
-        "periodDays": "Period, days",
-        "periodHint": "Empty sells the version's own period; another must be one the version sells.",
-        "trafficGb": "Traffic, GB",
-        "trafficHint": "Empty sells the version's own traffic; another must be a package or custom volume the version sells.",
-        "deviceAddon": "Extra devices add-on",
-        "none": "None",
-        "deviceQuantity": "Add-ons to include",
-        "reason": "Reason",
-        "save": "Save"
-      },
       "servers": {
         "title": "Servers",
         "description": "How Omniflow names, prices, and limits the sale of each Remnawave squad. Remnawave stays in charge of squads and nodes: nothing here changes them.",
@@ -7122,7 +7106,6 @@
         "traffic_unavailable": "This plan is not sold with that traffic volume.",
         "not_daily": "This subscription is not billed by the day.",
         "not_pausable": "This subscription cannot be paused or resumed right now.",
-        "simple_subscription_unavailable": "This offer is no longer available. Refresh the store.",
         "squad_full": "One of the chosen servers has no room left. Choose another one.",
         "traffic_change_unavailable": "This subscription cannot change its traffic package.",
         "capacity_change_same": "That would leave the subscription exactly as it is.",
@@ -7715,14 +7698,6 @@
       "cancel": "Cancel",
       "pausedDone": "Paused. Access turns off within a minute.",
       "resumedDone": "Resumed. Access returns within a minute."
-    },
-    "simpleSubscription": {
-      "period": "Period: {days} days",
-      "traffic": "Traffic: {traffic}",
-      "gb": "{gb} GB",
-      "unlimited": "unlimited",
-      "devices": "Devices: {count}",
-      "buy": "Buy for {price}"
     },
     "capacity": {
       "charge": "New package, for the time left",

@@ -5287,29 +5287,6 @@ CREATE TABLE public.server_catalog_prices (
 
 
 --
--- Name: simple_subscription; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.simple_subscription (
-    singleton boolean DEFAULT true NOT NULL,
-    enabled boolean DEFAULT false NOT NULL,
-    plan_id uuid,
-    period_days integer,
-    traffic_gb integer,
-    device_addon_id uuid,
-    device_quantity integer DEFAULT 0 NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_by uuid,
-    CONSTRAINT simple_subscription_device_quantity_range CHECK (((device_quantity >= 0) AND (device_quantity <= 100))),
-    CONSTRAINT simple_subscription_devices_named CHECK (((device_quantity = 0) OR (device_addon_id IS NOT NULL))),
-    CONSTRAINT simple_subscription_period_range CHECK (((period_days IS NULL) OR ((period_days >= 1) AND (period_days <= 3650)))),
-    CONSTRAINT simple_subscription_plan_when_enabled CHECK (((NOT enabled) OR (plan_id IS NOT NULL))),
-    CONSTRAINT simple_subscription_singleton CHECK (singleton),
-    CONSTRAINT simple_subscription_traffic_range CHECK (((traffic_gb IS NULL) OR ((traffic_gb >= 1) AND (traffic_gb <= 1000000))))
-);
-
-
---
 -- Name: smart_subscription_icons; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -8411,14 +8388,6 @@ ALTER TABLE ONLY public.server_catalog
 
 ALTER TABLE ONLY public.server_catalog_prices
     ADD CONSTRAINT server_catalog_prices_pkey PRIMARY KEY (squad_id, currency);
-
-
---
--- Name: simple_subscription simple_subscription_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.simple_subscription
-    ADD CONSTRAINT simple_subscription_pkey PRIMARY KEY (singleton);
 
 
 --
@@ -12792,22 +12761,6 @@ ALTER TABLE ONLY public.self_employed_receipts
 
 ALTER TABLE ONLY public.server_catalog_prices
     ADD CONSTRAINT server_catalog_prices_squad_id_fkey FOREIGN KEY (squad_id) REFERENCES public.server_catalog(squad_id) ON DELETE CASCADE;
-
-
---
--- Name: simple_subscription simple_subscription_device_addon_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.simple_subscription
-    ADD CONSTRAINT simple_subscription_device_addon_id_fkey FOREIGN KEY (device_addon_id) REFERENCES public.addons(id) ON DELETE SET NULL;
-
-
---
--- Name: simple_subscription simple_subscription_plan_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.simple_subscription
-    ADD CONSTRAINT simple_subscription_plan_id_fkey FOREIGN KEY (plan_id) REFERENCES public.plans(id) ON DELETE SET NULL;
 
 
 --

@@ -2774,18 +2774,6 @@ type ServerCatalogPrice struct {
 	AmountMinor int64       `json:"amount_minor"`
 }
 
-type SimpleSubscription struct {
-	Singleton      bool               `json:"singleton"`
-	Enabled        bool               `json:"enabled"`
-	PlanID         pgtype.UUID        `json:"plan_id"`
-	PeriodDays     pgtype.Int4        `json:"period_days"`
-	TrafficGb      pgtype.Int4        `json:"traffic_gb"`
-	DeviceAddonID  pgtype.UUID        `json:"device_addon_id"`
-	DeviceQuantity int32              `json:"device_quantity"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
-	UpdatedBy      pgtype.UUID        `json:"updated_by"`
-}
-
 type SmartSubscriptionIcon struct {
 	ID          pgtype.UUID        `json:"id"`
 	ContentType string             `json:"content_type"`

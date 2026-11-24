@@ -1401,28 +1401,6 @@ paths:
         "204": {description: Removed}
         "403": {$ref: "#/components/responses/Problem"}
         "404": {$ref: "#/components/responses/Problem"}
-  /v1/panel/catalog/simple-subscription:
-    get:
-      operationId: getPanelSimpleSubscription
-      tags: [panel]
-      description: Requires catalog.read. The simple subscription setting.
-      responses:
-        "200": {description: Setting, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSimpleSubscription"}}}}
-        "403": {$ref: "#/components/responses/Problem"}
-    put:
-      operationId: savePanelSimpleSubscription
-      tags: [panel]
-      description: >-
-        Requires catalog.write. When enabled, the bot and the web store show
-        the one plan named here with one Buy button, its period, traffic, and
-        extra devices chosen in advance. An enabled setting needs a plan with a
-        live version; extra devices need a devices add-on.
-      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
-      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSimpleSubscription"}}}}
-      responses:
-        "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSimpleSubscription"}}}}
-        "403": {$ref: "#/components/responses/Problem"}
-        "422": {$ref: "#/components/responses/Problem"}
   /v1/panel/settings/smart-subscription:
     get:
       operationId: getPanelSmartSubscription
@@ -4615,29 +4593,6 @@ paths:
         - {$ref: "#/components/parameters/IdempotencyKey"}
       responses:
         "201": {description: Order created, content: {application/json: {schema: {$ref: "#/components/schemas/AccountOrder"}}}}
-        "409": {$ref: "#/components/responses/Problem"}
-        "422": {$ref: "#/components/responses/Problem"}
-  /v1/account/simple-subscription:
-    get:
-      operationId: getAccountSimpleSubscription
-      tags: [account]
-      description: >-
-        The one plan the store shows when the operator turned the simple
-        subscription on, priced for this customer; `enabled` is false
-        otherwise and the store shows the catalogue.
-      responses:
-        "200": {description: Offer, content: {application/json: {schema: {$ref: "#/components/schemas/AccountSimpleSubscription"}}}}
-  /v1/account/simple-subscription/checkout:
-    post:
-      operationId: openAccountSimpleCheckout
-      tags: [account]
-      description: >-
-        The Buy button: opens the checkout for the simple subscription's plan
-        with its period, traffic, and extra devices already chosen, replacing
-        any open checkout. A customer with a live subscription extends it.
-      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
-      responses:
-        "201": {description: Opened, content: {application/json: {schema: {$ref: "#/components/schemas/AccountCheckout"}}}}
         "409": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
   /v1/account/subscriptions/{subscriptionID}/daily-billing:
@@ -8050,16 +8005,6 @@ components:
         sortOrder: {type: integer}
         prices: {type: object, additionalProperties: {type: integer, format: int64, minimum: 1}, description: "What choosing the squad adds to a plan's price, per currency, for the version's own duration."}
         liveCustomers: {type: integer, readOnly: true}
-    PanelSimpleSubscription:
-      type: object
-      required: [enabled, planId, periodDays, trafficGb, deviceAddonId, deviceQuantity]
-      properties:
-        enabled: {type: boolean}
-        planId: {type: string, description: The plan sold; empty for none.}
-        periodDays: {type: integer, minimum: 0, maximum: 3650, description: 0 is the version's own period.}
-        trafficGb: {type: integer, minimum: 0, maximum: 1000000, description: 0 is the version's own traffic.}
-        deviceAddonId: {type: string, description: A devices add-on bought with the plan; empty for none.}
-        deviceQuantity: {type: integer, minimum: 0, maximum: 100}
     SmartSubscriptionServiceRule:
       type: object
       required: [id, kind, name, caption, icon, action, mode, domains]
@@ -11097,22 +11042,6 @@ components:
               quantity: {type: integer}
         termsUrl: {type: string}
         expiresAt: {type: string, format: date-time}
-    AccountSimpleSubscription:
-      type: object
-      required: [enabled]
-      properties:
-        enabled: {type: boolean}
-        planVersionId: {type: string, format: uuid}
-        plan: {$ref: "#/components/schemas/AccountPlan"}
-        periodDays: {type: integer, description: 0 is the plan's own period.}
-        trafficGb: {type: integer, description: 0 is the plan's own traffic.}
-        extraDevices: {type: integer}
-        total:
-          type: object
-          required: [amountMinor, currency]
-          properties:
-            amountMinor: {type: integer, format: int64}
-            currency: {type: string}
     AccountDailyBilling:
       type: object
       required: [daily]

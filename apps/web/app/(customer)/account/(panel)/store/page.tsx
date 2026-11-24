@@ -7,7 +7,6 @@ import { useTranslations } from "next-intl";
 import useSWR from "swr";
 
 import { PlanCard } from "@/components/account/commerce/plan-card";
-import { SimpleOffer, type SimpleSubscription } from "@/components/account/commerce/simple-offer";
 import type { PlanCatalogue } from "@/components/account/commerce/types";
 import { useOpenCheckout } from "@/components/account/commerce/use-checkout";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
@@ -33,12 +32,6 @@ import { shopHref, useShopProducts } from "@/lib/shop-products";
 export default function StorePage() {
   const translate = useTranslations("account.commerce");
   const { data, error, isLoading } = useSWR<PlanCatalogue, ApiError>("/v1/account/plans", fetcher);
-  // With the simple subscription on, one plan and one Buy button replace the
-  // catalogue.
-  const { data: simple } = useSWR<SimpleSubscription, ApiError>(
-    "/v1/account/simple-subscription",
-    fetcher,
-  );
   const { checkout } = useOpenCheckout();
 
   return (
@@ -69,11 +62,7 @@ export default function StorePage() {
           {translate("store.orders")}
         </Link>
       </div>
-      {simple?.enabled ? (
-        <SimpleOffer offer={simple} />
-      ) : (
-        <PlanList error={error} isLoading={isLoading} plans={data?.items} />
-      )}
+      <PlanList error={error} isLoading={isLoading} plans={data?.items} />
 
       <ShopLink />
     </div>
