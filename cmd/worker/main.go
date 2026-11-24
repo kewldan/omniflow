@@ -32,6 +32,7 @@ import (
 	"github.com/omniflow/omniflow/internal/importservice"
 	"github.com/omniflow/omniflow/internal/installsettings"
 	"github.com/omniflow/omniflow/internal/jobs"
+	"github.com/omniflow/omniflow/internal/objectstore"
 	"github.com/omniflow/omniflow/internal/operator"
 	"github.com/omniflow/omniflow/internal/panelpg"
 	"github.com/omniflow/omniflow/internal/paymentservice"
@@ -272,8 +273,10 @@ func periodicTasks(
 	// their content digest, so one file can back several rows, and deleting bytes
 	// on the strength of a single expired row would break another customer's
 	// download.
-	if attachments, err := accountsupport.New(pool, accountsupport.Options{
-		Logger: logger, AttachmentDirectory: cfg.SupportAttachmentDir,
+	if files, err := objectstore.SupportAttachments(cfg.ObjectStore, cfg.SupportAttachmentDir); err != nil {
+		logger.Warn("attachment files will not be reclaimed", "error", err)
+	} else if attachments, err := accountsupport.New(pool, accountsupport.Options{
+		Logger: logger, Attachments: files,
 	}); err != nil {
 		logger.Warn("attachment files will not be reclaimed", "error", err)
 	} else {

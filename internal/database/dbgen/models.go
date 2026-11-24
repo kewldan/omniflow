@@ -2931,6 +2931,7 @@ type SupportAttachment struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	Origin         string             `json:"origin"`
 	StorageKey     pgtype.Text        `json:"storage_key"`
+	FetchAttempts  int16              `json:"fetch_attempts"`
 }
 
 type SupportCannedResponse struct {

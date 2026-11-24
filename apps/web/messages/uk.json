@@ -3009,9 +3009,11 @@
         "unnamed": "Вкладення",
         "download": "Завантажити",
         "telegram": "у Telegram",
-        "telegramHint": "Цей файл надіслано в Telegram-чаті клієнта. Omniflow зберігає посилання, а не самі байти, тому завантажити його тут не можна.",
+        "telegramHint": "This file is only in Telegram so far. The bot copies such files into storage within a minute, and it can then be opened here. Without a file store configured, it stays in the customer's chat only.",
         "gone": "Цей файл більше не зберігається; можливо, минув строк його зберігання.",
-        "downloadFailed": "Файл зараз не вдалося завантажити."
+        "downloadFailed": "Файл зараз не вдалося завантажити.",
+        "previewFailed": "The photo could not be shown; try downloading it.",
+        "openFull": "Open full size"
       },
       "listFailed": "Не вдалося завантажити звернення. Список оновлюється сам — спробуйте за хвилину.",
       "controls": {

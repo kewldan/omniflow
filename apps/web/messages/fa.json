@@ -3009,9 +3009,11 @@
         "unnamed": "پیوست",
         "download": "دانلود",
         "telegram": "در Telegram",
-        "telegramHint": "این فایل در گفتگوی Telegram مشتری ارسال شده است. Omniflow فقط یک ارجاع نگه می‌دارد، نه خود فایل را، بنابراین نمی‌توان آن را اینجا دانلود کرد.",
+        "telegramHint": "This file is only in Telegram so far. The bot copies such files into storage within a minute, and it can then be opened here. Without a file store configured, it stays in the customer's chat only.",
         "gone": "این فایل دیگر ذخیره نیست؛ ممکن است مدت نگهداری آن تمام شده باشد.",
-        "downloadFailed": "در حال حاضر دانلود فایل ممکن نیست."
+        "downloadFailed": "در حال حاضر دانلود فایل ممکن نیست.",
+        "previewFailed": "The photo could not be shown; try downloading it.",
+        "openFull": "Open full size"
       },
       "listFailed": "بارگیری تیکت‌ها ممکن نشد. آن‌ها خودکار به‌روز می‌شوند؛ چند لحظه دیگر دوباره تلاش کنید.",
       "controls": {

@@ -3101,9 +3101,11 @@
         "unnamed": "Attachment",
         "download": "Download",
         "telegram": "in Telegram",
-        "telegramHint": "This file was sent in the customer's Telegram chat. Omniflow keeps a reference, not the bytes, so it cannot be downloaded here.",
+        "telegramHint": "This file is only in Telegram so far. The bot copies such files into storage within a minute, and it can then be opened here. Without a file store configured, it stays in the customer's chat only.",
         "gone": "That file is no longer stored; it may have passed its retention period.",
-        "downloadFailed": "The file could not be downloaded right now."
+        "downloadFailed": "The file could not be downloaded right now.",
+        "previewFailed": "The photo could not be shown; try downloading it.",
+        "openFull": "Open full size"
       },
       "listFailed": "Could not load the tickets. They refresh on their own; try again in a moment.",
       "controls": {

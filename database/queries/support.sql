@@ -337,7 +337,8 @@ WHERE t.id = sqlc.arg(ticket_id);
 SELECT a.id, a.message_id, a.kind,
   COALESCE(a.file_name, '')::text AS file_name,
   COALESCE(a.mime_type, '')::text AS media_type,
-  a.size_bytes, a.origin, a.created_at
+  a.size_bytes, a.origin, a.created_at,
+  (a.storage_key IS NOT NULL)::boolean AS stored
 FROM support_attachments a
 JOIN support_messages m ON m.id = a.message_id
 WHERE m.ticket_id = sqlc.arg(ticket_id) AND a.retain_until > now()

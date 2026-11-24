@@ -85,9 +85,9 @@ type SupportAttachment struct {
 	FileName  string `json:"fileName"`
 	MediaType string `json:"mediaType"`
 	SizeBytes int64  `json:"sizeBytes"`
-	// Origin is `web` for a file this installation holds and `telegram` for a
-	// reference to a file Telegram holds. Only the former can be downloaded
-	// here; the latter is read in the customer's chat.
+	// Origin is `web` for a web upload and `telegram` for a file sent to the
+	// bot. Downloadable says whether this installation holds the bytes: always
+	// for a web upload, and for a Telegram file once the bot has copied it.
 	Origin       string    `json:"origin"`
 	Downloadable bool      `json:"downloadable"`
 	CreatedAt    time.Time `json:"createdAt"`
@@ -352,7 +352,7 @@ func (service *Service) Ticket(ctx context.Context, ticketID string) (TicketDeta
 		byMessage[row.MessageID] = append(byMessage[row.MessageID], SupportAttachment{
 			ID: uuidString(row.ID), MessageID: row.MessageID, Kind: row.Kind,
 			FileName: row.FileName, MediaType: row.MediaType, SizeBytes: row.SizeBytes,
-			Origin: origin, Downloadable: origin == "web", CreatedAt: timeValue(row.CreatedAt),
+			Origin: origin, Downloadable: row.Stored, CreatedAt: timeValue(row.CreatedAt),
 		})
 	}
 	for index := range detail.Messages {
@@ -378,9 +378,9 @@ func (service *Service) Ticket(ctx context.Context, ticketID string) (TicketDeta
 
 // TicketAttachment resolves one file on a conversation for the download route,
 // returning its metadata and — for a file this installation holds — the storage
-// key that finds the bytes. The key is empty for a Telegram reference, and the
-// caller answers that case without touching any store: Omniflow never fetches a
-// customer's file from Telegram with the bot token on an operator's behalf.
+// key that finds the bytes. The key is empty for a Telegram file the bot has not
+// copied yet, and the caller answers that case without touching any store: the
+// panel never fetches a customer's file from Telegram on an operator's behalf.
 func (service *Service) TicketAttachment(
 	ctx context.Context, ticketID, attachmentID string,
 ) (SupportAttachment, string, error) {
@@ -402,7 +402,7 @@ func (service *Service) TicketAttachment(
 	meta := SupportAttachment{
 		ID: uuidString(row.ID), MessageID: row.MessageID, Kind: row.Kind,
 		FileName: row.FileName, MediaType: row.MediaType, SizeBytes: row.SizeBytes,
-		Origin: origin, Downloadable: origin == "web", CreatedAt: timeValue(row.CreatedAt),
+		Origin: origin, Downloadable: row.StorageKey != "", CreatedAt: timeValue(row.CreatedAt),
 	}
 	if !meta.Downloadable {
 		return meta, "", nil

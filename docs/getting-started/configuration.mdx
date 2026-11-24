@@ -386,6 +386,11 @@ opened by hand is never cleared automatically. Automatic detection watches `post
 | `APP_RETENTION_DRIFT_DAYS` | `90` | worker | no | no | Deletes non-open `entitlement_drifts` by resolution time |
 | `APP_RETENTION_INTERVAL_HOURS` | `1` | worker | no | no | Sweep interval; a non-positive value becomes one hour |
 | `APP_SUPPORT_ATTACHMENT_DIR` | `/var/lib/omniflow/support-attachments` | api, worker | no | no | Where a file uploaded through the customer web panel is stored, and where the worker looks to reclaim it |
+| `APP_S3_ENDPOINT` | — | api, bot, worker | no | no | An S3-compatible object store for support attachments, as `host:port` without a scheme — SeaweedFS beside the stack, Cloudflare R2, AWS S3. Set, it replaces `APP_SUPPORT_ATTACHMENT_DIR`, and the bot copies files customers send it into the store so the desk can show them. See [Deployment](/operations/deployment#object-storage) |
+| `APP_S3_ACCESS_KEY`, `APP_S3_SECRET_KEY` | — | api, bot, worker | with the endpoint | **yes** (the secret key) | The store's credentials. An endpoint without them fails startup |
+| `APP_S3_BUCKET` | `omniflow` | api, bot, worker | no | no | The bucket; created on the first write if missing |
+| `APP_S3_REGION` | `us-east-1` | api, bot, worker | no | no | The signing region; R2 takes `auto` |
+| `APP_S3_SECURE` | `true` | api, bot, worker | no | no | TLS to the endpoint. `false` for a store on the stack's private network |
 
 Retention only removes disposable operational data. Financial, audit, consent, identity, and
 entitlement history is append-only for the life of the installation and is never deleted by a sweep.

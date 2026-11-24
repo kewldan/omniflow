@@ -39,6 +39,7 @@ import (
 	"github.com/omniflow/omniflow/internal/jobs"
 	"github.com/omniflow/omniflow/internal/mailer"
 	"github.com/omniflow/omniflow/internal/maintenance"
+	"github.com/omniflow/omniflow/internal/objectstore"
 	"github.com/omniflow/omniflow/internal/operator"
 	"github.com/omniflow/omniflow/internal/panelpg"
 	"github.com/omniflow/omniflow/internal/panelsearchpg"
@@ -347,6 +348,10 @@ func buildAdminPanel(
 	fulfillmentService *fulfillment.Service, remnawaveClient *remnawave.Client,
 	installation *installsettings.Reader, commerceStore *commercepg.Store, paymentCredit panelpg.PaymentCredit,
 ) (*apihttp.AdminHandlers, error) {
+	supportFiles, err := objectstore.SupportAttachments(cfg.ObjectStore, cfg.SupportAttachmentDir)
+	if err != nil {
+		return nil, err
+	}
 	// The public URL is what a passkey is bound to. Without one the service
 	// leaves passkeys off rather than minting credentials the browser will
 	// later decline to offer, which is a failure with no error message.
@@ -391,9 +396,9 @@ func buildAdminPanel(
 		Fulfillment: fulfillmentService, Remnawave: remnawaveClient, Avatars: avatars,
 		CookieSecure: cfg.AdminPanel.CookieSecure, Issuer: cfg.AdminPanel.Issuer,
 		Version: version, UpdateFeedURL: cfg.UpdateFeedURL,
-		// The desk reads customer uploads from the same directory the customer
-		// API writes them to; see buildCustomerPanel.
-		SupportAttachments: accountsupport.NewDirectoryStore(cfg.SupportAttachmentDir),
+		// The desk reads customer uploads from the same store the customer API
+		// writes them to and the bot copies Telegram files into.
+		SupportAttachments: supportFiles,
 		Search:             search,
 		Stars:              starsShopOptions(logger, cfg, pool),
 		Installation:       installation,
@@ -528,8 +533,12 @@ func buildCustomerPanel(
 	if err != nil {
 		return nil, nil, err
 	}
+	files, err := objectstore.SupportAttachments(cfg.ObjectStore, cfg.SupportAttachmentDir)
+	if err != nil {
+		return nil, nil, err
+	}
 	support, err := accountsupport.New(pool, accountsupport.Options{
-		Logger: logger, AttachmentDirectory: cfg.SupportAttachmentDir,
+		Logger: logger, Attachments: files,
 	})
 	if err != nil {
 		return nil, nil, err

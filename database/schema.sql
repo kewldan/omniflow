@@ -5563,11 +5563,13 @@ CREATE TABLE public.support_attachments (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     origin text DEFAULT 'telegram'::text NOT NULL,
     storage_key text,
+    fetch_attempts smallint DEFAULT 0 NOT NULL,
+    CONSTRAINT support_attachments_fetch_attempts_check CHECK ((fetch_attempts >= 0)),
     CONSTRAINT support_attachments_file_name_check CHECK (((file_name IS NULL) OR (char_length(file_name) <= 200))),
     CONSTRAINT support_attachments_kind_check CHECK ((kind = ANY (ARRAY['photo'::text, 'document'::text]))),
     CONSTRAINT support_attachments_mime_type_check CHECK (((mime_type IS NULL) OR (char_length(mime_type) <= 120))),
     CONSTRAINT support_attachments_origin_known CHECK ((origin = ANY (ARRAY['telegram'::text, 'local'::text]))),
-    CONSTRAINT support_attachments_reference_matches_origin CHECK ((((origin = 'telegram'::text) AND (telegram_file_id IS NOT NULL) AND (storage_key IS NULL)) OR ((origin = 'local'::text) AND (storage_key IS NOT NULL) AND (telegram_file_id IS NULL)))),
+    CONSTRAINT support_attachments_reference_matches_origin CHECK ((((origin = 'telegram'::text) AND (telegram_file_id IS NOT NULL)) OR ((origin = 'local'::text) AND (storage_key IS NOT NULL) AND (telegram_file_id IS NULL)))),
     CONSTRAINT support_attachments_size_bytes_check CHECK (((size_bytes > 0) AND (size_bytes <= 10485760))),
     CONSTRAINT support_attachments_storage_key_shape CHECK (((storage_key IS NULL) OR (storage_key ~ '^[0-9a-f]{64}$'::text)))
 );
@@ -10082,6 +10084,13 @@ CREATE INDEX subscriptions_username_idx ON public.subscriptions USING btree (rem
 --
 
 CREATE UNIQUE INDEX support_attachments_local_file_idx ON public.support_attachments USING btree (message_id, storage_key) WHERE (storage_key IS NOT NULL);
+
+
+--
+-- Name: support_attachments_pending_copy; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX support_attachments_pending_copy ON public.support_attachments USING btree (created_at) WHERE ((origin = 'telegram'::text) AND (storage_key IS NULL));
 
 
 --

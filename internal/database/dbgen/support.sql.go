@@ -1450,7 +1450,8 @@ const listSupportTicketAttachments = `-- name: ListSupportTicketAttachments :man
 SELECT a.id, a.message_id, a.kind,
   COALESCE(a.file_name, '')::text AS file_name,
   COALESCE(a.mime_type, '')::text AS media_type,
-  a.size_bytes, a.origin, a.created_at
+  a.size_bytes, a.origin, a.created_at,
+  (a.storage_key IS NOT NULL)::boolean AS stored
 FROM support_attachments a
 JOIN support_messages m ON m.id = a.message_id
 WHERE m.ticket_id = $1 AND a.retain_until > now()
@@ -1466,6 +1467,7 @@ type ListSupportTicketAttachmentsRow struct {
 	SizeBytes int64              `json:"size_bytes"`
 	Origin    string             `json:"origin"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	Stored    bool               `json:"stored"`
 }
 
 // The files hanging on a conversation, with where their bytes live. `origin`
@@ -1490,6 +1492,7 @@ func (q *Queries) ListSupportTicketAttachments(ctx context.Context, ticketID pgt
 			&i.SizeBytes,
 			&i.Origin,
 			&i.CreatedAt,
+			&i.Stored,
 		); err != nil {
 			return nil, err
 		}

@@ -6124,9 +6124,10 @@ paths:
       tags: [account]
       description: >-
         Serves a file the calling customer's own conversation carries. A file
-        attached in Telegram is not stored here and answers `attachment_remote`
-        instead, because offering a download that cannot work is worse than
-        saying where the file actually lives.
+        sent to the bot is served once the bot has copied it into the attachment
+        store; until then, or without an object store, it answers
+        `attachment_remote`, because offering a download that cannot work is
+        worse than saying where the file actually lives.
       parameters: [{in: path, name: attachmentID, required: true, schema: {type: string, format: uuid}}]
       responses:
         "200": {description: File, content: {application/octet-stream: {schema: {type: string, format: binary}}}}
@@ -6322,13 +6323,13 @@ paths:
       operationId: downloadPanelSupportAttachment
       tags: [panel]
       description: >-
-        Requires support.read. Serves a file the customer uploaded through the
-        web panel, scoped to its ticket, with an attachment disposition and
-        `nosniff`. A file that arrived through Telegram answers 409
-        `attachment_remote` and is never fetched: Omniflow holds a reference,
-        not the bytes, and will not proxy Telegram's file API with the bot
-        token on an operator's behalf. A purged file answers 404; a process
-        with no attachment store answers 503.
+        Requires support.read. Serves a file the customer attached, scoped to
+        its ticket, with an attachment disposition and `nosniff`: a web upload,
+        or a file sent to the bot once the bot has copied it into the
+        attachment store (APP_S3_*). A Telegram file not yet copied answers 409
+        `attachment_remote`; the panel never fetches from Telegram on an
+        operator's behalf. A purged file answers 404; a process with no
+        attachment store answers 503.
       parameters:
         - {$ref: "#/components/parameters/PanelTicketID"}
         - {in: path, name: attachmentID, required: true, schema: {type: string, format: uuid}}
@@ -11991,8 +11992,8 @@ components:
         origin:
           type: string
           enum: [web, telegram]
-          description: "`web` for a file this installation holds; `telegram` for a reference to a file in the customer's chat."
-        downloadable: {type: boolean}
+          description: "`web` for a file uploaded through the web cabinet; `telegram` for a file sent to the bot."
+        downloadable: {type: boolean, description: "This installation holds the bytes: a web upload, or a Telegram file the bot has copied into the attachment store."}
         createdAt: {type: string, format: date-time}
     PanelSupportMessage:
       type: object

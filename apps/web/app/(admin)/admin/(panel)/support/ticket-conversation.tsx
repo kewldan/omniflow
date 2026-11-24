@@ -323,45 +323,105 @@ function AttachmentRow({
   const name = attachment.fileName || translate("attachments.unnamed");
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md border border-border border-dashed px-2 py-1 text-xs">
-      <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.12em]">
-        {translate(`attachments.kind.${attachment.kind}`)}
-      </span>
-      <span className="min-w-0 flex-1 truncate">{name}</span>
-      <span className="font-mono text-[11px] text-muted-foreground">
-        {formatBytes(attachment.sizeBytes)}
-      </span>
-      {attachment.downloadable ? (
-        <Button
-          disabled={busy}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              await downloadThroughApi(
-                `/v1/panel/support/tickets/${ticketId}/attachments/${attachment.id}`,
-                name,
-              );
-            } catch (downloadError) {
-              toast.error(
-                downloadError instanceof ApiError && downloadError.status === 404
-                  ? translate("attachments.gone")
-                  : translate("attachments.downloadFailed"),
-              );
-            } finally {
-              setBusy(false);
-            }
-          }}
-          size="sm"
-          variant="outline"
-        >
-          {translate("attachments.download")}
-        </Button>
-      ) : (
-        <span className="text-muted-foreground" title={translate("attachments.telegramHint")}>
-          {translate("attachments.telegram")}
-        </span>
+    <div className="flex flex-col gap-2 rounded-md border border-border border-dashed px-2 py-1 text-xs">
+      {attachment.kind === "photo" && attachment.downloadable && (
+        <PhotoPreview
+          name={name}
+          url={`/v1/panel/support/tickets/${ticketId}/attachments/${attachment.id}`}
+        />
       )}
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.12em]">
+          {translate(`attachments.kind.${attachment.kind}`)}
+        </span>
+        <span className="min-w-0 flex-1 truncate">{name}</span>
+        <span className="font-mono text-[11px] text-muted-foreground">
+          {formatBytes(attachment.sizeBytes)}
+        </span>
+        {attachment.downloadable ? (
+          <Button
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                await downloadThroughApi(
+                  `/v1/panel/support/tickets/${ticketId}/attachments/${attachment.id}`,
+                  name,
+                );
+              } catch (downloadError) {
+                toast.error(
+                  downloadError instanceof ApiError && downloadError.status === 404
+                    ? translate("attachments.gone")
+                    : translate("attachments.downloadFailed"),
+                );
+              } finally {
+                setBusy(false);
+              }
+            }}
+            size="sm"
+            variant="outline"
+          >
+            {translate("attachments.download")}
+          </Button>
+        ) : (
+          <span className="text-muted-foreground" title={translate("attachments.telegramHint")}>
+            {translate("attachments.telegram")}
+          </span>
+        )}
+      </div>
     </div>
+  );
+}
+
+/**
+ * A customer's photo, shown in the conversation. It is read through the same
+ * download route as the button, with the operator's session, and shown from
+ * memory; opening it shows it full size in a new tab.
+ */
+function PhotoPreview({ name, url }: { name: string; url: string }) {
+  const translate = useTranslations("admin.support");
+  const [source, setSource] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let revoked = false;
+    let objectUrl: string | null = null;
+    fetch(url, { credentials: "include" })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(String(response.status));
+        }
+        // A photo from Telegram is always a JPEG; the stored type may be empty.
+        const data = await response.arrayBuffer();
+        objectUrl = URL.createObjectURL(new Blob([data], { type: "image/jpeg" }));
+        if (!revoked) {
+          setSource(objectUrl);
+        }
+      })
+      .catch(() => setFailed(true));
+    return () => {
+      revoked = true;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [url]);
+
+  if (failed) {
+    return <span className="text-muted-foreground">{translate("attachments.previewFailed")}</span>;
+  }
+  if (!source) {
+    return <span className="h-40 w-56 animate-pulse rounded-md bg-muted" />;
+  }
+  return (
+    <a href={source} rel="noreferrer" target="_blank" title={translate("attachments.openFull")}>
+      {/* biome-ignore lint/performance/noImgElement: an in-memory blob the operator's session fetched; next/image cannot load it. */}
+      <img
+        alt={name}
+        className="max-h-72 max-w-full rounded-md border border-border object-contain"
+        src={source}
+      />
+    </a>
   );
 }
 

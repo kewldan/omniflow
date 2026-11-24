@@ -340,7 +340,9 @@ func (service *Service) Attachment(
 		return Attachment{}, nil, err
 	}
 	attachment.CreatedAt = attachment.CreatedAt.UTC()
-	if origin != originLocal {
+	// A file sent to the bot is downloadable once the bot has copied it into
+	// the store; until then only Telegram has it.
+	if key == "" {
 		return attachment, nil, ErrAttachmentRemote
 	}
 	attachment.Downloadable = true
@@ -371,7 +373,7 @@ func (service *Service) attachMessageFiles(ctx context.Context, messages []Messa
 	}
 	rows, err := service.pool.Query(ctx, `SELECT a.id::text, a.message_id, a.kind,
 		COALESCE(a.file_name, ''), COALESCE(a.mime_type, ''), a.size_bytes,
-		a.created_at, a.origin
+		a.created_at, a.storage_key IS NOT NULL
 		FROM support_attachments a
 		WHERE a.message_id = ANY($1) AND a.retain_until > now()
 		ORDER BY a.created_at, a.id`, ids)
@@ -382,14 +384,12 @@ func (service *Service) attachMessageFiles(ctx context.Context, messages []Messa
 	byMessage := make(map[int64][]Attachment, len(messages))
 	for rows.Next() {
 		var attachment Attachment
-		var origin string
 		if err = rows.Scan(&attachment.ID, &attachment.MessageID, &attachment.Kind,
 			&attachment.FileName, &attachment.MediaType, &attachment.SizeBytes,
-			&attachment.CreatedAt, &origin); err != nil {
+			&attachment.CreatedAt, &attachment.Downloadable); err != nil {
 			return err
 		}
 		attachment.CreatedAt = attachment.CreatedAt.UTC()
-		attachment.Downloadable = origin == originLocal
 		byMessage[attachment.MessageID] = append(byMessage[attachment.MessageID], attachment)
 	}
 	if err = rows.Err(); err != nil {

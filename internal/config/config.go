@@ -220,6 +220,8 @@ type Config struct {
 	// Fragment configures the direct Fragment goods provider. The api reads
 	// it to show the wallet and the provider's state in the panel.
 	Fragment FragmentConfig
+	// ObjectStore is the S3-compatible store for support attachments.
+	ObjectStore ObjectStoreConfig
 }
 
 // CustomerPanelConfig configures the customer web panel API introduced in v0.9.
@@ -314,6 +316,8 @@ type BotConfig struct {
 	// Fragment configures the direct Fragment goods provider, which the bot
 	// needs to check a recipient and to know whether to offer VPN afterwards.
 	Fragment FragmentConfig
+	// ObjectStore is the S3-compatible store for support attachments.
+	ObjectStore ObjectStoreConfig
 	// TelegramTransport is how the bot reaches the Bot API.
 	TelegramTransport TelegramTransportConfig
 }
@@ -386,6 +390,8 @@ type WorkerConfig struct {
 	// Fragment configures the direct Fragment goods provider. The worker is
 	// the process that buys and pays, so it is the one that needs the secrets.
 	Fragment FragmentConfig
+	// ObjectStore is the S3-compatible store for support attachments.
+	ObjectStore ObjectStoreConfig
 	// Payment credentials. The worker holds them because it is the process that
 	// charges automatic renewals: a renewal is a charge against a provider, and
 	// a worker without the adapter could only ever record that it failed.
@@ -476,6 +482,11 @@ func Load() (Config, error) {
 			return Config{}, fmt.Errorf("APP_TELEMETRY_ENDPOINT must be an HTTPS URL")
 		}
 	}
+	objects, err := LoadObjectStore()
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.ObjectStore = objects
 	return cfg, nil
 }
 
@@ -566,6 +577,11 @@ func LoadBot() (BotConfig, error) {
 	if cfg.TelegramTransport, err = loadTelegramTransport(); err != nil {
 		return BotConfig{}, err
 	}
+	objects, err := LoadObjectStore()
+	if err != nil {
+		return BotConfig{}, err
+	}
+	cfg.ObjectStore = objects
 	return cfg, nil
 }
 
@@ -627,6 +643,11 @@ func LoadWorker() (WorkerConfig, error) {
 	if cfg.DatabaseMaxConns, err = loadDatabaseMaxConns(DefaultWorkerDatabaseMaxConns); err != nil {
 		return WorkerConfig{}, err
 	}
+	objects, err := LoadObjectStore()
+	if err != nil {
+		return WorkerConfig{}, err
+	}
+	cfg.ObjectStore = objects
 	return cfg, nil
 }
 

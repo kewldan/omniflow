@@ -27,6 +27,7 @@ import (
 	apihttp "github.com/omniflow/omniflow/internal/httpapi"
 	"github.com/omniflow/omniflow/internal/installsettings"
 	"github.com/omniflow/omniflow/internal/jobs"
+	"github.com/omniflow/omniflow/internal/objectstore"
 	"github.com/omniflow/omniflow/internal/operator"
 	"github.com/omniflow/omniflow/internal/panelpg"
 	"github.com/omniflow/omniflow/internal/platform"
@@ -207,6 +208,16 @@ func main() {
 		customerNotifier.SetBotUsername(me.Username)
 	}
 	go customerNotifier.Run(ctx)
+	// Files customers send the bot are copied into the attachment store, so
+	// the operator desk can show them. Without an object store the bot has no
+	// store it shares with the api, and the files stay Telegram references.
+	if cfg.ObjectStore.Enabled() {
+		if files, filesErr := objectstore.New(cfg.ObjectStore); filesErr != nil {
+			logger.Warn("support attachments will not be copied", "error", filesErr)
+		} else {
+			go botapp.NewAttachmentCopier(pool, client, files, cfg.TelegramTransport.ProxyURL, logger).Run(ctx)
+		}
+	}
 
 	operationalServer := startOperationalServer(logger, cfg, pool, metrics)
 	webhookServer := startWebhookServer(logger, cfg, client)

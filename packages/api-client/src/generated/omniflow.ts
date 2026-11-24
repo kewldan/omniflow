@@ -7347,7 +7347,7 @@ export const PanelSupportAttachmentKind = {
 } as const;
 
 /**
- * `web` for a file this installation holds; `telegram` for a reference to a file in the customer's chat.
+ * `web` for a file uploaded through the web cabinet; `telegram` for a file sent to the bot.
  */
 export type PanelSupportAttachmentOrigin =
   (typeof PanelSupportAttachmentOrigin)[keyof typeof PanelSupportAttachmentOrigin];
@@ -7364,8 +7364,9 @@ export interface PanelSupportAttachment {
   fileName: string;
   mediaType: string;
   sizeBytes: number;
-  /** `web` for a file this installation holds; `telegram` for a reference to a file in the customer's chat. */
+  /** `web` for a file uploaded through the web cabinet; `telegram` for a file sent to the bot. */
   origin: PanelSupportAttachmentOrigin;
+  /** This installation holds the bytes: a web upload, or a Telegram file the bot has copied into the attachment store. */
   downloadable: boolean;
   createdAt: string;
 }
@@ -43486,7 +43487,7 @@ export const getDownloadAccountSupportAttachmentUrl = (attachmentID: string) => 
 };
 
 /**
- * Serves a file the calling customer's own conversation carries. A file attached in Telegram is not stored here and answers `attachment_remote` instead, because offering a download that cannot work is worse than saying where the file actually lives.
+ * Serves a file the calling customer's own conversation carries. A file sent to the bot is served once the bot has copied it into the attachment store; until then, or without an object store, it answers `attachment_remote`, because offering a download that cannot work is worse than saying where the file actually lives.
  */
 export const downloadAccountSupportAttachment = async (
   attachmentID: string,
@@ -44474,7 +44475,7 @@ export const getDownloadPanelSupportAttachmentUrl = (ticketID: string, attachmen
 };
 
 /**
- * Requires support.read. Serves a file the customer uploaded through the web panel, scoped to its ticket, with an attachment disposition and `nosniff`. A file that arrived through Telegram answers 409 `attachment_remote` and is never fetched: Omniflow holds a reference, not the bytes, and will not proxy Telegram's file API with the bot token on an operator's behalf. A purged file answers 404; a process with no attachment store answers 503.
+ * Requires support.read. Serves a file the customer attached, scoped to its ticket, with an attachment disposition and `nosniff`: a web upload, or a file sent to the bot once the bot has copied it into the attachment store (APP_S3_*). A Telegram file not yet copied answers 409 `attachment_remote`; the panel never fetches from Telegram on an operator's behalf. A purged file answers 404; a process with no attachment store answers 503.
  */
 export const downloadPanelSupportAttachment = async (
   ticketID: string,

@@ -17798,7 +17798,7 @@ export const AttachToAccountSupportTicketResponse = zod.object({
 });
 
 /**
- * Serves a file the calling customer's own conversation carries. A file attached in Telegram is not stored here and answers `attachment_remote` instead, because offering a download that cannot work is worse than saying where the file actually lives.
+ * Serves a file the calling customer's own conversation carries. A file sent to the bot is served once the bot has copied it into the attachment store; until then, or without an object store, it answers `attachment_remote`, because offering a download that cannot work is worse than saying where the file actually lives.
  */
 export const DownloadAccountSupportAttachmentParams = zod.object({
   attachmentID: zod.uuid(),
@@ -18351,9 +18351,13 @@ export const GetPanelSupportTicketResponse = zod.object({
           origin: zod
             .enum(["web", "telegram"])
             .describe(
-              "`web` for a file this installation holds; `telegram` for a reference to a file in the customer's chat.",
+              "`web` for a file uploaded through the web cabinet; `telegram` for a file sent to the bot.",
             ),
-          downloadable: zod.boolean(),
+          downloadable: zod
+            .boolean()
+            .describe(
+              "This installation holds the bytes: a web upload, or a Telegram file the bot has copied into the attachment store.",
+            ),
           createdAt: zod.iso.datetime({ offset: true }),
         }),
       ),
@@ -18372,7 +18376,7 @@ export const GetPanelSupportTicketResponse = zod.object({
 });
 
 /**
- * Requires support.read. Serves a file the customer uploaded through the web panel, scoped to its ticket, with an attachment disposition and `nosniff`. A file that arrived through Telegram answers 409 `attachment_remote` and is never fetched: Omniflow holds a reference, not the bytes, and will not proxy Telegram's file API with the bot token on an operator's behalf. A purged file answers 404; a process with no attachment store answers 503.
+ * Requires support.read. Serves a file the customer attached, scoped to its ticket, with an attachment disposition and `nosniff`: a web upload, or a file sent to the bot once the bot has copied it into the attachment store (APP_S3_*). A Telegram file not yet copied answers 409 `attachment_remote`; the panel never fetches from Telegram on an operator's behalf. A purged file answers 404; a process with no attachment store answers 503.
  */
 export const DownloadPanelSupportAttachmentParams = zod.object({
   ticketID: zod.uuid(),
@@ -18641,9 +18645,13 @@ export const ReplyToPanelSupportTicketResponse = zod.object({
       origin: zod
         .enum(["web", "telegram"])
         .describe(
-          "`web` for a file this installation holds; `telegram` for a reference to a file in the customer's chat.",
+          "`web` for a file uploaded through the web cabinet; `telegram` for a file sent to the bot.",
         ),
-      downloadable: zod.boolean(),
+      downloadable: zod
+        .boolean()
+        .describe(
+          "This installation holds the bytes: a web upload, or a Telegram file the bot has copied into the attachment store.",
+        ),
       createdAt: zod.iso.datetime({ offset: true }),
     }),
   ),

@@ -11451,7 +11451,9 @@ type PanelSubscriptionSyncFieldsField string
 
 // PanelSupportAttachment defines model for PanelSupportAttachment.
 type PanelSupportAttachment struct {
-	CreatedAt    time.Time                  `json:"createdAt"`
+	CreatedAt time.Time `json:"createdAt"`
+
+	// Downloadable This installation holds the bytes: a web upload, or a Telegram file the bot has copied into the attachment store.
 	Downloadable bool                       `json:"downloadable"`
 	FileName     string                     `json:"fileName"`
 	Id           openapi_types.UUID         `json:"id"`
@@ -11459,7 +11461,7 @@ type PanelSupportAttachment struct {
 	MediaType    string                     `json:"mediaType"`
 	MessageId    int64                      `json:"messageId"`
 
-	// Origin `web` for a file this installation holds; `telegram` for a reference to a file in the customer's chat.
+	// Origin `web` for a file uploaded through the web cabinet; `telegram` for a file sent to the bot.
 	Origin    PanelSupportAttachmentOrigin `json:"origin"`
 	SizeBytes int64                        `json:"sizeBytes"`
 }
@@ -11467,7 +11469,7 @@ type PanelSupportAttachment struct {
 // PanelSupportAttachmentKind defines model for PanelSupportAttachment.Kind.
 type PanelSupportAttachmentKind string
 
-// PanelSupportAttachmentOrigin `web` for a file this installation holds; `telegram` for a reference to a file in the customer's chat.
+// PanelSupportAttachmentOrigin `web` for a file uploaded through the web cabinet; `telegram` for a file sent to the bot.
 type PanelSupportAttachmentOrigin string
 
 // PanelSupportMessage defines model for PanelSupportMessage.

@@ -3009,9 +3009,11 @@
         "unnamed": "附件",
         "download": "下载",
         "telegram": "在 Telegram 中",
-        "telegramHint": "此文件发送于用户的 Telegram 对话中。Omniflow 只保存引用而非文件本身，因此无法在此下载。",
+        "telegramHint": "This file is only in Telegram so far. The bot copies such files into storage within a minute, and it can then be opened here. Without a file store configured, it stays in the customer's chat only.",
         "gone": "该文件已不再保存，可能已超过保留期限。",
-        "downloadFailed": "暂时无法下载该文件。"
+        "downloadFailed": "暂时无法下载该文件。",
+        "previewFailed": "The photo could not be shown; try downloading it.",
+        "openFull": "Open full size"
       },
       "listFailed": "无法加载工单。列表会自动刷新，请稍后重试。",
       "controls": {

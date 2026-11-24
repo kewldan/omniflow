@@ -87,15 +87,16 @@ func (handlers *AdminHandlers) supportTicket(writer http.ResponseWriter, request
 	handlers.respond(writer, request, detail, err)
 }
 
-// downloadTicketAttachment serves a file a customer uploaded through the web
-// panel to an operator reading the ticket.
+// downloadTicketAttachment serves a file a customer attached — a web upload,
+// or a file sent to the bot that the bot has copied into the attachment store —
+// to an operator reading the ticket.
 //
 // It needs only `support.read`: the file is part of the conversation, and an
 // operator entitled to read the words is entitled to read the screenshot that
-// came with them. A file that arrived through Telegram is answered with 409
-// `attachment_remote` and never fetched — Omniflow holds a reference, not the
-// bytes, and proxying Telegram's file API with the bot token on an operator's
-// behalf would put a customer's file behind a credential the panel was never
+// came with them. A Telegram file not copied yet is answered with 409
+// `attachment_remote` and never fetched here — proxying Telegram's file API with
+// the bot token on an operator's behalf would put a customer's file behind a
+// credential the panel was never
 // meant to hold. The response headers match the customer download exactly:
 // `attachment` disposition, `nosniff`, and the stored type only while it is on
 // the allowlist.
@@ -110,7 +111,7 @@ func (handlers *AdminHandlers) downloadTicketAttachment(writer http.ResponseWrit
 	if !attachment.Downloadable {
 		writeProblem(
 			writer, request, http.StatusConflict, "attachment_remote",
-			"This file was sent through Telegram and lives there; it cannot be downloaded from the panel",
+			"This file was sent through Telegram and has not been copied into the attachment store",
 		)
 		return
 	}
