@@ -110,7 +110,13 @@ export function AdminShell({ children }: { children: ReactNode }) {
             </SheetTrigger>
             <SheetContent className="w-64 p-0" side="left">
               <SheetTitle className="px-4 pt-4">Omniflow</SheetTitle>
-              <AdminSidebar onNavigate={() => setMobileOpen(false)} />
+              {/* The title takes room at the top of the sheet, so the sidebar
+                  gets what is left rather than the sheet's full height — at
+                  full height its last items sat below the screen, out of the
+                  scroll area's reach. */}
+              <div className="min-h-0 flex-1">
+                <AdminSidebar onNavigate={() => setMobileOpen(false)} />
+              </div>
             </SheetContent>
           </Sheet>
 

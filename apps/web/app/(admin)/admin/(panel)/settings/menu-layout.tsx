@@ -252,8 +252,11 @@ export function MenuLayoutEditor() {
         <CardTitle>{translate("title")}</CardTitle>
         <CardDescription>{translate("description")}</CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-6 lg:grid-cols-2">
-        <div className="flex flex-col gap-3">
+      {/* One column of the card's width on a phone: an implicit grid column
+          is as wide as its widest content, which pushed the preview past the
+          card's edge. */}
+      <CardContent className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="flex min-w-0 flex-col gap-3">
           <div className="font-medium text-sm">{translate("rows")}</div>
           <ol className="flex flex-col gap-2">
             {current.map((entries, row) => (
@@ -371,7 +374,7 @@ export function MenuLayoutEditor() {
           ) : null}
         </div>
 
-        <div className="flex flex-col gap-3">
+        <div className="flex min-w-0 flex-col gap-3">
           <div className="flex items-center justify-between gap-2">
             <span className="font-medium text-sm">{translate("preview")}</span>
             <Select onValueChange={(value) => setLocale(value as "ru" | "en")} value={locale}>
