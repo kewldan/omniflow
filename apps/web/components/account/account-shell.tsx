@@ -2,27 +2,7 @@
 
 import { Button } from "@omniflow/ui/button";
 import { cn } from "@omniflow/ui/lib/utils";
-import {
-  Check,
-  Copy,
-  Gift,
-  Layers,
-  LifeBuoy,
-  LogOut,
-  type LucideIcon,
-  Megaphone,
-  ReceiptText,
-  RefreshCw,
-  Route,
-  ShieldCheck,
-  Smartphone,
-  Star,
-  Store,
-  Tag,
-  UserPlus,
-  UserRound,
-  Wallet,
-} from "lucide-react";
+import { Check, Copy, LogOut, type LucideIcon, Route, Star } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -34,6 +14,7 @@ import { AccountNotice } from "@/components/account/state";
 import { NavIcon } from "@/components/admin/nav-icon";
 import { useBrandName } from "@/components/brand-name";
 import { LocaleSync } from "@/components/intl/locale-switch";
+import { SECONDARY, TABS } from "@/lib/account-navigation";
 import { useAccount } from "@/lib/account-session";
 import { apiFetch, fetcher } from "@/lib/api";
 import { flushReferralAttribution, rememberReferralCode } from "@/lib/referral";
@@ -42,51 +23,10 @@ import { signInPath } from "@/lib/sign-in-path";
 import { useSmartEnabled } from "@/lib/smart-enabled";
 
 /**
- * The tabs that carry the product.
- *
- * Five destinations, chosen by how often a customer needs each rather than by
- * how the API is divided. Buying a plan and buying digital goods are one
- * destination because from the customer's side they are the same errand, and
- * splitting them would spend a scarce tab on a catalogue many installations do
- * not sell at all. Devices moved off the bar and under the account tab: it is
- * something a person does once when a phone is replaced, not something they
- * come back to, and the subscription it belongs to links to it directly.
- *
- * The bar sizes its indicator from the count, so this list is the only place
- * that has to change when a destination is added or removed.
- */
-const TABS: { href: string; icon: LucideIcon; key: string }[] = [
-  { href: "/account", icon: Layers, key: "subscriptions" },
-  { href: "/account/store", icon: Store, key: "store" },
-  { href: "/account/wallet", icon: Wallet, key: "wallet" },
-  { href: "/account/support", icon: LifeBuoy, key: "support" },
-  { href: "/account/profile", icon: UserRound, key: "profile" },
-];
-
-/**
  * The tabs a Mini App in lite mode keeps: the errands a customer opens the bot's
  * Mini App for. Everything else stays reachable from the bot itself.
  */
 const LITE_TABS = new Set(["subscriptions", "store", "support"]);
-
-/**
- * The destinations a phone reaches through the account tab.
- *
- * On a narrow screen these stay one level down, because five is already the
- * ceiling for a thumb-reachable bar. A desktop sidebar has room to spare and no
- * reason to make somebody open a settings page to find their own orders, so it
- * lists them directly.
- */
-const SECONDARY: { href: string; icon: LucideIcon; key: string }[] = [
-  { href: "/account/orders", icon: ReceiptText, key: "orders" },
-  { href: "/account/devices", icon: Smartphone, key: "devices" },
-  { href: "/account/referrals", icon: UserPlus, key: "referrals" },
-  { href: "/account/gifts", icon: Gift, key: "gifts" },
-  { href: "/account/offers", icon: Tag, key: "offers" },
-  { href: "/account/renewal", icon: RefreshCw, key: "renewal" },
-  { href: "/account/news", icon: Megaphone, key: "news" },
-  { href: "/account/security", icon: ShieldCheck, key: "security" },
-];
 
 /**
  * Section pages that open straight into their content with no heading of their
@@ -320,6 +260,7 @@ function DesktopSidebar({
           ))}
           {stars && (
             <SidebarLink
+              animation="stars"
               href={`/account/shop/${stars.id}`}
               icon={Star}
               label={translate("nav.stars")}
@@ -328,6 +269,7 @@ function DesktopSidebar({
           )}
           {smart && (
             <SidebarLink
+              animation="servers"
               href="/account/servers"
               icon={Route}
               label={translate("nav.servers")}
@@ -367,8 +309,11 @@ function SidebarLink({
   label,
   pathname,
 }: {
-  /** The entry's animation under /lottie/account, played on hover and tap. */
-  animation?: string;
+  /**
+   * The entry's animation under /lottie/account, played on hover and tap.
+   * Required: every sidebar entry is animated.
+   */
+  animation: string;
   href: string;
   icon?: LucideIcon;
   label: string;

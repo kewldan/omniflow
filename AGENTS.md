@@ -41,6 +41,7 @@ These instructions apply to the entire repository.
 - The API has three prefixes and they stay separate: `/v1/panel` is the operator panel (operator session cookie, CSRF, RBAC), `/v1/admin` is the bearer-token surface for Telegram operator tooling, and `/v1/account` is the customer panel (customer session cookie, CSRF, no RBAC). Do not merge them: each would inherit another's middleware, and a customer credential must never be able to reach an operator route.
 - All user-facing copy must use `next-intl` message catalogs. Russian and English are required and complete; add the same keys to the Ukrainian, Chinese, and Persian catalogs in `apps/web/messages/` too.
 - Preserve accessibility, keyboard navigation, responsive layouts, and explicit loading/empty/error states.
+- Every sidebar entry, in the operator panel and the customer panel, has an animated icon. Add the motion to `design/sidebar-icons-lottie/lottie_gen.py` in its shared language, pack it with `tools/pack-lottie.py` into `apps/web/public/lottie/sidebar/` or `apps/web/public/lottie/account/`, and list a conditional customer entry in `apps/web/lib/account-navigation.ts`; `apps/web/lib/sidebar-animations.test.ts` fails on an entry without one. Reduced motion keeps the static icon.
 
 ## Telemetry and privacy
 

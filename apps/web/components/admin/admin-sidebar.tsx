@@ -14,30 +14,6 @@ import { fetcher } from "@/lib/api";
 import { NAVIGATION, NAVIGATION_ITEMS } from "@/lib/navigation";
 import { useSession } from "@/lib/session";
 
-/** Entries that have an animation under /lottie/sidebar. */
-const SIDEBAR_ANIMATIONS = new Set([
-  "dashboard",
-  "customers",
-  "finance",
-  "payouts",
-  "reports",
-  "traffic",
-  "catalog",
-  "shop",
-  "gifts",
-  "offers",
-  "support",
-  "content",
-  "marketing",
-  "risk",
-  "operators",
-  "audit",
-  "system",
-  "settings",
-  "aiSettings",
-  "security",
-]);
-
 /**
  * Primary navigation.
  *
@@ -122,11 +98,7 @@ export function AdminSidebar({ onNavigate }: { onNavigate?: () => void }) {
                             setPlays((all) => ({ ...all, [item.key]: (all[item.key] ?? 0) + 1 }))
                           }
                         >
-                          <NavIcon
-                            animation={SIDEBAR_ANIMATIONS.has(item.key) ? item.key : undefined}
-                            icon={Icon}
-                            play={plays[item.key] ?? 0}
-                          />
+                          <NavIcon animation={item.key} icon={Icon} play={plays[item.key] ?? 0} />
                           <span className="truncate">{label}</span>
                           {(counts?.[item.key] ?? 0) > 0 && (
                             <>

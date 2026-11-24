@@ -71,3 +71,12 @@ shapes above; the rest:
 | referrals | the person nods, the plus turns in |
 | offers | the tag swings from its hole |
 | renewal | the arrows turn half a circle |
+| servers | the road redraws from the first stop, the last stop pops (also the operator sidebar's `smartSubscription`) |
+| stars | the star presses and turns a fifth of a circle |
+
+## The rule
+
+Every sidebar entry is animated. `apps/web/lib/sidebar-animations.test.ts` checks that each operator
+navigation key has `apps/web/public/lottie/sidebar/<key>.lottie` and each customer entry has
+`apps/web/public/lottie/account/<key>.lottie`. Generation is deterministic, so regenerating leaves the
+existing files byte-identical; pack only the new ones.

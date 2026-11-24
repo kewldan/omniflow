@@ -260,6 +260,21 @@ def head_and_body(t0=0):
 
 
 # ---------------------------------------------------------------- icons
+ROUTE_START = '<circle cx="6" cy="5" r="3"/>'
+ROUTE_ROAD = '<path d="M9 5h8.5a1 1 0 010 7h-11a1 1 0 000 7H15"/>'
+ROUTE_END = '<circle cx="18" cy="19" r="3"/>'
+
+
+def route_parts():
+    """Smart subscription — the road redraws from the first stop, and the last
+    stop pops when it arrives."""
+    return [
+        Part("start", ROUTE_START, anchor=(6, 5), scale=pop(0, 80)),
+        Part("road", ROUTE_ROAD, trim=wipe(STAGGER)),
+        Part("end", ROUTE_END, anchor=(18, 19), scale=pop(STAGGER * 3, 80)),
+    ]
+
+
 def icons():
     I = {}
 
@@ -412,6 +427,8 @@ def icons():
         Part("shield", SHIELD, anchor=(12, 22), scale=pop(0, 90)),
         Part("check", '<path d="m9 12 2 2 4-4"/>', trim=wipe(STAGGER * 2)),
     ])
+    # 21 Smart subscription — the road redraws, the last stop pops
+    I["21-smartSubscription"] = comp("smartSubscription", route_parts())
     return I
 
 
@@ -482,6 +499,15 @@ def account_icons():
 
     I["12-news"] = admin["13-marketing"]
     I["13-security"] = admin["20-security"]
+
+    # Servers and routing — the operator sidebar's smart subscription
+    I["14-servers"] = comp("servers", route_parts())
+
+    # Stars — the star presses and turns a fifth of a circle, after which it
+    # looks the same; it turns about the pentagram's own centre
+    I["15-stars"] = comp("stars", [Part("star",
+        '<path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z"/>',
+        anchor=(12, 12.6), scale=pop(0, 88), rot=spin(0, 72))])
     return I
 
 
