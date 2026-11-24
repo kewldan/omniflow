@@ -86,6 +86,14 @@ type geocheckReport struct {
 		} `json:"targets"`
 	} `json:"connectivity"`
 	Geo struct {
+		// CDN is the country of the edge each CDN sends the node to: chosen
+		// by network distance, so it says where the node is even when the
+		// geolocation databases disagree.
+		CDN []struct {
+			IPv4 struct {
+				Value string `json:"value"`
+			} `json:"ipv4"`
+		} `json:"cdn"`
 		Services []struct {
 			ID   string `json:"id"`
 			IPv4 struct {
@@ -118,11 +126,7 @@ func SummarizeGeocheck(report []byte, checkedAt time.Time) (NodeCheck, error) {
 	if !parsed.Timestamp.IsZero() {
 		check.CheckedAt = parsed.Timestamp.UTC()
 	}
-	consensus := ""
-	if len(parsed.Consensus.IPv4) > 0 && parsed.Consensus.IPv4[0].Percent > 50 {
-		consensus = parsed.Consensus.IPv4[0].Code
-	}
-	check.Place = locate(parsed.Reputation.City, parsed.Reputation.CountryCode, consensus)
+	check.Place = locate(parsed.Reputation.City, parsed.Reputation.CountryCode, parsed.country())
 	check.Floor = parsed.Connectivity.Floor
 	for _, target := range parsed.Connectivity.Targets {
 		// A detour (traffic sent round another continent) says how a route
@@ -215,4 +219,33 @@ func SummarizeGeocheck(report []byte, checkedAt time.Time) (NodeCheck, error) {
 		}
 	}
 	return check, nil
+}
+
+// country is where the geolocation databases place the node: the country a
+// majority of them name, or, when they split (an address a provider moved
+// between countries), the one most CDN edges are in, if at least two agree.
+// Empty when neither settles it.
+func (report geocheckReport) country() string {
+	if len(report.Consensus.IPv4) > 0 && report.Consensus.IPv4[0].Percent > 50 {
+		return strings.ToUpper(report.Consensus.IPv4[0].Code)
+	}
+	votes := map[string]int{}
+	best, bestVotes, tied := "", 0, false
+	for _, edge := range report.Geo.CDN {
+		country := strings.ToUpper(strings.TrimSpace(edge.IPv4.Value))
+		if country == "" {
+			continue
+		}
+		votes[country]++
+		switch {
+		case votes[country] > bestVotes:
+			best, bestVotes, tied = country, votes[country], false
+		case votes[country] == bestVotes && country != best:
+			tied = true
+		}
+	}
+	if bestVotes < 2 || tied {
+		return ""
+	}
+	return best
 }
