@@ -3744,8 +3744,6 @@ export const getPanelSmartSubscriptionResponseProbeIntervalSecondsMax = 86400;
 
 export const getPanelSmartSubscriptionResponseAutoNameMax = 40;
 
-export const getPanelSmartSubscriptionResponseReserveNameMax = 40;
-
 export const getPanelSmartSubscriptionResponseMaxRulesMax = 200;
 
 export const getPanelSmartSubscriptionResponseRulesItemNameMax = 60;
@@ -3779,10 +3777,6 @@ export const GetPanelSmartSubscriptionResponse = zod.object({
     .string()
     .max(getPanelSmartSubscriptionResponseAutoNameMax)
     .describe("The fastest-server group's name; empty uses the customer's language's default."),
-  reserveName: zod
-    .string()
-    .max(getPanelSmartSubscriptionResponseReserveNameMax)
-    .describe("The whitelist bypass group's name; empty uses the default."),
   customRules: zod.boolean().describe("Customers may add their own domains."),
   maxRules: zod.int().min(1).max(getPanelSmartSubscriptionResponseMaxRulesMax),
   rules: zod
@@ -3875,8 +3869,6 @@ export const savePanelSmartSubscriptionBodyProbeIntervalSecondsMax = 86400;
 
 export const savePanelSmartSubscriptionBodyAutoNameMax = 40;
 
-export const savePanelSmartSubscriptionBodyReserveNameMax = 40;
-
 export const savePanelSmartSubscriptionBodyMaxRulesMax = 200;
 
 export const savePanelSmartSubscriptionBodyRulesItemNameMax = 60;
@@ -3909,10 +3901,6 @@ export const SavePanelSmartSubscriptionBody = zod.object({
     .string()
     .max(savePanelSmartSubscriptionBodyAutoNameMax)
     .describe("The fastest-server group's name; empty uses the customer's language's default."),
-  reserveName: zod
-    .string()
-    .max(savePanelSmartSubscriptionBodyReserveNameMax)
-    .describe("The whitelist bypass group's name; empty uses the default."),
   customRules: zod.boolean().describe("Customers may add their own domains."),
   maxRules: zod.int().min(1).max(savePanelSmartSubscriptionBodyMaxRulesMax),
   rules: zod
@@ -3990,8 +3978,6 @@ export const savePanelSmartSubscriptionResponseProbeIntervalSecondsMax = 86400;
 
 export const savePanelSmartSubscriptionResponseAutoNameMax = 40;
 
-export const savePanelSmartSubscriptionResponseReserveNameMax = 40;
-
 export const savePanelSmartSubscriptionResponseMaxRulesMax = 200;
 
 export const savePanelSmartSubscriptionResponseRulesItemNameMax = 60;
@@ -4025,10 +4011,6 @@ export const SavePanelSmartSubscriptionResponse = zod.object({
     .string()
     .max(savePanelSmartSubscriptionResponseAutoNameMax)
     .describe("The fastest-server group's name; empty uses the customer's language's default."),
-  reserveName: zod
-    .string()
-    .max(savePanelSmartSubscriptionResponseReserveNameMax)
-    .describe("The whitelist bypass group's name; empty uses the default."),
   customRules: zod.boolean().describe("Customers may add their own domains."),
   maxRules: zod.int().min(1).max(savePanelSmartSubscriptionResponseMaxRulesMax),
   rules: zod

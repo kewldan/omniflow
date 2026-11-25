@@ -292,7 +292,7 @@ func TestBuildXrayGroups(t *testing.T) {
 		Upstream: standardAnswer(t), Settings: settings, Catalog: testCatalog(),
 		Preferences: settings.DefaultPreferences(), Locale: "ru",
 	})
-	if got := remarksOf(configs); got != "⚡ Самый быстрый | 🇫🇮 Финляндия | 🇩🇪 Германия | 🛡 Обход белых списков" {
+	if got := remarksOf(configs); got != "⚡ Самый быстрый | 🇫🇮 Финляндия | 🇩🇪 Германия" {
 		t.Fatalf("groups = %s", got)
 	}
 	auto := configs[0]
@@ -326,10 +326,18 @@ func TestBuildXrayGroups(t *testing.T) {
 			t.Error("a hidden host reached the subscription")
 		}
 	}
-	// The reserve group stands alone, without a fallback chain.
-	reserve := configs[len(configs)-1]
-	if len(reserve.Routing.Balancers) != 1 || reserve.Routing.Balancers[0].FallbackTag != "" {
-		t.Errorf("reserve group balancers = %+v", reserve.Routing.Balancers)
+	// The whitelist bypass has no group of its own: every group falls back
+	// to it before trying everything.
+	for _, config := range configs {
+		found := false
+		for _, balancer := range config.Routing.Balancers {
+			if strings.HasSuffix(balancer.Tag, "-reserve-balancer") {
+				found = strings.Join(balancer.Selector, ",") == "Russia WHITE"
+			}
+		}
+		if !found {
+			t.Errorf("%s has no whitelist bypass fallback", config.Remarks)
+		}
 	}
 	// The template's own rules keep their targets: torrents direct, a proxied
 	// domain into the group's balancer; the last rule catches everything.

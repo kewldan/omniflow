@@ -218,7 +218,7 @@ func (handlers *AdminHandlers) smartSubscriptionPayload(setting panelpg.SmartSub
 		"enabled": setting.Enabled, "version": setting.Version,
 		"linkBase": setting.LinkBase, "effectiveLinkBase": handlers.smartSubscription.LinkBase(setting.Settings),
 		"probeUrl": setting.ProbeURL, "probeIntervalSeconds": setting.ProbeIntervalSeconds,
-		"autoName": setting.AutoName, "reserveName": setting.ReserveName,
+		"autoName":    setting.AutoName,
 		"customRules": setting.CustomRules, "maxRules": setting.MaxRules, "rules": rulesPayload(setting.Rules),
 		"outageNotices": setting.OutageNotices, "outageMinutes": setting.OutageMinutes,
 		"whitelistMode": setting.WhitelistMode,

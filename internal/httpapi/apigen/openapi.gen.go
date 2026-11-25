@@ -11046,9 +11046,6 @@ type PanelSmartSubscription struct {
 	ProbeIntervalSeconds int    `json:"probeIntervalSeconds"`
 	ProbeUrl             string `json:"probeUrl"`
 
-	// ReserveName The whitelist bypass group's name; empty uses the default.
-	ReserveName string `json:"reserveName"`
-
 	// Rules The service rules in the order customers see them; any built-in rule left out is added with its default.
 	Rules []SmartSubscriptionServiceRule `json:"rules"`
 

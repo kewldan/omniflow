@@ -213,16 +213,6 @@ func autoName(settings Settings, locale string) string {
 	return "⚡ Fastest"
 }
 
-func reserveName(settings Settings, locale string) string {
-	if settings.ReserveName != "" {
-		return settings.ReserveName
-	}
-	if prefersRussian(locale) {
-		return "🛡 Обход белых списков"
-	}
-	return "🛡 Whitelist bypass"
-}
-
 // describe is the line a client shows under a group's name, within the 30
 // characters Happ allows.
 func describe(count int, locale string) string {

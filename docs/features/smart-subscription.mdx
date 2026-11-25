@@ -5,9 +5,9 @@ description: Servers grouped by country with a fastest-server group, a whitelist
 
 A Remnawave subscription hands a VPN app one entry per host, and that is all a customer can work
 with: a flat list, the same for everybody. The smart subscription turns it into something a
-customer can shape. Their app gets one group per country, a "Fastest" group that picks the best
-server on its own, and a whitelist-bypass group that takes over when a mobile network only lets
-approved sites through. Each customer decides which countries they see at all, which ones the
+customer can shape. Their app gets one group per country and a "Fastest" group that picks the
+best server on its own. The whitelist-bypass servers have no group of their own: they stand behind
+every group and take over when a mobile network only lets approved sites through. Each customer decides which countries they see at all, which ones the
 automatic choice may use, and which domains go direct, through the tunnel, or nowhere.
 
 It is **off until you turn it on**, and turning it off again is safe at any time.
@@ -24,7 +24,9 @@ before — and rewrites what goes back:
 
 - **Xray JSON apps** (Happ, INCY, v2RayTun, Streisand, V2Box, v2rayN, FoXray, and similar) get one config
   per group. Each group is a balancer that times its servers and picks the least loaded; when none
-  of them answers, it falls back to the whitelist-bypass servers, and then to every server.
+  of them answers, it falls back to the whitelist-bypass servers, and then to every server. A
+  server counts as not answering when the check through it takes longer than five seconds: a chain
+  through a relay, or the bypass itself, needs two to three and a half from Russia.
 - **Every other app** gets the panel's own answer, with the servers the customer hid taken out when
   it is a plain list of links.
 - An answer the module cannot rewrite — a limit or expiry notice, an encrypted or unknown format —

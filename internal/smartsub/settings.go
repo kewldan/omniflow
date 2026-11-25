@@ -67,10 +67,9 @@ type Settings struct {
 	ProbeURL string `json:"probeUrl"`
 	// ProbeIntervalSeconds is how often a client re-times the servers.
 	ProbeIntervalSeconds int `json:"probeIntervalSeconds"`
-	// AutoName and ReserveName label the automatic group and the whitelist
-	// bypass group. Empty uses the customer's language's default.
-	AutoName    string `json:"autoName"`
-	ReserveName string `json:"reserveName"`
+	// AutoName labels the automatic group. Empty uses the customer's
+	// language's default.
+	AutoName string `json:"autoName"`
 	// CustomRules lets customers add their own domains; MaxRules caps them.
 	CustomRules bool `json:"customRules"`
 	MaxRules    int  `json:"maxRules"`
@@ -161,12 +160,8 @@ func (settings Settings) Normalize() (Settings, error) {
 		return Settings{}, invalid("probeIntervalSeconds", "must be between 30 and 86400")
 	}
 	settings.AutoName = strings.TrimSpace(settings.AutoName)
-	settings.ReserveName = strings.TrimSpace(settings.ReserveName)
 	if utf8.RuneCountInString(settings.AutoName) > maxNameLength {
 		return Settings{}, invalid("autoName", "is too long")
-	}
-	if utf8.RuneCountInString(settings.ReserveName) > maxNameLength {
-		return Settings{}, invalid("reserveName", "is too long")
 	}
 	switch {
 	case settings.MaxRules == 0:
@@ -261,8 +256,8 @@ type Preferences struct {
 	// AutoExcluded are shown as their own group but never picked by the
 	// automatic group.
 	AutoExcluded []string `json:"autoExcluded"`
-	// Reserve keeps the whitelist bypass servers: as the fallback behind
-	// every group and as a group of their own.
+	// Reserve keeps the whitelist bypass servers as the fallback behind
+	// every group. They have no group of their own.
 	Reserve bool `json:"reserve"`
 	// Toggles are the customer's choices on the service rules they may change,
 	// by rule ID. A rule with no entry follows its default.

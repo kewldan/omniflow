@@ -1985,11 +1985,6 @@ export interface PanelSmartSubscription {
    * @maxLength 40
    */
   autoName: string;
-  /**
-   * The whitelist bypass group's name; empty uses the default.
-   * @maxLength 40
-   */
-  reserveName: string;
   /** Customers may add their own domains. */
   customRules: boolean;
   /**

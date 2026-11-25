@@ -34,14 +34,19 @@ type Request struct {
 // Tuning of the balancers each group gets. The numbers are the ones the
 // subscription balancer this package replaces settled on in production.
 const (
-	loadExpected        = 3
-	tolerance           = 0.5
-	toleranceFallback   = 0.8
-	mainBaselineMS      = 2000
-	singleBaselineMS    = 4000
-	reserveBaselineMS   = 4000
-	probeSampling       = 1
-	probeTimeout        = "1s"
+	loadExpected      = 3
+	tolerance         = 0.5
+	toleranceFallback = 0.8
+	mainBaselineMS    = 2000
+	singleBaselineMS  = 4000
+	reserveBaselineMS = 4000
+	probeSampling     = 1
+	// probeTimeout is how long a server may take to answer the check before
+	// the balancer counts it as down. A chain through a relay or the
+	// whitelist bypass takes two to three and a half seconds from Russia; a
+	// shorter limit marks those down for good, and a group then never falls
+	// back to the bypass.
+	probeTimeout        = "5s"
 	defaultDomainPolicy = "IPIfNonMatch"
 )
 
@@ -307,7 +312,7 @@ func templateOf(config map[string]any) template {
 
 // planned is a group before it is named.
 type planned struct {
-	kind     string // "auto", "country", "reserve"
+	kind     string // "auto", "country", "pinned"
 	country  string
 	main     []*proxy
 	fallback []*proxy
@@ -347,7 +352,7 @@ func plan(proxies []*proxy, preferences Preferences) []planned {
 	}
 	// Hiding every country would leave a subscription that connects nowhere.
 	// That is never what somebody meant, so the choice is set aside.
-	if len(visible) == 0 && (len(reserve) == 0 || !preferences.Reserve) {
+	if len(visible) == 0 {
 		visible = main
 	}
 	var fallback []*proxy
@@ -385,9 +390,6 @@ func plan(proxies []*proxy, preferences Preferences) []planned {
 	})
 	for _, country := range order {
 		groups = append(groups, planned{kind: "country", country: country, main: byCountry[country], fallback: fallback})
-	}
-	if preferences.Reserve && len(reserve) > 0 {
-		groups = append(groups, planned{kind: "reserve", main: reserve})
 	}
 	// The customer's own server goes first: one exit address the app keeps,
 	// falling back to the rest of its country and then the bypass servers.
@@ -450,8 +452,6 @@ func (builder groupBuilder) name(group planned) string {
 	switch group.kind {
 	case "auto":
 		return autoName(builder.request.Settings, builder.request.Locale)
-	case "reserve":
-		return reserveName(builder.request.Settings, builder.request.Locale)
 	case "pinned":
 		return "📌 " + group.main[0].server.Remark
 	default:

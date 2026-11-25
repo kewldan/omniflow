@@ -160,7 +160,7 @@ func TestSmartSubscriptionEndToEnd(t *testing.T) {
 	if err != nil || !response.Rewritten || response.Header.Get("Subscription-Userinfo") == "" {
 		t.Fatalf("on: %+v, %v", response, err)
 	}
-	if got := groupNames(t, response.Body); got != "⚡ Fastest | 🇫🇮 Finland | 🇩🇪 Germany | 🛡 Whitelist bypass" {
+	if got := groupNames(t, response.Body); got != "⚡ Fastest | 🇫🇮 Finland | 🇩🇪 Germany" {
 		t.Fatalf("groups = %s", got)
 	}
 

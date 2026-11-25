@@ -79,7 +79,6 @@ type Settings = {
   probeUrl: string;
   probeIntervalSeconds: number;
   autoName: string;
-  reserveName: string;
   customRules: boolean;
   maxRules: number;
   rules: ServiceRule[];
@@ -173,7 +172,6 @@ function SettingsForm({ onSaved, settings }: { onSaved: () => void; settings: Se
     maxRules: useId(),
     outage: useId(),
     auto: useId(),
-    reserve: useId(),
     probe: useId(),
     interval: useId(),
   };
@@ -337,19 +335,6 @@ function SettingsForm({ onSaved, settings }: { onSaved: () => void; settings: Se
                   placeholder={translate("autoNamePlaceholder")}
                   readOnly={!editable}
                   value={draft.autoName}
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor={ids.reserve}>{translate("reserveName")}</Label>
-                <Input
-                  id={ids.reserve}
-                  maxLength={40}
-                  onChange={(event) =>
-                    setDraft((current) => ({ ...current, reserveName: event.target.value }))
-                  }
-                  placeholder={translate("reserveNamePlaceholder")}
-                  readOnly={!editable}
-                  value={draft.reserveName}
                 />
               </div>
               <div className="flex flex-col gap-1.5">

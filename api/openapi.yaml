@@ -8047,7 +8047,7 @@ components:
         tiktok: {$ref: "#/components/schemas/SmartSubscriptionServiceStatus"}
     PanelSmartSubscription:
       type: object
-      required: [enabled, version, linkBase, probeUrl, probeIntervalSeconds, autoName, reserveName, customRules, maxRules, rules, outageNotices, outageMinutes, whitelistMode, hosts]
+      required: [enabled, version, linkBase, probeUrl, probeIntervalSeconds, autoName, customRules, maxRules, rules, outageNotices, outageMinutes, whitelistMode, hosts]
       properties:
         enabled: {type: boolean}
         version: {type: integer, description: Send back the version last read; a newer one on the server is a 409.}
@@ -8056,7 +8056,6 @@ components:
         probeUrl: {type: string, format: uri}
         probeIntervalSeconds: {type: integer, minimum: 30, maximum: 86400}
         autoName: {type: string, maxLength: 40, description: The fastest-server group's name; empty uses the customer's language's default.}
-        reserveName: {type: string, maxLength: 40, description: The whitelist bypass group's name; empty uses the default.}
         customRules: {type: boolean, description: Customers may add their own domains.}
         maxRules: {type: integer, minimum: 1, maximum: 200}
         rules: {type: array, maxItems: 40, items: {$ref: "#/components/schemas/SmartSubscriptionServiceRule"}, description: "The service rules in the order customers see them; any built-in rule left out is added with its default."}
