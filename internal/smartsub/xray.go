@@ -676,11 +676,13 @@ func (builder groupBuilder) rules(entry string, ai map[Service]string) []any {
 		torrents = "direct"
 	}
 	rules = append(rules, field("protocol", []any{"bittorrent"}, torrents, false))
-	if _, on := applies[KindRussia]; on {
-		rules = append(rules,
-			field("domain", russianDomains(request.NoGeosite), "direct", false),
-			field("ip", []any{"geoip:ru"}, "direct", false),
-		)
+	// Only geosite's Russian category goes direct, as the subscription
+	// balancer had it. Whole national zones and Russian IP ranges would send
+	// foreign services hosted in Russia and any .ru page around the tunnel,
+	// where a whitelisted mobile network blocks them and IP checkers show the
+	// customer's own address. A client without geosite gets no Russia rule.
+	if _, on := applies[KindRussia]; on && !request.NoGeosite {
+		rules = append(rules, field("domain", []any{"geosite:category-ru"}, "direct", false))
 	}
 	for _, templated := range builder.tpl.rules {
 		rule := shallow(templated.rule)
@@ -696,16 +698,6 @@ func (builder groupBuilder) rules(entry string, ai map[Service]string) []any {
 		rules = append(rules, rule)
 	}
 	return append(rules, map[string]any{"type": "field", "network": "tcp,udp", "balancerTag": entry})
-}
-
-// russianDomains are the Russia preset's domains: the national zones, and
-// the geosite category that also covers Russian services on other zones.
-func russianDomains(noGeosite bool) []any {
-	domains := []any{"domain:ru", "domain:su", "domain:xn--p1ai"}
-	if !noGeosite {
-		domains = append(domains, "geosite:category-ru")
-	}
-	return domains
 }
 
 // dropGeosite removes geosite entries from a rule's domain list, in place on

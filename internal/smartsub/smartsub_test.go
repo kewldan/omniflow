@@ -387,7 +387,7 @@ func TestBuildXrayPreferences(t *testing.T) {
 			t.Errorf("rules lack %s: %s", want, text)
 		}
 	}
-	if strings.Contains(text, "geoip:ru") {
+	if strings.Contains(text, "geosite:category-ru") {
 		t.Error("the Russia preset applied while off")
 	}
 	if strings.Index(text, "chatgpt.com") > strings.Index(text, "bank.example") {
@@ -411,6 +411,15 @@ func TestBuildXrayWithoutGeosite(t *testing.T) {
 	without, _ := BuildXray(request)
 	if !strings.Contains(string(with), "geosite:category-ru") || !strings.Contains(string(with), "geosite:category-ads-all") {
 		t.Error("a client that reads geosite lost the geosite rules")
+	}
+	// Russian sites go direct by geosite only: never whole zones or Russian
+	// IP ranges, with or without geosite.
+	for _, body := range [][]byte{with, without} {
+		for _, wide := range []string{`"geoip:ru"`, `"domain:ru"`, `"domain:su"`, `"domain:xn--p1ai"`} {
+			if strings.Contains(string(body), wide) {
+				t.Errorf("the Russia preset sends %s direct", wide)
+			}
+		}
 	}
 	if strings.Contains(string(without), "geosite:") {
 		t.Errorf("a client that stalls on geosite still got it: %s", without)

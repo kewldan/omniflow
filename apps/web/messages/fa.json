@@ -5663,7 +5663,7 @@
       "builtin": {
         "russia": {
           "name": "Russian sites",
-          "caption": ".ru, .su, .рф and Russian IP addresses open directly: faster, and sites don't ask you to turn the VPN off."
+          "caption": "Russian sites and services open directly: faster, and sites don't ask you to turn the VPN off."
         },
         "ai": {
           "name": "AI assistants",
@@ -7671,7 +7671,7 @@
       "builtin": {
         "russia": {
           "name": "سایت‌های روسی",
-          "caption": "‎.ru، ‎.su، ‎.рф و IPهای روسی مستقیم باز می‌شوند: سریع‌تر، و سایت‌ها نمی‌خواهند VPN را خاموش کنید."
+          "caption": "سایت‌ها و سرویس‌های روسی مستقیم باز می‌شوند: سریع‌تر، و سایت‌ها نمی‌خواهند VPN را خاموش کنید."
         },
         "ai": {
           "name": "هوش مصنوعی",

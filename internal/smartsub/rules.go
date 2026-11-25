@@ -12,8 +12,8 @@ type RuleKind string
 const (
 	// KindDomains matches the operator's own domains.
 	KindDomains RuleKind = "domains"
-	// KindRussia sends Russian sites around the tunnel: the national zones,
-	// geosite's Russian category, and Russian IP ranges.
+	// KindRussia sends Russian sites around the tunnel: geosite's Russian
+	// category, for clients that read geosite.
 	KindRussia RuleKind = "russia"
 	// KindAds drops advertising and tracking domains (geosite).
 	KindAds RuleKind = "ads"
