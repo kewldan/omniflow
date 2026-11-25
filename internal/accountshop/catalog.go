@@ -84,7 +84,10 @@ const catalogQuery = `
 	JOIN goods_pricing r ON r.product_id = p.id
 	JOIN goods_providers g ON g.slug = p.provider_slug AND g.enabled
 	LEFT JOIN goods_product_localizations l ON l.product_id = p.id AND l.locale = $1
-	WHERE p.visible AND p.archived_at IS NULL`
+	WHERE p.visible AND p.archived_at IS NULL
+	  -- Steam top-ups are sold in the bot only; the web shop has no flow
+	  -- that asks for a Steam login.
+	  AND p.kind <> 'steam_topup'`
 
 // Products lists the catalogue in the customer's language.
 //

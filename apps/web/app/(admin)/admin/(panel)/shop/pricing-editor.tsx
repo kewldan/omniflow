@@ -77,7 +77,10 @@ export function PricingEditor({
   const translate = useTranslations("admin.shop");
   const translateForm = useTranslations("common.form");
 
-  const costPublished = product.kind === "telegram_stars";
+  // Stars and Steam top-ups have a cost the provider publishes; Premium does
+  // not. A Steam top-up is always a chosen amount, so it is priced per dollar.
+  const costPublished = product.kind === "telegram_stars" || product.kind === "steam_topup";
+  const steam = product.kind === "steam_topup";
   const pricing = product.pricing;
   const initialCurrency = pricing?.currency ?? "RUB";
 
@@ -171,7 +174,9 @@ export function PricingEditor({
                 />
               )}
             />
-            <Label htmlFor={`per-star-${product.id}`}>{translate("pricing.usePerStar")}</Label>
+            <Label htmlFor={`per-star-${product.id}`}>
+              {translate(steam ? "pricing.usePerDollar" : "pricing.usePerStar")}
+            </Label>
           </div>
         )}
 
@@ -194,7 +199,13 @@ export function PricingEditor({
           {fixed ? (
             <FormField
               error={formState.errors.fixedAmount?.message}
-              label={translate(perStar ? "pricing.perStarAmount" : "pricing.fixedAmount")}
+              label={translate(
+                perStar
+                  ? steam
+                    ? "pricing.perDollarAmount"
+                    : "pricing.perStarAmount"
+                  : "pricing.fixedAmount",
+              )}
             >
               {(props) => (
                 <MoneyInput {...props} currency={currency} {...register("fixedAmount")} />

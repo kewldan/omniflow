@@ -26,6 +26,8 @@ func (app *App) handleShopRoute(ctx context.Context, session commerceContext, ro
 		return app.shopOrdersScreen(ctx, session), true
 	case routeStars:
 		return app.starsScreen(ctx, session), true
+	case routeSteam:
+		return app.steamScreen(ctx, session), true
 	default:
 		return View{}, false
 	}
@@ -42,6 +44,9 @@ var shopActions = map[string]bool{
 // handleShopAction serves the shop's callback actions.
 func (app *App) handleShopAction(ctx context.Context, session commerceContext, parts []string) (View, bool) {
 	if view, handled := app.handleStarsAction(ctx, session, parts); handled {
+		return view, true
+	}
+	if view, handled := app.handleSteamAction(ctx, session, parts); handled {
 		return view, true
 	}
 	argument := ""
@@ -129,6 +134,9 @@ func (app *App) shopItemScreen(ctx context.Context, session commerceContext, pro
 	if product.CustomAmount() {
 		// A custom amount is chosen in the Stars flow, not as a pack.
 		return app.starsScreen(ctx, session)
+	}
+	if product.Kind == goods.KindSteamTopUp {
+		return app.steamScreen(ctx, session)
 	}
 	quote, err := app.commerce.QuoteGoods(ctx, product, 1)
 	if err != nil {

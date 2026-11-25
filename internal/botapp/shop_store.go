@@ -47,6 +47,18 @@ func (product ShopProduct) CustomAmount() bool {
 	return product.Kind == goods.KindTelegramStars && product.StarQuantity == 0 && product.MaxStars > 0
 }
 
+// SteamTopUp reports a Steam top-up product, whose customer picks how many
+// dollars to add to a Steam login.
+func (product ShopProduct) SteamTopUp() bool {
+	return product.Kind == goods.KindSteamTopUp && product.StarQuantity == 0 && product.MaxStars > 0
+}
+
+// Pack reports a product bought as it is — Premium or a fixed Stars pack —
+// rather than as an amount the customer chooses in its own flow.
+func (product ShopProduct) Pack() bool {
+	return !product.CustomAmount() && product.Kind != goods.KindSteamTopUp
+}
+
 // OperatorPriced reports a price the operator set rather than one derived
 // from a provider quote. Only such a purchase may be bought unattended after
 // a top-up.

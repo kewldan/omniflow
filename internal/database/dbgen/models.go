@@ -1395,10 +1395,11 @@ type GoodsDeliveryAttempt struct {
 }
 
 type GoodsOrder struct {
-	OrderID           pgtype.UUID        `json:"order_id"`
-	UserID            pgtype.UUID        `json:"user_id"`
-	ProductID         pgtype.UUID        `json:"product_id"`
-	Quantity          int32              `json:"quantity"`
+	OrderID   pgtype.UUID `json:"order_id"`
+	UserID    pgtype.UUID `json:"user_id"`
+	ProductID pgtype.UUID `json:"product_id"`
+	Quantity  int32       `json:"quantity"`
+	// Telegram username the goods go to, or the Steam login a Steam top-up credits.
 	RecipientUsername string             `json:"recipient_username"`
 	RecipientIsSelf   bool               `json:"recipient_is_self"`
 	QuotedCostMinor   int64              `json:"quoted_cost_minor"`
@@ -1409,10 +1410,11 @@ type GoodsOrder struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 	// False when the provider publishes no cost for this product and the operator set the price directly. Margin is unknown, not zero.
-	CostKnown     bool        `json:"cost_known"`
-	DiscountMinor int64       `json:"discount_minor"`
-	StarQuantity  pgtype.Int4 `json:"star_quantity"`
-	Source        string      `json:"source"`
+	CostKnown     bool  `json:"cost_known"`
+	DiscountMinor int64 `json:"discount_minor"`
+	// Stars the order delivers, or whole units of the provider's currency a Steam top-up adds.
+	StarQuantity pgtype.Int4 `json:"star_quantity"`
+	Source       string      `json:"source"`
 }
 
 type GoodsPricing struct {
@@ -1428,19 +1430,22 @@ type GoodsPricing struct {
 }
 
 type GoodsProduct struct {
-	ID              pgtype.UUID        `json:"id"`
-	Code            string             `json:"code"`
-	ProviderSlug    string             `json:"provider_slug"`
-	Kind            string             `json:"kind"`
-	DurationMonths  pgtype.Int2        `json:"duration_months"`
-	StarQuantity    pgtype.Int4        `json:"star_quantity"`
-	Visible         bool               `json:"visible"`
-	SortOrder       int32              `json:"sort_order"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	ArchivedAt      pgtype.Timestamptz `json:"archived_at"`
-	MinStarQuantity pgtype.Int4        `json:"min_star_quantity"`
-	MaxStarQuantity pgtype.Int4        `json:"max_star_quantity"`
-	StarPresets     []int32            `json:"star_presets"`
+	ID             pgtype.UUID `json:"id"`
+	Code           string      `json:"code"`
+	ProviderSlug   string      `json:"provider_slug"`
+	Kind           string      `json:"kind"`
+	DurationMonths pgtype.Int2 `json:"duration_months"`
+	// Stars in a fixed pack. Never set for a Steam top-up, which is always a custom amount.
+	StarQuantity pgtype.Int4        `json:"star_quantity"`
+	Visible      bool               `json:"visible"`
+	SortOrder    int32              `json:"sort_order"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	ArchivedAt   pgtype.Timestamptz `json:"archived_at"`
+	// Smallest custom amount: Stars, or whole units of the provider's currency for a Steam top-up.
+	MinStarQuantity pgtype.Int4 `json:"min_star_quantity"`
+	// Largest custom amount: Stars, or whole units of the provider's currency for a Steam top-up.
+	MaxStarQuantity pgtype.Int4 `json:"max_star_quantity"`
+	StarPresets     []int32     `json:"star_presets"`
 }
 
 type GoodsProductLocalization struct {

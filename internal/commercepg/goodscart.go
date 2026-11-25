@@ -73,7 +73,11 @@ func (store *Store) SaveGoodsCart(ctx context.Context, input GoodsCartInput) (Go
 	if err != nil {
 		return GoodsCart{}, fmt.Errorf("product ID: %w", err)
 	}
-	recipient, err := goods.NormalizeRecipient(input.Recipient)
+	product, err := dbgen.New(store.pool).GetGoodsProduct(ctx, productID)
+	if err != nil {
+		return GoodsCart{}, fmt.Errorf("product: %w", err)
+	}
+	recipient, err := goods.NormalizeRecipientFor(product.Kind, input.Recipient)
 	if err != nil {
 		return GoodsCart{}, err
 	}

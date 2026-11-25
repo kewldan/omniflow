@@ -5,6 +5,7 @@ import (
 	"html"
 
 	"github.com/go-telegram/bot/models"
+	"github.com/omniflow/omniflow/internal/goods"
 )
 
 // Shop notices tell a buyer what became of a purchase without them having to
@@ -81,6 +82,9 @@ func (notifier *Notifier) deliverGoodsNotices(ctx context.Context) {
 }
 
 func goodsNoticeView(locale Locale, notice goodsNotice) View {
+	if notice.Kind == goods.KindSteamTopUp {
+		return steamNoticeView(locale, notice)
+	}
 	recipient := html.EscapeString(notice.Recipient)
 	paid := formatMoney(notice.PaidMinor, notice.Currency)
 	view := View{Keyboard: keyboard(row(callbackButton(text(locale, "stars.myOrders"), routeShopOrders)))}
@@ -100,6 +104,29 @@ func goodsNoticeView(locale Locale, notice goodsNotice) View {
 		view.Text = text(locale, "stars.refundedRecipient", recipient, paid)
 	default:
 		view.Text = text(locale, "stars.refunded", recipient, paid)
+	}
+	return view
+}
+
+// steamNoticeView tells a Steam buyer what became of a top-up. The login is
+// shown as code rather than as a Telegram handle.
+func steamNoticeView(locale Locale, notice goodsNotice) View {
+	login := html.EscapeString(notice.Recipient)
+	paid := formatMoney(notice.PaidMinor, notice.Currency)
+	view := View{Keyboard: keyboard(row(callbackButton(text(locale, "stars.myOrders"), routeShopOrders)))}
+	switch {
+	case notice.PriceRose:
+		view.Text = text(locale, "steam.autoPriceChanged", notice.Stars, login)
+		view.Keyboard = keyboard(row(callbackButton(text(locale, "menu.steam"), routeSteam)))
+	case notice.Auto:
+		view.Text = text(locale, "steam.autoPurchased", notice.Stars, login)
+	case notice.Status == "delivered":
+		view.Text = text(locale, "steam.delivered", notice.Stars, login)
+		view.Keyboard = nil
+	case notice.Failure == "recipient_invalid":
+		view.Text = text(locale, "steam.refundedRecipient", login, paid)
+	default:
+		view.Text = text(locale, "steam.refunded", login, paid)
 	}
 	return view
 }

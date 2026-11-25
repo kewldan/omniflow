@@ -952,6 +952,7 @@ func (e AccountShopDeliveryState) Valid() bool {
 
 // Defines values for AccountShopOrderKind.
 const (
+	AccountShopOrderKindSteamTopup      AccountShopOrderKind = "steam_topup"
 	AccountShopOrderKindTelegramPremium AccountShopOrderKind = "telegram_premium"
 	AccountShopOrderKindTelegramStars   AccountShopOrderKind = "telegram_stars"
 )
@@ -959,6 +960,8 @@ const (
 // Valid indicates whether the value is a known member of the AccountShopOrderKind enum.
 func (e AccountShopOrderKind) Valid() bool {
 	switch e {
+	case AccountShopOrderKindSteamTopup:
+		return true
 	case AccountShopOrderKindTelegramPremium:
 		return true
 	case AccountShopOrderKindTelegramStars:
@@ -2644,6 +2647,7 @@ func (e PanelGoodsOrderFailureClass) Valid() bool {
 
 // Defines values for PanelGoodsOrderProductKind.
 const (
+	PanelGoodsOrderProductKindSteamTopup      PanelGoodsOrderProductKind = "steam_topup"
 	PanelGoodsOrderProductKindTelegramPremium PanelGoodsOrderProductKind = "telegram_premium"
 	PanelGoodsOrderProductKindTelegramStars   PanelGoodsOrderProductKind = "telegram_stars"
 )
@@ -2651,6 +2655,8 @@ const (
 // Valid indicates whether the value is a known member of the PanelGoodsOrderProductKind enum.
 func (e PanelGoodsOrderProductKind) Valid() bool {
 	switch e {
+	case PanelGoodsOrderProductKindSteamTopup:
+		return true
 	case PanelGoodsOrderProductKindTelegramPremium:
 		return true
 	case PanelGoodsOrderProductKindTelegramStars:
@@ -2767,6 +2773,7 @@ func (e PanelGoodsPricingRounding) Valid() bool {
 
 // Defines values for PanelGoodsProductKind.
 const (
+	PanelGoodsProductKindSteamTopup      PanelGoodsProductKind = "steam_topup"
 	PanelGoodsProductKindTelegramPremium PanelGoodsProductKind = "telegram_premium"
 	PanelGoodsProductKindTelegramStars   PanelGoodsProductKind = "telegram_stars"
 )
@@ -2774,6 +2781,8 @@ const (
 // Valid indicates whether the value is a known member of the PanelGoodsProductKind enum.
 func (e PanelGoodsProductKind) Valid() bool {
 	switch e {
+	case PanelGoodsProductKindSteamTopup:
+		return true
 	case PanelGoodsProductKindTelegramPremium:
 		return true
 	case PanelGoodsProductKindTelegramStars:
@@ -2806,6 +2815,7 @@ func (e PanelGoodsProductInputDurationMonths) Valid() bool {
 
 // Defines values for PanelGoodsProductInputKind.
 const (
+	PanelGoodsProductInputKindSteamTopup      PanelGoodsProductInputKind = "steam_topup"
 	PanelGoodsProductInputKindTelegramPremium PanelGoodsProductInputKind = "telegram_premium"
 	PanelGoodsProductInputKindTelegramStars   PanelGoodsProductInputKind = "telegram_stars"
 )
@@ -2813,6 +2823,8 @@ const (
 // Valid indicates whether the value is a known member of the PanelGoodsProductInputKind enum.
 func (e PanelGoodsProductInputKind) Valid() bool {
 	switch e {
+	case PanelGoodsProductInputKindSteamTopup:
+		return true
 	case PanelGoodsProductInputKindTelegramPremium:
 		return true
 	case PanelGoodsProductInputKindTelegramStars:
@@ -5866,6 +5878,7 @@ func (e SearchPanelGiftsParamsKind) Valid() bool {
 
 // Defines values for SearchPanelGoodsOrdersParamsKind.
 const (
+	SearchPanelGoodsOrdersParamsKindSteamTopup      SearchPanelGoodsOrdersParamsKind = "steam_topup"
 	SearchPanelGoodsOrdersParamsKindTelegramPremium SearchPanelGoodsOrdersParamsKind = "telegram_premium"
 	SearchPanelGoodsOrdersParamsKindTelegramStars   SearchPanelGoodsOrdersParamsKind = "telegram_stars"
 )
@@ -5873,6 +5886,8 @@ const (
 // Valid indicates whether the value is a known member of the SearchPanelGoodsOrdersParamsKind enum.
 func (e SearchPanelGoodsOrdersParamsKind) Valid() bool {
 	switch e {
+	case SearchPanelGoodsOrdersParamsKindSteamTopup:
+		return true
 	case SearchPanelGoodsOrdersParamsKindTelegramPremium:
 		return true
 	case SearchPanelGoodsOrdersParamsKindTelegramStars:
@@ -9568,7 +9583,7 @@ type PanelGoodsOrder struct {
 	SettledCostMinor *int64                `json:"settledCostMinor,omitempty"`
 	Source           PanelGoodsOrderSource `json:"source"`
 
-	// StarQuantity The Stars this order delivers.
+	// StarQuantity The Stars this order delivers, or the whole dollars a Steam top-up adds.
 	StarQuantity *int                  `json:"starQuantity,omitempty"`
 	Status       PanelGoodsOrderStatus `json:"status"`
 
@@ -9625,10 +9640,10 @@ type PanelGoodsProduct struct {
 	Kind           PanelGoodsProductKind         `json:"kind"`
 	Localizations  *map[string]PanelLocalization `json:"localizations,omitempty"`
 
-	// MaxStarQuantity Upper bound of a custom-amount Stars product.
+	// MaxStarQuantity Upper bound of a custom-amount product: Stars, or whole dollars of a Steam top-up.
 	MaxStarQuantity *int `json:"maxStarQuantity,omitempty"`
 
-	// MinStarQuantity Lower bound of a custom-amount Stars product.
+	// MinStarQuantity Lower bound of a custom-amount product: Stars, or whole dollars of a Steam top-up.
 	MinStarQuantity *int               `json:"minStarQuantity,omitempty"`
 	Pricing         *PanelGoodsPricing `json:"pricing,omitempty"`
 	ProviderSlug    string             `json:"providerSlug"`
@@ -9651,10 +9666,10 @@ type PanelGoodsProductInput struct {
 	DurationMonths *PanelGoodsProductInputDurationMonths `json:"durationMonths,omitempty"`
 	Kind           PanelGoodsProductInputKind            `json:"kind"`
 
-	// MaxStarQuantity Custom amount: the largest a customer may buy.
+	// MaxStarQuantity Custom amount: the largest a customer may buy — Stars, or at most 1000 dollars of a Steam top-up.
 	MaxStarQuantity *int `json:"maxStarQuantity,omitempty"`
 
-	// MinStarQuantity Custom amount: the smallest a customer may buy. Fragment's floor is 50.
+	// MinStarQuantity Custom amount: the smallest a customer may buy — Stars, at least Fragment's floor of 50, or whole dollars of a Steam top-up.
 	MinStarQuantity *int   `json:"minStarQuantity,omitempty"`
 	ProviderSlug    string `json:"providerSlug"`
 	SortOrder       int    `json:"sortOrder"`

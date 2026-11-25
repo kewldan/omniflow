@@ -15,6 +15,7 @@ import (
 	"github.com/omniflow/omniflow/internal/accountcheckout"
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/commercepg"
+	"github.com/omniflow/omniflow/internal/goods"
 	"github.com/omniflow/omniflow/internal/remnawave"
 )
 
@@ -27,6 +28,9 @@ type MenuState struct {
 	// StarsEnabled is true when a custom-amount Stars product is on sale, which
 	// is what the «⭐ Купить звёзды» button opens.
 	StarsEnabled bool
+	// SteamEnabled is true when a Steam top-up product is on sale, which is
+	// what the «🎮 Пополнить Steam» button opens.
+	SteamEnabled bool
 	// OfferCount is how many targeted offers are waiting. The menu shows the
 	// entry only when there is something in it, so a customer who has never been
 	// targeted never sees an empty screen.
@@ -114,10 +118,18 @@ func (app *App) menuState(ctx context.Context, customerID string, locale Locale)
 		state.HasCart = found
 	}
 	if products, err := app.customers.ShopProducts(ctx, locale); err == nil {
-		state.ShopEnabled = len(products) > 0
 		for _, product := range products {
-			if product.CustomAmount() {
+			switch {
+			case product.SteamTopUp():
+				// Sold from its own entry only: the shop catalogue has no
+				// screen that asks for a Steam login.
+				state.SteamEnabled = true
+			case product.Kind == goods.KindSteamTopUp:
+			case product.CustomAmount():
 				state.StarsEnabled = true
+				state.ShopEnabled = true
+			default:
+				state.ShopEnabled = true
 			}
 		}
 	}
@@ -165,7 +177,7 @@ func (app *App) loadCommerceView(ctx context.Context, session commerceContext, r
 		return app.newsScreen(ctx, session), true
 	case routeSupport:
 		return app.supportScreen(ctx, session), true
-	case routeShop, routeShopOrders, routeStars:
+	case routeShop, routeShopOrders, routeStars, routeSteam:
 		if view, handled := app.handleShopRoute(ctx, session, route); handled {
 			return view, true
 		}
@@ -1447,7 +1459,7 @@ var commerceActions = func() map[string]bool {
 		"ref-qr": true, "traffic": true, "traffic-set": true, "traffic-enter": true,
 		"period": true, "period-menu": true,
 	}
-	for _, owned := range []map[string]bool{expansionActions, giftActions, shopActions, starsActions, offerActions, termsActions, welcomeActions, partnerActions, gameActions} {
+	for _, owned := range []map[string]bool{expansionActions, giftActions, shopActions, starsActions, steamActions, offerActions, termsActions, welcomeActions, partnerActions, gameActions} {
 		for action := range owned {
 			actions[action] = true
 		}

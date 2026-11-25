@@ -2395,7 +2395,8 @@
       },
       "kind": {
         "telegram_premium": "Telegram Premium",
-        "telegram_stars": "Telegram Stars"
+        "telegram_stars": "Telegram Stars",
+        "steam_topup": "Пополнение Steam"
       },
       "pricing": {
         "fixed": "фиксировано {amount}",
@@ -2414,7 +2415,10 @@
         "save": "Сохранить цену",
         "perStar": "{amount} за звезду",
         "usePerStar": "Цена за звезду",
-        "perStarAmount": "Цена за звезду"
+        "perStarAmount": "Цена за звезду",
+        "perDollar": "{amount} за $1",
+        "usePerDollar": "Цена за доллар",
+        "perDollarAmount": "Цена за $1"
       },
       "rounding": {
         "none": "без округления",
@@ -2534,7 +2538,8 @@
         "kind": "Вид",
         "kinds": {
           "telegram_premium": "Telegram Premium",
-          "telegram_stars": "Пакет Telegram Stars"
+          "telegram_stars": "Пакет Telegram Stars",
+          "steam_topup": "Пополнение Steam"
         },
         "months": "Срок",
         "monthCount": "{months} мес.",
@@ -2543,8 +2548,13 @@
         "nameEn": "Название (EN)",
         "invalid": "Не создано: проверьте код, провайдера и количество.",
         "create": "Создать товар",
-        "created": "Товар создан скрытым — задайте ему цену."
-      }
+        "created": "Товар создан скрытым — задайте ему цену.",
+        "minDollars": "Минимальное пополнение, $",
+        "maxDollars": "Максимальное пополнение, $",
+        "presetDollars": "Суммы-кнопки, $",
+        "steamHint": "Продаётся через выбранного поставщика Steam в целых долларах и только в боте, по кнопке «Пополнить Steam». Задайте цену за доллар в редакторе цен, затем покажите товар."
+      },
+      "dollarRange": "${min}–${max}"
     },
     "gifts": {
       "title": "Подарки",
@@ -4851,7 +4861,9 @@
       },
       "goodsProvider": {
         "fragment": "Fragment",
-        "fragment_direct": "Fragment (напрямую)"
+        "fragment_direct": "Fragment (напрямую)",
+        "playwallet": "PlayWallet (Steam)",
+        "nervixy": "Nervixy (Steam)"
       },
       "health": {
         "unknown": "Не проверено",
@@ -6481,7 +6493,8 @@
       "kinds": {
         "telegram_premium": "Telegram Premium",
         "telegram_stars": "Звёзды Telegram",
-        "other": "Другие товары"
+        "other": "Другие товары",
+        "steam_topup": "Пополнение Steam"
       },
       "measure": {
         "months": "{count, plural, one {# месяц} few {# месяца} many {# месяцев} other {# месяца}}",

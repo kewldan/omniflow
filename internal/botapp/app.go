@@ -781,12 +781,23 @@ func (app *App) handleFlowMessage(ctx context.Context, client *telegram.Bot, upd
 				app.SubmitStarsRecipient(ctx, session, message.Text)))
 			break
 		}
+		if flow == "steam" {
+			_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID,
+				app.SubmitSteamLogin(ctx, session, message.Text)))
+			break
+		}
 		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID,
 			app.SubmitShopRecipient(ctx, session, productID, message.Text)))
 	case "goods_stars_amount":
 		reviewID, _ := flowContext["reviewId"].(string)
+		flow, _ := flowContext["flow"].(string)
 		if err := app.customers.CancelSession(ctx, session.TelegramID); err != nil {
 			app.logger.Warn("session cleanup failed", "error", err)
+		}
+		if flow == "steam" {
+			_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID,
+				app.SubmitSteamAmount(ctx, session, reviewID, message.Text)))
+			break
 		}
 		_, _ = client.SendMessage(ctx, sendParams(message.Chat.ID,
 			app.SubmitStarsAmount(ctx, session, reviewID, message.Text)))
@@ -1441,7 +1452,7 @@ func (app *App) lifecycleNoticeFor(ctx context.Context, telegramID int64, locale
 // it the bot explains that purchases are not configured rather than failing.
 func commerceOnlyRoute(route string) bool {
 	switch route {
-	case routePlans, routeOrders, routeWallet, routeNews, routeAutoRenew, routeMethods, routeShop, routeShopOrders, routeGifts, routeOffers, routeTopUp, routeCart, routeSubscriptions, routeStars:
+	case routePlans, routeOrders, routeWallet, routeNews, routeAutoRenew, routeMethods, routeShop, routeShopOrders, routeGifts, routeOffers, routeTopUp, routeCart, routeSubscriptions, routeStars, routeSteam:
 		return true
 	default:
 		return false
@@ -1452,7 +1463,7 @@ func knownRoute(route string) bool {
 	switch route {
 	case routeHome, routeSubscription, routeConnect, routeDevices, routeSupport, routeSettings, routeReferral,
 		routePlans, routeOrders, routeWallet, routeNews, routeAutoRenew, routeMethods, routeShop, routeShopOrders, routeGifts, routeOffers,
-		routeTopUp, routeCart, routeSubscriptions, routeStars:
+		routeTopUp, routeCart, routeSubscriptions, routeStars, routeSteam:
 		return true
 	default:
 		return false

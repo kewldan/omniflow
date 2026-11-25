@@ -3910,7 +3910,7 @@ paths:
         - {$ref: "#/components/parameters/PageSize"}
         - {in: query, name: status, schema: {type: string}}
         - {in: query, name: customerId, schema: {type: string, format: uuid}}
-        - {in: query, name: kind, schema: {type: string, enum: [telegram_premium, telegram_stars]}}
+        - {in: query, name: kind, schema: {type: string, enum: [telegram_premium, telegram_stars, steam_topup]}}
         - {in: query, name: q, description: "A recipient handle (with or without @), an order identifier, or a customer identifier.", schema: {type: string, maxLength: 64}}
       responses:
         "200": {description: Shop orders, content: {application/json: {schema: {$ref: "#/components/schemas/PanelGoodsOrderPage"}}}}
@@ -10117,11 +10117,11 @@ components:
         id: {type: string, format: uuid}
         code: {type: string}
         providerSlug: {type: string}
-        kind: {type: string, enum: [telegram_premium, telegram_stars]}
+        kind: {type: string, enum: [telegram_premium, telegram_stars, steam_topup]}
         durationMonths: {type: integer}
         starQuantity: {type: integer, description: "A fixed pack. Absent for a custom-amount product."}
-        minStarQuantity: {type: integer, description: "Lower bound of a custom-amount Stars product."}
-        maxStarQuantity: {type: integer, description: "Upper bound of a custom-amount Stars product."}
+        minStarQuantity: {type: integer, description: "Lower bound of a custom-amount product: Stars, or whole dollars of a Steam top-up."}
+        maxStarQuantity: {type: integer, description: "Upper bound of a custom-amount product: Stars, or whole dollars of a Steam top-up."}
         starPresets: {type: array, items: {type: integer}, description: "One-tap amounts offered for a custom-amount product."}
         visible: {type: boolean}
         sortOrder: {type: integer}
@@ -10139,11 +10139,11 @@ components:
       properties:
         code: {type: string, pattern: "^[a-z][a-z0-9_-]{1,63}$"}
         providerSlug: {type: string}
-        kind: {type: string, enum: [telegram_premium, telegram_stars]}
+        kind: {type: string, enum: [telegram_premium, telegram_stars, steam_topup]}
         durationMonths: {type: integer, enum: [3, 6, 12]}
         starQuantity: {type: integer, minimum: 1, description: "A fixed pack. Omit for a custom-amount product."}
-        minStarQuantity: {type: integer, minimum: 50, description: "Custom amount: the smallest a customer may buy. Fragment's floor is 50."}
-        maxStarQuantity: {type: integer, maximum: 10000000, description: "Custom amount: the largest a customer may buy."}
+        minStarQuantity: {type: integer, minimum: 1, description: "Custom amount: the smallest a customer may buy — Stars, at least Fragment's floor of 50, or whole dollars of a Steam top-up."}
+        maxStarQuantity: {type: integer, maximum: 10000000, description: "Custom amount: the largest a customer may buy — Stars, or at most 1000 dollars of a Steam top-up."}
         starPresets: {type: array, maxItems: 12, items: {type: integer}, description: "Custom amount: one-tap amounts, each within the bounds."}
         visible: {type: boolean}
         sortOrder: {type: integer}
@@ -10178,9 +10178,9 @@ components:
         deliveredAt: {type: string, format: date-time}
         createdAt: {type: string, format: date-time}
         discountMinor: {type: integer, format: int64}
-        productKind: {type: string, enum: [telegram_premium, telegram_stars]}
+        productKind: {type: string, enum: [telegram_premium, telegram_stars, steam_topup]}
         productCode: {type: string}
-        starQuantity: {type: integer, description: "The Stars this order delivers."}
+        starQuantity: {type: integer, description: "The Stars this order delivers, or the whole dollars a Steam top-up adds."}
         source: {type: string, enum: [bot, web, auto_cart, unknown]}
         paidMinor: {type: integer, format: int64, description: "What the customer paid: the price less the discount."}
         provider: {type: string}
@@ -11514,7 +11514,7 @@ components:
       properties:
         id: {type: string, format: uuid}
         productName: {type: string}
-        kind: {type: string, enum: [telegram_premium, telegram_stars]}
+        kind: {type: string, enum: [telegram_premium, telegram_stars, steam_topup]}
         quantity: {type: integer}
         recipient: {type: string}
         forSelf: {type: boolean}

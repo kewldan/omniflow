@@ -74,3 +74,32 @@ func TestOtherNoticesAreNotSales(t *testing.T) {
 		t.Fatal("an ordinary purchase notice was read as a sale")
 	}
 }
+
+// A Steam sale names the login and the dollars, never Stars or a wallet.
+func TestASteamSaleNoticeNamesTheLoginAndTheDollars(t *testing.T) {
+	notification := saleNotification(`{"event":"goods_sale","kind":"steam_topup","orderId":"o-2",
+		"customerId":"c-2","recipient":"gaben_01","buyerTelegramId":7,"stars":10,"amountMinor":105000,
+		"currency":"RUB","source":"bot","attempt":2,"costMinor":91811,"marginMinor":13189}`)
+	sale, ok := decodeGoodsSale(notification)
+	if !ok {
+		t.Fatal("a Steam sale payload was not recognised")
+	}
+	text, markup := renderGoodsSale(sale, renderInput{
+		At: notification.CreatedAt.Time, Locale: "ru", PanelURL: "https://panel.example",
+	})
+	for _, want := range []string{
+		"STEAM ПОПОЛНЕН", "<code>gaben_01</code>", "<b>$10</b>", "1 050 ₽", "918.11 ₽", "Попытка",
+	} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("the notice lacks %q:\n%s", want, text)
+		}
+	}
+	for _, unwanted := range []string{"⭐", "TON", "@gaben"} {
+		if strings.Contains(text, unwanted) {
+			t.Fatalf("the Steam notice mentions %q:\n%s", unwanted, text)
+		}
+	}
+	if markup == nil {
+		t.Fatal("the notice links the order and the buyer")
+	}
+}

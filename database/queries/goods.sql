@@ -270,10 +270,14 @@ WHERE order_id = sqlc.arg(order_id) AND status <> 'delivered'
 RETURNING *;
 
 -- name: FailGoodsDelivery :one
+-- A provider reference, when given, is kept: it is what a later attempt polls
+-- instead of submitting the purchase a second time. An absent one leaves the
+-- stored reference alone.
 UPDATE goods_deliveries
 SET status = CASE WHEN sqlc.arg(terminal)::boolean THEN 'failed' ELSE 'submitted' END,
     failure_class = sqlc.arg(failure_class),
     last_error_code = sqlc.narg(last_error_code),
+    provider_reference = COALESCE(sqlc.narg(provider_reference), provider_reference),
     next_attempt_at = now() + sqlc.arg(backoff)::interval,
     updated_at = now()
 WHERE order_id = sqlc.arg(order_id) AND status <> 'delivered'
@@ -456,3 +460,16 @@ WHERE p.kind = 'telegram_stars'
   AND g.status <> 'quoted'
   AND g.created_at >= sqlc.arg(since)::timestamptz
   AND g.currency = sqlc.arg(currency)::text;
+
+-- name: LiftGoodsDeliveryMarker :one
+-- Lifts a settlement marker after the provider refused the payment outright,
+-- before taking any money. The delivery is then retried or refunded by its
+-- failure class like one that never reached the payment.
+UPDATE goods_deliveries
+SET broadcasting_at = NULL,
+    provider_request_id = NULL,
+    settlement_asset = NULL,
+    settlement_cost_nano = NULL,
+    updated_at = now()
+WHERE order_id = sqlc.arg(order_id) AND broadcasting_at IS NOT NULL
+RETURNING *;

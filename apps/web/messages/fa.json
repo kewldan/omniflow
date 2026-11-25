@@ -2331,7 +2331,8 @@
       },
       "kind": {
         "telegram_premium": "Telegram Premium",
-        "telegram_stars": "Telegram Stars"
+        "telegram_stars": "Telegram Stars",
+        "steam_topup": "شارژ Steam"
       },
       "pricing": {
         "fixed": "ثابت: {amount}",
@@ -2350,7 +2351,10 @@
         "save": "ذخیره قیمت‌گذاری",
         "perStar": "{amount} برای هر Star",
         "usePerStar": "قیمت هر Star",
-        "perStarAmount": "قیمت هر Star"
+        "perStarAmount": "قیمت هر Star",
+        "perDollar": "{amount} برای هر $1",
+        "usePerDollar": "قیمت به ازای هر دلار",
+        "perDollarAmount": "قیمت هر $1"
       },
       "rounding": {
         "none": "دقیق",
@@ -2470,7 +2474,8 @@
         "kind": "نوع",
         "kinds": {
           "telegram_premium": "Telegram Premium",
-          "telegram_stars": "بسته Telegram Stars"
+          "telegram_stars": "بسته Telegram Stars",
+          "steam_topup": "شارژ Steam"
         },
         "months": "مدت",
         "monthCount": "{months} ماه",
@@ -2479,8 +2484,13 @@
         "nameEn": "نام (EN)",
         "invalid": "ایجاد نشد: کد، تأمین‌کننده و مقدار را بررسی کنید.",
         "create": "ایجاد محصول",
-        "created": "محصول به‌صورت پنهان ایجاد شد؛ اکنون قیمت آن را تعیین کنید."
-      }
+        "created": "محصول به‌صورت پنهان ایجاد شد؛ اکنون قیمت آن را تعیین کنید.",
+        "minDollars": "کمترین شارژ، دلار",
+        "maxDollars": "بیشترین شارژ، دلار",
+        "presetDollars": "مبالغ یک‌لمسی، دلار",
+        "steamHint": "از طریق تأمین‌کننده Steam انتخاب‌شده به دلار کامل فروخته می‌شود و فقط در ربات، با دکمه «شارژ Steam» عرضه می‌شود. ابتدا قیمت هر دلار را در ویرایشگر قیمت تعیین کنید، سپس آن را نمایش دهید."
+      },
+      "dollarRange": "${min}–${max}"
     },
     "gifts": {
       "title": "هدیه‌ها",
@@ -4775,7 +4785,9 @@
       },
       "goodsProvider": {
         "fragment": "Fragment",
-        "fragment_direct": "Fragment (مستقیم)"
+        "fragment_direct": "Fragment (مستقیم)",
+        "playwallet": "PlayWallet (Steam)",
+        "nervixy": "Nervixy (Steam)"
       },
       "health": {
         "unknown": "بررسی‌نشده",
@@ -6405,7 +6417,8 @@
       "kinds": {
         "telegram_premium": "Telegram Premium",
         "telegram_stars": "Telegram Stars",
-        "other": "سایر کالاها"
+        "other": "سایر کالاها",
+        "steam_topup": "شارژ Steam"
       },
       "measure": {
         "months": "{count, plural, one {# ماه} other {# ماه}}",

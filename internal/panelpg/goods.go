@@ -9,6 +9,7 @@ import (
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 	"github.com/omniflow/omniflow/internal/goods"
 	"github.com/omniflow/omniflow/internal/goods/fragmentdirect"
+	"github.com/omniflow/omniflow/internal/goodsdelivery"
 )
 
 // GoodsProvider is one digital-goods provider as the panel shows it.
@@ -64,10 +65,11 @@ func (service *Service) SaveGoodsProvider(
 	if input.SpendWindowSeconds <= 0 || input.SpendLimitMinor < 0 {
 		return GoodsProvider{}, ErrValidaton
 	}
-	if input.Slug == fragmentdirect.Slug && input.Credentials != nil {
-		// The direct provider's secrets are environment-only. Accepting one
-		// here would store a wallet mnemonic in the database, which is the
-		// thing that design exists to avoid.
+	if (input.Slug == fragmentdirect.Slug || goodsdelivery.SellsSteam(input.Slug)) && input.Credentials != nil {
+		// These providers' secrets are environment-only. Accepting one here
+		// would store a wallet mnemonic or a key that spends the operator's
+		// Steam top-up balance in the database, which is the thing that
+		// design exists to avoid.
 		return GoodsProvider{}, ErrValidaton
 	}
 
@@ -286,10 +288,18 @@ func (service *Service) CreateGoodsProduct(
 		if input.DurationMonths != nil || !validStarShape(input) {
 			return GoodsProduct{}, ErrValidaton
 		}
+	case goods.KindSteamTopUp:
+		if input.DurationMonths != nil || !goodsdelivery.SellsSteam(input.ProviderSlug) || !validSteamShape(input) {
+			return GoodsProduct{}, ErrValidaton
+		}
 	default:
 		return GoodsProduct{}, ErrValidaton
 	}
-	if input.Kind != goods.KindTelegramStars &&
+	if goodsdelivery.SellsSteam(input.ProviderSlug) && input.Kind != goods.KindSteamTopUp {
+		// A Steam top-up provider sells Steam top-ups and nothing else.
+		return GoodsProduct{}, ErrValidaton
+	}
+	if input.Kind == goods.KindTelegramPremium &&
 		(input.MinStarQuantity != nil || input.MaxStarQuantity != nil || len(input.StarPresets) > 0) {
 		return GoodsProduct{}, ErrValidaton
 	}
@@ -404,12 +414,13 @@ func (service *Service) SaveGoodsPricing(
 		return err
 	}
 	if pricing.UnitPriceMinor != nil {
-		// A price per Star means nothing on a product that is not Stars.
+		// A price per unit means nothing on a product that is not sold by the
+		// unit: Stars, or dollars of a Steam top-up.
 		product, productErr := service.queries().GetGoodsProduct(ctx, id)
 		if productErr != nil {
 			return notFound(productErr)
 		}
-		if product.Kind != goods.KindTelegramStars {
+		if product.Kind != goods.KindTelegramStars && product.Kind != goods.KindSteamTopUp {
 			return ErrValidaton
 		}
 	}
@@ -771,6 +782,28 @@ func validStarShape(input GoodsProductInput) bool {
 	}
 	low, high := *input.MinStarQuantity, *input.MaxStarQuantity
 	if low < goods.FragmentMinStars || high < low || high > goods.FragmentMaxStars || len(input.StarPresets) > 12 {
+		return false
+	}
+	for _, preset := range input.StarPresets {
+		if preset < low || preset > high {
+			return false
+		}
+	}
+	return true
+}
+
+// SteamMaxDollars bounds one Steam top-up product. The provider's own limits
+// apply on top of it.
+const SteamMaxDollars = 1_000
+
+// validSteamShape accepts a Steam top-up: always a custom amount of whole
+// dollars, from one, with at most twelve presets inside the bounds.
+func validSteamShape(input GoodsProductInput) bool {
+	if input.StarQuantity != nil || input.MinStarQuantity == nil || input.MaxStarQuantity == nil {
+		return false
+	}
+	low, high := *input.MinStarQuantity, *input.MaxStarQuantity
+	if low < 1 || high < low || high > SteamMaxDollars || len(input.StarPresets) > 12 {
 		return false
 	}
 	for _, preset := range input.StarPresets {

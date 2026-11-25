@@ -758,6 +758,9 @@ type Querier interface {
 	// deadline is the gateway quote's validity rather than a payment window.
 	ExtendOrderExpiry(ctx context.Context, arg ExtendOrderExpiryParams) (Order, error)
 	FailBackup(ctx context.Context, arg FailBackupParams) (Backup, error)
+	// A provider reference, when given, is kept: it is what a later attempt polls
+	// instead of submitting the purchase a second time. An absent one leaves the
+	// stored reference alone.
 	FailGoodsDelivery(ctx context.Context, arg FailGoodsDeliveryParams) (GoodsDelivery, error)
 	FailOperatorTopic(ctx context.Context, arg FailOperatorTopicParams) (OperatorTopic, error)
 	// A chargeback on the payment a method was bound from retires that method:
@@ -1250,6 +1253,10 @@ type Querier interface {
 	// sales: it is history the operator compares against, not revenue Omniflow
 	// settled.
 	LegacyPaymentsInPeriod(ctx context.Context, arg LegacyPaymentsInPeriodParams) ([]LegacyPaymentsInPeriodRow, error)
+	// Lifts a settlement marker after the provider refused the payment outright,
+	// before taking any money. The delivery is then retried or refunded by its
+	// failure class like one that never reached the payment.
+	LiftGoodsDeliveryMarker(ctx context.Context, orderID pgtype.UUID) (GoodsDelivery, error)
 	// The issuer is stored with the subject because a subject is only unique within
 	// one issuer; sign-in refuses a binding whose issuer differs from the token's.
 	LinkAdminOIDCIdentity(ctx context.Context, arg LinkAdminOIDCIdentityParams) (AdminOidcIdentity, error)

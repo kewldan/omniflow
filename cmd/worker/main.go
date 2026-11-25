@@ -27,6 +27,7 @@ import (
 	"github.com/omniflow/omniflow/internal/egress"
 	"github.com/omniflow/omniflow/internal/errorlog"
 	"github.com/omniflow/omniflow/internal/fulfillment"
+	"github.com/omniflow/omniflow/internal/fxrate"
 	"github.com/omniflow/omniflow/internal/goodsdelivery"
 	apihttp "github.com/omniflow/omniflow/internal/httpapi"
 	"github.com/omniflow/omniflow/internal/importservice"
@@ -137,6 +138,7 @@ func main() {
 		}
 		deliveryRegistry.WithFragmentDirect(
 			goodsdelivery.DirectOptionsFrom(cfg.Fragment, cfg.DefaultCurrency, logger))
+		deliveryRegistry.WithSteamProviders(cfg.PlayWallet, cfg.Nervixy, fxrate.New(pool, fxrate.Options{}).DollarRate)
 		river.AddWorker(workers, goodsdelivery.NewWorker(pool, deliveryRegistry, logger).WithOptions(
 			goodsdelivery.Options{Rates: deliveryRegistry.Rates(), LowWalletStars: cfg.Fragment.WalletLowStars}))
 	} else {

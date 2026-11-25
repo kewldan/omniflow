@@ -15,6 +15,8 @@ package goods
 import (
 	"context"
 	"errors"
+	"fmt"
+	"math/big"
 	"regexp"
 	"strings"
 	"time"
@@ -24,6 +26,11 @@ import (
 const (
 	KindTelegramPremium = "telegram_premium"
 	KindTelegramStars   = "telegram_stars"
+	// KindSteamTopUp credits a Steam wallet. Its amount is chosen by the
+	// customer in whole units of the provider's currency (US dollars for
+	// PlayWallet), held in the same columns a custom Stars amount uses, and it
+	// is addressed to a Steam login rather than a Telegram username.
+	KindSteamTopUp = "steam_topup"
 )
 
 // Rounding modes match the check constraint on `goods_pricing.rounding`.
@@ -109,6 +116,36 @@ func NormalizeRecipient(input string) (string, error) {
 	return value, nil
 }
 
+// ErrInvalidSteamLogin reports text that cannot be a Steam account name.
+var ErrInvalidSteamLogin = errors.New("steam login is not valid")
+
+// steamLoginPattern is Steam's rule for an account name: three to sixty-four
+// Latin letters, digits, and underscores. It is the login a customer signs in
+// with, not the profile name other players see, which may be anything.
+var steamLoginPattern = regexp.MustCompile(`^[A-Za-z0-9_]{3,64}$`)
+
+// NormalizeSteamLogin turns what a customer typed into a bare Steam login.
+//
+// Whitespace is trimmed and nothing else is changed: Steam logins are
+// case-insensitive, but the provider is given exactly what the customer
+// confirmed, so the confirmation step shows the value that will be sent.
+func NormalizeSteamLogin(input string) (string, error) {
+	value := strings.TrimSpace(input)
+	if !steamLoginPattern.MatchString(value) {
+		return "", ErrInvalidSteamLogin
+	}
+	return value, nil
+}
+
+// NormalizeRecipientFor applies the recipient rule of a product kind: a Steam
+// login for a Steam top-up, a Telegram username for everything else.
+func NormalizeRecipientFor(kind, input string) (string, error) {
+	if kind == KindSteamTopUp {
+		return NormalizeSteamLogin(input)
+	}
+	return NormalizeRecipient(input)
+}
+
 // PricingRule is the operator's configuration for one product.
 type PricingRule struct {
 	Currency string
@@ -120,9 +157,10 @@ type PricingRule struct {
 	// pays it regardless of what the provider quoted, and the operator absorbs
 	// the variance.
 	FixedAmountMinor *int64
-	// UnitPriceMinor is a fixed price per Star. It is the fork's
+	// UnitPriceMinor is a fixed price per Star — or, for a Steam top-up, per
+	// unit of the provider's currency. It is the fork's
 	// STARS_SHOP_PRICE_PER_STAR_KOPEKS, and like a fixed amount it opts out of
-	// derivation: the customer pays it times the Stars bought, whatever the
+	// derivation: the customer pays it times the units bought, whatever the
 	// provider charges that minute.
 	UnitPriceMinor *int64
 	QuoteTTL       time.Duration
@@ -259,6 +297,9 @@ func (quote Quote) Fresh(now time.Time) bool {
 }
 
 // Request describes what is being bought and for whom.
+//
+// StarQuantity is the number of units one purchase delivers: Stars for a
+// Stars product, whole units of the provider's currency for a Steam top-up.
 type Request struct {
 	Kind           string
 	DurationMonths int
@@ -320,6 +361,11 @@ type Delivery struct {
 	// that pays the provider itself. It is nil for a gateway that settles on
 	// its own side.
 	Settlement *Settlement
+	// NotCharged marks a failure the provider answered definitively before
+	// taking any money — a refused request, not a lost one. It lets the
+	// worker lift a settlement marker this attempt committed, so the failure
+	// is retried or refunded by its class instead of parked as ambiguous.
+	NotCharged bool
 }
 
 // Settlement is the on-chain payment behind a delivery.
@@ -380,6 +426,10 @@ type Provider interface {
 	// Balance reports the operator's remaining funds with the provider.
 	Balance(context.Context) (int64, string, error)
 }
+
+// ErrRecipientUnknown reports a recipient the provider says does not exist
+// or cannot receive the goods.
+var ErrRecipientUnknown = errors.New("the provider does not know this recipient")
 
 // RecipientValidator is implemented by adapters that can check a username
 // before payment. An adapter that cannot simply does not implement it, and the
@@ -445,3 +495,31 @@ func Backoff(attempt int) time.Duration {
 // long enough to ride out a provider restart and short enough that a customer
 // is not left waiting on a purchase that is not going to arrive.
 const MaxAttempts = 6
+
+// ErrRateUnavailable reports a shop currency a dollar cost cannot be
+// converted into.
+var ErrRateUnavailable = errors.New("no exchange rate from US dollars into the shop currency")
+
+// DollarRate returns how many minor units of `currency` one US dollar costs.
+type DollarRate func(ctx context.Context, currency string) (int64, error)
+
+// QuoteDollars turns a provider cost in US cents into a quote in the shop
+// currency, rounding up: a quote that undershoots the provider's cost by a
+// kopeck on every sale is a configured margin the operator never earns.
+func QuoteDollars(ctx context.Context, costCents int64, currency string, rates DollarRate) (Quote, error) {
+	currency = strings.ToUpper(strings.TrimSpace(currency))
+	if currency == "" || currency == "USD" {
+		return Quote{CostMinor: costCents, Currency: "USD"}, nil
+	}
+	if rates == nil {
+		return Quote{}, ErrRateUnavailable
+	}
+	perDollar, err := rates(ctx, currency)
+	if err != nil || perDollar <= 0 {
+		return Quote{}, fmt.Errorf("%w: %v", ErrRateUnavailable, err)
+	}
+	cost := new(big.Int).Mul(big.NewInt(costCents), big.NewInt(perDollar))
+	cost.Add(cost, big.NewInt(99))
+	cost.Quo(cost, big.NewInt(100))
+	return Quote{CostMinor: cost.Int64(), Currency: currency}, nil
+}

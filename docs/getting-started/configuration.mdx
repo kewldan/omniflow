@@ -336,6 +336,29 @@ Without the three secrets and without dry-run, the provider reports itself as no
 panel, names the missing setting, and refuses to deliver; the processes still start. The provider
 also has to be switched on in the panel before any product it serves is offered.
 
+## Steam top-up providers
+
+[PlayWallet](https://playwallet.bot/ru/api) and [Nervixy](https://nervixy.digital/docs-api) top up
+Steam wallets from your prepaid balance with them, in US dollars. Configure one or both; each
+product picks its provider. A key spends that balance, so it lives in the environment only: it is
+never stored in the database, returned by the API, shown in the panel, or logged. See
+[Gifts and digital goods](/commerce/gifts-and-goods#steam-top-ups).
+
+| Variable | Default | Read by | Required | Secret | What it changes |
+| --- | --- | --- | --- | --- | --- |
+| `APP_PLAYWALLET_API_KEY` | — | api, bot, worker | to sell Steam top-ups | yes | The merchant key `@pwMerchantBot` issues with `/tokens`. The DEV and PROD keys differ |
+| `APP_PLAYWALLET_BASE_URL` | `https://merchant.playwallet.bot/api/merchant` | api, bot, worker | no | no | The merchant API. Point it at `https://dev.merchant.playwallet.bot/api/merchant` with the DEV key to test without spending |
+| `APP_PLAYWALLET_SERVICE_ID` | — | api, bot, worker | no | no | The PlayWallet service that tops up Steam. Empty picks the merchant's only service, or the one whose name mentions Steam |
+| `APP_NERVIXY_API_KEY` | — | api, bot, worker | to sell through Nervixy | yes | The key from the API section of the Nervixy account settings |
+| `APP_NERVIXY_BASE_URL` | `https://nervixy.digital/api.php` | api, bot, worker | no | no | The Nervixy endpoint every action is sent to |
+
+Without a key the provider does not exist: it is not listed in the panel, and with neither key no
+Steam product can be created and the bot shows no Steam entry. With a key, the api lists that
+provider switched off on start; nothing is sold until you enable it and publish a product. Both
+services accept requests only from allow-listed addresses — `/edit_ip` in `@pwMerchantBot` for
+PlayWallet, the account settings for Nervixy — so add the address the worker and the bot reach
+them from.
+
 ## Backups
 
 | Variable | Default | Read by | Required | Secret | What it changes |

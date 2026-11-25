@@ -2331,7 +2331,8 @@
       },
       "kind": {
         "telegram_premium": "Telegram Premium",
-        "telegram_stars": "Telegram Stars"
+        "telegram_stars": "Telegram Stars",
+        "steam_topup": "Steam 充值"
       },
       "pricing": {
         "fixed": "固定价 {amount}",
@@ -2350,7 +2351,10 @@
         "save": "保存定价",
         "perStar": "每个 Star {amount}",
         "usePerStar": "按 Star 计价",
-        "perStarAmount": "每个 Star 的价格"
+        "perStarAmount": "每个 Star 的价格",
+        "perDollar": "每 $1 {amount}",
+        "usePerDollar": "按美元定价",
+        "perDollarAmount": "每 $1 价格"
       },
       "rounding": {
         "none": "精确",
@@ -2470,7 +2474,8 @@
         "kind": "类型",
         "kinds": {
           "telegram_premium": "Telegram Premium",
-          "telegram_stars": "Telegram Stars 套装"
+          "telegram_stars": "Telegram Stars 套装",
+          "steam_topup": "Steam 充值"
         },
         "months": "时长",
         "monthCount": "{months} 个月",
@@ -2479,8 +2484,13 @@
         "nameEn": "名称（英语）",
         "invalid": "未创建：请检查代码、供应商和数量。",
         "create": "创建商品",
-        "created": "商品已创建并隐藏，接下来请设置价格。"
-      }
+        "created": "商品已创建并隐藏，接下来请设置价格。",
+        "minDollars": "最低充值（美元）",
+        "maxDollars": "最高充值（美元）",
+        "presetDollars": "快捷金额（美元）",
+        "steamHint": "通过所选的 Steam 供应商以整美元出售，仅在机器人的“充值 Steam”按钮中提供。请先在定价编辑器中设置每美元价格，然后再显示。"
+      },
+      "dollarRange": "${min}–${max}"
     },
     "gifts": {
       "title": "礼物",
@@ -4775,7 +4785,9 @@
       },
       "goodsProvider": {
         "fragment": "Fragment",
-        "fragment_direct": "Fragment（直连）"
+        "fragment_direct": "Fragment（直连）",
+        "playwallet": "PlayWallet (Steam)",
+        "nervixy": "Nervixy (Steam)"
       },
       "health": {
         "unknown": "未检查",
@@ -6405,7 +6417,8 @@
       "kinds": {
         "telegram_premium": "Telegram Premium",
         "telegram_stars": "Telegram Stars",
-        "other": "其他商品"
+        "other": "其他商品",
+        "steam_topup": "Steam 充值"
       },
       "measure": {
         "months": "{count, plural, one {# 个月} other {# 个月}}",

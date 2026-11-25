@@ -43,6 +43,12 @@ tooling.
   ABAC, a log viewer, a live menu editor. Do not start one unasked. The `.p12` upload stays open on
   purpose: it would store a payment secret in the database, against the rule
   below; the owner chose to leave it rather than change the rule.
+- Steam top-ups (`steam_topup`, bot only) sell through PlayWallet or Nervixy, chosen per
+  product. A provider exists only while its key is in the environment
+  (`APP_PLAYWALLET_API_KEY`, `APP_NERVIXY_API_KEY`); production has neither, so the
+  feature is off and invisible there. DesslyHub was asked for too, but its public
+  examples cover only Steam gifts, not wallet top-ups — not built until its top-up API
+  is documented.
 - Targets: Remnawave 3.4.x API, PostgreSQL 19, Valkey 9, Go with River jobs,
   Next.js 16 with next-intl.
 - Exists in code but not reachable from any screen yet — say so instead of

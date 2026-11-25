@@ -121,10 +121,16 @@ func (worker *Worker) Work(ctx context.Context, job *river.Job[JobArgs]) error {
 			Status: "failed", FailureClass: goods.FailureAmbiguous, ErrorCode: "adapter_error",
 		}
 	}
-	if marked.Load() && submission.Status != "delivered" && !goods.NeedsReview(submission.FailureClass) {
+	if marked.Load() && !claim.resumable && submission.Status != "delivered" &&
+		!goods.NeedsReview(submission.FailureClass) && !submission.NotCharged &&
+		(submission.Status != "submitted" || submission.Reference == "") {
 		// Belt and braces: once the marker committed, money may have left, so
 		// no outcome short of "delivered" may be retried or refunded, whatever
-		// an adapter says.
+		// an adapter says. Three answers are not guesses and pass: an order
+		// the provider accepted and gave a reference for, which is polled; a
+		// refusal the provider made before taking any money, which lifts the
+		// marker; and anything from an adapter whose marker names a provider
+		// order it can read back.
 		submission.FailureClass = goods.FailureAmbiguous
 		submission.ErrorCode = "after_settlement_marker"
 		submission.Status = "failed"
@@ -219,6 +225,11 @@ type claimed struct {
 	order        dbgen.GoodsOrder
 	orderID      pgtype.UUID
 	stars        int
+	kind         string
+	// resumable is true for an adapter whose settlement marker names a
+	// provider order that can be read back and paid again without buying
+	// twice.
+	resumable bool
 	// reference is what the provider returned on an earlier attempt. Its
 	// presence is what distinguishes "submit this" from "ask what happened to
 	// the one already submitted".
@@ -259,13 +270,34 @@ func (worker *Worker) claim(ctx context.Context, orderID string) (claimed, error
 	// buy twice, so it parks for an operator who can check the wallet. This
 	// runs before the attempt ceiling for the same reason: an exhausted
 	// delivery that may have been paid for must not be refunded either.
-	if delivery.BroadcastingAt.Valid {
-		return claimed{done: true}, worker.parkInterrupted(ctx, queries, tx, delivery)
+	//
+	// Two cases are not interrupted: a delivery the provider already accepted
+	// and gave a reference for, which is polled like any submission, and one
+	// from an adapter whose marker names the provider's own order, which it
+	// can ask about and pay again without opening a second one.
+	resumable := resumesAfterMarker(delivery.ProviderSlug)
+	reference := ""
+	if delivery.ProviderReference.Valid {
+		reference = delivery.ProviderReference.String
+	}
+	if delivery.BroadcastingAt.Valid && reference == "" {
+		if !resumable {
+			return claimed{done: true}, worker.parkInterrupted(ctx, queries, tx, delivery)
+		}
+		resumed, resumeErr := resumeReference(delivery)
+		if resumeErr != nil {
+			return claimed{done: true}, worker.parkInterrupted(ctx, queries, tx, delivery)
+		}
+		reference = resumed
 	}
 	// The provider-facing ceiling. River may retry the job more often than
 	// this, so refusing here is what stops a generous job budget becoming extra
-	// purchases.
+	// purchases. A delivery the provider is still working on is parked rather
+	// than refunded: the goods may yet arrive.
 	if int(delivery.AttemptCount) >= goods.MaxAttempts {
+		if reference != "" {
+			return claimed{done: true}, worker.parkStillRunning(ctx, queries, tx, delivery)
+		}
 		return claimed{done: true}, worker.exhaust(ctx, queries, tx, id)
 	}
 
@@ -305,10 +337,6 @@ func (worker *Worker) claim(ctx context.Context, orderID string) (claimed, error
 		return claimed{}, err
 	}
 
-	reference := ""
-	if delivery.ProviderReference.Valid {
-		reference = delivery.ProviderReference.String
-	}
 	stars := OrderStars(order, product)
 	request := goods.DeliveryRequest{
 		Request: goods.Request{
@@ -328,6 +356,7 @@ func (worker *Worker) claim(ctx context.Context, orderID string) (claimed, error
 	return claimed{
 		attempt: attempt, providerSlug: product.ProviderSlug, provider: provider,
 		request: request, order: order, orderID: id, stars: stars, reference: reference,
+		kind: product.Kind, resumable: resumable,
 	}, nil
 }
 
@@ -368,6 +397,32 @@ func (worker *Worker) parkInterrupted(
 	}
 	worker.logger.Error("digital goods delivery interrupted after its payment marker; parked for review",
 		"orderId", uuidString(delivery.OrderID), "provider", delivery.ProviderSlug)
+	return tx.Commit(ctx)
+}
+
+// parkStillRunning parks a delivery the provider accepted and has not
+// finished after every attempt. Refunding it could return money for goods
+// that still arrive, so an operator checks the provider's order instead.
+func (worker *Worker) parkStillRunning(
+	ctx context.Context, queries *dbgen.Queries, tx pgx.Tx, delivery dbgen.GoodsDelivery,
+) error {
+	if _, err := queries.ParkGoodsDelivery(ctx, dbgen.ParkGoodsDeliveryParams{
+		OrderID: delivery.OrderID, LastErrorCode: optionalText("provider_still_processing"),
+	}); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	if _, err := queries.SetGoodsOrderStatus(ctx, dbgen.SetGoodsOrderStatusParams{
+		OrderID: delivery.OrderID, Status: "needs_review",
+	}); err != nil {
+		return err
+	}
+	if err := worker.notify(ctx, queries, "fulfillment_failure",
+		"goods-review:"+uuidString(delivery.OrderID), map[string]any{
+			"orderId": uuidString(delivery.OrderID), "reason": "provider_still_processing",
+			"provider": delivery.ProviderSlug, "status": "needs_review",
+		}); err != nil {
+		return err
+	}
 	return tx.Commit(ctx)
 }
 
@@ -471,6 +526,13 @@ func (worker *Worker) record(
 			return err
 		}
 	}
+	if submission.NotCharged && submission.Status == "failed" {
+		// The provider refused before taking any money, so the marker this
+		// attempt committed no longer means "money may have left".
+		if _, err = queries.LiftGoodsDeliveryMarker(ctx, claim.orderID); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+	}
 
 	switch {
 	case submission.Status == "delivered":
@@ -512,6 +574,30 @@ func (worker *Worker) record(
 			return err
 		}
 
+	case submission.Status == "submitted" && submission.Reference != "" &&
+		int(claim.attempt) >= goods.MaxAttempts:
+		// Accepted by the provider and still running after every attempt.
+		// Refunding could pay the customer back for goods that still arrive,
+		// so an operator looks at the provider's order instead.
+		if _, err = queries.ParkGoodsDelivery(ctx, dbgen.ParkGoodsDeliveryParams{
+			OrderID: claim.orderID, LastErrorCode: optionalText("provider_still_processing"),
+		}); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		if _, err = queries.SetGoodsOrderStatus(ctx, dbgen.SetGoodsOrderStatusParams{
+			OrderID: claim.orderID, Status: "needs_review",
+		}); err != nil {
+			return err
+		}
+		if err = worker.notify(ctx, queries, "fulfillment_failure",
+			"goods-review:"+uuidString(claim.orderID), map[string]any{
+				"orderId": uuidString(claim.orderID), "status": "needs_review",
+				"reason": "provider_still_processing", "errorCode": submission.ErrorCode,
+				"provider": claim.providerSlug,
+			}); err != nil {
+			return err
+		}
+
 	case goods.Refundable(submission.FailureClass), int(claim.attempt) >= goods.MaxAttempts:
 		if _, err = queries.FailGoodsDelivery(ctx, dbgen.FailGoodsDeliveryParams{
 			OrderID: claim.orderID, Terminal: true,
@@ -539,13 +625,20 @@ func (worker *Worker) record(
 		}
 
 	default:
-		// Retryable: leave it in the queue with the deadline the claim already
-		// pushed out.
+		// Retryable, or accepted and still running: leave it in the queue with
+		// the deadline the claim already pushed out. A submission the provider
+		// accepted keeps its reference, so the next attempt asks about it
+		// rather than buying again.
+		reference := ""
+		if submission.Status == "submitted" {
+			reference = submission.Reference
+		}
 		if _, err = queries.FailGoodsDelivery(ctx, dbgen.FailGoodsDeliveryParams{
 			OrderID: claim.orderID, Terminal: false,
-			FailureClass:  optionalText(submission.FailureClass),
-			LastErrorCode: optionalText(submission.ErrorCode),
-			Backoff:       interval(goods.Backoff(int(claim.attempt) + 1)),
+			FailureClass:      optionalText(submission.FailureClass),
+			LastErrorCode:     optionalText(submission.ErrorCode),
+			ProviderReference: optionalText(reference),
+			Backoff:           interval(goods.Backoff(int(claim.attempt) + 1)),
 		}); err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
@@ -606,6 +699,7 @@ func (worker *Worker) salePayload(claim claimed, submission goods.Delivery, rate
 	paid := order.QuotedPriceMinor - order.DiscountMinor
 	payload := map[string]any{
 		"event":           "goods_sale",
+		"kind":            claim.kind,
 		"orderId":         uuidString(claim.orderID),
 		"customerId":      uuidString(order.UserID),
 		"provider":        claim.providerSlug,

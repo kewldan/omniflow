@@ -220,23 +220,31 @@ function Products({ active }: { active: boolean }) {
                 <TableCell data-numeric>
                   {product.durationMonths
                     ? translate("months", { count: product.durationMonths })
-                    : product.maxStarQuantity !== undefined
-                      ? translate("customAmount", {
-                          max: product.maxStarQuantity.toLocaleString(locale),
+                    : product.kind === "steam_topup"
+                      ? translate("dollarRange", {
+                          max: (product.maxStarQuantity ?? 0).toLocaleString(locale),
                           min: (product.minStarQuantity ?? 0).toLocaleString(locale),
                         })
-                      : (product.starQuantity?.toLocaleString(locale) ?? "—")}
+                      : product.maxStarQuantity !== undefined
+                        ? translate("customAmount", {
+                            max: product.maxStarQuantity.toLocaleString(locale),
+                            min: (product.minStarQuantity ?? 0).toLocaleString(locale),
+                          })
+                        : (product.starQuantity?.toLocaleString(locale) ?? "—")}
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm">
                   {product.pricing
                     ? product.pricing.unitPriceMinor
-                      ? translate("pricing.perStar", {
-                          amount: formatMoney(
-                            product.pricing.unitPriceMinor,
-                            product.pricing.currency,
-                            locale,
-                          ),
-                        })
+                      ? translate(
+                          product.kind === "steam_topup" ? "pricing.perDollar" : "pricing.perStar",
+                          {
+                            amount: formatMoney(
+                              product.pricing.unitPriceMinor,
+                              product.pricing.currency,
+                              locale,
+                            ),
+                          },
+                        )
                       : product.pricing.fixedAmountMinor
                         ? translate("pricing.fixed", {
                             amount: formatMoney(

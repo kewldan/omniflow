@@ -23,6 +23,7 @@ import (
 	"github.com/omniflow/omniflow/internal/customerpg"
 	"github.com/omniflow/omniflow/internal/errorlog"
 	"github.com/omniflow/omniflow/internal/fulfillment"
+	"github.com/omniflow/omniflow/internal/fxrate"
 	"github.com/omniflow/omniflow/internal/goodsdelivery"
 	apihttp "github.com/omniflow/omniflow/internal/httpapi"
 	"github.com/omniflow/omniflow/internal/installsettings"
@@ -404,6 +405,7 @@ func buildCommerce(
 			return nil, nil, registryErr
 		}
 		registry.WithFragmentDirect(goodsdelivery.DirectOptionsFrom(cfg.Fragment, cfg.DefaultCurrency, logger))
+		registry.WithSteamProviders(cfg.PlayWallet, cfg.Nervixy, fxrate.New(pool, fxrate.Options{}).DollarRate)
 		commerceService.EnableShop(registry)
 	} else {
 		logger.Info("digital goods shop disabled", "reason", "APP_DATA_ENCRYPTION_KEY is not set")

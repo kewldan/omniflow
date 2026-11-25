@@ -120,7 +120,7 @@ without the suffix (`commerce` → `commercepg`, `customerauth` →
 - `fulfillment` — provisioning operations against Remnawave, retries, drift.
 - `recurring` (rules) · `recurringpg` · `renewal` (worker) — auto-renew.
 - `gifts`, `guestpurchase`, `accesscode` — gifts, claim codes, purchases without an account.
-- `goods`, `goodsdelivery`, `tonwallet`, `tonrate` — digital goods (Stars/Premium via Fragment).
+- `goods`, `goodsdelivery`, `tonwallet`, `tonrate` — digital goods (Stars/Premium via Fragment, Steam top-ups via `goods/playwallet` and `goods/nervixy`).
 - `fxrate` — currency and Stars rates.
 - `selfemployed`, `nalogo` — «Мой налог» receipts.
 

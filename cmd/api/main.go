@@ -32,6 +32,7 @@ import (
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 	"github.com/omniflow/omniflow/internal/errorlog"
 	"github.com/omniflow/omniflow/internal/fulfillment"
+	"github.com/omniflow/omniflow/internal/fxrate"
 	"github.com/omniflow/omniflow/internal/goodsdelivery"
 	apihttp "github.com/omniflow/omniflow/internal/httpapi"
 	"github.com/omniflow/omniflow/internal/importservice"
@@ -563,6 +564,14 @@ func buildCustomerPanel(
 		return nil, nil, err
 	}
 	goodsRegistry.WithFragmentDirect(goodsdelivery.DirectOptionsFrom(cfg.Fragment, cfg.DefaultCurrency, logger))
+	goodsRegistry.WithSteamProviders(cfg.PlayWallet, cfg.Nervixy, fxrate.New(pool, fxrate.Options{}).DollarRate)
+	// A Steam top-up provider appears in the panel's provider list only once
+	// its key is in the environment, switched off until an operator enables it.
+	listCtx, cancelList := context.WithTimeout(context.Background(), 10*time.Second)
+	if listErr := goodsRegistry.EnsureSteamProvidersListed(listCtx); listErr != nil {
+		logger.Warn("steam top-up providers could not be listed", "error", listErr)
+	}
+	cancelList()
 	shop, err := accountshop.New(pool, commerceStore, paymentService, goodsRegistry, accountshop.Options{
 		Logger:   logger,
 		Settings: accountshop.Settings{Currency: cfg.DefaultCurrency, PublicURL: cfg.PublicURL},

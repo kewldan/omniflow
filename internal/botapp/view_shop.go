@@ -181,7 +181,7 @@ func shopOrdersView(locale Locale, orders []ShopOrder) View {
 			html.EscapeString(order.ProductName),
 			formatMoney(order.PriceMinor, order.Currency),
 			shopDeliveryLabel(locale, order),
-			text(locale, "shop.recipientLine", html.EscapeString(order.Recipient)))
+			shopRecipientLine(locale, order))
 		rows = append(rows, row(actionButton(
 			shortID(order.OrderID)+" · "+shopDeliveryLabel(locale, order),
 			"shop-order:"+order.OrderID)))
@@ -195,7 +195,7 @@ func shopOrderView(locale Locale, order ShopOrder) View {
 	body := text(locale, "shop.orderTitle", shortID(order.OrderID)) +
 		"\n\n" + text(locale, "shop.confirmProduct", html.EscapeString(order.ProductName)) +
 		"\n" + text(locale, "shop.price", formatMoney(order.PriceMinor, order.Currency)) +
-		"\n" + text(locale, "shop.recipientLine", html.EscapeString(order.Recipient)) +
+		"\n" + shopRecipientLine(locale, order) +
 		"\n\n" + text(locale, "shop.deliveryState", shopDeliveryLabel(locale, order))
 	if order.DeliveryStatus == "needs_review" {
 		// Ambiguous is the honest word. The purchase may have gone through, and
@@ -207,6 +207,15 @@ func shopOrderView(locale Locale, order ShopOrder) View {
 		row(callbackButton(text(locale, "action.refresh"), routeShopOrders)),
 		row(callbackButton(text(locale, "action.back"), routeShopOrders)),
 	)}
+}
+
+// shopRecipientLine names where an order went: a Telegram username, or the
+// Steam login a top-up credited.
+func shopRecipientLine(locale Locale, order ShopOrder) string {
+	if order.Kind == "steam_topup" {
+		return text(locale, "steam.loginLine", html.EscapeString(order.Recipient))
+	}
+	return text(locale, "shop.recipientLine", html.EscapeString(order.Recipient))
 }
 
 // shopDeliveryLabel describes the state of the goods rather than of the

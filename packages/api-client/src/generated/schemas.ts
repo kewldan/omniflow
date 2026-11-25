@@ -9891,7 +9891,7 @@ export const ListPanelGoodsProductsResponse = zod.object({
         id: zod.uuid(),
         code: zod.string(),
         providerSlug: zod.string(),
-        kind: zod.enum(["telegram_premium", "telegram_stars"]),
+        kind: zod.enum(["telegram_premium", "telegram_stars", "steam_topup"]),
         durationMonths: zod.int().optional(),
         starQuantity: zod
           .int()
@@ -9900,11 +9900,15 @@ export const ListPanelGoodsProductsResponse = zod.object({
         minStarQuantity: zod
           .int()
           .optional()
-          .describe("Lower bound of a custom-amount Stars product."),
+          .describe(
+            "Lower bound of a custom-amount product: Stars, or whole dollars of a Steam top-up.",
+          ),
         maxStarQuantity: zod
           .int()
           .optional()
-          .describe("Upper bound of a custom-amount Stars product."),
+          .describe(
+            "Upper bound of a custom-amount product: Stars, or whole dollars of a Steam top-up.",
+          ),
         starPresets: zod
           .array(zod.int())
           .optional()
@@ -9970,8 +9974,6 @@ export const CreatePanelGoodsProductHeader = zod.object({
 
 export const createPanelGoodsProductBodyCodeRegExp = /^[a-z][a-z0-9_-]{1,63}$/;
 
-export const createPanelGoodsProductBodyMinStarQuantityMin = 50;
-
 export const createPanelGoodsProductBodyMaxStarQuantityMax = 10000000;
 
 export const createPanelGoodsProductBodyStarPresetsMax = 12;
@@ -9979,7 +9981,7 @@ export const createPanelGoodsProductBodyStarPresetsMax = 12;
 export const CreatePanelGoodsProductBody = zod.object({
   code: zod.string().regex(createPanelGoodsProductBodyCodeRegExp),
   providerSlug: zod.string(),
-  kind: zod.enum(["telegram_premium", "telegram_stars"]),
+  kind: zod.enum(["telegram_premium", "telegram_stars", "steam_topup"]),
   durationMonths: zod.union([zod.literal(3), zod.literal(6), zod.literal(12)]).optional(),
   starQuantity: zod
     .int()
@@ -9988,14 +9990,18 @@ export const CreatePanelGoodsProductBody = zod.object({
     .describe("A fixed pack. Omit for a custom-amount product."),
   minStarQuantity: zod
     .int()
-    .min(createPanelGoodsProductBodyMinStarQuantityMin)
+    .min(1)
     .optional()
-    .describe("Custom amount: the smallest a customer may buy. Fragment's floor is 50."),
+    .describe(
+      "Custom amount: the smallest a customer may buy — Stars, at least Fragment's floor of 50, or whole dollars of a Steam top-up.",
+    ),
   maxStarQuantity: zod
     .int()
     .max(createPanelGoodsProductBodyMaxStarQuantityMax)
     .optional()
-    .describe("Custom amount: the largest a customer may buy."),
+    .describe(
+      "Custom amount: the largest a customer may buy — Stars, or at most 1000 dollars of a Steam top-up.",
+    ),
   starPresets: zod
     .array(zod.int())
     .max(createPanelGoodsProductBodyStarPresetsMax)
@@ -10019,11 +10025,17 @@ export const CreatePanelGoodsProductResponse = zod.object({
   id: zod.uuid(),
   code: zod.string(),
   providerSlug: zod.string(),
-  kind: zod.enum(["telegram_premium", "telegram_stars"]),
+  kind: zod.enum(["telegram_premium", "telegram_stars", "steam_topup"]),
   durationMonths: zod.int().optional(),
   starQuantity: zod.int().optional().describe("A fixed pack. Absent for a custom-amount product."),
-  minStarQuantity: zod.int().optional().describe("Lower bound of a custom-amount Stars product."),
-  maxStarQuantity: zod.int().optional().describe("Upper bound of a custom-amount Stars product."),
+  minStarQuantity: zod
+    .int()
+    .optional()
+    .describe("Lower bound of a custom-amount product: Stars, or whole dollars of a Steam top-up."),
+  maxStarQuantity: zod
+    .int()
+    .optional()
+    .describe("Upper bound of a custom-amount product: Stars, or whole dollars of a Steam top-up."),
   starPresets: zod
     .array(zod.int())
     .optional()
@@ -10175,7 +10187,7 @@ export const SearchPanelGoodsOrdersQueryParams = zod.object({
     .default(searchPanelGoodsOrdersQueryPageSizeDefault),
   status: zod.string().optional(),
   customerId: zod.uuid().optional(),
-  kind: zod.enum(["telegram_premium", "telegram_stars"]).optional(),
+  kind: zod.enum(["telegram_premium", "telegram_stars", "steam_topup"]).optional(),
   q: zod
     .string()
     .max(searchPanelGoodsOrdersQueryQMax)
@@ -10233,9 +10245,12 @@ export const SearchPanelGoodsOrdersResponse = zod.object({
         deliveredAt: zod.iso.datetime({ offset: true }).optional(),
         createdAt: zod.iso.datetime({ offset: true }),
         discountMinor: zod.int().optional(),
-        productKind: zod.enum(["telegram_premium", "telegram_stars"]),
+        productKind: zod.enum(["telegram_premium", "telegram_stars", "steam_topup"]),
         productCode: zod.string(),
-        starQuantity: zod.int().optional().describe("The Stars this order delivers."),
+        starQuantity: zod
+          .int()
+          .optional()
+          .describe("The Stars this order delivers, or the whole dollars a Steam top-up adds."),
         source: zod.enum(["bot", "web", "auto_cart", "unknown"]),
         paidMinor: zod.int().describe("What the customer paid: the price less the discount."),
         provider: zod.string().optional(),
@@ -16558,7 +16573,7 @@ export const PurchaseAccountShopProductBody = zod.object({
 export const PurchaseAccountShopProductResponse = zod.object({
   id: zod.uuid(),
   productName: zod.string(),
-  kind: zod.enum(["telegram_premium", "telegram_stars"]),
+  kind: zod.enum(["telegram_premium", "telegram_stars", "steam_topup"]),
   quantity: zod.int(),
   recipient: zod.string(),
   forSelf: zod.boolean(),
@@ -16666,7 +16681,7 @@ export const BuyAccountShopCartHeader = zod.object({
 export const BuyAccountShopCartResponse = zod.object({
   id: zod.uuid(),
   productName: zod.string(),
-  kind: zod.enum(["telegram_premium", "telegram_stars"]),
+  kind: zod.enum(["telegram_premium", "telegram_stars", "steam_topup"]),
   quantity: zod.int(),
   recipient: zod.string(),
   forSelf: zod.boolean(),
@@ -16743,7 +16758,7 @@ export const ListAccountShopOrdersResponse = zod.object({
     zod.object({
       id: zod.uuid(),
       productName: zod.string(),
-      kind: zod.enum(["telegram_premium", "telegram_stars"]),
+      kind: zod.enum(["telegram_premium", "telegram_stars", "steam_topup"]),
       quantity: zod.int(),
       recipient: zod.string(),
       forSelf: zod.boolean(),
@@ -16824,7 +16839,7 @@ export const GetAccountShopOrderQueryParams = zod.object({
 export const GetAccountShopOrderResponse = zod.object({
   id: zod.uuid(),
   productName: zod.string(),
-  kind: zod.enum(["telegram_premium", "telegram_stars"]),
+  kind: zod.enum(["telegram_premium", "telegram_stars", "steam_topup"]),
   quantity: zod.int(),
   recipient: zod.string(),
   forSelf: zod.boolean(),

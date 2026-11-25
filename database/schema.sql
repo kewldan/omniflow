@@ -1753,7 +1753,7 @@ CREATE TABLE public.cart_goods (
     star_quantity integer,
     CONSTRAINT cart_goods_currency_check CHECK ((currency ~ '^[A-Z]{3}$'::text)),
     CONSTRAINT cart_goods_quantity_check CHECK ((quantity > 0)),
-    CONSTRAINT cart_goods_recipient_username_check CHECK ((recipient_username ~ '^[A-Za-z0-9_]{5,32}$'::text)),
+    CONSTRAINT cart_goods_recipient_format CHECK ((recipient_username ~ '^[A-Za-z0-9_]{3,64}$'::text)),
     CONSTRAINT cart_goods_saved_price_minor_check CHECK ((saved_price_minor >= 0)),
     CONSTRAINT cart_goods_star_quantity_positive CHECK (((star_quantity IS NULL) OR (star_quantity > 0)))
 );
@@ -2820,7 +2820,7 @@ CREATE TABLE public.goods_orders (
     CONSTRAINT goods_orders_quantity_check CHECK ((quantity > 0)),
     CONSTRAINT goods_orders_quoted_cost_minor_check CHECK ((quoted_cost_minor >= 0)),
     CONSTRAINT goods_orders_quoted_price_minor_check CHECK ((quoted_price_minor >= 0)),
-    CONSTRAINT goods_orders_recipient_username_check CHECK ((recipient_username ~ '^[A-Za-z0-9_]{5,32}$'::text)),
+    CONSTRAINT goods_orders_recipient_format CHECK ((recipient_username ~ '^[A-Za-z0-9_]{3,64}$'::text)),
     CONSTRAINT goods_orders_source_known CHECK ((source = ANY (ARRAY['bot'::text, 'web'::text, 'auto_cart'::text, 'unknown'::text]))),
     CONSTRAINT goods_orders_star_quantity_positive CHECK (((star_quantity IS NULL) OR (star_quantity > 0))),
     CONSTRAINT goods_orders_status_known CHECK ((status = ANY (ARRAY['quoted'::text, 'paid'::text, 'delivering'::text, 'delivered'::text, 'failed'::text, 'refunded'::text, 'needs_review'::text])))
@@ -2828,10 +2828,24 @@ CREATE TABLE public.goods_orders (
 
 
 --
+-- Name: COLUMN goods_orders.recipient_username; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.goods_orders.recipient_username IS 'Telegram username the goods go to, or the Steam login a Steam top-up credits.';
+
+
+--
 -- Name: COLUMN goods_orders.cost_known; Type: COMMENT; Schema: public; Owner: -
 --
 
 COMMENT ON COLUMN public.goods_orders.cost_known IS 'False when the provider publishes no cost for this product and the operator set the price directly. Margin is unknown, not zero.';
+
+
+--
+-- Name: COLUMN goods_orders.star_quantity; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.goods_orders.star_quantity IS 'Stars the order delivers, or whole units of the provider''s currency a Steam top-up adds.';
 
 
 --
@@ -2891,15 +2905,37 @@ CREATE TABLE public.goods_products (
     min_star_quantity integer,
     max_star_quantity integer,
     star_presets integer[] DEFAULT '{}'::integer[] NOT NULL,
+    CONSTRAINT goods_products_amount_shape CHECK (((kind = ANY (ARRAY['telegram_stars'::text, 'steam_topup'::text])) = ((star_quantity IS NOT NULL) OR (min_star_quantity IS NOT NULL)))),
     CONSTRAINT goods_products_code_check CHECK ((code ~ '^[a-z][a-z0-9_-]{1,63}$'::text)),
     CONSTRAINT goods_products_custom_amount_range CHECK ((((min_star_quantity IS NULL) = (max_star_quantity IS NULL)) AND ((min_star_quantity IS NULL) OR ((star_quantity IS NULL) AND (min_star_quantity > 0) AND (max_star_quantity >= min_star_quantity))))),
     CONSTRAINT goods_products_duration_months_check CHECK (((duration_months IS NULL) OR (duration_months = ANY (ARRAY[3, 6, 12])))),
-    CONSTRAINT goods_products_kind_check CHECK ((kind = ANY (ARRAY['telegram_premium'::text, 'telegram_stars'::text]))),
+    CONSTRAINT goods_products_kind_known CHECK ((kind = ANY (ARRAY['telegram_premium'::text, 'telegram_stars'::text, 'steam_topup'::text]))),
     CONSTRAINT goods_products_premium_shape CHECK (((kind = 'telegram_premium'::text) = (duration_months IS NOT NULL))),
     CONSTRAINT goods_products_star_presets_bounded CHECK ((cardinality(star_presets) <= 12)),
     CONSTRAINT goods_products_star_quantity_check CHECK (((star_quantity IS NULL) OR (star_quantity > 0))),
-    CONSTRAINT goods_products_stars_amount_shape CHECK (((kind = 'telegram_stars'::text) = ((star_quantity IS NOT NULL) OR (min_star_quantity IS NOT NULL))))
+    CONSTRAINT goods_products_steam_custom_amount CHECK (((kind <> 'steam_topup'::text) OR ((min_star_quantity IS NOT NULL) AND (star_quantity IS NULL))))
 );
+
+
+--
+-- Name: COLUMN goods_products.star_quantity; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.goods_products.star_quantity IS 'Stars in a fixed pack. Never set for a Steam top-up, which is always a custom amount.';
+
+
+--
+-- Name: COLUMN goods_products.min_star_quantity; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.goods_products.min_star_quantity IS 'Smallest custom amount: Stars, or whole units of the provider''s currency for a Steam top-up.';
+
+
+--
+-- Name: COLUMN goods_products.max_star_quantity; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.goods_products.max_star_quantity IS 'Largest custom amount: Stars, or whole units of the provider''s currency for a Steam top-up.';
 
 
 --

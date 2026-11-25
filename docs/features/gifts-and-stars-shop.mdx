@@ -203,6 +203,26 @@ price, cost in TON and in your currency, margin, and the remaining wallet balanc
 request when it covers fewer Stars than `APP_FRAGMENT_WALLET_LOW_STARS`. The **Stars** tab shows
 revenue, cost, and margin for any period.
 
+## Steam top-ups
+
+The bot can also top up a customer's Steam wallet: they type their Steam login, pick an amount in
+dollars, and pay from the wallet or with any payment method, exactly as for Stars. The money comes
+from your prepaid balance with [PlayWallet](https://playwallet.bot/ru/api) or
+[Nervixy](https://nervixy.digital/docs-api) — each product names the provider it is sold through,
+so you can switch between them or keep one in reserve.
+
+The feature is off until you turn it on. Each provider exists only while its key is in the
+environment (`APP_PLAYWALLET_API_KEY`, `APP_NERVIXY_API_KEY`), and a configured provider starts
+switched off with no product, so nothing reaches customers until you enable the provider, create a
+Steam product, price it per dollar, and make it visible. Then `🎮 Top up Steam` appears in the
+bot's main menu; the web shop does not sell Steam top-ups.
+
+A top-up cannot be undone, so the bot restates the login above the button that pays, and Nervixy
+checks that the account exists before anything is charged. A top-up the provider refuses is
+refunded to the customer's wallet; one whose outcome is unknown is parked in **Needs review**
+rather than retried or refunded. Setup, pricing, and delivery are on
+[Gifts and digital goods](/commerce/gifts-and-goods#steam-top-ups).
+
 ## Related
 
 <CardGroup cols={2}>

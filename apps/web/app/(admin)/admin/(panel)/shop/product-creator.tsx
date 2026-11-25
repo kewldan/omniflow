@@ -16,11 +16,25 @@ import { type Listing, useOperatorAction } from "@/lib/operations";
 type Provider = { slug: string; enabled: boolean };
 type Created = { id: string };
 
+/** The providers that sell Steam top-ups; each is listed only when its key is set. */
+const STEAM_PROVIDERS = ["playwallet", "nervixy"];
+
+/** Whole-dollar presets typed as "5, 10, 20". */
+function parsePresets(value: string): number[] {
+  return value
+    .split(/[\s,;]+/)
+    .map((part) => Number(part))
+    .filter((amount) => Number.isInteger(amount) && amount > 0)
+    .slice(0, 12);
+}
+
 /**
- * Create a digital-goods product: Telegram Premium for 3, 6, or 12 months, or a
- * fixed pack of Stars, delivered by a configured provider. It is created
- * hidden, with its names in both languages; the price is set in the product's
- * pricing editor before it is shown.
+ * Create a digital-goods product: Telegram Premium for 3, 6, or 12 months, a
+ * fixed pack of Stars, or — once a Steam provider (PlayWallet or Nervixy) is
+ * listed, which happens only when its key is in the environment — a Steam top-up of a
+ * customer-chosen number of dollars. It is created hidden, with its names in
+ * both languages; the price is set in the product's pricing editor before it
+ * is shown.
  */
 export function ProductCreator({ onCreated }: { onCreated: () => void }) {
   const translate = useTranslations("admin.shop.productCreator");
@@ -30,6 +44,8 @@ export function ProductCreator({ onCreated }: { onCreated: () => void }) {
     provider: useId(),
     kind: useId(),
     amount: useId(),
+    maxAmount: useId(),
+    presets: useId(),
     ru: useId(),
     en: useId(),
   };
@@ -43,10 +59,18 @@ export function ProductCreator({ onCreated }: { onCreated: () => void }) {
     kind: "telegram_premium",
     months: "3",
     stars: "",
+    minDollars: "1",
+    maxDollars: "100",
+    presets: "5, 10, 20, 50",
     nameRu: "",
     nameEn: "",
   });
   const set = (patch: Partial<typeof form>) => setForm((current) => ({ ...current, ...patch }));
+  const steamProviders = (providers?.items ?? [])
+    .map((provider) => provider.slug)
+    .filter((slug) => STEAM_PROVIDERS.includes(slug));
+  const steamListed = steamProviders.length > 0;
+  const steam = form.kind === "steam_topup";
   const { run, pending, error } = useOperatorAction();
   const [failed, setFailed] = useState(false);
 
@@ -56,7 +80,13 @@ export function ProductCreator({ onCreated }: { onCreated: () => void }) {
     const body =
       form.kind === "telegram_premium"
         ? { durationMonths: Number(form.months) }
-        : { starQuantity: Number(form.stars) || 0 };
+        : steam
+          ? {
+              maxStarQuantity: Number(form.maxDollars) || 0,
+              minStarQuantity: Number(form.minDollars) || 0,
+              starPresets: parsePresets(form.presets),
+            }
+          : { starQuantity: Number(form.stars) || 0 };
     let created: Created;
     try {
       created = await apiFetch<Created>("/v1/panel/goods/products", {
@@ -109,7 +139,16 @@ export function ProductCreator({ onCreated }: { onCreated: () => void }) {
           </div>
           <div className="flex flex-col gap-1">
             <Label htmlFor={ids.provider}>{translate("provider")}</Label>
-            <Select onValueChange={(provider) => set({ provider })} value={form.provider}>
+            <Select
+              onValueChange={(provider) =>
+                set(
+                  STEAM_PROVIDERS.includes(provider)
+                    ? { kind: "steam_topup", provider }
+                    : { kind: steam ? "telegram_premium" : form.kind, provider },
+                )
+              }
+              value={form.provider}
+            >
               <SelectTrigger id={ids.provider}>
                 <SelectValue placeholder={translate("pickProvider")} />
               </SelectTrigger>
@@ -124,7 +163,24 @@ export function ProductCreator({ onCreated }: { onCreated: () => void }) {
           </div>
           <div className="flex flex-col gap-1">
             <Label htmlFor={ids.kind}>{translate("kind")}</Label>
-            <Select onValueChange={(kind) => set({ kind })} value={form.kind}>
+            <Select
+              onValueChange={(kind) =>
+                set(
+                  kind === "steam_topup"
+                    ? {
+                        kind,
+                        provider: STEAM_PROVIDERS.includes(form.provider)
+                          ? form.provider
+                          : (steamProviders[0] ?? ""),
+                      }
+                    : {
+                        kind,
+                        provider: STEAM_PROVIDERS.includes(form.provider) ? "" : form.provider,
+                      },
+                )
+              }
+              value={form.kind}
+            >
               <SelectTrigger id={ids.kind}>
                 <SelectValue />
               </SelectTrigger>
@@ -133,35 +189,70 @@ export function ProductCreator({ onCreated }: { onCreated: () => void }) {
                   {translate("kinds.telegram_premium")}
                 </SelectItem>
                 <SelectItem value="telegram_stars">{translate("kinds.telegram_stars")}</SelectItem>
+                {steamListed && (
+                  <SelectItem value="steam_topup">{translate("kinds.steam_topup")}</SelectItem>
+                )}
               </SelectContent>
             </Select>
           </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor={ids.amount}>
-              {form.kind === "telegram_premium" ? translate("months") : translate("stars")}
-            </Label>
-            {form.kind === "telegram_premium" ? (
-              <Select onValueChange={(months) => set({ months })} value={form.months}>
-                <SelectTrigger id={ids.amount}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {["3", "6", "12"].map((months) => (
-                    <SelectItem key={months} value={months}>
-                      {translate("monthCount", { months: Number(months) })}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <Input
-                id={ids.amount}
-                inputMode="numeric"
-                onChange={(event) => set({ stars: event.target.value })}
-                value={form.stars}
-              />
-            )}
-          </div>
+          {steam ? (
+            <>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor={ids.amount}>{translate("minDollars")}</Label>
+                <Input
+                  id={ids.amount}
+                  inputMode="numeric"
+                  onChange={(event) => set({ minDollars: event.target.value })}
+                  value={form.minDollars}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor={ids.maxAmount}>{translate("maxDollars")}</Label>
+                <Input
+                  id={ids.maxAmount}
+                  inputMode="numeric"
+                  onChange={(event) => set({ maxDollars: event.target.value })}
+                  value={form.maxDollars}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor={ids.presets}>{translate("presetDollars")}</Label>
+                <Input
+                  id={ids.presets}
+                  inputMode="numeric"
+                  onChange={(event) => set({ presets: event.target.value })}
+                  value={form.presets}
+                />
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col gap-1">
+              <Label htmlFor={ids.amount}>
+                {form.kind === "telegram_premium" ? translate("months") : translate("stars")}
+              </Label>
+              {form.kind === "telegram_premium" ? (
+                <Select onValueChange={(months) => set({ months })} value={form.months}>
+                  <SelectTrigger id={ids.amount}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {["3", "6", "12"].map((months) => (
+                      <SelectItem key={months} value={months}>
+                        {translate("monthCount", { months: Number(months) })}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  id={ids.amount}
+                  inputMode="numeric"
+                  onChange={(event) => set({ stars: event.target.value })}
+                  value={form.stars}
+                />
+              )}
+            </div>
+          )}
           <div className="flex flex-col gap-1">
             <Label htmlFor={ids.ru}>{translate("nameRu")}</Label>
             <Input
@@ -178,6 +269,9 @@ export function ProductCreator({ onCreated }: { onCreated: () => void }) {
               value={form.nameEn}
             />
           </div>
+          {steam && (
+            <p className="text-muted-foreground text-xs sm:col-span-3">{translate("steamHint")}</p>
+          )}
           {(failed || error) && (
             <p className="text-destructive text-sm sm:col-span-3" role="alert">
               {translate("invalid")}

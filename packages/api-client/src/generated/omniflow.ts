@@ -4920,6 +4920,7 @@ export type PanelGoodsProductKind =
 export const PanelGoodsProductKind = {
   telegram_premium: "telegram_premium",
   telegram_stars: "telegram_stars",
+  steam_topup: "steam_topup",
 } as const;
 
 export type PanelGoodsProductLocalizations = { [key: string]: PanelLocalization };
@@ -4932,9 +4933,9 @@ export interface PanelGoodsProduct {
   durationMonths?: number;
   /** A fixed pack. Absent for a custom-amount product. */
   starQuantity?: number;
-  /** Lower bound of a custom-amount Stars product. */
+  /** Lower bound of a custom-amount product: Stars, or whole dollars of a Steam top-up. */
   minStarQuantity?: number;
-  /** Upper bound of a custom-amount Stars product. */
+  /** Upper bound of a custom-amount product: Stars, or whole dollars of a Steam top-up. */
   maxStarQuantity?: number;
   /** One-tap amounts offered for a custom-amount product. */
   starPresets?: number[];
@@ -4957,6 +4958,7 @@ export type PanelGoodsProductInputKind =
 export const PanelGoodsProductInputKind = {
   telegram_premium: "telegram_premium",
   telegram_stars: "telegram_stars",
+  steam_topup: "steam_topup",
 } as const;
 
 export type PanelGoodsProductInputDurationMonths =
@@ -4980,12 +4982,12 @@ export interface PanelGoodsProductInput {
    */
   starQuantity?: number;
   /**
-   * Custom amount: the smallest a customer may buy. Fragment's floor is 50.
-   * @minimum 50
+   * Custom amount: the smallest a customer may buy — Stars, at least Fragment's floor of 50, or whole dollars of a Steam top-up.
+   * @minimum 1
    */
   minStarQuantity?: number;
   /**
-   * Custom amount: the largest a customer may buy.
+   * Custom amount: the largest a customer may buy — Stars, or at most 1000 dollars of a Steam top-up.
    * @maximum 10000000
    */
   maxStarQuantity?: number;
@@ -5035,6 +5037,7 @@ export type PanelGoodsOrderProductKind =
 export const PanelGoodsOrderProductKind = {
   telegram_premium: "telegram_premium",
   telegram_stars: "telegram_stars",
+  steam_topup: "steam_topup",
 } as const;
 
 export type PanelGoodsOrderSource =
@@ -5082,7 +5085,7 @@ export interface PanelGoodsOrder {
   discountMinor?: number;
   productKind: PanelGoodsOrderProductKind;
   productCode: string;
-  /** The Stars this order delivers. */
+  /** The Stars this order delivers, or the whole dollars a Steam top-up adds. */
   starQuantity?: number;
   source: PanelGoodsOrderSource;
   /** What the customer paid: the price less the discount. */
@@ -6784,6 +6787,7 @@ export type AccountShopOrderKind = (typeof AccountShopOrderKind)[keyof typeof Ac
 export const AccountShopOrderKind = {
   telegram_premium: "telegram_premium",
   telegram_stars: "telegram_stars",
+  steam_topup: "steam_topup",
 } as const;
 
 export type AccountShopOrderAmounts = {
@@ -8658,6 +8662,7 @@ export type SearchPanelGoodsOrdersKind =
 export const SearchPanelGoodsOrdersKind = {
   telegram_premium: "telegram_premium",
   telegram_stars: "telegram_stars",
+  steam_topup: "steam_topup",
 } as const;
 
 export type ListPanelGoodsReviewQueueParams = {

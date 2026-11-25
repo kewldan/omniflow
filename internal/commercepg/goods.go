@@ -102,7 +102,13 @@ func (store *Store) CreateGoodsOrder(
 	if !input.QuoteExpiresAt.IsZero() && !input.QuoteExpiresAt.After(store.clock().UTC()) {
 		return dbgen.Order{}, ErrQuoteExpired
 	}
-	if _, err = goods.NormalizeRecipient(input.Recipient); err != nil {
+	product, err := dbgen.New(store.pool).GetGoodsProduct(ctx, productID)
+	if err != nil {
+		return dbgen.Order{}, fmt.Errorf("product: %w", err)
+	}
+	// The recipient rule belongs to the product: a Telegram username for
+	// Stars and Premium, a Steam login for a Steam top-up.
+	if _, err = goods.NormalizeRecipientFor(product.Kind, input.Recipient); err != nil {
 		return dbgen.Order{}, err
 	}
 

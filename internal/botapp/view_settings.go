@@ -169,6 +169,9 @@ func commerceMenuRows(locale Locale, menu MenuState) [][]models.InlineKeyboardBu
 		// The fork's own entry: Stars bought straight from the menu.
 		rows = append(rows, row(callbackButton(text(locale, "menu.stars"), routeStars)))
 	}
+	if menu.SteamEnabled {
+		rows = append(rows, row(callbackButton(text(locale, "menu.steam"), routeSteam)))
+	}
 	shopRow := make([]models.InlineKeyboardButton, 0, 2)
 	if menu.ShopEnabled {
 		shopRow = append(shopRow, callbackButton(text(locale, "menu.shop"), routeShop))

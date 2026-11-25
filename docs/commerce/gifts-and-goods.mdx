@@ -612,7 +612,107 @@ A delivery that keeps failing before any payment — Fragment down, a session th
 expired — is retried on the backoff schedule and refunded after the sixth attempt,
 like every other provider.
 
-## Guest purchases
+## Steam top-ups
+
+A Steam top-up adds a chosen number of US dollars to a Steam wallet. It is a
+third product kind, `steam_topup`, paid from your prepaid balance with a Steam
+top-up provider. Two are built in, and each product names the one it is sold
+through:
+
+| Provider | Slug | How it charges | Checks the login first |
+| --- | --- | --- | --- |
+| [PlayWallet](https://playwallet.bot/ru/api) | `playwallet` | `create-order`, then a signed `pay-order` | No |
+| [Nervixy](https://nervixy.digital/docs-api) | `nervixy` | `api_order` opens the top-up and takes the money at once | Yes |
+
+A provider exists only while its key is in the environment (see
+[Configuration](/getting-started/configuration#steam-top-up-providers)):
+without one it is not listed, and with neither no Steam product can be created
+and the bot shows nothing.
+
+### Setting it up
+
+1. Set the provider's key for the api, bot, and worker, allow-list the
+   worker's and the bot's address with the provider, and restart. The api
+   lists the provider under **Providers**, switched off.
+2. Enable it. Set a spend ceiling: it is measured in what the provider
+   charges, converted into the shop currency.
+3. In **New product**, pick the provider (or the *Steam top-up* kind), the
+   smallest and largest top-up in whole dollars — from 1 to 1000 — and up to
+   twelve one-tap amounts.
+4. Price it in the pricing editor, then make it visible.
+
+The bot sells one Steam product: the first visible one in sort order. To move
+to the other provider, show its product and hide the old one; orders already
+placed finish with the provider they were placed with.
+
+A Steam product is always a chosen amount, so it is priced **per dollar**:
+either a fixed price per $1 in the shop currency, which you choose and which a
+saved purchase may charge unattended after a top-up, or a markup over the
+provider's cost converted at the USD/RUB rate the shop already reads for
+Stars. PlayWallet's cost includes its fee (`feeRatio`); Nervixy's is the face
+value, leaving out your account discount, so it is never understated. A
+markup price is available only for a shop priced in roubles or dollars; any
+other currency needs a fixed price per dollar. The provider's own limits apply
+on top of the product's bounds — Nervixy accepts about 15 to 30 000 roubles'
+worth, roughly $0.20 to $380.
+
+The web shop does not list Steam products: the purchase is made in the bot
+only, where the customer is asked for the login.
+
+### Buying in the bot
+
+A visible Steam product adds `🎮 Top up Steam` to the main menu, on its own row;
+it does not open the shop catalogue. The customer types the Steam **login** —
+the account name they sign in with, three to sixty-four Latin letters, digits,
+and underscores, not the profile name — or reuses the login of their last
+top-up. A provider that can check logins (Nervixy) is asked at once, and an
+unknown login is refused before anything is paid. The customer then picks an
+amount from the presets or types one, and confirms a screen that restates the
+login, the dollars, the total, and the wallet balance. Paying works exactly as
+for Stars: the wallet first, then a top-up of exactly what is missing (a fixed
+price per dollar makes itself once it settles) or an order whose remainder a
+payment settles.
+
+Steam credits the dollars in the account's own currency at its rate, which the
+bot says up front. A top-up cannot be undone, and the confirmation says so.
+
+### Delivery
+
+Before the call that spends your balance, the worker commits a settlement
+marker naming the provider's order. What happens after a lost answer depends
+on what that call can be asked afterwards.
+
+**PlayWallet** buys in two steps: `create-order` opens an order that waits for
+payment, and `pay-order`, signed with a SHA-512 token of the order, spends the
+balance. The marker names the PlayWallet order, and from then on the worker
+never opens a second one for the same purchase: every later attempt reads that
+order back and, while PlayWallet still says it is unpaid, pays it again. Paying
+one order twice cannot top an account up twice, so a lost answer, a timeout, or
+a worker that died mid-payment is resolved by asking rather than parked.
+
+**Nervixy** charges in the same call that opens the order, and documents no
+idempotency key. The marker names the adapter's own `partner_id`. A definite
+refusal — the balance is too low, the key or address is refused — proves
+nothing was charged: the marker is lifted and the delivery is retried or
+refunded by its class. A lost answer, a server error, or an answer without an
+order identifier may have come after the charge, so the delivery is parked in
+**Needs review**; find the order in Nervixy's list by the request identifier
+shown on the delivery, then mark it delivered, retry it, or refund it.
+
+| The provider says | What happens |
+| --- | --- |
+| Accepted and still running (`queued`, `processing`) | Submitted; the order is polled on the backoff schedule |
+| Done (`completed`, `delivered`) | Delivered; the buyer and the operator chat are told |
+| Failed (`error`, `rejected`) | The top-up did not reach Steam: refunded to the wallet |
+| The login is refused | Refunded; the buyer is told Steam has no such account |
+| The balance is too low | Retried with a low-balance alert to the operator chat |
+
+An order the provider accepted and has not finished after the sixth attempt —
+a little over an hour of polling — is parked rather than refunded: the money
+may still reach Steam. Check it with the provider, then mark it delivered or
+refund it.
+
+## Guest purchases## Guest purchases
 
 A visitor with no account can buy a subscription at `/guest` with only an
 e-mail address, for themselves or as a gift, as in Bedolaga. Landing pages with

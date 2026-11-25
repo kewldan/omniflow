@@ -440,25 +440,31 @@ UPDATE goods_deliveries
 SET status = CASE WHEN $1::boolean THEN 'failed' ELSE 'submitted' END,
     failure_class = $2,
     last_error_code = $3,
-    next_attempt_at = now() + $4::interval,
+    provider_reference = COALESCE($4, provider_reference),
+    next_attempt_at = now() + $5::interval,
     updated_at = now()
-WHERE order_id = $5 AND status <> 'delivered'
+WHERE order_id = $6 AND status <> 'delivered'
 RETURNING order_id, provider_slug, idempotency_key, provider_reference, status, attempt_count, next_attempt_at, failure_class, last_error_code, refund_ledger_transaction_id, created_at, updated_at, delivered_at, broadcasting_at, provider_request_id, settlement_asset, settlement_cost_nano, settlement_tx_hash, provider_confirmed, dry_run, settled_cost_minor, settled_rate_minor, settled_rate_source
 `
 
 type FailGoodsDeliveryParams struct {
-	Terminal      bool            `json:"terminal"`
-	FailureClass  pgtype.Text     `json:"failure_class"`
-	LastErrorCode pgtype.Text     `json:"last_error_code"`
-	Backoff       pgtype.Interval `json:"backoff"`
-	OrderID       pgtype.UUID     `json:"order_id"`
+	Terminal          bool            `json:"terminal"`
+	FailureClass      pgtype.Text     `json:"failure_class"`
+	LastErrorCode     pgtype.Text     `json:"last_error_code"`
+	ProviderReference pgtype.Text     `json:"provider_reference"`
+	Backoff           pgtype.Interval `json:"backoff"`
+	OrderID           pgtype.UUID     `json:"order_id"`
 }
 
+// A provider reference, when given, is kept: it is what a later attempt polls
+// instead of submitting the purchase a second time. An absent one leaves the
+// stored reference alone.
 func (q *Queries) FailGoodsDelivery(ctx context.Context, arg FailGoodsDeliveryParams) (GoodsDelivery, error) {
 	row := q.db.QueryRow(ctx, failGoodsDelivery,
 		arg.Terminal,
 		arg.FailureClass,
 		arg.LastErrorCode,
+		arg.ProviderReference,
 		arg.Backoff,
 		arg.OrderID,
 	)
@@ -768,6 +774,51 @@ func (q *Queries) InsertGoodsDeliveryAttempt(ctx context.Context, arg InsertGood
 		&i.ProviderReference,
 		&i.CorrelationID,
 		&i.OccurredAt,
+	)
+	return i, err
+}
+
+const liftGoodsDeliveryMarker = `-- name: LiftGoodsDeliveryMarker :one
+UPDATE goods_deliveries
+SET broadcasting_at = NULL,
+    provider_request_id = NULL,
+    settlement_asset = NULL,
+    settlement_cost_nano = NULL,
+    updated_at = now()
+WHERE order_id = $1 AND broadcasting_at IS NOT NULL
+RETURNING order_id, provider_slug, idempotency_key, provider_reference, status, attempt_count, next_attempt_at, failure_class, last_error_code, refund_ledger_transaction_id, created_at, updated_at, delivered_at, broadcasting_at, provider_request_id, settlement_asset, settlement_cost_nano, settlement_tx_hash, provider_confirmed, dry_run, settled_cost_minor, settled_rate_minor, settled_rate_source
+`
+
+// Lifts a settlement marker after the provider refused the payment outright,
+// before taking any money. The delivery is then retried or refunded by its
+// failure class like one that never reached the payment.
+func (q *Queries) LiftGoodsDeliveryMarker(ctx context.Context, orderID pgtype.UUID) (GoodsDelivery, error) {
+	row := q.db.QueryRow(ctx, liftGoodsDeliveryMarker, orderID)
+	var i GoodsDelivery
+	err := row.Scan(
+		&i.OrderID,
+		&i.ProviderSlug,
+		&i.IdempotencyKey,
+		&i.ProviderReference,
+		&i.Status,
+		&i.AttemptCount,
+		&i.NextAttemptAt,
+		&i.FailureClass,
+		&i.LastErrorCode,
+		&i.RefundLedgerTransactionID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeliveredAt,
+		&i.BroadcastingAt,
+		&i.ProviderRequestID,
+		&i.SettlementAsset,
+		&i.SettlementCostNano,
+		&i.SettlementTxHash,
+		&i.ProviderConfirmed,
+		&i.DryRun,
+		&i.SettledCostMinor,
+		&i.SettledRateMinor,
+		&i.SettledRateSource,
 	)
 	return i, err
 }

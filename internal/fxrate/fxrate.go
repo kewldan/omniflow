@@ -224,6 +224,25 @@ func (service *Service) USDRUB(ctx context.Context) (Rate, error) {
 	return Rate{}, ErrUnavailable
 }
 
+// DollarRate is how many minor units of `currency` one US dollar costs: one
+// hundred cents for dollars themselves, the USD/RUB rate for roubles. Any
+// other currency has no rate here and reports ErrUnavailable, so a provider
+// that charges in dollars cannot be quoted in it rather than quoted wrongly.
+func (service *Service) DollarRate(ctx context.Context, currency string) (int64, error) {
+	switch strings.ToUpper(strings.TrimSpace(currency)) {
+	case "USD":
+		return 100, nil
+	case "RUB":
+		rate, err := service.USDRUB(ctx)
+		if err != nil {
+			return 0, err
+		}
+		return rate.Minor, nil
+	default:
+		return 0, ErrUnavailable
+	}
+}
+
 // StarsRate returns the price of one Star in minor units of the configured
 // currency, and whether Stars may pay orders in that currency at all.
 func (service *Service) StarsRate(ctx context.Context) (string, int64, bool, error) {

@@ -2395,7 +2395,8 @@
       },
       "kind": {
         "telegram_premium": "Telegram Premium",
-        "telegram_stars": "Telegram Stars"
+        "telegram_stars": "Telegram Stars",
+        "steam_topup": "Steam top-up"
       },
       "pricing": {
         "fixed": "Fixed at {amount}",
@@ -2414,7 +2415,10 @@
         "save": "Save pricing",
         "perStar": "{amount} per Star",
         "usePerStar": "Price per Star",
-        "perStarAmount": "Price per Star"
+        "perStarAmount": "Price per Star",
+        "perDollar": "{amount} per $1",
+        "usePerDollar": "Price per dollar",
+        "perDollarAmount": "Price per $1"
       },
       "rounding": {
         "none": "exact",
@@ -2534,7 +2538,8 @@
         "kind": "Kind",
         "kinds": {
           "telegram_premium": "Telegram Premium",
-          "telegram_stars": "Telegram Stars pack"
+          "telegram_stars": "Telegram Stars pack",
+          "steam_topup": "Steam top-up"
         },
         "months": "Duration",
         "monthCount": "{months} months",
@@ -2543,8 +2548,13 @@
         "nameEn": "Name (EN)",
         "invalid": "Not created: check the code, the provider, and the amount.",
         "create": "Create product",
-        "created": "Product created hidden; set its price next."
-      }
+        "created": "Product created hidden; set its price next.",
+        "minDollars": "Smallest top-up, $",
+        "maxDollars": "Largest top-up, $",
+        "presetDollars": "One-tap amounts, $",
+        "steamHint": "Sold through the chosen Steam provider in whole dollars and offered in the bot only, from the “Top up Steam” button. Set a price per dollar in the pricing editor, then show it."
+      },
+      "dollarRange": "${min}–${max}"
     },
     "gifts": {
       "title": "Gifts",
@@ -4851,7 +4861,9 @@
       },
       "goodsProvider": {
         "fragment": "Fragment",
-        "fragment_direct": "Fragment (direct)"
+        "fragment_direct": "Fragment (direct)",
+        "playwallet": "PlayWallet (Steam)",
+        "nervixy": "Nervixy (Steam)"
       },
       "health": {
         "unknown": "Not checked",
@@ -6481,7 +6493,8 @@
       "kinds": {
         "telegram_premium": "Telegram Premium",
         "telegram_stars": "Telegram Stars",
-        "other": "Other goods"
+        "other": "Other goods",
+        "steam_topup": "Steam top-up"
       },
       "measure": {
         "months": "{count, plural, one {# month} other {# months}}",

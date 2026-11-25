@@ -21,6 +21,7 @@ import (
 // in the panel — and never a message or anything the customer wrote.
 type goodsSale struct {
 	Event              string `json:"event"`
+	Kind               string `json:"kind"`
 	OrderID            string `json:"orderId"`
 	CustomerID         string `json:"customerId"`
 	Provider           string `json:"provider"`
@@ -64,6 +65,9 @@ func decodeGoodsSale(notification dbgen.OperatorNotification) (goodsSale, bool) 
 // wallet that paid for it, with the transaction, the order, the buyer, and
 // the wallet as buttons.
 func renderGoodsSale(sale goodsSale, input renderInput) (string, *models.InlineKeyboardMarkup) {
+	if sale.Kind == "steam_topup" {
+		return renderSteamSale(sale, input)
+	}
 	n := &notice{input: input}
 	n.title = input.say(phrase{"⭐ Stars sold", "⭐ Звёзды проданы"})
 	if sale.DryRun {
@@ -190,4 +194,41 @@ func duration(seconds int64) string {
 	default:
 		return fmt.Sprintf("%d h %d min", seconds/3600, (seconds%3600)/60)
 	}
+}
+
+// renderSteamSale is the sale notice for a Steam top-up: the login that was
+// credited, how many dollars, what the customer paid, and what it earned.
+func renderSteamSale(sale goodsSale, input renderInput) (string, *models.InlineKeyboardMarkup) {
+	n := &notice{input: input}
+	n.title = input.say(phrase{"🎮 Steam topped up", "🎮 Steam пополнен"})
+	if sale.BuyerTelegramID != 0 {
+		n.field("🆔", phrase{"Buyer's Telegram ID", "Telegram ID покупателя"}, code(strconv.FormatInt(sale.BuyerTelegramID, 10)))
+	}
+	n.field("🎯", phrase{"Steam login", "Логин Steam"}, code(html.EscapeString(sale.Recipient)))
+	n.field("💲", phrase{"Top-up", "Пополнение"}, "<b>$"+groupDigits(sale.Stars)+"</b> · "+input.say(sourceLabel(sale.Source)))
+	n.field("💵", phrase{"Paid", "Оплачено"}, "<b>"+formatMoney(sale.AmountMinor, sale.Currency)+"</b>")
+	if sale.CostMinor != nil {
+		n.field("💎", phrase{"Cost", "Себестоимость"}, formatMoney(*sale.CostMinor, sale.Currency))
+	}
+	if sale.MarginMinor != nil {
+		percent := 0.0
+		if sale.AmountMinor > 0 {
+			percent = float64(*sale.MarginMinor) / float64(sale.AmountMinor) * 100
+		}
+		margin := formatMoney(*sale.MarginMinor, sale.Currency)
+		if *sale.MarginMinor > 0 {
+			margin = "+" + margin
+		}
+		n.field("📈", phrase{"Margin", "Маржа"}, fmt.Sprintf("<b>%s</b> (%.1f%%)", margin, percent))
+	}
+	if sale.DeliverySeconds != nil {
+		n.field("⚡", phrase{"Delivered in", "Доставлено за"}, duration(*sale.DeliverySeconds))
+	}
+	if sale.Attempt > 1 {
+		n.field("🔁", phrase{"Attempt", "Попытка"}, strconv.FormatInt(sale.Attempt, 10))
+	}
+	n.field("🛍", phrase{"Order", "Заказ"}, code(shortID(sale.OrderID)))
+	n.button(input.say(phrase{"🎮 Order", "🎮 Заказ"}), "/admin/shop?order="+url.QueryEscape(sale.OrderID))
+	n.button(input.say(phrase{"👤 Buyer", "👤 Покупатель"}), "/admin/customers/"+url.PathEscape(sale.CustomerID))
+	return n.finish()
 }

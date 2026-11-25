@@ -2,6 +2,7 @@ package goods
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 )
@@ -162,5 +163,38 @@ func TestBackoffGrowsAndIsCapped(t *testing.T) {
 	}
 	if got := Backoff(MaxAttempts + 10); got != time.Hour {
 		t.Fatalf("the schedule must be capped at an hour, got %v", got)
+	}
+}
+
+func TestNormalizeSteamLogin(t *testing.T) {
+	t.Parallel()
+	for input, want := range map[string]string{
+		"gaben":        "gaben",
+		"  Player_01 ": "Player_01",
+		"abc":          "abc",
+	} {
+		got, err := NormalizeSteamLogin(input)
+		if err != nil || got != want {
+			t.Fatalf("NormalizeSteamLogin(%q) = %q, %v; want %q", input, got, err, want)
+		}
+	}
+	for _, input := range []string{"", "ab", "has space", "кириллица", "@gaben", "a-b-c",
+		"https://steamcommunity.com/id/gaben", strings.Repeat("a", 65)} {
+		if _, err := NormalizeSteamLogin(input); !errors.Is(err, ErrInvalidSteamLogin) {
+			t.Fatalf("NormalizeSteamLogin(%q) accepted", input)
+		}
+	}
+}
+
+func TestNormalizeRecipientForKind(t *testing.T) {
+	t.Parallel()
+	if _, err := NormalizeRecipientFor(KindSteamTopUp, "abc"); err != nil {
+		t.Fatalf("a three-character Steam login is valid: %v", err)
+	}
+	if _, err := NormalizeRecipientFor(KindTelegramStars, "abc"); err == nil {
+		t.Fatal("a three-character Telegram username must be refused")
+	}
+	if got, err := NormalizeRecipientFor(KindTelegramStars, "@durov_bot"); err != nil || got != "durov_bot" {
+		t.Fatalf("Telegram rule not applied: %q, %v", got, err)
 	}
 }

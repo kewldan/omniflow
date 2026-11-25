@@ -60,6 +60,11 @@ var ErrShopUnavailable = errors.New("the digital goods shop is not configured")
 func (service *Commerce) QuoteGoods(
 	ctx context.Context, product ShopProduct, quantity int,
 ) (ShopQuote, error) {
+	if !product.Pack() {
+		// A chosen amount is priced in its own flow. Pricing it as a pack
+		// would price zero units, so a crafted button can never reach it.
+		return ShopQuote{}, ErrShopUnavailable
+	}
 	return service.QuoteStars(ctx, product, quantity, product.StarQuantity*quantity)
 }
 
@@ -82,7 +87,7 @@ func (service *Commerce) QuoteStars(
 		return ShopQuote{}, err
 	}
 	perUnit := product.StarQuantity
-	if product.CustomAmount() {
+	if product.CustomAmount() || product.SteamTopUp() {
 		perUnit = stars
 	}
 	quoted, err := provider.Quote(ctx, goods.Request{
@@ -110,6 +115,30 @@ func (service *Commerce) QuoteStars(
 		Currency:   product.Currency,
 		ExpiresAt:  expiry,
 	}, nil
+}
+
+// CheckRecipient asks the product's provider whether a recipient exists, for
+// a provider that can say. It returns goods.ErrRecipientUnknown only for a
+// definite no; a provider that cannot check, or cannot be reached, lets the
+// purchase go on, and delivery refunds a recipient it refuses.
+func (service *Commerce) CheckRecipient(ctx context.Context, product ShopProduct, recipient string) error {
+	if !service.ShopEnabled() {
+		return nil
+	}
+	provider, err := service.goods.Provider(ctx, product.ProviderSlug)
+	if err != nil {
+		return nil
+	}
+	validator, ok := provider.(goods.RecipientValidator)
+	if !ok {
+		return nil
+	}
+	checkCtx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	defer cancel()
+	if err := validator.ValidateRecipient(checkCtx, recipient); errors.Is(err, goods.ErrRecipientUnknown) {
+		return err
+	}
+	return nil
 }
 
 // StartShopPurchase opens the order for one shop purchase.
@@ -147,7 +176,8 @@ func (service *Commerce) StartShopPurchase(
 	return service.store.Order(ctx, customerID, uuidText(order.ID), LocaleEnglish)
 }
 
-// StartStarsPurchase opens the order for a chosen amount of Stars. With
+// StartStarsPurchase opens the order for a chosen amount — of Stars, or of
+// dollars for a Steam top-up, whose recipient is then a Steam login. With
 // walletOnly it is paid from the wallet alone or not at all; without it the
 // wallet covers what it can and a payment settles the rest. `key` names the
 // review and the amount, so a double tap reaches the order the first tap made.
@@ -155,7 +185,7 @@ func (service *Commerce) StartStarsPurchase(
 	ctx context.Context, customerID string, product ShopProduct, stars int,
 	recipient string, isSelf bool, quote ShopQuote, key string, walletOnly bool,
 ) (OrderSummary, error) {
-	normalized, err := goods.NormalizeRecipient(recipient)
+	normalized, err := goods.NormalizeRecipientFor(product.Kind, recipient)
 	if err != nil {
 		return OrderSummary{}, err
 	}

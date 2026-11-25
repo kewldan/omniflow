@@ -63,6 +63,8 @@ type Registry struct {
 	directOnce sync.Once
 	directErr  error
 	directImpl *fragmentdirect.Provider
+
+	steam map[string]*envProvider
 }
 
 // DirectOptions configures the fragment_direct adapter from the environment.
@@ -162,6 +164,11 @@ func (registry *Registry) Provider(ctx context.Context, slug string) (goods.Prov
 	}
 	if !row.Enabled {
 		return nil, ErrProviderDisabled
+	}
+	if SellsSteam(slug) {
+		// Like the direct Fragment adapter, a Steam provider's key comes from
+		// the environment, never from this row.
+		return registry.steamProvider(slug)
 	}
 	if slug == fragmentdirect.Slug {
 		// Its secrets come from the environment, never from this row.

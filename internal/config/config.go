@@ -220,6 +220,11 @@ type Config struct {
 	// Fragment configures the direct Fragment goods provider. The api reads
 	// it to show the wallet and the provider's state in the panel.
 	Fragment FragmentConfig
+	// PlayWallet configures the Steam top-up provider. The api reads it to
+	// list the provider in the panel only once its key is set.
+	PlayWallet PlayWalletConfig
+	// Nervixy configures the second Steam top-up provider.
+	Nervixy NervixyConfig
 	// ObjectStore is the S3-compatible store for support attachments.
 	ObjectStore ObjectStoreConfig
 }
@@ -316,6 +321,10 @@ type BotConfig struct {
 	// Fragment configures the direct Fragment goods provider, which the bot
 	// needs to check a recipient and to know whether to offer VPN afterwards.
 	Fragment FragmentConfig
+	// PlayWallet configures the Steam top-up provider, which the bot quotes.
+	PlayWallet PlayWalletConfig
+	// Nervixy configures the second Steam top-up provider.
+	Nervixy NervixyConfig
 	// ObjectStore is the S3-compatible store for support attachments.
 	ObjectStore ObjectStoreConfig
 	// TelegramTransport is how the bot reaches the Bot API.
@@ -390,6 +399,11 @@ type WorkerConfig struct {
 	// Fragment configures the direct Fragment goods provider. The worker is
 	// the process that buys and pays, so it is the one that needs the secrets.
 	Fragment FragmentConfig
+	// PlayWallet configures the Steam top-up provider the worker delivers
+	// through.
+	PlayWallet PlayWalletConfig
+	// Nervixy configures the second Steam top-up provider.
+	Nervixy NervixyConfig
 	// ObjectStore is the S3-compatible store for support attachments.
 	ObjectStore ObjectStoreConfig
 	// Payment credentials. The worker holds them because it is the process that
@@ -433,6 +447,8 @@ func Load() (Config, error) {
 		AdminPanel:                loadAdminPanel(),
 		CustomerPanel:             loadCustomerPanel(),
 		Fragment:                  LoadFragment(),
+		PlayWallet:                LoadPlayWallet(),
+		Nervixy:                   LoadNervixy(),
 		PublicURL:                 os.Getenv("APP_PUBLIC_URL"),
 		TermsURL:                  os.Getenv("APP_TERMS_URL"),
 		RecoveryWindow:            hourEnvOr("APP_RECOVERY_WINDOW_HOURS", 14*24*time.Hour),
@@ -515,6 +531,8 @@ func LoadBot() (BotConfig, error) {
 		CartTTL:                hourEnvOr("APP_CART_TTL_HOURS", 30*24*time.Hour),
 		Subscriptions:          loadSubscriptions(),
 		Fragment:               LoadFragment(),
+		PlayWallet:             LoadPlayWallet(),
+		Nervixy:                LoadNervixy(),
 	}
 	if encodedKey := os.Getenv("APP_DATA_ENCRYPTION_KEY"); encodedKey != "" {
 		key, err := decodeKey(encodedKey)
@@ -605,6 +623,8 @@ func LoadWorker() (WorkerConfig, error) {
 		SupportAttachmentDir: os.Getenv("APP_SUPPORT_ATTACHMENT_DIR"),
 		UpdateFeedURL:        strings.TrimSpace(os.Getenv("APP_UPDATE_FEED_URL")),
 		Fragment:             LoadFragment(),
+		PlayWallet:           LoadPlayWallet(),
+		Nervixy:              LoadNervixy(),
 		Retention: RetentionConfig{
 			Outbox:    dayEnvOr("APP_RETENTION_OUTBOX_DAYS", 7*24*time.Hour),
 			Telemetry: dayEnvOr("APP_RETENTION_TELEMETRY_DAYS", 30*24*time.Hour),
