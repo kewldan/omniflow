@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -421,6 +422,73 @@ func TestBuildXrayWithoutGeosite(t *testing.T) {
 	}
 	if !StripsGeosite("INCY/2.1") || StripsGeosite("Happ/3") {
 		t.Error("StripsGeosite picks the wrong clients")
+	}
+}
+
+func TestBuildXrayKeepsOneServer(t *testing.T) {
+	settings := testSettings()
+	request := Request{
+		Upstream: standardAnswer(t), Settings: settings, Catalog: testCatalog(),
+		Preferences: settings.DefaultPreferences(), StickyKey: "abcDEF123456",
+	}
+	kept := func(config built) (string, string) {
+		for _, balancer := range config.Routing.Balancers {
+			if strings.HasSuffix(balancer.Tag, "-sticky-balancer") {
+				return strings.Join(balancer.Selector, ","), balancer.FallbackTag
+			}
+		}
+		return "", ""
+	}
+	first := build(t, request)
+	server, fallback := kept(first[0])
+	if server == "" || strings.Contains(server, ",") || fallback != "g0-sticky-loopback" {
+		t.Fatalf("automatic group keeps %q → %q", server, fallback)
+	}
+	// Everything not routed elsewhere leaves through the kept server, and the
+	// loopback hands it back to the group's own balancer.
+	rules := first[0].Routing.Rules
+	if last := rules[len(rules)-1]; last["balancerTag"] != "g0-sticky-balancer" {
+		t.Errorf("catch-all = %v", last)
+	}
+	handedBack := false
+	for _, rule := range rules {
+		if inbound, ok := rule["inboundTag"].([]any); ok && len(inbound) == 1 && inbound[0] == "g0-sticky-lb-in" {
+			handedBack = rule["balancerTag"] == "g0-balancer"
+		}
+	}
+	if !handedBack {
+		t.Error("the kept server does not fall back to the group's balancer")
+	}
+	// The same link keeps the same server on every refresh.
+	if again, _ := kept(build(t, request)[0]); again != server {
+		t.Errorf("refresh moved the server: %q → %q", server, again)
+	}
+	// Different links spread over the servers.
+	seen := map[string]bool{}
+	for index := range 40 {
+		request.StickyKey = "key" + strconv.Itoa(index)
+		chosen, _ := kept(build(t, request)[0])
+		seen[chosen] = true
+	}
+	if len(seen) < 2 {
+		t.Errorf("forty links all kept %v", seen)
+	}
+	// A country with one server needs no choice; without a key nothing is kept.
+	germany := false
+	for _, config := range first[1:] {
+		if config.Remarks == "🇩🇪 Germany" {
+			germany = true
+			if got, _ := kept(config); got != "" {
+				t.Errorf("one-server group keeps %q", got)
+			}
+		}
+	}
+	if !germany {
+		t.Errorf("groups = %s", remarksOf(first))
+	}
+	request.StickyKey = ""
+	if got, _ := kept(build(t, request)[0]); got != "" {
+		t.Errorf("no key, kept %q", got)
 	}
 }
 

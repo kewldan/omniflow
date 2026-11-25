@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"sort"
 	"strconv"
 	"strings"
@@ -29,6 +30,9 @@ type Request struct {
 	// Checks are the nodes' latest geocheck summaries by node UUID; the AI
 	// rule routes each service through servers whose exit node it answers.
 	Checks map[string]NodeCheck
+	// StickyKey picks, in each group, the one server this subscription keeps
+	// while it answers (the link's short UUID). Empty keeps no server.
+	StickyKey string
 }
 
 // Tuning of the balancers each group gets. The numbers are the ones the
@@ -40,7 +44,11 @@ const (
 	mainBaselineMS    = 2000
 	singleBaselineMS  = 4000
 	reserveBaselineMS = 4000
-	probeSampling     = 1
+	// stickyBaselineMS is how slow the kept server may get before the group's
+	// own balancer takes over. It is above the one second the subscription
+	// balancer used, which dropped chained servers too readily.
+	stickyBaselineMS = 2000
+	probeSampling    = 1
 	// probeTimeout is how long a server may take to answer the check before
 	// the balancer counts it as down. A chain through a relay or the
 	// whitelist bypass takes two to three and a half seconds from Russia; a
@@ -98,10 +106,11 @@ type templateRule struct {
 // config per server — into one config per group.
 //
 // The groups are the automatic group over every country the customer left in
-// it, one group per visible country, and the whitelist bypass group. Each is a
-// leastLoad balancer over its servers; the country and automatic groups fall
-// back onto the bypass servers when none of theirs answers, through a loopback
-// chain because Xray's fallbackTag takes an outbound, not a balancer.
+// it and one group per visible country. Each keeps one server per
+// subscription in front of a leastLoad balancer over its servers, and falls
+// back onto the whitelist bypass servers when none of its own answers, through
+// a loopback chain because Xray's fallbackTag takes an outbound, not a
+// balancer.
 func BuildXray(request Request) ([]byte, error) {
 	configs, err := decodeConfigs(request.Upstream)
 	if err != nil {
@@ -469,7 +478,7 @@ func (builder groupBuilder) build(group planned, prefix string) map[string]any {
 		all = append(all, dedupe(builder.ai[service], all)...)
 	}
 	others := []string{"direct", "block",
-		prefix + "-reserve-loopback", prefix + "-main-loopback"}
+		prefix + "-reserve-loopback", prefix + "-main-loopback", prefix + "-sticky-loopback"}
 	for _, candidate := range all {
 		for _, aux := range candidate.aux {
 			others = append(others, aux["tag"].(string))
@@ -505,6 +514,20 @@ func (builder groupBuilder) build(group planned, prefix string) map[string]any {
 		balancers = append(balancers, balancer(entry, mainTags, tolerance, mainBaselineMS, toReserve.tag))
 	} else {
 		balancers = append(balancers, balancer(entry, mainTags, toleranceFallback, singleBaselineMS, ""))
+	}
+	// The kept server goes in front: every connection leaves through it while
+	// it answers, so sites see one address instead of a new country on each
+	// connection. When it stops answering the group's balancer takes over.
+	if kept := keptServer(main, builder.request.StickyKey); kept != nil {
+		toEntry := loopback(prefix, "sticky", entry)
+		extra, loopRules = append(extra, toEntry.outbound), append(loopRules, toEntry.rule)
+		entry = prefix + "-sticky-balancer"
+		balancers = append(balancers, map[string]any{
+			"tag": entry, "selector": []any{tags[kept]}, "fallbackTag": toEntry.tag,
+			"strategy": map[string]any{"type": "leastLoad", "settings": map[string]any{
+				"expected": 1, "tolerance": 0, "baselines": []any{strconv.Itoa(stickyBaselineMS) + "ms"},
+			}},
+		})
 	}
 	aiBalancers := map[Service]string{}
 	for _, service := range AIServices {
@@ -704,6 +727,33 @@ func dropGeosite(rule map[string]any) bool {
 	}
 	rule["domain"] = kept
 	return true
+}
+
+// keptServer is the server of a group this subscription stays on, by
+// rendezvous hashing: each server scores hash(key, host) and the highest wins.
+// The choice is the same on every refresh, and when a server leaves the
+// group only the subscriptions that were on it move. Nil for a group of one
+// server, which needs no choice, or without a key.
+func keptServer(main []*proxy, key string) *proxy {
+	if key == "" || len(main) < 2 {
+		return nil
+	}
+	var kept *proxy
+	var best uint64
+	for _, candidate := range main {
+		id := candidate.server.HostUUID
+		if id == "" {
+			id = candidate.server.Address + ":" + strconv.Itoa(candidate.server.Port) + " " + candidate.server.Remark
+		}
+		digest := fnv.New64a()
+		digest.Write([]byte(key))
+		digest.Write([]byte{0})
+		digest.Write([]byte(id))
+		if score := digest.Sum64(); kept == nil || score > best {
+			kept, best = candidate, score
+		}
+	}
+	return kept
 }
 
 func balancer(tag string, selector []any, tolerance float64, baselineMS int, fallbackTag string) map[string]any {

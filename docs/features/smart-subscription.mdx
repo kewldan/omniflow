@@ -27,6 +27,10 @@ before — and rewrites what goes back:
   of them answers, it falls back to the whitelist-bypass servers, and then to every server. A
   server counts as not answering when the check through it takes longer than five seconds: a chain
   through a relay, or the bypass itself, needs two to three and a half from Russia.
+  In a group of several servers each subscription keeps one of them, the same on every refresh and
+  spread evenly across subscriptions, and every connection leaves through it while its check
+  answers within two seconds. Sites see one address rather than a new country on each connection;
+  when the kept server slows down or stops answering, the group's balancer takes over.
 - **Every other app** gets the panel's own answer, with the servers the customer hid taken out when
   it is a plain list of links.
 - An answer the module cannot rewrite — a limit or expiry notice, an encrypted or unknown format —
