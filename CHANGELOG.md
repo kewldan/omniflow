@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.11.0](https://github.com/kewldan/omniflow/compare/omniflow-v1.10.0...omniflow-v1.11.0) (2026-11-26)
+
+
+### Features
+
+* **account:** activate a free trial without a payment screen ([f1457f1](https://github.com/kewldan/omniflow/commit/f1457f12cd9cc5e1e855f2f15e05ecf531dc426b))
+* **connect:** serve client installers from the installation's own address ([8790feb](https://github.com/kewldan/omniflow/commit/8790feb714d55622e0c8c810a98e0b67e41853d9))
+
+
+### Bug Fixes
+
+* **account:** keep the theme switch inside the card on narrow phones ([81e4ae1](https://github.com/kewldan/omniflow/commit/81e4ae19fe5f10a8d43bd04096aeaf0186858522))
+* **account:** space the gift form's fields apart from each other ([e39014f](https://github.com/kewldan/omniflow/commit/e39014f6935668a75372ff6e290176174ce2762e))
+* **account:** white text on filled buttons in the dark theme ([0456649](https://github.com/kewldan/omniflow/commit/045664946bf9c2d0f0ba0891c2bf829e60bebb8b))
+
+
+### Performance Improvements
+
+* **account:** answer a tap at once instead of after two round trips ([e3f362e](https://github.com/kewldan/omniflow/commit/e3f362ebef42a260662568625c80dddc7f50b684))
+
 ## [1.10.0](https://github.com/kewldan/omniflow/compare/omniflow-v1.9.0...omniflow-v1.10.0) (2026-11-26)
 
 
