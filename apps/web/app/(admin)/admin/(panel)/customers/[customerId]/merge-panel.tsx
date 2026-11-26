@@ -3,7 +3,6 @@
 import { Alert, AlertDescription, AlertTitle } from "@omniflow/ui/alert";
 import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
-import { ConfirmDialog } from "@omniflow/ui/confirm-dialog";
 import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { toast } from "@omniflow/ui/toast";
@@ -12,6 +11,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
 import { CustomerPicker } from "@/components/admin/customer-picker";
+import { ReasonDialog } from "@/components/admin/reason-dialog";
 import { type ApiError, fetcher } from "@/lib/api";
 import type { MergePreview, MergeSide } from "@/lib/operations";
 import { formatMoney, useOperatorAction } from "@/lib/operations";
@@ -34,17 +34,20 @@ import { useSession } from "@/lib/session";
  * fixed and stated, because "merge A and B" is ambiguous in exactly the way that
  * matters.
  */
+const MERGE_REASONS = ["webSignIn", "newTelegram", "duplicateSupport", "customerAsked"] as const;
+
 export function MergePanel({ customerId }: { customerId: string }) {
   const translate = useTranslations("admin.merge");
   const locale = useLocale();
   const { can } = useSession();
-  const { run, pending } = useOperatorAction();
+  const presets = useTranslations("admin.reasons.merge");
+  const { run, pending, error: mergeError } = useOperatorAction();
 
   const [into, setInto] = useState("");
-  const [reason, setReason] = useState("");
   const [confirming, setConfirming] = useState(false);
+  const [typed, setTyped] = useState("");
   const intoId = useId();
-  const reasonId = useId();
+  const typedId = useId();
 
   const { data, error, mutate } = useSWR<MergePreview, ApiError>(
     into.trim().length === 36
@@ -59,12 +62,12 @@ export function MergePanel({ customerId }: { customerId: string }) {
 
   const blocked = (data?.blockers ?? []).length > 0;
 
-  async function merge() {
+  async function merge(reason: string) {
     if (
       await run(`/v1/panel/customers/${customerId}/merge`, {
         body: { into: into.trim() },
         method: "POST",
-        reason: reason.trim(),
+        reason,
       })
     ) {
       setConfirming(false);
@@ -80,20 +83,10 @@ export function MergePanel({ customerId }: { customerId: string }) {
         <CardDescription>{translate("description")}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor={intoId}>{translate("into")}</Label>
-            <CustomerPicker exclude={customerId} id={intoId} onChange={setInto} value={into} />
-            <p className="text-subtle-foreground text-xs">{translate("intoHint")}</p>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor={reasonId}>{translate("reason")}</Label>
-            <Input
-              id={reasonId}
-              onChange={(event) => setReason(event.target.value)}
-              value={reason}
-            />
-          </div>
+        <div className="flex max-w-md flex-col gap-2">
+          <Label htmlFor={intoId}>{translate("into")}</Label>
+          <CustomerPicker exclude={customerId} id={intoId} onChange={setInto} value={into} />
+          <p className="text-subtle-foreground text-xs">{translate("intoHint")}</p>
         </div>
 
         {error ? (
@@ -141,8 +134,11 @@ export function MergePanel({ customerId }: { customerId: string }) {
 
             <div>
               <Button
-                disabled={blocked || pending || reason.trim().length === 0}
-                onClick={() => setConfirming(true)}
+                disabled={blocked || pending}
+                onClick={() => {
+                  setTyped("");
+                  setConfirming(true);
+                }}
                 variant="destructive"
               >
                 {translate("merge")}
@@ -154,19 +150,30 @@ export function MergePanel({ customerId }: { customerId: string }) {
         {/* Typing the identifier of the account being absorbed, because this is
             the one operator action in the panel that cannot be reversed and
             cannot be partially applied. */}
-        <ConfirmDialog
-          cancelLabel={translate("cancel")}
-          confirmationPhrase={customerId}
-          confirmationPrompt={translate("confirmPrompt")}
+        <ReasonDialog
           confirmLabel={translate("merge")}
           description={translate("confirmWarning")}
           destructive
+          disabled={typed.trim() !== customerId}
+          error={mergeError?.message}
           onConfirm={merge}
           onOpenChange={setConfirming}
           open={confirming}
           pending={pending}
+          presets={MERGE_REASONS.map((key) => presets(key))}
           title={translate("confirmTitle")}
-        />
+        >
+          <div className="flex flex-col gap-2">
+            <Label htmlFor={typedId}>{translate("confirmPrompt")}</Label>
+            <Input
+              autoComplete="off"
+              className="font-mono text-xs"
+              id={typedId}
+              onChange={(event) => setTyped(event.target.value)}
+              value={typed}
+            />
+          </div>
+        </ReasonDialog>
       </CardContent>
     </Card>
   );

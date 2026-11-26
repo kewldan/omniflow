@@ -908,8 +908,6 @@
         "activity": "活动"
       },
       "actions": {
-        "reason": "原因",
-        "reasonPlaceholder": "进行此更改的原因",
         "suspend": "停用",
         "reactivate": "重新启用",
         "enable": "启用",
@@ -930,14 +928,14 @@
           "description": "正数为增加，负数为扣减。扣减金额不能超过余额。",
           "amount": "金额",
           "currency": "币种",
-          "reason": "原因（通知时会向用户显示）",
           "notify": "通过 Telegram 通知用户",
           "submit": "应用",
           "done": "余额已调整",
           "insufficient": "余额不足。",
           "failed": "无法调整余额。",
           "asPayment": "记为一笔付款",
-          "asPaymentHint": "通过手动方式完成的付费充值：适用充值限额，会用其购买已保存的购物车，并计为该用户的充值。仅限增加。"
+          "asPaymentHint": "通过手动方式完成的付费充值：适用充值限额，会用其购买已保存的购物车，并计为该用户的充值。仅限增加。",
+          "reasonDescription": "金额：{amount}。理由会记录在审计日志中；如果通知客户，也会包含在发给客户的消息里。"
         },
         "message": {
           "title": "给用户发消息",
@@ -959,9 +957,11 @@
         "trafficGb": "流量限额",
         "gb": "GB",
         "limitsHint": "留空表示保持不变。",
-        "reasonTitle": "原因",
-        "cancel": "取消",
-        "confirm": "应用"
+        "confirm": "应用",
+        "suspendTitle": "停用此用户？",
+        "suspendDescription": "其访问权限将通过履约流程终止。理由会记录在审计日志中。",
+        "reactivateTitle": "重新启用此用户？",
+        "reactivateDescription": "其访问权限将通过履约流程恢复。理由会记录在审计日志中。"
       },
       "empty": {
         "subscriptions": "暂无订阅",
@@ -1003,7 +1003,6 @@
         "unknown": "未知",
         "unavailable": "设备信息不可用——Remnawave 未响应。",
         "remove": "移除",
-        "reasonPlaceholder": "移除设备的原因（必填）",
         "sharing": {
           "possible": "可能存在共享（一天内有 {count} 台设备活跃）：",
           "likely": "很可能存在共享（一天内有 {count} 台设备活跃）：",
@@ -1012,7 +1011,8 @@
             "many_platforms": "四个或更多平台",
             "many_models_of_one_platform": "同一平台的三种或更多手机型号"
           }
-        }
+        },
+        "removeTitle": "移除此设备？"
       },
       "referrals": {
         "code": "邀请码",
@@ -1116,7 +1116,6 @@
           "description": "在不停用账户的情况下禁止某一类消费。用户会被告知该支付不可用并被引导联系客服；原因仅保留在此处。",
           "topup": "禁止钱包充值",
           "purchase": "禁止购买",
-          "reason": "原因",
           "active": "生效中",
           "set": "限制",
           "lift": "解除",
@@ -1235,12 +1234,10 @@
           "squads": "分组(squad)",
           "status": "状态"
         },
-        "reason": "同步原因（必填）",
         "apply": "应用 Omniflow 的状态",
         "confirmTitle": "将 Omniflow 的状态推送到 Remnawave？",
         "confirmDescription": "Omniflow 列中的到期时间、上限、分组和状态将通过开通流水线排队写入该订阅对应的 Remnawave 用户。在 Remnawave 面板中直接修改的值将被覆盖。",
         "confirm": "同步",
-        "cancel": "取消",
         "queued": "同步已排队。后台任务很快会执行；重新检查即可查看结果。"
       },
       "legacy": {
@@ -1289,11 +1286,9 @@
       "into": "保留的账户",
       "intoPlaceholder": "用户标识",
       "intoHint": "查找要将此账户合并进去的账户：按 ID、Telegram ID、@用户名或邮箱。您正在查看的账户是被合并的一方。",
-      "reason": "原因——将记录在审计日志和双方的历史中",
       "absorbed": "被合并",
       "survives": "保留",
       "merge": "合并账户",
-      "cancel": "取消",
       "done": "账户已合并",
       "blocked": "这些账户无法合并",
       "previewFailed": "无法读取预览",
@@ -1396,8 +1391,6 @@
         "refundTitle": "发起退款",
         "refundable": "仍可退款最多 {amount}。",
         "refundAmount": "金额",
-        "refundReason": "原因",
-        "refundReasonPlaceholder": "发起此退款的原因",
         "minorUnitsHint": "金额为该币种最小单位的整数。支付服务会按支付渠道实际支持的方式执行退款。",
         "issueRefund": "发起退款"
       },
@@ -1759,7 +1752,6 @@
       "title": "风险",
       "description": "黑名单匹配、异常信号以及共用设备的账号，并附上产生它们的依据。",
       "noAutoAction": "此页面不会自动改变任何客户。决定只记录结论；封禁是操作员带理由的选择，与客户页面上的封禁完全相同。",
-      "reasonPlaceholder": "决定原因（必填）",
       "observed": "观测值 {observed}，阈值 {threshold}。",
       "disabled": "已停用",
       "tabs": {
@@ -1867,20 +1859,14 @@
           "open": "封禁",
           "title": "封禁此设备上的账号",
           "description": "所选账号将以此理由被封禁。设备上最早出现的账号默认不勾选；如证据不同请自行调整。",
-          "accounts": "账号",
           "firstSeen": "设备上的第一个",
-          "reason": "理由",
-          "duration": "封禁时长",
-          "forever": "永久",
-          "days": "{count} 天",
-          "notify": "向客户发送包含理由的消息",
-          "annul": "作废订阅",
-          "annulHint": "其有效订阅将在 Remnawave 中被停用，封禁结束后不会自动恢复。",
-          "annulForbidden": "需要 subscriptions.write 权限。",
-          "submit": "{count, plural, =0 {请选择账号} other {封禁 # 个账号}}",
           "done": "已封禁 {count} 个账号"
         }
-      }
+      },
+      "allowTitle": "放行该客户",
+      "allowDescription": "匹配将以“放行”关闭，客户保持不变。之后名单刷新不会重新打开它。",
+      "blockTitle": "封禁该客户",
+      "blockDescription": "匹配将以“封禁”关闭，客户会以此理由被封禁。"
     },
     "system": {
       "title": "系统",
@@ -1955,7 +1941,6 @@
         "maintenanceOff": "未启用",
         "maintenanceToggle": "启用维护模式",
         "reason": "原因",
-        "reasonPlaceholder": "启用或解除维护的原因",
         "noticeRu": "用户通知（俄语）",
         "noticeEn": "用户通知（英语）",
         "noticesRequired": "两种语言均为必填。只懂一种语言的用户看到空白页面，比看到一条能读懂的通知体验更差。",
@@ -1965,7 +1950,12 @@
           "remnawave": "Remnawave 不可用",
           "database": "数据库不可用",
           "valkey": "Valkey 不可用"
-        }
+        },
+        "maintenanceOnTitle": "启用维护模式？",
+        "maintenanceOffTitle": "关闭维护模式？",
+        "maintenanceOnAction": "启用",
+        "maintenanceOffAction": "关闭",
+        "maintenanceOffDescription": "将重新接受新的购买。"
       },
       "errors": {
         "title": "错误日志",
@@ -2185,7 +2175,6 @@
         "save": "保存套餐设置",
         "applySquads": "将生效中的订阅迁移到最新分组",
         "applySquadsHint": "新版本仅对新购买生效。此操作会将所有生效中订阅的套餐自带分组替换为最新版本的分组，并保留用户自选或追加的分组。",
-        "applySquadsReason": "原因",
         "applySquadsAction": "应用分组",
         "applySquadsDone": "已加入队列。每个订阅将在一分钟内于 Remnawave 中更新。"
       },
@@ -2257,7 +2246,12 @@
         "create": "创建促销",
         "created": "促销已创建"
       },
-      "cooldown": "每 {days} 天 1 次"
+      "cooldown": "每 {days} 天 1 次",
+      "servers": {
+        "saveTitle": "将此服务器保存到目录？",
+        "removeTitle": "从目录中移除此服务器？",
+        "removeDescription": "Omniflow 将删除为此 squad 设置的名称、价格和限制。Remnawave 中的 squad 本身保持不变。"
+      }
     },
     "codes": {
       "title": "批发代码批次",
@@ -2272,7 +2266,6 @@
       "revoked": "未兑换的代码已撤销",
       "revokeTitle": "撤销 {reference} 的剩余代码？",
       "revokeWarning": "这将作废 {count} 个尚未兑换的代码。已兑换的代码不受影响：每个代码产生的订阅都有人在使用，收回它们是另一项决定。",
-      "revokeReason": "原因（记录在审计日志中）",
       "generated": {
         "title": "已生成 {count} 个代码",
         "onlyCopy": "这是唯一的副本。系统仅保存其 SHA-256，面板和数据库都无法再次显示。关闭前请下载或复制。",
@@ -2417,11 +2410,14 @@
         "enabled": "已启用"
       },
       "reviewExplainer": "该网关不支持幂等键，因此一旦响应丢失，商品可能已发送也可能未发送。请先向供应商核实，再记录结果——确认交付将完成订单，退款则会将款项退回用户钱包。",
-      "reviewReasonPlaceholder": "您向供应商确认的内容（必填）",
       "review": {
         "attempts": "尝试次数",
         "confirmDelivered": "确认已交付",
-        "refund": "退款给用户"
+        "refund": "退款给用户",
+        "deliveredTitle": "确认已交付？",
+        "deliveredDescription": "@{recipient} 的订单（{amount}）将被完成，不会退款给用户。",
+        "refundTitle": "退款给用户？",
+        "refundDescription": "{amount} 将退回用户的钱包。仅在服务商确认 @{recipient} 未收到商品时退款。"
       },
       "customAmount": "{min}–{max}，由用户选择",
       "stars": {
@@ -2478,8 +2474,6 @@
           "retry": "重试",
           "refund": "退款",
           "complete": "已交付",
-          "cancel": "取消",
-          "reason": "原因（必填，将记录在审计日志中）",
           "txHash": "交易哈希（可选）",
           "retryTitle": "重新向 Fragment 发送订单？",
           "retryExplainer": "请先检查钱包的转出记录：如果此订单的付款已经转出，重试将为同一批 Stars 再付一次款。",
@@ -2540,7 +2534,6 @@
       "title": "礼物",
       "description": "为他人购买的订阅、附加包和钱包余额。",
       "all": "全部",
-      "reasonPlaceholder": "撤销原因（必填）",
       "columns": {
         "createdAt": "购买时间",
         "kind": "礼物",
@@ -2566,7 +2559,11 @@
       "actions": {
         "revoke": "撤销",
         "refund": "标记为已退款"
-      }
+      },
+      "revokeTitle": "撤销此礼物？",
+      "revokeDescription": "礼物 …{hint} 将无法再被领取。撤销不会退款给赠送人；退款完成后请将礼物标记为已退款。",
+      "refundTitle": "将此礼物标记为已退款？",
+      "refundDescription": "记录礼物 …{hint} 的赠送人已拿回款项。退款本身在原订单上办理。"
     },
     "settings": {
       "title": "商务设置",
@@ -2621,8 +2618,6 @@
         "webhookHint": "用于验证传入回调的密钥",
         "keepStored": "留空以保留已存储的密钥",
         "enabledLabel": "在结账时提供此支付渠道",
-        "reason": "原因",
-        "reasonPlaceholder": "为何更改此配置",
         "secretNotice": "已存储的密钥使用部署的数据加密密钥加密，且绝不会发回浏览器。字段留空将保留已存储的内容。",
         "save": "保存支付渠道",
         "test": "测试连接",
@@ -2636,10 +2631,13 @@
         },
         "recurringUnsupportedLong": "此集成无法绑定支付方式，因此无法为其启用自动扣款。",
         "recurringExplains": "商户账户能否对已保存的支付方式扣款由支付渠道授权，无法自动探测。请记录您自己的测试结果；未通过测试则无法启用自动扣款。",
-        "recurringReasonPlaceholder": "测试了什么，使用的是哪个商户账户",
         "recurringEnable": "通过——启用扣款",
         "recurringPassOnly": "通过——仅记录",
-        "recurringFail": "失败"
+        "recurringFail": "失败",
+        "saveTitle": "保存支付服务商设置？",
+        "recurringEnableTitle": "记录测试通过并启用自动扣款？",
+        "recurringPassOnlyTitle": "仅记录测试通过，不启用扣款？",
+        "recurringFailTitle": "记录测试未通过？"
       },
       "subscriptionPolicy": {
         "title": "套餐变更与重置",
@@ -2717,8 +2715,8 @@
           "vk": "VK ID",
           "oidc": "OIDC"
         },
-        "reason": "原因",
-        "save": "保存"
+        "save": "保存",
+        "saveTitle": "保存此支付按钮？"
       },
       "paymentGuidance": {
         "title": "手动支付",
@@ -2726,8 +2724,8 @@
         "instructionsRu": "转账说明（俄语）",
         "instructionsEn": "转账说明（英语）",
         "supportTopUp": "提供通过客服充值",
-        "reason": "原因",
-        "save": "保存"
+        "save": "保存",
+        "saveTitle": "保存手动付款设置？"
       }
     },
     "nav": {
@@ -2741,7 +2739,6 @@
       "close": "关闭",
       "resetFilters": "重置",
       "revoke": "撤销",
-      "revokeReason": "原因",
       "columns": {
         "title": "优惠",
         "customer": "用户",
@@ -2776,12 +2773,12 @@
         "hour": "时",
         "minute": "分",
         "expiresAt": "截止时间",
-        "reason": "原因",
-        "reasonHint": "为何向该用户提供此优惠",
         "singleUse": "两种语言均为必填：只有一种语言文案的优惠，会对一半用户显示为空白卡片。优惠只能兑换一次，在被使用、忽略或过期时即告结束。",
         "submit": "创建优惠",
         "notifyEmail": "同时通过邮件发送",
-        "notifyEmailHint": "仅发送至已验证且其所有者同意接收营销邮件的地址，并受统一发送频率限制。"
+        "notifyEmailHint": "仅发送至已验证且其所有者同意接收营销邮件的地址，并受统一发送频率限制。",
+        "confirmTitle": "创建优惠？",
+        "confirmDescription": "客户将从开始日期起看到此优惠。请说明为何向其提供——原因会记录在审计日志中。"
       },
       "preview": {
         "title": "用户将看到的内容",
@@ -2815,7 +2812,9 @@
         "save": "保存模板",
         "saved": "模板已保存",
         "invalid": "未保存：请检查代码、小时数和奖励。"
-      }
+      },
+      "revokeTitle": "撤销此优惠？",
+      "revokeDescription": "客户将不再看到此优惠，也无法使用。"
     },
     "bulk": {
       "create": "新建批量操作",
@@ -2879,12 +2878,11 @@
         "days": "增加天数",
         "amount": "金额（最小货币单位）",
         "currency": "货币",
-        "reason": "原因",
-        "reasonHint": "为何对所有目标执行此操作",
         "previewNotice": "每个目标逐一执行并记录，因此部分成功时可以看出哪些成功了。每项更改都经过与单项更改相同的履约流程。",
         "preview": "预览",
         "trafficGb": "增加流量（GB）",
-        "devices": "设备上限"
+        "devices": "设备上限",
+        "reasonDescription": "{count} 个标识符。预览会连同此理由记录操作及其目标；在你启动之前不会应用任何更改。"
       }
     },
     "imports": {
@@ -4579,7 +4577,6 @@
     "moderation": {
       "title": "管理",
       "description": "批量封禁一组用户，并查找屏蔽了机器人的用户。",
-      "cancel": "取消",
       "failed": "封禁未能执行",
       "banned": "封禁已执行",
       "blockers": {
@@ -4595,7 +4592,6 @@
         "title": "按列表封禁",
         "list": "用户 ID 或 Telegram ID，每行一个或用逗号分隔",
         "count": "{count} 个标识符",
-        "reason": "原因（记录到每位用户）",
         "template": "要发送的消息",
         "noMessage": "不通知",
         "message": "自定义消息（替代模板）",
@@ -4653,8 +4649,6 @@
       "restoreTitle": "恢复此备份？",
       "restoreWarning": "当前数据库将被此备份替换。备份之后写入的所有数据都会丢失。",
       "restorePrompt": "输入 RESTORE 以确认",
-      "reason": "原因",
-      "reasonRequired": "恢复操作需要填写原因",
       "actions": {
         "create": "备份",
         "restore": "恢复",
@@ -5791,6 +5785,324 @@
           "name": "No QUIC",
           "caption": "Turns the QUIC protocol off. Helps when video stutters or stalls."
         }
+      }
+    },
+    "reasonDialog": {
+      "reason": "理由",
+      "other": "其他理由",
+      "otherPlaceholder": "写下审计日志中将被阅读的理由"
+    },
+    "banDialog": {
+      "accounts": "账号",
+      "reason": "理由",
+      "duration": "封禁时长",
+      "forever": "永久",
+      "days": "{count} 天",
+      "notify": "向客户发送包含理由的消息",
+      "annul": "作废订阅",
+      "annulHint": "其有效订阅将在 Remnawave 中被停用，封禁结束后不会自动恢复。",
+      "annulForbidden": "需要 subscriptions.write 权限。",
+      "submit": "{count, plural, =0 {请选择账号} other {封禁 # 个账号}}"
+    },
+    "reasons": {
+      "blocklistAllow": {
+        "family": "已核实：并非名单上的人",
+        "falsePositive": "名单条目有误或已过时",
+        "checked": "已人工检查账号，未发现问题",
+        "resolved": "已通过客服与客户解决"
+      },
+      "codeBatchRevoke": {
+        "leaked": "兑换码列表已公开泄露",
+        "resold": "分销商违反约定转售兑换码",
+        "unpaid": "分销商未支付该批次费用",
+        "dealEnded": "与分销商的合作已终止",
+        "mistake": "该批次生成时套餐或价格有误"
+      },
+      "planApplySquads": {
+        "newServers": "将客户迁移到最新版本的服务器",
+        "retiredSquad": "旧 squad 即将停用",
+        "blockedLocation": "某个节点位置被封锁，客户需要可用的节点",
+        "fixedVersion": "修正了套餐 squad 配置中的错误",
+        "load": "在服务器之间分配负载"
+      },
+      "serverSave": {
+        "newServer": "向目录添加了新服务器",
+        "price": "调整了选择该服务器的价格",
+        "capacity": "按服务器容量调整了客户上限",
+        "trials": "调整了试用订阅能否使用该服务器",
+        "naming": "更正了服务器的名称或国家"
+      },
+      "serverRemove": {
+        "decommissioned": "该服务器已停止服务",
+        "blocked": "该位置对客户已被封锁",
+        "notSold": "该服务器不再单独出售",
+        "duplicate": "目录中的重复条目"
+      },
+      "backupRestore": {
+        "dataLoss": "数据已损坏或丢失，需要恢复",
+        "failedMigration": "回滚失败的数据库迁移",
+        "operatorMistake": "撤销误操作造成的批量更改",
+        "moving": "迁移到新服务器",
+        "drill": "计划内的恢复演练"
+      },
+      "paymentMethodSave": {
+        "hideFailing": "隐藏了支付方式故障的按钮",
+        "limits": "按服务商限制调整了金额上下限",
+        "texts": "更新了按钮名称或描述",
+        "audience": "调整了此按钮的展示对象",
+        "order": "调整了按钮顺序"
+      },
+      "paymentGuidanceSave": {
+        "details": "更新了转账信息",
+        "clarified": "让客户更容易理解说明",
+        "supportTopUp": "调整了是否提供通过客服充值",
+        "pause": "暂时停止手动付款"
+      },
+      "providerSave": {
+        "rotatedKey": "轮换了服务商的 API 密钥",
+        "liveMode": "将服务商从测试模式切换到正式模式",
+        "webhook": "修复了配置错误的 webhook",
+        "pause": "在服务商出现故障期间将其停用",
+        "merchant": "接入了新的商户账户"
+      },
+      "recurringPassed": {
+        "confirmed": "服务商已确认该商户账户具备定期扣款权限",
+        "testCharge": "对已保存卡片的测试重复扣款成功",
+        "contract": "与服务商的合同包含定期扣款"
+      },
+      "recurringFailed": {
+        "refused": "服务商拒绝了测试重复扣款",
+        "notGranted": "服务商尚未授予定期扣款权限",
+        "withdrawn": "服务商撤销了定期扣款权限"
+      },
+      "maintenanceOn": {
+        "planned": "计划内维护",
+        "remnawaveDown": "Remnawave 面板不可用",
+        "paymentsDown": "支付服务商故障",
+        "moving": "正在迁移到新服务器",
+        "incident": "正在调查故障"
+      },
+      "maintenanceOff": {
+        "finished": "维护已完成",
+        "remnawaveBack": "Remnawave 面板已恢复",
+        "paymentsBack": "支付服务商已恢复",
+        "mistake": "维护模式被误开启"
+      },
+      "walletCredit": {
+        "downtime": "服务中断补偿",
+        "outsideBot": "在机器人之外支付的充值",
+        "failedPurchase": "未交付购买的退款",
+        "promo": "活动或抽奖奖励"
+      },
+      "walletDebit": {
+        "creditedTwice": "更正：同一笔付款被重复入账",
+        "mistakenCredit": "撤销误操作的入账",
+        "refundedToCard": "余额已退回客户银行卡",
+        "chargeback": "充值被银行拒付（chargeback）"
+      },
+      "restrict": {
+        "topup": {
+          "chargebacks": "充值多次被拒付",
+          "stolenCards": "使用已挂失被盗银行卡充值",
+          "launderingReview": "钱包因可疑转账正在审查",
+          "customerAsked": "客户要求禁止充值"
+        },
+        "purchase": {
+          "refundAbuse": "反复购买后申请退款",
+          "promoAbuse": "滥用试用、优惠码或折扣",
+          "paymentReview": "争议后付款正在审查",
+          "customerAsked": "客户要求禁止购买"
+        },
+        "support": {
+          "abusive": "对客服辱骂或威胁",
+          "flood": "向客服发送垃圾信息或大量重复消息",
+          "duplicates": "反复重开已解决的问题"
+        }
+      },
+      "customerSuspend": {
+        "fraud": "支付欺诈或拒付",
+        "sharing": "超出套餐范围共享或转售订阅",
+        "abuse": "通过 VPN 下载种子、发送垃圾信息或发起攻击",
+        "multiaccount": "注册多个账号重复领取试用或奖励",
+        "customerAsked": "客户要求关闭账号"
+      },
+      "customerReactivate": {
+        "appeal": "经审查接受申诉",
+        "mistake": "误封",
+        "paymentConfirmed": "争议已解决，付款已确认",
+        "banServed": "停用期已满"
+      },
+      "merge": {
+        "webSignIn": "同一人：通过其他方式在网页登录",
+        "newTelegram": "同一人：换用了新的 Telegram 账号",
+        "duplicateSupport": "客服已与客户确认为重复账号",
+        "customerAsked": "客户要求合并账号"
+      },
+      "subscriptionEnable": {
+        "paidOutside": "在机器人之外收到付款",
+        "disabledByMistake": "误停用",
+        "reviewCleared": "审查完成，未发现违规",
+        "appealAccepted": "封禁后申诉已接受"
+      },
+      "subscriptionDisable": {
+        "refunded": "付款已退款或被拒付",
+        "sharing": "超出设备上限使用",
+        "abuse": "通过此订阅下载种子、发送垃圾信息或发起攻击",
+        "customerAsked": "客户要求停止订阅"
+      },
+      "resetTraffic": {
+        "downtime": "服务中断或服务器缓慢的补偿",
+        "clientBug": "客户端故障耗尽了流量",
+        "paidOutside": "在机器人之外支付的额外流量",
+        "supportApproved": "客户请求，已经客服批准"
+      },
+      "subscriptionPause": {
+        "customerAway": "客户要求在外出期间冻结",
+        "paymentDispute": "付款存在争议",
+        "review": "可疑活动正在审查"
+      },
+      "subscriptionResume": {
+        "customerBack": "客户已回来并要求恢复",
+        "disputeResolved": "付款争议已解决",
+        "reviewCleared": "审查完成，未发现违规"
+      },
+      "subscriptionExtend": {
+        "downtime": "服务中断补偿",
+        "paidOutside": "在机器人之外收到付款",
+        "notApplied": "已付款但套餐未生效",
+        "giveaway": "活动或抽奖奖品",
+        "wrongExpiry": "更正错误的到期时间"
+      },
+      "subscriptionLimits": {
+        "paidOutside": "在机器人之外支付的额外设备或流量",
+        "wrongLimits": "套餐限制应用有误",
+        "goodwillTraffic": "作为补偿的额外流量",
+        "sharingLimit": "因共享而降低设备上限"
+      },
+      "subscriptionSquads": {
+        "blockedServer": "从被封锁或过载的服务器迁出",
+        "wrongSquads": "套餐服务器应用有误",
+        "locationApproved": "套餐外的地区，已经客服批准",
+        "testing": "与客户一起测试新的服务器组"
+      },
+      "squadAccessGrant": {
+        "blockedWorkaround": "其服务器被封锁期间的临时方案",
+        "tryLocation": "购买前试用其他地区",
+        "troubleshooting": "客服正在排查连接问题"
+      },
+      "squadAccessRevoke": {
+        "noLongerNeeded": "不再需要临时方案",
+        "mistake": "误授予",
+        "misuse": "额外服务器被滥用"
+      },
+      "deviceRemove": {
+        "replaced": "客户更换或丢失了此设备",
+        "freeSlot": "应客户要求为新设备腾出名额",
+        "unknownDevice": "客户不认识此设备",
+        "stale": "该设备已长期未使用"
+      },
+      "subscriptionSync": {
+        "cannotConnect": "客户无法连接，Remnawave 与 Omniflow 不一致",
+        "editedInRemnawave": "Remnawave 用户曾在其面板中被手动修改",
+        "fulfillmentFailed": "履约失败导致 Remnawave 数据过时",
+        "missingUser": "Remnawave 用户缺失，需要重新创建"
+      },
+      "bulkExtend": {
+        "outage": "服务器故障补偿",
+        "regionBlocks": "客户所在地区封锁的补偿",
+        "promotion": "面向活跃订阅者的活动",
+        "fulfillmentFailure": "履约失败后的更正"
+      },
+      "bulkEnable": {
+        "mistakenDisable": "撤销误操作的批量停用",
+        "paymentResolved": "这些客户的付款问题已解决",
+        "migrationDone": "服务器迁移已完成"
+      },
+      "bulkDisable": {
+        "chargebacks": "付款已退款或被拒付",
+        "abuseReview": "网络审查中发现滥用",
+        "promotionEnded": "活动赠送的免费访问已结束"
+      },
+      "bulkWalletCredit": {
+        "outage": "服务器故障补偿",
+        "referralPayout": "推荐计划或活动奖励发放",
+        "failedPayments": "未交付付款的退款",
+        "balanceBug": "程序错误后的余额更正"
+      },
+      "bulkAddTraffic": {
+        "outage": "服务器故障补偿",
+        "promotion": "活动赠送流量",
+        "clientBug": "客户端故障耗尽了流量"
+      },
+      "bulkSetDevices": {
+        "planChanged": "套餐设备上限已变更",
+        "wrongLimits": "限制应用有误",
+        "promotion": "活动赠送额外设备"
+      },
+      "massBan": {
+        "fraud": "支付欺诈或拒付",
+        "multiaccount": "注册多个账号重复领取试用或奖励",
+        "sharing": "共享或转售订阅",
+        "abuse": "通过 VPN 下载种子、发送垃圾信息或发起攻击",
+        "blocklist": "出现在外部黑名单中"
+      },
+      "refund": {
+        "notWorking": "客户无法使用 VPN，客服也未能解决",
+        "duplicate": "同一笔购买向客户重复扣款",
+        "changedMind": "客户在退款期限内申请退款",
+        "outage": "服务故障补偿",
+        "wrongPlan": "客户误购了错误的套餐"
+      },
+      "giftRevoke": {
+        "disputedPayment": "使用有争议或欺诈性的付款购买",
+        "senderRequest": "赠送人要求在领取前取消礼物",
+        "wrongRecipient": "礼物本应送给其他人",
+        "codeLeaked": "领取码已泄露或被公开"
+      },
+      "giftRefund": {
+        "afterRevoke": "礼物撤销后已向赠送人退款",
+        "expiredUnclaimed": "礼物过期未领取，已向赠送人退款",
+        "providerRefund": "支付服务商已将款项退还给赠送人"
+      },
+      "offerCreate": {
+        "retention": "挽留：客户准备取消订阅",
+        "compensation": "对故障或客服问题的补偿",
+        "winBack": "召回：客户的订阅已过期",
+        "loyalty": "感谢长期客户",
+        "promised": "客服沟通中向客户承诺过"
+      },
+      "offerRevoke": {
+        "wrongCustomer": "创建给了错误的客户",
+        "wrongTerms": "优惠的促销、文案或日期有误",
+        "abuse": "客户滥用促销或推荐计划",
+        "superseded": "已被新的优惠取代"
+      },
+      "goodsDelivered": {
+        "providerConfirmed": "服务商已确认交付",
+        "recipientConfirmed": "收件人已确认收到商品",
+        "providerHistory": "服务商的订单记录中显示已交付"
+      },
+      "goodsRefund": {
+        "providerNotSent": "服务商确认未发送任何商品",
+        "providerRejected": "服务商拒绝了该订单",
+        "recipientInvalid": "收件人用户名不存在或无法接收商品",
+        "unconfirmed": "服务商无法确认是否交付"
+      },
+      "starsComplete": {
+        "walletTransfer": "钱包中有该订单的转出记录",
+        "recipientConfirmed": "收件人已确认收到 Stars",
+        "fragmentCompleted": "Fragment 显示订单已完成"
+      },
+      "starsRetry": {
+        "noTransfer": "钱包中没有该订单的转出记录",
+        "fragmentError": "Fragment 返回临时错误，款项未转出",
+        "walletTopUp": "钱包 TON 余额不足，现已充值"
+      },
+      "starsRefund": {
+        "noTransfer": "钱包中没有该订单的转出记录",
+        "recipientInvalid": "收件人无法接收 Stars（用户名错误或已删除）",
+        "customerCancelled": "客户在交付前要求取消",
+        "unavailable": "目前无法从 Fragment 购买 Stars"
       }
     }
   },

@@ -17,6 +17,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
 
+import { ReasonDialog } from "@/components/admin/reason-dialog";
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
 import { MinorAmountInput } from "@/components/forms/minor-amount-input";
@@ -401,14 +402,14 @@ function BatchRow({
   onChanged: () => void;
 }) {
   const translate = useTranslations("admin.codes");
-  const { run, pending } = useOperatorAction();
+  const presets = useTranslations("admin.reasons.codeBatchRevoke");
+  const { run, pending, error, reset } = useOperatorAction();
   const [confirming, setConfirming] = useState(false);
-  const [reason, setReason] = useState("");
 
-  async function revoke() {
+  async function revoke(reason: string) {
+    // The reason travels in the body: the revocation stores it on the batch.
     if (await run(`${ENDPOINT}/${batch.id}/revoke`, { body: { reason }, method: "POST" })) {
       setConfirming(false);
-      setReason("");
       onChanged();
       toast.success(translate("revoked"));
     }
@@ -440,30 +441,31 @@ function BatchRow({
       <TableCell className="text-right">
         {editable && !batch.revokedAt ? (
           <>
-            <Button onClick={() => setConfirming(true)} size="sm" variant="ghost">
+            <Button
+              onClick={() => {
+                reset();
+                setConfirming(true);
+              }}
+              size="sm"
+              variant="ghost"
+            >
               {translate("revoke")}
             </Button>
             {/* Revoking kills only the unredeemed codes. Somebody is using the
                 subscriptions the redeemed ones produced, and taking those back
                 is a different decision the operator has not made here. */}
-            <ConfirmDialog
-              cancelLabel={translate("cancel")}
+            <ReasonDialog
               confirmLabel={translate("revoke")}
-              description={
-                <div className="flex flex-col gap-3">
-                  <p>{translate("revokeWarning", { count: batch.issued })}</p>
-                  <Input
-                    onChange={(event) => setReason(event.target.value)}
-                    placeholder={translate("revokeReason")}
-                    value={reason}
-                  />
-                </div>
-              }
+              description={translate("revokeWarning", { count: batch.issued })}
               destructive
+              error={error?.message}
               onConfirm={revoke}
               onOpenChange={setConfirming}
               open={confirming}
               pending={pending}
+              presets={["leaked", "resold", "unpaid", "dealEnded", "mistake"].map((key) =>
+                presets(key),
+              )}
               title={translate("revokeTitle", { reference: batch.reference })}
             />
           </>

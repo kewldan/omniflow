@@ -2,8 +2,7 @@
 
 import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
-import { ConfirmDialog } from "@omniflow/ui/confirm-dialog";
-import { Input, Textarea } from "@omniflow/ui/input";
+import { Textarea } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
 import { toast } from "@omniflow/ui/toast";
@@ -11,6 +10,7 @@ import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
 
+import { ReasonDialog } from "@/components/admin/reason-dialog";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 import { useOperatorAction } from "@/lib/operations";
@@ -29,17 +29,19 @@ type BlockerState = {
 type BanResult = { id: string; customerId?: string; outcome: string };
 
 const NO_TEMPLATE = "none";
+const BAN_REASONS = ["fraud", "multiaccount", "sharing", "abuse", "blocklist"] as const;
 
 /**
  * Moderation on the customer list: ban a list of customers by customer or
- * Telegram ID with a reason and an optional message, and find and clean up
- * the customers who blocked the bot.
+ * Telegram ID — the reason and the optional message are given in the dialog
+ * that confirms it — and find and clean up the customers who blocked the bot.
  */
 export function ModerationPanel() {
   const translate = useTranslations("admin.moderation");
+  const presets = useTranslations("admin.reasons.massBan");
   const { can } = useSession();
   const writable = can("customers.write");
-  const ids = { list: useId(), reason: useId(), template: useId(), message: useId() };
+  const ids = { list: useId(), template: useId(), message: useId() };
   const { data: blockers, mutate } = useSWR<BlockerState, ApiError>(
     "/v1/panel/moderation/blockers",
     fetcher,
@@ -51,30 +53,38 @@ export function ModerationPanel() {
   );
   const { run, pending } = useOperatorAction();
   const [list, setList] = useState("");
-  const [reason, setReason] = useState("");
   const [template, setTemplate] = useState(NO_TEMPLATE);
   const [message, setMessage] = useState("");
   const [results, setResults] = useState<BanResult[] | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [banning, setBanning] = useState(false);
+  const [banError, setBanError] = useState<string | null>(null);
   const targets = list.split(/[\s,;]+/).filter((value) => value.trim() !== "");
 
-  async function ban() {
+  async function ban(reason: string) {
+    setBanning(true);
+    setBanError(null);
     try {
       const response = await apiFetch<{ items: BanResult[] }>("/v1/panel/moderation/bans", {
         method: "POST",
-        headers: { "X-Operator-Reason": reason.trim() },
+        headers: { "X-Operator-Reason": reason },
         body: JSON.stringify({
           ids: targets,
-          reason: reason.trim(),
+          reason,
           template: template === NO_TEMPLATE ? "" : template,
           message: message.trim(),
         }),
       });
       setResults(response.items);
       toast.success(translate("banned"));
+      setConfirming(false);
       setList("");
+      setMessage("");
+      setTemplate(NO_TEMPLATE);
     } catch {
-      toast.error(translate("failed"));
+      setBanError(translate("failed"));
+    } finally {
+      setBanning(false);
     }
   }
 
@@ -154,46 +164,13 @@ export function ModerationPanel() {
                 {translate("ban.count", { count: targets.length })}
               </span>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="flex flex-col gap-1">
-                <Label htmlFor={ids.reason}>{translate("ban.reason")}</Label>
-                <Input
-                  id={ids.reason}
-                  onChange={(event) => setReason(event.target.value)}
-                  value={reason}
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label htmlFor={ids.template}>{translate("ban.template")}</Label>
-                <Select onValueChange={setTemplate} value={template}>
-                  <SelectTrigger id={ids.template}>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NO_TEMPLATE}>{translate("ban.noMessage")}</SelectItem>
-                    {(templates?.items ?? []).map((item) => (
-                      <SelectItem key={item.key} value={item.key}>
-                        {translate(`ban.templates.${item.key}`)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label htmlFor={ids.message}>{translate("ban.message")}</Label>
-              <Textarea
-                id={ids.message}
-                onChange={(event) => setMessage(event.target.value)}
-                placeholder={templates?.items.find((item) => item.key === template)?.text}
-                rows={3}
-                value={message}
-              />
-            </div>
             <Button
               className="self-start"
-              disabled={targets.length === 0 || reason.trim() === ""}
-              onClick={() => setConfirming(true)}
+              disabled={targets.length === 0 || banning}
+              onClick={() => {
+                setBanError(null);
+                setConfirming(true);
+              }}
               variant="destructive"
             >
               {translate("ban.submit")}
@@ -208,19 +185,46 @@ export function ModerationPanel() {
             ) : null}
           </div>
         ) : null}
-        <ConfirmDialog
-          cancelLabel={translate("cancel")}
+        <ReasonDialog
           confirmLabel={translate("ban.submit")}
           description={translate("ban.confirm", { count: targets.length })}
           destructive
-          onConfirm={() => {
-            setConfirming(false);
-            ban();
-          }}
+          error={banError}
+          onConfirm={ban}
           onOpenChange={setConfirming}
           open={confirming}
+          pending={banning}
+          presets={BAN_REASONS.map((key) => presets(key))}
           title={translate("ban.title")}
-        />
+        >
+          <div className="flex flex-col gap-1">
+            <Label htmlFor={ids.template}>{translate("ban.template")}</Label>
+            <Select onValueChange={setTemplate} value={template}>
+              <SelectTrigger id={ids.template}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_TEMPLATE}>{translate("ban.noMessage")}</SelectItem>
+                {(templates?.items ?? []).map((item) => (
+                  <SelectItem key={item.key} value={item.key}>
+                    {translate(`ban.templates.${item.key}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor={ids.message}>{translate("ban.message")}</Label>
+            <Textarea
+              id={ids.message}
+              maxLength={3500}
+              onChange={(event) => setMessage(event.target.value)}
+              placeholder={templates?.items.find((item) => item.key === template)?.text}
+              rows={3}
+              value={message}
+            />
+          </div>
+        </ReasonDialog>
       </CardContent>
     </Card>
   );

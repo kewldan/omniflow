@@ -6245,6 +6245,36 @@ func (e SearchPanelBlocklistMatchesParamsStatus) Valid() bool {
 	}
 }
 
+// Defines values for DecidePanelBlocklistMatchJSONBodyBanReason.
+const (
+	DecidePanelBlocklistMatchJSONBodyBanReasonFraud        DecidePanelBlocklistMatchJSONBodyBanReason = "fraud"
+	DecidePanelBlocklistMatchJSONBodyBanReasonMultiaccount DecidePanelBlocklistMatchJSONBodyBanReason = "multiaccount"
+	DecidePanelBlocklistMatchJSONBodyBanReasonRules        DecidePanelBlocklistMatchJSONBodyBanReason = "rules"
+	DecidePanelBlocklistMatchJSONBodyBanReasonSharing      DecidePanelBlocklistMatchJSONBodyBanReason = "sharing"
+	DecidePanelBlocklistMatchJSONBodyBanReasonSpam         DecidePanelBlocklistMatchJSONBodyBanReason = "spam"
+	DecidePanelBlocklistMatchJSONBodyBanReasonTorrent      DecidePanelBlocklistMatchJSONBodyBanReason = "torrent"
+)
+
+// Valid indicates whether the value is a known member of the DecidePanelBlocklistMatchJSONBodyBanReason enum.
+func (e DecidePanelBlocklistMatchJSONBodyBanReason) Valid() bool {
+	switch e {
+	case DecidePanelBlocklistMatchJSONBodyBanReasonFraud:
+		return true
+	case DecidePanelBlocklistMatchJSONBodyBanReasonMultiaccount:
+		return true
+	case DecidePanelBlocklistMatchJSONBodyBanReasonRules:
+		return true
+	case DecidePanelBlocklistMatchJSONBodyBanReasonSharing:
+		return true
+	case DecidePanelBlocklistMatchJSONBodyBanReasonSpam:
+		return true
+	case DecidePanelBlocklistMatchJSONBodyBanReasonTorrent:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for DecidePanelBlocklistMatchJSONBodyDecision.
 const (
 	DecidePanelBlocklistMatchJSONBodyDecisionAllowed DecidePanelBlocklistMatchJSONBodyDecision = "allowed"
@@ -6265,28 +6295,28 @@ func (e DecidePanelBlocklistMatchJSONBodyDecision) Valid() bool {
 
 // Defines values for BanPanelSharedDeviceJSONBodyReason.
 const (
-	Fraud        BanPanelSharedDeviceJSONBodyReason = "fraud"
-	Multiaccount BanPanelSharedDeviceJSONBodyReason = "multiaccount"
-	Rules        BanPanelSharedDeviceJSONBodyReason = "rules"
-	Sharing      BanPanelSharedDeviceJSONBodyReason = "sharing"
-	Spam         BanPanelSharedDeviceJSONBodyReason = "spam"
-	Torrent      BanPanelSharedDeviceJSONBodyReason = "torrent"
+	BanPanelSharedDeviceJSONBodyReasonFraud        BanPanelSharedDeviceJSONBodyReason = "fraud"
+	BanPanelSharedDeviceJSONBodyReasonMultiaccount BanPanelSharedDeviceJSONBodyReason = "multiaccount"
+	BanPanelSharedDeviceJSONBodyReasonRules        BanPanelSharedDeviceJSONBodyReason = "rules"
+	BanPanelSharedDeviceJSONBodyReasonSharing      BanPanelSharedDeviceJSONBodyReason = "sharing"
+	BanPanelSharedDeviceJSONBodyReasonSpam         BanPanelSharedDeviceJSONBodyReason = "spam"
+	BanPanelSharedDeviceJSONBodyReasonTorrent      BanPanelSharedDeviceJSONBodyReason = "torrent"
 )
 
 // Valid indicates whether the value is a known member of the BanPanelSharedDeviceJSONBodyReason enum.
 func (e BanPanelSharedDeviceJSONBodyReason) Valid() bool {
 	switch e {
-	case Fraud:
+	case BanPanelSharedDeviceJSONBodyReasonFraud:
 		return true
-	case Multiaccount:
+	case BanPanelSharedDeviceJSONBodyReasonMultiaccount:
 		return true
-	case Rules:
+	case BanPanelSharedDeviceJSONBodyReasonRules:
 		return true
-	case Sharing:
+	case BanPanelSharedDeviceJSONBodyReasonSharing:
 		return true
-	case Spam:
+	case BanPanelSharedDeviceJSONBodyReasonSpam:
 		return true
-	case Torrent:
+	case BanPanelSharedDeviceJSONBodyReasonTorrent:
 		return true
 	default:
 		return false
@@ -14941,6 +14971,12 @@ type AppealPanelBlocklistMatchParams struct {
 
 // DecidePanelBlocklistMatchJSONBody defines parameters for DecidePanelBlocklistMatch.
 type DecidePanelBlocklistMatchJSONBody struct {
+	Ban *struct {
+		AnnulSubscriptions bool                                       `json:"annulSubscriptions"`
+		Days               int                                        `json:"days"`
+		Notify             bool                                       `json:"notify"`
+		Reason             DecidePanelBlocklistMatchJSONBodyBanReason `json:"reason"`
+	} `json:"ban,omitempty"`
 	Decision DecidePanelBlocklistMatchJSONBodyDecision `json:"decision"`
 }
 
@@ -14952,6 +14988,9 @@ type DecidePanelBlocklistMatchParams struct {
 	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
 	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
 }
+
+// DecidePanelBlocklistMatchJSONBodyBanReason defines parameters for DecidePanelBlocklistMatch.
+type DecidePanelBlocklistMatchJSONBodyBanReason string
 
 // DecidePanelBlocklistMatchJSONBodyDecision defines parameters for DecidePanelBlocklistMatch.
 type DecidePanelBlocklistMatchJSONBodyDecision string

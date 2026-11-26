@@ -3,7 +3,6 @@
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { Card } from "@omniflow/ui/card";
-import { Input } from "@omniflow/ui/input";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
@@ -11,6 +10,7 @@ import useSWR from "swr";
 
 import { CustomerChip } from "@/components/admin/customer-chip";
 import { useEnumLabel } from "@/components/admin/enum-label";
+import { ReasonDialog } from "@/components/admin/reason-dialog";
 import { StateNotice } from "@/components/admin/state-notice";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
@@ -46,22 +46,30 @@ export function ReviewQueue({ active }: { active: boolean }) {
   const label = useEnumLabel();
   const locale = useLocale();
   const { can } = useSession();
-  const [reason, setReason] = useState("");
+  const deliveredReasons = useTranslations("admin.reasons.goodsDelivered");
+  const refundReasons = useTranslations("admin.reasons.goodsRefund");
   const { run, pending, error } = useOperatorAction();
+  const [resolving, setResolving] = useState<{
+    delivery: ParkedDelivery;
+    delivered: boolean;
+  } | null>(null);
 
   const { data, isLoading, mutate } = useSWR<Listing<ParkedDelivery>, ApiError>(
     active ? "/v1/panel/goods/review" : null,
     fetcher,
   );
 
-  async function resolve(orderId: string, delivered: boolean) {
-    const ok = await run(`/v1/panel/goods/orders/${orderId}/resolve`, {
-      body: { delivered },
+  async function resolve(reason: string) {
+    if (!resolving) {
+      return;
+    }
+    const ok = await run(`/v1/panel/goods/orders/${resolving.delivery.orderId}/resolve`, {
+      body: { delivered: resolving.delivered },
       method: "POST",
-      reason: reason.trim(),
+      reason,
     });
     if (ok) {
-      setReason("");
+      setResolving(null);
       await mutate();
     }
   }
@@ -85,17 +93,6 @@ export function ReviewQueue({ active }: { active: boolean }) {
       <Card className="border-warning/40 bg-warning/5 p-3 text-sm">
         {translate("reviewExplainer")}
       </Card>
-
-      {can("goods.manage") && (
-        <Card className="p-3">
-          <Input
-            onChange={(event) => setReason(event.target.value)}
-            placeholder={translate("reviewReasonPlaceholder")}
-            value={reason}
-          />
-          {error && <p className="mt-2 text-danger-foreground text-xs">{error.message}</p>}
-        </Card>
-      )}
 
       <div className="grid gap-3 lg:grid-cols-2">
         {items.map((delivery) => (
@@ -137,16 +134,14 @@ export function ReviewQueue({ active }: { active: boolean }) {
             {can("goods.manage") && (
               <div className="flex gap-2">
                 <Button
-                  disabled={pending || reason.trim().length === 0}
-                  onClick={() => resolve(delivery.orderId, true)}
+                  onClick={() => setResolving({ delivered: true, delivery })}
                   size="sm"
                   variant="outline"
                 >
                   {translate("review.confirmDelivered")}
                 </Button>
                 <Button
-                  disabled={pending || reason.trim().length === 0}
-                  onClick={() => resolve(delivery.orderId, false)}
+                  onClick={() => setResolving({ delivered: false, delivery })}
                   size="sm"
                   variant="destructive"
                 >
@@ -157,6 +152,42 @@ export function ReviewQueue({ active }: { active: boolean }) {
           </Card>
         ))}
       </div>
+
+      <ReasonDialog
+        confirmLabel={translate(resolving?.delivered ? "review.confirmDelivered" : "review.refund")}
+        description={
+          resolving
+            ? translate(
+                resolving.delivered ? "review.deliveredDescription" : "review.refundDescription",
+                {
+                  amount: formatMoney(
+                    resolving.delivery.priceMinor,
+                    resolving.delivery.currency,
+                    locale,
+                  ),
+                  recipient: resolving.delivery.recipient,
+                },
+              )
+            : undefined
+        }
+        destructive={resolving?.delivered === false}
+        error={error?.message}
+        key={resolving ? `${resolving.delivery.orderId}-${resolving.delivered}` : "closed"}
+        onConfirm={resolve}
+        onOpenChange={(open) => !open && setResolving(null)}
+        open={resolving !== null}
+        pending={pending}
+        presets={
+          resolving?.delivered
+            ? ["providerConfirmed", "recipientConfirmed", "providerHistory"].map((key) =>
+                deliveredReasons(key),
+              )
+            : ["providerNotSent", "providerRejected", "recipientInvalid", "unconfirmed"].map(
+                (key) => refundReasons(key),
+              )
+        }
+        title={translate(resolving?.delivered ? "review.deliveredTitle" : "review.refundTitle")}
+      />
     </div>
   );
 }

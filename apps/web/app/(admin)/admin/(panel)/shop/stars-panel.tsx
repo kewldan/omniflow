@@ -3,14 +3,6 @@
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { Card } from "@omniflow/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@omniflow/ui/dialog";
 import { InfoTip } from "@omniflow/ui/info-tip";
 import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
@@ -23,6 +15,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
 import { useEnumLabel } from "@/components/admin/enum-label";
+import { ReasonDialog } from "@/components/admin/reason-dialog";
 import { StateNotice } from "@/components/admin/state-notice";
 import { CopyButton } from "@/components/copy-button";
 import { MoneyInput } from "@/components/forms/money-input";
@@ -688,6 +681,22 @@ function statusVariant(status: string) {
   }
 }
 
+/** The ready reasons for each decision, keyed under `admin.reasons`. */
+const DECISION_REASONS: Record<Decision["kind"], { namespace: string; keys: string[] }> = {
+  complete: {
+    keys: ["walletTransfer", "recipientConfirmed", "fragmentCompleted"],
+    namespace: "starsComplete",
+  },
+  refund: {
+    keys: ["noTransfer", "recipientInvalid", "customerCancelled", "unavailable"],
+    namespace: "starsRefund",
+  },
+  retry: {
+    keys: ["noTransfer", "fragmentError", "walletTopUp"],
+    namespace: "starsRetry",
+  },
+};
+
 /**
  * One decision about one order's money. Every action needs a reason, because
  * each is a judgement made on evidence outside Omniflow — the wallet's outgoing
@@ -703,17 +712,17 @@ function DecisionDialog({
   onDone: () => Promise<void>;
 }) {
   const translate = useTranslations("admin.shop.stars.actions");
-  const [reason, setReason] = useState("");
+  const reasons = useTranslations("admin.reasons");
   const [txHash, setTxHash] = useState(decision.order.txHash ?? "");
   const { run, pending, error } = useOperatorAction();
-  const reasonId = useId();
   const hashId = useId();
+  const { namespace, keys } = DECISION_REASONS[decision.kind];
 
-  async function submit() {
+  async function submit(reason: string) {
     const ok = await run(`/v1/panel/goods/orders/${decision.order.orderId}/${decision.kind}`, {
       body: decision.kind === "complete" ? { txHash: txHash.trim() } : undefined,
       method: "POST",
-      reason: reason.trim(),
+      reason,
     });
     if (ok) {
       await onDone();
@@ -721,60 +730,36 @@ function DecisionDialog({
   }
 
   return (
-    <Dialog onOpenChange={(open) => !open && onClose()} open>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{translate(`${decision.kind}Title`)}</DialogTitle>
-          <DialogDescription>{translate(`${decision.kind}Explainer`)}</DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-3">
-          <p className="font-mono text-xs">
-            @{decision.order.recipient} · {decision.order.starQuantity ?? "—"} ⭐ ·{" "}
-            {decision.order.orderId}
+    <ReasonDialog
+      confirmLabel={translate(`${decision.kind}Confirm`)}
+      description={translate(`${decision.kind}Explainer`)}
+      destructive={decision.kind === "refund"}
+      error={error?.message}
+      onConfirm={submit}
+      onOpenChange={(open) => !open && onClose()}
+      open
+      pending={pending}
+      presets={keys.map((key) => reasons(`${namespace}.${key}`))}
+      title={translate(`${decision.kind}Title`)}
+    >
+      <div className="flex flex-col gap-3">
+        <p className="font-mono text-xs">
+          @{decision.order.recipient} · {decision.order.starQuantity ?? "—"} ⭐ ·{" "}
+          {decision.order.orderId}
+        </p>
+        {decision.order.providerRequestId && (
+          <p className="font-mono text-muted-foreground text-xs">
+            Fragment: {decision.order.providerRequestId}
           </p>
-          {decision.order.providerRequestId && (
-            <p className="font-mono text-muted-foreground text-xs">
-              Fragment: {decision.order.providerRequestId}
-            </p>
-          )}
-          {decision.kind === "complete" && (
-            <div className="flex flex-col gap-1">
-              <Label htmlFor={hashId}>{translate("txHash")}</Label>
-              <Input
-                id={hashId}
-                onChange={(event) => setTxHash(event.target.value)}
-                value={txHash}
-              />
-            </div>
-          )}
+        )}
+        {decision.kind === "complete" && (
           <div className="flex flex-col gap-1">
-            <Label htmlFor={reasonId}>{translate("reason")}</Label>
-            <Input
-              id={reasonId}
-              onChange={(event) => setReason(event.target.value)}
-              value={reason}
-            />
+            <Label htmlFor={hashId}>{translate("txHash")}</Label>
+            <Input id={hashId} onChange={(event) => setTxHash(event.target.value)} value={txHash} />
           </div>
-          {error && (
-            <p className="text-danger-foreground text-sm" role="alert">
-              {error.message}
-            </p>
-          )}
-        </div>
-        <DialogFooter>
-          <Button onClick={onClose} variant="outline">
-            {translate("cancel")}
-          </Button>
-          <Button
-            disabled={pending || reason.trim().length === 0}
-            onClick={() => void submit()}
-            variant={decision.kind === "refund" ? "destructive" : "default"}
-          >
-            {translate(`${decision.kind}Confirm`)}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        )}
+      </div>
+    </ReasonDialog>
   );
 }
 

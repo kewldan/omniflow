@@ -9487,7 +9487,7 @@ export const SearchPanelBlocklistMatchesResponse = zod.object({
 });
 
 /**
- * Requires risk.write and a reason. Recording a decision does not suspend anybody: the adverse action is a separate customer mutation with its own permission and audit event.
+ * Requires risk.write and a reason. A decision alone suspends nobody. A `blocked` decision may carry `ban`, which also suspends the customer the way the customer page does (recorded as `blocklist:<reason>`), sends the reason's message when `notify` is set, ends after `days` (0 is no end), and with `annulSubscriptions` disables their running subscriptions through fulfillment; a ban needs customers.write, and subscriptions.write to annul.
  */
 export const DecidePanelBlocklistMatchParams = zod.object({
   matchID: zod.uuid(),
@@ -9508,8 +9508,22 @@ export const DecidePanelBlocklistMatchHeader = zod.object({
     ),
 });
 
+export const decidePanelBlocklistMatchBodyBanDaysMin = 0;
+export const decidePanelBlocklistMatchBodyBanDaysMax = 3650;
+
 export const DecidePanelBlocklistMatchBody = zod.object({
   decision: zod.enum(["allowed", "blocked"]),
+  ban: zod
+    .object({
+      reason: zod.enum(["multiaccount", "sharing", "fraud", "rules", "spam", "torrent"]),
+      notify: zod.boolean(),
+      days: zod
+        .int()
+        .min(decidePanelBlocklistMatchBodyBanDaysMin)
+        .max(decidePanelBlocklistMatchBodyBanDaysMax),
+      annulSubscriptions: zod.boolean(),
+    })
+    .optional(),
 });
 
 export const DecidePanelBlocklistMatchResponse = zod.object({

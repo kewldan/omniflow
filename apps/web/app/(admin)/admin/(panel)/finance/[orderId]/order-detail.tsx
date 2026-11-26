@@ -3,7 +3,6 @@
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
-import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { useLocale, useTranslations } from "next-intl";
@@ -12,6 +11,7 @@ import useSWR from "swr";
 
 import { CustomerChip } from "@/components/admin/customer-chip";
 import { useEnumLabel } from "@/components/admin/enum-label";
+import { ReasonDialog } from "@/components/admin/reason-dialog";
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
 import { CopyButton } from "@/components/copy-button";
@@ -322,7 +322,8 @@ function ReconcileButton({ intentId, onDone }: { intentId: string; onDone: () =>
  * record more than was ever paid. The refund itself is executed by the payment
  * service against the provider's own capabilities — full or partial, supported
  * or not — and this captures the decision and its reason, which the refund
- * record does not otherwise carry.
+ * record does not otherwise carry. The amount and the reason are both asked in
+ * the confirmation dialog, so nothing on the page has to be filled in first.
  */
 function RefundForm({
   currency,
@@ -336,62 +337,30 @@ function RefundForm({
   orderId: string;
 }) {
   const translate = useTranslations("admin.finance");
+  const presets = useTranslations("admin.reasons.refund");
   const locale = useLocale();
   const amountId = useId();
-  const reasonId = useId();
+  const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState(String(maximumMinor));
-  const [reason, setReason] = useState("");
   const { run, pending, error } = useOperatorAction();
 
   const requested = Number(amount);
   const valid = Number.isFinite(requested) && requested > 0 && requested <= maximumMinor;
+  const refundable = translate("detail.refundable", {
+    amount: formatMoney(maximumMinor, currency, locale),
+  });
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>{translate("detail.refundTitle")}</CardTitle>
-        <CardDescription>
-          {translate("detail.refundable", {
-            amount: formatMoney(maximumMinor, currency, locale),
-          })}
-        </CardDescription>
+        <CardDescription>{refundable}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor={amountId}>{translate("detail.refundAmount")}</Label>
-            <MinorAmountInput
-              currency={currency}
-              id={amountId}
-              onChange={(event) => setAmount(event.target.value)}
-              value={amount}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor={reasonId}>{translate("detail.refundReason")}</Label>
-            <Input
-              id={reasonId}
-              onChange={(event) => setReason(event.target.value)}
-              placeholder={translate("detail.refundReasonPlaceholder")}
-              value={reason}
-            />
-          </div>
-        </div>
-        <p className="text-muted-foreground text-xs">{translate("detail.minorUnitsHint")}</p>
-        {error && <p className="text-danger-foreground text-sm">{error.message}</p>}
+      <CardContent>
         <Button
-          className="self-start"
-          disabled={pending || !valid || reason.trim().length === 0}
-          onClick={async () => {
-            const ok = await run(`/v1/panel/finance/orders/${orderId}/refund`, {
-              body: { amountMinor: requested, currency },
-              method: "POST",
-              reason: reason.trim(),
-            });
-            if (ok) {
-              setReason("");
-              onDone();
-            }
+          onClick={() => {
+            setAmount(String(maximumMinor));
+            setOpen(true);
           }}
           size="sm"
           variant="destructive"
@@ -399,6 +368,43 @@ function RefundForm({
           {translate("detail.issueRefund")}
         </Button>
       </CardContent>
+
+      <ReasonDialog
+        confirmLabel={translate("detail.issueRefund")}
+        description={refundable}
+        destructive
+        disabled={!valid}
+        error={error?.message}
+        onConfirm={async (reason) => {
+          const ok = await run(`/v1/panel/finance/orders/${orderId}/refund`, {
+            body: { amountMinor: requested, currency },
+            method: "POST",
+            reason,
+          });
+          if (ok) {
+            setOpen(false);
+            onDone();
+          }
+        }}
+        onOpenChange={setOpen}
+        open={open}
+        pending={pending}
+        presets={["notWorking", "duplicate", "changedMind", "outage", "wrongPlan"].map((key) =>
+          presets(key),
+        )}
+        title={translate("detail.refundTitle")}
+      >
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={amountId}>{translate("detail.refundAmount")}</Label>
+          <MinorAmountInput
+            currency={currency}
+            id={amountId}
+            onChange={(event) => setAmount(event.target.value)}
+            value={amount}
+          />
+          <p className="text-muted-foreground text-xs">{translate("detail.minorUnitsHint")}</p>
+        </div>
+      </ReasonDialog>
     </Card>
   );
 }

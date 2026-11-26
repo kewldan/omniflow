@@ -10,6 +10,7 @@ import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
 import { useEnumLabel } from "@/components/admin/enum-label";
+import { ReasonDialog } from "@/components/admin/reason-dialog";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import { type HealthReport, type MaintenanceState, useOperatorAction } from "@/lib/operations";
@@ -143,7 +144,7 @@ function statusVariant(status: string): "success" | "danger" | "neutral" {
  */
 function MaintenanceControl({ active }: { active: boolean }) {
   const translate = useTranslations("admin.system");
-  const reasonId = useId();
+  const presets = useTranslations("admin.reasons");
   const ruId = useId();
   const enId = useId();
   const { can } = useSession();
@@ -152,16 +153,17 @@ function MaintenanceControl({ active }: { active: boolean }) {
     active ? "/v1/panel/overview/maintenance" : null,
     fetcher,
   );
-  const [reason, setReason] = useState("");
+  // The state the operator asked for; null while the dialog is closed.
+  const [target, setTarget] = useState<boolean | null>(null);
   const [noticeRu, setNoticeRu] = useState("");
   const [noticeEn, setNoticeEn] = useState("");
-  const { run, pending, error } = useOperatorAction();
+  const { run, pending, error, reset } = useOperatorAction();
 
   if (isLoading || !data) {
     return <Skeleton className="h-40 w-full" />;
   }
 
-  const engaging = !data.active;
+  const engaging = target === true;
   const editable = can("system.write");
 
   return (
@@ -195,72 +197,87 @@ function MaintenanceControl({ active }: { active: boolean }) {
 
         {editable && (
           <>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor={reasonId}>{translate("health.reason")}</Label>
-              <Input
-                id={reasonId}
-                onChange={(event) => setReason(event.target.value)}
-                placeholder={translate("health.reasonPlaceholder")}
-                value={reason}
-              />
-            </div>
-
-            {engaging && (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor={ruId}>{translate("health.noticeRu")}</Label>
-                  <Input
-                    id={ruId}
-                    onChange={(event) => setNoticeRu(event.target.value)}
-                    value={noticeRu}
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor={enId}>{translate("health.noticeEn")}</Label>
-                  <Input
-                    id={enId}
-                    onChange={(event) => setNoticeEn(event.target.value)}
-                    value={noticeEn}
-                  />
-                </div>
-                {/* Both languages, because a customer who reads only one and
-                    gets a blank screen is worse served than one who gets a
-                    notice they can read. */}
-                <p className="text-muted-foreground text-xs sm:col-span-2">
-                  {translate("health.noticesRequired")}
-                </p>
-              </div>
-            )}
-
-            {error && <p className="text-danger-foreground text-sm">{error.message}</p>}
-
             <div className="flex items-center gap-3">
               <Switch
                 checked={data.active}
-                disabled={
-                  pending ||
-                  reason.trim().length === 0 ||
-                  (engaging && (noticeRu.trim() === "" || noticeEn.trim() === ""))
-                }
+                disabled={pending}
                 id="maintenance-active"
-                onCheckedChange={async (next) => {
-                  const ok = await run("/v1/panel/overview/maintenance", {
-                    body: {
-                      active: next,
-                      noticeEn: next ? noticeEn : "",
-                      noticeRu: next ? noticeRu : "",
-                    },
-                    method: "PUT",
-                    reason: reason.trim(),
-                  });
-                  if (ok) {
-                    setReason("");
-                    await mutate();
-                  }
+                onCheckedChange={(next) => {
+                  reset();
+                  setTarget(next);
                 }}
               />
               <Label htmlFor="maintenance-active">{translate("health.maintenanceToggle")}</Label>
             </div>
+
+            <ReasonDialog
+              confirmLabel={translate(
+                engaging ? "health.maintenanceOnAction" : "health.maintenanceOffAction",
+              )}
+              description={translate(
+                engaging ? "health.maintenanceDescription" : "health.maintenanceOffDescription",
+              )}
+              destructive={engaging}
+              disabled={engaging && (noticeRu.trim() === "" || noticeEn.trim() === "")}
+              error={error?.message}
+              onConfirm={async (reason) => {
+                const ok = await run("/v1/panel/overview/maintenance", {
+                  body: {
+                    active: engaging,
+                    noticeEn: engaging ? noticeEn : "",
+                    noticeRu: engaging ? noticeRu : "",
+                  },
+                  method: "PUT",
+                  reason,
+                });
+                if (ok) {
+                  setTarget(null);
+                  await mutate();
+                }
+              }}
+              onOpenChange={(open) => !open && setTarget(null)}
+              open={target !== null}
+              pending={pending}
+              presets={
+                engaging
+                  ? ["planned", "remnawaveDown", "paymentsDown", "moving", "incident"].map((key) =>
+                      presets(`maintenanceOn.${key}`),
+                    )
+                  : ["finished", "remnawaveBack", "paymentsBack", "mistake"].map((key) =>
+                      presets(`maintenanceOff.${key}`),
+                    )
+              }
+              title={translate(
+                engaging ? "health.maintenanceOnTitle" : "health.maintenanceOffTitle",
+              )}
+            >
+              {engaging && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor={ruId}>{translate("health.noticeRu")}</Label>
+                    <Input
+                      id={ruId}
+                      onChange={(event) => setNoticeRu(event.target.value)}
+                      value={noticeRu}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor={enId}>{translate("health.noticeEn")}</Label>
+                    <Input
+                      id={enId}
+                      onChange={(event) => setNoticeEn(event.target.value)}
+                      value={noticeEn}
+                    />
+                  </div>
+                  {/* Both languages, because a customer who reads only one and
+                      gets a blank screen is worse served than one who gets a
+                      notice they can read. */}
+                  <p className="text-muted-foreground text-xs sm:col-span-2">
+                    {translate("health.noticesRequired")}
+                  </p>
+                </div>
+              )}
+            </ReasonDialog>
           </>
         )}
       </CardContent>

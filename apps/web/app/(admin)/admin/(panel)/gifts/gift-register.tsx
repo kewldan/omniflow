@@ -2,15 +2,13 @@
 
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
-import { Card } from "@omniflow/ui/card";
-import { Input } from "@omniflow/ui/input";
-import { Label } from "@omniflow/ui/label";
 import { TableCell, TableRow } from "@omniflow/ui/table";
 import { useLocale, useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { useState } from "react";
 import useSWR from "swr";
 
 import { CustomerChip } from "@/components/admin/customer-chip";
+import { ReasonDialog } from "@/components/admin/reason-dialog";
 import { PageHeader, ResourceTable } from "@/components/admin/resource-table";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher, toQuery } from "@/lib/api";
@@ -41,9 +39,10 @@ export function GiftRegister() {
   const translate = useTranslations("admin.gifts");
   const locale = useLocale();
   const { can } = useSession();
-  const [reason, setReason] = useState("");
-  const reasonId = useId();
+  const revokeReasons = useTranslations("admin.reasons.giftRevoke");
+  const refundReasons = useTranslations("admin.reasons.giftRefund");
   const { run, pending, error } = useOperatorAction();
+  const [deciding, setDeciding] = useState<{ gift: Gift; kind: "revoke" | "refund" } | null>(null);
 
   const { filters, cursorStack, setFilter, reset, goNext, goPrevious, hasPrevious } = useUrlFilters(
     ["status"],
@@ -64,9 +63,8 @@ export function GiftRegister() {
     <div className="flex flex-col gap-5">
       <PageHeader description={translate("description")} title={translate("title")} />
 
-      {/* The status filter and the revoke reason only mean something once
-          there are gifts: an empty register used to show a lone "All" pill and
-          a reason field floating above "Nothing here yet". */}
+      {/* The status filter only means something once there are gifts: an
+          empty register would show a lone "All" pill above "Nothing here yet". */}
       {Object.keys(totals).length > 0 && (
         <div className="flex flex-wrap gap-2">
           <Button
@@ -87,14 +85,6 @@ export function GiftRegister() {
             </Button>
           ))}
         </div>
-      )}
-
-      {can("gifts.write") && (data?.items ?? []).length > 0 && (
-        <Card className="flex flex-col gap-1.5 p-3">
-          <Label htmlFor={reasonId}>{translate("reasonPlaceholder")}</Label>
-          <Input id={reasonId} onChange={(event) => setReason(event.target.value)} value={reason} />
-          {error && <p className="mt-2 text-danger-foreground text-xs">{error.message}</p>}
-        </Card>
       )}
 
       <ResourceTable<Gift>
@@ -147,39 +137,16 @@ export function GiftRegister() {
                       already holds what it bought, and taking it back is a
                       refund decision made against their entitlement. */}
                   <Button
-                    disabled={
-                      pending ||
-                      reason.trim().length === 0 ||
-                      !["pending", "deliverable", "expired"].includes(gift.status)
-                    }
-                    onClick={async () => {
-                      if (
-                        await run(`/v1/panel/gifts/${gift.id}/revoke`, {
-                          method: "POST",
-                          reason: reason.trim(),
-                        })
-                      ) {
-                        setReason("");
-                        await mutate();
-                      }
-                    }}
+                    disabled={!["pending", "deliverable", "expired"].includes(gift.status)}
+                    onClick={() => setDeciding({ gift, kind: "revoke" })}
                     size="sm"
                     variant="destructive"
                   >
                     {translate("actions.revoke")}
                   </Button>
                   <Button
-                    disabled={pending || !["revoked", "expired"].includes(gift.status)}
-                    onClick={async () => {
-                      if (
-                        await run(`/v1/panel/gifts/${gift.id}/refund`, {
-                          method: "POST",
-                          reason: reason.trim(),
-                        })
-                      ) {
-                        await mutate();
-                      }
-                    }}
+                    disabled={!["revoked", "expired"].includes(gift.status)}
+                    onClick={() => setDeciding({ gift, kind: "refund" })}
                     size="sm"
                     variant="outline"
                   >
@@ -192,6 +159,40 @@ export function GiftRegister() {
         )}
         rows={data?.items ?? undefined}
         validating={isValidating}
+      />
+
+      <ReasonDialog
+        confirmLabel={translate(deciding?.kind === "refund" ? "actions.refund" : "actions.revoke")}
+        description={translate(
+          deciding?.kind === "refund" ? "refundDescription" : "revokeDescription",
+          { hint: deciding?.gift.codeHint ?? "" },
+        )}
+        destructive={deciding?.kind !== "refund"}
+        error={error?.message}
+        key={deciding ? `${deciding.kind}-${deciding.gift.id}` : "closed"}
+        onConfirm={async (reason) => {
+          if (
+            deciding &&
+            (await run(`/v1/panel/gifts/${deciding.gift.id}/${deciding.kind}`, {
+              method: "POST",
+              reason,
+            }))
+          ) {
+            setDeciding(null);
+            await mutate();
+          }
+        }}
+        onOpenChange={(open) => !open && setDeciding(null)}
+        open={deciding !== null}
+        pending={pending}
+        presets={
+          deciding?.kind === "refund"
+            ? ["afterRevoke", "expiredUnclaimed", "providerRefund"].map((key) => refundReasons(key))
+            : ["disputedPayment", "senderRequest", "wrongRecipient", "codeLeaked"].map((key) =>
+                revokeReasons(key),
+              )
+        }
+        title={translate(deciding?.kind === "refund" ? "refundTitle" : "revokeTitle")}
       />
     </div>
   );

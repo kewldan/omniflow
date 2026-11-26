@@ -9,6 +9,7 @@ import { useState } from "react";
 import useSWR from "swr";
 
 import { CustomerChip } from "@/components/admin/customer-chip";
+import { ReasonDialog } from "@/components/admin/reason-dialog";
 import { PageHeader, ResourceTable } from "@/components/admin/resource-table";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher, toQuery } from "@/lib/api";
@@ -160,35 +161,36 @@ export function OfferRegister() {
  */
 function RevokeOffer({ offerId, onDone }: { offerId: string; onDone: () => void }) {
   const translate = useTranslations("admin.offers");
-  const { run, pending } = useOperatorAction();
-  const [reason, setReason] = useState("");
+  const presets = useTranslations("admin.reasons.offerRevoke");
+  const { run, pending, error } = useOperatorAction();
+  const [open, setOpen] = useState(false);
 
   return (
-    <span className="flex items-center gap-2">
-      <input
-        aria-label={translate("revokeReason")}
-        className="h-8 w-40 rounded-md border border-border bg-transparent px-2 text-sm"
-        onChange={(event) => setReason(event.target.value)}
-        placeholder={translate("revokeReason")}
-        value={reason}
-      />
-      <Button
-        disabled={pending || reason.trim().length === 0}
-        onClick={async () => {
+    <>
+      <Button onClick={() => setOpen(true)} size="sm" variant="ghost">
+        {translate("revoke")}
+      </Button>
+      <ReasonDialog
+        confirmLabel={translate("revoke")}
+        description={translate("revokeDescription")}
+        destructive
+        error={error?.message}
+        onConfirm={async (reason) => {
           const ok = await run(`/v1/panel/offers/${offerId}/revoke`, {
             method: "POST",
-            reason: reason.trim(),
+            reason,
           });
           if (ok) {
-            setReason("");
+            setOpen(false);
             onDone();
           }
         }}
-        size="sm"
-        variant="ghost"
-      >
-        {translate("revoke")}
-      </Button>
-    </span>
+        onOpenChange={setOpen}
+        open={open}
+        pending={pending}
+        presets={["wrongCustomer", "wrongTerms", "abuse", "superseded"].map((key) => presets(key))}
+        title={translate("revokeTitle")}
+      />
+    </>
   );
 }

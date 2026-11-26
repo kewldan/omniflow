@@ -11,6 +11,7 @@ import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
 
+import { ReasonDialog } from "@/components/admin/reason-dialog";
 import { StateNotice } from "@/components/admin/state-notice";
 import { MinorAmountInput } from "@/components/forms/minor-amount-input";
 import { type ApiError, fetcher } from "@/lib/api";
@@ -48,6 +49,37 @@ const KINDS = [
   "subscription_add_traffic",
   "subscription_set_devices",
 ] as const;
+
+/**
+ * The ready reasons for each kind, under admin.reasons.<group>: what operators
+ * of a VPN service actually apply to hundreds of customers at once.
+ */
+const KIND_REASONS: Record<(typeof KINDS)[number], { group: string; keys: readonly string[] }> = {
+  subscription_extend: {
+    group: "bulkExtend",
+    keys: ["outage", "regionBlocks", "promotion", "fulfillmentFailure"],
+  },
+  subscription_enable: {
+    group: "bulkEnable",
+    keys: ["mistakenDisable", "paymentResolved", "migrationDone"],
+  },
+  subscription_disable: {
+    group: "bulkDisable",
+    keys: ["chargebacks", "abuseReview", "promotionEnded"],
+  },
+  wallet_credit: {
+    group: "bulkWalletCredit",
+    keys: ["outage", "referralPayout", "failedPayments", "balanceBug"],
+  },
+  subscription_add_traffic: {
+    group: "bulkAddTraffic",
+    keys: ["outage", "promotion", "clientBug"],
+  },
+  subscription_set_devices: {
+    group: "bulkSetDevices",
+    keys: ["planChanged", "wrongLimits", "promotion"],
+  },
+};
 
 /**
  * Bulk actions across many customers or subscriptions.
@@ -218,12 +250,12 @@ function BulkItems({ operationId }: { operationId: string }) {
  */
 function BulkComposer({ onPreviewed }: { onPreviewed: () => void }) {
   const translate = useTranslations("admin.bulk");
+  const reasons = useTranslations("admin.reasons");
   const kindId = useId();
   const targetsId = useId();
   const daysId = useId();
   const amountId = useId();
   const currencyId = useId();
-  const reasonId = useId();
 
   const [kind, setKind] = useState<string>("subscription_extend");
   const [targets, setTargets] = useState("");
@@ -233,7 +265,7 @@ function BulkComposer({ onPreviewed }: { onPreviewed: () => void }) {
   const [trafficGb, setTrafficGb] = useState("10");
   const [devices, setDevices] = useState("3");
   const limitId = useId();
-  const [reason, setReason] = useState("");
+  const [asking, setAsking] = useState(false);
   const { run, pending, error } = useOperatorAction();
   const preview = useSubmission();
 
@@ -242,7 +274,37 @@ function BulkComposer({ onPreviewed }: { onPreviewed: () => void }) {
     .map((value) => value.trim())
     .filter((value) => value.length > 0);
   const targetType = kind === "wallet_credit" ? "customer" : "subscription";
-  const ready = identifiers.length > 0 && reason.trim().length > 0 && !pending;
+  const ready = identifiers.length > 0 && !pending;
+  const presets = KIND_REASONS[kind as (typeof KINDS)[number]];
+
+  async function submit(reason: string) {
+    const ok = await run("/v1/panel/bulk", {
+      body: {
+        kind,
+        parameters:
+          kind === "subscription_extend"
+            ? { days: Number(days) || 0 }
+            : kind === "wallet_credit"
+              ? { amountMinor: Number(amountMinor) || 0, currency }
+              : kind === "subscription_add_traffic"
+                ? { trafficBytes: Math.round((Number(trafficGb) || 0) * 1024 ** 3) }
+                : kind === "subscription_set_devices"
+                  ? { deviceLimit: Number(devices) || 0 }
+                  : {},
+        targets: identifiers.map((id) => ({ id, type: targetType })),
+      },
+      method: "POST",
+      reason,
+      // Required by the API, and it is what makes a resubmitted form
+      // return the preview it already created rather than a second one.
+      submission: preview,
+    });
+    if (ok) {
+      setAsking(false);
+      setTargets("");
+      onPreviewed();
+    }
+  }
 
   return (
     <Card>
@@ -334,54 +396,23 @@ function BulkComposer({ onPreviewed }: { onPreviewed: () => void }) {
           </div>
         )}
 
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={reasonId}>{translate("composer.reason")}</Label>
-          <Input
-            id={reasonId}
-            onChange={(event) => setReason(event.target.value)}
-            placeholder={translate("composer.reasonHint")}
-            value={reason}
-          />
-        </div>
-
         <p className="text-muted-foreground text-xs">{translate("composer.previewNotice")}</p>
-        {error && <p className="text-danger-foreground text-sm">{error.message}</p>}
-        <Button
-          className="self-start"
-          disabled={!ready}
-          onClick={async () => {
-            const ok = await run("/v1/panel/bulk", {
-              body: {
-                kind,
-                parameters:
-                  kind === "subscription_extend"
-                    ? { days: Number(days) || 0 }
-                    : kind === "wallet_credit"
-                      ? { amountMinor: Number(amountMinor) || 0, currency }
-                      : kind === "subscription_add_traffic"
-                        ? { trafficBytes: Math.round((Number(trafficGb) || 0) * 1024 ** 3) }
-                        : kind === "subscription_set_devices"
-                          ? { deviceLimit: Number(devices) || 0 }
-                          : {},
-                targets: identifiers.map((id) => ({ id, type: targetType })),
-              },
-              method: "POST",
-              reason: reason.trim(),
-              // Required by the API, and it is what makes a resubmitted form
-              // return the preview it already created rather than a second one.
-              submission: preview,
-            });
-            if (ok) {
-              setTargets("");
-              setReason("");
-              onPreviewed();
-            }
-          }}
-          size="sm"
-        >
+        <Button className="self-start" disabled={!ready} onClick={() => setAsking(true)} size="sm">
           {translate("composer.preview")}
         </Button>
       </CardContent>
+
+      <ReasonDialog
+        confirmLabel={translate("composer.preview")}
+        description={translate("composer.reasonDescription", { count: identifiers.length })}
+        error={error?.message}
+        onConfirm={submit}
+        onOpenChange={setAsking}
+        open={asking}
+        pending={pending}
+        presets={(presets?.keys ?? []).map((key) => reasons(`${presets?.group}.${key}`))}
+        title={translate(`kind.${kind}`)}
+      />
     </Card>
   );
 }

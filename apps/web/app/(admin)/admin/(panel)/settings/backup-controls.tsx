@@ -12,10 +12,13 @@ import { useTranslations } from "next-intl";
 import { useId, useRef, useState } from "react";
 import useSWR from "swr";
 import { useEnumLabel } from "@/components/admin/enum-label";
+import { ReasonDialog } from "@/components/admin/reason-dialog";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 import { formatBytes, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
+
+const RESTORE_PHRASE = "RESTORE";
 
 type Backup = { id: string; kind: string; status: string; sizeBytes: number; createdAt: string };
 type BackupRequest = {
@@ -46,11 +49,12 @@ export function BackupControls() {
     fetcher,
     { refreshInterval: 5000 },
   );
-  const { run, pending } = useOperatorAction();
+  const presets = useTranslations("admin.reasons.backupRestore");
+  const { run, pending, error, reset } = useOperatorAction();
   const [restoring, setRestoring] = useState<Backup | null>(null);
   const [deleting, setDeleting] = useState<Backup | null>(null);
-  const [reason, setReason] = useState("");
-  const reasonId = useId();
+  const [typed, setTyped] = useState("");
+  const phraseId = useId();
   const fileInput = useRef<HTMLInputElement>(null);
   const fileId = useId();
 
@@ -58,7 +62,7 @@ export function BackupControls() {
     return null;
   }
 
-  async function request(action: string, backupId?: string, why = "") {
+  async function request(action: string, backupId?: string, why = ""): Promise<boolean> {
     if (
       await run("/v1/panel/system/backups/requests", {
         method: "POST",
@@ -68,7 +72,9 @@ export function BackupControls() {
     ) {
       toast.success(translate("requested"));
       await refreshRequests();
+      return true;
     }
+    return false;
   }
 
   async function upload(file: File) {
@@ -134,7 +140,15 @@ export function BackupControls() {
                   <TableCell>{label("backupKind", item.kind)}</TableCell>
                   <TableCell className="text-right">{formatBytes(item.sizeBytes)}</TableCell>
                   <TableCell className="flex justify-end gap-1">
-                    <Button onClick={() => setRestoring(item)} size="sm" variant="outline">
+                    <Button
+                      onClick={() => {
+                        reset();
+                        setTyped("");
+                        setRestoring(item);
+                      }}
+                      size="sm"
+                      variant="outline"
+                    >
                       {translate("restore")}
                     </Button>
                     <Button
@@ -167,37 +181,37 @@ export function BackupControls() {
             ))}
           </ul>
         ) : null}
-        <ConfirmDialog
-          cancelLabel={translate("cancel")}
+        {/* Typing the phrase stays: a restore replaces the live database, and
+            a mis-aimed click on a busy row must not be enough to start one. */}
+        <ReasonDialog
           confirmLabel={translate("restore")}
-          confirmationPhrase="RESTORE"
-          confirmationPrompt={translate("restorePrompt")}
-          description={
-            <span className="flex flex-col gap-2">
-              {translate("restoreWarning")}
-              <Label htmlFor={reasonId}>{translate("reason")}</Label>
-              <Input
-                id={reasonId}
-                onChange={(event) => setReason(event.target.value)}
-                value={reason}
-              />
-            </span>
-          }
+          description={translate("restoreWarning")}
           destructive
-          onConfirm={() => {
-            const target = restoring;
-            setRestoring(null);
-            if (target && reason.trim()) {
-              request("restore", target.id, reason.trim());
-              setReason("");
-            } else {
-              toast.error(translate("reasonRequired"));
+          disabled={typed.trim() !== RESTORE_PHRASE}
+          error={error?.message}
+          onConfirm={async (reason) => {
+            if (restoring && (await request("restore", restoring.id, reason))) {
+              setRestoring(null);
             }
           }}
           onOpenChange={(open) => !open && setRestoring(null)}
           open={restoring !== null}
+          pending={pending}
+          presets={["dataLoss", "failedMigration", "operatorMistake", "moving", "drill"].map(
+            (key) => presets(key),
+          )}
           title={translate("restoreTitle")}
-        />
+        >
+          <div className="flex flex-col gap-2">
+            <Label htmlFor={phraseId}>{translate("restorePrompt")}</Label>
+            <Input
+              autoComplete="off"
+              id={phraseId}
+              onChange={(event) => setTyped(event.target.value)}
+              value={typed}
+            />
+          </div>
+        </ReasonDialog>
         <ConfirmDialog
           cancelLabel={translate("cancel")}
           confirmLabel={translate("delete")}

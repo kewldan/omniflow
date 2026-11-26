@@ -3,7 +3,6 @@
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { Card } from "@omniflow/ui/card";
-import { Input } from "@omniflow/ui/input";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@omniflow/ui/tabs";
@@ -11,8 +10,10 @@ import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 
+import { BanDialog } from "@/components/admin/ban-dialog";
 import { CustomerChip } from "@/components/admin/customer-chip";
 import { useEnumLabel } from "@/components/admin/enum-label";
+import { ReasonDialog } from "@/components/admin/reason-dialog";
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
 import { Timestamp } from "@/components/intl/timestamp";
@@ -100,25 +101,16 @@ export function RiskReview() {
 
 function Matches({ active }: { active: boolean }) {
   const translate = useTranslations("admin.risk");
+  const presets = useTranslations("admin.reasons.blocklistAllow");
+  const banReasons = useTranslations("admin.moderation.ban.templates");
   const label = useEnumLabel();
   const { can } = useSession();
-  const [reason, setReason] = useState("");
   const { run, pending, error } = useOperatorAction();
+  const [allowing, setAllowing] = useState<BlocklistMatch | null>(null);
+  const [blocking, setBlocking] = useState<BlocklistMatch | null>(null);
 
   const key = active ? "/v1/panel/risk/matches?status=open" : null;
   const { data, isLoading, mutate } = useSWR<Page<BlocklistMatch>, ApiError>(key, fetcher);
-
-  async function decide(matchID: string, decision: "allowed" | "blocked") {
-    const ok = await run(`/v1/panel/risk/matches/${matchID}/decision`, {
-      body: { decision },
-      method: "POST",
-      reason: reason.trim(),
-    });
-    if (ok) {
-      setReason("");
-      await mutate();
-    }
-  }
 
   if (isLoading) {
     return <Skeleton className="h-32 w-full" />;
@@ -136,19 +128,6 @@ function Matches({ active }: { active: boolean }) {
 
   return (
     <div className="flex flex-col gap-3">
-      {can("risk.write") && (
-        <Card className="p-3">
-          {/* One reason box for the queue: an operator reviewing ten matches in
-              a row is recording one decision rationale, not ten. */}
-          <Input
-            onChange={(event) => setReason(event.target.value)}
-            placeholder={translate("reasonPlaceholder")}
-            value={reason}
-          />
-          {error && <p className="mt-2 text-danger-foreground text-xs">{error.message}</p>}
-        </Card>
-      )}
-
       <Card className="overflow-x-auto">
         <Table>
           <TableHeader>
@@ -176,22 +155,14 @@ function Matches({ active }: { active: boolean }) {
                 {can("risk.write") && (
                   <TableCell>
                     <div className="flex gap-2">
-                      <Button
-                        disabled={pending || reason.trim().length === 0}
-                        onClick={() => decide(match.id, "allowed")}
-                        size="sm"
-                        variant="outline"
-                      >
+                      <Button onClick={() => setAllowing(match)} size="sm" variant="outline">
                         {translate("actions.allow")}
                       </Button>
-                      <Button
-                        disabled={pending || reason.trim().length === 0}
-                        onClick={() => decide(match.id, "blocked")}
-                        size="sm"
-                        variant="destructive"
-                      >
-                        {translate("actions.block")}
-                      </Button>
+                      {can("customers.write") && (
+                        <Button onClick={() => setBlocking(match)} size="sm" variant="destructive">
+                          {translate("actions.block")}
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 )}
@@ -200,6 +171,53 @@ function Matches({ active }: { active: boolean }) {
           </TableBody>
         </Table>
       </Card>
+
+      <ReasonDialog
+        confirmLabel={translate("actions.allow")}
+        description={translate("allowDescription")}
+        error={error?.message}
+        onConfirm={async (reason) => {
+          if (
+            allowing &&
+            (await run(`/v1/panel/risk/matches/${allowing.id}/decision`, {
+              body: { decision: "allowed" },
+              method: "POST",
+              reason,
+            }))
+          ) {
+            setAllowing(null);
+            await mutate();
+          }
+        }}
+        onOpenChange={(open) => !open && setAllowing(null)}
+        open={allowing !== null}
+        pending={pending}
+        presets={["family", "falsePositive", "checked", "resolved"].map((key) => presets(key))}
+        title={translate("allowTitle")}
+      />
+      <BanDialog
+        defaultReason="rules"
+        description={translate("blockDescription")}
+        error={error?.message}
+        key={blocking?.id}
+        onOpenChange={(open) => !open && setBlocking(null)}
+        onSubmit={async (ban) => {
+          if (
+            blocking &&
+            (await run(`/v1/panel/risk/matches/${blocking.id}/decision`, {
+              body: { ban, decision: "blocked" },
+              method: "POST",
+              reason: `${blocking.sourceName}: ${banReasons(ban.reason)}`,
+            }))
+          ) {
+            setBlocking(null);
+            await mutate();
+          }
+        }}
+        open={blocking !== null}
+        pending={pending}
+        title={translate("blockTitle")}
+      />
     </div>
   );
 }

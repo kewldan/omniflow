@@ -8667,8 +8667,32 @@ export const DecidePanelBlocklistMatchBodyDecision = {
   blocked: "blocked",
 } as const;
 
+export type DecidePanelBlocklistMatchBodyBanReason =
+  (typeof DecidePanelBlocklistMatchBodyBanReason)[keyof typeof DecidePanelBlocklistMatchBodyBanReason];
+
+export const DecidePanelBlocklistMatchBodyBanReason = {
+  multiaccount: "multiaccount",
+  sharing: "sharing",
+  fraud: "fraud",
+  rules: "rules",
+  spam: "spam",
+  torrent: "torrent",
+} as const;
+
+export type DecidePanelBlocklistMatchBodyBan = {
+  reason: DecidePanelBlocklistMatchBodyBanReason;
+  notify: boolean;
+  /**
+   * @minimum 0
+   * @maximum 3650
+   */
+  days: number;
+  annulSubscriptions: boolean;
+};
+
 export type DecidePanelBlocklistMatchBody = {
   decision: DecidePanelBlocklistMatchBodyDecision;
+  ban?: DecidePanelBlocklistMatchBodyBan;
 };
 
 export type ScreenPanelBlocklistBody = {
@@ -30535,7 +30559,7 @@ export const getDecidePanelBlocklistMatchUrl = (matchID: string) => {
 };
 
 /**
- * Requires risk.write and a reason. Recording a decision does not suspend anybody: the adverse action is a separate customer mutation with its own permission and audit event.
+ * Requires risk.write and a reason. A decision alone suspends nobody. A `blocked` decision may carry `ban`, which also suspends the customer the way the customer page does (recorded as `blocklist:<reason>`), sends the reason's message when `notify` is set, ends after `days` (0 is no end), and with `annulSubscriptions` disables their running subscriptions through fulfillment; a ban needs customers.write, and subscriptions.write to annul.
  */
 export const decidePanelBlocklistMatch = async (
   matchID: string,

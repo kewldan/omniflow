@@ -69,6 +69,15 @@ A match records the customer, the source, and the kind of identifier that hit.
 An operator decides `allowed` or `blocked` with a mandatory reason, and their
 identity is recorded, so an adverse decision can never be anonymous.
 
+Under **Risk → Matches** each decision opens a dialog. **Allow** asks for one of
+the ready reasons (checked and not the listed person, the entry is wrong or out
+of date, nothing found by hand, settled through support) or the operator's own.
+**Block** (with `customers.write` too) opens the same ban dialog as a shared
+device: a reason from the ban templates, a ban length, whether the customer is
+told, and whether their subscriptions are annulled. The customer is suspended
+as from their own page, recorded as `blocklist:<reason>`, and a timed ban ends
+by itself.
+
 Re-detecting a match that has already been decided does not reopen it. The
 allowlist goes further: an allowlisted customer is skipped entirely by the
 check, which is what makes an operator's "this one is fine" survive the next

@@ -6,6 +6,7 @@ import { Input } from "@omniflow/ui/input";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 
+import { ReasonDialog } from "@/components/admin/reason-dialog";
 import { FormField } from "@/components/forms/field";
 import { type PlanSummary, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
@@ -77,24 +78,15 @@ export function PlanOptionsEditor({ onSaved, plan }: { onSaved: () => void; plan
  */
 function ApplySquads({ planId }: { planId: string }) {
   const translate = useTranslations("admin.catalog.planOptions");
-  const [reason, setReason] = useState("");
+  const presets = useTranslations("admin.reasons.planApplySquads");
+  const [confirming, setConfirming] = useState(false);
   const [applied, setApplied] = useState(false);
-  const { run, pending, error } = useOperatorAction();
+  const { run, pending, error, reset } = useOperatorAction();
 
   return (
     <div className="flex flex-col gap-2 border-border border-t pt-3">
       <p className="font-medium text-sm">{translate("applySquads")}</p>
       <p className="text-muted-foreground text-xs">{translate("applySquadsHint")}</p>
-      <FormField label={translate("applySquadsReason")}>
-        {(props) => (
-          <Input {...props} onChange={(event) => setReason(event.target.value)} value={reason} />
-        )}
-      </FormField>
-      {error && (
-        <p className="text-danger-foreground text-sm" role="alert">
-          {error.message}
-        </p>
-      )}
       {applied && (
         <p className="text-sm" role="status">
           {translate("applySquadsDone")}
@@ -102,22 +94,38 @@ function ApplySquads({ planId }: { planId: string }) {
       )}
       <Button
         className="self-start"
-        disabled={pending || reason.trim() === ""}
-        onClick={async () => {
-          const ok = await run(`/v1/panel/catalog/plans/${planId}/apply-squads`, {
-            method: "POST",
-            reason: reason.trim(),
-          });
-          if (ok) {
-            setApplied(true);
-            setReason("");
-          }
+        disabled={pending}
+        onClick={() => {
+          reset();
+          setConfirming(true);
         }}
         size="sm"
         variant="outline"
       >
         {translate("applySquadsAction")}
       </Button>
+      <ReasonDialog
+        confirmLabel={translate("applySquadsAction")}
+        description={translate("applySquadsHint")}
+        error={error?.message}
+        onConfirm={async (reason) => {
+          const ok = await run(`/v1/panel/catalog/plans/${planId}/apply-squads`, {
+            method: "POST",
+            reason,
+          });
+          if (ok) {
+            setConfirming(false);
+            setApplied(true);
+          }
+        }}
+        onOpenChange={setConfirming}
+        open={confirming}
+        pending={pending}
+        presets={["newServers", "retiredSquad", "blockedLocation", "fixedVersion", "load"].map(
+          (key) => presets(key),
+        )}
+        title={translate("applySquads")}
+      />
     </div>
   );
 }

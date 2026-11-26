@@ -3656,14 +3656,34 @@ paths:
       operationId: decidePanelBlocklistMatch
       tags: [panel]
       description: >-
-        Requires risk.write and a reason. Recording a decision does not suspend
-        anybody: the adverse action is a separate customer mutation with its own
-        permission and audit event.
+        Requires risk.write and a reason. A decision alone suspends nobody. A
+        `blocked` decision may carry `ban`, which also suspends the customer the
+        way the customer page does (recorded as `blocklist:<reason>`), sends the
+        reason's message when `notify` is set, ends after `days` (0 is no end),
+        and with `annulSubscriptions` disables their running subscriptions
+        through fulfillment; a ban needs customers.write, and subscriptions.write
+        to annul.
       parameters:
         - {in: path, name: matchID, required: true, schema: {type: string, format: uuid}}
         - {$ref: "#/components/parameters/CSRFToken"}
         - {$ref: "#/components/parameters/OperatorReason"}
-      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [decision], properties: {decision: {type: string, enum: [allowed, blocked]}}}}}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: {type: string, enum: [allowed, blocked]}
+                ban:
+                  type: object
+                  required: [reason, notify, days, annulSubscriptions]
+                  properties:
+                    reason: {type: string, enum: [multiaccount, sharing, fraud, rules, spam, torrent]}
+                    notify: {type: boolean}
+                    days: {type: integer, minimum: 0, maximum: 3650}
+                    annulSubscriptions: {type: boolean}
       responses:
         "200": {description: Decided, content: {application/json: {schema: {$ref: "#/components/schemas/PanelBlocklistMatch"}}}}
         "403": {$ref: "#/components/responses/Problem"}

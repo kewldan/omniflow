@@ -4,17 +4,16 @@ import { Avatar, AvatarFallback, AvatarImage } from "@omniflow/ui/avatar";
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omniflow/ui/card";
-import { Input } from "@omniflow/ui/input";
-import { Label } from "@omniflow/ui/label";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@omniflow/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@omniflow/ui/tabs";
 import { useSearchParams } from "next/navigation";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
-import { type ReactNode, useEffect, useId, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import useSWR, { mutate as revalidate } from "swr";
 import { rememberCustomer } from "@/components/admin/customer-picker";
 import { useEnumLabel, useLanguageLabel } from "@/components/admin/enum-label";
+import { ReasonDialog } from "@/components/admin/reason-dialog";
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
 import { CopyButton } from "@/components/copy-button";
@@ -267,14 +266,17 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
+const SUSPEND_REASONS = ["fraud", "sharing", "abuse", "multiaccount", "customerAsked"] as const;
+const REACTIVATE_REASONS = ["appeal", "mistake", "paymentConfirmed", "banServed"] as const;
+
 /**
- * Suspend or reactivate, with a mandatory reason.
+ * Suspend or reactivate, with a mandatory reason picked in a dialog.
  *
- * The API refuses a status change with no reason, so the button stays disabled
- * until one is typed rather than letting an operator discover the requirement
- * from an error. Suspension does not itself disable a Remnawave user: the
- * fulfillment pipeline observes customer state, and a panel click that bypassed
- * it would leave the two disagreeing.
+ * The API refuses a status change with no reason, so the button opens a dialog
+ * that will not confirm without one rather than letting an operator discover the
+ * requirement from an error. Suspension does not itself disable a Remnawave
+ * user: the fulfillment pipeline observes customer state, and a panel click that
+ * bypassed it would leave the two disagreeing.
  */
 function StatusAction({
   customerId,
@@ -286,43 +288,53 @@ function StatusAction({
   status: string;
 }) {
   const translate = useTranslations("admin.customers");
-  const reasonId = useId();
-  const [reason, setReason] = useState("");
+  const suspendReasons = useTranslations("admin.reasons.customerSuspend");
+  const reactivateReasons = useTranslations("admin.reasons.customerReactivate");
+  const [asking, setAsking] = useState(false);
   const { run, pending, error } = useOperatorAction();
 
   const next = status === "suspended" ? "active" : "suspended";
+  const label = translate(`actions.${next === "suspended" ? "suspend" : "reactivate"}`);
 
   return (
-    <Card className="w-full max-w-sm p-3">
-      <div className="flex flex-col gap-2">
-        <Label htmlFor={reasonId}>{translate("actions.reason")}</Label>
-        <Input
-          id={reasonId}
-          onChange={(event) => setReason(event.target.value)}
-          placeholder={translate("actions.reasonPlaceholder")}
-          value={reason}
-        />
-        <Button
-          disabled={pending || reason.trim().length === 0}
-          onClick={async () => {
-            const ok = await run(`/v1/panel/customers/${customerId}/status`, {
-              body: { status: next },
-              method: "POST",
-              reason: reason.trim(),
-            });
-            if (ok) {
-              setReason("");
-              onDone();
-            }
-          }}
-          size="sm"
-          variant={next === "suspended" ? "destructive" : "outline"}
-        >
-          {translate(`actions.${next === "suspended" ? "suspend" : "reactivate"}`)}
-        </Button>
-        {error && <p className="text-danger-foreground text-xs">{error.message}</p>}
-      </div>
-    </Card>
+    <>
+      <Button
+        disabled={pending}
+        onClick={() => setAsking(true)}
+        size="sm"
+        variant={next === "suspended" ? "destructive" : "outline"}
+      >
+        {label}
+      </Button>
+      <ReasonDialog
+        confirmLabel={label}
+        description={translate(
+          next === "suspended" ? "actions.suspendDescription" : "actions.reactivateDescription",
+        )}
+        destructive={next === "suspended"}
+        error={error?.message}
+        onConfirm={async (reason) => {
+          const ok = await run(`/v1/panel/customers/${customerId}/status`, {
+            body: { status: next },
+            method: "POST",
+            reason,
+          });
+          if (ok) {
+            setAsking(false);
+            onDone();
+          }
+        }}
+        onOpenChange={setAsking}
+        open={asking}
+        pending={pending}
+        presets={
+          next === "suspended"
+            ? SUSPEND_REASONS.map((key) => suspendReasons(key))
+            : REACTIVATE_REASONS.map((key) => reactivateReasons(key))
+        }
+        title={translate(next === "suspended" ? "actions.suspendTitle" : "actions.reactivateTitle")}
+      />
+    </>
   );
 }
 

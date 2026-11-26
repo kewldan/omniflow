@@ -14,6 +14,7 @@ import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
 import { useEnumLabel } from "@/components/admin/enum-label";
+import { ReasonDialog } from "@/components/admin/reason-dialog";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import { type Listing, type PlanSummary, useOperatorAction } from "@/lib/operations";
@@ -26,11 +27,19 @@ type Controls = {
 };
 
 const RESTRICTION_KINDS = ["topup", "purchase", "support"] as const;
+type RestrictionKind = (typeof RESTRICTION_KINDS)[number];
+
+/** The ready reasons for each restriction, under admin.reasons.restrict.<kind>. */
+const RESTRICTION_REASONS: Record<RestrictionKind, readonly string[]> = {
+  topup: ["chargebacks", "stolenCards", "launderingReview", "customerAsked"],
+  purchase: ["refundAbuse", "promoAbuse", "paymentReview", "customerAsked"],
+  support: ["abusive", "flood", "duplicates"],
+};
 
 /**
  * The operator controls on the customer card: give days, a trial, or another
  * plan without a charge; buy a plan with the customer's own balance; stop top-
- * ups or purchases with a reason; switch auto-renew; reset the trial; and the
+ * ups or purchases with a reason picked in a dialog; switch auto-renew; reset the trial; and the
  * irreversible actions, anonymise and delete. Every button is behind the
  * permission the API checks, and every action is audited there.
  */
@@ -44,16 +53,23 @@ export function CustomerControlsPanel({ customerId }: { customerId: string }) {
     fetcher,
   );
   const { run, pending, error } = useOperatorAction();
-  const ids = { mode: useId(), plan: useId(), days: useId(), reason: useId() };
+  const restrictionReasons = useTranslations("admin.reasons.restrict");
+  const ids = { mode: useId(), plan: useId(), days: useId(), restriction: useId() };
   const [mode, setMode] = useState("days");
   const [planId, setPlanId] = useState("");
   const [days, setDays] = useState("30");
-  const [reasons, setReasons] = useState<Record<string, string>>({});
+  const [restricting, setRestricting] = useState<RestrictionKind | null>(null);
   const [confirm, setConfirm] = useState<"anonymize" | "deletion" | null>(null);
   const livePlans = (plans?.items ?? []).filter((plan) => !plan.archivedAt);
 
-  async function act(path: string, body: unknown, method = "POST", done = translate("done")) {
-    if (await run(`${base}${path}`, { method, body, reason: "customer card" })) {
+  async function act(
+    path: string,
+    body: unknown,
+    method = "POST",
+    done = translate("done"),
+    reason = "customer card",
+  ) {
+    if (await run(`${base}${path}`, { method, body, reason })) {
       toast.success(done);
       await mutate();
       return true;
@@ -164,27 +180,21 @@ export function CustomerControlsPanel({ customerId }: { customerId: string }) {
           {RESTRICTION_KINDS.map((kind) => {
             const current = data?.restrictions.find((item) => item.kind === kind);
             return (
-              <div className="flex flex-wrap items-end gap-2" key={kind}>
+              <div className="flex flex-wrap items-center gap-2" key={kind}>
                 <div className="flex min-w-48 flex-1 flex-col gap-1">
-                  <Label htmlFor={`${ids.reason}-${kind}`}>
+                  <span className="font-medium text-sm" id={`${ids.restriction}-${kind}`}>
                     {translate(`restrictions.${kind}`)}
-                  </Label>
-                  {current ? (
+                  </span>
+                  {current && (
                     <span className="text-sm">
                       <Badge variant="warning">{translate("restrictions.active")}</Badge>{" "}
                       {current.reason}
                     </span>
-                  ) : (
-                    <Input
-                      id={`${ids.reason}-${kind}`}
-                      onChange={(event) => setReasons({ ...reasons, [kind]: event.target.value })}
-                      placeholder={translate("restrictions.reason")}
-                      value={reasons[kind] ?? ""}
-                    />
                   )}
                 </div>
                 {current ? (
                   <Button
+                    aria-describedby={`${ids.restriction}-${kind}`}
                     disabled={pending}
                     onClick={() =>
                       act(`/restrictions/${kind}`, { restricted: false, reason: "" }, "PUT")
@@ -196,14 +206,9 @@ export function CustomerControlsPanel({ customerId }: { customerId: string }) {
                   </Button>
                 ) : (
                   <Button
-                    disabled={pending || !(reasons[kind] ?? "").trim()}
-                    onClick={() =>
-                      act(
-                        `/restrictions/${kind}`,
-                        { restricted: true, reason: reasons[kind] },
-                        "PUT",
-                      )
-                    }
+                    aria-describedby={`${ids.restriction}-${kind}`}
+                    disabled={pending}
+                    onClick={() => setRestricting(kind)}
                     size="sm"
                   >
                     {translate("restrictions.set")}
@@ -250,6 +255,34 @@ export function CustomerControlsPanel({ customerId }: { customerId: string }) {
           {error.message}
         </p>
       )}
+
+      <ReasonDialog
+        confirmLabel={translate("restrictions.set")}
+        description={translate("restrictions.description")}
+        error={error?.message}
+        onConfirm={async (reason) => {
+          const kind = restricting;
+          if (
+            kind &&
+            (await act(
+              `/restrictions/${kind}`,
+              { restricted: true, reason },
+              "PUT",
+              translate("done"),
+              reason,
+            ))
+          ) {
+            setRestricting(null);
+          }
+        }}
+        onOpenChange={(open) => !open && setRestricting(null)}
+        open={restricting !== null}
+        pending={pending}
+        presets={(restricting ? RESTRICTION_REASONS[restricting] : []).map((key) =>
+          restrictionReasons(`${restricting}.${key}`),
+        )}
+        title={restricting ? translate(`restrictions.${restricting}`) : ""}
+      />
 
       <ConfirmDialog
         cancelLabel={translate("cancel")}

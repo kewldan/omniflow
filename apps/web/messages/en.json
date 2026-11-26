@@ -908,8 +908,6 @@
         "activity": "Activity"
       },
       "actions": {
-        "reason": "Reason",
-        "reasonPlaceholder": "Why this change is being made",
         "suspend": "Suspend",
         "reactivate": "Reactivate",
         "enable": "Enable",
@@ -930,14 +928,14 @@
           "description": "A positive amount credits, a negative one debits. A debit cannot exceed the balance.",
           "amount": "Amount",
           "currency": "Currency",
-          "reason": "Reason (shown to the customer if notified)",
           "notify": "Tell the customer in Telegram",
           "submit": "Apply",
           "done": "Balance adjusted",
           "insufficient": "The balance is lower than that.",
           "failed": "The balance could not be adjusted.",
           "asPayment": "Record as a payment",
-          "asPaymentHint": "A paid top-up through the manual method: the top-up limits apply, a saved cart is bought from it, and it counts as the customer's top-up. Credits only."
+          "asPaymentHint": "A paid top-up through the manual method: the top-up limits apply, a saved cart is bought from it, and it counts as the customer's top-up. Credits only.",
+          "reasonDescription": "Amount: {amount}. The reason is recorded in the audit log and, if the customer is notified, included in their message."
         },
         "message": {
           "title": "Message the customer",
@@ -964,9 +962,11 @@
         "trafficGb": "Traffic allowance",
         "gb": "GB",
         "limitsHint": "Leave a field empty to keep it as it is.",
-        "reasonTitle": "Reason",
-        "cancel": "Cancel",
-        "confirm": "Apply"
+        "confirm": "Apply",
+        "suspendTitle": "Suspend this customer?",
+        "suspendDescription": "Their access ends through the fulfillment pipeline. The reason is recorded in the audit log.",
+        "reactivateTitle": "Reactivate this customer?",
+        "reactivateDescription": "Their access returns through the fulfillment pipeline. The reason is recorded in the audit log."
       },
       "empty": {
         "subscriptions": "No subscriptions",
@@ -1008,7 +1008,6 @@
         "unknown": "Unknown",
         "unavailable": "Devices are unavailable — Remnawave did not answer.",
         "remove": "Remove",
-        "reasonPlaceholder": "Reason for removing a device (required)",
         "sharing": {
           "possible": "Possibly shared ({count} devices active in a day):",
           "likely": "Likely shared ({count} devices active in a day):",
@@ -1017,7 +1016,8 @@
             "many_platforms": "four or more platforms",
             "many_models_of_one_platform": "three or more phone models of one platform"
           }
-        }
+        },
+        "removeTitle": "Remove this device?"
       },
       "referrals": {
         "code": "Referral code",
@@ -1121,7 +1121,6 @@
           "description": "Stop one kind of spending without suspending the account. The customer is told the payment is unavailable and pointed at support; the reason stays here.",
           "topup": "No wallet top-ups",
           "purchase": "No purchases",
-          "reason": "Reason",
           "active": "Active",
           "set": "Restrict",
           "lift": "Lift",
@@ -1240,12 +1239,10 @@
           "squads": "Squads",
           "status": "Status"
         },
-        "reason": "Reason for the sync (required)",
         "apply": "Apply Omniflow's state",
         "confirmTitle": "Push Omniflow's state to Remnawave?",
         "confirmDescription": "The expiry, limits, squads and status in the Omniflow column are queued for this subscription's Remnawave user through the fulfillment pipeline. Values changed directly in the Remnawave panel are overwritten.",
         "confirm": "Sync",
-        "cancel": "Cancel",
         "queued": "Sync queued. The worker applies it shortly; check again to see the result."
       },
       "legacy": {
@@ -1294,11 +1291,9 @@
       "into": "Account that survives",
       "intoPlaceholder": "Customer identifier",
       "intoHint": "Find the account this one should be merged into: by ID, Telegram ID, @username, or e-mail. The account you are looking at is the one absorbed.",
-      "reason": "Why — recorded in the audit trail and both histories",
       "absorbed": "Absorbed",
       "survives": "Survives",
       "merge": "Merge accounts",
-      "cancel": "Cancel",
       "done": "Accounts merged",
       "blocked": "These accounts cannot be merged",
       "previewFailed": "The preview could not be read",
@@ -1401,8 +1396,6 @@
         "refundTitle": "Issue a refund",
         "refundable": "Up to {amount} is still refundable.",
         "refundAmount": "Amount",
-        "refundReason": "Reason",
-        "refundReasonPlaceholder": "Why this refund is being issued",
         "minorUnitsHint": "The amount is an integer in the currency's minor unit. The payment service executes the refund against whatever the provider actually supports.",
         "issueRefund": "Issue refund"
       },
@@ -1764,7 +1757,6 @@
       "title": "Risk",
       "description": "Blocklist matches, anomaly signals, and accounts that share a device, with the evidence that produced them.",
       "noAutoAction": "Nothing on this page changes a customer on its own. A decision records a verdict; a ban is an operator's choice with a reason and goes through the same suspension as the customer's own page.",
-      "reasonPlaceholder": "Reason for the decision (required)",
       "observed": "Observed {observed} against a threshold of {threshold}.",
       "disabled": "Disabled",
       "tabs": {
@@ -1872,20 +1864,14 @@
           "open": "Ban",
           "title": "Ban accounts on this device",
           "description": "The chosen accounts are suspended with this reason. The first account seen on the device is left out to begin with; change that if the evidence says otherwise.",
-          "accounts": "Accounts",
           "firstSeen": "first on the device",
-          "reason": "Reason",
-          "duration": "Ban length",
-          "forever": "No end",
-          "days": "{count, plural, one {# day} other {# days}}",
-          "notify": "Send the customer the reason as a message",
-          "annul": "Annul subscriptions",
-          "annulHint": "Their running subscriptions are disabled in Remnawave and stay disabled after the ban ends.",
-          "annulForbidden": "Needs the subscriptions.write permission.",
-          "submit": "{count, plural, =0 {Pick an account} one {Ban # account} other {Ban # accounts}}",
           "done": "{count, plural, one {# account banned} other {# accounts banned}}"
         }
-      }
+      },
+      "allowTitle": "Allow this customer",
+      "allowDescription": "The match is closed as allowed and the customer stays as they are. Later refreshes of the list do not reopen it.",
+      "blockTitle": "Block this customer",
+      "blockDescription": "The match is closed as blocked and the customer is banned with this reason."
     },
     "system": {
       "title": "System",
@@ -1960,7 +1946,6 @@
         "maintenanceOff": "Inactive",
         "maintenanceToggle": "Maintenance mode active",
         "reason": "Reason",
-        "reasonPlaceholder": "Why maintenance is being engaged or cleared",
         "noticeRu": "Customer notice (Russian)",
         "noticeEn": "Customer notice (English)",
         "noticesRequired": "Both languages are required. A customer who reads only one and gets a blank screen is worse served than one who gets a notice they can read.",
@@ -1970,7 +1955,12 @@
           "remnawave": "Remnawave unavailable",
           "database": "Database unavailable",
           "valkey": "Valkey unavailable"
-        }
+        },
+        "maintenanceOnTitle": "Turn maintenance mode on?",
+        "maintenanceOffTitle": "Turn maintenance mode off?",
+        "maintenanceOnAction": "Turn on",
+        "maintenanceOffAction": "Turn off",
+        "maintenanceOffDescription": "New purchases are accepted again."
       },
       "errors": {
         "title": "Error log",
@@ -2193,7 +2183,6 @@
         "save": "Save plan settings",
         "applySquads": "Move live subscriptions onto the newest squads",
         "applySquadsHint": "A new version only reaches new purchases. This swaps the plan's own squads on every live subscription to the newest version's, keeping what customers chose or added.",
-        "applySquadsReason": "Reason",
         "applySquadsAction": "Apply squads",
         "applySquadsDone": "Queued. Each subscription is updated in Remnawave within a minute."
       },
@@ -2317,9 +2306,11 @@
         "price": "Price for choosing it",
         "priceHint": "Added when a customer chooses this server, for the plan version's own duration. Empty is free.",
         "trialEligible": "Trials may use this server",
-        "reason": "Reason",
         "save": "Save",
-        "remove": "Remove from the catalogue"
+        "remove": "Remove from the catalogue",
+        "saveTitle": "Save this server in the catalogue?",
+        "removeTitle": "Remove this server from the catalogue?",
+        "removeDescription": "Omniflow forgets the name, price, and limits it set for this squad. The squad itself stays in Remnawave as it is."
       },
       "cooldown": "1 per {days} d"
     },
@@ -2336,7 +2327,6 @@
       "revoked": "Unredeemed codes revoked",
       "revokeTitle": "Revoke the remainder of {reference}?",
       "revokeWarning": "This kills the {count} codes nobody has redeemed. Codes already redeemed are untouched: somebody is using the subscription each one produced, and taking that back is a different decision.",
-      "revokeReason": "Why — recorded in the audit trail",
       "generated": {
         "title": "{count} codes generated",
         "onlyCopy": "This is the only copy. Only their SHA-256 is stored, so nothing in the panel or the database can show them again. Download or copy them before dismissing this.",
@@ -2481,11 +2471,14 @@
         "enabled": "Enabled"
       },
       "reviewExplainer": "The gateway honours no idempotency key, so a lost answer means the goods may or may not have been sent. Check with the provider, then record what you found — confirming delivery completes the order, and refunding credits the customer's wallet.",
-      "reviewReasonPlaceholder": "What you confirmed with the provider (required)",
       "review": {
         "attempts": "Attempts",
         "confirmDelivered": "Confirm delivered",
-        "refund": "Refund customer"
+        "refund": "Refund customer",
+        "deliveredTitle": "Confirm the delivery?",
+        "deliveredDescription": "The order for @{recipient} ({amount}) is completed and the customer is not refunded.",
+        "refundTitle": "Refund the customer?",
+        "refundDescription": "{amount} goes back to the customer's wallet. Refund only if the provider confirmed @{recipient} did not receive the goods."
       },
       "customAmount": "{min}–{max}, chosen by the customer",
       "stars": {
@@ -2542,8 +2535,6 @@
           "retry": "Retry",
           "refund": "Refund",
           "complete": "Delivered",
-          "cancel": "Cancel",
-          "reason": "Reason (required, kept in the audit log)",
           "txHash": "Transaction hash (optional)",
           "retryTitle": "Send the order to Fragment again?",
           "retryExplainer": "Only after checking the wallet's outgoing transfers: if this order's payment did leave, retrying pays for the same Stars a second time.",
@@ -2604,7 +2595,6 @@
       "title": "Gifts",
       "description": "Subscriptions, add-ons, and wallet credit bought for somebody else.",
       "all": "All",
-      "reasonPlaceholder": "Reason for revoking (required)",
       "columns": {
         "createdAt": "Bought",
         "kind": "Gift",
@@ -2630,7 +2620,11 @@
       "actions": {
         "revoke": "Revoke",
         "refund": "Mark refunded"
-      }
+      },
+      "revokeTitle": "Revoke this gift?",
+      "revokeDescription": "Gift …{hint} can no longer be claimed. Revoking does not return the sender's money: mark the gift refunded once the refund is issued.",
+      "refundTitle": "Mark this gift refunded?",
+      "refundDescription": "Records that the sender of gift …{hint} got their money back. The refund itself is issued on the original order."
     },
     "settings": {
       "title": "Commerce settings",
@@ -2685,8 +2679,6 @@
         "webhookHint": "Secret used to verify inbound callbacks",
         "keepStored": "Leave blank to keep the stored secret",
         "enabledLabel": "Offer this provider at checkout",
-        "reason": "Reason",
-        "reasonPlaceholder": "Why this configuration is changing",
         "secretNotice": "Stored secrets are sealed with the deployment's data encryption key and are never sent back to the browser. Leaving a field blank keeps what is stored.",
         "save": "Save provider",
         "test": "Test connection",
@@ -2700,10 +2692,13 @@
         },
         "recurringUnsupportedLong": "This integration has no way to bind a payment method, so automatic charging cannot be enabled for it.",
         "recurringExplains": "Whether a merchant account may charge a saved method is granted by the provider and cannot be discovered. Record the outcome of your own test; automatic charging cannot be enabled without a passing one.",
-        "recurringReasonPlaceholder": "What was tested, and with which merchant account",
         "recurringEnable": "Passed — enable charging",
         "recurringPassOnly": "Passed — record only",
-        "recurringFail": "Failed"
+        "recurringFail": "Failed",
+        "saveTitle": "Save the provider settings?",
+        "recurringEnableTitle": "Record a passing test and enable automatic charging?",
+        "recurringPassOnlyTitle": "Record a passing test without enabling charging?",
+        "recurringFailTitle": "Record a failed test?"
       },
       "subscriptionPolicy": {
         "title": "Plan changes and resets",
@@ -2793,8 +2788,8 @@
           "vk": "VK ID",
           "oidc": "OIDC"
         },
-        "reason": "Reason",
-        "save": "Save"
+        "save": "Save",
+        "saveTitle": "Save this payment button?"
       },
       "paymentGuidance": {
         "title": "Manual payments",
@@ -2802,8 +2797,8 @@
         "instructionsRu": "Transfer instructions (Russian)",
         "instructionsEn": "Transfer instructions (English)",
         "supportTopUp": "Offer top-up through support",
-        "reason": "Reason",
-        "save": "Save"
+        "save": "Save",
+        "saveTitle": "Save the manual payment settings?"
       }
     },
     "nav": {
@@ -2817,7 +2812,6 @@
       "close": "Close",
       "resetFilters": "Reset",
       "revoke": "Revoke",
-      "revokeReason": "Reason",
       "columns": {
         "title": "Offer",
         "customer": "Customer",
@@ -2852,12 +2846,12 @@
         "hour": "Hour",
         "minute": "Minute",
         "expiresAt": "Valid until",
-        "reason": "Reason",
-        "reasonHint": "Why this customer is being offered this",
         "singleUse": "Both languages are required: an offer with copy in one language renders as a blank card for half your customers. The offer is redeemable once and is resolved the moment it is used, dismissed, or expires.",
         "submit": "Create offer",
         "notifyEmail": "Also send by e-mail",
-        "notifyEmailHint": "Sent only to a verified address whose owner agreed to marketing e-mail, within the shared frequency limit."
+        "notifyEmailHint": "Sent only to a verified address whose owner agreed to marketing e-mail, within the shared frequency limit.",
+        "confirmTitle": "Create the offer?",
+        "confirmDescription": "The customer will see the offer from its start date. Say why they are getting it — the reason is kept in the audit log."
       },
       "preview": {
         "title": "What the customer will see",
@@ -2891,7 +2885,9 @@
         "save": "Save template",
         "saved": "Template saved",
         "invalid": "Not saved: check the code, the hours, and the bonus."
-      }
+      },
+      "revokeTitle": "Revoke this offer?",
+      "revokeDescription": "The customer will no longer see the offer and cannot redeem it."
     },
     "bulk": {
       "create": "New bulk action",
@@ -2955,12 +2951,11 @@
         "days": "Days to add",
         "amount": "Amount (minor units)",
         "currency": "Currency",
-        "reason": "Reason",
-        "reasonHint": "Why this is being applied to all of them",
         "previewNotice": "Each target is applied and recorded one at a time, so a run that half succeeds says which half. Every change goes through the same fulfillment pipeline a single change uses.",
         "preview": "Preview",
         "trafficGb": "Traffic to add (GB)",
-        "devices": "Device limit"
+        "devices": "Device limit",
+        "reasonDescription": "{count, plural, one {# identifier} other {# identifiers}}. The preview records the action and its targets with this reason; nothing is applied until you start it."
       }
     },
     "imports": {
@@ -4655,7 +4650,6 @@
     "moderation": {
       "title": "Moderation",
       "description": "Ban a list of customers at once, and find customers who blocked the bot.",
-      "cancel": "Cancel",
       "failed": "The ban could not be applied",
       "banned": "Ban applied",
       "blockers": {
@@ -4671,7 +4665,6 @@
         "title": "Ban by list",
         "list": "Customer IDs or Telegram IDs, one per line or separated by commas",
         "count": "{count} identifiers",
-        "reason": "Reason (recorded on each customer)",
         "template": "Message to send",
         "noMessage": "Do not notify",
         "message": "Own message (replaces the template)",
@@ -4729,8 +4722,6 @@
       "restoreTitle": "Restore this backup?",
       "restoreWarning": "The live database is replaced by this backup. Everything written since it was taken is lost.",
       "restorePrompt": "Type RESTORE to confirm",
-      "reason": "Reason",
-      "reasonRequired": "A restore needs a reason",
       "actions": {
         "create": "Backup",
         "restore": "Restore",
@@ -5867,6 +5858,324 @@
           "name": "No QUIC",
           "caption": "Turns the QUIC protocol off. Helps when video stutters or stalls."
         }
+      }
+    },
+    "reasonDialog": {
+      "reason": "Reason",
+      "other": "Another reason",
+      "otherPlaceholder": "Write the reason a reviewer will read in the audit log"
+    },
+    "banDialog": {
+      "accounts": "Accounts",
+      "reason": "Reason",
+      "duration": "Ban length",
+      "forever": "No end",
+      "days": "{count, plural, one {# day} other {# days}}",
+      "notify": "Send the customer the reason as a message",
+      "annul": "Annul subscriptions",
+      "annulHint": "Their running subscriptions are disabled in Remnawave and stay disabled after the ban ends.",
+      "annulForbidden": "Needs the subscriptions.write permission.",
+      "submit": "{count, plural, =0 {Pick an account} one {Ban # account} other {Ban # accounts}}"
+    },
+    "reasons": {
+      "blocklistAllow": {
+        "family": "Checked: not the person on the list",
+        "falsePositive": "The list entry is a mistake or out of date",
+        "checked": "Checked the account by hand, nothing found",
+        "resolved": "Settled with the customer through support"
+      },
+      "codeBatchRevoke": {
+        "leaked": "The code list leaked publicly",
+        "resold": "The distributor resells the codes against the agreement",
+        "unpaid": "The distributor did not pay for the batch",
+        "dealEnded": "The agreement with the distributor has ended",
+        "mistake": "The batch was generated with the wrong plan or price"
+      },
+      "planApplySquads": {
+        "newServers": "Moving customers onto the servers of the newest version",
+        "retiredSquad": "An old squad is being retired",
+        "blockedLocation": "A location is blocked and customers need the working ones",
+        "fixedVersion": "Fixed a mistake in the plan's squads",
+        "load": "Spreading the load across servers"
+      },
+      "serverSave": {
+        "newServer": "Added a new server to the catalogue",
+        "price": "Changed the price of choosing this server",
+        "capacity": "Matched the customer limit to the server's capacity",
+        "trials": "Changed whether trials may use this server",
+        "naming": "Corrected the server's name or country"
+      },
+      "serverRemove": {
+        "decommissioned": "The server was taken out of service",
+        "blocked": "The location is blocked for customers",
+        "notSold": "This server is no longer sold separately",
+        "duplicate": "Duplicate catalogue entry"
+      },
+      "backupRestore": {
+        "dataLoss": "Data was damaged or lost and has to be brought back",
+        "failedMigration": "Rolling back a failed migration",
+        "operatorMistake": "Undoing a mass change made by mistake",
+        "moving": "Moving to a new server",
+        "drill": "Planned restore drill"
+      },
+      "paymentMethodSave": {
+        "hideFailing": "Hid a button whose payment method is failing",
+        "limits": "Changed the amount limits to match the provider's",
+        "texts": "Updated the button's name or description",
+        "audience": "Changed who is shown this button",
+        "order": "Changed the order of the buttons"
+      },
+      "paymentGuidanceSave": {
+        "details": "Updated the transfer details",
+        "clarified": "Made the instructions clearer for customers",
+        "supportTopUp": "Changed whether top-up through support is offered",
+        "pause": "Manual payments are paused for now"
+      },
+      "providerSave": {
+        "rotatedKey": "Rotated the provider's API key",
+        "liveMode": "Switched the provider from test to live mode",
+        "webhook": "Fixed a misconfigured webhook",
+        "pause": "Turned the provider off while it has problems",
+        "merchant": "Connected a new merchant account"
+      },
+      "recurringPassed": {
+        "confirmed": "The provider confirmed recurring permission for this merchant account",
+        "testCharge": "A repeat test charge on a saved card went through",
+        "contract": "Recurring payments are part of the contract with the provider"
+      },
+      "recurringFailed": {
+        "refused": "The provider declined the repeat test charge",
+        "notGranted": "The provider has not granted recurring permission yet",
+        "withdrawn": "The provider withdrew recurring permission"
+      },
+      "maintenanceOn": {
+        "planned": "Planned maintenance",
+        "remnawaveDown": "The Remnawave panel is down",
+        "paymentsDown": "A payment provider is down",
+        "moving": "Moving to new servers",
+        "incident": "Investigating an incident"
+      },
+      "maintenanceOff": {
+        "finished": "Maintenance is finished",
+        "remnawaveBack": "The Remnawave panel is back up",
+        "paymentsBack": "The payment provider has recovered",
+        "mistake": "Maintenance mode was turned on by mistake"
+      },
+      "walletCredit": {
+        "downtime": "Compensation for service downtime",
+        "outsideBot": "Top-up paid outside the bot",
+        "failedPurchase": "Refund for a purchase that was not delivered",
+        "promo": "Bonus from a promotion or giveaway"
+      },
+      "walletDebit": {
+        "creditedTwice": "Correction of a payment credited twice",
+        "mistakenCredit": "Reversal of a credit made by mistake",
+        "refundedToCard": "Balance refunded to the customer's card",
+        "chargeback": "Top-up charged back by the bank"
+      },
+      "restrict": {
+        "topup": {
+          "chargebacks": "Repeated chargebacks on top-ups",
+          "stolenCards": "Top-ups from cards reported as stolen",
+          "launderingReview": "Wallet under review for suspicious transfers",
+          "customerAsked": "The customer asked to block top-ups"
+        },
+        "purchase": {
+          "refundAbuse": "Repeated purchases followed by refund requests",
+          "promoAbuse": "Abuse of trials, promo codes or discounts",
+          "paymentReview": "Payments under review after a dispute",
+          "customerAsked": "The customer asked to block purchases"
+        },
+        "support": {
+          "abusive": "Insults or threats towards support",
+          "flood": "Flooding support with spam or repeated messages",
+          "duplicates": "Keeps reopening an issue already resolved"
+        }
+      },
+      "customerSuspend": {
+        "fraud": "Payment fraud or chargeback",
+        "sharing": "Subscription shared or resold beyond the plan",
+        "abuse": "Torrents, spam or attacks through the VPN",
+        "multiaccount": "Several accounts to take trials or bonuses again",
+        "customerAsked": "The customer asked to close the account"
+      },
+      "customerReactivate": {
+        "appeal": "Appeal accepted after review",
+        "mistake": "Suspended by mistake",
+        "paymentConfirmed": "Dispute settled, payment confirmed",
+        "banServed": "The suspension period is over"
+      },
+      "merge": {
+        "webSignIn": "Same person: signed in on the web with another provider",
+        "newTelegram": "Same person: moved to a new Telegram account",
+        "duplicateSupport": "Duplicate confirmed by support with the customer",
+        "customerAsked": "The customer asked to join their accounts"
+      },
+      "subscriptionEnable": {
+        "paidOutside": "Payment received outside the bot",
+        "disabledByMistake": "Disabled by mistake",
+        "reviewCleared": "Review finished, no violations found",
+        "appealAccepted": "Appeal accepted after a block"
+      },
+      "subscriptionDisable": {
+        "refunded": "Payment refunded or charged back",
+        "sharing": "Used beyond the device limit",
+        "abuse": "Torrents, spam or attacks through this subscription",
+        "customerAsked": "The customer asked to stop the subscription"
+      },
+      "resetTraffic": {
+        "downtime": "Compensation for downtime or slow servers",
+        "clientBug": "Traffic used up by a client app fault",
+        "paidOutside": "Extra traffic paid outside the bot",
+        "supportApproved": "The customer's request, approved by support"
+      },
+      "subscriptionPause": {
+        "customerAway": "The customer asked to freeze it while away",
+        "paymentDispute": "Payment under dispute",
+        "review": "Suspicious activity under review"
+      },
+      "subscriptionResume": {
+        "customerBack": "The customer is back and asked to resume",
+        "disputeResolved": "Payment dispute resolved",
+        "reviewCleared": "Review finished, no violations found"
+      },
+      "subscriptionExtend": {
+        "downtime": "Compensation for downtime",
+        "paidOutside": "Payment received outside the bot",
+        "notApplied": "Paid, but the plan was not applied",
+        "giveaway": "Promotion or giveaway prize",
+        "wrongExpiry": "Correction of a wrong expiry date"
+      },
+      "subscriptionLimits": {
+        "paidOutside": "Extra devices or traffic paid outside the bot",
+        "wrongLimits": "Plan limits were applied incorrectly",
+        "goodwillTraffic": "Extra traffic as compensation",
+        "sharingLimit": "Device limit lowered after sharing"
+      },
+      "subscriptionSquads": {
+        "blockedServer": "Moved off a blocked or overloaded server",
+        "wrongSquads": "Plan servers were applied incorrectly",
+        "locationApproved": "Location outside the plan, approved by support",
+        "testing": "Testing a new server group with the customer"
+      },
+      "squadAccessGrant": {
+        "blockedWorkaround": "Workaround while their servers are blocked",
+        "tryLocation": "Trying another location before buying",
+        "troubleshooting": "Support is troubleshooting a connection problem"
+      },
+      "squadAccessRevoke": {
+        "noLongerNeeded": "Workaround no longer needed",
+        "mistake": "Granted by mistake",
+        "misuse": "The extra servers were misused"
+      },
+      "deviceRemove": {
+        "replaced": "The customer replaced or lost this device",
+        "freeSlot": "Freeing a slot for a new device at the customer's request",
+        "unknownDevice": "The customer does not recognise this device",
+        "stale": "The device has not been used for a long time"
+      },
+      "subscriptionSync": {
+        "cannotConnect": "The customer cannot connect and Remnawave differs from Omniflow",
+        "editedInRemnawave": "The Remnawave user was edited by hand in its panel",
+        "fulfillmentFailed": "A failed fulfillment left Remnawave out of date",
+        "missingUser": "The Remnawave user is missing and has to be recreated"
+      },
+      "bulkExtend": {
+        "outage": "Compensation for a server outage",
+        "regionBlocks": "Compensation for blocks in the customers' region",
+        "promotion": "Promotion for active subscribers",
+        "fulfillmentFailure": "Correction after a fulfillment failure"
+      },
+      "bulkEnable": {
+        "mistakenDisable": "Undoing a mistaken mass disable",
+        "paymentResolved": "Payment issue resolved for these customers",
+        "migrationDone": "Server migration finished"
+      },
+      "bulkDisable": {
+        "chargebacks": "Payments refunded or charged back",
+        "abuseReview": "Abuse found in a network review",
+        "promotionEnded": "Free access from a promotion has ended"
+      },
+      "bulkWalletCredit": {
+        "outage": "Compensation for a server outage",
+        "referralPayout": "Referral or promotion payout",
+        "failedPayments": "Refund for payments that were not delivered",
+        "balanceBug": "Correction of balances after a bug"
+      },
+      "bulkAddTraffic": {
+        "outage": "Compensation for a server outage",
+        "promotion": "Promotional traffic bonus",
+        "clientBug": "Traffic used up by a client app fault"
+      },
+      "bulkSetDevices": {
+        "planChanged": "The plan's device limit changed",
+        "wrongLimits": "Limits were applied incorrectly",
+        "promotion": "Promotional extra device"
+      },
+      "massBan": {
+        "fraud": "Payment fraud or chargebacks",
+        "multiaccount": "Several accounts to take trials or bonuses again",
+        "sharing": "Subscriptions shared or resold",
+        "abuse": "Torrents, spam or attacks through the VPN",
+        "blocklist": "Found on an external blocklist"
+      },
+      "refund": {
+        "notWorking": "The VPN did not work for the customer and support could not fix it",
+        "duplicate": "The customer was charged twice for the same purchase",
+        "changedMind": "The customer asked for a refund within the refund window",
+        "outage": "Compensation for a service outage",
+        "wrongPlan": "The customer bought the wrong plan by mistake"
+      },
+      "giftRevoke": {
+        "disputedPayment": "Bought with a disputed or fraudulent payment",
+        "senderRequest": "The sender asked to cancel the gift before it was claimed",
+        "wrongRecipient": "The gift was meant for someone else",
+        "codeLeaked": "The claim code was leaked or published"
+      },
+      "giftRefund": {
+        "afterRevoke": "The sender's payment was returned after the gift was revoked",
+        "expiredUnclaimed": "The gift expired unclaimed and the sender was refunded",
+        "providerRefund": "The payment provider returned the money to the sender"
+      },
+      "offerCreate": {
+        "retention": "Retention: the customer is about to cancel or leave",
+        "compensation": "Compensation for an outage or a support issue",
+        "winBack": "Win-back: the customer's subscription has lapsed",
+        "loyalty": "Thank-you to a long-standing customer",
+        "promised": "Promised to the customer in a support conversation"
+      },
+      "offerRevoke": {
+        "wrongCustomer": "Created for the wrong customer",
+        "wrongTerms": "The offer has the wrong promotion, copy or dates",
+        "abuse": "The customer abused promotions or the referral programme",
+        "superseded": "Replaced by a newer offer"
+      },
+      "goodsDelivered": {
+        "providerConfirmed": "The provider confirmed the goods were delivered",
+        "recipientConfirmed": "The recipient confirmed they received the goods",
+        "providerHistory": "The delivery shows in the provider's order history"
+      },
+      "goodsRefund": {
+        "providerNotSent": "The provider confirmed nothing was sent",
+        "providerRejected": "The provider rejected the order",
+        "recipientInvalid": "The recipient's username does not exist or cannot receive the goods",
+        "unconfirmed": "The provider could not confirm the delivery"
+      },
+      "starsComplete": {
+        "walletTransfer": "The wallet shows the outgoing transfer for this order",
+        "recipientConfirmed": "The recipient confirmed the Stars arrived",
+        "fragmentCompleted": "Fragment shows the order as completed"
+      },
+      "starsRetry": {
+        "noTransfer": "The wallet shows no outgoing transfer for this order",
+        "fragmentError": "Fragment returned a temporary error and the payment did not leave",
+        "walletTopUp": "The wallet ran out of TON and has been topped up"
+      },
+      "starsRefund": {
+        "noTransfer": "The wallet shows no outgoing transfer for this order",
+        "recipientInvalid": "The recipient cannot receive Stars (wrong or deleted username)",
+        "customerCancelled": "The customer asked to cancel before delivery",
+        "unavailable": "Stars cannot be bought from Fragment right now"
       }
     }
   },

@@ -2,17 +2,23 @@
 
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
-import { ConfirmDialog } from "@omniflow/ui/confirm-dialog";
-import { Input } from "@omniflow/ui/input";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR from "swr";
 import { useEnumLabel } from "@/components/admin/enum-label";
+import { ReasonDialog } from "@/components/admin/reason-dialog";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import { formatBytes, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
+
+const SYNC_REASONS = [
+  "cannotConnect",
+  "editedInRemnawave",
+  "fulfillmentFailed",
+  "missingUser",
+] as const;
 
 type SyncField = {
   field: "expiry" | "traffic" | "device_limit" | "squads" | "status";
@@ -36,7 +42,8 @@ type SyncPreview = {
  *
  * It first compares — read-only — what Omniflow holds for the subscription with
  * the Remnawave user, field by field. Applying pushes Omniflow's side through
- * the fulfillment pipeline after a confirmation, so the change is queued, retried,
+ * the fulfillment pipeline once the operator gives a reason in a dialog, so the
+ * change is queued, retried,
  * and recorded like every other one; the panel never writes to Remnawave itself.
  */
 export function SubscriptionSync({
@@ -47,11 +54,11 @@ export function SubscriptionSync({
   subscriptionId: string;
 }) {
   const translate = useTranslations("admin.customers.sync");
+  const presets = useTranslations("admin.reasons.subscriptionSync");
   const label = useEnumLabel();
   const { can } = useSession();
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
-  const [reason, setReason] = useState("");
   const [queued, setQueued] = useState(false);
   const { run, pending, error } = useOperatorAction();
   const path = `/v1/panel/customers/${customerId}/subscriptions/${subscriptionId}/sync`;
@@ -102,12 +109,11 @@ export function SubscriptionSync({
     }
   }
 
-  async function apply() {
-    const ok = await run(path, { method: "POST", reason: reason.trim() });
-    setConfirming(false);
+  async function apply(reason: string) {
+    const ok = await run(path, { method: "POST", reason });
     if (ok) {
+      setConfirming(false);
       setQueued(true);
-      setReason("");
       await mutate();
     }
   }
@@ -168,32 +174,26 @@ export function SubscriptionSync({
             </tbody>
           </table>
           {can("subscriptions.write") && (
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Input
-                aria-label={translate("reason")}
-                onChange={(event) => setReason(event.target.value)}
-                placeholder={translate("reason")}
-                value={reason}
-              />
-              <Button
-                disabled={pending || reason.trim().length === 0}
-                onClick={() => setConfirming(true)}
-                size="sm"
-              >
-                {translate("apply")}
-              </Button>
-            </div>
+            <Button
+              className="self-start"
+              disabled={pending}
+              onClick={() => setConfirming(true)}
+              size="sm"
+            >
+              {translate("apply")}
+            </Button>
           )}
           {error && <p className="text-danger-foreground text-sm">{error.message}</p>}
           {queued && <p className="text-muted-foreground text-sm">{translate("queued")}</p>}
-          <ConfirmDialog
-            cancelLabel={translate("cancel")}
+          <ReasonDialog
             confirmLabel={translate("confirm")}
             description={translate("confirmDescription")}
-            onConfirm={() => void apply()}
+            error={error?.message}
+            onConfirm={apply}
             onOpenChange={setConfirming}
             open={confirming}
             pending={pending}
+            presets={SYNC_REASONS.map((key) => presets(key))}
             title={translate("confirmTitle")}
           />
         </>

@@ -12,6 +12,7 @@ import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
 import { paymentMethodName, useEnumLabel } from "@/components/admin/enum-label";
+import { ReasonDialog } from "@/components/admin/reason-dialog";
 import { MinorAmountInput, MinorAmountList } from "@/components/forms/minor-amount-input";
 import { type ApiError, fetcher } from "@/lib/api";
 import { type CommerceSettings, useOperatorAction } from "@/lib/operations";
@@ -150,8 +151,39 @@ function MethodEditor({
   const [loginKinds, setLoginKinds] = useState<string[]>(item.loginKinds);
   const [audience, setAudience] = useState(item.topUpAudience);
   const [tiers, setTiers] = useState(item.loyaltyTierCodes.join(", "));
-  const [reason, setReason] = useState("");
-  const { run, pending, error } = useOperatorAction();
+  const [confirming, setConfirming] = useState(false);
+  const presets = useTranslations("admin.reasons.paymentMethodSave");
+  const { run, pending, error, reset } = useOperatorAction();
+
+  async function save(reason: string) {
+    const ok = await run(`/v1/panel/settings/payment-methods/${item.provider}`, {
+      body: {
+        descriptionEn,
+        descriptionRu,
+        displayOrder: Number(displayOrder) || 0,
+        enabled,
+        loginKinds,
+        loyaltyTierCodes: tiers
+          .split(/[\s,;]+/)
+          .map((code) => code.trim())
+          .filter(Boolean),
+        maxMinor: maxMinor ? Number(maxMinor) : undefined,
+        method: item.method,
+        minMinor: minMinor ? Number(minMinor) : undefined,
+        nameEn,
+        nameRu,
+        openDirectly,
+        quickAmountsMinor: numberList(quick),
+        topUpAudience: audience,
+      },
+      method: "PUT",
+      reason,
+    });
+    if (ok) {
+      setConfirming(false);
+      onSaved();
+    }
+  }
 
   const text = (key: string, label: string, value: string, onChange: (value: string) => void) => (
     <div className="flex flex-col gap-1.5">
@@ -241,44 +273,28 @@ function MethodEditor({
         </div>
         <p className="text-muted-foreground text-xs">{translate("loginKindsHint")}</p>
       </div>
-      {text("reason", translate("reason"), reason, setReason)}
-      {error && <p className="text-danger-foreground text-sm">{error.message}</p>}
       <div>
         <Button
-          disabled={pending || reason.trim() === ""}
-          onClick={async () => {
-            const ok = await run(`/v1/panel/settings/payment-methods/${item.provider}`, {
-              body: {
-                descriptionEn,
-                descriptionRu,
-                displayOrder: Number(displayOrder) || 0,
-                enabled,
-                loginKinds,
-                loyaltyTierCodes: tiers
-                  .split(/[\s,;]+/)
-                  .map((code) => code.trim())
-                  .filter(Boolean),
-                maxMinor: maxMinor ? Number(maxMinor) : undefined,
-                method: item.method,
-                minMinor: minMinor ? Number(minMinor) : undefined,
-                nameEn,
-                nameRu,
-                openDirectly,
-                quickAmountsMinor: numberList(quick),
-                topUpAudience: audience,
-              },
-              method: "PUT",
-              reason: reason.trim(),
-            });
-            if (ok) {
-              onSaved();
-            }
+          disabled={pending}
+          onClick={() => {
+            reset();
+            setConfirming(true);
           }}
           size="sm"
         >
           {translate("save")}
         </Button>
       </div>
+      <ReasonDialog
+        confirmLabel={translate("save")}
+        error={error?.message}
+        onConfirm={save}
+        onOpenChange={setConfirming}
+        open={confirming}
+        pending={pending}
+        presets={["hideFailing", "limits", "texts", "audience", "order"].map((key) => presets(key))}
+        title={translate("saveTitle")}
+      />
     </div>
   );
 }
@@ -303,8 +319,9 @@ export function PaymentGuidanceCard({
   const [ru, setRu] = useState(stored?.manualInstructionsRu ?? "");
   const [en, setEn] = useState(stored?.manualInstructionsEn ?? "");
   const [supportTopUp, setSupportTopUp] = useState(stored?.supportTopUp ?? false);
-  const [reason, setReason] = useState("");
-  const { run, pending, error } = useOperatorAction();
+  const [confirming, setConfirming] = useState(false);
+  const presets = useTranslations("admin.reasons.paymentGuidanceSave");
+  const { run, pending, error, reset } = useOperatorAction();
   return (
     <Card>
       <CardHeader>
@@ -345,38 +362,42 @@ export function PaymentGuidanceCard({
         </div>
         {editable && (
           <>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor={`${id}-reason`}>{translate("reason")}</Label>
-              <Input
-                id={`${id}-reason`}
-                onChange={(event) => setReason(event.target.value)}
-                value={reason}
-              />
-            </div>
-            {error && <p className="text-danger-foreground text-sm">{error.message}</p>}
             <div>
               <Button
-                disabled={pending || reason.trim() === ""}
-                onClick={async () => {
-                  const ok = await run("/v1/panel/settings/commerce/payment-guidance", {
-                    body: {
-                      manualInstructionsEn: en,
-                      manualInstructionsRu: ru,
-                      supportTopUp,
-                    },
-                    method: "PUT",
-                    reason: reason.trim(),
-                  });
-                  if (ok) {
-                    setReason("");
-                    onSaved();
-                  }
+                disabled={pending}
+                onClick={() => {
+                  reset();
+                  setConfirming(true);
                 }}
                 size="sm"
               >
                 {translate("save")}
               </Button>
             </div>
+            <ReasonDialog
+              confirmLabel={translate("save")}
+              error={error?.message}
+              onConfirm={async (reason) => {
+                const ok = await run("/v1/panel/settings/commerce/payment-guidance", {
+                  body: {
+                    manualInstructionsEn: en,
+                    manualInstructionsRu: ru,
+                    supportTopUp,
+                  },
+                  method: "PUT",
+                  reason,
+                });
+                if (ok) {
+                  setConfirming(false);
+                  onSaved();
+                }
+              }}
+              onOpenChange={setConfirming}
+              open={confirming}
+              pending={pending}
+              presets={["details", "clarified", "supportTopUp", "pause"].map((key) => presets(key))}
+              title={translate("saveTitle")}
+            />
           </>
         )}
       </CardContent>

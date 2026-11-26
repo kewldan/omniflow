@@ -3,15 +3,7 @@
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { DateTimeField } from "@omniflow/ui/date-time-field";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@omniflow/ui/dialog";
-import { Input, Textarea } from "@omniflow/ui/input";
+import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@omniflow/ui/tabs";
@@ -29,6 +21,7 @@ import {
 import { useTranslations } from "next-intl";
 import { type ReactNode, useId, useState } from "react";
 import useSWR from "swr";
+import { ReasonDialog } from "@/components/admin/reason-dialog";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import { type Listing, useOperatorAction } from "@/lib/operations";
@@ -43,10 +36,39 @@ type PanelDevice = {
   lastSeenAt: string;
 };
 
+/**
+ * The ready reasons for each subscription action, under admin.reasons.<group>.
+ * Each is phrased for whoever reads the audit log or the customer's history.
+ */
+const PRESETS = {
+  subscriptionEnable: ["paidOutside", "disabledByMistake", "reviewCleared", "appealAccepted"],
+  subscriptionDisable: ["refunded", "sharing", "abuse", "customerAsked"],
+  resetTraffic: ["downtime", "clientBug", "paidOutside", "supportApproved"],
+  subscriptionPause: ["customerAway", "paymentDispute", "review"],
+  subscriptionResume: ["customerBack", "disputeResolved", "reviewCleared"],
+  subscriptionExtend: ["downtime", "paidOutside", "notApplied", "giveaway", "wrongExpiry"],
+  subscriptionLimits: ["paidOutside", "wrongLimits", "goodwillTraffic", "sharingLimit"],
+  subscriptionSquads: ["blockedServer", "wrongSquads", "locationApproved", "testing"],
+  squadAccessGrant: ["blockedWorkaround", "tryLocation", "troubleshooting"],
+  squadAccessRevoke: ["noLongerNeeded", "mistake", "misuse"],
+  deviceRemove: ["replaced", "freeSlot", "unknownDevice", "stale"],
+} as const;
+type PresetGroup = keyof typeof PRESETS;
+
+/** The translated ready reasons of one action. */
+function usePresets() {
+  const translate = useTranslations("admin.reasons");
+  return (group: PresetGroup) => PRESETS[group].map((key) => translate(`${group}.${key}`));
+}
+
+type Run = ReturnType<typeof useOperatorAction>["run"];
+
 /** An action waiting for its reason: what it is called, and what runs once one is given. */
 type PendingAction = {
   title: string;
   description?: string;
+  presets: string[];
+  destructive?: boolean;
   perform: (reason: string) => Promise<boolean>;
 };
 
@@ -65,8 +87,9 @@ const EXTEND_STEPS = [7, 30, 90, 365];
  *
  * One-tap actions sit in a row with their icons; changes that take a value are
  * grouped by what they change. Every action asks for its reason in a dialog at
- * the moment it is taken, rather than a reason field that greys out the whole
- * panel until something is typed into it.
+ * the moment it is taken — a ready reason for that action, or the operator's
+ * own — rather than a reason field that greys out the whole panel until
+ * something is typed into it.
  *
  * Every action goes through the fulfillment pipeline rather than writing to
  * Remnawave directly, so an operator change carries the same idempotency key,
@@ -85,6 +108,7 @@ export function SubscriptionActions({
   hasEntitlement: boolean;
 }) {
   const translate = useTranslations("admin.customers");
+  const presets = usePresets();
   const { can } = useSession();
   const endsAtId = useId();
   const trafficId = useId();
@@ -106,8 +130,14 @@ export function SubscriptionActions({
   const base = `/v1/panel/customers/${customerId}/subscriptions/${subscriptionId}`;
 
   /** Queues a fulfillment operation once its reason is given. */
-  function operation(title: string, name: string, body: Record<string, unknown> = {}) {
+  function operation(
+    title: string,
+    name: string,
+    group: PresetGroup,
+    body: Record<string, unknown> = {},
+  ) {
     setAsking({
+      destructive: name === "disable",
       perform: async (reason) => {
         const ok = await run(`${base}/operations`, {
           body: { operation: name, ...body },
@@ -119,6 +149,7 @@ export function SubscriptionActions({
         }
         return ok;
       },
+      presets: presets(group),
       title,
     });
   }
@@ -132,6 +163,7 @@ export function SubscriptionActions({
     const title = translate(`pause.${kind}`);
     setAsking({
       description: translate(kind === "pause" ? "pause.pauseWarning" : "pause.resumeWarning"),
+      destructive: kind === "pause",
       perform: async (reason) => {
         const ok = await run(`${base}/${kind}`, { method: "POST", reason });
         if (ok) {
@@ -139,6 +171,7 @@ export function SubscriptionActions({
         }
         return ok;
       },
+      presets: presets(kind === "pause" ? "subscriptionPause" : "subscriptionResume"),
       title,
     });
   }
@@ -160,19 +193,21 @@ export function SubscriptionActions({
           disabled={disabled}
           icon={<Power className="size-4" />}
           label={translate("actions.enable")}
-          onClick={() => operation(translate("actions.enable"), "enable")}
+          onClick={() => operation(translate("actions.enable"), "enable", "subscriptionEnable")}
         />
         <QuickAction
           disabled={disabled}
           icon={<PowerOff className="size-4" />}
           label={translate("actions.disable")}
-          onClick={() => operation(translate("actions.disable"), "disable")}
+          onClick={() => operation(translate("actions.disable"), "disable", "subscriptionDisable")}
         />
         <QuickAction
           disabled={disabled}
           icon={<RotateCcw className="size-4" />}
           label={translate("actions.resetTraffic")}
-          onClick={() => operation(translate("actions.resetTraffic"), "reset_traffic")}
+          onClick={() =>
+            operation(translate("actions.resetTraffic"), "reset_traffic", "resetTraffic")
+          }
         />
         {/* Pausing suspends access without spending the remaining days, which
             is what "disable" does not do. Both are offered and the API refuses
@@ -223,9 +258,14 @@ export function SubscriptionActions({
                 disabled={disabled}
                 key={days}
                 onClick={() =>
-                  operation(translate("actions.extendBy", { days }), "extend", {
-                    endsAt: new Date(extendFrom + days * 86_400_000).toISOString(),
-                  })
+                  operation(
+                    translate("actions.extendBy", { days }),
+                    "extend",
+                    "subscriptionExtend",
+                    {
+                      endsAt: new Date(extendFrom + days * 86_400_000).toISOString(),
+                    },
+                  )
                 }
                 size="sm"
                 variant="secondary"
@@ -249,7 +289,7 @@ export function SubscriptionActions({
             <Button
               disabled={disabled || endsAt === ""}
               onClick={() =>
-                operation(translate("actions.extend"), "extend", {
+                operation(translate("actions.extend"), "extend", "subscriptionExtend", {
                   endsAt: new Date(endsAt).toISOString(),
                 })
               }
@@ -298,7 +338,7 @@ export function SubscriptionActions({
             className="self-start"
             disabled={disabled || (trafficGb.trim() === "" && deviceLimit.trim() === "")}
             onClick={() =>
-              operation(translate("actions.setLimits"), "set_limits", {
+              operation(translate("actions.setLimits"), "set_limits", "subscriptionLimits", {
                 deviceLimit: deviceLimit.trim() === "" ? null : Number(deviceLimit),
                 trafficAllowanceBytes:
                   trafficGb.trim() === ""
@@ -328,7 +368,9 @@ export function SubscriptionActions({
             className="self-start"
             disabled={disabled || squads.length === 0}
             onClick={() =>
-              operation(translate("actions.setSquads"), "set_squads", { squadIds: squads })
+              operation(translate("actions.setSquads"), "set_squads", "subscriptionSquads", {
+                squadIds: squads,
+              })
             }
             size="sm"
           >
@@ -341,6 +383,7 @@ export function SubscriptionActions({
             ask={setAsking}
             customerId={customerId}
             disabled={disabled}
+            run={run}
             subscriptionId={subscriptionId}
           />
         </TabsContent>
@@ -355,10 +398,20 @@ export function SubscriptionActions({
       )}
 
       <ReasonDialog
-        action={asking}
-        onClose={() => setAsking(null)}
+        confirmLabel={translate("actions.confirm")}
+        description={asking?.description}
+        destructive={asking?.destructive}
+        error={error?.message}
+        onConfirm={async (reason) => {
+          if (asking && (await asking.perform(reason))) {
+            setAsking(null);
+          }
+        }}
+        onOpenChange={(open) => !open && setAsking(null)}
+        open={asking !== null}
         pending={pending}
-        title={translate("actions.reasonTitle")}
+        presets={asking?.presets ?? []}
+        title={asking?.title ?? ""}
       />
     </div>
   );
@@ -385,77 +438,6 @@ function QuickAction({
   );
 }
 
-/**
- * Asks for the reason of one action, and takes it. The reason is required:
- * it is what the audit trail and the customer's history say about the change.
- */
-function ReasonDialog({
-  action,
-  onClose,
-  pending,
-  title,
-}: {
-  action: PendingAction | null;
-  onClose: () => void;
-  pending: boolean;
-  title: string;
-}) {
-  const translate = useTranslations("admin.customers");
-  const reasonId = useId();
-  const [reason, setReason] = useState("");
-  return (
-    <Dialog
-      onOpenChange={(open) => {
-        if (!open) {
-          setReason("");
-          onClose();
-        }
-      }}
-      open={action !== null}
-    >
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>{action?.title ?? title}</DialogTitle>
-          {action?.description && <DialogDescription>{action.description}</DialogDescription>}
-        </DialogHeader>
-        <form
-          className="flex flex-col gap-3"
-          onSubmit={async (event) => {
-            event.preventDefault();
-            if (!action || reason.trim() === "") {
-              return;
-            }
-            if (await action.perform(reason.trim())) {
-              setReason("");
-              onClose();
-            }
-          }}
-        >
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor={reasonId}>{translate("actions.reason")}</Label>
-            <Textarea
-              autoFocus
-              id={reasonId}
-              onChange={(event) => setReason(event.target.value)}
-              placeholder={translate("actions.reasonPlaceholder")}
-              rows={2}
-              value={reason}
-            />
-          </div>
-          <DialogFooter>
-            <Button onClick={onClose} type="button" variant="outline">
-              {translate("actions.cancel")}
-            </Button>
-            <Button disabled={pending || reason.trim() === ""} type="submit">
-              {translate("actions.confirm")}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 type SquadGrant = {
   id: string;
   squadId: string;
@@ -473,21 +455,24 @@ function TemporarySquadAccess({
   ask,
   customerId,
   disabled,
+  run,
   subscriptionId,
 }: {
   ask: (action: PendingAction) => void;
   customerId: string;
   disabled: boolean;
+  /** The panel's own action runner, so its pending state and error are the dialog's. */
+  run: Run;
   subscriptionId: string;
 }) {
   const translate = useTranslations("admin.customers");
+  const presets = usePresets();
   const squadId = useId();
   const hoursId = useId();
   const [squad, setSquad] = useState<string[]>([]);
   const [hours, setHours] = useState("24");
   const key = `/v1/panel/customers/${customerId}/subscriptions/${subscriptionId}/squad-access`;
   const { data, mutate } = useSWR<{ items: SquadGrant[] }, ApiError>(key, fetcher);
-  const { run, error } = useOperatorAction();
   const parsedHours = Number.parseInt(hours, 10);
   const active = (data?.items ?? []).filter((grant) => grant.status === "active");
 
@@ -530,6 +515,7 @@ function TemporarySquadAccess({
               }
               return ok;
             },
+            presets: presets("squadAccessGrant"),
             title: translate("actions.squadAccess"),
           })
         }
@@ -558,6 +544,8 @@ function TemporarySquadAccess({
                       }
                       return ok;
                     },
+                    destructive: true,
+                    presets: presets("squadAccessRevoke"),
                     title: translate("actions.squadAccessRevoke"),
                   })
                 }
@@ -570,7 +558,6 @@ function TemporarySquadAccess({
           ))}
         </ul>
       )}
-      {error && <p className="text-danger-foreground text-xs">{error.message}</p>}
     </div>
   );
 }
@@ -590,9 +577,10 @@ export function SubscriptionDevices({
   subscriptionId: string;
 }) {
   const translate = useTranslations("admin.customers");
+  const presets = usePresets();
   const { can } = useSession();
-  const [reason, setReason] = useState("");
-  const { run, pending } = useOperatorAction();
+  const [removing, setRemoving] = useState<PanelDevice | null>(null);
+  const { run, pending, error: removeError } = useOperatorAction();
 
   const base = `/v1/panel/customers/${customerId}/subscriptions/${subscriptionId}/devices`;
   const { data, error, isLoading, mutate } = useSWR<
@@ -633,13 +621,6 @@ export function SubscriptionDevices({
             .join(", ")}
         </p>
       )}
-      {can("subscriptions.write") && (
-        <Input
-          onChange={(event) => setReason(event.target.value)}
-          placeholder={translate("devices.reasonPlaceholder")}
-          value={reason}
-        />
-      )}
       {items.map((device) => (
         <div className="flex items-center justify-between gap-3 text-sm" key={device.ref}>
           <span className="flex items-center gap-2">
@@ -655,17 +636,8 @@ export function SubscriptionDevices({
             </span>
             {can("subscriptions.write") && (
               <Button
-                disabled={pending || reason.trim().length === 0}
-                onClick={async () => {
-                  const ok = await run(`${base}/${device.ref}`, {
-                    method: "DELETE",
-                    reason: reason.trim(),
-                  });
-                  if (ok) {
-                    setReason("");
-                    await mutate();
-                  }
-                }}
+                disabled={pending}
+                onClick={() => setRemoving(device)}
                 size="sm"
                 variant="ghost"
               >
@@ -675,6 +647,35 @@ export function SubscriptionDevices({
           </span>
         </div>
       ))}
+      <ReasonDialog
+        confirmLabel={translate("devices.remove")}
+        description={
+          removing
+            ? `${removing.platform || translate("devices.unknown")} · ${removing.model || "—"}${
+                removing.osVersion ? ` · ${removing.osVersion}` : ""
+              }`
+            : undefined
+        }
+        destructive
+        error={removeError?.message}
+        onConfirm={async (reason) => {
+          if (
+            removing &&
+            (await run(`${base}/${removing.ref}`, {
+              method: "DELETE",
+              reason,
+            }))
+          ) {
+            setRemoving(null);
+            await mutate();
+          }
+        }}
+        onOpenChange={(open) => !open && setRemoving(null)}
+        open={removing !== null}
+        pending={pending}
+        presets={presets("deviceRemove")}
+        title={translate("devices.removeTitle")}
+      />
     </div>
   );
 }

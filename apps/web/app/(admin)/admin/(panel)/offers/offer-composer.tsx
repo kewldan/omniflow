@@ -11,6 +11,7 @@ import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
 
+import { ReasonDialog } from "@/components/admin/reason-dialog";
 import { type ApiError, fetcher } from "@/lib/api";
 import { type Listing, type Promotion, useOperatorAction } from "@/lib/operations";
 
@@ -31,6 +32,7 @@ import { OfferPreview } from "./offer-preview";
  */
 export function OfferComposer({ onCreated }: { onCreated: () => void }) {
   const translate = useTranslations("admin.offers");
+  const presets = useTranslations("admin.reasons.offerCreate");
   const customerFieldId = useId();
   const promotionFieldId = useId();
   const titleRuFieldId = useId();
@@ -39,7 +41,6 @@ export function OfferComposer({ onCreated }: { onCreated: () => void }) {
   const termsEnFieldId = useId();
   const startsFieldId = useId();
   const expiresFieldId = useId();
-  const reasonFieldId = useId();
 
   const [customerId, setCustomerId] = useState("");
   const [promotionId, setPromotionId] = useState("");
@@ -49,7 +50,7 @@ export function OfferComposer({ onCreated }: { onCreated: () => void }) {
   const [termsEn, setTermsEn] = useState("");
   const [startsAt, setStartsAt] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
-  const [reason, setReason] = useState("");
+  const [confirming, setConfirming] = useState(false);
   const [notifyEmail, setNotifyEmail] = useState(false);
   const notifyEmailFieldId = useId();
 
@@ -65,7 +66,6 @@ export function OfferComposer({ onCreated }: { onCreated: () => void }) {
     titleRu.trim().length > 0 &&
     titleEn.trim().length > 0 &&
     expiresAt !== "" &&
-    reason.trim().length > 0 &&
     !pending;
 
   return (
@@ -141,7 +141,7 @@ export function OfferComposer({ onCreated }: { onCreated: () => void }) {
           </div>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={startsFieldId}>{translate("composer.startsAt")}</Label>
             <DateTimeField
@@ -168,15 +168,6 @@ export function OfferComposer({ onCreated }: { onCreated: () => void }) {
               value={expiresAt}
             />
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor={reasonFieldId}>{translate("composer.reason")}</Label>
-            <Input
-              id={reasonFieldId}
-              onChange={(event) => setReason(event.target.value)}
-              placeholder={translate("composer.reasonHint")}
-              value={reason}
-            />
-          </div>
         </div>
 
         {/* What the customer will actually see, in both languages, before it is
@@ -197,35 +188,49 @@ export function OfferComposer({ onCreated }: { onCreated: () => void }) {
         </div>
         <p className="text-muted-foreground text-xs">{translate("composer.notifyEmailHint")}</p>
         <p className="text-muted-foreground text-xs">{translate("composer.singleUse")}</p>
-        {error && <p className="text-danger-foreground text-sm">{error.message}</p>}
         <Button
           className="self-start"
           disabled={!ready}
-          onClick={async () => {
-            const ok = await run("/v1/panel/offers", {
-              body: {
-                customerId: customerId.trim(),
-                expiresAt: new Date(expiresAt).toISOString(),
-                notifyEmail,
-                promotionId,
-                startsAt: startsAt === "" ? undefined : new Date(startsAt).toISOString(),
-                termsEn: termsEn.trim(),
-                termsRu: termsRu.trim(),
-                titleEn: titleEn.trim(),
-                titleRu: titleRu.trim(),
-              },
-              method: "POST",
-              reason: reason.trim(),
-            });
-            if (ok) {
-              onCreated();
-            }
-          }}
+          onClick={() => setConfirming(true)}
           size="sm"
         >
           {translate("composer.submit")}
         </Button>
       </CardContent>
+
+      <ReasonDialog
+        confirmLabel={translate("composer.submit")}
+        description={translate("composer.confirmDescription")}
+        error={error?.message}
+        onConfirm={async (reason) => {
+          const ok = await run("/v1/panel/offers", {
+            body: {
+              customerId: customerId.trim(),
+              expiresAt: new Date(expiresAt).toISOString(),
+              notifyEmail,
+              promotionId,
+              startsAt: startsAt === "" ? undefined : new Date(startsAt).toISOString(),
+              termsEn: termsEn.trim(),
+              termsRu: termsRu.trim(),
+              titleEn: titleEn.trim(),
+              titleRu: titleRu.trim(),
+            },
+            method: "POST",
+            reason,
+          });
+          if (ok) {
+            setConfirming(false);
+            onCreated();
+          }
+        }}
+        onOpenChange={setConfirming}
+        open={confirming}
+        pending={pending}
+        presets={["retention", "compensation", "winBack", "loyalty", "promised"].map((key) =>
+          presets(key),
+        )}
+        title={translate("composer.confirmTitle")}
+      />
     </Card>
   );
 }

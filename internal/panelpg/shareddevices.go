@@ -222,6 +222,59 @@ type SharedDeviceBanned struct {
 // maxBanDays bounds a timed ban; longer is "no end".
 const maxBanDays = 3650
 
+// CustomerBan is how one customer is banned: a reason from BanTemplates,
+// whether they are told, and how long it lasts (zero is no end).
+type CustomerBan struct {
+	Reason             string `json:"reason"`
+	Notify             bool   `json:"notify"`
+	Days               int    `json:"days"`
+	AnnulSubscriptions bool   `json:"annulSubscriptions"`
+}
+
+// Valid reports whether the ban names a known reason and a sane length.
+func (ban CustomerBan) Valid() bool {
+	_, known := BanTemplates[ban.Reason]
+	return known && ban.Days >= 0 && ban.Days <= maxBanDays
+}
+
+// BanCustomer suspends one customer through SetCustomerStatus — the same
+// suspension, lifecycle event, and audit entry as the customer page — with
+// `recorded` as the reason, sets when the ban ends, and sends the reason's
+// message when asked. Disabling subscriptions is the caller's, which owns
+// fulfillment.
+func (service *Service) BanCustomer(
+	ctx context.Context, customerID string, ban CustomerBan, recorded string, actor Actor, now time.Time,
+) (SharedDeviceBanned, error) {
+	if !ban.Valid() || strings.TrimSpace(recorded) == "" {
+		return SharedDeviceBanned{}, ErrValidaton
+	}
+	id, err := parseUUID(customerID)
+	if err != nil {
+		return SharedDeviceBanned{}, err
+	}
+	banActor := actor
+	banActor.Reason = recorded
+	outcome := SharedDeviceBanned{CustomerID: customerID, Outcome: "suspended"}
+	if _, err = service.SetCustomerStatus(ctx, customerID, "suspended", banActor); err != nil {
+		return SharedDeviceBanned{}, err
+	}
+	if ban.Days > 0 {
+		end := now.UTC().Add(time.Duration(ban.Days) * 24 * time.Hour)
+		outcome.EndsAt = &end
+		if err = service.queries().SetSuspensionEnd(ctx, dbgen.SetSuspensionEndParams{
+			UserID: id, EndsAt: timestamp(end),
+		}); err != nil {
+			return SharedDeviceBanned{}, err
+		}
+	}
+	if ban.Notify {
+		if _, err = service.MessageCustomer(ctx, customerID, BanTemplates[ban.Reason], banActor); err != nil {
+			outcome.Outcome = "suspended_not_notified"
+		}
+	}
+	return outcome, nil
+}
+
 // BanSharedDevice suspends the chosen customers on a device, each with the
 // reason and, when asked, the reason's message, ending the ban after Days,
 // and records the device as a confirmed second account.
@@ -232,9 +285,8 @@ const maxBanDays = 3650
 func (service *Service) BanSharedDevice(
 	ctx context.Context, handle string, input SharedDeviceBan, actor Actor, now time.Time,
 ) (SharedDeviceBanResult, error) {
-	message, known := BanTemplates[input.Reason]
-	if !known || actor.AdminID == "" || !validHandle(handle) ||
-		len(input.CustomerIDs) == 0 || input.Days < 0 || input.Days > maxBanDays {
+	if !(CustomerBan{Reason: input.Reason, Days: input.Days}).Valid() || actor.AdminID == "" ||
+		!validHandle(handle) || len(input.CustomerIDs) == 0 {
 		return SharedDeviceBanResult{}, ErrValidaton
 	}
 	queries := service.queries()
@@ -265,31 +317,12 @@ func (service *Service) BanSharedDevice(
 	}
 
 	reason := "shared_device:" + input.Reason
-	banActor := actor
-	banActor.Reason = reason
-	var endsAt *time.Time
-	if input.Days > 0 {
-		end := now.UTC().Add(time.Duration(input.Days) * 24 * time.Hour)
-		endsAt = &end
-	}
+	ban := CustomerBan{Reason: input.Reason, Notify: input.Notify, Days: input.Days}
 	result := SharedDeviceBanResult{Customers: make([]SharedDeviceBanned, 0, len(input.CustomerIDs))}
 	for _, customerID := range input.CustomerIDs {
-		outcome := SharedDeviceBanned{CustomerID: customerID, Outcome: "suspended", EndsAt: endsAt}
-		if _, err = service.SetCustomerStatus(ctx, customerID, "suspended", banActor); err != nil {
-			return SharedDeviceBanResult{}, err
-		}
-		if endsAt != nil {
-			id, _ := parseUUID(customerID)
-			if err = queries.SetSuspensionEnd(ctx, dbgen.SetSuspensionEndParams{
-				UserID: id, EndsAt: timestamp(*endsAt),
-			}); err != nil {
-				return SharedDeviceBanResult{}, err
-			}
-		}
-		if input.Notify {
-			if _, err = service.MessageCustomer(ctx, customerID, message, banActor); err != nil {
-				outcome.Outcome = "suspended_not_notified"
-			}
+		outcome, banErr := service.BanCustomer(ctx, customerID, ban, reason, actor, now)
+		if banErr != nil {
+			return SharedDeviceBanResult{}, banErr
 		}
 		result.Customers = append(result.Customers, outcome)
 	}

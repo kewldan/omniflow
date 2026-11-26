@@ -1480,17 +1480,93 @@ func (handlers *AdminHandlers) customerMatches(writer http.ResponseWriter, reque
 	handlers.respond(writer, request, map[string]any{"items": items}, err)
 }
 
+// decideMatch records a verdict on a blocklist match. A `blocked` verdict
+// may carry a ban, which suspends the customer the way the customer page
+// does — so it also needs customers.write, and subscriptions.write to annul.
 func (handlers *AdminHandlers) decideMatch(writer http.ResponseWriter, request *http.Request) {
 	var body struct {
-		Decision string `json:"decision"`
+		Decision string               `json:"decision"`
+		Ban      *panelpg.CustomerBan `json:"ban"`
 	}
 	if !decodeJSON(writer, request, &body) {
 		return
 	}
+	if body.Ban != nil {
+		if body.Decision != "blocked" || !body.Ban.Valid() {
+			handlers.operationsError(writer, request, panelpg.ErrValidaton)
+			return
+		}
+		if !handlers.allowed(writer, request, rbac.PermissionCustomersWrite) ||
+			!handlers.canAnnul(writer, request, body.Ban.AnnulSubscriptions) {
+			return
+		}
+	}
+	actor := actorFrom(request)
 	match, err := handlers.operations.DecideBlocklistMatch(
-		request.Context(), chi.URLParam(request, "matchID"), body.Decision, actorFrom(request),
+		request.Context(), chi.URLParam(request, "matchID"), body.Decision, actor,
 	)
-	handlers.respond(writer, request, match, err)
+	if err != nil || body.Ban == nil {
+		handlers.respond(writer, request, match, err)
+		return
+	}
+	if _, err = handlers.operations.BanCustomer(request.Context(), match.CustomerID, *body.Ban,
+		"blocklist:"+body.Ban.Reason, actor, time.Now()); err != nil {
+		handlers.operationsError(writer, request, err)
+		return
+	}
+	if body.Ban.AnnulSubscriptions {
+		handlers.annulSubscriptions(request.Context(), match.CustomerID, "match:"+match.ID, actor)
+	}
+	writeJSON(writer, http.StatusOK, match)
+}
+
+// canAnnul checks subscriptions.write when a ban asks to annul subscriptions,
+// and that this installation can change them at all.
+func (handlers *AdminHandlers) canAnnul(writer http.ResponseWriter, request *http.Request, annul bool) bool {
+	if !annul {
+		return true
+	}
+	if !handlers.allowed(writer, request, rbac.PermissionSubscriptionsWrite) {
+		return false
+	}
+	if handlers.fulfillment == nil {
+		writeProblem(writer, request, http.StatusServiceUnavailable,
+			"fulfillment_unavailable", "Subscriptions cannot be changed on this installation")
+		return false
+	}
+	return true
+}
+
+// annulSubscriptions queues a `disable` for every running subscription of a
+// banned customer through fulfillment — the same change, idempotency key
+// shape, and audit as disabling it on the customer page — and returns how
+// many were queued. One that fails is logged and skipped.
+func (handlers *AdminHandlers) annulSubscriptions(
+	ctx context.Context, customerID, origin string, actor panelpg.Actor,
+) int {
+	targets, err := handlers.operations.LiveEntitlements(ctx, customerID)
+	if err != nil {
+		handlers.logger.Warn("ban: subscriptions not listed", "error", err)
+		return 0
+	}
+	queued := 0
+	for _, target := range targets {
+		key := fmt.Sprintf("ban:%s:%s:disable:%s", origin, target.SubscriptionID, actor.RequestID)
+		operation, enqueueErr := handlers.fulfillment.Enqueue(ctx, target.EntitlementID,
+			fulfillment.OperationInput{
+				Operation: "disable", IdempotencyKey: key, CorrelationID: "panel:" + actor.RequestID,
+			})
+		if enqueueErr != nil {
+			handlers.logger.Warn("ban: subscription not disabled", "error", enqueueErr)
+			continue
+		}
+		if recordErr := handlers.operations.RecordSubscriptionOperation(ctx,
+			customerID, target.SubscriptionID, "disable", uuidValue(operation.ID), actor); recordErr != nil {
+			handlers.logger.Warn("ban: subscription operation not audited", "error", recordErr)
+		}
+		queued++
+	}
+	return queued
 }
 
 func (handlers *AdminHandlers) appealMatch(writer http.ResponseWriter, request *http.Request) {
@@ -1586,15 +1662,8 @@ func (handlers *AdminHandlers) banSharedDevice(writer http.ResponseWriter, reque
 	if !decodeJSON(writer, request, &body) {
 		return
 	}
-	if body.AnnulSubscriptions {
-		if !handlers.allowed(writer, request, rbac.PermissionSubscriptionsWrite) {
-			return
-		}
-		if handlers.fulfillment == nil {
-			writeProblem(writer, request, http.StatusServiceUnavailable,
-				"fulfillment_unavailable", "Subscriptions cannot be changed on this installation")
-			return
-		}
+	if !handlers.canAnnul(writer, request, body.AnnulSubscriptions) {
+		return
 	}
 	actor := actorFrom(request)
 	handle := chi.URLParam(request, "handle")
@@ -1605,27 +1674,8 @@ func (handlers *AdminHandlers) banSharedDevice(writer http.ResponseWriter, reque
 	}
 	if body.AnnulSubscriptions {
 		for index, banned := range result.Customers {
-			targets, targetErr := handlers.operations.LiveEntitlements(request.Context(), banned.CustomerID)
-			if targetErr != nil {
-				handlers.logger.Warn("ban: subscriptions not listed", "error", targetErr)
-				continue
-			}
-			for _, target := range targets {
-				key := fmt.Sprintf("ban:%s:%s:disable:%s", handle, target.SubscriptionID, actor.RequestID)
-				operation, enqueueErr := handlers.fulfillment.Enqueue(request.Context(), target.EntitlementID,
-					fulfillment.OperationInput{
-						Operation: "disable", IdempotencyKey: key, CorrelationID: "panel:" + actor.RequestID,
-					})
-				if enqueueErr != nil {
-					handlers.logger.Warn("ban: subscription not disabled", "error", enqueueErr)
-					continue
-				}
-				if recordErr := handlers.operations.RecordSubscriptionOperation(request.Context(),
-					banned.CustomerID, target.SubscriptionID, "disable", uuidValue(operation.ID), actor); recordErr != nil {
-					handlers.logger.Warn("ban: subscription operation not audited", "error", recordErr)
-				}
-				result.Customers[index].Annulled++
-			}
+			result.Customers[index].Annulled = handlers.annulSubscriptions(
+				request.Context(), banned.CustomerID, handle, actor)
 		}
 	}
 	writeJSON(writer, http.StatusOK, result)

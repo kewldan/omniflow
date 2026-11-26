@@ -11,6 +11,7 @@ import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import useSWR from "swr";
 
+import { ReasonDialog } from "@/components/admin/reason-dialog";
 import { FormField } from "@/components/forms/field";
 import { type ApiError, fetcher } from "@/lib/api";
 import { minorToInput, parseMajorToMinor } from "@/lib/money";
@@ -142,7 +143,9 @@ export function ServerCatalog() {
 function ServerForm({ onDone, row }: { onDone: () => void; row: Row }) {
   const translate = useTranslations("admin.catalog.servers");
   const { can } = useSession();
-  const { run, pending, error } = useOperatorAction();
+  const presets = useTranslations("admin.reasons");
+  const { run, pending, error, reset } = useOperatorAction();
+  const [confirming, setConfirming] = useState<"save" | "remove" | null>(null);
   const trialId = useId();
   const entry = row.entry;
   const [nameRu, setNameRu] = useState(entry?.nameRu ?? row.panelName ?? "");
@@ -155,11 +158,10 @@ function ServerForm({ onDone, row }: { onDone: () => void; row: Row }) {
     const amount = entry?.prices?.[priceCurrency];
     return amount ? minorToInput(amount, priceCurrency) : "";
   });
-  const [reason, setReason] = useState("");
   const writable = can("catalog.write");
   const path = `${KEY}/${row.squadId}`;
 
-  async function save() {
+  async function save(reason: string) {
     const currency = priceCurrency.trim().toUpperCase();
     const parsed = parseMajorToMinor(price, currency);
     const prices: Record<string, number> = {};
@@ -177,17 +179,24 @@ function ServerForm({ onDone, row }: { onDone: () => void; row: Row }) {
         trialEligible,
       },
       method: "PUT",
-      reason: reason.trim(),
+      reason,
     });
     if (ok) {
+      setConfirming(null);
       onDone();
     }
   }
 
-  async function remove() {
-    if (await run(path, { method: "DELETE", reason: reason.trim() })) {
+  async function remove(reason: string) {
+    if (await run(path, { method: "DELETE", reason })) {
+      setConfirming(null);
       onDone();
     }
+  }
+
+  function confirm(action: "save" | "remove") {
+    reset();
+    setConfirming(action);
   }
 
   return (
@@ -254,30 +263,46 @@ function ServerForm({ onDone, row }: { onDone: () => void; row: Row }) {
       </div>
       {writable && (
         <>
-          <FormField label={translate("reason")}>
-            {(props) => (
-              <Input
-                {...props}
-                onChange={(event) => setReason(event.target.value)}
-                value={reason}
-              />
-            )}
-          </FormField>
-          {error && (
+          {error && confirming === null && (
             <p className="text-danger-foreground text-sm" role="alert">
               {error.message}
             </p>
           )}
           <div className="flex gap-2">
-            <Button disabled={pending} onClick={save} size="sm">
+            <Button disabled={pending} onClick={() => confirm("save")} size="sm">
               {translate("save")}
             </Button>
             {row.catalogued && (
-              <Button disabled={pending} onClick={remove} size="sm" variant="ghost">
+              <Button
+                disabled={pending}
+                onClick={() => confirm("remove")}
+                size="sm"
+                variant="ghost"
+              >
                 {translate("remove")}
               </Button>
             )}
           </div>
+          <ReasonDialog
+            confirmLabel={translate(confirming === "remove" ? "remove" : "save")}
+            description={confirming === "remove" ? translate("removeDescription") : undefined}
+            destructive={confirming === "remove"}
+            error={error?.message}
+            onConfirm={confirming === "remove" ? remove : save}
+            onOpenChange={(open) => !open && setConfirming(null)}
+            open={confirming !== null}
+            pending={pending}
+            presets={
+              confirming === "remove"
+                ? ["decommissioned", "blocked", "notSold", "duplicate"].map((key) =>
+                    presets(`serverRemove.${key}`),
+                  )
+                : ["newServer", "price", "capacity", "trials", "naming"].map((key) =>
+                    presets(`serverSave.${key}`),
+                  )
+            }
+            title={translate(confirming === "remove" ? "removeTitle" : "saveTitle")}
+          />
         </>
       )}
     </div>

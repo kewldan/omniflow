@@ -9,6 +9,7 @@ import { Switch } from "@omniflow/ui/switch";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 
+import { ReasonDialog } from "@/components/admin/reason-dialog";
 import type { ProviderSettings } from "@/lib/operations";
 import { useOperatorAction } from "@/lib/operations";
 
@@ -33,19 +34,40 @@ export function ProviderEditor({
   const credentialsFieldId = useId();
   const webhookFieldId = useId();
   const enabledFieldId = useId();
-  const reasonFieldId = useId();
+  const presets = useTranslations("admin.reasons.providerSave");
 
   const [merchantId, setMerchantId] = useState(provider.merchantId);
   const [enabled, setEnabled] = useState(provider.enabled);
   const [displayOrder, setDisplayOrder] = useState(String(provider.displayOrder));
   const [credentials, setCredentials] = useState("");
   const [webhookSecret, setWebhookSecret] = useState("");
-  const [reason, setReason] = useState("");
+  const [confirming, setConfirming] = useState(false);
   const [probe, setProbe] = useState("");
 
-  const { run, pending, error } = useOperatorAction();
+  const { run, pending, error, reset } = useOperatorAction();
   const base = `/v1/panel/settings/providers/${provider.provider}`;
-  const ready = reason.trim().length > 0 && !pending;
+
+  async function save(reason: string) {
+    const ok = await run(base, {
+      body: {
+        // An empty field is absence, not an instruction to clear: the
+        // stored secret is untouched unless a replacement is typed.
+        credentials: credentials === "" ? null : credentials,
+        displayOrder: Number(displayOrder) || 0,
+        enabled,
+        merchantId: merchantId.trim(),
+        webhookSecret: webhookSecret === "" ? null : webhookSecret,
+      },
+      method: "PUT",
+      reason,
+    });
+    if (ok) {
+      setConfirming(false);
+      setCredentials("");
+      setWebhookSecret("");
+      onSaved();
+    }
+  }
 
   return (
     <Card className="flex flex-col gap-3 p-4">
@@ -100,42 +122,15 @@ export function ProviderEditor({
         <Label htmlFor={enabledFieldId}>{translate("providers.enabledLabel")}</Label>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor={reasonFieldId}>{translate("providers.reason")}</Label>
-        <Input
-          id={reasonFieldId}
-          onChange={(event) => setReason(event.target.value)}
-          placeholder={translate("providers.reasonPlaceholder")}
-          value={reason}
-        />
-      </div>
-
       <p className="text-muted-foreground text-xs">{translate("providers.secretNotice")}</p>
-      {error && <p className="text-danger-foreground text-sm">{error.message}</p>}
+      {error && !confirming && <p className="text-danger-foreground text-sm">{error.message}</p>}
 
       <div className="flex flex-wrap items-center gap-2">
         <Button
-          disabled={!ready}
-          onClick={async () => {
-            const ok = await run(base, {
-              body: {
-                // An empty field is absence, not an instruction to clear: the
-                // stored secret is untouched unless a replacement is typed.
-                credentials: credentials === "" ? null : credentials,
-                displayOrder: Number(displayOrder) || 0,
-                enabled,
-                merchantId: merchantId.trim(),
-                webhookSecret: webhookSecret === "" ? null : webhookSecret,
-              },
-              method: "PUT",
-              reason: reason.trim(),
-            });
-            if (ok) {
-              setCredentials("");
-              setWebhookSecret("");
-              setReason("");
-              onSaved();
-            }
+          disabled={pending}
+          onClick={() => {
+            reset();
+            setConfirming(true);
           }}
           size="sm"
         >
@@ -149,7 +144,8 @@ export function ProviderEditor({
             const ok = await run(`${base}/test`, {
               body: { merchantId: merchantId.trim() },
               method: "POST",
-              reason: reason.trim() || translate("providers.testReason"),
+              // A read-only probe: a fixed reason is all the audit log needs.
+              reason: translate("providers.testReason"),
             });
             setProbe(ok ? "done" : "");
             if (ok) {
@@ -180,6 +176,19 @@ export function ProviderEditor({
         </p>
       )}
 
+      <ReasonDialog
+        confirmLabel={translate("providers.save")}
+        error={error?.message}
+        onConfirm={save}
+        onOpenChange={setConfirming}
+        open={confirming}
+        pending={pending}
+        presets={["rotatedKey", "liveMode", "webhook", "pause", "merchant"].map((key) =>
+          presets(key),
+        )}
+        title={translate("providers.saveTitle")}
+      />
+
       <RecurringControl merchantId={merchantId} onSaved={onSaved} provider={provider} />
     </Card>
   );
@@ -195,6 +204,8 @@ export function ProviderEditor({
  * is recorded as an operator attestation with a stored outcome, and the server
  * refuses to enable charging without a passing one.
  */
+type RecurringOutcome = "enable" | "passOnly" | "fail";
+
 function RecurringControl({
   merchantId,
   onSaved,
@@ -205,9 +216,9 @@ function RecurringControl({
   provider: ProviderSettings;
 }) {
   const translate = useTranslations("admin.settings");
-  const reasonId = useId();
-  const [reason, setReason] = useState("");
-  const { run, pending, error } = useOperatorAction();
+  const presets = useTranslations("admin.reasons");
+  const [outcome, setOutcome] = useState<RecurringOutcome | null>(null);
+  const { run, pending, error, reset } = useOperatorAction();
 
   if (!provider.adapterRecurring) {
     return (
@@ -217,19 +228,32 @@ function RecurringControl({
     );
   }
 
-  async function record(passed: boolean, enable: boolean) {
+  async function record(reason: string) {
+    if (!outcome) {
+      return;
+    }
+    const passed = outcome !== "fail";
     const ok = await run(`/v1/panel/settings/providers/${provider.provider}/recurring`, {
-      body: { enable, merchantId: merchantId.trim(), passed },
+      body: { enable: outcome === "enable", merchantId: merchantId.trim(), passed },
       method: "POST",
-      reason: reason.trim(),
+      reason,
     });
     if (ok) {
-      setReason("");
+      setOutcome(null);
       onSaved();
     }
   }
 
-  const ready = reason.trim().length > 0 && !pending;
+  function open(next: RecurringOutcome) {
+    reset();
+    setOutcome(next);
+  }
+
+  const labels: Record<RecurringOutcome, string> = {
+    enable: translate("providers.recurringEnable"),
+    fail: translate("providers.recurringFail"),
+    passOnly: translate("providers.recurringPassOnly"),
+  };
 
   return (
     <div className="flex flex-col gap-2 border-border border-t pt-3">
@@ -237,29 +261,43 @@ function RecurringControl({
         {translate("providers.recurring")}
       </p>
       <p className="text-muted-foreground text-xs">{translate("providers.recurringExplains")}</p>
-      <Input
-        id={reasonId}
-        onChange={(event) => setReason(event.target.value)}
-        placeholder={translate("providers.recurringReasonPlaceholder")}
-        value={reason}
-      />
-      {error && <p className="text-danger-foreground text-sm">{error.message}</p>}
+      {error && outcome === null && (
+        <p className="text-danger-foreground text-sm">{error.message}</p>
+      )}
       <div className="flex flex-wrap gap-2">
-        <Button disabled={!ready} onClick={() => record(true, true)} size="sm">
-          {translate("providers.recurringEnable")}
+        <Button disabled={pending} onClick={() => open("enable")} size="sm">
+          {labels.enable}
         </Button>
-        <Button disabled={!ready} onClick={() => record(true, false)} size="sm" variant="outline">
-          {translate("providers.recurringPassOnly")}
+        <Button disabled={pending} onClick={() => open("passOnly")} size="sm" variant="outline">
+          {labels.passOnly}
         </Button>
-        <Button
-          disabled={!ready}
-          onClick={() => record(false, false)}
-          size="sm"
-          variant="destructive"
-        >
-          {translate("providers.recurringFail")}
+        <Button disabled={pending} onClick={() => open("fail")} size="sm" variant="destructive">
+          {labels.fail}
         </Button>
       </div>
+      <ReasonDialog
+        confirmLabel={outcome ? labels[outcome] : ""}
+        destructive={outcome === "fail"}
+        error={error?.message}
+        onConfirm={record}
+        onOpenChange={(next) => !next && setOutcome(null)}
+        open={outcome !== null}
+        pending={pending}
+        presets={
+          outcome === "fail"
+            ? ["refused", "notGranted", "withdrawn"].map((key) => presets(`recurringFailed.${key}`))
+            : ["confirmed", "testCharge", "contract"].map((key) =>
+                presets(`recurringPassed.${key}`),
+              )
+        }
+        title={translate(
+          outcome === "fail"
+            ? "providers.recurringFailTitle"
+            : outcome === "enable"
+              ? "providers.recurringEnableTitle"
+              : "providers.recurringPassOnlyTitle",
+        )}
+      />
     </div>
   );
 }
