@@ -7620,7 +7620,8 @@
         "replaces": "Starting this will discard the purchase of {plan} you left unfinished.",
         "start": "Continue",
         "terms": "Terms of service",
-        "activate": "Activate the free trial"
+        "activate": "Activate the free trial",
+        "trialBadge": "Free trial"
       },
       "checkout": {
         "none": "No purchase in progress",
@@ -7786,7 +7787,8 @@
           "paid": "Paid",
           "provisioning": "Setting up",
           "ready": "Ready",
-          "summary": "{done} of {total} done"
+          "summary": "{done} of {total} done",
+          "placed": "Placed"
         },
         "fulfillment": {
           "title": "Setting up your subscription",
@@ -7857,7 +7859,8 @@
           "cancelled": "Refund cancelled",
           "unknown": "Refund"
         },
-        "taxReceipt": "Open the receipt"
+        "taxReceipt": "Open the receipt",
+        "free": "Free"
       },
       "wallet": {
         "available": "Available",

@@ -19,7 +19,10 @@ import {
 import { useOpenCheckout } from "@/components/account/commerce/use-checkout";
 import { AccountNotice, ListSkeleton, SectionLabel } from "@/components/account/state";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
+import { attachAttribution } from "@/lib/attach-attribution";
 import { useBytes, useMoney } from "@/lib/format";
+import { newIdempotencyKey } from "@/lib/idempotency";
+import { useRevalidateCommerce } from "@/lib/polling";
 
 /** The subscriptions a lifecycle change can act on, from the dashboard's own read. */
 type Overview = {
@@ -42,6 +45,7 @@ export default function PlanPage() {
   const params = useParams<{ planVersionId: string }>();
   const search = useSearchParams();
   const router = useRouter();
+  const revalidateCommerce = useRevalidateCommerce();
   const money = useMoney();
   const period = usePeriodLabel();
   const explain = useIneligibility();
@@ -115,7 +119,7 @@ export default function PlanPage() {
     event.preventDefault();
     setBusy(true);
     try {
-      await apiFetch<CheckoutView>("/v1/account/checkout", {
+      const opened = await apiFetch<CheckoutView>("/v1/account/checkout", {
         body: JSON.stringify({
           newSubscription: asksForTarget ? onlyNew || target === "new" : false,
           operation: selected,
@@ -125,6 +129,31 @@ export default function PlanPage() {
         }),
         method: "POST",
       });
+      // A free trial has nothing to pay and no method to choose, so its
+      // checkout page would only repeat "0 ₽" three times. It is confirmed here
+      // and the customer lands on the order, where provisioning shows. Anything
+      // the server still asks for — a required channel, a squad, a target —
+      // falls back to the checkout page, which explains it.
+      if (
+        data?.kind === "trial" &&
+        opened.quoteAvailable &&
+        opened.quote.externalMinor === 0 &&
+        !opened.squadSelection.required &&
+        !opened.targetRequired
+      ) {
+        try {
+          const order = await apiFetch<{ id: string }>("/v1/account/checkout/confirm", {
+            headers: { "Idempotency-Key": newIdempotencyKey() },
+            method: "POST",
+          });
+          void attachAttribution(order.id);
+          void revalidateCommerce();
+          router.push(`/account/orders/${order.id}`);
+          return;
+        } catch {
+          // The checkout page shows why and offers the same button again.
+        }
+      }
       router.push("/account/checkout");
     } catch (openError) {
       toast.error(describeProblem(openError));

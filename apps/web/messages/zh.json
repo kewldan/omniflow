@@ -7536,7 +7536,8 @@
         "replaces": "开始此操作将放弃您未完成的 {plan} 购买。",
         "start": "继续",
         "terms": "服务条款",
-        "activate": "激活免费试用"
+        "activate": "激活免费试用",
+        "trialBadge": "免费试用"
       },
       "checkout": {
         "none": "没有进行中的购买",
@@ -7702,7 +7703,8 @@
           "paid": "已支付",
           "provisioning": "开通中",
           "ready": "就绪",
-          "summary": "已完成 {done}/{total}"
+          "summary": "已完成 {done}/{total}",
+          "placed": "已下单"
         },
         "fulfillment": {
           "title": "正在开通您的订阅",
@@ -7773,7 +7775,8 @@
           "cancelled": "退款已取消",
           "unknown": "退款"
         },
-        "taxReceipt": "查看收据"
+        "taxReceipt": "查看收据",
+        "free": "免费"
       },
       "wallet": {
         "available": "可用",

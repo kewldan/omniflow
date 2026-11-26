@@ -145,6 +145,8 @@ export default function OrderPage() {
   const chosenChoice = choices.find((choice) => choiceKey(choice) === provider);
   const saveable = !data.payment && Boolean(chosenChoice?.canSaveMethod);
   const owes = data.externalMinor > 0;
+  // Nothing was charged at all: a trial, or a code that took the whole price.
+  const free = data.subtotalMinor - data.discountMinor === 0;
   const payable = owes && CANCELLABLE.includes(data.state);
 
   async function startPayment() {
@@ -224,9 +226,11 @@ export default function OrderPage() {
           <div className="min-w-0">
             <h1 className="truncate font-semibold text-[19px] tracking-[-0.02em]">{data.plan}</h1>
             <p className="mt-1 text-[12.5px] text-subtle-foreground">
-              {translate(
-                `operationKinds.${OPERATIONS.includes(data.operation) ? data.operation : "unknown"}`,
-              )}
+              {free
+                ? translate("order.free")
+                : translate(
+                    `operationKinds.${OPERATIONS.includes(data.operation) ? data.operation : "unknown"}`,
+                  )}
               {" · "}
               <Timestamp value={data.createdAt} />
             </p>
@@ -323,12 +327,15 @@ export default function OrderPage() {
 
       {data.fulfillment && <FulfillmentNote fulfillment={data.fulfillment} />}
 
-      <section className="space-y-2">
-        <SectionLabel>{translate("order.amounts.title")}</SectionLabel>
-        <div className="rounded-lg border border-border bg-card p-4">
-          <OrderAmounts order={data} />
-        </div>
-      </section>
+      {/* A free order — a trial — has no sums to show but zeros. */}
+      {!free && (
+        <section className="space-y-2">
+          <SectionLabel>{translate("order.amounts.title")}</SectionLabel>
+          <div className="rounded-lg border border-border bg-card p-4">
+            <OrderAmounts order={data} />
+          </div>
+        </section>
+      )}
 
       {(data.state === "paid" ||
         data.state === "fulfilled" ||
@@ -342,13 +349,24 @@ export default function OrderPage() {
       )}
 
       <div className="space-y-2">
-        <Button className="w-full" disabled={busy} onClick={refresh} size="lg" variant="outline">
-          <RefreshCw aria-hidden />
-          {translate("order.refresh")}
-        </Button>
-        <p className="px-1 text-center text-[11.5px] text-subtle-foreground leading-relaxed">
-          {translate("order.refreshHint")}
-        </p>
+        {/* Checking the status asks the payment provider; a free order has none. */}
+        {!free && (
+          <>
+            <Button
+              className="w-full"
+              disabled={busy}
+              onClick={refresh}
+              size="lg"
+              variant="outline"
+            >
+              <RefreshCw aria-hidden />
+              {translate("order.refresh")}
+            </Button>
+            <p className="px-1 text-center text-[11.5px] text-subtle-foreground leading-relaxed">
+              {translate("order.refreshHint")}
+            </p>
+          </>
+        )}
 
         {data.subscriptionId && (
           <Button asChild className="w-full" size="lg" variant="outline">

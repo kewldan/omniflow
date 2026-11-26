@@ -264,7 +264,11 @@ function Checkout({
               {period(checkout.plan.billingPeriod, checkout.plan.durationSeconds)}
             </p>
           </div>
-          <Badge variant="outline">{translate(`operationKinds.${operation}`)}</Badge>
+          <Badge variant="outline">
+            {checkout.plan.kind === "trial"
+              ? translate("plan.trialBadge")
+              : translate(`operationKinds.${operation}`)}
+          </Badge>
         </div>
         <ExpiryNotice expiresAt={checkout.expiresAt} />
       </header>
@@ -285,7 +289,10 @@ function Checkout({
         <AddonPicker checkout={checkout} disabled={busy} onToggle={apply} />
       )}
 
-      <PromoField checkout={checkout} disabled={busy} onApply={apply} />
+      {/* A trial costs nothing to begin with, so a code has nothing to take off. */}
+      {checkout.plan.kind !== "trial" && (
+        <PromoField checkout={checkout} disabled={busy} onApply={apply} />
+      )}
 
       {/* An empty wallet has nothing to spend, so the control that would spend it
           is not a decision — it is a switch whose two positions do the same
@@ -314,7 +321,8 @@ function Checkout({
         </section>
       )}
 
-      <ProviderPicker checkout={checkout} disabled={busy} onChange={patch} />
+      {/* Nothing left to pay is nothing to choose a method for. */}
+      {needsPayment && <ProviderPicker checkout={checkout} disabled={busy} onChange={patch} />}
 
       <section className="space-y-2">
         <SectionLabel>{translate("checkout.total")}</SectionLabel>
@@ -375,7 +383,9 @@ function Checkout({
 
       <div className="space-y-2">
         <Button className="w-full" disabled={busy || blocked} onClick={confirm} size="lg">
-          {translate(needsPayment ? "checkout.confirm" : "checkout.confirmFree")}
+          {checkout.plan.kind === "trial"
+            ? translate("plan.activate")
+            : translate(needsPayment ? "checkout.confirm" : "checkout.confirmFree")}
         </Button>
         {blocked && !checkout.targetRequired && !unresolved && (
           <p className="px-1 text-center text-[11.5px] text-warning" role="status">

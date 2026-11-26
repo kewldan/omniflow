@@ -82,7 +82,7 @@ export function QuoteBreakdown({ className, quote }: { className?: string; quote
       {/* A wallet-funded order still creates an order; it simply owes a provider
           nothing. Saying so here stops the confirm step from looking broken when
           no payment method needs choosing. */}
-      {quote.externalMinor === 0 && (
+      {quote.externalMinor === 0 && quote.walletAppliedMinor > 0 && (
         <p className="text-[12px] text-muted-foreground leading-relaxed">
           {translate("breakdown.nothingDue")}
         </p>

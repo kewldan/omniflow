@@ -96,7 +96,10 @@ export function OrderProgress({ order }: { order: OrderSummary }) {
   };
   const done = reached[phase] ?? 0;
   const steps = [
-    translate("order.progress.paid"),
+    // A free order was never paid for; it was placed.
+    order.subtotalMinor - order.discountMinor === 0
+      ? translate("order.progress.placed")
+      : translate("order.progress.paid"),
     translate("order.progress.provisioning"),
     translate("order.progress.ready"),
   ];
