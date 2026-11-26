@@ -28,7 +28,6 @@ const (
 type View struct {
 	Text       string
 	Keyboard   *models.InlineKeyboardMarkup
-	Protect    bool
 	RetryRoute string
 	// Photo is an https picture sent with the message: as its caption when
 	// the text fits Telegram's caption limit, above it otherwise.
@@ -105,7 +104,6 @@ func subscriptionView(locale Locale, subscription remnawave.Subscription) View {
 	return View{
 		Text:       text,
 		Keyboard:   subscriptionKeyboard(locale, subscription.SubscriptionURL, false, true),
-		Protect:    true,
 		RetryRoute: routeSubscription,
 	}
 }
@@ -120,7 +118,6 @@ func connectView(locale Locale, subscription remnawave.Subscription) View {
 	return View{
 		Text:       text,
 		Keyboard:   subscriptionKeyboard(locale, subscription.SubscriptionURL, true, false),
-		Protect:    true,
 		RetryRoute: routeConnect,
 	}
 }

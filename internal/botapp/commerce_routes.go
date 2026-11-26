@@ -1297,7 +1297,6 @@ func (app *App) StarsInvoice(ctx context.Context, client *telegram.Bot, session 
 			Label:  truncateRunes(order.PlanName, 32),
 			Amount: int(stars),
 		}},
-		ProtectContent: true,
 	})
 	return err
 }

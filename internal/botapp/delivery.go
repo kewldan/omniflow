@@ -217,7 +217,7 @@ func (sender *Sender) deliver(ctx context.Context, chatID int64, view View) erro
 		return err
 	}
 	photo := &telegram.SendPhotoParams{
-		ChatID: chatID, Photo: &models.InputFileString{Data: view.Photo}, ProtectContent: true,
+		ChatID: chatID, Photo: &models.InputFileString{Data: view.Photo},
 	}
 	if len([]rune(view.Text)) <= captionLimit {
 		photo.Caption, photo.ParseMode = view.Text, models.ParseModeHTML

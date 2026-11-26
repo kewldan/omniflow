@@ -120,7 +120,6 @@ func (notifier *Notifier) deliverTests(ctx context.Context) {
 // unexplained message from your VPN provider is worse than receiving nothing.
 func testNotificationView(locale Locale, at time.Time) View {
 	return View{
-		Text:    text(locale, "notifications.test", at.Format("2006-01-02 15:04 UTC")),
-		Protect: true,
+		Text: text(locale, "notifications.test", at.Format("2006-01-02 15:04 UTC")),
 	}
 }

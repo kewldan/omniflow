@@ -105,7 +105,7 @@ func connectModeView(
 	rows = append(rows, guide, back)
 	return View{
 		Text: text(locale, "connect.title"), Keyboard: keyboard(rows...),
-		Protect: true, RetryRoute: routeConnect,
+		RetryRoute: routeConnect,
 	}, true
 }
 
@@ -143,7 +143,7 @@ func connectPlatformsView(
 		body = text(locale, "connect.title") + "\n\n" + text(locale, "connect.noLink")
 	}
 	rows = append(rows, row(callbackButton(text(locale, "action.refresh"), routeConnect), callbackButton(text(locale, "action.back"), routeHome)))
-	return View{Text: body, Keyboard: keyboard(rows...), Protect: true, RetryRoute: routeConnect}
+	return View{Text: body, Keyboard: keyboard(rows...), RetryRoute: routeConnect}
 }
 
 // connectPlatformView gives step-by-step instructions plus per-app deep links
@@ -184,5 +184,5 @@ func connectPlatformView(
 		body = strings.TrimSpace(body) + "\n\n" + text(locale, "connect.noLink")
 	}
 	rows = append(rows, row(callbackButton(text(locale, "action.back"), routeConnect), callbackButton(text(locale, "action.menu"), routeHome)))
-	return View{Text: body, Keyboard: keyboard(rows...), Protect: true, RetryRoute: routeConnect}
+	return View{Text: body, Keyboard: keyboard(rows...), RetryRoute: routeConnect}
 }

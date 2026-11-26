@@ -101,7 +101,7 @@ func orderView(locale Locale, order OrderSummary, refunds []RefundStatus, extras
 		row(actionButton(text(locale, "action.refresh"), "order:"+order.ID)),
 		row(callbackButton(text(locale, "menu.orders"), routeOrders), callbackButton(text(locale, "action.menu"), routeHome)),
 	)
-	return View{Text: body, Keyboard: keyboard(rows...), Protect: true}
+	return View{Text: body, Keyboard: keyboard(rows...)}
 }
 
 // settledOrderBody describes a paid order by what the money bought.

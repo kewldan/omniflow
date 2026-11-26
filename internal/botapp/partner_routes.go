@@ -102,6 +102,6 @@ func (app *App) withReferralExtras(view View, locale Locale, games bool) View {
 	combined = append(combined, rows[:last]...)
 	combined = append(combined, extra...)
 	combined = append(combined, rows[last])
-	return View{Text: view.Text, Keyboard: keyboard(combined...), Protect: view.Protect, RetryRoute: view.RetryRoute, Photo: view.Photo,
+	return View{Text: view.Text, Keyboard: keyboard(combined...), RetryRoute: view.RetryRoute, Photo: view.Photo,
 		Preview: view.Preview}
 }

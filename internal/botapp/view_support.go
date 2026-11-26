@@ -109,7 +109,7 @@ func supportTicketView(locale Locale, ticket Ticket, messages []TicketMessage) V
 		lines = append(lines, text(locale, "support.resolvedHint"))
 	}
 	rows = append(rows, row(callbackButton(text(locale, "action.back"), routeSupport), callbackButton(text(locale, "action.menu"), routeHome)))
-	return View{Text: strings.Join(lines, "\n"), Keyboard: keyboard(rows...), Protect: true}
+	return View{Text: strings.Join(lines, "\n"), Keyboard: keyboard(rows...)}
 }
 
 // ticketMessageBudget is how much of a ticket screen the conversation may take,
@@ -224,6 +224,5 @@ func supportReplyView(locale Locale, reply PendingOperatorReply) View {
 			row(actionButton(text(locale, "support.open"), "ticket:"+reply.TicketID)),
 			row(callbackButton(text(locale, "action.menu"), routeHome)),
 		),
-		Protect: true,
 	}
 }

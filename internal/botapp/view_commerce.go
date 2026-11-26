@@ -258,7 +258,7 @@ func checkoutView(locale Locale, plan Plan, session CheckoutSession, quote comme
 		row(actionButton(text(locale, "checkout.changeMethod"), "pm-change")),
 		row(callbackButton(text(locale, "action.cancel"), routePlans)),
 	)
-	return View{Text: strings.Join(lines, "\n"), Keyboard: keyboard(rows...), Protect: true}
+	return View{Text: strings.Join(lines, "\n"), Keyboard: keyboard(rows...)}
 }
 
 // promoPromptView asks for a promo code and always offers a way out.
@@ -362,7 +362,7 @@ func orderDetailView(locale Locale, order OrderSummary, refunds []RefundStatus) 
 		rows = append(rows, row(actionButton(text(locale, "orders.cancel"), "order-cancel:"+order.ID)))
 	}
 	rows = append(rows, row(callbackButton(text(locale, "action.back"), routeOrders), callbackButton(text(locale, "action.menu"), routeHome)))
-	return View{Text: body, Keyboard: keyboard(rows...), Protect: true}
+	return View{Text: body, Keyboard: keyboard(rows...)}
 }
 
 // walletView shows the balance and the customer's own ledger history.

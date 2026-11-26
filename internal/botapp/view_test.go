@@ -47,9 +47,6 @@ func TestSubscriptionViewProvidesOpenAndCopyActions(t *testing.T) {
 	if len(rows) < 3 || rows[0][0].URL == "" || rows[1][0].CopyText == nil {
 		t.Fatalf("expected open and copy actions: %#v", rows)
 	}
-	if !view.Protect {
-		t.Fatal("subscription view must be protected")
-	}
 }
 
 func TestDevicesViewDoesNotExposeIdentifiers(t *testing.T) {
@@ -178,3 +175,16 @@ func (service *fakeRemnawave) Devices(context.Context, int64) (remnawave.Devices
 func (service *fakeRemnawave) DeleteDevice(context.Context, int64, string) error { return nil }
 func (service *fakeRemnawave) DeleteAllDevices(context.Context, int64) error     { return nil }
 func (service *fakeRemnawave) RevokeSubscription(context.Context, int64) error   { return nil }
+
+// Protected content makes Telegram block screenshots of the whole chat, and a
+// customer asking support for help sends exactly those. The bot never sets it,
+// on a screen, an invoice, or a picture.
+func TestBotMessagesAreNeverProtectedContent(t *testing.T) {
+	t.Parallel()
+	params := sendParams(1, subscriptionView(LocaleEnglish, remnawave.Subscription{
+		SubscriptionURL: "https://sub.example.test/abc",
+	}))
+	if params.ProtectContent {
+		t.Fatal("a bot message must not be protected content: it blocks screenshots")
+	}
+}

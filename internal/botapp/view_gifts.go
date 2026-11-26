@@ -109,7 +109,6 @@ func giftCodeView(locale Locale, purchase GiftPurchase, order OrderSummary) View
 				row(actionButton(text(locale, "menu.orders"), "order:"+order.ID)),
 				row(callbackButton(text(locale, "action.back"), routeGifts)),
 			),
-			Protect: true,
 		}
 	}
 	body := text(locale, "gift.created") +
@@ -131,7 +130,7 @@ func giftCodeView(locale Locale, purchase GiftPurchase, order OrderSummary) View
 		row(callbackButton(text(locale, "action.back"), routeGifts)),
 		row(callbackButton(text(locale, "action.menu"), routeHome)),
 	)
-	return View{Text: body, Keyboard: keyboard(rows...), Protect: true}
+	return View{Text: body, Keyboard: keyboard(rows...)}
 }
 
 // giftClaimPromptView asks the recipient for a code.

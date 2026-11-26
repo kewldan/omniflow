@@ -91,9 +91,6 @@ func TestCheckoutViewShowsTheFullBreakdown(t *testing.T) {
 			t.Fatalf("checkout summary is missing %q: %s", fragment, screen)
 		}
 	}
-	if !view.Protect {
-		t.Fatal("the checkout summary must be protected content")
-	}
 }
 
 func TestCheckoutViewShowsAProratedPlanChangeCredit(t *testing.T) {
@@ -178,9 +175,6 @@ func TestConnectViewOffersDeepLinksAndAManualFallback(t *testing.T) {
 	}
 	if copyButtons < 2 {
 		t.Fatalf("expected app deep links plus a manual-copy fallback, got %d copy actions", copyButtons)
-	}
-	if !view.Protect {
-		t.Fatal("connection instructions carry the subscription link and must be protected")
 	}
 }
 

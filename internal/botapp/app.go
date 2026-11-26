@@ -1533,7 +1533,6 @@ func sendParams(chatID int64, view View) *telegram.SendMessageParams {
 		Text:               fitText(view.Text),
 		ParseMode:          models.ParseModeHTML,
 		LinkPreviewOptions: linkPreview(view),
-		ProtectContent:     true,
 	}
 	if view.Keyboard != nil {
 		params.ReplyMarkup = view.Keyboard

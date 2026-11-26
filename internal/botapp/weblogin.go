@@ -84,8 +84,9 @@ func (app *App) HandleWebLogin(ctx context.Context, client *telegram.Bot, update
 		return
 	}
 
-	// Protected so the message cannot be forwarded: the link is a bearer
-	// credential for ten minutes, and forwarding it hands over the account.
+	// The link is a bearer credential for ten minutes. The message is not sent
+	// as protected content: Telegram would then block screenshots of the chat,
+	// and the bot never does that.
 	//
 	// The delivery error is reported rather than discarded. This is the one
 	// branch that has to reach the customer, and a send that fails here looks
@@ -93,7 +94,7 @@ func (app *App) HandleWebLogin(ctx context.Context, client *telegram.Bot, update
 	// message arrives, and until this line existed nothing was written down
 	// either. The link itself is never logged — it is a credential.
 	sent, err := client.SendMessage(ctx, sendParams(message.Chat.ID, View{
-		Text: text(locale, "weblogin.link"), Protect: true,
+		Text: text(locale, "weblogin.link"),
 		Keyboard: keyboard(row(models.InlineKeyboardButton{
 			Text: text(locale, "weblogin.button"), URL: link,
 		})),
