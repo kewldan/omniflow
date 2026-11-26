@@ -345,6 +345,24 @@ across a table does not ask again. An operator without `customers.read` sees a
 line saying the summary is hidden instead of the card. `Escape` or moving away
 closes it.
 
+## Reasons for an action
+
+An action that changes a customer, money, or the installation records why. The
+panel asks for that reason in a dialog when the action is confirmed — never in a
+field left on the page — with three to five ready answers written for that
+action, so the audit trail reads the same whoever made the change: a wallet
+adjustment offers downtime compensation or a payment credited twice, a refund
+offers a VPN that did not work or a double charge, maintenance mode offers
+planned maintenance or a Remnawave outage. **Another reason** takes your own
+words. Fields that belong to the action — an amount, the maintenance notice, the
+`RESTORE` phrase — sit in the same dialog.
+
+The reason travels in the `X-Operator-Reason` header. A browser cannot put a
+non-Latin character in a header, so the panel percent-encodes it and adds
+`X-Operator-Reason-Encoding: percent`; the API decodes it, so a Russian reason is
+stored as written. A request that never reached the API says so in the
+operator's language rather than as "code 0".
+
 ## Live updates
 
 Open panel screens stay current on their own. The panel keeps one server-sent event stream

@@ -170,6 +170,10 @@ which devices (HWIDs) connected through each subscription; Omniflow reads that
 list and puts every device seen on two or more customers in front of an
 operator under **Risk → Shared devices**.
 
+<Frame caption="Shared devices: four accounts on one iPhone with four trials and two invites from the device.">
+  <img src="/screenshots/admin-risk-devices.png" alt="Shared devices: four accounts on one iPhone with four trials and two invites from the device." />
+</Frame>
+
 ### What is stored
 
 Only the device's handle: a digest of the HWID, the same one a customer's own
@@ -220,6 +224,10 @@ A family on one tablet looks exactly like a second account, so the verdict is a
 person's. The queue filters by status and by size — **More than 2 accounts**
 shows only the devices with three or more. With `risk.write`, an operator
 decides an open device in one of two ways.
+
+<Frame caption="The ban dialog: the accounts with the first one on the device left out, a ready reason, the length, the customer message, and annulling subscriptions.">
+  <img src="/screenshots/admin-risk-ban.png" alt="The ban dialog: the accounts with the first one on the device left out, a ready reason, the length, the customer message, and annulling subscriptions." />
+</Frame>
 
 **Legitimate** — a family or a shared phone. No reason is needed, because
 lifting a hold is not an adverse decision. The device stops refusing trials

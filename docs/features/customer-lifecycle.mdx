@@ -10,6 +10,14 @@ installation: how they get in, what you can see and do from the customer card, h
 somebody, what happens to customers who stop showing up, how you talk to them, and what happens when
 they leave.
 
+<Frame caption="The customer card: the subscription, live devices, and every operator action.">
+  <img src="/screenshots/admin-customer.png" alt="The customer card: the subscription, live devices, and every operator action." />
+</Frame>
+
+<Frame caption="The hover card on any customer chip: status, subscriptions, and what the customer has spent.">
+  <img src="/screenshots/admin-hover-card.png" alt="The hover card on any customer chip: status, subscriptions, and what the customer has spent." />
+</Frame>
+
 The detailed references are [Admin operations](/operations/admin-operations),
 [Notifications and announcements](/customer/notifications), and
 [Personal data and privacy](/customer/privacy).
@@ -104,7 +112,22 @@ There are three strengths of block, and the lightest one that does the job is us
    **Reactivate** reverses it. Both need a reason.
 3. **Moderation bans** on `/admin/customers` suspend a pasted list of up to 1,000 customer or
    Telegram IDs at once, optionally sending a ban message from a template (torrents, account sharing,
-   spam, payment fraud, rules) or your own text.
+   spam, payment fraud, rules, several accounts on one device) or your own text.
+4. **Bans from risk review** come from **Risk → Shared devices** and **Risk → Matches**. The ban
+   dialog picks the accounts (on a shared device, all but the one first seen there), a reason from the
+   same templates, a length — 1, 7, 30 or 90 days, or no end — whether the customer gets the reason as
+   a message, and whether their running subscriptions are annulled, that is disabled in Remnawave
+   through the fulfillment pipeline. See [Risk controls](/operations/risk-controls#shared-devices).
+
+Every one of these asks for its reason in a dialog with ready answers for that action, plus
+**Another reason** for your own words; the reason is what the audit trail and the customer's history
+show.
+
+A **timed ban** ends by itself: the worker's five-minute `lifecycle_sweep` reactivates the customer
+once the length runs out, recorded as `restored` with the reason `ban_expired`. Reactivating by hand
+ends it at once, and a new suspension from any other place starts with no end. Subscriptions annulled
+by a ban stay disabled after it ends; enable them on the customer card if the customer should have them
+back. The hover card on any customer chip shows when a suspension ends.
 
 <Note>
   Suspension does not write to Remnawave directly. The fulfillment pipeline observes customer state,
@@ -218,9 +241,13 @@ signal computed from what Remnawave reports about those devices: five or more de
 day, four or more platforms, or three or more models of one platform. One reason reads as **Possibly
 shared**, two or more as **Likely shared**.
 
-The signal is read-only by design. Omniflow stores no device history and blocks, removes, or messages
-nobody because of it — Remnawave owns devices and their limits. What you do with it is your decision:
-talk to the customer, or use the account-sharing ban template.
+The signal is read-only by design. It blocks, removes, or messages nobody — Remnawave owns devices
+and their limits. What you do with it is your decision: talk to the customer, or use the
+account-sharing ban template.
+
+The opposite case — one device on several accounts, the usual way to take a trial again — is found
+by the [shared-device check](/operations/risk-controls#shared-devices), which keeps only a digest
+per device and customer for 180 days.
 
 ## Retention
 
