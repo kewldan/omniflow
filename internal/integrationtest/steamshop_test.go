@@ -391,6 +391,21 @@ func newNervixy(t *testing.T) (*nervixyFake, goods.Provider) {
 	return fake, provider
 }
 
+// with runs a change to the fake under its lock: the fake's server answers on
+// its own goroutines, so the test touching its fields directly is a data race.
+func (fake *nervixyFake) with(change func()) {
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	change()
+}
+
+// placed is how many orders the fake has accepted so far.
+func (fake *nervixyFake) placed() int {
+	fake.mu.Lock()
+	defer fake.mu.Unlock()
+	return fake.orders
+}
+
 func (fake *nervixyFake) deliverAll() {
 	fake.mu.Lock()
 	defer fake.mu.Unlock()
@@ -424,8 +439,8 @@ func TestANervixyTopUpIsOrderedOnceAndPolled(t *testing.T) {
 	if delivery, status, _ := harness.deliveryState(ctx, t, orderID); delivery != "delivered" || status != "delivered" {
 		t.Fatalf("delivery %s, order %s", delivery, status)
 	}
-	if fake.orders != 1 {
-		t.Fatalf("%d orders placed", fake.orders)
+	if placed := fake.placed(); placed != 1 {
+		t.Fatalf("%d orders placed", placed)
 	}
 }
 
@@ -442,7 +457,9 @@ func TestNervixyRefusalsAndLostAnswers(t *testing.T) {
 
 	short, _ := store.CreateGoodsOrder(ctx, steamOrder(customerID, productID, "nx-short", "gaben_01", 5, 10_000))
 	shortID := uuidText(short.ID)
-	fake.orderStatus, fake.orderBody = http.StatusBadRequest, `{"ok":false,"error":"Недостаточно средств","required":6.29}`
+	fake.with(func() {
+		fake.orderStatus, fake.orderBody = http.StatusBadRequest, `{"ok":false,"error":"Недостаточно средств","required":6.29}`
+	})
 	runDelivery(ctx, t, harness, provider, shortID, goodsdelivery.Options{})
 	if _, _, marked := harness.steamDelivery(ctx, t, shortID); marked {
 		t.Fatal("a refusal before charging left the marker set")
@@ -450,7 +467,7 @@ func TestNervixyRefusalsAndLostAnswers(t *testing.T) {
 	if delivery, _, code := harness.deliveryState(ctx, t, shortID); delivery != "submitted" || code != "order_http_400" {
 		t.Fatalf("delivery %s, code %s", delivery, code)
 	}
-	fake.orderStatus = 0
+	fake.with(func() { fake.orderStatus = 0 })
 	runDelivery(ctx, t, harness, provider, shortID, goodsdelivery.Options{})
 	fake.deliverAll()
 	runDelivery(ctx, t, harness, provider, shortID, goodsdelivery.Options{})
@@ -460,13 +477,13 @@ func TestNervixyRefusalsAndLostAnswers(t *testing.T) {
 
 	lost, _ := store.CreateGoodsOrder(ctx, steamOrder(customerID, productID, "nx-lost", "gaben_01", 5, 10_000))
 	lostID := uuidText(lost.ID)
-	fake.drop = true
+	fake.with(func() { fake.drop = true })
 	runDelivery(ctx, t, harness, provider, lostID, goodsdelivery.Options{})
 	runDelivery(ctx, t, harness, provider, lostID, goodsdelivery.Options{})
 	if delivery, status, _ := harness.deliveryState(ctx, t, lostID); delivery != "needs_review" || status != "needs_review" {
 		t.Fatalf("a lost charging answer: delivery %s, order %s", delivery, status)
 	}
-	if fake.orders != 3 {
-		t.Fatalf("orders placed = %d, want 3 (refused, retried, lost once)", fake.orders)
+	if placed := fake.placed(); placed != 3 {
+		t.Fatalf("orders placed = %d, want 3 (refused, retried, lost once)", placed)
 	}
 }
