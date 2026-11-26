@@ -1,5 +1,42 @@
 # Changelog
 
+## [1.10.0](https://github.com/kewldan/omniflow/compare/omniflow-v1.9.0...omniflow-v1.10.0) (2026-11-26)
+
+
+### Features
+
+* **account:** offer a trial plan as Activate, not Buy ([2fa9c1e](https://github.com/kewldan/omniflow/commit/2fa9c1e4d1b9d699f25d59c3e8c3deec68973c6e))
+* **account:** show Google, Yandex and VK marks on sign-in methods ([aa32ed3](https://github.com/kewldan/omniflow/commit/aa32ed3f59c9e0cdb2831be63bd05f7b65dbd1e4))
+* **account:** show the Telegram mark on the Telegram sign-in buttons ([8eba8fb](https://github.com/kewldan/omniflow/commit/8eba8fbe830e137d180170450b5594985c786606))
+* **admin:** show the sum beside every amount typed in minor units ([0e9ca0c](https://github.com/kewldan/omniflow/commit/0e9ca0ce5aad5c292bb62d4148b428a60c11a2f3))
+* **customers:** show a customer summary on hovering a customer chip ([e0cf9e8](https://github.com/kewldan/omniflow/commit/e0cf9e8b1bfb41ca4a02dd1d77eea0ea803969d0))
+* **marketing:** break campaign results down by reason in the panel ([6561fce](https://github.com/kewldan/omniflow/commit/6561fcecd54a3eb8e6b93e35672b5c3c32dc3931))
+* **panel:** ask for the reason in a dialog with ready answers ([d758c0a](https://github.com/kewldan/omniflow/commit/d758c0aa03ac86f2266331a58c831e1678c8f47a))
+* **risk:** ban accounts from a shared device ([98fe522](https://github.com/kewldan/omniflow/commit/98fe522058b931557c6d9eb61536f02d086795ef))
+* **risk:** find accounts that share a device ([278ad41](https://github.com/kewldan/omniflow/commit/278ad41387232eec93a38413ac61104f84cd1482))
+* **shop:** sell Steam top-ups through PlayWallet and Nervixy ([c3879da](https://github.com/kewldan/omniflow/commit/c3879da6354108ae4f52a9ce3f7597883e527239))
+* **smart-subscription:** keep one server per subscription in each group ([ab44af5](https://github.com/kewldan/omniflow/commit/ab44af5ed655ecbbefdedf914b8ea438d8d880b2))
+* **smart-subscription:** resolve direct domains through Yandex DNS ([fa0d009](https://github.com/kewldan/omniflow/commit/fa0d0098ac80f477e5d01db6d5efff7d657ddee3))
+* **support:** accept voice messages and audio in tickets ([65b7d50](https://github.com/kewldan/omniflow/commit/65b7d508ccd5fb7616ee4e88a31c2fd76c6074eb))
+* **terms:** show every legal document at the gate and record privacy consent ([0aa6870](https://github.com/kewldan/omniflow/commit/0aa6870a7fda157b06bdb1bcfb9a4d98f3411a4a))
+
+
+### Bug Fixes
+
+* **admin:** let the phone drawer scroll to its last item and keep the menu preview inside its card ([c50b0be](https://github.com/kewldan/omniflow/commit/c50b0be27b2aa90ffb31860611551d290e13f7e5))
+* **admin:** show the welcome text labels instead of failing on their placeholders ([8e2e119](https://github.com/kewldan/omniflow/commit/8e2e119b51b75d4572eea4c6a2f44c8b6b819275))
+* **bot:** stop sending messages as protected content ([e0983d8](https://github.com/kewldan/omniflow/commit/e0983d82cef6e7d413ffa12fcc63ec220cfd2da3))
+* **customer-auth:** send a signed-in browser to the panel from a spent link ([c54a3ae](https://github.com/kewldan/omniflow/commit/c54a3ae7581cc69d1d47f4bef76380e958ba8519))
+* **customer-auth:** sign in with Yandex ID through its OAuth endpoints ([d73036e](https://github.com/kewldan/omniflow/commit/d73036ee38e53a2beb787a2583c55f1620c0b756))
+* **import:** bound int32 conversions explicitly ([3aa35af](https://github.com/kewldan/omniflow/commit/3aa35af08d83ca2c89dd19aefe378c466e32a8ad))
+* **panel:** send operator reasons in any script ([c8ccd4c](https://github.com/kewldan/omniflow/commit/c8ccd4c221688773172033daf81c8a0f3f7953ad))
+* **risk:** read "id #comment" blocklists and refresh a source on save ([ee1c386](https://github.com/kewldan/omniflow/commit/ee1c386385915380d75ab342d6a9b9b3fc505c7b))
+* **smart-subscription:** keep the whitelist bypass only as every group's fallback ([79a71aa](https://github.com/kewldan/omniflow/commit/79a71aaf300e6d0b3ded16ce1c26ce398e7cada3))
+* **smart-subscription:** send only geosite's Russian category direct ([6aff1d6](https://github.com/kewldan/omniflow/commit/6aff1d688d44ee35b544e7979e0cc69e87a0aee8))
+* **store:** list a personal promotion only to the customer holding it ([eb2912f](https://github.com/kewldan/omniflow/commit/eb2912f908353f864ba0ff93165bf18062b8a574))
+* **support:** push operator replies to suspended customers ([fe44628](https://github.com/kewldan/omniflow/commit/fe446283ee5357b9e7e53757beb3fca832cc3f58))
+* **support:** show a file the bot just copied within seconds ([47aa4b9](https://github.com/kewldan/omniflow/commit/47aa4b9d754f81a6ceddb70d05ef9332ee294f87))
+
 ## [1.9.0](https://github.com/kewldan/omniflow/compare/omniflow-v1.8.0...omniflow-v1.9.0) (2026-11-24)
 
 
