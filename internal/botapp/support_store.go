@@ -451,7 +451,10 @@ func (store *PostgresStore) PendingOperatorReplies(ctx context.Context, limit in
 		JOIN users u ON u.id = t.user_id
 		LEFT JOIN recipient ON recipient.user_id = t.user_id
 		LEFT JOIN bot_preferences p ON p.user_id = t.user_id
-		WHERE m.sender IN ('operator', 'system') AND m.delivered_at IS NULL AND m.deleted_at IS NULL AND u.status = 'active'
+		WHERE m.sender IN ('operator', 'system') AND m.delivered_at IS NULL AND m.deleted_at IS NULL
+		  -- A suspended customer still has support — it is how they are talked
+		  -- to — so their replies are pushed like anybody's.
+		  AND u.status IN ('active', 'suspended')
 		  AND NOT EXISTS (
 			SELECT 1 FROM notification_deliveries n
 			WHERE n.user_id = t.user_id AND n.kind = 'support' AND n.subscription_id IS NULL

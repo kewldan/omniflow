@@ -625,3 +625,41 @@ func TestAVoiceMessageReachesTheDesk(t *testing.T) {
 		t.Fatalf("voice and audio waiting for the copier = %d (%v)", pending, err)
 	}
 }
+
+// TestASuspendedCustomerIsToldAboutAReply: support stays open to a suspended
+// customer, because that is how they are talked to, so the bot must push an
+// operator's reply to them too. It used to wait for an active account and so
+// sat in the queue for good, shown to the desk as "queued".
+func TestASuspendedCustomerIsToldAboutAReply(t *testing.T) {
+	ctx := context.Background()
+	harness := newHarness(t)
+	operations := newOperations(t, harness)
+	actor := harness.operator(ctx, t, "suspended@example.test")
+	store, err := botapp.NewPostgresStore(ctx, harness.url)
+	if err != nil {
+		t.Fatalf("build bot store: %v", err)
+	}
+	banned := harness.customer(ctx, t)
+	crossSurfaceLinkTelegram(ctx, t, harness, banned, "777002")
+	ticketID := harness.ticket(ctx, t, banned, "Why am I blocked?")
+	if _, err = operations.SetCustomerStatus(ctx, banned, "suspended", actor); err != nil {
+		t.Fatalf("suspend: %v", err)
+	}
+	if _, err = operations.Reply(ctx, panelpg.ReplyInput{
+		TicketID: ticketID, Body: "Your account is blocked for breaking the rules.", DedupeKey: "suspended-reply",
+	}, actor); err != nil {
+		t.Fatalf("operator reply: %v", err)
+	}
+	pending, err := store.PendingOperatorReplies(ctx, 10)
+	if err != nil {
+		t.Fatalf("claim pending replies: %v", err)
+	}
+	if len(pending) != 1 || pending[0].TicketID != ticketID || pending[0].TelegramID != 777002 {
+		t.Fatalf("the reply to a suspended customer is not queued for the bot: %+v", pending)
+	}
+	// A deleted account is still left out.
+	harness.exec(ctx, t, `UPDATE users SET status = 'deleted', deleted_at = now() WHERE id = $1::uuid`, banned)
+	if pending, err = store.PendingOperatorReplies(ctx, 10); err != nil || len(pending) != 0 {
+		t.Fatalf("a deleted customer's reply was claimed: %+v (%v)", pending, err)
+	}
+}
