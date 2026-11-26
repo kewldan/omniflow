@@ -8,7 +8,7 @@ the answer.
 
 | You have | Use |
 | --- | --- |
-| A question about setting up, configuring, or operating an installation | [GitHub Discussions](https://github.com/kewldan/omniflow/discussions) |
+| A question about setting up, configuring, or operating an installation | [GitHub Discussions](https://github.com/kewldan/omniflow/discussions), or the 🛠 topic of the [Omniflow Community chat](https://t.me/+OgKvtI8pF684ZTZi) on Telegram |
 | A reproducible defect | [GitHub Issues](https://github.com/kewldan/omniflow/issues) — Bug report |
 | An idea for a capability | GitHub Issues — Feature proposal. Read the proposal process in [`CONTRIBUTING.md`](./CONTRIBUTING.md) first |
 | A security vulnerability | Private vulnerability reporting, per [`SECURITY.md`](./SECURITY.md). Never open a public issue |

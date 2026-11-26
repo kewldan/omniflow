@@ -15,6 +15,8 @@
   <a href="./docs/index.mdx">Documentation</a>
   &nbsp;·&nbsp;
   <a href="./docs/comparison.mdx">Comparison</a>
+  &nbsp;·&nbsp;
+  <a href="https://t.me/+OgKvtI8pF684ZTZi"><b>💬 Community chat</b></a>
 </p>
 
 <p align="center">
@@ -30,6 +32,7 @@
   <a href="https://docs.rw/api/"><img alt="Remnawave 3.4.11" src="https://img.shields.io/badge/Remnawave-3.4.11-8b5cf6"></a>
   <br>
   <img alt="Payment providers" src="https://img.shields.io/badge/payment%20providers-29-16a34a">
+  <a href="https://t.me/+OgKvtI8pF684ZTZi"><img alt="Community chat on Telegram" src="https://img.shields.io/badge/community-Telegram%20chat-26A5E4?logo=telegram&logoColor=white"></a>
   <img alt="Telegram Stars" src="https://img.shields.io/badge/Telegram%20Stars-shop%20%2B%20payments-26A5E4?logo=telegram&logoColor=white">
   <img alt="Languages" src="https://img.shields.io/badge/languages-RU%20%7C%20EN%20%7C%20UK%20%7C%20ZH%20%7C%20FA-5E5CE6">
   <img alt="Go tests" src="https://img.shields.io/badge/Go%20tests-1.5k-34C759?logo=go&logoColor=white">
@@ -237,6 +240,20 @@ The exact payload is shown in the operator panel before anything is sent; see [A
 - 🧭 Node management, per-node traffic limits, and Omniflow's own traffic accounting are deliberately left to Remnawave.
 
 Everything still open is tracked in [`BACKLOG.md`](./BACKLOG.md) and [`ROADMAP.md`](./ROADMAP.md).
+
+## 💬 Community
+
+Join [**Omniflow Community**](https://t.me/+OgKvtI8pF684ZTZi) on Telegram: setting up an installation, Remnawave, payment providers, and running a VPN business, with release announcements in their own topic. The chat is in Russian, and questions in English are welcome too.
+
+| Topic | For |
+| --- | --- |
+| 🛠 Установка и настройка | Deploying and configuring Omniflow |
+| 🐞 Баги | Something that does not work as it should |
+| 💡 Идеи | What is missing |
+| 📣 Обновления | Releases and notable changes |
+| 💬 Чат | Everything else |
+
+Never post tokens, keys, passwords, or subscription links there, and report security issues privately as described in [SECURITY.md](./SECURITY.md), not in the chat.
 
 ## 🤝 Contributing
 
