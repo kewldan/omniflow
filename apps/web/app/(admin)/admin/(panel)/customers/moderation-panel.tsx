@@ -13,7 +13,7 @@ import useSWR from "swr";
 import { ReasonDialog } from "@/components/admin/reason-dialog";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
-import { useOperatorAction } from "@/lib/operations";
+import { operatorReasonHeaders, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 
 type BlockerState = {
@@ -67,7 +67,7 @@ export function ModerationPanel() {
     try {
       const response = await apiFetch<{ items: BanResult[] }>("/v1/panel/moderation/bans", {
         method: "POST",
-        headers: { "X-Operator-Reason": reason },
+        headers: operatorReasonHeaders(reason),
         body: JSON.stringify({
           ids: targets,
           reason,

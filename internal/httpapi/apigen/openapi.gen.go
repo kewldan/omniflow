@@ -14065,7 +14065,7 @@ type PreviewPanelBulkOperationParams struct {
 	XCSRFToken     CSRFToken      `json:"X-CSRF-Token"`
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 
-	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
+	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.
 	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
 }
 
@@ -14260,7 +14260,7 @@ type AllowlistPanelCustomerParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 
-	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
+	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.
 	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
 }
 
@@ -14288,7 +14288,7 @@ type MergePanelCustomerParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 
-	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
+	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.
 	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
 }
 
@@ -14337,7 +14337,7 @@ type SetPanelCustomerStatusParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 
-	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
+	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.
 	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
 }
 
@@ -14360,7 +14360,7 @@ type PausePanelSubscriptionParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 
-	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
+	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.
 	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
 }
 
@@ -14369,7 +14369,7 @@ type ResumePanelSubscriptionParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 
-	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
+	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.
 	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
 }
 
@@ -14396,7 +14396,7 @@ type ApplyPanelSubscriptionSyncParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 
-	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
+	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.
 	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
 }
 
@@ -14456,7 +14456,7 @@ type RecordPanelRefundParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 
-	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
+	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.
 	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
 }
 
@@ -14499,7 +14499,7 @@ type RevokePanelGiftParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 
-	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
+	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.
 	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
 }
 
@@ -14523,7 +14523,7 @@ type CancelPanelGoodsDeliveryParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 
-	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
+	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.
 	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
 }
 
@@ -14537,7 +14537,7 @@ type CompletePanelGoodsDeliveryParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 
-	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
+	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.
 	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
 }
 
@@ -14546,7 +14546,7 @@ type RefundPanelGoodsOrderParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 
-	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
+	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.
 	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
 }
 
@@ -14560,7 +14560,7 @@ type ResolvePanelGoodsDeliveryParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 
-	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
+	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.
 	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
 }
 
@@ -14569,7 +14569,7 @@ type RetryPanelGoodsDeliveryParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 
-	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
+	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.
 	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
 }
 
@@ -14931,7 +14931,7 @@ type ReviewPanelAnomalyParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 
-	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
+	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.
 	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
 }
 
@@ -14965,7 +14965,7 @@ type AppealPanelBlocklistMatchParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 
-	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
+	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.
 	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
 }
 
@@ -14985,7 +14985,7 @@ type DecidePanelBlocklistMatchParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 
-	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
+	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.
 	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
 }
 

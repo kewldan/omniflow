@@ -7691,7 +7691,7 @@ export type IdempotencyKeyOptionalParameter = string;
 export type PageSizeParameter = number;
 
 /**
- * Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
+ * Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.
  */
 export type OperatorReasonParameter = string;
 

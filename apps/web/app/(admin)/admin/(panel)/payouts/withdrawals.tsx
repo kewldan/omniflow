@@ -16,7 +16,7 @@ import useSWR from "swr";
 import { CustomerChip } from "@/components/admin/customer-chip";
 import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
-import { formatMoney, useOperatorAction } from "@/lib/operations";
+import { formatMoney, operatorReasonHeaders, useOperatorAction } from "@/lib/operations";
 
 type Settings = {
   enabled: boolean;
@@ -113,7 +113,7 @@ export function WithdrawalsCard({ editable }: { editable: boolean }) {
     try {
       const result = await apiFetch<{ details: string }>(
         `/v1/panel/finance/withdrawals/${item.id}/details`,
-        { headers: { "X-Operator-Reason": translate("reasons.reveal") }, method: "POST" },
+        { headers: operatorReasonHeaders(translate("reasons.reveal")), method: "POST" },
       );
       setRevealed({ ...revealed, [item.id]: result.details });
     } catch {

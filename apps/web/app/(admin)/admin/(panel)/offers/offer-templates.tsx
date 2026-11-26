@@ -12,7 +12,13 @@ import { useId, useState } from "react";
 import useSWR from "swr";
 
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
-import { formatMoney, type Listing, type Promotion, useOperatorAction } from "@/lib/operations";
+import {
+  formatMoney,
+  type Listing,
+  operatorReasonHeaders,
+  type Promotion,
+  useOperatorAction,
+} from "@/lib/operations";
 
 type OfferTemplate = {
   id: string;
@@ -116,7 +122,7 @@ export function OfferTemplatesCard() {
         `/v1/panel/offers/templates/${template.id}/send`,
         {
           body: JSON.stringify({ segmentId }),
-          headers: { "X-Operator-Reason": "offer sent to a segment" },
+          headers: operatorReasonHeaders("offer sent to a segment"),
           method: "POST",
         },
       );

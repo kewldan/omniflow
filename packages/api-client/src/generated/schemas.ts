@@ -3055,7 +3055,7 @@ export const SetPanelCustomerStatusHeader = zod.object({
     .min(1)
     .max(setPanelCustomerStatusHeaderXOperatorReasonMax)
     .describe(
-      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.",
     ),
 });
 
@@ -3135,7 +3135,7 @@ export const AllowlistPanelCustomerHeader = zod.object({
     .min(1)
     .max(allowlistPanelCustomerHeaderXOperatorReasonMax)
     .describe(
-      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.",
     ),
 });
 
@@ -4888,7 +4888,7 @@ export const RecordPanelRefundHeader = zod.object({
     .min(1)
     .max(recordPanelRefundHeaderXOperatorReasonMax)
     .describe(
-      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.",
     ),
 });
 
@@ -6087,7 +6087,7 @@ export const PausePanelSubscriptionHeader = zod.object({
     .min(1)
     .max(pausePanelSubscriptionHeaderXOperatorReasonMax)
     .describe(
-      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.",
     ),
 });
 
@@ -6117,7 +6117,7 @@ export const ResumePanelSubscriptionHeader = zod.object({
     .min(1)
     .max(resumePanelSubscriptionHeaderXOperatorReasonMax)
     .describe(
-      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.",
     ),
 });
 
@@ -6184,7 +6184,7 @@ export const ApplyPanelSubscriptionSyncHeader = zod.object({
     .min(1)
     .max(applyPanelSubscriptionSyncHeaderXOperatorReasonMax)
     .describe(
-      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.",
     ),
 });
 
@@ -6557,7 +6557,7 @@ export const MergePanelCustomerHeader = zod.object({
     .min(1)
     .max(mergePanelCustomerHeaderXOperatorReasonMax)
     .describe(
-      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.",
     ),
 });
 
@@ -9504,7 +9504,7 @@ export const DecidePanelBlocklistMatchHeader = zod.object({
     .min(1)
     .max(decidePanelBlocklistMatchHeaderXOperatorReasonMax)
     .describe(
-      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.",
     ),
 });
 
@@ -9558,7 +9558,7 @@ export const AppealPanelBlocklistMatchHeader = zod.object({
     .min(1)
     .max(appealPanelBlocklistMatchHeaderXOperatorReasonMax)
     .describe(
-      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.",
     ),
 });
 
@@ -9716,7 +9716,7 @@ export const ReviewPanelAnomalyHeader = zod.object({
     .min(1)
     .max(reviewPanelAnomalyHeaderXOperatorReasonMax)
     .describe(
-      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.",
     ),
 });
 
@@ -10022,7 +10022,7 @@ export const RevokePanelGiftHeader = zod.object({
     .min(1)
     .max(revokePanelGiftHeaderXOperatorReasonMax)
     .describe(
-      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.",
     ),
 });
 
@@ -10710,7 +10710,7 @@ export const RetryPanelGoodsDeliveryHeader = zod.object({
     .min(1)
     .max(retryPanelGoodsDeliveryHeaderXOperatorReasonMax)
     .describe(
-      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.",
     ),
 });
 
@@ -10734,7 +10734,7 @@ export const RefundPanelGoodsOrderHeader = zod.object({
     .min(1)
     .max(refundPanelGoodsOrderHeaderXOperatorReasonMax)
     .describe(
-      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.",
     ),
 });
 
@@ -10758,7 +10758,7 @@ export const CompletePanelGoodsDeliveryHeader = zod.object({
     .min(1)
     .max(completePanelGoodsDeliveryHeaderXOperatorReasonMax)
     .describe(
-      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.",
     ),
 });
 
@@ -10788,7 +10788,7 @@ export const ResolvePanelGoodsDeliveryHeader = zod.object({
     .min(1)
     .max(resolvePanelGoodsDeliveryHeaderXOperatorReasonMax)
     .describe(
-      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.",
     ),
 });
 
@@ -10816,7 +10816,7 @@ export const CancelPanelGoodsDeliveryHeader = zod.object({
     .min(1)
     .max(cancelPanelGoodsDeliveryHeaderXOperatorReasonMax)
     .describe(
-      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.",
     ),
 });
 
@@ -10878,7 +10878,7 @@ export const PreviewPanelBulkOperationHeader = zod.object({
     .min(1)
     .max(previewPanelBulkOperationHeaderXOperatorReasonMax)
     .describe(
-      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one. A header can hold only Latin-1, so a client sending any other script percent-encodes the reason and adds `X-Operator-Reason-Encoding: percent`; the API decodes it, and keeps a value that does not decode as sent.",
     ),
 });
 

@@ -255,7 +255,8 @@
       "sessionErrorDescription": "API 无响应。请检查其是否正在运行且可访问。",
       "forbidden": "您无权访问此页面",
       "forbiddenDescription": "您的角色不包含此页面所需的权限。如有需要，请联系所有者。",
-      "unsavedChanges": "您有未保存的更改。确定离开此页面并放弃更改吗？"
+      "unsavedChanges": "您有未保存的更改。确定离开此页面并放弃更改吗？",
+      "requestNotSent": "请求未能到达服务器。请检查网络连接后重试；如再次出现，请刷新页面。"
     },
     "home": {
       "eyebrow": "运营面板",

@@ -1,13 +1,16 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useCallback, useState } from "react";
 
 import { ApiError, apiFetch } from "./api";
 import type { Submission } from "./idempotency";
+import { operatorReasonHeaders } from "./operator-reason";
 
 // The one money and byte formatters, shared with the customer panel.
 export { formatBytes } from "./format";
 export { formatMoney } from "./money";
+export { operatorReasonHeaders };
 
 /**
  * Shapes returned by the /v1/panel operations endpoints.
@@ -1007,6 +1010,7 @@ export type Listing<Item> = { items: Item[] | null };
  * went wrong.
  */
 export function useOperatorAction() {
+  const translate = useTranslations("admin.states");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
 
@@ -1035,10 +1039,9 @@ export function useOperatorAction() {
       setError(null);
       const key = options.idempotencyKey ?? options.submission?.begin();
       try {
-        const headers: Record<string, string> = {};
-        if (options.reason) {
-          headers["X-Operator-Reason"] = options.reason;
-        }
+        const headers: Record<string, string> = options.reason
+          ? operatorReasonHeaders(options.reason)
+          : {};
         if (key) {
           headers["Idempotency-Key"] = key;
         }
@@ -1054,13 +1057,28 @@ export function useOperatorAction() {
         // failure does not, because the request may well have been processed
         // and the retry has to be able to find what it produced.
         options.submission?.settle(caught);
-        setError(caught instanceof ApiError ? caught : new ApiError(0, null));
+        if (caught instanceof ApiError) {
+          setError(caught);
+        } else {
+          // Nothing came back: the request never left (fetch refused it) or
+          // the connection dropped. "Request failed with 0" told the operator
+          // nothing; this says what happened, and the console keeps the cause.
+          console.error("operator action did not reach the API", caught);
+          setError(
+            new ApiError(0, {
+              status: 0,
+              title: "request_not_sent",
+              type: "request_not_sent",
+              detail: translate("requestNotSent"),
+            }),
+          );
+        }
         return false;
       } finally {
         setPending(false);
       }
     },
-    [],
+    [translate],
   );
 
   return { run, pending, error, reset: () => setError(null) };

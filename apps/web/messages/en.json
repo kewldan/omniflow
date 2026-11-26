@@ -255,7 +255,8 @@
       "sessionErrorDescription": "The API did not answer. Check that it is running and reachable.",
       "forbidden": "You do not have access to this page",
       "forbiddenDescription": "Your roles do not include the permission this page requires. Ask an owner if you need it.",
-      "unsavedChanges": "You have unsaved changes. Leave this page and discard them?"
+      "unsavedChanges": "You have unsaved changes. Leave this page and discard them?",
+      "requestNotSent": "The request did not reach the server. Check the connection and try again; if it repeats, reload the page."
     },
     "home": {
       "eyebrow": "Operator panel",

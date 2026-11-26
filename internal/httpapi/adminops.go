@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -268,8 +270,22 @@ func actorFrom(request *http.Request) panelpg.Actor {
 		AdminID:   principal.Account.ID,
 		Type:      "admin",
 		RequestID: middleware.GetReqID(request.Context()),
-		Reason:    strings.TrimSpace(request.Header.Get("X-Operator-Reason")),
+		Reason:    operatorReason(request),
 	}
+}
+
+// operatorReason reads X-Operator-Reason. A browser cannot put a non-Latin-1
+// character in a header — fetch throws before sending — so the panel sends
+// the reason percent-encoded and says so in X-Operator-Reason-Encoding; a
+// value that does not decode is kept as sent.
+func operatorReason(request *http.Request) string {
+	raw := request.Header.Get("X-Operator-Reason")
+	if strings.EqualFold(request.Header.Get("X-Operator-Reason-Encoding"), "percent") {
+		if decoded, err := url.PathUnescape(raw); err == nil && utf8.ValidString(decoded) {
+			raw = decoded
+		}
+	}
+	return strings.TrimSpace(raw)
 }
 
 // operationsError maps a service failure onto an RFC 9457 problem response.
