@@ -77,7 +77,10 @@ export function TicketConversation({
   const { data, error, isLoading, mutate } = useSWR<TicketDetail, ApiError>(
     `/v1/panel/support/tickets/${ticketId}`,
     fetcher,
-    { refreshInterval: 15_000 },
+    // While the bot is still copying a file the customer just sent, read the
+    // ticket often, so the photo or the voice message appears within seconds
+    // of the copy rather than on the next quarter-minute.
+    { refreshInterval: (latest) => (awaitingCopy(latest) ? 3_000 : 15_000) },
   );
   const { data: tags } = useSWR<Listing<SupportTag>, ApiError>("/v1/panel/support/tags", fetcher);
 
@@ -299,6 +302,25 @@ function DeliveryMark({ reason, state }: { reason?: string; state: DeliveryState
         ? ` · ${reasonKnown ? translate(`deliveryReason.${reason}`) : reason}`
         : ""}
     </span>
+  );
+}
+
+/** How long after a file arrives the bot is expected to have copied it. */
+const COPY_WINDOW_MS = 3 * 60_000;
+
+/** Whether a Telegram file sent in the last few minutes has no copy yet. */
+function awaitingCopy(detail: TicketDetail | undefined): boolean {
+  if (!detail) {
+    return false;
+  }
+  const since = Date.now() - COPY_WINDOW_MS;
+  return detail.messages.some((message) =>
+    message.attachments.some(
+      (attachment) =>
+        attachment.origin === "telegram" &&
+        !attachment.downloadable &&
+        new Date(attachment.createdAt).getTime() > since,
+    ),
   );
 }
 
