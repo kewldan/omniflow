@@ -11,6 +11,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 
+import { ProviderMark } from "@/components/account/provider-mark";
 import { useBrandName } from "@/components/brand-name";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 import { rememberReferralCode } from "@/lib/referral";
@@ -214,6 +215,7 @@ export default function SignInPage() {
                   next === "/account" ? "" : `?next=${encodeURIComponent(next)}`
                 }`}
               >
+                <ProviderMark className="size-4" provider={provider.icon || provider.slug} />
                 {translate("signIn.withProvider", { provider: provider.displayName })}
               </a>
             </Button>

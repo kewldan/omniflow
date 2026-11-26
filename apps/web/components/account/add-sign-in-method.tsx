@@ -6,13 +6,14 @@ import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 
+import { ProviderMark } from "@/components/account/provider-mark";
 import { useReauthentication } from "@/components/account/reauth";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 
 type AvailableMethods = {
   telegram: boolean;
   telegramBot?: string;
-  oidc: { slug: string; displayName: string }[];
+  oidc: { slug: string; displayName: string; icon?: string }[];
 };
 
 /**
@@ -68,6 +69,7 @@ export function AddSignInMethod({
               <a
                 href={`/v1/account/sign-in-methods/oidc/${encodeURIComponent(provider.slug)}/start?next=${encodeURIComponent("/account/security")}`}
               >
+                <ProviderMark className="size-4" provider={provider.icon || provider.slug} />
                 {translate("linkProvider", { provider: provider.displayName })}
               </a>
             </Button>
