@@ -468,6 +468,38 @@ func (service *Service) SetCampaignState(
 	return campaign, err
 }
 
+// CampaignOutcome is how many of a campaign's recipients ended in one status
+// for one reason. Reason is the suppression reason for a skipped recipient;
+// ErrorCode is what a failed delivery recorded. Both are empty for a sent or
+// still queued one.
+type CampaignOutcome struct {
+	Status     string `json:"status"`
+	Reason     string `json:"reason,omitempty"`
+	ErrorCode  string `json:"errorCode,omitempty"`
+	Recipients int32  `json:"recipients"`
+}
+
+// CampaignOutcomes breaks a campaign's results down by why each recipient was
+// sent, skipped, or failed. It carries counts only, never a customer.
+func (service *Service) CampaignOutcomes(ctx context.Context, campaignID string) ([]CampaignOutcome, error) {
+	id, err := parseUUID(campaignID)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := service.queries().CampaignOutcomeBreakdown(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	outcomes := make([]CampaignOutcome, 0, len(rows))
+	for _, row := range rows {
+		outcomes = append(outcomes, CampaignOutcome{
+			Status: row.Status, Reason: row.SuppressionReason, ErrorCode: row.ErrorCode,
+			Recipients: row.Recipients,
+		})
+	}
+	return outcomes, nil
+}
+
 // CampaignTest is one copy of a campaign's message, sent to the operators.
 type CampaignTest struct {
 	ID        string    `json:"id"`

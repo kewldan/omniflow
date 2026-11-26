@@ -3216,7 +3216,37 @@
         },
         "blockerScanRequired": "请先运行“审核 → 立即扫描”：迁移后机器人还不知道谁屏蔽了它，第一次群发会发进已关闭的对话。",
         "sendForbidden": "启动或排期群发需要 marketing.send 权限。",
-        "moveFailed": "无法更改活动状态。"
+        "moveFailed": "无法更改活动状态。",
+        "breakdown": {
+          "open": "原因？",
+          "title": "按原因统计的结果",
+          "failed": "无法加载明细。",
+          "empty": "暂无收件人。",
+          "noReason": "未记录原因",
+          "groups": {
+            "sent": "已发送",
+            "failed": "失败",
+            "suppressed": "已跳过",
+            "queued": "仍在队列中"
+          },
+          "reasons": {
+            "no_consent": "未同意接收营销",
+            "suppressed": "在排除名单中",
+            "frequency_cap": "达到频率上限",
+            "quiet_hours": "免打扰时段",
+            "delivery_blocked": "已屏蔽机器人或从未启动",
+            "no_telegram": "没有 Telegram 账号",
+            "no_email": "没有电子邮件地址"
+          },
+          "errors": {
+            "send_failed": "Telegram 拒绝了消息",
+            "classification_failed": "模板类别不被允许",
+            "account_inactive": "账号已停用或删除",
+            "email_rejected": "邮件服务器拒绝",
+            "email_exhausted": "邮件重试次数已用尽",
+            "email_unreadable": "无法生成邮件"
+          }
+        }
       },
       "segments": {
         "title": "受众分群",

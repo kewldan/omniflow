@@ -324,3 +324,16 @@ UPDATE referral_programs SET
   commission_tiers = sqlc.arg(commission_tiers),
   allow_reward_choice = sqlc.arg(allow_reward_choice)
 WHERE singleton;
+
+-- name: CampaignOutcomeBreakdown :many
+-- How a campaign's recipients ended up, grouped by status and the reason or
+-- error recorded with it, so the panel can say why people were skipped
+-- rather than only how many. Counts only: no recipient is named.
+SELECT status,
+       COALESCE(suppression_reason, '')::text AS suppression_reason,
+       COALESCE(error_code, '')::text AS error_code,
+       count(*)::integer AS recipients
+FROM campaign_recipients
+WHERE campaign_id = sqlc.arg(campaign_id)
+GROUP BY status, suppression_reason, error_code
+ORDER BY count(*) DESC, status, suppression_reason, error_code;

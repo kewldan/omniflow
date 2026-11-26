@@ -28,6 +28,7 @@ func (handlers *AdminHandlers) mountMarketing(secure chi.Router) {
 		read.Post("/marketing/audience/preview", handlers.previewAudience)
 		read.Get("/marketing/campaigns", handlers.campaigns)
 		read.Get("/marketing/campaigns/{campaignID}/tests", handlers.campaignTests)
+		read.Get("/marketing/campaigns/{campaignID}/outcomes", handlers.campaignOutcomes)
 		read.Get("/marketing/suppressions", handlers.suppressions)
 		read.Get("/marketing/referrals", handlers.referralProgram)
 		read.Get("/marketing/ad-campaigns", handlers.adCampaigns)
@@ -113,6 +114,13 @@ func (handlers *AdminHandlers) campaignTests(writer http.ResponseWriter, request
 	tests, err := handlers.operations.CampaignTests(
 		request.Context(), chi.URLParam(request, "campaignID"), queryInt(request, "limit"))
 	handlers.respond(writer, request, map[string]any{"items": tests}, err)
+}
+
+// campaignOutcomes is the campaign's results broken down by reason: why each
+// recipient was skipped or failed. Counts only, so marketing.read suffices.
+func (handlers *AdminHandlers) campaignOutcomes(writer http.ResponseWriter, request *http.Request) {
+	outcomes, err := handlers.operations.CampaignOutcomes(request.Context(), chi.URLParam(request, "campaignID"))
+	handlers.respond(writer, request, map[string]any{"items": outcomes}, err)
 }
 
 // sendCampaignTest queues one copy of the campaign's message for the operators.

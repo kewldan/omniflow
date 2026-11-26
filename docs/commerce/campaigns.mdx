@@ -432,6 +432,17 @@ indistinguishable from a broken send.
 The gap between `estimatedAudience` and `queued + sent + failed + suppressed` is
 therefore the honest measure of how far expansion has got, not a discrepancy.
 
+### Why recipients were skipped or failed
+
+**Why?** under the result triple of any campaign that has left draft opens the
+breakdown: sent, failed, skipped, and still queued, with failures and skips
+split by the reason recorded for each recipient — quiet hours, no marketing
+consent, the frequency limit, the exclusion list, a blocked or never-started
+bot, no Telegram account or e-mail address, a message Telegram or the mail
+server refused. It reads `GET /v1/panel/marketing/campaigns/{campaignID}/outcomes`
+under `marketing.read` and carries counts only; no recipient is named. A reason
+this version does not know is shown by its code.
+
 ## The suppression list
 
 `communication_suppressions` holds one row per customer with a reason from a

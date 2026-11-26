@@ -28,6 +28,7 @@ import { localized } from "@/lib/localized";
 import { formatMoney, type Listing, useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 import { ButtonStats } from "./button-stats";
+import { CampaignOutcomes } from "./campaign-outcomes";
 import { ReferralCommissionFields } from "./referral-commission";
 import type {
   AudienceSegment,
@@ -467,6 +468,11 @@ function CampaignCard({ editable }: { editable: boolean }) {
                       sent: campaign.sentCount,
                       suppressed: campaign.suppressedCount,
                     })}
+                    {campaign.status !== "draft" ? (
+                      <div>
+                        <CampaignOutcomes campaignId={campaign.id} />
+                      </div>
+                    ) : null}
                   </TableCell>
                   <TableCell className="text-right">
                     {editable ? (

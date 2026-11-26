@@ -11,6 +11,52 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const campaignOutcomeBreakdown = `-- name: CampaignOutcomeBreakdown :many
+SELECT status,
+       COALESCE(suppression_reason, '')::text AS suppression_reason,
+       COALESCE(error_code, '')::text AS error_code,
+       count(*)::integer AS recipients
+FROM campaign_recipients
+WHERE campaign_id = $1
+GROUP BY status, suppression_reason, error_code
+ORDER BY count(*) DESC, status, suppression_reason, error_code
+`
+
+type CampaignOutcomeBreakdownRow struct {
+	Status            string `json:"status"`
+	SuppressionReason string `json:"suppression_reason"`
+	ErrorCode         string `json:"error_code"`
+	Recipients        int32  `json:"recipients"`
+}
+
+// How a campaign's recipients ended up, grouped by status and the reason or
+// error recorded with it, so the panel can say why people were skipped
+// rather than only how many. Counts only: no recipient is named.
+func (q *Queries) CampaignOutcomeBreakdown(ctx context.Context, campaignID pgtype.UUID) ([]CampaignOutcomeBreakdownRow, error) {
+	rows, err := q.db.Query(ctx, campaignOutcomeBreakdown, campaignID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CampaignOutcomeBreakdownRow{}
+	for rows.Next() {
+		var i CampaignOutcomeBreakdownRow
+		if err := rows.Scan(
+			&i.Status,
+			&i.SuppressionReason,
+			&i.ErrorCode,
+			&i.Recipients,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const campaignRecipientSample = `-- name: CampaignRecipientSample :many
 SELECT u.id, r.telegram_id
 FROM users u

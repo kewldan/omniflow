@@ -148,6 +148,10 @@ type Querier interface {
 	// currency.
 	CampaignAcquisitionOutcomes(ctx context.Context, arg CampaignAcquisitionOutcomesParams) ([]CampaignAcquisitionOutcomesRow, error)
 	CampaignAcquisitionRevenue(ctx context.Context, arg CampaignAcquisitionRevenueParams) ([]CampaignAcquisitionRevenueRow, error)
+	// How a campaign's recipients ended up, grouped by status and the reason or
+	// error recorded with it, so the panel can say why people were skipped
+	// rather than only how many. Counts only: no recipient is named.
+	CampaignOutcomeBreakdown(ctx context.Context, campaignID pgtype.UUID) ([]CampaignOutcomeBreakdownRow, error)
 	// A handful of recipients a campaign would reach, for the preview.
 	//
 	// It is a sample rather than the list: an operator checking a segment needs to

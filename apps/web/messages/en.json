@@ -3292,7 +3292,37 @@
         },
         "blockerScanRequired": "Run Moderation → Scan now first: after the migration the bot does not yet know who blocked it, and the first broadcast would go into closed chats.",
         "sendForbidden": "Starting or scheduling a broadcast needs the marketing.send permission.",
-        "moveFailed": "The campaign could not be moved."
+        "moveFailed": "The campaign could not be moved.",
+        "breakdown": {
+          "open": "Why?",
+          "title": "Results by reason",
+          "failed": "The breakdown could not be loaded.",
+          "empty": "No recipients yet.",
+          "noReason": "No reason recorded",
+          "groups": {
+            "sent": "Sent",
+            "failed": "Failed",
+            "suppressed": "Skipped",
+            "queued": "Still queued"
+          },
+          "reasons": {
+            "no_consent": "No marketing consent",
+            "suppressed": "On the exclusion list",
+            "frequency_cap": "Frequency limit reached",
+            "quiet_hours": "Quiet hours",
+            "delivery_blocked": "Blocked the bot or never started it",
+            "no_telegram": "No Telegram account",
+            "no_email": "No e-mail address"
+          },
+          "errors": {
+            "send_failed": "Telegram refused the message",
+            "classification_failed": "Template class not allowed",
+            "account_inactive": "Account suspended or deleted",
+            "email_rejected": "Mail server refused",
+            "email_exhausted": "Mail retries exhausted",
+            "email_unreadable": "Message could not be built"
+          }
+        }
       },
       "segments": {
         "title": "Audience segments",
