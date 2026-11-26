@@ -1,7 +1,7 @@
 "use client";
 
-import { createContext, type ReactNode, useContext, useMemo } from "react";
-import useSWR from "swr";
+import { createContext, type ReactNode, useContext, useEffect, useMemo } from "react";
+import useSWR, { preload } from "swr";
 
 import { type ApiError, fetcher } from "./api";
 
@@ -47,6 +47,9 @@ type AccountState = {
 
 const AccountContext = createContext<AccountState | null>(null);
 
+/** The SWR key of the customer overview, loaded alongside the session. */
+const ACCOUNT_OVERVIEW = "/v1/account/overview";
+
 /**
  * Loads the signed-in customer and holds it for the whole panel.
  *
@@ -70,6 +73,17 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       shouldRetryOnError: (retryError) => retryError.status !== 401 && retryError.status !== 403,
     },
   );
+
+  // The overview is what nearly every panel screen waits for next: the
+  // dashboard reads it, and the tab bar names its first tab from it. Its
+  // readers mount only once the session above has loaded, which made it a
+  // second round trip after this one. Started here it travels alongside, and
+  // whichever reader mounts first picks up the answer already in flight. A
+  // visitor without a session is sent to sign in by the shell; the 401 this
+  // then earns is dropped here rather than reported as unhandled.
+  useEffect(() => {
+    preload(ACCOUNT_OVERVIEW, fetcher).catch(() => undefined);
+  }, []);
 
   const value = useMemo<AccountState>(
     () => ({

@@ -432,7 +432,17 @@ function TabBar({ pathname, tabs }: { pathname: string; tabs: typeof TABS }) {
   const navKey = useNavKey();
   // How many times each tab was tapped; every change plays its icon once.
   const [plays, setPlays] = useState<Record<string, number>>({});
-  const section = sectionOf(pathname);
+  // The tab just tapped. The pill moves to it at once rather than when the new
+  // address commits, which on a slow connection is long enough for a tap to
+  // look ignored. Any change of address — the tapped one arriving, or the back
+  // gesture — forgets it, and the address decides again.
+  const [tapped, setTapped] = useState<string | null>(null);
+  const [seen, setSeen] = useState(pathname);
+  if (seen !== pathname) {
+    setSeen(pathname);
+    setTapped(null);
+  }
+  const section = tapped ?? sectionOf(pathname);
   const activeIndex = Math.max(
     0,
     tabs.findIndex((tab) => tab.key === section),
@@ -467,7 +477,13 @@ function TabBar({ pathname, tabs }: { pathname: string; tabs: typeof TABS }) {
               )}
               href={tab.href}
               key={tab.href}
-              onClick={() => setPlays((all) => ({ ...all, [tab.key]: (all[tab.key] ?? 0) + 1 }))}
+              onClick={(event) => {
+                setPlays((all) => ({ ...all, [tab.key]: (all[tab.key] ?? 0) + 1 }));
+                // A modified click opens a new tab and leaves this page where it is.
+                if (!(event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)) {
+                  setTapped(tab.key);
+                }
+              }}
             >
               <NavIcon
                 animation={tab.key}
