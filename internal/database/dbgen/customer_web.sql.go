@@ -189,7 +189,7 @@ func (q *Queries) CreateCustomerEmailMagicLink(ctx context.Context, arg CreateCu
 const createCustomerForSignIn = `-- name: CreateCustomerForSignIn :one
 INSERT INTO users (status, locale, timezone)
 VALUES ('active', $1, $2)
-RETURNING id, status, locale, created_at, updated_at, timezone, suspended_at, deleted_at, anonymized_at, retention_until, merged_into, merged_at, last_activity_at, dormant_at
+RETURNING id, status, locale, created_at, updated_at, timezone, suspended_at, deleted_at, anonymized_at, retention_until, merged_into, merged_at, last_activity_at, dormant_at, suspension_ends_at
 `
 
 type CreateCustomerForSignInParams struct {
@@ -217,6 +217,7 @@ func (q *Queries) CreateCustomerForSignIn(ctx context.Context, arg CreateCustome
 		&i.MergedAt,
 		&i.LastActivityAt,
 		&i.DormantAt,
+		&i.SuspensionEndsAt,
 	)
 	return i, err
 }
@@ -463,7 +464,7 @@ func (q *Queries) GetActiveIdentityBySubject(ctx context.Context, arg GetActiveI
 }
 
 const getCustomerByEmailFingerprint = `-- name: GetCustomerByEmailFingerprint :one
-SELECT u.id, u.status, u.locale, u.created_at, u.updated_at, u.timezone, u.suspended_at, u.deleted_at, u.anonymized_at, u.retention_until, u.merged_into, u.merged_at, u.last_activity_at, u.dormant_at
+SELECT u.id, u.status, u.locale, u.created_at, u.updated_at, u.timezone, u.suspended_at, u.deleted_at, u.anonymized_at, u.retention_until, u.merged_into, u.merged_at, u.last_activity_at, u.dormant_at, u.suspension_ends_at
 FROM contact_channels c
 JOIN users u ON u.id = c.user_id
 WHERE c.kind = 'email' AND c.value_fingerprint = $1
@@ -495,6 +496,7 @@ func (q *Queries) GetCustomerByEmailFingerprint(ctx context.Context, emailFinger
 		&i.MergedAt,
 		&i.LastActivityAt,
 		&i.DormantAt,
+		&i.SuspensionEndsAt,
 	)
 	return i, err
 }

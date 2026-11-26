@@ -6221,17 +6221,62 @@ func (e DecidePanelBlocklistMatchJSONBodyDecision) Valid() bool {
 	}
 }
 
+// Defines values for BanPanelSharedDeviceJSONBodyReason.
+const (
+	Fraud        BanPanelSharedDeviceJSONBodyReason = "fraud"
+	Multiaccount BanPanelSharedDeviceJSONBodyReason = "multiaccount"
+	Rules        BanPanelSharedDeviceJSONBodyReason = "rules"
+	Sharing      BanPanelSharedDeviceJSONBodyReason = "sharing"
+	Spam         BanPanelSharedDeviceJSONBodyReason = "spam"
+	Torrent      BanPanelSharedDeviceJSONBodyReason = "torrent"
+)
+
+// Valid indicates whether the value is a known member of the BanPanelSharedDeviceJSONBodyReason enum.
+func (e BanPanelSharedDeviceJSONBodyReason) Valid() bool {
+	switch e {
+	case Fraud:
+		return true
+	case Multiaccount:
+		return true
+	case Rules:
+		return true
+	case Sharing:
+		return true
+	case Spam:
+		return true
+	case Torrent:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BanPanelSharedDevice200JSONResponseBodyCustomersOutcome.
+const (
+	BanPanelSharedDevice200JSONResponseBodyCustomersOutcomeSuspended            BanPanelSharedDevice200JSONResponseBodyCustomersOutcome = "suspended"
+	BanPanelSharedDevice200JSONResponseBodyCustomersOutcomeSuspendedNotNotified BanPanelSharedDevice200JSONResponseBodyCustomersOutcome = "suspended_not_notified"
+)
+
+// Valid indicates whether the value is a known member of the BanPanelSharedDevice200JSONResponseBodyCustomersOutcome enum.
+func (e BanPanelSharedDevice200JSONResponseBodyCustomersOutcome) Valid() bool {
+	switch e {
+	case BanPanelSharedDevice200JSONResponseBodyCustomersOutcomeSuspended:
+		return true
+	case BanPanelSharedDevice200JSONResponseBodyCustomersOutcomeSuspendedNotNotified:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ReviewPanelSharedDeviceJSONBodyStatus.
 const (
-	ReviewPanelSharedDeviceJSONBodyStatusConfirmed  ReviewPanelSharedDeviceJSONBodyStatus = "confirmed"
 	ReviewPanelSharedDeviceJSONBodyStatusLegitimate ReviewPanelSharedDeviceJSONBodyStatus = "legitimate"
 )
 
 // Valid indicates whether the value is a known member of the ReviewPanelSharedDeviceJSONBodyStatus enum.
 func (e ReviewPanelSharedDeviceJSONBodyStatus) Valid() bool {
 	switch e {
-	case ReviewPanelSharedDeviceJSONBodyStatusConfirmed:
-		return true
 	case ReviewPanelSharedDeviceJSONBodyStatusLegitimate:
 		return true
 	default:
@@ -14841,7 +14886,31 @@ type SearchPanelSharedDevicesParams struct {
 	PageSize   *PageSize                `form:"pageSize,omitempty" json:"pageSize,omitempty"`
 	Status     *PanelSharedDeviceStatus `form:"status,omitempty" json:"status,omitempty"`
 	CustomerId *openapi_types.UUID      `form:"customerId,omitempty" json:"customerId,omitempty"`
+
+	// MinAccounts Only devices with at least this many customers.
+	MinAccounts *int `form:"minAccounts,omitempty" json:"minAccounts,omitempty"`
 }
+
+// BanPanelSharedDeviceJSONBody defines parameters for BanPanelSharedDevice.
+type BanPanelSharedDeviceJSONBody struct {
+	AnnulSubscriptions bool                               `json:"annulSubscriptions"`
+	CustomerIds        []openapi_types.UUID               `json:"customerIds"`
+	Days               int                                `json:"days"`
+	Notify             bool                               `json:"notify"`
+	Reason             BanPanelSharedDeviceJSONBodyReason `json:"reason"`
+}
+
+// BanPanelSharedDeviceParams defines parameters for BanPanelSharedDevice.
+type BanPanelSharedDeviceParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// BanPanelSharedDeviceJSONBodyReason defines parameters for BanPanelSharedDevice.
+type BanPanelSharedDeviceJSONBodyReason string
+
+// BanPanelSharedDevice200JSONResponseBodyCustomersOutcome defines parameters for BanPanelSharedDevice.
+type BanPanelSharedDevice200JSONResponseBodyCustomersOutcome string
 
 // ReviewPanelSharedDeviceJSONBody defines parameters for ReviewPanelSharedDevice.
 type ReviewPanelSharedDeviceJSONBody struct {
@@ -14852,9 +14921,6 @@ type ReviewPanelSharedDeviceJSONBody struct {
 type ReviewPanelSharedDeviceParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
-
-	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
-	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
 }
 
 // ReviewPanelSharedDeviceJSONBodyStatus defines parameters for ReviewPanelSharedDevice.
@@ -15631,6 +15697,9 @@ type DecidePanelBlocklistMatchJSONRequestBody DecidePanelBlocklistMatchJSONBody
 
 // SavePanelAnomalyRuleJSONRequestBody defines body for SavePanelAnomalyRule for application/json ContentType.
 type SavePanelAnomalyRuleJSONRequestBody = PanelAnomalyRuleInput
+
+// BanPanelSharedDeviceJSONRequestBody defines body for BanPanelSharedDevice for application/json ContentType.
+type BanPanelSharedDeviceJSONRequestBody BanPanelSharedDeviceJSONBody
 
 // ReviewPanelSharedDeviceJSONRequestBody defines body for ReviewPanelSharedDevice for application/json ContentType.
 type ReviewPanelSharedDeviceJSONRequestBody ReviewPanelSharedDeviceJSONBody
@@ -16989,6 +17058,9 @@ type ServerInterface interface {
 
 	// (GET /v1/panel/risk/shared-devices)
 	SearchPanelSharedDevices(w http.ResponseWriter, r *http.Request, params SearchPanelSharedDevicesParams)
+
+	// (POST /v1/panel/risk/shared-devices/{handle}/ban)
+	BanPanelSharedDevice(w http.ResponseWriter, r *http.Request, handle string, params BanPanelSharedDeviceParams)
 
 	// (POST /v1/panel/risk/shared-devices/{handle}/review)
 	ReviewPanelSharedDevice(w http.ResponseWriter, r *http.Request, handle string, params ReviewPanelSharedDeviceParams)
@@ -19070,6 +19142,11 @@ func (_ Unimplemented) SavePanelAnomalyRule(w http.ResponseWriter, r *http.Reque
 
 // (GET /v1/panel/risk/shared-devices)
 func (_ Unimplemented) SearchPanelSharedDevices(w http.ResponseWriter, r *http.Request, params SearchPanelSharedDevicesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/risk/shared-devices/{handle}/ban)
+func (_ Unimplemented) BanPanelSharedDevice(w http.ResponseWriter, r *http.Request, handle string, params BanPanelSharedDeviceParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -35164,8 +35241,75 @@ func (siw *ServerInterfaceWrapper) SearchPanelSharedDevices(w http.ResponseWrite
 		return
 	}
 
+	// ------------- Optional query parameter "minAccounts" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "minAccounts", r.URL.Query(), &params.MinAccounts, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "minAccounts"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "minAccounts", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.SearchPanelSharedDevices(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// BanPanelSharedDevice operation middleware
+func (siw *ServerInterfaceWrapper) BanPanelSharedDevice(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "handle" -------------
+	var handle string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "handle", chi.URLParam(r, "handle"), &handle, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "handle", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params BanPanelSharedDeviceParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BanPanelSharedDevice(w, r, handle, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -35215,29 +35359,6 @@ func (siw *ServerInterfaceWrapper) ReviewPanelSharedDevice(w http.ResponseWriter
 	} else {
 		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
 		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
-		return
-	}
-
-	// ------------- Required header parameter "X-Operator-Reason" -------------
-	if valueList, found := headers[http.CanonicalHeaderKey("X-Operator-Reason")]; found {
-		var XOperatorReason OperatorReason
-		n := len(valueList)
-		if n != 1 {
-			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Operator-Reason", Count: n})
-			return
-		}
-
-		err = runtime.BindStyledParameterWithOptions("simple", "X-Operator-Reason", valueList[0], &XOperatorReason, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
-		if err != nil {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Operator-Reason", Err: err})
-			return
-		}
-
-		params.XOperatorReason = XOperatorReason
-
-	} else {
-		err := fmt.Errorf("Header parameter X-Operator-Reason is required, but not found")
-		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Operator-Reason", Err: err})
 		return
 	}
 
@@ -39172,6 +39293,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/panel/risk/shared-devices/{handle}/review", wrapper.ReviewPanelSharedDevice)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/risk/shared-devices/{handle}/ban", wrapper.BanPanelSharedDevice)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/gifts", wrapper.SearchPanelGifts)
@@ -56768,6 +56892,97 @@ func (response SearchPanelSharedDevices422ApplicationProblemPlusJSONResponse) Vi
 	return err
 }
 
+type BanPanelSharedDeviceRequestObject struct {
+	Handle string `json:"handle"`
+	Params BanPanelSharedDeviceParams
+	Body   *BanPanelSharedDeviceJSONRequestBody
+}
+
+type BanPanelSharedDeviceResponseObject interface {
+	VisitBanPanelSharedDeviceResponse(w http.ResponseWriter) error
+}
+
+type BanPanelSharedDevice200JSONResponse struct {
+	Customers []struct {
+		// Annulled Subscriptions queued to be disabled.
+		Annulled   int                                                     `json:"annulled"`
+		CustomerId openapi_types.UUID                                      `json:"customerId"`
+		EndsAt     *time.Time                                              `json:"endsAt,omitempty"`
+		Outcome    BanPanelSharedDevice200JSONResponseBodyCustomersOutcome `json:"outcome"`
+	} `json:"customers"`
+	Device PanelSharedDevice `json:"device"`
+}
+
+func (response BanPanelSharedDevice200JSONResponse) VisitBanPanelSharedDeviceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BanPanelSharedDevice403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response BanPanelSharedDevice403ApplicationProblemPlusJSONResponse) VisitBanPanelSharedDeviceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BanPanelSharedDevice404ApplicationProblemPlusJSONResponse Problem
+
+func (response BanPanelSharedDevice404ApplicationProblemPlusJSONResponse) VisitBanPanelSharedDeviceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BanPanelSharedDevice409ApplicationProblemPlusJSONResponse Problem
+
+func (response BanPanelSharedDevice409ApplicationProblemPlusJSONResponse) VisitBanPanelSharedDeviceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BanPanelSharedDevice422ApplicationProblemPlusJSONResponse Problem
+
+func (response BanPanelSharedDevice422ApplicationProblemPlusJSONResponse) VisitBanPanelSharedDeviceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ReviewPanelSharedDeviceRequestObject struct {
 	Handle string `json:"handle"`
 	Params ReviewPanelSharedDeviceParams
@@ -61814,6 +62029,9 @@ type StrictServerInterface interface {
 
 	// (GET /v1/panel/risk/shared-devices)
 	SearchPanelSharedDevices(ctx context.Context, request SearchPanelSharedDevicesRequestObject) (SearchPanelSharedDevicesResponseObject, error)
+
+	// (POST /v1/panel/risk/shared-devices/{handle}/ban)
+	BanPanelSharedDevice(ctx context.Context, request BanPanelSharedDeviceRequestObject) (BanPanelSharedDeviceResponseObject, error)
 
 	// (POST /v1/panel/risk/shared-devices/{handle}/review)
 	ReviewPanelSharedDevice(ctx context.Context, request ReviewPanelSharedDeviceRequestObject) (ReviewPanelSharedDeviceResponseObject, error)
@@ -72574,6 +72792,40 @@ func (sh *strictHandler) SearchPanelSharedDevices(w http.ResponseWriter, r *http
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(SearchPanelSharedDevicesResponseObject); ok {
 		if err := validResponse.VisitSearchPanelSharedDevicesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// BanPanelSharedDevice operation middleware
+func (sh *strictHandler) BanPanelSharedDevice(w http.ResponseWriter, r *http.Request, handle string, params BanPanelSharedDeviceParams) {
+	var request BanPanelSharedDeviceRequestObject
+
+	request.Handle = handle
+	request.Params = params
+
+	var body BanPanelSharedDeviceJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.BanPanelSharedDevice(ctx, request.(BanPanelSharedDeviceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "BanPanelSharedDevice")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(BanPanelSharedDeviceResponseObject); ok {
+		if err := validResponse.VisitBanPanelSharedDeviceResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

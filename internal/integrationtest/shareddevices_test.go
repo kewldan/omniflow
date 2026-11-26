@@ -104,19 +104,19 @@ func TestSharedDeviceScanFindsSecondAccounts(t *testing.T) {
 		t.Fatalf("notifications = %s, want 1", count)
 	}
 
-	// The verdict needs a reason, then lifts the trial refusal.
+	// "Legitimate" needs no reason and lifts the trial refusal.
 	reviewer := harness.operator(ctx, t, "devices@example.test")
-	if _, err = operations.ReviewSharedDevice(ctx, "phoneHandle01", "legitimate", panelpg.Actor{AdminID: reviewer.AdminID}); !errors.Is(err, panelpg.ErrValidaton) {
-		t.Fatalf("verdict without a reason: %v", err)
-	}
 	if _, err = operations.ReviewSharedDevice(ctx, "unknownHandle", "legitimate", reviewer); !errors.Is(err, panelpg.ErrNotFound) {
 		t.Fatalf("verdict on an unknown device: %v", err)
 	}
-	reviewed, err := operations.ReviewSharedDevice(ctx, "phoneHandle01", "legitimate", reviewer)
-	if err != nil || reviewed.Status != "legitimate" || reviewed.ReviewedAccounts != 2 {
+	if _, err = operations.ReviewSharedDevice(ctx, "phoneHandle01", "confirmed", reviewer); !errors.Is(err, panelpg.ErrValidaton) {
+		t.Fatalf("confirmed through review instead of a ban: %v", err)
+	}
+	reviewed, err := operations.ReviewSharedDevice(ctx, "phoneHandle01", "legitimate", panelpg.Actor{AdminID: reviewer.AdminID})
+	if err != nil || reviewed.Status != "legitimate" || reviewed.ReviewedAccounts != 2 || reviewed.ReviewReason != "legitimate" {
 		t.Fatalf("verdict = %+v (%v)", reviewed, err)
 	}
-	if _, err = operations.ReviewSharedDevice(ctx, "phoneHandle01", "confirmed", reviewer); !errors.Is(err, panelpg.ErrRejected) {
+	if _, err = operations.ReviewSharedDevice(ctx, "phoneHandle01", "legitimate", reviewer); !errors.Is(err, panelpg.ErrRejected) {
 		t.Fatalf("second verdict on a reviewed device: %v", err)
 	}
 	if trial, err = checkout.TrialContext(ctx, second); err != nil || trial.SharedDeviceSignal {
@@ -137,6 +137,50 @@ func TestSharedDeviceScanFindsSecondAccounts(t *testing.T) {
 	if err != nil || len(page.Items) != 1 || page.Items[0].Accounts != 3 ||
 		page.Items[0].ReviewedAccounts != 2 || page.Items[0].ReviewReason == "" {
 		t.Fatalf("reopened = %+v (%v)", page, err)
+	}
+
+	// The filter for bigger clusters keeps it; a higher bar leaves it out.
+	if bigger, err := operations.SearchSharedDevices(ctx, panelpg.SharedDeviceFilter{Status: "open", MinAccounts: 3}); err != nil || len(bigger.Items) != 1 {
+		t.Fatalf("three or more = %+v (%v)", bigger, err)
+	}
+	if bigger, err := operations.SearchSharedDevices(ctx, panelpg.SharedDeviceFilter{Status: "open", MinAccounts: 4}); err != nil || len(bigger.Items) != 0 {
+		t.Fatalf("four or more = %+v (%v)", bigger, err)
+	}
+
+	// A ban: only customers on the device, a known reason, then a timed
+	// suspension that the worker lifts when it ends.
+	ban := panelpg.SharedDeviceBan{CustomerIDs: []string{second, third}, Reason: "multiaccount", Days: 7}
+	if _, err = operations.BanSharedDevice(ctx, "phoneHandle01", panelpg.SharedDeviceBan{
+		CustomerIDs: []string{operatorCustomer}, Reason: "multiaccount"}, reviewer, now); !errors.Is(err, panelpg.ErrValidaton) {
+		t.Fatalf("ban of a customer not on the device: %v", err)
+	}
+	if _, err = operations.BanSharedDevice(ctx, "phoneHandle01", panelpg.SharedDeviceBan{
+		CustomerIDs: []string{second}, Reason: "because"}, reviewer, now); !errors.Is(err, panelpg.ErrValidaton) {
+		t.Fatalf("ban with an unknown reason: %v", err)
+	}
+	banned, err := operations.BanSharedDevice(ctx, "phoneHandle01", ban, reviewer, now)
+	if err != nil || banned.Device.Status != "confirmed" || len(banned.Customers) != 2 ||
+		banned.Customers[0].EndsAt == nil || !banned.Customers[0].EndsAt.Equal(now.Add(7*24*time.Hour)) {
+		t.Fatalf("ban = %+v (%v)", banned, err)
+	}
+	if status := harness.text(ctx, t, `SELECT status FROM users WHERE id = $1::uuid`, owner); status != "active" {
+		t.Fatalf("owner left out of the ban is %s", status)
+	}
+	if reason := harness.text(ctx, t, `SELECT reason FROM customer_lifecycle_events
+		WHERE user_id = $1::uuid AND action = 'suspended'`, second); reason != "shared_device:multiaccount" {
+		t.Fatalf("lifecycle reason = %s", reason)
+	}
+	if _, err = operations.BanSharedDevice(ctx, "phoneHandle01", ban, reviewer, now); !errors.Is(err, panelpg.ErrRejected) {
+		t.Fatalf("second ban of a decided device: %v", err)
+	}
+	if lifted, err := operations.LiftExpiredBans(ctx, now.Add(6*24*time.Hour)); err != nil || lifted != 0 {
+		t.Fatalf("lifted early = %d (%v)", lifted, err)
+	}
+	if lifted, err := operations.LiftExpiredBans(ctx, now.Add(8*24*time.Hour)); err != nil || lifted != 2 {
+		t.Fatalf("lifted = %d (%v)", lifted, err)
+	}
+	if status := harness.text(ctx, t, `SELECT status || ':' || (suspension_ends_at IS NULL)::text FROM users WHERE id = $1::uuid`, third); status != "active:true" {
+		t.Fatalf("after the ban ended: %s", status)
 	}
 
 	// Sightings older than the retention period are forgotten, and a device

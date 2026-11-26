@@ -370,7 +370,7 @@ func (q *Queries) ResetCustomerTrial(ctx context.Context, userID pgtype.UUID) (i
 }
 
 const searchCustomersAdvanced = `-- name: SearchCustomersAdvanced :many
-SELECT u.id, u.status, u.locale, u.created_at, u.updated_at, u.timezone, u.suspended_at, u.deleted_at, u.anonymized_at, u.retention_until, u.merged_into, u.merged_at, u.last_activity_at, u.dormant_at, r.telegram_id,
+SELECT u.id, u.status, u.locale, u.created_at, u.updated_at, u.timezone, u.suspended_at, u.deleted_at, u.anonymized_at, u.retention_until, u.merged_into, u.merged_at, u.last_activity_at, u.dormant_at, u.suspension_ends_at, r.telegram_id,
   COALESCE((SELECT sum(l.amount_minor) FROM ledger_entries l
             WHERE l.user_id = u.id AND l.account_type = 'customer_wallet'), 0)::bigint AS balance_minor,
   (SELECT max(e.ends_at) FROM entitlements e
@@ -472,6 +472,7 @@ func (q *Queries) SearchCustomersAdvanced(ctx context.Context, arg SearchCustome
 			&i.User.MergedAt,
 			&i.User.LastActivityAt,
 			&i.User.DormantAt,
+			&i.User.SuspensionEndsAt,
 			&i.TelegramID,
 			&i.BalanceMinor,
 			&i.EndsAt,

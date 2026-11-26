@@ -1763,7 +1763,7 @@
     "risk": {
       "title": "Risk",
       "description": "Blocklist matches, anomaly signals, and accounts that share a device, with the evidence that produced them.",
-      "noAutoAction": "Nothing on this page changes a customer. A decision here records a verdict and a reason; suspending an account is a separate action on the customer's own page.",
+      "noAutoAction": "Nothing on this page changes a customer on its own. A decision records a verdict; a ban is an operator's choice with a reason and goes through the same suspension as the customer's own page.",
       "reasonPlaceholder": "Reason for the decision (required)",
       "observed": "Observed {observed} against a threshold of {threshold}.",
       "disabled": "Disabled",
@@ -1844,14 +1844,13 @@
         "failed": "The check could not be run."
       },
       "sharedDevices": {
-        "explainer": "Devices that connected through subscriptions of two or more customers. A family on one tablet looks the same as a second account, so decide by looking: \"Legitimate\" stops the device refusing trials and holding referrals, \"Second account\" records the finding. Neither suspends anybody.",
+        "explainer": "Devices that connected through subscriptions of two or more customers. A family on one tablet looks the same as a second account, so decide by looking: \"Legitimate\" stops the device refusing trials and holding referrals, \"Ban\" suspends the accounts you pick.",
         "statusFilter": "Status",
         "status": {
           "open": "Waiting for review",
           "legitimate": "Legitimate",
-          "confirmed": "Second account"
+          "confirmed": "Banned"
         },
-        "reasonPlaceholder": "Reason for the verdict (required)",
         "empty": "No shared devices",
         "emptyDescription": "No device has connected through more than one customer here. The worker checks every few hours.",
         "failed": "Shared devices could not be loaded",
@@ -1863,7 +1862,29 @@
         "reopened": "Reopened: the earlier verdict covered {accounts} accounts — \"{reason}\"",
         "verdict": "Verdict: \"{reason}\"",
         "legitimate": "Legitimate",
-        "confirm": "Second account"
+        "sizeFilter": "Accounts on the device",
+        "size": {
+          "2": "Any number of accounts",
+          "3": "More than 2 accounts"
+        },
+        "bannedFor": "Banned: {reason}",
+        "ban": {
+          "open": "Ban",
+          "title": "Ban accounts on this device",
+          "description": "The chosen accounts are suspended with this reason. The first account seen on the device is left out to begin with; change that if the evidence says otherwise.",
+          "accounts": "Accounts",
+          "firstSeen": "first on the device",
+          "reason": "Reason",
+          "duration": "Ban length",
+          "forever": "No end",
+          "days": "{count, plural, one {# day} other {# days}}",
+          "notify": "Send the customer the reason as a message",
+          "annul": "Annul subscriptions",
+          "annulHint": "Their running subscriptions are disabled in Remnawave and stay disabled after the ban ends.",
+          "annulForbidden": "Needs the subscriptions.write permission.",
+          "submit": "{count, plural, =0 {Pick an account} one {Ban # account} other {Ban # accounts}}",
+          "done": "{count, plural, one {# account banned} other {# accounts banned}}"
+        }
       }
     },
     "system": {
@@ -4662,7 +4683,8 @@
           "sharing": "Account sharing",
           "spam": "Spam",
           "fraud": "Payment fraud",
-          "rules": "Rules violation"
+          "rules": "Rules violation",
+          "multiaccount": "Several accounts on one device"
         }
       }
     },

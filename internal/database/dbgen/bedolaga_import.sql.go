@@ -352,7 +352,7 @@ VALUES (
   $1, $2, $3, now(),
   CASE WHEN $1::text = 'suspended' THEN now() ELSE NULL END
 )
-RETURNING id, status, locale, created_at, updated_at, timezone, suspended_at, deleted_at, anonymized_at, retention_until, merged_into, merged_at, last_activity_at, dormant_at
+RETURNING id, status, locale, created_at, updated_at, timezone, suspended_at, deleted_at, anonymized_at, retention_until, merged_into, merged_at, last_activity_at, dormant_at, suspension_ends_at
 `
 
 type InsertImportedCustomerParams struct {
@@ -384,6 +384,7 @@ func (q *Queries) InsertImportedCustomer(ctx context.Context, arg InsertImported
 		&i.MergedAt,
 		&i.LastActivityAt,
 		&i.DormantAt,
+		&i.SuspensionEndsAt,
 	)
 	return i, err
 }

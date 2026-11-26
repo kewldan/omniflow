@@ -8,7 +8,6 @@ import type {
 import { Badge } from "@omniflow/ui/badge";
 import { Button } from "@omniflow/ui/button";
 import { Card } from "@omniflow/ui/card";
-import { Input } from "@omniflow/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { useTranslations } from "next-intl";
@@ -21,25 +20,32 @@ import { Timestamp } from "@/components/intl/timestamp";
 import { type ApiError, fetcher } from "@/lib/api";
 import { useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
+import { BanDeviceDialog } from "./ban-device-dialog";
 
 const STATUSES: PanelSharedDeviceStatus[] = ["open", "legitimate", "confirmed"];
+/** "Any number of accounts" or "more than two". */
+const SIZES = ["2", "3"] as const;
 
 /**
  * Devices that connected through two or more customers' subscriptions.
  *
  * A family on one tablet and a customer with a second account look the same
  * from here, so the verdict is a person's. "Legitimate" stops the device
- * refusing trials and holding referrals; "confirmed" records the finding.
- * Neither suspends anybody — that stays an action on the customer's own page.
+ * refusing trials and holding referrals; "Ban" opens a dialog that suspends
+ * the chosen accounts, for how long and why, and can disable their
+ * subscriptions.
  */
 export function SharedDevices({ active }: { active: boolean }) {
   const translate = useTranslations("admin.risk.sharedDevices");
   const { can } = useSession();
   const [status, setStatus] = useState<PanelSharedDeviceStatus>("open");
-  const [reason, setReason] = useState("");
+  const [size, setSize] = useState<string>("2");
+  const [banning, setBanning] = useState<PanelSharedDevice | null>(null);
   const { run, pending, error } = useOperatorAction();
 
-  const key = active ? `/v1/panel/risk/shared-devices?status=${status}` : null;
+  const key = active
+    ? `/v1/panel/risk/shared-devices?status=${status}${size === "2" ? "" : `&minAccounts=${size}`}`
+    : null;
   const {
     data,
     error: loadError,
@@ -47,52 +53,57 @@ export function SharedDevices({ active }: { active: boolean }) {
     mutate,
   } = useSWR<PanelSharedDevicePage, ApiError>(key, fetcher);
 
-  async function review(handle: string, verdict: "legitimate" | "confirmed") {
-    const ok = await run(`/v1/panel/risk/shared-devices/${handle}/review`, {
-      body: { status: verdict },
-      method: "POST",
-      reason: reason.trim(),
-    });
-    if (ok) {
-      setReason("");
+  async function legitimate(handle: string) {
+    if (
+      await run(`/v1/panel/risk/shared-devices/${handle}/review`, {
+        body: { status: "legitimate" },
+        method: "POST",
+      })
+    ) {
       await mutate();
     }
   }
 
   const items = data?.items ?? [];
-  const writable = can("risk.write") && status === "open";
+  const open = can("risk.write") && status === "open";
+  const canBan = open && can("customers.write");
 
   return (
     <div className="flex flex-col gap-3">
-      <Card className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
+      <Card className="flex flex-col gap-3 p-3 lg:flex-row lg:items-center">
         <p className="flex-1 text-muted-foreground text-sm">{translate("explainer")}</p>
-        <Select
-          onValueChange={(value) => setStatus(value as PanelSharedDeviceStatus)}
-          value={status}
-        >
-          <SelectTrigger aria-label={translate("statusFilter")} className="sm:w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {STATUSES.map((value) => (
-              <SelectItem key={value} value={value}>
-                {translate(`status.${value}`)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Select onValueChange={setSize} value={size}>
+            <SelectTrigger aria-label={translate("sizeFilter")} className="sm:w-56">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SIZES.map((value) => (
+                <SelectItem key={value} value={value}>
+                  {translate(`size.${value}`)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            onValueChange={(value) => setStatus(value as PanelSharedDeviceStatus)}
+            value={status}
+          >
+            <SelectTrigger aria-label={translate("statusFilter")} className="sm:w-56">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUSES.map((value) => (
+                <SelectItem key={value} value={value}>
+                  {translate(`status.${value}`)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </Card>
 
-      {writable && items.length > 0 && (
-        <Card className="p-3">
-          <Input
-            onChange={(event) => setReason(event.target.value)}
-            placeholder={translate("reasonPlaceholder")}
-            value={reason}
-          />
-          {error && <p className="mt-2 text-danger-foreground text-xs">{error.message}</p>}
-        </Card>
-      )}
+      {error && <p className="text-danger-foreground text-xs">{error.message}</p>}
 
       {isLoading ? (
         <Skeleton className="h-32 w-full" />
@@ -110,26 +121,54 @@ export function SharedDevices({ active }: { active: boolean }) {
             <DeviceCard
               device={device}
               key={device.handle}
-              onReview={writable ? review : undefined}
-              pending={pending || reason.trim().length === 0}
+              onBan={canBan ? () => setBanning(device) : undefined}
+              onLegitimate={open ? () => legitimate(device.handle) : undefined}
+              pending={pending}
             />
           ))}
         </div>
       )}
+
+      <BanDeviceDialog
+        device={banning}
+        onBanned={() => {
+          setBanning(null);
+          void mutate();
+        }}
+        onOpenChange={(next) => {
+          if (!next) {
+            setBanning(null);
+          }
+        }}
+      />
     </div>
   );
 }
 
 function DeviceCard({
   device,
-  onReview,
+  onBan,
+  onLegitimate,
   pending,
 }: {
   device: PanelSharedDevice;
-  onReview?: (handle: string, verdict: "legitimate" | "confirmed") => void;
+  onBan?: () => void;
+  onLegitimate?: () => void;
   pending: boolean;
 }) {
   const translate = useTranslations("admin.risk.sharedDevices");
+  const reasons = useTranslations("admin.moderation.ban.templates");
+  const banReason = device.reviewReason?.startsWith("shared_device:")
+    ? device.reviewReason.slice("shared_device:".length)
+    : "";
+  const verdict =
+    device.reviewReason === "legitimate"
+      ? translate("status.legitimate")
+      : banReason
+        ? translate("bannedFor", {
+            reason: reasons.has(banReason) ? reasons(banReason) : banReason,
+          })
+        : (device.reviewReason ?? "");
   const reopened =
     device.status === "open" && device.reviewedAt !== undefined && device.reviewReason;
 
@@ -181,32 +220,23 @@ function DeviceCard({
       {device.reviewReason && (
         <p className="text-muted-foreground text-xs">
           {reopened
-            ? translate("reopened", {
-                accounts: device.reviewedAccounts ?? 0,
-                reason: device.reviewReason,
-              })
-            : translate("verdict", { reason: device.reviewReason })}
+            ? translate("reopened", { accounts: device.reviewedAccounts ?? 0, reason: verdict })
+            : translate("verdict", { reason: verdict })}
         </p>
       )}
 
-      {onReview && (
+      {(onLegitimate || onBan) && (
         <div className="flex gap-2">
-          <Button
-            disabled={pending}
-            onClick={() => onReview(device.handle, "legitimate")}
-            size="sm"
-            variant="outline"
-          >
-            {translate("legitimate")}
-          </Button>
-          <Button
-            disabled={pending}
-            onClick={() => onReview(device.handle, "confirmed")}
-            size="sm"
-            variant="destructive"
-          >
-            {translate("confirm")}
-          </Button>
+          {onLegitimate && (
+            <Button disabled={pending} onClick={onLegitimate} size="sm" variant="outline">
+              {translate("legitimate")}
+            </Button>
+          )}
+          {onBan && (
+            <Button disabled={pending} onClick={onBan} size="sm" variant="destructive">
+              {translate("ban.open")}
+            </Button>
+          )}
         </div>
       )}
     </Card>

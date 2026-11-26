@@ -121,6 +121,38 @@ func (q *Queries) ListCustomersWithTelegramIDs(ctx context.Context, telegramIds 
 	return items, nil
 }
 
+const listExpiredSuspensions = `-- name: ListExpiredSuspensions :many
+SELECT id FROM users
+WHERE status = 'suspended' AND suspension_ends_at IS NOT NULL AND suspension_ends_at <= $1
+ORDER BY suspension_ends_at
+LIMIT $2
+`
+
+type ListExpiredSuspensionsParams struct {
+	Now      pgtype.Timestamptz `json:"now"`
+	PageSize int32              `json:"page_size"`
+}
+
+func (q *Queries) ListExpiredSuspensions(ctx context.Context, arg ListExpiredSuspensionsParams) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, listExpiredSuspensions, arg.Now, arg.PageSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []pgtype.UUID{}
+	for rows.Next() {
+		var id pgtype.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOpenSharedDeviceHandles = `-- name: ListOpenSharedDeviceHandles :many
 SELECT device_handle FROM shared_devices WHERE status = 'open'
 `
@@ -188,6 +220,30 @@ func (q *Queries) ListSharedDeviceAccounts(ctx context.Context, handles []string
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSharedDeviceCustomers = `-- name: ListSharedDeviceCustomers :many
+SELECT user_id FROM device_sightings WHERE device_handle = $1
+`
+
+func (q *Queries) ListSharedDeviceCustomers(ctx context.Context, deviceHandle string) ([]pgtype.UUID, error) {
+	rows, err := q.db.Query(ctx, listSharedDeviceCustomers, deviceHandle)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []pgtype.UUID{}
+	for rows.Next() {
+		var user_id pgtype.UUID
+		if err := rows.Scan(&user_id); err != nil {
+			return nil, err
+		}
+		items = append(items, user_id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -354,17 +410,19 @@ WHERE (
     OR (d.last_seen_at, d.device_handle) < ($1::timestamptz, $2::text)
   )
   AND ($3::text IS NULL OR d.status = $3)
-  AND ($4::uuid IS NULL OR EXISTS (
+  AND ($4::integer IS NULL OR d.accounts >= $4)
+  AND ($5::uuid IS NULL OR EXISTS (
     SELECT 1 FROM device_sightings s
-    WHERE s.device_handle = d.device_handle AND s.user_id = $4))
+    WHERE s.device_handle = d.device_handle AND s.user_id = $5))
 ORDER BY d.last_seen_at DESC, d.device_handle DESC
-LIMIT $5
+LIMIT $6
 `
 
 type SearchSharedDevicesParams struct {
 	CursorLastSeenAt pgtype.Timestamptz `json:"cursor_last_seen_at"`
 	CursorHandle     pgtype.Text        `json:"cursor_handle"`
 	Status           pgtype.Text        `json:"status"`
+	MinAccounts      pgtype.Int4        `json:"min_accounts"`
 	UserID           pgtype.UUID        `json:"user_id"`
 	PageSize         int32              `json:"page_size"`
 }
@@ -374,6 +432,7 @@ func (q *Queries) SearchSharedDevices(ctx context.Context, arg SearchSharedDevic
 		arg.CursorLastSeenAt,
 		arg.CursorHandle,
 		arg.Status,
+		arg.MinAccounts,
 		arg.UserID,
 		arg.PageSize,
 	)
@@ -406,6 +465,22 @@ func (q *Queries) SearchSharedDevices(ctx context.Context, arg SearchSharedDevic
 		return nil, err
 	}
 	return items, nil
+}
+
+const setSuspensionEnd = `-- name: SetSuspensionEnd :exec
+UPDATE users SET suspension_ends_at = $1, updated_at = now()
+WHERE id = $2
+`
+
+type SetSuspensionEndParams struct {
+	EndsAt pgtype.Timestamptz `json:"ends_at"`
+	UserID pgtype.UUID        `json:"user_id"`
+}
+
+// When a suspension ends; null is a ban with no end.
+func (q *Queries) SetSuspensionEnd(ctx context.Context, arg SetSuspensionEndParams) error {
+	_, err := q.db.Exec(ctx, setSuspensionEnd, arg.EndsAt, arg.UserID)
+	return err
 }
 
 const upsertDeviceSightings = `-- name: UpsertDeviceSightings :exec

@@ -1557,6 +1557,7 @@ type Querier interface {
 	// deleted on purpose. The horizon is chosen by the scheduler, not here.
 	ListEntitlementsForReconciliation(ctx context.Context, arg ListEntitlementsForReconciliationParams) ([]Entitlement, error)
 	ListExpiredBackups(ctx context.Context, limit int32) ([]Backup, error)
+	ListExpiredSuspensions(ctx context.Context, arg ListExpiredSuspensionsParams) ([]pgtype.UUID, error)
 	ListExpiredWalletCredits(ctx context.Context, limit int32) ([]ListExpiredWalletCreditsRow, error)
 	ListFulfillmentHistoryForOperation(ctx context.Context, operationID pgtype.UUID) ([]FulfillmentHistory, error)
 	ListGiftsForSender(ctx context.Context, arg ListGiftsForSenderParams) ([]Gift, error)
@@ -1777,6 +1778,7 @@ type Querier interface {
 	// The customers on each listed device, with the facts an operator weighs: who
 	// took a trial, and who invited whom on the same device.
 	ListSharedDeviceAccounts(ctx context.Context, handles []string) ([]ListSharedDeviceAccountsRow, error)
+	ListSharedDeviceCustomers(ctx context.Context, deviceHandle string) ([]pgtype.UUID, error)
 	ListSquadGrantsForSubscription(ctx context.Context, subscriptionID pgtype.UUID) ([]SquadAccessGrant, error)
 	// Operations that should have run by now and have not: a settlement whose
 	// process could not insert the job, or a job the queue discarded after its
@@ -2896,6 +2898,8 @@ type Querier interface {
 	// cleared when it comes back, and `reopened_count` counts the round trips —
 	// which is the signal that an answer did not actually answer the question.
 	SetSupportTicketStatus(ctx context.Context, arg SetSupportTicketStatusParams) (SupportTicket, error)
+	// When a suspension ends; null is a ban with no end.
+	SetSuspensionEnd(ctx context.Context, arg SetSuspensionEndParams) error
 	SetTrialPolicy(ctx context.Context, arg SetTrialPolicyParams) (SubscriptionPolicy, error)
 	SetWebhookEndpointEnabled(ctx context.Context, arg SetWebhookEndpointEnabledParams) (int64, error)
 	// Whether a secret exists, without returning it. It is what the panel shows in

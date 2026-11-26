@@ -9694,6 +9694,8 @@ export const ReviewPanelAnomalyResponse = zod.object({
 export const searchPanelSharedDevicesQueryPageSizeDefault = 100;
 export const searchPanelSharedDevicesQueryPageSizeMax = 500;
 
+export const searchPanelSharedDevicesQueryMinAccountsMin = 2;
+
 export const SearchPanelSharedDevicesQueryParams = zod.object({
   cursor: zod.string().optional(),
   pageSize: zod
@@ -9703,6 +9705,11 @@ export const SearchPanelSharedDevicesQueryParams = zod.object({
     .default(searchPanelSharedDevicesQueryPageSizeDefault),
   status: zod.enum(["open", "legitimate", "confirmed"]).optional(),
   customerId: zod.uuid().optional(),
+  minAccounts: zod
+    .int()
+    .min(searchPanelSharedDevicesQueryMinAccountsMin)
+    .optional()
+    .describe("Only devices with at least this many customers."),
 });
 
 export const searchPanelSharedDevicesResponseItemsItemAccountsMin = 2;
@@ -9755,7 +9762,7 @@ export const SearchPanelSharedDevicesResponse = zod.object({
 });
 
 /**
- * Requires risk.write and a reason. Records a verdict on an open device: `legitimate` (a family or a shared phone) or `confirmed` (one person's second account). The verdict suspends nobody. `legitimate` stops the device refusing trials and holding referrals for review. A customer who joins the device later reopens it. Writes the audit event `panel.shared_device.reviewed`.
+ * Requires risk.write. Marks an open device `legitimate` (a family or a shared phone): it stops refusing trials and holding referrals for review. The reason header is optional here, because lifting a hold is not an adverse decision. A customer who joins the device later reopens it. Writes the audit event `panel.shared_device.reviewed`. Banning is `POST /v1/panel/risk/shared-devices/{handle}/ban`.
  */
 export const reviewPanelSharedDevicePathHandleRegExp = /^[A-Za-z0-9_-]{8,64}$/;
 
@@ -9763,23 +9770,14 @@ export const ReviewPanelSharedDeviceParams = zod.object({
   handle: zod.string().regex(reviewPanelSharedDevicePathHandleRegExp),
 });
 
-export const reviewPanelSharedDeviceHeaderXOperatorReasonMax = 400;
-
 export const ReviewPanelSharedDeviceHeader = zod.object({
   "X-CSRF-Token": zod
     .string()
     .describe("Echoes the token from the current session. Required on every unsafe method."),
-  "X-Operator-Reason": zod
-    .string()
-    .min(1)
-    .max(reviewPanelSharedDeviceHeaderXOperatorReasonMax)
-    .describe(
-      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
-    ),
 });
 
 export const ReviewPanelSharedDeviceBody = zod.object({
-  status: zod.enum(["legitimate", "confirmed"]),
+  status: zod.enum(["legitimate"]),
 });
 
 export const reviewPanelSharedDeviceResponseAccountsMin = 2;
@@ -9820,6 +9818,82 @@ export const ReviewPanelSharedDeviceResponse = zod.object({
   reviewReason: zod.string().optional(),
   reviewedBy: zod.uuid().optional(),
   reviewedAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+/**
+ * Requires risk.write and customers.write, and subscriptions.write when `annulSubscriptions` is set. Suspends each chosen customer on an open device with the reason (one of the ban templates, recorded as `shared_device:<reason>`), sends the reason's message when `notify` is set, and ends the ban after `days` (0 is no end; the worker restores the customer when it ends). `annulSubscriptions` queues a `disable` for every running subscription of each banned customer through fulfillment; those stay disabled after the ban ends. The device is recorded as `confirmed`. Writes `panel.shared_device.banned` plus each customer's own suspension audit event.
+ */
+export const banPanelSharedDevicePathHandleRegExp = /^[A-Za-z0-9_-]{8,64}$/;
+
+export const BanPanelSharedDeviceParams = zod.object({
+  handle: zod.string().regex(banPanelSharedDevicePathHandleRegExp),
+});
+
+export const BanPanelSharedDeviceHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const banPanelSharedDeviceBodyDaysMin = 0;
+export const banPanelSharedDeviceBodyDaysMax = 3650;
+
+export const BanPanelSharedDeviceBody = zod.object({
+  customerIds: zod.array(zod.uuid()).min(1),
+  reason: zod.enum(["multiaccount", "sharing", "fraud", "rules", "spam", "torrent"]),
+  notify: zod.boolean(),
+  days: zod.int().min(banPanelSharedDeviceBodyDaysMin).max(banPanelSharedDeviceBodyDaysMax),
+  annulSubscriptions: zod.boolean(),
+});
+
+export const banPanelSharedDeviceResponseDeviceAccountsMin = 2;
+
+export const banPanelSharedDeviceResponseDeviceTrialAccountsMin = 0;
+
+export const banPanelSharedDeviceResponseDeviceReferralPairsMin = 0;
+
+export const BanPanelSharedDeviceResponse = zod.object({
+  device: zod.object({
+    handle: zod
+      .string()
+      .describe("Digest of the hardware ID; the same handle the customer's device list uses."),
+    platform: zod.string().optional(),
+    accounts: zod.int().min(banPanelSharedDeviceResponseDeviceAccountsMin),
+    trialAccounts: zod.int().min(banPanelSharedDeviceResponseDeviceTrialAccountsMin),
+    referralPairs: zod.int().min(banPanelSharedDeviceResponseDeviceReferralPairsMin),
+    status: zod.enum(["open", "legitimate", "confirmed"]),
+    detectedAt: zod.iso.datetime({ offset: true }),
+    lastSeenAt: zod.iso.datetime({ offset: true }),
+    customers: zod.array(
+      zod.object({
+        customerId: zod.uuid(),
+        firstSeenAt: zod.iso.datetime({ offset: true }),
+        lastSeenAt: zod.iso.datetime({ offset: true }),
+        trialClaimed: zod.boolean(),
+        invitedBy: zod
+          .uuid()
+          .optional()
+          .describe("The customer who invited this one, when the inviter is on the same device."),
+      }),
+    ),
+    reviewedAccounts: zod
+      .int()
+      .optional()
+      .describe(
+        "How many accounts the latest verdict covered; fewer than `accounts` on a reopened device.",
+      ),
+    reviewReason: zod.string().optional(),
+    reviewedBy: zod.uuid().optional(),
+    reviewedAt: zod.iso.datetime({ offset: true }).optional(),
+  }),
+  customers: zod.array(
+    zod.object({
+      customerId: zod.uuid(),
+      outcome: zod.enum(["suspended", "suspended_not_notified"]),
+      endsAt: zod.iso.datetime({ offset: true }).optional(),
+      annulled: zod.int().describe("Subscriptions queued to be disabled."),
+    }),
+  ),
 });
 
 /**

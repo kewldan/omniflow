@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/omniflow/omniflow/internal/adminauthpg"
+	"github.com/omniflow/omniflow/internal/fulfillment"
 	"github.com/omniflow/omniflow/internal/panelpg"
 	"github.com/omniflow/omniflow/internal/payments"
 	"github.com/omniflow/omniflow/internal/platform"
@@ -187,6 +189,9 @@ func (handlers *AdminHandlers) mountOperations(secure chi.Router) {
 		write.Put("/risk/rules/{metric}", handlers.saveAnomalyRule)
 		write.Post("/risk/anomalies/{signalID}/review", handlers.reviewAnomaly)
 		write.Post("/risk/shared-devices/{handle}/review", handlers.reviewSharedDevice)
+		// A ban suspends customers, so it also needs customers.write.
+		write.With(handlers.requirePermission(rbac.PermissionCustomersWrite)).
+			Post("/risk/shared-devices/{handle}/ban", handlers.banSharedDevice)
 		write.Put("/customers/{customerID}/allowlist", handlers.setAllowlisted)
 		write.Delete("/customers/{customerID}/allowlist", handlers.setAllowlisted)
 	})
@@ -1553,12 +1558,67 @@ func (handlers *AdminHandlers) reviewAnomaly(writer http.ResponseWriter, request
 
 func (handlers *AdminHandlers) searchSharedDevices(writer http.ResponseWriter, request *http.Request) {
 	page, err := handlers.operations.SearchSharedDevices(request.Context(), panelpg.SharedDeviceFilter{
-		Status:     query(request, "status"),
-		CustomerID: query(request, "customerId"),
-		Cursor:     query(request, "cursor"),
-		PageSize:   queryInt(request, "pageSize"),
+		Status:      query(request, "status"),
+		CustomerID:  query(request, "customerId"),
+		MinAccounts: queryInt(request, "minAccounts"),
+		Cursor:      query(request, "cursor"),
+		PageSize:    queryInt(request, "pageSize"),
 	})
 	handlers.respond(writer, request, page, err)
+}
+
+// banSharedDevice suspends the chosen customers on a device and, when asked,
+// disables their subscriptions through the fulfillment pipeline — the same
+// `disable` an operator requests on a subscription, so it needs
+// subscriptions.write too and carries the same idempotency and history.
+func (handlers *AdminHandlers) banSharedDevice(writer http.ResponseWriter, request *http.Request) {
+	var body panelpg.SharedDeviceBan
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	if body.AnnulSubscriptions {
+		if !handlers.allowed(writer, request, rbac.PermissionSubscriptionsWrite) {
+			return
+		}
+		if handlers.fulfillment == nil {
+			writeProblem(writer, request, http.StatusServiceUnavailable,
+				"fulfillment_unavailable", "Subscriptions cannot be changed on this installation")
+			return
+		}
+	}
+	actor := actorFrom(request)
+	handle := chi.URLParam(request, "handle")
+	result, err := handlers.operations.BanSharedDevice(request.Context(), handle, body, actor, time.Now())
+	if err != nil {
+		handlers.operationsError(writer, request, err)
+		return
+	}
+	if body.AnnulSubscriptions {
+		for index, banned := range result.Customers {
+			targets, targetErr := handlers.operations.LiveEntitlements(request.Context(), banned.CustomerID)
+			if targetErr != nil {
+				handlers.logger.Warn("ban: subscriptions not listed", "error", targetErr)
+				continue
+			}
+			for _, target := range targets {
+				key := fmt.Sprintf("ban:%s:%s:disable:%s", handle, target.SubscriptionID, actor.RequestID)
+				operation, enqueueErr := handlers.fulfillment.Enqueue(request.Context(), target.EntitlementID,
+					fulfillment.OperationInput{
+						Operation: "disable", IdempotencyKey: key, CorrelationID: "panel:" + actor.RequestID,
+					})
+				if enqueueErr != nil {
+					handlers.logger.Warn("ban: subscription not disabled", "error", enqueueErr)
+					continue
+				}
+				if recordErr := handlers.operations.RecordSubscriptionOperation(request.Context(),
+					banned.CustomerID, target.SubscriptionID, "disable", uuidValue(operation.ID), actor); recordErr != nil {
+					handlers.logger.Warn("ban: subscription operation not audited", "error", recordErr)
+				}
+				result.Customers[index].Annulled++
+			}
+		}
+	}
+	writeJSON(writer, http.StatusOK, result)
 }
 
 // reviewSharedDevice records a verdict on a device several customers share.

@@ -18,11 +18,12 @@ import (
 // customer's language for an operator's notice. An operator may write their
 // own text instead.
 var BanTemplates = map[string]string{
-	"torrent": "🚫 Доступ приостановлен: в нашей сети запрещены торренты.\n\n🚫 Access suspended: torrent traffic is not allowed on our network.",
-	"sharing": "🚫 Доступ приостановлен: подписка использовалась на большем числе устройств или людьми, чем разрешено.\n\n🚫 Access suspended: the subscription was shared beyond its limit.",
-	"spam":    "🚫 Доступ приостановлен: с вашего подключения шла рассылка спама.\n\n🚫 Access suspended: spam was sent through your connection.",
-	"fraud":   "🚫 Доступ приостановлен: оплата оспорена или признана мошеннической.\n\n🚫 Access suspended: a payment was disputed or found fraudulent.",
-	"rules":   "🚫 Доступ приостановлен за нарушение правил сервиса. Напишите в поддержку, если считаете это ошибкой.\n\n🚫 Access suspended for breaking the service rules. Write to support if you think this is a mistake.",
+	"torrent":      "🚫 Доступ приостановлен: в нашей сети запрещены торренты.\n\n🚫 Access suspended: torrent traffic is not allowed on our network.",
+	"sharing":      "🚫 Доступ приостановлен: подписка использовалась на большем числе устройств или людьми, чем разрешено.\n\n🚫 Access suspended: the subscription was shared beyond its limit.",
+	"spam":         "🚫 Доступ приостановлен: с вашего подключения шла рассылка спама.\n\n🚫 Access suspended: spam was sent through your connection.",
+	"fraud":        "🚫 Доступ приостановлен: оплата оспорена или признана мошеннической.\n\n🚫 Access suspended: a payment was disputed or found fraudulent.",
+	"multiaccount": "🚫 Доступ приостановлен: на одном устройстве несколько аккаунтов, чтобы повторно получать пробный период или бонусы. Напишите в поддержку, если считаете это ошибкой.\n\n🚫 Access suspended: several accounts on one device to take trials or bonuses again. Write to support if you think this is a mistake.",
+	"rules":        "🚫 Доступ приостановлен за нарушение правил сервиса. Напишите в поддержку, если считаете это ошибкой.\n\n🚫 Access suspended for breaking the service rules. Write to support if you think this is a mistake.",
 }
 
 // BanInput is a ban of many customers at once.

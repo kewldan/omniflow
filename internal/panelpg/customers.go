@@ -459,6 +459,11 @@ func (service *Service) SetCustomerStatus(
 		}); txErr != nil {
 			return txErr
 		}
+		// A restore ends any ban, and a new suspension starts with no end;
+		// a timed ban sets its end after this.
+		if txErr := queries.SetSuspensionEnd(ctx, dbgen.SetSuspensionEndParams{UserID: id}); txErr != nil {
+			return txErr
+		}
 		return appendAudit(ctx, queries, actor.audit(
 			"panel.customer."+action, "customer", "customer", customerID,
 			map[string]any{"status": status},

@@ -57,8 +57,10 @@ type SharedDeviceAccount struct {
 type SharedDeviceFilter struct {
 	Status     string
 	CustomerID string
-	Cursor     string
-	PageSize   int32
+	// MinAccounts keeps only devices with at least this many customers.
+	MinAccounts int32
+	Cursor      string
+	PageSize    int32
 }
 
 // SharedDevicePage is one page of the queue.
@@ -87,6 +89,9 @@ func (service *Service) SearchSharedDevices(
 	size := pageSize(filter.PageSize)
 	params := dbgen.SearchSharedDevicesParams{
 		Status: optionalText(filter.Status), UserID: customer, PageSize: size + 1,
+	}
+	if filter.MinAccounts > 2 {
+		params.MinAccounts = pgtype.Int4{Int32: filter.MinAccounts, Valid: true}
 	}
 	if at, handle, ok := decodeHandleCursor(filter.Cursor); ok {
 		params.CursorLastSeenAt = timestamp(at)
@@ -134,22 +139,26 @@ func (service *Service) SearchSharedDevices(
 	return page, nil
 }
 
-// ReviewSharedDevice records an operator's verdict on an open device:
-// `legitimate` (a family, a shared work phone) or `confirmed` (one person's
-// second account).
-//
-// The verdict suspends nobody and takes nothing back; it is a record with a
-// reason and an operator behind it. `legitimate` also stops the device holding
-// trials and referrals for review. Either verdict covers the customers on the
-// device now, and another customer joining reopens it.
+// sharedDeviceLegitimateReason is recorded when an operator marks a device
+// legitimate without writing why: lifting a hold is not an adverse decision.
+const sharedDeviceLegitimateReason = "legitimate"
+
+// ReviewSharedDevice marks an open device `legitimate` (a family, a shared
+// work phone). It stops the device refusing trials and holding referrals,
+// covers the customers on the device now, and another customer joining
+// reopens it. A reason is optional. The other verdict, a ban, is
+// BanSharedDevice.
 func (service *Service) ReviewSharedDevice(
 	ctx context.Context, handle, status string, actor Actor,
 ) (SharedDevice, error) {
-	if status != SharedDeviceLegitimate && status != SharedDeviceConfirmed {
+	if status != SharedDeviceLegitimate {
 		return SharedDevice{}, ErrValidaton
 	}
 	reason := strings.TrimSpace(actor.Reason)
-	if reason == "" || actor.AdminID == "" || !validHandle(handle) {
+	if reason == "" {
+		reason = sharedDeviceLegitimateReason
+	}
+	if actor.AdminID == "" || !validHandle(handle) {
 		return SharedDevice{}, ErrValidaton
 	}
 	admin, err := parseUUID(actor.AdminID)
@@ -178,6 +187,195 @@ func (service *Service) ReviewSharedDevice(
 		))
 	})
 	return device, err
+}
+
+// SharedDeviceBan is a ban of customers found on one device.
+type SharedDeviceBan struct {
+	// CustomerIDs are the customers to ban; each must be on the device.
+	CustomerIDs []string `json:"customerIds"`
+	// Reason is one of BanTemplates. It is recorded on every customer.
+	Reason string `json:"reason"`
+	// Notify sends the reason's template to each banned customer.
+	Notify bool `json:"notify"`
+	// Days is how long the ban lasts; zero is no end.
+	Days int `json:"days"`
+	// AnnulSubscriptions disables the customers' subscriptions in Remnawave.
+	// The caller queues that through fulfillment; this records the request.
+	AnnulSubscriptions bool `json:"annulSubscriptions"`
+}
+
+// SharedDeviceBanResult is what one ban did, per customer.
+type SharedDeviceBanResult struct {
+	Device    SharedDevice         `json:"device"`
+	Customers []SharedDeviceBanned `json:"customers"`
+}
+
+// SharedDeviceBanned is one customer's outcome.
+type SharedDeviceBanned struct {
+	CustomerID string     `json:"customerId"`
+	Outcome    string     `json:"outcome"`
+	EndsAt     *time.Time `json:"endsAt,omitempty"`
+	// Annulled counts the subscriptions queued to be disabled.
+	Annulled int `json:"annulled"`
+}
+
+// maxBanDays bounds a timed ban; longer is "no end".
+const maxBanDays = 3650
+
+// BanSharedDevice suspends the chosen customers on a device, each with the
+// reason and, when asked, the reason's message, ending the ban after Days,
+// and records the device as a confirmed second account.
+//
+// Each customer goes through SetCustomerStatus, so a ban here is the same
+// suspension, lifecycle event, and audit entry as one from the customer page.
+// Disabling subscriptions is queued by the caller, which owns fulfillment.
+func (service *Service) BanSharedDevice(
+	ctx context.Context, handle string, input SharedDeviceBan, actor Actor, now time.Time,
+) (SharedDeviceBanResult, error) {
+	message, known := BanTemplates[input.Reason]
+	if !known || actor.AdminID == "" || !validHandle(handle) ||
+		len(input.CustomerIDs) == 0 || input.Days < 0 || input.Days > maxBanDays {
+		return SharedDeviceBanResult{}, ErrValidaton
+	}
+	queries := service.queries()
+	device, err := queries.GetSharedDevice(ctx, handle)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return SharedDeviceBanResult{}, ErrNotFound
+	}
+	if err != nil {
+		return SharedDeviceBanResult{}, err
+	}
+	if device.Status != SharedDeviceOpen {
+		return SharedDeviceBanResult{}, ErrRejected
+	}
+	onDevice, err := queries.ListSharedDeviceCustomers(ctx, handle)
+	if err != nil {
+		return SharedDeviceBanResult{}, err
+	}
+	present := map[string]bool{}
+	for _, id := range onDevice {
+		present[uuidString(id)] = true
+	}
+	chosen := map[string]bool{}
+	for _, id := range input.CustomerIDs {
+		if !present[id] || chosen[id] {
+			return SharedDeviceBanResult{}, ErrValidaton
+		}
+		chosen[id] = true
+	}
+
+	reason := "shared_device:" + input.Reason
+	banActor := actor
+	banActor.Reason = reason
+	var endsAt *time.Time
+	if input.Days > 0 {
+		end := now.UTC().Add(time.Duration(input.Days) * 24 * time.Hour)
+		endsAt = &end
+	}
+	result := SharedDeviceBanResult{Customers: make([]SharedDeviceBanned, 0, len(input.CustomerIDs))}
+	for _, customerID := range input.CustomerIDs {
+		outcome := SharedDeviceBanned{CustomerID: customerID, Outcome: "suspended", EndsAt: endsAt}
+		if _, err = service.SetCustomerStatus(ctx, customerID, "suspended", banActor); err != nil {
+			return SharedDeviceBanResult{}, err
+		}
+		if endsAt != nil {
+			id, _ := parseUUID(customerID)
+			if err = queries.SetSuspensionEnd(ctx, dbgen.SetSuspensionEndParams{
+				UserID: id, EndsAt: timestamp(*endsAt),
+			}); err != nil {
+				return SharedDeviceBanResult{}, err
+			}
+		}
+		if input.Notify {
+			if _, err = service.MessageCustomer(ctx, customerID, message, banActor); err != nil {
+				outcome.Outcome = "suspended_not_notified"
+			}
+		}
+		result.Customers = append(result.Customers, outcome)
+	}
+
+	err = service.inTx(ctx, func(queries *dbgen.Queries) error {
+		row, txErr := queries.ReviewSharedDevice(ctx, dbgen.ReviewSharedDeviceParams{
+			DeviceHandle: handle, Status: SharedDeviceConfirmed,
+			ReviewReason: optionalText(reason), ReviewedBy: optionalUUID(actor.AdminID),
+		})
+		if txErr != nil {
+			return rejected(txErr)
+		}
+		result.Device = sharedDeviceFrom(row)
+		return appendAudit(ctx, queries, actor.audit(
+			"panel.shared_device.banned", "risk", "shared_device", handle,
+			map[string]any{
+				"reason": input.Reason, "customers": len(input.CustomerIDs), "days": input.Days,
+				"notify": input.Notify, "annulSubscriptions": input.AnnulSubscriptions,
+			},
+		))
+	})
+	return result, err
+}
+
+// LiveEntitlements lists the entitlements of a customer's open subscriptions
+// that are still running, for a ban that annuls them.
+func (service *Service) LiveEntitlements(ctx context.Context, customerID string) ([]SubscriptionTarget, error) {
+	customer, err := parseUUID(customerID)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := service.queries().ListCustomerSubscriptionsDetailed(ctx, customer)
+	if err != nil {
+		return nil, err
+	}
+	targets := []SubscriptionTarget{}
+	for _, row := range rows {
+		if row.Subscription.Status != "active" || !row.EntitlementID.Valid {
+			continue
+		}
+		targets = append(targets, SubscriptionTarget{
+			SubscriptionID:  uuidString(row.Subscription.ID),
+			EntitlementID:   uuidString(row.EntitlementID),
+			RemnawaveUserID: row.Subscription.RemnawaveUserID.Int64,
+			Label:           row.Subscription.Label,
+			Status:          row.Subscription.Status,
+		})
+	}
+	return targets, nil
+}
+
+// LiftExpiredBans restores customers whose timed ban has run out. It is the
+// worker's, so the lifecycle event and audit entry name the system.
+func (service *Service) LiftExpiredBans(ctx context.Context, now time.Time) (int, error) {
+	expired, err := service.queries().ListExpiredSuspensions(ctx, dbgen.ListExpiredSuspensionsParams{
+		Now: timestamp(now), PageSize: 500,
+	})
+	if err != nil {
+		return 0, err
+	}
+	lifted := 0
+	for _, id := range expired {
+		err = service.inTx(ctx, func(queries *dbgen.Queries) error {
+			if _, txErr := queries.ApplyCustomerLifecycle(ctx, dbgen.ApplyCustomerLifecycleParams{
+				UserID: id, Status: "active",
+			}); txErr != nil {
+				return notFound(txErr)
+			}
+			if _, txErr := queries.InsertCustomerLifecycleEvent(ctx, dbgen.InsertCustomerLifecycleEventParams{
+				UserID: id, Action: "restored", Reason: "ban_expired", ActorType: "system",
+			}); txErr != nil {
+				return txErr
+			}
+			if txErr := queries.SetSuspensionEnd(ctx, dbgen.SetSuspensionEndParams{UserID: id}); txErr != nil {
+				return txErr
+			}
+			return appendAudit(ctx, queries, Actor{Type: "system", Reason: "ban_expired"}.audit(
+				"customer.ban_expired", "customer", "customer", uuidString(id), map[string]any{},
+			))
+		})
+		if err != nil {
+			return lifted, err
+		}
+		lifted++
+	}
+	return lifted, nil
 }
 
 func sharedDeviceFrom(row dbgen.SharedDevice) SharedDevice {

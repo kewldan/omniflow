@@ -8685,6 +8685,11 @@ export type SearchPanelSharedDevicesParams = {
   pageSize?: PageSizeParameter;
   status?: PanelSharedDeviceStatus;
   customerId?: string;
+  /**
+   * Only devices with at least this many customers.
+   * @minimum 2
+   */
+  minAccounts?: number;
 };
 
 export type ReviewPanelSharedDeviceBodyStatus =
@@ -8692,11 +8697,56 @@ export type ReviewPanelSharedDeviceBodyStatus =
 
 export const ReviewPanelSharedDeviceBodyStatus = {
   legitimate: "legitimate",
-  confirmed: "confirmed",
 } as const;
 
 export type ReviewPanelSharedDeviceBody = {
   status: ReviewPanelSharedDeviceBodyStatus;
+};
+
+export type BanPanelSharedDeviceBodyReason =
+  (typeof BanPanelSharedDeviceBodyReason)[keyof typeof BanPanelSharedDeviceBodyReason];
+
+export const BanPanelSharedDeviceBodyReason = {
+  multiaccount: "multiaccount",
+  sharing: "sharing",
+  fraud: "fraud",
+  rules: "rules",
+  spam: "spam",
+  torrent: "torrent",
+} as const;
+
+export type BanPanelSharedDeviceBody = {
+  /** @minItems 1 */
+  customerIds: string[];
+  reason: BanPanelSharedDeviceBodyReason;
+  notify: boolean;
+  /**
+   * @minimum 0
+   * @maximum 3650
+   */
+  days: number;
+  annulSubscriptions: boolean;
+};
+
+export type BanPanelSharedDevice200CustomersItemOutcome =
+  (typeof BanPanelSharedDevice200CustomersItemOutcome)[keyof typeof BanPanelSharedDevice200CustomersItemOutcome];
+
+export const BanPanelSharedDevice200CustomersItemOutcome = {
+  suspended: "suspended",
+  suspended_not_notified: "suspended_not_notified",
+} as const;
+
+export type BanPanelSharedDevice200CustomersItem = {
+  customerId: string;
+  outcome: BanPanelSharedDevice200CustomersItemOutcome;
+  endsAt?: string;
+  /** Subscriptions queued to be disabled. */
+  annulled: number;
+};
+
+export type BanPanelSharedDevice200 = {
+  device: PanelSharedDevice;
+  customers: BanPanelSharedDevice200CustomersItem[];
 };
 
 export type SearchPanelGiftsParams = {
@@ -31074,7 +31124,7 @@ export const getReviewPanelSharedDeviceUrl = (handle: string) => {
 };
 
 /**
- * Requires risk.write and a reason. Records a verdict on an open device: `legitimate` (a family or a shared phone) or `confirmed` (one person's second account). The verdict suspends nobody. `legitimate` stops the device refusing trials and holding referrals for review. A customer who joins the device later reopens it. Writes the audit event `panel.shared_device.reviewed`.
+ * Requires risk.write. Marks an open device `legitimate` (a family or a shared phone): it stops refusing trials and holding referrals for review. The reason header is optional here, because lifting a hold is not an adverse decision. A customer who joins the device later reopens it. Writes the audit event `panel.shared_device.reviewed`. Banning is `POST /v1/panel/risk/shared-devices/{handle}/ban`.
  */
 export const reviewPanelSharedDevice = async (
   handle: string,
@@ -31126,6 +31176,110 @@ export const useReviewPanelSharedDevice = <TError = Promise<ProblemResponse>>(
 
   const swrKey = swrOptions?.swrKey ?? getReviewPanelSharedDeviceMutationKey(handle);
   const swrFn = getReviewPanelSharedDeviceMutationFetcher(handle, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type banPanelSharedDeviceResponse200 = {
+  data: BanPanelSharedDevice200;
+  status: 200;
+};
+
+export type banPanelSharedDeviceResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type banPanelSharedDeviceResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type banPanelSharedDeviceResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type banPanelSharedDeviceResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type banPanelSharedDeviceResponseSuccess = banPanelSharedDeviceResponse200 & {
+  headers: Headers;
+};
+export type banPanelSharedDeviceResponseError = (
+  | banPanelSharedDeviceResponse403
+  | banPanelSharedDeviceResponse404
+  | banPanelSharedDeviceResponse409
+  | banPanelSharedDeviceResponse422
+) & {
+  headers: Headers;
+};
+
+export type banPanelSharedDeviceResponse =
+  | banPanelSharedDeviceResponseSuccess
+  | banPanelSharedDeviceResponseError;
+
+export const getBanPanelSharedDeviceUrl = (handle: string) => {
+  return `/v1/panel/risk/shared-devices/${handle}/ban`;
+};
+
+/**
+ * Requires risk.write and customers.write, and subscriptions.write when `annulSubscriptions` is set. Suspends each chosen customer on an open device with the reason (one of the ban templates, recorded as `shared_device:<reason>`), sends the reason's message when `notify` is set, and ends the ban after `days` (0 is no end; the worker restores the customer when it ends). `annulSubscriptions` queues a `disable` for every running subscription of each banned customer through fulfillment; those stay disabled after the ban ends. The device is recorded as `confirmed`. Writes `panel.shared_device.banned` plus each customer's own suspension audit event.
+ */
+export const banPanelSharedDevice = async (
+  handle: string,
+  banPanelSharedDeviceBody: BanPanelSharedDeviceBody,
+  options?: RequestInit,
+): Promise<banPanelSharedDeviceResponse> => {
+  const res = await fetch(getBanPanelSharedDeviceUrl(handle), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(banPanelSharedDeviceBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: banPanelSharedDeviceResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as banPanelSharedDeviceResponse;
+};
+
+export const getBanPanelSharedDeviceMutationFetcher = (handle: string, options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: BanPanelSharedDeviceBody }) => {
+    return banPanelSharedDevice(handle, arg, options);
+  };
+};
+export const getBanPanelSharedDeviceMutationKey = (handle: string) =>
+  [`/v1/panel/risk/shared-devices/${handle}/ban`] as const;
+
+export type BanPanelSharedDeviceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof banPanelSharedDevice>>
+>;
+
+export const useBanPanelSharedDevice = <TError = Promise<ProblemResponse>>(
+  handle: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof banPanelSharedDevice>>,
+      TError,
+      Key,
+      BanPanelSharedDeviceBody,
+      Awaited<ReturnType<typeof banPanelSharedDevice>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getBanPanelSharedDeviceMutationKey(handle);
+  const swrFn = getBanPanelSharedDeviceMutationFetcher(handle, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

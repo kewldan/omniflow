@@ -3107,7 +3107,8 @@ type User struct {
 	MergedAt       pgtype.Timestamptz `json:"merged_at"`
 	LastActivityAt pgtype.Timestamptz `json:"last_activity_at"`
 	// When the inactivity pass marked the customer dormant. Cleared by any activity.
-	DormantAt pgtype.Timestamptz `json:"dormant_at"`
+	DormantAt        pgtype.Timestamptz `json:"dormant_at"`
+	SuspensionEndsAt pgtype.Timestamptz `json:"suspension_ends_at"`
 }
 
 type VpnUsageObservation struct {

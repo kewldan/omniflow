@@ -3775,6 +3775,7 @@ paths:
         - {$ref: "#/components/parameters/PageSize"}
         - {in: query, name: status, schema: {$ref: "#/components/schemas/PanelSharedDeviceStatus"}}
         - {in: query, name: customerId, schema: {type: string, format: uuid}}
+        - {in: query, name: minAccounts, schema: {type: integer, minimum: 2}, description: "Only devices with at least this many customers."}
       responses:
         "200": {description: Shared devices, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSharedDevicePage"}}}}
         "403": {$ref: "#/components/responses/Problem"}
@@ -3784,19 +3785,73 @@ paths:
       operationId: reviewPanelSharedDevice
       tags: [panel]
       description: >-
-        Requires risk.write and a reason. Records a verdict on an open device:
-        `legitimate` (a family or a shared phone) or `confirmed` (one person's
-        second account). The verdict suspends nobody. `legitimate` stops the
-        device refusing trials and holding referrals for review. A customer who
-        joins the device later reopens it. Writes the audit event
-        `panel.shared_device.reviewed`.
+        Requires risk.write. Marks an open device `legitimate` (a family or a
+        shared phone): it stops refusing trials and holding referrals for
+        review. The reason header is optional here, because lifting a hold is
+        not an adverse decision. A customer who joins the device later reopens
+        it. Writes the audit event `panel.shared_device.reviewed`. Banning is
+        `POST /v1/panel/risk/shared-devices/{handle}/ban`.
       parameters:
         - {in: path, name: handle, required: true, schema: {type: string, pattern: "^[A-Za-z0-9_-]{8,64}$"}}
         - {$ref: "#/components/parameters/CSRFToken"}
-        - {$ref: "#/components/parameters/OperatorReason"}
-      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [status], properties: {status: {type: string, enum: [legitimate, confirmed]}}}}}}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [status], properties: {status: {type: string, enum: [legitimate]}}}}}}
       responses:
         "200": {description: Reviewed, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSharedDevice"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/risk/shared-devices/{handle}/ban:
+    post:
+      operationId: banPanelSharedDevice
+      tags: [panel]
+      description: >-
+        Requires risk.write and customers.write, and subscriptions.write when
+        `annulSubscriptions` is set. Suspends each chosen customer on an open
+        device with the reason (one of the ban templates, recorded as
+        `shared_device:<reason>`), sends the reason's message when `notify` is
+        set, and ends the ban after `days` (0 is no end; the worker restores
+        the customer when it ends). `annulSubscriptions` queues a `disable` for
+        every running subscription of each banned customer through fulfillment;
+        those stay disabled after the ban ends. The device is recorded as
+        `confirmed`. Writes `panel.shared_device.banned` plus each customer's
+        own suspension audit event.
+      parameters:
+        - {in: path, name: handle, required: true, schema: {type: string, pattern: "^[A-Za-z0-9_-]{8,64}$"}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customerIds, reason, notify, days, annulSubscriptions]
+              properties:
+                customerIds: {type: array, minItems: 1, items: {type: string, format: uuid}}
+                reason: {type: string, enum: [multiaccount, sharing, fraud, rules, spam, torrent]}
+                notify: {type: boolean}
+                days: {type: integer, minimum: 0, maximum: 3650}
+                annulSubscriptions: {type: boolean}
+      responses:
+        "200":
+          description: Banned
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [device, customers]
+                properties:
+                  device: {$ref: "#/components/schemas/PanelSharedDevice"}
+                  customers:
+                    type: array
+                    items:
+                      type: object
+                      required: [customerId, outcome, annulled]
+                      properties:
+                        customerId: {type: string, format: uuid}
+                        outcome: {type: string, enum: [suspended, suspended_not_notified]}
+                        endsAt: {type: string, format: date-time}
+                        annulled: {type: integer, description: "Subscriptions queued to be disabled."}
         "403": {$ref: "#/components/responses/Problem"}
         "404": {$ref: "#/components/responses/Problem"}
         "409": {$ref: "#/components/responses/Problem"}

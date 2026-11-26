@@ -117,6 +117,7 @@ WHERE (
     OR (d.last_seen_at, d.device_handle) < (sqlc.narg(cursor_last_seen_at)::timestamptz, sqlc.narg(cursor_handle)::text)
   )
   AND (sqlc.narg(status)::text IS NULL OR d.status = sqlc.narg(status))
+  AND (sqlc.narg(min_accounts)::integer IS NULL OR d.accounts >= sqlc.narg(min_accounts))
   AND (sqlc.narg(user_id)::uuid IS NULL OR EXISTS (
     SELECT 1 FROM device_sightings s
     WHERE s.device_handle = d.device_handle AND s.user_id = sqlc.narg(user_id)))
@@ -153,3 +154,17 @@ RETURNING *;
 
 -- name: ListOpenSharedDeviceHandles :many
 SELECT device_handle FROM shared_devices WHERE status = 'open';
+
+-- name: SetSuspensionEnd :exec
+-- When a suspension ends; null is a ban with no end.
+UPDATE users SET suspension_ends_at = sqlc.narg(ends_at), updated_at = now()
+WHERE id = sqlc.arg(user_id);
+
+-- name: ListExpiredSuspensions :many
+SELECT id FROM users
+WHERE status = 'suspended' AND suspension_ends_at IS NOT NULL AND suspension_ends_at <= sqlc.arg(now)
+ORDER BY suspension_ends_at
+LIMIT sqlc.arg(page_size);
+
+-- name: ListSharedDeviceCustomers :many
+SELECT user_id FROM device_sightings WHERE device_handle = $1;

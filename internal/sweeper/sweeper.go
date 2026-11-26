@@ -103,13 +103,28 @@ func (sweeper *Sweeper) Sweep(ctx context.Context) {
 	sweeper.evaluateAnomalies(ctx)
 }
 
-// SweepLifecycle expires gifts and personal offers and refreshes blocklist
-// sources: everything in Sweep except anomaly evaluation, which the worker
-// schedules on its own interval instead of throttling it in memory.
+// SweepLifecycle expires gifts, personal offers, and timed bans and refreshes
+// blocklist sources: everything in Sweep except anomaly evaluation, which the
+// worker schedules on its own interval instead of throttling it in memory.
 func (sweeper *Sweeper) SweepLifecycle(ctx context.Context) {
 	sweeper.expireGifts(ctx)
 	sweeper.expireOffers(ctx)
+	sweeper.liftExpiredBans(ctx)
 	sweeper.refreshBlocklists(ctx)
+}
+
+// liftExpiredBans restores customers whose timed ban has run out.
+func (sweeper *Sweeper) liftExpiredBans(ctx context.Context) {
+	if sweeper.operations == nil {
+		return
+	}
+	lifted, err := sweeper.operations.LiftExpiredBans(ctx, time.Now())
+	if err != nil {
+		sweeper.logger.Warn("ban expiry sweep failed", "error", err)
+	}
+	if lifted > 0 {
+		sweeper.logger.Info("timed bans lifted", "count", lifted)
+	}
 }
 
 // EvaluateAnomalies runs the anomaly rules now, without the in-memory throttle

@@ -200,21 +200,46 @@ affect:
 ### Deciding a device
 
 A family on one tablet looks exactly like a second account, so the verdict is a
-person's. With `risk.write` and a reason, an operator marks an open device:
+person's. The queue filters by status and by size — **More than 2 accounts**
+shows only the devices with three or more. With `risk.write`, an operator
+decides an open device in one of two ways.
 
-- **Legitimate** — a family or a shared phone. The device stops refusing trials
-  and stops holding referrals.
-- **Second account** (`confirmed`) — the finding is recorded. It suspends
-  nobody; blocking the account is a separate action on the customer's page.
+**Legitimate** — a family or a shared phone. No reason is needed, because
+lifting a hold is not an adverse decision. The device stops refusing trials
+and stops holding referrals.
 
-The verdict covers the customers on the device at the time. Another customer
+**Ban** (with `customers.write` too) opens a dialog:
+
+- **Accounts** — which customers on the device to ban. Every one except the
+  first seen on the device is ticked to begin with, since the first is usually
+  the original.
+- **Reason** — one of the ban templates: *Several accounts on one device*,
+  *Account sharing*, *Payment fraud*, or *Breaking the rules*. It is recorded on
+  each customer as `shared_device:<reason>`.
+- **Ban length** — 1, 7, 30 or 90 days, or no end. A timed ban is lifted by
+  the worker's `lifecycle_sweep` once it runs out, with the lifecycle event
+  `restored` (reason `ban_expired`) and the audit event `customer.ban_expired`.
+  Restoring the customer by hand ends it at once.
+- **Send the customer the reason** — the reason's template goes to the customer
+  as a message.
+- **Annul subscriptions** (needs `subscriptions.write`) — every running
+  subscription of each banned customer gets a `disable` through the
+  fulfillment pipeline, the same change as disabling it on the customer page.
+  They stay disabled after the ban ends.
+
+Each banned customer goes through the same suspension as the customer page —
+lifecycle event, audit event `panel.customer.suspended` — and the device is
+recorded as banned, with `panel.shared_device.banned` in the audit log.
+
+Either verdict covers the customers on the device at the time. Another customer
 joining the device reopens it, and the earlier verdict stays on the row so the
-operator sees what was decided for fewer accounts. Each verdict writes the
-audit event `panel.shared_device.reviewed`.
+operator sees what was decided for fewer accounts.
 
-The routes are `GET /v1/panel/risk/shared-devices` (`status`, `customerId`,
-cursor) with `risk.read` and `POST /v1/panel/risk/shared-devices/{handle}/review`
-with `risk.write`. Open devices count toward the number beside **Risk** in the
+The routes are `GET /v1/panel/risk/shared-devices` (`status`, `minAccounts`,
+`customerId`, cursor) with `risk.read`,
+`POST /v1/panel/risk/shared-devices/{handle}/review` with `risk.write`, and
+`POST /v1/panel/risk/shared-devices/{handle}/ban` with `risk.write` and
+`customers.write`. Open devices count toward the number beside **Risk** in the
 panel menu.
 
 ## When any of this runs
@@ -228,7 +253,7 @@ same state as one that ran once. See
 
 | Pass | Cadence |
 | --- | --- |
-| Gift and personal-offer expiry | Every `lifecycle_sweep`, five minutes |
+| Gift and personal-offer expiry, and lifting timed bans | Every `lifecycle_sweep`, five minutes |
 | Blocklist refresh | Every `lifecycle_sweep`, but only for sources whose own interval has elapsed |
 | Blocklist screen of all customers | After a `lifecycle_sweep` that refreshed a source, and on demand |
 | Anomaly evaluation | Its own `anomaly_evaluation` pass, fifteen minutes |

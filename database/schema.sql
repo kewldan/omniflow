@@ -5929,6 +5929,7 @@ CREATE TABLE public.users (
     merged_at timestamp with time zone,
     last_activity_at timestamp with time zone,
     dormant_at timestamp with time zone,
+    suspension_ends_at timestamp with time zone,
     CONSTRAINT users_locale_check CHECK ((locale = ANY (ARRAY['ru'::text, 'en'::text, 'uk'::text, 'zh'::text, 'fa'::text]))),
     CONSTRAINT users_merge_complete CHECK ((((status = 'merged'::text) = (merged_into IS NOT NULL)) AND ((merged_into IS NULL) = (merged_at IS NULL)))),
     CONSTRAINT users_merge_not_self CHECK (((merged_into IS NULL) OR (merged_into <> id))),
@@ -10313,6 +10314,13 @@ CREATE INDEX users_merged_into_idx ON public.users USING btree (merged_into) WHE
 --
 
 CREATE INDEX users_status_created_idx ON public.users USING btree (status, created_at DESC);
+
+
+--
+-- Name: users_suspension_ends; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX users_suspension_ends ON public.users USING btree (suspension_ends_at) WHERE ((status = 'suspended'::text) AND (suspension_ends_at IS NOT NULL));
 
 
 --

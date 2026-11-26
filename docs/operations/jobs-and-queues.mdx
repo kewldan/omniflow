@@ -146,7 +146,7 @@ A pass gets one attempt. A failure is logged as `periodic task failed` with the 
 | `daily_billing` | 1 min | 5 min | Buys the next day of [daily plans](/commerce/subscriptions#daily-plans) from the wallet, in batches of 100 |
 | `fulfillment_reconcile` | 15 min | interval | Creates `reconcile` operations for up to 500 entitlements, keyed `reconcile:<entitlementID>:<15-minute bucket>` |
 | `fulfillment_revive` | 5 min | interval | Re-queues fulfillment operations whose job never ran or was discarded |
-| `lifecycle_sweep` | 5 min | interval | Expires gifts and personal offers, refreshes up to 20 blocklist sources |
+| `lifecycle_sweep` | 5 min | interval | Expires gifts and personal offers, lifts timed bans that ran out, refreshes up to 20 blocklist sources |
 | `anomaly_evaluation` | 15 min | interval | Evaluates anomaly rules |
 | `campaign_expansion` | 1 min | 5 min | Expands campaign audiences, batch 5 000 |
 | `bulk_actions` | 15 s | 5 min | Applies previewed bulk operations one item at a time, batch 50 |

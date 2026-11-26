@@ -1758,7 +1758,7 @@
     "risk": {
       "title": "风险",
       "description": "黑名单匹配、异常信号以及共用设备的账号，并附上产生它们的依据。",
-      "noAutoAction": "本页的任何操作都不会更改用户。在此做出的决定只记录结论和原因；封停账户是用户详情页上的单独操作。",
+      "noAutoAction": "此页面不会自动改变任何客户。决定只记录结论；封禁是操作员带理由的选择，与客户页面上的封禁完全相同。",
       "reasonPlaceholder": "决定原因（必填）",
       "observed": "观测值 {observed}，阈值 {threshold}。",
       "disabled": "已停用",
@@ -1839,14 +1839,13 @@
         "failed": "无法执行检查。"
       },
       "sharedDevices": {
-        "explainer": "两个或更多客户的订阅曾通过同一设备连接。一家人共用一台平板与小号看起来一样，因此由人来判断：“合理”会让该设备不再拒绝试用、不再暂扣推荐奖励，“小号”记录这一发现。两者都不会封禁任何人。",
+        "explainer": "两个或更多客户的订阅曾通过同一设备连接。一家人共用一台平板与小号看起来一样，因此由人来判断：“合理”会让该设备不再拒绝试用、不再暂扣推荐奖励，“封禁”会封禁所选账号。",
         "statusFilter": "状态",
         "status": {
           "open": "待审核",
           "legitimate": "合理",
-          "confirmed": "小号"
+          "confirmed": "已封禁"
         },
-        "reasonPlaceholder": "判定理由（必填）",
         "empty": "没有共用设备",
         "emptyDescription": "没有设备通过多个客户的订阅连接。后台每隔几小时检查一次。",
         "failed": "无法加载共用设备",
@@ -1858,7 +1857,29 @@
         "reopened": "已重新打开：之前的判定涉及 {accounts} 个账号 — “{reason}”",
         "verdict": "判定：“{reason}”",
         "legitimate": "合理",
-        "confirm": "小号"
+        "sizeFilter": "设备上的账号数",
+        "size": {
+          "2": "任意账号数",
+          "3": "超过 2 个账号"
+        },
+        "bannedFor": "已封禁：{reason}",
+        "ban": {
+          "open": "封禁",
+          "title": "封禁此设备上的账号",
+          "description": "所选账号将以此理由被封禁。设备上最早出现的账号默认不勾选；如证据不同请自行调整。",
+          "accounts": "账号",
+          "firstSeen": "设备上的第一个",
+          "reason": "理由",
+          "duration": "封禁时长",
+          "forever": "永久",
+          "days": "{count} 天",
+          "notify": "向客户发送包含理由的消息",
+          "annul": "作废订阅",
+          "annulHint": "其有效订阅将在 Remnawave 中被停用，封禁结束后不会自动恢复。",
+          "annulForbidden": "需要 subscriptions.write 权限。",
+          "submit": "{count, plural, =0 {请选择账号} other {封禁 # 个账号}}",
+          "done": "已封禁 {count} 个账号"
+        }
       }
     },
     "system": {
@@ -4586,7 +4607,8 @@
           "sharing": "共享账户",
           "spam": "垃圾信息",
           "fraud": "支付欺诈",
-          "rules": "违反规则"
+          "rules": "违反规则",
+          "multiaccount": "同一设备多个账号"
         }
       }
     },
