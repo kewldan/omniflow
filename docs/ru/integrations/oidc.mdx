@@ -250,12 +250,20 @@ Omniflow пересобирает этот URL из заголовка `Host` в
     | Slug | Издатель | Scopes | Проверенный email по умолчанию |
     | --- | --- | --- | --- |
     | `google` | `https://accounts.google.com` | `openid email profile` | включено |
-    | `yandex` | `https://oauth.yandex.ru` | `openid login:email login:info` | выключено |
+    | `yandex` | `https://oauth.yandex.ru` | `login:email login:info` | выключено |
     | `discord` | `https://discord.com` | `openid email identify` | включено |
     | `vk` | `https://id.vk.ru` | `vkid.personal_info email` | выключено |
 
-    У Yandex по умолчанию **выключено**, потому что он не всегда возвращает
-    `email_verified`; требование этого claim отклоняло бы каждый вход. Discord
+    **Яндекс ID** — это OAuth 2.0, а не OIDC: `oauth.yandex.ru` не публикует
+    discovery-документ и не выдаёт ID-токен. Omniflow узнаёт издателя
+    `https://oauth.yandex.ru`, использует фиксированные адреса авторизации и
+    обмена кода Яндекса и читает профиль из `login.yandex.ru/info`; субъектом
+    становится числовой Яндекс ID, а профиль, выданный другому ClientID,
+    отклоняется. Создайте веб-приложение на oauth.yandex.ru с доступом к почте и к
+    логину, имени и полу, добавьте адрес обратного вызова как Redirect URI и
+    введите его ClientID и Client secret. Требование проверенного email по
+    умолчанию **выключено**: Яндекс не передаёт `email_verified`, и требование
+    отклоняло бы каждый вход. Discord
     выпускает ID-токен только тогда, когда запрошен `openid`, а адрес несёт scope
     `email`.
   

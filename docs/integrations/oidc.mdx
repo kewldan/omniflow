@@ -240,12 +240,20 @@ to see it, `settings.write` to change it).
     | Slug | Issuer | Scopes | Verified email by default |
     | --- | --- | --- | --- |
     | `google` | `https://accounts.google.com` | `openid email profile` | on |
-    | `yandex` | `https://oauth.yandex.ru` | `openid login:email login:info` | off |
+    | `yandex` | `https://oauth.yandex.ru` | `login:email login:info` | off |
     | `discord` | `https://discord.com` | `openid email identify` | on |
     | `vk` | `https://id.vk.ru` | `vkid.personal_info email` | off |
 
-    Yandex defaults to **off** because it does not consistently return
-    `email_verified`; requiring the claim would refuse every sign-in. Discord
+    **Yandex ID** is OAuth 2.0 rather than OIDC: `oauth.yandex.ru` publishes no
+    discovery document and issues no ID token. Omniflow recognises the issuer
+    `https://oauth.yandex.ru` and uses Yandex's fixed authorize and token
+    endpoints, then reads the profile from `login.yandex.ru/info`; the numeric
+    Yandex ID becomes the subject, and a profile issued to another client ID is
+    refused. Create a web app at oauth.yandex.ru with the email and the login,
+    name and gender permissions, add the callback URL as a redirect URI, and enter
+    its ClientID and Client secret. The verified-email requirement defaults to
+    **off** because Yandex asserts no `email_verified`; requiring it would refuse
+    every sign-in. Discord
     issues an ID token only when `openid` is requested, and the `email` scope is
     what carries the address.
 

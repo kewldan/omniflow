@@ -56,25 +56,25 @@ func ProviderPresets() []ProviderPreset {
 				"authorised redirect URIs before enabling.",
 		},
 		{
-			Slug:         "yandex",
-			DisplayName:  "Yandex",
+			Slug:        "yandex",
+			DisplayName: "Yandex",
+			// Not an OIDC issuer: Yandex ID publishes no discovery document
+			// and issues no ID token, so the flow recognises this issuer and
+			// uses Yandex's fixed endpoints and login.yandex.ru/info.
 			Issuer:       "https://oauth.yandex.ru",
-			DiscoveryURL: "https://oauth.yandex.ru/.well-known/openid-configuration",
-
-			// Yandex names its scopes differently from the OIDC defaults, which
-			// is exactly the kind of per-provider detail a preset exists to
-			// carry — the flow itself stays generic.
-			Scopes: []string{"openid", "login:email", "login:info"},
-			Icon:   "yandex",
+			DiscoveryURL: "https://oauth.yandex.ru",
+			Scopes:       []string{"login:email", "login:info"},
+			Icon:         "yandex",
 
 			// Yandex returns the address but does not reliably assert that it is
 			// verified, so requiring the claim would refuse every sign-in. The
 			// default is off and the operator is told why rather than being left
 			// to discover it from a failed login.
 			RequireVerifiedEmail: false,
-			Note: "Yandex does not consistently return `email_verified`. Leave the " +
-				"verified-email requirement off unless your application is " +
-				"configured to supply it.",
+			Note: "Create a web app at oauth.yandex.ru with the email and the " +
+				"login, name and gender permissions, and add the installation's " +
+				"callback URL as a redirect URI. Yandex asserts no `email_verified`, " +
+				"so leave the verified-email requirement off.",
 		},
 		{
 			Slug:         "discord",

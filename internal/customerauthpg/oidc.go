@@ -471,6 +471,10 @@ func (service *Service) exchangeOIDC(
 		claims, vkErr := service.exchangeVKID(ctx, stored, code, verifier, redirectURL)
 		return stored, claims, vkErr
 	}
+	if IsYandex(stored.Issuer) {
+		claims, yandexErr := service.exchangeYandex(ctx, config, stored, code, verifier)
+		return stored, claims, yandexErr
+	}
 
 	// The exchange uses the same bounded client as discovery; without it the
 	// oauth2 package falls back to http.DefaultClient, which has no timeout.
@@ -545,6 +549,9 @@ func (service *Service) oauthConfig(
 
 	if IsVKID(stored.Issuer) {
 		return vkidConfig(stored, secret, redirectURL), nil, stored, nil
+	}
+	if IsYandex(stored.Issuer) {
+		return yandexConfig(stored, secret, redirectURL), nil, stored, nil
 	}
 	discovered, err := oidc.NewProvider(oidc.ClientContext(ctx, service.httpClient), stored.Issuer)
 	if err != nil {
