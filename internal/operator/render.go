@@ -1031,6 +1031,15 @@ func (n *notice) renderMonitoring(event, customerID string) {
 		if devices := n.input.str("devices"); devices != "" {
 			n.block("📋", phrase{"Who", "Кто"}, html.EscapeString(devices))
 		}
+	case event == "shared_devices":
+		n.title = n.input.say(phrase{"📱 Accounts sharing a device", "📱 Аккаунты на одном устройстве"})
+		if devices := n.input.str("devices"); devices != "" {
+			n.field("🆕", phrase{"New devices", "Новых устройств"}, "<b>"+html.EscapeString(devices)+"</b>")
+		}
+		if open := n.input.str("open"); open != "" {
+			n.field("📋", phrase{"Waiting for review", "Ждут проверки"}, html.EscapeString(open))
+		}
+		n.button(n.input.say(phrase{"🛡 Risk", "🛡 Риск"}), "/admin/risk")
 	case strings.Contains(strings.ToLower(event), "torrent"):
 		n.title = n.input.say(phrase{"🏴‍☠️ Torrent traffic blocked", "🏴‍☠️ Заблокирован торрент-трафик"})
 		n.customer(customerID)

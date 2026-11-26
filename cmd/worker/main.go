@@ -494,8 +494,8 @@ func startOperationalServer(logger *slog.Logger, cfg config.WorkerConfig, pool *
 func gate(pool *pgxpool.Pool) *jobs.Gate { return jobs.NewGate(pool) }
 
 // monitoringTasks are the read-only usage passes over Remnawave: unusual
-// traffic growth and devices over their limit. They report to operators and
-// change nothing in the panel.
+// traffic growth, devices over their limit, and devices shared between
+// customers. They report to operators and change nothing in the panel.
 func monitoringTasks(
 	logger *slog.Logger, cfg config.WorkerConfig, pool *pgxpool.Pool,
 	panel *remnawave.Client, claims *jobs.Gate,
@@ -554,6 +554,18 @@ func monitoringTasks(
 				return monitor.TrafficPass(ctx, "daily", settings.DailyThresholdBytes, 49*time.Hour)
 			}})
 	}
+	// Accounts that share a device go to the risk queue. The pass only reads
+	// the panel; what it writes is Omniflow's own evidence for an operator.
+	scanner := remnawavesync.NewDeviceScanner(pool, panel, cfg.OperatorTelegramIDs, logger)
+	tasks = append(tasks, jobs.Task{Name: "shared_device_scan", Interval: time.Hour, Timeout: 30 * time.Minute,
+		Run: func(ctx context.Context) error {
+			due, claimErr := claims.Claim(ctx, "shared_device_scan", 3*time.Hour)
+			if claimErr != nil || !due {
+				return claimErr
+			}
+			_, scanErr := scanner.Scan(ctx, time.Now())
+			return scanErr
+		}})
 	if settings.DeviceReport {
 		tasks = append(tasks, jobs.Task{Name: "device_overflow_report", Interval: time.Hour, Timeout: 30 * time.Minute,
 			Run: func(ctx context.Context) error {

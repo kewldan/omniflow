@@ -27,6 +27,7 @@ import {
 import { useSession } from "@/lib/session";
 import { CheckNow } from "./check-now";
 import { NoSources, RuleEditor, SourceEditor } from "./rule-editor";
+import { SharedDevices } from "./shared-devices";
 
 type BlocklistSource = {
   id: string;
@@ -66,6 +67,7 @@ export function RiskReview() {
         <TabsList>
           <TabsTrigger value="matches">{translate("tabs.matches")}</TabsTrigger>
           <TabsTrigger value="anomalies">{translate("tabs.anomalies")}</TabsTrigger>
+          <TabsTrigger value="devices">{translate("tabs.devices")}</TabsTrigger>
           <TabsTrigger value="sources">{translate("tabs.sources")}</TabsTrigger>
           <TabsTrigger value="rules">{translate("tabs.rules")}</TabsTrigger>
         </TabsList>
@@ -81,6 +83,9 @@ export function RiskReview() {
         </TabsContent>
         <TabsContent value="anomalies">
           <Anomalies active={tab === "anomalies"} />
+        </TabsContent>
+        <TabsContent value="devices">
+          <SharedDevices active={tab === "devices"} />
         </TabsContent>
         <TabsContent value="sources">
           <Sources active={tab === "sources"} />

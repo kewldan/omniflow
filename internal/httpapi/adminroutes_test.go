@@ -129,6 +129,8 @@ func TestOperationsRoutesRequireASession(t *testing.T) {
 		{http.MethodPut, "/v1/panel/settings/commerce/topup"},
 		{http.MethodGet, "/v1/panel/risk/matches"},
 		{http.MethodPost, "/v1/panel/risk/anomalies/00000000-0000-0000-0000-000000000000/review"},
+		{http.MethodGet, "/v1/panel/risk/shared-devices"},
+		{http.MethodPost, "/v1/panel/risk/shared-devices/AAAAAAAAAAAAAAAAAAAAAA/review"},
 		{http.MethodGet, "/v1/panel/gifts"},
 		{http.MethodGet, "/v1/panel/support/queues"},
 		{http.MethodGet, "/v1/panel/support/tickets"},

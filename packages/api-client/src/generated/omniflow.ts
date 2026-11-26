@@ -4783,6 +4783,51 @@ export interface PanelAnomalyPage {
   nextCursor?: string;
 }
 
+export type PanelSharedDeviceStatus =
+  (typeof PanelSharedDeviceStatus)[keyof typeof PanelSharedDeviceStatus];
+
+export const PanelSharedDeviceStatus = {
+  open: "open",
+  legitimate: "legitimate",
+  confirmed: "confirmed",
+} as const;
+
+export interface PanelSharedDeviceAccount {
+  customerId: string;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  trialClaimed: boolean;
+  /** The customer who invited this one, when the inviter is on the same device. */
+  invitedBy?: string;
+}
+
+export interface PanelSharedDevice {
+  /** Digest of the hardware ID; the same handle the customer's device list uses. */
+  handle: string;
+  platform?: string;
+  /** @minimum 2 */
+  accounts: number;
+  /** @minimum 0 */
+  trialAccounts: number;
+  /** @minimum 0 */
+  referralPairs: number;
+  status: PanelSharedDeviceStatus;
+  detectedAt: string;
+  lastSeenAt: string;
+  customers: PanelSharedDeviceAccount[];
+  /** How many accounts the latest verdict covered; fewer than `accounts` on a reopened device. */
+  reviewedAccounts?: number;
+  reviewReason?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+}
+
+export interface PanelSharedDevicePage {
+  /** @nullable */
+  items: PanelSharedDevice[] | null;
+  nextCursor?: string;
+}
+
 export type PanelGiftStatus = (typeof PanelGiftStatus)[keyof typeof PanelGiftStatus];
 
 export const PanelGiftStatus = {
@@ -8628,6 +8673,30 @@ export const ReviewPanelAnomalyBodyStatus = {
 
 export type ReviewPanelAnomalyBody = {
   status: ReviewPanelAnomalyBodyStatus;
+};
+
+export type SearchPanelSharedDevicesParams = {
+  /** Opaque keyset cursor from the previous page. */
+  cursor?: CursorParameter;
+  /**
+   * @minimum 1
+   * @maximum 500
+   */
+  pageSize?: PageSizeParameter;
+  status?: PanelSharedDeviceStatus;
+  customerId?: string;
+};
+
+export type ReviewPanelSharedDeviceBodyStatus =
+  (typeof ReviewPanelSharedDeviceBodyStatus)[keyof typeof ReviewPanelSharedDeviceBodyStatus];
+
+export const ReviewPanelSharedDeviceBodyStatus = {
+  legitimate: "legitimate",
+  confirmed: "confirmed",
+} as const;
+
+export type ReviewPanelSharedDeviceBody = {
+  status: ReviewPanelSharedDeviceBodyStatus;
 };
 
 export type SearchPanelGiftsParams = {
@@ -30855,6 +30924,208 @@ export const useReviewPanelAnomaly = <TError = Promise<ProblemResponse>>(
 
   const swrKey = swrOptions?.swrKey ?? getReviewPanelAnomalyMutationKey(signalID);
   const swrFn = getReviewPanelAnomalyMutationFetcher(signalID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type searchPanelSharedDevicesResponse200 = {
+  data: PanelSharedDevicePage;
+  status: 200;
+};
+
+export type searchPanelSharedDevicesResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type searchPanelSharedDevicesResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type searchPanelSharedDevicesResponseSuccess = searchPanelSharedDevicesResponse200 & {
+  headers: Headers;
+};
+export type searchPanelSharedDevicesResponseError = (
+  | searchPanelSharedDevicesResponse403
+  | searchPanelSharedDevicesResponse422
+) & {
+  headers: Headers;
+};
+
+export type searchPanelSharedDevicesResponse =
+  | searchPanelSharedDevicesResponseSuccess
+  | searchPanelSharedDevicesResponseError;
+
+export const getSearchPanelSharedDevicesUrl = (params?: SearchPanelSharedDevicesParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : String(value));
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/v1/panel/risk/shared-devices?${stringifiedParams}`
+    : `/v1/panel/risk/shared-devices`;
+};
+
+/**
+ * Requires risk.read. Devices that connected through subscriptions of two or more customers, found by the worker's `shared_device_scan` from the HWID list Remnawave keeps. A device is named only by its handle, a digest of the hardware ID; the hardware ID is never stored. Each item lists the customers on the device, which of them took a trial, and who invited whom on it. With `customerId`, only devices that customer is on.
+ */
+export const searchPanelSharedDevices = async (
+  params?: SearchPanelSharedDevicesParams,
+  options?: RequestInit,
+): Promise<searchPanelSharedDevicesResponse> => {
+  const res = await fetch(getSearchPanelSharedDevicesUrl(params), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: searchPanelSharedDevicesResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as searchPanelSharedDevicesResponse;
+};
+
+export const getSearchPanelSharedDevicesKey = (params?: SearchPanelSharedDevicesParams) =>
+  [`/v1/panel/risk/shared-devices`, ...(params ? [params] : [])] as const;
+
+export type SearchPanelSharedDevicesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof searchPanelSharedDevices>>
+>;
+
+export const useSearchPanelSharedDevices = <TError = Promise<ProblemResponse>>(
+  params?: SearchPanelSharedDevicesParams,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof searchPanelSharedDevices>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled = swrOptions?.enabled !== false;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getSearchPanelSharedDevicesKey(params) : null));
+  const swrFn = () => searchPanelSharedDevices(params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type reviewPanelSharedDeviceResponse200 = {
+  data: PanelSharedDevice;
+  status: 200;
+};
+
+export type reviewPanelSharedDeviceResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type reviewPanelSharedDeviceResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type reviewPanelSharedDeviceResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type reviewPanelSharedDeviceResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type reviewPanelSharedDeviceResponseSuccess = reviewPanelSharedDeviceResponse200 & {
+  headers: Headers;
+};
+export type reviewPanelSharedDeviceResponseError = (
+  | reviewPanelSharedDeviceResponse403
+  | reviewPanelSharedDeviceResponse404
+  | reviewPanelSharedDeviceResponse409
+  | reviewPanelSharedDeviceResponse422
+) & {
+  headers: Headers;
+};
+
+export type reviewPanelSharedDeviceResponse =
+  | reviewPanelSharedDeviceResponseSuccess
+  | reviewPanelSharedDeviceResponseError;
+
+export const getReviewPanelSharedDeviceUrl = (handle: string) => {
+  return `/v1/panel/risk/shared-devices/${handle}/review`;
+};
+
+/**
+ * Requires risk.write and a reason. Records a verdict on an open device: `legitimate` (a family or a shared phone) or `confirmed` (one person's second account). The verdict suspends nobody. `legitimate` stops the device refusing trials and holding referrals for review. A customer who joins the device later reopens it. Writes the audit event `panel.shared_device.reviewed`.
+ */
+export const reviewPanelSharedDevice = async (
+  handle: string,
+  reviewPanelSharedDeviceBody: ReviewPanelSharedDeviceBody,
+  options?: RequestInit,
+): Promise<reviewPanelSharedDeviceResponse> => {
+  const res = await fetch(getReviewPanelSharedDeviceUrl(handle), {
+    ...options,
+    method: "POST",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(reviewPanelSharedDeviceBody),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: reviewPanelSharedDeviceResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as reviewPanelSharedDeviceResponse;
+};
+
+export const getReviewPanelSharedDeviceMutationFetcher = (
+  handle: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, { arg }: { arg: ReviewPanelSharedDeviceBody }) => {
+    return reviewPanelSharedDevice(handle, arg, options);
+  };
+};
+export const getReviewPanelSharedDeviceMutationKey = (handle: string) =>
+  [`/v1/panel/risk/shared-devices/${handle}/review`] as const;
+
+export type ReviewPanelSharedDeviceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reviewPanelSharedDevice>>
+>;
+
+export const useReviewPanelSharedDevice = <TError = Promise<ProblemResponse>>(
+  handle: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof reviewPanelSharedDevice>>,
+      TError,
+      Key,
+      ReviewPanelSharedDeviceBody,
+      Awaited<ReturnType<typeof reviewPanelSharedDevice>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getReviewPanelSharedDeviceMutationKey(handle);
+  const swrFn = getReviewPanelSharedDeviceMutationFetcher(handle, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

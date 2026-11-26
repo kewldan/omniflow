@@ -22,9 +22,10 @@ var navigationCountQueries = map[string]string{
 	"payouts": `SELECT count(*) FROM referral_withdrawals WHERE status = 'pending'`,
 	// A previous bot's payments that could not be credited on their own.
 	"finance": `SELECT count(*) FROM bedolaga_payment_claims WHERE status = 'needs_review'`,
-	// Open anomaly signals and blocklist matches.
+	// Open anomaly signals, blocklist matches, and shared devices.
 	"risk": `SELECT (SELECT count(*) FROM anomaly_signals WHERE status = 'open')
-		+ (SELECT count(*) FROM blocklist_matches WHERE status IN ('open', 'appealed'))`,
+		+ (SELECT count(*) FROM blocklist_matches WHERE status IN ('open', 'appealed'))
+		+ (SELECT count(*) FROM shared_devices WHERE status = 'open')`,
 	// Application errors nobody has resolved.
 	"system": `SELECT count(*) FROM app_errors WHERE resolved_at IS NULL`,
 }

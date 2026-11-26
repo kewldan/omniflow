@@ -158,6 +158,7 @@ A pass gets one attempt. A failure is logged as `periodic task failed` with the 
 | `subscription_snapshot` | 1 h | 20 min | Records today's subscription base for [business analytics](/operations/business-analytics) and backfills up to 365 missing days, about two months per pass |
 | `node_traffic_sample` | 1 h | 5 min | Samples each Remnawave node's counters for the [traffic history](/operations/traffic-reporting#traffic-history); prunes samples older than 400 days |
 | `usage_census` | 1 h | 15 min | Reads every Remnawave user and device and records first connection, last time online, last node, and devices against the limit for [usage and activation](/operations/business-analytics#usage-and-activation) |
+| `shared_device_scan` | 1 h, runs every 3 h | 30 min | Reads every Remnawave device and refreshes the [shared-device queue](/operations/risk-controls#shared-devices): sightings, trial and referral holds, and one monitoring notice when devices enter the queue |
 
 The fulfillment reconcile pass's bucketed idempotency key is worth understanding: two passes inside the same fifteen-minute bucket produce the same key, so a restarted worker cannot create a second reconcile operation for the same entitlement in the same window.
 

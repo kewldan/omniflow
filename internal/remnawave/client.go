@@ -233,23 +233,37 @@ type PanelDevice struct {
 	UserID    int64     `json:"userId"`
 	Platform  *string   `json:"platform"`
 	UpdatedAt time.Time `json:"updatedAt"`
+	// Handle is the device's digest, the same one commerce.DeviceHandle
+	// derives. The hardware ID itself is read only to compute it and never
+	// leaves the adapter: the passes that read this count devices and match
+	// them across accounts, they never need to know what the device is.
+	Handle string `json:"-"`
 }
 
-// AllDevices pages through every HWID device the panel knows. The hardware
-// ID is deliberately not decoded: the passes that read this count devices,
-// they do not identify them.
+// AllDevices pages through every HWID device the panel knows.
 func (client *Client) AllDevices(ctx context.Context, start, size int) ([]PanelDevice, int, error) {
 	endpoint := "/api/hwid/devices?start=" + strconv.Itoa(start) + "&size=" + strconv.Itoa(size)
 	var envelope struct {
 		Response struct {
-			Devices []PanelDevice `json:"devices"`
-			Total   int           `json:"total"`
+			Devices []struct {
+				PanelDevice
+				HWID string `json:"hwid"`
+			} `json:"devices"`
+			Total int `json:"total"`
 		} `json:"response"`
 	}
 	if err := client.get(ctx, endpoint, &envelope); err != nil {
 		return nil, 0, err
 	}
-	return envelope.Response.Devices, envelope.Response.Total, nil
+	devices := make([]PanelDevice, 0, len(envelope.Response.Devices))
+	for _, wire := range envelope.Response.Devices {
+		device := wire.PanelDevice
+		if wire.HWID != "" {
+			device.Handle = hwidDigest(wire.HWID)
+		}
+		devices = append(devices, device)
+	}
+	return devices, envelope.Response.Total, nil
 }
 
 type Subscription struct {

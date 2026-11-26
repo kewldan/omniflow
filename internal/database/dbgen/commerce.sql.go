@@ -46,6 +46,9 @@ WITH revoked_identities AS (
   WHERE contact_channels.user_id = $1
 ), cleared_mapping AS (
   UPDATE remnawave_users SET telegram_id = NULL, observed_state = '{}'::jsonb WHERE remnawave_users.user_id = $1
+), cleared_devices AS (
+  -- Which devices the customer connected with is theirs, not evidence to keep.
+  DELETE FROM device_sightings WHERE device_sightings.user_id = $1
 ), cleared_username AS (
   DELETE FROM telegram_usernames WHERE telegram_usernames.user_id = $1
 ), cleared_gift_addresses AS (

@@ -40,4 +40,9 @@ func TestReadOnlyReportRoutes(t *testing.T) {
 	if err != nil || total != 1 || devices[0].UserID != 7 {
 		t.Fatalf("devices = %+v %d (%v)", devices, total, err)
 	}
+	// The hardware ID comes back only as the handle the customer's own device
+	// list uses, so a device can be matched across accounts without being named.
+	if devices[0].Handle != hwidDigest("x") || devices[0].Handle == "x" {
+		t.Fatalf("handle = %q", devices[0].Handle)
+	}
 }

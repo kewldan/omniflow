@@ -236,10 +236,11 @@ blocklist.
 The body is `{state, note}` where state is `clear`, `held`, or `rejected`.
 
 <Note>
-  There is no panel screen for either route. Review is done through `/v1/panel`
-  requests, and there is currently nothing that raises a signal automatically —
-  the `held` state and the `signalled=true` filter are reachable only by an
-  operator setting them.
+  There is no panel screen for either route; review is done through `/v1/panel`
+  requests. One signal is raised automatically: `shared_device`, when the
+  invited customer connected from a device the inviter uses (see
+  [Shared devices](/operations/risk-controls#shared-devices)). Its evidence is
+  the number of shared devices, never the device itself.
 </Note>
 
 ### Signals ask for a person; they never punish

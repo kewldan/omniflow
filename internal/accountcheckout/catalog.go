@@ -239,7 +239,8 @@ func trialOutOfReach(offer PlanOffer) bool {
 		return false
 	}
 	switch offer.IneligibleReason {
-	case "trial_already_used", "identity_already_trialled", "existing_customer", "subscription_active":
+	case "trial_already_used", "identity_already_trialled", "device_already_trialled",
+		"existing_customer", "subscription_active":
 		return true
 	default:
 		return false
@@ -692,19 +693,11 @@ func (store *Store) TrialContext(ctx context.Context, customerID string) (commer
 			AND o.state IN ('paid','fulfilled','partially_refunded','refunded')),
 		(SELECT count(*) FROM entitlements e WHERE e.user_id = u.id
 			AND e.status IN ('pending','active','limited') AND e.ends_at > now()),
-		EXISTS (
-			SELECT 1 FROM identities mine
-			JOIN identities other ON other.provider = mine.provider
-				AND other.provider_subject = mine.provider_subject AND other.user_id <> mine.user_id
-			JOIN trial_claims claimed ON claimed.user_id = other.user_id
-			LEFT JOIN orders claimed_order ON claimed_order.id = claimed.order_id
-			WHERE mine.user_id = u.id AND mine.status = 'active'
-				AND (claimed.order_id IS NULL OR claimed_order.state NOT IN ('cancelled', 'expired'))
-		),
+		`+TrialSharedColumns+`,
 		`+TrialSignInColumns+`
 		FROM users u WHERE u.id = $1::uuid`, customerID).
 		Scan(&createdAt, &request.AlreadyClaimed, &settledOrders, &activeEntitlements,
-			&request.SharedIdentitySignal, &methods, &disabled)
+			&request.SharedIdentitySignal, &request.SharedDeviceSignal, &methods, &disabled)
 	if err != nil {
 		return commerce.TrialRequest{}, err
 	}
@@ -714,6 +707,31 @@ func (store *Store) TrialContext(ctx context.Context, customerID string) (commer
 	request.SignInMethodExcluded = commerce.TrialSignInMethodExcluded(methods, disabled)
 	return request, nil
 }
+
+// TrialSharedColumns reads, for the customer `u`, whether another customer
+// who already took a trial shares a sign-in identity with them, and whether
+// one shares a device they connected with. A trial whose order was cancelled
+// or expired does not count; a device an operator marked legitimate does not
+// either. The bot's own trial query reads them through this too.
+const TrialSharedColumns = `EXISTS (
+			SELECT 1 FROM identities mine
+			JOIN identities other ON other.provider = mine.provider
+				AND other.provider_subject = mine.provider_subject AND other.user_id <> mine.user_id
+			JOIN trial_claims claimed ON claimed.user_id = other.user_id
+			LEFT JOIN orders claimed_order ON claimed_order.id = claimed.order_id
+			WHERE mine.user_id = u.id AND mine.status = 'active'
+				AND (claimed.order_id IS NULL OR claimed_order.state NOT IN ('cancelled', 'expired'))
+		),
+		EXISTS (
+			SELECT 1 FROM device_sightings mine
+			JOIN device_sightings other ON other.device_handle = mine.device_handle AND other.user_id <> mine.user_id
+			JOIN trial_claims claimed ON claimed.user_id = other.user_id
+			LEFT JOIN orders claimed_order ON claimed_order.id = claimed.order_id
+			WHERE mine.user_id = u.id
+				AND (claimed.order_id IS NULL OR claimed_order.state NOT IN ('cancelled', 'expired'))
+				AND NOT EXISTS (SELECT 1 FROM shared_devices d
+					WHERE d.device_handle = mine.device_handle AND d.status = 'legitimate')
+		)`
 
 // TrialSignInColumns reads, for the customer `u`, every way they sign in —
 // `telegram`, `oidc` for any OpenID Connect provider, `email` for a live

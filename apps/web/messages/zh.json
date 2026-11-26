@@ -1757,7 +1757,7 @@
     },
     "risk": {
       "title": "风险",
-      "description": "黑名单匹配和异常信号，以及产生它们的证据。",
+      "description": "黑名单匹配、异常信号以及共用设备的账号，并附上产生它们的依据。",
       "noAutoAction": "本页的任何操作都不会更改用户。在此做出的决定只记录结论和原因；封停账户是用户详情页上的单独操作。",
       "reasonPlaceholder": "决定原因（必填）",
       "observed": "观测值 {observed}，阈值 {threshold}。",
@@ -1765,6 +1765,7 @@
       "tabs": {
         "matches": "黑名单匹配",
         "anomalies": "异常",
+        "devices": "共用设备",
         "sources": "来源",
         "rules": "阈值"
       },
@@ -1836,6 +1837,28 @@
         "running": "检查中…",
         "result": "已检查 {checked} 个标识：新增 {matches} 个匹配，跳过 {operators} 个运营人员账户。",
         "failed": "无法执行检查。"
+      },
+      "sharedDevices": {
+        "explainer": "两个或更多客户的订阅曾通过同一设备连接。一家人共用一台平板与小号看起来一样，因此由人来判断：“合理”会让该设备不再拒绝试用、不再暂扣推荐奖励，“小号”记录这一发现。两者都不会封禁任何人。",
+        "statusFilter": "状态",
+        "status": {
+          "open": "待审核",
+          "legitimate": "合理",
+          "confirmed": "小号"
+        },
+        "reasonPlaceholder": "判定理由（必填）",
+        "empty": "没有共用设备",
+        "emptyDescription": "没有设备通过多个客户的订阅连接。后台每隔几小时检查一次。",
+        "failed": "无法加载共用设备",
+        "accounts": "同一设备上有 {count} 个账号",
+        "trials": "{count} 次试用",
+        "referrals": "设备上有 {count} 次邀请",
+        "trial": "已试用",
+        "invited": "由此设备邀请",
+        "reopened": "已重新打开：之前的判定涉及 {accounts} 个账号 — “{reason}”",
+        "verdict": "判定：“{reason}”",
+        "legitimate": "合理",
+        "confirm": "小号"
       }
     },
     "system": {
@@ -6988,6 +7011,7 @@
         "account_too_new": "此账户注册时间太短，暂不能试用。请稍后再来，或选择付费套餐。",
         "existing_customer": "试用仅限首次购买的用户，此账户此前已下过订单。",
         "identity_already_trialled": "此 Telegram 账户已使用过试用。",
+        "device_already_trialled": "此设备已有其他账号使用过试用。如有误，请联系客服。",
         "not_a_trial_plan": "此套餐不提供试用。",
         "subscription_active": "订阅生效期间无法开始试用。",
         "subscription_limit_reached": "您持有的订阅数已达本服务上限。请改为延长或升级现有订阅。",
@@ -7047,6 +7071,7 @@
         "trial_already_used": "此账户已使用过试用。",
         "trial_existing_customer": "试用仅限首次购买的用户。",
         "trial_identity_already_trialled": "此 Telegram 账户已使用过试用。",
+        "trial_device_already_trialled": "此设备已有其他账号使用过试用。如有误，请联系客服。",
         "trial_not_eligible": "您的账户无法使用此试用。",
         "trial_subscription_active": "订阅生效期间无法开始试用。",
         "trial_trial_already_used": "此账户已使用过试用。",

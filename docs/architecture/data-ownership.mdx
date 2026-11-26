@@ -26,7 +26,7 @@ operations pinned by its contract tests, and everything else in the codebase tak
 | --- | --- | --- |
 | The VPN user and its technical status | Remnawave | Read back after every write and stored as `entitlements.observed_state`; mapped to `active`, `limited`, `disabled`, `expired`, or `failed` |
 | Live traffic counters | Remnawave | Fetched per request for the traffic meter; the page marks the subscription `live: false` and the payload `degraded` when Remnawave did not answer |
-| Connected devices | Remnawave | Listed live through `GET /api/hwid/devices/{id}`; never mirrored |
+| Connected devices | Remnawave | Listed live through `GET /api/hwid/devices/{id}`; never mirrored. For the [shared-device check](/operations/risk-controls#shared-devices) Omniflow keeps only a digest per device and customer, for 180 days after the device last connected |
 | The access (subscription) link | Remnawave | Fetched live on every request; no column for it exists anywhere in Omniflow's schema |
 | Nodes, hosts, and Internal Squads | Remnawave | A plan version stores squad UUIDs and nothing else about them |
 | Xray configuration | Remnawave | Never written. With the [smart subscription](/features/smart-subscription) on, the subscription a client receives is read from the panel per request and rewritten on its way out; none of it is stored ([0017](/architecture/decisions#smart-subscription)) |

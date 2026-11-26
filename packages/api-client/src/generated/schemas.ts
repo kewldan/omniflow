@@ -9689,6 +9689,140 @@ export const ReviewPanelAnomalyResponse = zod.object({
 });
 
 /**
+ * Requires risk.read. Devices that connected through subscriptions of two or more customers, found by the worker's `shared_device_scan` from the HWID list Remnawave keeps. A device is named only by its handle, a digest of the hardware ID; the hardware ID is never stored. Each item lists the customers on the device, which of them took a trial, and who invited whom on it. With `customerId`, only devices that customer is on.
+ */
+export const searchPanelSharedDevicesQueryPageSizeDefault = 100;
+export const searchPanelSharedDevicesQueryPageSizeMax = 500;
+
+export const SearchPanelSharedDevicesQueryParams = zod.object({
+  cursor: zod.string().optional(),
+  pageSize: zod
+    .int()
+    .min(1)
+    .max(searchPanelSharedDevicesQueryPageSizeMax)
+    .default(searchPanelSharedDevicesQueryPageSizeDefault),
+  status: zod.enum(["open", "legitimate", "confirmed"]).optional(),
+  customerId: zod.uuid().optional(),
+});
+
+export const searchPanelSharedDevicesResponseItemsItemAccountsMin = 2;
+
+export const searchPanelSharedDevicesResponseItemsItemTrialAccountsMin = 0;
+
+export const searchPanelSharedDevicesResponseItemsItemReferralPairsMin = 0;
+
+export const SearchPanelSharedDevicesResponse = zod.object({
+  items: zod
+    .array(
+      zod.object({
+        handle: zod
+          .string()
+          .describe("Digest of the hardware ID; the same handle the customer's device list uses."),
+        platform: zod.string().optional(),
+        accounts: zod.int().min(searchPanelSharedDevicesResponseItemsItemAccountsMin),
+        trialAccounts: zod.int().min(searchPanelSharedDevicesResponseItemsItemTrialAccountsMin),
+        referralPairs: zod.int().min(searchPanelSharedDevicesResponseItemsItemReferralPairsMin),
+        status: zod.enum(["open", "legitimate", "confirmed"]),
+        detectedAt: zod.iso.datetime({ offset: true }),
+        lastSeenAt: zod.iso.datetime({ offset: true }),
+        customers: zod.array(
+          zod.object({
+            customerId: zod.uuid(),
+            firstSeenAt: zod.iso.datetime({ offset: true }),
+            lastSeenAt: zod.iso.datetime({ offset: true }),
+            trialClaimed: zod.boolean(),
+            invitedBy: zod
+              .uuid()
+              .optional()
+              .describe(
+                "The customer who invited this one, when the inviter is on the same device.",
+              ),
+          }),
+        ),
+        reviewedAccounts: zod
+          .int()
+          .optional()
+          .describe(
+            "How many accounts the latest verdict covered; fewer than `accounts` on a reopened device.",
+          ),
+        reviewReason: zod.string().optional(),
+        reviewedBy: zod.uuid().optional(),
+        reviewedAt: zod.iso.datetime({ offset: true }).optional(),
+      }),
+    )
+    .nullable(),
+  nextCursor: zod.string().optional(),
+});
+
+/**
+ * Requires risk.write and a reason. Records a verdict on an open device: `legitimate` (a family or a shared phone) or `confirmed` (one person's second account). The verdict suspends nobody. `legitimate` stops the device refusing trials and holding referrals for review. A customer who joins the device later reopens it. Writes the audit event `panel.shared_device.reviewed`.
+ */
+export const reviewPanelSharedDevicePathHandleRegExp = /^[A-Za-z0-9_-]{8,64}$/;
+
+export const ReviewPanelSharedDeviceParams = zod.object({
+  handle: zod.string().regex(reviewPanelSharedDevicePathHandleRegExp),
+});
+
+export const reviewPanelSharedDeviceHeaderXOperatorReasonMax = 400;
+
+export const ReviewPanelSharedDeviceHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+  "X-Operator-Reason": zod
+    .string()
+    .min(1)
+    .max(reviewPanelSharedDeviceHeaderXOperatorReasonMax)
+    .describe(
+      "Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.",
+    ),
+});
+
+export const ReviewPanelSharedDeviceBody = zod.object({
+  status: zod.enum(["legitimate", "confirmed"]),
+});
+
+export const reviewPanelSharedDeviceResponseAccountsMin = 2;
+
+export const reviewPanelSharedDeviceResponseTrialAccountsMin = 0;
+
+export const reviewPanelSharedDeviceResponseReferralPairsMin = 0;
+
+export const ReviewPanelSharedDeviceResponse = zod.object({
+  handle: zod
+    .string()
+    .describe("Digest of the hardware ID; the same handle the customer's device list uses."),
+  platform: zod.string().optional(),
+  accounts: zod.int().min(reviewPanelSharedDeviceResponseAccountsMin),
+  trialAccounts: zod.int().min(reviewPanelSharedDeviceResponseTrialAccountsMin),
+  referralPairs: zod.int().min(reviewPanelSharedDeviceResponseReferralPairsMin),
+  status: zod.enum(["open", "legitimate", "confirmed"]),
+  detectedAt: zod.iso.datetime({ offset: true }),
+  lastSeenAt: zod.iso.datetime({ offset: true }),
+  customers: zod.array(
+    zod.object({
+      customerId: zod.uuid(),
+      firstSeenAt: zod.iso.datetime({ offset: true }),
+      lastSeenAt: zod.iso.datetime({ offset: true }),
+      trialClaimed: zod.boolean(),
+      invitedBy: zod
+        .uuid()
+        .optional()
+        .describe("The customer who invited this one, when the inviter is on the same device."),
+    }),
+  ),
+  reviewedAccounts: zod
+    .int()
+    .optional()
+    .describe(
+      "How many accounts the latest verdict covered; fewer than `accounts` on a reopened device.",
+    ),
+  reviewReason: zod.string().optional(),
+  reviewedBy: zod.uuid().optional(),
+  reviewedAt: zod.iso.datetime({ offset: true }).optional(),
+});
+
+/**
  * Requires gifts.read. Only the digest of a claim code is stored; the four characters returned as a hint identify a gift without redeeming it.
  */
 export const searchPanelGiftsQueryPageSizeDefault = 100;

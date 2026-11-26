@@ -697,6 +697,7 @@ var faFullCatalog = map[string]string{
 	"trial.existing_customer":          "دوره آزمایشی فقط برای مشتریان جدید در دسترس است.",
 	"trial.hours":                      "%s ساعت",
 	"trial.identity_already_trialled":  "این حساب Telegram قبلاً از دوره آزمایشی استفاده کرده است.",
+	"trial.device_already_trialled":    "در این دستگاه قبلاً با حساب دیگری از دوره آزمایشی استفاده شده است. اگر اشتباه است، به پشتیبانی پیام دهید.",
 	"trial.not_a_trial_plan":           "این طرح دوره آزمایشی نیست.",
 	"trial.rejected":                   "🎁 <b>دوره آزمایشی در دسترس نیست</b>\n\n%s",
 	"trial.sign_in_method":             "دوره آزمایشی برای روش ورود این حساب در دسترس نیست.",

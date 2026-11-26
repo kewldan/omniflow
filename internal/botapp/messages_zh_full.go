@@ -698,6 +698,7 @@ var zhFullCatalog = map[string]string{
 	"trial.existing_customer":          "试用仅限新用户。",
 	"trial.hours":                      "%s 小时",
 	"trial.identity_already_trialled":  "该 Telegram 账号已使用过试用。",
+	"trial.device_already_trialled":    "此设备已有其他账号使用过试用。如有误，请联系客服。",
 	"trial.not_a_trial_plan":           "该套餐不是试用套餐。",
 	"trial.rejected":                   "🎁 <b>无法试用</b>\n\n%s",
 	"trial.sign_in_method":             "该账号的登录方式不支持试用。",

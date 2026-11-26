@@ -1762,7 +1762,7 @@
     },
     "risk": {
       "title": "Risk",
-      "description": "Blocklist matches and anomaly signals, with the evidence that produced them.",
+      "description": "Blocklist matches, anomaly signals, and accounts that share a device, with the evidence that produced them.",
       "noAutoAction": "Nothing on this page changes a customer. A decision here records a verdict and a reason; suspending an account is a separate action on the customer's own page.",
       "reasonPlaceholder": "Reason for the decision (required)",
       "observed": "Observed {observed} against a threshold of {threshold}.",
@@ -1770,6 +1770,7 @@
       "tabs": {
         "matches": "Blocklist matches",
         "anomalies": "Anomalies",
+        "devices": "Shared devices",
         "sources": "Sources",
         "rules": "Thresholds"
       },
@@ -1841,6 +1842,28 @@
         "running": "Checking…",
         "result": "Checked {checked} identifiers: {matches} new matches, {operators} operator accounts skipped.",
         "failed": "The check could not be run."
+      },
+      "sharedDevices": {
+        "explainer": "Devices that connected through subscriptions of two or more customers. A family on one tablet looks the same as a second account, so decide by looking: \"Legitimate\" stops the device refusing trials and holding referrals, \"Second account\" records the finding. Neither suspends anybody.",
+        "statusFilter": "Status",
+        "status": {
+          "open": "Waiting for review",
+          "legitimate": "Legitimate",
+          "confirmed": "Second account"
+        },
+        "reasonPlaceholder": "Reason for the verdict (required)",
+        "empty": "No shared devices",
+        "emptyDescription": "No device has connected through more than one customer here. The worker checks every few hours.",
+        "failed": "Shared devices could not be loaded",
+        "accounts": "{count, plural, one {# account} other {# accounts}} on one device",
+        "trials": "{count, plural, one {# trial} other {# trials}}",
+        "referrals": "{count, plural, one {# invite on the device} other {# invites on the device}}",
+        "trial": "Took a trial",
+        "invited": "Invited from this device",
+        "reopened": "Reopened: the earlier verdict covered {accounts} accounts — \"{reason}\"",
+        "verdict": "Verdict: \"{reason}\"",
+        "legitimate": "Legitimate",
+        "confirm": "Second account"
       }
     },
     "system": {
@@ -7064,6 +7087,7 @@
         "account_too_new": "This account is too new for a trial. Come back a little later, or pick a paid plan.",
         "existing_customer": "Trials are for first-time customers, and this account has already ordered before.",
         "identity_already_trialled": "A trial has already been used from this Telegram account.",
+        "device_already_trialled": "A trial has already been taken on this device from another account. If that is a mistake, write to support.",
         "not_a_trial_plan": "This plan is not available as a trial.",
         "subscription_active": "A trial cannot be started while a subscription is running.",
         "subscription_limit_reached": "You already hold as many subscriptions as this service allows. Extend or upgrade one of them instead.",
@@ -7123,6 +7147,7 @@
         "trial_already_used": "The trial on this account has already been used.",
         "trial_existing_customer": "Trials are for first-time customers only.",
         "trial_identity_already_trialled": "A trial has already been used from this Telegram account.",
+        "trial_device_already_trialled": "A trial has already been taken on this device from another account. If that is a mistake, write to support.",
         "trial_not_eligible": "This trial is not available for your account.",
         "trial_subscription_active": "A trial cannot be started while a subscription is running.",
         "trial_trial_already_used": "The trial on this account has already been used.",

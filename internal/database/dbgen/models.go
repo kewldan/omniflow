@@ -1143,6 +1143,14 @@ type DeviceAlias struct {
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
+type DeviceSighting struct {
+	DeviceHandle string             `json:"device_handle"`
+	UserID       pgtype.UUID        `json:"user_id"`
+	Platform     pgtype.Text        `json:"platform"`
+	FirstSeenAt  pgtype.Timestamptz `json:"first_seen_at"`
+	LastSeenAt   pgtype.Timestamptz `json:"last_seen_at"`
+}
+
 type DunningAttempt struct {
 	ID              pgtype.UUID        `json:"id"`
 	UserID          pgtype.UUID        `json:"user_id"`
@@ -2777,6 +2785,21 @@ type ServerCatalogPrice struct {
 	SquadID     pgtype.UUID `json:"squad_id"`
 	Currency    string      `json:"currency"`
 	AmountMinor int64       `json:"amount_minor"`
+}
+
+type SharedDevice struct {
+	DeviceHandle     string             `json:"device_handle"`
+	Accounts         int32              `json:"accounts"`
+	TrialAccounts    int32              `json:"trial_accounts"`
+	ReferralPairs    int32              `json:"referral_pairs"`
+	Platform         pgtype.Text        `json:"platform"`
+	DetectedAt       pgtype.Timestamptz `json:"detected_at"`
+	LastSeenAt       pgtype.Timestamptz `json:"last_seen_at"`
+	Status           string             `json:"status"`
+	ReviewedAccounts pgtype.Int4        `json:"reviewed_accounts"`
+	ReviewReason     pgtype.Text        `json:"review_reason"`
+	ReviewedBy       pgtype.UUID        `json:"reviewed_by"`
+	ReviewedAt       pgtype.Timestamptz `json:"reviewed_at"`
 }
 
 type SmartSubscriptionIcon struct {

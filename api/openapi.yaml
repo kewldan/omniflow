@@ -3759,6 +3759,48 @@ paths:
         "200": {description: Reviewed, content: {application/json: {schema: {$ref: "#/components/schemas/PanelAnomalySignal"}}}}
         "403": {$ref: "#/components/responses/Problem"}
         "409": {$ref: "#/components/responses/Problem"}
+  /v1/panel/risk/shared-devices:
+    get:
+      operationId: searchPanelSharedDevices
+      tags: [panel]
+      description: >-
+        Requires risk.read. Devices that connected through subscriptions of two
+        or more customers, found by the worker's `shared_device_scan` from the
+        HWID list Remnawave keeps. A device is named only by its handle, a
+        digest of the hardware ID; the hardware ID is never stored. Each item
+        lists the customers on the device, which of them took a trial, and who
+        invited whom on it. With `customerId`, only devices that customer is on.
+      parameters:
+        - {$ref: "#/components/parameters/Cursor"}
+        - {$ref: "#/components/parameters/PageSize"}
+        - {in: query, name: status, schema: {$ref: "#/components/schemas/PanelSharedDeviceStatus"}}
+        - {in: query, name: customerId, schema: {type: string, format: uuid}}
+      responses:
+        "200": {description: Shared devices, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSharedDevicePage"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/risk/shared-devices/{handle}/review:
+    post:
+      operationId: reviewPanelSharedDevice
+      tags: [panel]
+      description: >-
+        Requires risk.write and a reason. Records a verdict on an open device:
+        `legitimate` (a family or a shared phone) or `confirmed` (one person's
+        second account). The verdict suspends nobody. `legitimate` stops the
+        device refusing trials and holding referrals for review. A customer who
+        joins the device later reopens it. Writes the audit event
+        `panel.shared_device.reviewed`.
+      parameters:
+        - {in: path, name: handle, required: true, schema: {type: string, pattern: "^[A-Za-z0-9_-]{8,64}$"}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+        - {$ref: "#/components/parameters/OperatorReason"}
+      requestBody: {required: true, content: {application/json: {schema: {type: object, required: [status], properties: {status: {type: string, enum: [legitimate, confirmed]}}}}}}
+      responses:
+        "200": {description: Reviewed, content: {application/json: {schema: {$ref: "#/components/schemas/PanelSharedDevice"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
   /v1/panel/gifts:
     get:
       operationId: searchPanelGifts
@@ -10043,6 +10085,41 @@ components:
       required: [items]
       properties:
         items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelAnomalySignal"}}
+        nextCursor: {type: string}
+    PanelSharedDeviceStatus:
+      type: string
+      enum: [open, legitimate, confirmed]
+    PanelSharedDeviceAccount:
+      type: object
+      required: [customerId, firstSeenAt, lastSeenAt, trialClaimed]
+      properties:
+        customerId: {type: string, format: uuid}
+        firstSeenAt: {type: string, format: date-time}
+        lastSeenAt: {type: string, format: date-time}
+        trialClaimed: {type: boolean}
+        invitedBy: {type: string, format: uuid, description: "The customer who invited this one, when the inviter is on the same device."}
+    PanelSharedDevice:
+      type: object
+      required: [handle, accounts, trialAccounts, referralPairs, status, detectedAt, lastSeenAt, customers]
+      properties:
+        handle: {type: string, description: "Digest of the hardware ID; the same handle the customer's device list uses."}
+        platform: {type: string}
+        accounts: {type: integer, minimum: 2}
+        trialAccounts: {type: integer, minimum: 0}
+        referralPairs: {type: integer, minimum: 0}
+        status: {$ref: "#/components/schemas/PanelSharedDeviceStatus"}
+        detectedAt: {type: string, format: date-time}
+        lastSeenAt: {type: string, format: date-time}
+        customers: {type: array, items: {$ref: "#/components/schemas/PanelSharedDeviceAccount"}}
+        reviewedAccounts: {type: integer, description: "How many accounts the latest verdict covered; fewer than `accounts` on a reopened device."}
+        reviewReason: {type: string}
+        reviewedBy: {type: string, format: uuid}
+        reviewedAt: {type: string, format: date-time}
+    PanelSharedDevicePage:
+      type: object
+      required: [items]
+      properties:
+        items: {type: array, nullable: true, items: {$ref: "#/components/schemas/PanelSharedDevice"}}
         nextCursor: {type: string}
     PanelGiftStatus:
       type: string

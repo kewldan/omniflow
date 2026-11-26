@@ -120,8 +120,10 @@ The guards you control:
 - `APP_TRIAL_MINIMUM_ACCOUNT_AGE_HOURS` (default `0`) refuses a trial to an account younger than this.
 - **No trial for accounts that sign in only with** — Telegram, an e-mail link, or OpenID Connect —
   refuses customers whose every sign-in method is in the list.
-- A trial is also refused while the customer has a running subscription, and when a new account
-  reuses an identity that already used a trial.
+- A trial is also refused while the customer has a running subscription, when a new account
+  reuses an identity that already used a trial, and when the customer connected from a device
+  another customer already took a trial on — see
+  [Shared devices](/operations/risk-controls#shared-devices).
 - **Trials may use it** on each server limits which squads a trial reaches.
 
 The web store leaves out a trial the customer can no longer take — already used, used by the same

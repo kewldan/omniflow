@@ -176,6 +176,7 @@ func (handlers *AdminHandlers) mountOperations(secure chi.Router) {
 		read.Get("/customers/{customerID}/risk", handlers.customerMatches)
 		read.Get("/risk/rules", handlers.listAnomalyRules)
 		read.Get("/risk/anomalies", handlers.searchAnomalies)
+		read.Get("/risk/shared-devices", handlers.searchSharedDevices)
 	})
 	secure.With(handlers.requirePermission(rbac.PermissionRiskWrite)).Group(func(write chi.Router) {
 		write.Put("/risk/sources", handlers.saveBlocklistSource)
@@ -185,6 +186,7 @@ func (handlers *AdminHandlers) mountOperations(secure chi.Router) {
 		write.Post("/risk/check", handlers.screenBlocklist)
 		write.Put("/risk/rules/{metric}", handlers.saveAnomalyRule)
 		write.Post("/risk/anomalies/{signalID}/review", handlers.reviewAnomaly)
+		write.Post("/risk/shared-devices/{handle}/review", handlers.reviewSharedDevice)
 		write.Put("/customers/{customerID}/allowlist", handlers.setAllowlisted)
 		write.Delete("/customers/{customerID}/allowlist", handlers.setAllowlisted)
 	})
@@ -1547,6 +1549,31 @@ func (handlers *AdminHandlers) reviewAnomaly(writer http.ResponseWriter, request
 		request.Context(), chi.URLParam(request, "signalID"), body.Status, actorFrom(request),
 	)
 	handlers.respond(writer, request, signal, err)
+}
+
+func (handlers *AdminHandlers) searchSharedDevices(writer http.ResponseWriter, request *http.Request) {
+	page, err := handlers.operations.SearchSharedDevices(request.Context(), panelpg.SharedDeviceFilter{
+		Status:     query(request, "status"),
+		CustomerID: query(request, "customerId"),
+		Cursor:     query(request, "cursor"),
+		PageSize:   queryInt(request, "pageSize"),
+	})
+	handlers.respond(writer, request, page, err)
+}
+
+// reviewSharedDevice records a verdict on a device several customers share.
+// Like a blocklist decision it requires a reason and suspends nobody.
+func (handlers *AdminHandlers) reviewSharedDevice(writer http.ResponseWriter, request *http.Request) {
+	var body struct {
+		Status string `json:"status"`
+	}
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	device, err := handlers.operations.ReviewSharedDevice(
+		request.Context(), chi.URLParam(request, "handle"), body.Status, actorFrom(request),
+	)
+	handlers.respond(writer, request, device, err)
 }
 
 // ---------------------------------------------------------------------------

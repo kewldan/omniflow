@@ -699,6 +699,7 @@ var ukFullCatalog = map[string]string{
 	"trial.existing_customer":          "Пробний період доступний лише новим клієнтам.",
 	"trial.hours":                      "%s год",
 	"trial.identity_already_trialled":  "Пробний період уже використано для цього акаунта Telegram.",
+	"trial.device_already_trialled":    "На цьому пристрої пробний період уже брали з іншого акаунта. Якщо це помилка, напишіть у підтримку.",
 	"trial.not_a_trial_plan":           "Цей тариф не є пробним.",
 	"trial.rejected":                   "🎁 <b>Пробний період недоступний</b>\n\n%s",
 	"trial.sign_in_method":             "Пробний період недоступний для цього способу входу.",

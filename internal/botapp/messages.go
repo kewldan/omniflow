@@ -451,6 +451,7 @@ var catalog = map[string]phrase{
 	"trial.trial_already_used":        {ru: "Пробный период уже был использован на этом аккаунте.", en: "This account has already used its free trial."},
 	"trial.subscription_active":       {ru: "Пробный период доступен только без активной подписки.", en: "A trial can only be started without an active subscription."},
 	"trial.identity_already_trialled": {ru: "Пробный период уже использован для этого аккаунта Telegram.", en: "This Telegram account has already used a trial."},
+	"trial.device_already_trialled":   {ru: "На этом устройстве пробный период уже брали с другого аккаунта. Если это ошибка, напишите в поддержку.", en: "A trial has already been taken on this device from another account. If that is a mistake, write to support."},
 	"trial.account_too_new":           {ru: "Аккаунт слишком новый. Попробуйте позже.", en: "This account is too new. Please try again later."},
 	"trial.existing_customer":         {ru: "Пробный период доступен только новым клиентам.", en: "The trial is only available to new customers."},
 	"trial.not_a_trial_plan":          {ru: "Этот тариф не является пробным.", en: "This plan is not a trial."},

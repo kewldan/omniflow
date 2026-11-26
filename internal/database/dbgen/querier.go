@@ -703,6 +703,9 @@ type Querier interface {
 	// the operators' group. A carried ticket is history, so they are removed in
 	// the same transaction, before the notifier can see them.
 	DropImportedTicketNotices(ctx context.Context, ticketID string) error
+	// A device left with fewer than two customers, because sightings were pruned
+	// or an account was deleted, is no longer shared.
+	DropUnsharedDevices(ctx context.Context) (int64, error)
 	DueWebhookDeliveries(ctx context.Context) ([]DueWebhookDeliveriesRow, error)
 	// Grants whose hours are up and that no scheduled operation ended — the
 	// entitlement it was queued for was retired in between.
@@ -777,6 +780,10 @@ type Querier interface {
 	FinishBackupRequest(ctx context.Context, arg FinishBackupRequestParams) error
 	FinishBedolagaImportRun(ctx context.Context, arg FinishBedolagaImportRunParams) (BedolagaImportRun, error)
 	FinishBlockerScan(ctx context.Context, arg FinishBlockerScanParams) error
+	// An invited customer on the same device as whoever invited them. The signal
+	// is recorded once per pair and holds the attribution for review; a device an
+	// operator marked legitimate does not raise it.
+	FlagSharedDeviceReferrals(ctx context.Context) ([]pgtype.UUID, error)
 	// Access given away in the window: trials, and every other zero-value grant by
 	// the kind of order that carried it, with the days it covered.
 	FreeAccessGranted(ctx context.Context, arg FreeAccessGrantedParams) ([]FreeAccessGrantedRow, error)
@@ -1046,6 +1053,7 @@ type Querier interface {
 	// that answers an operator.
 	GetSettingSecrets(ctx context.Context, section string) ([]byte, error)
 	GetSettingSection(ctx context.Context, section string) (GetSettingSectionRow, error)
+	GetSharedDevice(ctx context.Context, deviceHandle string) (SharedDevice, error)
 	GetSquadAccessGrant(ctx context.Context, grantID pgtype.UUID) (SquadAccessGrant, error)
 	GetSquadAccessGrantByKey(ctx context.Context, idempotencyKey string) (SquadAccessGrant, error)
 	GetSubscription(ctx context.Context, id pgtype.UUID) (Subscription, error)
@@ -1501,6 +1509,9 @@ type Querier interface {
 	// A customer with no record at all is included, because "never checked" and
 	// "checked long ago" need the same thing done about them.
 	ListCustomersForChannelRecheck(ctx context.Context, arg ListCustomersForChannelRecheckParams) ([]ListCustomersForChannelRecheckRow, error)
+	// Customers signed in with one of these Telegram accounts: the operators the
+	// scan leaves out.
+	ListCustomersWithTelegramIDs(ctx context.Context, telegramIds []string) ([]pgtype.UUID, error)
 	ListDeviceAliases(ctx context.Context, arg ListDeviceAliasesParams) ([]ListDeviceAliasesRow, error)
 	// Dormant customers whose dormancy has lasted the configured number of days
 	// and who are still untouched: no activity since they were marked.
@@ -1650,6 +1661,7 @@ type Querier interface {
 	// A renewal must not be charged again while one of these is outstanding: the
 	// provider may still settle it, and a second charge would take the money twice.
 	ListOpenIntentsForOrder(ctx context.Context, orderID pgtype.UUID) ([]PaymentIntent, error)
+	ListOpenSharedDeviceHandles(ctx context.Context) ([]string, error)
 	// Every cost whose span touches the window.
 	ListOperatingCosts(ctx context.Context, arg ListOperatingCostsParams) ([]ListOperatingCostsRow, error)
 	ListOperatorTopics(ctx context.Context) ([]OperatorTopic, error)
@@ -1762,6 +1774,9 @@ type Querier interface {
 	// Every section without its secrets. This is the query the settings screens
 	// read, and it cannot return a credential because the column is not selected.
 	ListSettingSections(ctx context.Context) ([]ListSettingSectionsRow, error)
+	// The customers on each listed device, with the facts an operator weighs: who
+	// took a trial, and who invited whom on the same device.
+	ListSharedDeviceAccounts(ctx context.Context, handles []string) ([]ListSharedDeviceAccountsRow, error)
 	ListSquadGrantsForSubscription(ctx context.Context, subscriptionID pgtype.UUID) ([]SquadAccessGrant, error)
 	// Operations that should have run by now and have not: a settlement whose
 	// process could not insert the job, or a job the queue discarded after its
@@ -2311,6 +2326,8 @@ type Querier interface {
 	ProviderMoneyAndFees(ctx context.Context, arg ProviderMoneyAndFeesParams) ([]ProviderMoneyAndFeesRow, error)
 	PruneAPITokenRequests(ctx context.Context) (int64, error)
 	PruneCustomerActivity(ctx context.Context) (int64, error)
+	// A device nobody has connected with for the retention period is forgotten.
+	PruneDeviceSightings(ctx context.Context, before pgtype.Timestamptz) (int64, error)
 	PruneNodeTrafficSamples(ctx context.Context, before pgtype.Timestamptz) (int64, error)
 	// Enabling one programme disables the rest, because the partial unique index
 	// allows exactly one and a customer can only stand in one definition at a time.
@@ -2476,6 +2493,10 @@ type Querier interface {
 	// any fulfillment operation exists for it, Omniflow owns its state and the
 	// source no longer does, so zero rows come back and the caller reports it.
 	RefreshImportedEntitlement(ctx context.Context, arg RefreshImportedEntitlementParams) (Entitlement, error)
+	// Recomputes the queue from the sightings. A device that gained a customer
+	// since its verdict is reopened; the earlier verdict stays on the row as
+	// history.
+	RefreshSharedDevices(ctx context.Context) (int64, error)
 	// Refunds issued in the window, on the day they were issued.
 	RefundsByCurrency(ctx context.Context, arg RefundsByCurrencyParams) ([]RefundsByCurrencyRow, error)
 	// Refunds by the date they were issued, which is the only date on which an
@@ -2545,6 +2566,17 @@ type Querier interface {
 	// An operator's verdict on a parked delivery. 'delivered' records that the
 	// goods did arrive; 'failed' releases it to the refund path.
 	ResolveGoodsDeliveryReview(ctx context.Context, arg ResolveGoodsDeliveryReviewParams) (GoodsDelivery, error)
+	// Accounts that share a device.
+	//
+	// Remnawave reports which HWIDs connected through each subscription; the
+	// worker's scan keeps a sighting per device and customer, and every device
+	// seen on two or more customers becomes a row an operator reviews. Like the
+	// rest of risk, nothing here suspends anybody: a verdict is a record, and the
+	// adverse action, when there is one, is an ordinary customer mutation.
+	// Panel user IDs to customers. A subscription carries its own panel user; a
+	// customer imported before subscriptions had slots is linked through
+	// remnawave_users. Deleted and merged customers are left out.
+	ResolveRemnawaveCustomers(ctx context.Context, remnawaveIds []int64) ([]ResolveRemnawaveCustomersRow, error)
 	// A payment on the subscription restores the full plan.
 	RestoreLimitedAccess(ctx context.Context, subscriptionID pgtype.UUID) ([]LimitedAccessSession, error)
 	RestoreSubscriptionLinkRotation(ctx context.Context, arg RestoreSubscriptionLinkRotationParams) error
@@ -2586,6 +2618,9 @@ type Querier interface {
 	// reversed without the money having moved back.
 	ReverseReferralReward(ctx context.Context, arg ReverseReferralRewardParams) (ReferralReward, error)
 	ReviewAnomalySignal(ctx context.Context, arg ReviewAnomalySignalParams) (AnomalySignal, error)
+	// Records a verdict on an open device. It covers the customers on the device
+	// now; another one joining reopens it.
+	ReviewSharedDevice(ctx context.Context, arg ReviewSharedDeviceParams) (SharedDevice, error)
 	RevokeAPIToken(ctx context.Context, tokenID pgtype.UUID) (int64, error)
 	// Marks a channel revoked rather than deleting it, so the fingerprint stays
 	// unique and the consent history keeps pointing at something.
@@ -2753,6 +2788,7 @@ type Querier interface {
 	// ---------------------------------------------------------------------------
 	// The review queue: pairs a person may need to look at, newest first.
 	SearchReferralAttributions(ctx context.Context, arg SearchReferralAttributionsParams) ([]SearchReferralAttributionsRow, error)
+	SearchSharedDevices(ctx context.Context, arg SearchSharedDevicesParams) ([]SharedDevice, error)
 	// ---------------------------------------------------------------------------
 	// Ticket queue view
 	// ---------------------------------------------------------------------------
@@ -3061,6 +3097,8 @@ type Querier interface {
 	// the form without retyping it does not blank the stored credential.
 	UpsertCustomerOIDCProvider(ctx context.Context, arg UpsertCustomerOIDCProviderParams) (CustomerOidcProvider, error)
 	UpsertDeviceAlias(ctx context.Context, arg UpsertDeviceAliasParams) error
+	// One row per (device, customer); the caller passes each pair once.
+	UpsertDeviceSightings(ctx context.Context, arg UpsertDeviceSightingsParams) error
 	// Saving a shop purchase for later.
 	//
 	// It replaces whatever open cart the customer had, because there is one open

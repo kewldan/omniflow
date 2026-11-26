@@ -246,6 +246,11 @@ type TrialRequest struct {
 	// already consumed a trial. It never punishes silently: the caller shows the
 	// returned reason and offers support.
 	SharedIdentitySignal bool
+	// SharedDeviceSignal is set when a device this account has connected
+	// with already carried another customer's trial and no operator has
+	// marked that device legitimate. Like the identity signal it is shown, not
+	// hidden: the customer reads the reason and can write to support.
+	SharedDeviceSignal bool
 	// SignInMethodExcluded is set when every way this customer signs in is one
 	// the installation excludes from trials.
 	SignInMethodExcluded bool
@@ -295,6 +300,9 @@ func EvaluateTrial(request TrialRequest) (string, error) {
 	}
 	if request.SharedIdentitySignal {
 		return "identity_already_trialled", ErrTrialNotEligible
+	}
+	if request.SharedDeviceSignal {
+		return "device_already_trialled", ErrTrialNotEligible
 	}
 	if request.SignInMethodExcluded {
 		return "sign_in_method", ErrTrialNotEligible

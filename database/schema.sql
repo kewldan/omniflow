@@ -2376,6 +2376,21 @@ CREATE TABLE public.device_aliases (
 
 
 --
+-- Name: device_sightings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.device_sightings (
+    device_handle text NOT NULL,
+    user_id uuid NOT NULL,
+    platform text,
+    first_seen_at timestamp with time zone DEFAULT now() NOT NULL,
+    last_seen_at timestamp with time zone NOT NULL,
+    CONSTRAINT device_sightings_handle_check CHECK (((char_length(device_handle) >= 8) AND (char_length(device_handle) <= 64))),
+    CONSTRAINT device_sightings_platform_check CHECK (((platform IS NULL) OR (char_length(platform) <= 64)))
+);
+
+
+--
 -- Name: dunning_attempts; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -5323,6 +5338,31 @@ CREATE TABLE public.server_catalog_prices (
 
 
 --
+-- Name: shared_devices; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.shared_devices (
+    device_handle text NOT NULL,
+    accounts integer NOT NULL,
+    trial_accounts integer DEFAULT 0 NOT NULL,
+    referral_pairs integer DEFAULT 0 NOT NULL,
+    platform text,
+    detected_at timestamp with time zone DEFAULT now() NOT NULL,
+    last_seen_at timestamp with time zone NOT NULL,
+    status text DEFAULT 'open'::text NOT NULL,
+    reviewed_accounts integer,
+    review_reason text,
+    reviewed_by uuid,
+    reviewed_at timestamp with time zone,
+    CONSTRAINT shared_devices_accounts_check CHECK ((accounts >= 2)),
+    CONSTRAINT shared_devices_counts_check CHECK (((trial_accounts >= 0) AND (referral_pairs >= 0))),
+    CONSTRAINT shared_devices_reason_check CHECK (((review_reason IS NULL) OR ((char_length(review_reason) >= 1) AND (char_length(review_reason) <= 400)))),
+    CONSTRAINT shared_devices_review_check CHECK (((status = 'open'::text) OR ((review_reason IS NOT NULL) AND (reviewed_at IS NOT NULL) AND (reviewed_accounts IS NOT NULL)))),
+    CONSTRAINT shared_devices_status_check CHECK ((status = ANY (ARRAY['open'::text, 'legitimate'::text, 'confirmed'::text])))
+);
+
+
+--
 -- Name: smart_subscription_icons; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -6987,6 +7027,14 @@ ALTER TABLE ONLY public.device_aliases
 
 
 --
+-- Name: device_sightings device_sightings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.device_sightings
+    ADD CONSTRAINT device_sightings_pkey PRIMARY KEY (device_handle, user_id);
+
+
+--
 -- Name: dunning_attempts dunning_attempts_cycle_key_attempt_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -8427,6 +8475,14 @@ ALTER TABLE ONLY public.server_catalog_prices
 
 
 --
+-- Name: shared_devices shared_devices_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.shared_devices
+    ADD CONSTRAINT shared_devices_pkey PRIMARY KEY (device_handle);
+
+
+--
 -- Name: smart_subscription_icons smart_subscription_icons_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -9273,6 +9329,20 @@ CREATE INDEX customer_sessions_live_idx ON public.customer_sessions USING btree 
 
 
 --
+-- Name: device_sightings_last_seen; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX device_sightings_last_seen ON public.device_sightings USING btree (last_seen_at);
+
+
+--
+-- Name: device_sightings_user; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX device_sightings_user ON public.device_sightings USING btree (user_id);
+
+
+--
 -- Name: dunning_attempts_customer_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -10033,6 +10103,13 @@ CREATE INDEX river_notification_topic_id_idx ON public.river_notification USING 
 --
 
 CREATE INDEX self_employed_receipts_due_idx ON public.self_employed_receipts USING btree (next_attempt_at) WHERE (status = ANY (ARRAY['pending'::text, 'uncertain'::text]));
+
+
+--
+-- Name: shared_devices_queue; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX shared_devices_queue ON public.shared_devices USING btree (status, last_seen_at DESC, device_handle);
 
 
 --
@@ -11373,6 +11450,14 @@ ALTER TABLE ONLY public.device_aliases
 
 ALTER TABLE ONLY public.device_aliases
     ADD CONSTRAINT device_aliases_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: device_sightings device_sightings_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.device_sightings
+    ADD CONSTRAINT device_sightings_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE CASCADE;
 
 
 --
@@ -12797,6 +12882,14 @@ ALTER TABLE ONLY public.self_employed_receipts
 
 ALTER TABLE ONLY public.server_catalog_prices
     ADD CONSTRAINT server_catalog_prices_squad_id_fkey FOREIGN KEY (squad_id) REFERENCES public.server_catalog(squad_id) ON DELETE CASCADE;
+
+
+--
+-- Name: shared_devices shared_devices_reviewed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.shared_devices
+    ADD CONSTRAINT shared_devices_reviewed_by_fkey FOREIGN KEY (reviewed_by) REFERENCES public.admin_users(id) ON DELETE SET NULL;
 
 
 --

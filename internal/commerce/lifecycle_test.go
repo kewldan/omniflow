@@ -141,6 +141,7 @@ func TestEvaluateTrialAppliesAbuseControls(t *testing.T) {
 		"trial_already_used":        func(request *TrialRequest) { request.AlreadyClaimed = true },
 		"subscription_active":       func(request *TrialRequest) { request.ActiveEntitlement = true },
 		"identity_already_trialled": func(request *TrialRequest) { request.SharedIdentitySignal = true },
+		"device_already_trialled":   func(request *TrialRequest) { request.SharedDeviceSignal = true },
 		"account_too_new":           func(request *TrialRequest) { request.AccountAge = 0 },
 		"existing_customer":         func(request *TrialRequest) { request.CompletedOrders = 1 },
 	} {

@@ -1,6 +1,6 @@
 ---
 title: Risk controls
-description: External blocklists and anomaly detection — evidence for an operator, never an automatic sanction.
+description: External blocklists, anomaly detection, and accounts sharing a device — evidence for an operator, never an automatic sanction.
 ---
 
 Omniflow can subscribe to external blocklists and can watch a handful of metrics
@@ -145,6 +145,78 @@ was rolled back. The notice names the metric, the severity, and the numbers. It
 does not name the customer: an operator group is a chat, and the panel is where
 somebody with the permission looks the subject up.
 
+## Shared devices
+
+A second account on the same phone is how a trial is taken twice and how a
+customer invites themselves for the referral reward. Remnawave already records
+which devices (HWIDs) connected through each subscription; Omniflow reads that
+list and puts every device seen on two or more customers in front of an
+operator under **Risk → Shared devices**.
+
+### What is stored
+
+Only the device's handle: a digest of the HWID, the same one a customer's own
+device list uses. The hardware ID itself never leaves the Remnawave adapter.
+Omniflow keeps one sighting per device and customer — the platform the client
+reported and when the device was first and last seen — and forgets a sighting
+when the device has not connected for 180 days. Anonymising a customer deletes
+their sightings at once.
+
+A device the client never reports a HWID for is not seen at all, so the check
+covers only clients that send one, and only while Remnawave's HWID device
+limit is enabled. A HWID can be spoofed: the absence of a match proves nothing.
+
+### The scan
+
+The worker's `shared_device_scan` pass pages through `GET /api/hwid/devices`,
+maps each panel user to its customer through the subscription (or the imported
+`remnawave_users` link), and folds several subscriptions of one customer on one
+phone into a single sighting — two subscriptions of the same person are not two
+accounts. Deleted and merged customers are left out, and so are customers
+signed in with a Telegram account listed in `APP_OPERATOR_TELEGRAM_IDS`.
+
+A device seen on two or more customers becomes a row in the queue with the
+number of accounts, how many of them took a trial, and how many invited
+another account on the same device. When a scan adds devices to the queue, the
+**monitoring** operator topic gets one notice with how many: never which
+customers, because the chat is not where a customer is looked up.
+
+### What it changes on its own
+
+Two things, both reversible by an operator and both shown to whoever they
+affect:
+
+- **Trials.** A customer whose device already carried another customer's trial
+  is refused one with the reason `device_already_trialled`, shown in their
+  language with a pointer to support. The check runs when the trial is claimed,
+  so it catches the next account on a device that has already been seen; the
+  first connection of a brand-new account is only seen by the next scan.
+- **Referrals.** An invited customer on the inviter's device gets the referral
+  signal `shared_device`, which moves the pair from `clear` to `held` for review
+  and counts toward the withdrawal risk score. Nothing is rejected and no reward
+  is taken back automatically; see
+  [Referral review](/commerce/referrals-loyalty#signals-ask-for-a-person-they-never-punish).
+
+### Deciding a device
+
+A family on one tablet looks exactly like a second account, so the verdict is a
+person's. With `risk.write` and a reason, an operator marks an open device:
+
+- **Legitimate** — a family or a shared phone. The device stops refusing trials
+  and stops holding referrals.
+- **Second account** (`confirmed`) — the finding is recorded. It suspends
+  nobody; blocking the account is a separate action on the customer's page.
+
+The verdict covers the customers on the device at the time. Another customer
+joining the device reopens it, and the earlier verdict stays on the row so the
+operator sees what was decided for fewer accounts. Each verdict writes the
+audit event `panel.shared_device.reviewed`.
+
+The routes are `GET /v1/panel/risk/shared-devices` (`status`, `customerId`,
+cursor) with `risk.read` and `POST /v1/panel/risk/shared-devices/{handle}/review`
+with `risk.write`. Open devices count toward the number beside **Risk** in the
+panel menu.
+
 ## When any of this runs
 
 Both surfaces are driven by `internal/sweeper` in the worker process, not by a
@@ -160,6 +232,7 @@ same state as one that ran once. See
 | Blocklist refresh | Every `lifecycle_sweep`, but only for sources whose own interval has elapsed |
 | Blocklist screen of all customers | After a `lifecycle_sweep` that refreshed a source, and on demand |
 | Anomaly evaluation | Its own `anomaly_evaluation` pass, fifteen minutes |
+| Shared-device scan | Its own `shared_device_scan` pass, every three hours, run by the worker's Remnawave monitoring |
 
 Anomaly evaluation runs on its own cadence because it aggregates over the orders
 table, and a persisting signal is deduplicated by window — running it more often

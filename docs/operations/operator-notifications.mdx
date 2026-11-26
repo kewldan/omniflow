@@ -69,7 +69,7 @@ Russian. The emoji in the first column below is the icon.
 | 📣 Campaign previews | `campaign_test` | One copy of a campaign's message, asked for before the audience is committed to | Campaign test send |
 | 📰 Notice previews | `notice_test` | One rendered copy of a transactional notice an operator is rewording | Notice test send |
 | 💻 Remnawave nodes | `node` | Remnawave's own node, panel-service, and infrastructure-billing webhook events, as the event name and the node's name | [Remnawave webhooks](/integrations/remnawave#webhooks) |
-| 📈 Usage monitoring | `monitoring` | Torrent-blocker reports, and the monitoring passes' findings | Remnawave webhooks, the worker's monitoring jobs |
+| 📈 Usage monitoring | `monitoring` | Torrent-blocker reports, the monitoring passes' findings, and devices that entered the [shared-device queue](/operations/risk-controls#shared-devices) — a count, never the customers | Remnawave webhooks, the worker's monitoring jobs |
 | 📉 Anomalies | `anomaly` | A raised anomaly signal: the metric, severity, observed value, and threshold — never the subject | The anomaly evaluator |
 | 🎟 Trials | `trial` | Every trial claimed, as its order | A trigger on `trial_claims` |
 | 🛍 Add-ons | `addon` | Every add-on settled onto a subscription | A trigger on the `addon.purchased` outbox event |

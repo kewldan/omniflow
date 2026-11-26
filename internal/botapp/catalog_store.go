@@ -314,19 +314,11 @@ func (store *PostgresStore) TrialContext(ctx context.Context, customerID string)
 			AND o.state IN ('paid','fulfilled','partially_refunded','refunded')),
 		(SELECT count(*) FROM entitlements e WHERE e.user_id = u.id
 			AND e.status IN ('pending','active','limited') AND e.ends_at > now()),
-		EXISTS (
-			SELECT 1 FROM identities mine
-			JOIN identities other ON other.provider = mine.provider
-				AND other.provider_subject = mine.provider_subject AND other.user_id <> mine.user_id
-			JOIN trial_claims claimed ON claimed.user_id = other.user_id
-			LEFT JOIN orders claimed_order ON claimed_order.id = claimed.order_id
-			WHERE mine.user_id = u.id AND mine.status = 'active'
-				AND (claimed.order_id IS NULL OR claimed_order.state NOT IN ('cancelled', 'expired'))
-		),
+		`+accountcheckout.TrialSharedColumns+`,
 		`+accountcheckout.TrialSignInColumns+`
 		FROM users u WHERE u.id = $1::uuid`, customerID).
 		Scan(&createdAt, &request.AlreadyClaimed, &settledOrders, &activeEntitlements, &request.SharedIdentitySignal,
-			&methods, &disabled)
+			&request.SharedDeviceSignal, &methods, &disabled)
 	if err != nil {
 		return commerce.TrialRequest{}, err
 	}

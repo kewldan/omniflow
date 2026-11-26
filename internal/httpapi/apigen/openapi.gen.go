@@ -3818,6 +3818,27 @@ func (e PanelSearchResultsHints) Valid() bool {
 	}
 }
 
+// Defines values for PanelSharedDeviceStatus.
+const (
+	PanelSharedDeviceStatusConfirmed  PanelSharedDeviceStatus = "confirmed"
+	PanelSharedDeviceStatusLegitimate PanelSharedDeviceStatus = "legitimate"
+	PanelSharedDeviceStatusOpen       PanelSharedDeviceStatus = "open"
+)
+
+// Valid indicates whether the value is a known member of the PanelSharedDeviceStatus enum.
+func (e PanelSharedDeviceStatus) Valid() bool {
+	switch e {
+	case PanelSharedDeviceStatusConfirmed:
+		return true
+	case PanelSharedDeviceStatusLegitimate:
+		return true
+	case PanelSharedDeviceStatusOpen:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PanelSmartSubscriptionHostRole.
 const (
 	PanelSmartSubscriptionHostRoleHidden  PanelSmartSubscriptionHostRole = "hidden"
@@ -6194,6 +6215,24 @@ func (e DecidePanelBlocklistMatchJSONBodyDecision) Valid() bool {
 	case DecidePanelBlocklistMatchJSONBodyDecisionAllowed:
 		return true
 	case DecidePanelBlocklistMatchJSONBodyDecisionBlocked:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReviewPanelSharedDeviceJSONBodyStatus.
+const (
+	ReviewPanelSharedDeviceJSONBodyStatusConfirmed  ReviewPanelSharedDeviceJSONBodyStatus = "confirmed"
+	ReviewPanelSharedDeviceJSONBodyStatusLegitimate ReviewPanelSharedDeviceJSONBodyStatus = "legitimate"
+)
+
+// Valid indicates whether the value is a known member of the ReviewPanelSharedDeviceJSONBodyStatus enum.
+func (e ReviewPanelSharedDeviceJSONBodyStatus) Valid() bool {
+	switch e {
+	case ReviewPanelSharedDeviceJSONBodyStatusConfirmed:
+		return true
+	case ReviewPanelSharedDeviceJSONBodyStatusLegitimate:
 		return true
 	default:
 		return false
@@ -11066,6 +11105,47 @@ type PanelSession struct {
 	SessionId              openapi_types.UUID `json:"sessionId"`
 }
 
+// PanelSharedDevice defines model for PanelSharedDevice.
+type PanelSharedDevice struct {
+	Accounts   int                        `json:"accounts"`
+	Customers  []PanelSharedDeviceAccount `json:"customers"`
+	DetectedAt time.Time                  `json:"detectedAt"`
+
+	// Handle Digest of the hardware ID; the same handle the customer's device list uses.
+	Handle        string    `json:"handle"`
+	LastSeenAt    time.Time `json:"lastSeenAt"`
+	Platform      *string   `json:"platform,omitempty"`
+	ReferralPairs int       `json:"referralPairs"`
+	ReviewReason  *string   `json:"reviewReason,omitempty"`
+
+	// ReviewedAccounts How many accounts the latest verdict covered; fewer than `accounts` on a reopened device.
+	ReviewedAccounts *int                    `json:"reviewedAccounts,omitempty"`
+	ReviewedAt       *time.Time              `json:"reviewedAt,omitempty"`
+	ReviewedBy       *openapi_types.UUID     `json:"reviewedBy,omitempty"`
+	Status           PanelSharedDeviceStatus `json:"status"`
+	TrialAccounts    int                     `json:"trialAccounts"`
+}
+
+// PanelSharedDeviceAccount defines model for PanelSharedDeviceAccount.
+type PanelSharedDeviceAccount struct {
+	CustomerId  openapi_types.UUID `json:"customerId"`
+	FirstSeenAt time.Time          `json:"firstSeenAt"`
+
+	// InvitedBy The customer who invited this one, when the inviter is on the same device.
+	InvitedBy    *openapi_types.UUID `json:"invitedBy,omitempty"`
+	LastSeenAt   time.Time           `json:"lastSeenAt"`
+	TrialClaimed bool                `json:"trialClaimed"`
+}
+
+// PanelSharedDevicePage defines model for PanelSharedDevicePage.
+type PanelSharedDevicePage struct {
+	Items      *[]PanelSharedDevice `json:"items"`
+	NextCursor *string              `json:"nextCursor,omitempty"`
+}
+
+// PanelSharedDeviceStatus defines model for PanelSharedDeviceStatus.
+type PanelSharedDeviceStatus string
+
 // PanelSmartSubscription defines model for PanelSmartSubscription.
 type PanelSmartSubscription struct {
 	// AutoName The fastest-server group's name; empty uses the customer's language's default.
@@ -14755,6 +14835,31 @@ type SavePanelAnomalyRuleParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// SearchPanelSharedDevicesParams defines parameters for SearchPanelSharedDevices.
+type SearchPanelSharedDevicesParams struct {
+	Cursor     *Cursor                  `form:"cursor,omitempty" json:"cursor,omitempty"`
+	PageSize   *PageSize                `form:"pageSize,omitempty" json:"pageSize,omitempty"`
+	Status     *PanelSharedDeviceStatus `form:"status,omitempty" json:"status,omitempty"`
+	CustomerId *openapi_types.UUID      `form:"customerId,omitempty" json:"customerId,omitempty"`
+}
+
+// ReviewPanelSharedDeviceJSONBody defines parameters for ReviewPanelSharedDevice.
+type ReviewPanelSharedDeviceJSONBody struct {
+	Status ReviewPanelSharedDeviceJSONBodyStatus `json:"status"`
+}
+
+// ReviewPanelSharedDeviceParams defines parameters for ReviewPanelSharedDevice.
+type ReviewPanelSharedDeviceParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+
+	// XOperatorReason Why the change is being made. Carried as a header because almost every operations mutation needs one; the API refuses a change that requires a reason and did not get one.
+	XOperatorReason OperatorReason `json:"X-Operator-Reason"`
+}
+
+// ReviewPanelSharedDeviceJSONBodyStatus defines parameters for ReviewPanelSharedDevice.
+type ReviewPanelSharedDeviceJSONBodyStatus string
+
 // SavePanelBlocklistSourceParams defines parameters for SavePanelBlocklistSource.
 type SavePanelBlocklistSourceParams struct {
 	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
@@ -15526,6 +15631,9 @@ type DecidePanelBlocklistMatchJSONRequestBody DecidePanelBlocklistMatchJSONBody
 
 // SavePanelAnomalyRuleJSONRequestBody defines body for SavePanelAnomalyRule for application/json ContentType.
 type SavePanelAnomalyRuleJSONRequestBody = PanelAnomalyRuleInput
+
+// ReviewPanelSharedDeviceJSONRequestBody defines body for ReviewPanelSharedDevice for application/json ContentType.
+type ReviewPanelSharedDeviceJSONRequestBody ReviewPanelSharedDeviceJSONBody
 
 // SavePanelBlocklistSourceJSONRequestBody defines body for SavePanelBlocklistSource for application/json ContentType.
 type SavePanelBlocklistSourceJSONRequestBody = PanelBlocklistSourceInput
@@ -16878,6 +16986,12 @@ type ServerInterface interface {
 
 	// (PUT /v1/panel/risk/rules/{metric})
 	SavePanelAnomalyRule(w http.ResponseWriter, r *http.Request, metric PanelAnomalyMetric, params SavePanelAnomalyRuleParams)
+
+	// (GET /v1/panel/risk/shared-devices)
+	SearchPanelSharedDevices(w http.ResponseWriter, r *http.Request, params SearchPanelSharedDevicesParams)
+
+	// (POST /v1/panel/risk/shared-devices/{handle}/review)
+	ReviewPanelSharedDevice(w http.ResponseWriter, r *http.Request, handle string, params ReviewPanelSharedDeviceParams)
 
 	// (GET /v1/panel/risk/sources)
 	ListPanelBlocklistSources(w http.ResponseWriter, r *http.Request)
@@ -18951,6 +19065,16 @@ func (_ Unimplemented) ListPanelAnomalyRules(w http.ResponseWriter, r *http.Requ
 
 // (PUT /v1/panel/risk/rules/{metric})
 func (_ Unimplemented) SavePanelAnomalyRule(w http.ResponseWriter, r *http.Request, metric PanelAnomalyMetric, params SavePanelAnomalyRuleParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/risk/shared-devices)
+func (_ Unimplemented) SearchPanelSharedDevices(w http.ResponseWriter, r *http.Request, params SearchPanelSharedDevicesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/risk/shared-devices/{handle}/review)
+func (_ Unimplemented) ReviewPanelSharedDevice(w http.ResponseWriter, r *http.Request, handle string, params ReviewPanelSharedDeviceParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -34979,6 +35103,155 @@ func (siw *ServerInterfaceWrapper) SavePanelAnomalyRule(w http.ResponseWriter, r
 	handler.ServeHTTP(w, r)
 }
 
+// SearchPanelSharedDevices operation middleware
+func (siw *ServerInterfaceWrapper) SearchPanelSharedDevices(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SearchPanelSharedDevicesParams
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "pageSize" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "pageSize", r.URL.Query(), &params.PageSize, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "pageSize"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pageSize", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "customerId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "customerId", r.URL.Query(), &params.CustomerId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "customerId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerId", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SearchPanelSharedDevices(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReviewPanelSharedDevice operation middleware
+func (siw *ServerInterfaceWrapper) ReviewPanelSharedDevice(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "handle" -------------
+	var handle string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "handle", chi.URLParam(r, "handle"), &handle, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "handle", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ReviewPanelSharedDeviceParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Operator-Reason" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Operator-Reason")]; found {
+		var XOperatorReason OperatorReason
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Operator-Reason", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Operator-Reason", valueList[0], &XOperatorReason, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Operator-Reason", Err: err})
+			return
+		}
+
+		params.XOperatorReason = XOperatorReason
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Operator-Reason is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Operator-Reason", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReviewPanelSharedDevice(w, r, handle, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPanelBlocklistSources operation middleware
 func (siw *ServerInterfaceWrapper) ListPanelBlocklistSources(w http.ResponseWriter, r *http.Request) {
 
@@ -38893,6 +39166,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/panel/risk/anomalies/{signalID}/review", wrapper.ReviewPanelAnomaly)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/risk/shared-devices", wrapper.SearchPanelSharedDevices)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/risk/shared-devices/{handle}/review", wrapper.ReviewPanelSharedDevice)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/gifts", wrapper.SearchPanelGifts)
@@ -56437,6 +56716,140 @@ func (response SavePanelAnomalyRule422ApplicationProblemPlusJSONResponse) VisitS
 	return err
 }
 
+type SearchPanelSharedDevicesRequestObject struct {
+	Params SearchPanelSharedDevicesParams
+}
+
+type SearchPanelSharedDevicesResponseObject interface {
+	VisitSearchPanelSharedDevicesResponse(w http.ResponseWriter) error
+}
+
+type SearchPanelSharedDevices200JSONResponse PanelSharedDevicePage
+
+func (response SearchPanelSharedDevices200JSONResponse) VisitSearchPanelSharedDevicesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SearchPanelSharedDevices403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SearchPanelSharedDevices403ApplicationProblemPlusJSONResponse) VisitSearchPanelSharedDevicesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SearchPanelSharedDevices422ApplicationProblemPlusJSONResponse Problem
+
+func (response SearchPanelSharedDevices422ApplicationProblemPlusJSONResponse) VisitSearchPanelSharedDevicesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewPanelSharedDeviceRequestObject struct {
+	Handle string `json:"handle"`
+	Params ReviewPanelSharedDeviceParams
+	Body   *ReviewPanelSharedDeviceJSONRequestBody
+}
+
+type ReviewPanelSharedDeviceResponseObject interface {
+	VisitReviewPanelSharedDeviceResponse(w http.ResponseWriter) error
+}
+
+type ReviewPanelSharedDevice200JSONResponse PanelSharedDevice
+
+func (response ReviewPanelSharedDevice200JSONResponse) VisitReviewPanelSharedDeviceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewPanelSharedDevice403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response ReviewPanelSharedDevice403ApplicationProblemPlusJSONResponse) VisitReviewPanelSharedDeviceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewPanelSharedDevice404ApplicationProblemPlusJSONResponse Problem
+
+func (response ReviewPanelSharedDevice404ApplicationProblemPlusJSONResponse) VisitReviewPanelSharedDeviceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewPanelSharedDevice409ApplicationProblemPlusJSONResponse Problem
+
+func (response ReviewPanelSharedDevice409ApplicationProblemPlusJSONResponse) VisitReviewPanelSharedDeviceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewPanelSharedDevice422ApplicationProblemPlusJSONResponse Problem
+
+func (response ReviewPanelSharedDevice422ApplicationProblemPlusJSONResponse) VisitReviewPanelSharedDeviceResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListPanelBlocklistSourcesRequestObject struct {
 }
 
@@ -61398,6 +61811,12 @@ type StrictServerInterface interface {
 
 	// (PUT /v1/panel/risk/rules/{metric})
 	SavePanelAnomalyRule(ctx context.Context, request SavePanelAnomalyRuleRequestObject) (SavePanelAnomalyRuleResponseObject, error)
+
+	// (GET /v1/panel/risk/shared-devices)
+	SearchPanelSharedDevices(ctx context.Context, request SearchPanelSharedDevicesRequestObject) (SearchPanelSharedDevicesResponseObject, error)
+
+	// (POST /v1/panel/risk/shared-devices/{handle}/review)
+	ReviewPanelSharedDevice(ctx context.Context, request ReviewPanelSharedDeviceRequestObject) (ReviewPanelSharedDeviceResponseObject, error)
 
 	// (GET /v1/panel/risk/sources)
 	ListPanelBlocklistSources(ctx context.Context, request ListPanelBlocklistSourcesRequestObject) (ListPanelBlocklistSourcesResponseObject, error)
@@ -72129,6 +72548,66 @@ func (sh *strictHandler) SavePanelAnomalyRule(w http.ResponseWriter, r *http.Req
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(SavePanelAnomalyRuleResponseObject); ok {
 		if err := validResponse.VisitSavePanelAnomalyRuleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SearchPanelSharedDevices operation middleware
+func (sh *strictHandler) SearchPanelSharedDevices(w http.ResponseWriter, r *http.Request, params SearchPanelSharedDevicesParams) {
+	var request SearchPanelSharedDevicesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SearchPanelSharedDevices(ctx, request.(SearchPanelSharedDevicesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SearchPanelSharedDevices")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SearchPanelSharedDevicesResponseObject); ok {
+		if err := validResponse.VisitSearchPanelSharedDevicesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ReviewPanelSharedDevice operation middleware
+func (sh *strictHandler) ReviewPanelSharedDevice(w http.ResponseWriter, r *http.Request, handle string, params ReviewPanelSharedDeviceParams) {
+	var request ReviewPanelSharedDeviceRequestObject
+
+	request.Handle = handle
+	request.Params = params
+
+	var body ReviewPanelSharedDeviceJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ReviewPanelSharedDevice(ctx, request.(ReviewPanelSharedDeviceRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReviewPanelSharedDevice")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ReviewPanelSharedDeviceResponseObject); ok {
+		if err := validResponse.VisitReviewPanelSharedDeviceResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
