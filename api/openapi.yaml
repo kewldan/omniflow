@@ -11811,7 +11811,7 @@ components:
       properties:
         id: {type: string, format: uuid}
         messageId: {type: integer, format: int64, description: "Present on the upload response; the message the file was hung on."}
-        kind: {type: string, enum: [photo, document]}
+        kind: {type: string, enum: [photo, document, voice, audio]}
         fileName: {type: string}
         mediaType: {type: string}
         sizeBytes: {type: integer, format: int64}
@@ -12134,7 +12134,7 @@ components:
       properties:
         id: {type: string, format: uuid}
         messageId: {type: integer, format: int64}
-        kind: {type: string, enum: [photo, document]}
+        kind: {type: string, enum: [photo, document, voice, audio]}
         fileName: {type: string}
         mediaType: {type: string}
         sizeBytes: {type: integer, format: int64}

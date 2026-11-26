@@ -17320,7 +17320,7 @@ export const CreateAccountSupportTicketResponse = zod.object({
             .int()
             .optional()
             .describe("Present on the upload response; the message the file was hung on."),
-          kind: zod.enum(["photo", "document"]),
+          kind: zod.enum(["photo", "document", "voice", "audio"]),
           fileName: zod.string(),
           mediaType: zod.string(),
           sizeBytes: zod.int(),
@@ -17381,7 +17381,7 @@ export const GetAccountSupportTicketResponse = zod.object({
             .int()
             .optional()
             .describe("Present on the upload response; the message the file was hung on."),
-          kind: zod.enum(["photo", "document"]),
+          kind: zod.enum(["photo", "document", "voice", "audio"]),
           fileName: zod.string(),
           mediaType: zod.string(),
           sizeBytes: zod.int(),
@@ -17463,7 +17463,7 @@ export const ReplyToAccountSupportTicketResponse = zod.object({
             .int()
             .optional()
             .describe("Present on the upload response; the message the file was hung on."),
-          kind: zod.enum(["photo", "document"]),
+          kind: zod.enum(["photo", "document", "voice", "audio"]),
           fileName: zod.string(),
           mediaType: zod.string(),
           sizeBytes: zod.int(),
@@ -17671,7 +17671,7 @@ export const AttachToAccountSupportTicketResponse = zod.object({
     .int()
     .optional()
     .describe("Present on the upload response; the message the file was hung on."),
-  kind: zod.enum(["photo", "document"]),
+  kind: zod.enum(["photo", "document", "voice", "audio"]),
   fileName: zod.string(),
   mediaType: zod.string(),
   sizeBytes: zod.int(),
@@ -18226,7 +18226,7 @@ export const GetPanelSupportTicketResponse = zod.object({
         zod.object({
           id: zod.uuid(),
           messageId: zod.int(),
-          kind: zod.enum(["photo", "document"]),
+          kind: zod.enum(["photo", "document", "voice", "audio"]),
           fileName: zod.string(),
           mediaType: zod.string(),
           sizeBytes: zod.int(),
@@ -18520,7 +18520,7 @@ export const ReplyToPanelSupportTicketResponse = zod.object({
     zod.object({
       id: zod.uuid(),
       messageId: zod.int(),
-      kind: zod.enum(["photo", "document"]),
+      kind: zod.enum(["photo", "document", "voice", "audio"]),
       fileName: zod.string(),
       mediaType: zod.string(),
       sizeBytes: zod.int(),

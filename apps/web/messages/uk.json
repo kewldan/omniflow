@@ -3057,7 +3057,9 @@
       "attachments": {
         "kind": {
           "photo": "фото",
-          "document": "файл"
+          "document": "файл",
+          "voice": "голосове",
+          "audio": "аудіо"
         },
         "unnamed": "Вкладення",
         "download": "Завантажити",
@@ -3066,7 +3068,12 @@
         "gone": "Цей файл більше не зберігається; можливо, минув строк його зберігання.",
         "downloadFailed": "Файл зараз не вдалося завантажити.",
         "previewFailed": "The photo could not be shown; try downloading it.",
-        "openFull": "Open full size"
+        "openFull": "Open full size",
+        "voiceMessage": "Голосове повідомлення",
+        "playFailed": "Цей браузер не може відтворити запис — завантажте його.",
+        "play": "Відтворити",
+        "pause": "Пауза",
+        "seek": "Позиція в записі {name}"
       },
       "listFailed": "Не вдалося завантажити звернення. Список оновлюється сам — спробуйте за хвилину.",
       "controls": {
@@ -7123,7 +7130,8 @@
         "downloading": "Завантаження",
         "perTicket": "До {count} файлів на одне звернення.",
         "chooseAnother": "Вибрати інший файл",
-        "none": "Файл ще не вибрано"
+        "none": "Файл ще не вибрано",
+        "voice": "Голосове повідомлення"
       },
       "news": {
         "title": "Оголошення",

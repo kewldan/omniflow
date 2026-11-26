@@ -3057,7 +3057,9 @@
       "attachments": {
         "kind": {
           "photo": "عکس",
-          "document": "فایل"
+          "document": "فایل",
+          "voice": "صوتی",
+          "audio": "صوت"
         },
         "unnamed": "پیوست",
         "download": "دانلود",
@@ -3066,7 +3068,12 @@
         "gone": "این فایل دیگر ذخیره نیست؛ ممکن است مدت نگهداری آن تمام شده باشد.",
         "downloadFailed": "در حال حاضر دانلود فایل ممکن نیست.",
         "previewFailed": "The photo could not be shown; try downloading it.",
-        "openFull": "Open full size"
+        "openFull": "Open full size",
+        "voiceMessage": "پیام صوتی",
+        "playFailed": "این مرورگر نمی‌تواند این ضبط را پخش کند؛ آن را دانلود کنید.",
+        "play": "پخش",
+        "pause": "توقف",
+        "seek": "موقعیت در {name}"
       },
       "listFailed": "بارگیری تیکت‌ها ممکن نشد. آن‌ها خودکار به‌روز می‌شوند؛ چند لحظه دیگر دوباره تلاش کنید.",
       "controls": {
@@ -7123,7 +7130,8 @@
         "downloading": "در حال دانلود",
         "perTicket": "حداکثر {count} فایل در هر گفتگو.",
         "chooseAnother": "انتخاب فایل دیگر",
-        "none": "هنوز فایلی انتخاب نشده"
+        "none": "هنوز فایلی انتخاب نشده",
+        "voice": "پیام صوتی"
       },
       "news": {
         "title": "اطلاعیه‌ها",

@@ -50,7 +50,7 @@ export type SupportTicket = {
 
 export type SupportAttachment = {
   id: string;
-  kind: "photo" | "document";
+  kind: "photo" | "document" | "voice" | "audio";
   fileName: string;
   mediaType: string;
   sizeBytes: number;

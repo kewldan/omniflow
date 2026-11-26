@@ -3057,7 +3057,9 @@
       "attachments": {
         "kind": {
           "photo": "照片",
-          "document": "文件"
+          "document": "文件",
+          "voice": "语音",
+          "audio": "音频"
         },
         "unnamed": "附件",
         "download": "下载",
@@ -3066,7 +3068,12 @@
         "gone": "该文件已不再保存，可能已超过保留期限。",
         "downloadFailed": "暂时无法下载该文件。",
         "previewFailed": "The photo could not be shown; try downloading it.",
-        "openFull": "Open full size"
+        "openFull": "Open full size",
+        "voiceMessage": "语音消息",
+        "playFailed": "此浏览器无法播放该录音，请下载后收听。",
+        "play": "播放",
+        "pause": "暂停",
+        "seek": "{name} 的播放位置"
       },
       "listFailed": "无法加载工单。列表会自动刷新，请稍后重试。",
       "controls": {
@@ -7123,7 +7130,8 @@
         "downloading": "正在下载",
         "perTicket": "每个对话最多 {count} 个文件。",
         "chooseAnother": "选择其他文件",
-        "none": "尚未选择文件"
+        "none": "尚未选择文件",
+        "voice": "语音消息"
       },
       "news": {
         "title": "公告",

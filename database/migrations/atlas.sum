@@ -1,4 +1,4 @@
-h1:bIEUjlDSghURKxu/Q3aCqdKtGmAQ/IoXsBdRUR3tDtM=
+h1:pb1S2M450P9Z1dJfxsrlSqwWtYT+UknuM3rEo2LSHlE=
 20261120000000_baseline.sql h1:xcYk9mdv44B3O0TRxq3RP+hXxJ2VeeOilGnwKO251mQ=
 20261120010000_river_schema_v8.sql h1:AfdQpxaviEf8asJ5gyLmMVZr+zMYaWEw+o/vE8CMj7A=
 20261120020000_customer_email_signin.sql h1:PrCKaTaDm5ggof8aqRooMbqOXEHML5fwq1TF877zQa8=
@@ -105,3 +105,4 @@ h1:bIEUjlDSghURKxu/Q3aCqdKtGmAQ/IoXsBdRUR3tDtM=
 20261125120000_steam_topup.sql h1:W77tgnwt4yiXl64I0EI0JW7/XpM0oKHSggL+ZNT8GvE=
 20261126100000_shared_devices.sql h1:akZgj21ARsjd7JUnGpHmltXDw57lRZVTc+/NierBNUs=
 20261126130000_timed_bans.sql h1:p4U0U+MNXGxTK8t19MaXjv1qJn50gcOO0ZVP5dsS5S0=
+20261126150000_support_voice_attachments.sql h1:8Eh0FRp2vbtuopktm2QMMbYlRWC34hvVlQzFUeP128s=

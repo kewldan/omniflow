@@ -58,7 +58,7 @@ export type DeliveryState = "queued" | "retrying" | "delivered" | "undeliverable
 export type SupportAttachment = {
   id: string;
   messageId: number;
-  kind: "photo" | "document";
+  kind: "photo" | "document" | "voice" | "audio";
   fileName: string;
   mediaType: string;
   sizeBytes: number;

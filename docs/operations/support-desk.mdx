@@ -385,12 +385,14 @@ have refused.
 ### What the operator sees
 
 Every message in `GET /v1/panel/support/tickets/{ticketID}` carries an
-`attachments` array: id, kind (`photo` or `document`), file name, media type,
+`attachments` array: id, kind (`photo`, `document`, `voice`, or `audio`), file name, media type,
 size, `origin`, and `downloadable`. `origin` is `web` for a web upload and
 `telegram` for a file sent to the bot; `downloadable` says whether this
 installation holds the bytes. The conversation screen lists each file under its
 message with its size, and shows a downloadable photo in place, opening full
-size in a new tab.
+size in a new tab. A voice message or audio file from the bot gets a player in
+place. A Telegram voice message is OGG/Opus; a browser that cannot play it says
+so, and the download still works.
 
 A web upload has a **Download** button behind
 `GET /v1/panel/support/tickets/{ticketID}/attachments/{attachmentID}`, which

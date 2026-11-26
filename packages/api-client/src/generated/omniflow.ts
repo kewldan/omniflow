@@ -7005,6 +7005,8 @@ export type AccountAttachmentKind =
 export const AccountAttachmentKind = {
   photo: "photo",
   document: "document",
+  voice: "voice",
+  audio: "audio",
 } as const;
 
 export interface AccountAttachment {
@@ -7414,6 +7416,8 @@ export type PanelSupportAttachmentKind =
 export const PanelSupportAttachmentKind = {
   photo: "photo",
   document: "document",
+  voice: "voice",
+  audio: "audio",
 } as const;
 
 /**

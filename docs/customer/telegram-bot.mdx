@@ -716,11 +716,12 @@ Composing shows the rules before the message is written:
 > 10 MB. Never send passwords, tokens, or your subscription link. To cancel:
 > /cancel.
 
-A message is 1 to 4000 characters. **Only photos and documents** are accepted, at
-most five per message and each at most 10 MB; a video, voice note, animation, or
-sticker is refused outright rather than silently dropped. A message with an
-attachment and no text is stored with the body `[attachment]`; one with neither
-is refused.
+A message is 1 to 4000 characters. **Photos, documents, voice messages, and audio
+files** are accepted, at most five per message and each at most 10 MB; a video,
+round video note, animation, or sticker is refused outright rather than silently
+dropped. A message with an attachment and no text is stored with the body
+`[attachment]`, or `[voice message]` when it is a voice message alone; one with
+neither is refused.
 
 <Note>
   Omniflow never downloads or stores the file. Only Telegram's file reference and
@@ -766,7 +767,7 @@ list and the web panel are where a second thread is chosen deliberately.
 
 The same reading applies to a message typed with no flow in progress. When a
 customer receives `🛟 Support reply` and simply types an answer — text, or a
-photo or document with a caption — the bot appends it to their most recently
+photo, document, voice message, or audio — the bot appends it to their most recently
 active request that can still take a message (open, waiting for the customer,
 or resolved), provided that request was active within the last 72 hours, and
 confirms with `✅ Added to your request` naming the subject, with an
@@ -1034,7 +1035,7 @@ ten minutes reaches the same order even if a duplicate got past the claim.
 | Let a customer link their own Remnawave account | Matching is by exact Telegram ID; anything else is a way to claim somebody else's subscription |
 | Show a HWID, IP address, token, or secret — on screen, in callback data, or in a log | A hardware ID identifies a person's machine |
 | Store the bytes of a support attachment | Only Telegram's file reference and safe metadata are kept |
-| Accept a video, voice note, animation, or sticker | The accepted set is photos and documents only |
+| Accept a video, round video note, animation, or sticker | The accepted set is photos, documents, voice messages, and audio |
 | Tell a gift claimant why a code failed | The difference between failures tells an attacker which codes exist |
 | Recover a lost gift code | Only the SHA-256 is stored — the deliberate trade |
 | Offer a purchase button when the price could not be quoted | It would fail at confirmation |

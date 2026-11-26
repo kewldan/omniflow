@@ -20,8 +20,9 @@ reference is [Support desk](/operations/support-desk).
 count, and offers `✍️ New request`, plus two shortcuts that say what the request is about: a payment
 problem goes to the `payment` queue, and urgent raises the priority to `high`.
 
-- A message is up to 4000 characters, with up to five photos or documents of at most 10 MB each.
-  Video, voice notes, animations, and stickers are refused rather than silently dropped.
+- A message is up to 4000 characters, with up to five photos, documents, voice messages, or audio
+  files of at most 10 MB each. Video, round video notes, animations, and stickers are refused rather
+  than silently dropped.
 - The bot warns before the customer writes: never send passwords, tokens, or the subscription link.
 - A customer who receives a reply and simply types an answer has it added to their most recent live
   request from the last 72 hours, with a confirmation naming the request and a button to open it.
@@ -134,7 +135,8 @@ Attachments are stored two ways, and the difference matters for operators.
 
 - **From the bot**, Omniflow records Telegram's file reference and safe metadata — name, type,
   size — and, with an object store configured (`APP_S3_*`), the bot copies the file into it within a
-  minute. The desk then shows the photo in the conversation and offers a download, as for a web
+  minute. The desk then shows the photo, or plays the voice message or audio, in the conversation
+  and offers a download, as for a web
   upload. Without an object store the file stays in Telegram and the desk labels it **in Telegram**.
 - **From the web**, the file is stored by the installation — in the object store when one is
   configured, otherwise in `APP_SUPPORT_ATTACHMENT_DIR` (`/var/lib/omniflow/support-attachments` by

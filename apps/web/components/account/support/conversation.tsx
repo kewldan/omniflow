@@ -2,7 +2,7 @@
 
 import { cn } from "@omniflow/ui/lib/utils";
 import { toast } from "@omniflow/ui/toast";
-import { Download, FileText, ImageIcon, Send } from "lucide-react";
+import { Download, FileText, ImageIcon, Mic, Music, Send } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { useSupportProblem } from "@/components/account/problems";
@@ -120,8 +120,18 @@ function AttachmentRow({ attachment }: { attachment: SupportAttachment }) {
   const describeProblem = useSupportProblem();
   const formatBytes = useBytes();
   const [busy, setBusy] = useState(false);
-  const Icon = attachment.kind === "photo" ? ImageIcon : FileText;
-  const name = attachment.fileName || translate("attachments.unnamed");
+  const Icon =
+    attachment.kind === "photo"
+      ? ImageIcon
+      : attachment.kind === "voice"
+        ? Mic
+        : attachment.kind === "audio"
+          ? Music
+          : FileText;
+  const name =
+    attachment.kind === "voice"
+      ? translate("attachments.voice")
+      : attachment.fileName || translate("attachments.unnamed");
 
   if (!attachment.downloadable) {
     return (

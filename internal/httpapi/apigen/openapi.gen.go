@@ -43,16 +43,22 @@ func (e AccountAddonOfferKind) Valid() bool {
 
 // Defines values for AccountAttachmentKind.
 const (
+	AccountAttachmentKindAudio    AccountAttachmentKind = "audio"
 	AccountAttachmentKindDocument AccountAttachmentKind = "document"
 	AccountAttachmentKindPhoto    AccountAttachmentKind = "photo"
+	AccountAttachmentKindVoice    AccountAttachmentKind = "voice"
 )
 
 // Valid indicates whether the value is a known member of the AccountAttachmentKind enum.
 func (e AccountAttachmentKind) Valid() bool {
 	switch e {
+	case AccountAttachmentKindAudio:
+		return true
 	case AccountAttachmentKindDocument:
 		return true
 	case AccountAttachmentKindPhoto:
+		return true
+	case AccountAttachmentKindVoice:
 		return true
 	default:
 		return false
@@ -4105,16 +4111,22 @@ func (e PanelSubscriptionSyncFieldsField) Valid() bool {
 
 // Defines values for PanelSupportAttachmentKind.
 const (
+	PanelSupportAttachmentKindAudio    PanelSupportAttachmentKind = "audio"
 	PanelSupportAttachmentKindDocument PanelSupportAttachmentKind = "document"
 	PanelSupportAttachmentKindPhoto    PanelSupportAttachmentKind = "photo"
+	PanelSupportAttachmentKindVoice    PanelSupportAttachmentKind = "voice"
 )
 
 // Valid indicates whether the value is a known member of the PanelSupportAttachmentKind enum.
 func (e PanelSupportAttachmentKind) Valid() bool {
 	switch e {
+	case PanelSupportAttachmentKindAudio:
+		return true
 	case PanelSupportAttachmentKindDocument:
 		return true
 	case PanelSupportAttachmentKindPhoto:
+		return true
+	case PanelSupportAttachmentKindVoice:
 		return true
 	default:
 		return false

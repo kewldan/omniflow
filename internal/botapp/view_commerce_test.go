@@ -278,6 +278,23 @@ func TestAttachmentValidationEnforcesSizeAndType(t *testing.T) {
 	if err != nil || len(attachments) != 1 || attachments[0].TelegramFileID != "file" {
 		t.Fatalf("document attachment = (%+v, %v)", attachments, err)
 	}
+	// A voice message and an audio file are kept for the operator; a round
+	// video note is refused like any video.
+	voice, err := collectAttachments(&models.Message{Voice: &models.Voice{FileID: "voice", FileSize: 4096}})
+	if err != nil || len(voice) != 1 || voice[0].Kind != "voice" || voice[0].MimeType != "audio/ogg" {
+		t.Fatalf("voice attachment = (%+v, %v)", voice, err)
+	}
+	audio, err := collectAttachments(&models.Message{Audio: &models.Audio{
+		FileID: "audio", FileName: "call.mp3", MimeType: "audio/mpeg", FileSize: 2048}})
+	if err != nil || len(audio) != 1 || audio[0].Kind != "audio" || audio[0].FileName != "call.mp3" {
+		t.Fatalf("audio attachment = (%+v, %v)", audio, err)
+	}
+	if _, err := collectAttachments(&models.Message{Voice: &models.Voice{FileID: "big", FileSize: maxAttachmentBytes + 1}}); !errors.Is(err, ErrAttachmentTooBig) {
+		t.Fatalf("oversized voice error = %v, want ErrAttachmentTooBig", err)
+	}
+	if _, err := collectAttachments(&models.Message{VideoNote: &models.VideoNote{FileID: "round"}}); !errors.Is(err, ErrAttachmentKind) {
+		t.Fatalf("video note error = %v, want ErrAttachmentKind", err)
+	}
 }
 
 func TestClassifyDeliveryStopsRetryingBlockedAccounts(t *testing.T) {

@@ -5619,7 +5619,7 @@ CREATE TABLE public.support_attachments (
     fetch_attempts smallint DEFAULT 0 NOT NULL,
     CONSTRAINT support_attachments_fetch_attempts_check CHECK ((fetch_attempts >= 0)),
     CONSTRAINT support_attachments_file_name_check CHECK (((file_name IS NULL) OR (char_length(file_name) <= 200))),
-    CONSTRAINT support_attachments_kind_check CHECK ((kind = ANY (ARRAY['photo'::text, 'document'::text]))),
+    CONSTRAINT support_attachments_kind_check CHECK ((kind = ANY (ARRAY['photo'::text, 'document'::text, 'voice'::text, 'audio'::text]))),
     CONSTRAINT support_attachments_mime_type_check CHECK (((mime_type IS NULL) OR (char_length(mime_type) <= 120))),
     CONSTRAINT support_attachments_origin_known CHECK ((origin = ANY (ARRAY['telegram'::text, 'local'::text]))),
     CONSTRAINT support_attachments_reference_matches_origin CHECK ((((origin = 'telegram'::text) AND (telegram_file_id IS NOT NULL)) OR ((origin = 'local'::text) AND (storage_key IS NOT NULL) AND (telegram_file_id IS NULL)))),

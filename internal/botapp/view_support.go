@@ -133,7 +133,12 @@ func ticketMessageBlock(locale Locale, message TicketMessage) string {
 	lines := []string{fmt.Sprintf("<b>%s</b> · %s\n%s", sender, formatDate(message.CreatedAt), html.EscapeString(truncateRunes(message.Body, 600)))}
 	for _, attachment := range message.Attachments {
 		name := attachment.FileName
-		if name == "" {
+		switch {
+		case attachment.Kind == "voice":
+			name = text(locale, "support.voiceMessage")
+		case name == "" && attachment.Kind == "audio":
+			name = text(locale, "support.audioFile")
+		case name == "":
 			name = attachment.Kind
 		}
 		lines = append(lines, text(locale, "support.attachment", html.EscapeString(truncateRunes(name, 40)), formatBytes(attachment.SizeBytes)))

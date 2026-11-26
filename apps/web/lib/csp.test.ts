@@ -78,4 +78,13 @@ describe("createNonce", () => {
     expect(first.length).toBeGreaterThanOrEqual(22);
     expect(createNonce()).not.toBe(first);
   });
+
+  test("media plays from the installation and from in-memory blobs only", () => {
+    for (const surface of ["admin", "customer", "sign-in"] as const) {
+      const media = directive(buildCsp({ nonce: "n", surface }), "media-src");
+      expect(media).toContain("'self'");
+      expect(media).toContain("blob:");
+      expect(media).not.toContain("https:");
+    }
+  });
 });

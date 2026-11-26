@@ -3130,7 +3130,9 @@
       "attachments": {
         "kind": {
           "photo": "photo",
-          "document": "file"
+          "document": "file",
+          "voice": "voice",
+          "audio": "audio"
         },
         "unnamed": "Attachment",
         "download": "Download",
@@ -3139,7 +3141,12 @@
         "gone": "That file is no longer stored; it may have passed its retention period.",
         "downloadFailed": "The file could not be downloaded right now.",
         "previewFailed": "The photo could not be shown; try downloading it.",
-        "openFull": "Open full size"
+        "openFull": "Open full size",
+        "voiceMessage": "Voice message",
+        "playFailed": "This recording can't be played in this browser; download it instead.",
+        "play": "Play",
+        "pause": "Pause",
+        "seek": "Position in {name}"
       },
       "listFailed": "Could not load the tickets. They refresh on their own; try again in a moment.",
       "controls": {
@@ -7196,7 +7203,8 @@
         "downloading": "Downloading",
         "perTicket": "Up to {count} files per conversation.",
         "chooseAnother": "Choose another file",
-        "none": "No file chosen yet"
+        "none": "No file chosen yet",
+        "voice": "Voice message"
       },
       "news": {
         "title": "Announcements",

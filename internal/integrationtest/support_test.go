@@ -567,3 +567,61 @@ func TestTheDeskSeesEveryAttachmentAndServesOnlyItsOwn(t *testing.T) {
 		t.Fatalf("an attachment was reachable through another ticket: %v", err)
 	}
 }
+
+// TestAVoiceMessageReachesTheDesk sends a voice message and an audio file to a
+// ticket the way the bot does, with no text: the schema accepts both kinds,
+// the voice-only message gets a readable body, and the desk lists each with
+// its kind and media type, ready for the copier and the player.
+func TestAVoiceMessageReachesTheDesk(t *testing.T) {
+	ctx := context.Background()
+	harness := newHarness(t)
+	operations := newOperations(t, harness)
+	support := newAccountSupport(t, harness)
+	store, err := botapp.NewPostgresStore(ctx, harness.url)
+	if err != nil {
+		t.Fatalf("build bot store: %v", err)
+	}
+	customerID := harness.customer(ctx, t)
+	ticketID := newCustomerTicket(ctx, t, support, customerID, "No connection")
+
+	if _, err = store.AppendCustomerMessage(ctx, customerID, ticketID, "", "", 51, []botapp.Attachment{{
+		Kind: "voice", TelegramFileID: "AwACAgIAAxkBAAIvoice", MimeType: "audio/ogg", SizeBytes: 9000,
+	}}); err != nil {
+		t.Fatalf("voice message through the bot: %v", err)
+	}
+	if _, err = store.AppendCustomerMessage(ctx, customerID, ticketID, "", "", 52, []botapp.Attachment{{
+		Kind: "audio", TelegramFileID: "CQACAgIAAxkBAAIaudio", FileName: "call.mp3",
+		MimeType: "audio/mpeg", SizeBytes: 40000,
+	}}); err != nil {
+		t.Fatalf("audio file through the bot: %v", err)
+	}
+
+	detail, err := operations.Ticket(ctx, ticketID)
+	if err != nil {
+		t.Fatalf("read ticket: %v", err)
+	}
+	kinds := map[string]panelpg.SupportAttachment{}
+	voiceBody := ""
+	for _, message := range detail.Messages {
+		for _, attachment := range message.Attachments {
+			kinds[attachment.Kind] = attachment
+			if attachment.Kind == "voice" {
+				voiceBody = message.Body
+			}
+		}
+	}
+	if voice, found := kinds["voice"]; !found || voice.MediaType != "audio/ogg" || voice.Origin != "telegram" {
+		t.Fatalf("voice attachment in the desk view: %+v", kinds)
+	}
+	if audio, found := kinds["audio"]; !found || audio.FileName != "call.mp3" || audio.MediaType != "audio/mpeg" {
+		t.Fatalf("audio attachment in the desk view: %+v", kinds)
+	}
+	if voiceBody != "[voice message]" {
+		t.Fatalf("voice-only message body = %q", voiceBody)
+	}
+	var pending int
+	if err = harness.pool.QueryRow(ctx, `SELECT count(*) FROM support_attachments
+		WHERE kind IN ('voice', 'audio') AND origin = 'telegram' AND storage_key IS NULL`).Scan(&pending); err != nil || pending != 2 {
+		t.Fatalf("voice and audio waiting for the copier = %d (%v)", pending, err)
+	}
+}

@@ -936,9 +936,9 @@ func attachmentErrorText(locale Locale, err error) string {
 	}
 }
 
-// collectAttachments extracts the Telegram file references a customer attached.
-// Only the reference and safe metadata are kept; Omniflow never downloads or
-// stores the file itself.
+// collectAttachments extracts the Telegram file references a customer attached:
+// photos, documents, voice messages, and audio files. Only the reference and
+// safe metadata are kept here; the attachment copier stores the bytes later.
 func collectAttachments(message *models.Message) ([]Attachment, error) {
 	attachments := make([]Attachment, 0, 2)
 	if len(message.Photo) > 0 {
@@ -952,7 +952,28 @@ func collectAttachments(message *models.Message) ([]Attachment, error) {
 			SizeBytes: message.Document.FileSize,
 		})
 	}
-	if message.Video != nil || message.Audio != nil || message.Voice != nil || message.Animation != nil || message.Sticker != nil {
+	if message.Voice != nil {
+		// A voice message carries no name; its type is Telegram's OGG/Opus.
+		mimeType := message.Voice.MimeType
+		if mimeType == "" {
+			mimeType = "audio/ogg"
+		}
+		attachments = append(attachments, Attachment{
+			Kind: "voice", TelegramFileID: message.Voice.FileID,
+			MimeType: mimeType, SizeBytes: message.Voice.FileSize,
+		})
+	}
+	if message.Audio != nil {
+		attachments = append(attachments, Attachment{
+			Kind: "audio", TelegramFileID: message.Audio.FileID,
+			FileName: message.Audio.FileName, MimeType: message.Audio.MimeType,
+			SizeBytes: message.Audio.FileSize,
+		})
+	}
+	// Video, round video notes, GIFs, and stickers are still refused: they are
+	// large, and nothing an operator needs is in them that a photo or a voice
+	// message cannot carry.
+	if message.Video != nil || message.VideoNote != nil || message.Animation != nil || message.Sticker != nil {
 		return nil, ErrAttachmentKind
 	}
 	for _, attachment := range attachments {

@@ -27,7 +27,7 @@ var (
 	// pointer rather than a refusal dressed as "closed".
 	ErrTicketMerged     = errors.New("support ticket was merged into another conversation")
 	ErrAttachmentTooBig = errors.New("attachment is larger than the 10 MB limit")
-	ErrAttachmentKind   = errors.New("only photos and documents can be attached")
+	ErrAttachmentKind   = errors.New("only photos, documents, voice messages, and audio can be attached")
 )
 
 // ticketAcceptsReply mirrors the web panel's rule: open, pending, and resolved
@@ -66,8 +66,8 @@ type TicketMessage struct {
 	Attachments []Attachment
 }
 
-// Attachment is a Telegram file reference plus safe metadata. Omniflow never
-// stores the file itself.
+// Attachment is a Telegram file reference plus safe metadata: a photo, a
+// document, a voice message, or an audio file.
 type Attachment struct {
 	Kind           string
 	TelegramFileID string
@@ -78,7 +78,9 @@ type Attachment struct {
 
 // Validate applies the size and type restrictions before anything is persisted.
 func (attachment Attachment) Validate() error {
-	if attachment.Kind != "photo" && attachment.Kind != "document" {
+	switch attachment.Kind {
+	case "photo", "document", "voice", "audio":
+	default:
 		return ErrAttachmentKind
 	}
 	if attachment.SizeBytes <= 0 || attachment.SizeBytes > maxAttachmentBytes {
@@ -220,6 +222,9 @@ func (store *PostgresStore) AppendCustomerMessage(ctx context.Context, customerI
 	}
 	if body == "" {
 		body = "[attachment]"
+		if len(attachments) == 1 && attachments[0].Kind == "voice" {
+			body = "[voice message]"
+		}
 	}
 	if len(attachments) > maxAttachments {
 		return "", errors.New("at most five attachments can be sent at once")

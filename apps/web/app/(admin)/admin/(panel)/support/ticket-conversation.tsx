@@ -32,6 +32,7 @@ import useSWR, { mutate as revalidateKey } from "swr";
 
 import { CustomerChip } from "@/components/admin/customer-chip";
 import { StateNotice } from "@/components/admin/state-notice";
+import { VoicePlayer } from "@/components/admin/voice-player";
 import { Timestamp } from "@/components/intl/timestamp";
 import { ApiError, apiFetch, fetcher } from "@/lib/api";
 import { downloadThroughApi } from "@/lib/download";
@@ -320,14 +321,26 @@ function AttachmentRow({
   const translate = useTranslations("admin.support");
   const formatBytes = useBytes();
   const [busy, setBusy] = useState(false);
-  const name = attachment.fileName || translate("attachments.unnamed");
+  const name =
+    attachment.fileName ||
+    (attachment.kind === "voice"
+      ? translate("attachments.voiceMessage")
+      : translate("attachments.unnamed"));
+  const url = `/v1/panel/support/tickets/${ticketId}/attachments/${attachment.id}`;
 
   return (
     <div className="flex flex-col gap-2 rounded-md border border-border border-dashed px-2 py-1 text-xs">
       {attachment.kind === "photo" && attachment.downloadable && (
-        <PhotoPreview
+        <PhotoPreview name={name} url={url} />
+      )}
+      {(attachment.kind === "voice" || attachment.kind === "audio") && attachment.downloadable && (
+        <AudioPreview
+          mediaType={
+            attachment.mediaType || (attachment.kind === "voice" ? "audio/ogg" : "audio/mpeg")
+          }
           name={name}
-          url={`/v1/panel/support/tickets/${ticketId}/attachments/${attachment.id}`}
+          sizeLabel={formatBytes(attachment.sizeBytes)}
+          url={url}
         />
       )}
       <div className="flex flex-wrap items-center gap-2">
@@ -422,6 +435,68 @@ function PhotoPreview({ name, url }: { name: string; url: string }) {
         src={source}
       />
     </a>
+  );
+}
+
+/**
+ * A customer's voice message or audio file, played in the conversation. Like
+ * a photo it is read through the download route with the operator's session
+ * and played from memory, typed with the stored media type: a Telegram voice
+ * message is OGG/Opus, which a browser that cannot play it says so about, and
+ * the download button next to it still works.
+ */
+function AudioPreview({
+  mediaType,
+  name,
+  sizeLabel,
+  url,
+}: {
+  mediaType: string;
+  name: string;
+  sizeLabel: string;
+  url: string;
+}) {
+  const translate = useTranslations("admin.support");
+  const [loaded, setLoaded] = useState<{ source: string; data: ArrayBuffer } | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let revoked = false;
+    let objectUrl: string | null = null;
+    fetch(url, { credentials: "include" })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(String(response.status));
+        }
+        const data = await response.arrayBuffer();
+        objectUrl = URL.createObjectURL(new Blob([data], { type: mediaType }));
+        if (!revoked) {
+          setLoaded({ data, source: objectUrl });
+        }
+      })
+      .catch(() => setFailed(true));
+    return () => {
+      revoked = true;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [url, mediaType]);
+
+  if (failed) {
+    return <span className="text-muted-foreground">{translate("attachments.playFailed")}</span>;
+  }
+  if (!loaded) {
+    return <span className="h-12 w-80 max-w-full animate-pulse rounded-md bg-muted" />;
+  }
+  return (
+    <VoicePlayer
+      data={loaded.data}
+      label={name}
+      onUnplayable={() => setFailed(true)}
+      sizeLabel={sizeLabel}
+      source={loaded.source}
+    />
   );
 }
 

@@ -117,6 +117,9 @@ export function buildCsp(options: { nonce: string; surface: CspSurface; dev?: bo
     "style-src": ["'self'", "'unsafe-inline'"],
     "img-src": img,
     "font-src": ["'self'", "data:"],
+    // A customer's voice message or audio file is played from a blob the
+    // operator's session fetched, like a photo is shown from one.
+    "media-src": ["'self'", "blob:"],
     "connect-src": connect,
     "frame-src": frame.length > 0 ? frame : ["'none'"],
     "worker-src": ["'self'", "blob:"],
