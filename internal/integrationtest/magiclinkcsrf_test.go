@@ -83,3 +83,53 @@ func TestMagicLinkGETDoesNotSignInAndThePOSTIsSameOriginOnly(t *testing.T) {
 		t.Fatalf("a spent link answered %d", replay.Code)
 	}
 }
+
+// Chrome on Android, switching a tab to its desktop version, reloads the tab's
+// original request URL: the spent link, not the panel. A browser already signed
+// in by that link was shown "this link is no longer valid" on the sign-in
+// screen, which read as being signed out. It now lands in the panel; a browser
+// without a live session still gets the refusal.
+func TestASpentLinkOpenedAgainBySignedInBrowserLandsInThePanel(t *testing.T) {
+	ctx := context.Background()
+	harness := newHarness(t)
+	now := time.Now().UTC()
+	service := newCustomerService(t, harness, func() time.Time { return now })
+	router := mountAccount(newAccountHandlersForTest(service))
+
+	seed, err := service.SignInWithTelegram(ctx, signedWidget(700451, now), customerauthpg.RequestContext{})
+	if err != nil {
+		t.Fatalf("seed customer: %v", err)
+	}
+	link, err := service.IssueMagicLink(ctx, seed.Customer.ID, customerauthpg.RequestContext{})
+	if err != nil {
+		t.Fatalf("issue: %v", err)
+	}
+	parsed, _ := url.Parse(link)
+	signedIn, err := service.CompleteMagicLink(ctx, parsed.Query().Get("token"), customerauthpg.RequestContext{})
+	if err != nil {
+		t.Fatalf("redeem: %v", err)
+	}
+
+	open := func(cookie string) string {
+		t.Helper()
+		request := httptest.NewRequest(http.MethodGet, parsed.RequestURI(), nil)
+		if cookie != "" {
+			request.AddCookie(&http.Cookie{Name: "__Host-omniflow_account", Value: cookie})
+		}
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, request)
+		if recorder.Code != http.StatusFound {
+			t.Fatalf("GET answered %d", recorder.Code)
+		}
+		return recorder.Header().Get("Location")
+	}
+	if location := open(signedIn.Token); location != "/account" {
+		t.Fatalf("a signed-in browser was sent to %q", location)
+	}
+	if location := open(""); location != "/account/sign-in?error=link_invalid" {
+		t.Fatalf("a signed-out browser was sent to %q", location)
+	}
+	if location := open("not-a-session"); location != "/account/sign-in?error=link_invalid" {
+		t.Fatalf("a dead cookie was sent to %q", location)
+	}
+}

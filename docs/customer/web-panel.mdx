@@ -317,6 +317,12 @@ to `/account/sign-in?error=…` with `link_invalid` or `method_unavailable`; the
 POST answers `401 link_invalid`, `404 method_unavailable`, or the ordinary
 sign-in problems (`account_unavailable`, `sign_in_unavailable`).
 
+A browser that opens a spent or expired link while it already holds a live
+session is sent to `/account` instead of the error. Chrome on Android reloads the
+tab's original link when the customer switches to the desktop version, and the
+sign-in screen there would read as being signed out. Nothing is opened: the
+session was already that browser's.
+
 <Note>
   The link the bot delivers points at `<APP_PUBLIC_URL>/v1/account/auth/link?token=…`,
   which checks the token and hands off to the confirmation page. Earlier releases pointed it at

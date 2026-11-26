@@ -230,6 +230,10 @@ func (handlers *AccountHandlers) checkMagicLink(writer http.ResponseWriter, requ
 		handlers.redirectToSignIn(writer, request, "method_unavailable")
 		return
 	case errors.Is(err, customerauth.ErrMagicLinkInvalid):
+		if handlers.holdsLiveSession(writer, request) {
+			http.Redirect(writer, request, accountHomePath, http.StatusFound)
+			return
+		}
 		handlers.redirectToSignIn(writer, request, "link_invalid")
 		return
 	case err != nil:
@@ -240,6 +244,36 @@ func (handlers *AccountHandlers) checkMagicLink(writer http.ResponseWriter, requ
 	// CustomerSecurityHeaders already marks this no-store and no-referrer,
 	// which matters here: the Location carries a live credential.
 	http.Redirect(writer, request, magicLinkConfirmPath+"#token="+url.QueryEscape(token), http.StatusFound)
+}
+
+// accountHomePath is the panel a signed-in customer lands on.
+const accountHomePath = "/account"
+
+// holdsLiveSession reports whether the request carries a session cookie that
+// still resolves, reissuing the cookie when the lookup rotated its token.
+//
+// A spent link is opened again by a browser that is already signed in by it.
+// Chrome on Android switching a tab to its desktop version reloads the tab's
+// original request URL — the link the customer tapped, not the panel the
+// confirmation page moved on to — so answering "this link is no longer valid"
+// there shows the sign-in screen to somebody whose session is fine, and reads
+// as being signed out. Such a browser is sent to the panel instead. This opens
+// nothing: the session was already this browser's.
+func (handlers *AccountHandlers) holdsLiveSession(
+	writer http.ResponseWriter, request *http.Request,
+) bool {
+	cookie, err := request.Cookie(handlers.cookieName)
+	if err != nil || cookie.Value == "" {
+		return false
+	}
+	principal, err := handlers.auth.Resolve(request.Context(), cookie.Value)
+	if err != nil {
+		return false
+	}
+	if principal.RotatedToken != "" {
+		handlers.setSessionCookie(writer, principal.RotatedToken, principal.ExpiresAt)
+	}
+	return true
 }
 
 // requestEmailSignIn e-mails a one-time sign-in link.
