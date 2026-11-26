@@ -919,6 +919,31 @@ type ConnectClient struct {
 	UpdatedBy      pgtype.UUID        `json:"updated_by"`
 }
 
+// Store links and mirrored installers for a recommended application. Mirrors are GitHub release assets the worker keeps in the object store at the newest release.
+type ConnectDownload struct {
+	ID           pgtype.UUID        `json:"id"`
+	ClientID     pgtype.UUID        `json:"client_id"`
+	Kind         string             `json:"kind"`
+	Label        string             `json:"label"`
+	Url          pgtype.Text        `json:"url"`
+	SourceRepo   pgtype.Text        `json:"source_repo"`
+	TagPrefix    string             `json:"tag_prefix"`
+	AssetPattern pgtype.Text        `json:"asset_pattern"`
+	Version      pgtype.Text        `json:"version"`
+	FileName     pgtype.Text        `json:"file_name"`
+	SizeBytes    pgtype.Int8        `json:"size_bytes"`
+	Checksum     pgtype.Text        `json:"checksum"`
+	ContentType  pgtype.Text        `json:"content_type"`
+	FetchedAt    pgtype.Timestamptz `json:"fetched_at"`
+	NextCheckAt  pgtype.Timestamptz `json:"next_check_at"`
+	CheckedAt    pgtype.Timestamptz `json:"checked_at"`
+	LastError    pgtype.Text        `json:"last_error"`
+	Enabled      bool               `json:"enabled"`
+	SortOrder    int32              `json:"sort_order"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy    pgtype.UUID        `json:"updated_by"`
+}
+
 type ConnectPlatform struct {
 	Slug      string             `json:"slug"`
 	LabelEn   string             `json:"label_en"`

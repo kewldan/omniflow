@@ -657,10 +657,13 @@ var catalog = map[string]phrase{
 	// operator who adds a platform cannot add a key to a compiled catalogue.
 	"connect.steps": {ru: "%s\n\n1. Установите <b>%s</b>.\n2. Нажмите кнопку добавления профиля ниже. Если приложение не открылось, скопируйте ссылку и вставьте её в приложение вручную.\n3. Подключитесь.\n\nНикому не пересылайте ссылку подписки.",
 		en: "%s\n\n1. Install <b>%s</b>.\n2. Tap the add-profile button below. If no app opens, copy the link and import it manually.\n3. Connect.\n\nNever share your subscription link."},
-	"connect.deepLink": {ru: "📲 Добавить в %s", en: "📲 Add to %s"},
-	"connect.copyLink": {ru: "📋 Скопировать ссылку", en: "📋 Copy link"},
-	"connect.noLink":   {ru: "Ссылка подписки появится после активации доступа.", en: "Your subscription link appears once access is active."},
-	"connect.download": {ru: "⬇️ Скачать %s", en: "⬇️ Get %s"},
+	"connect.deepLink":  {ru: "📲 Добавить в %s", en: "📲 Add to %s"},
+	"connect.copyLink":  {ru: "📋 Скопировать ссылку", en: "📋 Copy link"},
+	"connect.noLink":    {ru: "Ссылка подписки появится после активации доступа.", en: "Your subscription link appears once access is active."},
+	"connect.download":  {ru: "⬇️ Скачать %s", en: "⬇️ Get %s"},
+	"connect.file":      {ru: "⬇️ %s %s · %s", en: "⬇️ %s %s · %s"},
+	"connect.store":     {ru: "🛍 %s · %s", en: "🛍 %s · %s"},
+	"connect.filesHint": {ru: "Кнопки «⬇️» скачивают приложение с нашего сервера — они открываются и без VPN.", en: "The ⬇️ buttons download the app from our own server, so they open without a VPN."},
 	"connect.noClients": {ru: "Список приложений пока не настроен. Ссылку подписки можно скопировать и импортировать в любой совместимый клиент.",
 		en: "No applications are configured yet. You can copy the subscription link and import it into any compatible client."},
 

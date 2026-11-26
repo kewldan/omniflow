@@ -178,6 +178,50 @@ func TestConnectViewOffersDeepLinksAndAManualFallback(t *testing.T) {
 	}
 }
 
+func TestConnectViewOffersServedInstallersAndStoreLinks(t *testing.T) {
+	t.Parallel()
+	subscription := remnawave.Subscription{Found: true, SubscriptionURL: "https://sub.example/secret"}
+	apps := []commerce.ClientApp{{
+		Name: "Happ", Scheme: "happ://add/",
+		Downloads: []commerce.ClientDownload{
+			{Kind: "file", Label: "APK", Version: "4.11.2", URL: "/v1/downloads/d1/Happ.apk"},
+			{Kind: "store", Label: "Google Play", URL: "https://play.google.com/store/apps/details?id=com.happproxy"},
+		},
+	}}
+	platforms := []commerce.ConnectPlatform{{Slug: "android", Label: "Android"}}
+
+	view := connectPlatformView(LocaleRussian, "android", subscription, "Android", apps, platforms,
+		connectOptions{PublicURL: "https://panel.example/"})
+	labels := buttonLabels(view)
+	if !strings.Contains(labels, "⬇️ Happ 4.11.2 · APK") || !strings.Contains(labels, "🛍 Happ · Google Play") {
+		t.Fatalf("both the served file and the store link must be offered: %s", labels)
+	}
+	found := false
+	for _, buttonRow := range view.Keyboard.InlineKeyboard {
+		for _, button := range buttonRow {
+			if button.URL == "https://panel.example/v1/downloads/d1/Happ.apk" {
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Fatal("a served file must open on the panel's own https address")
+	}
+	if !strings.Contains(view.Text, "без VPN") {
+		t.Fatalf("the customer must be told why the file buttons exist: %s", view.Text)
+	}
+
+	// Without an https address a Telegram button cannot point at a path, so
+	// only the store link remains and the hint goes with the file.
+	view = connectPlatformView(LocaleRussian, "android", subscription, "Android", apps, platforms, connectOptions{})
+	if labels := buttonLabels(view); strings.Contains(labels, "⬇️ Happ 4.11.2") || !strings.Contains(labels, "Google Play") {
+		t.Fatalf("without a public address: %s", labels)
+	}
+	if strings.Contains(view.Text, "без VPN") {
+		t.Fatal("the hint promised files that are not offered")
+	}
+}
+
 func TestConnectViewWithoutASubscriptionExplainsItself(t *testing.T) {
 	t.Parallel()
 	view := connectPlatformView(

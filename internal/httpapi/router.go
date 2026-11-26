@@ -36,6 +36,9 @@ type RouterOptions struct {
 	// SmartSubscription serves the smart subscription link. Nil without a
 	// database.
 	SmartSubscription *SmartSubscriptionHandler
+	// ClientDownloads serves mirrored client installers. Nil leaves the route
+	// unmounted.
+	ClientDownloads *ClientDownloadHandler
 	// CollectorEnabled exposes the anonymous telemetry collector endpoint.
 	CollectorEnabled bool
 	Telemetry        *telemetry.Client
@@ -52,7 +55,7 @@ func NewRouter(logger *slog.Logger, options RouterOptions) http.Handler {
 		})
 	})
 	router.Use(middleware.Recoverer)
-	router.Use(middleware.Timeout(60 * time.Second))
+	router.Use(withRequestTimeout(60 * time.Second))
 	router.Use(func(next http.Handler) http.Handler { return otelhttp.NewHandler(next, "http.server") })
 	if options.Metrics != nil {
 		router.Use(metricsMiddleware(options.Metrics))
@@ -89,6 +92,9 @@ func NewRouter(logger *slog.Logger, options RouterOptions) http.Handler {
 	}
 	if options.SmartSubscription != nil {
 		options.SmartSubscription.Mount(router)
+	}
+	if options.ClientDownloads != nil {
+		options.ClientDownloads.Mount(router)
 	}
 	return router
 }

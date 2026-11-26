@@ -27,6 +27,7 @@ import (
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/commercepg"
 	"github.com/omniflow/omniflow/internal/config"
+	"github.com/omniflow/omniflow/internal/connectpg"
 	"github.com/omniflow/omniflow/internal/customerauthpg"
 	"github.com/omniflow/omniflow/internal/customerpg"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
@@ -122,6 +123,7 @@ func main() {
 			RemnawaveWebhook:  runtime.remnawaveWebhook,
 			ServerStatus:      runtime.serverStatus,
 			SmartSubscription: runtime.smartSubscription,
+			ClientDownloads:   runtime.clientDownloads,
 			CollectorEnabled:  cfg.TelemetryCollectorEnabled, Telemetry: telemetryClient, Version: version,
 		}),
 		ReadHeaderTimeout: 5 * time.Second,
@@ -160,6 +162,9 @@ type runtimeServices struct {
 	serverStatus *apihttp.ServerStatusHandler
 	// smartSubscription serves /v1/sub/{shortUUID}, on or off.
 	smartSubscription *apihttp.SmartSubscriptionHandler
+	// clientDownloads serves mirrored client installers; nil without an
+	// object store.
+	clientDownloads *apihttp.ClientDownloadHandler
 	// pool and installation are shared with main for the error log and the
 	// telemetry switch.
 	pool         *pgxpool.Pool
@@ -265,6 +270,20 @@ func buildCommerce(ctx context.Context, logger *slog.Logger, cfg config.Config, 
 	services.smartSubscription = apihttp.NewSmartSubscriptionHandler(
 		smartSubscription, platform.NewRateLimiter(valkeyClient), subscriptionProxies, logger,
 	)
+	// Mirrored client installers are written by the worker into the object
+	// store and served from here. Without a store there is nothing to serve,
+	// and the route stays unmounted.
+	clientFiles, err := objectstore.ClientDownloads(cfg.ObjectStore)
+	if err != nil {
+		closeAll()
+		return runtimeServices{}, nil, err
+	}
+	if clientFiles != nil {
+		services.clientDownloads = apihttp.NewClientDownloadHandler(
+			connectpg.NewMirrors(pool), clientFiles, platform.NewRateLimiter(valkeyClient),
+			subscriptionProxies, logger,
+		)
+	}
 	services.remnawaveWebhook = apihttp.NewRemnawaveWebhookHandler(
 		remnawavesync.NewIntake(pool, remnawavesync.IntakeOptionsFromEnv(os.Getenv)), logger,
 	)
@@ -400,6 +419,7 @@ func buildAdminPanel(
 		// The desk reads customer uploads from the same store the customer API
 		// writes them to and the bot copies Telegram files into.
 		SupportAttachments: supportFiles,
+		ClientMirroring:    cfg.ObjectStore.Enabled(),
 		Search:             search,
 		Stars:              starsShopOptions(logger, cfg, pool),
 		Installation:       installation,

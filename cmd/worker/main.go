@@ -22,7 +22,9 @@ import (
 	"github.com/omniflow/omniflow/internal/blockedbot"
 	"github.com/omniflow/omniflow/internal/bulkrunner"
 	"github.com/omniflow/omniflow/internal/campaigns"
+	"github.com/omniflow/omniflow/internal/clientmirror"
 	"github.com/omniflow/omniflow/internal/config"
+	"github.com/omniflow/omniflow/internal/connectpg"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 	"github.com/omniflow/omniflow/internal/egress"
 	"github.com/omniflow/omniflow/internal/errorlog"
@@ -378,6 +380,21 @@ func periodicTasks(
 			}
 			return dormantPass.Run(ctx)
 		}})
+	// Client mirrors: copies of client installers on the installation's own
+	// address, kept at each source's newest GitHub release. They need an
+	// object store; without one nothing is fetched and the panel says why.
+	if clientFiles, filesErr := objectstore.ClientDownloads(cfg.ObjectStore); filesErr != nil {
+		logger.Warn("client mirrors are off", "error", filesErr)
+	} else if clientFiles != nil {
+		mirrors := clientmirror.New(clientmirror.Options{
+			Repository: connectpg.NewMirrors(pool), Files: clientFiles,
+			Releases: clientmirror.NewGitHub(nil), Logger: logger,
+		})
+		tasks = append(tasks,
+			jobs.Task{Name: "client_mirror", Interval: time.Minute, Timeout: 30 * time.Minute, Run: mirrors.Pass},
+			jobs.Task{Name: "client_mirror_sweep", Interval: time.Hour, Run: mirrors.Sweep},
+		)
+	}
 	reports := operator.NewReports(pool, settings, logger)
 	tasks = append(tasks,
 		jobs.Task{Name: "operator_reports", Interval: 5 * time.Minute, Run: reports.RunReports},

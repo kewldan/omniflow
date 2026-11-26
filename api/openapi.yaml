@@ -136,6 +136,31 @@ paths:
             image/*: {schema: {type: string, format: binary}}
         "304": {description: Unchanged since the client copy}
         "404": {$ref: "#/components/responses/Problem"}
+  /v1/downloads/{downloadID}/{fileName}:
+    get:
+      operationId: getClientDownload
+      tags: [catalog]
+      security: []
+      description: >-
+        Public. A client installer this installation mirrors from the client's
+        GitHub releases and serves from its own address, for customers who cannot
+        reach GitHub or the vendor. The file name must be the one the connection
+        screen published. Ranges are answered, so an interrupted download resumes;
+        the ETag is the file's SHA-256. Rate limited per address. Not served while
+        the download, its client, or its platform is switched off.
+      parameters:
+        - {in: path, name: downloadID, required: true, schema: {type: string, format: uuid}}
+        - {in: path, name: fileName, required: true, schema: {type: string}}
+      responses:
+        "200":
+          description: The installer
+          content:
+            application/octet-stream: {schema: {type: string, format: binary}}
+        "206": {description: The requested range}
+        "304": {description: Unchanged since the client copy}
+        "404": {$ref: "#/components/responses/Problem"}
+        "429": {$ref: "#/components/responses/Problem"}
+        "503": {$ref: "#/components/responses/Problem"}
   /v1/admin/plans:
     post:
       operationId: createPlan
@@ -3467,6 +3492,52 @@ paths:
         "404": {$ref: "#/components/responses/Problem"}
         "422": {$ref: "#/components/responses/Problem"}
         "502": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/connect/downloads:
+    put:
+      operationId: savePanelConnectDownload
+      tags: [panel]
+      description: >-
+        Requires settings.write. Creates when `id` is absent and updates when it
+        is present. A `store` download is an https link to a store or vendor page.
+        A `mirror` names a GitHub release asset — repository, the prefix a tag must
+        start with, and the asset's file name with * and ? wildcards — which the
+        worker copies into the object store and keeps at the newest published
+        release. Changing a mirror's source makes it due at once.
+      parameters: [{$ref: "#/components/parameters/CSRFToken"}]
+      requestBody: {required: true, content: {application/json: {schema: {$ref: "#/components/schemas/PanelConnectDownload"}}}}
+      responses:
+        "200": {description: Saved, content: {application/json: {schema: {$ref: "#/components/schemas/PanelConnectDownload"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "409": {$ref: "#/components/responses/Problem"}
+        "422": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/connect/downloads/{downloadID}:
+    delete:
+      operationId: deletePanelConnectDownload
+      tags: [panel]
+      description: >-
+        Requires settings.write. A mirror's file is removed from the object store
+        by the worker's hourly sweep once no download refers to it.
+      parameters:
+        - {in: path, name: downloadID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "200": {description: Removed, content: {application/json: {schema: {type: object, properties: {removed: {type: boolean}}}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
+  /v1/panel/settings/connect/downloads/{downloadID}/check:
+    post:
+      operationId: checkPanelConnectMirror
+      tags: [panel]
+      description: >-
+        Requires settings.write. Makes a mirror due now; the worker checks due
+        mirrors every minute and copies a newer release if there is one.
+      parameters:
+        - {in: path, name: downloadID, required: true, schema: {type: string, format: uuid}}
+        - {$ref: "#/components/parameters/CSRFToken"}
+      responses:
+        "200": {description: Queued, content: {application/json: {schema: {type: object, properties: {queued: {type: boolean}}}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
   /v1/panel/settings/providers:
     get:
       operationId: listPanelProviderSettings
@@ -8838,12 +8909,40 @@ components:
         sortOrder: {type: integer}
         updatedAt: {type: string, format: date-time}
         updatedBy: {type: string, format: uuid}
+    PanelConnectDownload:
+      type: object
+      required: [clientId, kind, label, enabled, sortOrder, updatedAt]
+      properties:
+        id: {type: string, format: uuid, description: "Absent creates, present updates."}
+        clientId: {type: string, format: uuid}
+        kind: {type: string, enum: [store, mirror]}
+        label: {type: string, description: "Up to 40 characters, shown on the button: App Store, Windows x64, APK."}
+        url: {type: string, description: "A store link; https only."}
+        sourceRepo: {type: string, description: "A mirror's GitHub repository, owner/name. A github.com address is accepted and reduced to that."}
+        tagPrefix: {type: string, description: "What a release's tag must start with; empty accepts every release."}
+        assetPattern: {type: string, description: "The asset's file name; * and ? are wildcards."}
+        enabled: {type: boolean}
+        sortOrder: {type: integer}
+        version: {type: string, description: "The release the mirror holds, from its tag. Read-only."}
+        fileName: {type: string, readOnly: true}
+        sizeBytes: {type: integer, format: int64, readOnly: true}
+        checksum: {type: string, readOnly: true, description: "SHA-256 of the file, hex."}
+        fetchedAt: {type: string, format: date-time, readOnly: true}
+        checkedAt: {type: string, format: date-time, readOnly: true}
+        nextCheckAt: {type: string, format: date-time, readOnly: true}
+        lastError: {type: string, readOnly: true, description: "Why the last check failed; absent after a successful one."}
+        path: {type: string, readOnly: true, description: "Where customers download the file, once the mirror holds one."}
+        updatedAt: {type: string, format: date-time}
+        updatedBy: {type: string, format: uuid}
     PanelConnectCatalogue:
       type: object
-      required: [platforms, clients]
+      required: [platforms, clients, downloads, mirroring, maxFileBytes]
       properties:
         platforms: {type: array, items: {$ref: "#/components/schemas/PanelConnectPlatform"}}
         clients: {type: array, items: {$ref: "#/components/schemas/PanelConnectClient"}}
+        downloads: {type: array, items: {$ref: "#/components/schemas/PanelConnectDownload"}}
+        mirroring: {type: boolean, description: "Whether an object store is configured to keep mirrored installers in (APP_S3_*)."}
+        maxFileBytes: {type: integer, format: int64, description: "The largest installer a mirror copies."}
     PanelSalesLine:
       type: object
       required: [operation, currency, orders, subtotalMinor, discountMinor, paidMinor, walletMinor]
@@ -10887,12 +10986,27 @@ components:
           type: array
           items:
             type: object
-            required: [name, deepLink]
+            required: [name, deepLink, downloads]
             properties:
               name: {type: string}
               deepLink: {type: string, description: "Empty when the subscription has no link yet."}
               downloadUrl: {type: string}
               instructions: {type: string, description: "The operator's own words, replacing the generic setup steps when present."}
+              downloads:
+                type: array
+                description: >-
+                  Store links and installers this installation serves itself, in the
+                  operator's order. A mirror appears only once it holds a file.
+                items:
+                  type: object
+                  required: [kind, label, url]
+                  properties:
+                    kind: {type: string, enum: [store, file]}
+                    label: {type: string}
+                    url: {type: string, description: "Absolute for a store link; a path on this installation, /v1/downloads/…, for a file."}
+                    version: {type: string}
+                    fileName: {type: string}
+                    sizeBytes: {type: integer, format: int64}
     AccountDeviceList:
       type: object
       required: [items]

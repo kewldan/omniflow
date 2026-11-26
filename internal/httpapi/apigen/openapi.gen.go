@@ -161,6 +161,24 @@ func (e AccountCheckoutSquadSelectionReason) Valid() bool {
 	}
 }
 
+// Defines values for AccountConnectionClientsDownloadsKind.
+const (
+	AccountConnectionClientsDownloadsKindFile  AccountConnectionClientsDownloadsKind = "file"
+	AccountConnectionClientsDownloadsKindStore AccountConnectionClientsDownloadsKind = "store"
+)
+
+// Valid indicates whether the value is a known member of the AccountConnectionClientsDownloadsKind enum.
+func (e AccountConnectionClientsDownloadsKind) Valid() bool {
+	switch e {
+	case AccountConnectionClientsDownloadsKindFile:
+		return true
+	case AccountConnectionClientsDownloadsKindStore:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AccountContactKind.
 const (
 	AccountContactKindEmail    AccountContactKind = "email"
@@ -2375,6 +2393,24 @@ func (e PanelChurnReasonLineOccasion) Valid() bool {
 	case PanelChurnReasonLineOccasionAutoRenewOff:
 		return true
 	case PanelChurnReasonLineOccasionLapsed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelConnectDownloadKind.
+const (
+	PanelConnectDownloadKindMirror PanelConnectDownloadKind = "mirror"
+	PanelConnectDownloadKindStore  PanelConnectDownloadKind = "store"
+)
+
+// Valid indicates whether the value is a known member of the PanelConnectDownloadKind enum.
+func (e PanelConnectDownloadKind) Valid() bool {
+	switch e {
+	case PanelConnectDownloadKindMirror:
+		return true
+	case PanelConnectDownloadKindStore:
 		return true
 	default:
 		return false
@@ -6688,6 +6724,18 @@ type AccountConnection struct {
 		DeepLink    string  `json:"deepLink"`
 		DownloadUrl *string `json:"downloadUrl,omitempty"`
 
+		// Downloads Store links and installers this installation serves itself, in the operator's order. A mirror appears only once it holds a file.
+		Downloads []struct {
+			FileName  *string                               `json:"fileName,omitempty"`
+			Kind      AccountConnectionClientsDownloadsKind `json:"kind"`
+			Label     string                                `json:"label"`
+			SizeBytes *int64                                `json:"sizeBytes,omitempty"`
+
+			// Url Absolute for a store link; a path on this installation, /v1/downloads/…, for a file.
+			Url     string  `json:"url"`
+			Version *string `json:"version,omitempty"`
+		} `json:"downloads"`
+
 		// Instructions The operator's own words, replacing the generic setup steps when present.
 		Instructions *string `json:"instructions,omitempty"`
 		Name         string  `json:"name"`
@@ -6710,6 +6758,9 @@ type AccountConnection struct {
 	// SubscriptionUrl Empty when the operator hides the bare link (APP_CONNECT_HIDE_SUBSCRIPTION_LINK).
 	SubscriptionUrl string `json:"subscriptionUrl"`
 }
+
+// AccountConnectionClientsDownloadsKind defines model for AccountConnection.Clients.Downloads.Kind.
+type AccountConnectionClientsDownloadsKind string
 
 // AccountContact Flags only. The stored value is never returned.
 type AccountContact struct {
@@ -9286,6 +9337,13 @@ type PanelCommerceSettings struct {
 // PanelConnectCatalogue defines model for PanelConnectCatalogue.
 type PanelConnectCatalogue struct {
 	Clients   []PanelConnectClient   `json:"clients"`
+	Downloads []PanelConnectDownload `json:"downloads"`
+
+	// MaxFileBytes The largest installer a mirror copies.
+	MaxFileBytes int64 `json:"maxFileBytes"`
+
+	// Mirroring Whether an object store is configured to keep mirrored installers in (APP_S3_*).
+	Mirroring bool                   `json:"mirroring"`
 	Platforms []PanelConnectPlatform `json:"platforms"`
 }
 
@@ -9310,6 +9368,53 @@ type PanelConnectClient struct {
 	UpdatedAt time.Time           `json:"updatedAt"`
 	UpdatedBy *openapi_types.UUID `json:"updatedBy,omitempty"`
 }
+
+// PanelConnectDownload defines model for PanelConnectDownload.
+type PanelConnectDownload struct {
+	// AssetPattern The asset's file name; * and ? are wildcards.
+	AssetPattern *string    `json:"assetPattern,omitempty"`
+	CheckedAt    *time.Time `json:"checkedAt,omitempty"`
+
+	// Checksum SHA-256 of the file, hex.
+	Checksum  *string            `json:"checksum,omitempty"`
+	ClientId  openapi_types.UUID `json:"clientId"`
+	Enabled   bool               `json:"enabled"`
+	FetchedAt *time.Time         `json:"fetchedAt,omitempty"`
+	FileName  *string            `json:"fileName,omitempty"`
+
+	// Id Absent creates, present updates.
+	Id   *openapi_types.UUID      `json:"id,omitempty"`
+	Kind PanelConnectDownloadKind `json:"kind"`
+
+	// Label Up to 40 characters, shown on the button: App Store, Windows x64, APK.
+	Label string `json:"label"`
+
+	// LastError Why the last check failed; absent after a successful one.
+	LastError   *string    `json:"lastError,omitempty"`
+	NextCheckAt *time.Time `json:"nextCheckAt,omitempty"`
+
+	// Path Where customers download the file, once the mirror holds one.
+	Path      *string `json:"path,omitempty"`
+	SizeBytes *int64  `json:"sizeBytes,omitempty"`
+	SortOrder int     `json:"sortOrder"`
+
+	// SourceRepo A mirror's GitHub repository, owner/name. A github.com address is accepted and reduced to that.
+	SourceRepo *string `json:"sourceRepo,omitempty"`
+
+	// TagPrefix What a release's tag must start with; empty accepts every release.
+	TagPrefix *string             `json:"tagPrefix,omitempty"`
+	UpdatedAt time.Time           `json:"updatedAt"`
+	UpdatedBy *openapi_types.UUID `json:"updatedBy,omitempty"`
+
+	// Url A store link; https only.
+	Url *string `json:"url,omitempty"`
+
+	// Version The release the mirror holds, from its tag. Read-only.
+	Version *string `json:"version,omitempty"`
+}
+
+// PanelConnectDownloadKind defines model for PanelConnectDownload.Kind.
+type PanelConnectDownloadKind string
 
 // PanelConnectPlatform defines model for PanelConnectPlatform.
 type PanelConnectPlatform struct {
@@ -15124,6 +15229,24 @@ type DeletePanelConnectClientParams struct {
 	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
 }
 
+// SavePanelConnectDownloadParams defines parameters for SavePanelConnectDownload.
+type SavePanelConnectDownloadParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// DeletePanelConnectDownloadParams defines parameters for DeletePanelConnectDownload.
+type DeletePanelConnectDownloadParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
+// CheckPanelConnectMirrorParams defines parameters for CheckPanelConnectMirror.
+type CheckPanelConnectMirrorParams struct {
+	// XCSRFToken Echoes the token from the current session. Required on every unsafe method.
+	XCSRFToken CSRFToken `json:"X-CSRF-Token"`
+}
+
 // ImportPanelConnectFromRemnawaveJSONBody defines parameters for ImportPanelConnectFromRemnawave.
 type ImportPanelConnectFromRemnawaveJSONBody struct {
 	ConfigUuid openapi_types.UUID `json:"configUuid"`
@@ -15857,6 +15980,9 @@ type SavePanelTopUpSettingsJSONRequestBody = PanelTopUpSettings
 
 // SavePanelConnectClientJSONRequestBody defines body for SavePanelConnectClient for application/json ContentType.
 type SavePanelConnectClientJSONRequestBody = PanelConnectClient
+
+// SavePanelConnectDownloadJSONRequestBody defines body for SavePanelConnectDownload for application/json ContentType.
+type SavePanelConnectDownloadJSONRequestBody = PanelConnectDownload
 
 // ImportPanelConnectFromRemnawaveJSONRequestBody defines body for ImportPanelConnectFromRemnawave for application/json ContentType.
 type ImportPanelConnectFromRemnawaveJSONRequestBody ImportPanelConnectFromRemnawaveJSONBody
@@ -16628,6 +16754,9 @@ type ServerInterface interface {
 	// (GET /v1/catalog/plans)
 	ListPlans(w http.ResponseWriter, r *http.Request, params ListPlansParams)
 
+	// (GET /v1/downloads/{downloadID}/{fileName})
+	GetClientDownload(w http.ResponseWriter, r *http.Request, downloadID openapi_types.UUID, fileName string)
+
 	// (GET /v1/pages)
 	ListPublishedPages(w http.ResponseWriter, r *http.Request, params ListPublishedPagesParams)
 
@@ -17245,6 +17374,15 @@ type ServerInterface interface {
 
 	// (DELETE /v1/panel/settings/connect/clients/{clientID})
 	DeletePanelConnectClient(w http.ResponseWriter, r *http.Request, clientID openapi_types.UUID, params DeletePanelConnectClientParams)
+
+	// (PUT /v1/panel/settings/connect/downloads)
+	SavePanelConnectDownload(w http.ResponseWriter, r *http.Request, params SavePanelConnectDownloadParams)
+
+	// (DELETE /v1/panel/settings/connect/downloads/{downloadID})
+	DeletePanelConnectDownload(w http.ResponseWriter, r *http.Request, downloadID openapi_types.UUID, params DeletePanelConnectDownloadParams)
+
+	// (POST /v1/panel/settings/connect/downloads/{downloadID}/check)
+	CheckPanelConnectMirror(w http.ResponseWriter, r *http.Request, downloadID openapi_types.UUID, params CheckPanelConnectMirrorParams)
 
 	// (POST /v1/panel/settings/connect/import-remnawave)
 	ImportPanelConnectFromRemnawave(w http.ResponseWriter, r *http.Request, params ImportPanelConnectFromRemnawaveParams)
@@ -18341,6 +18479,11 @@ func (_ Unimplemented) ListPlans(w http.ResponseWriter, r *http.Request, params 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// (GET /v1/downloads/{downloadID}/{fileName})
+func (_ Unimplemented) GetClientDownload(w http.ResponseWriter, r *http.Request, downloadID openapi_types.UUID, fileName string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // (GET /v1/pages)
 func (_ Unimplemented) ListPublishedPages(w http.ResponseWriter, r *http.Request, params ListPublishedPagesParams) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -19368,6 +19511,21 @@ func (_ Unimplemented) SavePanelConnectClient(w http.ResponseWriter, r *http.Req
 
 // (DELETE /v1/panel/settings/connect/clients/{clientID})
 func (_ Unimplemented) DeletePanelConnectClient(w http.ResponseWriter, r *http.Request, clientID openapi_types.UUID, params DeletePanelConnectClientParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /v1/panel/settings/connect/downloads)
+func (_ Unimplemented) SavePanelConnectDownload(w http.ResponseWriter, r *http.Request, params SavePanelConnectDownloadParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /v1/panel/settings/connect/downloads/{downloadID})
+func (_ Unimplemented) DeletePanelConnectDownload(w http.ResponseWriter, r *http.Request, downloadID openapi_types.UUID, params DeletePanelConnectDownloadParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (POST /v1/panel/settings/connect/downloads/{downloadID}/check)
+func (_ Unimplemented) CheckPanelConnectMirror(w http.ResponseWriter, r *http.Request, downloadID openapi_types.UUID, params CheckPanelConnectMirrorParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -26755,6 +26913,41 @@ func (siw *ServerInterfaceWrapper) ListPlans(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListPlans(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetClientDownload operation middleware
+func (siw *ServerInterfaceWrapper) GetClientDownload(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "downloadID" -------------
+	var downloadID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "downloadID", chi.URLParam(r, "downloadID"), &downloadID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "downloadID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "fileName" -------------
+	var fileName string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "fileName", chi.URLParam(r, "fileName"), &fileName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "fileName", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetClientDownload(w, r, downloadID, fileName)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -36115,6 +36308,159 @@ func (siw *ServerInterfaceWrapper) DeletePanelConnectClient(w http.ResponseWrite
 	handler.ServeHTTP(w, r)
 }
 
+// SavePanelConnectDownload operation middleware
+func (siw *ServerInterfaceWrapper) SavePanelConnectDownload(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SavePanelConnectDownloadParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SavePanelConnectDownload(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeletePanelConnectDownload operation middleware
+func (siw *ServerInterfaceWrapper) DeletePanelConnectDownload(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "downloadID" -------------
+	var downloadID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "downloadID", chi.URLParam(r, "downloadID"), &downloadID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "downloadID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeletePanelConnectDownloadParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeletePanelConnectDownload(w, r, downloadID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CheckPanelConnectMirror operation middleware
+func (siw *ServerInterfaceWrapper) CheckPanelConnectMirror(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "downloadID" -------------
+	var downloadID openapi_types.UUID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "downloadID", chi.URLParam(r, "downloadID"), &downloadID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "downloadID", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CheckPanelConnectMirrorParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-CSRF-Token" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-CSRF-Token")]; found {
+		var XCSRFToken CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-CSRF-Token", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-CSRF-Token", valueList[0], &XCSRFToken, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-CSRF-Token", Err: err})
+			return
+		}
+
+		params.XCSRFToken = XCSRFToken
+
+	} else {
+		err := fmt.Errorf("Header parameter X-CSRF-Token is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-CSRF-Token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CheckPanelConnectMirror(w, r, downloadID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ImportPanelConnectFromRemnawave operation middleware
 func (siw *ServerInterfaceWrapper) ImportPanelConnectFromRemnawave(w http.ResponseWriter, r *http.Request) {
 
@@ -38742,6 +39088,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Get(options.BaseURL+"/v1/branding/assets/{kind}", wrapper.GetBrandingAsset)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/downloads/{downloadID}/{fileName}", wrapper.GetClientDownload)
+	})
+	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/admin/plans", wrapper.CreatePlan)
 	})
 	r.Group(func(r chi.Router) {
@@ -39397,6 +39746,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/v1/panel/settings/connect/import-remnawave", wrapper.ImportPanelConnectFromRemnawave)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/v1/panel/settings/connect/downloads", wrapper.SavePanelConnectDownload)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/panel/settings/connect/downloads/{downloadID}", wrapper.DeletePanelConnectDownload)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/v1/panel/settings/connect/downloads/{downloadID}/check", wrapper.CheckPanelConnectMirror)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/settings/providers", wrapper.ListPanelProviderSettings)
@@ -48092,6 +48450,95 @@ func (response ListPlans500ApplicationProblemPlusJSONResponse) VisitListPlansRes
 	}
 	w.Header().Set("Content-Type", "application/problem+json")
 	w.WriteHeader(500)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetClientDownloadRequestObject struct {
+	DownloadID openapi_types.UUID `json:"downloadID"`
+	FileName   string             `json:"fileName"`
+}
+
+type GetClientDownloadResponseObject interface {
+	VisitGetClientDownloadResponse(w http.ResponseWriter) error
+}
+
+type GetClientDownload200ApplicationoctetStreamResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response GetClientDownload200ApplicationoctetStreamResponse) VisitGetClientDownloadResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type GetClientDownload206Response struct {
+}
+
+func (response GetClientDownload206Response) VisitGetClientDownloadResponse(w http.ResponseWriter) error {
+	w.WriteHeader(206)
+	return nil
+}
+
+type GetClientDownload304Response struct {
+}
+
+func (response GetClientDownload304Response) VisitGetClientDownloadResponse(w http.ResponseWriter) error {
+	w.WriteHeader(304)
+	return nil
+}
+
+type GetClientDownload404ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetClientDownload404ApplicationProblemPlusJSONResponse) VisitGetClientDownloadResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetClientDownload429ApplicationProblemPlusJSONResponse Problem
+
+func (response GetClientDownload429ApplicationProblemPlusJSONResponse) VisitGetClientDownloadResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetClientDownload503ApplicationProblemPlusJSONResponse Problem
+
+func (response GetClientDownload503ApplicationProblemPlusJSONResponse) VisitGetClientDownloadResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(503)
 	_, err := buf.WriteTo(w)
 	return err
 }
@@ -58028,6 +58475,183 @@ func (response DeletePanelConnectClient404ApplicationProblemPlusJSONResponse) Vi
 	return err
 }
 
+type SavePanelConnectDownloadRequestObject struct {
+	Params SavePanelConnectDownloadParams
+	Body   *SavePanelConnectDownloadJSONRequestBody
+}
+
+type SavePanelConnectDownloadResponseObject interface {
+	VisitSavePanelConnectDownloadResponse(w http.ResponseWriter) error
+}
+
+type SavePanelConnectDownload200JSONResponse PanelConnectDownload
+
+func (response SavePanelConnectDownload200JSONResponse) VisitSavePanelConnectDownloadResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelConnectDownload403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response SavePanelConnectDownload403ApplicationProblemPlusJSONResponse) VisitSavePanelConnectDownloadResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelConnectDownload409ApplicationProblemPlusJSONResponse Problem
+
+func (response SavePanelConnectDownload409ApplicationProblemPlusJSONResponse) VisitSavePanelConnectDownloadResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SavePanelConnectDownload422ApplicationProblemPlusJSONResponse Problem
+
+func (response SavePanelConnectDownload422ApplicationProblemPlusJSONResponse) VisitSavePanelConnectDownloadResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePanelConnectDownloadRequestObject struct {
+	DownloadID openapi_types.UUID `json:"downloadID"`
+	Params     DeletePanelConnectDownloadParams
+}
+
+type DeletePanelConnectDownloadResponseObject interface {
+	VisitDeletePanelConnectDownloadResponse(w http.ResponseWriter) error
+}
+
+type DeletePanelConnectDownload200JSONResponse struct {
+	Removed *bool `json:"removed,omitempty"`
+}
+
+func (response DeletePanelConnectDownload200JSONResponse) VisitDeletePanelConnectDownloadResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePanelConnectDownload403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response DeletePanelConnectDownload403ApplicationProblemPlusJSONResponse) VisitDeletePanelConnectDownloadResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeletePanelConnectDownload404ApplicationProblemPlusJSONResponse Problem
+
+func (response DeletePanelConnectDownload404ApplicationProblemPlusJSONResponse) VisitDeletePanelConnectDownloadResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CheckPanelConnectMirrorRequestObject struct {
+	DownloadID openapi_types.UUID `json:"downloadID"`
+	Params     CheckPanelConnectMirrorParams
+}
+
+type CheckPanelConnectMirrorResponseObject interface {
+	VisitCheckPanelConnectMirrorResponse(w http.ResponseWriter) error
+}
+
+type CheckPanelConnectMirror200JSONResponse struct {
+	Queued *bool `json:"queued,omitempty"`
+}
+
+func (response CheckPanelConnectMirror200JSONResponse) VisitCheckPanelConnectMirrorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CheckPanelConnectMirror403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response CheckPanelConnectMirror403ApplicationProblemPlusJSONResponse) VisitCheckPanelConnectMirrorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CheckPanelConnectMirror404ApplicationProblemPlusJSONResponse Problem
+
+func (response CheckPanelConnectMirror404ApplicationProblemPlusJSONResponse) VisitCheckPanelConnectMirrorResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ImportPanelConnectFromRemnawaveRequestObject struct {
 	Params ImportPanelConnectFromRemnawaveParams
 	Body   *ImportPanelConnectFromRemnawaveJSONRequestBody
@@ -61688,6 +62312,9 @@ type StrictServerInterface interface {
 	// (GET /v1/catalog/plans)
 	ListPlans(ctx context.Context, request ListPlansRequestObject) (ListPlansResponseObject, error)
 
+	// (GET /v1/downloads/{downloadID}/{fileName})
+	GetClientDownload(ctx context.Context, request GetClientDownloadRequestObject) (GetClientDownloadResponseObject, error)
+
 	// (GET /v1/pages)
 	ListPublishedPages(ctx context.Context, request ListPublishedPagesRequestObject) (ListPublishedPagesResponseObject, error)
 
@@ -62305,6 +62932,15 @@ type StrictServerInterface interface {
 
 	// (DELETE /v1/panel/settings/connect/clients/{clientID})
 	DeletePanelConnectClient(ctx context.Context, request DeletePanelConnectClientRequestObject) (DeletePanelConnectClientResponseObject, error)
+
+	// (PUT /v1/panel/settings/connect/downloads)
+	SavePanelConnectDownload(ctx context.Context, request SavePanelConnectDownloadRequestObject) (SavePanelConnectDownloadResponseObject, error)
+
+	// (DELETE /v1/panel/settings/connect/downloads/{downloadID})
+	DeletePanelConnectDownload(ctx context.Context, request DeletePanelConnectDownloadRequestObject) (DeletePanelConnectDownloadResponseObject, error)
+
+	// (POST /v1/panel/settings/connect/downloads/{downloadID}/check)
+	CheckPanelConnectMirror(ctx context.Context, request CheckPanelConnectMirrorRequestObject) (CheckPanelConnectMirrorResponseObject, error)
 
 	// (POST /v1/panel/settings/connect/import-remnawave)
 	ImportPanelConnectFromRemnawave(ctx context.Context, request ImportPanelConnectFromRemnawaveRequestObject) (ImportPanelConnectFromRemnawaveResponseObject, error)
@@ -67685,6 +68321,33 @@ func (sh *strictHandler) ListPlans(w http.ResponseWriter, r *http.Request, param
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListPlansResponseObject); ok {
 		if err := validResponse.VisitListPlansResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetClientDownload operation middleware
+func (sh *strictHandler) GetClientDownload(w http.ResponseWriter, r *http.Request, downloadID openapi_types.UUID, fileName string) {
+	var request GetClientDownloadRequestObject
+
+	request.DownloadID = downloadID
+	request.FileName = fileName
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetClientDownload(ctx, request.(GetClientDownloadRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetClientDownload")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetClientDownloadResponseObject); ok {
+		if err := validResponse.VisitGetClientDownloadResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -73549,6 +74212,93 @@ func (sh *strictHandler) DeletePanelConnectClient(w http.ResponseWriter, r *http
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(DeletePanelConnectClientResponseObject); ok {
 		if err := validResponse.VisitDeletePanelConnectClientResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SavePanelConnectDownload operation middleware
+func (sh *strictHandler) SavePanelConnectDownload(w http.ResponseWriter, r *http.Request, params SavePanelConnectDownloadParams) {
+	var request SavePanelConnectDownloadRequestObject
+
+	request.Params = params
+
+	var body SavePanelConnectDownloadJSONRequestBody
+	if err := runtime.BindJSONBody(r, &body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SavePanelConnectDownload(ctx, request.(SavePanelConnectDownloadRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SavePanelConnectDownload")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SavePanelConnectDownloadResponseObject); ok {
+		if err := validResponse.VisitSavePanelConnectDownloadResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeletePanelConnectDownload operation middleware
+func (sh *strictHandler) DeletePanelConnectDownload(w http.ResponseWriter, r *http.Request, downloadID openapi_types.UUID, params DeletePanelConnectDownloadParams) {
+	var request DeletePanelConnectDownloadRequestObject
+
+	request.DownloadID = downloadID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeletePanelConnectDownload(ctx, request.(DeletePanelConnectDownloadRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeletePanelConnectDownload")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeletePanelConnectDownloadResponseObject); ok {
+		if err := validResponse.VisitDeletePanelConnectDownloadResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CheckPanelConnectMirror operation middleware
+func (sh *strictHandler) CheckPanelConnectMirror(w http.ResponseWriter, r *http.Request, downloadID openapi_types.UUID, params CheckPanelConnectMirrorParams) {
+	var request CheckPanelConnectMirrorRequestObject
+
+	request.DownloadID = downloadID
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CheckPanelConnectMirror(ctx, request.(CheckPanelConnectMirrorRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CheckPanelConnectMirror")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CheckPanelConnectMirrorResponseObject); ok {
+		if err := validResponse.VisitCheckPanelConnectMirrorResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

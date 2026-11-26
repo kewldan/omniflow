@@ -35,7 +35,7 @@ then block screenshots of the chat, and customers send those to support.
 | Main menu | Status, a traffic bar, the expiry date, and a lifecycle notice when something needs attention. A menu entry appears only when its screen can actually be used |
 | Buying | `/plans` lists every plan with period, traffic, devices, and price; checkout takes promo codes, add-ons, the wallet, and every configured payment method that can settle the currency |
 | Renewal | `♻️ Restore subscription` appears first on the menu when the latest subscription has lapsed, and renews it on the same plan |
-| Connecting | `🚀 Connect` asks for the platform and gives a three-step guide with the client's import link, the raw subscription link, and an open button |
+| Connecting | `🚀 Connect` asks for the platform and gives a three-step guide with the client's import link, its downloads (store links and installers served from the installation itself), the raw subscription link, and an open button |
 | Devices | The connected devices with model and last-seen date, and removal of one or all. Hardware IDs and IP addresses are never shown |
 | Link rotation | `🔐 Rotate private link` invalidates a leaked subscription link after a warning |
 | Traffic reset | On a plan version that sells one, the subscription screen shows `🔄 Reset traffic · price`, priced as a share of the plan |
@@ -128,8 +128,9 @@ typed in and never confirmed is not a way into that account.
   dashboard: expiry, traffic, last connection, and the device list with removal, so the everyday
   checks need no second screen. A subscription that ended recently shows a recovery card with
   **Renew**.
-- **Connecting.** Per-platform instructions, app import links, a QR code drawn in the browser, and
-  the raw link. The client list is the same table the bot uses, so the two surfaces cannot recommend
+- **Connecting.** Per-platform instructions, app import links, store links and installers served
+  from the installation's own address (mirrored from GitHub, for customers who cannot reach it), a
+  QR code drawn in the browser, and the raw link. The client list is the same table the bot uses, so the two surfaces cannot recommend
   different apps. While access is still being set up after a payment, the screen re-checks every
   five seconds and turns into the link once it exists.
 - **Devices.** The full device list with renaming and removal — the bot shows at most five devices,

@@ -575,9 +575,42 @@ export type ConnectClient = {
   updatedBy?: string;
 };
 
+/**
+ * A store link, or a GitHub release asset the worker mirrors into the object
+ * store and the API serves from this installation's own address.
+ */
+export type ConnectDownload = {
+  id?: string;
+  clientId: string;
+  kind: "store" | "mirror";
+  label: string;
+  url?: string;
+  sourceRepo?: string;
+  tagPrefix?: string;
+  assetPattern?: string;
+  enabled: boolean;
+  sortOrder: number;
+  /** What the mirror holds now; written by the worker. */
+  version?: string;
+  fileName?: string;
+  sizeBytes?: number;
+  checksum?: string;
+  fetchedAt?: string;
+  checkedAt?: string;
+  nextCheckAt?: string;
+  lastError?: string;
+  path?: string;
+  updatedAt: string;
+  updatedBy?: string;
+};
+
 export type ConnectCatalogue = {
   platforms: ConnectPlatform[];
   clients: ConnectClient[];
+  downloads: ConnectDownload[];
+  /** Whether an object store is configured to keep mirrored installers. */
+  mirroring: boolean;
+  maxFileBytes: number;
 };
 
 /**

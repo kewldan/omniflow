@@ -264,6 +264,9 @@ type Querier interface {
 	CompleteWebhookEvent(ctx context.Context, arg CompleteWebhookEventParams) (ProviderWebhookEvent, error)
 	ConfigureAIFeature(ctx context.Context, arg ConfigureAIFeatureParams) (AiFeature, error)
 	ConfirmAdminTOTP(ctx context.Context, adminUserID pgtype.UUID) (AdminUser, error)
+	// What the public download address serves. A file behind a switched-off
+	// download, client, or platform is not served, as it is not listed.
+	ConnectDownloadFile(ctx context.Context, id pgtype.UUID) (ConnectDownloadFileRow, error)
 	ConsumeAdminPasswordReset(ctx context.Context, resetID pgtype.UUID) (AdminPasswordReset, error)
 	// Single-use by construction: the `used_at IS NULL` predicate means a replay of
 	// the same code updates no row and returns no result.
@@ -623,6 +626,7 @@ type Querier interface {
 	DeleteBrandingAsset(ctx context.Context, kind string) (int64, error)
 	DeleteCartAddon(ctx context.Context, arg DeleteCartAddonParams) error
 	DeleteConnectClient(ctx context.Context, id pgtype.UUID) (int64, error)
+	DeleteConnectDownload(ctx context.Context, id pgtype.UUID) (int64, error)
 	DeleteConnectPlatform(ctx context.Context, slug string) (int64, error)
 	DeleteCustomRole(ctx context.Context, role string) (int64, error)
 	DeleteCustomerOIDCProvider(ctx context.Context, slug string) (int64, error)
@@ -710,6 +714,7 @@ type Querier interface {
 	// A device left with fewer than two customers, because sightings were pruned
 	// or an account was deleted, is no longer shared.
 	DropUnsharedDevices(ctx context.Context) (int64, error)
+	DueConnectMirrors(ctx context.Context, limit int32) ([]DueConnectMirrorsRow, error)
 	DueWebhookDeliveries(ctx context.Context) ([]DueWebhookDeliveriesRow, error)
 	// Grants whose hours are up and that no scheduled operation ended — the
 	// entitlement it was queued for was retired in between.
@@ -1458,6 +1463,8 @@ type Querier interface {
 	// out there" without a second query per row.
 	ListCodeBatches(ctx context.Context, pageSize int32) ([]ListCodeBatchesRow, error)
 	ListConnectClients(ctx context.Context) ([]ConnectClient, error)
+	ListConnectDownloadChecksums(ctx context.Context) ([]string, error)
+	ListConnectDownloads(ctx context.Context) ([]ListConnectDownloadsRow, error)
 	ListConnectPlatforms(ctx context.Context) ([]ConnectPlatform, error)
 	ListContactChannels(ctx context.Context, userID pgtype.UUID) ([]ListContactChannelsRow, error)
 	// Operator-defined roles.
@@ -1536,6 +1543,11 @@ type Querier interface {
 	ListEnabledAdminOIDCProviders(ctx context.Context) ([]AdminOidcProvider, error)
 	ListEnabledChannels(ctx context.Context) ([]RequiredChannel, error)
 	ListEnabledConnectClients(ctx context.Context, platformSlug string) ([]ListEnabledConnectClientsRow, error)
+	// Downloads: store links and mirrored installers for one client.
+	//
+	// A mirror is offered to customers only once the worker has copied a file for
+	// it; until then it is a source with nothing to serve.
+	ListEnabledConnectDownloads(ctx context.Context, platformSlug string) ([]ListEnabledConnectDownloadsRow, error)
 	// Connection guidance.
 	//
 	// The customer-facing reads select only enabled rows, so disabling a platform
@@ -2411,6 +2423,10 @@ type Querier interface {
 	// The customer's answer for one occasion. A subscription that is not theirs is
 	// refused by writing nothing; answering again the same day replaces the answer.
 	RecordChurnFeedback(ctx context.Context, arg RecordChurnFeedbackParams) (int64, error)
+	RecordConnectMirrorChecked(ctx context.Context, arg RecordConnectMirrorCheckedParams) error
+	// The source is part of the condition: an operator who changed it while the
+	// previous one was downloading must not end up with the previous file.
+	RecordConnectMirrorFile(ctx context.Context, arg RecordConnectMirrorFileParams) (int64, error)
 	RecordCustomerActivity(ctx context.Context, arg RecordCustomerActivityParams) error
 	// Discovery refreshes the description and schemas and leaves the owner's
 	// decisions alone. A rediscovery that re-enabled a tool an owner switched off
@@ -2539,6 +2555,7 @@ type Querier interface {
 	// no longer hold points the mapping at the new one.
 	ReplaceTelegramMapping(ctx context.Context, arg ReplaceTelegramMappingParams) error
 	RequestBlockerScan(ctx context.Context, requestedBy pgtype.UUID) (BlockerScan, error)
+	RequestConnectMirrorCheck(ctx context.Context, id pgtype.UUID) (int64, error)
 	RequestLoyaltyRecalculation(ctx context.Context) (LoyaltyProgram, error)
 	// An operator retry only ever moves a terminal-looking row back into the queue.
 	// It cannot skip the idempotency key, so the retried attempt is the same
@@ -3098,6 +3115,10 @@ type Querier interface {
 	// platform and name is unique, so a rename that collides is refused by the
 	// table rather than silently producing two rows the screen shows twice.
 	UpsertConnectClient(ctx context.Context, arg UpsertConnectClientParams) (ConnectClient, error)
+	// Changing a mirror's source, or switching it back on, makes it due at once,
+	// so the screen does not show a file from the previous source for hours. A
+	// row turned into a store link drops the file it held; the sweep reclaims it.
+	UpsertConnectDownload(ctx context.Context, arg UpsertConnectDownloadParams) (UpsertConnectDownloadRow, error)
 	UpsertConnectPlatform(ctx context.Context, arg UpsertConnectPlatformParams) (ConnectPlatform, error)
 	UpsertCustomRole(ctx context.Context, arg UpsertCustomRoleParams) (AdminCustomRole, error)
 	UpsertCustomerImportItem(ctx context.Context, arg UpsertCustomerImportItemParams) (CustomerImportItem, error)

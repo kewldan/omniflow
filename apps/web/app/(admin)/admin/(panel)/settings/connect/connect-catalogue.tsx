@@ -5,18 +5,25 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@omni
 import { ConfirmDialog } from "@omniflow/ui/confirm-dialog";
 import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@omniflow/ui/select";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { Switch } from "@omniflow/ui/switch";
 import { toast } from "@omniflow/ui/toast";
-import { Plus, Trash2 } from "lucide-react";
-import { useTranslations } from "next-intl";
-import { useId, useState } from "react";
+import { Plus, RefreshCw, Trash2 } from "lucide-react";
+import { useFormatter, useTranslations } from "next-intl";
+import { type ReactNode, useId, useState } from "react";
 import useSWR from "swr";
 
 import { PageHeader } from "@/components/admin/resource-table";
 import type { ApiError } from "@/lib/api";
 import { apiFetch, fetcher } from "@/lib/api";
-import type { ConnectCatalogue, ConnectClient, ConnectPlatform } from "@/lib/operations";
+import { useBytes } from "@/lib/format";
+import type {
+  ConnectCatalogue,
+  ConnectClient,
+  ConnectDownload,
+  ConnectPlatform,
+} from "@/lib/operations";
 import { useOperatorAction } from "@/lib/operations";
 import { useSession } from "@/lib/session";
 
@@ -61,14 +68,45 @@ export function ConnectCatalogueScreen() {
       {data.platforms.map((platform) => (
         <ClientCard
           clients={data.clients.filter((client) => client.platform === platform.slug)}
+          downloads={data.downloads}
           editable={editable}
           key={platform.slug}
+          maxFileBytes={data.maxFileBytes}
+          mirroring={data.mirroring}
           onChanged={() => mutate()}
           platform={platform}
         />
       ))}
     </div>
   );
+}
+
+/**
+ * A row without the fields the API writes itself. A draft carries an empty
+ * `updatedAt`, which the API's strict decoder refuses as a timestamp, and the
+ * audit fields are the server's to set either way.
+ */
+function writable<Row extends { updatedAt?: string; updatedBy?: string }>(
+  row: Row,
+): Omit<Row, "updatedAt" | "updatedBy"> {
+  const { updatedAt: _updatedAt, updatedBy: _updatedBy, ...rest } = row;
+  return rest;
+}
+
+/** A download as an operator edits it: the source, never what the worker recorded. */
+function writableDownload(download: ConnectDownload) {
+  return {
+    assetPattern: download.kind === "mirror" ? download.assetPattern : undefined,
+    clientId: download.clientId,
+    enabled: download.enabled,
+    id: download.id,
+    kind: download.kind,
+    label: download.label,
+    sortOrder: download.sortOrder,
+    sourceRepo: download.kind === "mirror" ? download.sourceRepo : undefined,
+    tagPrefix: download.kind === "mirror" ? download.tagPrefix : undefined,
+    url: download.kind === "store" ? download.url : undefined,
+  };
 }
 
 type ImportResult = { platforms: number; clients: number; skipped: string[] };
@@ -156,7 +194,7 @@ function PlatformCard({
   const [draft, setDraft] = useState<ConnectPlatform | null>(null);
 
   async function save(platform: ConnectPlatform) {
-    if (await run(`${ENDPOINT}/platforms`, { body: platform, method: "PUT" })) {
+    if (await run(`${ENDPOINT}/platforms`, { body: writable(platform), method: "PUT" })) {
       setDraft(null);
       onChanged();
       toast.success(translate("saved"));
@@ -334,12 +372,18 @@ function PlatformRow({
 
 function ClientCard({
   clients,
+  downloads,
   editable,
+  maxFileBytes,
+  mirroring,
   onChanged,
   platform,
 }: {
   clients: ConnectClient[];
+  downloads: ConnectDownload[];
   editable: boolean;
+  maxFileBytes: number;
+  mirroring: boolean;
   onChanged: () => void;
   platform: ConnectPlatform;
 }) {
@@ -348,7 +392,7 @@ function ClientCard({
   const [draft, setDraft] = useState<ConnectClient | null>(null);
 
   async function save(client: ConnectClient) {
-    if (await run(`${ENDPOINT}/clients`, { body: client, method: "PUT" })) {
+    if (await run(`${ENDPOINT}/clients`, { body: writable(client), method: "PUT" })) {
       setDraft(null);
       onChanged();
       toast.success(translate("saved"));
@@ -377,7 +421,16 @@ function ClientCard({
             onRemove={() => remove(client.id ?? "")}
             onSave={save}
             pending={pending}
-          />
+          >
+            <DownloadList
+              clientId={client.id ?? ""}
+              downloads={downloads.filter((download) => download.clientId === client.id)}
+              editable={editable}
+              maxFileBytes={maxFileBytes}
+              mirroring={mirroring}
+              onChanged={onChanged}
+            />
+          </ClientRow>
         ))}
         {clients.length === 0 && !draft ? (
           <p className="text-subtle-foreground text-sm">{translate("clients.empty")}</p>
@@ -419,6 +472,7 @@ function ClientCard({
 }
 
 function ClientRow({
+  children,
   client,
   editable,
   isNew,
@@ -426,6 +480,7 @@ function ClientRow({
   onSave,
   pending,
 }: {
+  children?: ReactNode;
   client: ConnectClient;
   editable: boolean;
   isNew?: boolean;
@@ -518,6 +573,290 @@ function ClientRow({
           </>
         ) : null}
       </div>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * Where a customer gets one application: store links, and installers the
+ * worker copies from GitHub releases into the object store and the API serves
+ * from this installation's own address.
+ *
+ * A mirror is checked every six hours and whenever its source is saved or
+ * "check now" is pressed; the worker looks for due mirrors every minute, so
+ * nothing here waits on a 150 MB download.
+ */
+function DownloadList({
+  clientId,
+  downloads,
+  editable,
+  maxFileBytes,
+  mirroring,
+  onChanged,
+}: {
+  clientId: string;
+  downloads: ConnectDownload[];
+  editable: boolean;
+  maxFileBytes: number;
+  mirroring: boolean;
+  onChanged: () => void;
+}) {
+  const translate = useTranslations("admin.connect.downloads");
+  const translateConnect = useTranslations("admin.connect");
+  const bytes = useBytes();
+  const { run, pending } = useOperatorAction();
+  const [draft, setDraft] = useState<ConnectDownload | null>(null);
+
+  async function save(download: ConnectDownload) {
+    if (await run(`${ENDPOINT}/downloads`, { body: writableDownload(download), method: "PUT" })) {
+      setDraft(null);
+      onChanged();
+      toast.success(translateConnect("saved"));
+    }
+  }
+
+  async function remove(id: string) {
+    if (await run(`${ENDPOINT}/downloads/${id}`, { method: "DELETE" })) {
+      onChanged();
+      toast.success(translate("removed"));
+    }
+  }
+
+  async function check(id: string) {
+    if (await run(`${ENDPOINT}/downloads/${id}/check`, { method: "POST" })) {
+      onChanged();
+      toast.success(translate("checkQueued"));
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-3 border-border border-t pt-3">
+      <div className="flex flex-col gap-1">
+        <p className="font-medium text-sm">{translate("title")}</p>
+        <p className="text-subtle-foreground text-xs">
+          {translate("description")} {translate("maxSize", { size: bytes(maxFileBytes) })}
+        </p>
+        {mirroring ? null : <p className="text-warning text-xs">{translate("noStore")}</p>}
+      </div>
+      {downloads.map((download) => (
+        <DownloadRow
+          download={download}
+          editable={editable}
+          key={download.id}
+          onCheck={() => check(download.id ?? "")}
+          onRemove={() => remove(download.id ?? "")}
+          onSave={save}
+          pending={pending}
+        />
+      ))}
+      {downloads.length === 0 && !draft ? (
+        <p className="text-subtle-foreground text-xs">{translate("empty")}</p>
+      ) : null}
+      {draft ? (
+        <DownloadRow
+          download={draft}
+          editable={editable}
+          isNew
+          onRemove={() => setDraft(null)}
+          onSave={save}
+          pending={pending}
+        />
+      ) : null}
+      {editable && !draft && clientId ? (
+        <Button
+          className="self-start"
+          onClick={() =>
+            setDraft({
+              clientId,
+              enabled: true,
+              kind: "mirror",
+              label: "",
+              sortOrder: (downloads.at(-1)?.sortOrder ?? 0) + 10,
+              updatedAt: "",
+            })
+          }
+          size="sm"
+          variant="outline"
+        >
+          <Plus aria-hidden />
+          {translate("add")}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+function DownloadRow({
+  download,
+  editable,
+  isNew,
+  onCheck,
+  onRemove,
+  onSave,
+  pending,
+}: {
+  download: ConnectDownload;
+  editable: boolean;
+  isNew?: boolean;
+  onCheck?: () => void;
+  onRemove: () => void;
+  onSave: (download: ConnectDownload) => void;
+  pending: boolean;
+}) {
+  const translate = useTranslations("admin.connect.downloads");
+  const translateConnect = useTranslations("admin.connect");
+  const [form, setForm] = useState(download);
+  const kindId = useId();
+  const labelId = useId();
+  const orderId = useId();
+  const urlId = useId();
+  const repoId = useId();
+  const prefixId = useId();
+  const assetId = useId();
+  const mirror = form.kind === "mirror";
+
+  return (
+    <div className="flex flex-col gap-3 rounded-md border border-border bg-card p-3">
+      <div className="grid gap-3 sm:grid-cols-[12rem_1fr_5rem]">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={kindId}>{translate("kind")}</Label>
+          <Select
+            disabled={!editable}
+            onValueChange={(kind) => setForm({ ...form, kind: kind as ConnectDownload["kind"] })}
+            value={form.kind}
+          >
+            <SelectTrigger id={kindId}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="mirror">{translate("kindMirror")}</SelectItem>
+              <SelectItem value="store">{translate("kindStore")}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <Field
+          disabled={!editable}
+          hint={translate("labelHint")}
+          id={labelId}
+          label={translate("label")}
+          onChange={(label) => setForm({ ...form, label })}
+          value={form.label}
+        />
+        <Field
+          disabled={!editable}
+          id={orderId}
+          label={translateConnect("order")}
+          onChange={(value) => setForm({ ...form, sortOrder: Number(value) || 0 })}
+          value={String(form.sortOrder)}
+        />
+      </div>
+      {mirror ? (
+        <div className="grid gap-3 sm:grid-cols-[1fr_10rem_1fr]">
+          <Field
+            disabled={!editable}
+            hint={translate("repoHint")}
+            id={repoId}
+            label={translate("repo")}
+            mono
+            onChange={(sourceRepo) => setForm({ ...form, sourceRepo })}
+            value={form.sourceRepo ?? ""}
+          />
+          <Field
+            disabled={!editable}
+            hint={translate("tagPrefixHint")}
+            id={prefixId}
+            label={translate("tagPrefix")}
+            mono
+            onChange={(tagPrefix) => setForm({ ...form, tagPrefix })}
+            value={form.tagPrefix ?? ""}
+          />
+          <Field
+            disabled={!editable}
+            hint={translate("assetHint")}
+            id={assetId}
+            label={translate("asset")}
+            mono
+            onChange={(assetPattern) => setForm({ ...form, assetPattern })}
+            value={form.assetPattern ?? ""}
+          />
+        </div>
+      ) : (
+        <Field
+          disabled={!editable}
+          hint={translate("urlHint")}
+          id={urlId}
+          label={translate("url")}
+          mono
+          onChange={(url) => setForm({ ...form, url })}
+          value={form.url ?? ""}
+        />
+      )}
+      {mirror && !isNew && download.kind === "mirror" ? <MirrorStatus download={download} /> : null}
+      <div className="flex flex-wrap items-center gap-2">
+        <EnabledSwitch
+          checked={form.enabled}
+          disabled={!editable}
+          onChange={(enabled) => setForm({ ...form, enabled })}
+        />
+        {editable ? (
+          <>
+            <Button disabled={pending} onClick={() => onSave(form)} size="sm">
+              {translateConnect("save")}
+            </Button>
+            {!isNew && download.kind === "mirror" && onCheck ? (
+              <Button disabled={pending} onClick={onCheck} size="sm" variant="outline">
+                <RefreshCw aria-hidden />
+                {translate("check")}
+              </Button>
+            ) : null}
+            <Button
+              aria-label={isNew ? undefined : translateConnect("delete")}
+              disabled={pending}
+              onClick={onRemove}
+              size="sm"
+              variant="ghost"
+            >
+              {isNew ? translateConnect("cancel") : <Trash2 aria-hidden />}
+            </Button>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/** What a mirror holds, and how its last check went. */
+function MirrorStatus({ download }: { download: ConnectDownload }) {
+  const translate = useTranslations("admin.connect.downloads");
+  const format = useFormatter();
+  const bytes = useBytes();
+  const when = (value?: string) =>
+    value ? format.dateTime(new Date(value), { dateStyle: "short", timeStyle: "short" }) : "";
+
+  return (
+    <div className="flex flex-col gap-0.5 text-xs">
+      {download.fileName && download.path ? (
+        <p>
+          <a className="underline underline-offset-2" href={download.path}>
+            {translate("holds", {
+              fetched: when(download.fetchedAt),
+              file: download.fileName,
+              size: bytes(download.sizeBytes ?? 0),
+              version: download.version ?? "",
+            })}
+          </a>
+        </p>
+      ) : (
+        <p className="text-subtle-foreground">{translate("waiting")}</p>
+      )}
+      {download.lastError ? (
+        <p className="text-destructive">{translate("failed", { error: download.lastError })}</p>
+      ) : download.checkedAt ? (
+        <p className="text-subtle-foreground">
+          {translate("checked", { checked: when(download.checkedAt) })}
+        </p>
+      ) : null}
     </div>
   );
 }

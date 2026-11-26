@@ -11,12 +11,58 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const connectDownloadFile = `-- name: ConnectDownloadFile :one
+SELECT d.file_name, d.size_bytes, d.checksum, d.content_type, d.fetched_at
+FROM connect_downloads d
+JOIN connect_clients c ON c.id = d.client_id
+JOIN connect_platforms p ON p.slug = c.platform_slug
+WHERE d.id = $1
+  AND d.kind = 'mirror'
+  AND d.checksum IS NOT NULL
+  AND d.enabled AND c.enabled AND p.enabled
+`
+
+type ConnectDownloadFileRow struct {
+	FileName    pgtype.Text        `json:"file_name"`
+	SizeBytes   pgtype.Int8        `json:"size_bytes"`
+	Checksum    pgtype.Text        `json:"checksum"`
+	ContentType pgtype.Text        `json:"content_type"`
+	FetchedAt   pgtype.Timestamptz `json:"fetched_at"`
+}
+
+// What the public download address serves. A file behind a switched-off
+// download, client, or platform is not served, as it is not listed.
+func (q *Queries) ConnectDownloadFile(ctx context.Context, id pgtype.UUID) (ConnectDownloadFileRow, error) {
+	row := q.db.QueryRow(ctx, connectDownloadFile, id)
+	var i ConnectDownloadFileRow
+	err := row.Scan(
+		&i.FileName,
+		&i.SizeBytes,
+		&i.Checksum,
+		&i.ContentType,
+		&i.FetchedAt,
+	)
+	return i, err
+}
+
 const deleteConnectClient = `-- name: DeleteConnectClient :execrows
 DELETE FROM connect_clients WHERE id = $1
 `
 
 func (q *Queries) DeleteConnectClient(ctx context.Context, id pgtype.UUID) (int64, error) {
 	result, err := q.db.Exec(ctx, deleteConnectClient, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deleteConnectDownload = `-- name: DeleteConnectDownload :execrows
+DELETE FROM connect_downloads WHERE id = $1
+`
+
+func (q *Queries) DeleteConnectDownload(ctx context.Context, id pgtype.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteConnectDownload, id)
 	if err != nil {
 		return 0, err
 	}
@@ -33,6 +79,54 @@ func (q *Queries) DeleteConnectPlatform(ctx context.Context, slug string) (int64
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const dueConnectMirrors = `-- name: DueConnectMirrors :many
+SELECT id, source_repo, tag_prefix, asset_pattern, checksum, version, file_name, size_bytes
+FROM connect_downloads
+WHERE kind = 'mirror' AND enabled AND next_check_at <= now()
+ORDER BY next_check_at
+LIMIT $1
+`
+
+type DueConnectMirrorsRow struct {
+	ID           pgtype.UUID `json:"id"`
+	SourceRepo   pgtype.Text `json:"source_repo"`
+	TagPrefix    string      `json:"tag_prefix"`
+	AssetPattern pgtype.Text `json:"asset_pattern"`
+	Checksum     pgtype.Text `json:"checksum"`
+	Version      pgtype.Text `json:"version"`
+	FileName     pgtype.Text `json:"file_name"`
+	SizeBytes    pgtype.Int8 `json:"size_bytes"`
+}
+
+func (q *Queries) DueConnectMirrors(ctx context.Context, limit int32) ([]DueConnectMirrorsRow, error) {
+	rows, err := q.db.Query(ctx, dueConnectMirrors, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []DueConnectMirrorsRow{}
+	for rows.Next() {
+		var i DueConnectMirrorsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.SourceRepo,
+			&i.TagPrefix,
+			&i.AssetPattern,
+			&i.Checksum,
+			&i.Version,
+			&i.FileName,
+			&i.SizeBytes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listConnectClients = `-- name: ListConnectClients :many
@@ -59,6 +153,102 @@ func (q *Queries) ListConnectClients(ctx context.Context) ([]ConnectClient, erro
 			&i.DownloadUrl,
 			&i.InstructionsEn,
 			&i.InstructionsRu,
+			&i.Enabled,
+			&i.SortOrder,
+			&i.UpdatedAt,
+			&i.UpdatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listConnectDownloadChecksums = `-- name: ListConnectDownloadChecksums :many
+SELECT DISTINCT checksum::text FROM connect_downloads WHERE checksum IS NOT NULL
+`
+
+func (q *Queries) ListConnectDownloadChecksums(ctx context.Context) ([]string, error) {
+	rows, err := q.db.Query(ctx, listConnectDownloadChecksums)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var checksum string
+		if err := rows.Scan(&checksum); err != nil {
+			return nil, err
+		}
+		items = append(items, checksum)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listConnectDownloads = `-- name: ListConnectDownloads :many
+SELECT id, client_id, kind, label, url, source_repo, tag_prefix, asset_pattern,
+       version, file_name, size_bytes, checksum, fetched_at, next_check_at,
+       checked_at, last_error, enabled, sort_order, updated_at, updated_by
+FROM connect_downloads
+ORDER BY client_id, sort_order, label
+`
+
+type ListConnectDownloadsRow struct {
+	ID           pgtype.UUID        `json:"id"`
+	ClientID     pgtype.UUID        `json:"client_id"`
+	Kind         string             `json:"kind"`
+	Label        string             `json:"label"`
+	Url          pgtype.Text        `json:"url"`
+	SourceRepo   pgtype.Text        `json:"source_repo"`
+	TagPrefix    string             `json:"tag_prefix"`
+	AssetPattern pgtype.Text        `json:"asset_pattern"`
+	Version      pgtype.Text        `json:"version"`
+	FileName     pgtype.Text        `json:"file_name"`
+	SizeBytes    pgtype.Int8        `json:"size_bytes"`
+	Checksum     pgtype.Text        `json:"checksum"`
+	FetchedAt    pgtype.Timestamptz `json:"fetched_at"`
+	NextCheckAt  pgtype.Timestamptz `json:"next_check_at"`
+	CheckedAt    pgtype.Timestamptz `json:"checked_at"`
+	LastError    pgtype.Text        `json:"last_error"`
+	Enabled      bool               `json:"enabled"`
+	SortOrder    int32              `json:"sort_order"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy    pgtype.UUID        `json:"updated_by"`
+}
+
+func (q *Queries) ListConnectDownloads(ctx context.Context) ([]ListConnectDownloadsRow, error) {
+	rows, err := q.db.Query(ctx, listConnectDownloads)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListConnectDownloadsRow{}
+	for rows.Next() {
+		var i ListConnectDownloadsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ClientID,
+			&i.Kind,
+			&i.Label,
+			&i.Url,
+			&i.SourceRepo,
+			&i.TagPrefix,
+			&i.AssetPattern,
+			&i.Version,
+			&i.FileName,
+			&i.SizeBytes,
+			&i.Checksum,
+			&i.FetchedAt,
+			&i.NextCheckAt,
+			&i.CheckedAt,
+			&i.LastError,
 			&i.Enabled,
 			&i.SortOrder,
 			&i.UpdatedAt,
@@ -161,6 +351,62 @@ func (q *Queries) ListEnabledConnectClients(ctx context.Context, platformSlug st
 	return items, nil
 }
 
+const listEnabledConnectDownloads = `-- name: ListEnabledConnectDownloads :many
+
+SELECT d.id, d.client_id, d.kind, d.label, d.url, d.version, d.file_name, d.size_bytes
+FROM connect_downloads d
+JOIN connect_clients c ON c.id = d.client_id
+WHERE d.enabled
+  AND c.enabled
+  AND c.platform_slug = $1
+  AND (d.kind = 'store' OR d.checksum IS NOT NULL)
+ORDER BY d.sort_order, d.label
+`
+
+type ListEnabledConnectDownloadsRow struct {
+	ID        pgtype.UUID `json:"id"`
+	ClientID  pgtype.UUID `json:"client_id"`
+	Kind      string      `json:"kind"`
+	Label     string      `json:"label"`
+	Url       pgtype.Text `json:"url"`
+	Version   pgtype.Text `json:"version"`
+	FileName  pgtype.Text `json:"file_name"`
+	SizeBytes pgtype.Int8 `json:"size_bytes"`
+}
+
+// Downloads: store links and mirrored installers for one client.
+//
+// A mirror is offered to customers only once the worker has copied a file for
+// it; until then it is a source with nothing to serve.
+func (q *Queries) ListEnabledConnectDownloads(ctx context.Context, platformSlug string) ([]ListEnabledConnectDownloadsRow, error) {
+	rows, err := q.db.Query(ctx, listEnabledConnectDownloads, platformSlug)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListEnabledConnectDownloadsRow{}
+	for rows.Next() {
+		var i ListEnabledConnectDownloadsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ClientID,
+			&i.Kind,
+			&i.Label,
+			&i.Url,
+			&i.Version,
+			&i.FileName,
+			&i.SizeBytes,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listEnabledConnectPlatforms = `-- name: ListEnabledConnectPlatforms :many
 
 SELECT slug, label_en, label_ru
@@ -199,6 +445,88 @@ func (q *Queries) ListEnabledConnectPlatforms(ctx context.Context) ([]ListEnable
 		return nil, err
 	}
 	return items, nil
+}
+
+const recordConnectMirrorChecked = `-- name: RecordConnectMirrorChecked :exec
+UPDATE connect_downloads
+SET checked_at = now(), last_error = $1, next_check_at = $2
+WHERE id = $3 AND kind = 'mirror'
+`
+
+type RecordConnectMirrorCheckedParams struct {
+	LastError   pgtype.Text        `json:"last_error"`
+	NextCheckAt pgtype.Timestamptz `json:"next_check_at"`
+	ID          pgtype.UUID        `json:"id"`
+}
+
+func (q *Queries) RecordConnectMirrorChecked(ctx context.Context, arg RecordConnectMirrorCheckedParams) error {
+	_, err := q.db.Exec(ctx, recordConnectMirrorChecked, arg.LastError, arg.NextCheckAt, arg.ID)
+	return err
+}
+
+const recordConnectMirrorFile = `-- name: RecordConnectMirrorFile :execrows
+UPDATE connect_downloads
+SET version = $1,
+    file_name = $2,
+    size_bytes = $3,
+    checksum = $4,
+    content_type = $5,
+    fetched_at = now(),
+    checked_at = now(),
+    last_error = NULL,
+    next_check_at = $6
+WHERE id = $7
+  AND kind = 'mirror'
+  AND source_repo = $8
+  AND tag_prefix = $9
+  AND asset_pattern = $10
+`
+
+type RecordConnectMirrorFileParams struct {
+	Version      pgtype.Text        `json:"version"`
+	FileName     pgtype.Text        `json:"file_name"`
+	SizeBytes    pgtype.Int8        `json:"size_bytes"`
+	Checksum     pgtype.Text        `json:"checksum"`
+	ContentType  pgtype.Text        `json:"content_type"`
+	NextCheckAt  pgtype.Timestamptz `json:"next_check_at"`
+	ID           pgtype.UUID        `json:"id"`
+	SourceRepo   pgtype.Text        `json:"source_repo"`
+	TagPrefix    string             `json:"tag_prefix"`
+	AssetPattern pgtype.Text        `json:"asset_pattern"`
+}
+
+// The source is part of the condition: an operator who changed it while the
+// previous one was downloading must not end up with the previous file.
+func (q *Queries) RecordConnectMirrorFile(ctx context.Context, arg RecordConnectMirrorFileParams) (int64, error) {
+	result, err := q.db.Exec(ctx, recordConnectMirrorFile,
+		arg.Version,
+		arg.FileName,
+		arg.SizeBytes,
+		arg.Checksum,
+		arg.ContentType,
+		arg.NextCheckAt,
+		arg.ID,
+		arg.SourceRepo,
+		arg.TagPrefix,
+		arg.AssetPattern,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const requestConnectMirrorCheck = `-- name: RequestConnectMirrorCheck :execrows
+UPDATE connect_downloads SET next_check_at = now()
+WHERE id = $1 AND kind = 'mirror'
+`
+
+func (q *Queries) RequestConnectMirrorCheck(ctx context.Context, id pgtype.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, requestConnectMirrorCheck, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const upsertConnectClient = `-- name: UpsertConnectClient :one
@@ -264,6 +592,127 @@ func (q *Queries) UpsertConnectClient(ctx context.Context, arg UpsertConnectClie
 		&i.DownloadUrl,
 		&i.InstructionsEn,
 		&i.InstructionsRu,
+		&i.Enabled,
+		&i.SortOrder,
+		&i.UpdatedAt,
+		&i.UpdatedBy,
+	)
+	return i, err
+}
+
+const upsertConnectDownload = `-- name: UpsertConnectDownload :one
+INSERT INTO connect_downloads (
+  id, client_id, kind, label, url, source_repo, tag_prefix, asset_pattern,
+  enabled, sort_order, updated_by
+)
+VALUES (
+  COALESCE($7::uuid, gen_random_uuid()), $1, $2, $3,
+  $8, $9, $4, $10,
+  $5, $6, $11
+)
+ON CONFLICT (id) DO UPDATE
+SET client_id = EXCLUDED.client_id,
+    kind = EXCLUDED.kind,
+    label = EXCLUDED.label,
+    url = EXCLUDED.url,
+    source_repo = EXCLUDED.source_repo,
+    tag_prefix = EXCLUDED.tag_prefix,
+    asset_pattern = EXCLUDED.asset_pattern,
+    enabled = EXCLUDED.enabled,
+    sort_order = EXCLUDED.sort_order,
+    next_check_at = CASE
+      WHEN (connect_downloads.source_repo, connect_downloads.tag_prefix, connect_downloads.asset_pattern)
+           IS DISTINCT FROM (EXCLUDED.source_repo, EXCLUDED.tag_prefix, EXCLUDED.asset_pattern)
+        OR (EXCLUDED.enabled AND NOT connect_downloads.enabled)
+      THEN now()
+      ELSE connect_downloads.next_check_at
+    END,
+    version = CASE WHEN EXCLUDED.kind = 'mirror' THEN connect_downloads.version END,
+    file_name = CASE WHEN EXCLUDED.kind = 'mirror' THEN connect_downloads.file_name END,
+    size_bytes = CASE WHEN EXCLUDED.kind = 'mirror' THEN connect_downloads.size_bytes END,
+    checksum = CASE WHEN EXCLUDED.kind = 'mirror' THEN connect_downloads.checksum END,
+    content_type = CASE WHEN EXCLUDED.kind = 'mirror' THEN connect_downloads.content_type END,
+    fetched_at = CASE WHEN EXCLUDED.kind = 'mirror' THEN connect_downloads.fetched_at END,
+    last_error = CASE WHEN EXCLUDED.kind = 'mirror' THEN connect_downloads.last_error END,
+    updated_at = now(),
+    updated_by = EXCLUDED.updated_by
+RETURNING id, client_id, kind, label, url, source_repo, tag_prefix, asset_pattern,
+          version, file_name, size_bytes, checksum, fetched_at, next_check_at,
+          checked_at, last_error, enabled, sort_order, updated_at, updated_by
+`
+
+type UpsertConnectDownloadParams struct {
+	ClientID     pgtype.UUID `json:"client_id"`
+	Kind         string      `json:"kind"`
+	Label        string      `json:"label"`
+	TagPrefix    string      `json:"tag_prefix"`
+	Enabled      bool        `json:"enabled"`
+	SortOrder    int32       `json:"sort_order"`
+	ID           pgtype.UUID `json:"id"`
+	Url          pgtype.Text `json:"url"`
+	SourceRepo   pgtype.Text `json:"source_repo"`
+	AssetPattern pgtype.Text `json:"asset_pattern"`
+	UpdatedBy    pgtype.UUID `json:"updated_by"`
+}
+
+type UpsertConnectDownloadRow struct {
+	ID           pgtype.UUID        `json:"id"`
+	ClientID     pgtype.UUID        `json:"client_id"`
+	Kind         string             `json:"kind"`
+	Label        string             `json:"label"`
+	Url          pgtype.Text        `json:"url"`
+	SourceRepo   pgtype.Text        `json:"source_repo"`
+	TagPrefix    string             `json:"tag_prefix"`
+	AssetPattern pgtype.Text        `json:"asset_pattern"`
+	Version      pgtype.Text        `json:"version"`
+	FileName     pgtype.Text        `json:"file_name"`
+	SizeBytes    pgtype.Int8        `json:"size_bytes"`
+	Checksum     pgtype.Text        `json:"checksum"`
+	FetchedAt    pgtype.Timestamptz `json:"fetched_at"`
+	NextCheckAt  pgtype.Timestamptz `json:"next_check_at"`
+	CheckedAt    pgtype.Timestamptz `json:"checked_at"`
+	LastError    pgtype.Text        `json:"last_error"`
+	Enabled      bool               `json:"enabled"`
+	SortOrder    int32              `json:"sort_order"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy    pgtype.UUID        `json:"updated_by"`
+}
+
+// Changing a mirror's source, or switching it back on, makes it due at once,
+// so the screen does not show a file from the previous source for hours. A
+// row turned into a store link drops the file it held; the sweep reclaims it.
+func (q *Queries) UpsertConnectDownload(ctx context.Context, arg UpsertConnectDownloadParams) (UpsertConnectDownloadRow, error) {
+	row := q.db.QueryRow(ctx, upsertConnectDownload,
+		arg.ClientID,
+		arg.Kind,
+		arg.Label,
+		arg.TagPrefix,
+		arg.Enabled,
+		arg.SortOrder,
+		arg.ID,
+		arg.Url,
+		arg.SourceRepo,
+		arg.AssetPattern,
+		arg.UpdatedBy,
+	)
+	var i UpsertConnectDownloadRow
+	err := row.Scan(
+		&i.ID,
+		&i.ClientID,
+		&i.Kind,
+		&i.Label,
+		&i.Url,
+		&i.SourceRepo,
+		&i.TagPrefix,
+		&i.AssetPattern,
+		&i.Version,
+		&i.FileName,
+		&i.SizeBytes,
+		&i.Checksum,
+		&i.FetchedAt,
+		&i.NextCheckAt,
+		&i.CheckedAt,
+		&i.LastError,
 		&i.Enabled,
 		&i.SortOrder,
 		&i.UpdatedAt,

@@ -130,6 +130,35 @@
         "importing": "Importing…",
         "done": "Imported {clients} applications on {platforms} platforms.",
         "skipped": "Skipped, because their import link cannot be used safely: {names}."
+      },
+      "downloads": {
+        "title": "Downloads",
+        "description": "Store links, and installers this installation copies from GitHub releases and serves from its own address, for customers who cannot open GitHub or the vendor's site without a VPN.",
+        "kind": "Kind",
+        "kindStore": "Store link",
+        "kindMirror": "Mirror from GitHub",
+        "label": "Button label",
+        "labelHint": "Up to 40 characters: App Store, APK, Windows x64.",
+        "url": "Store address",
+        "urlHint": "https only: a store page or the vendor's own page.",
+        "repo": "GitHub repository",
+        "repoHint": "owner/name, or the repository's address.",
+        "tagPrefix": "Tag prefix",
+        "tagPrefixHint": "Optional. Only releases whose tag starts with it, such as desktop-v.",
+        "asset": "Asset file name",
+        "assetHint": "As on the release page; * and ? match any characters.",
+        "add": "Add a download",
+        "empty": "No downloads for this application.",
+        "check": "Check now",
+        "checkQueued": "Queued. The worker looks within a minute.",
+        "holds": "{version} · {file} · {size} · copied {fetched}",
+        "waiting": "No file yet. The worker copies it within a minute of saving.",
+        "failed": "Last check failed: {error}",
+        "checked": "Checked {checked}",
+        "noStore": "No object store is configured (APP_S3_*), so mirrors are saved but nothing is copied. Store links work as usual.",
+        "maxSize": "Files over {size} are not copied.",
+        "removed": "Download removed",
+        "saveClientFirst": "Save the application first, then add its downloads."
       }
     },
     "navigation": {
@@ -6389,7 +6418,8 @@
       "download": "Get {app}",
       "mirrors": "Mirrors",
       "mirrorsHint": "The same link on another address, for a network that blocks the main one.",
-      "linkHidden": "Use the buttons above to add the subscription to an app. The link itself is not shown on this installation."
+      "linkHidden": "Use the buttons above to add the subscription to an app. The link itself is not shown on this installation.",
+      "downloadsHint": "The ⬇ buttons download the app from our own server, so they open without a VPN."
     },
     "profile": {
       "signedIn": "Signed in with",

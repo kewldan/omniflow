@@ -130,6 +130,35 @@
         "importing": "正在导入…",
         "done": "已在 {platforms} 个平台上导入 {clients} 个应用。",
         "skipped": "已跳过，因为其导入链接无法安全使用：{names}。"
+      },
+      "downloads": {
+        "title": "下载",
+        "description": "应用商店链接，以及本站从 GitHub 发布版复制并通过自身地址提供的安装包——供无法在不使用 VPN 的情况下打开 GitHub 或开发者网站的客户使用。",
+        "kind": "类型",
+        "kindStore": "商店链接",
+        "kindMirror": "GitHub 镜像",
+        "label": "按钮文字",
+        "labelHint": "最多 40 个字符：App Store、APK、Windows x64。",
+        "url": "商店地址",
+        "urlHint": "仅限 https：应用商店页面或开发者自己的页面。",
+        "repo": "GitHub 仓库",
+        "repoHint": "owner/name，或仓库地址。",
+        "tagPrefix": "标签前缀",
+        "tagPrefixHint": "可选。仅使用标签以此开头的发布版，例如 desktop-v。",
+        "asset": "资源文件名",
+        "assetHint": "与发布页面上一致；* 和 ? 匹配任意字符。",
+        "add": "添加下载",
+        "empty": "此应用尚无下载。",
+        "check": "立即检查",
+        "checkQueued": "已排队。后台任务将在一分钟内检查。",
+        "holds": "{version} · {file} · {size} · 复制于 {fetched}",
+        "waiting": "尚无文件。保存后一分钟内后台任务会复制它。",
+        "failed": "上次检查失败：{error}",
+        "checked": "检查于 {checked}",
+        "noStore": "未配置对象存储（APP_S3_*），因此镜像会被保存但不会复制任何文件。商店链接照常可用。",
+        "maxSize": "超过 {size} 的文件不会被复制。",
+        "removed": "下载已删除",
+        "saveClientFirst": "请先保存应用，再添加下载。"
       }
     },
     "navigation": {
@@ -6316,7 +6345,8 @@
       "download": "获取 {app}",
       "mirrors": "镜像地址",
       "mirrorsHint": "同一链接的备用地址，适用于屏蔽了主地址的网络。",
-      "linkHidden": "请使用上方按钮将订阅添加到应用中。此站点不直接显示链接本身。"
+      "linkHidden": "请使用上方按钮将订阅添加到应用中。此站点不直接显示链接本身。",
+      "downloadsHint": "⬇ 按钮从我们自己的服务器下载应用，无需 VPN 即可打开。"
     },
     "profile": {
       "signedIn": "登录方式",

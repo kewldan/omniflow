@@ -422,9 +422,14 @@ func (handlers *AccountHandlers) connection(writer http.ResponseWriter, request 
 	}
 	clients := make([]map[string]any, 0, len(connection.Clients))
 	for _, client := range connection.Clients {
+		downloads := client.Downloads
+		if downloads == nil {
+			downloads = []commerce.ClientDownload{}
+		}
 		clients = append(clients, map[string]any{
 			"name": client.Name, "deepLink": client.DeepLink,
 			"downloadUrl": client.DownloadURL, "instructions": client.Instructions,
+			"downloads": downloads,
 		})
 	}
 	mirrors := connection.Mirrors

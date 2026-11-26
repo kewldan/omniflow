@@ -61,6 +61,78 @@ Somebody who wrote their own setup knows something the generic copy does not, an
 showing both would leave a customer choosing between two accounts of the same
 thing.
 
+## Downloads and mirrored installers
+
+Under each application, **Downloads** lists where a customer gets it. There are two kinds, and an
+application may have any number of each:
+
+| Kind | What it is | Shown when |
+| --- | --- | --- |
+| Store link | An `https` address: App Store, Google Play, the vendor's page | Always, while it is offered |
+| Mirror from GitHub | A release asset the worker copies into the object store and the API serves from this installation's own address | Once the worker has copied a file |
+
+A mirror exists because customers in Russia often cannot open GitHub or a vendor's site without a
+VPN — which is the thing they are trying to install. The installer comes from the same address as
+the panel the customer already reached.
+
+A mirror names its source in three fields:
+
+| Field | Rule |
+| --- | --- |
+| GitHub repository | `owner/name`. The repository's address is accepted and shortened |
+| Tag prefix | Optional. Only releases whose tag starts with it count: INCY releases Android as `android-v…` and desktop as `desktop-v…` in one repository |
+| Asset file name | As on the release page; `*` and `?` match any characters. The name must be letters, digits, and `. _ + -` |
+
+**How a mirror stays current.** The worker's `client_mirror` pass runs every minute and checks
+mirrors that are due: one saved with a new source, one whose **Check now** was pressed, and every
+mirror six hours after its last check (thirty minutes after a failed one). A check reads the
+repository's releases, skips drafts and pre-releases, and takes the newest release whose tag
+matches and that carries a matching asset. If GitHub's published SHA-256 for that asset is the
+file the mirror already holds, nothing is downloaded. Otherwise the asset is downloaded, its size
+and SHA-256 are compared with what GitHub lists, and it is stored under its SHA-256. The version a
+customer sees is the tag without the prefix and a leading `v`.
+
+A file over **300 MB** is not copied; the largest desktop build in use is about 160 MB. A check that
+fails — no matching release, a rate limit, a digest that does not match — keeps the previous file,
+and the screen shows why it failed.
+
+**What the customer gets.** The file is served at
+`/v1/downloads/<download id>/<file name>` with its own content type (an APK as
+`application/vnd.android.package-archive`, so Android offers to install it), as an attachment under
+its release name, with range requests so an interrupted download resumes. The address is public —
+an installer holds nothing about a customer — and limited to 120 requests an hour per address. A
+file behind a download, application, or platform that is switched off is not served.
+
+**Where files live.** Mirrors need an object store (`APP_S3_*`): the worker writes the file and the
+API serves it, and they share no directory. Without one, mirrors can be saved but nothing is copied,
+and the screen says so. Files go to the bucket in `APP_S3_DOWNLOADS_BUCKET`, by default the main
+one, under `client-downloads/`. They can always be fetched again, so an installation that backs its
+store up can give them a bucket of their own and leave it out of the backup. The hourly
+`client_mirror_sweep` pass removes a file no download refers to any more, an hour after it was
+written.
+
+### Example: Happ and INCY
+
+| Application · platform | Repository | Tag prefix | Asset file name |
+| --- | --- | --- | --- |
+| Happ · Android | `Happ-proxy/happ-android` | — | `Happ.apk` |
+| Happ · Windows x64 | `Happ-proxy/happ-desktop` | — | `setup-Happ.x64.exe` |
+| Happ · macOS | `Happ-proxy/happ-desktop` | — | `Happ.macOS.universal.dmg` |
+| Happ · Linux (deb) | `Happ-proxy/happ-desktop` | — | `Happ.linux.x64.deb` |
+| INCY · Android | `INCY-DEV/incy-platforms` | `android-v` | `Incy.apk` |
+| INCY · Windows | `INCY-DEV/incy-platforms` | `desktop-v` | `incy-windows-setup.exe` |
+| INCY · macOS (Apple silicon) | `INCY-DEV/incy-platforms` | `desktop-v` | `incy-macos-arm64.dmg` |
+| INCY · Linux (deb) | `INCY-DEV/incy-platforms` | `desktop-v` | `incy-linux-x64.deb` |
+
+iPhone and iPad install only from the App Store, so those platforms get store links.
+
+<Warning>
+  Mirroring redistributes somebody else's software. Check the application's licence first.
+  GPL-licensed clients (v2rayN, v2rayNG, FlClash, Clash Verge Rev) may be redistributed with a link
+  to their source. Hiddify's licence adds a clause against commercial use without consent. Happ,
+  INCY, v2RayTun, and Streisand publish no licence; mirroring them is the owner's decision.
+</Warning>
+
 ## The import scheme is a security boundary
 
 This value is concatenated with the subscription link and rendered as the `href`
@@ -82,14 +154,18 @@ device.
 
 **In the browser.** A row of platform buttons carrying the operator's own
 labels, the setup steps or the operator's instructions, one button per
-application, a second smaller button where a download address exists, then the
-QR code and the copyable link.
+application, a second smaller button where a download address exists, the
+application's downloads — files with their version and size, store links — then
+the QR code and the copyable link.
 
 **In the bot.** The same platforms as inline buttons, the same steps or
 instructions, one copy-text button per application — Telegram inline buttons
 accept only `http`, `https`, and `tg` URLs, so an import scheme travels as
 copyable text — and an ordinary link button for a download address, which is
-https and therefore may be one.
+https and therefore may be one. Each download is a link button too: a served file
+as `⬇️ Happ 4.11.2 · APK`, opening on `APP_PUBLIC_URL`, and a store link as
+`🛍 Happ · Google Play`. A served file needs an `https` public address, because a
+button cannot point at a path; without one only the store links are offered.
 
 **With nothing configured.** Both surfaces say so and still offer the
 subscription link, because copying the link into any compatible client is the
@@ -159,8 +235,9 @@ for every subscription at once and reports how many were skipped.
 
 Reading needs `settings.read`; every change needs `settings.write`. Saves and
 deletions audit as `connect.platform.saved`, `connect.platform.deleted`,
-`connect.client.saved`, and `connect.client.deleted` under the `configuration`
-category.
+`connect.client.saved`, `connect.client.deleted`, `connect.download.saved`,
+`connect.download.deleted`, and `connect.download.check_requested` under the
+`configuration` category.
 
 ## Related
 

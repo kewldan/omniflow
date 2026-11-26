@@ -82,13 +82,47 @@ func (catalogue *Catalogue) Clients(
 		return nil, err
 	}
 	clients := make([]commerce.ClientApp, 0, len(rows))
+	if len(rows) == 0 {
+		return clients, nil
+	}
+	downloads, err := catalogue.downloads(ctx, strings.ToLower(strings.TrimSpace(platform)))
+	if err != nil {
+		return nil, err
+	}
 	for _, row := range rows {
 		clients = append(clients, commerce.ClientApp{
 			Name: row.Name, Scheme: row.Scheme, DownloadURL: row.DownloadUrl.String,
 			Instructions: pick(locale, row.InstructionsEn.String, row.InstructionsRu.String),
+			Downloads:    downloads[uuidText(row.ID)],
 		})
 	}
 	return clients, nil
+}
+
+// downloads groups a platform's store links and served files by client.
+func (catalogue *Catalogue) downloads(
+	ctx context.Context, platform string,
+) (map[string][]commerce.ClientDownload, error) {
+	rows, err := catalogue.queries.ListEnabledConnectDownloads(ctx, platform)
+	if err != nil {
+		return nil, err
+	}
+	grouped := make(map[string][]commerce.ClientDownload, len(rows))
+	for _, row := range rows {
+		download := commerce.ClientDownload{Kind: "store", Label: row.Label, URL: row.Url.String}
+		if row.Kind == "mirror" {
+			download = commerce.ClientDownload{
+				Kind: "file", Label: row.Label,
+				URL:       commerce.ClientDownloadPath(uuidText(row.ID), row.FileName.String),
+				Version:   row.Version.String,
+				FileName:  row.FileName.String,
+				SizeBytes: row.SizeBytes.Int64,
+			}
+		}
+		client := uuidText(row.ClientID)
+		grouped[client] = append(grouped[client], download)
+	}
+	return grouped, nil
 }
 
 // Resolve picks the platform to render and its clients in one step.

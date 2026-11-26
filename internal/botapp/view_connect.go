@@ -166,6 +166,7 @@ func connectPlatformView(
 	}
 
 	rows := make([][]models.InlineKeyboardButton, 0, len(apps)*2+3)
+	offersFiles := false
 	if safeURL(subscription.SubscriptionURL) {
 		for _, app := range apps {
 			deepLink := options.Settings.DeepLink(app, subscription.SubscriptionURL)
@@ -178,11 +179,52 @@ func connectPlatformView(
 					Text: text(locale, "connect.download", app.Name), URL: app.DownloadURL,
 				}))
 			}
+			downloadRows, served := options.downloadRows(locale, app)
+			rows = append(rows, downloadRows...)
+			offersFiles = offersFiles || served
 		}
 		rows = append(rows, options.rawLinkRows(locale, subscription.SubscriptionURL)...)
 	} else {
 		body = strings.TrimSpace(body) + "\n\n" + text(locale, "connect.noLink")
 	}
+	if offersFiles {
+		body = strings.TrimSpace(body) + "\n\n" + text(locale, "connect.filesHint")
+	}
 	rows = append(rows, row(callbackButton(text(locale, "action.back"), routeConnect), callbackButton(text(locale, "action.menu"), routeHome)))
 	return View{Text: body, Keyboard: keyboard(rows...), RetryRoute: routeConnect}
+}
+
+// downloadRows are a client's store links and the installers this
+// installation serves, in the operator's order. A served file needs the
+// customer panel's https address, because a Telegram button cannot point at a
+// path; without one only the store links remain. The second value reports
+// whether any served file was offered.
+func (options connectOptions) downloadRows(
+	locale Locale, app commerce.ClientApp,
+) ([][]models.InlineKeyboardButton, bool) {
+	base := strings.TrimRight(strings.TrimSpace(options.PublicURL), "/")
+	servesFiles := strings.HasPrefix(strings.ToLower(base), "https://")
+	var rows [][]models.InlineKeyboardButton
+	served := false
+	for _, download := range app.Downloads {
+		switch download.Kind {
+		case "file":
+			if !servesFiles || !strings.HasPrefix(download.URL, "/") {
+				continue
+			}
+			rows = append(rows, row(models.InlineKeyboardButton{
+				Text: text(locale, "connect.file", app.Name, download.Version, download.Label),
+				URL:  base + download.URL,
+			}))
+			served = true
+		case "store":
+			if !safeURL(download.URL) {
+				continue
+			}
+			rows = append(rows, row(models.InlineKeyboardButton{
+				Text: text(locale, "connect.store", app.Name, download.Label), URL: download.URL,
+			}))
+		}
+	}
+	return rows, served
 }

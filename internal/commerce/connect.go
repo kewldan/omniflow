@@ -38,6 +38,30 @@ type ClientApp struct {
 	// platform, in the reader's language. Empty means the generic steps both
 	// surfaces already render, which is what every shipped entry uses.
 	Instructions string `json:"instructions,omitempty"`
+	// Downloads are store links and installers this installation serves
+	// itself, in the operator's order.
+	Downloads []ClientDownload `json:"downloads,omitempty"`
+}
+
+// ClientDownload is one place to get a client: a store page, or an installer
+// served from the installation's own address.
+type ClientDownload struct {
+	// Kind is "store" for a link to a store or vendor page and "file" for an
+	// installer this installation serves.
+	Kind  string `json:"kind"`
+	Label string `json:"label"`
+	// URL is absolute for a store link and a path under the installation's
+	// own address, /v1/downloads/…, for a file.
+	URL       string `json:"url"`
+	Version   string `json:"version,omitempty"`
+	FileName  string `json:"fileName,omitempty"`
+	SizeBytes int64  `json:"sizeBytes,omitempty"`
+}
+
+// ClientDownloadPath is where the API serves a mirrored file. The file name is
+// part of the path so a browser and Telegram save it under that name.
+func ClientDownloadPath(id, fileName string) string {
+	return "/v1/downloads/" + id + "/" + fileName
 }
 
 // DeepLink builds the import URL for one client.

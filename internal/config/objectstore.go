@@ -19,6 +19,12 @@ type ObjectStoreConfig struct {
 	SecretKey string
 	// Bucket is APP_S3_BUCKET, `omniflow` by default.
 	Bucket string
+	// DownloadsBucket is APP_S3_DOWNLOADS_BUCKET, the bucket mirrored client
+	// installers are kept in; the main bucket by default. Installers are
+	// re-fetched from their source and need no backup, so an installation that
+	// archives its store can keep them out of the archive by giving them a
+	// bucket of their own.
+	DownloadsBucket string
 	// Region is APP_S3_REGION, `us-east-1` by default (R2 takes `auto`).
 	Region string
 	// Secure is APP_S3_SECURE: TLS to the endpoint, on by default. A store
@@ -41,6 +47,7 @@ func LoadObjectStore() (ObjectStoreConfig, error) {
 		Region:    envOr("APP_S3_REGION", "us-east-1"),
 		Secure:    boolEnvOr("APP_S3_SECURE", true),
 	}
+	cfg.DownloadsBucket = envOr("APP_S3_DOWNLOADS_BUCKET", cfg.Bucket)
 	if !cfg.Enabled() {
 		return cfg, nil
 	}

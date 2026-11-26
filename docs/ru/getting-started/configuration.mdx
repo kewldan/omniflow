@@ -420,6 +420,7 @@ disabled because no group is configured`, а постановка в очере�
 | `APP_S3_ENDPOINT` | — | api, bot, worker | нет | нет | S3-совместимое объектное хранилище для вложений поддержки, в виде `host:port` без схемы — SeaweedFS рядом со стеком, Cloudflare R2, AWS S3. Если задано, заменяет `APP_SUPPORT_ATTACHMENT_DIR`, а бот копирует туда файлы, которые ему присылают клиенты, чтобы панель могла их показать. См. [Развёртывание](/ru/operations/deployment#объектное-хранилище) |
 | `APP_S3_ACCESS_KEY`, `APP_S3_SECRET_KEY` | — | api, bot, worker | с адресом | **да** (секретный ключ) | Учётные данные хранилища. Адрес без них не даёт запуститься |
 | `APP_S3_BUCKET` | `omniflow` | api, bot, worker | нет | нет | Бакет; создаётся при первой записи, если его нет |
+| `APP_S3_DOWNLOADS_BUCKET` | `APP_S3_BUCKET` | api, worker | нет | нет | Бакет для зеркал клиентских установщиков. Их всегда можно скачать заново, поэтому отдельный бакет позволяет не включать их в бэкап хранилища. См. [Каталог подключения](/ru/operations/connection-catalogue#загрузки-и-зеркала-установщиков) |
 | `APP_S3_REGION` | `us-east-1` | api, bot, worker | нет | нет | Регион подписи; для R2 — `auto` |
 | `APP_S3_SECURE` | `true` | api, bot, worker | нет | нет | TLS до хранилища. `false` для хранилища во внутренней сети стека |
 

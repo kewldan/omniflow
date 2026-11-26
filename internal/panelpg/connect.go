@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/omniflow/omniflow/internal/clientmirror"
 	"github.com/omniflow/omniflow/internal/commerce"
 	"github.com/omniflow/omniflow/internal/database/dbgen"
 )
@@ -53,6 +54,13 @@ type ConnectClient struct {
 type ConnectCatalogue struct {
 	Platforms []ConnectPlatform `json:"platforms"`
 	Clients   []ConnectClient   `json:"clients"`
+	Downloads []ConnectDownload `json:"downloads"`
+	// Mirroring says whether this installation can keep installers: it needs
+	// an object store. The API sets it; a mirror saved without one is kept and
+	// waits for a store.
+	Mirroring bool `json:"mirroring"`
+	// MaxFileBytes is the largest installer a mirror copies.
+	MaxFileBytes int64 `json:"maxFileBytes"`
 }
 
 var platformSlugPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,30}$`)
@@ -68,9 +76,19 @@ func (service *Service) ConnectCatalogue(ctx context.Context) (ConnectCatalogue,
 		return ConnectCatalogue{}, err
 	}
 
+	downloadRows, err := service.queries().ListConnectDownloads(ctx)
+	if err != nil {
+		return ConnectCatalogue{}, err
+	}
+
 	catalogue := ConnectCatalogue{
-		Platforms: make([]ConnectPlatform, 0, len(platformRows)),
-		Clients:   make([]ConnectClient, 0, len(clientRows)),
+		Platforms:    make([]ConnectPlatform, 0, len(platformRows)),
+		Clients:      make([]ConnectClient, 0, len(clientRows)),
+		Downloads:    make([]ConnectDownload, 0, len(downloadRows)),
+		MaxFileBytes: clientmirror.MaxFileBytes,
+	}
+	for _, row := range downloadRows {
+		catalogue.Downloads = append(catalogue.Downloads, connectDownloadFromRow(dbgen.UpsertConnectDownloadRow(row)))
 	}
 	for _, row := range platformRows {
 		catalogue.Platforms = append(catalogue.Platforms, ConnectPlatform{

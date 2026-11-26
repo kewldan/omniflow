@@ -91,6 +91,9 @@ type AdminHandlers struct {
 	// files cannot be served, rather than unmounted: the metadata is still in the
 	// ticket, and an operator should be told why the button does nothing.
 	supportFiles accountsupport.AttachmentStore
+	// clientMirroring says whether the installation has an object store to
+	// keep mirrored client installers in. The connect screen shows it.
+	clientMirroring bool
 	// search answers the command palette's record lookups. A nil value leaves
 	// the route unmounted and the palette offers screens only.
 	search *panelsearchpg.Service
@@ -153,6 +156,8 @@ type AdminOptions struct {
 	// the desk's download route. It must be the same store the customer API
 	// writes to.
 	SupportAttachments accountsupport.AttachmentStore
+	// ClientMirroring is true when mirrored client installers can be kept.
+	ClientMirroring bool
 	// Search serves record search in the command palette. A nil value leaves
 	// the route unmounted.
 	Search *panelsearchpg.Service
@@ -221,6 +226,7 @@ func NewAdminHandlers(options AdminOptions) *AdminHandlers {
 		version:          versionOrUnknown(options.Version),
 		updates:          updates,
 		supportFiles:     options.SupportAttachments,
+		clientMirroring:  options.ClientMirroring,
 		search:           options.Search,
 		stars:            options.Stars,
 		installation:     options.Installation,

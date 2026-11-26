@@ -210,6 +210,16 @@ export const GetBrandingAssetQueryParams = zod.object({
 
 export const GetBrandingAssetResponse = zod.unknown();
 
+/**
+ * Public. A client installer this installation mirrors from the client's GitHub releases and serves from its own address, for customers who cannot reach GitHub or the vendor. The file name must be the one the connection screen published. Ranges are answered, so an interrupted download resumes; the ETag is the file's SHA-256. Rate limited per address. Not served while the download, its client, or its platform is switched off.
+ */
+export const GetClientDownloadParams = zod.object({
+  downloadID: zod.uuid(),
+  fileName: zod.string(),
+});
+
+export const GetClientDownloadResponse = zod.unknown();
+
 export const createPlanBodyCodeRegExp = /^[a-z][a-z0-9_-]{1,63}$/;
 export const createPlanBodyVisibleDefault = false;
 export const createPlanBodyLocalizationsNameMax = 120;
@@ -8705,6 +8715,57 @@ export const GetPanelConnectCatalogueResponse = zod.object({
       updatedBy: zod.uuid().optional(),
     }),
   ),
+  downloads: zod.array(
+    zod.object({
+      id: zod.uuid().optional().describe("Absent creates, present updates."),
+      clientId: zod.uuid(),
+      kind: zod.enum(["store", "mirror"]),
+      label: zod
+        .string()
+        .describe("Up to 40 characters, shown on the button: App Store, Windows x64, APK."),
+      url: zod.string().optional().describe("A store link; https only."),
+      sourceRepo: zod
+        .string()
+        .optional()
+        .describe(
+          "A mirror's GitHub repository, owner/name. A github.com address is accepted and reduced to that.",
+        ),
+      tagPrefix: zod
+        .string()
+        .optional()
+        .describe("What a release's tag must start with; empty accepts every release."),
+      assetPattern: zod
+        .string()
+        .optional()
+        .describe("The asset's file name; * and ? are wildcards."),
+      enabled: zod.boolean(),
+      sortOrder: zod.int(),
+      version: zod
+        .string()
+        .optional()
+        .describe("The release the mirror holds, from its tag. Read-only."),
+      fileName: zod.string().optional(),
+      sizeBytes: zod.int().optional(),
+      checksum: zod.string().optional().describe("SHA-256 of the file, hex."),
+      fetchedAt: zod.iso.datetime({ offset: true }).optional(),
+      checkedAt: zod.iso.datetime({ offset: true }).optional(),
+      nextCheckAt: zod.iso.datetime({ offset: true }).optional(),
+      lastError: zod
+        .string()
+        .optional()
+        .describe("Why the last check failed; absent after a successful one."),
+      path: zod
+        .string()
+        .optional()
+        .describe("Where customers download the file, once the mirror holds one."),
+      updatedAt: zod.iso.datetime({ offset: true }),
+      updatedBy: zod.uuid().optional(),
+    }),
+  ),
+  mirroring: zod
+    .boolean()
+    .describe("Whether an object store is configured to keep mirrored installers in (APP_S3_*)."),
+  maxFileBytes: zod.int().describe("The largest installer a mirror copies."),
 });
 
 /**
@@ -8846,6 +8907,121 @@ export const ImportPanelConnectFromRemnawaveResponse = zod.object({
   platforms: zod.int(),
   clients: zod.int(),
   skipped: zod.array(zod.string()),
+});
+
+/**
+ * Requires settings.write. Creates when `id` is absent and updates when it is present. A `store` download is an https link to a store or vendor page. A `mirror` names a GitHub release asset — repository, the prefix a tag must start with, and the asset's file name with * and ? wildcards — which the worker copies into the object store and keeps at the newest published release. Changing a mirror's source makes it due at once.
+ */
+export const SavePanelConnectDownloadHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const SavePanelConnectDownloadBody = zod.object({
+  id: zod.uuid().optional().describe("Absent creates, present updates."),
+  clientId: zod.uuid(),
+  kind: zod.enum(["store", "mirror"]),
+  label: zod
+    .string()
+    .describe("Up to 40 characters, shown on the button: App Store, Windows x64, APK."),
+  url: zod.string().optional().describe("A store link; https only."),
+  sourceRepo: zod
+    .string()
+    .optional()
+    .describe(
+      "A mirror's GitHub repository, owner/name. A github.com address is accepted and reduced to that.",
+    ),
+  tagPrefix: zod
+    .string()
+    .optional()
+    .describe("What a release's tag must start with; empty accepts every release."),
+  assetPattern: zod.string().optional().describe("The asset's file name; * and ? are wildcards."),
+  enabled: zod.boolean(),
+  sortOrder: zod.int(),
+  version: zod
+    .string()
+    .optional()
+    .describe("The release the mirror holds, from its tag. Read-only."),
+  updatedAt: zod.iso.datetime({ offset: true }),
+  updatedBy: zod.uuid().optional(),
+});
+
+export const SavePanelConnectDownloadResponse = zod.object({
+  id: zod.uuid().optional().describe("Absent creates, present updates."),
+  clientId: zod.uuid(),
+  kind: zod.enum(["store", "mirror"]),
+  label: zod
+    .string()
+    .describe("Up to 40 characters, shown on the button: App Store, Windows x64, APK."),
+  url: zod.string().optional().describe("A store link; https only."),
+  sourceRepo: zod
+    .string()
+    .optional()
+    .describe(
+      "A mirror's GitHub repository, owner/name. A github.com address is accepted and reduced to that.",
+    ),
+  tagPrefix: zod
+    .string()
+    .optional()
+    .describe("What a release's tag must start with; empty accepts every release."),
+  assetPattern: zod.string().optional().describe("The asset's file name; * and ? are wildcards."),
+  enabled: zod.boolean(),
+  sortOrder: zod.int(),
+  version: zod
+    .string()
+    .optional()
+    .describe("The release the mirror holds, from its tag. Read-only."),
+  fileName: zod.string().optional(),
+  sizeBytes: zod.int().optional(),
+  checksum: zod.string().optional().describe("SHA-256 of the file, hex."),
+  fetchedAt: zod.iso.datetime({ offset: true }).optional(),
+  checkedAt: zod.iso.datetime({ offset: true }).optional(),
+  nextCheckAt: zod.iso.datetime({ offset: true }).optional(),
+  lastError: zod
+    .string()
+    .optional()
+    .describe("Why the last check failed; absent after a successful one."),
+  path: zod
+    .string()
+    .optional()
+    .describe("Where customers download the file, once the mirror holds one."),
+  updatedAt: zod.iso.datetime({ offset: true }),
+  updatedBy: zod.uuid().optional(),
+});
+
+/**
+ * Requires settings.write. A mirror's file is removed from the object store by the worker's hourly sweep once no download refers to it.
+ */
+export const DeletePanelConnectDownloadParams = zod.object({
+  downloadID: zod.uuid(),
+});
+
+export const DeletePanelConnectDownloadHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const DeletePanelConnectDownloadResponse = zod.object({
+  removed: zod.boolean().optional(),
+});
+
+/**
+ * Requires settings.write. Makes a mirror due now; the worker checks due mirrors every minute and copies a newer release if there is one.
+ */
+export const CheckPanelConnectMirrorParams = zod.object({
+  downloadID: zod.uuid(),
+});
+
+export const CheckPanelConnectMirrorHeader = zod.object({
+  "X-CSRF-Token": zod
+    .string()
+    .describe("Echoes the token from the current session. Required on every unsafe method."),
+});
+
+export const CheckPanelConnectMirrorResponse = zod.object({
+  queued: zod.boolean().optional(),
 });
 
 /**
@@ -13128,6 +13304,24 @@ export const GetAccountConnectionResponse = zod.object({
         .string()
         .optional()
         .describe("The operator's own words, replacing the generic setup steps when present."),
+      downloads: zod
+        .array(
+          zod.object({
+            kind: zod.enum(["store", "file"]),
+            label: zod.string(),
+            url: zod
+              .string()
+              .describe(
+                "Absolute for a store link; a path on this installation, /v1/downloads/…, for a file.",
+              ),
+            version: zod.string().optional(),
+            fileName: zod.string().optional(),
+            sizeBytes: zod.int().optional(),
+          }),
+        )
+        .describe(
+          "Store links and installers this installation serves itself, in the operator's order. A mirror appears only once it holds a file.",
+        ),
     }),
   ),
 });

@@ -78,6 +78,11 @@ Then set `APP_S3_ENDPOINT=seaweedfs:8333`, `APP_S3_ACCESS_KEY`, `APP_S3_SECRET_K
 it. Include the `seaweedfs-data` volume in your server backups — a store on the same machine is a
 store lost with it. MinIO's images are no longer published, which is why the example uses SeaweedFS.
 
+The same store keeps the client installers the connection catalogue mirrors — a few hundred
+megabytes per application. They need no backup, since the worker fetches them again; to keep them
+out of an archive of the store, set `APP_S3_DOWNLOADS_BUCKET` to a bucket of their own (SeaweedFS
+keeps each bucket in its own collection on disk) and leave that bucket out.
+
 ## First deployment
 
 A production server runs the published images with `compose.release.yaml`: nothing is built on it,

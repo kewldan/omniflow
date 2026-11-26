@@ -3084,9 +3084,56 @@ export interface PanelConnectClient {
   updatedBy?: string;
 }
 
+export type PanelConnectDownloadKind =
+  (typeof PanelConnectDownloadKind)[keyof typeof PanelConnectDownloadKind];
+
+export const PanelConnectDownloadKind = {
+  store: "store",
+  mirror: "mirror",
+} as const;
+
+export interface PanelConnectDownload {
+  /** Absent creates, present updates. */
+  id?: string;
+  clientId: string;
+  kind: PanelConnectDownloadKind;
+  /** Up to 40 characters, shown on the button: App Store, Windows x64, APK. */
+  label: string;
+  /** A store link; https only. */
+  url?: string;
+  /** A mirror's GitHub repository, owner/name. A github.com address is accepted and reduced to that. */
+  sourceRepo?: string;
+  /** What a release's tag must start with; empty accepts every release. */
+  tagPrefix?: string;
+  /** The asset's file name; * and ? are wildcards. */
+  assetPattern?: string;
+  enabled: boolean;
+  sortOrder: number;
+  /** The release the mirror holds, from its tag. Read-only. */
+  version?: string;
+  readonly fileName?: string;
+  readonly sizeBytes?: number;
+  /** SHA-256 of the file, hex. */
+  readonly checksum?: string;
+  readonly fetchedAt?: string;
+  readonly checkedAt?: string;
+  readonly nextCheckAt?: string;
+  /** Why the last check failed; absent after a successful one. */
+  readonly lastError?: string;
+  /** Where customers download the file, once the mirror holds one. */
+  readonly path?: string;
+  updatedAt: string;
+  updatedBy?: string;
+}
+
 export interface PanelConnectCatalogue {
   platforms: PanelConnectPlatform[];
   clients: PanelConnectClient[];
+  downloads: PanelConnectDownload[];
+  /** Whether an object store is configured to keep mirrored installers in (APP_S3_*). */
+  mirroring: boolean;
+  /** The largest installer a mirror copies. */
+  maxFileBytes: number;
 }
 
 export interface PanelSalesLine {
@@ -5824,6 +5871,24 @@ export type AccountConnectionPlatformsItem = {
   label: string;
 };
 
+export type AccountConnectionClientsItemDownloadsItemKind =
+  (typeof AccountConnectionClientsItemDownloadsItemKind)[keyof typeof AccountConnectionClientsItemDownloadsItemKind];
+
+export const AccountConnectionClientsItemDownloadsItemKind = {
+  store: "store",
+  file: "file",
+} as const;
+
+export type AccountConnectionClientsItemDownloadsItem = {
+  kind: AccountConnectionClientsItemDownloadsItemKind;
+  label: string;
+  /** Absolute for a store link; a path on this installation, /v1/downloads/…, for a file. */
+  url: string;
+  version?: string;
+  fileName?: string;
+  sizeBytes?: number;
+};
+
 export type AccountConnectionClientsItem = {
   name: string;
   /** Empty when the subscription has no link yet. */
@@ -5831,6 +5896,8 @@ export type AccountConnectionClientsItem = {
   downloadUrl?: string;
   /** The operator's own words, replacing the generic setup steps when present. */
   instructions?: string;
+  /** Store links and installers this installation serves itself, in the operator's order. A mirror appears only once it holds a file. */
+  downloads: AccountConnectionClientsItemDownloadsItem[];
 };
 
 export interface AccountConnection {
@@ -8641,6 +8708,14 @@ export type ImportPanelConnectFromRemnawave200 = {
   skipped: string[];
 };
 
+export type DeletePanelConnectDownload200 = {
+  removed?: boolean;
+};
+
+export type CheckPanelConnectMirror200 = {
+  queued?: boolean;
+};
+
 export type SearchPanelBlocklistMatchesParams = {
   /** Opaque keyset cursor from the previous page. */
   cursor?: CursorParameter;
@@ -10652,6 +10727,116 @@ export const useGetBrandingAsset = <TError = Promise<void | ProblemResponse>>(
   const swrKey =
     swrOptions?.swrKey ?? (() => (isEnabled ? getGetBrandingAssetKey(kind, params) : null));
   const swrFn = () => getBrandingAsset(kind, params, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getClientDownloadResponse200 = {
+  data: Blob;
+  status: 200;
+};
+
+export type getClientDownloadResponse206 = {
+  data: void;
+  status: 206;
+};
+
+export type getClientDownloadResponse304 = {
+  data: void;
+  status: 304;
+};
+
+export type getClientDownloadResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type getClientDownloadResponse429 = {
+  data: ProblemResponse;
+  status: 429;
+};
+
+export type getClientDownloadResponse503 = {
+  data: ProblemResponse;
+  status: 503;
+};
+
+export type getClientDownloadResponseSuccess = (
+  | getClientDownloadResponse200
+  | getClientDownloadResponse206
+) & {
+  headers: Headers;
+};
+export type getClientDownloadResponseError = (
+  | getClientDownloadResponse304
+  | getClientDownloadResponse404
+  | getClientDownloadResponse429
+  | getClientDownloadResponse503
+) & {
+  headers: Headers;
+};
+
+export type getClientDownloadResponse =
+  | getClientDownloadResponseSuccess
+  | getClientDownloadResponseError;
+
+export const getGetClientDownloadUrl = (downloadID: string, fileName: string) => {
+  return `/v1/downloads/${downloadID}/${fileName}`;
+};
+
+/**
+ * Public. A client installer this installation mirrors from the client's GitHub releases and serves from its own address, for customers who cannot reach GitHub or the vendor. The file name must be the one the connection screen published. Ranges are answered, so an interrupted download resumes; the ETag is the file's SHA-256. Rate limited per address. Not served while the download, its client, or its platform is switched off.
+ */
+export const getClientDownload = async (
+  downloadID: string,
+  fileName: string,
+  options?: RequestInit,
+): Promise<getClientDownloadResponse> => {
+  const res = await fetch(getGetClientDownloadUrl(downloadID, fileName), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.blob();
+  const data: getClientDownloadResponse["data"] = body as getClientDownloadResponse["data"];
+  return { data, status: res.status, headers: res.headers } as getClientDownloadResponse;
+};
+
+export const getGetClientDownloadKey = (downloadID: string, fileName: string) =>
+  [`/v1/downloads/${downloadID}/${fileName}`] as const;
+
+export type GetClientDownloadQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getClientDownload>>
+>;
+
+export const useGetClientDownload = <TError = Promise<void | ProblemResponse>>(
+  downloadID: string,
+  fileName: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getClientDownload>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false &&
+    downloadID !== null &&
+    downloadID !== undefined &&
+    fileName !== null &&
+    fileName !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ??
+    (() => (isEnabled ? getGetClientDownloadKey(downloadID, fileName) : null));
+  const swrFn = () => getClientDownload(downloadID, fileName, fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 
@@ -29404,6 +29589,284 @@ export const useImportPanelConnectFromRemnawave = <TError = Promise<ProblemRespo
 
   const swrKey = swrOptions?.swrKey ?? getImportPanelConnectFromRemnawaveMutationKey();
   const swrFn = getImportPanelConnectFromRemnawaveMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type savePanelConnectDownloadResponse200 = {
+  data: PanelConnectDownload;
+  status: 200;
+};
+
+export type savePanelConnectDownloadResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type savePanelConnectDownloadResponse409 = {
+  data: ProblemResponse;
+  status: 409;
+};
+
+export type savePanelConnectDownloadResponse422 = {
+  data: ProblemResponse;
+  status: 422;
+};
+
+export type savePanelConnectDownloadResponseSuccess = savePanelConnectDownloadResponse200 & {
+  headers: Headers;
+};
+export type savePanelConnectDownloadResponseError = (
+  | savePanelConnectDownloadResponse403
+  | savePanelConnectDownloadResponse409
+  | savePanelConnectDownloadResponse422
+) & {
+  headers: Headers;
+};
+
+export type savePanelConnectDownloadResponse =
+  | savePanelConnectDownloadResponseSuccess
+  | savePanelConnectDownloadResponseError;
+
+export const getSavePanelConnectDownloadUrl = () => {
+  return `/v1/panel/settings/connect/downloads`;
+};
+
+/**
+ * Requires settings.write. Creates when `id` is absent and updates when it is present. A `store` download is an https link to a store or vendor page. A `mirror` names a GitHub release asset — repository, the prefix a tag must start with, and the asset's file name with * and ? wildcards — which the worker copies into the object store and keeps at the newest published release. Changing a mirror's source makes it due at once.
+ */
+export const savePanelConnectDownload = async (
+  panelConnectDownload: NonReadonly<PanelConnectDownload>,
+  options?: RequestInit,
+): Promise<savePanelConnectDownloadResponse> => {
+  const res = await fetch(getSavePanelConnectDownloadUrl(), {
+    ...options,
+    method: "PUT",
+    headers: getHeaders({ "Content-Type": "application/json" }, options?.headers),
+    body: JSON.stringify(panelConnectDownload),
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: savePanelConnectDownloadResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as savePanelConnectDownloadResponse;
+};
+
+export const getSavePanelConnectDownloadMutationFetcher = (options?: RequestInit) => {
+  return (_: Key, { arg }: { arg: NonReadonly<PanelConnectDownload> }) => {
+    return savePanelConnectDownload(arg, options);
+  };
+};
+export const getSavePanelConnectDownloadMutationKey = () =>
+  [`/v1/panel/settings/connect/downloads`] as const;
+
+export type SavePanelConnectDownloadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof savePanelConnectDownload>>
+>;
+
+export const useSavePanelConnectDownload = <TError = Promise<ProblemResponse>>(options?: {
+  swr?: SWRMutationConfiguration<
+    Awaited<ReturnType<typeof savePanelConnectDownload>>,
+    TError,
+    Key,
+    NonReadonly<PanelConnectDownload>,
+    Awaited<ReturnType<typeof savePanelConnectDownload>>
+  > & { swrKey?: string };
+  fetch?: RequestInit;
+}) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getSavePanelConnectDownloadMutationKey();
+  const swrFn = getSavePanelConnectDownloadMutationFetcher(fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type deletePanelConnectDownloadResponse200 = {
+  data: DeletePanelConnectDownload200;
+  status: 200;
+};
+
+export type deletePanelConnectDownloadResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type deletePanelConnectDownloadResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type deletePanelConnectDownloadResponseSuccess = deletePanelConnectDownloadResponse200 & {
+  headers: Headers;
+};
+export type deletePanelConnectDownloadResponseError = (
+  | deletePanelConnectDownloadResponse403
+  | deletePanelConnectDownloadResponse404
+) & {
+  headers: Headers;
+};
+
+export type deletePanelConnectDownloadResponse =
+  | deletePanelConnectDownloadResponseSuccess
+  | deletePanelConnectDownloadResponseError;
+
+export const getDeletePanelConnectDownloadUrl = (downloadID: string) => {
+  return `/v1/panel/settings/connect/downloads/${downloadID}`;
+};
+
+/**
+ * Requires settings.write. A mirror's file is removed from the object store by the worker's hourly sweep once no download refers to it.
+ */
+export const deletePanelConnectDownload = async (
+  downloadID: string,
+  options?: RequestInit,
+): Promise<deletePanelConnectDownloadResponse> => {
+  const res = await fetch(getDeletePanelConnectDownloadUrl(downloadID), {
+    ...options,
+    method: "DELETE",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: deletePanelConnectDownloadResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as deletePanelConnectDownloadResponse;
+};
+
+export const getDeletePanelConnectDownloadMutationFetcher = (
+  downloadID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return deletePanelConnectDownload(downloadID, options);
+  };
+};
+export const getDeletePanelConnectDownloadMutationKey = (downloadID: string) =>
+  [`/v1/panel/settings/connect/downloads/${downloadID}`] as const;
+
+export type DeletePanelConnectDownloadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deletePanelConnectDownload>>
+>;
+
+export const useDeletePanelConnectDownload = <TError = Promise<ProblemResponse>>(
+  downloadID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof deletePanelConnectDownload>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof deletePanelConnectDownload>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getDeletePanelConnectDownloadMutationKey(downloadID);
+  const swrFn = getDeletePanelConnectDownloadMutationFetcher(downloadID, fetchOptions);
+
+  const query = useSWRMutation(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type checkPanelConnectMirrorResponse200 = {
+  data: CheckPanelConnectMirror200;
+  status: 200;
+};
+
+export type checkPanelConnectMirrorResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type checkPanelConnectMirrorResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type checkPanelConnectMirrorResponseSuccess = checkPanelConnectMirrorResponse200 & {
+  headers: Headers;
+};
+export type checkPanelConnectMirrorResponseError = (
+  | checkPanelConnectMirrorResponse403
+  | checkPanelConnectMirrorResponse404
+) & {
+  headers: Headers;
+};
+
+export type checkPanelConnectMirrorResponse =
+  | checkPanelConnectMirrorResponseSuccess
+  | checkPanelConnectMirrorResponseError;
+
+export const getCheckPanelConnectMirrorUrl = (downloadID: string) => {
+  return `/v1/panel/settings/connect/downloads/${downloadID}/check`;
+};
+
+/**
+ * Requires settings.write. Makes a mirror due now; the worker checks due mirrors every minute and copies a newer release if there is one.
+ */
+export const checkPanelConnectMirror = async (
+  downloadID: string,
+  options?: RequestInit,
+): Promise<checkPanelConnectMirrorResponse> => {
+  const res = await fetch(getCheckPanelConnectMirrorUrl(downloadID), {
+    ...options,
+    method: "POST",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: checkPanelConnectMirrorResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as checkPanelConnectMirrorResponse;
+};
+
+export const getCheckPanelConnectMirrorMutationFetcher = (
+  downloadID: string,
+  options?: RequestInit,
+) => {
+  return (_: Key, __: { arg: Arguments }) => {
+    return checkPanelConnectMirror(downloadID, options);
+  };
+};
+export const getCheckPanelConnectMirrorMutationKey = (downloadID: string) =>
+  [`/v1/panel/settings/connect/downloads/${downloadID}/check`] as const;
+
+export type CheckPanelConnectMirrorMutationResult = NonNullable<
+  Awaited<ReturnType<typeof checkPanelConnectMirror>>
+>;
+
+export const useCheckPanelConnectMirror = <TError = Promise<ProblemResponse>>(
+  downloadID: string,
+  options?: {
+    swr?: SWRMutationConfiguration<
+      Awaited<ReturnType<typeof checkPanelConnectMirror>>,
+      TError,
+      Key,
+      Arguments,
+      Awaited<ReturnType<typeof checkPanelConnectMirror>>
+    > & { swrKey?: string };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const swrKey = swrOptions?.swrKey ?? getCheckPanelConnectMirrorMutationKey(downloadID);
+  const swrFn = getCheckPanelConnectMirrorMutationFetcher(downloadID, fetchOptions);
 
   const query = useSWRMutation(swrKey, swrFn, swrOptions);
 

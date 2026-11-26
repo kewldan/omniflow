@@ -25,6 +25,8 @@ type ConnectionClient struct {
 	// Instructions are the operator's own words for this client, in the
 	// customer's language. Empty means the generic steps.
 	Instructions string
+	// Downloads are store links and installers this installation serves.
+	Downloads []commerce.ClientDownload
 }
 
 // Connection is everything the "connect a device" screen needs.
@@ -83,6 +85,7 @@ func (service *Service) Connection(
 		connection.Clients = append(connection.Clients, ConnectionClient{
 			Name: client.Name, DeepLink: service.links.DeepLink(client, subscription.SubscriptionURL),
 			DownloadURL: client.DownloadURL, Instructions: client.Instructions,
+			Downloads: client.Downloads,
 		})
 	}
 	return connection, nil

@@ -412,6 +412,7 @@ opened by hand is never cleared automatically. Automatic detection watches `post
 | `APP_S3_ENDPOINT` | — | api, bot, worker | no | no | An S3-compatible object store for support attachments, as `host:port` without a scheme — SeaweedFS beside the stack, Cloudflare R2, AWS S3. Set, it replaces `APP_SUPPORT_ATTACHMENT_DIR`, and the bot copies files customers send it into the store so the desk can show them. See [Deployment](/operations/deployment#object-storage) |
 | `APP_S3_ACCESS_KEY`, `APP_S3_SECRET_KEY` | — | api, bot, worker | with the endpoint | **yes** (the secret key) | The store's credentials. An endpoint without them fails startup |
 | `APP_S3_BUCKET` | `omniflow` | api, bot, worker | no | no | The bucket; created on the first write if missing |
+| `APP_S3_DOWNLOADS_BUCKET` | `APP_S3_BUCKET` | api, worker | no | no | The bucket mirrored client installers are kept in. They can always be fetched again, so a bucket of their own keeps them out of a store backup. See [Connection catalogue](/operations/connection-catalogue#downloads-and-mirrored-installers) |
 | `APP_S3_REGION` | `us-east-1` | api, bot, worker | no | no | The signing region; R2 takes `auto` |
 | `APP_S3_SECURE` | `true` | api, bot, worker | no | no | TLS to the endpoint. `false` for a store on the stack's private network |
 

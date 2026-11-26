@@ -3,7 +3,7 @@
 import { Button } from "@omniflow/ui/button";
 import { cn } from "@omniflow/ui/lib/utils";
 import { toast } from "@omniflow/ui/toast";
-import { Check, Copy, ExternalLink } from "lucide-react";
+import { Check, Copy, Download, ExternalLink } from "lucide-react";
 import { useParams, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
@@ -17,7 +17,24 @@ import {
 } from "@/components/account/state";
 import { QrCode } from "@/components/qr-code";
 import { type ApiError, fetcher } from "@/lib/api";
+import { useBytes } from "@/lib/format";
 import { POLLING, useBoundedPolling } from "@/lib/polling";
+import { openInTelegramBrowser } from "@/lib/tma";
+
+/**
+ * A store link, or an installer this installation serves from its own
+ * address — for a customer who cannot open GitHub or the vendor's site without
+ * the VPN they are trying to install.
+ */
+type ClientDownload = {
+  kind: "store" | "file";
+  label: string;
+  /** Absolute for a store link; a path on this installation for a file. */
+  url: string;
+  version?: string;
+  fileName?: string;
+  sizeBytes?: number;
+};
 
 type Connection = {
   /** Empty when the operator hides the bare link; see `linkHidden`. */
@@ -40,6 +57,7 @@ type Connection = {
     deepLink: string;
     downloadUrl?: string;
     instructions?: string;
+    downloads: ClientDownload[];
   }[];
 };
 
@@ -189,9 +207,15 @@ export default function ConnectPage() {
                     </a>
                   </Button>
                 ) : null}
+                {client.downloads?.length ? <Downloads downloads={client.downloads} /> : null}
               </div>
             ))}
           </div>
+          {data.clients.some((client) => client.downloads?.some((item) => item.kind === "file")) ? (
+            <p className="px-1 text-[12px] text-muted-foreground leading-relaxed">
+              {translate("connect.downloadsHint")}
+            </p>
+          ) : null}
         </>
       )}
 
@@ -246,6 +270,64 @@ function Steps({ instructions, name }: { instructions?: string; name: string }) 
         </li>
       ))}
     </ol>
+  );
+}
+
+/**
+ * Where to get one application: installers served from this installation and
+ * store links, side by side under its import button.
+ *
+ * Inside the Telegram Mini App a file is handed to Telegram's browser: the
+ * web view drops a download the page starts itself, and an APK in particular
+ * has to reach the system's installer.
+ */
+function Downloads({ downloads }: { downloads: ClientDownload[] }) {
+  const bytes = useBytes();
+  return (
+    <div className="flex flex-wrap gap-1.5 pt-0.5">
+      {downloads.map((item) =>
+        item.kind === "file" ? (
+          <Button
+            asChild
+            className="h-auto gap-1.5 py-1.5"
+            key={item.url}
+            size="sm"
+            variant="outline"
+          >
+            <a
+              download={item.fileName}
+              href={item.url}
+              onClick={(event) => {
+                if (openInTelegramBrowser(item.url)) {
+                  event.preventDefault();
+                }
+              }}
+            >
+              <Download aria-hidden />
+              <span>{item.label}</span>
+              <span className="text-[11px] text-muted-foreground">
+                {[item.version, item.sizeBytes ? bytes(item.sizeBytes) : ""]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
+            </a>
+          </Button>
+        ) : (
+          <Button
+            asChild
+            className="h-auto gap-1.5 py-1.5"
+            key={item.url}
+            size="sm"
+            variant="outline"
+          >
+            <a href={item.url} rel="noreferrer noopener" target="_blank">
+              {item.label}
+              <ExternalLink aria-hidden />
+            </a>
+          </Button>
+        ),
+      )}
+    </div>
   );
 }
 

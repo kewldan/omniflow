@@ -31,12 +31,38 @@ func (handlers *AdminHandlers) mountConnectCatalogue(secure chi.Router) {
 		write.Put("/settings/connect/clients", handlers.saveConnectClient)
 		write.Delete("/settings/connect/clients/{clientID}", handlers.deleteConnectClient)
 		write.Post("/settings/connect/import-remnawave", handlers.importConnectFromRemnawave)
+		write.Put("/settings/connect/downloads", handlers.saveConnectDownload)
+		write.Delete("/settings/connect/downloads/{downloadID}", handlers.deleteConnectDownload)
+		write.Post("/settings/connect/downloads/{downloadID}/check", handlers.checkConnectMirror)
 	})
 }
 
 func (handlers *AdminHandlers) connectCatalogue(writer http.ResponseWriter, request *http.Request) {
 	catalogue, err := handlers.operations.ConnectCatalogue(request.Context())
+	catalogue.Mirroring = handlers.clientMirroring
 	handlers.respond(writer, request, catalogue, err)
+}
+
+func (handlers *AdminHandlers) saveConnectDownload(writer http.ResponseWriter, request *http.Request) {
+	var body panelpg.ConnectDownload
+	if !decodeJSON(writer, request, &body) {
+		return
+	}
+	download, err := handlers.operations.SaveConnectDownload(request.Context(), body, actorFrom(request))
+	handlers.respond(writer, request, download, err)
+}
+
+func (handlers *AdminHandlers) deleteConnectDownload(writer http.ResponseWriter, request *http.Request) {
+	err := handlers.operations.DeleteConnectDownload(
+		request.Context(), chi.URLParam(request, "downloadID"), actorFrom(request))
+	handlers.respond(writer, request, map[string]any{"removed": true}, err)
+}
+
+// checkConnectMirror makes a mirror due now; the worker looks within a minute.
+func (handlers *AdminHandlers) checkConnectMirror(writer http.ResponseWriter, request *http.Request) {
+	err := handlers.operations.CheckConnectMirror(
+		request.Context(), chi.URLParam(request, "downloadID"), actorFrom(request))
+	handlers.respond(writer, request, map[string]any{"queued": true}, err)
 }
 
 func (handlers *AdminHandlers) saveConnectPlatform(writer http.ResponseWriter, request *http.Request) {
