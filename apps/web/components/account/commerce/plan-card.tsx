@@ -265,7 +265,11 @@ export function PlanCard({ plan }: { plan: PlanOffer }) {
                   index === 0 && chosen ? `&period=${chosen.days}` : ""
                 }`}
               >
-                {translate(`operations.${OPERATIONS.includes(operation) ? operation : "unknown"}`)}
+                {plan.kind === "trial" && operation === "purchase"
+                  ? translate("operations.activate")
+                  : translate(
+                      `operations.${OPERATIONS.includes(operation) ? operation : "unknown"}`,
+                    )}
               </Link>
             </Button>
           ))}

@@ -7352,7 +7352,8 @@
         "extension": "延长",
         "upgrade": "升级",
         "downgrade": "降级",
-        "unknown": "变更"
+        "unknown": "变更",
+        "activate": "激活"
       },
       "kind": {
         "trial": "试用",
@@ -7504,7 +7505,8 @@
         "targetNew": "开通新订阅",
         "replaces": "开始此操作将放弃您未完成的 {plan} 购买。",
         "start": "继续",
-        "terms": "服务条款"
+        "terms": "服务条款",
+        "activate": "激活免费试用"
       },
       "checkout": {
         "none": "没有进行中的购买",

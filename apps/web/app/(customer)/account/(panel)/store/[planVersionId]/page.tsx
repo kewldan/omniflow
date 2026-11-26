@@ -323,7 +323,7 @@ export default function PlanPage() {
           )}
 
           <Button className="w-full" disabled={busy} size="lg" type="submit">
-            {translate("plan.start")}
+            {data.kind === "trial" ? translate("plan.activate") : translate("plan.start")}
           </Button>
 
           {data.termsUrl && (

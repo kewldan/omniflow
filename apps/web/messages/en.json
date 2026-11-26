@@ -7425,7 +7425,8 @@
         "extension": "Extend",
         "upgrade": "Upgrade",
         "downgrade": "Move down",
-        "unknown": "Change"
+        "unknown": "Change",
+        "activate": "Activate"
       },
       "kind": {
         "trial": "Trial",
@@ -7588,7 +7589,8 @@
         "targetNew": "Open a new subscription",
         "replaces": "Starting this will discard the purchase of {plan} you left unfinished.",
         "start": "Continue",
-        "terms": "Terms of service"
+        "terms": "Terms of service",
+        "activate": "Activate the free trial"
       },
       "checkout": {
         "none": "No purchase in progress",
