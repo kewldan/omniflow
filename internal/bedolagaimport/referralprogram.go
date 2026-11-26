@@ -1,6 +1,7 @@
 package bedolagaimport
 
 import (
+	"math"
 	"slices"
 	"sort"
 	"strconv"
@@ -177,7 +178,26 @@ func resolveReferralSettings(database, env map[string]string) referralSettings {
 }
 
 func clampBPS(percent int64) int32 {
-	return int32(min(max(percent, 0), 100) * 100)
+	if percent < 0 {
+		percent = 0
+	}
+	if percent > 100 {
+		percent = 100
+	}
+	return int32(percent * 100)
+}
+
+// clampInt32 bounds a parsed 64-bit value to int32. It compares against
+// math.MaxInt32 explicitly rather than through min, which is the bound check
+// a static analyser recognises before the narrowing conversion.
+func clampInt32(value int64) int32 {
+	if value > math.MaxInt32 {
+		return math.MaxInt32
+	}
+	if value < math.MinInt32 {
+		return math.MinInt32
+	}
+	return int32(value)
 }
 
 func optionalBPS(settings referralSettings, key string) *int32 {
@@ -192,7 +212,7 @@ func positiveCap(value int64) *int32 {
 	if value <= 0 {
 		return nil
 	}
-	capped := int32(min(value, 1<<31-1))
+	capped := clampInt32(value)
 	return &capped
 }
 
@@ -221,7 +241,7 @@ func commissionLadder(raw string) (base *int32, tiers []ReferralCommission) {
 			base = &bps
 			continue
 		}
-		tiers = append(tiers, ReferralCommission{Referrals: int32(min(count, 1<<31-1)), BPS: bps})
+		tiers = append(tiers, ReferralCommission{Referrals: clampInt32(count), BPS: bps})
 	}
 	sort.Slice(tiers, func(i, j int) bool { return tiers[i].Referrals < tiers[j].Referrals })
 	return base, tiers
@@ -238,7 +258,10 @@ func clampDays(decision *ReferralProgramDecision, days int64) int32 {
 		addWarning(decision, WarnReferralDaysClamped)
 		days = maxReferralDays
 	}
-	return int32(max(days, 0))
+	if days < 0 {
+		days = 0
+	}
+	return int32(days)
 }
 
 // legacyReferralTerms is Bedolaga's original scheme: a bonus to each side on

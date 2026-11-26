@@ -111,7 +111,7 @@ func tierCode(group PromoGroup) string {
 }
 
 func percentBPS(percent int64) int32 {
-	return int32(min(max(percent, 0), 100) * 100)
+	return clampBPS(percent)
 }
 
 func decideLoyalty(plan *Plan, source Source, target Target, userIndex map[int64]int) {
@@ -131,7 +131,7 @@ func decideLoyalty(plan *Plan, source Source, target Target, userIndex map[int64
 		tier := LoyaltyTier{
 			SourceID: group.ID, Code: code, Name: truncateRunes(oneLine(group.Name), 60),
 			DiscountBPS: percentBPS(group.ServerPercent), TrafficDiscountBPS: percentBPS(group.TrafficPercent),
-			DeviceDiscountBPS: percentBPS(group.DevicePercent), Priority: int32(group.Priority),
+			DeviceDiscountBPS: percentBPS(group.DevicePercent), Priority: clampInt32(group.Priority),
 		}
 		if utf8.RuneCountInString(tier.Name) == 0 {
 			tier.Name = code
