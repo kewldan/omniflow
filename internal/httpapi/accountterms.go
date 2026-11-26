@@ -22,7 +22,8 @@ func (handlers *AccountHandlers) mountTerms(secure chi.Router) {
 	secure.Post("/terms/accept", handlers.acceptTerms)
 }
 
-// termsStatus tells the panel whether to show the terms gate.
+// termsStatus tells the panel whether to show the terms gate, and which
+// documents the customer agrees to by accepting.
 func (handlers *AccountHandlers) termsStatus(writer http.ResponseWriter, request *http.Request) {
 	principal, _ := CustomerFrom(request.Context())
 	policy := handlers.terms.Policy(request.Context())
@@ -32,9 +33,21 @@ func (handlers *AccountHandlers) termsStatus(writer http.ResponseWriter, request
 		writeProblem(writer, request, http.StatusInternalServerError, "terms_unavailable", "The terms could not be read")
 		return
 	}
+	documents := []map[string]string{}
+	if policy.Required && !accepted {
+		found, err := handlers.terms.Documents(request.Context(), accountLocale(request, principal.Customer.Locale))
+		if err != nil {
+			handlers.logger.Error("terms documents could not be read", "error", err)
+			writeProblem(writer, request, http.StatusInternalServerError, "terms_unavailable", "The terms could not be read")
+			return
+		}
+		for _, document := range found {
+			documents = append(documents, map[string]string{"kind": document.Kind, "slug": document.Slug, "title": document.Title})
+		}
+	}
 	writeJSON(writer, http.StatusOK, map[string]any{
 		"required": policy.Required, "accepted": accepted, "version": policy.Version,
-		"termsUrl": policy.TermsURL,
+		"termsUrl": policy.TermsURL, "documents": documents,
 	})
 }
 
@@ -59,7 +72,7 @@ func (handlers *AccountHandlers) acceptTerms(writer http.ResponseWriter, request
 		writeProblem(writer, request, http.StatusInternalServerError, "terms_unavailable", "The acceptance could not be recorded")
 		return
 	}
-	writeJSON(writer, http.StatusOK, map[string]any{"required": policy.Required, "accepted": true, "version": policy.Version})
+	writeJSON(writer, http.StatusOK, map[string]any{"required": policy.Required, "accepted": true, "version": policy.Version, "documents": []map[string]string{}})
 }
 
 // termsHold refuses a purchase from a customer who has not accepted the terms

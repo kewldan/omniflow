@@ -218,14 +218,18 @@ later upgrade improve a default nobody has touched.
 | `referralCodePrompt` | Adds **🎟 I have an invite code** to a newcomer's welcome: the code they type attributes them to its owner under the referral programme's usual rules — once, and only before a paid order |
 
 With `requireTerms` on, `/start` and every menu, command, and button in the bot answer with the
-terms — the page named by `branding.termsUrl`, else `APP_TERMS_URL` — and an **I accept** button,
+terms — a button for each published information page of kind `terms`, `offer`, and `privacy`
+(opened on `APP_PUBLIC_URL`, or inside Telegram without one), or with none published the page named
+by `branding.termsUrl`, else `APP_TERMS_URL` — and an **I accept** button,
 until the customer accepts the current version; `/terms`, `/paysupport`, `/faq`, `/support`, and
 `/login` stay available, and a `/start` deep link (a referral, a campaign, a code) is still recorded
 before the gate shows. The web panel shows an undismissable dialog over every page, backed by
 `GET /v1/account/terms` and `POST /v1/account/terms/accept` (409 `terms_changed` when the version
 moved while the dialog was open), and checkout confirmation answers 403 `terms_required` meanwhile.
 Each acceptance is a `consent_records` row of purpose `terms` with the version and its source,
-`telegram_bot` or `web_panel`, so it appears with the customer's other consents. An unreadable
+`telegram_bot` or `web_panel`, so it appears with the customer's other consents; while a `privacy`
+page is published, the same press writes a `privacy` row too, and a customer missing either is
+held at the gate. An unreadable
 settings section requires nothing: a settings outage does not lock customers out.
 
 ## Commerce settings

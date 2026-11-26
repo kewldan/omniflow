@@ -391,7 +391,7 @@ func (app *App) HandleStart(ctx context.Context, client *telegram.Bot, update *m
 	}
 	view := app.loadView(ctx, message.From.ID, locale, routeHome)
 	if app.termsBlocked(ctx, message.From) {
-		view = termsGateView(locale, app.configuredTerms())
+		view = app.termsGateScreen(ctx, locale)
 	} else {
 		// The operator's welcome, logo or video, and invite-code prompt come
 		// before the menu.

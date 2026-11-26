@@ -5293,7 +5293,10 @@ paths:
     post:
       operationId: acceptAccountTerms
       tags: [account]
-      description: Records a consent of purpose `terms` for the version the customer read; 409 terms_changed when the operator raised it meanwhile.
+      description: >-
+        Records a consent of purpose `terms` for the version the customer read,
+        and one of purpose `privacy` while a privacy policy is published; 409
+        terms_changed when the operator raised it meanwhile.
       parameters: [{$ref: "#/components/parameters/CSRFToken"}]
       requestBody:
         required: true
@@ -11279,6 +11282,19 @@ components:
         accepted: {type: boolean}
         version: {type: string}
         termsUrl: {type: string}
+        documents:
+          type: array
+          description: >-
+            The published terms, offer, and privacy policy the customer agrees
+            to, in that order, while the gate is showing; empty otherwise. Each
+            opens at /pages/{slug}.
+          items:
+            type: object
+            required: [kind, slug, title]
+            properties:
+              kind: {type: string, enum: [terms, offer, privacy]}
+              slug: {type: string}
+              title: {type: string}
     AccountLoyalty:
       type: object
       required: [enabled]

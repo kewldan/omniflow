@@ -7690,10 +7690,11 @@
     },
     "terms": {
       "title": "Terms of service",
-      "description": "To use the service, read the offer and the rules and confirm that you accept them.",
+      "description": "To use the service, read the documents below and confirm that you accept them.",
       "read": "Read the terms",
       "accept": "I accept",
-      "failed": "Your acceptance was not saved. Try again."
+      "failed": "Your acceptance was not saved. Try again.",
+      "privacy": "By pressing “I accept” you also consent to the processing of your personal data under the privacy policy."
     },
     "offers": {
       "intro": "Personal offers from the service. Checkout applies the best active one by itself.",

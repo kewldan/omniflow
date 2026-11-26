@@ -15612,10 +15612,22 @@ export const GetAccountTermsResponse = zod.object({
   accepted: zod.boolean(),
   version: zod.string(),
   termsUrl: zod.string().optional(),
+  documents: zod
+    .array(
+      zod.object({
+        kind: zod.enum(["terms", "offer", "privacy"]),
+        slug: zod.string(),
+        title: zod.string(),
+      }),
+    )
+    .optional()
+    .describe(
+      "The published terms, offer, and privacy policy the customer agrees to, in that order, while the gate is showing; empty otherwise. Each opens at /pages/{slug}.",
+    ),
 });
 
 /**
- * Records a consent of purpose `terms` for the version the customer read; 409 terms_changed when the operator raised it meanwhile.
+ * Records a consent of purpose `terms` for the version the customer read, and one of purpose `privacy` while a privacy policy is published; 409 terms_changed when the operator raised it meanwhile.
  */
 export const AcceptAccountTermsHeader = zod.object({
   "X-CSRF-Token": zod
@@ -15632,6 +15644,18 @@ export const AcceptAccountTermsResponse = zod.object({
   accepted: zod.boolean(),
   version: zod.string(),
   termsUrl: zod.string().optional(),
+  documents: zod
+    .array(
+      zod.object({
+        kind: zod.enum(["terms", "offer", "privacy"]),
+        slug: zod.string(),
+        title: zod.string(),
+      }),
+    )
+    .optional()
+    .describe(
+      "The published terms, offer, and privacy policy the customer agrees to, in that order, while the gate is showing; empty otherwise. Each opens at /pages/{slug}.",
+    ),
 });
 
 /**

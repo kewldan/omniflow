@@ -219,9 +219,12 @@ With `requireTerms` on in the marketing section, the bot answers every menu, com
 your terms and an **I accept** button until the customer accepts, and the cabinet shows a dialog
 that cannot be dismissed. `/terms`, `/paysupport`, `/faq`, `/support`, and `/login` stay reachable,
 and a referral or campaign link is still recorded before the gate appears. Raise `termsVersion` to
-ask every customer again. Each acceptance is stored as a consent record with its version and
-surface. The terms shown are `branding.termsUrl`, else `APP_TERMS_URL`; host them on your own
-installation with [Information pages](/operations/information-pages).
+ask every customer again. The gate links each published
+[information page](/operations/information-pages) of kind terms, offer, and privacy; with none
+published it links `branding.termsUrl`, else `APP_TERMS_URL`. Each acceptance is stored as a consent
+record with its version and surface. While a privacy policy is published, the gate says that
+accepting also consents to the processing of personal data, and the one press records a privacy
+consent beside the terms one; publishing a policy later asks everybody who has not consented to it.
 
 ## Languages
 

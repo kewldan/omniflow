@@ -10,18 +10,31 @@ import {
   DialogTitle,
 } from "@omniflow/ui/dialog";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import useSWR from "swr";
 
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
+import { openInTelegramBrowser } from "@/lib/tma";
 
-type Terms = { required: boolean; accepted: boolean; version: string; termsUrl?: string };
+type TermsDocument = { kind: "terms" | "offer" | "privacy"; slug: string; title: string };
+type Terms = {
+  required: boolean;
+  accepted: boolean;
+  version: string;
+  termsUrl?: string;
+  documents?: TermsDocument[];
+};
 
 /**
  * Holds the panel until the customer accepts the terms, when the operator
  * requires it in Settings → Marketing. The dialog cannot be dismissed: the
  * acceptance is a recorded consent, and checkout refuses to confirm without
  * it anyway.
+ *
+ * It links every document the customer agrees to — the published terms,
+ * offer, and privacy policy — and says so when accepting also consents to the
+ * processing of personal data. A document opens beside the panel, in a new
+ * tab or Telegram's browser, so the dialog is still there to accept.
  */
 export function TermsGate() {
   const translate = useTranslations("account.terms");
@@ -31,6 +44,7 @@ export function TermsGate() {
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
   const open = Boolean(data?.required && !data.accepted);
+  const documents = data?.documents ?? [];
 
   async function accept() {
     if (!data) {
@@ -63,15 +77,19 @@ export function TermsGate() {
           <DialogTitle>{translate("title")}</DialogTitle>
           <DialogDescription>{translate("description")}</DialogDescription>
         </DialogHeader>
-        {data?.termsUrl && (
-          <a
-            className="text-primary text-sm underline underline-offset-2"
-            href={data.termsUrl}
-            rel="noreferrer"
-            target="_blank"
-          >
-            {translate("read")}
-          </a>
+        {documents.length > 0 ? (
+          <ul className="space-y-1.5">
+            {documents.map((document) => (
+              <li key={document.slug}>
+                <DocumentLink href={`/pages/${document.slug}`}>{document.title}</DocumentLink>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          data?.termsUrl && <DocumentLink href={data.termsUrl}>{translate("read")}</DocumentLink>
+        )}
+        {documents.some((document) => document.kind === "privacy") && (
+          <p className="text-muted-foreground text-xs">{translate("privacy")}</p>
         )}
         {failed && (
           <p className="text-destructive text-sm" role="alert">
@@ -85,5 +103,23 @@ export function TermsGate() {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function DocumentLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <a
+      className="text-primary text-sm underline underline-offset-2"
+      href={href}
+      onClick={(event) => {
+        if (openInTelegramBrowser(href)) {
+          event.preventDefault();
+        }
+      }}
+      rel="noreferrer"
+      target="_blank"
+    >
+      {children}
+    </a>
   );
 }

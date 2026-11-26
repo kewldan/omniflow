@@ -6471,11 +6471,28 @@ export interface AccountReferrals {
   rewards: AccountReferralsRewards;
 }
 
+export type AccountTermsDocumentsItemKind =
+  (typeof AccountTermsDocumentsItemKind)[keyof typeof AccountTermsDocumentsItemKind];
+
+export const AccountTermsDocumentsItemKind = {
+  terms: "terms",
+  offer: "offer",
+  privacy: "privacy",
+} as const;
+
+export type AccountTermsDocumentsItem = {
+  kind: AccountTermsDocumentsItemKind;
+  slug: string;
+  title: string;
+};
+
 export interface AccountTerms {
   required: boolean;
   accepted: boolean;
   version: string;
   termsUrl?: string;
+  /** The published terms, offer, and privacy policy the customer agrees to, in that order, while the gate is showing; empty otherwise. Each opens at /pages/{slug}. */
+  documents?: AccountTermsDocumentsItem[];
 }
 
 export type AccountLoyaltyRules = {
@@ -39683,7 +39700,7 @@ export const getAcceptAccountTermsUrl = () => {
 };
 
 /**
- * Records a consent of purpose `terms` for the version the customer read; 409 terms_changed when the operator raised it meanwhile.
+ * Records a consent of purpose `terms` for the version the customer read, and one of purpose `privacy` while a privacy policy is published; 409 terms_changed when the operator raised it meanwhile.
  */
 export const acceptAccountTerms = async (
   acceptAccountTermsBody: AcceptAccountTermsBody,

@@ -1088,6 +1088,27 @@ func (e AccountSubscriptionRenewalState) Valid() bool {
 	}
 }
 
+// Defines values for AccountTermsDocumentsKind.
+const (
+	AccountTermsDocumentsKindOffer   AccountTermsDocumentsKind = "offer"
+	AccountTermsDocumentsKindPrivacy AccountTermsDocumentsKind = "privacy"
+	AccountTermsDocumentsKindTerms   AccountTermsDocumentsKind = "terms"
+)
+
+// Valid indicates whether the value is a known member of the AccountTermsDocumentsKind enum.
+func (e AccountTermsDocumentsKind) Valid() bool {
+	switch e {
+	case AccountTermsDocumentsKindOffer:
+		return true
+	case AccountTermsDocumentsKindPrivacy:
+		return true
+	case AccountTermsDocumentsKindTerms:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AccountTicketPriority.
 const (
 	AccountTicketPriorityHigh   AccountTicketPriority = "high"
@@ -7656,11 +7677,21 @@ type AccountSupportLimits struct {
 
 // AccountTerms defines model for AccountTerms.
 type AccountTerms struct {
-	Accepted bool    `json:"accepted"`
+	Accepted bool `json:"accepted"`
+
+	// Documents The published terms, offer, and privacy policy the customer agrees to, in that order, while the gate is showing; empty otherwise. Each opens at /pages/{slug}.
+	Documents *[]struct {
+		Kind  AccountTermsDocumentsKind `json:"kind"`
+		Slug  string                    `json:"slug"`
+		Title string                    `json:"title"`
+	} `json:"documents,omitempty"`
 	Required bool    `json:"required"`
 	TermsUrl *string `json:"termsUrl,omitempty"`
 	Version  string  `json:"version"`
 }
+
+// AccountTermsDocumentsKind defines model for AccountTerms.Documents.Kind.
+type AccountTermsDocumentsKind string
 
 // AccountTicket defines model for AccountTicket.
 type AccountTicket struct {

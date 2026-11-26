@@ -2,6 +2,7 @@ package botapp
 
 import (
 	"context"
+	"strings"
 
 	telegram "github.com/go-telegram/bot"
 	"github.com/go-telegram/bot/models"
@@ -15,20 +16,55 @@ const termsAcceptAction = "terms-accept"
 // callback handler runs.
 var termsActions = map[string]bool{termsAcceptAction: true}
 
-// termsGateView asks the customer to accept the terms before anything else.
-func termsGateView(locale Locale, termsURL string) View {
-	rows := make([][]models.InlineKeyboardButton, 0, 2)
-	if safeURL(termsURL) {
+// termsGateView asks the customer to accept the terms before anything else,
+// with a button for each document they agree to. A document opens on the
+// public site when the bot knows its address, where it is read whole; inside
+// Telegram otherwise. With no document published, the one configured terms
+// address stands in for them.
+func termsGateView(locale Locale, documents []termsgate.Document, publicURL, termsURL string) View {
+	rows := make([][]models.InlineKeyboardButton, 0, len(documents)+1)
+	body := text(locale, "terms.gate")
+	base := strings.TrimRight(strings.TrimSpace(publicURL), "/")
+	for _, document := range documents {
+		if document.Kind == "privacy" {
+			body += "\n\n" + text(locale, "terms.gatePrivacy")
+		}
+		label := "📄 " + truncateRunes(document.Title, 40)
+		if address := base + "/pages/" + document.Slug; base != "" && safeURL(address) {
+			rows = append(rows, row(models.InlineKeyboardButton{Text: label, URL: address}))
+		} else {
+			rows = append(rows, row(actionButton(label, "page:"+document.Slug)))
+		}
+	}
+	if len(documents) == 0 && safeURL(termsURL) {
 		rows = append(rows, row(models.InlineKeyboardButton{Text: text(locale, "terms.read"), URL: termsURL}))
 	}
 	rows = append(rows, row(actionButton(text(locale, "terms.accept"), termsAcceptAction)))
-	return View{Text: text(locale, "terms.gate"), Keyboard: keyboard(rows...)}
+	return View{Text: body, Keyboard: keyboard(rows...)}
+}
+
+// termsGateScreen reads the documents the gate shows. An unreadable list
+// still shows the gate, with the configured terms address.
+func (app *App) termsGateScreen(ctx context.Context, locale Locale) View {
+	documents, err := app.terms.Documents(ctx, string(locale))
+	if err != nil {
+		app.logger.Warn("terms documents could not be read", "error", err)
+		documents = nil
+	}
+	return termsGateView(locale, documents, app.settings.PublicURL, app.configuredTerms())
+}
+
+// termsPassThrough reports whether a button works before the terms are
+// accepted: reading a document the gate links to inside Telegram. Its back
+// button leads to the pages list, which the gate answers with itself again.
+func termsPassThrough(data string) bool {
+	return strings.HasPrefix(data, actionPrefix+"page:")
 }
 
 // termsMiddleware stops every menu, command, and button at the terms gate
 // until the customer accepts the current version, when the Marketing settings
-// require it. The accept button itself, and the commands that explain the
-// service (/terms, /paysupport, /faq), pass through.
+// require it. The accept button itself, the documents it links to, and the
+// commands that explain the service (/terms, /paysupport, /faq), pass through.
 func (app *App) termsMiddleware(next telegram.HandlerFunc) telegram.HandlerFunc {
 	return func(ctx context.Context, client *telegram.Bot, update *models.Update) {
 		if !app.commerceEnabled() || app.terms == nil {
@@ -72,6 +108,10 @@ func (app *App) termsMiddleware(next telegram.HandlerFunc) telegram.HandlerFunc 
 			_, _ = client.EditMessageText(ctx, editParams(chatID, query.Message.Message.ID, view))
 			return
 		}
+		if query != nil && termsPassThrough(query.Data) {
+			next(ctx, client, update)
+			return
+		}
 		accepted, err := app.terms.Accepted(ctx, session.Customer.ID, policy.Version)
 		if err != nil {
 			app.logger.Warn("terms acceptance lookup failed", "error", err)
@@ -80,7 +120,7 @@ func (app *App) termsMiddleware(next telegram.HandlerFunc) telegram.HandlerFunc 
 			next(ctx, client, update)
 			return
 		}
-		view := termsGateView(locale, app.configuredTerms())
+		view := app.termsGateScreen(ctx, locale)
 		if query != nil {
 			_, _ = client.AnswerCallbackQuery(ctx, &telegram.AnswerCallbackQueryParams{CallbackQueryID: query.ID})
 			_, _ = client.EditMessageText(ctx, editParams(chatID, query.Message.Message.ID, view))

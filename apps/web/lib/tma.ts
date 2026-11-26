@@ -212,15 +212,33 @@ export function openThroughTelegram(href: string): boolean {
     });
     return opened;
   }
-  if (url.protocol === "https:" || url.protocol === "http:") {
-    let opened = false;
-    attempt(() => {
-      openLink(url.toString());
-      opened = true;
-    });
-    return opened;
+  return openInTelegramBrowser(url.toString());
+}
+
+/**
+ * Opens a web link, this site's own included, in Telegram's browser, leaving
+ * the panel where it was: a document read from a dialog the customer has to
+ * come back to. Returns false outside Telegram or for a non-web link.
+ */
+export function openInTelegramBrowser(href: string): boolean {
+  if (!started) {
+    return false;
   }
-  return false;
+  let url: URL;
+  try {
+    url = new URL(href, window.location.href);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") {
+    return false;
+  }
+  let opened = false;
+  attempt(() => {
+    openLink(url.toString());
+    opened = true;
+  });
+  return opened;
 }
 
 /**
