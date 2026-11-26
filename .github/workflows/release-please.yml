@@ -38,3 +38,14 @@ jobs:
     uses: ./.github/workflows/release.yml
     with:
       tag: ${{ needs.release.outputs.tag }}
+
+  # Tells the community chat, once the images the announcement points people
+  # to are published.
+  announce:
+    needs: [release, images]
+    if: needs.release.outputs.released == 'true'
+    uses: ./.github/workflows/announce.yml
+    with:
+      tag: ${{ needs.release.outputs.tag }}
+    secrets:
+      TELEGRAM_COMMUNITY_BOT_TOKEN: ${{ secrets.TELEGRAM_COMMUNITY_BOT_TOKEN }}

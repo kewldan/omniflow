@@ -30,7 +30,11 @@ tooling.
   rolls back and alerts the operator group on a failed migration or readiness.
   Keep `main` green and do not push half-finished behaviour; the integration
   suite is not part of that gate, so run the affected tests before pushing.
-  Releases (release-please) still cut versions.
+  Releases (release-please) still cut versions, and each published release
+  is announced in the 📣 Обновления topic of the Omniflow Community chat on
+  Telegram by `.github/workflows/announce.yml` (called from release-please;
+  dispatch it with `dry_run` to preview). Do not post release notes there by
+  hand.
 - The customer panel talks to the Telegram Mini App through tma.js
   (`apps/web/lib/tma.ts`), and Telegram avatars are stored in
   `telegram_avatars` and served by the API, never loaded from Telegram's hosts.

@@ -1,0 +1,53 @@
+name: Announce release
+
+# Posts a published release to the 📣 Обновления topic of the Omniflow
+# Community chat on Telegram.
+#
+# Called by release-please once the release's images are published, for the
+# same reason release.yml is: a release cut with the default GITHUB_TOKEN does
+# not start workflows from its own events, so a `release: published` trigger
+# would never fire. Dispatch it by hand to re-send an announcement, or with
+# `dry_run` to see the message without sending it.
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: "Release tag to announce, e.g. omniflow-v1.10.0"
+        required: true
+        type: string
+    secrets:
+      TELEGRAM_COMMUNITY_BOT_TOKEN:
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to announce, e.g. omniflow-v1.10.0"
+        required: true
+        type: string
+      dry_run:
+        description: "Print the message instead of sending it"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  announce:
+    runs-on: ubuntu-latest
+    # The chat is the owner's; a fork running this has no token and no
+    # business posting there.
+    if: github.repository == 'kewldan/omniflow'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+      - name: Post to the community chat
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          ANNOUNCE_DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
+          TELEGRAM_COMMUNITY_BOT_TOKEN: ${{ secrets.TELEGRAM_COMMUNITY_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: "-1005795427731"
+          TELEGRAM_THREAD_ID: "7"
+        run: python3 -I .github/scripts/announce_release.py
