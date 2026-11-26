@@ -5,7 +5,7 @@ import { Input } from "@omniflow/ui/input";
 import { Label } from "@omniflow/ui/label";
 import { Skeleton } from "@omniflow/ui/skeleton";
 import { toast } from "@omniflow/ui/toast";
-import { Mail, MessageCircle, Send } from "lucide-react";
+import { Mail, MessageCircle } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
@@ -13,6 +13,7 @@ import useSWR from "swr";
 
 import { ProviderMark } from "@/components/account/provider-mark";
 import { useBrandName } from "@/components/brand-name";
+import { TelegramLogo } from "@/components/icons/telegram";
 import { type ApiError, apiFetch, fetcher } from "@/lib/api";
 import { rememberReferralCode } from "@/lib/referral";
 import { safeNext } from "@/lib/sign-in-path";
@@ -175,7 +176,7 @@ export default function SignInPage() {
                   rel="noreferrer noopener"
                   target="_blank"
                 >
-                  <Send aria-hidden className="size-4" />
+                  <TelegramLogo className="size-4" />
                   {translate("signIn.magicLinkAction")}
                 </a>
               </Button>
@@ -331,11 +332,11 @@ function MiniAppSignIn({
             aria-hidden
             className="flex size-9 shrink-0 items-center justify-center rounded-full bg-background/20 font-semibold text-sm"
           >
-            {initials || <Send className="size-4" />}
+            {initials || <TelegramLogo className="size-4" />}
           </span>
         )
       ) : (
-        <Send aria-hidden className="size-4" />
+        <TelegramLogo className="size-4" />
       )}
       <span className="truncate text-left">
         {busy
