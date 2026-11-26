@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 func TestNormalizeCollapsesTheEquivalencesThatMatter(t *testing.T) {
@@ -83,6 +84,8 @@ func TestParseReadsPlainTextWithCommentsAndReasons(t *testing.T) {
 		"111111",
 		"222222,payment-fraud",
 		"333333\tchargebacks",
+		"444444 #reselling https://t.me/c/1/2",
+		"555555 # sharing, 117 GB a day",
 		"not-a-number",
 	}, "\n"))
 
@@ -90,11 +93,16 @@ func TestParseReadsPlainTextWithCommentsAndReasons(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != 3 {
-		t.Fatalf("expected three usable entries, got %d", len(entries))
+	if len(entries) != 5 {
+		t.Fatalf("expected five usable entries, got %d", len(entries))
 	}
 	if skipped != 1 {
 		t.Fatalf("expected the malformed line to be counted as skipped, got %d", skipped)
+	}
+	// A "#" after the value is a comment: the identifier still counts, and the
+	// comment is its reason.
+	if entries[3].ReasonCode == "" || entries[4].ReasonCode == "" || entries[4].ReasonCode[0] == '#' {
+		t.Fatalf("inline comments were not read as reasons: %+v", entries)
 	}
 	if entries[1].ReasonCode != "payment-fraud" || entries[2].ReasonCode != "chargebacks" {
 		t.Fatalf("reason codes were not carried through: %+v", entries)
@@ -157,5 +165,19 @@ func TestParseHandlesAnEmptyBody(t *testing.T) {
 	}
 	if len(entries) != 0 || skipped != 0 {
 		t.Fatalf("expected nothing from an empty body, got %d entries and %d skipped", len(entries), skipped)
+	}
+}
+
+// A long Cyrillic comment is cut by character: a byte cut through a letter
+// would be invalid UTF-8, and the database would refuse the whole refresh.
+func TestParseCutsLongReasonsOnACharacter(t *testing.T) {
+	body := strings.NewReader("6923193113 #Причина бана: сканировал адреса и перепродавал подписку другим людям в чате")
+	entries, _, err := Parse(SubjectTelegramID, body)
+	if err != nil || len(entries) != 1 {
+		t.Fatalf("entries = %+v (%v)", entries, err)
+	}
+	reason := entries[0].ReasonCode
+	if !utf8.ValidString(reason) || utf8.RuneCountInString(reason) > 64 || !strings.HasPrefix(reason, "Причина") {
+		t.Fatalf("reason = %q", reason)
 	}
 }

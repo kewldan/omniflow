@@ -1258,7 +1258,10 @@ SET display_name = EXCLUDED.display_name,
     enabled = EXCLUDED.enabled,
     refresh_interval_seconds = EXCLUDED.refresh_interval_seconds,
     updated_by = EXCLUDED.updated_by,
-    updated_at = now()
+    updated_at = now(),
+    -- Saving a source fetches it at the next sweep, so a corrected URL or
+    -- header does not wait out the old interval.
+    next_refresh_at = now()
 RETURNING id, slug, display_name, subject_kind, url, auth_header_ciphertext, enabled, refresh_interval_seconds, entry_count, status, last_error_code, last_refresh_at, next_refresh_at, created_at, updated_at, updated_by
 `
 

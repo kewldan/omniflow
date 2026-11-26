@@ -51,6 +51,14 @@ that does not normalise is skipped and counted rather than failing the refresh:
 one malformed row in a third-party list must not leave an operator with a stale
 blocklist and no explanation.
 
+In a plain-text file, a line starting with `#` is a comment. Whatever follows the
+value after a space, a tab, a comma, or a semicolon is the publisher's reason,
+so `6923193113 #network scanning` and `6923193113,network scanning` both list
+`6923193113`. The reason is kept, cut to 64 characters.
+
+Saving a source in the panel fetches it at the next `lifecycle_sweep`, within
+five minutes, instead of waiting out its interval.
+
 A source publishing more than 500,000 entries is refused. A list that suddenly
 grows that large is far more likely to be misconfigured or redirected than
 genuinely that big, and importing it would replace a working list with garbage.

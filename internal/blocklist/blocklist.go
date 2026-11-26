@@ -231,10 +231,14 @@ func parseLines(kind string, body io.Reader) ([]Entry, int, error) {
 			continue
 		}
 		value, reason := line, ""
-		// "value<TAB>reason" and "value,reason" are both common; anything after
-		// the first separator is the publisher's own classification.
-		if index := strings.IndexAny(line, "\t,;"); index > 0 {
-			value, reason = strings.TrimSpace(line[:index]), strings.TrimSpace(line[index+1:])
+		// "value<TAB>reason", "value,reason", and "value #reason" are all
+		// common; anything after the first separator is the publisher's own
+		// classification. No identifier a list carries contains a space, so a
+		// space ends the value too, and a "#" opening the rest is a comment
+		// marker rather than part of the reason.
+		if index := strings.IndexAny(line, " \t,;"); index > 0 {
+			value = strings.TrimSpace(line[:index])
+			reason = strings.TrimSpace(strings.TrimLeft(strings.TrimSpace(line[index+1:]), "#"))
 		}
 
 		fingerprint, err := Fingerprint(kind, value)
@@ -266,9 +270,12 @@ func firstNonEmpty(values ...string) string {
 // accepts, so a source with a verbose reason field cannot fail the whole
 // refresh on a length check.
 func truncateReason(reason string) string {
-	reason = strings.TrimSpace(reason)
-	if len(reason) > 64 {
-		return reason[:64]
+	// Cut by character, not byte: a list's comments are often Cyrillic, and a
+	// byte cut through a letter is invalid UTF-8 the database refuses, which
+	// would fail the whole refresh over one comment.
+	runes := []rune(strings.ToValidUTF8(strings.TrimSpace(reason), ""))
+	if len(runes) > 64 {
+		runes = runes[:64]
 	}
-	return reason
+	return strings.TrimSpace(string(runes))
 }
