@@ -1,7 +1,9 @@
 "use client";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@omniflow/ui/avatar";
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@omniflow/ui/hover-card";
 import { cn } from "@omniflow/ui/lib/utils";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import useSWR from "swr";
 
@@ -18,6 +20,15 @@ export type CustomerLabel = {
 
 /** The most identifiers one labels request carries; the API's own bound. */
 const BATCH = 200;
+
+/**
+ * The hover card's body is its own chunk: every panel route shows chips, and
+ * none of them should carry the card's code until an operator points at one.
+ */
+const CustomerCardBody = dynamic(
+  () => import("./customer-card").then((module) => module.CustomerCardBody),
+  { loading: () => <div className="h-40" />, ssr: false },
+);
 
 type Waiter = { resolve: (label: CustomerLabel | null) => void; reject: (error: unknown) => void };
 
@@ -100,6 +111,11 @@ function initials(title: string | null, id: string): string {
  * A customer wherever the panel lists one: their Telegram picture, name, and
  * @username, linking to their card. A customer without a Telegram name keeps
  * the short identifier, which is what every row used to show.
+ *
+ * Resting the pointer on a chip, or tabbing to one, opens a summary of the
+ * customer (status, tenure, subscriptions, spend) so an operator does not have
+ * to open the profile to answer "who is this". The summary is read only when
+ * the card opens; the chip itself still costs one batched label lookup.
  */
 export function CustomerChip({
   id,
@@ -115,7 +131,7 @@ export function CustomerChip({
   const title = customerTitle(label);
   const secondary = label?.name && label.username ? `@${label.username}` : null;
   const body = (
-    <span className={cn("inline-flex min-w-0 items-center gap-2", className)} title={id}>
+    <span className={cn("inline-flex min-w-0 items-center gap-2", className)}>
       <Avatar className="size-6">
         {label?.avatar && (
           <AvatarImage alt="" src={`/v1/panel/customers/${encodeURIComponent(id)}/avatar`} />
@@ -134,13 +150,26 @@ export function CustomerChip({
       </span>
     </span>
   );
-  if (!link) {
-    return body;
-  }
   return (
-    <Link className="min-w-0 underline-offset-2 hover:underline" href={`/admin/customers/${id}`}>
-      {body}
-    </Link>
+    <HoverCard>
+      <HoverCardTrigger asChild>
+        {link ? (
+          <Link
+            className="min-w-0 underline-offset-2 hover:underline"
+            href={`/admin/customers/${id}`}
+          >
+            {body}
+          </Link>
+        ) : (
+          body
+        )}
+      </HoverCardTrigger>
+      {/* The card is portalled but still a React child of the row: a click in
+          it must not also select the row or ticket the chip sits in. */}
+      <HoverCardContent className="w-80" onClick={(event) => event.stopPropagation()}>
+        <CustomerCardBody id={id} />
+      </HoverCardContent>
+    </HoverCard>
   );
 }
 

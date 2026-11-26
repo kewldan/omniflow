@@ -1077,6 +1077,22 @@ paths:
         "200": {description: Customer profile, content: {application/json: {schema: {$ref: "#/components/schemas/PanelCustomerProfile"}}}}
         "403": {$ref: "#/components/responses/Problem"}
         "404": {$ref: "#/components/responses/Problem"}
+  /v1/panel/customers/{customerID}/card:
+    get:
+      operationId: getPanelCustomerCard
+      tags: [panel]
+      description: >-
+        The short summary the panel shows when an operator hovers or focuses a
+        customer anywhere one is named: Telegram name, @username and ID,
+        account status with the end of a time-limited suspension, when the
+        customer registered, their subscriptions, and what they have spent per
+        currency across settled orders, less refunds. Only what the card shows.
+        Requires customers.read.
+      parameters: [{$ref: "#/components/parameters/CustomerID"}]
+      responses:
+        "200": {description: Customer card, content: {application/json: {schema: {$ref: "#/components/schemas/PanelCustomerCard"}}}}
+        "403": {$ref: "#/components/responses/Problem"}
+        "404": {$ref: "#/components/responses/Problem"}
   /v1/panel/customers/{customerID}/avatar:
     get:
       operationId: getPanelCustomerAvatar
@@ -7815,6 +7831,40 @@ components:
             referralCount: {type: integer, format: int64}
             openFlags: {type: integer, format: int64, description: "Blocklist matches awaiting a decision. A count of things to review, never a verdict."}
             allowlisted: {type: boolean}
+    PanelCustomerCard:
+      type: object
+      required: [id, avatar, status, createdAt, subscriptions, spent]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string, description: "Telegram first and last name as the bot last saw them."}
+        username: {type: string, description: "Telegram @username, without the @."}
+        telegramId: {type: integer, format: int64}
+        avatar: {type: boolean, description: "A picture can be asked for at /v1/panel/customers/{customerID}/avatar."}
+        status: {type: string, enum: [active, suspended, deleted, merged]}
+        createdAt: {type: string, format: date-time}
+        suspensionEndsAt: {type: string, format: date-time, description: "When a time-limited suspension lifts; absent when not suspended or suspended indefinitely."}
+        subscriptions:
+          type: array
+          items:
+            type: object
+            required: [id, label, status]
+            properties:
+              id: {type: string, format: uuid}
+              label: {type: string}
+              status: {type: string, enum: [active, closed]}
+              entitlementStatus: {type: string}
+              endsAt: {type: string, format: date-time}
+              planCode: {type: string}
+        spent:
+          type: array
+          description: Settled orders' payments less refunds, per currency, in minor units.
+          items:
+            type: object
+            required: [currency, spentMinor, orderCount]
+            properties:
+              currency: {type: string}
+              spentMinor: {type: integer, format: int64}
+              orderCount: {type: integer, format: int64}
     PanelSubscription:
       type: object
       required: [id, slot, label, status]

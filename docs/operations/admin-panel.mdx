@@ -315,6 +315,36 @@ plan; message or open support; the activity log — each opening the customer ca
 tab that does it (`/admin/customers/{id}?tab=controls`), where the card's own permission
 checks apply.
 
+## Customer chips and the hover card
+
+Wherever the panel names a customer — order and payment tables, the risk
+screens, the support desk's ticket list and conversation header, referrals,
+gifts, payouts, traffic — it shows a chip with the customer's Telegram picture, name and
+@username, or the first eight characters of the customer ID when there is no
+Telegram name. The names of every chip on a screen come from one batched
+request, `GET /v1/panel/customers/labels`.
+
+Resting the pointer on a chip for a moment, or moving keyboard focus to it,
+opens a summary card, so an operator can tell who wrote a ticket or placed an
+order without opening the profile:
+
+- the picture, name, @username and Telegram ID;
+- the account status, and for a suspended customer when the suspension ends
+  (or that it has no end);
+- since when they have been a customer;
+- their subscriptions: label, plan, state and end date, up to four with a count
+  of the rest;
+- what they have spent, per currency: the payments on settled orders less
+  refunds, with the number of those orders;
+- the full customer ID and a link to the profile.
+
+The card is read from `GET /v1/panel/customers/{customerID}/card`, which
+requires `customers.read` and returns only what the card shows. It is fetched
+only when the card opens and kept for five minutes, so moving back and forth
+across a table does not ask again. An operator without `customers.read` sees a
+line saying the summary is hidden instead of the card. `Escape` or moving away
+closes it.
+
 ## Live updates
 
 Open panel screens stay current on their own. The panel keeps one server-sent event stream

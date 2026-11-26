@@ -5176,6 +5176,25 @@
       "found": "Найдено",
       "recent": "Недавно открытые"
     },
+    "customerCard": {
+      "loading": "Загружаем клиента",
+      "failed": "Не удалось загрузить клиента.",
+      "notFound": "Этого клиента больше нет.",
+      "forbidden": "В ваших ролях нет права customers.read, поэтому сводка по клиенту скрыта.",
+      "telegramId": "Telegram ID {id}",
+      "suspendedUntil": "до {date}",
+      "suspendedIndefinitely": "без даты окончания",
+      "since": "Клиент с {date} ({ago})",
+      "subscriptions": "Подписки",
+      "noSubscriptions": "Подписок нет",
+      "unnamed": "Подписка",
+      "endsAt": "до {date}",
+      "more": "ещё {count}",
+      "spent": "Потрачено",
+      "nothingSpent": "Оплаченных заказов пока нет",
+      "orders": "{count, plural, one {# заказ} few {# заказа} many {# заказов} other {# заказа}}",
+      "open": "Открыть профиль"
+    },
     "subscriptionReport": {
       "failed": "Не удалось загрузить отчёт по подпискам",
       "empty": "Пока нечего показать",

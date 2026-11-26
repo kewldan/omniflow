@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@omniflow/ui/tabs";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import useSWR from "swr";
-
+import { CustomerChip } from "@/components/admin/customer-chip";
 import { PageHeader } from "@/components/admin/resource-table";
 import { StateNotice } from "@/components/admin/state-notice";
 import { Timestamp } from "@/components/intl/timestamp";
@@ -172,6 +172,12 @@ function Queue({ active }: { active: boolean }) {
                     {ticket.subject || translate("noSubject")}
                   </span>
                   {ticket.unreadCount > 0 && <Badge variant="warning">{ticket.unreadCount}</Badge>}
+                </span>
+                {/* Not a link: the row is already a button that opens the
+                    ticket, and the conversation's header links to the
+                    customer. Hovering still shows their summary. */}
+                <span className="mt-1.5 flex">
+                  <CustomerChip id={ticket.customerId} link={false} />
                 </span>
                 <span className="mt-1 flex flex-wrap items-center gap-2 text-xs">
                   <Badge variant={priorityVariant(ticket.priority)}>

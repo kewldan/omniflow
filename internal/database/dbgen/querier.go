@@ -524,6 +524,10 @@ type Querier interface {
 	// A customer who re-issued their own link has just seen the result; the
 	// panel's echo of it is not news to them.
 	CustomerRotatedLinkRecently(ctx context.Context, userID pgtype.UUID) (bool, error)
+	// What a customer has spent, per currency: every settled order's payment less
+	// what was refunded from it. Draft, pending, cancelled and expired orders
+	// moved no money and are left out.
+	CustomerSpendByCurrency(ctx context.Context, userID pgtype.UUID) ([]CustomerSpendByCurrencyRow, error)
 	CustomerStatus(ctx context.Context, userID pgtype.UUID) (string, error)
 	CustomerTelegramSubjects(ctx context.Context, userID pgtype.UUID) ([]string, error)
 	// Resolves Remnawave user identifiers back to Omniflow customers for the traffic

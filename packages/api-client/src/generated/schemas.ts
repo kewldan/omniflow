@@ -2660,6 +2660,50 @@ export const GetPanelCustomerResponse = zod
   );
 
 /**
+ * The short summary the panel shows when an operator hovers or focuses a customer anywhere one is named: Telegram name, @username and ID, account status with the end of a time-limited suspension, when the customer registered, their subscriptions, and what they have spent per currency across settled orders, less refunds. Only what the card shows. Requires customers.read.
+ */
+export const GetPanelCustomerCardParams = zod.object({
+  customerID: zod.uuid(),
+});
+
+export const GetPanelCustomerCardResponse = zod.object({
+  id: zod.uuid(),
+  name: zod.string().optional().describe("Telegram first and last name as the bot last saw them."),
+  username: zod.string().optional().describe("Telegram @username, without the @."),
+  telegramId: zod.int().optional(),
+  avatar: zod
+    .boolean()
+    .describe("A picture can be asked for at /v1/panel/customers/{customerID}/avatar."),
+  status: zod.enum(["active", "suspended", "deleted", "merged"]),
+  createdAt: zod.iso.datetime({ offset: true }),
+  suspensionEndsAt: zod.iso
+    .datetime({ offset: true })
+    .optional()
+    .describe(
+      "When a time-limited suspension lifts; absent when not suspended or suspended indefinitely.",
+    ),
+  subscriptions: zod.array(
+    zod.object({
+      id: zod.uuid(),
+      label: zod.string(),
+      status: zod.enum(["active", "closed"]),
+      entitlementStatus: zod.string().optional(),
+      endsAt: zod.iso.datetime({ offset: true }).optional(),
+      planCode: zod.string().optional(),
+    }),
+  ),
+  spent: zod
+    .array(
+      zod.object({
+        currency: zod.string(),
+        spentMinor: zod.int(),
+        orderCount: zod.int(),
+      }),
+    )
+    .describe("Settled orders' payments less refunds, per currency, in minor units."),
+});
+
+/**
  * The customer's Telegram profile photo, served from the installation: read through the Bot API, stored in telegram_avatars and refreshed daily, with the stored copy served when Telegram does not answer. Private and cacheable for an hour. 404 when the customer has no Telegram account or the photo is hidden from the bot. Mounted only when a bot token is configured. Requires customers.read.
  */
 export const GetPanelCustomerAvatarParams = zod.object({

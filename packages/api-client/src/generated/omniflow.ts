@@ -1399,6 +1399,57 @@ export type PanelCustomerProfile = PanelCustomerSummary & {
   allowlisted: boolean;
 };
 
+export type PanelCustomerCardStatus =
+  (typeof PanelCustomerCardStatus)[keyof typeof PanelCustomerCardStatus];
+
+export const PanelCustomerCardStatus = {
+  active: "active",
+  suspended: "suspended",
+  deleted: "deleted",
+  merged: "merged",
+} as const;
+
+export type PanelCustomerCardSubscriptionsItemStatus =
+  (typeof PanelCustomerCardSubscriptionsItemStatus)[keyof typeof PanelCustomerCardSubscriptionsItemStatus];
+
+export const PanelCustomerCardSubscriptionsItemStatus = {
+  active: "active",
+  closed: "closed",
+} as const;
+
+export type PanelCustomerCardSubscriptionsItem = {
+  id: string;
+  label: string;
+  status: PanelCustomerCardSubscriptionsItemStatus;
+  entitlementStatus?: string;
+  endsAt?: string;
+  planCode?: string;
+};
+
+export type PanelCustomerCardSpentItem = {
+  currency: string;
+  spentMinor: number;
+  orderCount: number;
+};
+
+export interface PanelCustomerCard {
+  id: string;
+  /** Telegram first and last name as the bot last saw them. */
+  name?: string;
+  /** Telegram @username, without the @. */
+  username?: string;
+  telegramId?: number;
+  /** A picture can be asked for at /v1/panel/customers/{customerID}/avatar. */
+  avatar: boolean;
+  status: PanelCustomerCardStatus;
+  createdAt: string;
+  /** When a time-limited suspension lifts; absent when not suspended or suspended indefinitely. */
+  suspensionEndsAt?: string;
+  subscriptions: PanelCustomerCardSubscriptionsItem[];
+  /** Settled orders' payments less refunds, per currency, in minor units. */
+  spent: PanelCustomerCardSpentItem[];
+}
+
 export type PanelSubscriptionStatus =
   (typeof PanelSubscriptionStatus)[keyof typeof PanelSubscriptionStatus];
 
@@ -16875,6 +16926,90 @@ export const useGetPanelCustomer = <TError = Promise<ProblemResponse>>(
   const swrKey =
     swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelCustomerKey(customerID) : null));
   const swrFn = () => getPanelCustomer(customerID, fetchOptions);
+
+  const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
+
+  return {
+    swrKey,
+    ...query,
+  };
+};
+
+export type getPanelCustomerCardResponse200 = {
+  data: PanelCustomerCard;
+  status: 200;
+};
+
+export type getPanelCustomerCardResponse403 = {
+  data: ProblemResponse;
+  status: 403;
+};
+
+export type getPanelCustomerCardResponse404 = {
+  data: ProblemResponse;
+  status: 404;
+};
+
+export type getPanelCustomerCardResponseSuccess = getPanelCustomerCardResponse200 & {
+  headers: Headers;
+};
+export type getPanelCustomerCardResponseError = (
+  | getPanelCustomerCardResponse403
+  | getPanelCustomerCardResponse404
+) & {
+  headers: Headers;
+};
+
+export type getPanelCustomerCardResponse =
+  | getPanelCustomerCardResponseSuccess
+  | getPanelCustomerCardResponseError;
+
+export const getGetPanelCustomerCardUrl = (customerID: string) => {
+  return `/v1/panel/customers/${customerID}/card`;
+};
+
+/**
+ * The short summary the panel shows when an operator hovers or focuses a customer anywhere one is named: Telegram name, @username and ID, account status with the end of a time-limited suspension, when the customer registered, their subscriptions, and what they have spent per currency across settled orders, less refunds. Only what the card shows. Requires customers.read.
+ */
+export const getPanelCustomerCard = async (
+  customerID: string,
+  options?: RequestInit,
+): Promise<getPanelCustomerCardResponse> => {
+  const res = await fetch(getGetPanelCustomerCardUrl(customerID), {
+    ...options,
+    method: "GET",
+  });
+
+  const body = [204, 205, 304].includes(res.status) ? null : await res.text();
+
+  const data: getPanelCustomerCardResponse["data"] = body ? JSON.parse(body) : {};
+  return { data, status: res.status, headers: res.headers } as getPanelCustomerCardResponse;
+};
+
+export const getGetPanelCustomerCardKey = (customerID: string) =>
+  [`/v1/panel/customers/${customerID}/card`] as const;
+
+export type GetPanelCustomerCardQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getPanelCustomerCard>>
+>;
+
+export const useGetPanelCustomerCard = <TError = Promise<ProblemResponse>>(
+  customerID: string,
+  options?: {
+    swr?: SWRConfiguration<Awaited<ReturnType<typeof getPanelCustomerCard>>, TError> & {
+      swrKey?: Key;
+      enabled?: boolean;
+    };
+    fetch?: RequestInit;
+  },
+) => {
+  const { swr: swrOptions, fetch: fetchOptions } = options ?? {};
+
+  const isEnabled =
+    swrOptions?.enabled !== false && customerID !== null && customerID !== undefined;
+  const swrKey =
+    swrOptions?.swrKey ?? (() => (isEnabled ? getGetPanelCustomerCardKey(customerID) : null));
+  const swrFn = () => getPanelCustomerCard(customerID, fetchOptions);
 
   const query = useSwr<Awaited<ReturnType<typeof swrFn>>, TError>(swrKey, swrFn, swrOptions);
 

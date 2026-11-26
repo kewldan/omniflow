@@ -5100,6 +5100,25 @@
       "found": "搜索结果",
       "recent": "最近打开"
     },
+    "customerCard": {
+      "loading": "正在加载客户",
+      "failed": "无法加载该客户。",
+      "notFound": "该客户已不存在。",
+      "forbidden": "您的角色不包含 customers.read 权限，因此隐藏了该客户的摘要。",
+      "telegramId": "Telegram ID {id}",
+      "suspendedUntil": "至 {date}",
+      "suspendedIndefinitely": "无结束日期",
+      "since": "自 {date} 起成为客户（{ago}）",
+      "subscriptions": "订阅",
+      "noSubscriptions": "没有订阅",
+      "unnamed": "订阅",
+      "endsAt": "至 {date}",
+      "more": "还有 {count} 个",
+      "spent": "消费",
+      "nothingSpent": "尚无已支付订单",
+      "orders": "{count, plural, other {# 个订单}}",
+      "open": "打开资料"
+    },
     "subscriptionReport": {
       "failed": "无法加载订阅报表",
       "empty": "暂无数据",

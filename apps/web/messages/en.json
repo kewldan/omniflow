@@ -5176,6 +5176,25 @@
       "found": "Found",
       "recent": "Opened recently"
     },
+    "customerCard": {
+      "loading": "Loading the customer",
+      "failed": "Could not load this customer.",
+      "notFound": "This customer no longer exists.",
+      "forbidden": "Your roles do not include customers.read, so this customer's summary is hidden.",
+      "telegramId": "Telegram ID {id}",
+      "suspendedUntil": "until {date}",
+      "suspendedIndefinitely": "with no end date",
+      "since": "Customer since {date} ({ago})",
+      "subscriptions": "Subscriptions",
+      "noSubscriptions": "No subscriptions",
+      "unnamed": "Subscription",
+      "endsAt": "until {date}",
+      "more": "{count} more",
+      "spent": "Spent",
+      "nothingSpent": "No paid orders yet",
+      "orders": "{count, plural, one {# order} other {# orders}}",
+      "open": "Open profile"
+    },
     "subscriptionReport": {
       "failed": "The subscription report could not be loaded",
       "empty": "Nothing to show yet",

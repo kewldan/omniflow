@@ -5100,6 +5100,25 @@
       "found": "یافت‌شده",
       "recent": "اخیراً باز شده"
     },
+    "customerCard": {
+      "loading": "در حال بارگذاری مشتری",
+      "failed": "بارگذاری این مشتری ممکن نشد.",
+      "notFound": "این مشتری دیگر وجود ندارد.",
+      "forbidden": "نقش‌های شما مجوز customers.read را ندارند، بنابراین خلاصهٔ این مشتری پنهان است.",
+      "telegramId": "شناسهٔ تلگرام {id}",
+      "suspendedUntil": "تا {date}",
+      "suspendedIndefinitely": "بدون تاریخ پایان",
+      "since": "مشتری از {date} ({ago})",
+      "subscriptions": "اشتراک‌ها",
+      "noSubscriptions": "اشتراکی ندارد",
+      "unnamed": "اشتراک",
+      "endsAt": "تا {date}",
+      "more": "{count} مورد دیگر",
+      "spent": "هزینه‌شده",
+      "nothingSpent": "هنوز سفارش پرداخت‌شده‌ای ندارد",
+      "orders": "{count} سفارش",
+      "open": "باز کردن پروفایل"
+    },
     "subscriptionReport": {
       "failed": "گزارش اشتراک‌ها بارگیری نشد",
       "empty": "هنوز چیزی برای نمایش نیست",

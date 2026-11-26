@@ -2375,6 +2375,48 @@ func (e PanelChurnReasonLineOccasion) Valid() bool {
 	}
 }
 
+// Defines values for PanelCustomerCardStatus.
+const (
+	PanelCustomerCardStatusActive    PanelCustomerCardStatus = "active"
+	PanelCustomerCardStatusDeleted   PanelCustomerCardStatus = "deleted"
+	PanelCustomerCardStatusMerged    PanelCustomerCardStatus = "merged"
+	PanelCustomerCardStatusSuspended PanelCustomerCardStatus = "suspended"
+)
+
+// Valid indicates whether the value is a known member of the PanelCustomerCardStatus enum.
+func (e PanelCustomerCardStatus) Valid() bool {
+	switch e {
+	case PanelCustomerCardStatusActive:
+		return true
+	case PanelCustomerCardStatusDeleted:
+		return true
+	case PanelCustomerCardStatusMerged:
+		return true
+	case PanelCustomerCardStatusSuspended:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PanelCustomerCardSubscriptionsStatus.
+const (
+	PanelCustomerCardSubscriptionsStatusActive PanelCustomerCardSubscriptionsStatus = "active"
+	PanelCustomerCardSubscriptionsStatusClosed PanelCustomerCardSubscriptionsStatus = "closed"
+)
+
+// Valid indicates whether the value is a known member of the PanelCustomerCardSubscriptionsStatus enum.
+func (e PanelCustomerCardSubscriptionsStatus) Valid() bool {
+	switch e {
+	case PanelCustomerCardSubscriptionsStatusActive:
+		return true
+	case PanelCustomerCardSubscriptionsStatusClosed:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PanelCustomerProfileStatus.
 const (
 	PanelCustomerProfileStatusActive    PanelCustomerProfileStatus = "active"
@@ -9291,6 +9333,46 @@ type PanelCurrencyEconomics struct {
 	RefundsMinor              int64    `json:"refundsMinor"`
 	RevenuePerSubscriberMinor *int64   `json:"revenuePerSubscriberMinor,omitempty"`
 }
+
+// PanelCustomerCard defines model for PanelCustomerCard.
+type PanelCustomerCard struct {
+	// Avatar A picture can be asked for at /v1/panel/customers/{customerID}/avatar.
+	Avatar    bool               `json:"avatar"`
+	CreatedAt time.Time          `json:"createdAt"`
+	Id        openapi_types.UUID `json:"id"`
+
+	// Name Telegram first and last name as the bot last saw them.
+	Name *string `json:"name,omitempty"`
+
+	// Spent Settled orders' payments less refunds, per currency, in minor units.
+	Spent []struct {
+		Currency   string `json:"currency"`
+		OrderCount int64  `json:"orderCount"`
+		SpentMinor int64  `json:"spentMinor"`
+	} `json:"spent"`
+	Status        PanelCustomerCardStatus `json:"status"`
+	Subscriptions []struct {
+		EndsAt            *time.Time                           `json:"endsAt,omitempty"`
+		EntitlementStatus *string                              `json:"entitlementStatus,omitempty"`
+		Id                openapi_types.UUID                   `json:"id"`
+		Label             string                               `json:"label"`
+		PlanCode          *string                              `json:"planCode,omitempty"`
+		Status            PanelCustomerCardSubscriptionsStatus `json:"status"`
+	} `json:"subscriptions"`
+
+	// SuspensionEndsAt When a time-limited suspension lifts; absent when not suspended or suspended indefinitely.
+	SuspensionEndsAt *time.Time `json:"suspensionEndsAt,omitempty"`
+	TelegramId       *int64     `json:"telegramId,omitempty"`
+
+	// Username Telegram @username, without the @.
+	Username *string `json:"username,omitempty"`
+}
+
+// PanelCustomerCardStatus defines model for PanelCustomerCard.Status.
+type PanelCustomerCardStatus string
+
+// PanelCustomerCardSubscriptionsStatus defines model for PanelCustomerCard.Subscriptions.Status.
+type PanelCustomerCardSubscriptionsStatus string
 
 // PanelCustomerPage defines model for PanelCustomerPage.
 type PanelCustomerPage struct {
@@ -16738,6 +16820,9 @@ type ServerInterface interface {
 	// (GET /v1/panel/customers/{customerID}/avatar)
 	GetPanelCustomerAvatar(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID)
 
+	// (GET /v1/panel/customers/{customerID}/card)
+	GetPanelCustomerCard(w http.ResponseWriter, r *http.Request, customerID CustomerID)
+
 	// (GET /v1/panel/customers/{customerID}/charges)
 	ListPanelCustomerCharges(w http.ResponseWriter, r *http.Request, customerID CustomerID, params ListPanelCustomerChargesParams)
 
@@ -18607,6 +18692,11 @@ func (_ Unimplemented) AllowlistPanelCustomer(w http.ResponseWriter, r *http.Req
 
 // (GET /v1/panel/customers/{customerID}/avatar)
 func (_ Unimplemented) GetPanelCustomerAvatar(w http.ResponseWriter, r *http.Request, customerID openapi_types.UUID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/panel/customers/{customerID}/card)
+func (_ Unimplemented) GetPanelCustomerCard(w http.ResponseWriter, r *http.Request, customerID CustomerID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -29947,6 +30037,32 @@ func (siw *ServerInterfaceWrapper) GetPanelCustomerAvatar(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// GetPanelCustomerCard operation middleware
+func (siw *ServerInterfaceWrapper) GetPanelCustomerCard(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "customerID" -------------
+	var customerID CustomerID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "customerID", chi.URLParam(r, "customerID"), &customerID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "customerID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPanelCustomerCard(w, r, customerID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPanelCustomerCharges operation middleware
 func (siw *ServerInterfaceWrapper) ListPanelCustomerCharges(w http.ResponseWriter, r *http.Request) {
 
@@ -38810,6 +38926,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/customers/{customerID}", wrapper.GetPanelCustomer)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/panel/customers/{customerID}/card", wrapper.GetPanelCustomerCard)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/v1/panel/customers/{customerID}/avatar", wrapper.GetPanelCustomerAvatar)
@@ -51491,6 +51610,58 @@ func (response GetPanelCustomerAvatar502ApplicationProblemPlusJSONResponse) Visi
 	return err
 }
 
+type GetPanelCustomerCardRequestObject struct {
+	CustomerID CustomerID `json:"customerID"`
+}
+
+type GetPanelCustomerCardResponseObject interface {
+	VisitGetPanelCustomerCardResponse(w http.ResponseWriter) error
+}
+
+type GetPanelCustomerCard200JSONResponse PanelCustomerCard
+
+func (response GetPanelCustomerCard200JSONResponse) VisitGetPanelCustomerCardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelCustomerCard403ApplicationProblemPlusJSONResponse struct {
+	ProblemApplicationProblemPlusJSONResponse
+}
+
+func (response GetPanelCustomerCard403ApplicationProblemPlusJSONResponse) VisitGetPanelCustomerCardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPanelCustomerCard404ApplicationProblemPlusJSONResponse Problem
+
+func (response GetPanelCustomerCard404ApplicationProblemPlusJSONResponse) VisitGetPanelCustomerCardResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/problem+json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListPanelCustomerChargesRequestObject struct {
 	CustomerID CustomerID `json:"customerID"`
 	Params     ListPanelCustomerChargesParams
@@ -61709,6 +61880,9 @@ type StrictServerInterface interface {
 	// (GET /v1/panel/customers/{customerID}/avatar)
 	GetPanelCustomerAvatar(ctx context.Context, request GetPanelCustomerAvatarRequestObject) (GetPanelCustomerAvatarResponseObject, error)
 
+	// (GET /v1/panel/customers/{customerID}/card)
+	GetPanelCustomerCard(ctx context.Context, request GetPanelCustomerCardRequestObject) (GetPanelCustomerCardResponseObject, error)
+
 	// (GET /v1/panel/customers/{customerID}/charges)
 	ListPanelCustomerCharges(ctx context.Context, request ListPanelCustomerChargesRequestObject) (ListPanelCustomerChargesResponseObject, error)
 
@@ -69791,6 +69965,32 @@ func (sh *strictHandler) GetPanelCustomerAvatar(w http.ResponseWriter, r *http.R
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetPanelCustomerAvatarResponseObject); ok {
 		if err := validResponse.VisitGetPanelCustomerAvatarResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPanelCustomerCard operation middleware
+func (sh *strictHandler) GetPanelCustomerCard(w http.ResponseWriter, r *http.Request, customerID CustomerID) {
+	var request GetPanelCustomerCardRequestObject
+
+	request.CustomerID = customerID
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPanelCustomerCard(ctx, request.(GetPanelCustomerCardRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPanelCustomerCard")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPanelCustomerCardResponseObject); ok {
+		if err := validResponse.VisitGetPanelCustomerCardResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -422,6 +422,47 @@ func (q *Queries) CreatePlanVersionFull(ctx context.Context, arg CreatePlanVersi
 	return i, err
 }
 
+const customerSpendByCurrency = `-- name: CustomerSpendByCurrency :many
+SELECT o.currency,
+       COALESCE(sum(o.paid_minor - o.refunded_minor), 0)::bigint AS spent_minor,
+       count(*)::bigint AS order_count
+FROM orders o
+WHERE o.user_id = $1
+  AND o.state IN ('paid', 'fulfilled', 'partially_refunded', 'refunded')
+  AND o.paid_minor > 0
+GROUP BY o.currency
+ORDER BY o.currency
+`
+
+type CustomerSpendByCurrencyRow struct {
+	Currency   string `json:"currency"`
+	SpentMinor int64  `json:"spent_minor"`
+	OrderCount int64  `json:"order_count"`
+}
+
+// What a customer has spent, per currency: every settled order's payment less
+// what was refunded from it. Draft, pending, cancelled and expired orders
+// moved no money and are left out.
+func (q *Queries) CustomerSpendByCurrency(ctx context.Context, userID pgtype.UUID) ([]CustomerSpendByCurrencyRow, error) {
+	rows, err := q.db.Query(ctx, customerSpendByCurrency, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CustomerSpendByCurrencyRow{}
+	for rows.Next() {
+		var i CustomerSpendByCurrencyRow
+		if err := rows.Scan(&i.Currency, &i.SpentMinor, &i.OrderCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const dashboardCustomerTotals = `-- name: DashboardCustomerTotals :one
 
 SELECT

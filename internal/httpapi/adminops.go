@@ -56,6 +56,7 @@ func (handlers *AdminHandlers) mountOperations(secure chi.Router) {
 		read.Get("/customers", handlers.searchCustomers)
 		read.Get("/customers/labels", handlers.customerLabels)
 		read.Get("/customers/{customerID}", handlers.customerProfile)
+		read.Get("/customers/{customerID}/card", handlers.customerCard)
 		read.Get("/customers/{customerID}/subscriptions", handlers.customerSubscriptions)
 		read.Get("/customers/{customerID}/orders", handlers.customerOrders)
 		read.Get("/customers/{customerID}/tickets", handlers.customerTickets)
@@ -505,6 +506,15 @@ func (handlers *AdminHandlers) searchCustomers(writer http.ResponseWriter, reque
 func (handlers *AdminHandlers) customerProfile(writer http.ResponseWriter, request *http.Request) {
 	profile, err := handlers.operations.CustomerProfile(request.Context(), chi.URLParam(request, "customerID"))
 	handlers.respond(writer, request, profile, err)
+}
+
+// customerCard is the summary the panel shows when an operator hovers a
+// customer. Like the labels, it offers a picture only when there is a bot to
+// read one through.
+func (handlers *AdminHandlers) customerCard(writer http.ResponseWriter, request *http.Request) {
+	card, err := handlers.operations.CustomerCard(request.Context(), chi.URLParam(request, "customerID"))
+	card.Avatar = handlers.avatars != nil && card.TelegramID != nil
+	handlers.respond(writer, request, card, err)
 }
 
 func (handlers *AdminHandlers) customerSubscriptions(writer http.ResponseWriter, request *http.Request) {

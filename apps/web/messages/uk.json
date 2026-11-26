@@ -5100,6 +5100,25 @@
       "found": "Знайдено",
       "recent": "Нещодавно відкриті"
     },
+    "customerCard": {
+      "loading": "Завантажуємо клієнта",
+      "failed": "Не вдалося завантажити клієнта.",
+      "notFound": "Цього клієнта більше немає.",
+      "forbidden": "У ваших ролях немає права customers.read, тому зведення про клієнта приховано.",
+      "telegramId": "Telegram ID {id}",
+      "suspendedUntil": "до {date}",
+      "suspendedIndefinitely": "без дати завершення",
+      "since": "Клієнт з {date} ({ago})",
+      "subscriptions": "Підписки",
+      "noSubscriptions": "Підписок немає",
+      "unnamed": "Підписка",
+      "endsAt": "до {date}",
+      "more": "ще {count}",
+      "spent": "Витрачено",
+      "nothingSpent": "Оплачених замовлень поки немає",
+      "orders": "{count, plural, one {# замовлення} few {# замовлення} many {# замовлень} other {# замовлення}}",
+      "open": "Відкрити профіль"
+    },
     "subscriptionReport": {
       "failed": "Не вдалося завантажити звіт про підписки",
       "empty": "Поки нічого показати",

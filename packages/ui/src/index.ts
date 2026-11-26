@@ -14,6 +14,7 @@ export * from "./delta-badge";
 export * from "./dialog";
 export * from "./dropdown-menu";
 export * from "./empty-state";
+export * from "./hover-card";
 export * from "./input";
 export * from "./label";
 export * from "./lib/utils";

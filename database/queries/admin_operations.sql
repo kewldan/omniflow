@@ -427,6 +427,20 @@ WHERE user_id = $1
 ORDER BY created_at DESC
 LIMIT sqlc.arg(page_size);
 
+-- name: CustomerSpendByCurrency :many
+-- What a customer has spent, per currency: every settled order's payment less
+-- what was refunded from it. Draft, pending, cancelled and expired orders
+-- moved no money and are left out.
+SELECT o.currency,
+       COALESCE(sum(o.paid_minor - o.refunded_minor), 0)::bigint AS spent_minor,
+       count(*)::bigint AS order_count
+FROM orders o
+WHERE o.user_id = $1
+  AND o.state IN ('paid', 'fulfilled', 'partially_refunded', 'refunded')
+  AND o.paid_minor > 0
+GROUP BY o.currency
+ORDER BY o.currency;
+
 -- name: ListCustomerLedgerEntries :many
 SELECT sqlc.embed(e), t.type, t.reference_type, t.reference_id, t.reason
 FROM ledger_entries e
