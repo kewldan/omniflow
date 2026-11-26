@@ -241,12 +241,15 @@ function ThemeChoice() {
   return (
     <>
       <SectionLabel>{translate("profile.appearance")}</SectionLabel>
-      <fieldset className="flex rounded-full border border-border bg-card p-1">
+      {/* Three equal columns that never overflow: on the narrowest phone a
+          label shortens with an ellipsis instead of pushing the last option
+          out of the card. */}
+      <fieldset className="@container grid grid-cols-3 gap-1 rounded-full border border-border bg-card p-1">
         <legend className="sr-only">{translate("profile.appearance")}</legend>
         {options.map((option) => (
           <Button
             aria-pressed={theme === option}
-            className="flex-1 rounded-full"
+            className="min-w-0 gap-1.5 rounded-full px-2 @max-[18rem]:px-1 @max-[22rem]:[&>svg]:hidden"
             key={option}
             onClick={() => setTheme(option)}
             size="sm"
@@ -259,7 +262,7 @@ function ThemeChoice() {
             ) : (
               <MonitorSmartphone aria-hidden />
             )}
-            {translate(`profile.theme.${option}`)}
+            <span className="truncate">{translate(`profile.theme.${option}`)}</span>
           </Button>
         ))}
       </fieldset>
