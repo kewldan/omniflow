@@ -47,7 +47,7 @@ export function ConversationTurns({
               between them is real content and is read out in sequence, which is
               what tells a screen-reader user where the new turns begin. */}
           {firstUnreadId === message.id && (
-            <p className="flex items-center gap-3 font-semibold text-[13px] text-primary">
+            <p className="flex items-center gap-3 font-semibold text-[13px] text-accent-foreground">
               <span aria-hidden className="h-px flex-1 bg-primary/40" />
               {translate("ticket.newDivider")}
               <span aria-hidden className="h-px flex-1 bg-primary/40" />

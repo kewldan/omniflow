@@ -61,7 +61,12 @@ html[data-miniapp="fullscreen"] body {
  * light block leaks into dark.
  *
  * Every text pair clears 4.5:1: primary on its foreground 5.7:1 in light and
- * 6.9:1 in dark, the quiet tones 4.6:1 or more on every surface they sit on.
+ * 4.6:1 in dark, the quiet tones 4.6:1 or more on every surface they sit on.
+ * A filled control carries white text in both modes, which holds the dark
+ * primary to a deeper indigo than the dark ground alone would call for; text
+ * in the accent tone uses accent-foreground, which clears 9:1 on every
+ * surface, because primary as text would fall under 4.5:1 on a dark card.
+ * The focus ring keeps the lighter indigo, where it stands out from the fill.
  */
 .customer-ui {
   --radius-scale: 1.6;
@@ -104,8 +109,8 @@ html[data-miniapp="fullscreen"] body {
   --field: #232636;
   --popover: #181b26;
   --popover-foreground: #f3f4f8;
-  --primary: #8b93ff;
-  --primary-foreground: #0e1022;
+  --primary: #5c64f0;
+  --primary-foreground: #ffffff;
   --secondary: #232636;
   --secondary-foreground: #f3f4f8;
   --muted: #232636;

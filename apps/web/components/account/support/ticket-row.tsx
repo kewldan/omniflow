@@ -58,7 +58,7 @@ export function TicketRow({ ticket }: { ticket: SupportTicket }) {
           <div className="flex flex-wrap items-center gap-2">
             <TicketStatusBadge status={ticket.status} />
             {unread && (
-              <span className="font-medium text-[12.5px] text-primary">
+              <span className="font-medium text-[12.5px] text-accent-foreground">
                 {translate("tickets.unread", { count: ticket.unreadCount })}
               </span>
             )}

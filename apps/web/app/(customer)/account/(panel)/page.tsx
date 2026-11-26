@@ -251,7 +251,7 @@ function RecoveryCard({ recovery }: { recovery: NonNullable<Overview["recovery"]
         {translate("description", { ended: format.relativeTime(new Date(recovery.endedAt)) })}
       </p>
       {recovery.offer && recovery.offer.kind === "percent" ? (
-        <p className="font-medium text-[13px] text-primary">
+        <p className="font-medium text-[13px] text-accent-foreground">
           {translate("offer", {
             percent: recovery.offer.value,
             until: format.dateTime(new Date(recovery.offer.expiresAt), {

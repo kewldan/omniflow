@@ -174,7 +174,9 @@ function NewsCard({ item, onRead }: { item: NewsItem; onRead: () => Promise<unkn
           <Badge variant="outline">{translate("news.class.marketing")}</Badge>
         )}
         {!item.read && (
-          <span className="font-semibold text-[13px] text-primary">{translate("news.new")}</span>
+          <span className="font-semibold text-[13px] text-accent-foreground">
+            {translate("news.new")}
+          </span>
         )}
         <time
           className="ml-auto shrink-0 text-[12px] text-subtle-foreground"

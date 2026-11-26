@@ -109,7 +109,7 @@ export function TermsGate() {
 function DocumentLink({ href, children }: { href: string; children: ReactNode }) {
   return (
     <a
-      className="text-primary text-sm underline underline-offset-2"
+      className="text-accent-foreground text-sm underline underline-offset-2"
       href={href}
       onClick={(event) => {
         if (openInTelegramBrowser(href)) {
