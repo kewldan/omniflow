@@ -395,6 +395,68 @@ func TestBuildXrayPreferences(t *testing.T) {
 	}
 }
 
+func TestBuildXrayDomesticDNS(t *testing.T) {
+	settings := testSettings()
+	settings = withRule(settings, ServiceRule{ID: "banks", Kind: KindDomains, Name: "Banks", Action: ActionDirect, Mode: ModeLocked, Domains: []string{"bank.example"}})
+	preferences := settings.DefaultPreferences()
+	preferences.Toggles["russia"] = true
+	out, err := BuildXray(Request{
+		Upstream: standardAnswer(t), Settings: settings, Catalog: testCatalog(), Preferences: preferences,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var configs []struct {
+		DNS struct {
+			Tag     string `json:"tag"`
+			Servers []any  `json:"servers"`
+		} `json:"dns"`
+		Routing struct {
+			Rules []map[string]any `json:"rules"`
+		} `json:"routing"`
+	}
+	if err := json.Unmarshal(out, &configs); err != nil {
+		t.Fatal(err)
+	}
+	config := configs[0]
+	// The domains that go direct are resolved by the domestic resolver, ahead
+	// of the panel template's own servers.
+	if config.DNS.Tag != dnsTag || len(config.DNS.Servers) != 2 || config.DNS.Servers[1] != "1.1.1.1" {
+		t.Fatalf("dns = %+v", config.DNS)
+	}
+	domestic, _ := config.DNS.Servers[0].(map[string]any)
+	encoded, _ := json.Marshal(domestic)
+	for _, want := range []string{domesticDNS, "domain:bank.example", "geosite:category-ru", "full:captive.apple.com", `"skipFallback":true`} {
+		if !strings.Contains(string(encoded), want) {
+			t.Errorf("domestic resolver lacks %s: %s", want, encoded)
+		}
+	}
+	// Its queries leave direct, and the rule comes before anything that could
+	// send them into the tunnel.
+	dnsRule, torrents := -1, 0
+	for index, rule := range config.Routing.Rules {
+		if tags, _ := rule["inboundTag"].([]any); len(tags) == 1 && tags[0] == dnsTag {
+			dnsRule = index
+			if ips, _ := rule["ip"].([]any); len(ips) != 1 || ips[0] != domesticDNS || rule["outboundTag"] != "direct" {
+				t.Errorf("dns rule = %v", rule)
+			}
+		}
+		if protocols, _ := rule["protocol"].([]any); len(protocols) == 1 && protocols[0] == "bittorrent" {
+			torrents++
+		}
+		if domains, _ := rule["domain"].([]any); len(domains) > 0 && domains[0] == connectivityChecks[0] && rule["outboundTag"] != "direct" {
+			t.Errorf("connectivity checks rule = %v", rule)
+		}
+	}
+	if dnsRule < 0 || dnsRule > 3 {
+		t.Errorf("dns rule at %d", dnsRule)
+	}
+	// The panel template's torrent rule is not repeated after the service's.
+	if torrents != 1 {
+		t.Errorf("%d torrent rules", torrents)
+	}
+}
+
 func TestBuildXrayWithoutGeosite(t *testing.T) {
 	settings := testSettings()
 	settings = withRule(settings, ServiceRule{ID: "blocked", Kind: KindDomains, Name: "Blocked", Action: ActionBlock, Mode: ModeLocked, Domains: []string{"max.ru"}})

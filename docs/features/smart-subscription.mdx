@@ -31,6 +31,10 @@ before — and rewrites what goes back:
   spread evenly across subscriptions, and every connection leaves through it while its check
   answers within two seconds. Sites see one address rather than a new country on each connection;
   when the kept server slows down or stops answering, the group's balancer takes over.
+  Every domain a rule sends direct is resolved by Yandex DNS (`77.88.8.8`), whose queries leave
+  around the tunnel too, so a Russian site gets the address it would give at home. The addresses
+  phones and browsers fetch to check for internet or a hotel login page always go direct, so a
+  slow server never makes the phone report "no internet".
 - **Every other app** gets the panel's own answer, with the servers the customer hid taken out when
   it is a plain list of links.
 - An answer the module cannot rewrite — a limit or expiry notice, an encrypted or unknown format —

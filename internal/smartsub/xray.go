@@ -56,7 +56,24 @@ const (
 	// back to the bypass.
 	probeTimeout        = "5s"
 	defaultDomainPolicy = "IPIfNonMatch"
+	// domesticDNS resolves the domains that go direct. A Russian resolver
+	// answers from where the connection is actually made, and its queries
+	// leave around the tunnel instead of through a foreign server.
+	domesticDNS = "77.88.8.8"
+	// dnsTag is the inbound tag Xray gives its own DNS queries, which is
+	// how the rule sending the domestic resolver direct finds them.
+	dnsTag = "dns-internal"
 )
+
+// connectivityChecks are the addresses operating systems and browsers fetch
+// to decide whether a network has internet or a captive portal. They go
+// direct, so a slow or failing server does not make the phone report "no
+// internet" and a hotel's login page still opens.
+var connectivityChecks = []any{
+	"full:connectivitycheck.gstatic.com", "full:connectivitycheck.android.com", "full:clients3.google.com",
+	"full:captive.apple.com", "full:detectportal.firefox.com", "full:cp.cloudflare.com",
+	"domain:msftconnecttest.com", "domain:msftncsi.com",
+}
 
 // systemProtocols are outbounds that are not servers.
 var systemProtocols = map[string]bool{"freedom": true, "blackhole": true, "dns": true, "loopback": true}
@@ -312,11 +329,55 @@ func templateOf(config map[string]any) template {
 		if target == "" || rule["balancerTag"] != nil {
 			continue
 		}
+		// Torrents have a rule of their own, decided by the service's
+		// setting; the panel template's copy would only repeat or contradict it.
+		if onlyTorrents(rule) {
+			continue
+		}
 		cleaned := shallow(rule)
 		delete(cleaned, "outboundTag")
 		tpl.rules = append(tpl.rules, templateRule{rule: cleaned, target: target})
 	}
 	return tpl
+}
+
+// onlyTorrents reports a rule that matches nothing but the BitTorrent
+// protocol.
+func onlyTorrents(rule map[string]any) bool {
+	protocols, _ := rule["protocol"].([]any)
+	if len(protocols) != 1 || protocols[0] != "bittorrent" {
+		return false
+	}
+	for key := range rule {
+		switch key {
+		case "type", "protocol", "outboundTag", "ruleTag":
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// withDomesticDNS is the template's DNS with the domestic resolver in front
+// for the domains that go direct. Nothing changes when none do.
+func withDomesticDNS(base any, direct []any) any {
+	if len(direct) == 0 {
+		return base
+	}
+	dns := map[string]any{}
+	if template, ok := base.(map[string]any); ok {
+		for key, value := range template {
+			dns[key] = value
+		}
+	}
+	servers, _ := dns["servers"].([]any)
+	if len(servers) == 0 {
+		servers = []any{"1.1.1.1", "1.0.0.1"}
+	}
+	domestic := map[string]any{"address": domesticDNS, "domains": direct, "skipFallback": true}
+	dns["servers"] = append([]any{domestic}, servers...)
+	dns["tag"] = dnsTag
+	return dns
 }
 
 // planned is a group before it is named.
@@ -573,7 +634,8 @@ func (builder groupBuilder) build(group planned, prefix string) map[string]any {
 	}
 	meta["serverDescription"] = describe(len(main), builder.request.Locale)
 	config["meta"] = meta
-	config["dns"] = builder.tpl.dns
+	rules, direct := builder.rules(entry, aiBalancers)
+	config["dns"] = withDomesticDNS(builder.tpl.dns, direct)
 	config["inbounds"] = builder.tpl.inbounds
 	config["outbounds"] = outbounds
 	config["burstObservatory"] = map[string]any{
@@ -585,7 +647,14 @@ func (builder groupBuilder) build(group planned, prefix string) map[string]any {
 			"timeout":     probeTimeout,
 		},
 	}
-	rules := append(loopRules, builder.rules(entry, aiBalancers)...)
+	if len(direct) > 0 {
+		// Xray's own queries to the domestic resolver leave direct; its other
+		// queries follow the rules like any connection.
+		loopRules = append(loopRules, map[string]any{
+			"type": "field", "inboundTag": []any{dnsTag}, "ip": []any{domesticDNS}, "outboundTag": "direct",
+		})
+	}
+	rules = append(loopRules, rules...)
 	config["routing"] = map[string]any{
 		"domainStrategy": builder.tpl.domainStrategy,
 		"domainMatcher":  "hybrid",
@@ -597,10 +666,11 @@ func (builder groupBuilder) build(group planned, prefix string) map[string]any {
 
 // rules are the routing rules after the loopback chain, in the order they
 // must win: QUIC, the customer's own domains, the service's blocks, the AI
-// services, the service's proxied and direct domains, torrents, Russia, the
-// panel template's rules, and finally everything else into the group's
-// balancer.
-func (builder groupBuilder) rules(entry string, ai map[Service]string) []any {
+// services, the service's proxied and direct domains, connectivity checks,
+// torrents, Russia, the panel template's rules, and finally everything else
+// into the group's balancer. It also returns the domains its rules send
+// direct, which the domestic resolver answers for.
+func (builder groupBuilder) rules(entry string, ai map[Service]string) ([]any, []any) {
 	request := builder.request
 	applies := map[RuleKind]ServiceRule{}
 	var serviceDomains = map[Action][]any{}
@@ -641,8 +711,10 @@ func (builder groupBuilder) rules(entry string, ai map[Service]string) []any {
 	if domains := byAction[ActionProxy]; len(domains) > 0 {
 		rules = append(rules, field("domain", domains, entry, true))
 	}
+	var direct []any
 	if domains := byAction[ActionDirect]; len(domains) > 0 {
 		rules = append(rules, field("domain", domains, "direct", false))
+		direct = append(direct, domains...)
 	}
 	if domains := serviceDomains[ActionBlock]; len(domains) > 0 {
 		rules = append(rules, field("domain", domains, "block", false))
@@ -666,7 +738,10 @@ func (builder groupBuilder) rules(entry string, ai map[Service]string) []any {
 	}
 	if domains := serviceDomains[ActionDirect]; len(domains) > 0 {
 		rules = append(rules, field("domain", domains, "direct", false))
+		direct = append(direct, domains...)
 	}
+	rules = append(rules, field("domain", connectivityChecks, "direct", false))
+	direct = append(direct, connectivityChecks...)
 	// BitTorrent never goes through the VPN: it runs direct, which is the
 	// fastest way, while a rule that sends it direct applies, and is blocked
 	// otherwise — the choice of someone who would rather not show their own
@@ -683,6 +758,7 @@ func (builder groupBuilder) rules(entry string, ai map[Service]string) []any {
 	// customer's own address. A client without geosite gets no Russia rule.
 	if _, on := applies[KindRussia]; on && !request.NoGeosite {
 		rules = append(rules, field("domain", []any{"geosite:category-ru"}, "direct", false))
+		direct = append(direct, "geosite:category-ru")
 	}
 	for _, templated := range builder.tpl.rules {
 		rule := shallow(templated.rule)
@@ -697,7 +773,7 @@ func (builder groupBuilder) rules(entry string, ai map[Service]string) []any {
 		}
 		rules = append(rules, rule)
 	}
-	return append(rules, map[string]any{"type": "field", "network": "tcp,udp", "balancerTag": entry})
+	return append(rules, map[string]any{"type": "field", "network": "tcp,udp", "balancerTag": entry}), direct
 }
 
 // dropGeosite removes geosite entries from a rule's domain list, in place on
