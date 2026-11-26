@@ -596,7 +596,16 @@ func (store *Store) Promotions(ctx context.Context, customerID, planID string) (
 		  AND (NOT EXISTS (SELECT 1 FROM promotion_plans pp WHERE pp.promotion_id = pm.id)
 		       OR EXISTS (SELECT 1 FROM promotion_plans pp
 		                  WHERE pp.promotion_id = pm.id AND pp.plan_id = $1::uuid))
-		ORDER BY pm.code`, planID)
+		  -- A personal offer (a win-back code, a game prize, an operator's
+		  -- offer) is a promotion issued to named customers. It is listed only
+		  -- to a customer holding it, while their offer is still open; to
+		  -- everyone else it would read as another campaign, once per
+		  -- recipient.
+		  AND (NOT EXISTS (SELECT 1 FROM personal_offers po WHERE po.promotion_id = pm.id)
+		       OR EXISTS (SELECT 1 FROM personal_offers po
+		                  WHERE po.promotion_id = pm.id AND po.user_id = $2::uuid
+		                    AND po.status = 'active' AND po.expires_at > now()))
+		ORDER BY pm.code`, planID, userID)
 	if err != nil {
 		return nil, err
 	}
