@@ -190,10 +190,15 @@ function BuyGift({ onBought }: { onBought: () => void }) {
   }
 
   return (
-    <section className="space-y-3 rounded-xl border border-border bg-card p-4">
-      <SectionLabel>{translate("buyTitle")}</SectionLabel>
-      <p className="text-[12.5px] text-muted-foreground">{translate("buyDescription")}</p>
-      <div className="space-y-1">
+    // Fields sit further from each other than a label from its own field, so
+    // each label reads as the heading of the control under it rather than as a
+    // footnote to the one above.
+    <section className="space-y-4 rounded-xl border border-border bg-card p-4">
+      <div className="space-y-1.5">
+        <SectionLabel>{translate("buyTitle")}</SectionLabel>
+        <p className="text-[12.5px] text-muted-foreground">{translate("buyDescription")}</p>
+      </div>
+      <div className="flex flex-col gap-1.5">
         <Label htmlFor={planId}>{translate("plan")}</Label>
         <Select onValueChange={setPlanVersionId} value={planVersionId}>
           <SelectTrigger id={planId}>
@@ -208,9 +213,10 @@ function BuyGift({ onBought }: { onBought: () => void }) {
           </SelectContent>
         </Select>
       </div>
-      <div className="space-y-1">
+      <div className="flex flex-col gap-1.5">
         <Label htmlFor={recipientId}>{translate("recipient")}</Label>
         <Input
+          aria-describedby={`${recipientId}-hint`}
           autoComplete="off"
           id={recipientId}
           maxLength={254}
@@ -218,9 +224,11 @@ function BuyGift({ onBought }: { onBought: () => void }) {
           placeholder={translate("recipientPlaceholder")}
           value={recipient}
         />
-        <p className="text-[12px] text-muted-foreground">{translate("recipientHint")}</p>
+        <p className="text-[12px] text-muted-foreground" id={`${recipientId}-hint`}>
+          {translate("recipientHint")}
+        </p>
       </div>
-      <div className="space-y-1">
+      <div className="flex flex-col gap-1.5">
         <Label htmlFor={messageId}>{translate("message")}</Label>
         <Input
           id={messageId}
